@@ -750,6 +750,10 @@ export interface PersonInfo {
   /** Wire 1.50 (ADR-0018 §4): the other settlements their household knows, and how, in the
    * kernel's words ("Ashford: told of it by Wren in spring of year 2"). */
   places: string[];
+  /** Wire 1.54 (M5b slice AP, ADR-0019 §1): what their household believes other settlements'
+   * sellers offer, a line a seller and good, in the kernel's words ("At Elmhollow, Bran's
+   * household: a sickle for 2.3 kg of grain, 8.5 sickles to be had; seen 3 days ago"). */
+  reports: string[];
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -1169,6 +1173,9 @@ export interface TradeInfo {
   text: string;
   /** The seller was a workshop (`seller` is its id). */
   sellerFirm: boolean;
+  /** Wire 1.54 (M5b slice AP): the buyer's settlement when it is not this market's own (0: one
+   * of its own). */
+  from: number;
 }
 
 /** A month of trade in one good: a line of the price history. */
@@ -1199,6 +1206,9 @@ export interface MarketInfo {
   recent: TradeInfo[];
   /** Oldest first. */
   history: MonthOfTrade[];
+  /** Wire 1.54 (M5b slice AP): what people of other settlements bought here last year and this
+   * year so far, in the kernel's words; empty when none did. */
+  outsiders: string;
 }
 
 /** What a line of a workshop's books records (M3a slice J). */
@@ -2614,6 +2624,7 @@ function marketInfo(m: W.MarketInfo): MarketInfo {
       sale: t.sale(),
       text: t.text() ?? "",
       sellerFirm: t.sellerFirm(),
+      from: Number(t.from()),
     });
   }
   const history: MonthOfTrade[] = [];
@@ -2640,6 +2651,7 @@ function marketInfo(m: W.MarketInfo): MarketInfo {
     offers,
     recent,
     history,
+    outsiders: m.outsiders() ?? "",
   };
 }
 
@@ -3055,6 +3067,10 @@ function personInfo(p: W.PersonInfo): PersonInfo {
   for (let k = 0; k < p.placesLength(); k++) {
     places.push(p.places(k) ?? "");
   }
+  const reports: string[] = [];
+  for (let k = 0; k < p.reportsLength(); k++) {
+    reports.push(p.reports(k) ?? "");
+  }
   const f = p.faction();
   const faction: FactionLine | null = f
     ? {
@@ -3124,6 +3140,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     influences,
     residence,
     places,
+    reports,
   };
 }
 

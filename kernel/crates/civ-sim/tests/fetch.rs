@@ -10,6 +10,7 @@ use civ_agents::ledger::Trade;
 use civ_agents::reports::{Missed, PriceReport, ReportHow};
 use civ_content::ContentRegistry;
 use civ_core::PermanentId;
+use civ_schema::{flatbuffers, wire};
 use civ_sim::{NewWorld, Sim, persist};
 
 const DAY: i64 = 24 * 60;
@@ -353,6 +354,51 @@ fn a_household_buys_from_a_neighbour_by_report_and_the_trade_is_tallied_where_it
     assert!(here.contains(" at "), "{here}");
     assert!(here.contains("purchase"), "{here}");
     assert!(there.contains("here by people of"), "{there}");
+    // The observer: the household's reports in the inspector, and the purchase in the seller's
+    // market, named with the buyer's settlement (wire 1.54).
+    let name = |s: PermanentId| {
+        sim.land()
+            .settlements
+            .iter()
+            .find(|x| x.id == s)
+            .expect("a settlement")
+            .name
+            .clone()
+    };
+    let member = sim.people().household(buyer).expect("buyer").members[0];
+    let payload = civ_sim::frames::people::person_response(&sim, member.get(), 0).expect("alive");
+    let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
+    let info = response.body_as_person_info().expect("a person");
+    let lines: Vec<&str> = info.reports().expect("reports").iter().collect();
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.starts_with(&format!("At {}, ", name(b))) && l.contains("; seen ")),
+        "{lines:?}"
+    );
+    let payload = civ_sim::frames::markets::markets_response(&sim);
+    let response = flatbuffers::root::<wire::Response>(&payload).expect("a response");
+    let markets = response.body_as_markets().expect("markets");
+    let there = markets
+        .markets()
+        .expect("a list")
+        .iter()
+        .find(|m| m.settlement() == b.get())
+        .expect("the seller's market");
+    let outsiders = there.outsiders().unwrap_or_default();
+    assert!(
+        outsiders.contains(&format!("by people of {}", name(a))),
+        "{outsiders}"
+    );
+    let shown = there
+        .recent()
+        .expect("trades")
+        .iter()
+        .find(|t| t.buyer() == buyer.get())
+        .expect("the purchase is listed");
+    assert_eq!(shown.from(), a.get());
+    let text = shown.text().unwrap_or_default();
+    assert!(text.contains(&format!(" of {} for ", name(a))), "{text}");
     // What the buyer saw at the door is what it now holds of the seller's terms.
     let seen = trade.at.day_index();
     let held = held_of(&sim, buyer, seller, sickle);
@@ -530,6 +576,13 @@ fn a_trip_by_a_report_gone_stale_buys_nothing_and_is_counted_with_why() {
     assert!(
         words.contains("that bought nothing") && words.contains("the seller had sold out"),
         "{words}"
+    );
+    let lines = civ_sim::frames::markets::reports_words(&sim, buyer);
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.contains(": none left of the sickle it offered; ")),
+        "{lines:?}"
     );
     let held = held_of(&sim, buyer, seller, sickle);
     assert!(

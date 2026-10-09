@@ -420,8 +420,20 @@ placesLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+reports(index: number):string
+reports(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+reports(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 110);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+reportsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 110);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(53);
+  builder.startObject(54);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -838,6 +850,22 @@ static createPlacesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]
 }
 
 static startPlacesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addReports(builder:flatbuffers.Builder, reportsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(53, reportsOffset, 0);
+}
+
+static createReportsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startReportsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 

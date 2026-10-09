@@ -14075,6 +14075,7 @@ impl<'a> PersonInfo<'a> {
   pub const VT_INFLUENCES: ::flatbuffers::VOffsetT = 104;
   pub const VT_RESIDENCE: ::flatbuffers::VOffsetT = 106;
   pub const VT_PLACES: ::flatbuffers::VOffsetT = 108;
+  pub const VT_REPORTS: ::flatbuffers::VOffsetT = 110;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -14096,6 +14097,7 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.reports { builder.add_reports(x); }
     if let Some(x) = args.places { builder.add_places(x); }
     if let Some(x) = args.residence { builder.add_residence(x); }
     if let Some(x) = args.influences { builder.add_influences(x); }
@@ -14514,6 +14516,13 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PersonInfo::VT_PLACES, None)}
   }
+  #[inline]
+  pub fn reports(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PersonInfo::VT_REPORTS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -14575,6 +14584,7 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<InfluenceLine>>>>("influences", Self::VT_INFLUENCES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("residence", Self::VT_RESIDENCE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("places", Self::VT_PLACES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("reports", Self::VT_REPORTS, false)?
      .finish();
     Ok(())
   }
@@ -14633,6 +14643,7 @@ pub struct PersonInfoArgs<'a> {
     pub influences: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<InfluenceLine<'a>>>>>,
     pub residence: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub places: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub reports: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -14691,6 +14702,7 @@ impl<'a> Default for PersonInfoArgs<'a> {
       influences: None,
       residence: None,
       places: None,
+      reports: None,
     }
   }
 }
@@ -14913,6 +14925,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_PLACES, places);
   }
   #[inline]
+  pub fn add_reports(&mut self, reports: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_REPORTS, reports);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -14983,6 +14999,7 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("influences", &self.influences());
       ds.field("residence", &self.residence());
       ds.field("places", &self.places());
+      ds.field("reports", &self.reports());
       ds.finish()
   }
 }
@@ -19595,6 +19612,7 @@ impl<'a> TradeInfo<'a> {
   pub const VT_SALE: ::flatbuffers::VOffsetT = 18;
   pub const VT_TEXT: ::flatbuffers::VOffsetT = 20;
   pub const VT_SELLER_FIRM: ::flatbuffers::VOffsetT = 22;
+  pub const VT_FROM: ::flatbuffers::VOffsetT = 24;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -19606,6 +19624,7 @@ impl<'a> TradeInfo<'a> {
     args: &'args TradeInfoArgs<'args>
   ) -> ::flatbuffers::WIPOffset<TradeInfo<'bldr>> {
     let mut builder = TradeInfoBuilder::new(_fbb);
+    builder.add_from(args.from);
     builder.add_buyer(args.buyer);
     builder.add_seller(args.seller);
     builder.add_minute(args.minute);
@@ -19690,6 +19709,13 @@ impl<'a> TradeInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(TradeInfo::VT_SELLER_FIRM, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn from(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TradeInfo::VT_FROM, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for TradeInfo<'_> {
@@ -19708,6 +19734,7 @@ impl ::flatbuffers::Verifiable for TradeInfo<'_> {
      .visit_field::<bool>("sale", Self::VT_SALE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("text", Self::VT_TEXT, false)?
      .visit_field::<bool>("seller_firm", Self::VT_SELLER_FIRM, false)?
+     .visit_field::<u64>("from", Self::VT_FROM, false)?
      .finish();
     Ok(())
   }
@@ -19723,6 +19750,7 @@ pub struct TradeInfoArgs<'a> {
     pub sale: bool,
     pub text: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub seller_firm: bool,
+    pub from: u64,
 }
 impl<'a> Default for TradeInfoArgs<'a> {
   #[inline]
@@ -19738,6 +19766,7 @@ impl<'a> Default for TradeInfoArgs<'a> {
       sale: false,
       text: None,
       seller_firm: false,
+      from: 0,
     }
   }
 }
@@ -19788,6 +19817,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TradeInfoBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<bool>(TradeInfo::VT_SELLER_FIRM, seller_firm, false);
   }
   #[inline]
+  pub fn add_from(&mut self, from: u64) {
+    self.fbb_.push_slot::<u64>(TradeInfo::VT_FROM, from, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TradeInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TradeInfoBuilder {
@@ -19815,6 +19848,7 @@ impl ::core::fmt::Debug for TradeInfo<'_> {
       ds.field("sale", &self.sale());
       ds.field("text", &self.text());
       ds.field("seller_firm", &self.seller_firm());
+      ds.field("from", &self.from());
       ds.finish()
   }
 }
@@ -20093,6 +20127,7 @@ impl<'a> MarketInfo<'a> {
   pub const VT_OFFERS: ::flatbuffers::VOffsetT = 18;
   pub const VT_RECENT: ::flatbuffers::VOffsetT = 20;
   pub const VT_HISTORY: ::flatbuffers::VOffsetT = 22;
+  pub const VT_OUTSIDERS: ::flatbuffers::VOffsetT = 24;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -20105,6 +20140,7 @@ impl<'a> MarketInfo<'a> {
   ) -> ::flatbuffers::WIPOffset<MarketInfo<'bldr>> {
     let mut builder = MarketInfoBuilder::new(_fbb);
     builder.add_settlement(args.settlement);
+    if let Some(x) = args.outsiders { builder.add_outsiders(x); }
     if let Some(x) = args.history { builder.add_history(x); }
     if let Some(x) = args.recent { builder.add_recent(x); }
     if let Some(x) = args.offers { builder.add_offers(x); }
@@ -20188,6 +20224,13 @@ impl<'a> MarketInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, MonthOfTrade>>>(MarketInfo::VT_HISTORY, None)}
   }
+  #[inline]
+  pub fn outsiders(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(MarketInfo::VT_OUTSIDERS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for MarketInfo<'_> {
@@ -20206,6 +20249,7 @@ impl ::flatbuffers::Verifiable for MarketInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<OfferInfo>>>>("offers", Self::VT_OFFERS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TradeInfo>>>>("recent", Self::VT_RECENT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, MonthOfTrade>>>("history", Self::VT_HISTORY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("outsiders", Self::VT_OUTSIDERS, false)?
      .finish();
     Ok(())
   }
@@ -20221,6 +20265,7 @@ pub struct MarketInfoArgs<'a> {
     pub offers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OfferInfo<'a>>>>>,
     pub recent: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TradeInfo<'a>>>>>,
     pub history: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, MonthOfTrade>>>,
+    pub outsiders: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for MarketInfoArgs<'a> {
   #[inline]
@@ -20236,6 +20281,7 @@ impl<'a> Default for MarketInfoArgs<'a> {
       offers: None,
       recent: None,
       history: None,
+      outsiders: None,
     }
   }
 }
@@ -20286,6 +20332,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MarketInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(MarketInfo::VT_HISTORY, history);
   }
   #[inline]
+  pub fn add_outsiders(&mut self, outsiders: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(MarketInfo::VT_OUTSIDERS, outsiders);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> MarketInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     MarketInfoBuilder {
@@ -20313,6 +20363,7 @@ impl ::core::fmt::Debug for MarketInfo<'_> {
       ds.field("offers", &self.offers());
       ds.field("recent", &self.recent());
       ds.field("history", &self.history());
+      ds.field("outsiders", &self.outsiders());
       ds.finish()
   }
 }

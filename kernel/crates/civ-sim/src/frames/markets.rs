@@ -2,6 +2,7 @@
 //! markets query (ADR-0006 §4, §6). A market and each trade it remembers are put in words here;
 //! observers only show them.
 
+use std::collections::BTreeMap;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
@@ -12,7 +13,7 @@ use civ_core::PermanentId;
 use civ_schema::flatbuffers::FlatBufferBuilder;
 use civ_schema::wire;
 
-use super::people::{firm_name, household_name};
+use super::people::{firm_name, household_name, place_name};
 use super::response;
 use crate::Sim;
 
@@ -133,13 +134,124 @@ pub fn trade_text(sim: &Sim, t: &Trade) -> String {
             .get(usize::from(g))
             .map_or_else(|| "goods".to_owned(), |d| amount(d, f64::from(units)))
     };
+    // A buyer from another settlement is named with it (M5b slice AP).
+    let from = t
+        .from
+        .map_or_else(String::new, |s| format!(" of {}", place_name(sim, Some(s))));
     format!(
-        "{} sold {} to {} for {}.",
+        "{} sold {} to {}{from} for {}.",
         capitalized(&seller_name(sim, t.seller)),
         of(t.good, t.units),
         household_name(sim, t.buyer),
         of(t.payment, t.paid)
     )
+}
+
+/// What household `household` believes other settlements' sellers offer (ADR-0019 §1), a line a
+/// seller and good, by settlement: "At Elmhollow, Bran's household: a sickle for 2.3 kg of grain
+/// or 3.7 kg of provisions, 8.5 sickles to be had; seen 3 days ago", "…: none left of the sickle
+/// it offered, told by Ada yesterday".
+pub fn reports_words(sim: &Sim, household: PermanentId) -> Vec<String> {
+    use civ_agents::reports::{PriceReport, ReportHow};
+    let goods = &sim.rules.catalog.goods;
+    let today = sim.now().day_index();
+    let mut by: BTreeMap<(String, u16, PermanentId), Vec<&PriceReport>> = BTreeMap::new();
+    for r in sim.people.reports.of(household) {
+        by.entry((place_name(sim, Some(r.market)), r.good, r.seller))
+            .or_default()
+            .push(r);
+    }
+    by.into_iter()
+        .filter_map(|((place, g, seller), rs)| {
+            let good = goods.get(usize::from(g))?;
+            let newest = rs
+                .iter()
+                .copied()
+                .max_by_key(|r| (r.day, std::cmp::Reverse(r.how)))?;
+            let offered: Vec<&PriceReport> = rs.iter().copied().filter(|r| r.units > 0.0).collect();
+            let what = if offered.is_empty() {
+                format!("none left of the {} it offered", good.name.to_lowercase())
+            } else {
+                let terms: Vec<String> = offered
+                    .iter()
+                    .filter_map(|r| {
+                        goods
+                            .get(usize::from(r.payment))
+                            .map(|d| amount(d, f64::from(r.price)))
+                    })
+                    .collect();
+                let terms = match terms.split_last() {
+                    Some((last, [])) => last.clone(),
+                    Some((last, rest)) => format!("{} or {last}", rest.join(", ")),
+                    None => String::new(),
+                };
+                let units = offered
+                    .iter()
+                    .map(|r| f64::from(r.units))
+                    .fold(0.0, f64::max);
+                if good.tool.is_some() {
+                    format!(
+                        "{} for {terms}, {} to be had",
+                        amount(good, 1.0),
+                        amount(good, units)
+                    )
+                } else {
+                    format!(
+                        "{} for {terms} a kg, {} to be had",
+                        good.name.to_lowercase(),
+                        amount(good, units)
+                    )
+                }
+            };
+            let how = match (newest.how, newest.from) {
+                (ReportHow::Told, Some(p)) => format!("told by {}", sim.people.name_of(p)),
+                (ReportHow::Told, None) => "told".to_owned(),
+                (ReportHow::Seen, _) => "seen".to_owned(),
+            };
+            let when = match today - newest.day {
+                i64::MIN..=0 => "today".to_owned(),
+                1 => "yesterday".to_owned(),
+                n => format!("{n} days ago"),
+            };
+            Some(format!(
+                "At {place}, {}: {what}; {how} {when}",
+                seller_name(sim, seller)
+            ))
+        })
+        .collect()
+}
+
+/// What people of other settlements bought in settlement `s`'s market last year and this year so
+/// far, in words (M5b slice AP): "in year 3 so far: 4 purchases by people of Oakholt"; empty when
+/// none did.
+pub fn outsiders_words(sim: &Sim, s: PermanentId) -> String {
+    let this = sim.now().date().year - 1;
+    let mut parts = Vec::new();
+    for year in [this - 1, this] {
+        let lines: Vec<String> = sim
+            .people
+            .contacts
+            .of_year(year)
+            .filter(|&(_, to, c)| to == s && c.bought > 0)
+            .map(|(from, _, c)| {
+                let n = if c.bought == 1 {
+                    "1 purchase".to_owned()
+                } else {
+                    format!("{} purchases", c.bought)
+                };
+                format!("{n} by people of {}", place_name(sim, Some(from)))
+            })
+            .collect();
+        if !lines.is_empty() {
+            let when = if year == this {
+                format!("in year {} so far", year + 1)
+            } else {
+                format!("in year {}", year + 1)
+            };
+            parts.push(format!("{when}: {}", lines.join("; ")));
+        }
+    }
+    parts.join(". ")
 }
 
 /// A market in words: its money if it has one, or how far it is from one.
@@ -308,6 +420,7 @@ pub fn markets_response(sim: &Sim) -> Vec<u8> {
                             sale: t.channel == Channel::Sale,
                             text: Some(text),
                             seller_firm: sim.people.firm(t.seller).is_some(),
+                            from: t.from.map_or(0, PermanentId::get),
                         },
                     )
                 })
@@ -332,6 +445,7 @@ pub fn markets_response(sim: &Sim) -> Vec<u8> {
                 .map_or("", |s| s.name.as_str());
             let name = fbb.create_string(name);
             let summary = fbb.create_string(&summary(sim, market));
+            let outsiders = fbb.create_string(&outsiders_words(sim, settlement));
             let money = market
                 .and_then(|m| m.money(mp.money_share, mp.money_min_trades))
                 .map_or(-1, |g| g as i32);
@@ -348,6 +462,7 @@ pub fn markets_response(sim: &Sim) -> Vec<u8> {
                     offers: Some(offers),
                     recent: Some(recent),
                     history: Some(history),
+                    outsiders: Some(outsiders),
                 },
             )
         })

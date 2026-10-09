@@ -202,7 +202,7 @@ pub fn coalition_words(sim: &Sim, s: PermanentId) -> Vec<String> {
 }
 
 /// A settlement's name, or "beyond the map" for none (ADR-0018 §3).
-fn place_name(sim: &Sim, s: Option<PermanentId>) -> String {
+pub(crate) fn place_name(sim: &Sim, s: Option<PermanentId>) -> String {
     s.and_then(|s| sim.land.settlements.iter().find(|x| x.id == s))
         .map_or_else(|| "beyond the map".to_owned(), |x| x.name.clone())
 }
@@ -1194,6 +1194,11 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
             .map(|w| fbb.create_string(w))
             .collect();
         args.places = Some(fbb.create_vector(&places));
+        let reports: Vec<_> = super::markets::reports_words(sim, p.household)
+            .iter()
+            .map(|w| fbb.create_string(w))
+            .collect();
+        args.reports = Some(fbb.create_vector(&reports));
     }
     let body = wire::PersonInfo::create(&mut fbb, &args);
     Ok(response(fbb, wire::ResponseBody::PersonInfo, body))

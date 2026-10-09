@@ -102,8 +102,15 @@ historyLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+outsiders():string|null
+outsiders(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+outsiders(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startMarketInfo(builder:flatbuffers.Builder) {
-  builder.startObject(10);
+  builder.startObject(11);
 }
 
 static addSettlement(builder:flatbuffers.Builder, settlement:bigint) {
@@ -186,12 +193,16 @@ static startHistoryVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(20, numElems, 4);
 }
 
+static addOutsiders(builder:flatbuffers.Builder, outsidersOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(10, outsidersOffset, 0);
+}
+
 static endMarketInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createMarketInfo(builder:flatbuffers.Builder, settlement:bigint, settlementNameOffset:flatbuffers.Offset, money:number, summaryOffset:flatbuffers.Offset, trades:number, memoryDays:number, goodsOffset:flatbuffers.Offset, offersOffset:flatbuffers.Offset, recentOffset:flatbuffers.Offset, historyOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createMarketInfo(builder:flatbuffers.Builder, settlement:bigint, settlementNameOffset:flatbuffers.Offset, money:number, summaryOffset:flatbuffers.Offset, trades:number, memoryDays:number, goodsOffset:flatbuffers.Offset, offersOffset:flatbuffers.Offset, recentOffset:flatbuffers.Offset, historyOffset:flatbuffers.Offset, outsidersOffset:flatbuffers.Offset):flatbuffers.Offset {
   MarketInfo.startMarketInfo(builder);
   MarketInfo.addSettlement(builder, settlement);
   MarketInfo.addSettlementName(builder, settlementNameOffset);
@@ -203,6 +214,7 @@ static createMarketInfo(builder:flatbuffers.Builder, settlement:bigint, settleme
   MarketInfo.addOffers(builder, offersOffset);
   MarketInfo.addRecent(builder, recentOffset);
   MarketInfo.addHistory(builder, historyOffset);
+  MarketInfo.addOutsiders(builder, outsidersOffset);
   return MarketInfo.endMarketInfo(builder);
 }
 }

@@ -837,6 +837,10 @@ table PersonInfo {
   // The other settlements their household knows, each in words (wire 1.50, ADR-0018 §4):
   // "Elmhollow: seen on a walk in the spring of year 1".
   places: [string] (id: 52);
+  // What their household believes other settlements' sellers offer, each seller's good in words
+  // (wire 1.54, M5b slice AP, ADR-0019 §1): "Sickles at Elmhollow, from Bran's household: 2.3 kg
+  // of grain or 3.7 kg of provisions each, 8 to be had; seen 3 days ago".
+  reports: [string] (id: 53);
 }
 
 // Wire 1.47 (M4c slice AJ): a claim that may be whispered.
@@ -1246,6 +1250,9 @@ table TradeInfo {
   text: string (id: 8);
   // M3a slice J: the seller was a workshop (`seller` is its id).
   seller_firm: bool (id: 9);
+  // Wire 1.54 (M5b slice AP, ADR-0019 §4): the buyer's settlement when it is not this market's
+  // own (0: one of its own).
+  from: ulong (id: 10);
 }
 
 // One good in a settlement's market (M3a slice I). Tallies fade by half every
@@ -1301,6 +1308,10 @@ table MarketInfo {
   recent: [TradeInfo] (id: 8);
   // Oldest first.
   history: [MonthOfTrade] (id: 9);
+  // Wire 1.54 (M5b slice AP): what people of other settlements bought here last year and this
+  // year so far, in words ("in year 3 so far: 4 purchases by people of Oakholt"); empty when
+  // none did.
+  outsiders: string (id: 10);
 }
 
 table Markets {

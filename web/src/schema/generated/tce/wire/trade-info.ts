@@ -74,8 +74,13 @@ sellerFirm():boolean {
   return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
 }
 
+from():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startTradeInfo(builder:flatbuffers.Builder) {
-  builder.startObject(10);
+  builder.startObject(11);
 }
 
 static addMinute(builder:flatbuffers.Builder, minute:bigint) {
@@ -118,12 +123,16 @@ static addSellerFirm(builder:flatbuffers.Builder, sellerFirm:boolean) {
   builder.addFieldInt8(9, +sellerFirm, +false);
 }
 
+static addFrom(builder:flatbuffers.Builder, from:bigint) {
+  builder.addFieldInt64(10, from, BigInt('0'));
+}
+
 static endTradeInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createTradeInfo(builder:flatbuffers.Builder, minute:bigint, seller:bigint, buyer:bigint, good:number, units:number, payment:number, paid:number, sale:boolean, textOffset:flatbuffers.Offset, sellerFirm:boolean):flatbuffers.Offset {
+static createTradeInfo(builder:flatbuffers.Builder, minute:bigint, seller:bigint, buyer:bigint, good:number, units:number, payment:number, paid:number, sale:boolean, textOffset:flatbuffers.Offset, sellerFirm:boolean, from:bigint):flatbuffers.Offset {
   TradeInfo.startTradeInfo(builder);
   TradeInfo.addMinute(builder, minute);
   TradeInfo.addSeller(builder, seller);
@@ -135,6 +144,7 @@ static createTradeInfo(builder:flatbuffers.Builder, minute:bigint, seller:bigint
   TradeInfo.addSale(builder, sale);
   TradeInfo.addText(builder, textOffset);
   TradeInfo.addSellerFirm(builder, sellerFirm);
+  TradeInfo.addFrom(builder, from);
   return TradeInfo.endTradeInfo(builder);
 }
 }

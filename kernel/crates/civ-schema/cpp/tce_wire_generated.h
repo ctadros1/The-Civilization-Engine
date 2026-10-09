@@ -8379,7 +8379,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_NEWS = 102,
     VT_INFLUENCES = 104,
     VT_RESIDENCE = 106,
-    VT_PLACES = 108
+    VT_PLACES = 108,
+    VT_REPORTS = 110
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -8540,6 +8541,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *places() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_PLACES);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *reports() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_REPORTS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -8637,6 +8641,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_PLACES) &&
            verifier.VerifyVector(places()) &&
            verifier.VerifyVectorOfStrings(places()) &&
+           VerifyOffset(verifier, VT_REPORTS) &&
+           verifier.VerifyVector(reports()) &&
+           verifier.VerifyVectorOfStrings(reports()) &&
            verifier.EndTable();
   }
 };
@@ -8804,6 +8811,9 @@ struct PersonInfoBuilder {
   void add_places(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> places) {
     fbb_.AddOffset(PersonInfo::VT_PLACES, places);
   }
+  void add_reports(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> reports) {
+    fbb_.AddOffset(PersonInfo::VT_REPORTS, reports);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8869,7 +8879,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::NewsLine>>> news = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::InfluenceLine>>> influences = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> residence = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> places = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> places = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> reports = 0) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
@@ -8881,6 +8892,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_reports(reports);
   builder_.add_places(places);
   builder_.add_residence(residence);
   builder_.add_influences(influences);
@@ -8986,7 +8998,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::NewsLine>> *news = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::InfluenceLine>> *influences = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *residence = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *places = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *places = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *reports = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -9011,6 +9024,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto influences__ = influences ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::InfluenceLine>>(*influences) : 0;
   auto residence__ = residence ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*residence) : 0;
   auto places__ = places ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*places) : 0;
+  auto reports__ = reports ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*reports) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -9065,7 +9079,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       news__,
       influences__,
       residence__,
-      places__);
+      places__,
+      reports__);
 }
 
 struct NewsLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -12184,7 +12199,8 @@ struct TradeInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_PAID = 16,
     VT_SALE = 18,
     VT_TEXT = 20,
-    VT_SELLER_FIRM = 22
+    VT_SELLER_FIRM = 22,
+    VT_FROM = 24
   };
   int64_t minute() const {
     return GetField<int64_t>(VT_MINUTE, 0);
@@ -12216,6 +12232,9 @@ struct TradeInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   bool seller_firm() const {
     return GetField<uint8_t>(VT_SELLER_FIRM, 0) != 0;
   }
+  uint64_t from() const {
+    return GetField<uint64_t>(VT_FROM, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -12230,6 +12249,7 @@ struct TradeInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_TEXT) &&
            verifier.VerifyString(text()) &&
            VerifyField<uint8_t>(verifier, VT_SELLER_FIRM, 1) &&
+           VerifyField<uint64_t>(verifier, VT_FROM, 8) &&
            verifier.EndTable();
   }
 };
@@ -12268,6 +12288,9 @@ struct TradeInfoBuilder {
   void add_seller_firm(bool seller_firm) {
     fbb_.AddElement<uint8_t>(TradeInfo::VT_SELLER_FIRM, static_cast<uint8_t>(seller_firm), 0);
   }
+  void add_from(uint64_t from) {
+    fbb_.AddElement<uint64_t>(TradeInfo::VT_FROM, from, 0);
+  }
   explicit TradeInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -12290,8 +12313,10 @@ inline ::flatbuffers::Offset<TradeInfo> CreateTradeInfo(
     float paid = 0.0f,
     bool sale = false,
     ::flatbuffers::Offset<::flatbuffers::String> text = 0,
-    bool seller_firm = false) {
+    bool seller_firm = false,
+    uint64_t from = 0) {
   TradeInfoBuilder builder_(_fbb);
+  builder_.add_from(from);
   builder_.add_buyer(buyer);
   builder_.add_seller(seller);
   builder_.add_minute(minute);
@@ -12321,7 +12346,8 @@ inline ::flatbuffers::Offset<TradeInfo> CreateTradeInfoDirect(
     float paid = 0.0f,
     bool sale = false,
     const char *text = nullptr,
-    bool seller_firm = false) {
+    bool seller_firm = false,
+    uint64_t from = 0) {
   auto text__ = text ? _fbb.CreateString(text) : 0;
   return tce::wire::CreateTradeInfo(
       _fbb,
@@ -12334,7 +12360,8 @@ inline ::flatbuffers::Offset<TradeInfo> CreateTradeInfoDirect(
       paid,
       sale,
       text__,
-      seller_firm);
+      seller_firm,
+      from);
 }
 
 struct MarketGood FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -12488,7 +12515,8 @@ struct MarketInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_GOODS = 16,
     VT_OFFERS = 18,
     VT_RECENT = 20,
-    VT_HISTORY = 22
+    VT_HISTORY = 22,
+    VT_OUTSIDERS = 24
   };
   uint64_t settlement() const {
     return GetField<uint64_t>(VT_SETTLEMENT, 0);
@@ -12520,6 +12548,9 @@ struct MarketInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<const tce::wire::MonthOfTrade *> *history() const {
     return GetPointer<const ::flatbuffers::Vector<const tce::wire::MonthOfTrade *> *>(VT_HISTORY);
   }
+  const ::flatbuffers::String *outsiders() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_OUTSIDERS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -12542,6 +12573,8 @@ struct MarketInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVectorOfTables(recent()) &&
            VerifyOffset(verifier, VT_HISTORY) &&
            verifier.VerifyVector(history()) &&
+           VerifyOffset(verifier, VT_OUTSIDERS) &&
+           verifier.VerifyString(outsiders()) &&
            verifier.EndTable();
   }
 };
@@ -12580,6 +12613,9 @@ struct MarketInfoBuilder {
   void add_history(::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::MonthOfTrade *>> history) {
     fbb_.AddOffset(MarketInfo::VT_HISTORY, history);
   }
+  void add_outsiders(::flatbuffers::Offset<::flatbuffers::String> outsiders) {
+    fbb_.AddOffset(MarketInfo::VT_OUTSIDERS, outsiders);
+  }
   explicit MarketInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -12602,9 +12638,11 @@ inline ::flatbuffers::Offset<MarketInfo> CreateMarketInfo(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MarketGood>>> goods = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OfferInfo>>> offers = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TradeInfo>>> recent = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::MonthOfTrade *>> history = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::MonthOfTrade *>> history = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> outsiders = 0) {
   MarketInfoBuilder builder_(_fbb);
   builder_.add_settlement(settlement);
+  builder_.add_outsiders(outsiders);
   builder_.add_history(history);
   builder_.add_recent(recent);
   builder_.add_offers(offers);
@@ -12633,13 +12671,15 @@ inline ::flatbuffers::Offset<MarketInfo> CreateMarketInfoDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::MarketGood>> *goods = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::OfferInfo>> *offers = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::TradeInfo>> *recent = nullptr,
-    const std::vector<tce::wire::MonthOfTrade> *history = nullptr) {
+    const std::vector<tce::wire::MonthOfTrade> *history = nullptr,
+    const char *outsiders = nullptr) {
   auto settlement_name__ = settlement_name ? _fbb.CreateString(settlement_name) : 0;
   auto summary__ = summary ? _fbb.CreateString(summary) : 0;
   auto goods__ = goods ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::MarketGood>>(*goods) : 0;
   auto offers__ = offers ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::OfferInfo>>(*offers) : 0;
   auto recent__ = recent ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::TradeInfo>>(*recent) : 0;
   auto history__ = history ? _fbb.CreateVectorOfStructs<tce::wire::MonthOfTrade>(*history) : 0;
+  auto outsiders__ = outsiders ? _fbb.CreateString(outsiders) : 0;
   return tce::wire::CreateMarketInfo(
       _fbb,
       settlement,
@@ -12651,7 +12691,8 @@ inline ::flatbuffers::Offset<MarketInfo> CreateMarketInfoDirect(
       goods__,
       offers__,
       recent__,
-      history__);
+      history__,
+      outsiders__);
 }
 
 struct Markets FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

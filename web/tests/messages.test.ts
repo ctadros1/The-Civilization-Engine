@@ -318,13 +318,14 @@ describe("decoders", () => {
     const offer = W.OfferInfo.createOfferInfo(b, 7n, ada, 4, 0, 12.25, 2, false);
     const offers = W.MarketInfo.createOffersVector(b, [offer]);
     const text = b.createString("Ada's household sold 1 sickle to Bran's household for 12 kg of grain.");
-    const trade = W.TradeInfo.createTradeInfo(b, 1440n, 7n, 9n, 4, 1, 0, 12, false, text, false);
+    const trade = W.TradeInfo.createTradeInfo(b, 1440n, 7n, 9n, 4, 1, 0, 12, false, text, false, 5n);
     const recent = W.MarketInfo.createRecentVector(b, [trade]);
     W.MarketInfo.startHistoryVector(b, 1);
     W.MonthOfTrade.createMonthOfTrade(b, 14, 2, 1.5, 18, 4);
     const history = b.endVector();
     const name = b.createString("Hearth");
     const summary = b.createString("Barter: no good settles most of what is paid; grain settles 60%.");
+    const outsiders = b.createString("in year 2 so far: 1 purchase by people of Oakholt");
     const info = W.MarketInfo.createMarketInfo(
       b,
       3n,
@@ -337,6 +338,7 @@ describe("decoders", () => {
       offers,
       recent,
       history,
+      outsiders,
     );
     const list = W.Markets.createMarketsVector(b, [info]);
     const markets = W.Markets.createMarkets(b, 41n, list);
@@ -355,6 +357,7 @@ describe("decoders", () => {
       30,
     ]);
     expect(m.summary).toContain("Barter");
+    expect(m.outsiders).toBe("in year 2 so far: 1 purchase by people of Oakholt");
     expect(m.goods).toEqual([
       {
         good: 4,
@@ -377,6 +380,7 @@ describe("decoders", () => {
       seller: 7,
       buyer: 9,
       good: 4,
+      from: 5,
       sale: false,
       sellerFirm: false,
     });

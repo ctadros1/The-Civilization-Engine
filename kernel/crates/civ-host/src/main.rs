@@ -213,6 +213,12 @@ struct NewArgs {
     /// world begins; repeat for more.
     #[arg(long)]
     introduce: Vec<String>,
+    /// A neighbouring founding group of this many people (up to two); repeat for each.
+    #[arg(long)]
+    neighbour: Vec<u32>,
+    /// The founding groups know where the others camped.
+    #[arg(long)]
+    known: bool,
 }
 
 #[derive(Subcommand)]
@@ -549,6 +555,8 @@ fn new(args: NewArgs) -> anyhow::Result<ExitCode> {
             band: args.band,
             families: args.families,
             introduce: args.introduce,
+            neighbours: args.neighbour,
+            neighbours_known: args.known,
         },
     )?;
     Ok(ExitCode::SUCCESS)

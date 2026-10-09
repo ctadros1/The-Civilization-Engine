@@ -83,6 +83,10 @@ pub struct NewOptions {
     /// Techniques the observer introduces to the band's eldest grown founder as the world
     /// begins (the god tool, ADR-0008 §6), by id.
     pub introduce: Vec<String>,
+    /// Neighbouring founding groups' sizes (ADR-0018 §1), and whether the groups know where the
+    /// others camped.
+    pub neighbours: Vec<u32>,
+    pub neighbours_known: bool,
 }
 
 /// The observer introduces technique `technique` (an id) to the eldest grown founder of the
@@ -128,8 +132,8 @@ pub fn new_world(
             preset_id,
             size_cells: options.size,
             band_size: options.band,
-            neighbours: Vec::new(),
-            neighbours_known: false,
+            neighbours: options.neighbours.clone(),
+            neighbours_known: options.neighbours_known,
             regime_id: options.regime.clone().unwrap_or_default(),
         },
         content,

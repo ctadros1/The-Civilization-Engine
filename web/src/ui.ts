@@ -1329,6 +1329,17 @@ export function bindUi(store: Store, actions: Actions): void {
         ),
       );
     }
+    // What their household believes other settlements' sellers offer (wire 1.54, ADR-0019 §1).
+    if (p.alive && p.reports.length > 0) {
+      nodes.push(
+        el(
+          "div",
+          { className: "reports" },
+          el("h4", { text: "Prices their household has heard of elsewhere" }),
+          el("ul", {}, ...p.reports.map((line) => el("li", { text: `${line}.` }))),
+        ),
+      );
+    }
     if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p), opinionBlock(p));
     if (p.alive) nodes.push(observerBlock(welcome, p));
     if (p.kin.length > 0 || p.family.length > 0) {
@@ -1561,6 +1572,10 @@ export function bindUi(store: Store, actions: Actions): void {
         : el("span", { className: "badge barter", text: "barter" }),
     );
     const nodes: Node[] = [head, el("p", { className: "market-summary", text: m.summary })];
+    // Buyers from other settlements (wire 1.54, M5b slice AP).
+    if (m.outsiders) {
+      nodes.push(el("p", { className: "since market-outsiders", text: `From elsewhere: ${m.outsiders}.` }));
+    }
     const paid = paymentsText(goods, m);
     if (paid) nodes.push(el("p", { className: "aside", text: `Paid in: ${paid}.` }));
     const lines = el("ul", { className: "market-goods" });

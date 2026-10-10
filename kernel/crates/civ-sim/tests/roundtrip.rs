@@ -2241,6 +2241,26 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
 }
 
 #[test]
+fn a_schema_70_save_loads_with_no_crew_kept() {
+    // A schema-70 save, from before the room to work on a crossing was kept (M5c slice AX): no
+    // crossing had a day's crew, and none has.
+    let sim = load_first();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V70;
+    let path = republish("slice-aw3", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-70 save loads");
+    assert!(
+        loaded
+            .land()
+            .crossings
+            .list
+            .iter()
+            .all(|c| c.crew == (0, 0))
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_69_save_loads_with_no_crossing_site_named() {
     // A schema-69 save, from before polities built crossings together (M5c slice AW, step
     // three): no law named a site, and no crossing kept the work households gave it.

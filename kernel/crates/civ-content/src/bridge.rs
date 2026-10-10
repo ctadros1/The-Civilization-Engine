@@ -36,6 +36,8 @@ pub(crate) struct BridgeFile {
     pub loss_per_year: f64,
     pub margin: f64,
     pub fall_kills: f64,
+    /// How many may begin a session of work on one in a day (content API 68).
+    pub crew: u32,
 }
 
 impl BridgeFile {
@@ -58,6 +60,7 @@ impl BridgeFile {
             loss_per_year: self.loss_per_year,
             margin: self.margin,
             fall_kills: self.fall_kills,
+            crew: self.crew,
         }
     }
 
@@ -77,6 +80,7 @@ impl BridgeFile {
             ("loss_per_year", self.loss_per_year, 0.0, 1.0),
             ("margin", self.margin, 1.0, 20.0),
             ("fall_kills", self.fall_kills, 0.0, 1.0),
+            ("crew", f64::from(self.crew), 1.0, 100.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

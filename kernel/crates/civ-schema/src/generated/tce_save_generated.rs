@@ -33280,6 +33280,8 @@ impl<'a> CrossingSave<'a> {
   pub const VT_WHY: ::flatbuffers::VOffsetT = 38;
   pub const VT_SKILL_H: ::flatbuffers::VOffsetT = 40;
   pub const VT_SHARES: ::flatbuffers::VOffsetT = 42;
+  pub const VT_CREW_DAY: ::flatbuffers::VOffsetT = 44;
+  pub const VT_CREW: ::flatbuffers::VOffsetT = 46;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -33291,6 +33293,7 @@ impl<'a> CrossingSave<'a> {
     args: &'args CrossingSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<CrossingSave<'bldr>> {
     let mut builder = CrossingSaveBuilder::new(_fbb);
+    builder.add_crew_day(args.crew_day);
     builder.add_state_day(args.state_day);
     builder.add_begun(args.begun);
     builder.add_owner(args.owner);
@@ -33307,6 +33310,7 @@ impl<'a> CrossingSave<'a> {
     builder.add_bank_b(args.bank_b);
     builder.add_bank_a(args.bank_a);
     if let Some(x) = args.system { builder.add_system(x); }
+    builder.add_crew(args.crew);
     builder.add_why(args.why);
     builder.add_state(args.state);
     builder.add_owner_kind(args.owner_kind);
@@ -33455,6 +33459,20 @@ impl<'a> CrossingSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, CrossingShareSave>>>(CrossingSave::VT_SHARES, None)}
   }
+  #[inline]
+  pub fn crew_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(CrossingSave::VT_CREW_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn crew(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(CrossingSave::VT_CREW, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for CrossingSave<'_> {
@@ -33483,6 +33501,8 @@ impl ::flatbuffers::Verifiable for CrossingSave<'_> {
      .visit_field::<u8>("why", Self::VT_WHY, false)?
      .visit_field::<f32>("skill_h", Self::VT_SKILL_H, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CrossingShareSave>>>("shares", Self::VT_SHARES, false)?
+     .visit_field::<i64>("crew_day", Self::VT_CREW_DAY, false)?
+     .visit_field::<u8>("crew", Self::VT_CREW, false)?
      .finish();
     Ok(())
   }
@@ -33508,6 +33528,8 @@ pub struct CrossingSaveArgs<'a> {
     pub why: u8,
     pub skill_h: f32,
     pub shares: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CrossingShareSave>>>,
+    pub crew_day: i64,
+    pub crew: u8,
 }
 impl<'a> Default for CrossingSaveArgs<'a> {
   #[inline]
@@ -33533,6 +33555,8 @@ impl<'a> Default for CrossingSaveArgs<'a> {
       why: 0,
       skill_h: 0.0,
       shares: None,
+      crew_day: 0,
+      crew: 0,
     }
   }
 }
@@ -33623,6 +33647,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CrossingSaveBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CrossingSave::VT_SHARES, shares);
   }
   #[inline]
+  pub fn add_crew_day(&mut self, crew_day: i64) {
+    self.fbb_.push_slot::<i64>(CrossingSave::VT_CREW_DAY, crew_day, 0);
+  }
+  #[inline]
+  pub fn add_crew(&mut self, crew: u8) {
+    self.fbb_.push_slot::<u8>(CrossingSave::VT_CREW, crew, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CrossingSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     CrossingSaveBuilder {
@@ -33660,6 +33692,8 @@ impl ::core::fmt::Debug for CrossingSave<'_> {
       ds.field("why", &self.why());
       ds.field("skill_h", &self.skill_h());
       ds.field("shares", &self.shares());
+      ds.field("crew_day", &self.crew_day());
+      ds.field("crew", &self.crew());
       ds.finish()
   }
 }

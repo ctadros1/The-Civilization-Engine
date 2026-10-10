@@ -111,8 +111,8 @@ use super::{
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
-    SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, finish, section, single_chunk,
-    unreadable,
+    SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -438,6 +438,8 @@ enum Schema {
     /// The crossings polities build, and the work each household gave them (M5c slice AW, step
     /// three).
     V70,
+    /// The room to work on a crossing (M5c slice AX).
+    V71,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -522,7 +524,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V67 => Schema::V67,
         SCHEMA_V68 => Schema::V68,
         SCHEMA_V69 => Schema::V69,
-        SAVE_SCHEMA_VERSION => Schema::V70,
+        SCHEMA_V70 => Schema::V70,
+        SAVE_SCHEMA_VERSION => Schema::V71,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2853,7 +2856,8 @@ fn carried(
         | Schema::V67
         | Schema::V68
         | Schema::V69
-        | Schema::V70 => {
+        | Schema::V70
+        | Schema::V71 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3033,7 +3037,8 @@ fn decode_households(
             | Schema::V67
             | Schema::V68
             | Schema::V69
-            | Schema::V70 => {
+            | Schema::V70
+            | Schema::V71 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -7637,6 +7642,8 @@ fn encode_crossings(land: &Land, fords: &civ_agents::fords::Fords, rules: &Rules
                     why,
                     skill_h: c.skill_h,
                     shares,
+                    crew_day: c.crew.0,
+                    crew: c.crew.1,
                 },
             )
         })
@@ -7731,6 +7738,7 @@ fn decode_crossings(
             begun: SimTime::from_minutes(c.begun()),
             state,
             shares,
+            crew: (c.crew_day(), c.crew()),
         });
     }
     let mut fords = civ_agents::fords::Fords::default();

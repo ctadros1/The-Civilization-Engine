@@ -585,6 +585,9 @@ pub struct BridgeDef {
     pub margin: f64,
     /// The chance someone on it dies when it gives way under them.
     pub fall_kills: f64,
+    /// How many may begin a session of work on one in a day: the room to work on it (M5c slice
+    /// AX; research 11-07 §2.3, 11-11 §1.3).
+    pub crew: u32,
 }
 
 impl Catalog {

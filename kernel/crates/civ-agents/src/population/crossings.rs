@@ -426,6 +426,7 @@ impl Population {
                     begun: ctx.now,
                     state: CrossingState::Building { work_h: 0.0 },
                     shares: Vec::new(),
+                    crew: (0, 0),
                 });
             }
         }
@@ -683,6 +684,7 @@ impl Population {
             begun: ctx.now,
             state: CrossingState::Building { work_h: 0.0 },
             shares: Vec::new(),
+            crew: (0, 0),
         });
     }
 
@@ -801,6 +803,7 @@ impl Population {
             left_h: (f64::from(c.labour_h) - f64::from(work_h)).max(0.0),
             saves_per_hour: saved_h / f64::from(c.labour_h).max(1.0),
             duty,
+            full: c.crew.0 == ctx.now.day_index() && u32::from(c.crew.1) >= def.crew,
         })
     }
 
@@ -944,11 +947,12 @@ impl Population {
         let (now, day) = (ctx.now, ctx.now.day_index());
         let crossing = &mut ctx.land.crossings.list[i];
         crossing.state = CrossingState::Failed { day, why };
-        let (id, cells, banks, system) = (
+        let (id, cells, banks, system, owner) = (
             crossing.id,
             crossing.cells.clone(),
             crossing.banks,
             crossing.system,
+            crossing.owner,
         );
         ctx.land.crossings.changed();
         let kills = ctx
@@ -1039,7 +1043,27 @@ impl Population {
             Collapse::OwnWeight => "its rotten members could no longer carry their own weight",
             Collapse::UnderWalker => "its rotten members broke under someone stepping onto it",
         };
-        let mut sentence = format!("A {name} gave way: {cause}.");
+        // Whose it was: the village's, or a household's by its elder's name.
+        let settlement = match owner {
+            CrossingOwner::Polity(p) => self
+                .polities
+                .iter()
+                .find(|q| q.id == p)
+                .map(|q| q.settlement),
+            CrossingOwner::Household(h) => self.household(h).and_then(|x| x.settlement),
+        };
+        let whose = match owner {
+            CrossingOwner::Polity(_) => settlement
+                .and_then(|s| ctx.land.settlements.iter().find(|t| t.id == s))
+                .map(|t| format!("{}'s", t.name)),
+            CrossingOwner::Household(h) => self
+                .elder_of(h, now, ctx.params)
+                .map(|e| format!("{}'s household's", self.name_of(e))),
+        };
+        let mut sentence = match whose {
+            Some(whose) => format!("{whose} {name} gave way: {cause}."),
+            None => format!("A {name} gave way: {cause}."),
+        };
         if !fell.is_empty() {
             let names: Vec<String> = fell.iter().map(|&p| self.name_of(p)).collect();
             sentence += &format!(
@@ -1058,7 +1082,7 @@ impl Population {
             now,
             ChronicleKind::Crossing,
             fell,
-            None,
+            settlement,
             Some(cell_centre(map, middle)),
             f64::from(CrossingStep::Failed as u8),
             sentence,

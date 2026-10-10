@@ -1774,6 +1774,7 @@ mod tests {
             begun: now,
             state: CrossingState::Building { work_h: 18.0 },
             shares: Vec::new(),
+            crew: (0, 0),
         });
         let rev = frames::crossings::crossings_rev(sim);
         assert_ne!(rev, 0);

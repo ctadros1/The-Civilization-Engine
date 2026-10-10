@@ -3699,6 +3699,18 @@ impl Population {
         {
             self.start_round(ctx, who);
         }
+        // Someone who sets off to work on a crossing is one of its crew that day, counted as
+        // they choose it, so that those choosing after them see the room taken (M5c slice AW;
+        // research 11-11 §1.3: progress is limited by the usable work front).
+        if let Target::Crossing(c) = target
+            && let Some(x) = ctx.land.crossings.list.iter_mut().find(|x| x.id == c)
+        {
+            let day = now.day_index();
+            if x.crew.0 != day {
+                x.crew = (day, 0);
+            }
+            x.crew.1 = x.crew.1.saturating_add(1);
+        }
         self.run_steps(ctx, h, depth + 1);
     }
 

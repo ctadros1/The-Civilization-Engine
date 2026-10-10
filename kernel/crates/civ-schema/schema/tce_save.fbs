@@ -1904,6 +1904,10 @@ table CrossingSave {
   // Schema 70 (M5c slice AW, step three): the hours each household's people worked on a polity's
   // crossing, by household id; absent before and for a household's.
   shares: [CrossingShareSave] (id: 19);
+  // Schema 71 (M5c slice AX): the day its latest work began, and how many sessions of work began
+  // on it that day; 0 and 0 before.
+  crew_day: long (id: 20);
+  crew: ubyte (id: 21);
 }
 
 // Hours a household's people worked on a crossing (schema 70).

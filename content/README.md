@@ -716,6 +716,12 @@ officeholder, and more adults than stand with the gathering, must stand with it 
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
 
+Content API 68 (M5c slice AW, step three) brings the room to work on a crossing: the bridge key
+`crew` (1 to 100), at most how many begin a session of work on one crossing in a day; anyone else
+who would work on it that day is told it is full (research 11-11 §1.3: progress is limited by the
+usable work front). The core's log footbridge takes 5, the crew research 11-07 §2.3 states for a
+simple log footbridge's one to six working days.
+
 Content API 67 (M5c slice AW, step three) brings crossings built together: the policy kind
 `build_crossing` and the issue `fords` (a household of the settlement wades a stream where a
 crossing of a system its people know could stand and none does), with the core pack's

@@ -127,6 +127,7 @@ fn lay(sim: &mut Sim, loss: f32) -> (PermanentId, [u32; 2], u32) {
             since: now.day_index(),
         },
         shares: Vec::new(),
+        crew: (0, 0),
     });
     sim.land_mut_for_tests().crossings.changed();
     sim.lay_decks_for_tests();
@@ -233,6 +234,13 @@ fn an_open_crossing_is_walked_over_and_once_it_gives_way_no_route_crosses_it() {
         entries[0]
             .1
             .contains("could no longer carry their own weight"),
+        "{}",
+        entries[0].1
+    );
+    assert!(
+        entries[0]
+            .1
+            .contains("'s household's log footbridge gave way"),
         "{}",
         entries[0].1
     );
@@ -535,11 +543,29 @@ fn a_crossing_the_gathering_asks_for_is_built_by_the_households_shares_of_its_wo
     let c = sim.land().crossings.list.first().expect("begun").clone();
     assert_eq!(c.owner, CrossingOwner::Polity(polity));
     assert_eq!(c.cells, vec![cell]);
+    // No more start on it in a day than its system's crew: days whose crew is full from their
+    // first hour pass with nothing done.
+    let done = |sim: &Sim| match sim.land().crossings.list[0].state {
+        CrossingState::Building { work_h } => work_h,
+        other => panic!("{other:?}"),
+    };
+    let to_midnight = DAY - sim.now().minutes().rem_euclid(DAY);
+    sim.advance_minutes(to_midnight).expect("lives");
+    let before = done(&sim);
+    for _ in 0..4 {
+        let day = sim.now().day_index();
+        sim.land_mut_for_tests().crossings.list[0].crew = (day, 5);
+        sim.advance_minutes(DAY).expect("lives");
+    }
+    assert_eq!(done(&sim), before);
     // Its people give their households' shares as they choose, until it opens; the household
-    // that never wades it gives too, for the gathering's word.
+    // that never wades it gives too, for the gathering's word; never more in a day than its
+    // crew.
     for _ in 0..120 {
         sim.advance_minutes(DAY).expect("lives");
-        if sim.land().crossings.list[0].open() {
+        let c = &sim.land().crossings.list[0];
+        assert!(c.crew.1 <= 5, "{:?}", c.crew);
+        if c.open() {
             break;
         }
     }
@@ -552,6 +578,15 @@ fn a_crossing_the_gathering_asks_for_is_built_by_the_households_shares_of_its_wo
         "{given} of {}",
         c.labour_h
     );
+    // No more of them work on it in a day than its system's crew (5 for a log footbridge),
+    // each spell at most four hours (work_on_crossing's max_minutes), so it took at least as
+    // many days as that allows.
+    let CrossingState::Open { since } = c.state else {
+        unreachable!()
+    };
+    let days = since - c.begun.day_index() + 1;
+    let fewest = (c.labour_h / (5.0 * 4.0)).ceil() as i64;
+    assert!(days >= fewest, "{days} days for {} h", c.labour_h);
     let entries = crossing_entries(&sim);
     assert_eq!(entries.len(), 1, "{entries:?}");
     assert!(

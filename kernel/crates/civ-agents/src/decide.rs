@@ -97,6 +97,8 @@ pub struct CrossingFacts {
     pub left_h: f64,
     pub saves_per_hour: f64,
     pub duty: f64,
+    /// As many as there is room for have begun work on it today (M5c slice AX).
+    pub full: bool,
 }
 
 /// A payment someone is to carry (M5c slice AV, ADR-0020 §7): where the store set it aside, the
@@ -1364,6 +1366,10 @@ pub fn candidates(
                 };
                 if c.walk_min > f64::from(def.max_walk_minutes) {
                     excluded.push((id, Reason::Unreachable));
+                    continue;
+                }
+                if c.full {
+                    excluded.push((id, Reason::Crowded));
                     continue;
                 }
                 let room = if def.daylight_only {

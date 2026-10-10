@@ -83,6 +83,9 @@ pub struct Crossing {
     /// The hours each household's people worked on it, by household id (M5c slice AW, step
     /// three): kept for a polity's crossing, whose work each household is asked a share of.
     pub shares: Vec<(PermanentId, f32)>,
+    /// The day its latest work began, and how many sessions of work began on it that day (M5c
+    /// slice AX): the room to work on it is its system's crew a day.
+    pub crew: (i64, u8),
 }
 
 impl Crossing {
@@ -200,6 +203,7 @@ mod tests {
             begun: SimTime::from_minutes(0),
             state,
             shares: Vec::new(),
+            crew: (0, 0),
         }
     }
 

@@ -1088,6 +1088,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** a crew limit; the trestle over the trunk river and the places reachable only across a crossing; giving up a stalled crossing.
 
+## 2026-10-10 — M5c slice AW, step three, third part: crossing crews
+
+**Goal:** close the gap the previous step recorded: as many people worked on a crossing at once as chose to, so 82 hours were done in a morning.
+
+**What changed:** a bridge system names its `crew` (content API 68; five for a log footbridge, research 11-07 §2.3). At most that many choose to work on one crossing in a day; anyone else who would is told it is full, a new reason in the why panel (research 11-11 §1.3: progress is limited by the usable work front). The day's count is kept with the crossing (saves 71). The chronicle's sentence for a crossing that gives way now says whose it was. `civ-host neighbours` now reports relations between polities each year, and every agreement at the end.
+
+**Findings:** the first build counted the crew as people arrived, so everyone who chose the work in the morning, before the first of them got there, still worked; it is counted as they choose instead. Measured over two years, the demo worlds' village crossings now take four to six days, within the research's one to six working days, where most were finished the morning they were agreed.
+
+**Evidence:** a test village whose crossing gets no work while its crew is held full, which fails with the limit removed; no day's crew over five; a schema-70 save loads; the full suite, clippy and the ten smoke worlds; two-year measurements of the seed-9 and M5a demo worlds.
+
+**Open:** the trestle over the trunk river and the places reachable only across a crossing; giving up a stalled crossing.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

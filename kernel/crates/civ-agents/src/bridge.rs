@@ -134,6 +134,7 @@ mod tests {
             loss_per_year: 0.05,
             margin: 3.0,
             fall_kills: 0.3,
+            crew: 5,
         }
     }
 

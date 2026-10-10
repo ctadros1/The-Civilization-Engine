@@ -161,6 +161,8 @@ pub enum Reason {
     /// Excluded: the observer has stopped purchases between settlements (the demo's twin, M5b
     /// slice AQ).
     Stopped = 138,
+    /// Excluded: as many as there is room for have begun work on it today (M5c slice AX).
+    Crowded = 139,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -172,7 +174,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 72] = [
+    pub const ALL: [Reason; 73] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -245,6 +247,7 @@ impl Reason {
         Reason::Stopped,
         Reason::Crossing,
         Reason::PublicWork,
+        Reason::Crowded,
     ];
 
     /// The reason with this code.
@@ -329,6 +332,7 @@ impl Reason {
             Reason::Stopped => "the observer has stopped purchases between settlements",
             Reason::Crossing => "the walking a crossing would save",
             Reason::PublicWork => "the work the gathering asked of their household",
+            Reason::Crowded => "as many as there is room for are already at work on it today",
         }
     }
 }

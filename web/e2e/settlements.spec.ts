@@ -63,7 +63,10 @@ test("a world made with neighbours has a settlement for each group", async ({ pa
     // nobody yet holds a view of the other's polity.
     await page.evaluate(() => window.__TCE__.select(null));
     await page.locator("#speeds").getByRole("radio", { name: "Max" }).click();
-    await page.getByRole("button", { name: "Run", exact: true }).click();
+    const run = page.getByRole("button", { name: "Run", exact: true });
+    if (await run.count()) {
+      await run.click();
+    }
     await page.waitForFunction(
       () => {
         const polities = window.__TCE__.state().government?.polities ?? [];

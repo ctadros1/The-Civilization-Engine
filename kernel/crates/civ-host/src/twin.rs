@@ -8,8 +8,9 @@
 //!
 //! The long run's checks fail it (every settlement's accounts balance, the books, residence
 //! histories: [`LongRun`]); the convergence row is reported, and red in it fails the run, as on the
-//! dashboard; so is the neighbours row for each life (M5b slice AR). Nothing here steers either life: the switch only leaves the trip to buy elsewhere
-//! out of every choice.
+//! dashboard; so is the neighbours row for each life (M5b slice AR). Each life's roofs are read
+//! by the M5 diffusion brief's measure (§3.3–3.4). Nothing here steers either life: the switch
+//! only leaves the trip to buy elsewhere out of every choice.
 
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -26,6 +27,13 @@ use crate::trade::{self, PairSeen};
 
 /// Years to live from the save, by default.
 pub const YEARS: u32 = 2;
+/// Degrees two settlements' founding ways must stand apart for one's taking the other's to be
+/// told: below about 3°, any change hides inside households' own spread (the M5 diffusion brief
+/// §3.4's arithmetic).
+pub const MIN_APART_DEG: f64 = 3.0;
+/// New buildings a year must have for its share nearer the other's way to be read for T10→90
+/// (a tuning value: one or two buildings make a share of 0 or 1 by chance).
+pub const MIN_NEW: usize = 3;
 
 /// What to run.
 #[derive(Clone, Debug)]
@@ -71,9 +79,10 @@ struct Roofs {
     settlement: PermanentId,
     /// Founding way's pitch, degrees.
     way: Option<f64>,
-    /// The year's new buildings: how many, and their mean pitch, degrees.
+    /// The year's new buildings: how many, their mean pitch, and each one's, degrees.
     new: usize,
     pitch: f64,
+    pitches: Vec<f64>,
     /// Of them, by the settlement their chain first crosses into.
     after: BTreeMap<PermanentId, u32>,
 }
@@ -137,14 +146,17 @@ pub fn run(
     let (Ok(trade_life), Ok(twin_life)) = (trade_life, twin_life) else {
         anyhow::bail!("a life panicked");
     };
-    let sim = &trade_life.sim;
-    let name = |s: PermanentId| {
+    // Each life names its own settlements: once the lives part, one founds settlements the other
+    // never does, and an id drawn after that is not the same place in both.
+    let name = |sim: &Sim, s: PermanentId| {
         sim.land()
             .settlements
             .iter()
             .find(|x| x.id == s)
             .map_or_else(|| format!("settlement {s}"), |x| x.name.clone())
     };
+    let (with_trade, the_twin) = (&trade_life.sim, &twin_life.sim);
+    let sim = with_trade;
     let good = |g: u16| {
         sim.rules()
             .catalog
@@ -163,11 +175,11 @@ pub fn run(
             list.join(", ")
         }
     };
-    let gaps = |y: &YearSeen| {
+    let gaps = |sim: &Sim, y: &YearSeen| {
         let list: Vec<String> = y
             .gaps
             .iter()
-            .map(|(&(a, b), g)| format!("{}–{} {g:.0}", name(a), name(b)))
+            .map(|(&(a, b), g)| format!("{}–{} {g:.0}", name(sim, a), name(sim, b)))
             .collect();
         list.join(", ")
     };
@@ -181,16 +193,16 @@ pub fn run(
             t.trips,
             t.walk_h,
             carried(&t.carried),
-            gaps(t)
+            gaps(with_trade, t)
         )?;
         writeln!(
             out,
             "  the twin:   {} purchases, {} trips; mean gaps {}",
             w.purchases,
             w.trips,
-            gaps(w)
+            gaps(the_twin, w)
         )?;
-        for (life, y) in [("with trade", t), ("the twin", w)] {
+        for (life, sim, y) in [("with trade", with_trade, t), ("the twin", the_twin, w)] {
             let list: Vec<String> = y
                 .roofs
                 .iter()
@@ -199,11 +211,11 @@ pub fn run(
                     let after: Vec<String> = r
                         .after
                         .iter()
-                        .map(|(&s, n)| format!("{n} after {}", name(s)))
+                        .map(|(&s, n)| format!("{n} after {}", name(sim, s)))
                         .collect();
                     format!(
                         "{} {} new at {:.1}°{}",
-                        name(r.settlement),
+                        name(sim, r.settlement),
                         r.new,
                         r.pitch,
                         if after.is_empty() {
@@ -220,34 +232,80 @@ pub fn run(
         }
     }
     // Whether, and when, one settlement took another's way of roofing (the M5 diffusion brief
-    // §3.4), in each life.
+    // §3.4), in each life, and the share of each year's new buildings nearer the other's founding
+    // way than its own (§3.3), between settlements founded far enough apart to tell.
     for (life, l) in [("with trade", &trade_life), ("the twin", &twin_life)] {
-        let contacts = &l.sim.people().contacts;
+        let pop = l.sim.people();
         let met = |a: PermanentId, b: PermanentId| {
-            contacts
+            pop.contacts
                 .years
                 .keys()
                 .any(|&(_, f, t)| (f, t) == (a, b) || (f, t) == (b, a))
         };
+        let way = |s: PermanentId| {
+            pop.founding_ways
+                .get(&s)
+                .map(|w| f64::from(w.pitch_centideg) / 100.0)
+        };
         let ids: Vec<PermanentId> = l.sim.land().settlements.iter().map(|s| s.id).collect();
-        let mut said = false;
+        let (mut said, mut too_near) = (false, 0);
         for &a in &ids {
             for &b in ids.iter().filter(|&&b| b != a) {
-                if let Some(y) = l
+                let (Some(own), Some(theirs)) = (way(a), way(b)) else {
+                    continue;
+                };
+                if (own - theirs).abs() < MIN_APART_DEG {
+                    too_near += usize::from(a < b);
+                    continue;
+                }
+                let shares: Vec<(usize, usize)> = l
+                    .years
+                    .iter()
+                    .map(|y| {
+                        y.roofs
+                            .iter()
+                            .find(|r| r.settlement == a)
+                            .map_or((0, 0), |r| (nearer(r, own, theirs), r.pitches.len()))
+                    })
+                    .collect();
+                let listed: Vec<String> = shares
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, s)| s.1 > 0)
+                    .map(|(i, (n, m))| format!("{} {n}/{m}", i + 1))
+                    .collect();
+                if listed.is_empty() {
+                    continue;
+                }
+                let took = l
                     .years
                     .iter()
                     .position(|y| took_way(&y.roofs, a, b, met(a, b)))
-                {
-                    writeln!(
-                        out,
-                        "roofs {life}: {} took {}'s way in year {}",
-                        name(a),
-                        name(b),
-                        y + 1
-                    )?;
-                    said = true;
-                }
+                    .map_or_else(
+                        || "its way not taken".to_owned(),
+                        |y| format!("took its way in year {}", y + 1),
+                    );
+                let t = match ten_to_ninety(&shares) {
+                    (Some(t), Some(n)) => format!("years {t} to {n}"),
+                    (Some(t), None) => format!("a tenth in year {t}, nine tenths not reached"),
+                    _ => "not reached".to_owned(),
+                };
+                writeln!(
+                    out,
+                    "roofs {life}: {}'s new buildings nearer {}'s way ({theirs:.1}°, its own \
+                     {own:.1}°), by year: {}; {took}; T10→90 {t}",
+                    name(&l.sim, a),
+                    name(&l.sim, b),
+                    listed.join(", ")
+                )?;
+                said = true;
             }
+        }
+        if too_near > 0 {
+            writeln!(
+                out,
+                "roofs {life}: {too_near} pairs founded under {MIN_APART_DEG}° apart not judged"
+            )?;
         }
         if !said {
             writeln!(
@@ -256,7 +314,7 @@ pub fn run(
             )?;
         }
     }
-    let (with, without) = (trade_life.sim.people(), twin_life.sim.people());
+    let (with, without) = (with_trade.people(), the_twin.people());
     let mut outcome = TwinOutcome {
         trade: trade::pairs(&with.convergence, &with.contacts),
         twin: trade::pairs(&without.convergence, &without.contacts),
@@ -271,25 +329,35 @@ pub fn run(
         writeln!(
             out,
             "  {}–{}: {} ({why}); {} trades, {} trips, {:.0} hours walked",
-            name(p.a),
-            name(p.b),
+            name(with_trade, p.a),
+            name(with_trade, p.b),
             grade.word(),
             p.trades,
             p.trips,
             p.walk_h
         )?;
-        let twin = outcome.twin.iter().find(|q| (q.a, q.b) == (p.a, p.b));
+        // The twin's pair, if it is the same two places: both on record in the twin by the same
+        // names (a settlement founded in one life after they part is not in the other).
+        let same = |s: PermanentId| name(with_trade, s) == name(the_twin, s);
+        let twin = outcome
+            .twin
+            .iter()
+            .find(|q| (q.a, q.b) == (p.a, p.b) && same(p.a) && same(p.b));
         for g in &p.goods {
             let twin_gap = twin
                 .and_then(|q| q.goods.iter().find(|h| h.good == g.good))
                 .map_or_else(|| "-".to_owned(), |h| format!("{:.0}", h.gap));
             writeln!(
                 out,
-                "    {}: gap {:.0} (twin {twin_gap}), band {:.0}, before trade {}, {:.1} carried, \
-                 {} months{}",
+                "    {}: gap {:.0} (twin {twin_gap}), band {:.0}, realised {}, before trade {}, {:.1} \
+                 carried, {} months{}",
                 good(g.good),
                 g.gap,
                 g.band,
+                g.paid_gap.map_or_else(
+                    || "-".to_owned(),
+                    |x| format!("{x:.0} ({} months sold in both)", g.paid_months)
+                ),
                 g.before
                     .map_or_else(|| "-".to_owned(), |b| format!("{b:.0}")),
                 g.carried,
@@ -306,10 +374,7 @@ pub fn run(
     writeln!(out, "the row with trade: {}", row.word())?;
     // What crossed between the settlements each way, against the contact that could carry it
     // (M5b slice AR): red in either life is a leak, and fails the run.
-    for (life, sim) in [
-        ("with trade", &trade_life.sim),
-        ("the twin", &twin_life.sim),
-    ] {
+    for (life, sim) in [("with trade", with_trade), ("the twin", the_twin)] {
         for p in crate::crossings::pairs(sim) {
             let (g, why) = p.grade();
             let c = |w: &crate::crossings::Way| {
@@ -326,19 +391,19 @@ pub fn run(
             writeln!(
                 out,
                 "neighbours {life}, {}–{}: {} ({why}); to {}: {}; to {}: {}",
-                name(p.a),
-                name(p.b),
+                name(sim, p.a),
+                name(sim, p.b),
                 g.word(),
-                name(p.b),
+                name(sim, p.b),
                 c(&p.to_b),
-                name(p.a),
+                name(sim, p.a),
                 c(&p.to_a)
             )?;
             if g == Grade::Red {
                 outcome.failures.push(format!(
                     "neighbours {life}: {}–{} crossed without contact",
-                    name(p.a),
-                    name(p.b)
+                    name(sim, p.a),
+                    name(sim, p.b)
                 ));
             }
         }
@@ -456,12 +521,20 @@ fn roofs(sim: &Sim) -> Vec<Roofs> {
         .map(|s| {
             let clocks = pop.style_clocks(catalog, land, sim.now(), s.id);
             let mut after: BTreeMap<PermanentId, u32> = BTreeMap::new();
+            let mut pitches = Vec::new();
             for b in &land.buildings {
                 if !(b.finished() && b.state == civ_land::BuildingState::Standing)
                     || b.stage_since.minutes() < since
                     || pop.building_settlement(land, b) != Some(s.id)
                 {
                     continue;
+                }
+                if let Some(def) = catalog
+                    .building_index(&b.spec.program)
+                    .and_then(|i| catalog.buildings.get(i))
+                {
+                    let t = civ_agents::style::traits_of(&b.spec, def);
+                    pitches.push(f64::from(t.pitch_centideg) / 100.0);
                 }
                 let there = pop.crossing_of(land, b).and_then(|first| {
                     land.buildings
@@ -478,6 +551,7 @@ fn roofs(sim: &Sim) -> Vec<Roofs> {
                 way: clocks.way.map(|w| f64::from(w.pitch_centideg) / 100.0),
                 new: clocks.new.n,
                 pitch: clocks.new.mean[0] / 100.0,
+                pitches,
                 after,
             }
         })
@@ -487,6 +561,31 @@ fn roofs(sim: &Sim) -> Vec<Roofs> {
 /// Whether `a` has taken `b`'s way of roofing in a year (the M5 diffusion brief §3.4): the year's
 /// new buildings of `a` are pitched nearer `b`'s founding way than `a`'s own, at least one of them
 /// follows a building of `b`, and there was contact between them on record.
+/// Of a settlement's new buildings in a year, how many stand nearer `theirs` than `own` in pitch.
+fn nearer(r: &Roofs, own: f64, theirs: f64) -> usize {
+    r.pitches
+        .iter()
+        .filter(|&&p| (p - theirs).abs() < (p - own).abs())
+        .count()
+}
+
+/// From each year's (new buildings nearer the other's way, new buildings), the years (counted
+/// from one) in which the share first reached a tenth and then nine tenths, read off the record
+/// rather than fitted (the brief's T10→90, 07-02 §2.2), only in years of at least [`MIN_NEW`].
+fn ten_to_ninety(years: &[(usize, usize)]) -> (Option<usize>, Option<usize>) {
+    let share = |&(n, m): &(usize, usize)| (m >= MIN_NEW).then(|| n as f64 / m as f64);
+    let ten = years
+        .iter()
+        .position(|y| share(y).is_some_and(|s| s >= 0.1));
+    let ninety = ten.and_then(|t| {
+        years[t..]
+            .iter()
+            .position(|y| share(y).is_some_and(|s| s >= 0.9))
+            .map(|n| n + t)
+    });
+    (ten.map(|t| t + 1), ninety.map(|n| n + 1))
+}
+
 fn took_way(roofs: &[Roofs], a: PermanentId, b: PermanentId, contact: bool) -> bool {
     let (Some(ra), Some(rb)) = (
         roofs.iter().find(|r| r.settlement == a),
@@ -517,6 +616,7 @@ mod tests {
             way: Some(way),
             new,
             pitch,
+            pitches: vec![pitch; new],
             after: after.iter().map(|&(x, n)| (id(x), n)).collect(),
         }
     }
@@ -542,5 +642,18 @@ mod tests {
         assert!(!took_way(&own, id(2), id(1), true));
         let unlinked = [roofs(1, 48.0, 2, 48.0, &[]), roofs(2, 45.0, 3, 47.5, &[])];
         assert!(!took_way(&unlinked, id(2), id(1), true));
+    }
+
+    #[test]
+    fn the_share_nearer_the_other_s_way_is_read_off_the_years_with_enough_new_buildings() {
+        let mut r = roofs(2, 45.0, 0, 0.0, &[]);
+        r.pitches = vec![45.5, 46.6, 47.0, 48.0];
+        // Founded at 45° beside one at 48°: 46.5° is the midpoint, so three are nearer 48°.
+        assert_eq!(nearer(&r, 45.0, 48.0), 3);
+        // A tenth in the third year (the second has too few to read), nine tenths in the fifth.
+        let years = [(0, 4), (1, 1), (1, 5), (2, 2), (5, 5), (1, 6)];
+        assert_eq!(ten_to_ninety(&years), (Some(3), Some(5)));
+        assert_eq!(ten_to_ninety(&years[..4]), (Some(3), None));
+        assert_eq!(ten_to_ninety(&[(0, 3), (2, 2)]), (None, None));
     }
 }

@@ -32,6 +32,10 @@ const KIN_SEARCH_STEPS: usize = 4;
 /// How much farther from the hearth than the household it leaves a new household makes its home,
 /// metres (a tuning value; its hut is then sited on clear ground within reach of that point).
 const NEW_HOME_STEP_M: f64 = 20.0;
+/// The golden angle, radians: π(3 − √5). Households drawn together in a row of ids (a coalition, a
+/// wave of movers) are set this far apart about the hearth, so that however many there are, they
+/// spread evenly around it (Vogel's sunflower arrangement).
+const GOLDEN_ANGLE: f64 = 2.399_963_229_728_653;
 
 /// The share of their body's reserve a person has drawn now, 0–1.
 pub fn depleted(p: &Person, now: SimTime, params: &PeopleParams) -> f64 {
@@ -1697,10 +1701,13 @@ impl Population {
             return near;
         };
         let (dx, dy) = (near.0 - hearth.0, near.1 - hearth.1);
+        // Away from the hearth; a household that comes to the hearth itself, by its id, the golden
+        // angle on from the last (M5b slice AS: a degree an id set households that came together
+        // on one side of it, too close to find ground to build on).
         let angle = if dx.abs() + dy.abs() > 0.5 {
             f64::from(dy).atan2(f64::from(dx))
         } else {
-            (key.get() % 360) as f64 / 360.0 * std::f64::consts::TAU
+            (key.get() as f64 * GOLDEN_ANGLE).rem_euclid(std::f64::consts::TAU)
         };
         let wanted = (
             near.0 + (NEW_HOME_STEP_M * angle.cos()) as f32,

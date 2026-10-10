@@ -114,6 +114,10 @@ const ROUTE_CACHE_MAX: usize = 50_000;
 /// Farthest a household moves its home from where it stands to find clear ground to build on,
 /// metres (a tuning value).
 const HOME_SHIFT_M: f64 = 30.0;
+/// Farthest a household with no home looks for clear ground when none lies within
+/// [`HOME_SHIFT_M`], metres: one that came to a crowded hearth builds at the settlement's edge
+/// rather than never (M5b slice AS; a tuning value, a short walk, within its fields' reach).
+const FIRST_HOME_SHIFT_M: f64 = 120.0;
 /// Least food a household makes ready in one go, in days of its needs: below this it waits until
 /// it needs more (a tuning value).
 const MIN_BATCH_DAYS: f64 = 0.25;
@@ -1939,10 +1943,12 @@ impl Population {
         };
         let goods = &catalog.goods;
         let reach = self.homes.get(&field_key).map(|f| &f.reach);
-        // Where `choice` would stand, its door toward `toward`, if there is clear ground for it.
+        // Where `choice` would stand, its door toward `toward`, if there is clear ground for it
+        // within `max_m` of its home.
         let site = |(p, shape): (usize, build::Shape),
                     toward: Option<(f32, f32)>,
-                    firm: Option<PermanentId>| {
+                    firm: Option<PermanentId>,
+                    max_m: f64| {
             let program = &catalog.buildings[p];
             // Members as strong as what the settlement has seen of the technique calls for.
             let caution = self.caution(
@@ -1997,33 +2003,31 @@ impl Population {
                 }
             };
             let spec = build::home_site(
-                ctx.land,
-                ctx.map,
-                ctx.nav,
-                program,
-                &design_at,
-                hh.home,
-                hearth,
-                HOME_SHIFT_M,
-                &levelling,
+                ctx.land, ctx.map, ctx.nav, program, &design_at, hh.home, hearth, max_m, &levelling,
             )?;
             let stages = build::stage_needs(&spec, program)?;
             Some(NewHome { spec, stages, firm })
         };
-        // A first home before anything; then a store, while goods are lost for want of room, and
-        // a workshop for each firm that has more at work than its home has room for, before more
-        // floor. A home's door faces the hearth; a store's or a workshop's, its household's home.
+        // A first home before anything, farther afield if there is no clear ground near; then a
+        // store, while goods are lost for want of room, and a workshop for each firm that has more
+        // at work than its home has room for, before more floor. A home's door faces the hearth;
+        // a store's or a workshop's, its household's home.
         match home {
-            None => home_choice(None).and_then(|c| site(c, hearth, None)),
+            None => home_choice(None).and_then(|c| {
+                site(c, hearth, None, HOME_SHIFT_M)
+                    .or_else(|| site(c, hearth, None, FIRST_HOME_SHIFT_M))
+            }),
             Some(current) => self
                 .storehouse_plan(ctx, hh, labour_per_day, day)
-                .and_then(|c| site(c, Some(hh.home), None))
+                .and_then(|c| site(c, Some(hh.home), None, HOME_SHIFT_M))
                 .or_else(|| {
                     self.workshop_plans(ctx, hh, labour_per_day, day)
                         .into_iter()
-                        .find_map(|(c, firm)| site(c, Some(hh.home), Some(firm)))
+                        .find_map(|(c, firm)| site(c, Some(hh.home), Some(firm), HOME_SHIFT_M))
                 })
-                .or_else(|| home_choice(Some(current)).and_then(|c| site(c, hearth, None))),
+                .or_else(|| {
+                    home_choice(Some(current)).and_then(|c| site(c, hearth, None, HOME_SHIFT_M))
+                }),
         }
     }
 

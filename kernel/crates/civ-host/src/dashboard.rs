@@ -828,7 +828,15 @@ fn convergence(worlds: &[WorldRun]) -> Row {
             }
             let judged: Vec<String> = p
                 .judged()
-                .map(|x| format!("gap {:.0} against a band of {:.0}", x.gap, x.band))
+                .map(|x| {
+                    format!(
+                        "gap {:.0} against a band of {:.0}{}",
+                        x.gap,
+                        x.band,
+                        x.paid_gap
+                            .map_or_else(String::new, |p| format!(" (realised {p:.0})"))
+                    )
+                })
                 .collect();
             seen.push(format!(
                 "world {} {a}–{b}: {} ({why}; {} trades, {} trips, {:.0} hours walked{})",
@@ -1398,6 +1406,8 @@ mod tests {
                 months: 36,
                 gap,
                 before: None,
+                paid_gap: None,
+                paid_months: 0,
                 band,
                 carried: 12.0,
                 wrong_way,

@@ -42,6 +42,11 @@ pub struct GoodSeen {
     /// The same over the twelve months before the pair's first trade in it, if both offered it
     /// then.
     pub before: Option<f64>,
+    /// The median of 100 × |ln(what a unit fetched in the first ÷ in the second)| over the
+    /// window's months in which it sold in both, if any: realised prices beside the asks.
+    pub paid_gap: Option<f64>,
+    /// Months of the window in which it sold in both.
+    pub paid_months: usize,
     /// 100 × ln(1 + hours walked per unit carried between the pair ÷ its median ask), plus
     /// [`BAND_MARGIN`].
     pub band: f64,
@@ -177,8 +182,10 @@ pub fn pairs(conv: &Convergence, contacts: &Contacts) -> Vec<PairSeen> {
             }
         }
         let carry_h = if units > 0.0 { walk_h / units } else { 0.0 };
-        // Each good's asks, by month: (month, ask in `a`, ask in `b`).
+        // Each good's asks, by month: (month, ask in `a`, ask in `b`), and what it fetched in each
+        // in the months it sold in both.
         let mut asks: BTreeMap<u16, Vec<(u32, f64, f64)>> = BTreeMap::new();
+        let mut paid: BTreeMap<u16, Vec<(u32, f64, f64)>> = BTreeMap::new();
         for (&(month, x, y), list) in &conv.gaps {
             if (x, y) != (a, b) {
                 continue;
@@ -189,6 +196,13 @@ pub fn pairs(conv: &Convergence, contacts: &Contacts) -> Vec<PairSeen> {
                     f64::from(g.ask_h[0]),
                     f64::from(g.ask_h[1]),
                 ));
+                if g.paid_h.iter().all(|&p| p > 0.0) {
+                    paid.entry(g.good).or_default().push((
+                        month,
+                        f64::from(g.paid_h[0]),
+                        f64::from(g.paid_h[1]),
+                    ));
+                }
             }
         }
         let gap = |x: f64, y: f64| 100.0 * (x / y).ln().abs();
@@ -247,11 +261,20 @@ pub fn pairs(conv: &Convergence, contacts: &Contacts) -> Vec<PairSeen> {
                     dearer_to_cheaper && gap(ask_a, ask_b) > band
                 })
                 .count() as u32;
+            let mut paid_gaps: Vec<f64> = paid
+                .get(&good)
+                .into_iter()
+                .flatten()
+                .filter(|m| m.0 >= first && m.0 <= last)
+                .map(|m| gap(m.1, m.2))
+                .collect();
             goods.push(GoodSeen {
                 good,
                 months: window.len(),
                 gap: median(&mut gaps).unwrap_or(0.0),
                 before,
+                paid_months: paid_gaps.len(),
+                paid_gap: median(&mut paid_gaps),
                 band,
                 carried: carried.get(&good).copied().unwrap_or(0.0),
                 wrong_way,
@@ -351,6 +374,24 @@ mod tests {
         assert_eq!((g.months, g.carried, g.wrong_way), (36, 72.0, 0));
         assert_eq!((p.trades, p.trips), (40, 36));
         assert_eq!(p.grade().0, Grade::Green);
+        // Nothing sold in either: no realised gap. Sold in both in ten months, fetching 1.2
+        // hours in the first and 1 in the second, and in only the first in another.
+        assert_eq!((g.paid_gap, g.paid_months), (None, 0));
+        let (mut conv, contacts) = (conv, contacts);
+        for (&(m, _, _), list) in conv.gaps.iter_mut() {
+            if m < 10 {
+                list[0].paid_h = [1.2, 1.0];
+            } else if m == 10 {
+                list[0].paid_h = [1.2, -1.0];
+            }
+        }
+        let g = pairs(&conv, &contacts).remove(0).goods.remove(0);
+        assert_eq!(g.paid_months, 10);
+        assert!((g.paid_gap.expect("sold in both") - 100.0 * 1.2f64.ln()).abs() < 1e-3);
+        assert!(
+            (g.gap - 100.0 * 1.1f64.ln()).abs() < 1e-3,
+            "the asks' gap is the asks'"
+        );
     }
 
     #[test]

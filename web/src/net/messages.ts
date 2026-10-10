@@ -299,6 +299,10 @@ export interface SettlementBrief {
   /** Wire 1.53 (M5a slice AO): households of it gathered to found a settlement, still gathering
    * or ended in the past year, each in the kernel's words. */
   coalitions: string[];
+  /** Wire 1.56 (M5b slice AR): its way of building on the three clocks (how it was founded to
+   * build, its households' taste now, the year's new buildings and its standing ones), in the
+   * kernel's words; empty with nothing to say. */
+  style: string;
 }
 
 export interface Snapshot {
@@ -341,6 +345,9 @@ export interface Snapshot {
   earthworksRev: number;
   /** Wire 1.24: changes each day lived (0 = no world). Fetch the weather with GetWeather. */
   weatherRev: number;
+  /** Wire 1.60: changes whenever a crossing is begun, worked on, opens, rots or gives way (0 =
+   * none). Fetch the crossings with GetCrossings. */
+  crossingsRev: number;
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -750,6 +757,18 @@ export interface PersonInfo {
   /** Wire 1.50 (ADR-0018 §4): the other settlements their household knows, and how, in the
    * kernel's words ("Ashford: told of it by Wren in spring of year 2"). */
   places: string[];
+  /** Wire 1.54 (M5b slice AP, ADR-0019 §1): what their household believes other settlements'
+   * sellers offer, a line a seller and good, in the kernel's words ("At Elmhollow, Bran's
+   * household: a sickle for 2.3 kg of grain, 8.5 sickles to be had; seen 3 days ago"). */
+  reports: string[];
+  /** Wire 1.55 (M5b slice AQ, ADR-0019 §6): the errand their household means to run, in the
+   * kernel's words ("Their household means to fetch 3.6 sickles from Bran's household at
+   * Elmhollow to sell at home; planned 2 days ago"); empty when it means none. */
+  errand: string;
+  /** Wire 1.56 (M5b slice AR): the buildings of other settlements they have seen since their
+   * household's last taste review, in the kernel's words ("At Westford: Cal's hut"); empty when
+   * none. */
+  seenAway: string;
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -1038,6 +1057,39 @@ export interface PolityLine {
   revolts: string[];
   /** Wire 1.45 (M4c slice AI, step three): its coups, newest first, in the kernel's words. */
   coups: string[];
+  /**
+   * Wire 1.57 (M5c slice AT, ADR-0020 §1): how it stands toward each other lived-in polity, from
+   * its own people's side, worked out afterwards and read by nothing in the world.
+   */
+  relations: RelationLine[];
+}
+
+/** One polity's standing toward another (wire 1.57): a label and the reasons, in the kernel's words. */
+export interface RelationLine {
+  polity: number;
+  name: string;
+  /** "unknown", "known", "under agreement", "tributary", "friendly" or "wary". */
+  label: string;
+  why: string[];
+  /** Wire 1.58 (M5c slice AU, ADR-0020 §6): the agreements between the two, newest first. */
+  agreements: AgreementLine[];
+}
+
+/**
+ * One agreement between two polities (wire 1.58), in the kernel's words: its terms, where it
+ * stands, and each side's law history, this polity's first.
+ */
+export interface AgreementLine {
+  id: number;
+  terms: string;
+  state: string;
+  ours: string;
+  theirs: string;
+  /**
+   * Wire 1.59 (M5c slice AV): each payment it owed, oldest first ("400 kg of grain from
+   * Oakholt's store, owed from 3 May of year 12: 400 kg set aside, 398 kg arrived; met on ...").
+   */
+  payments: string[];
 }
 
 /** Every settlement's polity at `minute` (wire 1.27). */
@@ -1169,6 +1221,9 @@ export interface TradeInfo {
   text: string;
   /** The seller was a workshop (`seller` is its id). */
   sellerFirm: boolean;
+  /** Wire 1.54 (M5b slice AP): the buyer's settlement when it is not this market's own (0: one
+   * of its own). */
+  from: number;
 }
 
 /** A month of trade in one good: a line of the price history. */
@@ -1199,6 +1254,16 @@ export interface MarketInfo {
   recent: TradeInfo[];
   /** Oldest first. */
   history: MonthOfTrade[];
+  /** Wire 1.54 (M5b slice AP): what people of other settlements bought here last year and this
+   * year so far, in the kernel's words; empty when none did. */
+  outsiders: string;
+  /** Wire 1.55 (M5b slice AQ, ADR-0019 §7): trade with each other settlement, a line each, in the
+   * kernel's words ("With Elmhollow last month: a sickle 4.2 hours here and 3.1 there (30 points
+   * apart); people of here carried home 3.0 sickles from there in 4 trips"). */
+  between: string[];
+  /** Wire 1.55: who is on the road to buy here today, by settlement ("On the road to buy here
+   * today: 3 people of Oakholt, together"); empty when nobody is. */
+  onTheWay: string;
 }
 
 /** What a line of a workshop's books records (M3a slice J). */
@@ -1470,6 +1535,46 @@ export interface EarthworkInfo {
   deposit: number;
 }
 
+/** A crossing over water (wire 1.60, M5c slice AW; ADR-0004 §7, ADR-0009 §9). */
+export interface CrossingInfo {
+  id: number;
+  /** Its bridge system's name: "Log footbridge". */
+  system: string;
+  /** Its banks' centres, metres: where it is drawn from and to. */
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  /** Clear span, metres; its members side by side and their diameter, centimetres. */
+  spanM: number;
+  members: number;
+  diameterCm: number;
+  /** 0 being built, 1 open, 2 failed. */
+  state: number;
+  /** Labour it takes and done so far, hours. */
+  labourH: number;
+  workH: number;
+  /** Its members' quality (0 while being built) and the share of their section rot has taken. */
+  quality: number;
+  loss: number;
+  /** Its margin over one walker now (0 while being built or failed): below 1 it gives way under the
+   * next to step onto it. */
+  margin: number;
+  /** Who it belongs to: 0 a household, 1 a polity; and which. */
+  ownerKind: number;
+  owner: number;
+  /** In the kernel's words: "Ada's household's log footbridge, open since year 2: ...". */
+  words: string;
+  /** Its members' length, metres (the span and a bearing on either bank): drawn this long, centred
+   * between the banks. */
+  lengthM: number;
+}
+
+export interface CrossingsInfo {
+  rev: number;
+  crossings: CrossingInfo[];
+}
+
 export interface EarthworksInfo {
   rev: number;
   works: EarthworkInfo[];
@@ -1498,6 +1603,7 @@ export type ResponseBody =
   | { kind: "knowledge"; knowledge: KnowledgeInfo }
   | { kind: "deposits"; deposits: DepositsInfo }
   | { kind: "earthworks"; earthworks: EarthworksInfo }
+  | { kind: "crossings"; crossings: CrossingsInfo }
   | { kind: "weather"; weather: WeatherReport }
   | { kind: "standing"; standing: StandingInfo }
   | { kind: "government"; government: GovernmentInfo }
@@ -1781,6 +1887,12 @@ export function getEarthworks(): Uint8Array {
   return query(b, W.QueryBody.GetEarthworks, W.GetEarthworks.endGetEarthworks(b));
 }
 
+export function getCrossings(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetCrossings.startGetCrossings(b);
+  return query(b, W.QueryBody.GetCrossings, W.GetCrossings.endGetCrossings(b));
+}
+
 /** The observer lays down a deposit of `good` (a content id) at a point, metres (god tool). */
 export function placeDeposit(x: number, y: number, good: string, radiusM: number, exposed: boolean): Uint8Array {
   const b = new flatbuffers.Builder(64);
@@ -2034,6 +2146,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     depositsRev: Number(s.depositsRev()),
     earthworksRev: Number(s.earthworksRev()),
     weatherRev: Number(s.weatherRev()),
+    crossingsRev: Number(s.crossingsRev()),
   };
 }
 
@@ -2059,6 +2172,36 @@ function deposits(w: W.Deposits): DepositsInfo {
     });
   }
   return { rev: Number(w.rev()), deposits: list };
+}
+
+function crossings(w: W.Crossings): CrossingsInfo {
+  const list: CrossingInfo[] = [];
+  for (let i = 0; i < w.crossingsLength(); i++) {
+    const c = w.crossings(i);
+    if (!c) continue;
+    list.push({
+      id: Number(c.id()),
+      system: c.system() ?? "",
+      ax: c.ax(),
+      ay: c.ay(),
+      bx: c.bx(),
+      by: c.by(),
+      spanM: c.spanM(),
+      members: c.members(),
+      diameterCm: c.diameterCm(),
+      state: c.state(),
+      labourH: c.labourH(),
+      workH: c.workH(),
+      quality: c.quality(),
+      loss: c.loss(),
+      margin: c.margin(),
+      ownerKind: c.ownerKind(),
+      owner: Number(c.owner()),
+      words: c.words() ?? "",
+      lengthM: c.lengthM(),
+    });
+  }
+  return { rev: Number(w.rev()), crossings: list };
 }
 
 function earthworks(w: W.Earthworks): EarthworksInfo {
@@ -2138,6 +2281,7 @@ function settlementBriefs(s: W.Snapshot): SettlementBrief[] {
       abandonedMinute: Number(t.abandonedMinute()),
       contacts: t.contacts() ?? "",
       coalitions: Array.from({ length: t.coalitionsLength() }, (_, k) => t.coalitions(k) ?? ""),
+      style: t.style() ?? "",
     });
   }
   return out;
@@ -2614,6 +2758,7 @@ function marketInfo(m: W.MarketInfo): MarketInfo {
       sale: t.sale(),
       text: t.text() ?? "",
       sellerFirm: t.sellerFirm(),
+      from: Number(t.from()),
     });
   }
   const history: MonthOfTrade[] = [];
@@ -2640,6 +2785,9 @@ function marketInfo(m: W.MarketInfo): MarketInfo {
     offers,
     recent,
     history,
+    outsiders: m.outsiders() ?? "",
+    between: Array.from({ length: m.betweenLength() }, (_, k) => m.between(k) ?? ""),
+    onTheWay: m.onTheWay() ?? "",
   };
 }
 
@@ -3055,6 +3203,10 @@ function personInfo(p: W.PersonInfo): PersonInfo {
   for (let k = 0; k < p.placesLength(); k++) {
     places.push(p.places(k) ?? "");
   }
+  const reports: string[] = [];
+  for (let k = 0; k < p.reportsLength(); k++) {
+    reports.push(p.reports(k) ?? "");
+  }
   const f = p.faction();
   const faction: FactionLine | null = f
     ? {
@@ -3124,6 +3276,9 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     influences,
     residence,
     places,
+    reports,
+    errand: p.errand() ?? "",
+    seenAway: p.seenAway() ?? "",
   };
 }
 
@@ -3246,6 +3401,26 @@ function governmentInfo(w: W.Government): GovernmentInfo {
       refusals: Array.from({ length: p.refusalsLength() }, (_, k) => p.refusals(k) ?? ""),
       revolts: Array.from({ length: p.revoltsLength() }, (_, k) => p.revolts(k) ?? ""),
       coups: Array.from({ length: p.coupsLength() }, (_, k) => p.coups(k) ?? ""),
+      relations: Array.from({ length: p.relationsLength() }, (_, k) => {
+        const r = p.relations(k)!;
+        return {
+          polity: Number(r.polity()),
+          name: r.name() ?? "",
+          label: r.label() ?? "",
+          why: Array.from({ length: r.whyLength() }, (_, j) => r.why(j) ?? ""),
+          agreements: Array.from({ length: r.agreementsLength() }, (_, j) => {
+            const a = r.agreements(j)!;
+            return {
+              id: Number(a.id()),
+              terms: a.terms() ?? "",
+              state: a.state() ?? "",
+              ours: a.ours() ?? "",
+              theirs: a.theirs() ?? "",
+              payments: Array.from({ length: a.paymentsLength() }, (_, k) => a.payments(k) ?? ""),
+            };
+          }),
+        };
+      }),
     });
   }
   return { minute: Number(w.minute()), polities };
@@ -3419,6 +3594,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Earthworks()) as W.Earthworks | null;
       if (!f) break;
       return { kind: "earthworks", earthworks: earthworks(f) };
+    }
+    case W.ResponseBody.Crossings: {
+      const f = r.body(new W.Crossings()) as W.Crossings | null;
+      if (!f) break;
+      return { kind: "crossings", crossings: crossings(f) };
     }
     case W.ResponseBody.WeatherReport: {
       const f = r.body(new W.WeatherReport()) as W.WeatherReport | null;

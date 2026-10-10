@@ -54,7 +54,9 @@ pub const WORKABLE_DAYS: (usize, usize) = (15, 3);
 pub const MAX_GROWTH: f64 = 3.0;
 /// People a band must keep to count as still living where it settled, in the long run.
 pub const MIN_ALIVE: usize = 10;
-/// Share of the households, from the second year on, that must live under a roof.
+/// Share of the households, from the second year on, that must live under a roof: of those that
+/// began before the year did. One that moved, went to found a settlement or formed in the year has
+/// that year to build (M5b slice AS: a splinter founded or emptied in a year is not yet a fault).
 pub const MIN_ROOFED: f64 = 0.8;
 /// Least share of the living old enough for a technique every founder brings and children learn
 /// in upbringing who know it, at each year's end (ADR-0008 §4).
@@ -350,6 +352,11 @@ pub struct LongRun {
     pub lived_building_months: u64,
     /// When the year being lived began: each settlement's accounts are checked from here.
     year_from: civ_core::SimTime,
+    /// The next permanent id when the run began, and as each of the last twelve months began: a
+    /// household whose id is no smaller than the oldest began within the year (a move, a founding
+    /// or a new couple draws a new household).
+    ids_at_begin: u64,
+    ids_by_month: std::collections::VecDeque<u64>,
     /// Where a settlement's accounts did not balance, or disagreed with who lives there, by year
     /// (ADR-0018 §3's hard check).
     pub accounting: Vec<String>,
@@ -384,6 +391,8 @@ impl LongRun {
             economy: Economy::default(),
             lived_building_months: 0,
             year_from: sim.now(),
+            ids_at_begin: sim.ids().peek_next(),
+            ids_by_month: std::collections::VecDeque::new(),
             accounting: Vec::new(),
             moves: Moves::default(),
         }
@@ -441,6 +450,10 @@ impl LongRun {
                 return Ok(());
             }
             self.economy.sample(sim);
+            self.ids_by_month.push_back(sim.ids().peek_next());
+            if self.ids_by_month.len() > 12 {
+                self.ids_by_month.pop_front();
+            }
             let people = sim.people();
             self.lived_building_months += sim
                 .land()
@@ -458,9 +471,10 @@ impl LongRun {
     }
 
     /// The checks at the end of year `y` that fail a world: nobody stuck, no population or land
-    /// problems, every good accounted for, households under a roof from the second year, the
-    /// techniques every founder brings known, a first trail in the first year, and the economy's
-    /// claims, fields and wealth measures in order. Growth is the caller's to judge.
+    /// problems, every good accounted for, households under a roof from the second year (those
+    /// begun before the year, [`MIN_ROOFED`]), the techniques every founder brings known, a first
+    /// trail in the first year, and the economy's claims, fields and wealth measures in order.
+    /// Growth is the caller's to judge.
     pub fn year_end(&mut self, sim: &Sim, y: u32) -> Vec<String> {
         let mut failures = self.economy.year_end(sim, y);
         failures.extend(self.check_accounts(sim, y));
@@ -509,11 +523,15 @@ impl LongRun {
                 goods[g].name
             ));
         }
+        let year_ago = match self.ids_by_month.front() {
+            Some(&ids) if self.ids_by_month.len() == 12 => ids,
+            _ => self.ids_at_begin,
+        };
         let households: Vec<_> = sim
             .people()
             .households
             .iter()
-            .filter(|(_, h)| !h.members.is_empty())
+            .filter(|(_, h)| !h.members.is_empty() && h.id.get() < year_ago)
             .map(|(_, h)| h.id)
             .collect();
         // Under a roof of their own home: a store or a workshop is no home.

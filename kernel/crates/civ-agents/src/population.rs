@@ -41,6 +41,7 @@ use crate::person::{
 
 mod cases;
 mod crime;
+mod crossings;
 mod deposits;
 mod digging;
 mod faction;
@@ -57,9 +58,13 @@ mod market;
 mod moving;
 mod norm;
 mod opinion;
+mod payments;
+pub use payments::Burden;
 mod places;
 mod polity;
+mod relations;
 mod residence;
+mod terms;
 mod values;
 mod watch;
 mod word;
@@ -114,6 +119,10 @@ const ROUTE_CACHE_MAX: usize = 50_000;
 /// Farthest a household moves its home from where it stands to find clear ground to build on,
 /// metres (a tuning value).
 const HOME_SHIFT_M: f64 = 30.0;
+/// Farthest a household with no home looks for clear ground when none lies within
+/// [`HOME_SHIFT_M`], metres: one that came to a crowded hearth builds at the settlement's edge
+/// rather than never (M5b slice AS; a tuning value, a short walk, within its fields' reach).
+const FIRST_HOME_SHIFT_M: f64 = 120.0;
 /// Least food a household makes ready in one go, in days of its needs: below this it waits until
 /// it needs more (a tuning value).
 const MIN_BATCH_DAYS: f64 = 0.25;
@@ -225,8 +234,8 @@ struct Places {
 struct HomeField {
     cell: usize,
     day: i64,
-    /// The paths survey it was walked out on ([`civ_land::Wear::rev`]).
-    rev: u32,
+    /// The paths survey and crossings it was walked out on ([`civ_land::Land::route_revision`]).
+    rev: u64,
     water: Option<(u32, f32)>,
     /// Per kind of place (the index in `Population::places`), blocks by walking time to their
     /// cell, seconds.
@@ -248,6 +257,7 @@ struct HomeField {
 #[derive(Debug, Default)]
 struct HouseholdView {
     trade: Option<Option<decide::TradeOption>>,
+    fetch: Option<Option<decide::TradeOption>>,
     giver: Option<Option<GiverOption>>,
     job: Option<Option<decide::JobOption>>,
     take: Option<Option<crime::TakeTarget>>,
@@ -260,6 +270,7 @@ struct HouseholdView {
 /// A [`HouseholdView`] during one decision, filled as its options are first needed.
 struct ViewCells {
     trade: OnceCell<Option<decide::TradeOption>>,
+    fetch: OnceCell<Option<decide::TradeOption>>,
     giver: OnceCell<Option<GiverOption>>,
     job: OnceCell<Option<decide::JobOption>>,
     take: OnceCell<Option<crime::TakeTarget>>,
@@ -286,6 +297,7 @@ impl HouseholdView {
         };
         ViewCells {
             trade: cell(self.trade),
+            fetch: cell(self.fetch),
             giver: cell(self.giver),
             job: cell(self.job),
             take: cell(self.take),
@@ -300,6 +312,7 @@ impl ViewCells {
     fn kept(self) -> HouseholdView {
         HouseholdView {
             trade: self.trade.into_inner(),
+            fetch: self.fetch.into_inner(),
             giver: self.giver.into_inner(),
             job: self.job.into_inner(),
             take: self.take.into_inner(),
@@ -357,8 +370,9 @@ pub struct Population {
     routes: FastMap<(u32, u32), Option<CachedRoute>>,
     /// The generation of routes before `routes`; one walked again moves back into `routes`.
     routes_old: FastMap<(u32, u32), Option<CachedRoute>>,
-    /// The paths survey the routes were planned on ([`civ_land::Wear::rev`]).
-    routes_rev: u32,
+    /// The paths survey and crossings the routes were planned on
+    /// ([`civ_land::Land::route_revision`]).
+    routes_rev: u64,
     /// Lower bounds for route searches on the paths as surveyed ([`NavGrid::landmarks`]),
     /// built at the first search after a survey once people have walked anywhere. Derived.
     landmarks: Option<Option<std::sync::Arc<civ_world::nav::Landmarks>>>,
@@ -463,6 +477,33 @@ pub struct Population {
     pub review_due: BTreeSet<PermanentId>,
     /// Every coalition gathered to found a settlement, in the order gathered (M5a slice AO).
     pub coalitions: Vec<crate::places::Coalition>,
+    /// What each household believes other settlements' sellers offer (M5b slice AP, ADR-0019
+    /// §1).
+    pub reports: crate::reports::PriceReports,
+    /// Monthly, per pair of settlements, the asks of goods offered in both and what each
+    /// carried home from the other (M5b slice AQ, ADR-0019 §7).
+    pub convergence: crate::convergence::Convergence,
+    /// The demo's twin harness (ADR-0019 §8): purchases between settlements are stopped. Set in
+    /// memory by a host command or a test, never by content or a save.
+    pub stop_trade_between: bool,
+    /// The buildings of other settlements each person has seen, newest first, until their
+    /// household's next taste review (M5b slice AR).
+    pub seen_away: BTreeMap<PermanentId, Vec<PermanentId>>,
+    /// Each settlement's way of building when it was founded (M5b slice AR; the first of the
+    /// three clocks, research 11-02 §4): a founding band's drawn way, else the mean taste of the
+    /// households that founded it.
+    pub founding_ways: BTreeMap<PermanentId, crate::params::Taste>,
+    /// The places each household's people work, and the outsiders they saw there (M5c slice AT,
+    /// ADR-0020 §5).
+    pub uses: crate::uses::Uses,
+    /// What people believe of other polities they have heard of (M5c slice AT, ADR-0020 §3).
+    pub polity_views: crate::views::Views,
+    /// The claims of other polities each household has heard of (M5c slice AU, ADR-0020 §2).
+    pub claims_heard: crate::uses::ClaimsHeard,
+    /// Agreements between polities, in the order made (M5c slice AU, ADR-0020 §6).
+    pub agreements: crate::agreements::Agreements,
+    /// The river cells each household's people wade (M5c slice AW, step two).
+    pub fords: crate::fords::Fords,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -999,6 +1040,10 @@ impl Population {
         for p in &self.polities {
             all.absorb(&p.flows);
         }
+        // And what payments agreements owe hold, set aside and on the road (M5c slice AV).
+        for d in &self.agreements.dues {
+            all.absorb(&d.flows);
+        }
         all
     }
 
@@ -1011,7 +1056,8 @@ impl Population {
             .iter()
             .map(|(_, h)| &h.stores)
             .chain(self.firms.iter().map(|f| &f.stores))
-            .chain(self.polities.iter().map(|p| &p.stores));
+            .chain(self.polities.iter().map(|p| &p.stores))
+            .chain(self.agreements.dues.iter().map(|d| &d.stores));
         for s in stores {
             if out.len() < s.len() {
                 out.resize(s.len(), 0.0);
@@ -1090,6 +1136,31 @@ impl Population {
         let mut out = self
             .known_places
             .problems(|h| self.household(h).map(|x| x.settlement), |_| true);
+        out.extend(
+            self.reports
+                .problems(|h| self.household(h).map(|x| x.settlement)),
+        );
+        out.extend(self.convergence.problems());
+        out.extend(self.uses.problems());
+        out.extend(self.polity_views.problems());
+        out.extend(self.claims_heard.problems());
+        out.extend(self.fords.problems());
+        out.extend(self.agreements.problems());
+        for (&p, seen) in &self.seen_away {
+            if self.person(p).is_none() {
+                out.push(format!(
+                    "person {p} keeps buildings seen elsewhere but is no more"
+                ));
+            }
+            let mut ids = seen.clone();
+            ids.sort_unstable();
+            ids.dedup();
+            if seen.is_empty() || ids.len() != seen.len() {
+                out.push(format!(
+                    "person {p} keeps an empty or repeated list of buildings seen"
+                ));
+            }
+        }
         for &(year, from, to) in self.contacts.years.keys() {
             if from == to || year < 0 {
                 out.push(format!(
@@ -1356,6 +1427,16 @@ impl Population {
         }
     }
 
+    /// Sends `id` walking to `to` at once, as a step of their activity would (tests): `false`
+    /// when they cannot set off.
+    #[doc(hidden)]
+    pub fn walk_for_tests(&mut self, ctx: &mut Ctx, id: PermanentId, to: (f32, f32)) -> bool {
+        let Some(&h) = self.index.get(&id) else {
+            return false;
+        };
+        self.start_walk(ctx, h, to)
+    }
+
     /// Drops a person's activity so they decide again when an event of the returned version
     /// fires (used when a loaded world's content no longer has their activity). The caller
     /// schedules that event.
@@ -1479,7 +1560,7 @@ impl Population {
     fn home_field(&mut self, ctx: &Ctx, key: PermanentId, origin: (f32, f32)) {
         let cell = cell_of(ctx.map, origin);
         let day = ctx.now.day_index();
-        let rev = ctx.land.wear.rev();
+        let rev = ctx.land.route_revision();
         if let Some(f) = self.homes.get(&key)
             && f.cell == cell
             && f.rev == rev
@@ -1899,10 +1980,12 @@ impl Population {
         };
         let goods = &catalog.goods;
         let reach = self.homes.get(&field_key).map(|f| &f.reach);
-        // Where `choice` would stand, its door toward `toward`, if there is clear ground for it.
+        // Where `choice` would stand, its door toward `toward`, if there is clear ground for it
+        // within `max_m` of its home.
         let site = |(p, shape): (usize, build::Shape),
                     toward: Option<(f32, f32)>,
-                    firm: Option<PermanentId>| {
+                    firm: Option<PermanentId>,
+                    max_m: f64| {
             let program = &catalog.buildings[p];
             // Members as strong as what the settlement has seen of the technique calls for.
             let caution = self.caution(
@@ -1957,33 +2040,31 @@ impl Population {
                 }
             };
             let spec = build::home_site(
-                ctx.land,
-                ctx.map,
-                ctx.nav,
-                program,
-                &design_at,
-                hh.home,
-                hearth,
-                HOME_SHIFT_M,
-                &levelling,
+                ctx.land, ctx.map, ctx.nav, program, &design_at, hh.home, hearth, max_m, &levelling,
             )?;
             let stages = build::stage_needs(&spec, program)?;
             Some(NewHome { spec, stages, firm })
         };
-        // A first home before anything; then a store, while goods are lost for want of room, and
-        // a workshop for each firm that has more at work than its home has room for, before more
-        // floor. A home's door faces the hearth; a store's or a workshop's, its household's home.
+        // A first home before anything, farther afield if there is no clear ground near; then a
+        // store, while goods are lost for want of room, and a workshop for each firm that has more
+        // at work than its home has room for, before more floor. A home's door faces the hearth;
+        // a store's or a workshop's, its household's home.
         match home {
-            None => home_choice(None).and_then(|c| site(c, hearth, None)),
+            None => home_choice(None).and_then(|c| {
+                site(c, hearth, None, HOME_SHIFT_M)
+                    .or_else(|| site(c, hearth, None, FIRST_HOME_SHIFT_M))
+            }),
             Some(current) => self
                 .storehouse_plan(ctx, hh, labour_per_day, day)
-                .and_then(|c| site(c, Some(hh.home), None))
+                .and_then(|c| site(c, Some(hh.home), None, HOME_SHIFT_M))
                 .or_else(|| {
                     self.workshop_plans(ctx, hh, labour_per_day, day)
                         .into_iter()
-                        .find_map(|(c, firm)| site(c, Some(hh.home), Some(firm)))
+                        .find_map(|(c, firm)| site(c, Some(hh.home), Some(firm), HOME_SHIFT_M))
                 })
-                .or_else(|| home_choice(Some(current)).and_then(|c| site(c, hearth, None))),
+                .or_else(|| {
+                    home_choice(Some(current)).and_then(|c| site(c, hearth, None, HOME_SHIFT_M))
+                }),
         }
     }
 
@@ -2519,6 +2600,8 @@ impl Population {
             gathering: self.gathering_facts(ctx, p.id, age, &hh, minute, evening_start),
             petition: self.petition_facts(ctx, p.id, age, &hh, minute, evening_start),
             watch: self.watch_facts(ctx, p.id, &hh, dark),
+            carry: self.carry_facts(ctx, p.id, field_key, dark),
+            crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),
             hurt: self
                 .order
                 .hurt_until(p.id)
@@ -2745,6 +2828,28 @@ impl Population {
         // nearest it knows, to be weighed and found not needed.
         let toward = hearth.unwrap_or(hh.home);
         let toward = (f64::from(toward.0), f64::from(toward.1));
+        // A place the household has heard another polity's law claims is worth the content's
+        // share of what it would yield to it (M5c slice AU, ADR-0020 §5: outsiders use a claimed
+        // place by leave); it may still go there when nothing else is as good. One its own
+        // polity claims too it holds as its own, and so one an agreement in force gives its people
+        // leave to use, when one of them knows their own polity's law deciding it.
+        let own = hh.settlement.and_then(|s| self.polity_of(s));
+        let own_polity = own.map(|i| self.polities[i].id);
+        let claimed_worth = ctx.params.relations.claimed_worth;
+        let worth = |place: crate::uses::Place| {
+            let leave = |from: PermanentId| {
+                own.is_some_and(|i| self.leave_known(from, self.polities[i].id, i, &hh.members))
+            };
+            let theirs = self
+                .claims_heard
+                .claimed_without_leave(hh.id, place, own_polity, leave)
+                .is_some();
+            if theirs && !own.is_some_and(|i| self.polities[i].claim_on(place).is_some()) {
+                claimed_worth
+            } else {
+                1.0
+            }
+        };
         let dig = |def: usize| -> Option<PatchOption> {
             {
                 let a = catalog.activities.get(def)?;
@@ -2784,7 +2889,8 @@ impl Population {
                     if walk > f64::from(a.max_walk_minutes) || kg_per_hour <= 0.0 {
                         continue;
                     }
-                    let value = kg_per_hour * hours / (hours + 2.0 * walk / 60.0);
+                    let value = kg_per_hour * hours / (hours + 2.0 * walk / 60.0)
+                        * worth(crate::uses::Place::Deposit(d.id));
                     if best.is_none_or(|(v, _)| value > v) {
                         best = Some((
                             value,
@@ -2883,7 +2989,8 @@ impl Population {
                     continue;
                 }
                 let kg_per_hour = rate * res.unit_kg;
-                let value = kg_per_hour * hours / (hours + 2.0 * walk / 60.0);
+                let value = kg_per_hour * hours / (hours + 2.0 * walk / 60.0)
+                    * worth(crate::uses::Place::Patch(patch));
                 if best.is_none_or(|(bv, _)| value > bv) {
                     best = Some((
                         value,
@@ -2954,6 +3061,36 @@ impl Population {
             *hh_view
                 .trade
                 .get_or_init(|| self.best_purchase(ctx, &hh, &stores, reach))
+        };
+        // One in another settlement, by a report (M5b slice AP, ADR-0019 §2). One of a household
+        // goes at a time: what another is on the way to buy is not home yet, and two would walk
+        // for the same thing.
+        let fetch = || {
+            let another = hh
+                .members
+                .iter()
+                .filter(|&&m| Some(m) != me)
+                .filter_map(|&m| self.person(m))
+                .any(|q| {
+                    catalog
+                        .activities
+                        .get(q.act.def as usize)
+                        .is_some_and(|a| a.behavior == Behavior::Fetch)
+                });
+            if self.stop_trade_between {
+                return Err(Reason::Stopped);
+            }
+            if another {
+                return Err(Reason::AnotherGoes);
+            }
+            // For its own need first; else an errand, to sell at home (M5b slice AQ).
+            hh_view
+                .fetch
+                .get_or_init(|| {
+                    self.best_fetch(ctx, &hh, &stores, reach)
+                        .or_else(|| self.errand_trip(ctx, &hh, reach))
+                })
+                .ok_or(Reason::NoReport)
         };
         // Paid work at a workshop of another household (slice J).
         let session_min = catalog
@@ -3269,6 +3406,7 @@ impl Population {
             water,
             &giver,
             &trade,
+            &fetch,
             &job,
             build,
             &shop,
@@ -3383,7 +3521,11 @@ impl Population {
             .is_some_and(|a| {
                 matches!(
                     a.behavior,
-                    Behavior::Trade | Behavior::Ask | Behavior::Hire | Behavior::Take
+                    Behavior::Trade
+                        | Behavior::Fetch
+                        | Behavior::Ask
+                        | Behavior::Hire
+                        | Behavior::Take
                 )
             });
         if claims {
@@ -3557,6 +3699,18 @@ impl Population {
         {
             self.start_round(ctx, who);
         }
+        // Someone who sets off to work on a crossing is one of its crew that day, counted as
+        // they choose it, so that those choosing after them see the room taken (M5c slice AW;
+        // research 11-11 §1.3: progress is limited by the usable work front).
+        if let Target::Crossing(c) = target
+            && let Some(x) = ctx.land.crossings.list.iter_mut().find(|x| x.id == c)
+        {
+            let day = now.day_index();
+            if x.crew.0 != day {
+                x.crew = (day, 0);
+            }
+            x.crew.1 = x.crew.1.saturating_add(1);
+        }
         self.run_steps(ctx, h, depth + 1);
     }
 
@@ -3636,11 +3790,12 @@ impl Population {
         let to_cell = cell_of(ctx.map, to);
         let speed = interpolate(&params.walk_speed_by_age, p.age_years(now)).max(0.05);
         let wear = &ctx.land.wear;
-        if wear.rev() != self.routes_rev {
+        let revision = ctx.land.route_revision();
+        if revision != self.routes_rev {
             self.routes.clear();
             self.routes_old.clear();
             self.landmarks = None;
-            self.routes_rev = wear.rev();
+            self.routes_rev = revision;
         }
         let (points, minutes): (Vec<(f32, f32)>, Vec<f32>) = if from_cell == to_cell {
             let d = ((to.0 - p.pos.0).powi(2) + (to.1 - p.pos.1).powi(2)).sqrt();
@@ -3715,6 +3870,24 @@ impl Population {
             (pts, mins)
         };
         let duration = minutes.last().copied().unwrap_or(0.0).ceil().max(1.0);
+        // A crossing on the way is stepped onto, and one that gives way under them stops the
+        // walk; the streams it wades are their household's to remember (M5c slice AW).
+        let (who, household) = (p.id, p.household);
+        let nav = ctx.nav;
+        let along = civ_land::paths::cells_along_by(
+            &points,
+            ctx.map.cell_size_m,
+            ctx.map.width,
+            ctx.map.height,
+            |a, b| crossings::better_corner(nav, a, b),
+        );
+        if !ctx.land.crossings.list.is_empty() && !self.step_on(ctx, who, &along) {
+            return false;
+        }
+        self.wade(ctx, household, &along);
+        let Some(p) = self.people.get_mut(h) else {
+            return false;
+        };
         // What the walk passes within sight of (ADR-0018 §4).
         let seen = (ctx.land.settlements.len() > 1).then(|| (p.household, points.clone()));
         self.next_trip += 1;
@@ -3825,10 +3998,13 @@ impl Population {
                 | Behavior::Farm
                 | Behavior::Ask
                 | Behavior::Trade
+                | Behavior::Fetch
                 | Behavior::Hire
                 | Behavior::Build
                 | Behavior::Take
-                | Behavior::Watch,
+                | Behavior::Watch
+                | Behavior::Carry
+                | Behavior::Bridge,
             ) => (def_par, false, 0.0),
             None => (params.energy.idle_par, false, 0.0),
         };
@@ -3906,9 +4082,16 @@ impl Population {
                         }
                         p.carrying.good = Some(res.good as u16);
                         p.carrying.kg = (kept * res.unit_kg) as f32;
-                        let hh_id = p.household;
+                        let (hh_id, kcal) = (p.household, kept * res.unit_kg);
                         let seen = (r as u16, patch, got, hours, now.day_index());
                         self.remember_patch(hh_id, seen, res.renewal_days());
+                        // Who worked this place today (M5c slice AT): food got, kcal.
+                        let kcal = ctx
+                            .catalog
+                            .goods
+                            .get(res.good)
+                            .map_or(0.0, |g| kcal * g.kcal_per_kg);
+                        self.log_work(crate::uses::Place::Patch(patch), hh_id, who, now, kcal);
                     }
                 }
                 // Digging at a deposit's pit (M3b slice Q, ADR-0010 §2).
@@ -3933,6 +4116,8 @@ impl Population {
                             p.carrying.good = Some(good as u16);
                             p.carrying.kg = kg as f32;
                         }
+                        let place = crate::uses::Place::Deposit(deposit);
+                        self.log_work(place, household, who, now, 0.0);
                     }
                 }
                 Some(Behavior::FetchWater) => {
@@ -3963,7 +4148,15 @@ impl Population {
                     let who = p.id;
                     self.stood_watch(who, minutes);
                 }
-                Some(Behavior::Trade) => {
+                Some(Behavior::Carry) => {
+                    // Handed over at the other hearth; at the store, taking it up moves nothing
+                    // (M5c slice AV).
+                    if let Target::Hearth(s) = p.act.target {
+                        let (who, pos) = (p.id, p.pos);
+                        self.hand_over(ctx, who, s, pos);
+                    }
+                }
+                Some(Behavior::Trade | Behavior::Fetch) => {
                     if let Target::Household(seller) | Target::Firm(seller) = p.act.target {
                         let (who, household) = (p.id, p.household);
                         self.settle_trade(ctx, household, seller, who);
@@ -3976,6 +4169,15 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.build_work(ctx, (h, who), household, building, hours);
+                    }
+                }
+                Some(Behavior::Bridge) => {
+                    if let Target::Crossing(crossing) = p.act.target {
+                        let rate = def.as_ref().map_or(1.0, |d| d.rate);
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let (who, household) = (p.id, p.household);
+                        self.crossing_work(ctx, (h, who), household, crossing, hours);
                     }
                 }
                 Some(Behavior::Hire) => {
@@ -4018,7 +4220,11 @@ impl Population {
                 Behavior::Farm | Behavior::Build | Behavior::Make | Behavior::Try => {
                     self.changed(household);
                 }
-                Behavior::Ask | Behavior::Trade | Behavior::Hire | Behavior::Take => {
+                Behavior::Ask
+                | Behavior::Trade
+                | Behavior::Fetch
+                | Behavior::Hire
+                | Behavior::Take => {
                     self.views.clear();
                 }
                 _ => {}
@@ -4126,6 +4332,29 @@ impl Population {
             let next = s.practised(p.skill(k), hours);
             p.set_skill(k, next);
         }
+    }
+
+    /// `person` of `household` worked `place` now and got `kcal` of food there: logged for the
+    /// day's end, when who else worked it that day is known (M5c slice AT, ADR-0020 §5).
+    fn log_work(
+        &mut self,
+        place: crate::uses::Place,
+        household: PermanentId,
+        person: PermanentId,
+        now: SimTime,
+        kcal: f64,
+    ) {
+        let Some(settlement) = self.household(household).and_then(|x| x.settlement) else {
+            return;
+        };
+        self.uses.worked(crate::uses::Worked {
+            place,
+            day: now.day_index(),
+            household,
+            settlement,
+            kcal: kcal as f32,
+            person: Some(person),
+        });
     }
 
     /// Records what a trip found at a place: `(resource, place, units, hours, day)`. Households of a
@@ -5109,6 +5338,16 @@ impl Population {
             }
         }
         self.check_buildings(ctx);
+        // And the crossings over water (M5c slice AW): rot and failure, then the households
+        // whose day it is weigh building one where their people wade.
+        if !ctx.land.crossings.list.is_empty() {
+            self.crossings_day(ctx);
+        }
+        if !self.fords.households.is_empty() {
+            self.crossing_reviews(ctx, day);
+        }
+        // A month ended: its asks and prices per pair of settlements are recorded (M5b slice AQ).
+        self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.
         self.review_offers(ctx, day);
         // A workshop whose firm closed goes to another firm of its household that has none.

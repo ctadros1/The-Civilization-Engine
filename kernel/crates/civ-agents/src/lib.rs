@@ -25,15 +25,19 @@
 
 #![forbid(unsafe_code)]
 
+pub mod agreements;
+pub mod bridge;
 pub mod build;
 pub mod caution;
 pub mod condition;
+pub mod convergence;
 pub mod crime;
 pub mod decide;
 pub mod demography;
 pub mod faction;
 pub mod farm;
 pub mod firm;
+pub mod fords;
 pub mod found;
 pub mod history;
 pub mod ideology;
@@ -50,12 +54,15 @@ pub mod person;
 pub mod places;
 pub mod polity;
 pub mod population;
+pub mod reports;
 pub mod standing;
 pub mod structure;
 pub mod style;
 pub mod ties;
+pub mod uses;
 pub mod value;
 pub mod values;
+pub mod views;
 pub mod wealth;
 pub mod word;
 
@@ -64,8 +71,8 @@ pub use found::{
     found_bands, send_agitator, send_wave, spawn_families, spawn_family,
 };
 pub use history::{
-    Cause, ChronicleEvent, ChronicleKind, CoalitionStep, Moved, Origin, PersonRecord, Reason,
-    Receipt, ResidenceWhy, Scored, Span, Stay, Term, Union,
+    AgreementStep, Cause, ChronicleEvent, ChronicleKind, CoalitionStep, CrossingStep, Moved,
+    Origin, PersonRecord, Reason, Receipt, ResidenceWhy, Scored, Span, Stay, Term, Union,
 };
 pub use ledger::Channel;
 pub use needs::Sex;

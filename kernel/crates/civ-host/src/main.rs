@@ -58,6 +58,21 @@ enum Command {
     /// The M5a demo: founding groups that know of one another live thirty years, a migration
     /// wave comes among them, and the moves, accounts, wave and coalitions are reported.
     Neighbours(NeighboursArgs),
+    /// The M5b demo's harness: a save lived twice, as it is and with purchases between
+    /// settlements stopped, and each pair's price convergence judged with the twin's beside it.
+    Twin(TwinArgs),
+}
+
+#[derive(Args, Clone)]
+struct TwinArgs {
+    #[command(flatten)]
+    folders: Folders,
+    /// The save both lives start from.
+    #[arg(long)]
+    load: PathBuf,
+    /// Years to live.
+    #[arg(long, default_value_t = civ_host::twin::YEARS)]
+    years: u32,
 }
 
 #[derive(Args, Clone)]
@@ -213,6 +228,12 @@ struct NewArgs {
     /// world begins; repeat for more.
     #[arg(long)]
     introduce: Vec<String>,
+    /// A neighbouring founding group of this many people (up to two); repeat for each.
+    #[arg(long)]
+    neighbour: Vec<u32>,
+    /// The founding groups know where the others camped.
+    #[arg(long)]
+    known: bool,
 }
 
 #[derive(Subcommand)]
@@ -348,6 +369,7 @@ fn main() -> ExitCode {
         Command::Run(args) => run_world(args),
         Command::Weather(args) => weather(args),
         Command::Neighbours(args) => run_neighbours(args),
+        Command::Twin(args) => run_twin(args),
     };
     match result {
         Ok(code) => code,
@@ -392,6 +414,21 @@ fn run_neighbours(args: NeighboursArgs) -> anyhow::Result<ExitCode> {
         keep_saves: args.keep_saves,
     };
     let outcome = civ_host::neighbours::run(&content, &options, &mut std::io::stdout().lock())?;
+    Ok(if outcome.failures.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    })
+}
+
+fn run_twin(args: TwinArgs) -> anyhow::Result<ExitCode> {
+    let layout = paths::locate(args.folders.content, None, None)?;
+    let content = commands::load_content(&layout.content)?;
+    let options = civ_host::twin::TwinOptions {
+        save: args.load,
+        years: args.years,
+    };
+    let outcome = civ_host::twin::run(&content, &options, &mut std::io::stdout().lock())?;
     Ok(if outcome.failures.is_empty() {
         ExitCode::SUCCESS
     } else {
@@ -549,6 +586,8 @@ fn new(args: NewArgs) -> anyhow::Result<ExitCode> {
             band: args.band,
             families: args.families,
             introduce: args.introduce,
+            neighbours: args.neighbour,
+            neighbours_known: args.known,
         },
     )?;
     Ok(ExitCode::SUCCESS)

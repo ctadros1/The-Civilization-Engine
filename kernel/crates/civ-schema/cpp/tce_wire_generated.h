@@ -191,6 +191,9 @@ struct GetGovernmentBuilder;
 struct GetOrder;
 struct GetOrderBuilder;
 
+struct GetCrossings;
+struct GetCrossingsBuilder;
+
 struct Query;
 struct QueryBuilder;
 
@@ -378,6 +381,12 @@ struct DepositsBuilder;
 struct EarthworkInfo;
 struct EarthworkInfoBuilder;
 
+struct CrossingInfo;
+struct CrossingInfoBuilder;
+
+struct Crossings;
+struct CrossingsBuilder;
+
 struct GroundTileRev;
 
 struct Earthworks;
@@ -403,6 +412,12 @@ struct LawLineBuilder;
 
 struct PolityLine;
 struct PolityLineBuilder;
+
+struct RelationLine;
+struct RelationLineBuilder;
+
+struct AgreementLine;
+struct AgreementLineBuilder;
 
 struct Government;
 struct GovernmentBuilder;
@@ -843,11 +858,12 @@ enum class QueryBody : uint8_t {
   GetStanding = 18,
   GetGovernment = 19,
   GetOrder = 20,
+  GetCrossings = 21,
   MIN = NONE,
-  MAX = GetOrder
+  MAX = GetCrossings
 };
 
-inline const QueryBody (&EnumValuesQueryBody())[21] {
+inline const QueryBody (&EnumValuesQueryBody())[22] {
   static const QueryBody values[] = {
     QueryBody::NONE,
     QueryBody::GetRaster,
@@ -869,13 +885,14 @@ inline const QueryBody (&EnumValuesQueryBody())[21] {
     QueryBody::GetWeather,
     QueryBody::GetStanding,
     QueryBody::GetGovernment,
-    QueryBody::GetOrder
+    QueryBody::GetOrder,
+    QueryBody::GetCrossings
   };
   return values;
 }
 
 inline const char * const *EnumNamesQueryBody() {
-  static const char * const names[22] = {
+  static const char * const names[23] = {
     "NONE",
     "GetRaster",
     "GetHydrography",
@@ -897,13 +914,14 @@ inline const char * const *EnumNamesQueryBody() {
     "GetStanding",
     "GetGovernment",
     "GetOrder",
+    "GetCrossings",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameQueryBody(QueryBody e) {
-  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetOrder)) return "";
+  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetCrossings)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesQueryBody()[index];
 }
@@ -990,6 +1008,10 @@ template<> struct QueryBodyTraits<tce::wire::GetGovernment> {
 
 template<> struct QueryBodyTraits<tce::wire::GetOrder> {
   static const QueryBody enum_value = QueryBody::GetOrder;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetCrossings> {
+  static const QueryBody enum_value = QueryBody::GetCrossings;
 };
 
 template <bool B = false>
@@ -1173,11 +1195,12 @@ enum class ResponseBody : uint8_t {
   Standing = 19,
   Government = 20,
   Order = 21,
+  Crossings = 22,
   MIN = NONE,
-  MAX = Order
+  MAX = Crossings
 };
 
-inline const ResponseBody (&EnumValuesResponseBody())[22] {
+inline const ResponseBody (&EnumValuesResponseBody())[23] {
   static const ResponseBody values[] = {
     ResponseBody::NONE,
     ResponseBody::Ack,
@@ -1200,13 +1223,14 @@ inline const ResponseBody (&EnumValuesResponseBody())[22] {
     ResponseBody::WeatherReport,
     ResponseBody::Standing,
     ResponseBody::Government,
-    ResponseBody::Order
+    ResponseBody::Order,
+    ResponseBody::Crossings
   };
   return values;
 }
 
 inline const char * const *EnumNamesResponseBody() {
-  static const char * const names[23] = {
+  static const char * const names[24] = {
     "NONE",
     "Ack",
     "RasterTile",
@@ -1229,13 +1253,14 @@ inline const char * const *EnumNamesResponseBody() {
     "Standing",
     "Government",
     "Order",
+    "Crossings",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameResponseBody(ResponseBody e) {
-  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Order)) return "";
+  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Crossings)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesResponseBody()[index];
 }
@@ -1326,6 +1351,10 @@ template<> struct ResponseBodyTraits<tce::wire::Government> {
 
 template<> struct ResponseBodyTraits<tce::wire::Order> {
   static const ResponseBody enum_value = ResponseBody::Order;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::Crossings> {
+  static const ResponseBody enum_value = ResponseBody::Crossings;
 };
 
 template <bool B = false>
@@ -3883,7 +3912,8 @@ struct SettlementBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_YEAR = 22,
     VT_ABANDONED_MINUTE = 24,
     VT_CONTACTS = 26,
-    VT_COALITIONS = 28
+    VT_COALITIONS = 28,
+    VT_STYLE = 30
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -3924,6 +3954,9 @@ struct SettlementBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *coalitions() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_COALITIONS);
   }
+  const ::flatbuffers::String *style() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_STYLE);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -3946,6 +3979,8 @@ struct SettlementBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_COALITIONS) &&
            verifier.VerifyVector(coalitions()) &&
            verifier.VerifyVectorOfStrings(coalitions()) &&
+           VerifyOffset(verifier, VT_STYLE) &&
+           verifier.VerifyString(style()) &&
            verifier.EndTable();
   }
 };
@@ -3993,6 +4028,9 @@ struct SettlementBriefBuilder {
   void add_coalitions(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coalitions) {
     fbb_.AddOffset(SettlementBrief::VT_COALITIONS, coalitions);
   }
+  void add_style(::flatbuffers::Offset<::flatbuffers::String> style) {
+    fbb_.AddOffset(SettlementBrief::VT_STYLE, style);
+  }
   explicit SettlementBriefBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -4018,11 +4056,13 @@ inline ::flatbuffers::Offset<SettlementBrief> CreateSettlementBrief(
     ::flatbuffers::Offset<::flatbuffers::String> year = 0,
     int64_t abandoned_minute = -1LL,
     ::flatbuffers::Offset<::flatbuffers::String> contacts = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coalitions = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coalitions = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> style = 0) {
   SettlementBriefBuilder builder_(_fbb);
   builder_.add_abandoned_minute(abandoned_minute);
   builder_.add_founded_minute(founded_minute);
   builder_.add_id(id);
+  builder_.add_style(style);
   builder_.add_coalitions(coalitions);
   builder_.add_contacts(contacts);
   builder_.add_year(year);
@@ -4055,12 +4095,14 @@ inline ::flatbuffers::Offset<SettlementBrief> CreateSettlementBriefDirect(
     const char *year = nullptr,
     int64_t abandoned_minute = -1LL,
     const char *contacts = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *coalitions = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *coalitions = nullptr,
+    const char *style = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto founding__ = founding ? _fbb.CreateString(founding) : 0;
   auto year__ = year ? _fbb.CreateString(year) : 0;
   auto contacts__ = contacts ? _fbb.CreateString(contacts) : 0;
   auto coalitions__ = coalitions ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*coalitions) : 0;
+  auto style__ = style ? _fbb.CreateString(style) : 0;
   return tce::wire::CreateSettlementBrief(
       _fbb,
       id,
@@ -4075,7 +4117,8 @@ inline ::flatbuffers::Offset<SettlementBrief> CreateSettlementBriefDirect(
       year__,
       abandoned_minute,
       contacts__,
-      coalitions__);
+      coalitions__,
+      style__);
 }
 
 struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -4100,7 +4143,8 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_KNOWLEDGE_REV = 34,
     VT_DEPOSITS_REV = 36,
     VT_EARTHWORKS_REV = 38,
-    VT_WEATHER_REV = 40
+    VT_WEATHER_REV = 40,
+    VT_CROSSINGS_REV = 42
   };
   const tce::wire::WorldInfo *world() const {
     return GetPointer<const tce::wire::WorldInfo *>(VT_WORLD);
@@ -4159,6 +4203,9 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint64_t weather_rev() const {
     return GetField<uint64_t>(VT_WEATHER_REV, 0);
   }
+  uint64_t crossings_rev() const {
+    return GetField<uint64_t>(VT_CROSSINGS_REV, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -4190,6 +4237,7 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_DEPOSITS_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_EARTHWORKS_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_WEATHER_REV, 8) &&
+           VerifyField<uint64_t>(verifier, VT_CROSSINGS_REV, 8) &&
            verifier.EndTable();
   }
 };
@@ -4255,6 +4303,9 @@ struct SnapshotBuilder {
   void add_weather_rev(uint64_t weather_rev) {
     fbb_.AddElement<uint64_t>(Snapshot::VT_WEATHER_REV, weather_rev, 0);
   }
+  void add_crossings_rev(uint64_t crossings_rev) {
+    fbb_.AddElement<uint64_t>(Snapshot::VT_CROSSINGS_REV, crossings_rev, 0);
+  }
   explicit SnapshotBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -4286,8 +4337,10 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshot(
     uint64_t knowledge_rev = 0,
     uint64_t deposits_rev = 0,
     uint64_t earthworks_rev = 0,
-    uint64_t weather_rev = 0) {
+    uint64_t weather_rev = 0,
+    uint64_t crossings_rev = 0) {
   SnapshotBuilder builder_(_fbb);
+  builder_.add_crossings_rev(crossings_rev);
   builder_.add_weather_rev(weather_rev);
   builder_.add_earthworks_rev(earthworks_rev);
   builder_.add_deposits_rev(deposits_rev);
@@ -4335,7 +4388,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
     uint64_t knowledge_rev = 0,
     uint64_t deposits_rev = 0,
     uint64_t earthworks_rev = 0,
-    uint64_t weather_rev = 0) {
+    uint64_t weather_rev = 0,
+    uint64_t crossings_rev = 0) {
   auto last_error__ = last_error ? _fbb.CreateString(last_error) : 0;
   auto people__ = people ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PersonBrief>>(*people) : 0;
   auto settlements__ = settlements ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SettlementBrief>>(*settlements) : 0;
@@ -4359,7 +4413,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
       knowledge_rev,
       deposits_rev,
       earthworks_rev,
-      weather_rev);
+      weather_rev,
+      crossings_rev);
 }
 
 struct Event FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -6568,6 +6623,42 @@ struct GetOrder::Traits {
   static auto constexpr Create = CreateGetOrder;
 };
 
+struct GetCrossings FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetCrossingsBuilder Builder;
+  struct Traits;
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetCrossingsBuilder {
+  typedef GetCrossings Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  explicit GetCrossingsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetCrossings> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetCrossings>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetCrossings> CreateGetCrossings(
+    ::flatbuffers::FlatBufferBuilder &_fbb) {
+  GetCrossingsBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct GetCrossings::Traits {
+  using type = GetCrossings;
+  static auto constexpr Create = CreateGetCrossings;
+};
+
 struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef QueryBuilder Builder;
   struct Traits;
@@ -6641,6 +6732,9 @@ struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::GetOrder *body_as_GetOrder() const {
     return body_type() == tce::wire::QueryBody::GetOrder ? static_cast<const tce::wire::GetOrder *>(body()) : nullptr;
+  }
+  const tce::wire::GetCrossings *body_as_GetCrossings() const {
+    return body_type() == tce::wire::QueryBody::GetCrossings ? static_cast<const tce::wire::GetCrossings *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -6730,6 +6824,10 @@ template<> inline const tce::wire::GetGovernment *Query::body_as<tce::wire::GetG
 
 template<> inline const tce::wire::GetOrder *Query::body_as<tce::wire::GetOrder>() const {
   return body_as_GetOrder();
+}
+
+template<> inline const tce::wire::GetCrossings *Query::body_as<tce::wire::GetCrossings>() const {
+  return body_as_GetCrossings();
 }
 
 struct QueryBuilder {
@@ -8379,7 +8477,10 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_NEWS = 102,
     VT_INFLUENCES = 104,
     VT_RESIDENCE = 106,
-    VT_PLACES = 108
+    VT_PLACES = 108,
+    VT_REPORTS = 110,
+    VT_ERRAND = 112,
+    VT_SEEN_AWAY = 114
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -8540,6 +8641,15 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *places() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_PLACES);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *reports() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_REPORTS);
+  }
+  const ::flatbuffers::String *errand() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_ERRAND);
+  }
+  const ::flatbuffers::String *seen_away() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_SEEN_AWAY);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -8637,6 +8747,13 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_PLACES) &&
            verifier.VerifyVector(places()) &&
            verifier.VerifyVectorOfStrings(places()) &&
+           VerifyOffset(verifier, VT_REPORTS) &&
+           verifier.VerifyVector(reports()) &&
+           verifier.VerifyVectorOfStrings(reports()) &&
+           VerifyOffset(verifier, VT_ERRAND) &&
+           verifier.VerifyString(errand()) &&
+           VerifyOffset(verifier, VT_SEEN_AWAY) &&
+           verifier.VerifyString(seen_away()) &&
            verifier.EndTable();
   }
 };
@@ -8804,6 +8921,15 @@ struct PersonInfoBuilder {
   void add_places(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> places) {
     fbb_.AddOffset(PersonInfo::VT_PLACES, places);
   }
+  void add_reports(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> reports) {
+    fbb_.AddOffset(PersonInfo::VT_REPORTS, reports);
+  }
+  void add_errand(::flatbuffers::Offset<::flatbuffers::String> errand) {
+    fbb_.AddOffset(PersonInfo::VT_ERRAND, errand);
+  }
+  void add_seen_away(::flatbuffers::Offset<::flatbuffers::String> seen_away) {
+    fbb_.AddOffset(PersonInfo::VT_SEEN_AWAY, seen_away);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8869,7 +8995,10 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::NewsLine>>> news = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::InfluenceLine>>> influences = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> residence = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> places = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> places = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> reports = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> errand = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> seen_away = 0) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
@@ -8881,6 +9010,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_seen_away(seen_away);
+  builder_.add_errand(errand);
+  builder_.add_reports(reports);
   builder_.add_places(places);
   builder_.add_residence(residence);
   builder_.add_influences(influences);
@@ -8986,7 +9118,10 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::NewsLine>> *news = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::InfluenceLine>> *influences = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *residence = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *places = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *places = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *reports = nullptr,
+    const char *errand = nullptr,
+    const char *seen_away = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -9011,6 +9146,9 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto influences__ = influences ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::InfluenceLine>>(*influences) : 0;
   auto residence__ = residence ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*residence) : 0;
   auto places__ = places ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*places) : 0;
+  auto reports__ = reports ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*reports) : 0;
+  auto errand__ = errand ? _fbb.CreateString(errand) : 0;
+  auto seen_away__ = seen_away ? _fbb.CreateString(seen_away) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -9065,7 +9203,10 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       news__,
       influences__,
       residence__,
-      places__);
+      places__,
+      reports__,
+      errand__,
+      seen_away__);
 }
 
 struct NewsLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -12184,7 +12325,8 @@ struct TradeInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_PAID = 16,
     VT_SALE = 18,
     VT_TEXT = 20,
-    VT_SELLER_FIRM = 22
+    VT_SELLER_FIRM = 22,
+    VT_FROM = 24
   };
   int64_t minute() const {
     return GetField<int64_t>(VT_MINUTE, 0);
@@ -12216,6 +12358,9 @@ struct TradeInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   bool seller_firm() const {
     return GetField<uint8_t>(VT_SELLER_FIRM, 0) != 0;
   }
+  uint64_t from() const {
+    return GetField<uint64_t>(VT_FROM, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -12230,6 +12375,7 @@ struct TradeInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_TEXT) &&
            verifier.VerifyString(text()) &&
            VerifyField<uint8_t>(verifier, VT_SELLER_FIRM, 1) &&
+           VerifyField<uint64_t>(verifier, VT_FROM, 8) &&
            verifier.EndTable();
   }
 };
@@ -12268,6 +12414,9 @@ struct TradeInfoBuilder {
   void add_seller_firm(bool seller_firm) {
     fbb_.AddElement<uint8_t>(TradeInfo::VT_SELLER_FIRM, static_cast<uint8_t>(seller_firm), 0);
   }
+  void add_from(uint64_t from) {
+    fbb_.AddElement<uint64_t>(TradeInfo::VT_FROM, from, 0);
+  }
   explicit TradeInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -12290,8 +12439,10 @@ inline ::flatbuffers::Offset<TradeInfo> CreateTradeInfo(
     float paid = 0.0f,
     bool sale = false,
     ::flatbuffers::Offset<::flatbuffers::String> text = 0,
-    bool seller_firm = false) {
+    bool seller_firm = false,
+    uint64_t from = 0) {
   TradeInfoBuilder builder_(_fbb);
+  builder_.add_from(from);
   builder_.add_buyer(buyer);
   builder_.add_seller(seller);
   builder_.add_minute(minute);
@@ -12321,7 +12472,8 @@ inline ::flatbuffers::Offset<TradeInfo> CreateTradeInfoDirect(
     float paid = 0.0f,
     bool sale = false,
     const char *text = nullptr,
-    bool seller_firm = false) {
+    bool seller_firm = false,
+    uint64_t from = 0) {
   auto text__ = text ? _fbb.CreateString(text) : 0;
   return tce::wire::CreateTradeInfo(
       _fbb,
@@ -12334,7 +12486,8 @@ inline ::flatbuffers::Offset<TradeInfo> CreateTradeInfoDirect(
       paid,
       sale,
       text__,
-      seller_firm);
+      seller_firm,
+      from);
 }
 
 struct MarketGood FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -12488,7 +12641,10 @@ struct MarketInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_GOODS = 16,
     VT_OFFERS = 18,
     VT_RECENT = 20,
-    VT_HISTORY = 22
+    VT_HISTORY = 22,
+    VT_OUTSIDERS = 24,
+    VT_BETWEEN = 26,
+    VT_ON_THE_WAY = 28
   };
   uint64_t settlement() const {
     return GetField<uint64_t>(VT_SETTLEMENT, 0);
@@ -12520,6 +12676,15 @@ struct MarketInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<const tce::wire::MonthOfTrade *> *history() const {
     return GetPointer<const ::flatbuffers::Vector<const tce::wire::MonthOfTrade *> *>(VT_HISTORY);
   }
+  const ::flatbuffers::String *outsiders() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_OUTSIDERS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *between() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_BETWEEN);
+  }
+  const ::flatbuffers::String *on_the_way() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_ON_THE_WAY);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -12542,6 +12707,13 @@ struct MarketInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVectorOfTables(recent()) &&
            VerifyOffset(verifier, VT_HISTORY) &&
            verifier.VerifyVector(history()) &&
+           VerifyOffset(verifier, VT_OUTSIDERS) &&
+           verifier.VerifyString(outsiders()) &&
+           VerifyOffset(verifier, VT_BETWEEN) &&
+           verifier.VerifyVector(between()) &&
+           verifier.VerifyVectorOfStrings(between()) &&
+           VerifyOffset(verifier, VT_ON_THE_WAY) &&
+           verifier.VerifyString(on_the_way()) &&
            verifier.EndTable();
   }
 };
@@ -12580,6 +12752,15 @@ struct MarketInfoBuilder {
   void add_history(::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::MonthOfTrade *>> history) {
     fbb_.AddOffset(MarketInfo::VT_HISTORY, history);
   }
+  void add_outsiders(::flatbuffers::Offset<::flatbuffers::String> outsiders) {
+    fbb_.AddOffset(MarketInfo::VT_OUTSIDERS, outsiders);
+  }
+  void add_between(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> between) {
+    fbb_.AddOffset(MarketInfo::VT_BETWEEN, between);
+  }
+  void add_on_the_way(::flatbuffers::Offset<::flatbuffers::String> on_the_way) {
+    fbb_.AddOffset(MarketInfo::VT_ON_THE_WAY, on_the_way);
+  }
   explicit MarketInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -12602,9 +12783,15 @@ inline ::flatbuffers::Offset<MarketInfo> CreateMarketInfo(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::MarketGood>>> goods = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OfferInfo>>> offers = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::TradeInfo>>> recent = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::MonthOfTrade *>> history = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::MonthOfTrade *>> history = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> outsiders = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> between = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> on_the_way = 0) {
   MarketInfoBuilder builder_(_fbb);
   builder_.add_settlement(settlement);
+  builder_.add_on_the_way(on_the_way);
+  builder_.add_between(between);
+  builder_.add_outsiders(outsiders);
   builder_.add_history(history);
   builder_.add_recent(recent);
   builder_.add_offers(offers);
@@ -12633,13 +12820,19 @@ inline ::flatbuffers::Offset<MarketInfo> CreateMarketInfoDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::MarketGood>> *goods = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::OfferInfo>> *offers = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::TradeInfo>> *recent = nullptr,
-    const std::vector<tce::wire::MonthOfTrade> *history = nullptr) {
+    const std::vector<tce::wire::MonthOfTrade> *history = nullptr,
+    const char *outsiders = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *between = nullptr,
+    const char *on_the_way = nullptr) {
   auto settlement_name__ = settlement_name ? _fbb.CreateString(settlement_name) : 0;
   auto summary__ = summary ? _fbb.CreateString(summary) : 0;
   auto goods__ = goods ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::MarketGood>>(*goods) : 0;
   auto offers__ = offers ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::OfferInfo>>(*offers) : 0;
   auto recent__ = recent ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::TradeInfo>>(*recent) : 0;
   auto history__ = history ? _fbb.CreateVectorOfStructs<tce::wire::MonthOfTrade>(*history) : 0;
+  auto outsiders__ = outsiders ? _fbb.CreateString(outsiders) : 0;
+  auto between__ = between ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*between) : 0;
+  auto on_the_way__ = on_the_way ? _fbb.CreateString(on_the_way) : 0;
   return tce::wire::CreateMarketInfo(
       _fbb,
       settlement,
@@ -12651,7 +12844,10 @@ inline ::flatbuffers::Offset<MarketInfo> CreateMarketInfoDirect(
       goods__,
       offers__,
       recent__,
-      history__);
+      history__,
+      outsiders__,
+      between__,
+      on_the_way__);
 }
 
 struct Markets FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -15059,6 +15255,353 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfoDirect(
       deposit);
 }
 
+struct CrossingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef CrossingInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_SYSTEM = 6,
+    VT_AX = 8,
+    VT_AY = 10,
+    VT_BX = 12,
+    VT_BY = 14,
+    VT_SPAN_M = 16,
+    VT_MEMBERS = 18,
+    VT_DIAMETER_CM = 20,
+    VT_STATE = 22,
+    VT_LABOUR_H = 24,
+    VT_WORK_H = 26,
+    VT_QUALITY = 28,
+    VT_LOSS = 30,
+    VT_MARGIN = 32,
+    VT_OWNER_KIND = 34,
+    VT_OWNER = 36,
+    VT_WORDS = 38,
+    VT_LENGTH_M = 40
+  };
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
+  }
+  const ::flatbuffers::String *system() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_SYSTEM);
+  }
+  float ax() const {
+    return GetField<float>(VT_AX, 0.0f);
+  }
+  float ay() const {
+    return GetField<float>(VT_AY, 0.0f);
+  }
+  float bx() const {
+    return GetField<float>(VT_BX, 0.0f);
+  }
+  float by() const {
+    return GetField<float>(VT_BY, 0.0f);
+  }
+  float span_m() const {
+    return GetField<float>(VT_SPAN_M, 0.0f);
+  }
+  uint8_t members() const {
+    return GetField<uint8_t>(VT_MEMBERS, 0);
+  }
+  float diameter_cm() const {
+    return GetField<float>(VT_DIAMETER_CM, 0.0f);
+  }
+  uint8_t state() const {
+    return GetField<uint8_t>(VT_STATE, 0);
+  }
+  float labour_h() const {
+    return GetField<float>(VT_LABOUR_H, 0.0f);
+  }
+  float work_h() const {
+    return GetField<float>(VT_WORK_H, 0.0f);
+  }
+  float quality() const {
+    return GetField<float>(VT_QUALITY, 0.0f);
+  }
+  float loss() const {
+    return GetField<float>(VT_LOSS, 0.0f);
+  }
+  float margin() const {
+    return GetField<float>(VT_MARGIN, 0.0f);
+  }
+  uint8_t owner_kind() const {
+    return GetField<uint8_t>(VT_OWNER_KIND, 0);
+  }
+  uint64_t owner() const {
+    return GetField<uint64_t>(VT_OWNER, 0);
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  float length_m() const {
+    return GetField<float>(VT_LENGTH_M, 0.0f);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_ID, 8) &&
+           VerifyOffset(verifier, VT_SYSTEM) &&
+           verifier.VerifyString(system()) &&
+           VerifyField<float>(verifier, VT_AX, 4) &&
+           VerifyField<float>(verifier, VT_AY, 4) &&
+           VerifyField<float>(verifier, VT_BX, 4) &&
+           VerifyField<float>(verifier, VT_BY, 4) &&
+           VerifyField<float>(verifier, VT_SPAN_M, 4) &&
+           VerifyField<uint8_t>(verifier, VT_MEMBERS, 1) &&
+           VerifyField<float>(verifier, VT_DIAMETER_CM, 4) &&
+           VerifyField<uint8_t>(verifier, VT_STATE, 1) &&
+           VerifyField<float>(verifier, VT_LABOUR_H, 4) &&
+           VerifyField<float>(verifier, VT_WORK_H, 4) &&
+           VerifyField<float>(verifier, VT_QUALITY, 4) &&
+           VerifyField<float>(verifier, VT_LOSS, 4) &&
+           VerifyField<float>(verifier, VT_MARGIN, 4) &&
+           VerifyField<uint8_t>(verifier, VT_OWNER_KIND, 1) &&
+           VerifyField<uint64_t>(verifier, VT_OWNER, 8) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           VerifyField<float>(verifier, VT_LENGTH_M, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct CrossingInfoBuilder {
+  typedef CrossingInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(CrossingInfo::VT_ID, id, 0);
+  }
+  void add_system(::flatbuffers::Offset<::flatbuffers::String> system) {
+    fbb_.AddOffset(CrossingInfo::VT_SYSTEM, system);
+  }
+  void add_ax(float ax) {
+    fbb_.AddElement<float>(CrossingInfo::VT_AX, ax, 0.0f);
+  }
+  void add_ay(float ay) {
+    fbb_.AddElement<float>(CrossingInfo::VT_AY, ay, 0.0f);
+  }
+  void add_bx(float bx) {
+    fbb_.AddElement<float>(CrossingInfo::VT_BX, bx, 0.0f);
+  }
+  void add_by(float by) {
+    fbb_.AddElement<float>(CrossingInfo::VT_BY, by, 0.0f);
+  }
+  void add_span_m(float span_m) {
+    fbb_.AddElement<float>(CrossingInfo::VT_SPAN_M, span_m, 0.0f);
+  }
+  void add_members(uint8_t members) {
+    fbb_.AddElement<uint8_t>(CrossingInfo::VT_MEMBERS, members, 0);
+  }
+  void add_diameter_cm(float diameter_cm) {
+    fbb_.AddElement<float>(CrossingInfo::VT_DIAMETER_CM, diameter_cm, 0.0f);
+  }
+  void add_state(uint8_t state) {
+    fbb_.AddElement<uint8_t>(CrossingInfo::VT_STATE, state, 0);
+  }
+  void add_labour_h(float labour_h) {
+    fbb_.AddElement<float>(CrossingInfo::VT_LABOUR_H, labour_h, 0.0f);
+  }
+  void add_work_h(float work_h) {
+    fbb_.AddElement<float>(CrossingInfo::VT_WORK_H, work_h, 0.0f);
+  }
+  void add_quality(float quality) {
+    fbb_.AddElement<float>(CrossingInfo::VT_QUALITY, quality, 0.0f);
+  }
+  void add_loss(float loss) {
+    fbb_.AddElement<float>(CrossingInfo::VT_LOSS, loss, 0.0f);
+  }
+  void add_margin(float margin) {
+    fbb_.AddElement<float>(CrossingInfo::VT_MARGIN, margin, 0.0f);
+  }
+  void add_owner_kind(uint8_t owner_kind) {
+    fbb_.AddElement<uint8_t>(CrossingInfo::VT_OWNER_KIND, owner_kind, 0);
+  }
+  void add_owner(uint64_t owner) {
+    fbb_.AddElement<uint64_t>(CrossingInfo::VT_OWNER, owner, 0);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(CrossingInfo::VT_WORDS, words);
+  }
+  void add_length_m(float length_m) {
+    fbb_.AddElement<float>(CrossingInfo::VT_LENGTH_M, length_m, 0.0f);
+  }
+  explicit CrossingInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<CrossingInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<CrossingInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<CrossingInfo> CreateCrossingInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> system = 0,
+    float ax = 0.0f,
+    float ay = 0.0f,
+    float bx = 0.0f,
+    float by = 0.0f,
+    float span_m = 0.0f,
+    uint8_t members = 0,
+    float diameter_cm = 0.0f,
+    uint8_t state = 0,
+    float labour_h = 0.0f,
+    float work_h = 0.0f,
+    float quality = 0.0f,
+    float loss = 0.0f,
+    float margin = 0.0f,
+    uint8_t owner_kind = 0,
+    uint64_t owner = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0,
+    float length_m = 0.0f) {
+  CrossingInfoBuilder builder_(_fbb);
+  builder_.add_owner(owner);
+  builder_.add_id(id);
+  builder_.add_length_m(length_m);
+  builder_.add_words(words);
+  builder_.add_margin(margin);
+  builder_.add_loss(loss);
+  builder_.add_quality(quality);
+  builder_.add_work_h(work_h);
+  builder_.add_labour_h(labour_h);
+  builder_.add_diameter_cm(diameter_cm);
+  builder_.add_span_m(span_m);
+  builder_.add_by(by);
+  builder_.add_bx(bx);
+  builder_.add_ay(ay);
+  builder_.add_ax(ax);
+  builder_.add_system(system);
+  builder_.add_owner_kind(owner_kind);
+  builder_.add_state(state);
+  builder_.add_members(members);
+  return builder_.Finish();
+}
+
+struct CrossingInfo::Traits {
+  using type = CrossingInfo;
+  static auto constexpr Create = CreateCrossingInfo;
+};
+
+inline ::flatbuffers::Offset<CrossingInfo> CreateCrossingInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    const char *system = nullptr,
+    float ax = 0.0f,
+    float ay = 0.0f,
+    float bx = 0.0f,
+    float by = 0.0f,
+    float span_m = 0.0f,
+    uint8_t members = 0,
+    float diameter_cm = 0.0f,
+    uint8_t state = 0,
+    float labour_h = 0.0f,
+    float work_h = 0.0f,
+    float quality = 0.0f,
+    float loss = 0.0f,
+    float margin = 0.0f,
+    uint8_t owner_kind = 0,
+    uint64_t owner = 0,
+    const char *words = nullptr,
+    float length_m = 0.0f) {
+  auto system__ = system ? _fbb.CreateString(system) : 0;
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateCrossingInfo(
+      _fbb,
+      id,
+      system__,
+      ax,
+      ay,
+      bx,
+      by,
+      span_m,
+      members,
+      diameter_cm,
+      state,
+      labour_h,
+      work_h,
+      quality,
+      loss,
+      margin,
+      owner_kind,
+      owner,
+      words__,
+      length_m);
+}
+
+struct Crossings FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef CrossingsBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_REV = 4,
+    VT_CROSSINGS = 6
+  };
+  uint64_t rev() const {
+    return GetField<uint64_t>(VT_REV, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CrossingInfo>> *crossings() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CrossingInfo>> *>(VT_CROSSINGS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_REV, 8) &&
+           VerifyOffset(verifier, VT_CROSSINGS) &&
+           verifier.VerifyVector(crossings()) &&
+           verifier.VerifyVectorOfTables(crossings()) &&
+           verifier.EndTable();
+  }
+};
+
+struct CrossingsBuilder {
+  typedef Crossings Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_rev(uint64_t rev) {
+    fbb_.AddElement<uint64_t>(Crossings::VT_REV, rev, 0);
+  }
+  void add_crossings(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CrossingInfo>>> crossings) {
+    fbb_.AddOffset(Crossings::VT_CROSSINGS, crossings);
+  }
+  explicit CrossingsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Crossings> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Crossings>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Crossings> CreateCrossings(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CrossingInfo>>> crossings = 0) {
+  CrossingsBuilder builder_(_fbb);
+  builder_.add_rev(rev);
+  builder_.add_crossings(crossings);
+  return builder_.Finish();
+}
+
+struct Crossings::Traits {
+  using type = Crossings;
+  static auto constexpr Create = CreateCrossings;
+};
+
+inline ::flatbuffers::Offset<Crossings> CreateCrossingsDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::CrossingInfo>> *crossings = nullptr) {
+  auto crossings__ = crossings ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::CrossingInfo>>(*crossings) : 0;
+  return tce::wire::CreateCrossings(
+      _fbb,
+      rev,
+      crossings__);
+}
+
 struct Earthworks FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef EarthworksBuilder Builder;
   struct Traits;
@@ -16278,7 +16821,8 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_PETITIONS = 46,
     VT_REFUSALS = 48,
     VT_REVOLTS = 50,
-    VT_COUPS = 52
+    VT_COUPS = 52,
+    VT_RELATIONS = 54
   };
   uint64_t polity() const {
     return GetField<uint64_t>(VT_POLITY, 0);
@@ -16355,6 +16899,9 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *coups() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_COUPS);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RelationLine>> *relations() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RelationLine>> *>(VT_RELATIONS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -16409,6 +16956,9 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_COUPS) &&
            verifier.VerifyVector(coups()) &&
            verifier.VerifyVectorOfStrings(coups()) &&
+           VerifyOffset(verifier, VT_RELATIONS) &&
+           verifier.VerifyVector(relations()) &&
+           verifier.VerifyVectorOfTables(relations()) &&
            verifier.EndTable();
   }
 };
@@ -16492,6 +17042,9 @@ struct PolityLineBuilder {
   void add_coups(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coups) {
     fbb_.AddOffset(PolityLine::VT_COUPS, coups);
   }
+  void add_relations(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RelationLine>>> relations) {
+    fbb_.AddOffset(PolityLine::VT_RELATIONS, relations);
+  }
   explicit PolityLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -16529,13 +17082,15 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLine(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> petitions = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> refusals = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> revolts = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coups = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coups = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RelationLine>>> relations = 0) {
   PolityLineBuilder builder_(_fbb);
   builder_.add_gathering_minute(gathering_minute);
   builder_.add_gathering_law(gathering_law);
   builder_.add_founded_minute(founded_minute);
   builder_.add_settlement(settlement);
   builder_.add_polity(polity);
+  builder_.add_relations(relations);
   builder_.add_coups(coups);
   builder_.add_revolts(revolts);
   builder_.add_refusals(refusals);
@@ -16590,7 +17145,8 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *petitions = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *refusals = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *revolts = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *coups = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *coups = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::RelationLine>> *relations = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto custom__ = custom ? _fbb.CreateString(custom) : 0;
   auto store__ = store ? _fbb.CreateString(store) : 0;
@@ -16606,6 +17162,7 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
   auto refusals__ = refusals ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*refusals) : 0;
   auto revolts__ = revolts ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*revolts) : 0;
   auto coups__ = coups ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*coups) : 0;
+  auto relations__ = relations ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::RelationLine>>(*relations) : 0;
   return tce::wire::CreatePolityLine(
       _fbb,
       polity,
@@ -16632,7 +17189,249 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
       petitions__,
       refusals__,
       revolts__,
-      coups__);
+      coups__,
+      relations__);
+}
+
+struct RelationLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef RelationLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_POLITY = 4,
+    VT_NAME = 6,
+    VT_LABEL = 8,
+    VT_WHY = 10,
+    VT_AGREEMENTS = 12
+  };
+  uint64_t polity() const {
+    return GetField<uint64_t>(VT_POLITY, 0);
+  }
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  const ::flatbuffers::String *label() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_LABEL);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *why() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_WHY);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::AgreementLine>> *agreements() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::AgreementLine>> *>(VT_AGREEMENTS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_POLITY, 8) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyOffset(verifier, VT_LABEL) &&
+           verifier.VerifyString(label()) &&
+           VerifyOffset(verifier, VT_WHY) &&
+           verifier.VerifyVector(why()) &&
+           verifier.VerifyVectorOfStrings(why()) &&
+           VerifyOffset(verifier, VT_AGREEMENTS) &&
+           verifier.VerifyVector(agreements()) &&
+           verifier.VerifyVectorOfTables(agreements()) &&
+           verifier.EndTable();
+  }
+};
+
+struct RelationLineBuilder {
+  typedef RelationLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_polity(uint64_t polity) {
+    fbb_.AddElement<uint64_t>(RelationLine::VT_POLITY, polity, 0);
+  }
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(RelationLine::VT_NAME, name);
+  }
+  void add_label(::flatbuffers::Offset<::flatbuffers::String> label) {
+    fbb_.AddOffset(RelationLine::VT_LABEL, label);
+  }
+  void add_why(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> why) {
+    fbb_.AddOffset(RelationLine::VT_WHY, why);
+  }
+  void add_agreements(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::AgreementLine>>> agreements) {
+    fbb_.AddOffset(RelationLine::VT_AGREEMENTS, agreements);
+  }
+  explicit RelationLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<RelationLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<RelationLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<RelationLine> CreateRelationLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t polity = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> label = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> why = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::AgreementLine>>> agreements = 0) {
+  RelationLineBuilder builder_(_fbb);
+  builder_.add_polity(polity);
+  builder_.add_agreements(agreements);
+  builder_.add_why(why);
+  builder_.add_label(label);
+  builder_.add_name(name);
+  return builder_.Finish();
+}
+
+struct RelationLine::Traits {
+  using type = RelationLine;
+  static auto constexpr Create = CreateRelationLine;
+};
+
+inline ::flatbuffers::Offset<RelationLine> CreateRelationLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t polity = 0,
+    const char *name = nullptr,
+    const char *label = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *why = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::AgreementLine>> *agreements = nullptr) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto label__ = label ? _fbb.CreateString(label) : 0;
+  auto why__ = why ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*why) : 0;
+  auto agreements__ = agreements ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::AgreementLine>>(*agreements) : 0;
+  return tce::wire::CreateRelationLine(
+      _fbb,
+      polity,
+      name__,
+      label__,
+      why__,
+      agreements__);
+}
+
+struct AgreementLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef AgreementLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_TERMS = 6,
+    VT_STATE = 8,
+    VT_OURS = 10,
+    VT_THEIRS = 12,
+    VT_PAYMENTS = 14
+  };
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
+  }
+  const ::flatbuffers::String *terms() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_TERMS);
+  }
+  const ::flatbuffers::String *state() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_STATE);
+  }
+  const ::flatbuffers::String *ours() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_OURS);
+  }
+  const ::flatbuffers::String *theirs() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_THEIRS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *payments() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_PAYMENTS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_ID, 8) &&
+           VerifyOffset(verifier, VT_TERMS) &&
+           verifier.VerifyString(terms()) &&
+           VerifyOffset(verifier, VT_STATE) &&
+           verifier.VerifyString(state()) &&
+           VerifyOffset(verifier, VT_OURS) &&
+           verifier.VerifyString(ours()) &&
+           VerifyOffset(verifier, VT_THEIRS) &&
+           verifier.VerifyString(theirs()) &&
+           VerifyOffset(verifier, VT_PAYMENTS) &&
+           verifier.VerifyVector(payments()) &&
+           verifier.VerifyVectorOfStrings(payments()) &&
+           verifier.EndTable();
+  }
+};
+
+struct AgreementLineBuilder {
+  typedef AgreementLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(AgreementLine::VT_ID, id, 0);
+  }
+  void add_terms(::flatbuffers::Offset<::flatbuffers::String> terms) {
+    fbb_.AddOffset(AgreementLine::VT_TERMS, terms);
+  }
+  void add_state(::flatbuffers::Offset<::flatbuffers::String> state) {
+    fbb_.AddOffset(AgreementLine::VT_STATE, state);
+  }
+  void add_ours(::flatbuffers::Offset<::flatbuffers::String> ours) {
+    fbb_.AddOffset(AgreementLine::VT_OURS, ours);
+  }
+  void add_theirs(::flatbuffers::Offset<::flatbuffers::String> theirs) {
+    fbb_.AddOffset(AgreementLine::VT_THEIRS, theirs);
+  }
+  void add_payments(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> payments) {
+    fbb_.AddOffset(AgreementLine::VT_PAYMENTS, payments);
+  }
+  explicit AgreementLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<AgreementLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<AgreementLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<AgreementLine> CreateAgreementLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> terms = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> state = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> ours = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> theirs = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> payments = 0) {
+  AgreementLineBuilder builder_(_fbb);
+  builder_.add_id(id);
+  builder_.add_payments(payments);
+  builder_.add_theirs(theirs);
+  builder_.add_ours(ours);
+  builder_.add_state(state);
+  builder_.add_terms(terms);
+  return builder_.Finish();
+}
+
+struct AgreementLine::Traits {
+  using type = AgreementLine;
+  static auto constexpr Create = CreateAgreementLine;
+};
+
+inline ::flatbuffers::Offset<AgreementLine> CreateAgreementLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    const char *terms = nullptr,
+    const char *state = nullptr,
+    const char *ours = nullptr,
+    const char *theirs = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *payments = nullptr) {
+  auto terms__ = terms ? _fbb.CreateString(terms) : 0;
+  auto state__ = state ? _fbb.CreateString(state) : 0;
+  auto ours__ = ours ? _fbb.CreateString(ours) : 0;
+  auto theirs__ = theirs ? _fbb.CreateString(theirs) : 0;
+  auto payments__ = payments ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*payments) : 0;
+  return tce::wire::CreateAgreementLine(
+      _fbb,
+      id,
+      terms__,
+      state__,
+      ours__,
+      theirs__,
+      payments__);
 }
 
 struct Government FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -17373,6 +18172,9 @@ struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const tce::wire::Order *body_as_Order() const {
     return body_type() == tce::wire::ResponseBody::Order ? static_cast<const tce::wire::Order *>(body()) : nullptr;
   }
+  const tce::wire::Crossings *body_as_Crossings() const {
+    return body_type() == tce::wire::ResponseBody::Crossings ? static_cast<const tce::wire::Crossings *>(body()) : nullptr;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -17465,6 +18267,10 @@ template<> inline const tce::wire::Government *Response::body_as<tce::wire::Gove
 
 template<> inline const tce::wire::Order *Response::body_as<tce::wire::Order>() const {
   return body_as_Order();
+}
+
+template<> inline const tce::wire::Crossings *Response::body_as<tce::wire::Crossings>() const {
+  return body_as_Crossings();
 }
 
 struct ResponseBuilder {
@@ -17742,6 +18548,10 @@ inline bool VerifyQueryBody(::flatbuffers::VerifierTemplate<B> &verifier, const 
       auto ptr = reinterpret_cast<const tce::wire::GetOrder *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case QueryBody::GetCrossings: {
+      auto ptr = reinterpret_cast<const tce::wire::GetCrossings *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -17847,6 +18657,10 @@ inline bool VerifyResponseBody(::flatbuffers::VerifierTemplate<B> &verifier, con
     }
     case ResponseBody::Order: {
       auto ptr = reinterpret_cast<const tce::wire::Order *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::Crossings: {
+      auto ptr = reinterpret_cast<const tce::wire::Crossings *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

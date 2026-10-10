@@ -261,7 +261,8 @@ impl Population {
         self.word
             .grievances
             .iter()
-            .filter(|g| x.members.contains(&g.holder))
+            // Outsiders who worked a place their polity claims are no reason to leave it.
+            .filter(|g| x.members.contains(&g.holder) && g.wrong != crate::word::Wrong::Trespass)
             .map(|g| g.activation_on(day, wp.half_life(g.issue)))
             .fold(0.0, f64::max)
             .clamp(0.0, 1.0)
@@ -288,6 +289,12 @@ impl Population {
     /// is no more: its ground, home and workshop stand as a household's that left.
     pub(super) fn relocate(&mut self, ctx: &mut Ctx, from: PermanentId, to: PermanentId) {
         self.relocate_as(ctx, from, to, ResidenceWhy::Moved);
+    }
+
+    /// [`Population::relocate`], for tests that need a household to move on a given day.
+    #[doc(hidden)]
+    pub fn relocate_for_tests(&mut self, ctx: &mut Ctx, from: PermanentId, to: PermanentId) {
+        self.relocate(ctx, from, to);
     }
 
     /// [`Population::relocate`], its people's residence histories saying `why`; a household that
@@ -352,7 +359,9 @@ impl Population {
         }
         self.sort_members(id);
         self.known_places.bring(from, id, Some(to));
+        self.reports.bring(from, id, Some(to));
         self.known_places.forget(from);
+        self.reports.forget(from);
         let day = now.day_index();
         self.known_places
             .learn(id, left, day, PlaceHow::Lived, None);
@@ -370,6 +379,9 @@ impl Population {
         let people = old.members.len() as u32;
         self.contacts
             .moved(day.div_euclid(DAYS_PER_YEAR), left, to, people);
+        // What only they knew is lost where they lived, and what they know comes with them
+        // (M5b slice AR).
+        self.knowledge_crossed(ctx, &old.members, Some(left), Some(to), Some(from), true);
         if why != ResidenceWhy::Moved {
             return;
         }
@@ -495,7 +507,11 @@ impl Population {
         person.trip = None;
         self.insert_person(person);
         self.note_residence(id, Some(to), now, ResidenceWhy::Exiled);
+        // What they know comes with them (M5b slice AR); its loss where they lived was noted as
+        // they were sent away.
+        self.knowledge_crossed(ctx, &[id], left, Some(to), None, false);
         self.known_places.bring(from, hh, Some(to));
+        self.reports.bring(from, hh, Some(to));
         let day = now.day_index();
         if let Some(left) = left {
             self.known_places

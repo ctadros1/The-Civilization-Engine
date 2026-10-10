@@ -72,9 +72,48 @@ pub struct Facts {
     pub petition: Option<GatheringFacts>,
     /// The round of the watch they keep, if they keep one and may walk it now (M4b slice AC).
     pub watch: Option<WatchFacts>,
+    /// A payment an agreement owes that they are to carry, set aside and waiting, if they can
+    /// walk it there and back in the day (M5c slice AV).
+    pub carry: Option<CarryFacts>,
+    /// A crossing their household is building, if it is within their reach (M5c slice AW, step
+    /// two).
+    pub crossing: Option<CrossingFacts>,
     /// Whether a blow keeps them from work today (M4c slice AI, step four): they eat, drink, rest,
     /// sleep and keep company, and do no work.
     pub hurt: bool,
+}
+
+/// A crossing someone's household is building, or their polity is and they know the law that
+/// asks it (M5c slice AW, steps two and three): where on the bank its work is done, the walk
+/// there from home, the hours of a capable adult's work it still takes, the hours of walking each
+/// hour of that work saves the household over the crossing's life, and, while their household
+/// has not given the share of a polity's crossing asked of it, what keeping to the gathering's
+/// word is worth to them, points (0 otherwise).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CrossingFacts {
+    pub crossing: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub left_h: f64,
+    pub saves_per_hour: f64,
+    pub duty: f64,
+    /// As many as there is room for have begun work on it today (M5c slice AX).
+    pub full: bool,
+}
+
+/// A payment someone is to carry (M5c slice AV, ADR-0020 §7): where the store set it aside, the
+/// hearth of the settlement it goes to, the walk there from home, and what carrying it is worth.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CarryFacts {
+    /// Where the paying store keeps it, metres.
+    pub store: (f32, f32),
+    /// The settlement it goes to, and its hearth, metres.
+    pub settlement: PermanentId,
+    pub hearth: (f32, f32),
+    /// One-way walk to that hearth, minutes.
+    pub walk_min: f64,
+    /// Points: the duty.
+    pub points: f64,
 }
 
 /// A round of the watch someone keeps (M4b slice AC): the homes it passes, in order, and what
@@ -252,6 +291,9 @@ pub enum TradeWorth {
     Food { kcal: f64 },
     /// Other goods, worth so many hours of the household's own work to it (slice J: a wage).
     Goods { hours: f64 },
+    /// Goods fetched from another settlement to sell at home (M5b slice AQ, ADR-0019 §6): the
+    /// share of what they fetch there that the household keeps, 0–1, as for making to sell.
+    Sale { share: f64 },
 }
 
 /// Paid work at a workshop of another household (slice J): where, for how long, and what the
@@ -513,6 +555,7 @@ pub fn candidates(
     water: Option<WaterOption>,
     giver: &dyn Fn() -> Option<GiverOption>,
     trade: &dyn Fn() -> Option<TradeOption>,
+    fetch: &dyn Fn() -> Result<TradeOption, Reason>,
     job: &dyn Fn() -> Option<JobOption>,
     build: Result<BuildOption, Reason>,
     shop: &Workshop,
@@ -539,6 +582,16 @@ pub fn candidates(
     for i in order {
         let def = &defs[i];
         let id = i as u16;
+        // Carrying goods owed is open only to the one who is to carry them (M5c slice AV), and
+        // is no part of anyone else's choice: not even a reason it was left out.
+        if def.behavior == Behavior::Carry && f.carry.is_none() {
+            continue;
+        }
+        // So is work on a crossing to all but those whose household is building one (M5c slice
+        // AW).
+        if def.behavior == Behavior::Bridge && f.crossing.is_none() {
+            continue;
+        }
         if f.age < def.min_age_years {
             excluded.push((id, Reason::TooYoung));
             continue;
@@ -1005,15 +1058,30 @@ pub fn candidates(
                 ];
                 out.push(finish(id, Target::Household(t.household), terms, steps));
             }
-            Behavior::Trade => {
+            Behavior::Trade | Behavior::Fetch => {
                 // Buy what is cheaper to get from a neighbour than to make or gather (research
-                // 08-05 §1.4: a buyer compares the few sellers it knows by payment and walk).
-                let Some(t) = trade() else {
-                    excluded.push((id, Reason::NoOffer));
-                    continue;
+                // 08-05 §1.4: a buyer compares the few sellers it knows by payment and walk), or,
+                // by a report, from a seller in another settlement (M5b slice AP, ADR-0019 §2):
+                // reached in daylight, home within the day.
+                let fetching = def.behavior == Behavior::Fetch;
+                let found = if fetching {
+                    fetch()
+                } else {
+                    trade().ok_or(Reason::NoOffer)
+                };
+                let t = match found {
+                    Ok(t) => t,
+                    Err(why) => {
+                        excluded.push((id, why));
+                        continue;
+                    }
                 };
                 if t.walk_min > f64::from(def.max_walk_minutes) {
                     excluded.push((id, Reason::Unreachable));
+                    continue;
+                }
+                if fetching && f.daylight_left_min < t.walk_min {
+                    excluded.push((id, Reason::NotInDark));
                     continue;
                 }
                 match t.worth {
@@ -1039,6 +1107,13 @@ pub fn candidates(
                     TradeWorth::Goods { hours } => {
                         let worth = hours / (hours + WAGE_HALF_WORTH_H);
                         term(&mut terms, Reason::UsefulWork, w.w_work * worth);
+                    }
+                    TradeWorth::Sale { share } => {
+                        term(
+                            &mut terms,
+                            Reason::ForSale,
+                            w.w_tools * share.clamp(0.0, 1.0),
+                        );
                     }
                 }
                 term(
@@ -1097,6 +1172,9 @@ pub fn candidates(
                     TradeWorth::Goods { hours } => {
                         let worth = hours / (hours + WAGE_HALF_WORTH_H);
                         term(&mut terms, Reason::Wages, w.w_work * worth);
+                    }
+                    TradeWorth::Sale { share } => {
+                        term(&mut terms, Reason::Wages, w.w_tools * share.clamp(0.0, 1.0));
                     }
                 }
                 term(
@@ -1251,6 +1329,94 @@ pub fn candidates(
                 }
                 steps.push(Step::Walk { to: f.home });
                 out.push(finish(id, Target::None, terms, steps));
+            }
+            Behavior::Carry => {
+                // A payment an agreement owes (M5c slice AV): taken up where the store keeps it,
+                // walked to the other hearth and handed over, home the same day. Nothing is said
+                // of it to one who carries nothing.
+                let Some(c) = f.carry else {
+                    continue;
+                };
+                if f.daylight_left_min < 2.0 * c.walk_min + 2.0 * f64::from(def.min_minutes) {
+                    excluded.push((id, Reason::NotInDark));
+                    continue;
+                }
+                term(&mut terms, Reason::Duty, c.points);
+                term(
+                    &mut terms,
+                    Reason::Walking,
+                    -w.w_walk_hour * 2.0 * c.walk_min / 60.0,
+                );
+                let stand = def.min_minutes.max(1);
+                let steps = vec![
+                    Step::Walk { to: c.store },
+                    Step::Work { minutes: stand },
+                    Step::Walk { to: c.hearth },
+                    Step::Work { minutes: stand },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Hearth(c.settlement), terms, steps));
+            }
+            Behavior::Bridge => {
+                // Work on the household's crossing (M5c slice AW, step two): as long as daylight
+                // allows within the authored range, a shorter session only to finish it; each
+                // hour of a capable adult's work worth the walking it saves the household.
+                let Some(c) = f.crossing else {
+                    continue;
+                };
+                if c.walk_min > f64::from(def.max_walk_minutes) {
+                    excluded.push((id, Reason::Unreachable));
+                    continue;
+                }
+                if c.full {
+                    excluded.push((id, Reason::Crowded));
+                    continue;
+                }
+                let room = if def.daylight_only {
+                    f.daylight_left_min - 2.0 * c.walk_min - 20.0
+                } else {
+                    f64::from(def.max_minutes)
+                };
+                if room < f64::from(def.min_minutes) {
+                    excluded.push((id, Reason::NotInDark));
+                    continue;
+                }
+                let pace = (f.capacity * def.rate).max(0.05);
+                let left = c.left_h * 60.0 / pace;
+                let minutes = room
+                    .min(f64::from(def.max_minutes))
+                    .min(left)
+                    .max(f64::from(def.min_minutes).min(left))
+                    .max(1.0);
+                let hours = minutes / 60.0;
+                term(
+                    &mut terms,
+                    Reason::Crossing,
+                    w.w_walk_hour * hours * pace * c.saves_per_hour,
+                );
+                if c.duty > 0.0 {
+                    term(&mut terms, Reason::PublicWork, c.duty);
+                }
+                if c.walk_min > 0.5 {
+                    term(
+                        &mut terms,
+                        Reason::Walking,
+                        -w.w_walk_hour * 2.0 * c.walk_min / 60.0,
+                    );
+                }
+                term(
+                    &mut terms,
+                    Reason::Effort,
+                    -w.w_effort * (def.par - 1.0).max(0.0) * hours * f.sleep_pressure,
+                );
+                let steps = vec![
+                    Step::Walk { to: c.at },
+                    Step::Work {
+                        minutes: minutes.round().max(1.0) as u32,
+                    },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Crossing(c.crossing), terms, steps));
             }
             Behavior::Rest => {
                 term(&mut terms, Reason::Rest, w.w_rest);
@@ -1542,6 +1708,8 @@ mod tests {
             hearth: None,
             gathering: None,
             watch: None,
+            carry: None,
+            crossing: None,
         }
     }
 
@@ -1618,6 +1786,7 @@ mod tests {
             None,
             &|| None,
             &|| None,
+            &|| Err(Reason::NoReport),
             &|| None,
             Err(Reason::Built),
             &shop,
@@ -1658,6 +1827,7 @@ mod tests {
                 None,
                 &|| None,
                 &|| None,
+                &|| Err(Reason::NoReport),
                 &|| None,
                 Err(Reason::Built),
                 &shop,
@@ -1788,6 +1958,7 @@ mod tests {
                 None,
                 &|| None,
                 &|| None,
+                &|| Err(Reason::NoReport),
                 &|| None,
                 Err(Reason::Built),
                 &shop,
@@ -1932,6 +2103,7 @@ mod tests {
                 Some(water),
                 &|| None,
                 &|| None,
+                &|| Err(Reason::NoReport),
                 &|| None,
                 Err(Reason::Built),
                 &shop,

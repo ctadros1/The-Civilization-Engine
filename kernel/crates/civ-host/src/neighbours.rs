@@ -5,7 +5,9 @@
 //! accounts, what passed between the settlements, the moves between them by reason, the
 //! coalitions that began or ended, and where the wave's people live. The end sums them, with
 //! every coalition from its first review to its fate, and says so if no splinter founding
-//! happened.
+//! happened. Since M5c it reports, each year, how each polity stands toward the others, the laws
+//! about other settlements and crossings its gathering decided, and every agreement and crossing
+//! the chronicle tells of; and at the end every agreement with both sides' law histories.
 //!
 //! The long run's checks fail it (every settlement's accounts balance, the books, residence
 //! histories that agree with the world: [`LongRun`]); nothing else is graded, and nothing here
@@ -98,7 +100,9 @@ pub struct Outcome {
 }
 
 /// Visits, hours, marriages and people moved from one settlement to another.
-type Totals = BTreeMap<(PermanentId, PermanentId), (u32, f64, u32, u32)>;
+/// Per pair of settlements: visits, hours at the hearth, marriages, people moved, purchases and
+/// trips to buy that bought nothing.
+type Totals = BTreeMap<(PermanentId, PermanentId), (u32, f64, u32, u32, u32, u32)>;
 
 /// Makes and lives the world, writing the report to `out`.
 pub fn run(
@@ -290,7 +294,8 @@ fn wave_point(sim: &Sim, apart_m: f32) -> Option<(f32, f32)> {
         .min_by(|a, b| d(a).total_cmp(&d(b)))
 }
 
-/// Visits, hours, marriages and people moved between each pair of settlements, all years.
+/// Visits, hours, marriages, people moved, purchases and trips that bought nothing between each
+/// pair of settlements, all years.
 fn contact_totals(sim: &Sim) -> Totals {
     let mut out = Totals::new();
     for (&(_, a, b), c) in &sim.people().contacts.years {
@@ -299,6 +304,8 @@ fn contact_totals(sim: &Sim) -> Totals {
         e.1 += c.minutes as f64 / 60.0;
         e.2 += c.marriages;
         e.3 += c.moved;
+        e.4 += c.bought;
+        e.5 += c.missed.iter().sum::<u32>();
     }
     out
 }
@@ -391,12 +398,14 @@ fn report_year(
     for (&(a, b), now) in &contact_totals(sim) {
         let was = contact_before.get(&(a, b)).copied().unwrap_or_default();
         let (v, h, m, mv) = (now.0 - was.0, now.1 - was.1, now.2 - was.2, now.3 - was.3);
-        if v + m + mv == 0 {
+        let (bought, missed) = (now.4 - was.4, now.5 - was.5);
+        if v + m + mv + bought + missed == 0 {
             continue;
         }
         writeln!(
             out,
-            "  {} → {}: {v} visits ({h:.0} h), {m} marriages, {mv} moved",
+            "  {} → {}: {v} visits ({h:.0} h), {m} marriages, {mv} moved, {bought} purchases, \
+             {missed} trips that bought nothing",
             place(sim, Some(a)),
             place(sim, Some(b))
         )?;
@@ -454,6 +463,83 @@ fn report_year(
     for w in &pop.influences.waves {
         writeln!(out, "  the wave: {}", wave_words(sim, w))?;
     }
+    report_relations(sim, from, to, out)
+}
+
+/// What passed between the polities in a year (M5c): how each stands toward each other now, the
+/// laws its gathering decided that concern other settlements or crossings, and every agreement
+/// and crossing the chronicle tells of.
+fn report_relations(
+    sim: &Sim,
+    from: SimTime,
+    to: SimTime,
+    out: &mut dyn Write,
+) -> anyhow::Result<()> {
+    use civ_agents::ChronicleKind;
+    use civ_agents::polity::{Outcome as Decided, PolicyKind};
+    use civ_sim::relations::{others, relation_of};
+    let pop = sim.people();
+    for p in &pop.polities {
+        if sim
+            .land()
+            .settlements
+            .iter()
+            .all(|s| s.id != p.settlement || s.abandoned.is_some())
+        {
+            continue;
+        }
+        let toward: Vec<String> = others(sim, p.id)
+            .map(|o| {
+                format!(
+                    "{} {}",
+                    place(sim, Some(o.settlement)),
+                    relation_of(sim, p, o).standing.words()
+                )
+            })
+            .collect();
+        let mut decided: BTreeMap<&str, (u32, u32)> = BTreeMap::new();
+        for l in &p.laws {
+            if !l.decided.is_some_and(|t| from <= t && t < to) {
+                continue;
+            }
+            let what = match l.kind {
+                PolicyKind::ClaimPlace => "claims",
+                PolicyKind::Agreement => "agreements",
+                PolicyKind::BuildCrossing => "crossings",
+                _ => continue,
+            };
+            let e = decided.entry(what).or_default();
+            e.0 += 1;
+            if l.outcome == Some(Decided::Passed) {
+                e.1 += 1;
+            }
+        }
+        if toward.is_empty() && decided.is_empty() {
+            continue;
+        }
+        let laws: Vec<String> = decided
+            .iter()
+            .map(|(what, (n, passed))| format!("{n} {what} decided ({passed} passed)"))
+            .collect();
+        writeln!(
+            out,
+            "  {}: toward {}{}",
+            place(sim, Some(p.settlement)),
+            listed(&toward),
+            if laws.is_empty() {
+                String::new()
+            } else {
+                format!("; {}", laws.join(", "))
+            }
+        )?;
+    }
+    for e in pop.chronicle.iter().filter(|e| {
+        from <= e.at
+            && e.at < to
+            && matches!(e.kind, ChronicleKind::Agreement | ChronicleKind::Crossing)
+    }) {
+        writeln!(out, "  {}: {}", day_date(e.at.day_index()), e.name)?;
+    }
     Ok(())
 }
 
@@ -510,15 +596,33 @@ fn report_end(sim: &Sim, outcome: &Outcome, out: &mut dyn Write) -> anyhow::Resu
     for ((a, c), t) in contact_totals(sim) {
         writeln!(
             out,
-            "  {} → {}: {} visits ({:.0} h), {} marriages, {} moved",
+            "  {} → {}: {} visits ({:.0} h), {} marriages, {} moved, {} purchases, {} trips that \
+             bought nothing",
             place(sim, Some(a)),
             place(sim, Some(c)),
             t.0,
             t.1,
             t.2,
-            t.3
+            t.3,
+            t.4,
+            t.5
         )?;
     }
+    // What households believe of other settlements' offers (M5b slice AP).
+    let held = pop.reports.held.values().map(Vec::len).sum::<usize>();
+    let none_left = pop
+        .reports
+        .held
+        .values()
+        .flatten()
+        .filter(|r| r.units <= 0.0)
+        .count();
+    writeln!(
+        out,
+        "price reports: {held} held by {} households, {none_left} of them that a seller had none \
+         left",
+        pop.reports.held.len()
+    )?;
     if pop.influences.waves.is_empty() {
         writeln!(out, "no wave was sent")?;
     }
@@ -573,6 +677,44 @@ fn report_end(sim: &Sim, outcome: &Outcome, out: &mut dyn Write) -> anyhow::Resu
             pop.coalitions.len()
         )?;
     }
+    // Every agreement made between polities, with both sides' law histories side by side (the
+    // M5c relations brief; ADR-0020 §6).
+    let mut agreements = 0;
+    for (i, p) in pop.polities.iter().enumerate() {
+        for o in pop.polities.iter().skip(i + 1) {
+            for a in civ_sim::relations::agreements_between(sim, p, o) {
+                agreements += 1;
+                writeln!(
+                    out,
+                    "agreement between {} and {}: {}; {}",
+                    place(sim, Some(p.settlement)),
+                    place(sim, Some(o.settlement)),
+                    a.terms,
+                    a.state
+                )?;
+                writeln!(out, "  {}: {}", place(sim, Some(p.settlement)), a.ours)?;
+                writeln!(out, "  {}: {}", place(sim, Some(o.settlement)), a.theirs)?;
+                for line in &a.payments {
+                    writeln!(out, "  paid: {line}")?;
+                }
+            }
+        }
+    }
+    if agreements == 0 {
+        writeln!(out, "no agreement was made between polities")?;
+    }
+    let built = sim
+        .land()
+        .crossings
+        .list
+        .iter()
+        .filter(|c| c.open())
+        .count();
+    writeln!(
+        out,
+        "crossings: {} begun, {built} open now",
+        sim.land().crossings.list.len()
+    )?;
     for path in &outcome.saves {
         writeln!(out, "kept {}", path.display())?;
     }

@@ -184,7 +184,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `max_grievances`, `half_life_days`, `full_harm_days`, `reminder`, `tell_floor`, `remind_days` | Grievances (ADR-0016 §2; research 04-06 §1.7, §5.3). A person holds at most `max_grievances` (1 to 64), the least keenly felt giving way. Its activation fades by `half_life_days` (four values above 0 and at most 3,650: subsistence, extraction, treatment, a collective claim; 04-06 §2.2 gives 7 to 90 days for severe events) and is raised only by a reminder. A harm of `full_harm_days` (0.01 to 3,650) of the household's food is felt fully, less in proportion; hearing it told raises it by `reminder` (0 to 1); below `tell_floor` (0 to 1) it is not told; a harm that goes on (a store still empty) raises it again only after `remind_days` (1 to 365). All tuning values. |
 | `opinion` | `share`, `eta`, `epsilon`, `youth_until`, `youth_factor` | Talk at the hearth (M4c slice AG, ADR-0016 §4; content API 41): a companion says where they stand on a question with `share` (0 to 1) times its salience, and a listener moves `eta` (0 to 1) of the way toward it at full salience and trust (their regard for the teller), less the further apart they are, over `epsilon` (0.01 to 10), and `youth_factor` (0 to 10) times as far below the age `youth_until` (0 to 120). Research 06-04 §3.2's design priors: 0.5 exposures a person a week, η 0.03, ε 0.25, susceptibility doubled between 12 and 30. No negative influence. |
 | | `anchor_half_life_days`, `anchor_points`, `w_position`, `salience_live`, `salience_idle` | Each adult's anchor on a question is what their household's lot makes of it, worked out on the first of each month: a household forecasting `anchor_points` (0.01 to 100) points of gain leans 0.73 for it. Their position is pulled toward it with a half-life of `anchor_half_life_days` (1 to 36,500; 06-04 §3.2: 2 years). How far talk has moved someone from their household's lot adds `w_position` (0 to 100) points to their stance at a gathering. Salience is `salience_live` (0 to 1) while a law on the question is in force or before the gathering, else `salience_idle`. Tuning values. |
-| `style` | `alpha`, `prestige_most`, `innovation` | How households' taste in building moves (ADR-0009 §7; content API 22): the share of the way a household's taste moves toward the most admired building its settlement finished in the year past (0 to 1); how many times the least admired the most admired weighs (1 to 10), for its owner's standing in goods and how well it was built, equally; and the chance a building has one trait new to its builders, within what its program allows (0 to 1). |
+| `style` | `alpha`, `prestige_most`, `innovation`, `seen_most`, `sight_m` | How households' taste in building moves (ADR-0009 §7; content API 22): the share of the way a household's taste moves toward the most admired building its settlement finished in the year past (0 to 1); how many times the least admired the most admired weighs (1 to 10), for its owner's standing in goods and how well it was built, equally; and the chance a building has one trait new to its builders, within what its program allows (0 to 1). Content API 57 (M5b slice AR): how many buildings of other settlements, finished in the year past, a person keeps in mind until their household's next review (0 to 64; 0, nobody notes any), and how far from where they stand, at a hearth they visit or a door they buy at, they see them (0 to 2,000 m). |
 | | `tradition`, `tradition_spread`, `personal_spread` | Each a table of `pitch_deg`, `eave_m` and `overhang_m`: the way of building founding bands' are drawn around (pitch 0 to 80°, eaves 0.5 to 6 m, overhang 0 to 3 m), the standard deviation of a band's from it, and of each household's from its band's (each from 0 to 20°, 1 m and 1 m). A building is built to its household's taste held to what its program allows. |
 | `mortality` | `a`, `b`, `c`, `d`, `e` | Siler hazard `A·e^(−Bx) + C + D·e^(Ex)` per year: the founders' ages, and everyone's daily risk of dying. |
 | | `hunger_ratio_at_half`, `hunger_ratio_max` | Hunger multiplies that hazard: by the first at half the reserve drawn, as `ratio^(4d²)` of the share `d` drawn, up to the second. |
@@ -350,7 +350,7 @@ decided by people at run time.
 
 | Field | Meaning |
 |---|---|
-| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults), `take` (M4b: going to another household's home to take food from its store, when short; ADR-0015 §2), `watch` (M4b: the watch's rounds at night, for whoever holds the office), `petition` (M4c: going to the hearth on the evening a faction's petition sits, for an adult who has heard of it; ADR-0017 §3), `visit` (M5a: going to the hearth of another settlement the household knows and home the same day; ADR-0018 §2). |
+| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults), `take` (M4b: going to another household's home to take food from its store, when short; ADR-0015 §2), `watch` (M4b: the watch's rounds at night, for whoever holds the office), `petition` (M4c: going to the hearth on the evening a faction's petition sits, for an adult who has heard of it; ADR-0017 §3), `visit` (M5a: going to the hearth of another settlement the household knows and home the same day; ADR-0018 §2), `fetch` (M5b: going to a seller's door in another settlement by a price report the household holds, to buy at the terms it posts there now, for itself or to sell at home, and home the same day; ADR-0019 §2, §6), `carry` (M5c: taking up goods a payment owes where the paying store set them aside, walking them to the other settlement's hearth and home the same day, for the one who is to carry them; ADR-0020 §7), `bridge` (M5c: walking to the bank where the household is building a crossing, working on it and walking home, only while it is building one, or while their polity is building one under a law they know of). |
 | `resource` | For `gather` only: the land resource gathered (hunting, fishing, collecting firewood and cutting building materials are gathering too). A trip works until its load is full or its time runs out. |
 | `task` | For `farm` only: the field work, one of `prepare`, `sow`, `tend`, `reap`, `thresh`. |
 | `recipe` | For `make` only: the recipe worked, at home. |
@@ -500,6 +500,7 @@ The people profile's `[knowledge]` table (every value a tuning value):
 | `aware_try_factor` | How many times its hours trying counts for someone already aware of the technique. |
 | `w_try` | Utility points for trying at a problem at home, times the share of the household's food the problem would cost. |
 | `try_gap_days` | Least days between one person's sessions of trying. |
+| `watch_m` | How far, metres (0 to 1,000; 0, never), someone at another settlement's hearth or a seller's door there sees its people at work well enough to come to know of a technique the work needs (content API 58, M5b slice AR). Awareness only. |
 
 The core pack has thirteen techniques. Ten are the founders' repertoire of today's work, known by
 every founder and learnt in upbringing (research 06-08 §1.1, §3): growing emmer, grinding at a
@@ -593,8 +594,8 @@ template the content no longer has is refused.
 
 | Field | Meaning |
 |---|---|
-| `does` | What the kernel does under it: `common_store`, a share of each household's threshed grain paid into a store the polity keeps at the hearth, and food from it for a household short of food that asks; `keep_store`, a named adult keeps the common store under their own roof and gives from it at their home (the office's first form, below); `against_taking` (content API 36), whoever the gathering finds took from another household's store gives back what was taken, with what the bundle adds (below); `keep_watch` (content API 37), a named adult keeps watch over the households' stores at night (below); `curfew` (content API 38), nobody may be away from home in the hours it sets, but the watch at its rounds and those at a gathering (below); or `amend_body` (content API 40), the custom itself changes: who belongs to the deciding body, how many must come and how it decides (below). Content API 49 adds `repeal`: a law that ends the one it names, with nothing in its place; passed, it is carried rather than in force, and the law it names is superseded. |
-| `answers` | The issues whose presence makes proposing it a move: `food_short` (the settlement's food ran short within the year, or a household's food will not last until its next harvest); `store_unkept` (a common store is in force and holds food, and no one keeps it); `takings` (a household of the settlement found food taken from its store within the year). At least one. Content API 40 adds `overruled`: a gathering the person came to within memory decided against where they stood, or they hold a grievance against the gathering; it opens moves to them alone. Content API 49 adds `founding`: within `founding_days` of the custom being taken from the gathering, while laws the old custom made are unweighed; it opens to every member of the new body an end to each of them. |
+| `does` | What the kernel does under it: `common_store`, a share of each household's threshed grain paid into a store the polity keeps at the hearth, and food from it for a household short of food that asks; `keep_store`, a named adult keeps the common store under their own roof and gives from it at their home (the office's first form, below); `against_taking` (content API 36), whoever the gathering finds took from another household's store gives back what was taken, with what the bundle adds (below); `keep_watch` (content API 37), a named adult keeps watch over the households' stores at night (below); `curfew` (content API 38), nobody may be away from home in the hours it sets, but the watch at its rounds and those at a gathering (below); or `amend_body` (content API 40), the custom itself changes: who belongs to the deciding body, how many must come and how it decides (below). Content API 49 adds `repeal`: a law that ends the one it names, with nothing in its place; passed, it is carried rather than in force, and the law it names is superseded. Content API 59 adds `claim_place`: the polity claims the places its people saw people of another settlement working within the year, unclaimed, each named in the law when it is proposed; its own people's use is unchanged (ADR-0020 §5). Content API 67 adds `build_crossing`: the polity builds a crossing at the site its sponsor names, each household asked an equal share of the work (below). |
+| `answers` | The issues whose presence makes proposing it a move: `food_short` (the settlement's food ran short within the year, or a household's food will not last until its next harvest); `store_unkept` (a common store is in force and holds food, and no one keeps it); `takings` (a household of the settlement found food taken from its store within the year). At least one. Content API 40 adds `overruled`: a gathering the person came to within memory decided against where they stood, or they hold a grievance against the gathering; it opens moves to them alone. Content API 49 adds `founding`: within `founding_days` of the custom being taken from the gathering, while laws the old custom made are unweighed; it opens to every member of the new body an end to each of them. Content API 59 adds `outsiders`: a household of the settlement saw people of another settlement working, within the year, a place its own people work and the polity does not claim. Content API 67 adds `fords`: a household of the settlement wades a stream where a crossing of a system its people know could stand, within the work's walk of the hearth, and none stands. |
 | `levy_shares` | `common_store` only: the shares of threshed grain a sponsor may propose (1 to 8 of them, each above 0 and below 1). A `keep_store` or `keep_watch` template leaves it out. |
 | `relief_days` | `common_store` only: the most food one ask brings, in days of the asking household's need (above 0, at most 365). A `keep_store` template leaves it out. |
 | `hours` | `curfew` only (content API 38): the hours a sponsor may propose, 1 to 8 pairs `[from, to]` of hours of the day (0 to 23, different), the curfew running from the first to the second, past midnight when the second is the smaller. Any other template leaves it out. |
@@ -714,6 +715,154 @@ norms they hold weigh), `revolt_days` (how long the call stands), `hold_days` (h
 officeholder, and more adults than stand with the gathering, must stand with it before it holds)
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
+
+Content API 68 (M5c slice AW, step three) brings the room to work on a crossing: the bridge key
+`crew` (1 to 100), at most how many begin a session of work on one crossing in a day; anyone else
+who would work on it that day is told it is full (research 11-11 §1.3: progress is limited by the
+usable work front). The core's log footbridge takes 5, the crew research 11-07 §2.3 states for a
+simple log footbridge's one to six working days.
+
+Content API 67 (M5c slice AW, step three) brings crossings built together: the policy kind
+`build_crossing` and the issue `fords` (a household of the settlement wades a stream where a
+crossing of a system its people know could stand and none does), with the core pack's
+`core:policy/works_crossing`. Its sponsor names a site their own household wades (one of the
+three it wades most); once passed, the polity begins the crossing there, its own, and each
+household is asked an equal share of its work, which its people give as they choose, weighing the
+gathering's word as a levy's payment is weighed. A household weighs the law by the walking a year
+it would save its own people, less its share of the work over the crossing's life, each hour worth
+the food an hour of its own work brings (research 11-07 §2.3: foregone production), beside what
+the template bears on (`[bears]`). Nothing is authored about where or whether a village builds
+one, and a polity builds one at a time.
+
+Content API 66 (M5c slice AW, step two) brings households building crossings: the bridge key
+`skill` (the skill its builders practise, from which its members' quality is drawn when it opens,
+as a building's groups are, ADR-0009 §6; empty for a middling builder's) and the behaviour
+`bridge`, whose activity is the work on a crossing the household is building, its labour the
+crossing's. The core's log footbridge trains `core:skill/building`, and its work is
+`core:activity/work_on_crossing` (heavy work, an axe, as building a hut is). Nothing is authored
+about when a household builds one: it weighs the walking its own recorded wades of a stream would
+save over the crossing's life against the work it takes.
+
+Content API 65 (M5c slice AW, step one) brings bridge systems, a new content kind (`kind =
+"bridge"`, files under `bridge/`): `technique` (the one its builders need, or empty), `good` (its
+members' good, which must have `[timber]` strengths) and `density_kg_m3`; `span_min_m` and
+`span_max_m` (the clear spans it may be proposed for; research 11-07 §2.1's envelopes);
+`members` and `diameter_min_cm`/`diameter_max_cm` (how many lie side by side and what they may be
+cut to); `bearing_m` (how far each end rests on a bank); `deck_factor` (walking speed on it, a
+share of dry ground's); `labour_h_per_m` (per metre of member; 11-07 §2.3's guardrails);
+`loss_per_year` (the share of the members' section rot takes a year; 11-07 §2.4); `margin` (what
+builders size the members to, over their own weight and one walker); and `fall_kills` (the
+chance someone on it dies when it gives way). The core's first is `core:bridge/log_beam`, a log
+footbridge. What any one bridge carries is worked out from its own members, never authored.
+
+Content API 64 (M5c slice AV, step two) brings performance seen: the `[relations]` key
+`performance` (0 to 10; 1.0, as much as a trespass seen, a design prior; research 13-01 §1.5:
+trust moves only after a relevant opportunity). When a payment an agreement owes is handed over in
+full, or missed, each of the receiving polity's people who knows its own law deciding the
+agreement takes that much evidence that the paying polity keeps its word, or does not; a gift
+handed over is as much that it helps.
+
+Content API 63 (M5c slice AV, step one) brings goods for leave, and payments carried (ADR-0020
+§7): the behaviour `carry` and its activity `core:activity/walk_owed_goods` (one way at most
+`max_walk_minutes`, 120, as a visit; daylight only, and only for the one named to carry a payment
+set aside), and the `[relations]` keys `gifts_kg` and `transfers_kg` (at most 8 amounts each, 1 to
+100,000 kg; 100 and 400 for a gift and 100 for a transfer, design priors: research 13-02 §2.3
+gives a ceremonial relation no default share), `transfer_days` (1 to 3,650; 365), `deliver_days`
+(1 to 365; 30) and `carry_points` (0 to 100; 12, enough to outweigh the longest walk allowed, at
+`decision.w_walk_hour`, by about a morning's useful work), all design priors. `packages` becomes
+16, still inside research 13-01 §3.3's 8–32, so the goods packages fit beside leave's. A polity
+whose common store is in force may give, for leave to the places the other claims, a gift once or
+a transfer every `transfer_days` of the good its store holds most, into the other's store when it
+keeps one; a payment falls due when the agreement comes into force, the store sets aside what it
+holds of it each midnight, its keeper (or else the one who agreed to the terms) may walk it to the
+other's hearth, and one not handed over within `deliver_days` is missed, its cause kept.
+
+Content API 62 (M5c slice AU, step two) brings agreements between polities (ADR-0020 §6): the
+policy kind `agreement` (`core:policy/word_given`, answering the issue `claimed_from_us`; it
+asks no question and bears reciprocity +0.5 and security −0.5, authoring judgements), and the
+`[relations]` keys `packages` (1 to 32; 8, inside research 13-01 §3.3's 8–32 and 09-05 §2.3's
+3–8 per round), `answer_days` (1 to 3,650; 120, a design prior) and `terms_days` (at least one
+term of at most 36,500 days, 0 for one that runs until a law ends it; 365 and 1,825, from
+ADR-0020's menu of a year and five years). Someone
+whose household heard that another polity claims places it works, and who may propose at home,
+meets the one of that settlement they know best who may propose there; the two weigh leave to
+use the places either side claims, for each term, up to `packages` of them, each by their own
+household's forecast and the support they predict at home, and agree on the one both expect to
+pass and to be worth sponsoring, or part with none. Each sponsors it at home as a law of the
+template; it is in force once both gatherings have passed it and each side has heard of the
+other's decision from someone of the other settlement. A side not put to its gathering within
+`answer_days`, or not hearing within `answer_days` of the later decision, fails it. Leave in force
+lifts `claimed_worth` and the trespass for those who know their own polity's law deciding it.
+The issue `terms_sought` names why the other side's negotiator proposed it; it answers no
+settlement's issue.
+
+Content API 61 (M5c slice AU, step one) brings claims that bind outsiders' choices (ADR-0020
+§2, §5): the `[relations]` keys `share_claims` (0 to 1; 0.15, inside research 09-16 §2.2's 0.05–0.25
+for routine news) and `claimed_worth` (0 to 1; 0.5, a design prior). Someone who knows a claim
+their polity's law in force makes tells a companion from another settlement at the hearth with
+`share_claims`, and so does someone whose household heard of another polity's claim; the
+listener's household then holds every place the law claims. Word of a claim crosses no other
+way. A household that heard of another polity's claim on a place weighs it, when choosing where
+to gather or dig, at `claimed_worth` of what it would yield: it goes there only when nothing
+else is half as good, and is held to trespass if seen there. A place its own polity claims too it
+holds as its own and weighs whole. A claim heard of is let go once no law in force makes it.
+
+Content API 60 (M5c slice AT, step two) brings views of other polities (ADR-0020 §3): the
+people profile's `[relations]` table, with `prior` (0.01 to 100; 1 in the core pack, ADR-0020 §3's
+α = β = 1), `half_life_days` (1 to 36,500; 1,826, ADR-0020's five years), `seen_trespass` and
+`heard_trespass` (0 to 100 each; 1 and 0.5, design priors). A person holds a view of a polity they
+saw or heard of: evidence for and against in three domains (keeps its word, harms us, helps us),
+each starting at the prior and fading back to it. Someone who worked a place their polity claims
+and knows the claim, and saw people of another settlement work it the same day, holds a
+grievance against each of those households (its harm the food that household got there, in days
+of their own household's need) and adds `seen_trespass` to their view that the other polity harms
+theirs; one told of it at the hearth for the first time adds `heard_trespass`. A view is read by
+nothing yet but the observer, and a grievance against outsiders is no reason to leave home.
+
+Content API 59 (M5c slice AT, step one) brings claims on wild ground (ADR-0020 §5): the policy
+kind `claim_place`, the issue `outsiders`, the core pack's `core:policy/wild_ground`, the
+`[places]` key `use_half_life_days` (1 to 3,650) and the `[polity]` key `claim_keeps` (0 to 1).
+Each household keeps the places its people gather from or dig at: the days they worked each and
+the food they got there, and, for each other settlement whose people worked it on the same day,
+the days it saw them there, all fading by the half-life (180 days in the core pack, a design
+prior). Outsiders seen within the year at a place the polity does not claim make the issue; a
+claim's sponsor names every such place, and a household weighs it by what it believes outsiders
+take a year at the places it works (the food it got at each, times their share of the days
+there) times `claim_keeps` (0.5, a design prior: the share a claim would keep for it). Only food
+places count in that forecast; a deposit's clay is named but weighs nothing yet. A claim in force
+changes nobody's use of a place: what outsiders' use of a claimed place means comes with slice
+AT's second step. The template asks no question, so it enters no monthly opinion, and its id
+sorts after every earlier template's, so their indices, which key opinion's draws, are
+unchanged.
+
+Content API 58 (M5b slice AR, step two) brings the `[knowledge]` key `watch_m` (0 to 1,000 m;
+0, never): how far from where they stand, at another settlement's hearth or a seller's door
+there, someone sees its people at work well enough to come to know of a technique the work
+needs (a design prior). Seeing gives awareness only, never knowing (research 07-02 §1.2); a
+good bought there that only one technique makes shows it too.
+
+Content API 57 (M5b slice AR) brings buildings seen in other settlements: the `[style]` keys
+`seen_most` (the most a person keeps in mind until their household's next taste review, newest
+first; inside research 11-02 §5.5's 5–20 salient exemplars a person, which it calls a prototype
+storage choice rather than an empirical figure) and `sight_m` (how far from where they stand
+at another settlement's hearth, or at a door they go to buy at, they see its buildings finished in
+the year past), both design priors. At the review the household meets them beside its own
+settlement's, each once, a stranger's building admired for how well it was built and for the
+esteem its people hold its owner's in. `seen_most = 0` turns it off, and a world of one
+settlement lives as before.
+
+Content API 56 (M5b slice AP) brings buying from another settlement by report: the people
+profile's `[reports]` table, with `half_life_days` (days over which how much a household believes
+a price report halves), `max_age_days` (days after which one is let go) and `share_told` (the
+chance someone tells a companion at the hearth of an offer elsewhere their household holds a newer
+report of; research 09-16 §2.2's 0.05–0.25 for routine news), all design priors; and the activity
+behaviour `fetch`, whose `max_walk_minutes` is the farthest one-way walk to a seller's door and
+which is reached in daylight. A report is held per market, good and payment; someone who keeps
+company at another settlement's hearth tells of what their household and its workshops offer.
+Since M5b slice AQ (no new fields), `fetch` also carries an errand: a trip to buy a good
+elsewhere to sell at home, planned at the household's weekly review from its reports and its
+market's demand, and weighed as making to sell is (ADR-0019 §6). Content without `fetch` has no
+replacement anchor and no errands, and lives as before.
 
 Content API 55 (M5a slice AO) brings founding a settlement of one's own: the people profile's
 `[founding]` table, with `cost` (points against breaking every field and building where there is

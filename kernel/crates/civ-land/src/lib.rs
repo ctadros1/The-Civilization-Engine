@@ -21,6 +21,7 @@
 #![forbid(unsafe_code)]
 
 pub mod buildings;
+pub mod crossings;
 pub mod deposits;
 pub mod earth;
 pub mod fields;
@@ -369,6 +370,8 @@ pub struct Land {
     pub earthworks: Vec<earth::Earthwork>,
     /// What earthworks have done to the ground (ADR-0010 §3). Saved.
     pub ground: earth::GroundDelta,
+    /// Crossings over water, in the order begun (M5c slice AW). Saved.
+    pub crossings: crossings::Crossings,
 }
 
 /// Summary of a patch's terrain, for classification.
@@ -483,6 +486,13 @@ pub fn height_at(map: &WorldMap, x: f32, y: f32) -> f64 {
 }
 
 impl Land {
+    /// The ground people plan routes on, as one number: the paths' survey and the crossings'
+    /// revision (M5c slice AW). Routes and travel times worked out on another are not to be
+    /// trusted.
+    pub fn route_revision(&self) -> u64 {
+        (u64::from(self.crossings.revision()) << 32) | u64::from(self.wear.rev())
+    }
+
     /// Classifies a map's patches and lives a year of weather and stocks so a new world starts
     /// in season. `climatology` is the landscape's ([`Climatology::new`]).
     pub fn create(
@@ -569,6 +579,7 @@ impl Land {
             deposits: Vec::new(),
             earthworks: Vec::new(),
             ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
+            crossings: crossings::Crossings::default(),
         };
         // Start each stock at its equilibrium for the season a year ago, then grow a year.
         for r in 0..params.resources.len() {
@@ -608,7 +619,7 @@ impl Land {
     }
 
     pub fn problems(&self, map: &WorldMap, habitats: usize, next_id: u64) -> Vec<String> {
-        let mut out = Vec::new();
+        let mut out = self.crossings.problems();
         let p = &self.patches;
         let pc = p.patch_cells.max(1);
         if p.patch_cells == 0

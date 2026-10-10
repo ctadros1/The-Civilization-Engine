@@ -31,6 +31,10 @@ pub struct KnowledgeEvent {
     pub person: PermanentId,
     /// What happened.
     pub kind: KnowledgeEventKind,
+    /// Another settlement it concerns (M5b slice AR): for its coming to be known, the one its
+    /// knower came from; for its loss, one where it is still known that someone left here has
+    /// kin or a tie in.
+    pub elsewhere: Option<PermanentId>,
 }
 
 /// The age from which a founder can know technique `t`: the age at which a child learns it at
@@ -246,6 +250,7 @@ mod tests {
             aware_try_factor: 3.0,
             w_try: 2.0,
             try_gap_days: 7.0,
+            watch_m: 100.0,
         }
     }
 

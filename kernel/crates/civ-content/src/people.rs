@@ -64,6 +64,10 @@ pub(crate) struct PeopleFile {
     /// What founding a settlement is worth, and what a coalition must hold (M5a slice AO; content
     /// API 55).
     pub founding: FoundingFile,
+    /// How price reports of other markets are held and passed on (M5b slice AP; content API 56).
+    pub reports: ReportsFile,
+    /// How views of other polities are held (M5c slice AT; content API 60).
+    pub relations: RelationsFile,
 }
 
 /// Factions, their petitions, refusals and revolts (M4c slices AH-AI, ADR-0017 §2-4; content API
@@ -287,6 +291,9 @@ pub(crate) struct PlacesFile {
     pub w_seek: f64,
     pub seek_days: i64,
     pub revisit_days: f64,
+    /// Content API 59 (M5c slice AT): days over which what a household holds of the places its
+    /// people work halves.
+    pub use_half_life_days: f64,
 }
 
 /// What moving to another settlement is worth to a household (M5a slice AN, ADR-0018 §5; content
@@ -315,6 +322,47 @@ pub(crate) struct FoundingFile {
     pub candidates: u32,
     pub buffer_months: f64,
     pub work_h_per_day: f64,
+}
+
+/// How price reports of other settlements' markets are held and passed on (M5b slice AP; content
+/// API 56). See [`civ_agents::reports::ReportParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ReportsFile {
+    pub half_life_days: f64,
+    pub max_age_days: i64,
+    pub share_told: f64,
+}
+
+/// How views of other polities are held (M5c slice AT, ADR-0020 §3; content API 60). See
+/// [`civ_agents::views::RelationsParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RelationsFile {
+    pub prior: f64,
+    pub half_life_days: f64,
+    pub seen_trespass: f64,
+    pub heard_trespass: f64,
+    /// Content API 61 (M5c slice AU): word of claims at the hearth, and what a claimed place is
+    /// worth to a household that heard of the claim.
+    pub share_claims: f64,
+    pub claimed_worth: f64,
+    /// Content API 62 (M5c slice AU, step two): the packages two who meet weigh, the days an
+    /// agreement waits for the other gathering and for word of it, and the terms it may run.
+    pub packages: u32,
+    pub answer_days: i64,
+    pub terms_days: Vec<u32>,
+    /// Content API 63 (M5c slice AV): the gifts and transfers a store may give for leave, the days
+    /// between transfers, the days a payment may take to be handed over, and what carrying one
+    /// is worth to its carrier.
+    pub gifts_kg: Vec<u32>,
+    pub transfers_kg: Vec<u32>,
+    pub transfer_days: u32,
+    pub deliver_days: i64,
+    pub carry_points: f64,
+    /// Content API 64 (M5c slice AV, step two): the evidence a payment handed over or missed gives
+    /// those of the receiving polity who know its law deciding the agreement.
+    pub performance: f64,
 }
 
 /// Word of mouth and grievances (M4c slice AE, ADR-0016; content API 39). See
@@ -591,6 +639,9 @@ pub(crate) struct PolityFile {
     pub prior_lean: f64,
     pub prior_years: f64,
     pub lean_harvest: f64,
+    /// Content API 59 (M5c slice AT): the share of what outsiders take that a claim is believed to
+    /// keep.
+    pub claim_keeps: f64,
     pub subsistence_share: f64,
     pub comply_base: f64,
     pub w_stance: f64,
@@ -618,6 +669,7 @@ impl PolityFile {
             prior_lean: self.prior_lean,
             prior_years: self.prior_years,
             lean_harvest: self.lean_harvest,
+            claim_keeps: self.claim_keeps,
             subsistence_share: self.subsistence_share,
             comply_base: self.comply_base,
             w_stance: self.w_stance,
@@ -650,6 +702,7 @@ impl PolityFile {
             ("polity.prior_lean", self.prior_lean, 0.0, 100.0),
             ("polity.prior_years", self.prior_years, 0.01, 100.0),
             ("polity.lean_harvest", self.lean_harvest, 0.0, 1.0),
+            ("polity.claim_keeps", self.claim_keeps, 0.0, 1.0),
             ("polity.subsistence_share", self.subsistence_share, 0.0, 1.0),
             ("polity.comply_base", self.comply_base, -100.0, 100.0),
             ("polity.w_stance", self.w_stance, 0.0, 100.0),
@@ -896,6 +949,11 @@ pub(crate) struct StyleFile {
     pub tradition_spread: TasteFile,
     /// How far a household's lies from its band's.
     pub personal_spread: TasteFile,
+    /// Buildings of other settlements a person keeps in mind until the household's review
+    /// (content API 57).
+    pub seen_most: u32,
+    /// How far a person in another settlement sees its new buildings, metres (content API 57).
+    pub sight_m: f64,
 }
 
 /// How people dig at a deposit (M3b slice Q, ADR-0010 §2; content API 20).
@@ -926,6 +984,8 @@ pub(crate) struct Knowledge {
     pub w_try: f64,
     /// Least days between one person's sessions of trying.
     pub try_gap_days: f64,
+    /// How far, metres, someone in another settlement sees work done there (content API 58).
+    pub watch_m: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1482,6 +1542,7 @@ impl PeopleFile {
                 aware_try_factor: self.knowledge.aware_try_factor,
                 w_try: self.knowledge.w_try,
                 try_gap_days: self.knowledge.try_gap_days,
+                watch_m: self.knowledge.watch_m,
             },
             digging: civ_agents::params::Digging {
                 h_per_m3: self.digging.h_per_m3,
@@ -1494,6 +1555,8 @@ impl PeopleFile {
                 tradition_mean: self.style.tradition.taste(),
                 tradition_spread: self.style.tradition_spread.taste(),
                 personal_spread: self.style.personal_spread.taste(),
+                seen_most: self.style.seen_most as usize,
+                sight_m: self.style.sight_m,
             },
             midden: civ_agents::params::MiddenParams {
                 kg_per_person_day: self.midden.kg_per_person_day,
@@ -1522,6 +1585,7 @@ impl PeopleFile {
                 w_seek: self.places.w_seek,
                 seek_days: self.places.seek_days,
                 revisit_days: self.places.revisit_days,
+                use_half_life_days: self.places.use_half_life_days,
             },
             moving: civ_agents::places::MovingParams {
                 w_kin: self.moving.w_kin,
@@ -1539,6 +1603,28 @@ impl PeopleFile {
                 candidates: self.founding.candidates,
                 buffer_months: self.founding.buffer_months,
                 work_h_per_day: self.founding.work_h_per_day,
+            },
+            reports: civ_agents::reports::ReportParams {
+                half_life_days: self.reports.half_life_days,
+                max_age_days: self.reports.max_age_days,
+                share_told: self.reports.share_told,
+            },
+            relations: civ_agents::views::RelationsParams {
+                prior: self.relations.prior,
+                half_life_days: self.relations.half_life_days,
+                seen_trespass: self.relations.seen_trespass,
+                heard_trespass: self.relations.heard_trespass,
+                share_claims: self.relations.share_claims,
+                claimed_worth: self.relations.claimed_worth,
+                packages: self.relations.packages,
+                answer_days: self.relations.answer_days,
+                terms_days: self.relations.terms_days.clone(),
+                gifts_kg: self.relations.gifts_kg.clone(),
+                transfers_kg: self.relations.transfers_kg.clone(),
+                transfer_days: self.relations.transfer_days,
+                deliver_days: self.relations.deliver_days,
+                carry_points: self.relations.carry_points,
+                performance: self.relations.performance,
             },
             names,
         }
@@ -1573,6 +1659,14 @@ impl PeopleFile {
                 p.push(format!("`{key}` must be between 0 and 100 (got {v})"));
             }
         }
+        if !(self.places.use_half_life_days.is_finite()
+            && (1.0..=3650.0).contains(&self.places.use_half_life_days))
+        {
+            p.push(format!(
+                "`places.use_half_life_days` must be between 1 and 3650 (got {})",
+                self.places.use_half_life_days
+            ));
+        }
         if !(self.places.revisit_days.is_finite()
             && (1.0..=3650.0).contains(&self.places.revisit_days))
         {
@@ -1604,6 +1698,109 @@ impl PeopleFile {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{key}` must be between {lo} and {hi} (got {v})"));
             }
+        }
+        let r = &self.reports;
+        if !(r.half_life_days.is_finite() && (1.0..=3650.0).contains(&r.half_life_days)) {
+            p.push(format!(
+                "`reports.half_life_days` must be between 1 and 3650 (got {})",
+                r.half_life_days
+            ));
+        }
+        if !(1..=3650).contains(&r.max_age_days) {
+            p.push(format!(
+                "`reports.max_age_days` must be between 1 and 3650 (got {})",
+                r.max_age_days
+            ));
+        }
+        if !(r.share_told.is_finite() && (0.0..=1.0).contains(&r.share_told)) {
+            p.push(format!(
+                "`reports.share_told` must be between 0 and 1 (got {})",
+                r.share_told
+            ));
+        }
+        let v = &self.relations;
+        if !(v.prior.is_finite() && (0.01..=100.0).contains(&v.prior)) {
+            p.push(format!(
+                "`relations.prior` must be between 0.01 and 100 (got {})",
+                v.prior
+            ));
+        }
+        if !(v.half_life_days.is_finite() && (1.0..=36500.0).contains(&v.half_life_days)) {
+            p.push(format!(
+                "`relations.half_life_days` must be between 1 and 36500 (got {})",
+                v.half_life_days
+            ));
+        }
+        for (name, x) in [
+            ("seen_trespass", v.seen_trespass),
+            ("heard_trespass", v.heard_trespass),
+        ] {
+            if !(x.is_finite() && (0.0..=100.0).contains(&x)) {
+                p.push(format!(
+                    "`relations.{name}` must be between 0 and 100 (got {x})"
+                ));
+            }
+        }
+        for (name, x) in [
+            ("share_claims", v.share_claims),
+            ("claimed_worth", v.claimed_worth),
+        ] {
+            if !(x.is_finite() && (0.0..=1.0).contains(&x)) {
+                p.push(format!(
+                    "`relations.{name}` must be between 0 and 1 (got {x})"
+                ));
+            }
+        }
+        if !(1..=32).contains(&v.packages) {
+            p.push(format!(
+                "`relations.packages` must be between 1 and 32 (got {})",
+                v.packages
+            ));
+        }
+        if !(1..=3650).contains(&v.answer_days) {
+            p.push(format!(
+                "`relations.answer_days` must be between 1 and 3650 (got {})",
+                v.answer_days
+            ));
+        }
+        if v.terms_days.is_empty() || v.terms_days.iter().any(|&t| t > 36_500) {
+            p.push(format!(
+                "`relations.terms_days` must name at least one term of at most 36500 days (got \
+                 {:?})",
+                v.terms_days
+            ));
+        }
+        for (key, list) in [("gifts_kg", &v.gifts_kg), ("transfers_kg", &v.transfers_kg)] {
+            if list.len() > 8 || list.iter().any(|&kg| kg == 0 || kg > 100_000) {
+                p.push(format!(
+                    "`relations.{key}` must name at most 8 amounts of 1 to 100000 kg (got \
+                     {list:?})"
+                ));
+            }
+        }
+        if !(1..=3650).contains(&v.transfer_days) {
+            p.push(format!(
+                "`relations.transfer_days` must be between 1 and 3650 (got {})",
+                v.transfer_days
+            ));
+        }
+        if !(1..=365).contains(&v.deliver_days) {
+            p.push(format!(
+                "`relations.deliver_days` must be between 1 and 365 (got {})",
+                v.deliver_days
+            ));
+        }
+        if !(v.carry_points.is_finite() && (0.0..=100.0).contains(&v.carry_points)) {
+            p.push(format!(
+                "`relations.carry_points` must be between 0 and 100 (got {})",
+                v.carry_points
+            ));
+        }
+        if !(v.performance.is_finite() && (0.0..=10.0).contains(&v.performance)) {
+            p.push(format!(
+                "`relations.performance` must be between 0 and 10 (got {})",
+                v.performance
+            ));
         }
         if !(1..=256).contains(&f.candidates) {
             p.push(format!(
@@ -1668,6 +1865,8 @@ impl PeopleFile {
             ("style.alpha", st.alpha, 0.0, 1.0),
             ("style.prestige_most", st.prestige_most, 1.0, 10.0),
             ("style.innovation", st.innovation, 0.0, 1.0),
+            ("style.seen_most", f64::from(st.seen_most), 0.0, 64.0),
+            ("style.sight_m", st.sight_m, 0.0, 2000.0),
             (
                 "style.tradition.pitch_deg",
                 st.tradition.pitch_deg,
@@ -1734,6 +1933,12 @@ impl PeopleFile {
             p.push(format!(
                 "`knowledge.experiment_share` must be between 0 and 1 (got {})",
                 k.experiment_share
+            ));
+        }
+        if !(k.watch_m.is_finite() && (0.0..=1_000.0).contains(&k.watch_m)) {
+            p.push(format!(
+                "`knowledge.watch_m` must be between 0 and 1000 (got {})",
+                k.watch_m
             ));
         }
         if !(k.aware_try_factor.is_finite() && k.aware_try_factor >= 1.0) {

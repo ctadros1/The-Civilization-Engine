@@ -548,6 +548,33 @@ impl Wear {
     }
 }
 
+/// [`cells_along`], with the cell a walk passes through at each corner it turns from one cell
+/// to the next diagonally: `corner(a, b)` picks which of the two cells there, `a` and `b`, it
+/// went through (M5c slice AW: the walking grid's corner rule, so a stream running corner to
+/// corner is counted as waded where it was).
+pub fn cells_along_by(
+    points: &[(f32, f32)],
+    cell_m: f32,
+    width: u32,
+    height: u32,
+    corner: impl Fn(u32, u32) -> u32,
+) -> Vec<u32> {
+    let plain = cells_along(points, cell_m, width, height);
+    let mut out = Vec::with_capacity(plain.len());
+    let mut last: Option<u32> = None;
+    for c in plain {
+        if let Some(l) = last {
+            let (lx, ly, cx, cy) = (l % width, l / width, c % width, c / width);
+            if lx.abs_diff(cx) == 1 && ly.abs_diff(cy) == 1 {
+                out.push(corner(ly * width + cx, cy * width + lx));
+            }
+        }
+        out.push(c);
+        last = Some(c);
+    }
+    out
+}
+
 /// The cells under a walk along `points` (metres), in order, each listed once in a row: the
 /// polyline sampled every half cell. Cells off a `width` × `height` map are left out.
 pub fn cells_along(points: &[(f32, f32)], cell_m: f32, width: u32, height: u32) -> Vec<u32> {
@@ -891,6 +918,11 @@ mod tests {
         assert!(diag.windows(2).all(|w| w[0] != w[1]));
         // Off the map is left out.
         assert!(cells_along(&[(-20.0, 4.0), (-4.0, 4.0)], 8.0, 32, 32).is_empty());
+        // Through a corner, the cell there the walk went by is listed between the two.
+        let by = cells_along_by(&[(4.0, 4.0), (12.0, 12.0)], 8.0, 32, 32, |a, b| a.max(b));
+        assert_eq!(by, vec![0, 32, 33]);
+        let by = cells_along_by(&[(4.0, 4.0), (12.0, 12.0)], 8.0, 32, 32, |a, b| a.min(b));
+        assert_eq!(by, vec![0, 1, 33]);
     }
 
     fn traced(cells: &[Cell]) -> Vec<Vec<Cell>> {

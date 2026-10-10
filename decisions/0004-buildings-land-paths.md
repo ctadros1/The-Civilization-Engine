@@ -3,6 +3,7 @@
 Status: Accepted
 Date: 2026-10-03
 Milestone: M1
+Amended: 2026-10-10, M5c slice AW: §4's walking ground changes with crossings (§7).
 
 ## Context
 
@@ -92,6 +93,29 @@ Their main points:
 New sections: `land` (patch classes, richness and stocks), `fields`, `plots`, `builds` (specs and
 construction progress), `wear` (tiles), `settle` (settlements). M0 saves load with land computed on
 first load and every other section empty.
+
+### 7. Crossings change the walking ground (M5c slice AW)
+
+- The walking grid stays derived and unsaved, but it is no longer the map's alone: the open
+  crossings' spans are laid over it, each at its deck's walking factor (never slower than the
+  cell is waded). It is built that way when a world is assembled, and built again whenever a
+  crossing opens or gives way: the crossings keep a revision, the grid remembers the one it was
+  laid from, and the simulation lays it again after any step that changed it.
+- Routes, the landmarks that bound their search, and each settlement's travel field are kept
+  against one routing revision, the paths' survey and the crossings' together, so a crossing that
+  opens or falls is planned around at once rather than at the next survey (01-08 §4, §7).
+- A walk under way over a crossing that gives way stops where the walker is; whoever is on it
+  falls. No cached route crosses a fallen crossing.
+- A diagonal step passes through one of the two cells at its corner, so it is walked no faster
+  than the better of them allows and not at all when neither can be walked; a straight line
+  through a corner is held to the same. Until step three of slice AW found it, a walker could
+  step past a river running from corner to corner without wading it, and so cross a river too big
+  to wade wherever it ran diagonally; wadeable streams were crossed that way dry.
+- Crossings are records of their own in land, saved (schema 68), each with its spanned water cells
+  in order, its banks, its members and its state.
+- Each walk counts, for the walker's household, every river cell it wades (not walked on a deck),
+  fading as what a household holds of the places it works does; this is what a household weighs
+  a crossing by (step two, saved with the crossings from schema 69).
 
 ## Consequences
 

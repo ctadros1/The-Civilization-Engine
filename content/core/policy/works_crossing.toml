@@ -1,0 +1,28 @@
+# A crossing built together (M5c slice AW, step three; the M5 settlements brief §1.7: "the
+# polity through a public-work template in the M4 law pipeline, with labour contributed";
+# research 11-07 §4.1: household or village cooperation, labour contributions, whose weakness is
+# that participation declines or obligations are disputed). When the settlement's people wade a
+# stream a crossing of a system they know could span, anyone may propose that the polity build
+# one at a site their own household wades. A household weighs it by the walking a year it would
+# save its own people, less its share of the work spread over the crossing's life, each hour
+# worth the food an hour of its own work brings (11-07 §2.3: communal labour priced at the
+# production it forgoes); what it holds dear weighs beside that. Once passed the polity
+# begins it, and each household is asked an equal share of its work: its people give it as they
+# choose, weighing the gathering's word as a levy's payment is weighed, and nothing follows a
+# share not given (research 09-06: labour asked and labour given are kept apart). Whether anyone
+# proposes one, where, whether the gathering passes it, and whether it is ever finished, is
+# people's choice. Its id sorts after every older template's: hearth talk about a question is
+# keyed by a template's place in id order, so an id sorting earlier would shift theirs.
+kind = "policy"
+id = "core:policy/works_crossing"
+name = "Crossing built together"
+description = "The polity builds a crossing over a stream its people wade, and each household is asked an equal share of the work."
+does = "build_crossing"
+answers = ["fords"]
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement. Autonomy is "a household's say over ... its hours", and
+# a share of every household's hours is asked, as a common store asks a share of every harvest;
+# reciprocity is about giving back what was given or taken, which a crossing does not touch.
+[bears]
+"core:value/autonomy" = -0.5

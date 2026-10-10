@@ -27,8 +27,8 @@ Its guiding rule is **the engine authors the vocabulary, never the plot**. Conte
 | M3a–M3c · Economy, knowledge, buildings, weather and soils | Implemented |
 | M4 · Councils, law, crime and political change | Implemented. The latest fifty-year dashboard still has a failed food-price row in one world; see the project plan for the result and limits. |
 | M5a · Neighboring settlements | Implemented: contact, visits, marriage, migration and coalition founding. The 3,000-person, three-settlement run takes about 19.6 minutes at Max; the ten-minute design budget is not met. |
-| M5b · Trade and diffusion | Design recorded; implementation remains in progress. |
-| M5c · Inter-polity relations and public works | Planned after M5b. |
+| M5b · Trade and diffusion | Implemented: reported prices, cross-settlement buying and resale, and contact-based diffusion. The earlier roof-style demo no longer qualifies after the corrected river-walking rule isolated its villages; a new connected-world demonstration is still needed. |
+| M5c · Inter-polity relations and public works | In progress: claims, negotiated leave, payments and log crossings are implemented. Enclosures and a ratification demonstration remain. |
 
 The web observer currently presents an early farming world. Cities and modern civilization are long-term scope, not features of the current build or planned v1. Smoke runs and dashboards check selected behaviors and engineering invariants; they do not prove historical realism.
 

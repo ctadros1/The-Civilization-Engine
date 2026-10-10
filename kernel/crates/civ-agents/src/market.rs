@@ -246,6 +246,7 @@ mod tests {
             payment,
             paid,
             channel: Channel::Barter,
+            from: None,
         }
     }
 

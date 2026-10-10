@@ -55,11 +55,21 @@ pub enum Behavior {
     /// Walk to the hearth of another settlement the household knows, keep company there and
     /// walk home within the day (M5a slice AM, ADR-0018 §2: presence, never residence).
     Visit,
+    /// Walk to a seller's door in another settlement the household holds a price report of, buy
+    /// there if its terms still serve, and walk home within the day (M5b slice AP, ADR-0019 §2).
+    Fetch,
+    /// Take up goods its polity's store set aside for a payment an agreement owes, walk them to
+    /// the other settlement's hearth and hand them over, and walk home within the day (M5c slice
+    /// AV, ADR-0020 §7): only for the one who is to carry them.
+    Carry,
+    /// Walk to the bank where the household is building a crossing, work on it, and walk home
+    /// (M5c slice AW, step two): the activity's numbers, the crossing's labour.
+    Bridge,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 20] = [
+    pub const ALL: [Behavior; 23] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -80,6 +90,9 @@ impl Behavior {
         Behavior::Watch,
         Behavior::Petition,
         Behavior::Visit,
+        Behavior::Fetch,
+        Behavior::Carry,
+        Behavior::Bridge,
     ];
 
     /// The authored name of a behavior.
@@ -105,6 +118,9 @@ impl Behavior {
             Behavior::Watch => "watch",
             Behavior::Petition => "petition",
             Behavior::Visit => "visit",
+            Behavior::Fetch => "fetch",
+            Behavior::Carry => "carry",
+            Behavior::Bridge => "bridge",
         }
     }
 
@@ -530,6 +546,55 @@ pub struct Catalog {
     /// Ideologies, in content id order (M4c slice AG, ADR-0016 §4). Holdings refer to them by
     /// index, saves by content id.
     pub ideologies: Vec<crate::ideology::IdeologyDef>,
+    /// Bridge systems, in content id order (M5c slice AW). Crossings refer to them by index,
+    /// saves by content id.
+    pub bridges: Vec<BridgeDef>,
+}
+
+/// A bridge system (content kind `bridge`, M5c slice AW; research 11-07 §2.1): the clear spans
+/// it may be proposed for, the members it is made of, the work it takes, and what wears and
+/// fails it. What a bridge of it can carry is worked out from its own members and condition
+/// (11-07 §1.3), never authored.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BridgeDef {
+    pub id: String,
+    pub name: String,
+    /// The technique its builders need, by index, if any.
+    pub technique: Option<usize>,
+    /// The skill its builders practise, by index, from which its members' quality is drawn
+    /// (ADR-0009 §6), if any.
+    pub skill: Option<usize>,
+    /// The good its members are made of, by index: one with `[timber]` strengths.
+    pub good: usize,
+    /// The members' density, kg/m³, for their own weight.
+    pub density_kg_m3: f64,
+    /// Clear spans it may be proposed for, metres (11-07 §2.1's envelope).
+    pub span_m: (f64, f64),
+    /// Main members side by side, and the diameters they may be cut to, centimetres.
+    pub members: u32,
+    pub diameter_cm: (f64, f64),
+    /// How far each end rests on a bank beyond the channel, metres.
+    pub bearing_m: f64,
+    /// Walking speed on it, as a share of dry ground's.
+    pub deck_factor: f64,
+    /// Labour, hours for each metre of member length (11-07 §2.3's guardrails).
+    pub labour_h_per_m: f64,
+    /// The share of the members' effective section lost to rot in a year.
+    pub loss_per_year: f64,
+    /// The margin builders size its members to, over its own weight and one walker.
+    pub margin: f64,
+    /// The chance someone on it dies when it gives way under them.
+    pub fall_kills: f64,
+    /// How many may begin a session of work on one in a day: the room to work on it (M5c slice
+    /// AX; research 11-07 §2.3, 11-11 §1.3).
+    pub crew: u32,
+}
+
+impl Catalog {
+    /// The bridge system with content id `id`, by index.
+    pub fn bridge_index(&self, id: &str) -> Option<usize> {
+        self.bridges.iter().position(|b| b.id == id)
+    }
 }
 
 impl Catalog {
@@ -1315,6 +1380,12 @@ pub struct StyleParams {
     pub tradition_spread: Taste,
     /// How far each founding household's taste lies from its band's, likewise.
     pub personal_spread: Taste,
+    /// Buildings of other settlements a person keeps in mind until their household's next
+    /// review, newest first (M5b slice AR; research 11-02 §5.5: 5-20 salient exemplars).
+    pub seen_most: usize,
+    /// How far a person at another settlement's hearth or a seller's door there sees its new
+    /// buildings, metres (a design prior).
+    pub sight_m: f64,
 }
 
 /// Everything authored about people.
@@ -1383,6 +1454,11 @@ pub struct PeopleParams {
     /// What founding a settlement of its own is worth to a household, and what a coalition must
     /// hold to go (M5a slice AO).
     pub founding: crate::places::FoundingParams,
+    /// How price reports of other settlements' markets are held and passed on (M5b slice AP,
+    /// ADR-0019 §1).
+    pub reports: crate::reports::ReportParams,
+    /// How views of other polities are held (M5c slice AT, ADR-0020 §3).
+    pub relations: crate::views::RelationsParams,
     /// Names.
     pub names: NameParams,
 }
@@ -1459,6 +1535,9 @@ pub struct KnowledgeParams {
     /// Least days between one person's sessions of trying: what keeps trying to a small share of
     /// their time (research 07-01 §2.3; 07-11 §2.2).
     pub try_gap_days: f64,
+    /// How far, metres, someone at another settlement's hearth or a seller's door there sees its
+    /// people at work well enough to know of a technique the work needs (M5b slice AR; 0: never).
+    pub watch_m: f64,
 }
 
 /// Linear interpolation in an ascending `(x, y)` table, clamped at its ends.

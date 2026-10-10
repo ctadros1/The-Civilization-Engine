@@ -7,6 +7,7 @@ Amended: 2026-10-04, to match what was built. Slice O's first step: §2's parame
 version 1 names them, §3's group kinds and storage, §8's schema 15 and wire 1.14. Second step:
 §1's repertoire and choice, §5's room under a roof. Slice P: §4's condition and upkeep, §5's
 loads and failure (with the storm's day), §6's skill and caution, §8's schemas 17 and 18.
+Amended: 2026-10-10, M5c slice AW: crossings over water (§9).
 
 ## Context
 
@@ -305,6 +306,31 @@ their meanings), an expansion yields:
     the symptoms in words, how much of the roof leaks, each group's condition and the upkeep
     under way in words.
 - New chronicle kinds and the cause *collapse* are appended.
+
+### 9. Crossings (M5c slice AW)
+
+- A crossing is not a building on a plot: it spans water cells between two banks, by a bridge
+  system authored as content (`kind = "bridge"`: a span envelope, members, the work they take,
+  rot a year, a design margin, the chance a fall kills; research 11-07 §2.1, §2.3, §2.4). A log
+  footbridge is the first.
+- Its condition is §4's, reduced to its members: a quality drawn once and the share of their
+  section rot has taken, growing daily at the system's rate. The quality is drawn when its
+  labour is done, from its builders' building skill weighted by the hours each put in, as §6's
+  groups are (step two: a household builds one; its labour is the system's per metre of member,
+  and opening it guarantees no upkeep, 11-07 §4.2). Its capacity is never saved: its
+  members are checked as a simply supported beam over the span and a bearing, bending under
+  their own weight and one walker (11-07 §1.3), with §5's cube of what is left.
+- It is checked each midnight with nobody on it, and as someone steps onto it (11-07 §6.2). It
+  fails below a margin of 1, with §5's consequences translated: whoever is on it falls into the
+  water and dies with the system's chance (a new cause of death, *a fall*), the rest scramble to
+  the nearer bank, and the chronicle says what gave way and why.
+- Step three: a polity may build one by a law in ADR-0013's pipeline. It is the polity's, its
+  work asked of the settlement's households in equal shares and given as each person chooses
+  (no sanction follows a share not given; research 09-06 keeps labour asked and labour given
+  apart, 11-07 §4.1 names declining participation as this arrangement's weakness), and the hours
+  each household gave are kept with it. Its quality is drawn as any crossing's.
+- Only bending is a mode yet; rot at the bearings, rolling, the deck and supports in the channel
+  (trestles, M6's scour) are not.
 
 ## Consequences
 

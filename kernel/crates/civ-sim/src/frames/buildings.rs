@@ -80,7 +80,8 @@ fn upkeep(b: &Building, e: Option<&Expansion>) -> String {
 /// How building `b` of program `def` was built, in words, and the building its household's taste
 /// followed (M3b slice R): "roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut"; for a
 /// frame building its storeys and how far its eaves reach: "roof pitched 50°, storeys 2.1 m to
-/// the eaves, eaves 0.6 m out". Empty when the content lacks its program.
+/// the eaves, eaves 0.6 m out"; and where the building followed stands if in another settlement
+/// (M5b slice AR): "after Bo's hut at Westford". Empty when the content lacks its program.
 pub fn style_words(sim: &Sim, b: &Building, def: Option<&BuildingDef>) -> String {
     let Some(def) = def else {
         return String::new();
@@ -97,7 +98,21 @@ pub fn style_words(sim: &Sim, b: &Building, def: Option<&BuildingDef>) -> String
         words.push(format!("eaves {:.1} m out", t.overhang_cm / 100.0));
     }
     if let Some(from) = b.style_from {
-        words.push(format!("after {}", super::people::building_name(sim, from)));
+        // Where the building followed stands, if not where this one does (M5b slice AR).
+        let here = sim.people.household(b.household).and_then(|h| h.settlement);
+        let mut after = format!(
+            "after {}",
+            super::people::building_name_from(sim, from, here)
+        );
+        // And the first building elsewhere its chain of followed buildings goes back to, if the
+        // one it followed stands here (M5b slice AR; the M5 diffusion brief §1.7).
+        if let Some(first) = sim.people.crossing_of(&sim.land, b).filter(|&x| x != from) {
+            after.push_str(&format!(
+                ", which goes back to {}",
+                super::people::building_name_from(sim, first, here)
+            ));
+        }
+        words.push(after);
     }
     words.join(", ")
 }

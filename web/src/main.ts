@@ -79,6 +79,7 @@ const client = new HostClient(socketUrl(), {
     void syncOrder();
     void syncDeposits();
     void syncEarthworks();
+    void syncCrossings();
     void refreshPerson(false);
   },
   events: (items) => store.update({ events: mergeEvents(store.state.events, items) }),
@@ -260,6 +261,36 @@ async function syncEarthworks(): Promise<void> {
     earthworksBusy = false;
   }
   if (ok) void syncEarthworks();
+}
+
+/** `world:revision` of the crossings on the map. */
+let crossingsKey = "";
+let crossingsBusy = false;
+
+/** Fetches the crossings over water when one was begun, worked on, opened, rotted or gave way. */
+async function syncCrossings(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const key = world && s.crossingsRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.crossingsRev}` : "";
+  if (key === crossingsKey || crossingsBusy) return;
+  if (!key) {
+    crossingsKey = "";
+    map.setCrossings(null);
+    return;
+  }
+  crossingsBusy = true;
+  let ok = false;
+  try {
+    const info = await client.crossings();
+    crossingsKey = key;
+    map.setCrossings(info);
+    ok = true;
+  } catch (e) {
+    console.warn(`tce: the crossings could not be read: ${String(e)}`);
+  } finally {
+    crossingsBusy = false;
+  }
+  if (ok) void syncCrossings();
 }
 
 /** `world:revision` of the paths on the map. */
@@ -850,9 +881,10 @@ map.onPointer = (info: PointerInfo | null) => {
   const building = info.building ? ` · ${buildingWords(info.building)}` : "";
   const deposit = info.deposit ? ` · ${depositWords(info.deposit, store.state.welcome?.goods ?? [])}` : "";
   const earthwork = info.earthwork ? ` · ${info.earthwork.words}` : "";
+  const crossing = info.crossing ? ` · ${info.crossing.words}` : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${path}${field}${building}${earthwork}${deposit}`;
+    `${height} · ${info.water ?? ""}${crossing}${path}${field}${building}${earthwork}${deposit}`;
 };
 
 const scaleBar = byId("scalebar-bar");
@@ -1049,6 +1081,7 @@ const hooks = {
           year: x.year,
           contacts: x.contacts,
           coalitions: x.coalitions,
+          style: x.style,
         })) ?? [],
       fieldsRev: s.snapshot?.fieldsRev ?? 0,
       buildingsRev: s.snapshot?.buildingsRev ?? 0,
@@ -1058,6 +1091,7 @@ const hooks = {
       knowledgeRev: s.snapshot?.knowledgeRev ?? 0,
       depositsRev: s.snapshot?.depositsRev ?? 0,
       earthworksRev: s.snapshot?.earthworksRev ?? 0,
+      crossingsRev: s.snapshot?.crossingsRev ?? 0,
       weatherRev: s.snapshot?.weatherRev ?? 0,
       weather: s.weather
         ? {
@@ -1083,6 +1117,7 @@ const hooks = {
               customHistory: p.customHistory,
               revolts: p.revolts,
               coups: p.coups,
+              relations: p.relations,
               petitions: p.petitions,
               refusals: p.refusals,
               laws: p.laws.map((l) => ({
@@ -1189,6 +1224,10 @@ const hooks = {
           goods: m.goods.length,
           offers: m.offers.length,
           trades: m.recent.length,
+          outsiders: m.outsiders,
+          between: m.between,
+          onTheWay: m.onTheWay,
+          fromElsewhere: m.recent.filter((t) => t.from !== 0).map((t) => t.text),
         })) ?? null,
       chronicle: s.chronicle.map((e) => e.spans.map((x) => x.text).join("")),
       selected: s.selected
@@ -1198,6 +1237,9 @@ const hooks = {
             doing: s.selected.info?.doing ?? null,
             untilMinute: s.selected.info?.untilMinute ?? null,
             residence: s.selected.info?.residence ?? null,
+            reports: s.selected.info?.reports ?? null,
+            errand: s.selected.info?.errand ?? null,
+            seenAway: s.selected.info?.seenAway ?? null,
             error: s.selected.error,
             knows:
               s.selected.info?.knows.map((k) => ({

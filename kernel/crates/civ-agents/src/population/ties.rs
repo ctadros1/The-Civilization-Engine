@@ -216,6 +216,13 @@ impl Population {
             self.share_ideologies(ctx, me, q);
             // And of the other settlements they know (M5a slice AM, ADR-0018 §4).
             self.share_places(ctx, me, q);
+            // And of what is offered elsewhere (M5b slice AP, ADR-0019 §1).
+            self.share_reports(ctx, me, q);
+            // And of the places a polity's law claims (M5c slice AU, ADR-0020 §2).
+            self.share_claims(ctx, me, q);
+            // And of what a gathering decided on an agreement between their polities (M5c slice
+            // AU, ADR-0020 §6).
+            self.share_agreement_word(ctx, me, q);
         }
     }
 
@@ -251,5 +258,7 @@ impl Population {
         self.ties.prune(|to| here.contains(&to));
         // And of failed searches for a partner by those no longer here (M5a slice AM).
         self.unmatched.retain(|id, _| here.contains(id));
+        // And of the buildings they saw elsewhere (M5b slice AR).
+        self.seen_away.retain(|id, _| here.contains(id));
     }
 }

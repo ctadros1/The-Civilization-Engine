@@ -1329,6 +1329,25 @@ export function bindUi(store: Store, actions: Actions): void {
         ),
       );
     }
+    // What their household believes other settlements' sellers offer (wire 1.54, ADR-0019 §1).
+    if (p.alive && p.reports.length > 0) {
+      nodes.push(
+        el(
+          "div",
+          { className: "reports" },
+          el("h4", { text: "Prices their household has heard of elsewhere" }),
+          el("ul", {}, ...p.reports.map((line) => el("li", { text: `${line}.` }))),
+        ),
+      );
+    }
+    // The errand their household means to run (wire 1.55, ADR-0019 §6).
+    if (p.alive && p.errand) {
+      nodes.push(el("p", { className: "errand", text: `${p.errand}.` }));
+    }
+    // The buildings of other settlements they have seen (wire 1.56, M5b slice AR).
+    if (p.alive && p.seenAway) {
+      nodes.push(el("p", { className: "seen-away", text: `Seen elsewhere: ${p.seenAway}.` }));
+    }
     if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p), opinionBlock(p));
     if (p.alive) nodes.push(observerBlock(welcome, p));
     if (p.kin.length > 0 || p.family.length > 0) {
@@ -1384,6 +1403,7 @@ export function bindUi(store: Store, actions: Actions): void {
         s.abandonedMinute,
         s.contacts,
         s.coalitions,
+        s.style,
       ]),
       state.welcome?.activities.length ?? 0,
     ]);
@@ -1427,6 +1447,8 @@ export function bindUi(store: Store, actions: Actions): void {
           ? el("span", { className: "since contacts", text: `Between settlements, ${s.contacts}.` })
           : "",
         ...s.coalitions.map((c) => el("span", { className: "since coalition", text: `${c}.` })),
+        // Its way of building on the three clocks (wire 1.56, M5b slice AR).
+        s.style ? el("span", { className: "since style", text: `Building: ${s.style}.` }) : "",
       ),
     );
     nodes.push(
@@ -1561,6 +1583,23 @@ export function bindUi(store: Store, actions: Actions): void {
         : el("span", { className: "badge barter", text: "barter" }),
     );
     const nodes: Node[] = [head, el("p", { className: "market-summary", text: m.summary })];
+    // Buyers from other settlements (wire 1.54, M5b slice AP).
+    if (m.outsiders) {
+      nodes.push(el("p", { className: "since market-outsiders", text: `From elsewhere: ${m.outsiders}.` }));
+    }
+    // Trade with each other settlement, and who is on the road to buy here today (wire 1.55).
+    if (m.between.length > 0) {
+      nodes.push(
+        el(
+          "ul",
+          { className: "market-between" },
+          ...m.between.map((line) => el("li", { text: `${line}.` })),
+        ),
+      );
+    }
+    if (m.onTheWay) {
+      nodes.push(el("p", { className: "since market-on-the-way", text: `${m.onTheWay}.` }));
+    }
     const paid = paymentsText(goods, m);
     if (paid) nodes.push(el("p", { className: "aside", text: `Paid in: ${paid}.` }));
     const lines = el("ul", { className: "market-goods" });
@@ -2272,6 +2311,54 @@ export function bindUi(store: Store, actions: Actions): void {
       }
       if (p.coups.length > 0) {
         block.append(el("ul", { className: "coups" }, ...p.coups.map((v) => el("li", { text: v }))));
+      }
+      // How it stands toward the other polities, from its own side (wire 1.57, ADR-0020 §1).
+      if (p.relations.length > 0) {
+        block.append(
+          el(
+            "details",
+            { className: "relations" },
+            el("summary", {
+              text: `Toward its neighbours: ${p.relations.map((r) => `${r.name} ${r.label}`).join(", ")}`,
+            }),
+            el("p", {
+              className: "aside",
+              text: "Worked out afterwards from what its own people hold; nothing in the world reads it.",
+            }),
+            ...p.relations.map((r) =>
+              el(
+                "div",
+                { className: "relation" },
+                el("strong", { text: `${r.name}: ${r.label}` }),
+                el("ul", {}, ...r.why.map((w) => el("li", { text: w }))),
+                // Its agreements with them, both law histories side by side (wire 1.58).
+                ...r.agreements.map((a) =>
+                  el(
+                    "div",
+                    { className: "agreement" },
+                    el("p", { text: `Agreement: ${a.terms}; ${a.state}.` }),
+                    el(
+                      "div",
+                      { className: "agreement-sides" },
+                      el("p", { className: "ours", text: `Here: ${a.ours}.` }),
+                      el("p", { className: "theirs", text: `At ${r.name}: ${a.theirs}.` }),
+                    ),
+                    // What it owed, set aside and handed over (wire 1.59).
+                    ...(a.payments.length > 0
+                      ? [
+                          el(
+                            "ul",
+                            { className: "payments" },
+                            ...a.payments.map((w) => el("li", { text: `Payment: ${w}.` })),
+                          ),
+                        ]
+                      : []),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
       }
       const label = labelText(p);
       if (label !== "") {

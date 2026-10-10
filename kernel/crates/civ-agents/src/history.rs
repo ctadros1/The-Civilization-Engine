@@ -154,11 +154,27 @@ pub enum Reason {
     /// Excluded: no other settlement their household knows lies within a day's walk there and
     /// back, in daylight.
     NoPlaceToVisit = 135,
+    NoReport = 136,
+    /// Excluded: someone of their household is already on the way to buy elsewhere (M5b slice
+    /// AP).
+    AnotherGoes = 137,
+    /// Excluded: the observer has stopped purchases between settlements (the demo's twin, M5b
+    /// slice AQ).
+    Stopped = 138,
+    /// Excluded: as many as there is room for have begun work on it today (M5c slice AX).
+    Crowded = 139,
+    /// The walking a crossing the household is building would save its people over the
+    /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
+    Crossing = 32,
+    /// The work on a crossing their polity's gathering asked of their household, while it has
+    /// not given its share: what keeping to the gathering's word is worth to them (M5c slice AW,
+    /// step three).
+    PublicWork = 33,
 }
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 67] = [
+    pub const ALL: [Reason; 73] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -226,6 +242,12 @@ impl Reason {
         Reason::Hurt,
         Reason::Company,
         Reason::NoPlaceToVisit,
+        Reason::NoReport,
+        Reason::AnotherGoes,
+        Reason::Stopped,
+        Reason::Crossing,
+        Reason::PublicWork,
+        Reason::Crowded,
     ];
 
     /// The reason with this code.
@@ -303,6 +325,14 @@ impl Reason {
             Reason::Hurt => "a blow keeps them from work",
             Reason::Company => "those they would see there",
             Reason::NoPlaceToVisit => "no settlement they know within a day's walk",
+            Reason::NoReport => "no offer elsewhere they know of is worth the walk",
+            Reason::AnotherGoes => {
+                "someone of their household is already on the way to buy elsewhere"
+            }
+            Reason::Stopped => "the observer has stopped purchases between settlements",
+            Reason::Crossing => "the walking a crossing would save",
+            Reason::PublicWork => "the work the gathering asked of their household",
+            Reason::Crowded => "as many as there is room for are already at work on it today",
         }
     }
 }
@@ -376,16 +406,19 @@ pub enum Cause {
     /// Of a blow another struck (M4c slice AI, step four; ADR-0017 §3): the encounter that
     /// records who struck it.
     Violence,
+    /// In a fall when a crossing gave way under them (M5c slice AW).
+    Fell,
 }
 
 impl Cause {
     /// Every cause.
-    pub const ALL: [Cause; 5] = [
+    pub const ALL: [Cause; 6] = [
         Cause::Unspecified,
         Cause::Starvation,
         Cause::Childbirth,
         Cause::Collapse,
         Cause::Violence,
+        Cause::Fell,
     ];
 
     /// The key a chronicle entry keeps it as.
@@ -396,6 +429,7 @@ impl Cause {
             Cause::Childbirth => "childbirth",
             Cause::Collapse => "collapse",
             Cause::Violence => "violence",
+            Cause::Fell => "fell",
         }
     }
 
@@ -412,6 +446,7 @@ impl Cause {
             Cause::Childbirth => "childbirth",
             Cause::Collapse => "a building's collapse",
             Cause::Violence => "a blow struck by another",
+            Cause::Fell => "a fall when a crossing gave way",
         }
     }
 }
@@ -674,6 +709,44 @@ pub enum ChronicleKind {
     /// founded; `pos` the site; `number` what happened ([`CoalitionStep`]); `name` the settlement
     /// left, for a founding, else empty.
     Coalition,
+    /// Two polities' people met to seek terms, or an agreement between their polities came into
+    /// force, failed or ended (M5c slice AU, ADR-0020 §6): `people` are the two who met, side 0's
+    /// first; `settlement` side 0's; `number` the step ([`AgreementStep`]); `name` the sentence.
+    Agreement,
+    /// A crossing over water opened or gave way (M5c slice AW): `people` its owner's household
+    /// or whoever was on it; `place` its middle; `number` the step ([`CrossingStep`]); `name` the
+    /// sentence.
+    Crossing,
+}
+
+/// What happened to a crossing, in a [`ChronicleKind::Crossing`] entry. Numeric in saves:
+/// append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CrossingStep {
+    /// It was finished and opened to walkers.
+    Opened = 0,
+    /// It gave way.
+    Failed = 1,
+}
+
+/// What happened to an agreement, in a [`ChronicleKind::Agreement`] entry. Numeric in saves:
+/// append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AgreementStep {
+    /// The two who met agreed on terms to put to their gatherings.
+    Agreed = 0,
+    /// They parted with none.
+    NoTerms = 1,
+    /// Both gatherings passed it and each side heard of the other's decision.
+    InForce = 2,
+    /// It failed before coming into force.
+    Failed = 3,
+    /// Its term ran out, or a law of one side ended it.
+    Ended = 4,
+    /// A payment it owes was handed over at the other's hearth (M5c slice AV).
+    Delivered = 5,
+    /// A payment it owes was missed, its cause told.
+    Missed = 6,
 }
 
 /// What happened to a coalition, in a [`ChronicleKind::Coalition`] entry. Numeric in saves:
@@ -826,6 +899,7 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 Some(Cause::Childbirth) => format!(" died in childbirth, {age}."),
                 Some(Cause::Collapse) => format!(" died when a building gave way, {age}."),
                 Some(Cause::Violence) => format!(" died of a blow, {age}."),
+                Some(Cause::Fell) => format!(" fell when a crossing gave way, and died, {age}."),
                 _ => format!(" died, {age}."),
             };
             vec![who, Span::Text(how)]
@@ -1088,6 +1162,9 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
             if flags & 2 != 0 {
                 tail.push_str(" What was made with it remains.");
             }
+            if flags & 4 != 0 {
+                tail.push_str(" It is still known where some here have kin or friends.");
+            }
             match person(0) {
                 Some(last) => vec![
                     Span::Text(format!("{} was lost with ", event.name)),
@@ -1180,7 +1257,9 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::CustomTaken
         | ChronicleKind::RevoltFailed
         | ChronicleKind::CoupFailed
-        | ChronicleKind::Encounter => {
+        | ChronicleKind::Encounter
+        | ChronicleKind::Agreement
+        | ChronicleKind::Crossing => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

@@ -66,6 +66,8 @@ pub struct NavGrid {
     cell_m: f64,
     params: NavParams,
     ground: Vec<f32>,
+    /// The revision of the crossings whose decks are laid over it (M5c slice AW); 0 for none.
+    revision: u32,
 }
 
 /// Cells the route searches on this thread have expanded, summed: what a benchmark reads to
@@ -412,7 +414,33 @@ impl NavGrid {
             cell_m: f64::from(map.cell_size_m),
             params,
             ground,
+            revision: 0,
         }
+    }
+
+    /// The map's grid with `decks` laid over it (M5c slice AW, ADR-0004 amended): each `(cell,
+    /// factor)` an open crossing's span, walked at its deck's speed, never slower than the cell
+    /// is waded. `revision` is the revision of the crossings they come from, which
+    /// [`NavGrid::revision`] gives back; with no decks it is [`NavGrid::new`]'s grid.
+    pub fn with_decks(
+        map: &WorldMap,
+        params: NavParams,
+        decks: &[(u32, f32)],
+        revision: u32,
+    ) -> Self {
+        let mut grid = NavGrid::new(map, params);
+        for &(c, factor) in decks {
+            if let Some(g) = grid.ground.get_mut(c as usize) {
+                *g = g.max(factor);
+            }
+        }
+        grid.revision = revision;
+        grid
+    }
+
+    /// The revision of the crossings whose decks are laid over this grid; 0 for none.
+    pub fn revision(&self) -> u32 {
+        self.revision
     }
 
     /// The parameters this grid was built with.
@@ -423,6 +451,28 @@ impl NavGrid {
     /// Whether a person can stand in `cell`.
     pub fn walkable(&self, cell: usize) -> bool {
         self.ground.get(cell).is_some_and(|&g| g > 0.0)
+    }
+
+    /// The ground factor of `cell`: 1 on dry ground, a share of it where waded or on a deck, 0
+    /// where nobody can stand.
+    pub fn ground(&self, cell: usize) -> f32 {
+        self.ground.get(cell).copied().unwrap_or(0.0)
+    }
+
+    /// The ground the step from `from` to its neighbour `to` is walked on: `to`'s, and for a
+    /// diagonal step no better than the better of the two cells at its corner, one of which a
+    /// walker passes through. A river running from corner to corner is waded, or not crossed at
+    /// all, never stepped past between its cells.
+    #[inline]
+    fn step_ground(&self, from: usize, to: usize) -> f32 {
+        let g = self.ground[to];
+        let (fx, fy) = (from % self.width, from / self.width);
+        let (tx, ty) = (to % self.width, to / self.width);
+        if fx == tx || fy == ty {
+            return g;
+        }
+        let corner = self.ground[fy * self.width + tx].max(self.ground[ty * self.width + fx]);
+        g.min(corner)
     }
 
     /// Seconds to step from `from` to the neighbouring `to`, given the trail factor (0–1) of the
@@ -436,7 +486,7 @@ impl NavGrid {
         trail: f32,
     ) -> Option<f32> {
         let tobler = self.step_speed(elevation, from, to, dist_cells)?;
-        Some(self.seconds_at(tobler, to, dist_cells, trail))
+        Some(self.seconds_at(tobler, (from, to), dist_cells, trail))
     }
 
     /// Tobler's speed on the step from `from` to its neighbour `to`, m/s on a trail; `None` if
@@ -448,7 +498,7 @@ impl NavGrid {
         to: usize,
         dist_cells: f64,
     ) -> Option<f64> {
-        if f64::from(self.ground[to]) <= 0.0 {
+        if f64::from(self.step_ground(from, to)) <= 0.0 {
             return None;
         }
         let run = dist_cells * self.cell_m;
@@ -460,14 +510,20 @@ impl NavGrid {
         Some(self.params.tobler_ms(slope))
     }
 
-    /// Seconds for a walkable step into `to` at Tobler's speed `tobler` (from
+    /// Seconds for a walkable step from `from` into `to` at Tobler's speed `tobler` (from
     /// [`NavGrid::step_speed`]), given the trail factor of `to`.
     #[inline]
-    fn seconds_at(&self, tobler: f64, to: usize, dist_cells: f64, trail: f32) -> f32 {
+    fn seconds_at(
+        &self,
+        tobler: f64,
+        (from, to): (usize, usize),
+        dist_cells: f64,
+        trail: f32,
+    ) -> f32 {
         let run = dist_cells * self.cell_m;
         let surface = self.params.offtrail_factor
             + (1.0 - self.params.offtrail_factor) * f64::from(trail.clamp(0.0, 1.0));
-        let speed = tobler * surface * f64::from(self.ground[to]);
+        let speed = tobler * surface * f64::from(self.step_ground(from, to));
         (run / speed) as f32
     }
 
@@ -693,7 +749,7 @@ impl NavGrid {
                 let Some(tobler) = self.kept_speed(speeds, elevation, (i, k, j), dist) else {
                     continue;
                 };
-                let ng = g + self.seconds_at(tobler, j, dist, trail(j));
+                let ng = g + self.seconds_at(tobler, (i, j), dist, trail(j));
                 let better = best.get(j as u32).is_none_or(|(bg, _)| ng < bg);
                 if better {
                     best.set(j as u32, ng, cell);
@@ -904,7 +960,7 @@ impl NavGrid {
                 let Some(tobler) = self.shared_speed(speeds, elevation, (a, d, b), dist) else {
                     continue;
                 };
-                let ng = g + self.seconds_at(tobler, b, dist, trail(b));
+                let ng = g + self.seconds_at(tobler, (a, b), dist, trail(b));
                 if scores.get(j as u32).is_none_or(|(bg, _)| ng < bg) {
                     scores.set(j as u32, ng, 0);
                     open.push(key(ng, j as u32));
@@ -1011,7 +1067,7 @@ impl NavGrid {
                 if trails[sj].is_nan() {
                     trails[sj] = trail(j);
                 }
-                let ng = g + self.seconds_at(tobler, j, dist, trails[sj]);
+                let ng = g + self.seconds_at(tobler, (i, j), dist, trails[sj]);
                 if ng > max_seconds || ng >= field.seconds[sj] {
                     continue;
                 }
@@ -1056,6 +1112,7 @@ impl NavGrid {
         let mut prev = a;
         let mut z_prev = self.height_at(elevation, a);
         let mut total = 0.0f64;
+        let mut prev_cell: Option<usize> = None;
         for s in 1..=steps {
             let t = s as f32 / steps as f32;
             let q = (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t);
@@ -1068,10 +1125,15 @@ impl NavGrid {
                 return None;
             }
             let cell = cy as usize * self.width + cx as usize;
-            let ground = f64::from(self.ground[cell]);
+            // Into a cell beside the last, by its corner too: the better of the two cells there.
+            let ground = f64::from(match prev_cell {
+                Some(last) if last != cell => self.step_ground(last, cell),
+                _ => self.ground[cell],
+            });
             if ground <= 0.0 {
                 return None;
             }
+            prev_cell = Some(cell);
             let z = self.height_at(elevation, q);
             let slope = (z - z_prev) / run;
             if slope.abs() > p.max_slope {
@@ -1390,6 +1452,93 @@ mod tests {
             nav.route(&map.elevation, 5 * 32 + 8, 5 * 32 + 24, &|_| 0.0, 100_000),
             RouteResult::Unreachable
         );
+    }
+
+    /// A 32-cell map crossed by a river running corner to corner, from the north-west to the
+    /// south-east, carrying `discharge` m³/s.
+    fn diagonal_river(discharge: f32) -> WorldMap {
+        let mut map = flat(32, 32);
+        let cells: Vec<u32> = (0..32).map(|i| i * 32 + i).collect();
+        for &c in &cells {
+            map.water[c as usize] = WATER_RIVER;
+        }
+        map.reaches.push(RiverReach {
+            id: 0,
+            cells,
+            downstream: None,
+            terminus: Terminus::Outlet,
+            order: 1,
+            discharge_m3s: discharge,
+            width_m: 4.0,
+            drainage_area_km2: 50.0,
+        });
+        map
+    }
+
+    #[test]
+    fn a_river_running_corner_to_corner_is_waded_or_not_crossed_never_stepped_past() {
+        // Either side of the river, diagonally next to each other: (11, 10) and (10, 11).
+        let (east, west) = (10 * 32 + 11, 11 * 32 + 10);
+        let deep = diagonal_river(40.0);
+        let nav = NavGrid::new(&deep, params());
+        assert!(nav.walkable(east) && nav.walkable(west));
+        assert_eq!(
+            nav.step_seconds(&deep.elevation, east, west, std::f64::consts::SQRT_2, 0.0),
+            None,
+            "no step between the river's cells"
+        );
+        assert_eq!(
+            nav.route(&deep.elevation, east, west, &|_| 0.0, 100_000),
+            RouteResult::Unreachable
+        );
+        let field = nav.travel_field(&deep.elevation, east, 3600.0, &|_| 0.0);
+        assert_eq!(field.seconds_to(west), None);
+        let c = |i: usize| (((i % 32) as f32 + 0.5) * 8.0, ((i / 32) as f32 + 0.5) * 8.0);
+        assert_eq!(
+            nav.segment_seconds(&deep.elevation, c(east), c(west), &|_| 0.0),
+            None,
+            "nor a straight line through its corner"
+        );
+        // A river small enough to wade is waded: the step costs as the water does.
+        let shallow = diagonal_river(1.0);
+        let nav = NavGrid::new(&shallow, params());
+        let dry = nav
+            .step_seconds(
+                &shallow.elevation,
+                5 * 32 + 20,
+                6 * 32 + 21,
+                std::f64::consts::SQRT_2,
+                0.0,
+            )
+            .expect("dry ground");
+        let wet = nav
+            .step_seconds(
+                &shallow.elevation,
+                east,
+                west,
+                std::f64::consts::SQRT_2,
+                0.0,
+            )
+            .expect("waded");
+        assert!((wet / dry - 4.0).abs() < 1e-3, "{wet} s waded, {dry} s dry");
+        // The way across wades at least one of the river's cells, whichever way it goes.
+        let wade = nav
+            .step_seconds(&shallow.elevation, east, 10 * 32 + 10, 1.0, 0.0)
+            .expect("into the water");
+        let route = found(nav.route(&shallow.elevation, east, west, &|_| 0.0, 100_000));
+        assert!(
+            route.total_seconds() >= wade - 1e-3,
+            "{}",
+            route.total_seconds()
+        );
+        assert!(wade > 3.0 * dry / std::f32::consts::SQRT_2);
+        // A diagonal step alongside the river, past the corner of one of its cells with the
+        // other cell at the corner dry, goes round by the dry one.
+        let (a, b) = (3 * 32 + 4, 4 * 32 + 5);
+        let past = nav
+            .step_seconds(&shallow.elevation, a, b, std::f64::consts::SQRT_2, 0.0)
+            .expect("past the corner");
+        assert!((past - dry).abs() < 1e-3);
     }
 
     #[test]

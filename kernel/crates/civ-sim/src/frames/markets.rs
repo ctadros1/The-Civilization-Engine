@@ -2,6 +2,7 @@
 //! markets query (ADR-0006 §4, §6). A market and each trade it remembers are put in words here;
 //! observers only show them.
 
+use std::collections::BTreeMap;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
@@ -12,7 +13,7 @@ use civ_core::PermanentId;
 use civ_schema::flatbuffers::FlatBufferBuilder;
 use civ_schema::wire;
 
-use super::people::{firm_name, household_name};
+use super::people::{firm_name, household_name, place_name};
 use super::response;
 use crate::Sim;
 
@@ -88,6 +89,21 @@ pub fn markets_rev(sim: &Sim) -> u64 {
             }
         }
     }
+    // The convergence record and who is on the road to buy (wire 1.55).
+    let conv = &pop.convergence;
+    (conv.gaps.len(), conv.gaps.keys().next_back()).hash(&mut hasher);
+    for (k, c) in &conv.carried {
+        (k, c.trips).hash(&mut hasher);
+    }
+    let activities = &sim.rules.catalog.activities;
+    for (_, p) in pop.people.iter() {
+        if activities
+            .get(usize::from(p.act.def))
+            .is_some_and(|a| a.behavior == civ_agents::Behavior::Fetch)
+        {
+            (p.id.get(), p.act.started.minutes()).hash(&mut hasher);
+        }
+    }
     hasher.finish() | 1
 }
 
@@ -133,12 +149,317 @@ pub fn trade_text(sim: &Sim, t: &Trade) -> String {
             .get(usize::from(g))
             .map_or_else(|| "goods".to_owned(), |d| amount(d, f64::from(units)))
     };
+    // A buyer from another settlement is named with it (M5b slice AP).
+    let from = t
+        .from
+        .map_or_else(String::new, |s| format!(" of {}", place_name(sim, Some(s))));
     format!(
-        "{} sold {} to {} for {}.",
+        "{} sold {} to {}{from} for {}.",
         capitalized(&seller_name(sim, t.seller)),
         of(t.good, t.units),
         household_name(sim, t.buyer),
         of(t.payment, t.paid)
+    )
+}
+
+/// What household `household` believes other settlements' sellers offer (ADR-0019 §1), a line a
+/// seller and good, by settlement: "At Elmhollow, Bran's household: a sickle for 2.3 kg of grain
+/// or 3.7 kg of provisions, 8.5 sickles to be had; seen 3 days ago", "…: none left of the sickle
+/// it offered, told by Ada yesterday".
+pub fn reports_words(sim: &Sim, household: PermanentId) -> Vec<String> {
+    use civ_agents::reports::{PriceReport, ReportHow};
+    let goods = &sim.rules.catalog.goods;
+    let today = sim.now().day_index();
+    let mut by: BTreeMap<(String, u16, PermanentId), Vec<&PriceReport>> = BTreeMap::new();
+    for r in sim.people.reports.of(household) {
+        by.entry((place_name(sim, Some(r.market)), r.good, r.seller))
+            .or_default()
+            .push(r);
+    }
+    by.into_iter()
+        .filter_map(|((place, g, seller), rs)| {
+            let good = goods.get(usize::from(g))?;
+            let newest = rs
+                .iter()
+                .copied()
+                .max_by_key(|r| (r.day, std::cmp::Reverse(r.how)))?;
+            let offered: Vec<&PriceReport> = rs.iter().copied().filter(|r| r.units > 0.0).collect();
+            let what = if offered.is_empty() {
+                format!("none left of the {} it offered", good.name.to_lowercase())
+            } else {
+                let terms: Vec<String> = offered
+                    .iter()
+                    .filter_map(|r| {
+                        goods
+                            .get(usize::from(r.payment))
+                            .map(|d| amount(d, f64::from(r.price)))
+                    })
+                    .collect();
+                let terms = match terms.split_last() {
+                    Some((last, [])) => last.clone(),
+                    Some((last, rest)) => format!("{} or {last}", rest.join(", ")),
+                    None => String::new(),
+                };
+                let units = offered
+                    .iter()
+                    .map(|r| f64::from(r.units))
+                    .fold(0.0, f64::max);
+                if good.tool.is_some() {
+                    format!(
+                        "{} for {terms}, {} to be had",
+                        amount(good, 1.0),
+                        amount(good, units)
+                    )
+                } else {
+                    format!(
+                        "{} for {terms} a kg, {} to be had",
+                        good.name.to_lowercase(),
+                        amount(good, units)
+                    )
+                }
+            };
+            let how = match (newest.how, newest.from) {
+                (ReportHow::Told, Some(p)) => format!("told by {}", sim.people.name_of(p)),
+                (ReportHow::Told, None) => "told".to_owned(),
+                (ReportHow::Seen, _) => "seen".to_owned(),
+            };
+            let when = match today - newest.day {
+                i64::MIN..=0 => "today".to_owned(),
+                1 => "yesterday".to_owned(),
+                n => format!("{n} days ago"),
+            };
+            Some(format!(
+                "At {place}, {}: {what}; {how} {when}",
+                seller_name(sim, seller)
+            ))
+        })
+        .collect()
+}
+
+/// What people of other settlements bought in settlement `s`'s market last year and this year so
+/// far, in words (M5b slice AP): "in year 3 so far: 4 purchases by people of Oakholt"; empty when
+/// none did.
+pub fn outsiders_words(sim: &Sim, s: PermanentId) -> String {
+    let this = sim.now().date().year - 1;
+    let mut parts = Vec::new();
+    for year in [this - 1, this] {
+        let lines: Vec<String> = sim
+            .people
+            .contacts
+            .of_year(year)
+            .filter(|&(_, to, c)| to == s && c.bought > 0)
+            .map(|(from, _, c)| {
+                let n = if c.bought == 1 {
+                    "1 purchase".to_owned()
+                } else {
+                    format!("{} purchases", c.bought)
+                };
+                format!("{n} by people of {}", place_name(sim, Some(from)))
+            })
+            .collect();
+        if !lines.is_empty() {
+            let when = if year == this {
+                format!("in year {} so far", year + 1)
+            } else {
+                format!("in year {}", year + 1)
+            };
+            parts.push(format!("{when}: {}", lines.join("; ")));
+        }
+    }
+    parts.join(". ")
+}
+
+/// Hours in running text: two places below one hour, one above.
+fn hours(x: f32) -> String {
+    if x < 1.0 {
+        format!("{x:.2}")
+    } else {
+        format!("{x:.1}")
+    }
+}
+
+/// A month on record in running text, against the present: "last month", "this month", or "in
+/// month 4 of year 3".
+fn month_words(sim: &Sim, month: u32) -> String {
+    let now = civ_agents::market::month_of(sim.now());
+    if month == now {
+        "this month".to_owned()
+    } else if month + 1 == now {
+        "last month".to_owned()
+    } else {
+        format!("in month {} of year {}", month % 12 + 1, month / 12 + 1)
+    }
+}
+
+/// Trade between settlement `s` and each other settlement it has any month on record with (M5b
+/// slice AQ, ADR-0019 §7), a line each, from the latest such month: the asks of the goods offered
+/// in both, here and there, and how far apart they stand; and what people of each carried home
+/// from the other's market: "With Elmhollow last month: a sickle 4.2 hours here and 3.1 there (30
+/// points apart); people of here carried home 3.0 sickles from there in 4 trips".
+pub fn between_words(sim: &Sim, s: PermanentId) -> Vec<String> {
+    let conv = &sim.people.convergence;
+    let goods = &sim.rules.catalog.goods;
+    let mut latest: BTreeMap<PermanentId, u32> = BTreeMap::new();
+    let pairs = conv
+        .gaps
+        .keys()
+        .copied()
+        .chain(conv.carried.keys().copied());
+    for (month, x, y) in pairs {
+        let other = if x == s {
+            y
+        } else if y == s {
+            x
+        } else {
+            continue;
+        };
+        let m = latest.entry(other).or_insert(month);
+        *m = (*m).max(month);
+    }
+    latest
+        .into_iter()
+        .map(|(other, month)| {
+            let first = s < other;
+            let there = place_name(sim, Some(other));
+            let mut parts = Vec::new();
+            let pair = if first { (s, other) } else { (other, s) };
+            if let Some(list) = conv.gaps.get(&(month, pair.0, pair.1)) {
+                let asks: Vec<String> = list
+                    .iter()
+                    .filter_map(|g| {
+                        let d = goods.get(usize::from(g.good))?;
+                        let (here, away) = if first {
+                            (g.ask_h[0], g.ask_h[1])
+                        } else {
+                            (g.ask_h[1], g.ask_h[0])
+                        };
+                        let gap = 100.0 * (f64::from(here) / f64::from(away)).ln().abs();
+                        let (what, per) = if d.tool.is_some() {
+                            (amount(d, 1.0), "")
+                        } else {
+                            (d.name.to_lowercase(), " a kg")
+                        };
+                        Some(format!(
+                            "{what} {} hours{per} here and {} there ({gap:.0} points apart)",
+                            hours(here),
+                            hours(away)
+                        ))
+                    })
+                    .collect();
+                if !asks.is_empty() {
+                    parts.push(asks.join(", "));
+                }
+            }
+            for (from, to, who, place) in [
+                (s, other, "here".to_owned(), "there"),
+                (other, s, there.clone(), "here"),
+            ] {
+                let Some(c) = conv.carried.get(&(month, from, to)) else {
+                    continue;
+                };
+                let trips = if c.trips == 1 {
+                    "1 trip".to_owned()
+                } else {
+                    format!("{} trips", c.trips)
+                };
+                let what: Vec<String> = c
+                    .goods
+                    .iter()
+                    .filter_map(|&(g, u)| {
+                        goods.get(usize::from(g)).map(|d| amount(d, f64::from(u)))
+                    })
+                    .collect();
+                parts.push(if what.is_empty() {
+                    format!(
+                        "people of {who} went to buy {place} in {trips} and carried nothing home"
+                    )
+                } else {
+                    format!(
+                        "people of {who} carried home {} from {place} in {trips}",
+                        what.join(", ")
+                    )
+                });
+            }
+            format!(
+                "With {there} {}: {}",
+                month_words(sim, month),
+                if parts.is_empty() {
+                    "nothing offered in both".to_owned()
+                } else {
+                    parts.join("; ")
+                }
+            )
+        })
+        .collect()
+}
+
+/// Who is on the road to buy in settlement `s`'s market today (M5b slice AQ: caravans as a view,
+/// never an actor), by the settlement they live in; those of one settlement on the same road on
+/// the same day go together: "On the road to buy here today: 3 people of Oakholt, together; 1
+/// person of Ashford". Empty when nobody is.
+pub fn on_the_way_words(sim: &Sim, s: PermanentId) -> String {
+    use civ_agents::Behavior;
+    use civ_agents::person::Target;
+    let pop = &sim.people;
+    let activities = &sim.rules.catalog.activities;
+    let today = sim.now().day_index();
+    let mut by: BTreeMap<PermanentId, u32> = BTreeMap::new();
+    for (_, p) in pop.people.iter() {
+        let fetching = activities
+            .get(usize::from(p.act.def))
+            .is_some_and(|a| a.behavior == Behavior::Fetch);
+        if !fetching || p.act.started.day_index() != today {
+            continue;
+        }
+        let market = match p.act.target {
+            Target::Household(h) => pop.household(h).and_then(|x| x.settlement),
+            Target::Firm(f) => pop.firm(f).and_then(|f| f.settlement),
+            _ => None,
+        };
+        if market != Some(s) {
+            continue;
+        }
+        if let Some(home) = pop.household(p.household).and_then(|x| x.settlement) {
+            *by.entry(home).or_default() += 1;
+        }
+    }
+    if by.is_empty() {
+        return String::new();
+    }
+    let groups: Vec<String> = by
+        .into_iter()
+        .map(|(home, n)| {
+            let place = place_name(sim, Some(home));
+            if n == 1 {
+                format!("1 person of {place}")
+            } else {
+                format!("{n} people of {place}, together")
+            }
+        })
+        .collect();
+    format!("On the road to buy here today: {}", groups.join("; "))
+}
+
+/// The errand household `household` means to run, in words (M5b slice AQ, ADR-0019 §6): "Their
+/// household means to fetch 3.6 sickles from Bran's household at Elmhollow to sell at home;
+/// planned 2 days ago". Empty when it means none.
+pub fn errand_words(sim: &Sim, household: PermanentId) -> String {
+    let Some(e) = sim.people.reports.errands.get(&household) else {
+        return String::new();
+    };
+    let Some(d) = sim.rules.catalog.goods.get(usize::from(e.good)) else {
+        return String::new();
+    };
+    let when = match sim.now().day_index() - e.day {
+        i64::MIN..=0 => "today".to_owned(),
+        1 => "yesterday".to_owned(),
+        n => format!("{n} days ago"),
+    };
+    format!(
+        "Their household means to fetch {} from {} at {} to sell at home; planned {when}",
+        amount(d, f64::from(e.units)),
+        seller_name(sim, e.seller),
+        place_name(sim, Some(e.market))
     )
 }
 
@@ -308,6 +629,7 @@ pub fn markets_response(sim: &Sim) -> Vec<u8> {
                             sale: t.channel == Channel::Sale,
                             text: Some(text),
                             seller_firm: sim.people.firm(t.seller).is_some(),
+                            from: t.from.map_or(0, PermanentId::get),
                         },
                     )
                 })
@@ -332,6 +654,13 @@ pub fn markets_response(sim: &Sim) -> Vec<u8> {
                 .map_or("", |s| s.name.as_str());
             let name = fbb.create_string(name);
             let summary = fbb.create_string(&summary(sim, market));
+            let outsiders = fbb.create_string(&outsiders_words(sim, settlement));
+            let between: Vec<_> = between_words(sim, settlement)
+                .iter()
+                .map(|w| fbb.create_string(w))
+                .collect();
+            let between = fbb.create_vector(&between);
+            let on_the_way = fbb.create_string(&on_the_way_words(sim, settlement));
             let money = market
                 .and_then(|m| m.money(mp.money_share, mp.money_min_trades))
                 .map_or(-1, |g| g as i32);
@@ -348,6 +677,9 @@ pub fn markets_response(sim: &Sim) -> Vec<u8> {
                     offers: Some(offers),
                     recent: Some(recent),
                     history: Some(history),
+                    outsiders: Some(outsiders),
+                    between: Some(between),
+                    on_the_way: Some(on_the_way),
                 },
             )
         })

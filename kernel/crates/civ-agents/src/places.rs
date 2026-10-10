@@ -86,6 +86,9 @@ pub struct PlacesParams {
     /// Days after a member of the household was there over which the wish to go again grows
     /// back to the whole of what those there are worth.
     pub revisit_days: f64,
+    /// Days over which what a household holds of the places its people work, and of the outsiders
+    /// it saw there, halves (M5c slice AT; content API 59).
+    pub use_half_life_days: f64,
 }
 
 impl PlacesParams {
@@ -99,6 +102,7 @@ impl PlacesParams {
             w_seek: 6.0,
             seek_days: 180,
             revisit_days: 30.0,
+            use_half_life_days: 180.0,
         }
     }
 
@@ -293,6 +297,10 @@ pub struct Contact {
     pub marriages: u32,
     /// People who moved from the first to live in the second with their household (slice AN).
     pub moved: u32,
+    /// Purchases people of the first made at sellers' doors in the second (M5b slice AP), and
+    /// their trips there that bought nothing, by why (see [`crate::reports::Missed`]).
+    pub bought: u32,
+    pub missed: [u32; crate::reports::Missed::COUNT],
 }
 
 /// Contacts between settlements, by year (from 0), from-settlement and to-settlement.
@@ -318,6 +326,23 @@ impl Contacts {
     /// A household of `people` moved from `from` to `to` in `year`.
     pub fn moved(&mut self, year: i64, from: PermanentId, to: PermanentId, people: u32) {
         self.years.entry((year, from, to)).or_default().moved += people;
+    }
+
+    /// Someone of `from` bought at a seller's door in `to` in `year` (M5b slice AP).
+    pub fn bought(&mut self, year: i64, from: PermanentId, to: PermanentId) {
+        self.years.entry((year, from, to)).or_default().bought += 1;
+    }
+
+    /// Someone of `from` went to buy at a seller's door in `to` in `year` and bought nothing, for
+    /// `why`.
+    pub fn missed(
+        &mut self,
+        year: i64,
+        from: PermanentId,
+        to: PermanentId,
+        why: crate::reports::Missed,
+    ) {
+        self.years.entry((year, from, to)).or_default().missed[why as usize] += 1;
     }
 
     /// The contacts of `year`, in `(from, to)` order.

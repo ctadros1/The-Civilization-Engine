@@ -199,6 +199,55 @@ pub const SCHEMA_V53: u32 = 53;
 /// The schema version of M5a slice AN, step two: migration waves, before coalitions to found
 /// settlements (see [`agents`]).
 pub const SCHEMA_V54: u32 = 54;
+/// The schema version of M5a slice AO: coalitions to found settlements, before price reports
+/// and purchases between settlements (see [`agents`]).
+pub const SCHEMA_V55: u32 = 55;
+/// The schema version of M5b slice AP: price reports and purchases between settlements, before
+/// the convergence record (see [`agents`]).
+pub const SCHEMA_V56: u32 = 56;
+/// The schema version of M5b slice AQ, step one: the convergence record, before errands to
+/// fetch goods to sell at home (see [`agents`]).
+pub const SCHEMA_V57: u32 = 57;
+/// The schema version of M5b slice AQ, step two: errands to fetch goods to sell at home, before
+/// buildings seen in other settlements (see [`agents`]).
+pub const SCHEMA_V58: u32 = 58;
+/// The schema version of M5b slice AR, step one: buildings seen in other settlements, before
+/// techniques seen there and the settlements a technique's arrival and loss concern (see
+/// [`agents`]).
+pub const SCHEMA_V59: u32 = 59;
+/// The schema version of M5b slice AR, step two: techniques seen in other settlements and the
+/// settlements an arrival or a loss concerns, before settlements' founding ways (see [`agents`]).
+pub const SCHEMA_V60: u32 = 60;
+/// The schema version of M5b slice AR, step three: settlements' founding ways, before the places
+/// people work and the claims laws make on them (see [`agents`]).
+pub const SCHEMA_V61: u32 = 61;
+/// The schema version of M5c slice AT, step one: the places people work and claims on them,
+/// before who did the work and people's views of other polities (see [`agents`]).
+pub const SCHEMA_V62: u32 = 62;
+/// The schema version of M5c slice AT, step two: who did the work and people's views of other
+/// polities, before the claims households heard of (see [`agents`]).
+pub const SCHEMA_V63: u32 = 63;
+/// The schema version of M5c slice AU, step one: the claims households heard of, before
+/// agreements between polities (see [`agents`]).
+pub const SCHEMA_V64: u32 = 64;
+/// The schema version of M5c slice AU, step two: agreements between polities, before what views
+/// of another polity added to stances on them (see [`agents`]).
+pub const SCHEMA_V65: u32 = 65;
+/// The schema version of M5c slice AU, step three: what views of another polity added to stances
+/// on them, before the goods agreements move and the payments owed under them (see [`agents`]).
+pub const SCHEMA_V66: u32 = 66;
+/// The schema version of M5c slice AV: the goods agreements move and the payments owed under
+/// them, before crossings over water (see [`agents`]).
+pub const SCHEMA_V67: u32 = 67;
+/// The schema version of M5c slice AW, step one: crossings over water, before the streams
+/// households wade and the crossings they build (see [`agents`]).
+pub const SCHEMA_V68: u32 = 68;
+/// The schema version of M5c slice AW, step two: the streams households wade and the crossings
+/// they build, before the crossings polities build (see [`agents`]).
+pub const SCHEMA_V69: u32 = 69;
+/// The schema version of M5c slice AW, step three: the crossings polities build, before the room
+/// to work on a crossing was kept (see [`agents`]).
+pub const SCHEMA_V70: u32 = 70;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

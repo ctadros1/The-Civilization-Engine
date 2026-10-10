@@ -20,18 +20,98 @@ pub fn founding_taste(
     band: PermanentId,
     household: PermanentId,
 ) -> Taste {
-    let mean = params.tradition_mean.traits();
-    let (band_sd, own_sd) = (
-        params.tradition_spread.traits(),
-        params.personal_spread.traits(),
-    );
-    let mut shared = Rng64::from_key(&[seed, PURPOSE_STYLE, band.get()]);
+    let tradition = tradition(params, seed, band);
+    let own_sd = params.personal_spread.traits();
     let mut apart = Rng64::from_key(&[seed, PURPOSE_STYLE, band.get(), household.get()]);
     Taste::from_traits(std::array::from_fn(|k| {
-        let tradition =
-            f64::from(mean[k]) + f64::from(band_sd[k]) * crate::demography::normal(&mut shared);
-        (tradition + f64::from(own_sd[k]) * crate::demography::normal(&mut apart)) as f32
+        (tradition[k] + f64::from(own_sd[k]) * crate::demography::normal(&mut apart)) as f32
     }))
+}
+
+/// Band `band`'s way of building: drawn once around the content's (M3b slice R), the founding way
+/// of the settlement a founding band is keyed by (M5b slice AR).
+pub fn band_way(params: &StyleParams, seed: u64, band: PermanentId) -> Taste {
+    Taste::from_traits(tradition(params, seed, band).map(|x| x as f32))
+}
+
+fn tradition(params: &StyleParams, seed: u64, band: PermanentId) -> [f64; 3] {
+    let (mean, band_sd) = (
+        params.tradition_mean.traits(),
+        params.tradition_spread.traits(),
+    );
+    let mut shared = Rng64::from_key(&[seed, PURPOSE_STYLE, band.get()]);
+    std::array::from_fn(|k| {
+        f64::from(mean[k]) + f64::from(band_sd[k]) * crate::demography::normal(&mut shared)
+    })
+}
+
+/// The mean and spread of the three traits over some households or buildings (M5b slice AR):
+/// pitch in hundredths of a degree, eaves and overhang in centimetres.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Spread {
+    /// How many.
+    pub n: usize,
+    /// Each trait's mean.
+    pub mean: [f64; 3],
+    /// Each trait's standard deviation.
+    pub sd: [f64; 3],
+}
+
+impl Spread {
+    /// The spread of `list`.
+    pub fn of(list: impl IntoIterator<Item = Taste>) -> Spread {
+        let list: Vec<[f64; 3]> = list
+            .into_iter()
+            .map(|t| t.traits().map(f64::from))
+            .collect();
+        let n = list.len();
+        if n == 0 {
+            return Spread::default();
+        }
+        let mean: [f64; 3] =
+            std::array::from_fn(|k| list.iter().map(|x| x[k]).sum::<f64>() / n as f64);
+        let sd = std::array::from_fn(|k| {
+            (list.iter().map(|x| (x[k] - mean[k]).powi(2)).sum::<f64>() / n as f64).sqrt()
+        });
+        Spread { n, mean, sd }
+    }
+
+    /// Its mean as a taste (`None` for none).
+    pub fn mean_taste(&self) -> Option<Taste> {
+        (self.n > 0).then(|| Taste::from_traits(self.mean.map(|x| x as f32)))
+    }
+}
+
+/// A settlement's style on the three clocks (M5b slice AR; research 11-02 §4, opening: exposure,
+/// implementation and the built stock change at different speeds): the way it was founded with,
+/// its households' taste now, the year's new buildings and its standing buildings; and how many of
+/// the year's new buildings follow, through their chain of followed buildings, one in another
+/// settlement.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Clocks {
+    /// Its founding way, if known.
+    pub way: Option<Taste>,
+    /// Its households' taste now.
+    pub taste: Spread,
+    /// Its buildings finished in the year past that stand whole.
+    pub new: Spread,
+    /// Its finished buildings standing.
+    pub stock: Spread,
+    /// Of the year's new buildings, those whose chain of followed buildings reaches one in
+    /// another settlement.
+    pub new_after_elsewhere: usize,
+}
+
+/// The mean of `tastes`, trait by trait (`None` for none).
+pub fn mean_taste<'a>(tastes: impl IntoIterator<Item = &'a Taste>) -> Option<Taste> {
+    let (mut sum, mut n) = ([0.0f64; 3], 0usize);
+    for t in tastes {
+        for (s, x) in sum.iter_mut().zip(t.traits()) {
+            *s += f64::from(x);
+        }
+        n += 1;
+    }
+    (n > 0).then(|| Taste::from_traits(sum.map(|s| (s / n as f64) as f32)))
 }
 
 /// The taste of a couple's new household from those of the households they grew up in, hers and
@@ -123,6 +203,51 @@ pub fn commission(params: &StyleParams, taste: &Taste, def: &BuildingDef, key: &
 mod tests {
     use super::*;
 
+    /// The draws as M3b made them, before the band's way was split out (M5b slice AR): a
+    /// household's taste interleaves its band's draw and its own, trait by trait.
+    fn founding_taste_as_before(
+        params: &StyleParams,
+        seed: u64,
+        band: PermanentId,
+        household: PermanentId,
+    ) -> Taste {
+        let mean = params.tradition_mean.traits();
+        let (band_sd, own_sd) = (
+            params.tradition_spread.traits(),
+            params.personal_spread.traits(),
+        );
+        let mut shared = Rng64::from_key(&[seed, PURPOSE_STYLE, band.get()]);
+        let mut apart = Rng64::from_key(&[seed, PURPOSE_STYLE, band.get(), household.get()]);
+        Taste::from_traits(std::array::from_fn(|k| {
+            let tradition =
+                f64::from(mean[k]) + f64::from(band_sd[k]) * crate::demography::normal(&mut shared);
+            (tradition + f64::from(own_sd[k]) * crate::demography::normal(&mut apart)) as f32
+        }))
+    }
+
+    #[test]
+    fn founding_taste_draws_exactly_as_before_the_band_s_way_was_split_out() {
+        let p = params();
+        let id = |n: u64| PermanentId::from_raw(n).expect("an id");
+        for seed in [1, 7, 42] {
+            for band in [1, 51, 890] {
+                for household in [2, 3, 99] {
+                    assert_eq!(
+                        founding_taste(&p, seed, id(band), id(household)),
+                        founding_taste_as_before(&p, seed, id(band), id(household))
+                    );
+                }
+                // The band's way is what its households' tastes are drawn around.
+                let way = band_way(&p, seed, id(band)).traits();
+                let mean = p.tradition_mean.traits();
+                let sd = p.tradition_spread.traits();
+                for k in 0..3 {
+                    assert!((way[k] - mean[k]).abs() <= 6.0 * sd[k].max(1e-6), "{k}");
+                }
+            }
+        }
+    }
+
     fn params() -> StyleParams {
         StyleParams {
             alpha: 0.1,
@@ -143,6 +268,8 @@ mod tests {
                 eave_cm: 4.0,
                 overhang_cm: 3.0,
             },
+            seen_most: 8,
+            sight_m: 200.0,
         }
     }
 

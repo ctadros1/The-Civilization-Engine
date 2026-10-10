@@ -494,6 +494,59 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
         let label_modifiers = fbb.create_vector(&modifiers);
         let why: Vec<_> = label.why.iter().map(|w| fbb.create_string(w)).collect();
         let label_why = fbb.create_vector(&why);
+        // How it stands toward each other lived-in polity, from its own side (wire 1.57).
+        let relations: Vec<_> = crate::relations::others(sim, polity.id)
+            .map(|other| {
+                let label = crate::relations::relation_of(sim, polity, other);
+                let name = sim
+                    .land
+                    .settlements
+                    .iter()
+                    .find(|s| s.id == other.settlement)
+                    .map_or("", |s| s.name.as_str());
+                let name = fbb.create_string(name);
+                let standing = fbb.create_string(label.standing.words());
+                let why: Vec<_> = label.why.iter().map(|w| fbb.create_string(w)).collect();
+                let why = fbb.create_vector(&why);
+                // The agreements between the two, both law histories side by side (wire 1.58).
+                let agreements: Vec<_> = crate::relations::agreements_between(sim, polity, other)
+                    .iter()
+                    .map(|a| {
+                        let terms = fbb.create_string(&a.terms);
+                        let state = fbb.create_string(&a.state);
+                        let ours = fbb.create_string(&a.ours);
+                        let theirs = fbb.create_string(&a.theirs);
+                        // Its payments (wire 1.59).
+                        let payments: Vec<_> =
+                            a.payments.iter().map(|w| fbb.create_string(w)).collect();
+                        let payments = fbb.create_vector(&payments);
+                        wire::AgreementLine::create(
+                            &mut fbb,
+                            &wire::AgreementLineArgs {
+                                id: a.id.get(),
+                                terms: Some(terms),
+                                state: Some(state),
+                                ours: Some(ours),
+                                theirs: Some(theirs),
+                                payments: Some(payments),
+                            },
+                        )
+                    })
+                    .collect();
+                let agreements = fbb.create_vector(&agreements);
+                wire::RelationLine::create(
+                    &mut fbb,
+                    &wire::RelationLineArgs {
+                        polity: other.id.get(),
+                        name: Some(name),
+                        label: Some(standing),
+                        why: Some(why),
+                        agreements: Some(agreements),
+                    },
+                )
+            })
+            .collect();
+        let relations = fbb.create_vector(&relations);
         let (gathering_law, gathering_minute, gathering_present) =
             polity.gathering.as_ref().map_or((0, 0, 0), |g| {
                 (
@@ -551,6 +604,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                 revolts: Some(revolts),
                 coups: Some(coups),
                 body_members,
+                relations: Some(relations),
             },
         ));
     }

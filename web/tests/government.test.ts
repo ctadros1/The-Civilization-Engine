@@ -206,6 +206,33 @@ describe("the government on the wire", () => {
         "Bo called on those who keep the watch on 3 May of year 2 to take the deciding with them; it held on 11 May of year 2, 2 of 3 watchers with it, none with the gathering",
       ),
     ]);
+    const relationWhy = W.RelationLine.createWhyVector(b, [
+      b.createString("3 of 5 of its households know Ashford"),
+    ]);
+    const payments = W.AgreementLine.createPaymentsVector(b, [
+      b.createString(
+        "100 kg of grain from Stonewick's store, owed from 20 May of year 3: 100 kg set aside, 99 kg arrived; met on 24 May of year 3",
+      ),
+    ]);
+    const agreement = W.AgreementLine.createAgreementLine(
+      b,
+      901n,
+      b.createString("leave for Ashford's people to use the places Stonewick claims, for a year"),
+      b.createString("in force since 20 May of year 3"),
+      b.createString("proposed by Ada on 2 May of year 3; passed on 3 May of year 3, 9 for, 2 against, 14 of 30 came"),
+      b.createString("proposed by Bram on 5 May of year 3; passed on 6 May of year 3, 7 for, 0 against, 9 of 20 came"),
+      payments,
+    );
+    const agreements = W.RelationLine.createAgreementsVector(b, [agreement]);
+    const relation = W.RelationLine.createRelationLine(
+      b,
+      301n,
+      b.createString("Ashford"),
+      b.createString("under agreement"),
+      relationWhy,
+      agreements,
+    );
+    const relations = W.PolityLine.createRelationsVector(b, [relation]);
     const name = b.createString("Stonewick");
     const custom = b.createString("The adults who come to the hearth decide by acclamation.");
     const store = b.createString("grain 26 kg");
@@ -236,6 +263,7 @@ describe("the government on the wire", () => {
       refusals,
       revolts,
       coups,
+      relations,
     );
     const polities = W.Government.createPolitiesVector(b, [polity]);
     const government = W.Government.createGovernment(b, BigInt(103 * DAY), polities);
@@ -269,6 +297,26 @@ describe("the government on the wire", () => {
     expect(p.revolts[0]).toContain("it held on 12 May of year 2");
     expect(p.coups).toEqual([
       "Bo called on those who keep the watch on 3 May of year 2 to take the deciding with them; it held on 11 May of year 2, 2 of 3 watchers with it, none with the gathering",
+    ]);
+    expect(p.relations).toEqual([
+      {
+        polity: 301,
+        name: "Ashford",
+        label: "under agreement",
+        why: ["3 of 5 of its households know Ashford"],
+        agreements: [
+          {
+            id: 901,
+            terms: "leave for Ashford's people to use the places Stonewick claims, for a year",
+            state: "in force since 20 May of year 3",
+            ours: "proposed by Ada on 2 May of year 3; passed on 3 May of year 3, 9 for, 2 against, 14 of 30 came",
+            theirs: "proposed by Bram on 5 May of year 3; passed on 6 May of year 3, 7 for, 0 against, 9 of 20 came",
+            payments: [
+              "100 kg of grain from Stonewick's store, owed from 20 May of year 3: 100 kg set aside, 99 kg arrived; met on 24 May of year 3",
+            ],
+          },
+        ],
+      },
     ]);
     expect(p.customHistory).toHaveLength(2);
     expect(p.customHistory[1]).toContain("by the amendment Ada proposed");

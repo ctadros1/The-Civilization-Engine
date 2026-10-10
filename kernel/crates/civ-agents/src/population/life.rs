@@ -32,6 +32,10 @@ const KIN_SEARCH_STEPS: usize = 4;
 /// How much farther from the hearth than the household it leaves a new household makes its home,
 /// metres (a tuning value; its hut is then sited on clear ground within reach of that point).
 const NEW_HOME_STEP_M: f64 = 20.0;
+/// The golden angle, radians: π(3 − √5). Households drawn together in a row of ids (a coalition, a
+/// wave of movers) are set this far apart about the hearth, so that however many there are, they
+/// spread evenly around it (Vogel's sunflower arrangement).
+const GOLDEN_ANGLE: f64 = 2.399_963_229_728_653;
 
 /// The share of their body's reserve a person has drawn now, 0–1.
 pub fn depleted(p: &Person, now: SimTime, params: &PeopleParams) -> f64 {
@@ -141,6 +145,20 @@ impl Population {
         self.partnering(ctx, day);
         self.emptied.clear();
         self.note_abandoned(ctx);
+        // Price reports too old to act on are let go, and those of a household's own market
+        // (it moved there) or of a household that is no more (M5b slice AP); errands with them.
+        if !self.reports.held.is_empty() || !self.reports.errands.is_empty() {
+            let homes: BTreeMap<PermanentId, Option<Option<PermanentId>>> = self
+                .reports
+                .held
+                .keys()
+                .chain(self.reports.errands.keys())
+                .map(|&h| (h, self.household(h).map(|x| x.settlement)))
+                .collect();
+            let max_age = ctx.params.reports.max_age_days;
+            self.reports
+                .prune(day, max_age, |h| homes.get(&h).copied().flatten());
+        }
     }
 
     /// Living people by permanent id: a fixed order, however the table is laid out.
@@ -439,6 +457,8 @@ impl Population {
         let Some(p) = self.people.remove(h) else {
             return;
         };
+        // What they saw elsewhere goes with them (M5b slice AR).
+        self.seen_away.remove(&id);
         let at = p.position_at(now.minutes() as f64);
         let age = p.age_years(now);
         let mut settlement = None;
@@ -516,6 +536,8 @@ impl Population {
         let Some(p) = self.people.remove(h) else {
             return;
         };
+        // What they saw elsewhere goes with them (M5b slice AR).
+        self.seen_away.remove(&id);
         let at = p.position_at(now.minutes() as f64);
         let mut settlement = None;
         let mut emptied = false;
@@ -771,6 +793,7 @@ impl Population {
             let Some(p) = self.people.remove(h) else {
                 continue;
             };
+            self.seen_away.remove(m);
             gone.push((*m, p.knows.clone()));
             if let Some(r) = self.records.get_mut(m) {
                 r.left = Some(now);
@@ -793,6 +816,7 @@ impl Population {
         {
             self.homes_moved += 1;
             self.known_places.forget(household);
+            self.reports.forget(household);
             for (g, kg) in gone.stores.iter().enumerate() {
                 gone.flows.add(Flow::Departed, g, kg.max(0.0));
             }
@@ -1024,7 +1048,9 @@ impl Population {
         // What its people knew of other places goes with them (ADR-0018 §4).
         let home = self.household(to).and_then(|x| x.settlement);
         self.known_places.bring(from, to, home);
+        self.reports.bring(from, to, home);
         self.known_places.forget(from);
+        self.reports.forget(from);
         let Some(hd) = self.hh_index.remove(&from) else {
             return;
         };
@@ -1040,6 +1066,16 @@ impl Population {
             }
             self.note_residence(*m, settlement, ctx.now, why);
         }
+        // Joining a household of another settlement: what only they knew is lost where they
+        // lived, and what they know comes with them (M5b slice AR).
+        self.knowledge_crossed(
+            ctx,
+            &gone.members,
+            gone.settlement,
+            settlement,
+            Some(from),
+            true,
+        );
         self.known_pruned.retain(|&(h, _), _| h != to);
         if let Some(x) = self.household_mut(to) {
             x.members.extend(gone.members.iter().copied());
@@ -1133,6 +1169,7 @@ impl Population {
                 {
                     self.homes_moved += 1;
                     self.known_places.forget(household);
+                    self.reports.forget(household);
                     // What nobody is left to keep is left behind.
                     for (g, kg) in gone.stores.iter().enumerate() {
                         gone.flows.add(Flow::Departed, g, kg.max(0.0));
@@ -1512,9 +1549,11 @@ impl Population {
         let Some(before) = self.household(from).map(|x| x.members.len()) else {
             return;
         };
+        let left = self.household(from).and_then(|x| x.settlement);
         // What they knew of other places goes with them (ADR-0018 §4).
         let home = self.household(to).and_then(|x| x.settlement);
         self.known_places.bring(from, to, home);
+        self.reports.bring(from, to, home);
         if people.len() >= before {
             self.merge_household(ctx, from, to, true, why);
             return;
@@ -1573,6 +1612,8 @@ impl Population {
             self.note_residence(*m, settlement, ctx.now, why);
         }
         self.sort_members(to);
+        // Joining a household of another settlement (M5b slice AR), as in a merge.
+        self.knowledge_crossed(ctx, people, left, settlement, None, true);
     }
 
     /// A couple sets up a household of their own: near the woman's household, a little farther
@@ -1660,10 +1701,13 @@ impl Population {
             return near;
         };
         let (dx, dy) = (near.0 - hearth.0, near.1 - hearth.1);
+        // Away from the hearth; a household that comes to the hearth itself, by its id, the golden
+        // angle on from the last (M5b slice AS: a degree an id set households that came together
+        // on one side of it, too close to find ground to build on).
         let angle = if dx.abs() + dy.abs() > 0.5 {
             f64::from(dy).atan2(f64::from(dx))
         } else {
-            (key.get() % 360) as f64 / 360.0 * std::f64::consts::TAU
+            (key.get() as f64 * GOLDEN_ANGLE).rem_euclid(std::f64::consts::TAU)
         };
         let wanted = (
             near.0 + (NEW_HOME_STEP_M * angle.cos()) as f32,

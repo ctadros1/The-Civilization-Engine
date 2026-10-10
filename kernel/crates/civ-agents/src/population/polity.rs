@@ -34,6 +34,17 @@ pub(super) struct Forecasts {
     grown: BTreeMap<PermanentId, u32>,
     /// Those who keep the watch now, with their laws (M4c slice AI: a watch of several).
     watchers: Vec<(PermanentId, PermanentId)>,
+    /// What each household believes a claim on the places outsiders were seen at would keep it
+    /// a year, kcal (M5c slice AT), by household id.
+    claim: Vec<(PermanentId, f64)>,
+    /// Where the settlement's people could build a crossing together, in cell order (M5c slice
+    /// AW, step three).
+    pub(super) sites: Vec<super::crossings::PublicSite>,
+    /// What an hour of each household's work brings it in food, kcal, by household id: its
+    /// cheapest food at its own cost in hours (M3a). The walking a crossing saves and the work
+    /// it asks are worth that (research 11-07 §2.3: communal labour is priced at the production
+    /// it forgoes). Kept only while there is a site.
+    hour_kcal: Vec<(PermanentId, f64)>,
 }
 
 impl Forecasts {
@@ -88,6 +99,35 @@ impl Forecasts {
                     / 365.0;
                 crate::polity::against_gain(o, recover, owe + home, pp)
             }
+            // A claim (M5c slice AT): what the household believes outsiders take at the places
+            // it names that the claim would keep for it; it costs nothing to make.
+            Some(PolicyKind::ClaimPlace) => {
+                let keep = self
+                    .claim
+                    .binary_search_by_key(&h, |c| c.0)
+                    .map_or(0.0, |k| self.claim[k].1);
+                crate::polity::against_gain(o, keep, 0.0, pp)
+            }
+            // A crossing built together (M5c slice AW, step three): the food a year the hours of
+            // walking it would save the household could bring, less what its share of the work,
+            // spread over the crossing's life, could (research 11-07 §2.3: foregone production).
+            Some(PolicyKind::BuildCrossing) => {
+                let Some(p) = m.site.and_then(|cell| {
+                    self.sites
+                        .binary_search_by_key(&cell, |p| p.site.cell)
+                        .ok()
+                        .map(|i| &self.sites[i])
+                }) else {
+                    return 0.0;
+                };
+                let kcal = self
+                    .hour_kcal
+                    .binary_search_by_key(&h, |k| k.0)
+                    .map_or(0.0, |i| self.hour_kcal[i].1);
+                let saved = p.wades_of(h) * p.hours_a_wade * kcal;
+                let owed = p.share_h() / p.life.max(1e-9) * kcal;
+                crate::polity::kept_gain(o, saved, pp) - crate::polity::levy_cost(o, owed, pp)
+            }
             // An amendment's gain is judged from decisions seen, and an end to a law from that
             // law, kept (M4c slices AF, AI): neither forecasts anything of its own.
             Some(PolicyKind::AmendBody | PolicyKind::Repeal) => 0.0,
@@ -103,6 +143,13 @@ pub const PURPOSE_LEVY: u64 = 0x6c65_7679_7061_7931; // "levypay1"
 
 /// The shortest sitting worth walking to: a gathering about to rise is not.
 const LEAST_SITTING_MIN: i64 = 15;
+/// Days within which people of another settlement seen at a place one's household works make an
+/// issue for one's polity (M5c slice AT): a year, as for takings.
+const OUTSIDERS_DAYS: i64 = 365;
+/// The sites one weighing a crossing built together weighs: those their household wades most
+/// (M5c slice AW, step three; research 09-05 §3.3: a few packages per decision, an engineering
+/// choice).
+const PUBLIC_SITES_WEIGHED: usize = 3;
 
 impl Population {
     /// The index of settlement `settlement`'s polity.
@@ -126,6 +173,23 @@ impl Population {
             }
         }
         let day = ctx.now.day_index();
+        // What people worked the day before, and who else worked it (M5c slice AT): folded in
+        // before anyone weighs it; households no more and places long unworked let go.
+        let half = ctx.params.places.use_half_life_days;
+        let meetings = self.uses.fold(half);
+        let index = &self.hh_index;
+        self.uses
+            .prune(day, half, OUTSIDERS_DAYS, |h| index.contains_key(&h));
+        // Those who met outsiders at a place their polity claims hold it against them, and views
+        // of polities long unfed, or of those gone, are let go (M5c slice AT, step two).
+        self.trespass(ctx, &meetings);
+        let mut views = std::mem::take(&mut self.polity_views);
+        views.prune(day, &ctx.params.relations, |p| self.person(p).is_some());
+        self.polity_views = views;
+        // Claims heard of that no law in force makes now are let go (M5c slice AU).
+        if !self.claims_heard.households.is_empty() {
+            self.forget_ended_claims();
+        }
         self.lapse_keepers(ctx);
         for pi in 0..self.polities.len() {
             if self.polities[pi]
@@ -135,6 +199,13 @@ impl Population {
             {
                 self.decide_gathering(ctx, pi);
             }
+        }
+        // Agreements between polities: a gathering's decision on one, a side not yet put to its
+        // gathering, and one coming into force, failing or ending (M5c slice AU).
+        self.agreements_day(ctx);
+        // And the payments they owe, set aside and carried (M5c slice AV).
+        if !self.agreements.list.is_empty() {
+            self.dues_day(ctx);
         }
         // Cases still waiting go before the next gathering (M4b slice AB).
         if self
@@ -167,6 +238,9 @@ impl Population {
             if day - p.reviewed >= i64::from(ctx.params.polity.review_days.max(1)) {
                 self.polities[pi].reviewed = day;
                 self.review(ctx, pi);
+                // Terms with another polity are sought when nothing was put to the gathering
+                // (M5c slice AU).
+                self.seek_terms(ctx, pi);
             }
         }
     }
@@ -435,8 +509,11 @@ impl Population {
 
     /// The issues settlement `settlement` faces now (research 09-05 §1.1): its food ran short
     /// within the last year, or a household's food will not last until its next harvest
-    /// (`pressed`); its common store holds food nobody keeps under a roof (`unkept`); and a
-    /// household found food taken from its store within the last year (`takings`).
+    /// (`pressed`); its common store holds food nobody keeps under a roof (`unkept`); a household
+    /// found food taken from its store within the last year (`takings`); and its people saw
+    /// people of another settlement working places theirs work, unclaimed (`outsiders`, M5c
+    /// slice AT).
+    #[allow(clippy::too_many_arguments)]
     fn issues(
         &self,
         ctx: &Ctx,
@@ -445,6 +522,8 @@ impl Population {
         unkept: bool,
         takings: bool,
         founding: bool,
+        outsiders: bool,
+        fords: bool,
     ) -> Vec<IssueKind> {
         let mut out = Vec::new();
         if self.lean_lately(ctx, settlement) || pressed {
@@ -458,6 +537,12 @@ impl Population {
         }
         if founding {
             out.push(IssueKind::Founding);
+        }
+        if outsiders {
+            out.push(IssueKind::Outsiders);
+        }
+        if fords {
+            out.push(IssueKind::Fords);
         }
         out
     }
@@ -534,6 +619,19 @@ impl Population {
         households: &[PermanentId],
         adults: &[(PermanentId, PermanentId)],
     ) -> Forecasts {
+        let sites = self.public_sites(ctx, self.polities[pi].settlement, households);
+        self.forecasts_with(ctx, pi, households, adults, sites)
+    }
+
+    /// [`Population::forecasts`], with the crossing sites already found.
+    pub(super) fn forecasts_with(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        households: &[PermanentId],
+        adults: &[(PermanentId, PermanentId)],
+        sites: Vec<super::crossings::PublicSite>,
+    ) -> Forecasts {
         let outlooks: Vec<(PermanentId, Outlook)> = households
             .iter()
             .filter_map(|&h| Some((h, self.outlook(ctx, h)?)))
@@ -553,6 +651,14 @@ impl Population {
             .watchers()
             .map(|(h, l)| (h, l.id))
             .collect();
+        let places = self.unclaimed_outsider_places(ctx, pi, households);
+        let claim = households
+            .iter()
+            .map(|&h| {
+                let take = self.outsiders_take(ctx, h, &places);
+                (h, take * ctx.params.polity.claim_keeps)
+            })
+            .collect();
         Forecasts {
             outlooks,
             belief,
@@ -560,7 +666,75 @@ impl Population {
             takings,
             grown,
             watchers,
+            claim,
+            hour_kcal: if sites.is_empty() {
+                Vec::new()
+            } else {
+                households
+                    .iter()
+                    .filter_map(|&h| Some((h, self.hour_kcal(ctx, self.household(h)?))))
+                    .collect()
+            },
+            sites,
         }
+    }
+
+    /// What an hour of household `hh`'s work brings it in food, kcal: of the foods it can get,
+    /// the most energy for an hour at its own cost (M3a, ADR-0006).
+    fn hour_kcal(&self, ctx: &Ctx, hh: &Household) -> f64 {
+        self.own_costs_of(ctx, hh)
+            .iter()
+            .zip(&ctx.catalog.goods)
+            .filter_map(|(c, g)| {
+                let hours = (*c)?;
+                (g.kcal_per_kg > 0.0 && hours > 0.0).then(|| g.kcal_per_kg / hours)
+            })
+            .fold(0.0, f64::max)
+    }
+
+    /// The places households `households` of polity `pi`'s settlement saw people of another
+    /// settlement working within the last year, and that the polity does not claim (M5c slice
+    /// AT), in place order: what a claim proposed now would name.
+    pub(super) fn unclaimed_outsider_places(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        households: &[PermanentId],
+    ) -> Vec<crate::uses::Place> {
+        let since = ctx.now.day_index() - OUTSIDERS_DAYS;
+        let claimed = self.polities[pi].claims_now();
+        let mut out: Vec<crate::uses::Place> = households
+            .iter()
+            .flat_map(|&h| self.uses.outsiders_seen(h, since))
+            .map(|(u, _)| u.place)
+            .filter(|p| claimed.binary_search(p).is_err())
+            .collect();
+        out.sort_unstable();
+        out.dedup();
+        out
+    }
+
+    /// What household `household` believes people of other settlements take a year at `places`,
+    /// kcal (M5c slice AT): of the food it got at each, as much again as their share of the days
+    /// at it, outsiders' days over its own and theirs. A household that works none of them
+    /// believes they take nothing of its own.
+    pub(super) fn outsiders_take(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        places: &[crate::uses::Place],
+    ) -> f64 {
+        let half = ctx.params.places.use_half_life_days;
+        let day = ctx.now.day_index();
+        places
+            .iter()
+            .filter_map(|&p| self.uses.held(household, p, day, half))
+            .map(|u| {
+                let theirs: f64 = u.outsiders.iter().map(|o| f64::from(o.days)).sum();
+                let share = theirs / (f64::from(u.days) + theirs).max(1e-9);
+                crate::uses::per_year(f64::from(u.kcal), half) * share
+            })
+            .sum()
     }
 
     /// What polity `pi`'s gatherings decided within memory under its present custom (M4c slice
@@ -710,6 +884,24 @@ impl Population {
         let founding = self
             .founding_since(ctx, pi)
             .filter(|&since| !self.inherited(pi, since).is_empty());
+        // Households that saw outsiders at places they work, unclaimed (M5c slice AT).
+        let outsider_places = self.unclaimed_outsider_places(ctx, pi, &households);
+        let saw_outsiders: Vec<PermanentId> = if outsider_places.is_empty() {
+            Vec::new()
+        } else {
+            let since = day - OUTSIDERS_DAYS;
+            households
+                .iter()
+                .copied()
+                .filter(|&h| {
+                    self.uses
+                        .outsiders_seen(h, since)
+                        .any(|(u, _)| outsider_places.binary_search(&u.place).is_ok())
+                })
+                .collect()
+        };
+        // Where its people could build a crossing together (M5c slice AW, step three).
+        let sites = self.public_sites(ctx, settlement, &households);
         let issues = self.issues(
             ctx,
             settlement,
@@ -717,6 +909,8 @@ impl Population {
             unkept,
             !robbed(day - 365).is_empty(),
             founding.is_some(),
+            !saw_outsiders.is_empty(),
+            !sites.is_empty(),
         );
         let polity = &self.polities[pi];
         // A watch may have one more while takings continue (M4c slice AI: a watch of several):
@@ -731,6 +925,11 @@ impl Population {
                 .iter()
                 .any(|&h| self.order.lost_since(h, since + 1))
         });
+        // A polity builds one crossing at a time, as a household does (M5c slice AW).
+        let building_crossing = ctx.land.crossings.list.iter().any(|c| {
+            c.owner == civ_land::crossings::CrossingOwner::Polity(polity.id)
+                && matches!(c.state, civ_land::crossings::CrossingState::Building { .. })
+        });
         // Templates that answer a present issue and are not already in force here.
         let open: Vec<(u16, IssueKind)> = ctx
             .catalog
@@ -738,7 +937,14 @@ impl Population {
             .iter()
             .enumerate()
             .filter(|(k, d)| {
+                // Another crossing, at a site no crossing stands at, once none is being built
+                // (M5c slice AW).
+                if d.kind == PolicyKind::BuildCrossing {
+                    return !building_crossing;
+                }
                 (d.kind == PolicyKind::KeepWatch && taken_since)
+                    // Another claim, for places the claims in force do not name (M5c slice AT).
+                    || (d.kind == PolicyKind::ClaimPlace && !saw_outsiders.is_empty())
                     || !polity
                         .laws
                         .iter()
@@ -778,7 +984,7 @@ impl Population {
             params,
         );
         // What each household expects, to forecast what a move would bring it.
-        let fc = self.forecasts(ctx, pi, &households, &adults);
+        let fc = self.forecasts_with(ctx, pi, &households, &adults, sites);
         let outlooks = &fc.outlooks;
         // Who could keep the store: adults whose household is under a roof.
         let roofed: Vec<PermanentId> = adults
@@ -814,6 +1020,7 @@ impl Population {
                         pressed
                             .iter()
                             .chain(&robbed_lately)
+                            .chain(&saw_outsiders)
                             .filter_map(|&h| self.elder_of(h, now, params)),
                     )
                     .chain(reached)
@@ -920,6 +1127,7 @@ impl Population {
                         hours: l.hours,
                         body: None,
                         ends: None,
+                        site: None,
                         own_gain: 0.0,
                         followers_gain: 0.0,
                         support: 0.5,
@@ -966,6 +1174,7 @@ impl Population {
                     hours: (0, 0),
                     body: None,
                     ends: None,
+                    site: None,
                     own_gain: 0.0,
                     followers_gain: 0.0,
                     support: 0.5,
@@ -1010,6 +1219,29 @@ impl Population {
                     }
                     // An amendment answers no settlement's issue: it is weighed below.
                     PolicyKind::AmendBody => {}
+                    // A claim names the places where the settlement's people saw outsiders at
+                    // work (M5c slice AT): one move, its places fixed when it is proposed.
+                    PolicyKind::ClaimPlace => moves.push(blank),
+                    // A crossing at one of the sites their own household wades, the three it
+                    // wades most (M5c slice AW, step three).
+                    PolicyKind::BuildCrossing => {
+                        let mut mine: Vec<(f64, u32)> = fc
+                            .sites
+                            .iter()
+                            .map(|p| (p.wades_of(own), p.site.cell))
+                            .filter(|w| w.0 > 0.0)
+                            .collect();
+                        mine.sort_unstable_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+                        for &(_, cell) in mine.iter().take(PUBLIC_SITES_WEIGHED) {
+                            moves.push(MoveOption {
+                                site: Some(cell),
+                                ..blank
+                            });
+                        }
+                    }
+                    // Seeking terms with another polity is weighed apart, after these (M5c
+                    // slice AU): it is a meeting before it is a law.
+                    PolicyKind::Agreement => {}
                     // While founding, an end to each law the old custom made (M4c slice AI): a
                     // store's levy ends as a petition would end it, the store giving what it
                     // holds; any other law is repealed.
@@ -1098,6 +1330,7 @@ impl Population {
                                 hours: (0, 0),
                                 body: Some(b),
                                 ends: None,
+                                site: None,
                                 own_gain: 0.0,
                                 followers_gain: 0.0,
                                 support: 0.5,
@@ -1170,6 +1403,10 @@ impl Population {
                     })
                     .filter(|l| (f64::from(l.levy_share) - m.levy_share).abs() < 1e-4)
                     .filter(|l| m.ends.is_none() || l.ends == m.ends)
+                    .filter(|l| {
+                        m.site.is_none()
+                            || self.polities[pi].site_of(l.id).map(|s| s.cell) == m.site
+                    })
                     .filter(|l| {
                         l.decided
                             .is_some_and(|t| day - t.day_index() <= i64::from(pp.vote_memory_days))
@@ -1255,7 +1492,45 @@ impl Population {
             watch: Default::default(),
             body: m.body,
             ends: m.ends,
+            agreement: None,
         };
+        // A crossing names its site, as the settlement's people would build it now (M5c slice
+        // AW, step three).
+        if def.kind == PolicyKind::BuildCrossing
+            && let Some(cell) = m.site
+        {
+            let settlement = self.polities[pi].settlement;
+            let mut households: Vec<PermanentId> = self
+                .households
+                .iter()
+                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                .map(|(_, x)| x.id)
+                .collect();
+            households.sort_unstable();
+            if let Some(p) = self
+                .public_sites(ctx, settlement, &households)
+                .into_iter()
+                .find(|p| p.site.cell == cell)
+            {
+                self.polities[pi].sites.push((id, p.site));
+            }
+        }
+        // A claim names the places the settlement's people saw outsiders at, unclaimed (M5c
+        // slice AT): named before it is told, so its words count them.
+        if def.kind == PolicyKind::ClaimPlace {
+            let settlement = self.polities[pi].settlement;
+            let mut households: Vec<PermanentId> = self
+                .households
+                .iter()
+                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                .map(|(_, x)| x.id)
+                .collect();
+            households.sort_unstable();
+            let places = self.unclaimed_outsider_places(ctx, pi, &households);
+            self.polities[pi]
+                .claimed
+                .extend(places.into_iter().map(|p| (id, p)));
+        }
         // "Mira proposed themselves as keeper of the common store", not "Mira as keeper"; and
         // the creed they proposed it under, if any (M4c slice AG).
         let held = creed
@@ -1354,6 +1629,12 @@ impl Population {
             .filter(|l| l.status == LawStatus::InForce)
             .and_then(|l| Some((l.holder?, l.id)));
         let day = now.day_index();
+        // An agreement is weighed with what each believes of the other polity, as regard for its
+        // sponsor is (M5c slice AU, ADR-0020 §3).
+        let other = law
+            .agreement
+            .and_then(|a| self.agreements.of_law(law_id).filter(|x| x.0.id == a))
+            .map(|(a, s)| a.polities[1 - usize::from(s)]);
         // The store spoils under the roof it had until a new keeper takes it.
         let sheltered = self.polity_sheltered(pi);
         self.polities[pi].settle_stores(now, &ctx.catalog.goods, sheltered);
@@ -1374,6 +1655,14 @@ impl Population {
                 let talk = sign * self.opinion_points(p, policy, w_position);
                 // And what it does to what they hold dear (M4c slice AG).
                 let values = sign * self.value_points(ctx, p, policy);
+                let view = other.map_or(0.0, |o| {
+                    let rp = &params.relations;
+                    let warmth = self
+                        .polity_views
+                        .of(p, o, day, rp)
+                        .map_or(0.0, |v| v.warmth());
+                    pp.w_regard * warmth
+                });
                 let held = replaced.map_or(0.0, |(o, office)| {
                     if p == o {
                         1.0
@@ -1385,7 +1674,7 @@ impl Population {
                 let (stance, regard_points) = if p == sponsor {
                     (Stance::Support, 0.0)
                 } else {
-                    crate::polity::stance_between(gain + values + talk, regard, held, pp)
+                    crate::polity::stance_between(gain + values + talk + view, regard, held, pp)
                 };
                 Some(StanceRecord {
                     person: p,
@@ -1395,6 +1684,7 @@ impl Population {
                     regard: regard_points as f32,
                     opinion: talk as f32,
                     values: values as f32,
+                    view: view as f32,
                 })
             })
             .collect();
@@ -1428,6 +1718,14 @@ impl Population {
         } else {
             LawStatus::Rejected
         };
+        // A crossing passed is begun at once, the polity's (M5c slice AW, step three).
+        if outcome == Outcome::Passed
+            && kind == PolicyKind::BuildCrossing
+            && let Some(site) = self.polities[pi].site_of(law_id)
+        {
+            let polity = self.polities[pi].id;
+            self.begin_public_crossing(ctx, polity, site);
+        }
         // A law that replaces one in force supersedes it (M4c slice AH).
         if outcome == Outcome::Passed
             && let Some(old) = self.polities[pi]

@@ -45,17 +45,20 @@ brief (`docs/briefs/m5-trade.md`). Their main points:
 ### 1. A household buys elsewhere only by report
 
 - A household reads its own settlement's offers as they stand, as today. Another settlement's it
-  knows only by **price reports**: per household, per market and good, the latest terms it holds
-  (payment good and price a unit, the seller and its ask in hours, the units offered), the day
-  they were seen, and how (seen by a member, or told by whom).
+  knows only by **price reports**: per household, per market, good and payment good (a seller
+  takes several goods for one, and a buyer goes by terms in what it holds), the latest terms it
+  holds (price a unit, the seller and its ask in hours, the units offered), the day they were
+  seen, and how (seen by a member, or told by whom). Of two as new, one seen beats one told.
 - Reports start with a member who was there: one who buys at a seller's door sees that seller's
   offers; one who keeps company at another settlement's hearth hears the offers of the
   households of those they keep company with. They pass between companions at the hearth at a
   keyed chance, as routine news does (09-16 §2.2's 0.05–0.25), and a member's report is the
   household's at once. A report's weight halves with its age, by a half-life that is a tuning
   value.
-- Reports are kept per household, like the places it knows (ADR-0018 §4), not per person: at
-  8,000 people that is about 4 MB, and a household chooses its purchases together.
+- Reports are kept per household, like the places it knows (ADR-0018 §4), not per person: some
+  5 KB a household that holds them (slice AP measured about 114 reports a household among three
+  settlements), so several megabytes at 8,000 people, and a household chooses its purchases
+  together.
 - No household reads another market's truth, and nothing names one settlement's price in
   another's rules.
 
@@ -67,7 +70,9 @@ brief (`docs/briefs/m5-trade.md`). Their main points:
   own walk limit and daylight rule; `trade` within a settlement is unchanged.
 - At the door the seller's terms as they stand decide. A stale report can fail (sold out, the
   terms changed, nothing the buyer holds is accepted), and the failure is recorded with its
-  reason; the buyer's report is corrected by what it saw.
+  reason (or that the household no longer needed what it went for); the buyer's report is
+  corrected by what it saw. What the seller no longer offers is held as none left, dated, so that
+  older word of it is not believed again. One of a household goes at a time (slice AP).
 
 ### 3. Goods change hands at the seller's door
 
@@ -95,6 +100,10 @@ brief (`docs/briefs/m5-trade.md`). Their main points:
   and back over a load) (08-05 §1.5).
 - Only reports of other markets enter. Neighbours' offers within one's settlement do not, so a
   world of one settlement keeps its asks exactly as tuned.
+- As built (slice AQ): each report is believed by its weight, what is not believed falling back
+  on the household's own cost; the walk is estimated from the distance at its pace off the
+  trails (a belief, and the same after a save and load); a seller beyond the fetch walk does not
+  count, and content with no `fetch` activity has no replacement at all.
 
 ### 6. Fetching to resell is making to sell
 
@@ -106,6 +115,22 @@ brief (`docs/briefs/m5-trade.md`). Their main points:
   sale does; the goods are offered at its door on its usual terms.
 - A household that fetches repeatedly may run it through a firm, by the existing firm rules
   (ADR-0006 §5).
+- As built (slice AQ, step two): the plan (an errand) is made at the review of what the household
+  offers and kept until its next review or the trip. Only goods it can offer and is not short of
+  itself, that its own market wants: buyers found none (at what they would have given), or one
+  sold lately (at what it fetched). The units are also bounded by what it can pay out of what it
+  can spare, and a load is the carrying limit for goods other than tools and for a payment that is
+  not a tool; what is on offer at home, its own included, comes off the depth. A unit costs the
+  reported price at its own cost of the payment (valued by how much it wants that good, as a buyer
+  pays), with the walk there and back (estimated as for the anchor, §5) and the trading spread over
+  the units, and its usual margin; the plan is the one that keeps the largest share of the home
+  worth with the walk paid for. The trip is worth that share without the walk, times how much of
+  a unit it is (up to one), scored as making to sell is (`w_tools` times the share); the walk is
+  charged once, by the scorer, as on any trip (as a purchase for its own need is, §2, which goes
+  first). At the door it buys the good on the terms that cost it least, up to the units planned,
+  while a unit still costs it less, with its margin, than it expects at home; else the trip is
+  counted as sold out, terms or payment. Under the twin (§8) errands are planned and never run.
+  Running errands through a firm is not built.
 
 ### 7. Convergence is recorded as it happens
 
@@ -113,13 +138,24 @@ brief (`docs/briefs/m5-trade.md`). Their main points:
   and the realised prices; and the units and kilograms carried, the trips and their walking
   hours. Saved, because tallies fade and offers change; the dashboard's price convergence row and
   the demo read it.
+- As built (slice AQ, step three): the row is the M5 trade brief's proposal, its thresholds tuning
+  values. A pair is judged once there are 30 purchases between its settlements. Each traded good
+  with 24 months of asks on both sides is judged by its median monthly gap over the last ten years
+  (100 × |ln(ask ÷ ask)|) against a band of 100 × ln(1 + carrying hours a unit ÷ its median ask)
+  plus 5 points. The carrying hours a unit are the hours walked between the pair over the units
+  carried, all goods together, since the record does not split the walk by good. Green when every
+  traded good is within its band or closer than in the year before the pair first traded it; amber
+  otherwise; red only for a good flowing on net from the dearer settlement to the cheaper in a
+  year whose gap exceeded the band. `civ-host twin` lives a save as it is and as the twin (§8) and
+  judges both.
 
 ### 8. The demo's twin is a harness, not a rule
 
-- A switch in the rules, set in memory by a host command or a test and never in content or a
-  save, stops purchases across settlements. A world lives identically with it until the first
-  purchase it stops, so a save lived twice gives the comparison the shared weather requires
-  (08-12 §4).
+- A switch, set in memory by a host command or a test and never in content or a save, stops
+  purchases across settlements: a trip to buy elsewhere is left out of every choice. A world
+  lives identically with it until the first choice that trip would have been part of (not quite
+  the first purchase it stops: leaving an option out changes the draw among the rest), so a
+  save lived twice gives the comparison the shared weather requires (08-12 §4).
 
 ## Consequences
 

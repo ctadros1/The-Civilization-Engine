@@ -312,6 +312,10 @@ table SettlementBrief {
   // ended in the past year, each in words ("Ada's household gathers 2 more households, 14
   // people, to found a settlement 3.1 km north, since the spring of year 2; lacks seed").
   coalitions: [string] (id: 12);
+  // Wire 1.56 (M5b slice AR): its way of building on the three clocks, in words: how it was
+  // founded to build, how its households would build now, how the year's new buildings and its
+  // standing buildings were built, and how many of the new follow a building elsewhere.
+  style: string (id: 13);
 }
 
 table Snapshot {
@@ -360,6 +364,10 @@ table Snapshot {
   // Wire 1.24 (M3c slice U): changes each day lived (0 = no world). Fetch the weather's record
   // with GetWeather when it differs from the revision last fetched.
   weather_rev: ulong (id: 18);
+  // Wire 1.60 (M5c slice AW): changes whenever a crossing is begun, worked on, opens, rots or
+  // gives way (0 = none). Fetch the crossings with GetCrossings when it differs from the revision
+  // last fetched.
+  crossings_rev: ulong (id: 19);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -583,8 +591,10 @@ table GetGovernment {}
 // Wire 1.30 (M4b slice AA, ADR-0015 §7): takings, with what happened and what people believe in
 // separate tables, joined only by an incident's number.
 table GetOrder {}
+// Wire 1.60 (M5c slice AW): every crossing over water.
+table GetCrossings {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder }
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings }
 
 table Query {
   body: QueryBody (id: 1);
@@ -837,6 +847,17 @@ table PersonInfo {
   // The other settlements their household knows, each in words (wire 1.50, ADR-0018 §4):
   // "Elmhollow: seen on a walk in the spring of year 1".
   places: [string] (id: 52);
+  // What their household believes other settlements' sellers offer, each seller's good in words
+  // (wire 1.54, M5b slice AP, ADR-0019 §1): "Sickles at Elmhollow, from Bran's household: 2.3 kg
+  // of grain or 3.7 kg of provisions each, 8 to be had; seen 3 days ago".
+  reports: [string] (id: 53);
+  // The errand their household means to run, in words (wire 1.55, M5b slice AQ, ADR-0019 §6):
+  // "Their household means to fetch 3.6 sickles from Bran's household at Elmhollow to sell at
+  // home; planned 2 days ago"; empty when it means none.
+  errand: string (id: 54);
+  // The buildings of other settlements they have seen since their household's last taste review,
+  // in words (wire 1.56, M5b slice AR): "At Westford: Cal's hut, Bo's longhouse"; empty when none.
+  seen_away: string (id: 55);
 }
 
 // Wire 1.47 (M4c slice AJ): a claim that may be whispered.
@@ -1246,6 +1267,9 @@ table TradeInfo {
   text: string (id: 8);
   // M3a slice J: the seller was a workshop (`seller` is its id).
   seller_firm: bool (id: 9);
+  // Wire 1.54 (M5b slice AP, ADR-0019 §4): the buyer's settlement when it is not this market's
+  // own (0: one of its own).
+  from: ulong (id: 10);
 }
 
 // One good in a settlement's market (M3a slice I). Tallies fade by half every
@@ -1301,6 +1325,17 @@ table MarketInfo {
   recent: [TradeInfo] (id: 8);
   // Oldest first.
   history: [MonthOfTrade] (id: 9);
+  // Wire 1.54 (M5b slice AP): what people of other settlements bought here last year and this
+  // year so far, in words ("in year 3 so far: 4 purchases by people of Oakholt"); empty when
+  // none did.
+  outsiders: string (id: 10);
+  // Wire 1.55 (M5b slice AQ, ADR-0019 §7): trade with each other settlement, a line each, from
+  // the convergence record: "With Elmhollow last month: a sickle asked 4.2 hours here and 3.1
+  // there (a gap of 30 points); people of here carried home 3 sickles from there in 4 trips".
+  between: [string] (id: 11);
+  // Who is on the road to buy here today, by settlement, those who set out together a caravan:
+  // "On the road to buy here today: 3 people of Oakholt, together"; empty when nobody is.
+  on_the_way: string (id: 12);
 }
 
 table Markets {
@@ -1596,6 +1631,49 @@ table EarthworkInfo {
   deposit: ulong (id: 14);
 }
 
+// A crossing over water (wire 1.60, M5c slice AW; ADR-0004 §7, ADR-0009 §9): where it stands, by
+// what system, how far along it is, and its condition.
+table CrossingInfo {
+  id: ulong (id: 0);
+  // Its bridge system's name: "Log footbridge".
+  system: string (id: 1);
+  // Its banks' centres, metres from the map's north-west corner: where it is drawn from and to.
+  ax: float (id: 2);
+  ay: float (id: 3);
+  bx: float (id: 4);
+  by: float (id: 5);
+  // Clear span, metres; its members side by side and their diameter, centimetres.
+  span_m: float (id: 6);
+  members: ubyte (id: 7);
+  diameter_cm: float (id: 8);
+  // 0 being built, 1 open, 2 failed. Append only.
+  state: ubyte (id: 9);
+  // Labour it takes and done so far, hours.
+  labour_h: float (id: 10);
+  work_h: float (id: 11);
+  // Its members' quality (0 while being built) and the share of their section rot has taken.
+  quality: float (id: 12);
+  loss: float (id: 13);
+  // Its margin over one walker now: below 1 it gives way under the next to step onto it (0 while
+  // being built or failed).
+  margin: float (id: 14);
+  // Who it belongs to: 0 a household, 1 a polity; and which.
+  owner_kind: ubyte (id: 15);
+  owner: ulong (id: 16);
+  // In words: "Ada's household's log footbridge, open since year 2: two 20 cm logs over 2.4 m;
+  // rot has taken a tenth of them".
+  words: string (id: 17);
+  // Its members' length, metres: the span and a bearing on either bank. Drawn this long, centred
+  // between the banks' centres.
+  length_m: float (id: 18);
+}
+
+table Crossings {
+  // The snapshot revision this is at.
+  rev: ulong (id: 0);
+  crossings: [CrossingInfo] (id: 1);
+}
+
 // A tile of what earthworks have done to the ground, numbered row by row across the map. Its
 // revision changes whenever one of its cells does: read the elevation under a tile again when its
 // revision differs from the one last seen (the elevation raster serves the ground as changed).
@@ -1808,6 +1886,38 @@ table PolityLine {
   // by the kernel ("Bo called on those who keep the watch on 3 May of year 2 to take the deciding
   // with them; it held on 11 May of year 2, 2 of 3 watchers with it, none with the gathering").
   coups: [string] (id: 24);
+  // Wire 1.57 (M5c slice AT, ADR-0020 §1): how it stands toward each other lived-in polity, from
+  // its own people's side, worked out afterwards and read by nothing in the world.
+  relations: [RelationLine] (id: 25);
+}
+
+// One polity's standing toward another (wire 1.57): the other polity and its settlement's name, a
+// label ("unknown", "known", "friendly" or "wary") and the reasons in sentences rendered by the
+// kernel ("12 of 40 of its adults hold a view of Ashford's polity: 9 believe its people harm
+// theirs, 0 that they help them").
+table RelationLine {
+  polity: ulong (id: 0);
+  name: string (id: 1);
+  label: string (id: 2);
+  why: [string] (id: 3);
+  // Wire 1.58 (M5c slice AU, ADR-0020 §6): the agreements between the two, newest first.
+  agreements: [AgreementLine] (id: 4);
+}
+
+// One agreement between two polities (wire 1.58), in words rendered by the kernel: its terms
+// ("leave for Ashford's people to use the places Oakholt claims, for a year"), where it stands
+// ("in force since 3 May of year 12"), and each side's law history, this polity's first ("proposed
+// by Pirra on 2 May of year 12; passed on 3 May of year 12, 9 for, 2 against, 14 of 30 came").
+table AgreementLine {
+  id: ulong (id: 0);
+  terms: string (id: 1);
+  state: string (id: 2);
+  ours: string (id: 3);
+  theirs: string (id: 4);
+  // Wire 1.59 (M5c slice AV): each payment it owed, oldest first, in words ("400 kg of grain
+  // from Oakholt's store, owed from 3 May of year 12: 400 kg set aside, 398 kg arrived; met on
+  // 9 May of year 12").
+  payments: [string] (id: 5);
 }
 
 table Government {
@@ -1885,7 +1995,7 @@ table Order {
   encounters: [string] (id: 15);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order }
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings }
 
 table Response {
   body: ResponseBody (id: 1);

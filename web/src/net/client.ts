@@ -310,6 +310,12 @@ export class HostClient {
     return body.earthworks;
   }
 
+  async crossings(): Promise<M.CrossingsInfo> {
+    const body = await this.query(M.getCrossings());
+    if (body.kind !== "crossings") throw new HostError("internal", "expected crossings");
+    return body.crossings;
+  }
+
   /** Every settlement's standing as last worked out (wire 1.26). */
   async standing(): Promise<M.StandingInfo> {
     const body = await this.query(M.getStanding());

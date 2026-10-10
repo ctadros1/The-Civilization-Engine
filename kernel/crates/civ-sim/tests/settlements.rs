@@ -328,7 +328,8 @@ fn founding_groups_that_know_each_other_know_where_each_camped_and_no_more() {
 #[test]
 fn a_walk_in_sight_of_another_settlement_makes_it_known_and_word_of_it_goes_round() {
     use civ_agents::places::PlaceHow;
-    let mut sim = world(3, 50, &[30]).expect("generates");
+    // World 9: its two camps are on one bank of the trunk river, which nobody can wade.
+    let mut sim = world(9, 50, &[30]).expect("generates");
     // Bring the second camp's hearth to 900 m east of the first's, so that some of the first's
     // walks pass within sight of it and others do not.
     let first = sim.land().settlements[0].clone();
@@ -396,7 +397,8 @@ fn kin_living_in_another_settlement_are_visited_and_each_visit_is_counted() {
     // Two settlements that know where each other camped. A woman of the first is made the mother
     // of an adult of the second, as if they had married away: the visit is worth her company to
     // him and his to her, against the walk there and back (M5a slice AM).
-    let mut sim = world_knowing(3, 30, &[30], true).expect("generates");
+    // World 10: its two camps are on one bank of the trunk river, which nobody can wade.
+    let mut sim = world_knowing(10, 30, &[30], true).expect("generates");
     let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
     let mother = adults_of(&sim, a)
         .into_iter()
@@ -453,7 +455,8 @@ fn kin_living_in_another_settlement_are_visited_and_each_visit_is_counted() {
 fn someone_who_found_no_partner_at_home_goes_to_look_elsewhere() {
     // Every unpartnered adult of the first settlement looked for a partner at home today and found
     // nobody: the hope of meeting someone is a reason to go to the other settlement's hearth.
-    let mut sim = world_knowing(3, 30, &[30], true).expect("generates");
+    // World 10: its two camps are on one bank of the trunk river, which nobody can wade.
+    let mut sim = world_knowing(10, 30, &[30], true).expect("generates");
     let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
     let today = sim.now().day_index();
     let seekers: Vec<_> = adults_of(&sim, a)
@@ -679,7 +682,8 @@ fn a_household_out_of_food_goes_where_its_kin_are_and_its_kin_follow() {
     // the band, kin of those who just went, follow them, one after another (research 05-06 §1.2:
     // chain migration); none is drawn beyond the map while kin are a walk away (M5a slice AN,
     // ADR-0018 §3, §5).
-    let mut sim = world_knowing(3, 50, &[50], true).expect("generates");
+    // World 10: its two camps are on one bank of the trunk river, which nobody can wade.
+    let mut sim = world_knowing(10, 50, &[50], true).expect("generates");
     let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
     let (household, parent) = household_of(&sim, a);
     kin_in(&mut sim, parent, b, 5);
@@ -1309,6 +1313,7 @@ fn a_refused_petition_has_its_organizer_weigh_leaving_together_with_its_faction(
         watch: Default::default(),
         body: None,
         ends: None,
+        agreement: None,
     });
     pop.factions.petitions.push(Petition {
         id: asked,
@@ -1413,4 +1418,118 @@ fn a_household_going_with_anothers_coalition_gathers_none_of_its_own() {
     sim.advance_minutes(2).expect("lives");
     let coalitions = &sim.people().coalitions;
     assert_eq!(coalitions.len(), 1, "{coalitions:?}");
+}
+
+#[test]
+fn households_that_come_to_a_hearth_together_spread_about_it_and_build_beyond_a_crowded_one() {
+    // Found by the M5b demo: households that came to a hearth together (a coalition, a wave of
+    // movers) were set a degree an id apart, a few metres from each other, and looked for ground
+    // only within 30 m of where they were set; some never built in nine years.
+    let day = 24 * 60;
+    let mut sim = world(3, 30, &[30]).expect("generates");
+    for _ in 0..180 {
+        sim.advance_minutes(day).expect("lives");
+        let land = sim.land();
+        if sim.people().households.iter().all(|(_, h)| {
+            h.members.is_empty()
+                || land
+                    .buildings
+                    .iter()
+                    .any(|b| b.household == h.id && b.finished())
+        }) {
+            break;
+        }
+    }
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let hearth = sim.land().settlements[1].hearth_m;
+    let mut movers: Vec<_> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, h)| h.settlement == Some(a) && !h.members.is_empty())
+        .map(|(_, h)| h.id)
+        .collect();
+    movers.sort();
+    movers.truncate(5);
+    let first = sim.ids().peek_next();
+    for &h in &movers {
+        sim.with_ctx_for_tests(|pop, ctx| pop.relocate_for_tests(ctx, h, b));
+    }
+    let arrived: Vec<(civ_core::PermanentId, (f32, f32))> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, h)| h.settlement == Some(b) && h.id.get() >= first)
+        .map(|(_, h)| (h.id, h.home))
+        .collect();
+    assert_eq!(arrived.len(), movers.len());
+    // Set about the hearth, each well apart from the rest.
+    for (i, (_, p)) in arrived.iter().enumerate() {
+        for (_, q) in &arrived[i + 1..] {
+            let d = (p.0 - q.0).hypot(p.1 - q.1);
+            assert!(d > 8.0, "two set {d:.1} m apart");
+        }
+    }
+    // Every bit of clear ground within 50 m of the hearth taken: each still begins a home, beyond
+    // the 30 m about where it was set.
+    let owner = sim
+        .people()
+        .households
+        .iter()
+        .find(|(_, h)| h.settlement == Some(b) && h.id.get() < first)
+        .map(|(_, h)| h.id)
+        .expect("a household of the second settlement");
+    let now = sim.now();
+    sim.with_ctx_for_tests(|_, ctx| {
+        let step = 400; // centimetres: 3 m plots, a metre apart
+        let (hx, hy) = ((hearth.0 * 100.0) as i32, (hearth.1 * 100.0) as i32);
+        for gy in (-5_000..=5_000).step_by(step) {
+            for gx in (-5_000..=5_000).step_by(step) {
+                if f64::from(gx).hypot(f64::from(gy)) > 5_000.0 {
+                    continue;
+                }
+                let rect = civ_land::RectCm {
+                    x: hx + gx,
+                    y: hy + gy,
+                    w: 300,
+                    h: 300,
+                };
+                if civ_agents::build::plot_clear(ctx.land, ctx.map, ctx.nav, &rect) {
+                    let id = ctx.ids.allocate();
+                    ctx.land.plots.push(civ_land::Plot {
+                        id,
+                        household: owner,
+                        rect,
+                        use_: civ_land::PlotUse::Store,
+                        since: now,
+                    });
+                }
+            }
+        }
+    });
+    let begun = |sim: &Sim, h: civ_core::PermanentId| {
+        sim.land()
+            .buildings
+            .iter()
+            .find(|x| x.household == h)
+            .map(|x| civ_agents::build::centre_m(&x.spec))
+    };
+    for _ in 0..200 {
+        if arrived.iter().all(|&(h, _)| begun(&sim, h).is_some()) {
+            break;
+        }
+        sim.advance_minutes(day).expect("lives");
+    }
+    for &(h, set) in &arrived {
+        let at = begun(&sim, h).expect("a home begun");
+        let (from_set, from_hearth) = (
+            (at.0 - set.0).hypot(at.1 - set.1),
+            (at.0 - hearth.0).hypot(at.1 - hearth.1),
+        );
+        assert!(
+            from_set > 30.0 && from_set <= 125.0 && from_hearth > 50.0,
+            "begun {from_set:.0} m from where it was set, {from_hearth:.0} m from the hearth"
+        );
+    }
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
 }

@@ -1,0 +1,24 @@
+# An agreement with a neighbouring polity (M5c slice AU, ADR-0020 §6; research 13-01 §1.4, §6.3:
+# negotiated, approved, communicated and in force are separate states). Someone whose household
+# heard that another settlement's polity claims places it works, and who may propose at home,
+# meets someone they know of that settlement who may propose there. The two weigh packages of
+# leave to use the places either side claims, for a term (`relations.packages` and
+# `relations.terms_days`), and agree on one both expect to pass at home, or part with none. Each
+# then puts it to their own gathering as a law of this template, decided by that polity's own
+# custom. It comes into force once both have passed it and each side has heard of the other's
+# decision from someone of the other settlement; nothing else carries word between them. Leave is
+# the only clause yet (gifts and recurring transfers wait for carriers, slice AV). Its id sorts
+# after every older template's: hearth talk about a question is keyed by a template's place in id
+# order, so an id sorting earlier would shift theirs.
+kind = "policy"
+id = "core:policy/word_given"
+name = "Agreement with a neighbour"
+description = "An agreement with a neighbouring polity, passed by both gatherings: each side's people may use the places the other claims, as its terms say."
+does = "agreement"
+answers = ["claimed_from_us"]
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement.
+[bears]
+"core:value/reciprocity" = 0.5   # ground is shared with neighbours by their word
+"core:value/security" = -0.5     # what is claimed is opened to others

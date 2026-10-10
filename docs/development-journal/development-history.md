@@ -815,6 +815,310 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** the first implementation slice is AP. If trade or roof-style adoption has not emerged after a week of tuning, the plan's time box calls for a documented `NUDGE:` rather than scripted trips or copying. M5c relations and public works follow after M5b.
 
+## 2026-10-09 — M5b slice AP: buying from a neighbour by report
+
+**Goal:** a household should be able to buy from another settlement's sellers, but only by what its people saw there or were told, dated and believed less with age, with the trade settling at the seller's door on the terms posted there now (plan §7, ADR-0019 §1–§4; research 08-12 §1.6, 08-05 §1.7, 09-16 §2.2).
+
+**What changed:** price reports per household by market, good and payment, heard at another settlement's hearth from its people, passed between companions as old as they are, and seen at a seller's door; a `fetch` activity that takes the purchase choice to the reported offers within two hours' walk, one of a household at a time; trips that buy nothing counted with why; the trade's settlement recorded and tallied in the seller's market; purchases and missed trips counted per pair of settlements, in the contact words and the neighbours report. Saves schema 56, content API 56.
+
+**Findings:** the first probe's buyer never went: its one report of a seller said "sickles for hoes", which it could not spare, though the seller took grain too, so reports are now held per payment. A buyer who found a seller sold out was told the older report again that evening, so what a seller no longer has is now remembered, dated. In the demo world two members of one household walked to the same seller on the same day, so one of a household goes at a time. Nearly every miss was first counted as "terms" because the seller still offered other goods; judged by what the household wanted, they were sold out. At the content's walking weight a missing tool is worth an hour's walk each way, so the tests weigh the walk lower rather than tuning the content.
+
+**Evidence:** digest comparisons with the build before (a village of 1,000 for 30 days and the M5a demo's year-10 world for 90 days, with the content less `fetch.toml`: identical but the content's own section and, in the demo world, the reports people heard); four integration tests and the report unit tests, each rule checked by mutation; the demo world lived two more years with the full content (18 purchases between settlements, all the remembered ones sickles; 12 trips that bought nothing, 10 of them to sellers sold out); the whole kernel suite, clippy, the smoke and the schema check.
+
+**Step two** (wire 1.54) shows it in the observer: a household's reports in the inspector, the buyer's settlement on a market's trades, and what people of other settlements bought there; `civ-host new` can make a world of several groups, and `web/e2e/reports.spec.ts` finds a household that has heard prices in one lived 100 days.
+
+**Open:** fetching to resell, the replacement anchor and the convergence record (AQ).
+
+## 2026-10-09 — M5b slice AQ, step one: asks anchored on replacement, the convergence record and the twin
+
+**Goal:** a seller should price what it can get elsewhere as what replacing it would cost, the world should record how far two settlements' prices stand apart month by month, and the demo should be able to live a save twice, with and without trade between settlements (ADR-0019 §5, §7, §8; research 08-05 §1.5, 08-12 §4).
+
+**What changed:** the replacement anchor at a household's review of its offers (by its reports, each believed by its age; only where people can fetch); the monthly convergence record per pair of settlements, saved (schema 57); and an in-memory switch that leaves trips to buy elsewhere out of every choice.
+
+**Findings:** the twin and the world with trade start identically, as the harness must. Over two years of the M5a demo's world the gaps between settlements' median asks stayed about 0.1–0.3 log points with or without trade: eight purchases do not close them. Fetching to resell is the mechanism expected to, and is next. The first mutation check of the harness passed when it should not have, because the trip was not recorded once stopped; recording it made the test see the difference.
+
+**Evidence:** digest comparisons without `fetch` (identical but for the content and the record itself); three integration tests, each checked by mutation; the roundtrip of a schema-56 save.
+
+**Open:** fetching to resell (step two); the convergence row, caravans and the wire (step three).
+
+## 2026-10-09 — M5b slice AQ, step two: fetching to resell
+
+**Goal:** a household whose neighbours want a good nobody offers, and that has heard where it can be had cheaper, should be able to fetch it to sell at home, sized by what its market would take rather than by price alone, so that every reseller does not answer the same gap (ADR-0019 §6; research 08-12 §1.6, 08-05 §1.7).
+
+**What changed:** an errand planned at the household's weekly review (one a household, saved in schema 58), a `fetch` option for it after any purchase for its own need, scored as making to sell is, the purchase at the door while the terms still pay, and the goods offered at home at the next review. A trip between settlements whose door trade fails is now counted with why, and the household no longer goes back for the same offer.
+
+**Findings:** the first version charged the walk twice (in the errand's share and in the scorer), and no errand trip ever entered the draw; charging it once, as for a purchase for one's own need, let them compete. In the M5a demo world over two years, errands were planned but only two trips were made and nothing was resold: at the content's weights an hour's walk counts as half a tool's worth, so trips of 31–105 minutes each way rarely beat what people do instead, though the plan, counting the walk in the household's own hours, finds them worth it. The gaps between settlements' asks did not close. That weighting is left to slice AS's time-boxed demo. Measuring also found that workshops offering their whole stock post units rounded past what they hold, so trades at their door fail and the offer never shrinks (1,973 failed trades in two years); it is fixed as a step of its own.
+
+**Evidence:** digest comparisons without `fetch` (identical to the build before trade but for the content and the inert price reports, and to step one's in every section); four integration tests (seven cases), three of their rules checked by mutation; the roundtrip of a schema-57 save.
+
+**Open:** running errands through a firm; the weight of the walk on goods trips (AS); the convergence row, caravans and the wire (step three).
+
+## 2026-10-09 — Fix: workshops could not sell their whole stock
+
+**Goal:** a seller's terms should be honoured to the precision they are posted in.
+
+**What changed:** offers keep their units as `f32`; a workshop offering all it held posted, about half the time, a hair more than it held, and the ledger refused the leg. The buyer walked to the door for nothing and came back, since the offer never shrank. The ledger's cover check now allows a shortfall of a millionth of the leg (rounding), and still moves no more than the giver holds.
+
+**Findings:** in two years of the M5a demo's world, 1,973 trades had failed this way, all at workshops, unseen because a failed trade counted nothing; with the fix none fails, and time spent trading falls from 0.005 to 0.001 hours a person-day. Every world with a workshop that sells its whole stock changes from that sale on.
+
+**Evidence:** a unit test of the ledger (a whole stock given as its `f32` posting reads it; a real shortfall refused); the full test suite; the ten-year smoke (all ten worlds passed).
+
+## 2026-10-09 — M5b slice AQ, step three, first part: the price convergence row and the twin
+
+**Goal:** judge whether trade closes the gaps between settlements' prices, against what carrying a good costs and against a twin that lives the same world without trade (ADR-0019 §7, §8; the M5 trade brief's row; research 08-05 §1.7, 08-12 §4).
+
+**What changed:** a measure in `civ-host` that reads the convergence record per pair (each good's median gap, its band, the gap before trade, what was carried, and any year it flowed the wrong way), the dashboard's "Price convergence" row on it, and `civ-host twin`, which lives a save as it is and as the twin side by side and judges both.
+
+**Findings:** two years of the M5a demo's world gave 12 purchases between settlements with trade and none as the twin; no pair reached the 30 purchases the row asks for, so it stays grey. The band is computed from the hours walked per unit carried over all goods, since the record does not split the walk by good.
+
+**Evidence:** unit tests of the grading and of the dashboard row; the twin command run on the demo save.
+
+**Open:** the observer's view of the record and caravans (step three, second part); the demo (AS).
+
+## 2026-10-09 — M5b slice AQ, step three, second part: trade between settlements in the observer
+
+**Goal:** let the observer see what the convergence record holds and who is on the road to buy, without the observer computing anything (ADR-0019 §7; the M5 trade brief's caravans as a view).
+
+**What changed:** wire 1.55. The market panel has a line per other settlement: the latest month's asks there and here of goods offered in both, how far apart, and what each side carried home. It also says who is on the road to buy there today, those of one settlement together. The inspector shows the household's errand. The markets revision follows the record and the trips.
+
+**Findings:** in a world of two groups 100 days old, both markets already list hoes and provisions asked in both (hoes 19 points apart, provisions level). Slice AQ is complete but for errands run through a firm.
+
+**Evidence:** the fetch integration tests (the words on the road, for an errand and for a month); the web decoder's unit test; the reports end-to-end test extended to the market panel; the full Rust and end-to-end suites.
+
+**Open:** errands through a firm; the demo (AS) and the weight of the walk on goods trips; diffusion through contact (AR).
+
+## 2026-10-09 — M5b slice AR, step one: buildings seen elsewhere
+
+**Goal:** let building style cross between settlements only through contact: what people see of a neighbour's new buildings on a visit or a trip to buy should move their household's taste, admired for what a stranger can know of it (the M5 diffusion brief §1.3; research 11-02 §1.1, §2.2).
+
+**What changed:** a person at another settlement's hearth, or at a seller's door there, notes its buildings finished in the past year within sight (200 m), up to 8, until their household's yearly taste review. The review meets them beside the household's own settlement's new buildings, each once, a stranger's building admired for its craft rank and for the esteem the household's people hold its owner's in (ADR-0014 §3). The style and taste readouts name the settlement a followed or admired building stands in. Saves schema 59, content API 57.
+
+**Findings:** the first build took the patron half from regard (esteem with warmth); the brief and ADR-0014 say esteem, so it was changed before measuring. The 5–20 exemplars cited for how many are kept is, in 11-02 §5.5, a storage choice and not an empirical figure, and is cited as such.
+
+**Evidence:** three integration tests (seven cases: exact moves for a stranger's and an esteemed owner's building, met once, the year's window, letting go, noting on a visit, saves, a world of one settlement); the schema-58 roundtrip; a digest comparison on the village of 1,000 (identical but for the content).
+
+**Measured:** two years of the M5a demo's world from its tenth year: with sights turned off it matches the build before in every section but the content; with them, 68 people noted 29 buildings elsewhere and 16 households came to admire one most. The two founding settlements in most contact drew together, from 89.6 to 12.4 apart in mean taste (89.8 without sights), while the third drifted from both in either run through its own new buildings. The differences are under 2° of pitch, since the groups were founded with near ways of building.
+
+**Open:** awareness by sight and provenance (step two); style per settlement and the neighbours row (step three).
+
+## 2026-10-09 — M5b slice AR, step two: techniques seen elsewhere, and knowledge that moves
+
+**Goal:** let contact carry awareness of techniques but never the techniques themselves, and keep each settlement's record of its knowledge true when people move between settlements (the M5 diffusion brief §1.2; research 07-02 §1.2, §5.4; ADR-0008 §2, §5).
+
+**What changed:** a person source "seen at" a settlement: someone at another settlement's hearth or a seller's door there comes to know of a technique they watch its people working with within 100 m, or one that alone makes a good they bought there. Awareness only raises how fruitful trying toward it is. A household, spouse or exile coming from another settlement now carries the record with it: what only they knew is lost where they lived, the loss naming a settlement where it is still known that those left have kin or friends in, and what they know is recorded where they come as brought from where they lived. Saves schema 60, content API 58.
+
+**Findings:** M5a had moved households, spouses and exiles between settlements without the knowledge record following them; nothing was lost where they left or noted where they came. That is fixed here. Every founder knows ten of the thirteen techniques, so awareness by sight matters only for drying, the rotary quern and jointed framing; and since no work tries toward jointed framing, awareness of it does nothing yet.
+
+**Measured:** in two years of the M5a demo's world, behaviour matched step one exactly (every section but the content, the knowledge record and the chronicle): nobody there knows drying or the rotary quern, and every settlement already knew what each mover brought. The wave's settlement, emptied in year 12, now records its eleven techniques as lost instead of still known.
+
+**Evidence:** two integration tests (awareness by watching and by buying, with the cases that give none; a move's loss and arrival with the settlements named, in the record, the chronicle and a save), four mutations of the rules each caught; the schema-59 roundtrip; digest comparisons with step one; the full suite.
+
+**Open:** style per settlement and the neighbours row (step three).
+
+## 2026-10-09 — M5b slice AR, step three: style per settlement and the neighbours row
+
+**Goal:** make a settlement's way of building visible on the three clocks the research separates (taste, new buildings, standing stock; 11-02 §4), against the way it was founded with, and check on the dashboard that nothing crosses between settlements without contact (the M5 diffusion brief §1.7, §3.1).
+
+**What changed:** each settlement keeps its founding way (saves schema 61): a founding band's drawn way, else the mean taste of the households that founded it. The settlements panel shows the clocks in words, the building readout names where a followed chain first crosses, and the inspector what someone has seen elsewhere (wire 1.56). The dashboard gains a neighbours row, graded per pair and direction: red for anything that crossed with no contact that could carry it, grey with no contact, amber with contact and nothing crossed.
+
+**Findings:** in writing the row, a new module was written over the M5a demo's `neighbours.rs` in `civ-host` (the file existed under the name chosen); it was caught at once by the build, restored from git unchanged, and the row's module named `crossings.rs`. Slice AR is complete.
+
+**Measured:** behaviour matches step two in the village of 1,000 and in two years of the M5a demo's world (only the places section, now holding the founding ways, differs). There Oakholt, founded to build 46° roofs, has households at 47.7° and standing buildings at 46.6°; all 11 of Sedgebrook's new buildings follow one elsewhere, brought by the wave's households that moved in. In `civ-host twin`'s two lives nothing crossed without contact.
+
+**Evidence:** an integration test of the founding ways, the clocks and the three readouts, with a save; the roundtrip of a schema-60 save; a unit test of the row's grades; a unit test that founding tastes draw exactly as before; digest comparisons with step two; the settlements end-to-end test.
+
+**Open:** the M5b demo (AS), time-boxed: whether a roof's way crosses where the founding ways differ, and the walk's weight on goods trips.
+
+## 2026-10-10 — M5b slice AS: the M5b demo
+
+**Goal:** live one save from first contact with trade and as its twin without, and show the traded goods' gaps against their bands and whether one settlement takes the other's way of roofing (the M5 diffusion brief §3.4); time-boxed, with a logged nudge only if trade or adoption fails to emerge.
+
+**What changed:** `civ-host twin` reads each life's roofs by the brief's measure (only between settlements founded at least 3° apart: each year's share of new buildings nearer the other's founding way, when the definition first held, and T10→90 read off years of three or more new buildings), names each life's settlements from that life, and prints realised prices beside the asks (also on the dashboard's convergence row). The long run's roof check gives a household its first twelve months to build.
+
+**Findings:** thirty-year runs found four faults, each fixed with a test before the demo was run again: someone who died between seeing a building elsewhere and the yearly review left their sights on record, which failed the save's load; the neighbours row graded red a way of building carried into a splinter through a third settlement; households that came to a hearth together (a coalition, a wave of movers) were set one degree of angle per id apart and searched only 30 m for ground, so some never built in nine years (now the golden angle, and up to 120 m for a first home); and the roof check failed a settlement founded within the year. A rare world-dependent failure of the lean-village polity test (a watch decided before the common store, about one world in forty) was fixed by waiting for the common store's decision.
+
+**Measured:** two worlds whose founding ways stand more than 3° apart, thirty years each, both lives passing every check. The smaller settlement took the larger one's way of roofing in both lives of both worlds (Willowholt from 46.8° toward Willowford's 52.0° in year 15, nine tenths of its new buildings nearer Willowford's way by year 25; Alderwick toward Rushmere in year 14). Trade emerged, thin: 20 and 70 purchases between settlements in thirty years, 1 and 79 errand trips; no pair reached the convergence row's 30 purchases, and the founding pairs' asks stayed 20–50 points apart, within what carrying one unit there and back on foot costs. No nudge: both behaviours emerged, and raising a trip's worth to thicken trade would tune toward the row.
+
+**Evidence:** two integration tests (sights leaving with the dead and the exiled; households spreading about a hearth and building beyond a crowded one, each half of the fix undone failing it), unit tests of the twin's measure and the realised gap, digest identity with the build before for the village of 1,000 over 30 days, the full suite and the smoke seeds.
+
+**Open:** M5c, relations and works, from the relations brief; prices closing between settlements wait for something that carries more than one unit on foot (a market day, carrying for others, firms, animals).
+
+## 2026-10-10 — M5c design: relations and works
+
+**Goal:** design how polities deal with each other short of war (views, grievances across the boundary, claims over wild ground, agreements ratified by each side, tribute) and the works people decide (crossings, enclosures), from the M5 relations brief and the settlements brief's §1.6–1.7.
+
+**What changed:** ADR-0020 (relations between polities): no relation is saved, its name is a label nothing reads; word crosses only with travellers; views of a polity are per person in three domains; `Blamed` may name another polity's party; a gathering may claim a place; an agreement is one shared record and a law in each polity, decided by each custom, in force only once both have passed it and each has heard; clauses in force are performed from the common store by people with real goods. Five slices (AT–AX) in plan §7 and the brief's eleven open questions answered in §9.
+
+**Findings:** checked in the code before deciding: takings never cross settlements and no law bars outsiders from a market, so two of the brief's five clause templates would grant nothing yet and are left to be appended when they can; rivers are waded where small and impassable where large, so a bridge either saves wading or opens a route.
+
+**Open:** slice AT; whether neighbours with plentiful land ever hold an issue a clause answers is measured before anything is tuned.
+
+## 2026-10-10 — M5c slice AT, step one: claims on wild ground
+
+**Goal:** give access clauses something to grant (ADR-0020 §5): who works which wild places, who else is seen there, and a law by which a gathering claims them.
+
+**What changed:** each household keeps the places its people gather from or dig at (days worked, food got, and the days people of another settlement were seen working the same place the same day), fading over 180 days (`civ_agents::uses`). Outsiders seen within the year at a place the polity does not claim make a new issue, `outsiders`; a new policy kind, `claim_place` (`core:policy/wild_ground`), names every such place when proposed, and households weigh it by what they believe outsiders take at the places they work. Saves schema 62, content API 59.
+
+**Findings:** opinion's monthly draws are keyed by a template's index in the catalog, which is sorted by id, so a new template whose id sorted before an existing one would have changed every world; the template is named to sort last. In the first test world the claim passed 10 to 2, but by what people hold dear far more than by its forecast (a tenth of a point against up to three quarters), which is expected while a claim has no consequence.
+
+**Evidence:** unit tests of the record (a day counted once, outsiders seen, fading and letting go, the codes); an integration test in which sixty days of a shared fishing place lead to the issue, a proposal, a decision and the law's places, with a save that loads and goes on alike; a world of one settlement keeps its places and sees no outsiders; the roundtrip of a schema-61 save; a forty-day digest comparison on a village of 1,000 against the previous build, the only differences the new record and the policy dictionary.
+
+**Open:** step two, use of a claimed place without leave as a grievance and per-person views of a polity; step three, the relation labels, the relations view and the funnel measured in the demo worlds.
+
+## 2026-10-10 — M5c slice AT, step two: trespass and views of another polity
+
+**Goal:** give a claim a consequence (ADR-0020 §3–§4): those who see outsiders work a claimed place hold it against them, and people come to hold views of the other polity.
+
+**What changed:** the day's work names who did it, and the day's end returns where people of more than one settlement met. Someone who knows their polity's claim on such a place holds a grievance against each outsider household seen there (a new wrong, trespass); hearth talk spreads it as any grievance. Views of a polity (`civ_agents::views`) are per person and shaped like a tie, evidence for and against in three domains fading over five years; trespass seen or heard of leans "harms us". Moving and founding leave grievances against outsiders out. Saves schema 63 (a new `relation` section), content API 60.
+
+**Findings:** the step-one funnel, measured on both demo worlds: every village with a neighbour in reach claimed places within two years, and all 87 claims decided passed, mostly by wide margins, because a claim costs its village nothing; most name a single place, and where both villages work a place, both claim it. In the test world both gatherings claimed the shared fishing place, so each side's fishers hold the other's as trespassers. A day's fishing by outsiders is felt too little to talk about; days of it on end are told.
+
+**Evidence:** unit tests of views (leaning, fading, letting go) and of meetings; an integration test of grievance, view, word and save; the roundtrip of a schema-62 save; a forty-day digest comparison on a village of 1,000 against step one, the only differences the content and the new empty section.
+
+**Open:** step three: word of another polity's gatherings and laws, the relation labels from a pure classifier, and the relations panel.
+
+## 2026-10-10 — M5c slice AT, step three: relation labels; slice AT complete
+
+**Goal:** name how each polity stands toward its neighbours, from each side's own people, without anything in the world reading it (ADR-0020 §1), and show it in the observer.
+
+**What changed:** a pure classifier (`civ_sim::relations`) names each side's standing (unknown, known, friendly, wary) from how many of its households know the other, the views its adults hold, the trespass grievances, and the claims both make, with the reasons in sentences; the government panel lists it under "Toward its neighbours" (wire 1.57). A person now holds one trespass grievance for each other settlement's people.
+
+**Findings:** measuring step two showed each outsider household seen becoming a grievance of its own, which could crowd out grievances against one's own gathering (a person holds eight); now bounded, at most one person in a village held eight. In the M5a demo's world, by year 6, 8 of 12 ordered pairs of villages read wary, the two sides of a pair often differing. Word of a gathering already crossed only with visitors; word of laws moves to AU, the first thing that would read it.
+
+**Evidence:** unit tests of the classifier's names and reasons; the integration test now checks both sides' evidence and that naming relations daily changes no saved section; the web unit test decodes the relation lines; the settlements e2e sees each polity know the other in the government panel.
+
+**Open:** slice AU, agreements: seeking terms, packages, ratification by each custom, and failure as an outcome.
+
+## 2026-10-10 — M5c slice AU, step one: claims that bind outsiders' choices
+
+**Goal:** give a claim, and so leave to use it, a real consequence before building agreements (ADR-0020 §5: outsiders use a claimed place only by leave).
+
+**What changed:** word of a claim crosses at the hearth with travellers (`share_claims`), each household keeping the claims of other polities it heard of; when choosing where to gather or dig, a household weighs a place another polity claims at half its worth (`claimed_worth`), unless its own polity claims it too. Saves schema 64, content API 61.
+
+**Findings:** through slice AT a claim had changed nobody's choices, which would have made leave grant nothing. The first build discounted places both villages claimed, so two villages that both claimed their shared fishing places each abandoned them; a place one's own polity claims is now held as one's own. Word spreads fast: within the first year every household of villages with neighbours in reach knew another's claims. Mutual claimants stay wary; a village that claims little keeps off others' claims and stays at peace.
+
+**Evidence:** a unit test of the claims-heard record; integration tests of word crossing with a visiting kin and of two lives of one world in which knowing of a claim kept the outsiders away; the roundtrip of a schema-63 save; a forty-day digest comparison on a village of 1,000.
+
+**Open:** AU step two, the agreement itself: seeking terms, the meeting, packages of leave, ratification by each custom.
+
+## 2026-10-10 — M5c slice AU, step two: agreements between polities
+
+**Goal:** the agreement of ADR-0020 §6: one shared record and a law on each side, each decided by its own custom, in force only once each side has heard of the other's decision.
+
+**What changed:** the issue *claimed from us*; seeking terms, by an elder who may propose and would sponsor some package, with the one of the other settlement they know best; up to eight packages of leave (either side's claims, or both, for a year or five) weighed by each negotiator's household forecast and the support they expect at home; each side's law (`core:policy/word_given`), word of each decision carried by travellers, and failure or ending recorded with its reason; leave in force lifts the discount and the trespass for those who know their own law. Saves schema 65, content API 62. Also fixed: a claim's proposal was told before its places were named.
+
+**Findings:** the first build let anyone holding the issue seek terms, and three meetings in two years parted with none, one over a clay pit the food forecast weighs at nothing; seeking is now a move weighed like any other. In six years of each demo world no agreement was made: villages counter-claim the places they share within weeks, every claim passes, and leave between two claimants grants nothing either lacks. Nothing was tuned; a cost to contested claims (views in stances, force) or something to give for leave (gifts) is what would bring agreements.
+
+**Evidence:** unit tests of the record and its codes; integration tests of an agreement sought, passed by both gatherings and in force once kin carried word both ways (and no trespass under it), and of a meeting that parts with none and is remembered; the roundtrip of a schema-64 save; the full suite, clippy and the smoke seeds; a forty-day comparison on a village of 1,000, the same after re-encoding.
+
+**Open:** AU step three: the observer's view of agreements and both law histories, views weighed in stances (ADR-0020 §3), failure recorded on each side once heard.
+
+## 2026-10-10 — M5c slice AU, step three: agreements in the observer, views in stances; slice AU complete
+
+**Goal:** make what people believe of another polity count where ADR-0020 §3 says it does, in stances on agreements, and show agreements to the observer.
+
+**What changed:** a view's warmth (helps us over harms us, and keeps its word past even) adds `w_regard` times itself to a stance on an agreement with that polity, kept with the stance (saves schema 66); a negotiator weighs their own view too. The relations classifier names a polity bound by an agreement in force *under agreement*, and the government panel lists each agreement with its terms, where it stands, and both sides' law histories side by side (wire 1.58).
+
+**Findings:** in the test villages, a negotiator from a village whose people all believed the other harmed them still agreed to terms, and their own gathering turned the agreement down: ratification, not the negotiator, carried the village's view (13-01 §5). Failure recorded on each side only once heard is not built; a failed agreement's laws lapse at once.
+
+**Evidence:** classifier unit tests for the new label and reasons; integration tests of the label and both histories for an agreement in force, and of a wary village's gathering turning one down with every stance keeping its view; the roundtrip of a schema-65 save; the web unit test decodes agreement lines.
+
+**Open:** slice AV, performance: gifts and recurring transfers carried by people, which would give one-sided leave something to be traded for.
+
+## 2026-10-10 — M5c slice AV, step one: goods for leave, and payments carried
+
+**Goal:** give one-sided leave something to be traded for, and perform what an agreement gives with real goods carried by people (ADR-0020 §7).
+
+**What changed:** two clause kinds, a gift once and a transfer every `transfer_days`, of the good a polity's common store holds most, offered for leave only when the giver keeps a store in force and the receiver keeps one too; each household weighs its share. A payment falls due when the agreement comes into force (a transfer again on its days); each midnight the paying store sets aside what it holds of it into the payment, a ledger holder of its own on the new `agreement` channel that spoils in the open; the store's keeper, or else the one who agreed to the terms, may choose to carry it to the other's hearth (the new `carry` behaviour), where it goes into the other's store; one not handed over within `deliver_days` is missed and its cause kept. Saves schema 67, content API 63.
+
+**Findings:** the first `carry_points` (3) never outweighed a walk of an hour and a half each way, so nobody carried; it is 12, the longest allowed walk's cost plus a morning's work, recorded as a design prior. In the AU test world where one village claimed what the other worked and the meeting parted with none, grain on offer did not change the outcome: the counterpart held the agreement against what they hold dear, which a household's share of 400 kg did not outweigh, and the seeker's own people opposed giving that much. Nothing was tuned.
+
+**Evidence:** integration tests of a gift and a transfer set aside, carried by the keeper and met with every kilogram accounted for, and of a transfer from an empty store falling due again and missed for that cause, each saved, loaded and lived on alike; a unit test of how goods weigh in a household's forecast; the roundtrip of a schema-66 save; the full suite and clippy; a forty-day comparison on a village of 1,000.
+
+**Open:** AV step two: views written by performance, word of a miss crossing with travellers, the tributary label and both burden ratios, payments in the observer.
+
+## 2026-10-10 — M5c slice AV, step two: performance seen, the tributary label, payments in the observer; slice AV complete
+
+**Goal:** let what an agreement's payments do shape what people believe of the payer, and show the burden of paying and each payment to the observer (ADR-0020 §3, §7; research 13-01 §1.5, 13-02 §2.1).
+
+**What changed:** a payment handed over in full, or missed, is evidence to those of the receiving polity who know its law deciding the agreement that the payer keeps its word or does not, and a gift handed over that it helps (content API 64). A polity paying a yearly transfer under an agreement in force is labelled *tributary*, its burden given as T/Y and T/(Y − C) or a subsistence shortfall; the receiver says what it receives. The government panel lists each agreement's payments (wire 1.59).
+
+**Findings:** in the demo worlds lived six years with goods on offer, the larger villages kept common stores of up to 11 t of grain, but every meeting (five, in the M5a world) parted with none and the seed-9 world held none; goods for leave do not unblock the funnel, which stops upstream.
+
+**Evidence:** integration tests of views after payments met and missed, the tributary label and burden, and the panel's payment lines; classifier and views unit tests; the web unit test decodes payment lines; the full suite, clippy and the smoke seeds.
+
+**Open:** slice AW, crossings (bridges by system and span, their load computed per bridge).
+
+## 2026-10-10 — M5c slice AW, step one: crossings over water, and their physics
+
+**Goal:** let the ground people walk on change, so a river too big to wade can be crossed, and give a crossing a structure that rots and fails (the settlements brief §1.7; research 11-07).
+
+**What changed:** bridge systems are a content kind, the log footbridge the first (content API 65). A crossing is a record of its own over a river's cells (saves schema 68). The walking grid is laid with open crossings' decks and laid again whenever one opens or gives way, and routes and travel fields are kept against one routing revision (ADR-0004 §7). Its logs are checked as a simply supported beam each midnight and as someone steps on, rot daily, and a crossing that gives way drops whoever is on it (a new cause of death, a fall), stops every walk across it, and is told in the chronicle (ADR-0009 §9).
+
+**Findings:** two new 20 cm logs over 6 m carry a walker about 19 times over, so it is rot, not load, that decides when a log bridge fails: at 5 % of the section a year, about 12 years over the longest span, inside the 10–20 years 11-07 gives untreated log bridges. With a crossing left open while rotten, a villager stepped on first: people route over a crossing once it is open.
+
+**Evidence:** unit tests of the crossing record, the beam relations (the cube of section lost, doubling the span) and the builders' sizing; integration tests of a crossing walked over, failing at midnight under its own weight with routes closed, and failing under the one who steps on it; the roundtrip of a schema-67 save; the full suite and clippy.
+
+**Open:** AW step two, households building log footbridges where their own walks would gain.
+
+## 2026-10-10 — M5c slice AW, step two: households build log footbridges
+
+**Goal:** let households build a crossing where their own walks would gain, and keep it or not (the settlements brief §1.7; research 11-07 §1.1, §2.3, §4.2).
+
+**What changed:** each walk counts, for the walker's household, the river cells it wades, fading as what it holds of the places it works does (saved with the crossings, schema 69). At its yearly review a household weighs a log at each: the wades a year it holds there, times the seconds a wade takes over walking a deck, over the years the log would last at the quality its people would lay it, against the hours it takes; it begins the best that repays it. Its people work on it as a chosen activity (a new behaviour, `bridge`); its logs' quality is drawn from their building skill when it opens (content API 66: a bridge system's `skill`), and the chronicle says whose household finished it.
+
+**Findings:** measured before designing and after: logs only ever cross wadeable streams (every river too big to wade is wider than 8 m), where they save 13–22 s a wade. In the village of 1,000 nobody waded anything in forty days; in the M5a and seed-9 demo worlds most households wade, but most wades are of brooks under 2 m, below any authored bridge, and the most waded log-spannable place held a few hundred wades a year of all households together, a few hours of walking against a log's 70 hours over about 15 years. No household built one in two years in either world. Half of sixteen river valleys have no log-spannable stream at all.
+
+**Evidence:** a test world where a household remembering many wades begins, builds and opens a log (five days, 70 hours, quality 0.95) and one remembering few begins nothing; unit tests of the wade record, a crossing's life and the expected quality; a schema-68 save loads; forty days of the village of 1,000 match step one's in all 50 section digests; the full suite and clippy.
+
+**Open:** AW step three, a polity's public work for a crossing beyond one log, and the observer's view of crossings.
+
+## 2026-10-10 — Fix: walkers stepped between a river's cells
+
+**Goal:** make rivers too big to wade the barriers the model has said they were since M1, found while measuring what the trunk river cuts off for AW step three.
+
+**What changed:** a diagonal step passes through one of the two cells at its corner, so it is walked no faster than the better of them allows and not at all when neither can be walked; straight lines that straighten routes, and the cells a walk is traced over for wades and crossings, keep the same rule (ADR-0004 §7).
+
+**Findings:** before the fix, the M5a demo's map had 522 places where a walker crossed the river too big to wade in one 13-second step and 2,648 where a stream was crossed dry. After it, the seed-9 demo world's two villages cannot reach each other at all; land across the river from a village is far, so a year of the village of 1,000 breaks 308 fields, not 649, with the same people at the year's end; and a year costs 390 s, not 265, mostly in the weeks after loading an older save. Households now wade five times as often, and a village's wades at one stream would repay a log though no household's alone would. The M5a and M5b demos ran before the fix and were not re-run.
+
+**Evidence:** a test of a river running corner to corner, too big to wade and small enough; the corner-aware trace; the full suite (tests of visits, buying and diffusion moved from world 3, whose camps are now three hours apart round the river, to worlds 9 and 10); clippy; the ten smoke worlds; a ten-year dashboard quick look passing seven rows, moves amber where founding groups were placed on opposite banks.
+
+**Open:** AW step three: a crossing the village builds together, and the observer's view of crossings.
+
+## 2026-10-10 — M5c slice AW, step three, first part: crossings in the observer
+
+**Goal:** show crossings, which only the chronicle mentioned, so a crossing being built, open, rotting or fallen can be watched.
+
+**What changed:** wire 1.60. The snapshot carries a crossings revision and `GetCrossings` lists each crossing with its state, owner, members, condition and margin, and the kernel's words for it. The map draws each one's members from bank to bank, fainter while being built, greying with rot, dark once it gave way, and the pointer readout names the one under it.
+
+**Evidence:** a host test of the list and its words for a log laid by hand; web unit tests of the decoder, the drawing and the pointer's hit test; the full suite, clippy, the web build and unit tests, and the observer and earthworks e2e.
+
+**Open:** AW step three's second part, a crossing the village builds together.
+
+## 2026-10-10 — M5c slice AW, step three, second part: crossings built together
+
+**Goal:** let a village build a crossing where its households' wades together would repay one though no household's alone would (research 11-07 §4.1: household or village cooperation, labour contributed).
+
+**What changed:** the issue `fords` and the law `build_crossing` (content API 67): its sponsor names a site their household wades, each household forecasts it at the food the hours it saves or asks could bring, and once passed the polity begins it, one at a time, each household asked an equal share of the work. People who know the law give their household's share as they choose, weighing the gathering's word as a levy's payment is weighed; the hours each household gave are kept (saves 70).
+
+**Findings:** the first measurements caught three errors before commit. An hour of walking was priced at a momentary choice's weight for every hour of a year. Crossings could be begun while others stood unbuilt, a cell apart. And the template bore on reciprocity, which the core content defines as giving back (a NUDGE, corrected after the measurement showed it decisive). Priced honestly, no household's stake in a log footbridge reaches a stance, so votes follow regard for the sponsor. Without the rule that a site must repay its work for the village, Willowford built one at every site its people waded; with it, two in two years, each in days.
+
+**Evidence:** a test village where a law to build is forecast, passed by hand, begun, and built by several households' shares; a schema-69 save loads; the full suite and clippy; two-year measurements of the seed-9 and M5a demo worlds.
+
+**Open:** a crew limit; the trestle over the trunk river and the places reachable only across a crossing; giving up a stalled crossing.
+
+## 2026-10-10 — M5c slice AW, step three, third part: crossing crews
+
+**Goal:** close the gap the previous step recorded: as many people worked on a crossing at once as chose to, so 82 hours were done in a morning.
+
+**What changed:** a bridge system names its `crew` (content API 68; five for a log footbridge, research 11-07 §2.3). At most that many choose to work on one crossing in a day; anyone else who would is told it is full, a new reason in the why panel (research 11-11 §1.3: progress is limited by the usable work front). The day's count is kept with the crossing (saves 71). The chronicle's sentence for a crossing that gives way now says whose it was. `civ-host neighbours` now reports relations between polities each year, and every agreement at the end.
+
+**Findings:** the first build counted the crew as people arrived, so everyone who chose the work in the morning, before the first of them got there, still worked; it is counted as they choose instead. Measured over two years, the demo worlds' village crossings now take four to six days, within the research's one to six working days, where most were finished the morning they were agreed.
+
+**Evidence:** a test village whose crossing gets no work while its crew is held full, which fails with the limit removed; no day's crew over five; a schema-70 save loads; the full suite, clippy and the ten smoke worlds; two-year measurements of the seed-9 and M5a demo worlds.
+
+**Open:** the trestle over the trunk river and the places reachable only across a crossing; giving up a stalled crossing.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

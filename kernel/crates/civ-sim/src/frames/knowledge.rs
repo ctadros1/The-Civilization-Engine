@@ -77,6 +77,14 @@ fn name_of(sim: &Sim, id: PermanentId) -> String {
         .map_or_else(|| "someone".to_owned(), |r| r.given.clone())
 }
 
+fn settlement_name(sim: &Sim, id: PermanentId) -> String {
+    sim.land
+        .settlements
+        .iter()
+        .find(|x| x.id == id)
+        .map_or_else(|| "another settlement".to_owned(), |x| x.name.clone())
+}
+
 /// How a person came to know of a technique, in words.
 pub fn source_words(sim: &Sim, source: KnowSource) -> String {
     match source {
@@ -85,6 +93,7 @@ pub fn source_words(sim: &Sim, source: KnowSource) -> String {
         KnowSource::Taught(p) => format!("taught by {}", name_of(sim, p)),
         KnowSource::Found => "found it".to_owned(),
         KnowSource::Observer => "introduced by the observer".to_owned(),
+        KnowSource::Seen(s) => format!("saw it at {}", settlement_name(sim, s)),
     }
 }
 
@@ -245,6 +254,24 @@ fn history_words(sim: &Sim, s: PermanentId, t: usize) -> Vec<String> {
         .map(|e| {
             let year = e.at.date().year;
             let who = name_of(sim, e.person);
+            // A knower who came from another settlement brought it from there; a loss says where
+            // it is still known among those people here have kin or friends in (M5b slice AR).
+            match (e.kind, e.elsewhere) {
+                (KnowledgeEventKind::Known(_), Some(from)) => {
+                    return format!(
+                        "Year {year}: {who} brought it from {}.",
+                        settlement_name(sim, from)
+                    );
+                }
+                (KnowledgeEventKind::Lost, Some(at)) => {
+                    return format!(
+                        "Year {year}: lost with {who}; still known at {}, where people here have \
+                         kin or friends.",
+                        settlement_name(sim, at)
+                    );
+                }
+                _ => {}
+            }
             match e.kind {
                 KnowledgeEventKind::Known(KnowSource::Founder) => {
                     format!("Year {year}: brought by {who}.")
@@ -261,6 +288,9 @@ fn history_words(sim: &Sim, s: PermanentId, t: usize) -> Vec<String> {
                 }
                 KnowledgeEventKind::Known(KnowSource::Observer) => {
                     format!("Year {year}: the observer taught {who}.")
+                }
+                KnowledgeEventKind::Known(KnowSource::Seen(at)) => {
+                    format!("Year {year}: {who} saw it at {}.", settlement_name(sim, at))
                 }
                 KnowledgeEventKind::Lost => format!("Year {year}: lost with {who}."),
             }

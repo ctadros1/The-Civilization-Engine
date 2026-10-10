@@ -12,6 +12,7 @@
 
 pub mod commands;
 pub mod consistency;
+pub mod crossings;
 pub mod dashboard;
 pub mod economy;
 pub mod engine;
@@ -23,4 +24,6 @@ pub mod report;
 pub mod server;
 pub mod session;
 pub mod smoke;
+pub mod trade;
+pub mod twin;
 pub mod weather;

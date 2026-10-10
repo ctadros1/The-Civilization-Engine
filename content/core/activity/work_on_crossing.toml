@@ -1,0 +1,20 @@
+# Work on a crossing the household is building (M5c slice AW, step two; research 11-07 §1.7,
+# §2.3): felling the logs, shaping them with axes, moving them to the stream and laying them
+# across, all labour at the site. Heavy work, as building a hut is; effort, ages and session
+# lengths are tuning values as there. The work a crossing takes is its bridge system's. Its id
+# sorts after every older activity's: activities are kept in id order.
+kind = "activity"
+id = "core:activity/work_on_crossing"
+name = "Work on a crossing"
+doing = "building a crossing"
+behavior = "bridge"
+par = 4.5
+min_age_years = 12.0
+max_age_years = 65.0
+min_minutes = 60
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 30
+technique = ""
+tools = ["core:good/axe"]
+rate = 1.0

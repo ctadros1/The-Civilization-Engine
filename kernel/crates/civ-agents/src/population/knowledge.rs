@@ -29,6 +29,9 @@ pub(crate) enum Gate {
 pub const LOST_AWARE: f64 = 1.0;
 /// ...and goods or buildings made with it remain there.
 pub const LOST_MADE_REMAIN: f64 = 2.0;
+/// ...and it is still known in another settlement where someone left there has kin or a tie (M5b
+/// slice AR; 07-02 §5.4: no local practitioner, but an accessible one).
+pub const LOST_KNOWN_NEAR: f64 = 4.0;
 
 impl Population {
     /// The technique the work of activity `def` aimed at `target` by a member of `household`
@@ -349,7 +352,7 @@ impl Population {
             .and_then(|p| self.household(p.household))
             .and_then(|x| x.settlement);
         if let Some(s) = settlement {
-            self.note_known(now, s, who, t, source);
+            self.note_known(now, s, who, t, source, None);
         }
         let Some(def) = ctx.catalog.techniques.get(t) else {
             return;
@@ -368,7 +371,8 @@ impl Population {
     }
 
     /// Notes in settlement `s`'s record that `who` came to know technique `t`, if it was not
-    /// known there (never, or not since it was lost).
+    /// known there (never, or not since it was lost); `elsewhere`, the settlement they brought it
+    /// from, if they came from one (M5b slice AR).
     fn note_known(
         &mut self,
         now: SimTime,
@@ -376,6 +380,7 @@ impl Population {
         who: PermanentId,
         t: usize,
         source: KnowSource,
+        elsewhere: Option<PermanentId>,
     ) {
         if self.known_in(s, t) {
             return;
@@ -386,6 +391,7 @@ impl Population {
             technique: t as u16,
             person: who,
             kind: KnowledgeEventKind::Known(source),
+            elsewhere,
         });
     }
 
@@ -416,7 +422,7 @@ impl Population {
                 .min_by_key(|p| (p.born, p.id))
                 .map(|p| (p.id, p.know(t).map_or(KnowSource::Founder, |k| k.source)));
             if let Some((who, source)) = eldest {
-                self.note_known(now, s, who, t, source);
+                self.note_known(now, s, who, t, source, None);
             }
         }
     }
@@ -560,14 +566,17 @@ impl Population {
                 .filter_map(|id| self.person(*id))
                 .any(|p| p.know(t).is_some());
             let made = self.made_with_remains(ctx, s, t, left_behind);
-            let flags =
-                if aware { LOST_AWARE } else { 0.0 } + if made { LOST_MADE_REMAIN } else { 0.0 };
+            let near = self.known_near(s, &residents, t);
+            let flags = if aware { LOST_AWARE } else { 0.0 }
+                + if made { LOST_MADE_REMAIN } else { 0.0 }
+                + if near.is_some() { LOST_KNOWN_NEAR } else { 0.0 };
             self.knowledge.push(KnowledgeEvent {
                 at: now,
                 settlement: s,
                 technique: t as u16,
                 person: who,
                 kind: KnowledgeEventKind::Lost,
+                elsewhere: near,
             });
             let name = catalog
                 .techniques
@@ -583,6 +592,230 @@ impl Population {
                 name,
             );
         }
+    }
+
+    /// Another settlement where technique `t`, just lost in `s`, is still known, among those
+    /// where one of `residents` (who remain in `s`) has close kin or a tie (M5b slice AR;
+    /// research 07-02 §5.4: an accessible practitioner, not only a local one): the one with the
+    /// most such links, then the most knowers, then the least id. `None` if there is none.
+    fn known_near(
+        &self,
+        s: PermanentId,
+        residents: &[PermanentId],
+        t: usize,
+    ) -> Option<PermanentId> {
+        let lives_in = |q: PermanentId| {
+            self.person(q)
+                .and_then(|p| self.household(p.household))
+                .and_then(|h| h.settlement)
+                .filter(|&x| x != s)
+        };
+        // Links from those left here into each other settlement.
+        let mut links: std::collections::BTreeMap<PermanentId, u32> = Default::default();
+        for &r in residents {
+            let kin = self.close_kin(r);
+            let tied = self.ties.of(r).iter().map(|x| x.to);
+            for q in kin.into_iter().chain(tied) {
+                if let Some(x) = lives_in(q) {
+                    *links.entry(x).or_default() += 1;
+                }
+            }
+        }
+        if links.is_empty() {
+            return None;
+        }
+        let mut knowers: std::collections::BTreeMap<PermanentId, u32> = Default::default();
+        for (_, h) in self.households.iter() {
+            let Some(x) = h.settlement.filter(|x| links.contains_key(x)) else {
+                continue;
+            };
+            let n = h
+                .members
+                .iter()
+                .filter(|&&m| self.person(m).is_some_and(|p| p.knows(t)))
+                .count() as u32;
+            if n > 0 {
+                *knowers.entry(x).or_default() += n;
+            }
+        }
+        knowers
+            .into_iter()
+            .max_by_key(|&(x, n)| (links[&x], n, std::cmp::Reverse(x)))
+            .map(|(x, _)| x)
+    }
+
+    /// `people` have come to live in settlement `to` from settlement `left` (M5b slice AR): a move
+    /// with their household, a marriage, an exile taken in. If `check`, each technique only they
+    /// knew in `left` is lost there (ADR-0008 §5), the buildings of a household that left
+    /// (`left_behind`) counted as what remains; and each technique one of them knows that was not
+    /// known in `to` is noted there as brought from `left` by its eldest knower among them.
+    /// Nothing happens unless both are settlements and they differ.
+    pub(crate) fn knowledge_crossed(
+        &mut self,
+        ctx: &mut Ctx,
+        people: &[PermanentId],
+        left: Option<PermanentId>,
+        to: Option<PermanentId>,
+        left_behind: Option<PermanentId>,
+        check: bool,
+    ) {
+        let (Some(left), Some(to)) = (left, to) else {
+            return;
+        };
+        if left == to || people.is_empty() {
+            return;
+        }
+        if check {
+            let gone: Vec<(PermanentId, Vec<Know>)> = people
+                .iter()
+                .filter_map(|&id| self.person(id).map(|p| (id, p.knows.clone())))
+                .collect();
+            self.check_loss(ctx, Some(left), &gone, left_behind);
+        }
+        let now = ctx.now;
+        for t in 0..ctx.catalog.techniques.len() {
+            let eldest = people
+                .iter()
+                .filter_map(|id| self.person(*id))
+                .filter(|p| p.knows(t))
+                .min_by_key(|p| (p.born, p.id))
+                .map(|p| (p.id, p.know(t).map_or(KnowSource::Founder, |k| k.source)));
+            if let Some((who, source)) = eldest {
+                self.note_known(now, to, who, t, source, Some(left));
+            }
+        }
+    }
+
+    /// The technique that work `def` aimed at `target` needs: its own or its recipe's, or for
+    /// building work, the technique of the building it works on (ADR-0008 §1).
+    fn technique_at_work(ctx: &Ctx, def: &ActivityDef, target: Target) -> Option<usize> {
+        let catalog = ctx.catalog;
+        match target {
+            Target::Building(b) if def.behavior == Behavior::Build => ctx
+                .land
+                .buildings
+                .iter()
+                .find(|x| x.id == b)
+                .and_then(|x| catalog.building_index(&x.spec.program))
+                .and_then(|i| catalog.buildings.get(i))
+                .and_then(|d| d.technique),
+            _ => catalog.technique_of(def),
+        }
+    }
+
+    /// `me` stands at `at` in `settlement`, not their own, at its hearth on a visit or at a
+    /// seller's door on a trip to buy (M5b slice AR; the M5 diffusion brief §1.2): they come to
+    /// know of each technique that work they see its people doing within the content's `watch_m`
+    /// needs. Seeing gives awareness only (research 07-02 §1.2), which counts toward trying
+    /// (ADR-0008 §3); what they knew of already is unchanged.
+    pub(crate) fn watch_work(
+        &mut self,
+        ctx: &Ctx,
+        me: PermanentId,
+        settlement: PermanentId,
+        at: (f32, f32),
+    ) {
+        let reach = ctx.params.knowledge.watch_m;
+        if reach <= 0.0 {
+            return;
+        }
+        let home = self
+            .person(me)
+            .and_then(|p| self.household(p.household))
+            .and_then(|h| h.settlement);
+        if home.is_none() || home == Some(settlement) {
+            return;
+        }
+        let now = ctx.now;
+        let minute = now.minutes() as f64;
+        let mut seen: Vec<usize> = Vec::new();
+        for (_, h) in self.households.iter() {
+            if h.settlement != Some(settlement) {
+                continue;
+            }
+            for &m in &h.members {
+                let Some(q) = self.person(m) else {
+                    continue;
+                };
+                let working = matches!(
+                    q.act.steps.get(usize::from(q.act.step)),
+                    Some(Step::Work { .. })
+                );
+                if !working {
+                    continue;
+                }
+                let pos = q.position_at(minute);
+                if f64::from((pos.0 - at.0).hypot(pos.1 - at.1)) > reach {
+                    continue;
+                }
+                let Some(def) = ctx.catalog.activities.get(usize::from(q.act.def)) else {
+                    continue;
+                };
+                if let Some(t) = Self::technique_at_work(ctx, def, q.act.target) {
+                    seen.push(t);
+                }
+            }
+        }
+        seen.sort_unstable();
+        seen.dedup();
+        if let Some(p) = self.person_mut(me) {
+            for t in seen {
+                p.hear_of(t, KnowSource::Seen(settlement), now);
+            }
+        }
+    }
+
+    /// `me`, of another settlement, bought `good` at a door in `settlement` (M5b slice AR): a good
+    /// that only work needing one technique makes shows that technique, and they come to know of
+    /// it. A good made in several ways shows none, and buying a tool never teaches making it
+    /// (research 07-02 §1.2).
+    pub(crate) fn see_made_with(
+        &mut self,
+        ctx: &Ctx,
+        me: PermanentId,
+        settlement: PermanentId,
+        good: usize,
+    ) {
+        let mut makers = ctx
+            .catalog
+            .recipes
+            .iter()
+            .filter(|r| r.outputs.iter().any(|&(g, q)| g == good && q > 0.0))
+            .map(|r| r.technique);
+        let Some(Some(t)) = makers.next() else {
+            return;
+        };
+        if makers.any(|x| x != Some(t)) {
+            return;
+        }
+        let now = ctx.now;
+        if let Some(p) = self.person_mut(me) {
+            p.hear_of(t, KnowSource::Seen(settlement), now);
+        }
+    }
+
+    /// [`Population::watch_work`], for tests that put someone at a hearth.
+    #[doc(hidden)]
+    pub fn watch_work_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        me: PermanentId,
+        settlement: PermanentId,
+        at: (f32, f32),
+    ) {
+        self.watch_work(ctx, me, settlement, at);
+    }
+
+    /// [`Population::see_made_with`], for tests of a purchase between settlements.
+    #[doc(hidden)]
+    pub fn bought_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        me: PermanentId,
+        settlement: PermanentId,
+        good: usize,
+    ) {
+        self.see_made_with(ctx, me, settlement, good);
     }
 
     /// Whether goods or buildings made with technique `t` remain in settlement `s`: a standing
@@ -672,7 +905,7 @@ impl Population {
             .and_then(|h| self.household(h))
             .and_then(|x| x.settlement);
         if !aware_only && let Some(s) = settlement {
-            self.note_known(now, s, person, t, KnowSource::Observer);
+            self.note_known(now, s, person, t, KnowSource::Observer, None);
         }
         // What it can build changes with what its members know: it plans its home again.
         if let Some(h) = household {
@@ -803,7 +1036,7 @@ impl Population {
                     .min_by_key(|p| (p.born, p.id))
                     .map(|p| p.id);
                 if let Some(who) = eldest {
-                    self.note_known(now, s, who, t, KnowSource::Founder);
+                    self.note_known(now, s, who, t, KnowSource::Founder, None);
                 }
             }
         }

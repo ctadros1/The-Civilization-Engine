@@ -13,15 +13,22 @@ use crate::person::Flow;
 /// How far short of a leg a giver may be and still cover it, in the good's unit: rounding, never
 /// a shortfall.
 const COVER_SLACK: f64 = 1e-9;
+/// And as a share of the leg: amounts posted in terms (an offer keeps its units as `f32`) are
+/// good to about one part in ten million of themselves, so a seller offering its whole stock may
+/// post a hair more than it holds, and must still be able to sell it. What moves is never more
+/// than the giver holds.
+const COVER_SHARE: f64 = 1e-6;
 
 /// A holder of goods the ledger moves between: a household, an open firm, a polity's store or a
-/// faction's (M4c slice AH).
+/// faction's (M4c slice AH), or a payment an agreement owes, holding what was set aside for it
+/// (M5c slice AV).
 #[derive(Clone, Copy, Debug)]
 enum Holder {
     Household(civ_core::Handle<crate::person::Household>),
     Firm(usize),
     Polity(usize),
     Faction(usize),
+    Due(usize),
 }
 
 impl Population {
@@ -35,11 +42,14 @@ impl Population {
         if let Some(i) = self.polities.iter().position(|p| p.id == id) {
             return Some(Holder::Polity(i));
         }
-        self.factions
-            .list
+        if let Some(i) = self.factions.list.iter().position(|f| f.id == id) {
+            return Some(Holder::Faction(i));
+        }
+        self.agreements
+            .dues
             .iter()
-            .position(|f| f.id == id)
-            .map(Holder::Faction)
+            .position(|d| d.id == id)
+            .map(Holder::Due)
     }
 
     /// Brings a holder's stores up to `now`: a household's spoil and burn, a firm's spoil (under
@@ -78,6 +88,12 @@ impl Population {
                     f.stores.resize(goods.len(), 0.0);
                 }
             }
+            Holder::Due(i) => {
+                if let Some(d) = self.agreements.dues.get_mut(i) {
+                    d.settle_stores(now, goods);
+                    d.stores.resize(goods.len(), 0.0);
+                }
+            }
         }
     }
 
@@ -97,6 +113,11 @@ impl Population {
                 .list
                 .get_mut(i)
                 .map(|f| (&mut f.stores, &mut f.flows)),
+            Holder::Due(i) => self
+                .agreements
+                .dues
+                .get_mut(i)
+                .map(|d| (&mut d.stores, &mut d.flows)),
         }
     }
 
@@ -142,11 +163,12 @@ impl Population {
                     Holder::Firm(i) => self.firms.get(i).map(|f| &f.stores),
                     Holder::Polity(i) => self.polities.get(i).map(|p| &p.stores),
                     Holder::Faction(i) => self.factions.list.get(i).map(|f| &f.stores),
+                    Holder::Due(i) => self.agreements.dues.get(i).map(|d| &d.stores),
                 })
                 .and_then(|s| s.get(good))
                 .copied()
                 .unwrap_or(0.0);
-            if held + COVER_SLACK < amount {
+            if held + COVER_SLACK + amount * COVER_SHARE < amount {
                 return false;
             }
         }
@@ -275,5 +297,37 @@ mod tests {
             assert!(!pop.transfer(SimTime::ZERO, &params, &goods, &[bad], Channel::Gift));
         }
         assert_eq!(held(&pop, 1), vec![6.0, 3.0]);
+    }
+
+    #[test]
+    fn a_holder_can_give_all_it_holds_as_terms_rounded_to_f32_put_it() {
+        let params = crate::found::tests::params();
+        let goods = goods();
+        // A workshop's whole stock, offered as an `f32`, reads a hair more than it holds.
+        let stock = 0.9644461699345266;
+        let posted = f64::from(stock as f32);
+        assert!(posted > stock);
+        let mut pop = with(&[(1, [stock, 0.0]), (2, [0.0, 0.0])]);
+        let leg = |amount| Leg {
+            from: pid(1),
+            to: pid(2),
+            good: 0,
+            amount,
+        };
+        assert!(pop.transfer(
+            SimTime::ZERO,
+            &params,
+            &goods,
+            &[leg(posted)],
+            Channel::Sale
+        ));
+        // What moves is what it held, no more: goods are conserved.
+        assert_eq!(held(&pop, 1)[0], 0.0);
+        assert_eq!(held(&pop, 2)[0], stock);
+        assert_eq!(pop.flows().net(0), 0.0);
+        // A real shortfall is still refused.
+        let mut pop = with(&[(1, [0.96, 0.0]), (2, [0.0, 0.0])]);
+        assert!(!pop.transfer(SimTime::ZERO, &params, &goods, &[leg(0.97)], Channel::Sale));
+        assert_eq!(held(&pop, 1)[0], 0.96);
     }
 }

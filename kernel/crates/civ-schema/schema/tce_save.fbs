@@ -229,7 +229,7 @@ table Settlements {
 // weighed in a decision.
 // Schema 14 adds Technique: the technique a session of trying works toward, by index into
 // People.techniques (in a decision receipt, into the content's techniques when it was saved).
-enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13 }
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14 }
 
 enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
 
@@ -432,7 +432,7 @@ table Households {
 enum Origin : ubyte { Founder = 0, Born = 1, Spawned = 2 }
 
 // Collapse (3): a building gave way around them (slice P's second step, ADR-0009 §5).
-enum Cause : ubyte { Unspecified = 0, Starvation = 1, Childbirth = 2, Collapse = 3, Violence = 4 }
+enum Cause : ubyte { Unspecified = 0, Starvation = 1, Childbirth = 2, Collapse = 3, Violence = 4, Fell = 5 }
 
 table PersonRecord {
   id: ulong (id: 0);
@@ -768,6 +768,9 @@ table TradeRecord {
   payment: uint (id: 5);
   paid: float (id: 6);
   channel: TradeChannel = Barter (id: 7);
+  // Schema 56 (M5b slice AP, ADR-0019 §4): the buyer's settlement when it is not the market's
+  // own (0 when it is).
+  from: ulong (id: 8);
 }
 
 // A month of trade in one good: a line of the price history. `month` counts months from the
@@ -910,7 +913,8 @@ table Wealth {
 
 // Section "knowledge" (schema 13): each settlement's record of when it came to know a technique
 // and when it lost one, oldest first (ADR-0008 §2). `kind`: 0 known (by `person`, `source` as in
-// Knowing, from `source_person`), 1 lost (`person` knew it last).
+// Knowing, from `source_person`), 1 lost (`person` knew it last). From schema 60 a person's source
+// 5 is "seen" (M5b slice AR), its `source_person` the settlement it was seen in.
 struct KnowledgeEntry {
   at: long;
   settlement: ulong;
@@ -938,6 +942,11 @@ table Knowledge {
   entries: [KnowledgeEntry] (id: 1);
   // Schema 18: each settlement's trust in each technique's buildings, in the order first seen.
   trust: [TrustEntry] (id: 2);
+  // Schema 60 (M5b slice AR): for each entry, in order, another settlement it concerns (0 for
+  // none): for a known entry, the settlement its knower came from; for a lost one, a settlement
+  // where it is still known that someone left there has kin or a tie in. Written only when an
+  // entry has one.
+  elsewhere: [ulong] (id: 3);
 }
 
 // Section "deposits" (schema 19): bodies in the ground (ADR-0010 §1), in the order they were
@@ -1148,6 +1157,12 @@ table LawSave {
   // Levies kept back openly in a faction's refusal, and the grain (schema 43, M4c slice AH).
   refused: uint (id: 44);
   refused_kg: double (id: 45);
+  // The agreement with another polity this law decides, 0 for none (schema 65, M5c slice AU,
+  // ADR-0020 §6).
+  agreement: ulong (id: 46);
+  // What views of the other polity added to each stance on an agreement, points, in `stances`
+  // order (schema 66, M5c slice AU step three); absent when none did, and before.
+  stance_views: [float] (id: 47);
 }
 
 // `law` 0: called on cases only (M4b slice AB).
@@ -1191,6 +1206,29 @@ table PolitySave {
   // For each version, in `versions` order, who called those who took it from the gathering, 0
   // for one made by the custom's procedure (schema 44, M4c slice AI); absent before.
   seized_by: [ulong] (id: 12);
+  // The places its laws claim, by law (schema 62, M5c slice AT, ADR-0020 §5); absent before.
+  claimed: [PlaceClaimSave] (id: 13);
+  // Where its laws to build a crossing would build one (schema 70, M5c slice AW step three);
+  // absent before.
+  sites: [CrossingSiteSave] (id: 14);
+}
+
+// Where a law would build a crossing (schema 70): the river cell, the bridge system's content id,
+// the channel's width there and the work it would take.
+table CrossingSiteSave {
+  law: ulong (id: 0);
+  cell: uint (id: 1);
+  system: string (id: 2);
+  span_m: float (id: 3);
+  labour_h: float (id: 4);
+}
+
+// A place a law claims (schema 62): `kind` 0 a patch block by its centre patch, 1 a deposit by
+// its permanent id.
+struct PlaceClaimSave {
+  law: ulong;
+  kind: ubyte;
+  place: ulong;
 }
 
 table Polities {
@@ -1746,6 +1784,28 @@ table ContactSave {
   marriages: uint (id: 5);
   // Schema 53 (M5a slice AN): people who moved from `from` to live in `to` with their household.
   moved: uint (id: 6);
+  // Schema 56 (M5b slice AP): purchases people of `from` made at sellers' doors in `to`, and
+  // their trips there that bought nothing, by why (sold out, terms, payment).
+  bought: uint (id: 7);
+  missed: [uint] (id: 8);
+}
+
+// Schema 56 (M5b slice AP, ADR-0019 §1): what `household` believes `seller` (a workshop if
+// `firm`) of `market` offers of `good`, asked in `payment` at `price` a unit, as seen or told on
+// `day`. `good` and `payment` index PlacesSave.goods; `how`: 0 seen, 1 told; `from` 0 when seen.
+table PriceReportSave {
+  household: ulong (id: 0);
+  market: ulong (id: 1);
+  seller: ulong (id: 2);
+  firm: bool (id: 3);
+  good: uint (id: 4);
+  payment: uint (id: 5);
+  price: float (id: 6);
+  ask_h: float (id: 7);
+  units: float (id: 8);
+  day: long (id: 9);
+  how: ubyte (id: 10);
+  from: ulong (id: 11);
 }
 
 // Schema 53 (M5a slice AN, ADR-0018 §5): a household's leaning toward moving to `settlement`,
@@ -1775,6 +1835,273 @@ table PlacesSave {
   review_due: [ulong] (id: 4);
   // Schema 55 (M5a slice AO): every coalition gathered to found a settlement, in order.
   coalitions: [CoalitionSave] (id: 5);
+  // Schema 56 (M5b slice AP): every household's price reports, by household, market and good,
+  // and the goods they name, by content id.
+  reports: [PriceReportSave] (id: 6);
+  goods: [string] (id: 7);
+  // Schema 57 (M5b slice AQ, ADR-0019 §7): the convergence record, its goods named in `goods`.
+  gaps: [GapSave] (id: 8);
+  carried: [CarriedSave] (id: 9);
+  // Schema 58 (M5b slice AQ, ADR-0019 §6): households' errands to fetch a good to sell at home,
+  // their goods named in `goods`.
+  errands: [ErrandSave] (id: 10);
+  // Schema 59 (M5b slice AR): the buildings of other settlements people have seen since their
+  // household's last taste review, by person.
+  seen: [SeenSave] (id: 11);
+  // Schema 61 (M5b slice AR, step three): each settlement's way of building when it was founded.
+  ways: [WaySave] (id: 12);
+  // Schema 62 (M5c slice AT, ADR-0020 §5): the places households' people work, by household and
+  // place, and the work logged since the last day's end, in the order done.
+  uses: [PlaceUseSave] (id: 13);
+  worked: [WorkedSave] (id: 14);
+  // Schema 63 (M5c slice AT, step two): who did each piece of work in `worked`, in its order (0
+  // when not known).
+  worked_by: [ulong] (id: 15);
+}
+
+// Section "relation" (schema 63, M5c slice AT, ADR-0020 §3): what each person believes of the
+// other polities they have heard of, by person and then polity. `yes` and `no` are the evidence
+// for and against in each domain (keeps its word, harms us, helps us), the prior included;
+// `reason_act` is 255 when nothing has written it.
+table ViewSave {
+  person: ulong (id: 0);
+  polity: ulong (id: 1);
+  day: long (id: 2);
+  yes: [float] (id: 3);
+  no: [float] (id: 4);
+  reason_act: ubyte = 255 (id: 5);
+  reason_day: long (id: 6);
+  reason_times: ushort (id: 7);
+}
+
+// A crossing over water (schema 68, M5c slice AW): `system` the bridge system's content id;
+// `bank_a`, `bank_b` the land cells at either end and `cells` the water cells it spans, in order
+// from `bank_a`; `owner_kind` 0 a household, 1 a polity; `state` 0 being built (`work_h` done),
+// 1 open since `state_day`, 2 failed on `state_day` for `why` (0 its own weight, 1 under someone
+// stepping onto it).
+table CrossingSave {
+  id: ulong (id: 0);
+  system: string (id: 1);
+  bank_a: uint (id: 2);
+  bank_b: uint (id: 3);
+  cells: [uint] (id: 4);
+  span_m: float (id: 5);
+  members: ubyte (id: 6);
+  diameter_cm: float (id: 7);
+  quality: float (id: 8);
+  loss: float (id: 9);
+  owner_kind: ubyte (id: 10);
+  owner: ulong (id: 11);
+  labour_h: float (id: 12);
+  begun: long (id: 13);
+  state: ubyte (id: 14);
+  work_h: float (id: 15);
+  state_day: long (id: 16);
+  why: ubyte (id: 17);
+  // Schema 69 (M5c slice AW, step two): its builders' work so far, each hour weighted by their
+  // building skill.
+  skill_h: float (id: 18);
+  // Schema 70 (M5c slice AW, step three): the hours each household's people worked on a polity's
+  // crossing, by household id; absent before and for a household's.
+  shares: [CrossingShareSave] (id: 19);
+  // Schema 71 (M5c slice AX): the day its latest work began, and how many sessions of work began
+  // on it that day; 0 and 0 before.
+  crew_day: long (id: 20);
+  crew: ubyte (id: 21);
+}
+
+// Hours a household's people worked on a crossing (schema 70).
+struct CrossingShareSave {
+  household: ulong;
+  hours: float;
+}
+
+// A river cell a household's people wade, and how often, fading (schema 69).
+struct WadeSave {
+  household: ulong;
+  day: long;
+  cell: uint;
+  wades: float;
+}
+
+// Every crossing, in the order begun, and the revision of their states (schema 68).
+table CrossingsSave {
+  list: [CrossingSave] (id: 0);
+  revision: uint (id: 1);
+  // Schema 69: the river cells households' people wade, by household and cell.
+  wades: [WadeSave] (id: 2);
+}
+
+table RelationsSave {
+  views: [ViewSave] (id: 0);
+  // Schema 64 (M5c slice AU, ADR-0020 §2): the claims of other polities each household heard of,
+  // by household, place and law.
+  heard: [HeardClaimSave] (id: 1);
+  // Schema 65 (M5c slice AU, ADR-0020 §6): every agreement between polities, in the order made.
+  agreements: [AgreementSave] (id: 2);
+  // Schema 67 (M5c slice AV, ADR-0020 §7): every payment agreements owe, in the order they fell
+  // due, and the goods their clauses and payments name, by content id.
+  dues: [DueSave] (id: 3);
+  goods: [string] (id: 4);
+}
+
+// A payment an agreement owes (schema 67): `good` indexes `RelationsSave.goods`; `state` 0 owed,
+// 1 met on `state_day`, 2 missed on `state_day` for `why` (0 the store held none, 1 nobody to
+// carry it, 2 nobody carried it); `carrier` 0 for nobody; `held_kg` what it holds, as of minute
+// `held_at`.
+table DueSave {
+  id: ulong (id: 0);
+  agreement: ulong (id: 1);
+  clause: ubyte (id: 2);
+  from_polity: ulong (id: 3);
+  to_polity: ulong (id: 4);
+  good: ushort (id: 5);
+  owed_kg: double (id: 6);
+  made: long (id: 7);
+  due: long (id: 8);
+  set_aside_kg: double (id: 9);
+  arrived_kg: double (id: 10);
+  carrier: ulong (id: 11);
+  state: ubyte (id: 12);
+  state_day: long (id: 13);
+  why: ubyte (id: 14);
+  held_kg: double (id: 15);
+  held_at: long (id: 16);
+}
+
+// An agreement between two polities (schema 65): side 0 is the polity whose member sought terms.
+// `clause_kind` and `clause_side` are its clauses in order (kind 0: side `clause_side` gives the
+// other's people leave to use the places it claims). Each side's `law`, `passed` and `heard` is 0,
+// or `passed`/`heard` -1, when not yet. `state` 0 offered, 1 in force since `state_day`, 2 failed
+// on `state_day` (`why_kind`, `why_side`: 0 no terms, 1 turned down, 2 too few came, 3 never put
+// to a gathering, 4 never answered), 3 ended on `state_day` (`by` 255 when its term ran out, else
+// the side whose law ended it).
+table AgreementSave {
+  id: ulong (id: 0);
+  polity_a: ulong (id: 1);
+  polity_b: ulong (id: 2);
+  negotiator_a: ulong (id: 3);
+  negotiator_b: ulong (id: 4);
+  clause_kind: [ubyte] (id: 5);
+  clause_side: [ubyte] (id: 6);
+  term_days: uint (id: 7);
+  made: long (id: 8);
+  law_a: ulong (id: 9);
+  law_b: ulong (id: 10);
+  passed_a: long = -1 (id: 11);
+  passed_b: long = -1 (id: 12);
+  heard_a: long = -1 (id: 13);
+  heard_b: long = -1 (id: 14);
+  state: ubyte (id: 15);
+  state_day: long (id: 16);
+  why_kind: ubyte (id: 17);
+  why_side: ubyte (id: 18);
+  by: ubyte = 255 (id: 19);
+  // Schema 67 (M5c slice AV): what each clause gives, in `clause_kind` order: the good (indexing
+  // `RelationsSave.goods`), kilograms, and days between payments (0 for leave, and a gift's).
+  clause_good: [ushort] (id: 20);
+  clause_kg: [uint] (id: 21);
+  clause_days: [uint] (id: 22);
+}
+
+// A place another polity's law claims, as `household` heard of it on `day` from `from` (schema
+// 64): `kind` 0 a patch block by its centre patch, 1 a deposit.
+table HeardClaimSave {
+  household: ulong (id: 0);
+  kind: ubyte (id: 1);
+  place: ulong (id: 2);
+  law: ulong (id: 3);
+  polity: ulong (id: 4);
+  day: long (id: 5);
+  from: ulong (id: 6);
+}
+
+// Outsiders a household saw at a place (schema 62): days, fading, and the last day.
+struct OutsidersSave {
+  settlement: ulong;
+  days: float;
+  last: long;
+}
+
+// What `household` holds of a place its people work (schema 62): `kind` 0 a patch block by its
+// centre patch, 1 a deposit by its permanent id; days worked and food got there, kcal, both
+// fading, reckoned to `day`; those of other settlements seen there, in settlement order.
+table PlaceUseSave {
+  household: ulong (id: 0);
+  kind: ubyte (id: 1);
+  place: ulong (id: 2);
+  days: float (id: 3);
+  kcal: float (id: 4);
+  day: long (id: 5);
+  outsiders: [OutsidersSave] (id: 6);
+}
+
+// Work at a place logged and not yet folded in (schema 62).
+struct WorkedSave {
+  kind: ubyte;
+  place: ulong;
+  day: long;
+  household: ulong;
+  settlement: ulong;
+  kcal: float;
+}
+
+// A settlement's way of building when it was founded (schema 61): roof pitch in hundredths of a
+// degree, height to the eaves and the roof's overhang in centimetres.
+table WaySave {
+  settlement: ulong (id: 0);
+  pitch_centideg: float (id: 1);
+  eave_cm: float (id: 2);
+  overhang_cm: float (id: 3);
+}
+
+// The buildings of other settlements `person` has seen, newest first (schema 59).
+table SeenSave {
+  person: ulong (id: 0);
+  buildings: [ulong] (id: 1);
+}
+
+// A household's errand to fetch a good from another settlement to sell at home (schema 58).
+table ErrandSave {
+  household: ulong (id: 0);
+  market: ulong (id: 1);
+  seller: ulong (id: 2);
+  firm: bool (id: 3);
+  // Indices into PlacesSave.goods.
+  good: uint (id: 4);
+  payment: uint (id: 5);
+  // Units it means to buy; what it expects one to fetch at home, hours; the share it keeps.
+  units: float (id: 6);
+  home_h: float (id: 7);
+  share: float (id: 8);
+  day: long (id: 9);
+}
+
+// A good offered in both of a pair of settlements at a month's end (schema 57).
+table GapSave {
+  month: uint (id: 0);
+  a: ulong (id: 1);
+  b: ulong (id: 2);
+  // Index into PlacesSave.goods.
+  good: uint (id: 3);
+  // Median asks in each, hours a unit.
+  ask_a: float (id: 4);
+  ask_b: float (id: 5);
+  // What a unit fetched in each that month, hours (-1: none sold).
+  paid_a: float = -1 (id: 6);
+  paid_b: float = -1 (id: 7);
+}
+
+// What people of one settlement carried home from another's market in a month (schema 57).
+table CarriedSave {
+  month: uint (id: 0);
+  from: ulong (id: 1);
+  to: ulong (id: 2);
+  trips: uint (id: 3);
+  walk_h: float (id: 4);
+  // Indices into PlacesSave.goods, and the units of each bought.
+  goods: [uint] (id: 5);
+  units: [float] (id: 6);
 }
 
 // Schema 55 (M5a slice AO): households gathered to found a settlement. `lacking`: 0 nothing,

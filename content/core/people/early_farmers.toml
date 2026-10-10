@@ -382,6 +382,17 @@ innovation = 0.01
 tradition = { pitch_deg = 48.0, eave_m = 1.9, overhang_m = 0.5 }
 tradition_spread = { pitch_deg = 2.5, eave_m = 0.1, overhang_m = 0.1 }
 personal_spread = { pitch_deg = 1.0, eave_m = 0.03, overhang_m = 0.03 }
+# Buildings seen elsewhere (M5b slice AR; content API 57): someone at another settlement's hearth,
+# or at a seller's door there, sees its buildings finished in the year past within `sight_m`
+# metres, and keeps up to `seen_most` of them in mind, newest first, until their household's next
+# review, where they are met as its own settlement's are, each once. A stranger's building is
+# admired for how well it was built among its settlement's year, and for what the household
+# thinks of its owner (its people's esteem, ADR-0014 §3; a stranger's is nothing) where at home its
+# owner's standing in goods counts. seen_most is inside 11-02 §5.5's 5-20 salient exemplars a
+# person (a storage choice there, not an empirical figure); how far a roof's pitch and eaves are
+# seen well enough to copy is a design prior. Both are design priors.
+seen_most = 8
+sight_m = 200.0
 
 # Each household's midden beside its home: ash, food waste, sweepings and dung (M3c slice V;
 # content API 29). Research 12-02 §2.3 gives 0.42 kg of nitrogen a year in a person's faeces and
@@ -429,6 +440,11 @@ aware_try_factor = 3.0
 # Utility points for trying at a problem at home, times the share of the household's food it
 # would cost (a tuning value, about what useful work is worth).
 w_try = 2.0
+# How far, metres, someone at another settlement's hearth, or at a seller's door there, sees its
+# people at work well enough to know of a technique the work needs (M5b slice AR; content API 58).
+# Seeing gives awareness only: buying a tool does not teach toolmaking (research 07-02 §1.2). A
+# design prior: close enough to watch hands at work, not just to see a roof.
+watch_m = 100.0
 # Least days between one person's sessions of trying: an hour a week at most, about 2 % of
 # working time (07-01 §2.3 tests 0-5 %; 07-11 §2.2 finds 0-10 % protected time for craft workers).
 try_gap_days = 7.0
@@ -530,6 +546,10 @@ vote_memory_days = 365
 prior_lean = 1.0
 prior_years = 4.0
 lean_harvest = 0.5               # a lean year's harvest, as a share of an ordinary one
+# Content API 59 (M5c slice AT, ADR-0020 §5): a household weighing a claim on places its people
+# work believes it keeps this share of what outsiders take there. A claim is only words until
+# outsiders heed it; a design prior, no figure in the reports.
+claim_keeps = 0.5
 # Below half a year's food a household cannot live through the year: food there is worth the most,
 # and a household that would fall below it by paying a levy cannot pay (09-01 §6.4).
 subsistence_share = 0.5
@@ -835,6 +855,76 @@ w_ties = 4.0
 w_seek = 6.0
 seek_days = 180
 revisit_days = 30.0
+# Content API 59 (M5c slice AT, ADR-0020 §5): a household holds the places its people work (a
+# patch block gathered, a deposit dug), the days and food it got there, and the days people of
+# another settlement worked the same place the same day; what it holds halves every
+# `use_half_life_days`, so outsiders seen years ago weigh little. A design prior.
+use_half_life_days = 180.0
+
+[reports]                        # prices heard of elsewhere (M5b slice AP, ADR-0019 §1); design priors
+# A household knows another settlement's offers only by report: what a member saw at a seller's
+# door there, or heard at a hearth from that seller's people or from someone who held the report
+# (research 08-12 §1.6: merchants know dated observations, not today's prices elsewhere). How
+# much a report is still believed halves every `half_life_days`, and it is let go after
+# `max_age_days`. Someone tells a companion at the hearth of an offer elsewhere their household
+# holds a newer report of with `share_told` (09-16 §2.2: 0.05-0.25 for routine news). The
+# research gives no half-life for a price heard of; a month is a design prior.
+half_life_days = 30.0
+max_age_days = 120
+share_told = 0.15
+
+[relations]                      # views of other polities (M5c slice AT, ADR-0020 §3)
+# A person who saw or heard of another polity's acts holds a view of it, shaped like a tie:
+# evidence for and against in three domains (keeps its word, harms us, helps us), starting from
+# `prior` each (ADR-0020 §3: alpha = beta = 1), fading back toward it with `half_life_days`
+# (ADR-0020's five years; research 13-01 §3.3 tests relevance at 2, 5 and 20 years). A day one
+# saw people of another settlement work a place one's polity claims adds `seen_trespass` to its
+# "harms us"; hearing of it told at the hearth adds `heard_trespass`. Both are design priors: the
+# research gives no weight to a single sighting against a neighbour's word.
+prior = 1.0
+half_life_days = 1826.0
+seen_trespass = 1.0
+heard_trespass = 0.5
+# Word of a claim on a place crosses only with travellers (ADR-0020 §2): someone who knows a claim
+# their polity's law makes tells a companion from elsewhere at the hearth with `share_claims`, and
+# so does someone whose household heard of another polity's claim (research 09-16 §2.2: 0.05-0.25
+# for routine news). A household that heard of another polity's claim on a place weighs it at
+# `claimed_worth` of what it would yield to it (ADR-0020 §5: outsiders use a claimed place only by
+# leave; research 13-05 §1.1 counts exclusive control among the outcomes over a resource): it
+# still goes when nothing else is half as good, and is held to trespass if seen. A design prior.
+share_claims = 0.15
+claimed_worth = 0.5
+# Agreements (ADR-0020 §6): two who meet weigh at most `packages` packages of clauses and terms
+# (research 13-01 §3.3: 8-32 a bargaining decision; 09-05 §2.3: 3-8 alternatives a round); one is
+# lost if nobody puts it to the other gathering within `answer_days`, or a side never hears of the
+# other's decision within as long; once in force it runs one of `terms_days` (a year or five; 0
+# would be until withdrawn). Design priors: the research gives no waiting time for a village's word.
+packages = 16
+answer_days = 120
+terms_days = [365, 1825]
+# Goods for leave (M5c slice AV, ADR-0020 §7): a polity with a common store in force may give,
+# for leave to use the places the other claims, a gift once or a transfer every `transfer_days`, of
+# the good its store holds most, into the other's store when it keeps one. Each household weighs
+# its share of what its store gives or gets. A payment due is set aside from the store and walked
+# to the other's hearth by its keeper, or else by the one who agreed to it; one not handed over
+# within `deliver_days` is missed, its cause kept. Amounts and days are design priors: research
+# 13-02 §2.3 gives a ceremonial relation "no default GDP percentage", and early villages' gifts
+# no quantities.
+gifts_kg = [100, 400]
+transfers_kg = [100]
+transfer_days = 365
+deliver_days = 30
+# Carrying it is worth `carry_points` to its carrier as a duty, against the walk there and back
+# (`decision.w_walk_hour`, 2 points an hour): a design prior, enough to outweigh the longest walk
+# the activity allows (two hours each way, 8 points) by about a morning's useful work (4 points).
+# First set at 3, it never outweighed a walk of an hour and a half each way, and nobody carried.
+carry_points = 12.0
+# Performance (M5c slice AV, step two; research 13-01 §1.5: update trust "only after a relevant
+# opportunity"): a payment falling due is one. When it is handed over, or missed, each of the
+# receiving polity's people who knows its own law deciding the agreement takes `performance` of
+# evidence that the paying polity keeps its word, or does not; a gift handed over is as much that
+# it helps. As much as a trespass seen (`seen_trespass`); a design prior.
+performance = 1.0
 
 [moving]                         # moving to another settlement (M5a slice AN, ADR-0018 §5); design priors
 # Once a year on a day of its own, and when it forms, a household weighs joining each settlement it

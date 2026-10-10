@@ -339,11 +339,14 @@ pub enum Wrong {
     Forced = 7,
     /// One of their household was struck by one who keeps the watch (M4c slice AI, step four).
     Struck = 8,
+    /// People of another settlement worked a place their polity claims, without leave (M5c slice
+    /// AT, ADR-0020 §4).
+    Trespass = 9,
 }
 
 impl Wrong {
     /// Every event, in code order.
-    pub const ALL: [Wrong; 9] = [
+    pub const ALL: [Wrong; 10] = [
         Wrong::StoreEmpty,
         Wrong::FoundAgainst,
         Wrong::NotFound,
@@ -353,6 +356,7 @@ impl Wrong {
         Wrong::Refused,
         Wrong::Forced,
         Wrong::Struck,
+        Wrong::Trespass,
     ];
 
     /// Its number in saves.
@@ -386,6 +390,9 @@ impl Wrong {
                 "one who keeps the watch took what a finding owed from their household by force"
             }
             Wrong::Struck => "one of their household was struck by one who keeps the watch",
+            Wrong::Trespass => {
+                "people of another settlement worked a place their polity claims, without leave"
+            }
         }
     }
 }

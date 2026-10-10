@@ -105,8 +105,15 @@ coalitionsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+style():string|null
+style(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+style(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 30);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startSettlementBrief(builder:flatbuffers.Builder) {
-  builder.startObject(13);
+  builder.startObject(14);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -171,6 +178,10 @@ static createCoalitionsVector(builder:flatbuffers.Builder, data:flatbuffers.Offs
 
 static startCoalitionsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
+}
+
+static addStyle(builder:flatbuffers.Builder, styleOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(13, styleOffset, 0);
 }
 
 static endSettlementBrief(builder:flatbuffers.Builder):flatbuffers.Offset {

@@ -15,10 +15,13 @@
 //   the pointer.
 // - Worn ground shows as trodden earth, one texture a 64-cell tile, and the trails the kernel
 //   traced through it as lines; the readout names a trail under the pointer.
+// - Crossings over water show as their members laid from bank to bank, faint while being built
+//   and dark once they gave way; the readout names the one under the pointer.
 
 import { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 
 import { buildingAt, buildingMarks, type Mark } from "../buildings.js";
+import { crossingAt, crossingEnds, crossingLook } from "../crossings.js";
 import { depositAt, depositLook } from "../deposits.js";
 import { changedTiles, detailTilesOver, earthworkAt, earthworkLook } from "../earthworks.js";
 import { fieldAt, fieldLook } from "../fields.js";
@@ -29,6 +32,8 @@ import {
   type ActivityInfo,
   type BuildingInfo,
   type Clock,
+  type CrossingInfo,
+  type CrossingsInfo,
   type DepositInfo,
   type EarthworkInfo,
   type EarthworksInfo,
@@ -86,6 +91,8 @@ export interface PointerInfo {
   deposit: DepositInfo | null;
   /** The earthwork under the pointer, if any (M3b slice Q). */
   earthwork: EarthworkInfo | null;
+  /** The crossing under the pointer, if any (M5c slice AW). */
+  crossing: CrossingInfo | null;
   /** The worn ground under the pointer, if any. */
   path: { wear: number; trail: boolean } | null;
 }
@@ -212,6 +219,9 @@ export class MapView {
   private deposits: DepositInfo[] = [];
   private readonly earthworksLayer = new Graphics();
   private earthworks: EarthworkInfo[] = [];
+  private readonly crossingsLayer = new Graphics();
+  private crossings: CrossingInfo[] = [];
+  private crossingScale = 0;
   /** Each changed ground tile's revision as last drawn, by index. */
   private groundSeen = new Map<number, number>();
   private readonly wornLayer = new Container();
@@ -261,6 +271,7 @@ export class MapView {
       this.fieldsLayer,
       this.depositsLayer,
       this.earthworksLayer,
+      this.crossingsLayer,
       this.buildingsLayer,
       this.settlementLayer,
       this.peopleLayer,
@@ -310,6 +321,8 @@ export class MapView {
     this.buildingsLayer.clear();
     this.earthworks = [];
     this.earthworksLayer.clear();
+    this.crossings = [];
+    this.crossingsLayer.clear();
     this.groundSeen.clear();
     this.setPaths(null);
     this.peopleLayer.clear();
@@ -389,6 +402,29 @@ export class MapView {
       this.groundSeen.clear();
     }
     if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** The crossings over water, as the host last listed them (null for none). */
+  setCrossings(info: CrossingsInfo | null): void {
+    this.crossings = info?.crossings ?? [];
+    this.drawCrossings();
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** Each crossing's members as a bar from bank to bank, never thinner than about two pixels so a
+   * log over a brook shows at any zoom. */
+  private drawCrossings(): void {
+    const g = this.crossingsLayer;
+    g.clear();
+    this.crossingScale = this.scale;
+    const pxM = 1 / Math.max(this.scale, 1e-6);
+    for (const c of this.crossings) {
+      const look = crossingLook(c);
+      const [x0, y0, x1, y1] = crossingEnds(c);
+      g.moveTo(x0, y0);
+      g.lineTo(x1, y1);
+      g.stroke({ width: Math.max(look.widthM, 2.2 * pxM), color: look.colour, alpha: look.alpha, cap: "butt" });
+    }
   }
 
   /** The buildings, as the host last listed them. */
@@ -839,6 +875,7 @@ export class MapView {
       building: buildingAt(this.buildings, xM, yM),
       deposit: depositAt(this.deposits, xM, yM),
       earthwork: earthworkAt(this.earthworks, xM, yM),
+      crossing: crossingAt(this.crossings, xM, yM, 4 / this.scale),
       path: pathAt(this.paths, cellX, cellY),
     };
   }
@@ -853,6 +890,9 @@ export class MapView {
       }
       if (this.trailScale === 0 || Math.abs(Math.log(scale / this.trailScale)) > 0.15) {
         this.drawTrails();
+      }
+      if (this.crossings.length > 0 && Math.abs(Math.log(scale / this.crossingScale)) > 0.15) {
+        this.drawCrossings();
       }
       this.updateDetail();
       this.scaleSettlements();
@@ -1036,6 +1076,13 @@ export class MapView {
       deposits: this.deposits.length,
       earthworks: this.earthworks.length,
       platforms: this.earthworks.map((w) => ({ x: w.x + w.w / 2, y: w.y + w.h / 2, done: w.done })),
+      // M5c slice AW: crossings over water, where each lies and how far along it is.
+      crossings: this.crossings.map((c) => ({
+        x: (c.ax + c.bx) / 2,
+        y: (c.ay + c.by) / 2,
+        state: c.state,
+        words: c.words,
+      })),
       groundTiles: this.groundSeen.size,
       wornTiles: this.paths?.worn.length ?? 0,
       trails: this.paths?.trails.length ?? 0,

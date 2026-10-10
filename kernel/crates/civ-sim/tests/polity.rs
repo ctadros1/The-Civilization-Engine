@@ -132,18 +132,25 @@ fn lean_village() -> (Sim, ContentRegistry) {
     let mut sim = world_with(&sure, 3);
     sim.advance_minutes(95 * DAY).expect("advances");
     empty_food(&mut sim);
-    for _ in 0..21 {
+    // Until a gathering has decided on a common store. Hunger can bring taking, and a watch may
+    // be proposed and decided first (about one world in forty).
+    for _ in 0..30 {
         sim.advance_minutes(DAY).expect("advances");
-        let decided = sim
-            .people()
-            .polities
-            .iter()
-            .any(|p| p.laws.iter().any(|l| l.outcome.is_some()));
-        if decided {
+        if common_store_decided(&sim).is_some() {
             break;
         }
     }
     (sim, sure)
+}
+
+/// The first common store a gathering decided on, if any.
+fn common_store_decided(sim: &Sim) -> Option<&Law> {
+    sim.people()
+        .polities
+        .first()?
+        .laws
+        .iter()
+        .find(|l| l.outcome.is_some() && l.kind == PolicyKind::CommonStore)
 }
 
 #[test]
@@ -193,15 +200,12 @@ fn labels_name_it_and_change_nothing(sim: &mut Sim, content: &ContentRegistry) {
     }
 }
 
-/// The history of the first law a gathering decided, stage by stage.
+/// The history of the first common store a gathering decided, stage by stage.
 fn check_the_history(sim: &Sim) {
     let pop = sim.people();
     let pp = &sim.rules().people.polity;
     let polity = &pop.polities[0];
-    let law: &Law = polity
-        .laws
-        .iter()
-        .find(|l| l.outcome.is_some())
+    let law: &Law = common_store_decided(sim)
         .expect("someone proposed a common store and a gathering decided on it");
     // Stage 1: a sponsor, an issue, and a level the template allows.
     let def = &sim.rules().catalog.policies[usize::from(law.policy)];
@@ -304,6 +308,7 @@ fn a_common_store_in_force_takes_its_levy_at_threshing_and_answers_asks() {
         watch: Default::default(),
         body: None,
         ends: None,
+        agreement: None,
     });
     let held_before = sim.people().goods_held();
     let flows_before = sim.people().flows();
@@ -388,6 +393,7 @@ fn a_keeper_keeps_the_store_under_a_roof_until_they_are_gone() {
         watch: Default::default(),
         body: None,
         ends: None,
+        agreement: None,
     };
     let p = &mut pop.polities[0];
     p.laws.push(law(0, store, None));

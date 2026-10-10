@@ -48,11 +48,14 @@ pub enum Channel {
     /// A member's household's share of its threshing to its faction's store (M4c slice AH,
     /// ADR-0017 §2).
     Dues = 17,
+    /// Goods a polity's store set aside for a payment an agreement owes, and handed over to the
+    /// other's store (M5c slice AV, ADR-0020 §7).
+    Agreement = 18,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 17] = [
+    pub const ALL: [Channel; 18] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -70,6 +73,7 @@ impl Channel {
         Channel::Fine,
         Channel::Bribe,
         Channel::Dues,
+        Channel::Agreement,
     ];
 
     /// The channel with this code.
@@ -97,6 +101,7 @@ impl Channel {
             Channel::Fine => "fine",
             Channel::Bribe => "payment to say nothing",
             Channel::Dues => "dues",
+            Channel::Agreement => "agreement",
         }
     }
 }
@@ -135,6 +140,8 @@ pub struct Trade {
     pub paid: f32,
     /// Barter, or a sale for the settlement's money.
     pub channel: Channel,
+    /// The buyer's settlement, when it is not the market's own (M5b slice AP, ADR-0019 §4).
+    pub from: Option<PermanentId>,
 }
 
 /// Amounts of each good moved between households, by channel, since the counters began:

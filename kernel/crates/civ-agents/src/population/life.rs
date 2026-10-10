@@ -453,6 +453,8 @@ impl Population {
         let Some(p) = self.people.remove(h) else {
             return;
         };
+        // What they saw elsewhere goes with them (M5b slice AR).
+        self.seen_away.remove(&id);
         let at = p.position_at(now.minutes() as f64);
         let age = p.age_years(now);
         let mut settlement = None;
@@ -530,6 +532,8 @@ impl Population {
         let Some(p) = self.people.remove(h) else {
             return;
         };
+        // What they saw elsewhere goes with them (M5b slice AR).
+        self.seen_away.remove(&id);
         let at = p.position_at(now.minutes() as f64);
         let mut settlement = None;
         let mut emptied = false;
@@ -785,6 +789,7 @@ impl Population {
             let Some(p) = self.people.remove(h) else {
                 continue;
             };
+            self.seen_away.remove(m);
             gone.push((*m, p.knows.clone()));
             if let Some(r) = self.records.get_mut(m) {
                 r.left = Some(now);

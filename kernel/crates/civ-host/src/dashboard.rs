@@ -874,9 +874,10 @@ fn neighbours(worlds: &[WorldRun]) -> Row {
             let way = |x: &crate::crossings::Way| {
                 let c = x.crossed;
                 format!(
-                    "{} contacts, {} buildings after one there, {} households admiring one there, \
-                     {} techniques brought, {} people knowing of one seen there",
-                    x.contact, c.buildings, c.admired, c.brought, c.seen
+                    "{} contacts ({} settlements it could come through), {} buildings after one \
+                     there, {} households admiring one there, {} techniques brought, {} people \
+                     knowing of one seen there",
+                    x.contact, x.through, c.buildings, c.admired, c.brought, c.seen
                 )
             };
             seen.push(format!(

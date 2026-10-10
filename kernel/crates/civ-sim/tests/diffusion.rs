@@ -409,6 +409,44 @@ fn in_a_world_of_one_settlement_nobody_sees_a_building_elsewhere() {
     assert!(sim.people().seen_away.is_empty());
 }
 
+#[test]
+fn what_someone_saw_elsewhere_goes_with_them_when_they_die_or_are_exiled() {
+    // Found by the M5b demo: someone who died between seeing and the review left their sights
+    // behind, and the save of that year-end would not load.
+    let mut sim = world(3, 30, &[30]);
+    until_housed(&mut sim);
+    let owner = households_of(&sim, sim.land().settlements[1].id)[0];
+    let seen = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|x| x.household == owner && x.finished())
+        .expect("a building of the second settlement")
+        .id;
+    let a = sim.land().settlements[0].id;
+    let visitors = households_of(&sim, a);
+    let (dead, exiled, stays) = (
+        members(&sim, visitors[0])[0],
+        members(&sim, visitors[1])[0],
+        members(&sim, visitors[2])[0],
+    );
+    for p in [dead, exiled, stays] {
+        sim.people_mut_for_tests().seen_away.insert(p, vec![seen]);
+    }
+    sim.die_for_tests(dead);
+    sim.exile_for_tests(exiled);
+    let pop = sim.people();
+    assert!(pop.person(dead).is_none() && pop.person(exiled).is_none());
+    assert_eq!(pop.seen_away.keys().copied().collect::<Vec<_>>(), [stays]);
+    assert!(pop.problems(u64::MAX, usize::MAX).is_empty());
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("save dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "gone").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().seen_away, sim.people().seen_away);
+}
+
 fn person(sim: &mut Sim, id: PermanentId) -> &mut Person {
     sim.people_mut_for_tests()
         .people

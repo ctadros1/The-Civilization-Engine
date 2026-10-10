@@ -45,6 +45,10 @@ impl Crossed {
 pub struct Way {
     /// Visits, trips to buy, moves and marriages that could carry it.
     pub contact: u32,
+    /// Other settlements it could have been carried through: ones in contact with the giving
+    /// settlement that people moved or married from into the receiving one (a household that
+    /// admired a building where it lived, then went to found a settlement, carries its taste).
+    pub through: u32,
     /// What crossed.
     pub crossed: Crossed,
 }
@@ -70,7 +74,7 @@ impl PairSeen {
     pub fn grade(&self) -> (Grade, String) {
         let leaked: Vec<String> = [("to the second", &self.to_b), ("to the first", &self.to_a)]
             .iter()
-            .filter(|(_, w)| w.contact == 0 && w.crossed.total() > 0)
+            .filter(|(_, w)| w.contact == 0 && w.through == 0 && w.crossed.total() > 0)
             .map(|(dir, w)| format!("{} crossed {dir} with no contact", w.crossed.total()))
             .collect();
         if !leaked.is_empty() {
@@ -82,6 +86,14 @@ impl PairSeen {
             (Grade::Gray, "no contact".to_owned())
         } else if crossed == 0 {
             (Grade::Amber, "contact, but nothing crossed".to_owned())
+        } else if [&self.to_b, &self.to_a]
+            .iter()
+            .any(|w| w.contact == 0 && w.crossed.total() > 0)
+        {
+            (
+                Grade::Green,
+                "crossed only with contact, some of it through another settlement".to_owned(),
+            )
         } else {
             (Grade::Green, "crossed only with contact".to_owned())
         }
@@ -110,11 +122,16 @@ pub fn pairs(sim: &Sim) -> Vec<PairSeen> {
     let pop = sim.people();
     let land = sim.land();
     let mut out: BTreeMap<(PermanentId, PermanentId), PairSeen> = BTreeMap::new();
+    // People who came to live in a settlement from another, by (from, to).
+    let mut came: BTreeMap<(PermanentId, PermanentId), u32> = BTreeMap::new();
     for (&(_, from, to), c) in &pop.contacts.years {
         // People of `from` who went to `to` carry what they saw there home to `from`.
         way_of(&mut out, to, from).contact += c.visits + c.bought + c.missed.iter().sum::<u32>();
         // People of `from` who came to live in `to` carry their ways there.
         way_of(&mut out, from, to).contact += c.marriages + c.moved;
+        if c.marriages + c.moved > 0 {
+            *came.entry((from, to)).or_default() += c.marriages + c.moved;
+        }
     }
     let settlement_of = |p: PermanentId| {
         pop.person(p)
@@ -174,6 +191,30 @@ pub fn pairs(sim: &Sim) -> Vec<PairSeen> {
             }
         }
     }
+    // What reached a settlement with no contact of its own may have come through another: one
+    // in contact with the giving settlement, from which people came to live in the receiving one.
+    let contact = |out: &BTreeMap<(PermanentId, PermanentId), PairSeen>,
+                   from: PermanentId,
+                   to: PermanentId| {
+        let (a, b) = if from < to { (from, to) } else { (to, from) };
+        out.get(&(a, b)).map_or(0, |p| {
+            if to == b {
+                p.to_b.contact
+            } else {
+                p.to_a.contact
+            }
+        })
+    };
+    let pairs: Vec<(PermanentId, PermanentId)> = out.keys().copied().collect();
+    for (a, b) in pairs {
+        for (from, to) in [(a, b), (b, a)] {
+            let through = came
+                .iter()
+                .filter(|&(&(c, t), _)| t == to && c != from && contact(&out, from, c) > 0)
+                .count() as u32;
+            way_of(&mut out, from, to).through = through;
+        }
+    }
     out.into_values().collect()
 }
 
@@ -210,5 +251,12 @@ mod tests {
         assert!(why.contains("to the second with no contact"), "{why}");
         p.to_b.contact = 1;
         assert_eq!(p.grade().0, Grade::Green);
+        // Or with none of its own, through a settlement in contact with the first that people
+        // came from to live in the second.
+        p.to_b.contact = 0;
+        p.to_b.through = 1;
+        let (g, why) = p.grade();
+        assert_eq!(g, Grade::Green);
+        assert!(why.contains("through another settlement"), "{why}");
     }
 }

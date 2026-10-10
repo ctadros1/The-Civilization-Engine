@@ -314,8 +314,9 @@ pub fn run(
             let (g, why) = p.grade();
             let c = |w: &crate::crossings::Way| {
                 format!(
-                    "{} contacts, {} buildings, {} admiring, {} brought, {} seen",
+                    "{} contacts ({} through), {} buildings, {} admiring, {} brought, {} seen",
                     w.contact,
+                    w.through,
                     w.crossed.buildings,
                     w.crossed.admired,
                     w.crossed.brought,

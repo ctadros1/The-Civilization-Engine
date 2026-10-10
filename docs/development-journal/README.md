@@ -1,23 +1,27 @@
 # Development Journal and Technical Guide
 
-This folder explains how TCE has been built, how its current simulation works, and where the main code boundaries are. It complements the milestone plan, architecture decision records (ADRs), code comments, and research library; it does not replace them.
+This folder records how TCE was built and explains the systems in the current repository. The public `main` baseline at commit [`3828318`](https://github.com/ctadros1/The-Civilization-Engine/commit/3828318), merged 2026-10-09, includes M0–M4, M5a and the M5b design. This integration adds the implemented M5b mechanisms and the current M5c work. The source and project plan remain authoritative when later commits change implementation or status.
 
-## Source baseline
+## Current baseline
 
-These pages describe the development branch `claude/adoring-turing-w10ius` as it stood on 2026-10-07, with slice V complete (each field's soil and the record of its harvests, households planning from those records, and middens and manuring, saves schema 27, content API 29); its history names each step's commit. At that point M3b (knowledge and building) is implemented, and so is M3c in five slices: S (the speeds and the day step), T (the fifty-year dashboard), U (weather and seasons), V (soils) and W (Accelerated mode's approximations, Gate B and the demo). M4 (councils, law and crime) is in design. The journal was first written against the public `main` tree at [`fad23fa`](https://github.com/ctadros1/The-Civilization-Engine/commit/fad23fa) (2026-10-04), when slice Q had only its deposit-placement primitive; the [development history](development-history.md) records what has landed since. The development history has since been kept current through M5b slice AR (diffusion through contact: buildings and techniques seen elsewhere, knowledge that moves with people, style per settlement and the neighbours row), 2026-10-09; the other pages still describe the 2026-10-07 baseline. Treat claims about implementation as belonging to the baseline of the page they appear on. Later commits may change the code or milestone status; check the current source and plan before relying on a detail.
+M0–M3c provide the world, early farming society, economy, knowledge and buildings, weather and soils, and two simulation speeds. M4 adds settlement polities, law, cases, obligations, factions and political change. M5a adds multiple settlements, contact, visits, marriage, migration and coalition founding. M5b adds price reports, cross-settlement buying and resale, and diffusion through contact. Its prior roof-style demonstration must be replaced because the river-walking correction isolates the recorded demo villages. M5c currently adds claims, agreements, payments and log crossings; enclosures and a demonstration of agreement ratification remain. The Unreal client is still future work.
+
+The current boundary versions are TCE wire 1.60, save schema 71 and content API 68. The M4 fifty-year dashboard has one failed food-price row in one world. M5a's measured year for 3,000 people in three settlements is about 19.6 minutes at Max, above the ten-minute design budget; Gate B does not yet grade moves between settlements. See [the plan's decision log](../../PROJECT_PLAN.md#9-decisions-log) for run conditions and interpretation.
 
 ## Read by question
 
 | Document | Read this for |
 | --- | --- |
-| [Development history](development-history.md) | How the project moved from plan to a working village simulation, milestone by milestone |
-| [Architecture and data flow](architecture-and-data-flow.md) | Processes, crates, authority boundaries, content loading, commands, queries and observers |
-| [Simulation model](simulation-model.md) | Time and speeds, terrain, weather, people, decisions, households, economy, buildings and knowledge |
-| [Persistence and interfaces](persistence-and-interfaces.md) | Content fingerprints, saves, wire frames, generated schemas and the C ABI |
-| [Development and evidence practice](development-and-evidence.md) | Milestone workflow, CI, smoke worlds and the fifty-year dashboard, results, limitations and how to extend this journal |
+| [Development history](development-history.md) | Milestones, implementation decisions, checks and observed outcomes through the current M5b and M5c work |
+| [Architecture and data flow](architecture-and-data-flow.md) | Kernel crates, ownership boundaries, content loading, observer and host communication |
+| [Simulation model](simulation-model.md) | Time, landscape, households, economy, buildings and the high-level model for institutions and multiple settlements |
+| [Institutions, law and social change](institutions-and-order.md) | Polities, deliberation, law, crime, grievances, factions, revolts and observer interventions |
+| [Settlements and exchange](settlements-and-exchange.md) | Settlement identity, contact, visits, migration, founding, trade, diffusion, relations and crossings |
+| [Persistence and interfaces](persistence-and-interfaces.md) | Content fingerprints, snapshots, wire frames, generated schemas and the C ABI |
+| [Development and evidence practice](development-and-evidence.md) | CI, smoke worlds, dashboard and consistency gates, observed limits and reporting discipline |
 
 ## Keeping it current
 
-When implementation materially changes, update the short status in the root [README](../../README.md), the [plan](../../PROJECT_PLAN.md), and the relevant page here. Journal an actual development step after it lands: record its intent, source changes, decision or trade-off, checks run, observed result, and remaining uncertainty. Do not describe a proposed feature as implemented or a passing fixture as proof of real-world fidelity.
+When behavior or a boundary changes, update the README's short status, `PROJECT_PLAN.md`'s status and decision log, and the relevant guide here. Journal meaningful landed work with its goal, implementation, decision, checks, observed result and remaining uncertainty. Separate a design from an implemented feature, and a passing fixture from evidence of broad historical fidelity.
 
-The plan remains authoritative for scope and milestone decisions. ADRs remain authoritative for decisions expensive to reverse. The Rust and TypeScript source remains authoritative for runtime behavior.
+The project plan governs milestone scope and status. ADRs govern choices expensive to reverse. Rust, TypeScript, schemas and authored content define runtime behavior.

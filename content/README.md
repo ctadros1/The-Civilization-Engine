@@ -716,6 +716,18 @@ officeholder, and more adults than stand with the gathering, must stand with it 
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
 
+Content API 65 (M5c slice AW, step one) brings bridge systems, a new content kind (`kind =
+"bridge"`, files under `bridge/`): `technique` (the one its builders need, or empty), `good` (its
+members' good, which must have `[timber]` strengths) and `density_kg_m3`; `span_min_m` and
+`span_max_m` (the clear spans it may be proposed for; research 11-07 §2.1's envelopes);
+`members` and `diameter_min_cm`/`diameter_max_cm` (how many lie side by side and what they may be
+cut to); `bearing_m` (how far each end rests on a bank); `deck_factor` (walking speed on it, a
+share of dry ground's); `labour_h_per_m` (per metre of member; 11-07 §2.3's guardrails);
+`loss_per_year` (the share of the members' section rot takes a year; 11-07 §2.4); `margin` (what
+builders size the members to, over their own weight and one walker); and `fall_kills` (the
+chance someone on it dies when it gives way). The core's first is `core:bridge/log_beam`, a log
+footbridge. What any one bridge carries is worked out from its own members, never authored.
+
 Content API 64 (M5c slice AV, step two) brings performance seen: the `[relations]` key
 `performance` (0 to 10; 1.0, as much as a trespass seen, a design prior; research 13-01 §1.5:
 trust moves only after a relevant opportunity). When a payment an agreement owes is handed over in

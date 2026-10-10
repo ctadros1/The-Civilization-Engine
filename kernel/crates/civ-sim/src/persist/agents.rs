@@ -111,7 +111,7 @@ use super::{
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
-    SCHEMA_V65, SCHEMA_V66, finish, section, single_chunk, unreadable,
+    SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -176,6 +176,8 @@ pub const SECTION_INFLUENCE: SectionTag = SectionTag::new("influenc");
 pub const SECTION_PLACES: SectionTag = SectionTag::new("places");
 /// Section: what people believe of other polities (schema 63, M5c slice AT).
 pub const SECTION_RELATIONS: SectionTag = SectionTag::new("relation");
+/// Section: crossings over water (schema 68, M5c slice AW).
+pub const SECTION_CROSSINGS: SectionTag = SectionTag::new("crossing");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -268,6 +270,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         ),
         section(SECTION_PLACES, 0, encode_places(&sim.people, &goods)),
         section(SECTION_RELATIONS, 0, encode_relations(&sim.people, &goods)),
+        section(SECTION_CROSSINGS, 0, encode_crossings(&sim.land, rules)),
     ]
 }
 
@@ -423,6 +426,8 @@ enum Schema {
     V66,
     /// Goods an agreement moves, and the payments owed under it (M5c slice AV).
     V67,
+    /// Crossings over water (M5c slice AW).
+    V68,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -504,7 +509,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V64 => Schema::V64,
         SCHEMA_V65 => Schema::V65,
         SCHEMA_V66 => Schema::V66,
-        SAVE_SCHEMA_VERSION => Schema::V67,
+        SCHEMA_V67 => Schema::V67,
+        SAVE_SCHEMA_VERSION => Schema::V68,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -728,6 +734,11 @@ pub(super) fn decode<R: Read + Seek>(
         let bytes = single_chunk(reader, SECTION_RELATIONS)?;
         (people.polity_views, people.claims_heard, people.agreements) =
             decode_relations(&bytes, rules)?;
+    }
+    // Crossings over water (schema 68); before, none.
+    if schema >= Schema::V68 {
+        let bytes = single_chunk(reader, SECTION_CROSSINGS)?;
+        land.crossings = decode_crossings(&bytes, rules, map)?;
     }
     // Settlements' founding ways (schema 61); before them a founding band's is drawn again from
     // its key, and any other settlement's taken as its households' now.
@@ -2142,6 +2153,8 @@ fn decode_land(
         // Read from its own section (schema 20 on).
         earthworks: Vec::new(),
         ground: civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
+        // Read from its own section (schema 68 on).
+        crossings: Default::default(),
     };
     // A grid of the wrong size is reported by `Land::problems`; only fill stocks on a sound one.
     if land.patches.class.len() == n
@@ -2769,7 +2782,8 @@ fn carried(
         | Schema::V64
         | Schema::V65
         | Schema::V66
-        | Schema::V67 => {
+        | Schema::V67
+        | Schema::V68 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2946,7 +2960,8 @@ fn decode_households(
             | Schema::V64
             | Schema::V65
             | Schema::V66
-            | Schema::V67 => {
+            | Schema::V67
+            | Schema::V68 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3617,6 +3632,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Moved => 41,
         ChronicleKind::Coalition => 42,
         ChronicleKind::Agreement => 43,
+        ChronicleKind::Crossing => 44,
     }
 }
 
@@ -3665,6 +3681,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         41 => Some(ChronicleKind::Moved),
         42 => Some(ChronicleKind::Coalition),
         43 => Some(ChronicleKind::Agreement),
+        44 => Some(ChronicleKind::Crossing),
         _ => None,
     }
 }
@@ -3686,6 +3703,7 @@ fn encode_history(pop: &Population) -> Vec<u8> {
                         Cause::Childbirth => save::Cause::Childbirth,
                         Cause::Collapse => save::Cause::Collapse,
                         Cause::Violence => save::Cause::Violence,
+                        Cause::Fell => save::Cause::Fell,
                     },
                 ),
                 None => (false, 0, save::Cause::Unspecified),
@@ -3801,6 +3819,7 @@ fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
             save::Cause::Childbirth => Cause::Childbirth,
             save::Cause::Collapse => Cause::Collapse,
             save::Cause::Violence => Cause::Violence,
+            save::Cause::Fell => Cause::Fell,
             other => {
                 return Err(LoadError::Incompatible(format!(
                     "record {rid} has cause of death {}, which this build does not know",
@@ -7489,6 +7508,131 @@ fn decode_relations(bytes: &[u8], rules: &Rules) -> Result<Relations, LoadError>
         });
     }
     Ok((out, heard, agreements))
+}
+
+// ---- crossings ---------------------------------------------------------------------------------
+
+fn encode_crossings(land: &Land, rules: &Rules) -> Vec<u8> {
+    use civ_land::crossings::{CrossingOwner, CrossingState};
+    let mut fbb = FlatBufferBuilder::new();
+    let list: Vec<_> = land
+        .crossings
+        .list
+        .iter()
+        .map(|c| {
+            let system = rules
+                .catalog
+                .bridges
+                .get(usize::from(c.system))
+                .map_or("", |d| d.id.as_str());
+            let system = fbb.create_string(system);
+            let cells = fbb.create_vector(&c.cells);
+            let (owner_kind, owner) = match c.owner {
+                CrossingOwner::Household(h) => (0, h.get()),
+                CrossingOwner::Polity(p) => (1, p.get()),
+            };
+            let (state, work_h, state_day, why) = match c.state {
+                CrossingState::Building { work_h } => (0, work_h, 0, 0),
+                CrossingState::Open { since } => (1, 0.0, since, 0),
+                CrossingState::Failed { day, why } => (2, 0.0, day, why.code()),
+            };
+            save::CrossingSave::create(
+                &mut fbb,
+                &save::CrossingSaveArgs {
+                    id: c.id.get(),
+                    system: Some(system),
+                    bank_a: c.banks[0],
+                    bank_b: c.banks[1],
+                    cells: Some(cells),
+                    span_m: c.span_m,
+                    members: c.members,
+                    diameter_cm: c.diameter_cm,
+                    quality: c.quality,
+                    loss: c.loss,
+                    owner_kind,
+                    owner,
+                    labour_h: c.labour_h,
+                    begun: c.begun.minutes(),
+                    state,
+                    work_h,
+                    state_day,
+                    why,
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let root = save::CrossingsSave::create(
+        &mut fbb,
+        &save::CrossingsSaveArgs {
+            list: Some(list),
+            revision: land.crossings.revision(),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// The crossings saved in `bytes`. One of a bridge system the loaded content no longer has is
+/// dropped; one spanning cells off the map is malformed.
+fn decode_crossings(
+    bytes: &[u8],
+    rules: &Rules,
+    map: &WorldMap,
+) -> Result<civ_land::crossings::Crossings, LoadError> {
+    use civ_land::crossings::{Collapse, Crossing, CrossingOwner, CrossingState, Crossings};
+    let root = flatbuffers::root::<save::CrossingsSave>(bytes)
+        .map_err(|e| unreadable(SECTION_CROSSINGS, &e))?;
+    let cells_on_map = u64::from(map.width) * u64::from(map.height);
+    let mut list = Vec::new();
+    for c in root.list().iter().flatten() {
+        let id = required(c.id(), "a crossing")?;
+        let bad = |what: &str| LoadError::Malformed(format!("crossing {id} has {what}"));
+        let Some(system) = rules.catalog.bridge_index(c.system().unwrap_or("")) else {
+            continue;
+        };
+        let cells: Vec<u32> = c.cells().map(|v| v.iter().collect()).unwrap_or_default();
+        if cells.is_empty()
+            || cells
+                .iter()
+                .chain([c.bank_a(), c.bank_b()].iter())
+                .any(|&x| u64::from(x) >= cells_on_map)
+        {
+            return Err(bad("cells off the map, or none"));
+        }
+        let owner = required(c.owner(), "a crossing's owner")?;
+        let owner = match c.owner_kind() {
+            0 => CrossingOwner::Household(owner),
+            1 => CrossingOwner::Polity(owner),
+            k => return Err(bad(&format!("owner kind {k}"))),
+        };
+        let state = match c.state() {
+            0 => CrossingState::Building { work_h: c.work_h() },
+            1 => CrossingState::Open {
+                since: c.state_day(),
+            },
+            2 => CrossingState::Failed {
+                day: c.state_day(),
+                why: Collapse::from_code(c.why()).ok_or_else(|| bad("an unknown collapse"))?,
+            },
+            s => return Err(bad(&format!("state code {s}"))),
+        };
+        list.push(Crossing {
+            id,
+            system: system as u16,
+            banks: [c.bank_a(), c.bank_b()],
+            cells,
+            span_m: c.span_m(),
+            members: c.members(),
+            diameter_cm: c.diameter_cm(),
+            quality: c.quality(),
+            loss: c.loss(),
+            owner,
+            labour_h: c.labour_h(),
+            begun: SimTime::from_minutes(c.begun()),
+            state,
+        });
+    }
+    Ok(Crossings::with_revision(list, root.revision()))
 }
 
 fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> Vec<u8> {

@@ -940,7 +940,7 @@ impl Sim {
                 .survey(scheduler.now().day_index(), &rules.land.paths);
         }
         let stats = map.stats();
-        let nav = Arc::new(NavGrid::new(&map, rules.people.nav));
+        let nav = Arc::new(nav_with_decks(&map, &rules, &land));
         people.rebuild_indexes();
         // The world's regime by the id it keeps; a world from before regimes, or whose regime the
         // content no longer has, lives under the content's default (ADR-0007 §5).
@@ -1259,8 +1259,16 @@ impl Sim {
                 .scheduler
                 .schedule(at, PHASE_AGENT, SimEvent::Agent(event));
         }
+        // A crossing the closure opened or felled is walked as it now stands.
+        refresh_nav(&mut self.nav, &self.map, &self.rules, &self.land);
         self.dirty = true;
         out
+    }
+
+    /// Lays the walking grid again after a test changed the crossings by hand.
+    #[doc(hidden)]
+    pub fn lay_decks_for_tests(&mut self) {
+        refresh_nav(&mut self.nav, &self.map, &self.rules, &self.land);
     }
 
     /// Someone is exiled now (for a test that needs an exile on a given day; see
@@ -1460,6 +1468,7 @@ impl Sim {
                         for (t, e) in pending.drain(..) {
                             let _ = followups.schedule(t, PHASE_AGENT, SimEvent::Agent(e));
                         }
+                        refresh_nav(nav, map, rules, land);
                         // A change of mode held for midnight: after the day's work, before the
                         // new day's first event (ADR-0011 §2).
                         if let Some(next) = mode_next.take() {
@@ -1512,11 +1521,32 @@ impl Sim {
                         // Never before the current instant: agents schedule at least a minute on.
                         let _ = followups.schedule(t, PHASE_AGENT, SimEvent::Agent(e));
                     }
+                    refresh_nav(nav, map, rules, land);
                 }
             })
             .map_err(SimError::Schedule)?;
         self.dirty = true;
         Ok(advance)
+    }
+}
+
+/// The walking grid of `map` with the open crossings' decks laid over it (M5c slice AW).
+fn nav_with_decks(map: &WorldMap, rules: &Rules, land: &Land) -> NavGrid {
+    let decks = land.crossings.decks(|s| {
+        rules
+            .catalog
+            .bridges
+            .get(usize::from(s))
+            .map_or(0.0, |d| d.deck_factor as f32)
+    });
+    NavGrid::with_decks(map, rules.people.nav, &decks, land.crossings.revision())
+}
+
+/// Lays the walking grid again when a crossing has opened or given way since it was laid: no
+/// route is planned across a fallen bridge, nor misses an open one (01-08 §7).
+fn refresh_nav(nav: &mut Arc<NavGrid>, map: &WorldMap, rules: &Rules, land: &Land) {
+    if land.crossings.revision() != nav.revision() {
+        *nav = Arc::new(nav_with_decks(map, rules, land));
     }
 }
 

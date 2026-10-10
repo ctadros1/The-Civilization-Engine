@@ -66,6 +66,8 @@ pub struct NavGrid {
     cell_m: f64,
     params: NavParams,
     ground: Vec<f32>,
+    /// The revision of the crossings whose decks are laid over it (M5c slice AW); 0 for none.
+    revision: u32,
 }
 
 /// Cells the route searches on this thread have expanded, summed: what a benchmark reads to
@@ -412,7 +414,33 @@ impl NavGrid {
             cell_m: f64::from(map.cell_size_m),
             params,
             ground,
+            revision: 0,
         }
+    }
+
+    /// The map's grid with `decks` laid over it (M5c slice AW, ADR-0004 amended): each `(cell,
+    /// factor)` an open crossing's span, walked at its deck's speed, never slower than the cell
+    /// is waded. `revision` is the revision of the crossings they come from, which
+    /// [`NavGrid::revision`] gives back; with no decks it is [`NavGrid::new`]'s grid.
+    pub fn with_decks(
+        map: &WorldMap,
+        params: NavParams,
+        decks: &[(u32, f32)],
+        revision: u32,
+    ) -> Self {
+        let mut grid = NavGrid::new(map, params);
+        for &(c, factor) in decks {
+            if let Some(g) = grid.ground.get_mut(c as usize) {
+                *g = g.max(factor);
+            }
+        }
+        grid.revision = revision;
+        grid
+    }
+
+    /// The revision of the crossings whose decks are laid over this grid; 0 for none.
+    pub fn revision(&self) -> u32 {
+        self.revision
     }
 
     /// The parameters this grid was built with.

@@ -1,0 +1,33 @@
+# A log footbridge (M5c slice AW; research 11-07): logs felled and shaped with stone axes, laid
+# side by side across a channel, their ends resting on the banks. 11-07 §2.1 proposes 2-8 m of
+# clear span for a single-log crossing; two logs side by side give a walking surface (a design
+# prior). What a bridge carries is worked out from its own logs, as for a simply supported beam
+# (11-07 §1.3: M = wL²/8 + PL/4, a person with baggage 1 kN, §2.2), over their diameter and the
+# share of it rot has taken (capacity falls with the cube of what is left, §5.5).
+kind = "bridge"
+id = "core:bridge/log_beam"
+name = "Log footbridge"
+technique = "core:technique/wood_shaping"
+good = "core:good/timber"
+density_kg_m3 = 760.0            # oak, seasoned (11-08 §2.1), as the timber good's comment
+span_min_m = 2.0
+span_max_m = 8.0
+members = 2
+# Trunks a stone-axe crew fells and moves: a design prior. Builders take the smallest that gives
+# `margin` over the logs' own weight and one walker at mid-span, rounded up by 5 cm.
+diameter_min_cm = 20.0
+diameter_max_cm = 50.0
+margin = 3.0
+bearing_m = 1.0                  # each end rests this far on its bank (design prior)
+# Walked single file and carefully: a share of dry ground's speed, as wading is (design prior).
+deck_factor = 0.6
+# 11-07 §2.3: a simple 5 m log footbridge takes 5-30 person-days (8 hours each); two 7 m logs
+# at 8 hours a metre of log are 112 hours, about 14 person-days.
+labour_h_per_m = 8.0
+# Untreated log bridges last 10-20 years (11-07 §2.4, an engineering analogue). Rot takes this
+# share of the logs' effective section a year: the smallest log over the longest span gives way
+# under one walker after about 11-13 years (a design prior fitted to that range, not a rate).
+loss_per_year = 0.05
+# When it gives way under someone, they fall into water too deep or fast to wade: the chance
+# they die (a design prior, as a ruin's, ADR-0009 §5).
+fall_kills = 0.3

@@ -681,15 +681,16 @@ impl ::flatbuffers::SimpleToVerifyInSlice for Origin {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_CAUSE: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_CAUSE: u8 = 4;
+pub const ENUM_MAX_CAUSE: u8 = 5;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_CAUSE: [Cause; 5] = [
+pub const ENUM_VALUES_CAUSE: [Cause; 6] = [
   Cause::Unspecified,
   Cause::Starvation,
   Cause::Childbirth,
   Cause::Collapse,
   Cause::Violence,
+  Cause::Fell,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -702,15 +703,17 @@ impl Cause {
   pub const Childbirth: Self = Self(2);
   pub const Collapse: Self = Self(3);
   pub const Violence: Self = Self(4);
+  pub const Fell: Self = Self(5);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 4;
+  pub const ENUM_MAX: u8 = 5;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Unspecified,
     Self::Starvation,
     Self::Childbirth,
     Self::Collapse,
     Self::Violence,
+    Self::Fell,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -720,6 +723,7 @@ impl Cause {
       Self::Childbirth => Some("Childbirth"),
       Self::Collapse => Some("Collapse"),
       Self::Violence => Some("Violence"),
+      Self::Fell => Some("Fell"),
       _ => None,
     }
   }
@@ -32734,6 +32738,504 @@ impl ::core::fmt::Debug for ViewSave<'_> {
       ds.field("reason_act", &self.reason_act());
       ds.field("reason_day", &self.reason_day());
       ds.field("reason_times", &self.reason_times());
+      ds.finish()
+  }
+}
+pub enum CrossingSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct CrossingSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for CrossingSave<'a> {
+  type Inner = CrossingSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> CrossingSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SYSTEM: ::flatbuffers::VOffsetT = 6;
+  pub const VT_BANK_A: ::flatbuffers::VOffsetT = 8;
+  pub const VT_BANK_B: ::flatbuffers::VOffsetT = 10;
+  pub const VT_CELLS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_SPAN_M: ::flatbuffers::VOffsetT = 14;
+  pub const VT_MEMBERS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_DIAMETER_CM: ::flatbuffers::VOffsetT = 18;
+  pub const VT_QUALITY: ::flatbuffers::VOffsetT = 20;
+  pub const VT_LOSS: ::flatbuffers::VOffsetT = 22;
+  pub const VT_OWNER_KIND: ::flatbuffers::VOffsetT = 24;
+  pub const VT_OWNER: ::flatbuffers::VOffsetT = 26;
+  pub const VT_LABOUR_H: ::flatbuffers::VOffsetT = 28;
+  pub const VT_BEGUN: ::flatbuffers::VOffsetT = 30;
+  pub const VT_STATE: ::flatbuffers::VOffsetT = 32;
+  pub const VT_WORK_H: ::flatbuffers::VOffsetT = 34;
+  pub const VT_STATE_DAY: ::flatbuffers::VOffsetT = 36;
+  pub const VT_WHY: ::flatbuffers::VOffsetT = 38;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    CrossingSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CrossingSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<CrossingSave<'bldr>> {
+    let mut builder = CrossingSaveBuilder::new(_fbb);
+    builder.add_state_day(args.state_day);
+    builder.add_begun(args.begun);
+    builder.add_owner(args.owner);
+    builder.add_id(args.id);
+    builder.add_work_h(args.work_h);
+    builder.add_labour_h(args.labour_h);
+    builder.add_loss(args.loss);
+    builder.add_quality(args.quality);
+    builder.add_diameter_cm(args.diameter_cm);
+    builder.add_span_m(args.span_m);
+    if let Some(x) = args.cells { builder.add_cells(x); }
+    builder.add_bank_b(args.bank_b);
+    builder.add_bank_a(args.bank_a);
+    if let Some(x) = args.system { builder.add_system(x); }
+    builder.add_why(args.why);
+    builder.add_state(args.state);
+    builder.add_owner_kind(args.owner_kind);
+    builder.add_members(args.members);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CrossingSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn system(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(CrossingSave::VT_SYSTEM, None)}
+  }
+  #[inline]
+  pub fn bank_a(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CrossingSave::VT_BANK_A, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn bank_b(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CrossingSave::VT_BANK_B, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn cells(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(CrossingSave::VT_CELLS, None)}
+  }
+  #[inline]
+  pub fn span_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CrossingSave::VT_SPAN_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn members(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(CrossingSave::VT_MEMBERS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn diameter_cm(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CrossingSave::VT_DIAMETER_CM, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn quality(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CrossingSave::VT_QUALITY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn loss(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CrossingSave::VT_LOSS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn owner_kind(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(CrossingSave::VT_OWNER_KIND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn owner(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CrossingSave::VT_OWNER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn labour_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CrossingSave::VT_LABOUR_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn begun(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(CrossingSave::VT_BEGUN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn state(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(CrossingSave::VT_STATE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn work_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CrossingSave::VT_WORK_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn state_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(CrossingSave::VT_STATE_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn why(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(CrossingSave::VT_WHY, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for CrossingSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("system", Self::VT_SYSTEM, false)?
+     .visit_field::<u32>("bank_a", Self::VT_BANK_A, false)?
+     .visit_field::<u32>("bank_b", Self::VT_BANK_B, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("cells", Self::VT_CELLS, false)?
+     .visit_field::<f32>("span_m", Self::VT_SPAN_M, false)?
+     .visit_field::<u8>("members", Self::VT_MEMBERS, false)?
+     .visit_field::<f32>("diameter_cm", Self::VT_DIAMETER_CM, false)?
+     .visit_field::<f32>("quality", Self::VT_QUALITY, false)?
+     .visit_field::<f32>("loss", Self::VT_LOSS, false)?
+     .visit_field::<u8>("owner_kind", Self::VT_OWNER_KIND, false)?
+     .visit_field::<u64>("owner", Self::VT_OWNER, false)?
+     .visit_field::<f32>("labour_h", Self::VT_LABOUR_H, false)?
+     .visit_field::<i64>("begun", Self::VT_BEGUN, false)?
+     .visit_field::<u8>("state", Self::VT_STATE, false)?
+     .visit_field::<f32>("work_h", Self::VT_WORK_H, false)?
+     .visit_field::<i64>("state_day", Self::VT_STATE_DAY, false)?
+     .visit_field::<u8>("why", Self::VT_WHY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CrossingSaveArgs<'a> {
+    pub id: u64,
+    pub system: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub bank_a: u32,
+    pub bank_b: u32,
+    pub cells: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub span_m: f32,
+    pub members: u8,
+    pub diameter_cm: f32,
+    pub quality: f32,
+    pub loss: f32,
+    pub owner_kind: u8,
+    pub owner: u64,
+    pub labour_h: f32,
+    pub begun: i64,
+    pub state: u8,
+    pub work_h: f32,
+    pub state_day: i64,
+    pub why: u8,
+}
+impl<'a> Default for CrossingSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CrossingSaveArgs {
+      id: 0,
+      system: None,
+      bank_a: 0,
+      bank_b: 0,
+      cells: None,
+      span_m: 0.0,
+      members: 0,
+      diameter_cm: 0.0,
+      quality: 0.0,
+      loss: 0.0,
+      owner_kind: 0,
+      owner: 0,
+      labour_h: 0.0,
+      begun: 0,
+      state: 0,
+      work_h: 0.0,
+      state_day: 0,
+      why: 0,
+    }
+  }
+}
+
+pub struct CrossingSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CrossingSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(CrossingSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_system(&mut self, system: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CrossingSave::VT_SYSTEM, system);
+  }
+  #[inline]
+  pub fn add_bank_a(&mut self, bank_a: u32) {
+    self.fbb_.push_slot::<u32>(CrossingSave::VT_BANK_A, bank_a, 0);
+  }
+  #[inline]
+  pub fn add_bank_b(&mut self, bank_b: u32) {
+    self.fbb_.push_slot::<u32>(CrossingSave::VT_BANK_B, bank_b, 0);
+  }
+  #[inline]
+  pub fn add_cells(&mut self, cells: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CrossingSave::VT_CELLS, cells);
+  }
+  #[inline]
+  pub fn add_span_m(&mut self, span_m: f32) {
+    self.fbb_.push_slot::<f32>(CrossingSave::VT_SPAN_M, span_m, 0.0);
+  }
+  #[inline]
+  pub fn add_members(&mut self, members: u8) {
+    self.fbb_.push_slot::<u8>(CrossingSave::VT_MEMBERS, members, 0);
+  }
+  #[inline]
+  pub fn add_diameter_cm(&mut self, diameter_cm: f32) {
+    self.fbb_.push_slot::<f32>(CrossingSave::VT_DIAMETER_CM, diameter_cm, 0.0);
+  }
+  #[inline]
+  pub fn add_quality(&mut self, quality: f32) {
+    self.fbb_.push_slot::<f32>(CrossingSave::VT_QUALITY, quality, 0.0);
+  }
+  #[inline]
+  pub fn add_loss(&mut self, loss: f32) {
+    self.fbb_.push_slot::<f32>(CrossingSave::VT_LOSS, loss, 0.0);
+  }
+  #[inline]
+  pub fn add_owner_kind(&mut self, owner_kind: u8) {
+    self.fbb_.push_slot::<u8>(CrossingSave::VT_OWNER_KIND, owner_kind, 0);
+  }
+  #[inline]
+  pub fn add_owner(&mut self, owner: u64) {
+    self.fbb_.push_slot::<u64>(CrossingSave::VT_OWNER, owner, 0);
+  }
+  #[inline]
+  pub fn add_labour_h(&mut self, labour_h: f32) {
+    self.fbb_.push_slot::<f32>(CrossingSave::VT_LABOUR_H, labour_h, 0.0);
+  }
+  #[inline]
+  pub fn add_begun(&mut self, begun: i64) {
+    self.fbb_.push_slot::<i64>(CrossingSave::VT_BEGUN, begun, 0);
+  }
+  #[inline]
+  pub fn add_state(&mut self, state: u8) {
+    self.fbb_.push_slot::<u8>(CrossingSave::VT_STATE, state, 0);
+  }
+  #[inline]
+  pub fn add_work_h(&mut self, work_h: f32) {
+    self.fbb_.push_slot::<f32>(CrossingSave::VT_WORK_H, work_h, 0.0);
+  }
+  #[inline]
+  pub fn add_state_day(&mut self, state_day: i64) {
+    self.fbb_.push_slot::<i64>(CrossingSave::VT_STATE_DAY, state_day, 0);
+  }
+  #[inline]
+  pub fn add_why(&mut self, why: u8) {
+    self.fbb_.push_slot::<u8>(CrossingSave::VT_WHY, why, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CrossingSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CrossingSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<CrossingSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for CrossingSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("CrossingSave");
+      ds.field("id", &self.id());
+      ds.field("system", &self.system());
+      ds.field("bank_a", &self.bank_a());
+      ds.field("bank_b", &self.bank_b());
+      ds.field("cells", &self.cells());
+      ds.field("span_m", &self.span_m());
+      ds.field("members", &self.members());
+      ds.field("diameter_cm", &self.diameter_cm());
+      ds.field("quality", &self.quality());
+      ds.field("loss", &self.loss());
+      ds.field("owner_kind", &self.owner_kind());
+      ds.field("owner", &self.owner());
+      ds.field("labour_h", &self.labour_h());
+      ds.field("begun", &self.begun());
+      ds.field("state", &self.state());
+      ds.field("work_h", &self.work_h());
+      ds.field("state_day", &self.state_day());
+      ds.field("why", &self.why());
+      ds.finish()
+  }
+}
+pub enum CrossingsSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct CrossingsSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for CrossingsSave<'a> {
+  type Inner = CrossingsSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> CrossingsSave<'a> {
+  pub const VT_LIST: ::flatbuffers::VOffsetT = 4;
+  pub const VT_REVISION: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    CrossingsSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CrossingsSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<CrossingsSave<'bldr>> {
+    let mut builder = CrossingsSaveBuilder::new(_fbb);
+    builder.add_revision(args.revision);
+    if let Some(x) = args.list { builder.add_list(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn list(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CrossingSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CrossingSave>>>>(CrossingsSave::VT_LIST, None)}
+  }
+  #[inline]
+  pub fn revision(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CrossingsSave::VT_REVISION, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for CrossingsSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CrossingSave>>>>("list", Self::VT_LIST, false)?
+     .visit_field::<u32>("revision", Self::VT_REVISION, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CrossingsSaveArgs<'a> {
+    pub list: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CrossingSave<'a>>>>>,
+    pub revision: u32,
+}
+impl<'a> Default for CrossingsSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CrossingsSaveArgs {
+      list: None,
+      revision: 0,
+    }
+  }
+}
+
+pub struct CrossingsSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CrossingsSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_list(&mut self, list: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<CrossingSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CrossingsSave::VT_LIST, list);
+  }
+  #[inline]
+  pub fn add_revision(&mut self, revision: u32) {
+    self.fbb_.push_slot::<u32>(CrossingsSave::VT_REVISION, revision, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CrossingsSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CrossingsSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<CrossingsSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for CrossingsSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("CrossingsSave");
+      ds.field("list", &self.list());
+      ds.field("revision", &self.revision());
       ds.finish()
   }
 }

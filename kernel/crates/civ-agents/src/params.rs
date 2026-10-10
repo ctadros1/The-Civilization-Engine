@@ -541,6 +541,49 @@ pub struct Catalog {
     /// Ideologies, in content id order (M4c slice AG, ADR-0016 §4). Holdings refer to them by
     /// index, saves by content id.
     pub ideologies: Vec<crate::ideology::IdeologyDef>,
+    /// Bridge systems, in content id order (M5c slice AW). Crossings refer to them by index,
+    /// saves by content id.
+    pub bridges: Vec<BridgeDef>,
+}
+
+/// A bridge system (content kind `bridge`, M5c slice AW; research 11-07 §2.1): the clear spans
+/// it may be proposed for, the members it is made of, the work it takes, and what wears and
+/// fails it. What a bridge of it can carry is worked out from its own members and condition
+/// (11-07 §1.3), never authored.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BridgeDef {
+    pub id: String,
+    pub name: String,
+    /// The technique its builders need, by index, if any.
+    pub technique: Option<usize>,
+    /// The good its members are made of, by index: one with `[timber]` strengths.
+    pub good: usize,
+    /// The members' density, kg/m³, for their own weight.
+    pub density_kg_m3: f64,
+    /// Clear spans it may be proposed for, metres (11-07 §2.1's envelope).
+    pub span_m: (f64, f64),
+    /// Main members side by side, and the diameters they may be cut to, centimetres.
+    pub members: u32,
+    pub diameter_cm: (f64, f64),
+    /// How far each end rests on a bank beyond the channel, metres.
+    pub bearing_m: f64,
+    /// Walking speed on it, as a share of dry ground's.
+    pub deck_factor: f64,
+    /// Labour, hours for each metre of member length (11-07 §2.3's guardrails).
+    pub labour_h_per_m: f64,
+    /// The share of the members' effective section lost to rot in a year.
+    pub loss_per_year: f64,
+    /// The margin builders size its members to, over its own weight and one walker.
+    pub margin: f64,
+    /// The chance someone on it dies when it gives way under them.
+    pub fall_kills: f64,
+}
+
+impl Catalog {
+    /// The bridge system with content id `id`, by index.
+    pub fn bridge_index(&self, id: &str) -> Option<usize> {
+        self.bridges.iter().position(|b| b.id == id)
+    }
 }
 
 impl Catalog {

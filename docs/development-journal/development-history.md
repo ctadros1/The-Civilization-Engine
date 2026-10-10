@@ -1030,6 +1030,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** slice AW, crossings (bridges by system and span, their load computed per bridge).
 
+## 2026-10-10 — M5c slice AW, step one: crossings over water, and their physics
+
+**Goal:** let the ground people walk on change, so a river too big to wade can be crossed, and give a crossing a structure that rots and fails (the settlements brief §1.7; research 11-07).
+
+**What changed:** bridge systems are a content kind, the log footbridge the first (content API 65). A crossing is a record of its own over a river's cells (saves schema 68). The walking grid is laid with open crossings' decks and laid again whenever one opens or gives way, and routes and travel fields are kept against one routing revision (ADR-0004 §7). Its logs are checked as a simply supported beam each midnight and as someone steps on, rot daily, and a crossing that gives way drops whoever is on it (a new cause of death, a fall), stops every walk across it, and is told in the chronicle (ADR-0009 §9).
+
+**Findings:** two new 20 cm logs over 6 m carry a walker about 19 times over, so it is rot, not load, that decides when a log bridge fails: at 5 % of the section a year, about 12 years over the longest span, inside the 10–20 years 11-07 gives untreated log bridges. With a crossing left open while rotten, a villager stepped on first: people route over a crossing once it is open.
+
+**Evidence:** unit tests of the crossing record, the beam relations (the cube of section lost, doubling the span) and the builders' sizing; integration tests of a crossing walked over, failing at midnight under its own weight with routes closed, and failing under the one who steps on it; the roundtrip of a schema-67 save; the full suite and clippy.
+
+**Open:** AW step two, households building log footbridges where their own walks would gain.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

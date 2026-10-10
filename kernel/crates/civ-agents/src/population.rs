@@ -41,6 +41,7 @@ use crate::person::{
 
 mod cases;
 mod crime;
+mod crossings;
 mod deposits;
 mod digging;
 mod faction;
@@ -233,8 +234,8 @@ struct Places {
 struct HomeField {
     cell: usize,
     day: i64,
-    /// The paths survey it was walked out on ([`civ_land::Wear::rev`]).
-    rev: u32,
+    /// The paths survey and crossings it was walked out on ([`civ_land::Land::route_revision`]).
+    rev: u64,
     water: Option<(u32, f32)>,
     /// Per kind of place (the index in `Population::places`), blocks by walking time to their
     /// cell, seconds.
@@ -369,8 +370,9 @@ pub struct Population {
     routes: FastMap<(u32, u32), Option<CachedRoute>>,
     /// The generation of routes before `routes`; one walked again moves back into `routes`.
     routes_old: FastMap<(u32, u32), Option<CachedRoute>>,
-    /// The paths survey the routes were planned on ([`civ_land::Wear::rev`]).
-    routes_rev: u32,
+    /// The paths survey and crossings the routes were planned on
+    /// ([`civ_land::Land::route_revision`]).
+    routes_rev: u64,
     /// Lower bounds for route searches on the paths as surveyed ([`NavGrid::landmarks`]),
     /// built at the first search after a survey once people have walked anywhere. Derived.
     landmarks: Option<Option<std::sync::Arc<civ_world::nav::Landmarks>>>,
@@ -1422,6 +1424,16 @@ impl Population {
         }
     }
 
+    /// Sends `id` walking to `to` at once, as a step of their activity would (tests): `false`
+    /// when they cannot set off.
+    #[doc(hidden)]
+    pub fn walk_for_tests(&mut self, ctx: &mut Ctx, id: PermanentId, to: (f32, f32)) -> bool {
+        let Some(&h) = self.index.get(&id) else {
+            return false;
+        };
+        self.start_walk(ctx, h, to)
+    }
+
     /// Drops a person's activity so they decide again when an event of the returned version
     /// fires (used when a loaded world's content no longer has their activity). The caller
     /// schedules that event.
@@ -1545,7 +1557,7 @@ impl Population {
     fn home_field(&mut self, ctx: &Ctx, key: PermanentId, origin: (f32, f32)) {
         let cell = cell_of(ctx.map, origin);
         let day = ctx.now.day_index();
-        let rev = ctx.land.wear.rev();
+        let rev = ctx.land.route_revision();
         if let Some(f) = self.homes.get(&key)
             && f.cell == cell
             && f.rev == rev
@@ -3762,11 +3774,12 @@ impl Population {
         let to_cell = cell_of(ctx.map, to);
         let speed = interpolate(&params.walk_speed_by_age, p.age_years(now)).max(0.05);
         let wear = &ctx.land.wear;
-        if wear.rev() != self.routes_rev {
+        let revision = ctx.land.route_revision();
+        if revision != self.routes_rev {
             self.routes.clear();
             self.routes_old.clear();
             self.landmarks = None;
-            self.routes_rev = wear.rev();
+            self.routes_rev = revision;
         }
         let (points, minutes): (Vec<(f32, f32)>, Vec<f32>) = if from_cell == to_cell {
             let d = ((to.0 - p.pos.0).powi(2) + (to.1 - p.pos.1).powi(2)).sqrt();
@@ -3841,6 +3854,17 @@ impl Population {
             (pts, mins)
         };
         let duration = minutes.last().copied().unwrap_or(0.0).ceil().max(1.0);
+        // A crossing on the way is stepped onto; one that gives way under them stops the walk
+        // (M5c slice AW).
+        if !ctx.land.crossings.list.is_empty() {
+            let who = p.id;
+            if !self.step_on(ctx, who, &points) {
+                return false;
+            }
+        }
+        let Some(p) = self.people.get_mut(h) else {
+            return false;
+        };
         // What the walk passes within sight of (ADR-0018 §4).
         let seen = (ctx.land.settlements.len() > 1).then(|| (p.household, points.clone()));
         self.next_trip += 1;
@@ -5281,6 +5305,10 @@ impl Population {
             }
         }
         self.check_buildings(ctx);
+        // And the crossings over water (M5c slice AW).
+        if !ctx.land.crossings.list.is_empty() {
+            self.crossings_day(ctx);
+        }
         // A month ended: its asks and prices per pair of settlements are recorded (M5b slice AQ).
         self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.

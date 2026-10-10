@@ -625,10 +625,10 @@ mod tests {
             of_surplus: None,
             ..paying.clone()
         };
-        assert!(
-            classify(&short, "Ashford").why[0].ends_with("which is no more \
-                 than its people need")
-        );
+        assert!(classify(&short, "Ashford").why[0].ends_with(
+            "which is no more \
+                 than its people need"
+        ));
         // The other side is under agreement, and says what it receives.
         let receiving = RelationEvidence {
             in_force: vec![terms.to_owned()],

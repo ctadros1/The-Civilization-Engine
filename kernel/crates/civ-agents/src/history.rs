@@ -391,16 +391,19 @@ pub enum Cause {
     /// Of a blow another struck (M4c slice AI, step four; ADR-0017 §3): the encounter that
     /// records who struck it.
     Violence,
+    /// In a fall when a crossing gave way under them (M5c slice AW).
+    Fell,
 }
 
 impl Cause {
     /// Every cause.
-    pub const ALL: [Cause; 5] = [
+    pub const ALL: [Cause; 6] = [
         Cause::Unspecified,
         Cause::Starvation,
         Cause::Childbirth,
         Cause::Collapse,
         Cause::Violence,
+        Cause::Fell,
     ];
 
     /// The key a chronicle entry keeps it as.
@@ -411,6 +414,7 @@ impl Cause {
             Cause::Childbirth => "childbirth",
             Cause::Collapse => "collapse",
             Cause::Violence => "violence",
+            Cause::Fell => "fell",
         }
     }
 
@@ -427,6 +431,7 @@ impl Cause {
             Cause::Childbirth => "childbirth",
             Cause::Collapse => "a building's collapse",
             Cause::Violence => "a blow struck by another",
+            Cause::Fell => "a fall when a crossing gave way",
         }
     }
 }
@@ -693,6 +698,20 @@ pub enum ChronicleKind {
     /// force, failed or ended (M5c slice AU, ADR-0020 §6): `people` are the two who met, side 0's
     /// first; `settlement` side 0's; `number` the step ([`AgreementStep`]); `name` the sentence.
     Agreement,
+    /// A crossing over water opened or gave way (M5c slice AW): `people` its owner's household
+    /// or whoever was on it; `place` its middle; `number` the step ([`CrossingStep`]); `name` the
+    /// sentence.
+    Crossing,
+}
+
+/// What happened to a crossing, in a [`ChronicleKind::Crossing`] entry. Numeric in saves:
+/// append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CrossingStep {
+    /// It was finished and opened to walkers.
+    Opened = 0,
+    /// It gave way.
+    Failed = 1,
 }
 
 /// What happened to an agreement, in a [`ChronicleKind::Agreement`] entry. Numeric in saves:
@@ -865,6 +884,7 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 Some(Cause::Childbirth) => format!(" died in childbirth, {age}."),
                 Some(Cause::Collapse) => format!(" died when a building gave way, {age}."),
                 Some(Cause::Violence) => format!(" died of a blow, {age}."),
+                Some(Cause::Fell) => format!(" fell when a crossing gave way, and died, {age}."),
                 _ => format!(" died, {age}."),
             };
             vec![who, Span::Text(how)]
@@ -1223,7 +1243,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::RevoltFailed
         | ChronicleKind::CoupFailed
         | ChronicleKind::Encounter
-        | ChronicleKind::Agreement => {
+        | ChronicleKind::Agreement
+        | ChronicleKind::Crossing => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

@@ -184,10 +184,10 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 29 land, field, plot, building,
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 30 land, field, plot, building,
     // wear, market, firm, wealth, knowledge, deposits, earth, ties, polity, order, word, opinion,
-    // norms, values, creeds, factions, influence, places, relation and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 29);
+    // norms, values, creeds, factions, influence, places, relation, crossing and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 30);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -2237,6 +2237,22 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
             .iter()
             .all(|(_, p)| pop.influences.luck(p.id, day).is_none())
     );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_67_save_loads_with_no_crossing() {
+    // A schema-67 save, from before crossings over water (M5c slice AW): it held none, and the
+    // walking grid is the map's own.
+    let sim = load_first();
+    assert!(sim.land().crossings.list.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V67;
+    let path = republish("slice-av", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-67 save loads");
+    assert!(loaded.land().crossings.list.is_empty());
+    assert_eq!(loaded.land().crossings.revision(), 0);
+    assert_eq!(loaded.nav().revision(), 0);
     loaded.advance_minutes(24 * 60).expect("goes on");
 }
 

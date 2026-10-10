@@ -432,7 +432,7 @@ table Households {
 enum Origin : ubyte { Founder = 0, Born = 1, Spawned = 2 }
 
 // Collapse (3): a building gave way around them (slice P's second step, ADR-0009 §5).
-enum Cause : ubyte { Unspecified = 0, Starvation = 1, Childbirth = 2, Collapse = 3, Violence = 4 }
+enum Cause : ubyte { Unspecified = 0, Starvation = 1, Childbirth = 2, Collapse = 3, Violence = 4, Fell = 5 }
 
 table PersonRecord {
   id: ulong (id: 0);
@@ -1859,6 +1859,38 @@ table ViewSave {
   reason_act: ubyte = 255 (id: 5);
   reason_day: long (id: 6);
   reason_times: ushort (id: 7);
+}
+
+// A crossing over water (schema 68, M5c slice AW): `system` the bridge system's content id;
+// `bank_a`, `bank_b` the land cells at either end and `cells` the water cells it spans, in order
+// from `bank_a`; `owner_kind` 0 a household, 1 a polity; `state` 0 being built (`work_h` done),
+// 1 open since `state_day`, 2 failed on `state_day` for `why` (0 its own weight, 1 under someone
+// stepping onto it).
+table CrossingSave {
+  id: ulong (id: 0);
+  system: string (id: 1);
+  bank_a: uint (id: 2);
+  bank_b: uint (id: 3);
+  cells: [uint] (id: 4);
+  span_m: float (id: 5);
+  members: ubyte (id: 6);
+  diameter_cm: float (id: 7);
+  quality: float (id: 8);
+  loss: float (id: 9);
+  owner_kind: ubyte (id: 10);
+  owner: ulong (id: 11);
+  labour_h: float (id: 12);
+  begun: long (id: 13);
+  state: ubyte (id: 14);
+  work_h: float (id: 15);
+  state_day: long (id: 16);
+  why: ubyte (id: 17);
+}
+
+// Every crossing, in the order begun, and the revision of their states (schema 68).
+table CrossingsSave {
+  list: [CrossingSave] (id: 0);
+  revision: uint (id: 1);
 }
 
 table RelationsSave {

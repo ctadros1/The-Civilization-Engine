@@ -3,6 +3,7 @@
 Status: Accepted
 Date: 2026-10-03
 Milestone: M1
+Amended: 2026-10-10, M5c slice AW: §4's walking ground changes with crossings (§7).
 
 ## Context
 
@@ -92,6 +93,21 @@ Their main points:
 New sections: `land` (patch classes, richness and stocks), `fields`, `plots`, `builds` (specs and
 construction progress), `wear` (tiles), `settle` (settlements). M0 saves load with land computed on
 first load and every other section empty.
+
+### 7. Crossings change the walking ground (M5c slice AW)
+
+- The walking grid stays derived and unsaved, but it is no longer the map's alone: the open
+  crossings' spans are laid over it, each at its deck's walking factor (never slower than the
+  cell is waded). It is built that way when a world is assembled, and built again whenever a
+  crossing opens or gives way: the crossings keep a revision, the grid remembers the one it was
+  laid from, and the simulation lays it again after any step that changed it.
+- Routes, the landmarks that bound their search, and each settlement's travel field are kept
+  against one routing revision, the paths' survey and the crossings' together, so a crossing that
+  opens or falls is planned around at once rather than at the next survey (01-08 §4, §7).
+- A walk under way over a crossing that gives way stops where the walker is; whoever is on it
+  falls. No cached route crosses a fallen crossing.
+- Crossings are records of their own in land, saved (schema 68), each with its spanned water cells
+  in order, its banks, its members and its state.
 
 ## Consequences
 

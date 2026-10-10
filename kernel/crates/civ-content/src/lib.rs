@@ -29,6 +29,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 mod activity;
+mod bridge;
 mod building;
 mod crop;
 mod good;
@@ -48,7 +49,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 64;
+pub const KERNEL_CONTENT_API: u32 = 65;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -413,6 +414,7 @@ struct Parsed {
     norms: Vec<Def<norm::NormFile>>,
     values: Vec<Def<value::ValueFile>>,
     ideologies: Vec<Def<ideology::IdeologyFile>>,
+    bridges: Vec<Def<bridge::BridgeFile>>,
     /// Files declaring `kind = "people"`, parsed or not (so a broken profile is not also
     /// reported as a missing one).
     people_files: usize,
@@ -1042,6 +1044,39 @@ fn resolve(
     ideologies.sort_by(|a, b| a.id.cmp(&b.id));
     let mut norms: Vec<_> = parsed.norms.iter().map(|d| d.file.def()).collect();
     norms.sort_by(|a, b| a.id.cmp(&b.id));
+    // Bridge systems (M5c slice AW): their members' good must have timber strengths.
+    let mut bridges = Vec::new();
+    for d in &parsed.bridges {
+        let good = good_index(&d.file.good);
+        match good {
+            None => missing(c, parsed, &d.rel, "good", &d.file.good),
+            Some(g) if goods[g].timber.is_none() => c.push(
+                "E3001",
+                &d.rel,
+                None,
+                format!(
+                    "`good` must name a good with timber strengths; `{}` has none",
+                    d.file.good
+                ),
+            ),
+            Some(_) => {}
+        }
+        let technique = if d.file.technique.is_empty() {
+            Some(None)
+        } else {
+            let t = technique_index(&d.file.technique);
+            if t.is_none() {
+                missing(c, parsed, &d.rel, "technique", &d.file.technique);
+            }
+            t.map(Some)
+        };
+        if let (Some(g), Some(t)) = (good, technique)
+            && goods[g].timber.is_some()
+        {
+            bridges.push(d.file.def(g, t));
+        }
+    }
+    bridges.sort_by(|a, b| a.id.cmp(&b.id));
     let catalog = Catalog {
         activities,
         goods,
@@ -1055,6 +1090,7 @@ fn resolve(
         norms,
         values,
         ideologies,
+        bridges,
     };
     knowledge_problems(c, parsed, &catalog, land.as_ref());
     (people, land, catalog)
@@ -1250,6 +1286,7 @@ fn parsed_tables(parsed: &Parsed) -> Vec<(&str, &toml::Table)> {
     all.extend(tables(&parsed.norms, |f| &f.id));
     all.extend(tables(&parsed.values, |f| &f.id));
     all.extend(tables(&parsed.ideologies, |f| &f.id));
+    all.extend(tables(&parsed.bridges, |f| &f.id));
     all
 }
 
@@ -1319,7 +1356,7 @@ fn range_problems(c: &mut Collector, rel: &str, problems: Vec<String>) {
     }
 }
 
-const KINDS: [&str; 16] = [
+const KINDS: [&str; 17] = [
     worldgen::KIND,
     people::KIND,
     land::KIND,
@@ -1336,6 +1373,7 @@ const KINDS: [&str; 16] = [
     norm::KIND,
     value::KIND,
     ideology::KIND,
+    bridge::KIND,
 ];
 
 fn compile_file(
@@ -1497,6 +1535,16 @@ fn compile_file(
             if check_identity(c, pack, rel, &file.id, value::ID_KIND, seen_ids) {
                 range_problems(c, rel, file.problems());
                 parsed.values.push(def(rel, pack, file, table));
+            }
+        }
+        bridge::KIND => {
+            let Some(file) = parse::<bridge::BridgeFile>(c, rel, source) else {
+                return;
+            };
+            debug_assert_eq!(file.kind, bridge::KIND, "dispatched on kind");
+            if check_identity(c, pack, rel, &file.id, bridge::ID_KIND, seen_ids) {
+                range_problems(c, rel, file.problems());
+                parsed.bridges.push(def(rel, pack, file, table));
             }
         }
         norm::KIND => {

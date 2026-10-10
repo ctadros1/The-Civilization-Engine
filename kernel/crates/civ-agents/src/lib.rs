@@ -26,6 +26,7 @@
 #![forbid(unsafe_code)]
 
 pub mod agreements;
+pub mod bridge;
 pub mod build;
 pub mod caution;
 pub mod condition;
@@ -69,8 +70,8 @@ pub use found::{
     found_bands, send_agitator, send_wave, spawn_families, spawn_family,
 };
 pub use history::{
-    AgreementStep, Cause, ChronicleEvent, ChronicleKind, CoalitionStep, Moved, Origin,
-    PersonRecord, Reason, Receipt, ResidenceWhy, Scored, Span, Stay, Term, Union,
+    AgreementStep, Cause, ChronicleEvent, ChronicleKind, CoalitionStep, CrossingStep, Moved,
+    Origin, PersonRecord, Reason, Receipt, ResidenceWhy, Scored, Span, Stay, Term, Union,
 };
 pub use ledger::Channel;
 pub use needs::Sex;

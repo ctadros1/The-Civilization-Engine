@@ -1,6 +1,6 @@
 # Institutions, Law and Social Change
 
-This guide describes the M4 systems in the integrated `main` tree at [`eb00281`](https://github.com/ctadros1/The-Civilization-Engine/commit/eb00281). The design is governed by [ADR-0013](../../decisions/0013-polity-offices-laws.md) through [ADR-0017](../../decisions/0017-factions-episodes-regime-change.md). The detailed implementation and run record is in [PROJECT_PLAN.md §9](../../PROJECT_PLAN.md#9-decisions-log).
+This guide describes the M4 systems in the integrated `main` tree as of 2026-10-10. The design is governed by [ADR-0013](../../decisions/0013-polity-offices-laws.md) through [ADR-0017](../../decisions/0017-factions-episodes-regime-change.md). M5's inter-polity claims, agreements and public works are covered in [Relations and Public Works](relations-and-public-works.md). The detailed implementation and run record is in [PROJECT_PLAN.md §9](../../PROJECT_PLAN.md#9-decisions-log).
 
 ## Ownership and core rule
 

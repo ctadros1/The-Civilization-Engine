@@ -1,6 +1,6 @@
 # Development and Evidence Practice
 
-This describes the integrated repository at `main` commit [`eb00281`](https://github.com/ctadros1/The-Civilization-Engine/commit/eb00281). TCE is built as an interactive product, not as a preregistered academic study. Checks catch software defects, preserve accounting and save invariants, and reveal whether selected plausible conditions can occur. A passing test does not prove that simulated history is realistic.
+This describes the integrated `main` tree as of 2026-10-10. TCE is built as an interactive product, not as a preregistered academic study. Checks catch software defects, preserve accounting and save invariants, and reveal whether selected plausible conditions can occur. A passing test does not prove that simulated history is realistic.
 
 ## Working in vertical slices
 
@@ -37,9 +37,10 @@ Software properties and behavioral observations are different evidence. Exact co
 
 - M3c implements daily weather, field water, nitrogen pools, harvest history, household field planning and Accelerated-mode approximations. Its dashboard run passed four rows and left goods inequality amber; see the per-run record in [`PROJECT_PLAN.md` §9](../../PROJECT_PLAN.md#9-decisions-log).
 - M4's institutions, order and political-change systems are implemented. In the latest recorded fifty-year dashboard after M4c, one world failed the food-price row. This does not imply the other rows or every run will behave the same way; the plan records counts and context.
-- M5a implements multiple settlements, local contact, visits, marriage, movement, migration waves and coalition founding. Its demo recorded balanced annual population accounts and 4.3 moves per 100 residents per year. The measured year for 3,000 people in three settlements was 1,179 seconds (19.6 minutes) at Max, above the ten-minute design budget.
+- M5a implements multiple settlements, local contact, visits, marriage, movement, migration waves and coalition founding. The original demo's movement rate is not a current target: after river-routing corrections, its thirty-year rerun recorded 63 household moves, including 48 from a temporary settlement founded by the migration wave, and no coalition founding. Annual resident accounts balanced. The measured year for 3,000 people in three settlements was 1,179 seconds (19.6 minutes) at Max, above the ten-minute design budget.
 - Gate B's current fixtures contain one settlement. It does not yet grade movement between settlements, so M5a's move outcomes are not covered by that consistency gate.
-- M5b (trade and diffusion) is designed in ADR-0019 and plan §7, but its price-report, trade and diffusion behaviors have not yet landed. A design or test fixture is not an implemented feature.
+- M5b implements household price reports, cross-settlement purchases, fetching goods for resale, price-convergence records and contact-based technique/style diffusion. An earlier thirty-year comparison recorded 20 and 70 purchases, with no pair reaching the row's 30-purchase threshold and price gaps within the measured carrying-cost band. The corrected-routing rerun found that the two original roof-style demo villages could not meet; in the seed-9 run, trade instead connected Willowford with settlements its people founded. The earlier style result does not establish diffusion between the original neighboring villages under current routing.
+- M5c implements claims, agreements ratified through each polity's own law, carried payments, and household and village log crossings. No agreement reached a gathering in the recorded thirty-year lived demo; a test world demonstrates a failed ratification. No household's own wades justified a standalone log crossing in the measured worlds, though selected village runs built shared crossings.
 - The ten-year and fifty-year runs use selected worlds. Their passing checks do not show that every plausible world survives, every parameter is calibrated, or a model reproduces real history.
 
 Older findings and the exact changes that produced them are in the chronological [development history](development-history.md); milestone-level values and run details are in the [project plan](../../PROJECT_PLAN.md). Do not repeat a metric without its seed, preset, commit, run count and command.
@@ -47,7 +48,7 @@ Older findings and the exact changes that produced them are in the chronological
 ## Scope boundaries
 
 - Modern industry, contemporary cities, Unreal rendering and modern public services are future scope.
-- M5b trade and technology/style diffusion, and M5c diplomacy and public works, are not implemented at this baseline.
+- M5 is implemented, but the recorded demos do not establish that trade, diffusion, agreements or bridges will emerge in every world. Per-polity currency, merchant firms, war, enclosure and broader bridge systems remain future work.
 - The current economic and political vocabularies are intentionally narrow. They do not model modern firms, unlimited credit, general-purpose currency minting, elections, state bureaucracies or war.
 - Terrain, ecology and farming are stylized. Emmer is the main crop, livestock and broader crop cycles are absent, and many stock rates are tuning values.
 - Simulation replay determinism is not a goal. World generation is reproducible from the seed and inputs on one build; snapshots preserve state and save continuation is checked separately.
@@ -67,4 +68,4 @@ Add an entry for a meaningful landed slice or design correction, not a daily tra
 **Open:** limitations, tuning values and follow-up work.
 ```
 
-Keep metrics tied to their run conditions. Preserve failures, null outcomes and time-boxed nudges; never promote a test-only fixture to a claim about ordinary worlds.
+Keep metrics tied to their run conditions. Preserve failures, null outcomes and time-boxed nudges; never promote a test-only fixture to a claim about ordinary worlds. The current M5c failed-ratification example is a test world, not a lived-world result.

@@ -7,15 +7,15 @@ fertility, and the Detailed/Accelerated time modes. **M2's kernel library and C 
 implemented; its Unreal client remains future work.** **M4, Councils, law and crime, is
 implemented** in M4a (standing and the first council), M4b (crime and order) and M4c (factions,
 unrest and political change). The last fifty-year dashboard after M4c failed the food-price row
-in one world; see §9. **M5, Neighbors, is in progress:** M5a (several settlements, movement and
+in one world; see §9. **M5, Neighbors, is implemented:** M5a (several settlements, movement and
 founding) is implemented; its 3,000-person, three-settlement run takes about 19.6 minutes at Max,
 above its ten-minute design budget, and Gate B does not yet grade cross-settlement moves. M5b
-(trade and diffusion) is implemented: price reports, trade, resale and contact-based diffusion
-are in the kernel and observer. Its earlier roof-style demonstration no longer qualifies after a
-river-walking fix left its two villages disconnected, so a new connected-world demonstration is
-still required. M5c (relations and works) is in progress: claims, agreements, payments and log
-crossings are implemented; enclosures and a demonstration of agreement ratification remain. See
-§7 for scope and §9 for implementation evidence and known limits.
+adds household price reports, cross-settlement trade and resale, and contact-based diffusion.
+M5c adds claims, agreements ratified by each polity's own law, carried payments, and household
+and village log crossings. The earlier roof-style demo no longer qualifies after corrected river
+routing separated its villages. A failed agreement ratification is covered by a test world, not a
+lived demo. Enclosures moved to M6, where force gives them a purpose. See §7 for scope and §9 for
+implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
 (i9 13th gen, RTX 4070 Ti with 12 GB VRAM, 64 GB DDR5).

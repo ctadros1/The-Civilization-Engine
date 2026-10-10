@@ -1,6 +1,6 @@
 # Persistence and Interfaces
 
-This describes the integrated repository at `main` commit [`eb00281`](https://github.com/ctadros1/The-Civilization-Engine/commit/eb00281). Current versions are TCE wire **1.53**, save schema **55**, and content API **55**. They are the versions in this source snapshot and can advance on later commits.
+This describes the integrated `main` tree as of 2026-10-10. Current versions are TCE wire **1.60**, save schema **71**, and content API **68**. They can advance on later commits; the schema constants and content pack remain authoritative.
 
 ## Content loading
 
@@ -25,7 +25,7 @@ Wire changes are append-only within a major version: append fields and enum valu
 
 `commons-persist` stores named sections in a versioned, checksummed container. It records engine and schema identity, world and snapshot IDs, lengths and section checksums, and applies configured compression. Readers enforce limits and reject corrupt or incompatible data.
 
-`civ-sim` maps authoritative state into sections for the clock and scheduler, terrain and land, households and people, buildings, economy, knowledge, institutions, social memory, settlements and residence histories. The sections expand as new facts become authoritative. Derived indexes, market summaries and annual settlement accounts are reconstructed from their source records rather than persisted as competing truth.
+`civ-sim` maps authoritative state into sections for the clock and scheduler, terrain and land, households and people, buildings, economy, knowledge, institutions, social memory, settlements and residence histories. M5 adds household price reports, cross-settlement trade and convergence records, remembered buildings and provenance, polity claims and views, agreements and payments, and crossings and work contributions. The sections expand as new facts become authoritative. Derived indexes, market summaries, relationship labels and annual settlement accounts are reconstructed from their source records rather than persisted as competing truth.
 
 Supported older saves use explicit migrations. Save-schema meaning changes require a version bump and migration. The policy is **refusal, never repair**: if identity, checksum, version or invariants fail, the loader reports the problem rather than guessing at intent. Save → load → save tests compare raw section digests.
 
@@ -48,6 +48,6 @@ Features with persisted observer state usually cross these layers:
 5. `web/src/net/messages.ts` decodes messages; panels render state and send commands.
 6. Content additions go through `civ-content`; generated schema artifacts are regenerated from the source schema.
 
-M4 illustrates the path: `civ-agents` owns polities, laws and claims, save sections preserve their durable histories, `frames/government.rs` and `frames/order.rs` expose kernel-authored views, and the observer's Government and Takings panels render them. M5a extends the same pattern with settlement identities, residence histories, places and movement; its annual population accounts are derived from those histories.
+M4 illustrates the path: `civ-agents` owns polities, laws and claims, save sections preserve their durable histories, `frames/government.rs` and `frames/order.rs` expose kernel-authored views, and the observer's Government and Takings panels render them. M5 extends the same pattern across settlements: `frames/markets.rs` presents reported prices, trades and convergence; government and relations frames present polities' separate beliefs and agreement histories; and crossing frames expose construction and condition. Settlement population accounts remain derived from residence histories.
 
 See [AGENTS.md](../../AGENTS.md) for the complete schema and save change checklist, and [architecture and data flow](architecture-and-data-flow.md) for the process boundaries.

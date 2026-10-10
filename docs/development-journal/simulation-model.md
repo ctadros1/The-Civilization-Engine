@@ -1,6 +1,6 @@
 # Simulation Model
 
-This page describes the integrated repository at `main` commit [`eb00281`](https://github.com/ctadros1/The-Civilization-Engine/commit/eb00281). TCE now simulates multiple early farming settlements and their institutions. The broader historical and modern scope is planned, not already simulated.
+This page describes the integrated `main` tree as of 2026-10-10. TCE simulates multiple early farming settlements and their institutions, trade, diffusion and inter-polity works. The broader historical and modern scope is planned, not already simulated.
 
 ## Time and simulation work
 
@@ -83,7 +83,7 @@ Construction consumes materials and labor over time. Components receive an initi
 
 Households also build clay ovens and make storage pots, which keep grain and flour under a roof as a raised floor does. Each household builds to its own taste in roof pitch, wall height to the eaves and overhang, drawn from its band's way of building and held to what each program allows. Once a year its taste moves toward the new buildings its village admires, for their owner's standing in goods and their builders' craft, and its next building records the one it followed. Cob walls wait for a mass-wall grammar.
 
-At this baseline M0–M4 and M5a are implemented; M5b has a design but its trade and diffusion behavior is not implemented. M2's kernel library and C interface are implemented, but the Unreal client is not. See the README and plan for the current status and known limits.
+M0–M5 are implemented. M2's kernel library and C interface are implemented, but the Unreal client is not. See the README and plan for the current status and known limits.
 
 ## Institutions, law and social change
 
@@ -109,16 +109,18 @@ Households learn places by contact: they may begin aware of a neighboring group,
 
 At a yearly review, a household compares staying with known destinations using its ties and kin, food it has seen, grievances, expected harvest given up and the effort of starting over. A move must remain the preferred plan across two reviews. A household that gives up in a food shortage goes to kin elsewhere when it can; exile uses the same kin destination rule. A migration-wave command sends 5–50 related households in from the nearest map edge with a chosen amount of food. They become ordinary households once in the world. Coalition founding is also a household project: a viable group gathers kin and trusted households, waits for its plan to persist, then leaves with enough food and seed for its first harvest. See [settlements and exchange](settlements-and-exchange.md) for the full lifecycle and accounting boundaries.
 
-## Designed, not yet implemented: M5b trade and diffusion
+## Inter-settlement exchange and inter-polity works
 
-M5b has a design in [ADR-0019](../../decisions/0019-exchange-between-settlements.md) and the [trade brief](../briefs/m5-trade.md). It proposes trade reached through household price reports, with a buying trip to the seller's door, offers settled at the seller's current terms, and trade tallied at each settlement. It also proposes diffusion of techniques and building style through visits, work observed and goods exchanged. These are planned slices, not behaviors of the current build. Per-polity money waits for content that can mint it. The [settlements and exchange guide](settlements-and-exchange.md#m5b-design-boundary) describes the intended boundary without presenting it as implemented.
+Household price reports can lead to buying trips to another settlement, where current seller terms decide the exchange. Households may also fetch goods to resell at home. Reports and trades are local records, not a global market feed; realized prices are not forced to converge. Knowledge travels through work observed, goods handled and people moving, while building taste can respond to buildings seen elsewhere. Per-polity currency and merchant firms that run trade trips are not implemented.
+
+Polities can claim wild places through law, form agreements that require ratification by both local customs, and carry real goods as gifts or recurring transfers. Labels such as *wary* or *tributary* are derived descriptions and do not cause decisions. Household and polity choices can build log crossings from measured use; the observer only presents the resulting state. Enclosures moved to M6. See [settlements and exchange](settlements-and-exchange.md) and [relations and public works](relations-and-public-works.md) for details.
 
 ## What the model does not claim
 
 - Modern governments, industrial economies, large cities and modern infrastructure are not implemented in this baseline.
 - Realistic behavior is an aim checked against selected stylized facts, not a proof that the model reproduces history.
 - Smoke tests cover chosen seeds and rules. Passing them does not establish that all plausible worlds survive or that every parameter is calibrated.
-- Cross-settlement visits, marriage, migration and founding exist, but the model has no unlimited outside world, diplomacy, tribute, bridges or inter-settlement trade and diffusion yet. M5a's measured performance budget is not met, and Gate B does not grade cross-settlement moves.
+- Cross-settlement visits, marriage, migration, founding, trade, diffusion, agreements, carried payments and log crossings exist. There is no unlimited outside world, war, enclosure, per-polity currency or broader bridge kit. M5a's measured performance budget is not met, and Gate B does not grade cross-settlement moves.
 - Farming centers on emmer and a spring crop cycle. Daily weather and field nitrogen are implemented; crop range and livestock remain narrow. The long-run dashboard has a recorded food-price failure in one M4 run. See §9 for exact runs and limits; a green smoke or dashboard row does not generalize to every seed.
 
 See [Development and Evidence Practice](development-and-evidence.md) for how the project records these boundaries.

@@ -1,6 +1,6 @@
 # Architecture and Data Flow
 
-This guide follows the integrated repository at `main` commit [`eb00281`](https://github.com/ctadros1/The-Civilization-Engine/commit/eb00281). The kernel owns simulation state and decisions. The web observer renders that state and forwards user commands; it does not determine outcomes.
+This guide follows the integrated `main` tree as of 2026-10-10. The kernel owns simulation state and decisions. The web observer renders that state and forwards user commands; it does not determine outcomes.
 
 ## Runtime shape
 
@@ -35,7 +35,7 @@ The shell starts `civ-host`, which loads and validates content, creates or resto
 
 `commons-wire` defines the host-neutral frame envelope. `commons-persist` defines the checksummed snapshot container. Domain crates do not depend on generated FlatBuffers types: conversion happens at `civ-sim` and `civ-host` boundaries. This keeps the Rust model usable without the web client or Unreal.
 
-The module organization follows state ownership. For example, `civ-agents/src/polity.rs` and `population/polity.rs` own institutional state and its update path; `crime.rs`, `population/crime.rs`, `population/cases.rs` and `population/watch.rs` own taking, evidence, cases, obligations and enforcement; `population/places.rs`, `moving.rs` and `founding.rs` own settlement knowledge and movement. `civ-sim/src/frames/` translates these facts into observer words and tables.
+The module organization follows state ownership. For example, `civ-agents/src/polity.rs` and `population/polity.rs` own institutional state and its update path; `crime.rs`, `population/crime.rs`, `population/cases.rs` and `population/watch.rs` own taking, evidence, cases, obligations and enforcement; `population/places.rs`, `moving.rs` and `founding.rs` own settlement knowledge and movement; and `agreements.rs`, `views.rs`, `uses.rs` and `bridge.rs` own inter-polity views, claims, agreements and crossings. `civ-sim/src/frames/` translates these facts into observer words and tables.
 
 ## Content-to-runtime boundary
 
@@ -52,6 +52,8 @@ The web app starts from `web/src/main.ts`, keeps connection and message handling
 The stream distinguishes replaceable snapshots from ordered records. A slow client may skip an obsolete snapshot and take the latest one. Events, command replies and errors retain order and correlation. A world epoch prevents late messages from an old world being applied after a create or load. Generated TypeScript is isolated behind the message adapter.
 
 The frame is a view, not the authority. It may include derived settlement labels, standing summaries, observed market prices or weather panels; the kernel rebuilds derived facts as needed and accepts only explicit commands back from the observer.
+
+M5 extends that flow across settlements. Household reports guide market trips, but sellers' current terms settle each trade. Inter-polity agreements become effective only after both settlements ratify them under their own law and hear the decision. Public crossings are kernel records built through household choices or polity law; the observer displays them and forwards commands without deciding whether a crossing or agreement is worthwhile.
 
 ## Save and resume flow
 

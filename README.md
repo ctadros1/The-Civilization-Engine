@@ -27,8 +27,8 @@ Its guiding rule is **the engine authors the vocabulary, never the plot**. Conte
 | M3a–M3c · Economy, knowledge, buildings, weather and soils | Implemented |
 | M4 · Councils, law, crime and political change | Implemented. The latest fifty-year dashboard still has a failed food-price row in one world; see the project plan for the result and limits. |
 | M5a · Neighboring settlements | Implemented: contact, visits, marriage, migration and coalition founding. The 3,000-person, three-settlement run takes about 19.6 minutes at Max; the ten-minute design budget is not met. |
-| M5b · Trade and diffusion | Implemented: reported prices, cross-settlement buying and resale, and contact-based diffusion. The earlier roof-style demo no longer qualifies after the corrected river-walking rule isolated its villages. |
-| M5c · Inter-polity relations and public works | Implemented: claims, negotiated leave, payments and log crossings. A ratification failure is covered by a test world; enclosures moved to M6, where force gives them a purpose. |
+| M5b · Trade and diffusion | Implemented: households trade using dated reports, fetch goods to resell, and learn techniques and building styles through contact. The earlier roof-style demo no longer qualifies after corrected river routing separated its villages. |
+| M5c · Inter-polity relations and public works | Implemented: claims, agreements ratified by each settlement's own law, carried payments, and household and village log crossings. A failed ratification appears in a test world, not a lived demo; enclosures moved to M6, where force gives them a purpose. |
 
 The web observer currently presents an early farming world. Cities and modern civilization are long-term scope, not features of the current build or planned v1. Smoke runs and dashboards check selected behaviors and engineering invariants; they do not prove historical realism.
 
@@ -52,8 +52,8 @@ These generated previews illustrate the project's longer-term historical and mod
 - **Simulation kernel:** Rust workspace organized around world generation, changing land, people, authored content, simulation composition, hosting and a C interface.
 - **Emergent systems:** event-scheduled daily lives and calendar cadences; goods move through an accounting ledger; building grammars expand saved designs; institutions emerge through proposals, deliberation, law and collective action.
 - **Multiple settlements:** settlement identity and residence histories are explicit. Households learn places by contact and choose whether to visit, move or found elsewhere.
-- **Content and boundaries:** strict TOML packs feed the kernel. The web observer uses a localhost WebSocket and versioned FlatBuffers messages; it displays kernel state and forwards commands.
-- **Persistence:** checksummed, versioned snapshots with explicit migrations. World generation is reproducible for a seed on one build; simulation replay is not a goal.
+- **Content and boundaries:** strict TOML packs (content API 68) feed the kernel. The web observer uses a localhost WebSocket and versioned FlatBuffers messages (TCE wire 1.60); it displays kernel state and forwards commands.
+- **Persistence:** checksummed, versioned snapshots (schema 71) with explicit migrations. World generation is reproducible for a seed on one build; simulation replay is not a goal.
 
 ## Run it
 
@@ -71,6 +71,7 @@ On Windows, run `tools\run.ps1` in PowerShell. The observer opens at <http://127
 - [Development journal and technical guide](docs/development-journal/README.md)
 - [Institutions, law and social change](docs/development-journal/institutions-and-order.md)
 - [Settlements, movement and trade](docs/development-journal/settlements-and-exchange.md)
+- [Inter-polity relations and public works](docs/development-journal/relations-and-public-works.md)
 - [Architecture decision records](decisions/README.md)
 - [Research index](research/README.md)
 - [Content authoring guide](content/README.md)

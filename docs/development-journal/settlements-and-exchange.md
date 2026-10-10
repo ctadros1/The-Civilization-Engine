@@ -1,6 +1,6 @@
 # Settlements, Movement and Exchange
 
-This guide describes implemented M5a behavior and the designed-but-not-implemented M5b boundary in public `main` at [`eb00281`](https://github.com/ctadros1/The-Civilization-Engine/commit/eb00281). [ADR-0018](../../decisions/0018-settlements-residence-movement.md) governs settlement identity and movement. [ADR-0019](../../decisions/0019-exchange-between-settlements.md) specifies the next trade milestone. Run measurements and known limits live in [PROJECT_PLAN.md §9](../../PROJECT_PLAN.md#9-decisions-log).
+This guide describes M5a settlement behavior and the implemented M5b exchange and diffusion systems in the integrated `main` tree as of 2026-10-10. [ADR-0018](../../decisions/0018-settlements-residence-movement.md) governs settlement identity and movement; [ADR-0019](../../decisions/0019-exchange-between-settlements.md) governs exchange. Inter-polity relations and works are documented separately in [Relations and Public Works](relations-and-public-works.md). Run measurements and known limits live in [PROJECT_PLAN.md §9](../../PROJECT_PLAN.md#9-decisions-log).
 
 ## Settlement identity and population accounts
 
@@ -43,36 +43,36 @@ The multi-settlement world shares exact-detail simulation. M5a profiling found w
 
 The measured full year for 3,000 people in three settlements was 1,179 seconds (19.6 minutes) at Max, versus 273 seconds for one settlement of 1,000. The design budget is ten minutes and remains unmet. An 8,000-person, three-group world was measured for thirty days, not established as a performance target. Gate B's current consistency fixtures contain one settlement, so they do not grade cross-settlement moves.
 
-The M5a demonstration recorded annual resident accounts balancing and an average 4.3 moves between settlements per 100 residents per year for that run. Its migration wave's households later moved to a neighbor, and one coalition founded a settlement that survived a famine in that run. The result is evidence for those interactions in a selected demo, not a target rate or an expectation for every world. The journal records the demo's eventual departures and founding outcome as well.
+Annual resident accounts are checked against residence histories. In the post-routing thirty-year rerun of the M5a demo, 120 founders became 249 people; the accounts balanced, and the run recorded 63 household moves, including 48 from a temporary settlement founded by the migration wave. That settlement was abandoned within the year, and no coalition founded a settlement in this rerun. Earlier runs had different outcomes, so movement rates and founding are contingent observations, not targets. See [the plan's decision log](../../PROJECT_PLAN.md#9-decisions-log) for exact conditions.
 
-## M5b design boundary
+## Trade by household reports
 
-M5b is designed in [ADR-0019](../../decisions/0019-exchange-between-settlements.md), the [trade brief](../briefs/m5-trade.md) and the [diffusion brief](../briefs/m5-diffusion.md). Its slices are a design contract; at this baseline, the described behavior is not implemented.
+Households do not read another settlement's live market. A report records what a household believes a seller offers, in which payment goods, how much is available, when it learned the terms and whether a member saw them or a companion passed them along. Reports spread through ordinary contact and lose weight with age. A household can choose a reported offer only if the settlement is known and reachable within the authored `fetch` activity's walk and daylight limits.
 
 ### AP: buying by dated reports
 
-A household would buy from a neighbor only when it has a current-enough price report, obtained by a member buying at that settlement or through a hearth contact and passed to others with ordinary routine news. Reports are household beliefs with an age; they are not a global market feed. A `fetch` activity would consider known settlements within a day's walk, obey daylight and travel constraints, and take the buyer to the seller. The seller's actual current offer would decide the trade at the door. If a report had gone stale, the failed attempt and reason would be recorded. Each trade would also record the buyer's settlement so it can be tallied locally.
+One member travels to the seller. The seller's current offer and the buyer's holdings decide the exchange at the door, so an old report may lead to a recorded failed trip. Goods and payment move through the ordinary ledger at that point; goods are not modeled as a separate in-transit stock. Each trade is booked in the seller's market and records the buyer's settlement. The inspector exposes household reports, while the market panel summarizes outside buyers and recent exchange between settlements.
 
-### AQ: reselling and price convergence
+## Resale and price convergence
 
-Households would be able to weigh buying elsewhere and reselling at home against the work and risk of the trip; expected quantities are bounded by the depth of the home market. Repeated profitable activity could be handled through a household workshop. The household's ask would account for both its own cost and replacement cost known through reports. Monthly records by settlement pair would support a price-convergence dashboard row. A caravan would be an observer grouping of trips sharing route and day, not an autonomous group or a new market actor.
+At a weekly review, a household can plan an errand to fetch a good it can spare and expects to sell at home. Quantity is bounded by reported stock, available means, carrying capacity and estimated home-market demand. The plan competes with other household activities; it is not an autonomous merchant agent. At the destination the household buys at current terms, carries goods home, and offers them through its existing market. Running errands through a firm is not implemented.
 
-The demo is intended to compare the same saved world with cross-settlement purchases enabled and disabled by a host/test harness. The switch is not content vocabulary or a player-facing world rule. It isolates the contribution of trade while leaving each run's ordinary choices intact.
+Households' replacement-cost anchors use their own price reports, payment-good valuations and estimated carrying work. Monthly convergence records compare asks and realized exchange by settlement pair. The dashboard uses a minimum of 30 purchases before grading a pair; it does not force prices toward a target. The observer may group same-day trips sharing a route into a caravan view, but a caravan is not a new actor.
 
-### AR: diffusion through contact
+## Diffusion through contact
 
-Technique and style diffusion would follow contact: a person can learn what they see or hear about while visiting, watching work or handling goods made with a technique. Provenance records which settlement a technique or building style came from; followed building designs can cross settlements. Household taste remains the chooser, while the founding way, accumulated taste and current building stock are tracked per settlement. No technology or roof style is forced to spread.
+People can learn a technique by watching relevant work or buying a good that only that technique makes. The knowledge record names the settlement from which it came, including when knowledge arrives with a person who moves. Households can also see finished buildings during contact; what they admire can influence later building taste, and a building records the one it followed. Provenance can therefore be traced across settlement boundaries. Taste and adoption remain household choices, not a command to copy.
 
-The planned neighbors row measures whether the designed contact paths produce cross-settlement diffusion; it is not a required target for every seed. If behavior remains absent after the planned time-box of tuning, the plan requires recording a `NUDGE:` rather than scripting adoption.
+## Evidence and limits
 
-### AS: demo and explicit exclusions
+An earlier M5b comparison recorded 20 and 70 purchases between settlements over thirty years, with neither pair reaching the convergence row's 30-purchase threshold; realized price gaps remained within the measured carrying-cost band. Corrected river routing later separated the original neighboring demo villages. In the seed-9 rerun, they never met, so they did not trade or adopt each other's roof style; the 35 recorded purchases with trade were between Willowford and settlements its people founded. That rerun does not establish trade or diffusion between the original neighboring founders. A connected-world demo remains open, and these observations apply only to their recorded seeds and conditions.
 
-The M5b demo would live the same save with and without the test harness's trade switch, three runs each. It would report realized prices and deviations from the design bands, and separately report style adoption using the diffusion brief's measure. A missing trade or style event is reported rather than manufactured.
+The command `civ-host twin` can compare a saved world lived with cross-settlement buying enabled and with it stopped by a test harness. This is a diagnostic counterfactual, not a player-facing rule. Selected runs are not proof that trade or diffusion will happen in every world.
 
-Per-polity currencies are excluded until the content includes something that can mint money. M5b adds neither diplomacy nor infrastructure; treaties, tribute, bridges and enclosures belong to planned M5c. The source of truth for what has actually landed is the implementation status in [README](../../README.md) and [PROJECT_PLAN.md](../../PROJECT_PLAN.md#7-milestones).
+Per-polity currencies are not implemented because the content has no money-minting mechanism. The current system has no merchant firms that run errands, no goods in transit, and no guarantee of price convergence. See [PROJECT_PLAN.md §7](../../PROJECT_PLAN.md#7-milestones) and its [decision log](../../PROJECT_PLAN.md#9-decisions-log) for implementation details and measured outcomes.
 
 ## Further reading
 
 - [ADR-0018: Settlement identity, residence and movement](../../decisions/0018-settlements-residence-movement.md)
 - [ADR-0019: Trade between settlements](../../decisions/0019-exchange-between-settlements.md)
-- [M5a development history](development-history.md)
+- [M5 development history](development-history.md)

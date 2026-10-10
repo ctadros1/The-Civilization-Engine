@@ -27,6 +27,7 @@ use civ_world::{MapStats, WorldMap};
 use crate::Sim;
 
 pub mod buildings;
+pub mod crossings;
 pub mod deposits;
 pub mod earthworks;
 pub mod fields;

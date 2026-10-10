@@ -137,8 +137,13 @@ weatherRev():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+crossingsRev():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 42);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startSnapshot(builder:flatbuffers.Builder) {
-  builder.startObject(19);
+  builder.startObject(20);
 }
 
 static addWorld(builder:flatbuffers.Builder, worldOffset:flatbuffers.Offset) {
@@ -239,6 +244,10 @@ static addEarthworksRev(builder:flatbuffers.Builder, earthworksRev:bigint) {
 
 static addWeatherRev(builder:flatbuffers.Builder, weatherRev:bigint) {
   builder.addFieldInt64(18, weatherRev, BigInt('0'));
+}
+
+static addCrossingsRev(builder:flatbuffers.Builder, crossingsRev:bigint) {
+  builder.addFieldInt64(19, crossingsRev, BigInt('0'));
 }
 
 static endSnapshot(builder:flatbuffers.Builder):flatbuffers.Offset {

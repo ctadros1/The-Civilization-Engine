@@ -289,6 +289,7 @@ describe("decoders", () => {
       depositsRev: 0,
       earthworksRev: 0,
       weatherRev: 0,
+      crossingsRev: 0,
     });
   });
 
@@ -962,6 +963,67 @@ describe("decoders", () => {
     });
     const query = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getEarthworks()));
     expect(query.bodyType()).toBe(W.QueryBody.GetEarthworks);
+  });
+
+  it("decodes the crossings over water, and builds their query", () => {
+    const b = new flatbuffers.Builder(256);
+    const system = b.createString("Log footbridge");
+    const words = b.createString("Ada's household's log footbridge, being built: 25% of 72 hours of work");
+    const info = W.CrossingInfo.createCrossingInfo(
+      b,
+      61n,
+      system,
+      100,
+      200,
+      116,
+      200,
+      2.5,
+      2,
+      20,
+      0,
+      72,
+      18,
+      0,
+      0,
+      0,
+      0,
+      7n,
+      words,
+      4.5,
+    );
+    const list = W.Crossings.createCrossingsVector(b, [info]);
+    const crossings = W.Crossings.createCrossings(b, 91n, list);
+    const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Crossings, crossings)));
+    expect(body.kind).toBe("crossings");
+    if (body.kind !== "crossings") return;
+    expect(body.crossings).toEqual({
+      rev: 91,
+      crossings: [
+        {
+          id: 61,
+          system: "Log footbridge",
+          ax: 100,
+          ay: 200,
+          bx: 116,
+          by: 200,
+          spanM: 2.5,
+          members: 2,
+          diameterCm: 20,
+          state: 0,
+          labourH: 72,
+          workH: 18,
+          quality: 0,
+          loss: 0,
+          margin: 0,
+          ownerKind: 0,
+          owner: 7,
+          words: "Ada's household's log footbridge, being built: 25% of 72 hours of work",
+          lengthM: 4.5,
+        },
+      ],
+    });
+    const query = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getCrossings()));
+    expect(query.bodyType()).toBe(W.QueryBody.GetCrossings);
   });
 
   it("decodes a raster tile response", () => {

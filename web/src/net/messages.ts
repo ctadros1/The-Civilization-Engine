@@ -345,6 +345,9 @@ export interface Snapshot {
   earthworksRev: number;
   /** Wire 1.24: changes each day lived (0 = no world). Fetch the weather with GetWeather. */
   weatherRev: number;
+  /** Wire 1.60: changes whenever a crossing is begun, worked on, opens, rots or gives way (0 =
+   * none). Fetch the crossings with GetCrossings. */
+  crossingsRev: number;
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -1532,6 +1535,46 @@ export interface EarthworkInfo {
   deposit: number;
 }
 
+/** A crossing over water (wire 1.60, M5c slice AW; ADR-0004 §7, ADR-0009 §9). */
+export interface CrossingInfo {
+  id: number;
+  /** Its bridge system's name: "Log footbridge". */
+  system: string;
+  /** Its banks' centres, metres: where it is drawn from and to. */
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  /** Clear span, metres; its members side by side and their diameter, centimetres. */
+  spanM: number;
+  members: number;
+  diameterCm: number;
+  /** 0 being built, 1 open, 2 failed. */
+  state: number;
+  /** Labour it takes and done so far, hours. */
+  labourH: number;
+  workH: number;
+  /** Its members' quality (0 while being built) and the share of their section rot has taken. */
+  quality: number;
+  loss: number;
+  /** Its margin over one walker now (0 while being built or failed): below 1 it gives way under the
+   * next to step onto it. */
+  margin: number;
+  /** Who it belongs to: 0 a household, 1 a polity; and which. */
+  ownerKind: number;
+  owner: number;
+  /** In the kernel's words: "Ada's household's log footbridge, open since year 2: ...". */
+  words: string;
+  /** Its members' length, metres (the span and a bearing on either bank): drawn this long, centred
+   * between the banks. */
+  lengthM: number;
+}
+
+export interface CrossingsInfo {
+  rev: number;
+  crossings: CrossingInfo[];
+}
+
 export interface EarthworksInfo {
   rev: number;
   works: EarthworkInfo[];
@@ -1560,6 +1603,7 @@ export type ResponseBody =
   | { kind: "knowledge"; knowledge: KnowledgeInfo }
   | { kind: "deposits"; deposits: DepositsInfo }
   | { kind: "earthworks"; earthworks: EarthworksInfo }
+  | { kind: "crossings"; crossings: CrossingsInfo }
   | { kind: "weather"; weather: WeatherReport }
   | { kind: "standing"; standing: StandingInfo }
   | { kind: "government"; government: GovernmentInfo }
@@ -1843,6 +1887,12 @@ export function getEarthworks(): Uint8Array {
   return query(b, W.QueryBody.GetEarthworks, W.GetEarthworks.endGetEarthworks(b));
 }
 
+export function getCrossings(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetCrossings.startGetCrossings(b);
+  return query(b, W.QueryBody.GetCrossings, W.GetCrossings.endGetCrossings(b));
+}
+
 /** The observer lays down a deposit of `good` (a content id) at a point, metres (god tool). */
 export function placeDeposit(x: number, y: number, good: string, radiusM: number, exposed: boolean): Uint8Array {
   const b = new flatbuffers.Builder(64);
@@ -2096,6 +2146,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     depositsRev: Number(s.depositsRev()),
     earthworksRev: Number(s.earthworksRev()),
     weatherRev: Number(s.weatherRev()),
+    crossingsRev: Number(s.crossingsRev()),
   };
 }
 
@@ -2121,6 +2172,36 @@ function deposits(w: W.Deposits): DepositsInfo {
     });
   }
   return { rev: Number(w.rev()), deposits: list };
+}
+
+function crossings(w: W.Crossings): CrossingsInfo {
+  const list: CrossingInfo[] = [];
+  for (let i = 0; i < w.crossingsLength(); i++) {
+    const c = w.crossings(i);
+    if (!c) continue;
+    list.push({
+      id: Number(c.id()),
+      system: c.system() ?? "",
+      ax: c.ax(),
+      ay: c.ay(),
+      bx: c.bx(),
+      by: c.by(),
+      spanM: c.spanM(),
+      members: c.members(),
+      diameterCm: c.diameterCm(),
+      state: c.state(),
+      labourH: c.labourH(),
+      workH: c.workH(),
+      quality: c.quality(),
+      loss: c.loss(),
+      margin: c.margin(),
+      ownerKind: c.ownerKind(),
+      owner: Number(c.owner()),
+      words: c.words() ?? "",
+      lengthM: c.lengthM(),
+    });
+  }
+  return { rev: Number(w.rev()), crossings: list };
 }
 
 function earthworks(w: W.Earthworks): EarthworksInfo {
@@ -3513,6 +3594,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Earthworks()) as W.Earthworks | null;
       if (!f) break;
       return { kind: "earthworks", earthworks: earthworks(f) };
+    }
+    case W.ResponseBody.Crossings: {
+      const f = r.body(new W.Crossings()) as W.Crossings | null;
+      if (!f) break;
+      return { kind: "crossings", crossings: crossings(f) };
     }
     case W.ResponseBody.WeatherReport: {
       const f = r.body(new W.WeatherReport()) as W.WeatherReport | null;

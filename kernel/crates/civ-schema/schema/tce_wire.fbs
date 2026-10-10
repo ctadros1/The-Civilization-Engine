@@ -364,6 +364,10 @@ table Snapshot {
   // Wire 1.24 (M3c slice U): changes each day lived (0 = no world). Fetch the weather's record
   // with GetWeather when it differs from the revision last fetched.
   weather_rev: ulong (id: 18);
+  // Wire 1.60 (M5c slice AW): changes whenever a crossing is begun, worked on, opens, rots or
+  // gives way (0 = none). Fetch the crossings with GetCrossings when it differs from the revision
+  // last fetched.
+  crossings_rev: ulong (id: 19);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -587,8 +591,10 @@ table GetGovernment {}
 // Wire 1.30 (M4b slice AA, ADR-0015 §7): takings, with what happened and what people believe in
 // separate tables, joined only by an incident's number.
 table GetOrder {}
+// Wire 1.60 (M5c slice AW): every crossing over water.
+table GetCrossings {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder }
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings }
 
 table Query {
   body: QueryBody (id: 1);
@@ -1625,6 +1631,49 @@ table EarthworkInfo {
   deposit: ulong (id: 14);
 }
 
+// A crossing over water (wire 1.60, M5c slice AW; ADR-0004 §7, ADR-0009 §9): where it stands, by
+// what system, how far along it is, and its condition.
+table CrossingInfo {
+  id: ulong (id: 0);
+  // Its bridge system's name: "Log footbridge".
+  system: string (id: 1);
+  // Its banks' centres, metres from the map's north-west corner: where it is drawn from and to.
+  ax: float (id: 2);
+  ay: float (id: 3);
+  bx: float (id: 4);
+  by: float (id: 5);
+  // Clear span, metres; its members side by side and their diameter, centimetres.
+  span_m: float (id: 6);
+  members: ubyte (id: 7);
+  diameter_cm: float (id: 8);
+  // 0 being built, 1 open, 2 failed. Append only.
+  state: ubyte (id: 9);
+  // Labour it takes and done so far, hours.
+  labour_h: float (id: 10);
+  work_h: float (id: 11);
+  // Its members' quality (0 while being built) and the share of their section rot has taken.
+  quality: float (id: 12);
+  loss: float (id: 13);
+  // Its margin over one walker now: below 1 it gives way under the next to step onto it (0 while
+  // being built or failed).
+  margin: float (id: 14);
+  // Who it belongs to: 0 a household, 1 a polity; and which.
+  owner_kind: ubyte (id: 15);
+  owner: ulong (id: 16);
+  // In words: "Ada's household's log footbridge, open since year 2: two 20 cm logs over 2.4 m;
+  // rot has taken a tenth of them".
+  words: string (id: 17);
+  // Its members' length, metres: the span and a bearing on either bank. Drawn this long, centred
+  // between the banks' centres.
+  length_m: float (id: 18);
+}
+
+table Crossings {
+  // The snapshot revision this is at.
+  rev: ulong (id: 0);
+  crossings: [CrossingInfo] (id: 1);
+}
+
 // A tile of what earthworks have done to the ground, numbered row by row across the map. Its
 // revision changes whenever one of its cells does: read the elevation under a tile again when its
 // revision differs from the one last seen (the elevation raster serves the ground as changed).
@@ -1946,7 +1995,7 @@ table Order {
   encounters: [string] (id: 15);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order }
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings }
 
 table Response {
   body: ResponseBody (id: 1);

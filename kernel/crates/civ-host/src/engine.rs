@@ -520,6 +520,10 @@ impl Engine {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::earthworks::earthworks_response(&w.sim)),
             },
+            Request::GetCrossings => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::crossings::crossings_response(&w.sim)),
+            },
             Request::GetWeather => match &self.world {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::weather::weather_response(&w.sim)),
@@ -1713,6 +1717,80 @@ mod tests {
             listed
                 .iter()
                 .all(|w| !w.words().unwrap_or_default().is_empty())
+        );
+    }
+
+    #[test]
+    fn the_crossings_are_read_with_their_state_in_words() {
+        use civ_land::crossings::{Crossing, CrossingOwner, CrossingState};
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetCrossings)),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Crossings");
+        let read = |h: &mut Harness| {
+            let Reply::Response(payload) = h.ask(Request::GetCrossings) else {
+                panic!("the crossings are read");
+            };
+            payload
+        };
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let list = response.body_as_crossings().expect("crossings");
+        assert_eq!(list.rev(), 0);
+        assert_eq!(list.crossings().map_or(0, |l| l.len()), 0);
+        // A log being built by the first household, laid by hand.
+        let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+        let household = sim
+            .people()
+            .households
+            .iter()
+            .map(|(_, x)| x.id)
+            .min()
+            .expect("a household");
+        let system = sim
+            .rules()
+            .catalog
+            .bridge_index("core:bridge/log_beam")
+            .expect("a log footbridge") as u16;
+        let bearing_m = sim.rules().catalog.bridges[usize::from(system)].bearing_m as f32;
+        let id = sim.allocate_id_for_tests();
+        let (w, now) = (sim.map().width, sim.now());
+        let cell = 40 * w + 40;
+        sim.land_mut_for_tests().crossings.list.push(Crossing {
+            id,
+            system,
+            banks: [cell - 1, cell + 1],
+            cells: vec![cell],
+            span_m: 3.0,
+            members: 2,
+            diameter_cm: 20.0,
+            quality: 0.0,
+            loss: 0.0,
+            owner: CrossingOwner::Household(household),
+            labour_h: 72.0,
+            skill_h: 0.0,
+            begun: now,
+            state: CrossingState::Building { work_h: 18.0 },
+        });
+        let rev = frames::crossings::crossings_rev(sim);
+        assert_ne!(rev, 0);
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let list = response.body_as_crossings().expect("crossings");
+        assert_eq!(list.rev(), rev);
+        let c = list.crossings().expect("a list").get(0);
+        assert_eq!((c.id(), c.state(), c.owner_kind()), (id.get(), 0, 0));
+        assert_eq!(c.owner(), household.get());
+        assert_eq!(c.system(), Some("Log footbridge"));
+        assert!(c.ax() < c.bx() && (c.ay() - c.by()).abs() < 1e-3);
+        // Its members are the span and a bearing on either bank long.
+        assert!((c.length_m() - (3.0 + 2.0 * bearing_m)).abs() < 1e-4);
+        let words = c.words().unwrap_or_default();
+        assert!(
+            words.contains("log footbridge, being built: 25% of 72 hours"),
+            "{words}"
         );
     }
 

@@ -5,6 +5,7 @@
 import { Ack } from '../../tce/wire/ack.js';
 import { Buildings } from '../../tce/wire/buildings.js';
 import { Chronicle } from '../../tce/wire/chronicle.js';
+import { Crossings } from '../../tce/wire/crossings.js';
 import { Deposits } from '../../tce/wire/deposits.js';
 import { Earthworks } from '../../tce/wire/earthworks.js';
 import { Fields } from '../../tce/wire/fields.js';
@@ -47,13 +48,14 @@ export enum ResponseBody {
   WeatherReport = 18,
   Standing = 19,
   Government = 20,
-  Order = 21
+  Order = 21,
+  Crossings = 22
 }
 
 export function unionToResponseBody(
   type: ResponseBody,
-  accessor: (obj:Ack|Buildings|Chronicle|Deposits|Earthworks|Fields|FirmInfo|Firms|Government|Hydrography|Knowledge|Markets|Order|Paths|PersonInfo|RasterTile|SaveList|Standing|Trips|Wealth|WeatherReport) => Ack|Buildings|Chronicle|Deposits|Earthworks|Fields|FirmInfo|Firms|Government|Hydrography|Knowledge|Markets|Order|Paths|PersonInfo|RasterTile|SaveList|Standing|Trips|Wealth|WeatherReport|null
-): Ack|Buildings|Chronicle|Deposits|Earthworks|Fields|FirmInfo|Firms|Government|Hydrography|Knowledge|Markets|Order|Paths|PersonInfo|RasterTile|SaveList|Standing|Trips|Wealth|WeatherReport|null {
+  accessor: (obj:Ack|Buildings|Chronicle|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|Government|Hydrography|Knowledge|Markets|Order|Paths|PersonInfo|RasterTile|SaveList|Standing|Trips|Wealth|WeatherReport) => Ack|Buildings|Chronicle|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|Government|Hydrography|Knowledge|Markets|Order|Paths|PersonInfo|RasterTile|SaveList|Standing|Trips|Wealth|WeatherReport|null
+): Ack|Buildings|Chronicle|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|Government|Hydrography|Knowledge|Markets|Order|Paths|PersonInfo|RasterTile|SaveList|Standing|Trips|Wealth|WeatherReport|null {
   switch(ResponseBody[type]) {
     case 'NONE': return null; 
     case 'Ack': return accessor(new Ack())! as Ack;
@@ -77,15 +79,16 @@ export function unionToResponseBody(
     case 'Standing': return accessor(new Standing())! as Standing;
     case 'Government': return accessor(new Government())! as Government;
     case 'Order': return accessor(new Order())! as Order;
+    case 'Crossings': return accessor(new Crossings())! as Crossings;
     default: return null;
   }
 }
 
 export function unionListToResponseBody(
   type: ResponseBody, 
-  accessor: (index: number, obj:Ack|Buildings|Chronicle|Deposits|Earthworks|Fields|FirmInfo|Firms|Government|Hydrography|Knowledge|Markets|Order|Paths|PersonInfo|RasterTile|SaveList|Standing|Trips|Wealth|WeatherReport) => Ack|Buildings|Chronicle|Deposits|Earthworks|Fields|FirmInfo|Firms|Government|Hydrography|Knowledge|Markets|Order|Paths|PersonInfo|RasterTile|SaveList|Standing|Trips|Wealth|WeatherReport|null, 
+  accessor: (index: number, obj:Ack|Buildings|Chronicle|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|Government|Hydrography|Knowledge|Markets|Order|Paths|PersonInfo|RasterTile|SaveList|Standing|Trips|Wealth|WeatherReport) => Ack|Buildings|Chronicle|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|Government|Hydrography|Knowledge|Markets|Order|Paths|PersonInfo|RasterTile|SaveList|Standing|Trips|Wealth|WeatherReport|null, 
   index: number
-): Ack|Buildings|Chronicle|Deposits|Earthworks|Fields|FirmInfo|Firms|Government|Hydrography|Knowledge|Markets|Order|Paths|PersonInfo|RasterTile|SaveList|Standing|Trips|Wealth|WeatherReport|null {
+): Ack|Buildings|Chronicle|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|Government|Hydrography|Knowledge|Markets|Order|Paths|PersonInfo|RasterTile|SaveList|Standing|Trips|Wealth|WeatherReport|null {
   switch(ResponseBody[type]) {
     case 'NONE': return null; 
     case 'Ack': return accessor(index, new Ack())! as Ack;
@@ -109,6 +112,7 @@ export function unionListToResponseBody(
     case 'Standing': return accessor(index, new Standing())! as Standing;
     case 'Government': return accessor(index, new Government())! as Government;
     case 'Order': return accessor(index, new Order())! as Order;
+    case 'Crossings': return accessor(index, new Crossings())! as Crossings;
     default: return null;
   }
 }

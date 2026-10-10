@@ -79,6 +79,7 @@ const client = new HostClient(socketUrl(), {
     void syncOrder();
     void syncDeposits();
     void syncEarthworks();
+    void syncCrossings();
     void refreshPerson(false);
   },
   events: (items) => store.update({ events: mergeEvents(store.state.events, items) }),
@@ -260,6 +261,36 @@ async function syncEarthworks(): Promise<void> {
     earthworksBusy = false;
   }
   if (ok) void syncEarthworks();
+}
+
+/** `world:revision` of the crossings on the map. */
+let crossingsKey = "";
+let crossingsBusy = false;
+
+/** Fetches the crossings over water when one was begun, worked on, opened, rotted or gave way. */
+async function syncCrossings(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const key = world && s.crossingsRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.crossingsRev}` : "";
+  if (key === crossingsKey || crossingsBusy) return;
+  if (!key) {
+    crossingsKey = "";
+    map.setCrossings(null);
+    return;
+  }
+  crossingsBusy = true;
+  let ok = false;
+  try {
+    const info = await client.crossings();
+    crossingsKey = key;
+    map.setCrossings(info);
+    ok = true;
+  } catch (e) {
+    console.warn(`tce: the crossings could not be read: ${String(e)}`);
+  } finally {
+    crossingsBusy = false;
+  }
+  if (ok) void syncCrossings();
 }
 
 /** `world:revision` of the paths on the map. */
@@ -850,9 +881,10 @@ map.onPointer = (info: PointerInfo | null) => {
   const building = info.building ? ` · ${buildingWords(info.building)}` : "";
   const deposit = info.deposit ? ` · ${depositWords(info.deposit, store.state.welcome?.goods ?? [])}` : "";
   const earthwork = info.earthwork ? ` · ${info.earthwork.words}` : "";
+  const crossing = info.crossing ? ` · ${info.crossing.words}` : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${path}${field}${building}${earthwork}${deposit}`;
+    `${height} · ${info.water ?? ""}${crossing}${path}${field}${building}${earthwork}${deposit}`;
 };
 
 const scaleBar = byId("scalebar-bar");
@@ -1059,6 +1091,7 @@ const hooks = {
       knowledgeRev: s.snapshot?.knowledgeRev ?? 0,
       depositsRev: s.snapshot?.depositsRev ?? 0,
       earthworksRev: s.snapshot?.earthworksRev ?? 0,
+      crossingsRev: s.snapshot?.crossingsRev ?? 0,
       weatherRev: s.snapshot?.weatherRev ?? 0,
       weather: s.weather
         ? {

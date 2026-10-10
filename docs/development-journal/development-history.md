@@ -1066,6 +1066,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** AW step three: a crossing the village builds together, and the observer's view of crossings.
 
+## 2026-10-10 — M5c slice AW, step three, first part: crossings in the observer
+
+**Goal:** show crossings, which only the chronicle mentioned, so a crossing being built, open, rotting or fallen can be watched.
+
+**What changed:** wire 1.60. The snapshot carries a crossings revision and `GetCrossings` lists each crossing with its state, owner, members, condition and margin, and the kernel's words for it. The map draws each one's members from bank to bank, fainter while being built, greying with rot, dark once it gave way, and the pointer readout names the one under it.
+
+**Evidence:** a host test of the list and its words for a log laid by hand; web unit tests of the decoder, the drawing and the pointer's hit test; the full suite, clippy, the web build and unit tests, and the observer and earthworks e2e.
+
+**Open:** AW step three's second part, a crossing the village builds together.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

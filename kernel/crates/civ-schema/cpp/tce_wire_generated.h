@@ -191,6 +191,9 @@ struct GetGovernmentBuilder;
 struct GetOrder;
 struct GetOrderBuilder;
 
+struct GetCrossings;
+struct GetCrossingsBuilder;
+
 struct Query;
 struct QueryBuilder;
 
@@ -377,6 +380,12 @@ struct DepositsBuilder;
 
 struct EarthworkInfo;
 struct EarthworkInfoBuilder;
+
+struct CrossingInfo;
+struct CrossingInfoBuilder;
+
+struct Crossings;
+struct CrossingsBuilder;
 
 struct GroundTileRev;
 
@@ -849,11 +858,12 @@ enum class QueryBody : uint8_t {
   GetStanding = 18,
   GetGovernment = 19,
   GetOrder = 20,
+  GetCrossings = 21,
   MIN = NONE,
-  MAX = GetOrder
+  MAX = GetCrossings
 };
 
-inline const QueryBody (&EnumValuesQueryBody())[21] {
+inline const QueryBody (&EnumValuesQueryBody())[22] {
   static const QueryBody values[] = {
     QueryBody::NONE,
     QueryBody::GetRaster,
@@ -875,13 +885,14 @@ inline const QueryBody (&EnumValuesQueryBody())[21] {
     QueryBody::GetWeather,
     QueryBody::GetStanding,
     QueryBody::GetGovernment,
-    QueryBody::GetOrder
+    QueryBody::GetOrder,
+    QueryBody::GetCrossings
   };
   return values;
 }
 
 inline const char * const *EnumNamesQueryBody() {
-  static const char * const names[22] = {
+  static const char * const names[23] = {
     "NONE",
     "GetRaster",
     "GetHydrography",
@@ -903,13 +914,14 @@ inline const char * const *EnumNamesQueryBody() {
     "GetStanding",
     "GetGovernment",
     "GetOrder",
+    "GetCrossings",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameQueryBody(QueryBody e) {
-  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetOrder)) return "";
+  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetCrossings)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesQueryBody()[index];
 }
@@ -996,6 +1008,10 @@ template<> struct QueryBodyTraits<tce::wire::GetGovernment> {
 
 template<> struct QueryBodyTraits<tce::wire::GetOrder> {
   static const QueryBody enum_value = QueryBody::GetOrder;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetCrossings> {
+  static const QueryBody enum_value = QueryBody::GetCrossings;
 };
 
 template <bool B = false>
@@ -1179,11 +1195,12 @@ enum class ResponseBody : uint8_t {
   Standing = 19,
   Government = 20,
   Order = 21,
+  Crossings = 22,
   MIN = NONE,
-  MAX = Order
+  MAX = Crossings
 };
 
-inline const ResponseBody (&EnumValuesResponseBody())[22] {
+inline const ResponseBody (&EnumValuesResponseBody())[23] {
   static const ResponseBody values[] = {
     ResponseBody::NONE,
     ResponseBody::Ack,
@@ -1206,13 +1223,14 @@ inline const ResponseBody (&EnumValuesResponseBody())[22] {
     ResponseBody::WeatherReport,
     ResponseBody::Standing,
     ResponseBody::Government,
-    ResponseBody::Order
+    ResponseBody::Order,
+    ResponseBody::Crossings
   };
   return values;
 }
 
 inline const char * const *EnumNamesResponseBody() {
-  static const char * const names[23] = {
+  static const char * const names[24] = {
     "NONE",
     "Ack",
     "RasterTile",
@@ -1235,13 +1253,14 @@ inline const char * const *EnumNamesResponseBody() {
     "Standing",
     "Government",
     "Order",
+    "Crossings",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameResponseBody(ResponseBody e) {
-  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Order)) return "";
+  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Crossings)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesResponseBody()[index];
 }
@@ -1332,6 +1351,10 @@ template<> struct ResponseBodyTraits<tce::wire::Government> {
 
 template<> struct ResponseBodyTraits<tce::wire::Order> {
   static const ResponseBody enum_value = ResponseBody::Order;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::Crossings> {
+  static const ResponseBody enum_value = ResponseBody::Crossings;
 };
 
 template <bool B = false>
@@ -4120,7 +4143,8 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_KNOWLEDGE_REV = 34,
     VT_DEPOSITS_REV = 36,
     VT_EARTHWORKS_REV = 38,
-    VT_WEATHER_REV = 40
+    VT_WEATHER_REV = 40,
+    VT_CROSSINGS_REV = 42
   };
   const tce::wire::WorldInfo *world() const {
     return GetPointer<const tce::wire::WorldInfo *>(VT_WORLD);
@@ -4179,6 +4203,9 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint64_t weather_rev() const {
     return GetField<uint64_t>(VT_WEATHER_REV, 0);
   }
+  uint64_t crossings_rev() const {
+    return GetField<uint64_t>(VT_CROSSINGS_REV, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -4210,6 +4237,7 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_DEPOSITS_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_EARTHWORKS_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_WEATHER_REV, 8) &&
+           VerifyField<uint64_t>(verifier, VT_CROSSINGS_REV, 8) &&
            verifier.EndTable();
   }
 };
@@ -4275,6 +4303,9 @@ struct SnapshotBuilder {
   void add_weather_rev(uint64_t weather_rev) {
     fbb_.AddElement<uint64_t>(Snapshot::VT_WEATHER_REV, weather_rev, 0);
   }
+  void add_crossings_rev(uint64_t crossings_rev) {
+    fbb_.AddElement<uint64_t>(Snapshot::VT_CROSSINGS_REV, crossings_rev, 0);
+  }
   explicit SnapshotBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -4306,8 +4337,10 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshot(
     uint64_t knowledge_rev = 0,
     uint64_t deposits_rev = 0,
     uint64_t earthworks_rev = 0,
-    uint64_t weather_rev = 0) {
+    uint64_t weather_rev = 0,
+    uint64_t crossings_rev = 0) {
   SnapshotBuilder builder_(_fbb);
+  builder_.add_crossings_rev(crossings_rev);
   builder_.add_weather_rev(weather_rev);
   builder_.add_earthworks_rev(earthworks_rev);
   builder_.add_deposits_rev(deposits_rev);
@@ -4355,7 +4388,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
     uint64_t knowledge_rev = 0,
     uint64_t deposits_rev = 0,
     uint64_t earthworks_rev = 0,
-    uint64_t weather_rev = 0) {
+    uint64_t weather_rev = 0,
+    uint64_t crossings_rev = 0) {
   auto last_error__ = last_error ? _fbb.CreateString(last_error) : 0;
   auto people__ = people ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PersonBrief>>(*people) : 0;
   auto settlements__ = settlements ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SettlementBrief>>(*settlements) : 0;
@@ -4379,7 +4413,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
       knowledge_rev,
       deposits_rev,
       earthworks_rev,
-      weather_rev);
+      weather_rev,
+      crossings_rev);
 }
 
 struct Event FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -6588,6 +6623,42 @@ struct GetOrder::Traits {
   static auto constexpr Create = CreateGetOrder;
 };
 
+struct GetCrossings FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetCrossingsBuilder Builder;
+  struct Traits;
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetCrossingsBuilder {
+  typedef GetCrossings Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  explicit GetCrossingsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetCrossings> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetCrossings>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetCrossings> CreateGetCrossings(
+    ::flatbuffers::FlatBufferBuilder &_fbb) {
+  GetCrossingsBuilder builder_(_fbb);
+  return builder_.Finish();
+}
+
+struct GetCrossings::Traits {
+  using type = GetCrossings;
+  static auto constexpr Create = CreateGetCrossings;
+};
+
 struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef QueryBuilder Builder;
   struct Traits;
@@ -6661,6 +6732,9 @@ struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::GetOrder *body_as_GetOrder() const {
     return body_type() == tce::wire::QueryBody::GetOrder ? static_cast<const tce::wire::GetOrder *>(body()) : nullptr;
+  }
+  const tce::wire::GetCrossings *body_as_GetCrossings() const {
+    return body_type() == tce::wire::QueryBody::GetCrossings ? static_cast<const tce::wire::GetCrossings *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -6750,6 +6824,10 @@ template<> inline const tce::wire::GetGovernment *Query::body_as<tce::wire::GetG
 
 template<> inline const tce::wire::GetOrder *Query::body_as<tce::wire::GetOrder>() const {
   return body_as_GetOrder();
+}
+
+template<> inline const tce::wire::GetCrossings *Query::body_as<tce::wire::GetCrossings>() const {
+  return body_as_GetCrossings();
 }
 
 struct QueryBuilder {
@@ -15177,6 +15255,353 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfoDirect(
       deposit);
 }
 
+struct CrossingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef CrossingInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_SYSTEM = 6,
+    VT_AX = 8,
+    VT_AY = 10,
+    VT_BX = 12,
+    VT_BY = 14,
+    VT_SPAN_M = 16,
+    VT_MEMBERS = 18,
+    VT_DIAMETER_CM = 20,
+    VT_STATE = 22,
+    VT_LABOUR_H = 24,
+    VT_WORK_H = 26,
+    VT_QUALITY = 28,
+    VT_LOSS = 30,
+    VT_MARGIN = 32,
+    VT_OWNER_KIND = 34,
+    VT_OWNER = 36,
+    VT_WORDS = 38,
+    VT_LENGTH_M = 40
+  };
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
+  }
+  const ::flatbuffers::String *system() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_SYSTEM);
+  }
+  float ax() const {
+    return GetField<float>(VT_AX, 0.0f);
+  }
+  float ay() const {
+    return GetField<float>(VT_AY, 0.0f);
+  }
+  float bx() const {
+    return GetField<float>(VT_BX, 0.0f);
+  }
+  float by() const {
+    return GetField<float>(VT_BY, 0.0f);
+  }
+  float span_m() const {
+    return GetField<float>(VT_SPAN_M, 0.0f);
+  }
+  uint8_t members() const {
+    return GetField<uint8_t>(VT_MEMBERS, 0);
+  }
+  float diameter_cm() const {
+    return GetField<float>(VT_DIAMETER_CM, 0.0f);
+  }
+  uint8_t state() const {
+    return GetField<uint8_t>(VT_STATE, 0);
+  }
+  float labour_h() const {
+    return GetField<float>(VT_LABOUR_H, 0.0f);
+  }
+  float work_h() const {
+    return GetField<float>(VT_WORK_H, 0.0f);
+  }
+  float quality() const {
+    return GetField<float>(VT_QUALITY, 0.0f);
+  }
+  float loss() const {
+    return GetField<float>(VT_LOSS, 0.0f);
+  }
+  float margin() const {
+    return GetField<float>(VT_MARGIN, 0.0f);
+  }
+  uint8_t owner_kind() const {
+    return GetField<uint8_t>(VT_OWNER_KIND, 0);
+  }
+  uint64_t owner() const {
+    return GetField<uint64_t>(VT_OWNER, 0);
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  float length_m() const {
+    return GetField<float>(VT_LENGTH_M, 0.0f);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_ID, 8) &&
+           VerifyOffset(verifier, VT_SYSTEM) &&
+           verifier.VerifyString(system()) &&
+           VerifyField<float>(verifier, VT_AX, 4) &&
+           VerifyField<float>(verifier, VT_AY, 4) &&
+           VerifyField<float>(verifier, VT_BX, 4) &&
+           VerifyField<float>(verifier, VT_BY, 4) &&
+           VerifyField<float>(verifier, VT_SPAN_M, 4) &&
+           VerifyField<uint8_t>(verifier, VT_MEMBERS, 1) &&
+           VerifyField<float>(verifier, VT_DIAMETER_CM, 4) &&
+           VerifyField<uint8_t>(verifier, VT_STATE, 1) &&
+           VerifyField<float>(verifier, VT_LABOUR_H, 4) &&
+           VerifyField<float>(verifier, VT_WORK_H, 4) &&
+           VerifyField<float>(verifier, VT_QUALITY, 4) &&
+           VerifyField<float>(verifier, VT_LOSS, 4) &&
+           VerifyField<float>(verifier, VT_MARGIN, 4) &&
+           VerifyField<uint8_t>(verifier, VT_OWNER_KIND, 1) &&
+           VerifyField<uint64_t>(verifier, VT_OWNER, 8) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           VerifyField<float>(verifier, VT_LENGTH_M, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct CrossingInfoBuilder {
+  typedef CrossingInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(CrossingInfo::VT_ID, id, 0);
+  }
+  void add_system(::flatbuffers::Offset<::flatbuffers::String> system) {
+    fbb_.AddOffset(CrossingInfo::VT_SYSTEM, system);
+  }
+  void add_ax(float ax) {
+    fbb_.AddElement<float>(CrossingInfo::VT_AX, ax, 0.0f);
+  }
+  void add_ay(float ay) {
+    fbb_.AddElement<float>(CrossingInfo::VT_AY, ay, 0.0f);
+  }
+  void add_bx(float bx) {
+    fbb_.AddElement<float>(CrossingInfo::VT_BX, bx, 0.0f);
+  }
+  void add_by(float by) {
+    fbb_.AddElement<float>(CrossingInfo::VT_BY, by, 0.0f);
+  }
+  void add_span_m(float span_m) {
+    fbb_.AddElement<float>(CrossingInfo::VT_SPAN_M, span_m, 0.0f);
+  }
+  void add_members(uint8_t members) {
+    fbb_.AddElement<uint8_t>(CrossingInfo::VT_MEMBERS, members, 0);
+  }
+  void add_diameter_cm(float diameter_cm) {
+    fbb_.AddElement<float>(CrossingInfo::VT_DIAMETER_CM, diameter_cm, 0.0f);
+  }
+  void add_state(uint8_t state) {
+    fbb_.AddElement<uint8_t>(CrossingInfo::VT_STATE, state, 0);
+  }
+  void add_labour_h(float labour_h) {
+    fbb_.AddElement<float>(CrossingInfo::VT_LABOUR_H, labour_h, 0.0f);
+  }
+  void add_work_h(float work_h) {
+    fbb_.AddElement<float>(CrossingInfo::VT_WORK_H, work_h, 0.0f);
+  }
+  void add_quality(float quality) {
+    fbb_.AddElement<float>(CrossingInfo::VT_QUALITY, quality, 0.0f);
+  }
+  void add_loss(float loss) {
+    fbb_.AddElement<float>(CrossingInfo::VT_LOSS, loss, 0.0f);
+  }
+  void add_margin(float margin) {
+    fbb_.AddElement<float>(CrossingInfo::VT_MARGIN, margin, 0.0f);
+  }
+  void add_owner_kind(uint8_t owner_kind) {
+    fbb_.AddElement<uint8_t>(CrossingInfo::VT_OWNER_KIND, owner_kind, 0);
+  }
+  void add_owner(uint64_t owner) {
+    fbb_.AddElement<uint64_t>(CrossingInfo::VT_OWNER, owner, 0);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(CrossingInfo::VT_WORDS, words);
+  }
+  void add_length_m(float length_m) {
+    fbb_.AddElement<float>(CrossingInfo::VT_LENGTH_M, length_m, 0.0f);
+  }
+  explicit CrossingInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<CrossingInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<CrossingInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<CrossingInfo> CreateCrossingInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> system = 0,
+    float ax = 0.0f,
+    float ay = 0.0f,
+    float bx = 0.0f,
+    float by = 0.0f,
+    float span_m = 0.0f,
+    uint8_t members = 0,
+    float diameter_cm = 0.0f,
+    uint8_t state = 0,
+    float labour_h = 0.0f,
+    float work_h = 0.0f,
+    float quality = 0.0f,
+    float loss = 0.0f,
+    float margin = 0.0f,
+    uint8_t owner_kind = 0,
+    uint64_t owner = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0,
+    float length_m = 0.0f) {
+  CrossingInfoBuilder builder_(_fbb);
+  builder_.add_owner(owner);
+  builder_.add_id(id);
+  builder_.add_length_m(length_m);
+  builder_.add_words(words);
+  builder_.add_margin(margin);
+  builder_.add_loss(loss);
+  builder_.add_quality(quality);
+  builder_.add_work_h(work_h);
+  builder_.add_labour_h(labour_h);
+  builder_.add_diameter_cm(diameter_cm);
+  builder_.add_span_m(span_m);
+  builder_.add_by(by);
+  builder_.add_bx(bx);
+  builder_.add_ay(ay);
+  builder_.add_ax(ax);
+  builder_.add_system(system);
+  builder_.add_owner_kind(owner_kind);
+  builder_.add_state(state);
+  builder_.add_members(members);
+  return builder_.Finish();
+}
+
+struct CrossingInfo::Traits {
+  using type = CrossingInfo;
+  static auto constexpr Create = CreateCrossingInfo;
+};
+
+inline ::flatbuffers::Offset<CrossingInfo> CreateCrossingInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    const char *system = nullptr,
+    float ax = 0.0f,
+    float ay = 0.0f,
+    float bx = 0.0f,
+    float by = 0.0f,
+    float span_m = 0.0f,
+    uint8_t members = 0,
+    float diameter_cm = 0.0f,
+    uint8_t state = 0,
+    float labour_h = 0.0f,
+    float work_h = 0.0f,
+    float quality = 0.0f,
+    float loss = 0.0f,
+    float margin = 0.0f,
+    uint8_t owner_kind = 0,
+    uint64_t owner = 0,
+    const char *words = nullptr,
+    float length_m = 0.0f) {
+  auto system__ = system ? _fbb.CreateString(system) : 0;
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateCrossingInfo(
+      _fbb,
+      id,
+      system__,
+      ax,
+      ay,
+      bx,
+      by,
+      span_m,
+      members,
+      diameter_cm,
+      state,
+      labour_h,
+      work_h,
+      quality,
+      loss,
+      margin,
+      owner_kind,
+      owner,
+      words__,
+      length_m);
+}
+
+struct Crossings FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef CrossingsBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_REV = 4,
+    VT_CROSSINGS = 6
+  };
+  uint64_t rev() const {
+    return GetField<uint64_t>(VT_REV, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CrossingInfo>> *crossings() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CrossingInfo>> *>(VT_CROSSINGS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_REV, 8) &&
+           VerifyOffset(verifier, VT_CROSSINGS) &&
+           verifier.VerifyVector(crossings()) &&
+           verifier.VerifyVectorOfTables(crossings()) &&
+           verifier.EndTable();
+  }
+};
+
+struct CrossingsBuilder {
+  typedef Crossings Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_rev(uint64_t rev) {
+    fbb_.AddElement<uint64_t>(Crossings::VT_REV, rev, 0);
+  }
+  void add_crossings(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CrossingInfo>>> crossings) {
+    fbb_.AddOffset(Crossings::VT_CROSSINGS, crossings);
+  }
+  explicit CrossingsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Crossings> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Crossings>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Crossings> CreateCrossings(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CrossingInfo>>> crossings = 0) {
+  CrossingsBuilder builder_(_fbb);
+  builder_.add_rev(rev);
+  builder_.add_crossings(crossings);
+  return builder_.Finish();
+}
+
+struct Crossings::Traits {
+  using type = Crossings;
+  static auto constexpr Create = CreateCrossings;
+};
+
+inline ::flatbuffers::Offset<Crossings> CreateCrossingsDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t rev = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::CrossingInfo>> *crossings = nullptr) {
+  auto crossings__ = crossings ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::CrossingInfo>>(*crossings) : 0;
+  return tce::wire::CreateCrossings(
+      _fbb,
+      rev,
+      crossings__);
+}
+
 struct Earthworks FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef EarthworksBuilder Builder;
   struct Traits;
@@ -17747,6 +18172,9 @@ struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const tce::wire::Order *body_as_Order() const {
     return body_type() == tce::wire::ResponseBody::Order ? static_cast<const tce::wire::Order *>(body()) : nullptr;
   }
+  const tce::wire::Crossings *body_as_Crossings() const {
+    return body_type() == tce::wire::ResponseBody::Crossings ? static_cast<const tce::wire::Crossings *>(body()) : nullptr;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -17839,6 +18267,10 @@ template<> inline const tce::wire::Government *Response::body_as<tce::wire::Gove
 
 template<> inline const tce::wire::Order *Response::body_as<tce::wire::Order>() const {
   return body_as_Order();
+}
+
+template<> inline const tce::wire::Crossings *Response::body_as<tce::wire::Crossings>() const {
+  return body_as_Crossings();
 }
 
 struct ResponseBuilder {
@@ -18116,6 +18548,10 @@ inline bool VerifyQueryBody(::flatbuffers::VerifierTemplate<B> &verifier, const 
       auto ptr = reinterpret_cast<const tce::wire::GetOrder *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case QueryBody::GetCrossings: {
+      auto ptr = reinterpret_cast<const tce::wire::GetCrossings *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -18221,6 +18657,10 @@ inline bool VerifyResponseBody(::flatbuffers::VerifierTemplate<B> &verifier, con
     }
     case ResponseBody::Order: {
       auto ptr = reinterpret_cast<const tce::wire::Order *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::Crossings: {
+      auto ptr = reinterpret_cast<const tce::wire::Crossings *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

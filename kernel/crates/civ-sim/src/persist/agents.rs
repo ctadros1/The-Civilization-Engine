@@ -111,7 +111,8 @@ use super::{
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
-    SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, finish, section, single_chunk, unreadable,
+    SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, finish, section, single_chunk,
+    unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -434,6 +435,9 @@ enum Schema {
     V68,
     /// The streams households wade, and the crossings they build (M5c slice AW, step two).
     V69,
+    /// The crossings polities build, and the work each household gave them (M5c slice AW, step
+    /// three).
+    V70,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -517,7 +521,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V66 => Schema::V66,
         SCHEMA_V67 => Schema::V67,
         SCHEMA_V68 => Schema::V68,
-        SAVE_SCHEMA_VERSION => Schema::V69,
+        SCHEMA_V69 => Schema::V69,
+        SAVE_SCHEMA_VERSION => Schema::V70,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -968,6 +973,30 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let claimed = (!claimed.is_empty()).then(|| fbb.create_vector(&claimed));
+            // Where its laws would build crossings (schema 70).
+            let sites: Vec<_> = p
+                .sites
+                .iter()
+                .map(|&(law, site)| {
+                    let system = rules
+                        .catalog
+                        .bridges
+                        .get(usize::from(site.system))
+                        .map_or("", |d| d.id.as_str());
+                    let system = fbb.create_string(system);
+                    save::CrossingSiteSave::create(
+                        &mut fbb,
+                        &save::CrossingSiteSaveArgs {
+                            law: law.get(),
+                            cell: site.cell,
+                            system: Some(system),
+                            span_m: site.span_m,
+                            labour_h: site.labour_h,
+                        },
+                    )
+                })
+                .collect();
+            let sites = (!sites.is_empty()).then(|| fbb.create_vector(&sites));
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -1006,6 +1035,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     versions: Some(versions),
                     seized_by: Some(seized_by),
                     claimed,
+                    sites,
                 },
             )
         })
@@ -1065,6 +1095,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::Outsiders => 6,
         IssueKind::ClaimedFromUs => 7,
         IssueKind::TermsSought => 8,
+        IssueKind::Fords => 9,
     }
 }
 
@@ -1170,6 +1201,7 @@ fn decode_polities(
                 6 => IssueKind::Outsiders,
                 7 => IssueKind::ClaimedFromUs,
                 8 => IssueKind::TermsSought,
+                9 => IssueKind::Fords,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -1367,6 +1399,31 @@ fn decode_polities(
             }
             claimed.push((law, place));
         }
+        // Where its laws would build crossings (schema 70); before, nowhere. One of a bridge
+        // system the loaded content lacks is dropped: its law can build nothing.
+        let mut sites = Vec::new();
+        for c in p.sites().iter().flatten() {
+            let law = PermanentId::from_raw(c.law())
+                .filter(|law| laws.iter().any(|l| l.id == *law))
+                .ok_or_else(|| {
+                    bad(format!(
+                        "polity {id} names a crossing site by a missing law {}",
+                        c.law()
+                    ))
+                })?;
+            let Some(system) = rules.catalog.bridge_index(c.system().unwrap_or("")) else {
+                continue;
+            };
+            sites.push((
+                law,
+                civ_agents::polity::CrossingSite {
+                    cell: c.cell(),
+                    system: system as u16,
+                    span_m: c.span_m(),
+                    labour_h: c.labour_h(),
+                },
+            ));
+        }
         out.push(Polity {
             id,
             settlement,
@@ -1380,6 +1437,7 @@ fn decode_polities(
             gathering,
             reviewed: p.reviewed(),
             claimed,
+            sites,
         });
     }
     Ok(out)
@@ -2794,7 +2852,8 @@ fn carried(
         | Schema::V66
         | Schema::V67
         | Schema::V68
-        | Schema::V69 => {
+        | Schema::V69
+        | Schema::V70 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2973,7 +3032,8 @@ fn decode_households(
             | Schema::V66
             | Schema::V67
             | Schema::V68
-            | Schema::V69 => {
+            | Schema::V69
+            | Schema::V70 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -7543,6 +7603,12 @@ fn encode_crossings(land: &Land, fords: &civ_agents::fords::Fords, rules: &Rules
                 CrossingOwner::Household(h) => (0, h.get()),
                 CrossingOwner::Polity(p) => (1, p.get()),
             };
+            let shares: Vec<save::CrossingShareSave> = c
+                .shares
+                .iter()
+                .map(|&(h, hours)| save::CrossingShareSave::new(h.get(), hours))
+                .collect();
+            let shares = (!shares.is_empty()).then(|| fbb.create_vector(&shares));
             let (state, work_h, state_day, why) = match c.state {
                 CrossingState::Building { work_h } => (0, work_h, 0, 0),
                 CrossingState::Open { since } => (1, 0.0, since, 0),
@@ -7570,6 +7636,7 @@ fn encode_crossings(land: &Land, fords: &civ_agents::fords::Fords, rules: &Rules
                     state_day,
                     why,
                     skill_h: c.skill_h,
+                    shares,
                 },
             )
         })
@@ -7640,6 +7707,14 @@ fn decode_crossings(
             },
             s => return Err(bad(&format!("state code {s}"))),
         };
+        // The work each household gave (schema 70), by household id; before, none.
+        let mut shares = Vec::new();
+        for s in c.shares().iter().flatten() {
+            let household = required(s.household(), "a share's household")?;
+            shares.push((household, s.hours()));
+        }
+        shares.sort_unstable_by_key(|s: &(PermanentId, f32)| s.0);
+        shares.dedup_by_key(|s| s.0);
         list.push(Crossing {
             id,
             system: system as u16,
@@ -7655,6 +7730,7 @@ fn decode_crossings(
             skill_h: c.skill_h(),
             begun: SimTime::from_minutes(c.begun()),
             state,
+            shares,
         });
     }
     let mut fords = civ_agents::fords::Fords::default();

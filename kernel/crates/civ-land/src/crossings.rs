@@ -80,12 +80,30 @@ pub struct Crossing {
     pub skill_h: f32,
     pub begun: SimTime,
     pub state: CrossingState,
+    /// The hours each household's people worked on it, by household id (M5c slice AW, step
+    /// three): kept for a polity's crossing, whose work each household is asked a share of.
+    pub shares: Vec<(PermanentId, f32)>,
 }
 
 impl Crossing {
     /// Whether people may walk across it.
     pub fn open(&self) -> bool {
         matches!(self.state, CrossingState::Open { .. })
+    }
+
+    /// The hours household `household`'s people worked on it.
+    pub fn worked_by(&self, household: PermanentId) -> f32 {
+        self.shares
+            .binary_search_by_key(&household, |s| s.0)
+            .map_or(0.0, |i| self.shares[i].1)
+    }
+
+    /// `hours` more of household `household`'s people's work on it.
+    pub fn add_share(&mut self, household: PermanentId, hours: f32) {
+        match self.shares.binary_search_by_key(&household, |s| s.0) {
+            Ok(i) => self.shares[i].1 += hours,
+            Err(i) => self.shares.insert(i, (household, hours)),
+        }
     }
 }
 
@@ -181,6 +199,7 @@ mod tests {
             skill_h: 0.0,
             begun: SimTime::from_minutes(0),
             state,
+            shares: Vec::new(),
         }
     }
 

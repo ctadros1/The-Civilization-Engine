@@ -1076,6 +1076,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** AW step three's second part, a crossing the village builds together.
 
+## 2026-10-10 — M5c slice AW, step three, second part: crossings built together
+
+**Goal:** let a village build a crossing where its households' wades together would repay one though no household's alone would (research 11-07 §4.1: household or village cooperation, labour contributed).
+
+**What changed:** the issue `fords` and the law `build_crossing` (content API 67): its sponsor names a site their household wades, each household forecasts it at the food the hours it saves or asks could bring, and once passed the polity begins it, one at a time, each household asked an equal share of the work. People who know the law give their household's share as they choose, weighing the gathering's word as a levy's payment is weighed; the hours each household gave are kept (saves 70).
+
+**Findings:** the first measurements caught three errors before commit. An hour of walking was priced at a momentary choice's weight for every hour of a year. Crossings could be begun while others stood unbuilt, a cell apart. And the template bore on reciprocity, which the core content defines as giving back (a NUDGE, corrected after the measurement showed it decisive). Priced honestly, no household's stake in a log footbridge reaches a stance, so votes follow regard for the sponsor. Without the rule that a site must repay its work for the village, Willowford built one at every site its people waded; with it, two in two years, each in days.
+
+**Evidence:** a test village where a law to build is forecast, passed by hand, begun, and built by several households' shares; a schema-69 save loads; the full suite and clippy; two-year measurements of the seed-9 and M5a demo worlds.
+
+**Open:** a crew limit; the trestle over the trunk river and the places reachable only across a crossing; giving up a stalled crossing.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

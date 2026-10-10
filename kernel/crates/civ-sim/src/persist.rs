@@ -242,6 +242,9 @@ pub const SCHEMA_V67: u32 = 67;
 /// The schema version of M5c slice AW, step one: crossings over water, before the streams
 /// households wade and the crossings they build (see [`agents`]).
 pub const SCHEMA_V68: u32 = 68;
+/// The schema version of M5c slice AW, step two: the streams households wade and the crossings
+/// they build, before the crossings polities build (see [`agents`]).
+pub const SCHEMA_V69: u32 = 69;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

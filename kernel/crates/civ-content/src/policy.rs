@@ -19,10 +19,12 @@ pub(crate) struct PolicyFile {
     pub name: String,
     pub description: String,
     /// What the kernel does under it: `common_store`, `keep_store`, `against_taking`,
-    /// `keep_watch`, `curfew`, `amend_body` or `repeal` (content API 49).
+    /// `keep_watch`, `curfew`, `amend_body` or `repeal` (content API 49), `claim_place` (59),
+    /// `agreement` (62) or `build_crossing` (67).
     pub does: String,
     /// The issues it answers: `food_short`, `store_unkept`, `takings`, `overruled`, `petition`,
-    /// `founding` (content API 49).
+    /// `founding` (content API 49), `outsiders` (59), `claimed_from_us`, `terms_sought` (61) or
+    /// `fords` (67).
     pub answers: Vec<String>,
     /// For a common store: the shares of threshed grain a sponsor may propose for the levy.
     #[serde(default)]
@@ -186,7 +188,8 @@ impl PolicyFile {
                 | PolicyKind::AmendBody
                 | PolicyKind::Repeal
                 | PolicyKind::ClaimPlace
-                | PolicyKind::Agreement),
+                | PolicyKind::Agreement
+                | PolicyKind::BuildCrossing),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -228,7 +231,8 @@ impl PolicyFile {
                 | PolicyKind::AmendBody
                 | PolicyKind::Repeal
                 | PolicyKind::ClaimPlace
-                | PolicyKind::Agreement,
+                | PolicyKind::Agreement
+                | PolicyKind::BuildCrossing,
             )
             | None => {}
         }

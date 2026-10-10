@@ -324,6 +324,11 @@ their meanings), an expansion yields:
   fails below a margin of 1, with §5's consequences translated: whoever is on it falls into the
   water and dies with the system's chance (a new cause of death, *a fall*), the rest scramble to
   the nearer bank, and the chronicle says what gave way and why.
+- Step three: a polity may build one by a law in ADR-0013's pipeline. It is the polity's, its
+  work asked of the settlement's households in equal shares and given as each person chooses
+  (no sanction follows a share not given; research 09-06 keeps labour asked and labour given
+  apart, 11-07 §4.1 names declining participation as this arrangement's weakness), and the hours
+  each household gave are kept with it. Its quality is drawn as any crossing's.
 - Only bending is a mode yet; rot at the bearings, rolling, the deck and supports in the channel
   (trestles, M6's scour) are not.
 

@@ -12432,6 +12432,133 @@ impl<'a> SideSave {
 
 }
 
+// struct CrossingShareSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct CrossingShareSave(pub [u8; 16]);
+impl Default for CrossingShareSave { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for CrossingShareSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("CrossingShareSave")
+      .field("household", &self.household())
+      .field("hours", &self.hours())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for CrossingShareSave {}
+impl<'a> ::flatbuffers::Follow<'a> for CrossingShareSave {
+  type Inner = &'a CrossingShareSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a CrossingShareSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a CrossingShareSave {
+  type Inner = &'a CrossingShareSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<CrossingShareSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for CrossingShareSave {
+    type Output = CrossingShareSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const CrossingShareSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for CrossingShareSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> CrossingShareSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    household: u64,
+    hours: f32,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_household(household);
+    s.set_hours(hours);
+    s
+  }
+
+  pub fn household(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_household(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn hours(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_hours(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct WadeSave, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -26391,6 +26518,7 @@ impl<'a> PolitySave<'a> {
   pub const VT_VERSIONS: ::flatbuffers::VOffsetT = 26;
   pub const VT_SEIZED_BY: ::flatbuffers::VOffsetT = 28;
   pub const VT_CLAIMED: ::flatbuffers::VOffsetT = 30;
+  pub const VT_SITES: ::flatbuffers::VOffsetT = 32;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -26407,6 +26535,7 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.sites { builder.add_sites(x); }
     if let Some(x) = args.claimed { builder.add_claimed(x); }
     if let Some(x) = args.seized_by { builder.add_seized_by(x); }
     if let Some(x) = args.versions { builder.add_versions(x); }
@@ -26518,6 +26647,13 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, PlaceClaimSave>>>(PolitySave::VT_CLAIMED, None)}
   }
+  #[inline]
+  pub fn sites(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CrossingSiteSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CrossingSiteSave>>>>(PolitySave::VT_SITES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -26540,6 +26676,7 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CustomVersionSave>>>("versions", Self::VT_VERSIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("seized_by", Self::VT_SEIZED_BY, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PlaceClaimSave>>>("claimed", Self::VT_CLAIMED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CrossingSiteSave>>>>("sites", Self::VT_SITES, false)?
      .finish();
     Ok(())
   }
@@ -26559,6 +26696,7 @@ pub struct PolitySaveArgs<'a> {
     pub versions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CustomVersionSave>>>,
     pub seized_by: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
     pub claimed: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PlaceClaimSave>>>,
+    pub sites: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CrossingSiteSave<'a>>>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -26578,6 +26716,7 @@ impl<'a> Default for PolitySaveArgs<'a> {
       versions: None,
       seized_by: None,
       claimed: None,
+      sites: None,
     }
   }
 }
@@ -26644,6 +26783,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_CLAIMED, claimed);
   }
   #[inline]
+  pub fn add_sites(&mut self, sites: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<CrossingSiteSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_SITES, sites);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -26675,6 +26818,171 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("versions", &self.versions());
       ds.field("seized_by", &self.seized_by());
       ds.field("claimed", &self.claimed());
+      ds.field("sites", &self.sites());
+      ds.finish()
+  }
+}
+pub enum CrossingSiteSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct CrossingSiteSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for CrossingSiteSave<'a> {
+  type Inner = CrossingSiteSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> CrossingSiteSave<'a> {
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 4;
+  pub const VT_CELL: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SYSTEM: ::flatbuffers::VOffsetT = 8;
+  pub const VT_SPAN_M: ::flatbuffers::VOffsetT = 10;
+  pub const VT_LABOUR_H: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    CrossingSiteSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CrossingSiteSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<CrossingSiteSave<'bldr>> {
+    let mut builder = CrossingSiteSaveBuilder::new(_fbb);
+    builder.add_law(args.law);
+    builder.add_labour_h(args.labour_h);
+    builder.add_span_m(args.span_m);
+    if let Some(x) = args.system { builder.add_system(x); }
+    builder.add_cell(args.cell);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CrossingSiteSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn cell(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CrossingSiteSave::VT_CELL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn system(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(CrossingSiteSave::VT_SYSTEM, None)}
+  }
+  #[inline]
+  pub fn span_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CrossingSiteSave::VT_SPAN_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn labour_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CrossingSiteSave::VT_LABOUR_H, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for CrossingSiteSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<u32>("cell", Self::VT_CELL, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("system", Self::VT_SYSTEM, false)?
+     .visit_field::<f32>("span_m", Self::VT_SPAN_M, false)?
+     .visit_field::<f32>("labour_h", Self::VT_LABOUR_H, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CrossingSiteSaveArgs<'a> {
+    pub law: u64,
+    pub cell: u32,
+    pub system: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub span_m: f32,
+    pub labour_h: f32,
+}
+impl<'a> Default for CrossingSiteSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CrossingSiteSaveArgs {
+      law: 0,
+      cell: 0,
+      system: None,
+      span_m: 0.0,
+      labour_h: 0.0,
+    }
+  }
+}
+
+pub struct CrossingSiteSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CrossingSiteSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(CrossingSiteSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_cell(&mut self, cell: u32) {
+    self.fbb_.push_slot::<u32>(CrossingSiteSave::VT_CELL, cell, 0);
+  }
+  #[inline]
+  pub fn add_system(&mut self, system: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CrossingSiteSave::VT_SYSTEM, system);
+  }
+  #[inline]
+  pub fn add_span_m(&mut self, span_m: f32) {
+    self.fbb_.push_slot::<f32>(CrossingSiteSave::VT_SPAN_M, span_m, 0.0);
+  }
+  #[inline]
+  pub fn add_labour_h(&mut self, labour_h: f32) {
+    self.fbb_.push_slot::<f32>(CrossingSiteSave::VT_LABOUR_H, labour_h, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CrossingSiteSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CrossingSiteSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<CrossingSiteSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for CrossingSiteSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("CrossingSiteSave");
+      ds.field("law", &self.law());
+      ds.field("cell", &self.cell());
+      ds.field("system", &self.system());
+      ds.field("span_m", &self.span_m());
+      ds.field("labour_h", &self.labour_h());
       ds.finish()
   }
 }
@@ -32971,6 +33279,7 @@ impl<'a> CrossingSave<'a> {
   pub const VT_STATE_DAY: ::flatbuffers::VOffsetT = 36;
   pub const VT_WHY: ::flatbuffers::VOffsetT = 38;
   pub const VT_SKILL_H: ::flatbuffers::VOffsetT = 40;
+  pub const VT_SHARES: ::flatbuffers::VOffsetT = 42;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32986,6 +33295,7 @@ impl<'a> CrossingSave<'a> {
     builder.add_begun(args.begun);
     builder.add_owner(args.owner);
     builder.add_id(args.id);
+    if let Some(x) = args.shares { builder.add_shares(x); }
     builder.add_skill_h(args.skill_h);
     builder.add_work_h(args.work_h);
     builder.add_labour_h(args.labour_h);
@@ -33138,6 +33448,13 @@ impl<'a> CrossingSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(CrossingSave::VT_SKILL_H, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn shares(&self) -> Option<::flatbuffers::Vector<'a, CrossingShareSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, CrossingShareSave>>>(CrossingSave::VT_SHARES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for CrossingSave<'_> {
@@ -33165,6 +33482,7 @@ impl ::flatbuffers::Verifiable for CrossingSave<'_> {
      .visit_field::<i64>("state_day", Self::VT_STATE_DAY, false)?
      .visit_field::<u8>("why", Self::VT_WHY, false)?
      .visit_field::<f32>("skill_h", Self::VT_SKILL_H, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CrossingShareSave>>>("shares", Self::VT_SHARES, false)?
      .finish();
     Ok(())
   }
@@ -33189,6 +33507,7 @@ pub struct CrossingSaveArgs<'a> {
     pub state_day: i64,
     pub why: u8,
     pub skill_h: f32,
+    pub shares: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CrossingShareSave>>>,
 }
 impl<'a> Default for CrossingSaveArgs<'a> {
   #[inline]
@@ -33213,6 +33532,7 @@ impl<'a> Default for CrossingSaveArgs<'a> {
       state_day: 0,
       why: 0,
       skill_h: 0.0,
+      shares: None,
     }
   }
 }
@@ -33299,6 +33619,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CrossingSaveBuilder<'a, 'b, A
     self.fbb_.push_slot::<f32>(CrossingSave::VT_SKILL_H, skill_h, 0.0);
   }
   #[inline]
+  pub fn add_shares(&mut self, shares: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , CrossingShareSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CrossingSave::VT_SHARES, shares);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CrossingSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     CrossingSaveBuilder {
@@ -33335,6 +33659,7 @@ impl ::core::fmt::Debug for CrossingSave<'_> {
       ds.field("state_day", &self.state_day());
       ds.field("why", &self.why());
       ds.field("skill_h", &self.skill_h());
+      ds.field("shares", &self.shares());
       ds.finish()
   }
 }

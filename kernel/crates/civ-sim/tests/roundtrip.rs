@@ -2241,6 +2241,28 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
 }
 
 #[test]
+fn a_schema_69_save_loads_with_no_crossing_site_named() {
+    // A schema-69 save, from before polities built crossings together (M5c slice AW, step
+    // three): no law named a site, and no crossing kept the work households gave it.
+    let sim = load_first();
+    assert!(sim.people().polities.iter().all(|p| p.sites.is_empty()));
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V69;
+    let path = republish("slice-aw2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-69 save loads");
+    assert!(loaded.people().polities.iter().all(|p| p.sites.is_empty()));
+    assert!(
+        loaded
+            .land()
+            .crossings
+            .list
+            .iter()
+            .all(|c| c.shares.is_empty())
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_68_save_loads_with_no_wade_remembered() {
     // A schema-68 save, from before households remembered the streams their people wade (M5c
     // slice AW, step two): its crossings section held none, and none is remembered.

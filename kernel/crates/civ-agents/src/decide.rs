@@ -83,9 +83,12 @@ pub struct Facts {
     pub hurt: bool,
 }
 
-/// A crossing someone's household is building (M5c slice AW, step two): where on the bank its
-/// work is done, the walk there from home, the hours of a capable adult's work it still takes,
-/// and the hours of walking each hour of that work saves the household over the crossing's life.
+/// A crossing someone's household is building, or their polity is and they know the law that
+/// asks it (M5c slice AW, steps two and three): where on the bank its work is done, the walk
+/// there from home, the hours of a capable adult's work it still takes, the hours of walking each
+/// hour of that work saves the household over the crossing's life, and, while their household
+/// has not given the share of a polity's crossing asked of it, what keeping to the gathering's
+/// word is worth to them, points (0 otherwise).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CrossingFacts {
     pub crossing: PermanentId,
@@ -93,6 +96,7 @@ pub struct CrossingFacts {
     pub walk_min: f64,
     pub left_h: f64,
     pub saves_per_hour: f64,
+    pub duty: f64,
 }
 
 /// A payment someone is to carry (M5c slice AV, ADR-0020 §7): where the store set it aside, the
@@ -1384,6 +1388,9 @@ pub fn candidates(
                     Reason::Crossing,
                     w.w_walk_hour * hours * pace * c.saves_per_hour,
                 );
+                if c.duty > 0.0 {
+                    term(&mut terms, Reason::PublicWork, c.duty);
+                }
                 if c.walk_min > 0.5 {
                     term(
                         &mut terms,

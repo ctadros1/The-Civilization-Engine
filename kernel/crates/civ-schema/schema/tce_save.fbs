@@ -1208,6 +1208,19 @@ table PolitySave {
   seized_by: [ulong] (id: 12);
   // The places its laws claim, by law (schema 62, M5c slice AT, ADR-0020 §5); absent before.
   claimed: [PlaceClaimSave] (id: 13);
+  // Where its laws to build a crossing would build one (schema 70, M5c slice AW step three);
+  // absent before.
+  sites: [CrossingSiteSave] (id: 14);
+}
+
+// Where a law would build a crossing (schema 70): the river cell, the bridge system's content id,
+// the channel's width there and the work it would take.
+table CrossingSiteSave {
+  law: ulong (id: 0);
+  cell: uint (id: 1);
+  system: string (id: 2);
+  span_m: float (id: 3);
+  labour_h: float (id: 4);
 }
 
 // A place a law claims (schema 62): `kind` 0 a patch block by its centre patch, 1 a deposit by
@@ -1888,6 +1901,15 @@ table CrossingSave {
   // Schema 69 (M5c slice AW, step two): its builders' work so far, each hour weighted by their
   // building skill.
   skill_h: float (id: 18);
+  // Schema 70 (M5c slice AW, step three): the hours each household's people worked on a polity's
+  // crossing, by household id; absent before and for a household's.
+  shares: [CrossingShareSave] (id: 19);
+}
+
+// Hours a household's people worked on a crossing (schema 70).
+struct CrossingShareSave {
+  household: ulong;
+  hours: float;
 }
 
 // A river cell a household's people wade, and how often, fading (schema 69).

@@ -30,6 +30,44 @@ struct Site {
     width_m: f64,
 }
 
+/// A site where a polity's people could build a crossing together (M5c slice AW, step three):
+/// what a law would build there, and what it would be worth to each of the settlement's
+/// households (the settlements brief §1.7: the walking its own recorded trips would save, in
+/// hours of its own work).
+#[derive(Clone, Debug)]
+pub(crate) struct PublicSite {
+    /// What it would build.
+    pub(crate) site: crate::polity::CrossingSite,
+    /// Hours a wade there takes over walking the deck.
+    pub(crate) hours_a_wade: f64,
+    /// The years it would last, at the quality the settlement's people would lay it on average.
+    pub(crate) life: f64,
+    /// Each household's wades there a year, by household id.
+    pub(crate) wades: Vec<(PermanentId, f64)>,
+    /// How many households its work would be asked of.
+    pub(crate) households: usize,
+}
+
+impl PublicSite {
+    /// The share of its work asked of each household, hours.
+    pub(crate) fn share_h(&self) -> f64 {
+        f64::from(self.site.labour_h) / self.households.max(1) as f64
+    }
+
+    /// Household `h`'s wades there a year.
+    pub(crate) fn wades_of(&self, h: PermanentId) -> f64 {
+        self.wades
+            .binary_search_by_key(&h, |w| w.0)
+            .map_or(0.0, |i| self.wades[i].1)
+    }
+
+    /// The hours of walking it would save all the households over its life, less its work.
+    fn pooled_net_h(&self) -> f64 {
+        let wades: f64 = self.wades.iter().map(|w| w.1).sum();
+        wades * self.hours_a_wade * self.life - f64::from(self.site.labour_h)
+    }
+}
+
 /// What a household would build at a site, and what it is worth to it.
 struct Proposal {
     site: Site,
@@ -78,6 +116,21 @@ fn site_at(ctx: &Ctx, cell: u32) -> Option<Site> {
         cell,
         banks,
         width_m: f64::from(width_m),
+    })
+}
+
+/// Whether a crossing stands, or is being built, at river cell `cell` or beside it (within a
+/// cell): walkers there would take its deck (a step aside costs about what a wade does, a deck
+/// cell much less), so another there would save little; it is no site for one.
+fn served(ctx: &Ctx, cell: u32) -> bool {
+    let w = ctx.map.width;
+    let (x, y) = (cell % w, cell / w);
+    ctx.land.crossings.list.iter().any(|c| {
+        !matches!(c.state, CrossingState::Failed { .. })
+            && c.cells.iter().any(|&o| {
+                let (ox, oy) = (o % w, o / w);
+                x.abs_diff(ox) <= 1 && y.abs_diff(oy) <= 1
+            })
     })
 }
 
@@ -224,8 +277,8 @@ impl Population {
     /// years the crossing would last at the quality its people would lay it; what it would cost
     /// is the work it takes. Of the systems its people know the technique of that span the
     /// channel there, it begins the crossing whose saving most exceeds its work, if any does:
-    /// one at a time, and none where a crossing stands or is being built, except one begun by a
-    /// household that is no more, which it takes over with the work done on it.
+    /// one at a time, and none where a crossing stands or is being built or beside one, except
+    /// one begun by a household that is no more, which it takes over with the work done on it.
     fn review_crossing(&mut self, ctx: &mut Ctx, household: PermanentId, day: i64) {
         let Some(x) = self.household(household) else {
             return;
@@ -298,6 +351,7 @@ impl Population {
                     Some(i)
                 }
                 Some(_) => continue,
+                None if served(ctx, w.cell) => continue,
                 None => None,
             };
             for (system, def) in ctx.catalog.bridges.iter().enumerate() {
@@ -371,31 +425,345 @@ impl Population {
                     skill_h: 0.0,
                     begun: ctx.now,
                     state: CrossingState::Building { work_h: 0.0 },
+                    shares: Vec::new(),
                 });
             }
         }
     }
 
-    /// The crossing household `x` is building, if `person`'s decision may work on it: where on
-    /// its nearer bank the work is done, the walk there, the work left, and the walking each hour
-    /// of it saves the household (M5c slice AW, step two).
+    /// Where settlement `settlement`'s people could build a crossing together (M5c slice AW,
+    /// step three), each at a river cell one of `households` wades: with land either side, its
+    /// nearer bank within the work's walk of the hearth, no crossing standing or being built
+    /// there or beside it, and a system someone of them knows the technique of that spans the
+    /// channel there and whose saving to all of them over its life exceeds its work (the most,
+    /// of those that do). In cell order.
+    pub(crate) fn public_sites(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+        households: &[PermanentId],
+    ) -> Vec<PublicSite> {
+        if ctx.catalog.bridges.is_empty()
+            || !ctx
+                .catalog
+                .policies
+                .iter()
+                .any(|d| d.kind == crate::polity::PolicyKind::BuildCrossing)
+        {
+            return Vec::new();
+        }
+        let Some(act) = ctx
+            .catalog
+            .activities
+            .iter()
+            .find(|a| a.behavior == Behavior::Bridge)
+        else {
+            return Vec::new();
+        };
+        let Some(field) = self.homes.get(&settlement) else {
+            return Vec::new();
+        };
+        let reach = &field.reach;
+        let (day, half) = (ctx.now.day_index(), ctx.params.places.use_half_life_days);
+        let homes: Vec<&Household> = households
+            .iter()
+            .filter_map(|&h| self.household(h))
+            .filter(|x| !x.members.is_empty())
+            .collect();
+        // Each cell waded, with each household's wades there a year.
+        let mut waded: BTreeMap<u32, Vec<(PermanentId, f64)>> = BTreeMap::new();
+        for x in &homes {
+            for w in self.fords.held(x.id, day, half) {
+                waded
+                    .entry(w.cell)
+                    .or_default()
+                    .push((x.id, per_year(f64::from(w.wades), half)));
+            }
+        }
+        if waded.is_empty() {
+            return Vec::new();
+        }
+        let knows = |t: Option<usize>| {
+            t.is_none_or(|t| {
+                homes
+                    .iter()
+                    .flat_map(|x| x.members.iter())
+                    .filter_map(|&m| self.person(m))
+                    .any(|p| p.knows(t))
+            })
+        };
+        let spread = ctx.params.build.quality_spread;
+        let mut out = Vec::new();
+        for (cell, mut wades) in waded {
+            let Some(site) = site_at(ctx, cell) else {
+                continue;
+            };
+            let Some(near) = site
+                .banks
+                .iter()
+                .filter_map(|&b| reach.seconds_to(b as usize))
+                .reduce(f32::min)
+            else {
+                continue;
+            };
+            if f64::from(near) / 60.0 > f64::from(act.max_walk_minutes) || served(ctx, cell) {
+                continue;
+            }
+            wades.sort_unstable_by_key(|w| w.0);
+            let mut best: Option<PublicSite> = None;
+            for (system, def) in ctx.catalog.bridges.iter().enumerate() {
+                if !knows(def.technique) {
+                    continue;
+                }
+                let Some(timber) = ctx.catalog.goods.get(def.good).and_then(|g| g.timber) else {
+                    continue;
+                };
+                let Some(diameter_cm) = size_members(def, &timber, site.width_m) else {
+                    continue;
+                };
+                let skill = homes
+                    .iter()
+                    .map(|x| self.crossing_skill(ctx, x, def))
+                    .sum::<f64>()
+                    / homes.len().max(1) as f64;
+                let quality = crate::condition::expected_quality(skill, spread);
+                let life = life_years(def, &timber, site.width_m, diameter_cm, quality);
+                let p = PublicSite {
+                    site: crate::polity::CrossingSite {
+                        cell,
+                        system: system as u16,
+                        span_m: site.width_m as f32,
+                        labour_h: labour_h(def, site.width_m) as f32,
+                    },
+                    hours_a_wade: wade_saving_s(ctx, site.banks[0], cell, def.deck_factor) / 3600.0,
+                    life,
+                    wades: wades.clone(),
+                    households: homes.len(),
+                };
+                if best
+                    .as_ref()
+                    .is_none_or(|b| p.pooled_net_h() > b.pooled_net_h())
+                {
+                    best = Some(p);
+                }
+            }
+            // A stream is a problem only where the village's wades would repay the work: the
+            // household rule of step two, for all of them together.
+            out.extend(best.filter(|p| p.pooled_net_h() > 0.0));
+        }
+        out
+    }
+
+    /// Where settlement `settlement`'s people could build a crossing together now: for tests.
+    #[doc(hidden)]
+    pub fn public_sites_for_tests(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+    ) -> Vec<crate::polity::CrossingSite> {
+        let mut households: Vec<PermanentId> = self
+            .households
+            .iter()
+            .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+            .map(|(_, x)| x.id)
+            .collect();
+        households.sort_unstable();
+        self.public_sites(ctx, settlement, &households)
+            .into_iter()
+            .map(|p| p.site)
+            .collect()
+    }
+
+    /// What a law to build a crossing at river cell `cell` would bring each household of
+    /// settlement `settlement`, points, as its members would weigh it at the gathering: for
+    /// tests.
+    #[doc(hidden)]
+    pub fn crossing_gains_for_tests(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+        cell: u32,
+    ) -> Vec<(PermanentId, f64)> {
+        let Some(pi) = self.polity_of(settlement) else {
+            return Vec::new();
+        };
+        let Some(k) = ctx
+            .catalog
+            .policies
+            .iter()
+            .position(|d| d.kind == crate::polity::PolicyKind::BuildCrossing)
+        else {
+            return Vec::new();
+        };
+        let mut households: Vec<PermanentId> = self
+            .households
+            .iter()
+            .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+            .map(|(_, x)| x.id)
+            .collect();
+        households.sort_unstable();
+        let adults = self.members_of(settlement, ctx.now, ctx.params);
+        let fc = self.forecasts(ctx, pi, &households, &adults);
+        let m = crate::polity::MoveOption {
+            policy: k as u16,
+            levy_share: 0.0,
+            issue: crate::polity::IssueKind::Fords,
+            nominee: None,
+            sanction: Default::default(),
+            hours: (0, 0),
+            body: None,
+            ends: None,
+            site: Some(cell),
+            own_gain: 0.0,
+            followers_gain: 0.0,
+            support: 0.5,
+        };
+        let pp = &ctx.params.polity;
+        households
+            .iter()
+            .map(|&h| {
+                (
+                    h,
+                    pp.w_gain * fc.gain(&m, h, &ctx.catalog.policies, ctx.params),
+                )
+            })
+            .collect()
+    }
+
+    /// Polity `polity` begins a crossing at `site`, as its law passed would: for tests.
+    #[doc(hidden)]
+    pub fn begin_public_crossing_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        polity: PermanentId,
+        site: crate::polity::CrossingSite,
+    ) {
+        self.begin_public_crossing(ctx, polity, site);
+    }
+
+    /// Polity `polity` begins the crossing its law names at `site` (M5c slice AW, step three),
+    /// unless one stands or is being built there or beside it now, or the ground no longer
+    /// allows it.
+    pub(super) fn begin_public_crossing(
+        &mut self,
+        ctx: &mut Ctx,
+        polity: PermanentId,
+        site: crate::polity::CrossingSite,
+    ) {
+        let cell = site.cell;
+        if served(ctx, cell) {
+            return;
+        }
+        let Some(at) = site_at(ctx, cell) else {
+            return;
+        };
+        let Some(def) = ctx.catalog.bridges.get(usize::from(site.system)) else {
+            return;
+        };
+        let Some(timber) = ctx.catalog.goods.get(def.good).and_then(|g| g.timber) else {
+            return;
+        };
+        let Some(diameter_cm) = size_members(def, &timber, at.width_m) else {
+            return;
+        };
+        let id = ctx.ids.allocate();
+        ctx.land.crossings.list.push(Crossing {
+            id,
+            system: site.system,
+            banks: at.banks,
+            cells: vec![cell],
+            span_m: at.width_m as f32,
+            members: def.members.min(u32::from(u8::MAX)) as u8,
+            diameter_cm: diameter_cm as f32,
+            quality: 0.0,
+            loss: 0.0,
+            owner: CrossingOwner::Polity(polity),
+            labour_h: labour_h(def, at.width_m) as f32,
+            skill_h: 0.0,
+            begun: ctx.now,
+            state: CrossingState::Building { work_h: 0.0 },
+            shares: Vec::new(),
+        });
+    }
+
+    /// The crossing `person` of household `x` may work on, if any (M5c slice AW, steps two and
+    /// three): their household's own, else one their polity is building under a law in force they
+    /// know of. Where on its nearer bank the work is done, the walk there, the work left, the
+    /// walking each hour of it saves the household, and, while the household has not given the
+    /// share of a polity's crossing asked of it, what keeping to the gathering's word is worth to
+    /// them: their adherence to the norm that the gathering binds, their own stance on the law
+    /// and their regard for its sponsor, as a levy's payment is weighed (ADR-0013 §3; research
+    /// 09-06 §2: compliance without a sanction).
     pub(super) fn crossing_facts(
         &self,
         ctx: &Ctx,
         x: &Household,
+        person: PermanentId,
         field_key: PermanentId,
         dark: bool,
     ) -> Option<CrossingFacts> {
         if dark || ctx.land.crossings.list.is_empty() {
             return None;
         }
+        let building = |c: &&Crossing| matches!(c.state, CrossingState::Building { .. });
         let owner = CrossingOwner::Household(x.id);
-        let c = ctx
+        let mut duty = 0.0;
+        let c = match ctx
             .land
             .crossings
             .list
             .iter()
-            .find(|c| c.owner == owner && matches!(c.state, CrossingState::Building { .. }))?;
+            .filter(building)
+            .find(|c| c.owner == owner)
+        {
+            Some(c) => c,
+            None => {
+                let polity = &self.polities[self.polity_of(x.settlement?)?];
+                let (c, law) = ctx
+                    .land
+                    .crossings
+                    .list
+                    .iter()
+                    .filter(building)
+                    .filter(|c| c.owner == CrossingOwner::Polity(polity.id))
+                    .find_map(|c| {
+                        let law = polity.laws.iter().find(|l| {
+                            l.status == crate::polity::LawStatus::InForce
+                                && l.kind == crate::polity::PolicyKind::BuildCrossing
+                                && l.knows(person)
+                                && polity
+                                    .site_of(l.id)
+                                    .is_some_and(|s| c.cells.contains(&s.cell))
+                        })?;
+                        Some((c, law))
+                    })?;
+                let households = self
+                    .households
+                    .iter()
+                    .filter(|(_, y)| y.settlement == x.settlement && !y.members.is_empty())
+                    .count()
+                    .max(1);
+                let share = f64::from(c.labour_h) / households as f64;
+                if f64::from(c.worked_by(x.id)) + 1e-6 < share {
+                    let stance = law
+                        .stances
+                        .iter()
+                        .find(|r| r.person == person)
+                        .map_or(0.0, |r| r.stance.sign());
+                    let regard = self.ties.regard(
+                        person,
+                        law.sponsor,
+                        ctx.now.day_index(),
+                        &ctx.params.ties,
+                    );
+                    let norm = self.norm_points(ctx, person);
+                    duty =
+                        crate::polity::comply_points(norm, stance, regard, 0.0, &ctx.params.polity)
+                            .max(0.0);
+                }
+                c
+            }
+        };
         let CrossingState::Building { work_h } = c.state else {
             return None;
         };
@@ -432,6 +800,7 @@ impl Population {
             walk_min: f64::from(secs) / 60.0,
             left_h: (f64::from(c.labour_h) - f64::from(work_h)).max(0.0),
             saves_per_hour: saved_h / f64::from(c.labour_h).max(1.0),
+            duty,
         })
     }
 
@@ -448,13 +817,16 @@ impl Population {
         crossing: PermanentId,
         hours: f64,
     ) {
-        let Some(i) = ctx
-            .land
-            .crossings
-            .list
-            .iter()
-            .position(|c| c.id == crossing && c.owner == CrossingOwner::Household(household))
-        else {
+        let polity = self
+            .household(household)
+            .and_then(|x| x.settlement)
+            .and_then(|s| self.polity_of(s))
+            .map(|pi| self.polities[pi].id);
+        let Some(i) = ctx.land.crossings.list.iter().position(|c| {
+            c.id == crossing
+                && (c.owner == CrossingOwner::Household(household)
+                    || polity.is_some_and(|p| c.owner == CrossingOwner::Polity(p)))
+        }) else {
             return;
         };
         let CrossingState::Building { work_h } = ctx.land.crossings.list[i].state else {
@@ -481,6 +853,11 @@ impl Population {
         let work_h = work_h + done as f32;
         c.skill_h += (done * level) as f32;
         c.state = CrossingState::Building { work_h };
+        // What each household gave of a polity's crossing is kept (research 09-06: labour asked
+        // and labour given apart).
+        if matches!(c.owner, CrossingOwner::Polity(_)) {
+            c.add_share(household, done as f32);
+        }
         if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
             p.set_skill(k, s.practised(p.skill(k), done));
         }
@@ -497,14 +874,30 @@ impl Population {
         c.state = CrossingState::Open {
             since: now.day_index(),
         };
-        let (cells, name) = (c.cells.clone(), def.name.to_lowercase());
+        let (cells, name, public) = (
+            c.cells.clone(),
+            def.name.to_lowercase(),
+            matches!(c.owner, CrossingOwner::Polity(_)),
+        );
         ctx.land.crossings.changed();
         let settlement = self.household(household).and_then(|x| x.settlement);
         let middle = cells[cells.len() / 2] as usize;
-        let sentence = format!(
-            "{}'s household finished a {name} over a stream, and it is open to walkers.",
-            self.name_of(who)
-        );
+        let sentence = if public {
+            let place = settlement
+                .and_then(|s| ctx.land.settlements.iter().find(|t| t.id == s))
+                .map_or_else(|| "the village".to_owned(), |t| t.name.clone());
+            format!(
+                "{}'s people finished the {name} their gathering agreed to build over a stream, \
+                 {} laying the last of it, and it is open to walkers.",
+                place,
+                self.name_of(who)
+            )
+        } else {
+            format!(
+                "{}'s household finished a {name} over a stream, and it is open to walkers.",
+                self.name_of(who)
+            )
+        };
         self.chronicle_push(
             now,
             ChronicleKind::Crossing,

@@ -2601,7 +2601,7 @@ impl Population {
             petition: self.petition_facts(ctx, p.id, age, &hh, minute, evening_start),
             watch: self.watch_facts(ctx, p.id, &hh, dark),
             carry: self.carry_facts(ctx, p.id, field_key, dark),
-            crossing: self.crossing_facts(ctx, &hh, field_key, dark),
+            crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),
             hurt: self
                 .order
                 .hurt_until(p.id)

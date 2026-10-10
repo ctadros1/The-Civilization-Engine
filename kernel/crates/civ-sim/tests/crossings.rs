@@ -1,13 +1,15 @@
 //! Crossings over water (M5c slice AW, step one): an open crossing's span is walked at its deck's
 //! speed, so a river too big to wade is crossed; rot takes its members, and one that can no
 //! longer carry its own weight, or someone stepping onto it, gives way, dropping whoever is on it
-//! into the water; and no route crosses it once it has.
+//! into the water; and no route crosses it once it has. Households build logs where their own
+//! wades repay them (step two), and a village where all of them together would (step three).
 
 use std::path::Path;
 use std::sync::OnceLock;
 
 use civ_agents::bridge::{margin, size_members};
 use civ_agents::fords::Wade;
+use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome, PolicyKind};
 use civ_agents::{Cause, ChronicleKind, CrossingStep};
 use civ_content::ContentRegistry;
 use civ_core::PermanentId;
@@ -124,6 +126,7 @@ fn lay(sim: &mut Sim, loss: f32) -> (PermanentId, [u32; 2], u32) {
         state: CrossingState::Open {
             since: now.day_index(),
         },
+        shares: Vec::new(),
     });
     sim.land_mut_for_tests().crossings.changed();
     sim.lay_decks_for_tests();
@@ -423,6 +426,163 @@ fn a_household_that_wades_a_stream_often_builds_a_log_over_it_and_walks_it_once_
     let (banks, _) = (c.banks, c.cells.clone());
     let route_cells = route(&sim, banks[0], banks[1]).expect("across").0;
     assert!(route_cells.contains(&cell));
+    assert!(sim.land().crossings.problems().is_empty());
+    saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+#[test]
+fn a_crossing_the_gathering_asks_for_is_built_by_the_households_shares_of_its_work() {
+    // World 4's stream, waded by every household of the village but one some 400 times a year:
+    // about two hours of walking a year each, too little for any one household to repay a log's
+    // work alone, but more than enough for all of them together.
+    let mut sim = village(4);
+    sim.advance_minutes(DAY).expect("lives");
+    let cell = ford(&sim);
+    let settlement = sim.land().settlements[0].id;
+    let mut households: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, h)| !h.members.is_empty())
+        .map(|(_, h)| h.id)
+        .collect();
+    households.sort_unstable();
+    assert!(households.len() >= 3, "{} households", households.len());
+    let (dry, wading) = households.split_last().expect("households");
+    for &h in wading {
+        remember(&mut sim, h, cell, 300.0);
+    }
+    // No household begins one of its own.
+    for &h in &households {
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_crossing_for_tests(ctx, h));
+    }
+    assert!(sim.land().crossings.list.is_empty());
+    // The settlement's people could build one there together: a log footbridge.
+    let site = sim
+        .with_ctx_for_tests(|pop, ctx| pop.public_sites_for_tests(ctx, settlement))
+        .into_iter()
+        .find(|s| s.cell == cell)
+        .expect("a site at the ford");
+    assert!((40.0..200.0).contains(&site.labour_h), "{}", site.labour_h);
+    // A law to build it would bring each household that wades it more than the one that does
+    // not, which would only give its share of the work. In food, what an hour of their work
+    // brings, the walking is little either way.
+    let gains =
+        sim.with_ctx_for_tests(|pop, ctx| pop.crossing_gains_for_tests(ctx, settlement, cell));
+    let gain = |h: PermanentId| gains.iter().find(|g| g.0 == h).expect("weighed").1;
+    assert!(gain(*dry) < 0.0, "{gains:?}");
+    assert!(wading.iter().all(|&h| gain(h) > gain(*dry)), "{gains:?}");
+    // The gathering passed it: a law in force, known to every adult, its site recorded; the
+    // polity begins the crossing.
+    let polity = sim.people().polities[0].id;
+    let adults: Vec<PermanentId> = sim
+        .people()
+        .people
+        .iter()
+        .filter(|(_, p)| p.age_years(sim.now()) >= 16.0)
+        .map(|(_, p)| p.id)
+        .collect();
+    let policy = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.kind == PolicyKind::BuildCrossing)
+        .expect("the template") as u16;
+    let id = sim.allocate_id_for_tests();
+    let (now, today) = (sim.now(), sim.now().day_index());
+    {
+        let pop = sim.people_mut_for_tests();
+        let p = &mut pop.polities[0];
+        p.laws.push(Law {
+            id,
+            policy,
+            kind: PolicyKind::BuildCrossing,
+            levy_share: 0.0,
+            holder: None,
+            relief_days: 0.0,
+            sanction: Default::default(),
+            hours: (0, 0),
+            status: LawStatus::InForce,
+            sponsor: adults[0],
+            proposed: now,
+            issue: IssueKind::Fords,
+            meets_day: today,
+            decided: Some(now),
+            outcome: Some(Outcome::Passed),
+            eligible: 0,
+            stances: Vec::new(),
+            known: adults.iter().map(|&a| (a, today)).collect(),
+            compliance: Default::default(),
+            watch: Default::default(),
+            body: None,
+            ends: None,
+            agreement: None,
+        });
+        p.sites.push((id, site));
+    }
+    let words = sim.people().polities[0].words_of(
+        &sim.people().polities[0]
+            .laws
+            .last()
+            .expect("the law")
+            .clone(),
+        &sim.rules().catalog.policies,
+        &|_| String::new(),
+    );
+    assert!(words.contains("each household doing its share"), "{words}");
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_public_crossing_for_tests(ctx, polity, site));
+    let c = sim.land().crossings.list.first().expect("begun").clone();
+    assert_eq!(c.owner, CrossingOwner::Polity(polity));
+    assert_eq!(c.cells, vec![cell]);
+    // Its people give their households' shares as they choose, until it opens; the household
+    // that never wades it gives too, for the gathering's word.
+    for _ in 0..120 {
+        sim.advance_minutes(DAY).expect("lives");
+        if sim.land().crossings.list[0].open() {
+            break;
+        }
+    }
+    let c = sim.land().crossings.list[0].clone();
+    assert!(c.open(), "{:?}, shares {:?}", c.state, c.shares);
+    assert!(c.shares.len() >= 2, "{:?}", c.shares);
+    let given: f32 = c.shares.iter().map(|s| s.1).sum();
+    assert!(
+        (given - c.labour_h).abs() < 1e-2,
+        "{given} of {}",
+        c.labour_h
+    );
+    let entries = crossing_entries(&sim);
+    assert_eq!(entries.len(), 1, "{entries:?}");
+    assert!(
+        entries[0].1.contains("their gathering agreed to build"),
+        "{}",
+        entries[0].1
+    );
+    // Its deck is walked; no household begins one of its own there, nor beside it, where
+    // walkers would take its deck: not even one that waded the next cell of the stream daily.
+    assert!(
+        route(&sim, c.banks[0], c.banks[1])
+            .expect("across")
+            .0
+            .contains(&cell)
+    );
+    let w = sim.map().width;
+    let beside = [cell - w, cell + w, cell - 1, cell + 1]
+        .into_iter()
+        .find(|&b| sim.map().water[b as usize] == WATER_RIVER && !c.banks.contains(&b));
+    if let Some(b) = beside {
+        remember(&mut sim, households[0], b, 1500.0);
+    }
+    for &h in &households {
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_crossing_for_tests(ctx, h));
+    }
+    assert_eq!(sim.land().crossings.list.len(), 1);
+    assert!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.public_sites_for_tests(ctx, settlement))
+            .iter()
+            .all(|s| s.cell != cell && Some(s.cell) != beside)
+    );
     assert!(sim.land().crossings.problems().is_empty());
     saves_and_goes_on_alike(&mut sim, DAY);
 }

@@ -52,11 +52,17 @@ pub enum PolicyKind {
     /// gathering ratifies what two who met agreed on; it is in force only once both have passed
     /// it and each has heard of the other's decision.
     Agreement,
+    /// The polity builds a crossing over a stream its people wade (M5c slice AW, step three;
+    /// research 11-07 §4.1: household or village cooperation, labour contributed): it begins once
+    /// passed, owned by the polity, and each household is asked an equal share of its work, which
+    /// its people give or do not (09-06: labour asked, labour given and the work done are kept
+    /// apart). Nobody is made to work, and nothing follows a share not given.
+    BuildCrossing,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 9] = [
+    pub const ALL: [PolicyKind; 10] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -66,6 +72,7 @@ impl PolicyKind {
         PolicyKind::Repeal,
         PolicyKind::ClaimPlace,
         PolicyKind::Agreement,
+        PolicyKind::BuildCrossing,
     ];
 
     /// The authored name.
@@ -80,6 +87,7 @@ impl PolicyKind {
             PolicyKind::Repeal => "repeal",
             PolicyKind::ClaimPlace => "claim_place",
             PolicyKind::Agreement => "agreement",
+            PolicyKind::BuildCrossing => "build_crossing",
         }
     }
 
@@ -122,11 +130,14 @@ pub enum IssueKind {
     /// between their polities, and the two agreed on some to put to their gatherings (M5c slice
     /// AU). It answers no settlement's issue and opens no move to anyone.
     TermsSought,
+    /// A household of the settlement wades a stream where a crossing of a system its people
+    /// know could stand and none does (M5c slice AW, step three): what its members walked.
+    Fords,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 9] = [
+    pub const ALL: [IssueKind; 10] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -136,6 +147,7 @@ impl IssueKind {
         IssueKind::Outsiders,
         IssueKind::ClaimedFromUs,
         IssueKind::TermsSought,
+        IssueKind::Fords,
     ];
 
     /// The authored name.
@@ -150,6 +162,7 @@ impl IssueKind {
             IssueKind::Outsiders => "outsiders",
             IssueKind::ClaimedFromUs => "claimed_from_us",
             IssueKind::TermsSought => "terms_sought",
+            IssueKind::Fords => "fords",
         }
     }
 
@@ -177,6 +190,7 @@ impl IssueKind {
             IssueKind::TermsSought => {
                 "one of theirs met someone of another settlement who sought terms with them"
             }
+            IssueKind::Fords => "its people waded a stream a crossing could span",
         }
     }
 }
@@ -906,6 +920,12 @@ pub fn law_words(
     if def.is_some_and(|d| d.kind == PolicyKind::Agreement) {
         return "an agreement with a neighbouring polity".to_owned();
     }
+    // Without the site at hand (see [`Polity::words_of`]), only what it is.
+    if def.is_some_and(|d| d.kind == PolicyKind::BuildCrossing) {
+        return "a crossing over a stream its people wade, each household doing its share of the \
+                work"
+            .to_owned();
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::AgainstTaking) {
         return format!(
             "a law against taking: whoever is found to have taken from another household's \
@@ -974,6 +994,7 @@ pub fn ending_words(
         Some(PolicyKind::AmendBody) => "a change of the custom".to_owned(),
         Some(PolicyKind::ClaimPlace) => "the claim on places outsiders worked".to_owned(),
         Some(PolicyKind::Agreement) => "the agreement with a neighbouring polity".to_owned(),
+        Some(PolicyKind::BuildCrossing) => "the work on a crossing".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -1168,6 +1189,23 @@ pub struct Polity {
     /// The places its claims name, each with the law that names it (M5c slice AT, ADR-0020 §5):
     /// recorded when the claim is proposed, and claimed while that law is in force.
     pub claimed: Vec<(PermanentId, crate::uses::Place)>,
+    /// Where its laws to build a crossing would build one, each with its law (M5c slice AW, step
+    /// three): recorded when the law is proposed.
+    pub sites: Vec<(PermanentId, CrossingSite)>,
+}
+
+/// Where a law would build a crossing (M5c slice AW, step three): the river cell, the bridge
+/// system by its place in the catalog, the channel's width there, and the work it would take.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CrossingSite {
+    /// The river cell it spans.
+    pub cell: u32,
+    /// Its bridge system, by index in the catalog's.
+    pub system: u16,
+    /// The clear span, metres.
+    pub span_m: f32,
+    /// The work it takes, hours.
+    pub labour_h: f32,
 }
 
 /// A version of a polity's custom (ADR-0017 §1): its body, since when, and the law that made it
@@ -1222,7 +1260,13 @@ impl Polity {
                 seized_by: None,
             }],
             claimed: Vec::new(),
+            sites: Vec::new(),
         }
+    }
+
+    /// Where law `law` would build a crossing, if it is one that would (M5c slice AW).
+    pub fn site_of(&self, law: PermanentId) -> Option<CrossingSite> {
+        self.sites.iter().find(|s| s.0 == law).map(|s| s.1)
     }
 
     /// The law in force that claims `place`, if any (the first made; M5c slice AT).
@@ -1325,6 +1369,16 @@ impl Polity {
                     format!("{n} places")
                 },
                 if n == 1 { "it" } else { "them" }
+            );
+        }
+        // A crossing says how long a stream it spans and the work it asks (M5c slice AW).
+        if kind == Some(PolicyKind::BuildCrossing)
+            && let Some(site) = self.site_of(law.id)
+        {
+            return format!(
+                "a crossing over the {:.1} m stream where its people wade, each household doing \
+                 its share of {:.0} hours of work",
+                site.span_m, site.labour_h
             );
         }
         match law
@@ -1520,6 +1574,8 @@ pub struct MoveOption {
     pub body: Option<Body>,
     /// The law in force it would replace, for one a faction petitions for (M4c slice AH).
     pub ends: Option<PermanentId>,
+    /// The river cell it would span, for a crossing (M5c slice AW).
+    pub site: Option<u32>,
     /// The forecast for the person's own household ([`store_gain`]).
     pub own_gain: f64,
     /// The forecast for the households of those who regard them, weighted by that regard.
@@ -2093,6 +2149,7 @@ pub(crate) mod tests {
             hours: (0, 0),
             body: None,
             ends: None,
+            site: None,
             own_gain: 0.3,
             followers_gain: 0.2,
             support: 0.8,

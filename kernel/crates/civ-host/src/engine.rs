@@ -1773,6 +1773,7 @@ mod tests {
             skill_h: 0.0,
             begun: now,
             state: CrossingState::Building { work_h: 18.0 },
+            shares: Vec::new(),
         });
         let rev = frames::crossings::crossings_rev(sim);
         assert_ne!(rev, 0);

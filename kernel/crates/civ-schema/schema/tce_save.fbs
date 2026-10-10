@@ -240,7 +240,7 @@ table Settlements {
 // weighed in a decision.
 // Schema 14 adds Technique: the technique a session of trying works toward, by index into
 // People.techniques (in a decision receipt, into the content's techniques when it was saved).
-enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14 }
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15 }
 
 enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
 
@@ -1949,6 +1949,44 @@ table CrossingsSave {
   revision: uint (id: 1);
   // Schema 69: the river cells households' people wade, by household and cell.
   wades: [WadeSave] (id: 2);
+}
+
+// A well (schema 74, M6a slice AY, step three): `system` its well system's content id; its
+// ground in integer centimetres from the map's north-west corner as a plot's; `state` 0 being
+// dug, 1 open since `state_at`, 2 given up at `state_at`, 3 fallen in at `state_at`; the water in
+// its shaft at `level_at`, metres, and what was drawn from it since the day's end, litres; the
+// day its latest work began and how many began a session of it that day.
+table WellSave {
+  id: ulong (id: 0);
+  system: string (id: 1);
+  cell: uint (id: 2);
+  x_cm: int (id: 3);
+  y_cm: int (id: 4);
+  w_cm: int (id: 5);
+  h_cm: int (id: 6);
+  household: ulong (id: 7);
+  ground_m: float (id: 8);
+  depth_m: float (id: 9);
+  target_m: float (id: 10);
+  work_h: float (id: 11);
+  skill_h: float (id: 12);
+  quality: float (id: 13);
+  loss: float (id: 14);
+  mend_h: float (id: 15);
+  worth: float (id: 16);
+  level_m: double (id: 17);
+  level_at: long (id: 18);
+  drawn_l: double (id: 19);
+  begun: long (id: 20);
+  state: ubyte (id: 21);
+  state_at: long (id: 22);
+  crew_day: long (id: 23);
+  crew: ubyte (id: 24);
+}
+
+// Every well, in the order begun (schema 74).
+table WellsSave {
+  list: [WellSave] (id: 0);
 }
 
 table RelationsSave {

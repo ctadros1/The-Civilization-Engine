@@ -1130,6 +1130,16 @@ impl Population {
         for p in ctx.land.plots.iter_mut().filter(|p| p.household == from) {
             p.household = to;
         }
+        // And its wells (M6a slice AY, step three).
+        for w in ctx
+            .land
+            .wells
+            .list
+            .iter_mut()
+            .filter(|w| w.household == from)
+        {
+            w.household = to;
+        }
         for b in ctx
             .land
             .buildings

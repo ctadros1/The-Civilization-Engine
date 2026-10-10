@@ -64,6 +64,16 @@ impl Population {
                     .and_then(|b| b.technique),
                 _ => None,
             },
+            // Work on a well needs its system's technique (M6a slice AY, step three).
+            Behavior::Well => match target {
+                Target::Well(w) => ctx
+                    .land
+                    .wells
+                    .get(w)
+                    .and_then(|x| catalog.wells.get(x.system))
+                    .and_then(|d| d.technique),
+                _ => None,
+            },
             Behavior::Hire => match target {
                 Target::Firm(f) => self
                     .firm(f)

@@ -4,7 +4,11 @@ Status: Accepted
 Date: 2026-10-10
 Milestone: M6a
 Amended: 2026-10-10, M6a slice AY step one, to match what was built: §2's heads are settled to
-where the mean recharge holds them, not spun up over years (plan §9).
+where the mean recharge holds them, not spun up over years (plan §9). And M6a slice AY step
+three: §3's well is a record of its own, as a crossing is, not an earthwork with a building's
+groups: its shaft dug at ADR-0010's rate, its one lining rotting and drawn at a quality as
+ADR-0009's parts are; its household weighs it over the lining's life, but each session of the
+work weighs a year's saving (plan §9).
 
 ## Context
 

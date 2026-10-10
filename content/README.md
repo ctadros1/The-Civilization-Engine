@@ -43,7 +43,7 @@ CI runs the validator. Diagnostics have stable codes:
 | E3002 | Unknown or missing `kind` |
 | E3003 | Not exactly one world-generation preset has `default = true` |
 | E3004 | Not exactly one people profile, or not exactly one land profile |
-| E3005 | A technique gates no work: no recipe, activity or building program names it |
+| E3005 | A technique gates no work: no recipe, activity, building program, bridge or well system names it |
 | E3006 | Techniques' prerequisites form a cycle |
 | E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it (research 07-03 §6's bootstrap test) |
 
@@ -352,7 +352,7 @@ decided by people at run time.
 
 | Field | Meaning |
 |---|---|
-| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults), `take` (M4b: going to another household's home to take food from its store, when short; ADR-0015 §2), `watch` (M4b: the watch's rounds at night, for whoever holds the office), `petition` (M4c: going to the hearth on the evening a faction's petition sits, for an adult who has heard of it; ADR-0017 §3), `visit` (M5a: going to the hearth of another settlement the household knows and home the same day; ADR-0018 §2), `fetch` (M5b: going to a seller's door in another settlement by a price report the household holds, to buy at the terms it posts there now, for itself or to sell at home, and home the same day; ADR-0019 §2, §6), `carry` (M5c: taking up goods a payment owes where the paying store set them aside, walking them to the other settlement's hearth and home the same day, for the one who is to carry them; ADR-0020 §7), `bridge` (M5c: walking to the bank where the household is building a crossing, working on it and walking home, only while it is building one, or while their polity is building one under a law they know of). |
+| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults), `take` (M4b: going to another household's home to take food from its store, when short; ADR-0015 §2), `watch` (M4b: the watch's rounds at night, for whoever holds the office), `petition` (M4c: going to the hearth on the evening a faction's petition sits, for an adult who has heard of it; ADR-0017 §3), `visit` (M5a: going to the hearth of another settlement the household knows and home the same day; ADR-0018 §2), `fetch` (M5b: going to a seller's door in another settlement by a price report the household holds, to buy at the terms it posts there now, for itself or to sell at home, and home the same day; ADR-0019 §2, §6), `carry` (M5c: taking up goods a payment owes where the paying store set them aside, walking them to the other settlement's hearth and home the same day, for the one who is to carry them; ADR-0020 §7), `bridge` (M5c: walking to the bank where the household is building a crossing, working on it and walking home, only while it is building one, or while their polity is building one under a law they know of), `well` (M6a: digging and lining the well the household is making beside its home, or relining it, only while one is owed work; ADR-0021 §3). |
 | `resource` | For `gather` only: the land resource gathered (hunting, fishing, collecting firewood and cutting building materials are gathering too). A trip works until its load is full or its time runs out. |
 | `task` | For `farm` only: the field work, one of `prepare`, `sow`, `tend`, `reap`, `thresh`. |
 | `recipe` | For `make` only: the recipe worked, at home. |
@@ -717,6 +717,25 @@ norms they hold weigh), `revolt_days` (how long the call stands), `hold_days` (h
 officeholder, and more adults than stand with the gathering, must stand with it before it holds)
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
+
+Content API 71 (M6a slice AY, step three) brings wells: a new content kind, well systems (`kind =
+"well"`, files under `well/`), with `technique` and `skill` (as a bridge system's; the skill is
+practised by the work and its lining's quality drawn from it, ADR-0009 §6), `dig_radius_m` (the
+radius dug: the earth taken out of each metre is the circle of it, at the people profile's
+`digging.h_per_m3`), `radius_m` (inside the lining, the water column's; no more than the radius
+dug), `lining_h_per_m` (hours to line a metre), `water_m` (how far below where they expect water
+its diggers mean to go), `max_depth_m` (the deepest they go before giving it up), `influence_m`
+(03-02 §1.4's radius of influence, over which the column refills from the ground), `lift_min_per_m`
+(minutes to haul a load up a metre to the ground), `loss_per_year` (the share of its lining rot
+takes a year on ground of wetness 1; the lining gives way, and the shaft falls in, once rot has
+taken what its quality left) and `crew` (how many may begin a session of work on one in a day).
+The core's `core:well/timber_lined` is dug 1.5 m across and lined 1.2 m inside (research 12-01
+§2.2), its lining at 16 hours a metre, at most 10 m deep (03-02 §2.3), and its work is
+`core:activity/work_on_well` (behaviour `well`; heavy work with an axe, as digging clay is). The
+technique `core:technique/well_digging`, which founders bring (12-01 §3.1: timber-lined wells in
+the early Neolithic), is learned at the age of the well work. A technique a bridge or well system
+names gates work (E3005). What a well yields is never authored: its water is the column standing
+in its shaft, refilled from the water table round it, and what is drawn leaves the water table.
 
 Content API 70 (M6a slice AY, step two) brings water people choose: the `[household]` key
 `water_use_by_walk_min` (above). The core's people use 20 L a day while the walk is a quarter of

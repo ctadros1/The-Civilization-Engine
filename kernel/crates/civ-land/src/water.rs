@@ -112,6 +112,8 @@ pub struct Aquifer {
     pub unit_sy: Vec<f64>,
     /// Each patch's unit of ground.
     pub unit: Vec<u8>,
+    /// Each patch's transmissivity, m²/day: its unit's conductivity times its thickness.
+    pub t: Vec<f64>,
     /// Each patch's land area, m²: recharge falls on it and its head stores water over it.
     pub land_m2: Vec<f64>,
     /// Each patch's specific yield times its land area, m² (what a metre of head holds).
@@ -271,6 +273,7 @@ impl Aquifer {
             unit_k_m_day: unit_k,
             unit_sy,
             unit,
+            t,
             total_land_m2: land_m2.iter().sum(),
             land_m2,
             storage_m2,
@@ -616,6 +619,7 @@ mod tests {
             unit_k_m_day: vec![c / 10.0],
             unit_sy: vec![sy],
             unit: vec![0; n],
+            t: vec![c; n],
             land_m2: vec![area; n],
             storage_m2: vec![area * sy; n],
             seep: (0..n).map(|p| Some((p as u32, ground(p)))).collect(),

@@ -67,6 +67,8 @@ mod residence;
 mod terms;
 mod values;
 mod watch;
+mod wells;
+pub use wells::WellWeighed;
 mod word;
 
 pub use deposits::{DepositKnown, FIND_M};
@@ -2611,6 +2613,7 @@ impl Population {
             watch: self.watch_facts(ctx, p.id, &hh, dark),
             carry: self.carry_facts(ctx, p.id, field_key, dark),
             crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),
+            well: self.well_facts(ctx, &hh, dark),
             hurt: self
                 .order
                 .hurt_until(p.id)
@@ -2797,7 +2800,8 @@ impl Population {
             }
         }
         let home = self.homes.get(&field_key);
-        let water = home.and_then(|f| self.water_source(ctx, f));
+        let short = Self::short_of_water(water_l, water_day);
+        let water = self.water_source(ctx, home, Some((&hh, short)));
         let land_params = ctx.land_params;
         let map = ctx.map;
         let (places, priors) = (&self.places, &self.priors);
@@ -3724,6 +3728,15 @@ impl Population {
             }
             x.crew.1 = x.crew.1.saturating_add(1);
         }
+        // And so is someone who sets off to work on a well (M6a slice AY, step three).
+        if let Target::Well(w) = target
+            && catalog
+                .activities
+                .get(usize::from(def))
+                .is_some_and(|a| a.behavior == Behavior::Well)
+        {
+            Self::joined_well_crew(ctx, w);
+        }
         self.run_steps(ctx, h, depth + 1);
     }
 
@@ -4017,7 +4030,8 @@ impl Population {
                 | Behavior::Take
                 | Behavior::Watch
                 | Behavior::Carry
-                | Behavior::Bridge,
+                | Behavior::Bridge
+                | Behavior::Well,
             ) => (def_par, false, 0.0),
             None => (params.energy.idle_par, false, 0.0),
         };
@@ -4134,10 +4148,20 @@ impl Population {
                     }
                 }
                 Some(Behavior::FetchWater) => {
-                    p.carrying.water_l = params.household.carry_water_l as f32;
-                    if let Target::Water(cell) = p.act.target {
-                        let (who, household) = (p.id, p.household);
-                        self.drew_water(ctx, cell, household, who, now);
+                    let (who, household) = (p.id, p.household);
+                    match p.act.target {
+                        // At a well, what its column holds of a load (M6a slice AY, step three).
+                        Target::Well(well) => {
+                            let got = self.drew_from_well(ctx, well, household, who, now);
+                            if let Some(p) = self.people.get_mut(h) {
+                                p.carrying.water_l = got as f32;
+                            }
+                        }
+                        Target::Water(cell) => {
+                            p.carrying.water_l = params.household.carry_water_l as f32;
+                            self.drew_water(ctx, cell, household, who, now);
+                        }
+                        _ => p.carrying.water_l = params.household.carry_water_l as f32,
                     }
                 }
                 Some(Behavior::Farm) => {
@@ -4195,6 +4219,15 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.crossing_work(ctx, (h, who), household, crossing, hours);
+                    }
+                }
+                Some(Behavior::Well) => {
+                    if let Target::Well(well) = p.act.target {
+                        let rate = def.as_ref().map_or(1.0, |d| d.rate);
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let (who, household) = (p.id, p.household);
+                        self.well_work(ctx, (h, who), household, well, hours);
                     }
                 }
                 Some(Behavior::Hire) => {
@@ -4382,8 +4415,28 @@ impl Population {
 
     /// Where people of a household with `home` fetch water now (M6a slice AY, ADR-0021 §1): the
     /// nearest spring that flows and has a load left today, if one is nearer than the river or
-    /// lake, else the river or lake.
-    fn water_source(&self, ctx: &Ctx, home: &HomeField) -> Option<WaterOption> {
+    /// lake, else the river or lake; or, for household `x` (and whether it is short of water),
+    /// the nearest well it may draw at that holds a load, if that is nearer still (step three).
+    fn water_source(
+        &self,
+        ctx: &Ctx,
+        home: Option<&HomeField>,
+        x: Option<(&Household, bool)>,
+    ) -> Option<WaterOption> {
+        let other = home.and_then(|home| self.spring_or_bank(ctx, home));
+        let bound = other.map_or(f64::INFINITY, |o| 2.0 * o.walk_min);
+        let well = x.and_then(|(x, short)| self.well_option(ctx, x, short, bound));
+        // The well is chosen when its walk there and back and its lift take no longer.
+        match (well, other) {
+            (Some(w), Some(o)) if 2.0 * o.walk_min < 2.0 * w.walk_min + w.lift_min => Some(o),
+            (Some(w), _) => Some(w),
+            (None, o) => o,
+        }
+    }
+
+    /// The nearest spring that flows and has a load left today, if one is nearer than the river
+    /// or lake, else the river or lake, from `home`.
+    fn spring_or_bank(&self, ctx: &Ctx, home: &HomeField) -> Option<WaterOption> {
         let (water, params) = (&ctx.land.water, &ctx.land_params.water);
         let carry = ctx.params.household.carry_water_l;
         let day = ctx.now.day_index();
@@ -4391,6 +4444,8 @@ impl Population {
             cell,
             walk_min: f64::from(s) / 60.0,
             at: cell_centre(ctx.map, cell as usize),
+            well: None,
+            lift_min: 0.0,
         };
         for &(s, patch, cell) in &home.springs {
             let Some(spring) = water.spring_at(params, patch as usize) else {
@@ -5166,16 +5221,27 @@ impl Population {
             x.settle_water(now, litres_day);
             x.water_l += f64::from(load.water_l);
         }
-        // What its people use from now follows the walk to the water just fetched (ADR-0021 §1).
-        if load.water_l > 0.0
-            && let Target::Water(cell) = target
-        {
-            let walk = settlement
-                .and_then(|s| self.homes.get(&s))
-                .or_else(|| self.homes.get(&hh_id))
-                .and_then(|f| f.reach.seconds_to(cell as usize));
+        // What its people use from now follows the walk to the water just fetched (ADR-0021 §1):
+        // to a well, from home (M6a slice AY, step three).
+        if load.water_l > 0.0 {
+            let walk = match target {
+                Target::Water(cell) => settlement
+                    .and_then(|s| self.homes.get(&s))
+                    .or_else(|| self.homes.get(&hh_id))
+                    .and_then(|f| f.reach.seconds_to(cell as usize))
+                    .map(f64::from),
+                Target::Well(well) => {
+                    let home = self.households.get(own).map(|x| x.home);
+                    ctx.land
+                        .wells
+                        .get(well)
+                        .zip(home)
+                        .and_then(|(w, home)| Self::well_walk_s(ctx, home, w.rect.centre_m()))
+                }
+                _ => None,
+            };
             if let (Some(s), Some(x)) = (walk, self.households.get_mut(own)) {
-                x.water_use_l = params.household.water_use_l(f64::from(s) / 60.0);
+                x.water_use_l = params.household.water_use_l(s / 60.0);
             }
         }
         let Some(g) = load.good.map(usize::from) else {
@@ -5427,6 +5493,15 @@ impl Population {
         if !self.fords.households.is_empty() {
             self.crossing_reviews(ctx, day);
         }
+        // And the wells (M6a slice AY, step three): what was drawn taken from the water table, a
+        // month's rot on their linings, then the households whose day it is weigh one.
+        if !ctx.land.wells.list.is_empty() {
+            self.wells_day(ctx);
+            if now.date().day == 1 {
+                self.wells_month(ctx);
+            }
+        }
+        self.well_reviews(ctx, day);
         // A month ended: its asks and prices per pair of settlements are recorded (M5b slice AQ).
         self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.

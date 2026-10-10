@@ -72,7 +72,7 @@ pub use found::{
 };
 pub use history::{
     AgreementStep, Cause, ChronicleEvent, ChronicleKind, CoalitionStep, CrossingStep, Moved,
-    Origin, PersonRecord, Reason, Receipt, ResidenceWhy, Scored, Span, Stay, Term, Union,
+    Origin, PersonRecord, Reason, Receipt, ResidenceWhy, Scored, Span, Stay, Term, Union, WellStep,
 };
 pub use ledger::Channel;
 pub use needs::Sex;

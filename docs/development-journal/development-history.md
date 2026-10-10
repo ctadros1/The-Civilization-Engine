@@ -1154,6 +1154,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** wells (step three), the observer's view (step four).
 
+## 2026-10-10 — M6a slice AY, step three: wells
+
+**What changed:** households dig wells. A well is its own record: a 1.5 m shaft beside the home, lined with split timber as it goes. Once a year a household weighs one by the walking and hauling it would save over its lining's life against the hours to dig and line it, at the depth it expects water at. People dig it in sessions. It meets water where the water table stands above its floor, or is dug deeper, or given up. Its household, its kin and anyone short of water draw from its column, and what they draw leaves the water table at midnight. Its lining rots until it is relined or falls in. Content API 71 (a `well` kind, a well-digging technique founders know, the work on a well), saves 74.
+
+**Findings:** at first nobody dug, because founders learn a technique at the age of the work it gates, and nothing counted a well's work. Then digging outscored hunger, because each session counted the whole lining's life of saved walking. Each hour of work now weighs a year's saving. On three demo-like worlds, 44 to 72 wells were begun in two years by about 70 households each, 1 to 8.5 m deep, and none came up dry. One village high above its river digs none. A famine on one world was 12 people worse on average with wells, within the runs' spread; its harvest and the day it began were the same.
+
+**Evidence:** physics unit tests for the column; integration tests for the weighing, digging, meeting water or giving up, drawing, the water table giving exactly what was drawn, rights, relining and falling in, and exact saves; two-year probes on three seeds with and without the lift; baseline runs of the build before for the famine; the full suite, clippy and the smoke worlds.
+
+**Open:** the observer's view of sources and wells (step four); covers, curbs and silt with contamination (slice BA).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

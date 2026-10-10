@@ -40,6 +40,8 @@ fn people_files() -> Vec<(String, String)> {
         "skill",
         "regime",
         "technique",
+        // The well system names the well-digging technique, which nothing else gates.
+        "well",
     ] {
         let mut paths: Vec<_> = std::fs::read_dir(repo_content().join("core").join(dir))
             .expect("real content directory")
@@ -64,7 +66,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 70
+kernel_content_api = 71
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -227,10 +229,18 @@ fn the_repository_content_is_clean() {
         .iter()
         .map(|&(t, _)| c.techniques[t].id.as_str())
         .collect();
-    assert_eq!(founders.len(), 11);
+    assert_eq!(founders.len(), 12);
     assert!(founders.contains(&"core:technique/pottery"));
     assert!(founders.contains(&"core:technique/oven_baking"));
     assert!(founders.contains(&"core:technique/manuring"));
+    assert!(founders.contains(&"core:technique/well_digging"));
+    // The timber-lined well (M6a slice AY, step three): its diggers need well digging.
+    let well = &c.wells[c.well_index("core:well/timber_lined").expect("the well")];
+    assert_eq!(
+        well.technique.map(|t| c.techniques[t].id.as_str()),
+        Some("core:technique/well_digging")
+    );
+    assert!(well.radius_m < well.dig_radius_m);
     for later in ["core:technique/drying", "core:technique/rotary_quern"] {
         assert!(!founders.contains(&later), "{later}");
     }
@@ -304,6 +314,36 @@ fn out_of_range_values_are_rejected() {
     let report = load_fixture(&[("worldgen/river_valley.toml", &body)]);
     assert_eq!(codes(&report), vec!["E3001"]);
     assert!(report.diagnostics[0].message.contains("outlet_edges"));
+}
+
+#[test]
+fn wells_check_their_numbers_and_need_their_lining_inside_their_shaft() {
+    let real_well = real("well/timber_lined.toml");
+    for (body, needle) in [
+        (
+            real_well.replace("max_depth_m = 10.0", "max_depth_m = 200.0"),
+            "max_depth_m",
+        ),
+        (
+            real_well.replace("lift_min_per_m = 0.15", "lift_min_per_m = -1.0"),
+            "lift_min_per_m",
+        ),
+        (
+            real_well.replace("radius_m = 0.6", "radius_m = 0.9"),
+            "the lining is inside",
+        ),
+    ] {
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            ("well/timber_lined.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(
+            report.diagnostics[0].message.contains(needle),
+            "{needle}: {}",
+            report.diagnostics[0].message
+        );
+    }
 }
 
 #[test]

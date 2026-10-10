@@ -767,6 +767,25 @@ pub fn describe_target(
             }
             None => "a crossing".to_owned(),
         },
+        // A well dug or drawn at (M6a slice AY, step three): "the timber-lined well beside home",
+        // "the timber-lined well south of home".
+        Target::Well(id) => match sim.land.wells.get(id) {
+            Some(w) => {
+                let name = sim
+                    .rules
+                    .catalog
+                    .wells
+                    .get(w.system)
+                    .map_or_else(|| "well".to_owned(), |d| d.name.to_lowercase());
+                let at = w.rect.centre_m();
+                if (at.0 - home.0).hypot(at.1 - home.1) <= 15.0 {
+                    format!("the {name} beside home")
+                } else {
+                    format!("the {name} {} of home", bearing(home, at))
+                }
+            }
+            None => "a well".to_owned(),
+        },
     }
 }
 
@@ -899,6 +918,18 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
                 Target::Household(_) | Target::Deposit(_) => format!("{what} at {place}"),
                 // "building the log footbridge north of home" (M5c slice AW).
                 Target::Crossing(_) => format!("building {place}"),
+                // "digging the timber-lined well beside home", "relining ...", or "fetching
+                // water, the timber-lined well beside home" (M6a slice AY, step three).
+                Target::Well(id)
+                    if def.is_some_and(|d| d.behavior == civ_agents::Behavior::Well) =>
+                {
+                    if sim.land.wells.get(id).is_some_and(|w| w.is_open()) {
+                        format!("relining {place}")
+                    } else {
+                        format!("digging {place}")
+                    }
+                }
+                Target::Well(_) => format!("{what}, {place}"),
                 // Another settlement's hearth (M5a slice AM): "visiting the hearth of Ashford".
                 Target::Hearth(_)
                     if def.is_some_and(|d| d.behavior == civ_agents::Behavior::Visit) =>

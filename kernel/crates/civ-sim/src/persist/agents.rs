@@ -112,7 +112,7 @@ use super::{
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
-    finish, section, single_chunk, unreadable,
+    SCHEMA_V73, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -179,6 +179,8 @@ pub const SECTION_PLACES: SectionTag = SectionTag::new("places");
 pub const SECTION_RELATIONS: SectionTag = SectionTag::new("relation");
 /// Section: crossings over water (schema 68, M5c slice AW).
 pub const SECTION_CROSSINGS: SectionTag = SectionTag::new("crossing");
+/// Section: wells (schema 74, M6a slice AY, step three).
+pub const SECTION_WELLS: SectionTag = SectionTag::new("wells");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -276,6 +278,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             0,
             encode_crossings(&sim.land, &sim.people.fords, rules),
         ),
+        section(SECTION_WELLS, 0, encode_wells(&sim.land, rules)),
     ]
 }
 
@@ -444,6 +447,8 @@ enum Schema {
     V72,
     /// Sources people choose and the water they use (M6a slice AY, step two).
     V73,
+    /// Wells (M6a slice AY, step three).
+    V74,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -531,7 +536,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V70 => Schema::V70,
         SCHEMA_V71 => Schema::V71,
         SCHEMA_V72 => Schema::V72,
-        SAVE_SCHEMA_VERSION => Schema::V73,
+        SCHEMA_V73 => Schema::V73,
+        SAVE_SCHEMA_VERSION => Schema::V74,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -763,6 +769,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V68 {
         let bytes = single_chunk(reader, SECTION_CROSSINGS)?;
         (land.crossings, people.fords) = decode_crossings(&bytes, rules, map)?;
+    }
+    // Wells (schema 74); before, none.
+    if schema >= Schema::V74 {
+        let bytes = single_chunk(reader, SECTION_WELLS)?;
+        land.wells = decode_wells(&bytes, rules, map)?;
     }
     // Settlements' founding ways (schema 61); before them a founding band's is drawn again from
     // its key, and any other settlement's taken as its households' now.
@@ -1935,6 +1946,7 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::Technique(t) => (save::TargetKind::Technique, u32::from(t), 0),
         Target::Deposit(d) => (save::TargetKind::Deposit, 0, d.get()),
         Target::Crossing(c) => (save::TargetKind::Crossing, 0, c.get()),
+        Target::Well(w) => (save::TargetKind::Well, 0, w.get()),
     }
 }
 
@@ -1970,6 +1982,7 @@ fn target_of(
         ),
         save::TargetKind::Deposit => Target::Deposit(required(id, "a deposit target")?),
         save::TargetKind::Crossing => Target::Crossing(required(id, "a crossing target")?),
+        save::TargetKind::Well => Target::Well(required(id, "a well target")?),
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -2246,6 +2259,8 @@ fn decode_land(
         crossings: Default::default(),
         // The heads and the store below (schema 72 on); the aquifer derived.
         water: Default::default(),
+        // Read from its own section (schema 74 on).
+        wells: Default::default(),
     };
     // A grid of the wrong size is reported by `Land::problems`; only fill stocks on a sound one.
     if land.patches.class.len() == n
@@ -2892,7 +2907,8 @@ fn carried(
         | Schema::V70
         | Schema::V71
         | Schema::V72
-        | Schema::V73 => {
+        | Schema::V73
+        | Schema::V74 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3076,7 +3092,8 @@ fn decode_households(
             | Schema::V70
             | Schema::V71
             | Schema::V72
-            | Schema::V73 => {
+            | Schema::V73
+            | Schema::V74 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3762,6 +3779,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Coalition => 42,
         ChronicleKind::Agreement => 43,
         ChronicleKind::Crossing => 44,
+        ChronicleKind::Well => 45,
     }
 }
 
@@ -3811,6 +3829,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         42 => Some(ChronicleKind::Coalition),
         43 => Some(ChronicleKind::Agreement),
         44 => Some(ChronicleKind::Crossing),
+        45 => Some(ChronicleKind::Well),
         _ => None,
     }
 }
@@ -7844,6 +7863,116 @@ fn decode_crossings(
             });
     }
     Ok((Crossings::with_revision(list, root.revision()), fords))
+}
+
+fn encode_wells(land: &Land, rules: &Rules) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let list: Vec<_> = land
+        .wells
+        .list
+        .iter()
+        .map(|w| {
+            let system = rules
+                .catalog
+                .wells
+                .get(w.system)
+                .map_or("", |d| d.id.as_str());
+            let system = fbb.create_string(system);
+            let (state, state_at) = w.state.code();
+            save::WellSave::create(
+                &mut fbb,
+                &save::WellSaveArgs {
+                    id: w.id.get(),
+                    system: Some(system),
+                    cell: w.cell,
+                    x_cm: w.rect.x,
+                    y_cm: w.rect.y,
+                    w_cm: w.rect.w,
+                    h_cm: w.rect.h,
+                    household: w.household.get(),
+                    ground_m: w.ground_m,
+                    depth_m: w.depth_m,
+                    target_m: w.target_m,
+                    work_h: w.work_h,
+                    skill_h: w.skill_h,
+                    quality: w.quality,
+                    loss: w.loss,
+                    mend_h: w.mend_h,
+                    worth: w.worth,
+                    level_m: w.level_m,
+                    level_at: w.level_at.minutes(),
+                    drawn_l: w.drawn_l,
+                    begun: w.begun.minutes(),
+                    state,
+                    state_at: state_at.minutes(),
+                    crew_day: w.crew.0,
+                    crew: w.crew.1,
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let root = save::WellsSave::create(&mut fbb, &save::WellsSaveArgs { list: Some(list) });
+    finish(fbb, root)
+}
+
+/// The wells saved in `bytes`. A well of a system the loaded content no longer has is dropped;
+/// one in a cell off the map, or in an unknown state, is malformed.
+fn decode_wells(
+    bytes: &[u8],
+    rules: &Rules,
+    map: &WorldMap,
+) -> Result<civ_land::wells::Wells, LoadError> {
+    use civ_land::wells::{Well, WellState, Wells};
+    let root =
+        flatbuffers::root::<save::WellsSave>(bytes).map_err(|e| unreadable(SECTION_WELLS, &e))?;
+    let cells_on_map = u64::from(map.width) * u64::from(map.height);
+    let mut list = Vec::new();
+    for w in root.list().iter().flatten() {
+        let id = required(w.id(), "a well")?;
+        let bad = |what: &str| LoadError::Malformed(format!("well {id} has {what}"));
+        let Some(system) = rules.catalog.well_index(w.system().unwrap_or("")) else {
+            continue;
+        };
+        if u64::from(w.cell()) >= cells_on_map {
+            return Err(bad("a cell off the map"));
+        }
+        let state = WellState::from_code(w.state(), SimTime::from_minutes(w.state_at()))
+            .ok_or_else(|| bad(&format!("state code {}", w.state())))?;
+        list.push(Well {
+            id,
+            system,
+            cell: w.cell(),
+            rect: RectCm {
+                x: w.x_cm(),
+                y: w.y_cm(),
+                w: w.w_cm(),
+                h: w.h_cm(),
+            },
+            household: required(w.household(), "a well's household")?,
+            ground_m: w.ground_m(),
+            depth_m: w.depth_m(),
+            target_m: w.target_m(),
+            work_h: w.work_h(),
+            skill_h: w.skill_h(),
+            quality: w.quality(),
+            loss: w.loss(),
+            mend_h: w.mend_h(),
+            worth: w.worth(),
+            level_m: w.level_m(),
+            level_at: SimTime::from_minutes(w.level_at()),
+            drawn_l: w.drawn_l(),
+            begun: SimTime::from_minutes(w.begun()),
+            state,
+            crew: (w.crew_day(), w.crew()),
+        });
+    }
+    let wells = Wells { list };
+    let problems = wells.problems(rules.catalog.wells.len());
+    if let Some(p) = problems.first() {
+        return Err(LoadError::Malformed(p.clone()));
+    }
+    Ok(wells)
 }
 
 fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> Vec<u8> {

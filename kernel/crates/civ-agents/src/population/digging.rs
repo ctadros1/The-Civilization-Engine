@@ -81,13 +81,14 @@ fn square(at: (f64, f64), side: f64) -> RectCm {
     }
 }
 
-/// Whether a pit or heap could go on `rect`: dry land and clear of every earthwork, plot and
-/// field.
+/// Whether a pit or heap could go on `rect`: dry land and clear of every earthwork, plot, field
+/// and well.
 fn free(land: &Land, map: &WorldMap, rect: &RectCm) -> bool {
     earth::clear_of_water(map, rect, 0.0, 0.0)
         && !land.earthworks.iter().any(|w| w.rect.near(rect, 0))
         && !land.plots.iter().any(|p| p.rect.near(rect, 0))
         && !land.fields.iter().any(|f| f.rect.near(rect, 0))
+        && !land.wells.near(rect, 0)
 }
 
 /// Where a new pit on deposit `d` would go, and its heap: the free square of side `side` on the

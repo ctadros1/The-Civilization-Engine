@@ -1,0 +1,40 @@
+# A timber-lined well (M6a slice AY, step three; ADR-0021 §3): a round shaft dug beside a home
+# down past the water table, lined with split timber as it goes so its sides stand. Four early
+# Neolithic wells in Germany were lined with oak timbers dated 5469-5098 BCE (research 12-01
+# §3.1). What it yields is never authored: its water is the column standing in its shaft,
+# refilled from the ground round it at the rate the ground lets water in (03-02 §1.4).
+kind = "well"
+id = "core:well/timber_lined"
+name = "Timber-lined well"
+technique = "core:technique/well_digging"
+skill = "core:skill/building"     # trained by digging and lining it; its lining's quality is drawn from it (ADR-0009 §6)
+# 12-01 §2.2: a hand-dug well's excavation is about 1.5 m across, lined 1.2 m inside (a modern
+# guide's example, its dimensions only: not its concrete).
+dig_radius_m = 0.75
+radius_m = 0.6
+# Lining a metre of shaft: about four courses of split plank a metre, some 19 m of plank round a
+# 1.2 m box, split and dressed with stone tools at about a metre an hour (a design prior; 11-07
+# §2.3's log footbridge takes 8 hours a metre of log). The digging is the people profile's 8 h a
+# cubic metre (ADR-0010 §2), 14 hours a metre of this shaft.
+lining_h_per_m = 16.0
+# Diggers mean to take it a metre below where they expect the water: a column of about 1.1 m³
+# (03-02 §1.4: 2 m in a 1.2 m well holds about 2.26 m³). A design prior.
+water_m = 1.0
+# The deepest its diggers go before giving it up: 03-02 §2.3 finds dug wells of 1.5-10.1 m in a
+# Chilean sample (mean 4.8 m), prehistoric Yangtze wells mostly under 3 m and one late-Neolithic
+# well about 11 m deep; 12-01 §2.2's modern hand-dug wells run 5 to over 20 m.
+max_depth_m = 10.0
+# Drawing from it lowers the water table out to this distance (03-02 §1.4's worked example).
+influence_m = 50.0
+# Hauling a load up from the water: a vessel let down and pulled up hand over hand at about half a
+# metre a second, twice for a 15 L load, about 8 seconds a metre of lift (a design prior; the
+# research gives no rate). Drawing at a bank or spring needs no lift.
+lift_min_per_m = 0.15
+# Rot takes this share of its lining a year on ground of wetness 1, faster on wetter ground and
+# in wetter months, as it takes posts' feet (ADR-0012 §5). The lining gives way, and the shaft
+# falls in, when rot has taken what its quality left: at the quality a middling builder lays,
+# 13-14 years (a design prior; 11-07 §2.4 gives untreated log bridges 10-20 years).
+loss_per_year = 0.05
+# The room to work in its shaft: one digs below and one hauls the spoil and passes the timber
+# (a design prior; 11-11 §1.3: progress is limited by the usable work front).
+crew = 2

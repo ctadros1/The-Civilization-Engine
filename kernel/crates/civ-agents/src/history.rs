@@ -163,6 +163,9 @@ pub enum Reason {
     Stopped = 138,
     /// Excluded: as many as there is room for have begun work on it today (M5c slice AX).
     Crowded = 139,
+    /// The walking a well the household is making would save its people over the well's life,
+    /// for the work this session puts into it (M6a slice AY, step three).
+    Well = 140,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -174,7 +177,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 73] = [
+    pub const ALL: [Reason; 74] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -248,6 +251,7 @@ impl Reason {
         Reason::Crossing,
         Reason::PublicWork,
         Reason::Crowded,
+        Reason::Well,
     ];
 
     /// The reason with this code.
@@ -333,6 +337,7 @@ impl Reason {
             Reason::Crossing => "the walking a crossing would save",
             Reason::PublicWork => "the work the gathering asked of their household",
             Reason::Crowded => "as many as there is room for are already at work on it today",
+            Reason::Well => "the walking a well would save",
         }
     }
 }
@@ -717,6 +722,21 @@ pub enum ChronicleKind {
     /// or whoever was on it; `place` its middle; `number` the step ([`CrossingStep`]); `name` the
     /// sentence.
     Crossing,
+    /// A well met water, was given up dry, or fell in (M6a slice AY, step three): `people` who
+    /// finished or found it; `place` the well; `number` the step ([`WellStep`]); `name` the
+    /// sentence.
+    Well,
+}
+
+/// What happened to a well, in a [`ChronicleKind::Well`] entry. Numeric in saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WellStep {
+    /// Its shaft met water and it was lined: it is in use.
+    Opened = 0,
+    /// It was dug as deep as its diggers would go and met no water: it was given up.
+    GivenUp = 1,
+    /// Its lining rotted through and the shaft fell in.
+    FellIn = 2,
 }
 
 /// What happened to a crossing, in a [`ChronicleKind::Crossing`] entry. Numeric in saves:
@@ -1259,7 +1279,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::CoupFailed
         | ChronicleKind::Encounter
         | ChronicleKind::Agreement
-        | ChronicleKind::Crossing => {
+        | ChronicleKind::Crossing
+        | ChronicleKind::Well => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

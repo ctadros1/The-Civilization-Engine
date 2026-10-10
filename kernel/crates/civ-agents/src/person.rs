@@ -50,6 +50,8 @@ pub enum Target {
     Deposit(PermanentId),
     /// A crossing over water, by permanent id: the one worked on (M5c slice AW).
     Crossing(PermanentId),
+    /// A well, by permanent id: the one dug and lined (M6a slice AY, step three).
+    Well(PermanentId),
 }
 
 /// One step of an activity.

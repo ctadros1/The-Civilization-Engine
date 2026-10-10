@@ -65,11 +65,14 @@ pub enum Behavior {
     /// Walk to the bank where the household is building a crossing, work on it, and walk home
     /// (M5c slice AW, step two): the activity's numbers, the crossing's labour.
     Bridge,
+    /// Dig and line the well the household is making beside its home (M6a slice AY, step three):
+    /// the activity's numbers, the well system's labour.
+    Well,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 23] = [
+    pub const ALL: [Behavior; 24] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -93,6 +96,7 @@ impl Behavior {
         Behavior::Fetch,
         Behavior::Carry,
         Behavior::Bridge,
+        Behavior::Well,
     ];
 
     /// The authored name of a behavior.
@@ -121,6 +125,7 @@ impl Behavior {
             Behavior::Fetch => "fetch",
             Behavior::Carry => "carry",
             Behavior::Bridge => "bridge",
+            Behavior::Well => "well",
         }
     }
 
@@ -549,6 +554,63 @@ pub struct Catalog {
     /// Bridge systems, in content id order (M5c slice AW). Crossings refer to them by index,
     /// saves by content id.
     pub bridges: Vec<BridgeDef>,
+    /// Well systems, in content id order (M6a slice AY, step three). Wells refer to them by
+    /// index, saves by content id.
+    pub wells: Vec<WellDef>,
+}
+
+/// A well system (content kind `well`, M6a slice AY, step three; ADR-0021 §3; research 03-02
+/// §1.4, 12-01 §2.2): the shaft dug and how it is lined, the work a metre of it takes, how
+/// deep its builders will go, and what rots its lining. What a well of it yields is worked out
+/// from its own depth and the ground's water, never authored.
+#[derive(Clone, Debug, PartialEq)]
+pub struct WellDef {
+    pub id: String,
+    pub name: String,
+    /// The technique its diggers need, by index, if any.
+    pub technique: Option<usize>,
+    /// The skill its diggers practise, by index, from which its lining's quality is drawn
+    /// (ADR-0009 §6), if any.
+    pub skill: Option<usize>,
+    /// The radius dug, metres: earth taken out is the circle of it, deep as the shaft.
+    pub dig_radius_m: f64,
+    /// The radius inside the lining, metres: the water column's.
+    pub radius_m: f64,
+    /// Labour to line a metre of shaft, hours (the digging is the people profile's rate).
+    pub lining_h_per_m: f64,
+    /// How far below the water table its diggers expect to go, metres: the column they want.
+    pub water_m: f64,
+    /// The deepest its diggers will go, metres.
+    pub max_depth_m: f64,
+    /// The distance at which drawing from it no longer lowers the water table, metres (the
+    /// radius of influence of 03-02 §1.4's inflow).
+    pub influence_m: f64,
+    /// Minutes to haul a load up a metre from the water to the ground, beyond filling the
+    /// vessels: the lift at the source (ADR-0021 §1).
+    pub lift_min_per_m: f64,
+    /// The share of its lining rot takes in a year, on ground of wetness 1.
+    pub loss_per_year: f64,
+    /// How many may begin a session of work on one in a day: the room in its shaft.
+    pub crew: u32,
+}
+
+impl WellDef {
+    /// Labour to dig and line a metre of shaft at `dig_h_per_m3` hours a cubic metre, hours.
+    pub fn h_per_m(&self, dig_h_per_m3: f64) -> f64 {
+        std::f64::consts::PI * self.dig_radius_m.powi(2) * dig_h_per_m3 + self.lining_h_per_m
+    }
+
+    /// The water column's area, square metres.
+    pub fn area_m2(&self) -> f64 {
+        std::f64::consts::PI * self.radius_m.powi(2)
+    }
+}
+
+impl Catalog {
+    /// The well system with content id `id`, by index.
+    pub fn well_index(&self, id: &str) -> Option<usize> {
+        self.wells.iter().position(|w| w.id == id)
+    }
 }
 
 /// A bridge system (content kind `bridge`, M5c slice AW; research 11-07 §2.1): the clear spans
@@ -756,13 +818,16 @@ impl Catalog {
 
     /// The youngest age at which anyone does work that technique `t` gates, years: the age a
     /// child brought up with it learns it (ADR-0008 §4). Building programs are worked by the
-    /// `build` activities.
+    /// `build` activities, well systems by the `well` ones.
     pub fn work_age(&self, t: usize) -> Option<f64> {
         let builds = self.buildings.iter().any(|b| b.technique == Some(t));
+        let digs = self.wells.iter().any(|w| w.technique == Some(t));
         self.activities
             .iter()
             .filter(|a| {
-                self.technique_of(a) == Some(t) || (builds && a.behavior == Behavior::Build)
+                self.technique_of(a) == Some(t)
+                    || (builds && a.behavior == Behavior::Build)
+                    || (digs && a.behavior == Behavior::Well)
             })
             .map(|a| a.min_age_years)
             .reduce(f64::min)

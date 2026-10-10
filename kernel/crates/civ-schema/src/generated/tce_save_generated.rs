@@ -197,10 +197,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for Terminus {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_TARGET_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_TARGET_KIND: u8 = 14;
+pub const ENUM_MAX_TARGET_KIND: u8 = 15;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 15] = [
+pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 16] = [
   TargetKind::None,
   TargetKind::Home,
   TargetKind::Hearth,
@@ -216,6 +216,7 @@ pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 15] = [
   TargetKind::Technique,
   TargetKind::Deposit,
   TargetKind::Crossing,
+  TargetKind::Well,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -238,9 +239,10 @@ impl TargetKind {
   pub const Technique: Self = Self(12);
   pub const Deposit: Self = Self(13);
   pub const Crossing: Self = Self(14);
+  pub const Well: Self = Self(15);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 14;
+  pub const ENUM_MAX: u8 = 15;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::None,
     Self::Home,
@@ -257,6 +259,7 @@ impl TargetKind {
     Self::Technique,
     Self::Deposit,
     Self::Crossing,
+    Self::Well,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -276,6 +279,7 @@ impl TargetKind {
       Self::Technique => Some("Technique"),
       Self::Deposit => Some("Deposit"),
       Self::Crossing => Some("Crossing"),
+      Self::Well => Some("Well"),
       _ => None,
     }
   }
@@ -34022,6 +34026,606 @@ impl ::core::fmt::Debug for CrossingsSave<'_> {
       ds.field("list", &self.list());
       ds.field("revision", &self.revision());
       ds.field("wades", &self.wades());
+      ds.finish()
+  }
+}
+pub enum WellSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WellSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WellSave<'a> {
+  type Inner = WellSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WellSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SYSTEM: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CELL: ::flatbuffers::VOffsetT = 8;
+  pub const VT_X_CM: ::flatbuffers::VOffsetT = 10;
+  pub const VT_Y_CM: ::flatbuffers::VOffsetT = 12;
+  pub const VT_W_CM: ::flatbuffers::VOffsetT = 14;
+  pub const VT_H_CM: ::flatbuffers::VOffsetT = 16;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 18;
+  pub const VT_GROUND_M: ::flatbuffers::VOffsetT = 20;
+  pub const VT_DEPTH_M: ::flatbuffers::VOffsetT = 22;
+  pub const VT_TARGET_M: ::flatbuffers::VOffsetT = 24;
+  pub const VT_WORK_H: ::flatbuffers::VOffsetT = 26;
+  pub const VT_SKILL_H: ::flatbuffers::VOffsetT = 28;
+  pub const VT_QUALITY: ::flatbuffers::VOffsetT = 30;
+  pub const VT_LOSS: ::flatbuffers::VOffsetT = 32;
+  pub const VT_MEND_H: ::flatbuffers::VOffsetT = 34;
+  pub const VT_WORTH: ::flatbuffers::VOffsetT = 36;
+  pub const VT_LEVEL_M: ::flatbuffers::VOffsetT = 38;
+  pub const VT_LEVEL_AT: ::flatbuffers::VOffsetT = 40;
+  pub const VT_DRAWN_L: ::flatbuffers::VOffsetT = 42;
+  pub const VT_BEGUN: ::flatbuffers::VOffsetT = 44;
+  pub const VT_STATE: ::flatbuffers::VOffsetT = 46;
+  pub const VT_STATE_AT: ::flatbuffers::VOffsetT = 48;
+  pub const VT_CREW_DAY: ::flatbuffers::VOffsetT = 50;
+  pub const VT_CREW: ::flatbuffers::VOffsetT = 52;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WellSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WellSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<WellSave<'bldr>> {
+    let mut builder = WellSaveBuilder::new(_fbb);
+    builder.add_crew_day(args.crew_day);
+    builder.add_state_at(args.state_at);
+    builder.add_begun(args.begun);
+    builder.add_drawn_l(args.drawn_l);
+    builder.add_level_at(args.level_at);
+    builder.add_level_m(args.level_m);
+    builder.add_household(args.household);
+    builder.add_id(args.id);
+    builder.add_worth(args.worth);
+    builder.add_mend_h(args.mend_h);
+    builder.add_loss(args.loss);
+    builder.add_quality(args.quality);
+    builder.add_skill_h(args.skill_h);
+    builder.add_work_h(args.work_h);
+    builder.add_target_m(args.target_m);
+    builder.add_depth_m(args.depth_m);
+    builder.add_ground_m(args.ground_m);
+    builder.add_h_cm(args.h_cm);
+    builder.add_w_cm(args.w_cm);
+    builder.add_y_cm(args.y_cm);
+    builder.add_x_cm(args.x_cm);
+    builder.add_cell(args.cell);
+    if let Some(x) = args.system { builder.add_system(x); }
+    builder.add_crew(args.crew);
+    builder.add_state(args.state);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WellSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn system(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WellSave::VT_SYSTEM, None)}
+  }
+  #[inline]
+  pub fn cell(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WellSave::VT_CELL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn x_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(WellSave::VT_X_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn y_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(WellSave::VT_Y_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn w_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(WellSave::VT_W_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn h_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(WellSave::VT_H_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WellSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ground_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellSave::VT_GROUND_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn depth_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellSave::VT_DEPTH_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn target_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellSave::VT_TARGET_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn work_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellSave::VT_WORK_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn skill_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellSave::VT_SKILL_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn quality(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellSave::VT_QUALITY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn loss(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellSave::VT_LOSS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn mend_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellSave::VT_MEND_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn worth(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellSave::VT_WORTH, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn level_m(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WellSave::VT_LEVEL_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn level_at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(WellSave::VT_LEVEL_AT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn drawn_l(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WellSave::VT_DRAWN_L, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn begun(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(WellSave::VT_BEGUN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn state(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WellSave::VT_STATE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn state_at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(WellSave::VT_STATE_AT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn crew_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(WellSave::VT_CREW_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn crew(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WellSave::VT_CREW, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WellSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("system", Self::VT_SYSTEM, false)?
+     .visit_field::<u32>("cell", Self::VT_CELL, false)?
+     .visit_field::<i32>("x_cm", Self::VT_X_CM, false)?
+     .visit_field::<i32>("y_cm", Self::VT_Y_CM, false)?
+     .visit_field::<i32>("w_cm", Self::VT_W_CM, false)?
+     .visit_field::<i32>("h_cm", Self::VT_H_CM, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<f32>("ground_m", Self::VT_GROUND_M, false)?
+     .visit_field::<f32>("depth_m", Self::VT_DEPTH_M, false)?
+     .visit_field::<f32>("target_m", Self::VT_TARGET_M, false)?
+     .visit_field::<f32>("work_h", Self::VT_WORK_H, false)?
+     .visit_field::<f32>("skill_h", Self::VT_SKILL_H, false)?
+     .visit_field::<f32>("quality", Self::VT_QUALITY, false)?
+     .visit_field::<f32>("loss", Self::VT_LOSS, false)?
+     .visit_field::<f32>("mend_h", Self::VT_MEND_H, false)?
+     .visit_field::<f32>("worth", Self::VT_WORTH, false)?
+     .visit_field::<f64>("level_m", Self::VT_LEVEL_M, false)?
+     .visit_field::<i64>("level_at", Self::VT_LEVEL_AT, false)?
+     .visit_field::<f64>("drawn_l", Self::VT_DRAWN_L, false)?
+     .visit_field::<i64>("begun", Self::VT_BEGUN, false)?
+     .visit_field::<u8>("state", Self::VT_STATE, false)?
+     .visit_field::<i64>("state_at", Self::VT_STATE_AT, false)?
+     .visit_field::<i64>("crew_day", Self::VT_CREW_DAY, false)?
+     .visit_field::<u8>("crew", Self::VT_CREW, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WellSaveArgs<'a> {
+    pub id: u64,
+    pub system: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub cell: u32,
+    pub x_cm: i32,
+    pub y_cm: i32,
+    pub w_cm: i32,
+    pub h_cm: i32,
+    pub household: u64,
+    pub ground_m: f32,
+    pub depth_m: f32,
+    pub target_m: f32,
+    pub work_h: f32,
+    pub skill_h: f32,
+    pub quality: f32,
+    pub loss: f32,
+    pub mend_h: f32,
+    pub worth: f32,
+    pub level_m: f64,
+    pub level_at: i64,
+    pub drawn_l: f64,
+    pub begun: i64,
+    pub state: u8,
+    pub state_at: i64,
+    pub crew_day: i64,
+    pub crew: u8,
+}
+impl<'a> Default for WellSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WellSaveArgs {
+      id: 0,
+      system: None,
+      cell: 0,
+      x_cm: 0,
+      y_cm: 0,
+      w_cm: 0,
+      h_cm: 0,
+      household: 0,
+      ground_m: 0.0,
+      depth_m: 0.0,
+      target_m: 0.0,
+      work_h: 0.0,
+      skill_h: 0.0,
+      quality: 0.0,
+      loss: 0.0,
+      mend_h: 0.0,
+      worth: 0.0,
+      level_m: 0.0,
+      level_at: 0,
+      drawn_l: 0.0,
+      begun: 0,
+      state: 0,
+      state_at: 0,
+      crew_day: 0,
+      crew: 0,
+    }
+  }
+}
+
+pub struct WellSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WellSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(WellSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_system(&mut self, system: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WellSave::VT_SYSTEM, system);
+  }
+  #[inline]
+  pub fn add_cell(&mut self, cell: u32) {
+    self.fbb_.push_slot::<u32>(WellSave::VT_CELL, cell, 0);
+  }
+  #[inline]
+  pub fn add_x_cm(&mut self, x_cm: i32) {
+    self.fbb_.push_slot::<i32>(WellSave::VT_X_CM, x_cm, 0);
+  }
+  #[inline]
+  pub fn add_y_cm(&mut self, y_cm: i32) {
+    self.fbb_.push_slot::<i32>(WellSave::VT_Y_CM, y_cm, 0);
+  }
+  #[inline]
+  pub fn add_w_cm(&mut self, w_cm: i32) {
+    self.fbb_.push_slot::<i32>(WellSave::VT_W_CM, w_cm, 0);
+  }
+  #[inline]
+  pub fn add_h_cm(&mut self, h_cm: i32) {
+    self.fbb_.push_slot::<i32>(WellSave::VT_H_CM, h_cm, 0);
+  }
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(WellSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_ground_m(&mut self, ground_m: f32) {
+    self.fbb_.push_slot::<f32>(WellSave::VT_GROUND_M, ground_m, 0.0);
+  }
+  #[inline]
+  pub fn add_depth_m(&mut self, depth_m: f32) {
+    self.fbb_.push_slot::<f32>(WellSave::VT_DEPTH_M, depth_m, 0.0);
+  }
+  #[inline]
+  pub fn add_target_m(&mut self, target_m: f32) {
+    self.fbb_.push_slot::<f32>(WellSave::VT_TARGET_M, target_m, 0.0);
+  }
+  #[inline]
+  pub fn add_work_h(&mut self, work_h: f32) {
+    self.fbb_.push_slot::<f32>(WellSave::VT_WORK_H, work_h, 0.0);
+  }
+  #[inline]
+  pub fn add_skill_h(&mut self, skill_h: f32) {
+    self.fbb_.push_slot::<f32>(WellSave::VT_SKILL_H, skill_h, 0.0);
+  }
+  #[inline]
+  pub fn add_quality(&mut self, quality: f32) {
+    self.fbb_.push_slot::<f32>(WellSave::VT_QUALITY, quality, 0.0);
+  }
+  #[inline]
+  pub fn add_loss(&mut self, loss: f32) {
+    self.fbb_.push_slot::<f32>(WellSave::VT_LOSS, loss, 0.0);
+  }
+  #[inline]
+  pub fn add_mend_h(&mut self, mend_h: f32) {
+    self.fbb_.push_slot::<f32>(WellSave::VT_MEND_H, mend_h, 0.0);
+  }
+  #[inline]
+  pub fn add_worth(&mut self, worth: f32) {
+    self.fbb_.push_slot::<f32>(WellSave::VT_WORTH, worth, 0.0);
+  }
+  #[inline]
+  pub fn add_level_m(&mut self, level_m: f64) {
+    self.fbb_.push_slot::<f64>(WellSave::VT_LEVEL_M, level_m, 0.0);
+  }
+  #[inline]
+  pub fn add_level_at(&mut self, level_at: i64) {
+    self.fbb_.push_slot::<i64>(WellSave::VT_LEVEL_AT, level_at, 0);
+  }
+  #[inline]
+  pub fn add_drawn_l(&mut self, drawn_l: f64) {
+    self.fbb_.push_slot::<f64>(WellSave::VT_DRAWN_L, drawn_l, 0.0);
+  }
+  #[inline]
+  pub fn add_begun(&mut self, begun: i64) {
+    self.fbb_.push_slot::<i64>(WellSave::VT_BEGUN, begun, 0);
+  }
+  #[inline]
+  pub fn add_state(&mut self, state: u8) {
+    self.fbb_.push_slot::<u8>(WellSave::VT_STATE, state, 0);
+  }
+  #[inline]
+  pub fn add_state_at(&mut self, state_at: i64) {
+    self.fbb_.push_slot::<i64>(WellSave::VT_STATE_AT, state_at, 0);
+  }
+  #[inline]
+  pub fn add_crew_day(&mut self, crew_day: i64) {
+    self.fbb_.push_slot::<i64>(WellSave::VT_CREW_DAY, crew_day, 0);
+  }
+  #[inline]
+  pub fn add_crew(&mut self, crew: u8) {
+    self.fbb_.push_slot::<u8>(WellSave::VT_CREW, crew, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WellSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WellSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WellSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WellSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WellSave");
+      ds.field("id", &self.id());
+      ds.field("system", &self.system());
+      ds.field("cell", &self.cell());
+      ds.field("x_cm", &self.x_cm());
+      ds.field("y_cm", &self.y_cm());
+      ds.field("w_cm", &self.w_cm());
+      ds.field("h_cm", &self.h_cm());
+      ds.field("household", &self.household());
+      ds.field("ground_m", &self.ground_m());
+      ds.field("depth_m", &self.depth_m());
+      ds.field("target_m", &self.target_m());
+      ds.field("work_h", &self.work_h());
+      ds.field("skill_h", &self.skill_h());
+      ds.field("quality", &self.quality());
+      ds.field("loss", &self.loss());
+      ds.field("mend_h", &self.mend_h());
+      ds.field("worth", &self.worth());
+      ds.field("level_m", &self.level_m());
+      ds.field("level_at", &self.level_at());
+      ds.field("drawn_l", &self.drawn_l());
+      ds.field("begun", &self.begun());
+      ds.field("state", &self.state());
+      ds.field("state_at", &self.state_at());
+      ds.field("crew_day", &self.crew_day());
+      ds.field("crew", &self.crew());
+      ds.finish()
+  }
+}
+pub enum WellsSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WellsSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WellsSave<'a> {
+  type Inner = WellsSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WellsSave<'a> {
+  pub const VT_LIST: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WellsSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WellsSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<WellsSave<'bldr>> {
+    let mut builder = WellsSaveBuilder::new(_fbb);
+    if let Some(x) = args.list { builder.add_list(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn list(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WellSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WellSave>>>>(WellsSave::VT_LIST, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WellsSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WellSave>>>>("list", Self::VT_LIST, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WellsSaveArgs<'a> {
+    pub list: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WellSave<'a>>>>>,
+}
+impl<'a> Default for WellsSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WellsSaveArgs {
+      list: None,
+    }
+  }
+}
+
+pub struct WellsSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WellsSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_list(&mut self, list: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WellSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WellsSave::VT_LIST, list);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WellsSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WellsSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WellsSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WellsSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WellsSave");
+      ds.field("list", &self.list());
       ds.finish()
   }
 }

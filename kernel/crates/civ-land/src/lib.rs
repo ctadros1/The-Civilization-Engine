@@ -29,6 +29,7 @@ pub mod paths;
 pub mod soil;
 pub mod water;
 pub mod weather;
+pub mod wells;
 
 pub use buildings::{
     BuildWork, Building, BuildingState, GroupCondition, GroupState, MATERIAL_SLACK_KG, MendWork,
@@ -379,6 +380,8 @@ pub struct Land {
     /// Water under the ground and the rivers' runoff store (M6a slice AY, ADR-0021 §1–§2): the
     /// heads and the store saved, the aquifer derived.
     pub water: Water,
+    /// Wells, in the order begun (M6a slice AY, step three; ADR-0021 §3). Saved.
+    pub wells: wells::Wells,
 }
 
 /// Summary of a patch's terrain, for classification.
@@ -588,6 +591,7 @@ impl Land {
             ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
             crossings: crossings::Crossings::default(),
             water: Water::default(),
+            wells: wells::Wells::default(),
         };
         // Start each stock at its equilibrium for the season a year ago, and the water table
         // where the mean recharge holds it, then live a year.
@@ -650,6 +654,7 @@ impl Land {
     pub fn problems(&self, map: &WorldMap, habitats: usize, next_id: u64) -> Vec<String> {
         let mut out = self.crossings.problems();
         out.extend(self.water.problems());
+        out.extend(self.wells.problems(usize::MAX));
         let p = &self.patches;
         let pc = p.patch_cells.max(1);
         if p.patch_cells == 0

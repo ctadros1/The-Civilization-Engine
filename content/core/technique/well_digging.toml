@@ -1,0 +1,20 @@
+# Digging a well: sinking a shaft past the water table and lining it with split timber as it goes
+# (M6a slice AY, step three; ADR-0021 §3). Timber-lined wells are documented in the early
+# Neolithic (research 12-01 §3.1: oak-lined wells dated 5469-5098 BCE), so founders bring it
+# (ADR-0021 §9), and children learn it at home as they join the work (06-08 §1.1). The hours of
+# work beside someone who knows it that teach it are a tuning value within 07-02 §2.3's 20-200.
+# No work tries toward it (e50_h is unused).
+kind = "technique"
+id = "core:technique/well_digging"
+name = "Digging wells"
+can = "sink a shaft past the water table and line it with split timber so its sides stand"
+domain = ""
+requires = []
+tried_in = []
+needs = []
+e50_h = 100000.0                 # unused while no work tries toward it
+learn_h = 100.0
+upbringing = true
+
+[answers]
+spoilage = []

@@ -32168,6 +32168,7 @@ impl<'a> PlacesSave<'a> {
   pub const VT_WAYS: ::flatbuffers::VOffsetT = 28;
   pub const VT_USES: ::flatbuffers::VOffsetT = 30;
   pub const VT_WORKED: ::flatbuffers::VOffsetT = 32;
+  pub const VT_WORKED_BY: ::flatbuffers::VOffsetT = 34;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32179,6 +32180,7 @@ impl<'a> PlacesSave<'a> {
     args: &'args PlacesSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<PlacesSave<'bldr>> {
     let mut builder = PlacesSaveBuilder::new(_fbb);
+    if let Some(x) = args.worked_by { builder.add_worked_by(x); }
     if let Some(x) = args.worked { builder.add_worked(x); }
     if let Some(x) = args.uses { builder.add_uses(x); }
     if let Some(x) = args.ways { builder.add_ways(x); }
@@ -32303,6 +32305,13 @@ impl<'a> PlacesSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, WorkedSave>>>(PlacesSave::VT_WORKED, None)}
   }
+  #[inline]
+  pub fn worked_by(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(PlacesSave::VT_WORKED_BY, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PlacesSave<'_> {
@@ -32326,6 +32335,7 @@ impl ::flatbuffers::Verifiable for PlacesSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WaySave>>>>("ways", Self::VT_WAYS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PlaceUseSave>>>>("uses", Self::VT_USES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, WorkedSave>>>("worked", Self::VT_WORKED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("worked_by", Self::VT_WORKED_BY, false)?
      .finish();
     Ok(())
   }
@@ -32346,6 +32356,7 @@ pub struct PlacesSaveArgs<'a> {
     pub ways: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WaySave<'a>>>>>,
     pub uses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PlaceUseSave<'a>>>>>,
     pub worked: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, WorkedSave>>>,
+    pub worked_by: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
 }
 impl<'a> Default for PlacesSaveArgs<'a> {
   #[inline]
@@ -32366,6 +32377,7 @@ impl<'a> Default for PlacesSaveArgs<'a> {
       ways: None,
       uses: None,
       worked: None,
+      worked_by: None,
     }
   }
 }
@@ -32436,6 +32448,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlacesSaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_WORKED, worked);
   }
   #[inline]
+  pub fn add_worked_by(&mut self, worked_by: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_WORKED_BY, worked_by);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlacesSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PlacesSaveBuilder {
@@ -32468,6 +32484,318 @@ impl ::core::fmt::Debug for PlacesSave<'_> {
       ds.field("ways", &self.ways());
       ds.field("uses", &self.uses());
       ds.field("worked", &self.worked());
+      ds.field("worked_by", &self.worked_by());
+      ds.finish()
+  }
+}
+pub enum ViewSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ViewSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for ViewSave<'a> {
+  type Inner = ViewSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> ViewSave<'a> {
+  pub const VT_PERSON: ::flatbuffers::VOffsetT = 4;
+  pub const VT_POLITY: ::flatbuffers::VOffsetT = 6;
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 8;
+  pub const VT_YES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_NO: ::flatbuffers::VOffsetT = 12;
+  pub const VT_REASON_ACT: ::flatbuffers::VOffsetT = 14;
+  pub const VT_REASON_DAY: ::flatbuffers::VOffsetT = 16;
+  pub const VT_REASON_TIMES: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    ViewSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ViewSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<ViewSave<'bldr>> {
+    let mut builder = ViewSaveBuilder::new(_fbb);
+    builder.add_reason_day(args.reason_day);
+    builder.add_day(args.day);
+    builder.add_polity(args.polity);
+    builder.add_person(args.person);
+    if let Some(x) = args.no { builder.add_no(x); }
+    if let Some(x) = args.yes { builder.add_yes(x); }
+    builder.add_reason_times(args.reason_times);
+    builder.add_reason_act(args.reason_act);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ViewSave::VT_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn polity(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ViewSave::VT_POLITY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(ViewSave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn yes(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(ViewSave::VT_YES, None)}
+  }
+  #[inline]
+  pub fn no(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(ViewSave::VT_NO, None)}
+  }
+  #[inline]
+  pub fn reason_act(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(ViewSave::VT_REASON_ACT, Some(255)).unwrap()}
+  }
+  #[inline]
+  pub fn reason_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(ViewSave::VT_REASON_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn reason_times(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(ViewSave::VT_REASON_TIMES, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for ViewSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("person", Self::VT_PERSON, false)?
+     .visit_field::<u64>("polity", Self::VT_POLITY, false)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("yes", Self::VT_YES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("no", Self::VT_NO, false)?
+     .visit_field::<u8>("reason_act", Self::VT_REASON_ACT, false)?
+     .visit_field::<i64>("reason_day", Self::VT_REASON_DAY, false)?
+     .visit_field::<u16>("reason_times", Self::VT_REASON_TIMES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ViewSaveArgs<'a> {
+    pub person: u64,
+    pub polity: u64,
+    pub day: i64,
+    pub yes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub no: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub reason_act: u8,
+    pub reason_day: i64,
+    pub reason_times: u16,
+}
+impl<'a> Default for ViewSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ViewSaveArgs {
+      person: 0,
+      polity: 0,
+      day: 0,
+      yes: None,
+      no: None,
+      reason_act: 255,
+      reason_day: 0,
+      reason_times: 0,
+    }
+  }
+}
+
+pub struct ViewSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ViewSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_person(&mut self, person: u64) {
+    self.fbb_.push_slot::<u64>(ViewSave::VT_PERSON, person, 0);
+  }
+  #[inline]
+  pub fn add_polity(&mut self, polity: u64) {
+    self.fbb_.push_slot::<u64>(ViewSave::VT_POLITY, polity, 0);
+  }
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(ViewSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_yes(&mut self, yes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ViewSave::VT_YES, yes);
+  }
+  #[inline]
+  pub fn add_no(&mut self, no: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ViewSave::VT_NO, no);
+  }
+  #[inline]
+  pub fn add_reason_act(&mut self, reason_act: u8) {
+    self.fbb_.push_slot::<u8>(ViewSave::VT_REASON_ACT, reason_act, 255);
+  }
+  #[inline]
+  pub fn add_reason_day(&mut self, reason_day: i64) {
+    self.fbb_.push_slot::<i64>(ViewSave::VT_REASON_DAY, reason_day, 0);
+  }
+  #[inline]
+  pub fn add_reason_times(&mut self, reason_times: u16) {
+    self.fbb_.push_slot::<u16>(ViewSave::VT_REASON_TIMES, reason_times, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ViewSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ViewSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<ViewSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for ViewSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("ViewSave");
+      ds.field("person", &self.person());
+      ds.field("polity", &self.polity());
+      ds.field("day", &self.day());
+      ds.field("yes", &self.yes());
+      ds.field("no", &self.no());
+      ds.field("reason_act", &self.reason_act());
+      ds.field("reason_day", &self.reason_day());
+      ds.field("reason_times", &self.reason_times());
+      ds.finish()
+  }
+}
+pub enum RelationsSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RelationsSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RelationsSave<'a> {
+  type Inner = RelationsSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RelationsSave<'a> {
+  pub const VT_VIEWS: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RelationsSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RelationsSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<RelationsSave<'bldr>> {
+    let mut builder = RelationsSaveBuilder::new(_fbb);
+    if let Some(x) = args.views { builder.add_views(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn views(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ViewSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ViewSave>>>>(RelationsSave::VT_VIEWS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RelationsSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ViewSave>>>>("views", Self::VT_VIEWS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RelationsSaveArgs<'a> {
+    pub views: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ViewSave<'a>>>>>,
+}
+impl<'a> Default for RelationsSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    RelationsSaveArgs {
+      views: None,
+    }
+  }
+}
+
+pub struct RelationsSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RelationsSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_views(&mut self, views: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ViewSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RelationsSave::VT_VIEWS, views);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RelationsSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RelationsSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RelationsSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RelationsSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RelationsSave");
+      ds.field("views", &self.views());
       ds.finish()
   }
 }

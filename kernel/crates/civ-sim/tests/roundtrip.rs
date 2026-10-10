@@ -184,10 +184,10 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 28 land, field, plot, building,
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 29 land, field, plot, building,
     // wear, market, firm, wealth, knowledge, deposits, earth, ties, polity, order, word, opinion,
-    // norms, values, creeds, factions, influence, places and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 28);
+    // norms, values, creeds, factions, influence, places, relation and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 29);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -2236,6 +2236,38 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
         pop.people
             .iter()
             .all(|(_, p)| pop.influences.luck(p.id, day).is_none())
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_62_save_loads_with_no_view_of_another_polity_and_nobody_named_for_the_days_work() {
+    // A schema-62 save, from before people held views of other polities and before the day's
+    // work named who did it (M5c slice AT, step two): it held neither.
+    let mut sim = load_first();
+    let pop = sim.people_mut_for_tests();
+    assert!(pop.polity_views.held.is_empty(), "a world of one polity");
+    let worked = pop.uses.today.len();
+    for w in &mut pop.uses.today {
+        w.person = None;
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V62;
+    let sections: Vec<_> = persist::encode_sections(&sim)
+        .into_iter()
+        .filter(|s| s.tag != persist::agents::SECTION_RELATIONS)
+        .collect();
+    let path = republish("slice-at1", &info, &sections);
+    let mut loaded = persist::load(&path, content()).expect("a schema-62 save loads");
+    assert!(loaded.people().polity_views.held.is_empty());
+    assert_eq!(loaded.people().uses.today.len(), worked);
+    assert!(
+        loaded
+            .people()
+            .uses
+            .today
+            .iter()
+            .all(|w| w.person.is_none())
     );
     loaded.advance_minutes(24 * 60).expect("goes on");
 }

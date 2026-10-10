@@ -1397,6 +1397,8 @@ pub struct PeopleParams {
     /// How price reports of other settlements' markets are held and passed on (M5b slice AP,
     /// ADR-0019 §1).
     pub reports: crate::reports::ReportParams,
+    /// How views of other polities are held (M5c slice AT, ADR-0020 §3).
+    pub relations: crate::views::RelationsParams,
     /// Names.
     pub names: NameParams,
 }

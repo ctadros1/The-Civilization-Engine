@@ -1773,6 +1773,7 @@ pub(crate) mod tests {
             moving: crate::places::MovingParams::core(),
             founding: crate::places::FoundingParams::core(),
             reports: crate::reports::ReportParams::core(),
+            relations: crate::views::RelationsParams::core(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

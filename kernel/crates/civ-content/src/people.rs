@@ -66,6 +66,8 @@ pub(crate) struct PeopleFile {
     pub founding: FoundingFile,
     /// How price reports of other markets are held and passed on (M5b slice AP; content API 56).
     pub reports: ReportsFile,
+    /// How views of other polities are held (M5c slice AT; content API 60).
+    pub relations: RelationsFile,
 }
 
 /// Factions, their petitions, refusals and revolts (M4c slices AH-AI, ADR-0017 §2-4; content API
@@ -330,6 +332,17 @@ pub(crate) struct ReportsFile {
     pub half_life_days: f64,
     pub max_age_days: i64,
     pub share_told: f64,
+}
+
+/// How views of other polities are held (M5c slice AT, ADR-0020 §3; content API 60). See
+/// [`civ_agents::views::RelationsParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RelationsFile {
+    pub prior: f64,
+    pub half_life_days: f64,
+    pub seen_trespass: f64,
+    pub heard_trespass: f64,
 }
 
 /// Word of mouth and grievances (M4c slice AE, ADR-0016; content API 39). See
@@ -1576,6 +1589,12 @@ impl PeopleFile {
                 max_age_days: self.reports.max_age_days,
                 share_told: self.reports.share_told,
             },
+            relations: civ_agents::views::RelationsParams {
+                prior: self.relations.prior,
+                half_life_days: self.relations.half_life_days,
+                seen_trespass: self.relations.seen_trespass,
+                heard_trespass: self.relations.heard_trespass,
+            },
             names,
         }
     }
@@ -1667,6 +1686,29 @@ impl PeopleFile {
                 "`reports.share_told` must be between 0 and 1 (got {})",
                 r.share_told
             ));
+        }
+        let v = &self.relations;
+        if !(v.prior.is_finite() && (0.01..=100.0).contains(&v.prior)) {
+            p.push(format!(
+                "`relations.prior` must be between 0.01 and 100 (got {})",
+                v.prior
+            ));
+        }
+        if !(v.half_life_days.is_finite() && (1.0..=36500.0).contains(&v.half_life_days)) {
+            p.push(format!(
+                "`relations.half_life_days` must be between 1 and 36500 (got {})",
+                v.half_life_days
+            ));
+        }
+        for (name, x) in [
+            ("seen_trespass", v.seen_trespass),
+            ("heard_trespass", v.heard_trespass),
+        ] {
+            if !(x.is_finite() && (0.0..=100.0).contains(&x)) {
+                p.push(format!(
+                    "`relations.{name}` must be between 0 and 100 (got {x})"
+                ));
+            }
         }
         if !(1..=256).contains(&f.candidates) {
             p.push(format!(

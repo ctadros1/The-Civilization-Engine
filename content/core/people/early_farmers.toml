@@ -873,6 +873,19 @@ half_life_days = 30.0
 max_age_days = 120
 share_told = 0.15
 
+[relations]                      # views of other polities (M5c slice AT, ADR-0020 §3)
+# A person who saw or heard of another polity's acts holds a view of it, shaped like a tie:
+# evidence for and against in three domains (keeps its word, harms us, helps us), starting from
+# `prior` each (ADR-0020 §3: alpha = beta = 1), fading back toward it with `half_life_days`
+# (ADR-0020's five years; research 13-01 §3.3 tests relevance at 2, 5 and 20 years). A day one
+# saw people of another settlement work a place one's polity claims adds `seen_trespass` to its
+# "harms us"; hearing of it told at the hearth adds `heard_trespass`. Both are design priors: the
+# research gives no weight to a single sighting against a neighbour's word.
+prior = 1.0
+half_life_days = 1826.0
+seen_trespass = 1.0
+heard_trespass = 0.5
+
 [moving]                         # moving to another settlement (M5a slice AN, ADR-0018 §5); design priors
 # Once a year on a day of its own, and when it forms, a household weighs joining each settlement it
 # knows against staying (research 05-06 §5.1: expected livelihood, support, safety and the cost of

@@ -716,6 +716,18 @@ officeholder, and more adults than stand with the gathering, must stand with it 
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
 
+Content API 60 (M5c slice AT, step two) brings views of other polities (ADR-0020 §3): the
+people profile's `[relations]` table, with `prior` (0.01 to 100; 1 in the core pack, ADR-0020 §3's
+α = β = 1), `half_life_days` (1 to 36,500; 1,826, ADR-0020's five years), `seen_trespass` and
+`heard_trespass` (0 to 100 each; 1 and 0.5, design priors). A person holds a view of a polity they
+saw or heard of: evidence for and against in three domains (keeps its word, harms us, helps us),
+each starting at the prior and fading back to it. Someone who worked a place their polity claims
+and knows the claim, and saw people of another settlement work it the same day, holds a
+grievance against each of those households (its harm the food that household got there, in days
+of their own household's need) and adds `seen_trespass` to their view that the other polity harms
+theirs; one told of it at the hearth for the first time adds `heard_trespass`. A view is read by
+nothing yet but the observer, and a grievance against outsiders is no reason to leave home.
+
 Content API 59 (M5c slice AT, step one) brings claims on wild ground (ADR-0020 §5): the policy
 kind `claim_place`, the issue `outsiders`, the core pack's `core:policy/wild_ground`, the
 `[places]` key `use_half_life_days` (1 to 3,650) and the `[polity]` key `claim_keeps` (0 to 1).

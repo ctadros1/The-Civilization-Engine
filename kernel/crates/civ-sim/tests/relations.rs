@@ -4,8 +4,10 @@
 use std::path::Path;
 use std::sync::OnceLock;
 
-use civ_agents::polity::{IssueKind, LawStatus, PolicyKind};
+use civ_agents::polity::{IssueKind, Law, LawStatus, PolicyKind};
 use civ_agents::uses::{Place, Worked};
+use civ_agents::views::{Domain, ViewAct};
+use civ_agents::word::{Blamed, Wrong};
 use civ_content::ContentRegistry;
 use civ_core::PermanentId;
 use civ_sim::{NewWorld, Sim, persist};
@@ -78,8 +80,9 @@ fn saves_and_goes_on_alike(sim: &mut Sim, minutes: i64) {
     same(sim, &loaded);
 }
 
-#[test]
-fn outsiders_seen_at_a_place_make_an_issue_and_a_gathering_decides_a_claim_on_it() {
+/// A fishing place both villages of world 5 worked for sixty days, and the first claim a
+/// gathering decided after it: the world, the claiming polity's id, the law and the place.
+fn a_claim_decided() -> (Sim, PermanentId, Law, Place) {
     let mut sim = two_villages(5);
     sim.advance_minutes(DAY).expect("lives");
     let settlements: Vec<PermanentId> = sim.land().settlements.iter().map(|s| s.id).collect();
@@ -104,24 +107,29 @@ fn outsiders_seen_at_a_place_make_an_issue_and_a_gathering_decides_a_claim_on_it
                 household: h,
                 settlement: s,
                 kcal: 2_500.0,
+                person: None,
             });
         }
     }
     // Within a few weeks one village's gathering has decided a claim, its issue the outsiders.
-    let mut decided = None;
     for _ in 0..40 {
         sim.advance_minutes(DAY).expect("lives");
-        decided = sim.people().polities.iter().find_map(|p| {
+        let decided = sim.people().polities.iter().find_map(|p| {
             p.laws
                 .iter()
                 .find(|l| l.kind == PolicyKind::ClaimPlace && l.outcome.is_some())
                 .map(|l| (p.id, l.clone()))
         });
-        if decided.is_some() {
-            break;
+        if let Some((polity, law)) = decided {
+            return (sim, polity, law, place);
         }
     }
-    let (polity_id, law) = decided.expect("a gathering decided a claim");
+    panic!("no gathering decided a claim");
+}
+
+#[test]
+fn outsiders_seen_at_a_place_make_an_issue_and_a_gathering_decides_a_claim_on_it() {
+    let (mut sim, polity_id, law, place) = a_claim_decided();
     assert_eq!(law.issue, IssueKind::Outsiders);
     let pop = sim.people();
     let polity = pop
@@ -148,10 +156,134 @@ fn outsiders_seen_at_a_place_make_an_issue_and_a_gathering_decides_a_claim_on_it
     }));
     if law.status == LawStatus::InForce {
         assert_eq!(polity.claims_now(), vec![place]);
+        assert_eq!(polity.claim_on(place), Some(law.id));
     } else {
         assert!(polity.claims_now().is_empty());
     }
     assert!(pop.problems(u64::MAX, usize::MAX).is_empty());
+    // All of it saves and loads exactly, and goes on alike.
+    saves_and_goes_on_alike(&mut sim, 3 * DAY);
+}
+
+#[test]
+fn people_who_see_outsiders_work_a_claimed_place_hold_it_against_them_and_think_worse_of_their_polity()
+ {
+    let (mut sim, polity_id, law, place) = a_claim_decided();
+    assert_eq!(
+        law.status,
+        LawStatus::InForce,
+        "world 5's gathering passed it"
+    );
+    let (ours, theirs_polity) = {
+        let pop = sim.people();
+        let ours = pop
+            .polities
+            .iter()
+            .find(|p| p.id == polity_id)
+            .expect("ours");
+        let other = pop
+            .polities
+            .iter()
+            .find(|p| p.id != polity_id)
+            .expect("theirs");
+        (ours.settlement, (other.id, other.settlement))
+    };
+    let (their_polity, theirs) = theirs_polity;
+    let pop = sim.people();
+    // One of ours who knows the claim, and one of theirs, of households of their own.
+    let adult = |s: PermanentId, knows: bool| {
+        households_of(&sim, s).into_iter().find_map(|h| {
+            let x = pop.household(h)?;
+            x.members
+                .iter()
+                .copied()
+                .find(|&m| {
+                    pop.person(m)
+                        .is_some_and(|p| p.age_years(sim.now()) >= 16.0)
+                        && (!knows || law.knows(m))
+                })
+                .map(|m| (h, m))
+        })
+    };
+    let (our_household, witness) = adult(ours, true).expect("one of ours knows the claim");
+    let (their_household, outsider) = adult(theirs, false).expect("an adult of theirs");
+    assert!(pop.word.grievances_of(witness).next().is_none());
+    // Today both fish the claimed place; at midnight it is folded in.
+    let fish_today = |sim: &mut Sim| {
+        let today = sim.now().day_index();
+        let pop = sim.people_mut_for_tests();
+        for (household, settlement, person) in [
+            (our_household, ours, witness),
+            (their_household, theirs, outsider),
+        ] {
+            pop.uses.worked(Worked {
+                place,
+                day: today,
+                household,
+                settlement,
+                kcal: 3_000.0,
+                person: Some(person),
+            });
+        }
+    };
+    fish_today(&mut sim);
+    sim.advance_minutes(DAY).expect("lives");
+    let pop = sim.people();
+    let rp = &sim.rules().people.relations;
+    // The witness holds it against the outsiders' household, under the claim.
+    let g = pop
+        .word
+        .grievances_of(witness)
+        .find(|g| g.wrong == Wrong::Trespass)
+        .expect("a grievance for the trespass");
+    assert_eq!(g.blamed, Blamed::Household(their_household));
+    assert_eq!(g.law, law.id);
+    assert!(g.harm_days > 0.0);
+    // And takes it that the other polity harms theirs; nothing else of their view moved.
+    let v = pop
+        .polity_views
+        .of(witness, their_polity, sim.now().day_index(), rp)
+        .expect("a view of the other polity");
+    assert!(v.lean(Domain::HarmsUs) > 0.5, "{v:?}");
+    assert!((v.lean(Domain::HelpsUs) - 0.5).abs() < 1e-9);
+    assert!((v.lean(Domain::KeepsWord) - 0.5).abs() < 1e-9);
+    assert_eq!(v.reason.map(|r| r.act), Some(ViewAct::SawTrespass));
+    // The outsider is bound by nothing; they hold it against the witness's household only if
+    // their own polity claims the place too, under its own claim.
+    let their_claim = pop
+        .polities
+        .iter()
+        .find(|p| p.id == their_polity)
+        .and_then(|p| p.claim_on(place));
+    for g in pop
+        .word
+        .grievances_of(outsider)
+        .filter(|g| g.wrong == Wrong::Trespass)
+    {
+        assert_eq!(Some(g.law), their_claim);
+        assert_eq!(g.blamed, Blamed::Household(our_household));
+    }
+    assert!(pop.problems(u64::MAX, usize::MAX).is_empty());
+    // A day's fishing is a small harm, not worth telling; days of it on end are, and word of it
+    // goes round the hearth: within a month someone who was not there has heard.
+    let mut heard = false;
+    for day in 0..30 {
+        if day < 15 {
+            fish_today(&mut sim);
+        }
+        sim.advance_minutes(DAY).expect("lives");
+        heard = sim.people().polity_views.held.iter().any(|(&p, list)| {
+            p != witness
+                && list.iter().any(|v| {
+                    v.polity == their_polity
+                        && v.reason.is_some_and(|r| r.act == ViewAct::HeardTrespass)
+                })
+        });
+        if heard {
+            break;
+        }
+    }
+    assert!(heard, "nobody heard of the trespass");
     // All of it saves and loads exactly, and goes on alike.
     saves_and_goes_on_alike(&mut sim, 3 * DAY);
 }

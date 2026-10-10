@@ -261,7 +261,8 @@ impl Population {
         self.word
             .grievances
             .iter()
-            .filter(|g| x.members.contains(&g.holder))
+            // Outsiders who worked a place their polity claims are no reason to leave it.
+            .filter(|g| x.members.contains(&g.holder) && g.wrong != crate::word::Wrong::Trespass)
             .map(|g| g.activation_on(day, wp.half_life(g.issue)))
             .fold(0.0, f64::max)
             .clamp(0.0, 1.0)

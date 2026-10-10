@@ -946,6 +946,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** step two, use of a claimed place without leave as a grievance and per-person views of a polity; step three, the relation labels, the relations view and the funnel measured in the demo worlds.
 
+## 2026-10-10 — M5c slice AT, step two: trespass and views of another polity
+
+**Goal:** give a claim a consequence (ADR-0020 §3–§4): those who see outsiders work a claimed place hold it against them, and people come to hold views of the other polity.
+
+**What changed:** the day's work names who did it, and the day's end returns where people of more than one settlement met. Someone who knows their polity's claim on such a place holds a grievance against each outsider household seen there (a new wrong, trespass); hearth talk spreads it as any grievance. Views of a polity (`civ_agents::views`) are per person and shaped like a tie, evidence for and against in three domains fading over five years; trespass seen or heard of leans "harms us". Moving and founding leave grievances against outsiders out. Saves schema 63 (a new `relation` section), content API 60.
+
+**Findings:** the step-one funnel, measured on both demo worlds: every village with a neighbour in reach claimed places within two years, and all 87 claims decided passed, mostly by wide margins, because a claim costs its village nothing; most name a single place, and where both villages work a place, both claim it. In the test world both gatherings claimed the shared fishing place, so each side's fishers hold the other's as trespassers. A day's fishing by outsiders is felt too little to talk about; days of it on end are told.
+
+**Evidence:** unit tests of views (leaning, fading, letting go) and of meetings; an integration test of grievance, view, word and save; the roundtrip of a schema-62 save; a forty-day digest comparison on a village of 1,000 against step one, the only differences the content and the new empty section.
+
+**Open:** step three: word of another polity's gatherings and laws, the relation labels from a pure classifier, and the relations panel.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

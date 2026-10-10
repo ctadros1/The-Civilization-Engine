@@ -144,10 +144,16 @@ impl Population {
         // What people worked the day before, and who else worked it (M5c slice AT): folded in
         // before anyone weighs it; households no more and places long unworked let go.
         let half = ctx.params.places.use_half_life_days;
-        self.uses.fold(half);
+        let meetings = self.uses.fold(half);
         let index = &self.hh_index;
         self.uses
             .prune(day, half, OUTSIDERS_DAYS, |h| index.contains_key(&h));
+        // Those who met outsiders at a place their polity claims hold it against them, and views
+        // of polities long unfed, or of those gone, are let go (M5c slice AT, step two).
+        self.trespass(ctx, &meetings);
+        let mut views = std::mem::take(&mut self.polity_views);
+        views.prune(day, &ctx.params.relations, |p| self.person(p).is_some());
+        self.polity_views = views;
         self.lapse_keepers(ctx);
         for pi in 0..self.polities.len() {
             if self.polities[pi]

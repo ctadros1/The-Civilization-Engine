@@ -621,13 +621,13 @@ impl Population {
         else {
             return;
         };
-        let keen: Vec<(Blamed, Grieved)> = self
+        let keen: Vec<(Blamed, Grieved, Wrong)> = self
             .word
             .grievances_of(teller)
             .filter(|g| g.activation_on(day, wp.half_life(g.issue)) >= wp.tell_floor)
-            .map(|g| (g.blamed, g.issue))
+            .map(|g| (g.blamed, g.issue, g.wrong))
             .collect();
-        for (blamed, issue) in keen {
+        for (blamed, issue, wrong) in keen {
             let key = [
                 ctx.seed,
                 PURPOSE_WORD_HEARTH,
@@ -661,8 +661,13 @@ impl Population {
                 })
             });
             self.word.hear(teller, claim, day, None, Some(teller));
-            self.word
+            let new = self
+                .word
                 .hear(listener, claim, day, Some(teller), Some(teller));
+            // Told of outsiders working a place the teller's polity claims (M5c slice AT).
+            if new && wrong == Wrong::Trespass {
+                self.heard_of_trespass(ctx, listener, blamed);
+            }
             // Hearing one's own grievance told reminds one of it.
             if let Some(g) = self
                 .word

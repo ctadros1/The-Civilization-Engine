@@ -1194,6 +1194,19 @@ impl Polity {
         }
     }
 
+    /// The law in force that claims `place`, if any (the first made; M5c slice AT).
+    pub fn claim_on(&self, place: crate::uses::Place) -> Option<PermanentId> {
+        self.claimed
+            .iter()
+            .filter(|&&(_, p)| p == place)
+            .map(|&(law, _)| law)
+            .find(|&law| {
+                self.laws
+                    .iter()
+                    .any(|l| l.id == law && l.status == LawStatus::InForce)
+            })
+    }
+
     /// The places it claims now: those named by its claims in force (M5c slice AT), in place
     /// order.
     pub fn claims_now(&self) -> Vec<crate::uses::Place> {

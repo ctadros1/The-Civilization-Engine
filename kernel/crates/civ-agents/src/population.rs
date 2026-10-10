@@ -59,6 +59,7 @@ mod norm;
 mod opinion;
 mod places;
 mod polity;
+mod relations;
 mod residence;
 mod values;
 mod watch;
@@ -490,6 +491,8 @@ pub struct Population {
     /// The places each household's people work, and the outsiders they saw there (M5c slice AT,
     /// ADR-0020 §5).
     pub uses: crate::uses::Uses,
+    /// What people believe of other polities they have heard of (M5c slice AT, ADR-0020 §3).
+    pub polity_views: crate::views::Views,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -1123,6 +1126,7 @@ impl Population {
         );
         out.extend(self.convergence.problems());
         out.extend(self.uses.problems());
+        out.extend(self.polity_views.problems());
         for (&p, seen) in &self.seen_away {
             if self.person(p).is_none() {
                 out.push(format!(
@@ -3999,7 +4003,7 @@ impl Population {
                             .goods
                             .get(res.good)
                             .map_or(0.0, |g| kcal * g.kcal_per_kg);
-                        self.log_work(crate::uses::Place::Patch(patch), hh_id, now, kcal);
+                        self.log_work(crate::uses::Place::Patch(patch), hh_id, who, now, kcal);
                     }
                 }
                 // Digging at a deposit's pit (M3b slice Q, ADR-0010 §2).
@@ -4024,7 +4028,8 @@ impl Population {
                             p.carrying.good = Some(good as u16);
                             p.carrying.kg = kg as f32;
                         }
-                        self.log_work(crate::uses::Place::Deposit(deposit), household, now, 0.0);
+                        let place = crate::uses::Place::Deposit(deposit);
+                        self.log_work(place, household, who, now, 0.0);
                     }
                 }
                 Some(Behavior::FetchWater) => {
@@ -4224,12 +4229,13 @@ impl Population {
         }
     }
 
-    /// Someone of `household` worked `place` now and got `kcal` of food there: logged for the
+    /// `person` of `household` worked `place` now and got `kcal` of food there: logged for the
     /// day's end, when who else worked it that day is known (M5c slice AT, ADR-0020 §5).
     fn log_work(
         &mut self,
         place: crate::uses::Place,
         household: PermanentId,
+        person: PermanentId,
         now: SimTime,
         kcal: f64,
     ) {
@@ -4242,6 +4248,7 @@ impl Population {
             household,
             settlement,
             kcal: kcal as f32,
+            person: Some(person),
         });
     }
 

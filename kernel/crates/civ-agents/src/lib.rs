@@ -59,6 +59,7 @@ pub mod ties;
 pub mod uses;
 pub mod value;
 pub mod values;
+pub mod views;
 pub mod wealth;
 pub mod word;
 

@@ -38,7 +38,7 @@ impl Place {
 }
 
 /// Someone of `household`, living in `settlement`, worked `place` on `day` and got `kcal` of food
-/// there (none at a deposit).
+/// there (none at a deposit); `person` is who, when known (a save of schema 62 did not say).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Worked {
     pub place: Place,
@@ -46,6 +46,16 @@ pub struct Worked {
     pub household: PermanentId,
     pub settlement: PermanentId,
     pub kcal: f32,
+    pub person: Option<PermanentId>,
+}
+
+/// People of more than one settlement worked `place` on `day` (M5c slice AT, step two): what
+/// they saw of each other there. `by` is in household order.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Meeting {
+    pub place: Place,
+    pub day: i64,
+    pub by: Vec<Worked>,
 }
 
 /// Outsiders a household saw at a place: people of `settlement` worked it on `days` of the days
@@ -120,10 +130,12 @@ impl Uses {
 
     /// Folds in the work logged since the last fold (ADR-0020 §5): per day and place, each
     /// household that worked it counts the day once and the food its people got, and a day of
-    /// outsiders for each other settlement whose people worked it that day.
-    pub fn fold(&mut self, half_life_days: f64) {
+    /// outsiders for each other settlement whose people worked it that day. Returns where people
+    /// of more than one settlement met, in day and place order.
+    pub fn fold(&mut self, half_life_days: f64) -> Vec<Meeting> {
+        let mut meetings = Vec::new();
         if self.today.is_empty() {
-            return;
+            return meetings;
         }
         let mut today = std::mem::take(&mut self.today);
         today.sort_by(|a, b| {
@@ -142,6 +154,13 @@ impl Uses {
             let mut settlements: Vec<PermanentId> = group.iter().map(|w| w.settlement).collect();
             settlements.sort_unstable();
             settlements.dedup();
+            if settlements.len() > 1 {
+                meetings.push(Meeting {
+                    place,
+                    day,
+                    by: group.to_vec(),
+                });
+            }
             let mut j = 0;
             while j < group.len() {
                 let (household, settlement) = (group[j].household, group[j].settlement);
@@ -192,6 +211,7 @@ impl Uses {
             }
             i = end;
         }
+        meetings
     }
 
     /// The places household `household` saw people of another settlement working on day `since`
@@ -296,6 +316,7 @@ mod tests {
             household: id(household),
             settlement: id(settlement),
             kcal,
+            person: Some(id(household * 100)),
         }
     }
 
@@ -309,8 +330,11 @@ mod tests {
         u.worked(work(fish, 5, 1, 10, 200.0));
         u.worked(work(fish, 5, 2, 20, 100.0));
         u.worked(work(Place::Deposit(id(99)), 5, 1, 10, 0.0));
-        u.fold(180.0);
+        let met = u.fold(180.0);
         assert!(u.today.is_empty());
+        // The two settlements met at the fishing place, and nowhere else.
+        assert_eq!(met.len(), 1);
+        assert_eq!((met[0].place, met[0].day, met[0].by.len()), (fish, 5, 3));
         let one = u.held(id(1), fish, 5, 180.0).expect("held");
         assert_eq!((one.days, one.kcal), (1.0, 500.0));
         assert_eq!(

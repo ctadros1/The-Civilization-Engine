@@ -110,8 +110,8 @@ use super::{
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
-    SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, finish, section, single_chunk,
-    unreadable,
+    SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -174,6 +174,8 @@ pub const SECTION_FACTIONS: SectionTag = SectionTag::new("factions");
 pub const SECTION_INFLUENCE: SectionTag = SectionTag::new("influenc");
 /// Section: the places households know (schema 51, M5a slice AM).
 pub const SECTION_PLACES: SectionTag = SectionTag::new("places");
+/// Section: what people believe of other polities (schema 63, M5c slice AT).
+pub const SECTION_RELATIONS: SectionTag = SectionTag::new("relation");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -265,6 +267,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             encode_influences(&sim.people.influences, rules),
         ),
         section(SECTION_PLACES, 0, encode_places(&sim.people, &goods)),
+        section(SECTION_RELATIONS, 0, encode_relations(&sim.people)),
     ]
 }
 
@@ -410,6 +413,8 @@ enum Schema {
     V61,
     /// The places people work, the outsiders seen there, and claims on them (M5c slice AT).
     V62,
+    /// Who did the work, and people's views of other polities (M5c slice AT, step two).
+    V63,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -486,7 +491,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V59 => Schema::V59,
         SCHEMA_V60 => Schema::V60,
         SCHEMA_V61 => Schema::V61,
-        SAVE_SCHEMA_VERSION => Schema::V62,
+        SCHEMA_V62 => Schema::V62,
+        SAVE_SCHEMA_VERSION => Schema::V63,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -704,6 +710,11 @@ pub(super) fn decode<R: Read + Seek>(
             d.ways,
             d.uses,
         );
+    }
+    // What people believe of other polities (schema 63); before, nobody held a view.
+    if schema >= Schema::V63 {
+        let bytes = single_chunk(reader, SECTION_RELATIONS)?;
+        people.polity_views = decode_relations(&bytes, rules)?;
     }
     // Settlements' founding ways (schema 61); before them a founding band's is drawn again from
     // its key, and any other settlement's taken as its households' now.
@@ -2724,7 +2735,8 @@ fn carried(
         | Schema::V59
         | Schema::V60
         | Schema::V61
-        | Schema::V62 => {
+        | Schema::V62
+        | Schema::V63 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2896,7 +2908,8 @@ fn decode_households(
             | Schema::V59
             | Schema::V60
             | Schema::V61
-            | Schema::V62 => {
+            | Schema::V62
+            | Schema::V63 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -6683,6 +6696,13 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let worked = (!worked.is_empty()).then(|| fbb.create_vector(&worked));
+    let worked_by: Vec<u64> = people
+        .uses
+        .today
+        .iter()
+        .map(|w| w.person.map_or(0, PermanentId::get))
+        .collect();
+    let worked_by = (!worked_by.is_empty()).then(|| fbb.create_vector(&worked_by));
     let root = save::PlacesSave::create(
         &mut fbb,
         &save::PlacesSaveArgs {
@@ -6701,6 +6721,7 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
             ways,
             uses,
             worked,
+            worked_by,
         },
     );
     finish(fbb, root)
@@ -7011,13 +7032,19 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
                 day: u.day(),
             });
     }
-    for w in root.worked().iter().flatten() {
+    // Who did each piece of work (schema 63); before, nobody known.
+    let by: Vec<u64> = root
+        .worked_by()
+        .map(|v| v.iter().collect())
+        .unwrap_or_default();
+    for (k, w) in root.worked().iter().flatten().enumerate() {
         uses.today.push(civ_agents::uses::Worked {
             place: place_of(w.kind(), w.place())?,
             day: w.day(),
             household: required(w.household(), "a household that worked a place")?,
             settlement: required(w.settlement(), "a settlement whose people worked a place")?,
             kcal: w.kcal(),
+            person: by.get(k).copied().and_then(PermanentId::from_raw),
         });
     }
     Ok(PlacesDecoded {
@@ -7033,6 +7060,82 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
         ways,
         uses,
     })
+}
+
+// ---- relations ---------------------------------------------------------------------------------
+
+fn encode_relations(people: &Population) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let views: Vec<_> = people
+        .polity_views
+        .held
+        .iter()
+        .flat_map(|(&p, list)| list.iter().map(move |v| (p, v)))
+        .map(|(p, v)| {
+            let yes = fbb.create_vector(&v.yes);
+            let no = fbb.create_vector(&v.no);
+            save::ViewSave::create(
+                &mut fbb,
+                &save::ViewSaveArgs {
+                    person: p.get(),
+                    polity: v.polity.get(),
+                    day: v.day,
+                    yes: Some(yes),
+                    no: Some(no),
+                    reason_act: v.reason.map_or(u8::MAX, |r| r.act.code()),
+                    reason_day: v.reason.map_or(0, |r| r.day),
+                    reason_times: v.reason.map_or(0, |r| r.times),
+                },
+            )
+        })
+        .collect();
+    let views = (!views.is_empty()).then(|| fbb.create_vector(&views));
+    let root = save::RelationsSave::create(&mut fbb, &save::RelationsSaveArgs { views });
+    finish(fbb, root)
+}
+
+fn decode_relations(bytes: &[u8], rules: &Rules) -> Result<civ_agents::views::Views, LoadError> {
+    use civ_agents::views::{DOMAINS, View, ViewAct, ViewReason, Views};
+    let root = flatbuffers::root::<save::RelationsSave>(bytes)
+        .map_err(|e| unreadable(SECTION_RELATIONS, &e))?;
+    let prior = rules.people.relations.prior as f32;
+    let mut out = Views::default();
+    for v in root.views().iter().flatten() {
+        let person = required(v.person(), "a person who holds a view of a polity")?;
+        let polity = required(v.polity(), "a polity someone holds a view of")?;
+        // Domains a later build appended are dropped; those it lacks start at the prior.
+        let counts = |saved: Option<flatbuffers::Vector<'_, f32>>| {
+            let mut out = [prior; DOMAINS];
+            for (k, x) in saved.iter().flatten().take(DOMAINS).enumerate() {
+                out[k] = x;
+            }
+            out
+        };
+        let reason = match v.reason_act() {
+            u8::MAX => None,
+            code => Some(ViewReason {
+                act: ViewAct::from_code(code).ok_or_else(|| {
+                    LoadError::Malformed(format!("person {person}'s view has act code {code}"))
+                })?,
+                day: v.reason_day(),
+                times: v.reason_times(),
+            }),
+        };
+        let list = out.held.entry(person).or_default();
+        if list.last().is_some_and(|last: &View| last.polity >= polity) {
+            return Err(LoadError::Malformed(format!(
+                "person {person}'s views are out of order or repeated"
+            )));
+        }
+        list.push(View {
+            polity,
+            day: v.day(),
+            yes: counts(v.yes()),
+            no: counts(v.no()),
+            reason,
+        });
+    }
+    Ok(out)
 }
 
 fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> Vec<u8> {

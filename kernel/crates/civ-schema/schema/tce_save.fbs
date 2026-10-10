@@ -1835,6 +1835,28 @@ table PlacesSave {
   // place, and the work logged since the last day's end, in the order done.
   uses: [PlaceUseSave] (id: 13);
   worked: [WorkedSave] (id: 14);
+  // Schema 63 (M5c slice AT, step two): who did each piece of work in `worked`, in its order (0
+  // when not known).
+  worked_by: [ulong] (id: 15);
+}
+
+// Section "relation" (schema 63, M5c slice AT, ADR-0020 §3): what each person believes of the
+// other polities they have heard of, by person and then polity. `yes` and `no` are the evidence
+// for and against in each domain (keeps its word, harms us, helps us), the prior included;
+// `reason_act` is 255 when nothing has written it.
+table ViewSave {
+  person: ulong (id: 0);
+  polity: ulong (id: 1);
+  day: long (id: 2);
+  yes: [float] (id: 3);
+  no: [float] (id: 4);
+  reason_act: ubyte = 255 (id: 5);
+  reason_day: long (id: 6);
+  reason_times: ushort (id: 7);
+}
+
+table RelationsSave {
+  views: [ViewSave] (id: 0);
 }
 
 // Outsiders a household saw at a place (schema 62): days, fading, and the last day.

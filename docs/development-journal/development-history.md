@@ -1100,6 +1100,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** the trestle over the trunk river and the places reachable only across a crossing; giving up a stalled crossing.
 
+## 2026-10-10 — M5c slice AX, the M5 demo: lived again, and the agreement funnel
+
+**Goal:** live the M5a and M5b demos again on the corrected walking, and find why no agreement between villages ever reached a gathering (M5's fourth part is a treaty failing ratification).
+
+**What changed:** a household some of whose people are going hungry no longer weighs another village's claim when choosing where to gather (research 04-09 §5.3). A test world shows a gathering turning down terms its negotiator expected to pass, by what those who came believe of the other village, with both law histories side by side.
+
+**Findings:** on the new walking the M5b demo's villages never meet, and the M5a world made no agreement in thirty years. The funnel is closed by design: a village counter-claims the ground it shares and then holds it as its own, so leave between two such villages grants nothing. Opening it (contested ground kept off until leave) brought meetings and an agreement, but the probe world's crowded village emptied that year; so did it with the hunger rule alone, in three of four lives from the same save, so the village was fragile and the change could not be judged by it. The rule stands on plausibility: with no cost to contesting ground, each side keeps its own claim; force comes in M6.
+
+**Evidence:** the full suite, clippy and the ten smoke worlds; six-year probes of the M5a demo world from years 11 and 21; the thirty-year demo and twin re-runs.
+
+**Open:** enclosures (slice AX's works); a lived failed ratification waits for contested ground to cost something.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

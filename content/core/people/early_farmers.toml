@@ -891,7 +891,9 @@ heard_trespass = 0.5
 # for routine news). A household that heard of another polity's claim on a place weighs it at
 # `claimed_worth` of what it would yield to it (ADR-0020 §5: outsiders use a claimed place only by
 # leave; research 13-05 §1.1 counts exclusive control among the outcomes over a resource): it
-# still goes when nothing else is half as good, and is held to trespass if seen. A design prior.
+# still goes when nothing else is half as good, and is held to trespass if seen; not at all while
+# some of its people are going hungry (research 04-09 §5.3: what a breach is worth turns on need).
+# A design prior.
 share_claims = 0.15
 claimed_worth = 0.5
 # Agreements (ADR-0020 §6): two who meet weigh at most `packages` packages of clauses and terms

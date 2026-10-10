@@ -805,7 +805,8 @@ listener's household then holds every place the law claims. Word of a claim cros
 way. A household that heard of another polity's claim on a place weighs it, when choosing where
 to gather or dig, at `claimed_worth` of what it would yield: it goes there only when nothing
 else is half as good, and is held to trespass if seen there. A place its own polity claims too it
-holds as its own and weighs whole. A claim heard of is let go once no law in force makes it.
+holds as its own and weighs whole, and since M5c slice AX a household some of whose people are
+going hungry weighs no claim at all. A claim heard of is let go once no law in force makes it.
 
 Content API 60 (M5c slice AT, step two) brings views of other polities (ADR-0020 §3): the
 people profile's `[relations]` table, with `prior` (0.01 to 100; 1 in the core pack, ADR-0020 §3's

@@ -2832,11 +2832,21 @@ impl Population {
         // share of what it would yield to it (M5c slice AU, ADR-0020 §5: outsiders use a claimed
         // place by leave); it may still go there when nothing else is as good. One its own
         // polity claims too it holds as its own, and so one an agreement in force gives its people
-        // leave to use, when one of them knows their own polity's law deciding it.
+        // leave to use, when one of them knows their own polity's law deciding it. A household
+        // some of whose people are going hungry weighs no claim: need, not another's word,
+        // decides where it gathers (M5c slice AX; research 04-09 §5.3: what a breach is worth
+        // turns on the agent's needs and alternatives).
         let own = hh.settlement.and_then(|s| self.polity_of(s));
         let own_polity = own.map(|i| self.polities[i].id);
         let claimed_worth = ctx.params.relations.claimed_worth;
+        let hungry = hh.members.iter().any(|&m| {
+            self.person(m)
+                .is_some_and(|q| may_eat_reserve(q, now, params))
+        });
         let worth = |place: crate::uses::Place| {
+            if hungry {
+                return 1.0;
+            }
             let leave = |from: PermanentId| {
                 own.is_some_and(|i| self.leave_known(from, self.polities[i].id, i, &hh.members))
             };

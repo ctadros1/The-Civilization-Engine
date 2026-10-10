@@ -48,6 +48,8 @@ pub enum Target {
     Technique(u16),
     /// A deposit in the ground, by permanent id: the one dug at (M3b slice Q).
     Deposit(PermanentId),
+    /// A crossing over water, by permanent id: the one worked on (M5c slice AW).
+    Crossing(PermanentId),
 }
 
 /// One step of an activity.

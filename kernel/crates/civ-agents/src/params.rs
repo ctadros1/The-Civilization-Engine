@@ -62,11 +62,14 @@ pub enum Behavior {
     /// the other settlement's hearth and hand them over, and walk home within the day (M5c slice
     /// AV, ADR-0020 §7): only for the one who is to carry them.
     Carry,
+    /// Walk to the bank where the household is building a crossing, work on it, and walk home
+    /// (M5c slice AW, step two): the activity's numbers, the crossing's labour.
+    Bridge,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 22] = [
+    pub const ALL: [Behavior; 23] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -89,6 +92,7 @@ impl Behavior {
         Behavior::Visit,
         Behavior::Fetch,
         Behavior::Carry,
+        Behavior::Bridge,
     ];
 
     /// The authored name of a behavior.
@@ -116,6 +120,7 @@ impl Behavior {
             Behavior::Visit => "visit",
             Behavior::Fetch => "fetch",
             Behavior::Carry => "carry",
+            Behavior::Bridge => "bridge",
         }
     }
 
@@ -556,6 +561,9 @@ pub struct BridgeDef {
     pub name: String,
     /// The technique its builders need, by index, if any.
     pub technique: Option<usize>,
+    /// The skill its builders practise, by index, from which its members' quality is drawn
+    /// (ADR-0009 §6), if any.
+    pub skill: Option<usize>,
     /// The good its members are made of, by index: one with `[timber]` strengths.
     pub good: usize,
     /// The members' density, kg/m³, for their own weight.

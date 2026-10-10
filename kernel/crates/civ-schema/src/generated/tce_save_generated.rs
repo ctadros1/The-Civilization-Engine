@@ -197,10 +197,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for Terminus {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_TARGET_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_TARGET_KIND: u8 = 13;
+pub const ENUM_MAX_TARGET_KIND: u8 = 14;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 14] = [
+pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 15] = [
   TargetKind::None,
   TargetKind::Home,
   TargetKind::Hearth,
@@ -215,6 +215,7 @@ pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 14] = [
   TargetKind::NewFirm,
   TargetKind::Technique,
   TargetKind::Deposit,
+  TargetKind::Crossing,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -236,9 +237,10 @@ impl TargetKind {
   pub const NewFirm: Self = Self(11);
   pub const Technique: Self = Self(12);
   pub const Deposit: Self = Self(13);
+  pub const Crossing: Self = Self(14);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 13;
+  pub const ENUM_MAX: u8 = 14;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::None,
     Self::Home,
@@ -254,6 +256,7 @@ impl TargetKind {
     Self::NewFirm,
     Self::Technique,
     Self::Deposit,
+    Self::Crossing,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -272,6 +275,7 @@ impl TargetKind {
       Self::NewFirm => Some("NewFirm"),
       Self::Technique => Some("Technique"),
       Self::Deposit => Some("Deposit"),
+      Self::Crossing => Some("Crossing"),
       _ => None,
     }
   }
@@ -12422,6 +12426,197 @@ impl<'a> SideSave {
         &x_le as *const _ as *const u8,
         self.0[8..].as_mut_ptr(),
         ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct WadeSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct WadeSave(pub [u8; 24]);
+impl Default for WadeSave { 
+  fn default() -> Self { 
+    Self([0; 24])
+  }
+}
+impl ::core::fmt::Debug for WadeSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("WadeSave")
+      .field("household", &self.household())
+      .field("day", &self.day())
+      .field("cell", &self.cell())
+      .field("wades", &self.wades())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for WadeSave {}
+impl<'a> ::flatbuffers::Follow<'a> for WadeSave {
+  type Inner = &'a WadeSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a WadeSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a WadeSave {
+  type Inner = &'a WadeSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<WadeSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for WadeSave {
+    type Output = WadeSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const WadeSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for WadeSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> WadeSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    household: u64,
+    day: i64,
+    cell: u32,
+    wades: f32,
+  ) -> Self {
+    let mut s = Self([0; 24]);
+    s.set_household(household);
+    s.set_day(day);
+    s.set_cell(cell);
+    s.set_wades(wades);
+    s
+  }
+
+  pub fn household(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_household(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn day(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_day(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn cell(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_cell(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn wades(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[20..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_wades(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[20..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
       );
     }
   }
@@ -32775,6 +32970,7 @@ impl<'a> CrossingSave<'a> {
   pub const VT_WORK_H: ::flatbuffers::VOffsetT = 34;
   pub const VT_STATE_DAY: ::flatbuffers::VOffsetT = 36;
   pub const VT_WHY: ::flatbuffers::VOffsetT = 38;
+  pub const VT_SKILL_H: ::flatbuffers::VOffsetT = 40;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32790,6 +32986,7 @@ impl<'a> CrossingSave<'a> {
     builder.add_begun(args.begun);
     builder.add_owner(args.owner);
     builder.add_id(args.id);
+    builder.add_skill_h(args.skill_h);
     builder.add_work_h(args.work_h);
     builder.add_labour_h(args.labour_h);
     builder.add_loss(args.loss);
@@ -32934,6 +33131,13 @@ impl<'a> CrossingSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u8>(CrossingSave::VT_WHY, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn skill_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CrossingSave::VT_SKILL_H, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for CrossingSave<'_> {
@@ -32960,6 +33164,7 @@ impl ::flatbuffers::Verifiable for CrossingSave<'_> {
      .visit_field::<f32>("work_h", Self::VT_WORK_H, false)?
      .visit_field::<i64>("state_day", Self::VT_STATE_DAY, false)?
      .visit_field::<u8>("why", Self::VT_WHY, false)?
+     .visit_field::<f32>("skill_h", Self::VT_SKILL_H, false)?
      .finish();
     Ok(())
   }
@@ -32983,6 +33188,7 @@ pub struct CrossingSaveArgs<'a> {
     pub work_h: f32,
     pub state_day: i64,
     pub why: u8,
+    pub skill_h: f32,
 }
 impl<'a> Default for CrossingSaveArgs<'a> {
   #[inline]
@@ -33006,6 +33212,7 @@ impl<'a> Default for CrossingSaveArgs<'a> {
       work_h: 0.0,
       state_day: 0,
       why: 0,
+      skill_h: 0.0,
     }
   }
 }
@@ -33088,6 +33295,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CrossingSaveBuilder<'a, 'b, A
     self.fbb_.push_slot::<u8>(CrossingSave::VT_WHY, why, 0);
   }
   #[inline]
+  pub fn add_skill_h(&mut self, skill_h: f32) {
+    self.fbb_.push_slot::<f32>(CrossingSave::VT_SKILL_H, skill_h, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CrossingSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     CrossingSaveBuilder {
@@ -33123,6 +33334,7 @@ impl ::core::fmt::Debug for CrossingSave<'_> {
       ds.field("work_h", &self.work_h());
       ds.field("state_day", &self.state_day());
       ds.field("why", &self.why());
+      ds.field("skill_h", &self.skill_h());
       ds.finish()
   }
 }
@@ -33144,6 +33356,7 @@ impl<'a> ::flatbuffers::Follow<'a> for CrossingsSave<'a> {
 impl<'a> CrossingsSave<'a> {
   pub const VT_LIST: ::flatbuffers::VOffsetT = 4;
   pub const VT_REVISION: ::flatbuffers::VOffsetT = 6;
+  pub const VT_WADES: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -33155,6 +33368,7 @@ impl<'a> CrossingsSave<'a> {
     args: &'args CrossingsSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<CrossingsSave<'bldr>> {
     let mut builder = CrossingsSaveBuilder::new(_fbb);
+    if let Some(x) = args.wades { builder.add_wades(x); }
     builder.add_revision(args.revision);
     if let Some(x) = args.list { builder.add_list(x); }
     builder.finish()
@@ -33175,6 +33389,13 @@ impl<'a> CrossingsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(CrossingsSave::VT_REVISION, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn wades(&self) -> Option<::flatbuffers::Vector<'a, WadeSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, WadeSave>>>(CrossingsSave::VT_WADES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for CrossingsSave<'_> {
@@ -33185,6 +33406,7 @@ impl ::flatbuffers::Verifiable for CrossingsSave<'_> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CrossingSave>>>>("list", Self::VT_LIST, false)?
      .visit_field::<u32>("revision", Self::VT_REVISION, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, WadeSave>>>("wades", Self::VT_WADES, false)?
      .finish();
     Ok(())
   }
@@ -33192,6 +33414,7 @@ impl ::flatbuffers::Verifiable for CrossingsSave<'_> {
 pub struct CrossingsSaveArgs<'a> {
     pub list: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CrossingSave<'a>>>>>,
     pub revision: u32,
+    pub wades: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, WadeSave>>>,
 }
 impl<'a> Default for CrossingsSaveArgs<'a> {
   #[inline]
@@ -33199,6 +33422,7 @@ impl<'a> Default for CrossingsSaveArgs<'a> {
     CrossingsSaveArgs {
       list: None,
       revision: 0,
+      wades: None,
     }
   }
 }
@@ -33215,6 +33439,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CrossingsSaveBuilder<'a, 'b, 
   #[inline]
   pub fn add_revision(&mut self, revision: u32) {
     self.fbb_.push_slot::<u32>(CrossingsSave::VT_REVISION, revision, 0);
+  }
+  #[inline]
+  pub fn add_wades(&mut self, wades: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , WadeSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CrossingsSave::VT_WADES, wades);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CrossingsSaveBuilder<'a, 'b, A> {
@@ -33236,6 +33464,7 @@ impl ::core::fmt::Debug for CrossingsSave<'_> {
     let mut ds = f.debug_struct("CrossingsSave");
       ds.field("list", &self.list());
       ds.field("revision", &self.revision());
+      ds.field("wades", &self.wades());
       ds.finish()
   }
 }

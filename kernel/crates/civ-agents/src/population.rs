@@ -502,6 +502,8 @@ pub struct Population {
     pub claims_heard: crate::uses::ClaimsHeard,
     /// Agreements between polities, in the order made (M5c slice AU, ADR-0020 §6).
     pub agreements: crate::agreements::Agreements,
+    /// The river cells each household's people wade (M5c slice AW, step two).
+    pub fords: crate::fords::Fords,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -1142,6 +1144,7 @@ impl Population {
         out.extend(self.uses.problems());
         out.extend(self.polity_views.problems());
         out.extend(self.claims_heard.problems());
+        out.extend(self.fords.problems());
         out.extend(self.agreements.problems());
         for (&p, seen) in &self.seen_away {
             if self.person(p).is_none() {
@@ -2598,6 +2601,7 @@ impl Population {
             petition: self.petition_facts(ctx, p.id, age, &hh, minute, evening_start),
             watch: self.watch_facts(ctx, p.id, &hh, dark),
             carry: self.carry_facts(ctx, p.id, field_key, dark),
+            crossing: self.crossing_facts(ctx, &hh, field_key, dark),
             hurt: self
                 .order
                 .hurt_until(p.id)
@@ -3854,14 +3858,19 @@ impl Population {
             (pts, mins)
         };
         let duration = minutes.last().copied().unwrap_or(0.0).ceil().max(1.0);
-        // A crossing on the way is stepped onto; one that gives way under them stops the walk
-        // (M5c slice AW).
-        if !ctx.land.crossings.list.is_empty() {
-            let who = p.id;
-            if !self.step_on(ctx, who, &points) {
-                return false;
-            }
+        // A crossing on the way is stepped onto, and one that gives way under them stops the
+        // walk; the streams it wades are their household's to remember (M5c slice AW).
+        let (who, household) = (p.id, p.household);
+        let along = civ_land::paths::cells_along(
+            &points,
+            ctx.map.cell_size_m,
+            ctx.map.width,
+            ctx.map.height,
+        );
+        if !ctx.land.crossings.list.is_empty() && !self.step_on(ctx, who, &along) {
+            return false;
         }
+        self.wade(ctx, household, &along);
         let Some(p) = self.people.get_mut(h) else {
             return false;
         };
@@ -3980,7 +3989,8 @@ impl Population {
                 | Behavior::Build
                 | Behavior::Take
                 | Behavior::Watch
-                | Behavior::Carry,
+                | Behavior::Carry
+                | Behavior::Bridge,
             ) => (def_par, false, 0.0),
             None => (params.energy.idle_par, false, 0.0),
         };
@@ -4145,6 +4155,15 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.build_work(ctx, (h, who), household, building, hours);
+                    }
+                }
+                Some(Behavior::Bridge) => {
+                    if let Target::Crossing(crossing) = p.act.target {
+                        let rate = def.as_ref().map_or(1.0, |d| d.rate);
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let (who, household) = (p.id, p.household);
+                        self.crossing_work(ctx, (h, who), household, crossing, hours);
                     }
                 }
                 Some(Behavior::Hire) => {
@@ -5305,9 +5324,13 @@ impl Population {
             }
         }
         self.check_buildings(ctx);
-        // And the crossings over water (M5c slice AW).
+        // And the crossings over water (M5c slice AW): rot and failure, then the households
+        // whose day it is weigh building one where their people wade.
         if !ctx.land.crossings.list.is_empty() {
             self.crossings_day(ctx);
+        }
+        if !self.fords.households.is_empty() {
+            self.crossing_reviews(ctx, day);
         }
         // A month ended: its asks and prices per pair of settlements are recorded (M5b slice AQ).
         self.record_convergence(ctx);

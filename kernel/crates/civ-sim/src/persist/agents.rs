@@ -111,7 +111,7 @@ use super::{
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
-    SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, finish, section, single_chunk, unreadable,
+    SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -270,7 +270,11 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         ),
         section(SECTION_PLACES, 0, encode_places(&sim.people, &goods)),
         section(SECTION_RELATIONS, 0, encode_relations(&sim.people, &goods)),
-        section(SECTION_CROSSINGS, 0, encode_crossings(&sim.land, rules)),
+        section(
+            SECTION_CROSSINGS,
+            0,
+            encode_crossings(&sim.land, &sim.people.fords, rules),
+        ),
     ]
 }
 
@@ -428,6 +432,8 @@ enum Schema {
     V67,
     /// Crossings over water (M5c slice AW).
     V68,
+    /// The streams households wade, and the crossings they build (M5c slice AW, step two).
+    V69,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -510,7 +516,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V65 => Schema::V65,
         SCHEMA_V66 => Schema::V66,
         SCHEMA_V67 => Schema::V67,
-        SAVE_SCHEMA_VERSION => Schema::V68,
+        SCHEMA_V68 => Schema::V68,
+        SAVE_SCHEMA_VERSION => Schema::V69,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -735,10 +742,11 @@ pub(super) fn decode<R: Read + Seek>(
         (people.polity_views, people.claims_heard, people.agreements) =
             decode_relations(&bytes, rules)?;
     }
-    // Crossings over water (schema 68); before, none.
+    // Crossings over water (schema 68), and the streams households wade (schema 69); before,
+    // none.
     if schema >= Schema::V68 {
         let bytes = single_chunk(reader, SECTION_CROSSINGS)?;
-        land.crossings = decode_crossings(&bytes, rules, map)?;
+        (land.crossings, people.fords) = decode_crossings(&bytes, rules, map)?;
     }
     // Settlements' founding ways (schema 61); before them a founding band's is drawn again from
     // its key, and any other settlement's taken as its households' now.
@@ -1857,6 +1865,7 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::NewFirm => (save::TargetKind::NewFirm, 0, 0),
         Target::Technique(t) => (save::TargetKind::Technique, u32::from(t), 0),
         Target::Deposit(d) => (save::TargetKind::Deposit, 0, d.get()),
+        Target::Crossing(c) => (save::TargetKind::Crossing, 0, c.get()),
     }
 }
 
@@ -1891,6 +1900,7 @@ fn target_of(
                 .map_err(|_| LoadError::Malformed(format!("a target names technique {index}")))?,
         ),
         save::TargetKind::Deposit => Target::Deposit(required(id, "a deposit target")?),
+        save::TargetKind::Crossing => Target::Crossing(required(id, "a crossing target")?),
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -2783,7 +2793,8 @@ fn carried(
         | Schema::V65
         | Schema::V66
         | Schema::V67
-        | Schema::V68 => {
+        | Schema::V68
+        | Schema::V69 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2961,7 +2972,8 @@ fn decode_households(
             | Schema::V65
             | Schema::V66
             | Schema::V67
-            | Schema::V68 => {
+            | Schema::V68
+            | Schema::V69 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -7512,7 +7524,7 @@ fn decode_relations(bytes: &[u8], rules: &Rules) -> Result<Relations, LoadError>
 
 // ---- crossings ---------------------------------------------------------------------------------
 
-fn encode_crossings(land: &Land, rules: &Rules) -> Vec<u8> {
+fn encode_crossings(land: &Land, fords: &civ_agents::fords::Fords, rules: &Rules) -> Vec<u8> {
     use civ_land::crossings::{CrossingOwner, CrossingState};
     let mut fbb = FlatBufferBuilder::new();
     let list: Vec<_> = land
@@ -7557,28 +7569,40 @@ fn encode_crossings(land: &Land, rules: &Rules) -> Vec<u8> {
                     work_h,
                     state_day,
                     why,
+                    skill_h: c.skill_h,
                 },
             )
         })
         .collect();
     let list = fbb.create_vector(&list);
+    let wades: Vec<save::WadeSave> = fords
+        .households
+        .iter()
+        .flat_map(|(&h, list)| {
+            list.iter()
+                .map(move |w| save::WadeSave::new(h.get(), w.day, w.cell, w.wades))
+        })
+        .collect();
+    let wades = (!wades.is_empty()).then(|| fbb.create_vector(&wades));
     let root = save::CrossingsSave::create(
         &mut fbb,
         &save::CrossingsSaveArgs {
             list: Some(list),
             revision: land.crossings.revision(),
+            wades,
         },
     );
     finish(fbb, root)
 }
 
-/// The crossings saved in `bytes`. One of a bridge system the loaded content no longer has is
-/// dropped; one spanning cells off the map is malformed.
+/// The crossings saved in `bytes`, and the streams households wade. A crossing of a bridge
+/// system the loaded content no longer has is dropped; one spanning cells off the map is
+/// malformed, as is a wade of a cell off the map.
 fn decode_crossings(
     bytes: &[u8],
     rules: &Rules,
     map: &WorldMap,
-) -> Result<civ_land::crossings::Crossings, LoadError> {
+) -> Result<(civ_land::crossings::Crossings, civ_agents::fords::Fords), LoadError> {
     use civ_land::crossings::{Collapse, Crossing, CrossingOwner, CrossingState, Crossings};
     let root = flatbuffers::root::<save::CrossingsSave>(bytes)
         .map_err(|e| unreadable(SECTION_CROSSINGS, &e))?;
@@ -7628,11 +7652,31 @@ fn decode_crossings(
             loss: c.loss(),
             owner,
             labour_h: c.labour_h(),
+            skill_h: c.skill_h(),
             begun: SimTime::from_minutes(c.begun()),
             state,
         });
     }
-    Ok(Crossings::with_revision(list, root.revision()))
+    let mut fords = civ_agents::fords::Fords::default();
+    for w in root.wades().iter().flatten() {
+        let household = required(w.household(), "a wade's household")?;
+        if u64::from(w.cell()) >= cells_on_map {
+            return Err(LoadError::Malformed(format!(
+                "household {household} waded cell {} off the map",
+                w.cell()
+            )));
+        }
+        fords
+            .households
+            .entry(household)
+            .or_default()
+            .push(civ_agents::fords::Wade {
+                cell: w.cell(),
+                wades: w.wades(),
+                day: w.day(),
+            });
+    }
+    Ok((Crossings::with_revision(list, root.revision()), fords))
 }
 
 fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> Vec<u8> {

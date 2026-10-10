@@ -67,13 +67,17 @@ pub struct Crossing {
     pub members: u8,
     pub diameter_cm: f32,
     /// The members' quality (0–1), drawn once when they were laid from the builders' skill
-    /// (ADR-0009 §6).
+    /// (ADR-0009 §6); 0 while it is being built.
     pub quality: f32,
     /// The share of their effective section lost to rot (0–1).
     pub loss: f32,
     pub owner: CrossingOwner,
     /// Labour it takes, hours.
     pub labour_h: f32,
+    /// Its builders' work so far, each hour weighted by the building skill of whoever did it:
+    /// over its labour, how skilled they were on average, from which its members' quality is
+    /// drawn when it opens (M5c slice AW, step two; ADR-0009 §6).
+    pub skill_h: f32,
     pub begun: SimTime,
     pub state: CrossingState,
 }
@@ -142,6 +146,12 @@ impl Crossings {
             if !(0.0..=1.0).contains(&c.loss) || !(0.0..=1.0).contains(&c.quality) {
                 out.push(format!("crossing {} has a condition out of range", c.id));
             }
+            if !(c.skill_h.is_finite() && c.skill_h >= 0.0) {
+                out.push(format!(
+                    "crossing {} has its builders' skill malformed",
+                    c.id
+                ));
+            }
         }
         out
     }
@@ -168,6 +178,7 @@ mod tests {
             loss: 0.0,
             owner: CrossingOwner::Household(id(1)),
             labour_h: 120.0,
+            skill_h: 0.0,
             begun: SimTime::from_minutes(0),
             state,
         }

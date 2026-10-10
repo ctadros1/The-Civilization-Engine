@@ -75,9 +75,24 @@ pub struct Facts {
     /// A payment an agreement owes that they are to carry, set aside and waiting, if they can
     /// walk it there and back in the day (M5c slice AV).
     pub carry: Option<CarryFacts>,
+    /// A crossing their household is building, if it is within their reach (M5c slice AW, step
+    /// two).
+    pub crossing: Option<CrossingFacts>,
     /// Whether a blow keeps them from work today (M4c slice AI, step four): they eat, drink, rest,
     /// sleep and keep company, and do no work.
     pub hurt: bool,
+}
+
+/// A crossing someone's household is building (M5c slice AW, step two): where on the bank its
+/// work is done, the walk there from home, the hours of a capable adult's work it still takes,
+/// and the hours of walking each hour of that work saves the household over the crossing's life.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CrossingFacts {
+    pub crossing: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub left_h: f64,
+    pub saves_per_hour: f64,
 }
 
 /// A payment someone is to carry (M5c slice AV, ADR-0020 §7): where the store set it aside, the
@@ -564,6 +579,11 @@ pub fn candidates(
         // Carrying goods owed is open only to the one who is to carry them (M5c slice AV), and
         // is no part of anyone else's choice: not even a reason it was left out.
         if def.behavior == Behavior::Carry && f.carry.is_none() {
+            continue;
+        }
+        // So is work on a crossing to all but those whose household is building one (M5c slice
+        // AW).
+        if def.behavior == Behavior::Bridge && f.crossing.is_none() {
             continue;
         }
         if f.age < def.min_age_years {
@@ -1331,6 +1351,60 @@ pub fn candidates(
                 ];
                 out.push(finish(id, Target::Hearth(c.settlement), terms, steps));
             }
+            Behavior::Bridge => {
+                // Work on the household's crossing (M5c slice AW, step two): as long as daylight
+                // allows within the authored range, a shorter session only to finish it; each
+                // hour of a capable adult's work worth the walking it saves the household.
+                let Some(c) = f.crossing else {
+                    continue;
+                };
+                if c.walk_min > f64::from(def.max_walk_minutes) {
+                    excluded.push((id, Reason::Unreachable));
+                    continue;
+                }
+                let room = if def.daylight_only {
+                    f.daylight_left_min - 2.0 * c.walk_min - 20.0
+                } else {
+                    f64::from(def.max_minutes)
+                };
+                if room < f64::from(def.min_minutes) {
+                    excluded.push((id, Reason::NotInDark));
+                    continue;
+                }
+                let pace = (f.capacity * def.rate).max(0.05);
+                let left = c.left_h * 60.0 / pace;
+                let minutes = room
+                    .min(f64::from(def.max_minutes))
+                    .min(left)
+                    .max(f64::from(def.min_minutes).min(left))
+                    .max(1.0);
+                let hours = minutes / 60.0;
+                term(
+                    &mut terms,
+                    Reason::Crossing,
+                    w.w_walk_hour * hours * pace * c.saves_per_hour,
+                );
+                if c.walk_min > 0.5 {
+                    term(
+                        &mut terms,
+                        Reason::Walking,
+                        -w.w_walk_hour * 2.0 * c.walk_min / 60.0,
+                    );
+                }
+                term(
+                    &mut terms,
+                    Reason::Effort,
+                    -w.w_effort * (def.par - 1.0).max(0.0) * hours * f.sleep_pressure,
+                );
+                let steps = vec![
+                    Step::Walk { to: c.at },
+                    Step::Work {
+                        minutes: minutes.round().max(1.0) as u32,
+                    },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Crossing(c.crossing), terms, steps));
+            }
             Behavior::Rest => {
                 term(&mut terms, Reason::Rest, w.w_rest);
                 let mut steps = walk_home_first(f);
@@ -1622,6 +1696,7 @@ mod tests {
             gathering: None,
             watch: None,
             carry: None,
+            crossing: None,
         }
     }
 

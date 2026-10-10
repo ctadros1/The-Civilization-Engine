@@ -49,7 +49,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 65;
+pub const KERNEL_CONTENT_API: u32 = 66;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1070,10 +1070,19 @@ fn resolve(
             }
             t.map(Some)
         };
-        if let (Some(g), Some(t)) = (good, technique)
+        let skill = if d.file.skill.is_empty() {
+            Some(None)
+        } else {
+            let k = skill_index(&d.file.skill);
+            if k.is_none() {
+                missing(c, parsed, &d.rel, "skill", &d.file.skill);
+            }
+            k.map(Some)
+        };
+        if let (Some(g), Some(t), Some(k)) = (good, technique, skill)
             && goods[g].timber.is_some()
         {
-            bridges.push(d.file.def(g, t));
+            bridges.push(d.file.def(g, t, k));
         }
     }
     bridges.sort_by(|a, b| a.id.cmp(&b.id));

@@ -750,6 +750,23 @@ pub fn describe_target(
             }
             None => "a pit".to_owned(),
         },
+        // A crossing worked on (M5c slice AW): "the log footbridge north-east of home".
+        Target::Crossing(id) => match sim.land.crossings.list.iter().find(|c| c.id == id) {
+            Some(c) => {
+                let name = sim
+                    .rules
+                    .catalog
+                    .bridges
+                    .get(usize::from(c.system))
+                    .map_or_else(|| "crossing".to_owned(), |d| d.name.to_lowercase());
+                let at = c
+                    .cells
+                    .first()
+                    .map_or(home, |&x| population::cell_centre(&sim.map, x as usize));
+                format!("the {name} {} of home", bearing(home, at))
+            }
+            None => "a crossing".to_owned(),
+        },
     }
 }
 
@@ -880,6 +897,8 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
                     format!("{what}, {place}")
                 }
                 Target::Household(_) | Target::Deposit(_) => format!("{what} at {place}"),
+                // "building the log footbridge north of home" (M5c slice AW).
+                Target::Crossing(_) => format!("building {place}"),
                 // Another settlement's hearth (M5a slice AM): "visiting the hearth of Ashford".
                 Target::Hearth(_)
                     if def.is_some_and(|d| d.behavior == civ_agents::Behavior::Visit) =>

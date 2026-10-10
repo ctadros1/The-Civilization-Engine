@@ -8,6 +8,7 @@ kind = "bridge"
 id = "core:bridge/log_beam"
 name = "Log footbridge"
 technique = "core:technique/wood_shaping"
+skill = "core:skill/building"     # trained by building it; the logs' quality is drawn from it (ADR-0009 §6)
 good = "core:good/timber"
 density_kg_m3 = 760.0            # oak, seasoned (11-08 §2.1), as the timber good's comment
 span_min_m = 2.0

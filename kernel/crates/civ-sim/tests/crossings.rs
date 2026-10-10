@@ -7,6 +7,7 @@ use std::path::Path;
 use std::sync::OnceLock;
 
 use civ_agents::bridge::{margin, size_members};
+use civ_agents::fords::Wade;
 use civ_agents::{Cause, ChronicleKind, CrossingStep};
 use civ_content::ContentRegistry;
 use civ_core::PermanentId;
@@ -118,6 +119,7 @@ fn lay(sim: &mut Sim, loss: f32) -> (PermanentId, [u32; 2], u32) {
         loss,
         owner: CrossingOwner::Household(household),
         labour_h: 0.0,
+        skill_h: 0.0,
         begun: now,
         state: CrossingState::Open {
             since: now.day_index(),
@@ -305,6 +307,123 @@ fn a_rotten_crossing_gives_way_under_the_one_who_steps_onto_it() {
             assert_eq!(p.pos, from);
         }
     }
+    saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+/// A stream a log could cross as a household would weigh it: a cell of a river narrow enough to
+/// wade whose channel is within the log footbridge's spans, with dry land either side of it,
+/// nearest the hearth.
+fn ford(sim: &Sim) -> u32 {
+    let map = sim.map();
+    let ford = sim.nav().params().ford_max_discharge_m3s;
+    let system = sim
+        .rules()
+        .catalog
+        .bridge_index("core:bridge/log_beam")
+        .expect("a log footbridge");
+    let span = sim.rules().catalog.bridges[system].span_m;
+    let hearth = sim.land().settlements[0].hearth_m;
+    let w = map.width;
+    let land = |x: u32| map.water.get(x as usize) == Some(&WATER_LAND);
+    let mut best: Option<(f32, u32)> = None;
+    for reach in map.reaches.iter().filter(|r| {
+        f64::from(r.discharge_m3s) <= ford && (span.0..=span.1).contains(&f64::from(r.width_m))
+    }) {
+        for &c in &reach.cells {
+            if map.water[c as usize] != WATER_RIVER || c % w == 0 || c % w == w - 1 || c < w {
+                continue;
+            }
+            if [[c - 1, c + 1], [c - w, c + w]]
+                .iter()
+                .any(|b| b.iter().all(|&x| land(x)))
+            {
+                let (x, y) = cell_centre(sim, c);
+                let d = (x - hearth.0).hypot(y - hearth.1);
+                if best.is_none_or(|b| d < b.0) {
+                    best = Some((d, c));
+                }
+            }
+        }
+    }
+    let (d, cell) = best.expect("a stream a log could cross");
+    assert!(d < 1000.0, "the nearest is {d} m from the hearth");
+    cell
+}
+
+/// Household `household` remembers its people wading `cell` `wades` times, as of today.
+fn remember(sim: &mut Sim, household: PermanentId, cell: u32, wades: f32) {
+    let day = sim.now().day_index();
+    let list = sim
+        .people_mut_for_tests()
+        .fords
+        .households
+        .entry(household)
+        .or_default();
+    list.retain(|w| w.cell != cell);
+    let at = list.partition_point(|w| w.cell < cell);
+    list.insert(at, Wade { cell, wades, day });
+}
+
+#[test]
+fn a_household_that_wades_a_stream_often_builds_a_log_over_it_and_walks_it_once_open() {
+    // World 4's hearth has a stream a log could cross within a walk (in eight of the first
+    // sixteen river valleys there is none at all).
+    let mut sim = village(4);
+    sim.advance_minutes(DAY).expect("lives");
+    // What households remember wading is river.
+    for list in sim.people().fords.households.values() {
+        assert!(
+            list.iter()
+                .all(|w| sim.map().water[w.cell as usize] == WATER_RIVER)
+        );
+    }
+    let cell = ford(&sim);
+    assert!(sim.nav().walkable(cell as usize), "waded");
+    let household = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, h)| !h.members.is_empty())
+        .map(|(_, h)| h.id)
+        .min()
+        .expect("a household");
+    // Waded a few times: no log is worth its work.
+    remember(&mut sim, household, cell, 5.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_crossing_for_tests(ctx, household));
+    assert!(sim.land().crossings.list.is_empty());
+    // Waded by its people every day, both ways: the walking a log saves over its life is more
+    // than the work it takes, so the household begins one.
+    remember(&mut sim, household, cell, 1500.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_crossing_for_tests(ctx, household));
+    let c = sim.land().crossings.list.first().expect("begun").clone();
+    assert_eq!(c.owner, CrossingOwner::Household(household));
+    assert_eq!(c.cells, vec![cell]);
+    assert!(matches!(c.state, CrossingState::Building { work_h } if work_h == 0.0));
+    assert!((40.0..200.0).contains(&c.labour_h), "{}", c.labour_h);
+    // A second review begins nothing more while it is being built.
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_crossing_for_tests(ctx, household));
+    assert_eq!(sim.land().crossings.list.len(), 1);
+    // Its people work on it until it opens.
+    for _ in 0..120 {
+        sim.advance_minutes(DAY).expect("lives");
+        if sim.land().crossings.list[0].open() {
+            break;
+        }
+    }
+    let c = &sim.land().crossings.list[0];
+    assert!(c.open(), "{:?}", c.state);
+    assert!(c.quality > 0.0 && c.quality <= 1.0);
+    assert!(c.skill_h > 0.0);
+    assert_eq!(sim.nav().revision(), sim.land().crossings.revision());
+    let entries = crossing_entries(&sim);
+    assert_eq!(entries.len(), 1, "{entries:?}");
+    assert_eq!(entries[0].0, f64::from(CrossingStep::Opened as u8));
+    assert!(entries[0].1.contains("log footbridge"), "{}", entries[0].1);
+    // Walked on its deck now: nobody wades it.
+    let (banks, _) = (c.banks, c.cells.clone());
+    let route_cells = route(&sim, banks[0], banks[1]).expect("across").0;
+    assert!(route_cells.contains(&cell));
+    assert!(sim.land().crossings.problems().is_empty());
     saves_and_goes_on_alike(&mut sim, DAY);
 }
 

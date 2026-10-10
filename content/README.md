@@ -350,7 +350,7 @@ decided by people at run time.
 
 | Field | Meaning |
 |---|---|
-| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults), `take` (M4b: going to another household's home to take food from its store, when short; ADR-0015 §2), `watch` (M4b: the watch's rounds at night, for whoever holds the office), `petition` (M4c: going to the hearth on the evening a faction's petition sits, for an adult who has heard of it; ADR-0017 §3), `visit` (M5a: going to the hearth of another settlement the household knows and home the same day; ADR-0018 §2), `fetch` (M5b: going to a seller's door in another settlement by a price report the household holds, to buy at the terms it posts there now, for itself or to sell at home, and home the same day; ADR-0019 §2, §6). |
+| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults), `take` (M4b: going to another household's home to take food from its store, when short; ADR-0015 §2), `watch` (M4b: the watch's rounds at night, for whoever holds the office), `petition` (M4c: going to the hearth on the evening a faction's petition sits, for an adult who has heard of it; ADR-0017 §3), `visit` (M5a: going to the hearth of another settlement the household knows and home the same day; ADR-0018 §2), `fetch` (M5b: going to a seller's door in another settlement by a price report the household holds, to buy at the terms it posts there now, for itself or to sell at home, and home the same day; ADR-0019 §2, §6), `carry` (M5c: taking up goods a payment owes where the paying store set them aside, walking them to the other settlement's hearth and home the same day, for the one who is to carry them; ADR-0020 §7), `bridge` (M5c: walking to the bank where the household is building a crossing, working on it and walking home, only while it is building one). |
 | `resource` | For `gather` only: the land resource gathered (hunting, fishing, collecting firewood and cutting building materials are gathering too). A trip works until its load is full or its time runs out. |
 | `task` | For `farm` only: the field work, one of `prepare`, `sow`, `tend`, `reap`, `thresh`. |
 | `recipe` | For `make` only: the recipe worked, at home. |
@@ -715,6 +715,15 @@ norms they hold weigh), `revolt_days` (how long the call stands), `hold_days` (h
 officeholder, and more adults than stand with the gathering, must stand with it before it holds)
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
+
+Content API 66 (M5c slice AW, step two) brings households building crossings: the bridge key
+`skill` (the skill its builders practise, from which its members' quality is drawn when it opens,
+as a building's groups are, ADR-0009 §6; empty for a middling builder's) and the behaviour
+`bridge`, whose activity is the work on a crossing the household is building, its labour the
+crossing's. The core's log footbridge trains `core:skill/building`, and its work is
+`core:activity/work_on_crossing` (heavy work, an axe, as building a hut is). Nothing is authored
+about when a household builds one: it weighs the walking its own recorded wades of a stream would
+save over the crossing's life against the work it takes.
 
 Content API 65 (M5c slice AW, step one) brings bridge systems, a new content kind (`kind =
 "bridge"`, files under `bridge/`): `technique` (the one its builders need, or empty), `good` (its

@@ -108,6 +108,9 @@ first load and every other section empty.
   falls. No cached route crosses a fallen crossing.
 - Crossings are records of their own in land, saved (schema 68), each with its spanned water cells
   in order, its banks, its members and its state.
+- Each walk counts, for the walker's household, every river cell it wades (not walked on a deck),
+  fading as what a household holds of the places it works does; this is what a household weighs
+  a crossing by (step two, saved with the crossings from schema 69).
 
 ## Consequences
 

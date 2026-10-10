@@ -239,6 +239,9 @@ pub const SCHEMA_V66: u32 = 66;
 /// The schema version of M5c slice AV: the goods agreements move and the payments owed under
 /// them, before crossings over water (see [`agents`]).
 pub const SCHEMA_V67: u32 = 67;
+/// The schema version of M5c slice AW, step one: crossings over water, before the streams
+/// households wade and the crossings they build (see [`agents`]).
+pub const SCHEMA_V68: u32 = 68;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

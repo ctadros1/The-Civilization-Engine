@@ -314,7 +314,10 @@ their meanings), an expansion yields:
   rot a year, a design margin, the chance a fall kills; research 11-07 §2.1, §2.3, §2.4). A log
   footbridge is the first.
 - Its condition is §4's, reduced to its members: a quality drawn once and the share of their
-  section rot has taken, growing daily at the system's rate. Its capacity is never saved: its
+  section rot has taken, growing daily at the system's rate. The quality is drawn when its
+  labour is done, from its builders' building skill weighted by the hours each put in, as §6's
+  groups are (step two: a household builds one; its labour is the system's per metre of member,
+  and opening it guarantees no upkeep, 11-07 §4.2). Its capacity is never saved: its
   members are checked as a simply supported beam over the span and a bearing, bending under
   their own weight and one walker (11-07 §1.3), with §5's cube of what is left.
 - It is checked each midnight with nobody on it, and as someone steps onto it (11-07 §6.2). It

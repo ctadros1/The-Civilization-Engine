@@ -48,6 +48,15 @@ pub fn draw_quality(
     ((1.0 - sigma * z) as f32).clamp(MIN_QUALITY, 1.0)
 }
 
+/// The quality builders of average building skill `skill` lay members at on average, before any
+/// is drawn ([`draw_quality`]): one less the spread at that skill times the mean size of a normal
+/// draw, `√(2/π)` (M5c slice AW, step two: what a household expects of a crossing it weighs).
+pub fn expected_quality(skill: f64, spread: [f64; 2]) -> f64 {
+    let s = skill.clamp(0.0, 1.0);
+    let sigma = spread[0] + (spread[1] - spread[0]) * s;
+    (1.0 - sigma * (2.0 / std::f64::consts::PI).sqrt()).clamp(f64::from(MIN_QUALITY), 1.0)
+}
+
 /// The quality of group `group` of building `building` rebuilt whole at `at` after it gave way,
 /// by a builder of building skill `skill`: new members, so a new draw ([`draw_quality`]), keyed
 /// also by when, so each rebuilding is its own draw and the first build's draw is untouched.
@@ -639,6 +648,9 @@ mod tests {
         // A half-normal's mean is 0.8 of its sigma: about 0.76 for a novice, 0.92 for a master.
         assert!((mean(&novice) - 0.76).abs() < 0.02, "{}", mean(&novice));
         assert!((mean(&master) - 0.92).abs() < 0.01, "{}", mean(&master));
+        // What builders expect before any draw is that mean.
+        assert!((expected_quality(0.0, [0.3, 0.1]) - mean(&novice)).abs() < 0.02);
+        assert!((expected_quality(1.0, [0.3, 0.1]) - mean(&master)).abs() < 0.01);
         assert!(worst(&master) > 0.55 && worst(&novice) < 0.2);
         // A draw is made once: the same group of the same building draws the same.
         assert_eq!(

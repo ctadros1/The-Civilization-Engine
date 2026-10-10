@@ -1042,6 +1042,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** AW step two, households building log footbridges where their own walks would gain.
 
+## 2026-10-10 — M5c slice AW, step two: households build log footbridges
+
+**Goal:** let households build a crossing where their own walks would gain, and keep it or not (the settlements brief §1.7; research 11-07 §1.1, §2.3, §4.2).
+
+**What changed:** each walk counts, for the walker's household, the river cells it wades, fading as what it holds of the places it works does (saved with the crossings, schema 69). At its yearly review a household weighs a log at each: the wades a year it holds there, times the seconds a wade takes over walking a deck, over the years the log would last at the quality its people would lay it, against the hours it takes; it begins the best that repays it. Its people work on it as a chosen activity (a new behaviour, `bridge`); its logs' quality is drawn from their building skill when it opens (content API 66: a bridge system's `skill`), and the chronicle says whose household finished it.
+
+**Findings:** measured before designing and after: logs only ever cross wadeable streams (every river too big to wade is wider than 8 m), where they save 13–22 s a wade. In the village of 1,000 nobody waded anything in forty days; in the M5a and seed-9 demo worlds most households wade, but most wades are of brooks under 2 m, below any authored bridge, and the most waded log-spannable place held a few hundred wades a year of all households together, a few hours of walking against a log's 70 hours over about 15 years. No household built one in two years in either world. Half of sixteen river valleys have no log-spannable stream at all.
+
+**Evidence:** a test world where a household remembering many wades begins, builds and opens a log (five days, 70 hours, quality 0.95) and one remembering few begins nothing; unit tests of the wade record, a crossing's life and the expected quality; a schema-68 save loads; forty days of the village of 1,000 match step one's in all 50 section digests; the full suite and clippy.
+
+**Open:** AW step three, a polity's public work for a crossing beyond one log, and the observer's view of crossings.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

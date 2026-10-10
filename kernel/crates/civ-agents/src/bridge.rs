@@ -78,6 +78,41 @@ pub fn labour_h(def: &BridgeDef, span_m: f64) -> f64 {
     f64::from(def.members) * (span_m + 2.0 * def.bearing_m) * def.labour_h_per_m
 }
 
+/// The longest a crossing is reckoned to last, years: beyond a century nobody counts (when its
+/// system rots not at all).
+pub const LONGEST_LIFE_YEARS: f64 = 100.0;
+
+/// The years a `span_m` crossing of system `def`, its members of `diameter_cm` laid at
+/// `quality`, lasts before rot leaves it unable to carry one walker (M5c slice AW, step two):
+/// its margin falls with the cube of what rot leaves of the section, so it gives way once
+/// `(1 − loss)³` times its margin when new is below 1. None when it could not carry one new.
+pub fn life_years(
+    def: &BridgeDef,
+    timber: &Timber,
+    span_m: f64,
+    diameter_cm: f64,
+    quality: f64,
+) -> f64 {
+    let new = margin(
+        def,
+        timber,
+        span_m,
+        def.members,
+        diameter_cm,
+        quality,
+        0.0,
+        1,
+    );
+    if new <= 1.0 {
+        return 0.0;
+    }
+    let loss = 1.0 - new.powf(-1.0 / 3.0);
+    if def.loss_per_year <= 0.0 {
+        return LONGEST_LIFE_YEARS;
+    }
+    (loss / def.loss_per_year).min(LONGEST_LIFE_YEARS)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -87,6 +122,7 @@ mod tests {
             id: "log".into(),
             name: "Log footbridge".into(),
             technique: None,
+            skill: None,
             good: 0,
             density_kg_m3: 760.0,
             span_m: (2.0, 8.0),
@@ -139,5 +175,25 @@ mod tests {
         };
         assert_eq!(size_members(&strict, &t, 8.0), Some(25.0));
         assert!((labour_h(&def, 6.0) - 2.0 * 8.0 * 8.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_crossing_lasts_until_rot_leaves_it_unable_to_carry_a_walker() {
+        let (def, t) = (log_beam(), oak());
+        let life = life_years(&def, &t, 6.0, 20.0, 0.9);
+        // The loss that life comes to leaves the logs just able to carry one walker.
+        let loss = life * def.loss_per_year;
+        let left = margin(&def, &t, 6.0, 2, 20.0, 0.9, loss, 1);
+        assert!((left - 1.0).abs() < 1e-6, "{left}");
+        // 11-07 §2.4: untreated log bridges last 10-20 years.
+        assert!((10.0..20.0).contains(&life), "{life}");
+        // Worse-laid logs and longer spans last less; logs that never rot, a century at most.
+        assert!(life_years(&def, &t, 6.0, 20.0, 0.5) < life);
+        assert!(life_years(&def, &t, 8.0, 20.0, 0.9) < life);
+        let sound = BridgeDef {
+            loss_per_year: 0.0,
+            ..log_beam()
+        };
+        assert_eq!(life_years(&sound, &t, 6.0, 20.0, 0.9), LONGEST_LIFE_YEARS);
     }
 }

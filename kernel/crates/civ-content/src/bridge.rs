@@ -19,6 +19,9 @@ pub(crate) struct BridgeFile {
     pub name: String,
     /// The technique its builders need; empty for none.
     pub technique: String,
+    /// The skill its builders practise, from which its members' quality is drawn; empty for none
+    /// (content API 66).
+    pub skill: String,
     /// The good its members are made of: one with `[timber]` strengths.
     pub good: String,
     pub density_kg_m3: f64,
@@ -36,13 +39,14 @@ pub(crate) struct BridgeFile {
 }
 
 impl BridgeFile {
-    /// The compiled system, its good and technique resolved to indexes (call after
+    /// The compiled system, its good, technique and skill resolved to indexes (call after
     /// [`BridgeFile::problems`] found none and both resolved).
-    pub fn def(&self, good: usize, technique: Option<usize>) -> BridgeDef {
+    pub fn def(&self, good: usize, technique: Option<usize>, skill: Option<usize>) -> BridgeDef {
         BridgeDef {
             id: self.id.clone(),
             name: self.name.clone(),
             technique,
+            skill,
             good,
             density_kg_m3: self.density_kg_m3,
             span_m: (self.span_min_m, self.span_max_m),

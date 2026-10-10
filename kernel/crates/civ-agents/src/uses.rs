@@ -94,7 +94,7 @@ impl PlaceUse {
 }
 
 /// What is left after `days` of a half-life of `half_life_days`.
-fn fading(days: i64, half_life_days: f64) -> f32 {
+pub(crate) fn fading(days: i64, half_life_days: f64) -> f32 {
     if days <= 0 || half_life_days <= 0.0 {
         return 1.0;
     }

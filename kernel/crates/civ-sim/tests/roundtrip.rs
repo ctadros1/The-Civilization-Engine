@@ -2241,6 +2241,21 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
 }
 
 #[test]
+fn a_schema_68_save_loads_with_no_wade_remembered() {
+    // A schema-68 save, from before households remembered the streams their people wade (M5c
+    // slice AW, step two): its crossings section held none, and none is remembered.
+    let mut sim = load_first();
+    sim.people_mut_for_tests().fords = Default::default();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V68;
+    let path = republish("slice-aw1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-68 save loads");
+    assert!(loaded.people().fords.households.is_empty());
+    assert!(loaded.land().crossings.list.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_67_save_loads_with_no_crossing() {
     // A schema-67 save, from before crossings over water (M5c slice AW): it held none, and the
     // walking grid is the map's own.

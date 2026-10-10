@@ -924,6 +924,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** M5c, relations and works, from the relations brief; prices closing between settlements wait for something that carries more than one unit on foot (a market day, carrying for others, firms, animals).
 
+## 2026-10-10 — M5c design: relations and works
+
+**Goal:** design how polities deal with each other short of war (views, grievances across the boundary, claims over wild ground, agreements ratified by each side, tribute) and the works people decide (crossings, enclosures), from the M5 relations brief and the settlements brief's §1.6–1.7.
+
+**What changed:** ADR-0020 (relations between polities): no relation is saved, its name is a label nothing reads; word crosses only with travellers; views of a polity are per person in three domains; `Blamed` may name another polity's party; a gathering may claim a place; an agreement is one shared record and a law in each polity, decided by each custom, in force only once both have passed it and each has heard; clauses in force are performed from the common store by people with real goods. Five slices (AT–AX) in plan §7 and the brief's eleven open questions answered in §9.
+
+**Findings:** checked in the code before deciding: takings never cross settlements and no law bars outsiders from a market, so two of the brief's five clause templates would grant nothing yet and are left to be appended when they can; rivers are waded where small and impassable where large, so a bridge either saves wading or opens a route.
+
+**Open:** slice AT; whether neighbours with plentiful land ever hold an issue a clause answers is measured before anything is tuned.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

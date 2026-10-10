@@ -910,6 +910,20 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** the M5b demo (AS), time-boxed: whether a roof's way crosses where the founding ways differ, and the walk's weight on goods trips.
 
+## 2026-10-10 — M5b slice AS: the M5b demo
+
+**Goal:** live one save from first contact with trade and as its twin without, and show the traded goods' gaps against their bands and whether one settlement takes the other's way of roofing (the M5 diffusion brief §3.4); time-boxed, with a logged nudge only if trade or adoption fails to emerge.
+
+**What changed:** `civ-host twin` reads each life's roofs by the brief's measure (only between settlements founded at least 3° apart: each year's share of new buildings nearer the other's founding way, when the definition first held, and T10→90 read off years of three or more new buildings), names each life's settlements from that life, and prints realised prices beside the asks (also on the dashboard's convergence row). The long run's roof check gives a household its first twelve months to build.
+
+**Findings:** thirty-year runs found four faults, each fixed with a test before the demo was run again: someone who died between seeing a building elsewhere and the yearly review left their sights on record, which failed the save's load; the neighbours row graded red a way of building carried into a splinter through a third settlement; households that came to a hearth together (a coalition, a wave of movers) were set one degree of angle per id apart and searched only 30 m for ground, so some never built in nine years (now the golden angle, and up to 120 m for a first home); and the roof check failed a settlement founded within the year. A rare world-dependent failure of the lean-village polity test (a watch decided before the common store, about one world in forty) was fixed by waiting for the common store's decision.
+
+**Measured:** two worlds whose founding ways stand more than 3° apart, thirty years each, both lives passing every check. The smaller settlement took the larger one's way of roofing in both lives of both worlds (Willowholt from 46.8° toward Willowford's 52.0° in year 15, nine tenths of its new buildings nearer Willowford's way by year 25; Alderwick toward Rushmere in year 14). Trade emerged, thin: 20 and 70 purchases between settlements in thirty years, 1 and 79 errand trips; no pair reached the convergence row's 30 purchases, and the founding pairs' asks stayed 20–50 points apart, within what carrying one unit there and back on foot costs. No nudge: both behaviours emerged, and raising a trip's worth to thicken trade would tune toward the row.
+
+**Evidence:** two integration tests (sights leaving with the dead and the exiled; households spreading about a hearth and building beyond a crowded one, each half of the fix undone failing it), unit tests of the twin's measure and the realised gap, digest identity with the build before for the village of 1,000 over 30 days, the full suite and the smoke seeds.
+
+**Open:** M5c, relations and works, from the relations brief; prices closing between settlements wait for something that carries more than one unit on foot (a market day, carrying for others, firms, animals).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

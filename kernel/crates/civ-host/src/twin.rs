@@ -339,6 +339,7 @@ pub fn run(
         // The twin's pair, if it is the same two places: both on record in the twin by the same
         // names (a settlement founded in one life after they part is not in the other).
         let same = |s: PermanentId| name(with_trade, s) == name(the_twin, s);
+        let carried_any = p.goods.iter().any(|g| g.carried > 0.0);
         let twin = outcome
             .twin
             .iter()
@@ -349,11 +350,17 @@ pub fn run(
                 .map_or_else(|| "-".to_owned(), |h| format!("{:.0}", h.gap));
             writeln!(
                 out,
-                "    {}: gap {:.0} (twin {twin_gap}), band {:.0}, realised {}, before trade {}, {:.1} \
+                "    {}: gap {:.0} (twin {twin_gap}), band {}, realised {}, before trade {}, {:.1} \
                  carried, {} months{}",
                 good(g.good),
                 g.gap,
-                g.band,
+                // The band is what carrying cost a unit between the pair: with nothing carried,
+                // the record cannot tell it.
+                if carried_any {
+                    format!("{:.0}", g.band)
+                } else {
+                    "-".to_owned()
+                },
                 g.paid_gap.map_or_else(
                     || "-".to_owned(),
                     |x| format!("{x:.0} ({} months sold in both)", g.paid_months)

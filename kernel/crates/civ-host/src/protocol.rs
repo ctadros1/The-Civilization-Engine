@@ -180,6 +180,8 @@ pub enum Request {
     GetOrder,
     /// Every crossing over water (wire 1.60).
     GetCrossings,
+    /// The wells, springs and water drawn today (wire 1.61).
+    GetWater,
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -559,6 +561,7 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                 wire::QueryBody::GetGovernment => Ok(Request::GetGovernment),
                 wire::QueryBody::GetOrder => Ok(Request::GetOrder),
                 wire::QueryBody::GetCrossings => Ok(Request::GetCrossings),
+                wire::QueryBody::GetWater => Ok(Request::GetWater),
                 other => Err(format!("unknown query {}", other.0)),
             }
         }
@@ -797,6 +800,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
     let crossings_rev = parts
         .sim
         .map_or(0, civ_sim::frames::crossings::crossings_rev);
+    let water_rev = parts.sim.map_or(0, civ_sim::frames::water::water_rev);
     let task = parts.task.map(|t| {
         let name = fbb.create_string(&t.name);
         let stage = fbb.create_string(&t.stage);
@@ -850,6 +854,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             earthworks_rev,
             weather_rev,
             crossings_rev,
+            water_rev,
         },
     );
     finish(fbb, root)

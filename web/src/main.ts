@@ -14,6 +14,7 @@ import { HostClient, HostError } from "./net/client.js";
 import * as M from "./net/messages.js";
 import { Store, initialState, mergeEvents } from "./state.js";
 import { bindUi } from "./ui.js";
+import { bankWords, flowWords, springWords } from "./water.js";
 import { seasonOf } from "./weather.js";
 
 /**
@@ -80,6 +81,7 @@ const client = new HostClient(socketUrl(), {
     void syncDeposits();
     void syncEarthworks();
     void syncCrossings();
+    void syncWater();
     void refreshPerson(false);
   },
   events: (items) => store.update({ events: mergeEvents(store.state.events, items) }),
@@ -291,6 +293,36 @@ async function syncCrossings(): Promise<void> {
     crossingsBusy = false;
   }
   if (ok) void syncCrossings();
+}
+
+/** `world:revision` of the water on the map. */
+let waterKey = "";
+let waterBusy = false;
+
+/** Fetches the wells, springs and places drawn at today when a well changed or a day passed. */
+async function syncWater(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const key = world && s.waterRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.waterRev}` : "";
+  if (key === waterKey || waterBusy) return;
+  if (!key) {
+    waterKey = "";
+    map.setWater(null);
+    return;
+  }
+  waterBusy = true;
+  let ok = false;
+  try {
+    const info = await client.water();
+    waterKey = key;
+    map.setWater(info);
+    ok = true;
+  } catch (e) {
+    console.warn(`tce: the water could not be read: ${String(e)}`);
+  } finally {
+    waterBusy = false;
+  }
+  if (ok) void syncWater();
 }
 
 /** `world:revision` of the paths on the map. */
@@ -882,9 +914,18 @@ map.onPointer = (info: PointerInfo | null) => {
   const deposit = info.deposit ? ` · ${depositWords(info.deposit, store.state.welcome?.goods ?? [])}` : "";
   const earthwork = info.earthwork ? ` · ${info.earthwork.words}` : "";
   const crossing = info.crossing ? ` · ${info.crossing.words}` : "";
+  const flowing =
+    (info.water === "river" || info.water === "lake") && info.flow !== null ? `, ${flowWords(info.flow)}` : "";
+  const source = info.well
+    ? ` · ${info.well.words}`
+    : info.spring
+      ? ` · ${springWords(info.spring)}`
+      : info.bank
+        ? ` · ${bankWords(info.bank)}`
+        : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${crossing}${path}${field}${building}${earthwork}${deposit}`;
+    `${height} · ${info.water ?? ""}${flowing}${crossing}${source}${path}${field}${building}${earthwork}${deposit}`;
 };
 
 const scaleBar = byId("scalebar-bar");
@@ -1092,6 +1133,7 @@ const hooks = {
       depositsRev: s.snapshot?.depositsRev ?? 0,
       earthworksRev: s.snapshot?.earthworksRev ?? 0,
       crossingsRev: s.snapshot?.crossingsRev ?? 0,
+      waterRev: s.snapshot?.waterRev ?? 0,
       weatherRev: s.snapshot?.weatherRev ?? 0,
       weather: s.weather
         ? {
@@ -1240,6 +1282,7 @@ const hooks = {
             reports: s.selected.info?.reports ?? null,
             errand: s.selected.info?.errand ?? null,
             seenAway: s.selected.info?.seenAway ?? null,
+            water: s.selected.info?.water ?? null,
             error: s.selected.error,
             knows:
               s.selected.info?.knows.map((k) => ({

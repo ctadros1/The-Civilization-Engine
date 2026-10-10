@@ -17,6 +17,9 @@
 //   traced through it as lines; the readout names a trail under the pointer.
 // - Crossings over water show as their members laid from bank to bank, faint while being built
 //   and dark once they gave way; the readout names the one under the pointer.
+// - Wells show as their shafts, blue while water stands in them; springs flowing today as small
+//   blue dots, and the places at the water's edge people drew at today as pale ones; the readout
+//   names the one under the pointer, and the rivers' flow today over a river or lake.
 
 import { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 
@@ -27,9 +30,11 @@ import { changedTiles, detailTilesOver, earthworkAt, earthworkLook } from "../ea
 import { fieldAt, fieldLook } from "../fields.js";
 import type { HostClient } from "../net/client.js";
 import { TRAIL_COLOUR, pathAt, smoothed, trailLook, wornPixels } from "../paths.js";
+import { BANK_COLOUR, SPRING_COLOUR, bankAt, springAt, wellAt, wellLook } from "../water.js";
 import {
   RasterLayer,
   type ActivityInfo,
+  type BankDrawInfo,
   type BuildingInfo,
   type Clock,
   type CrossingInfo,
@@ -43,7 +48,10 @@ import {
   type PathsInfo,
   type PersonBrief,
   type SettlementBrief,
+  type SpringInfo,
   type TripInfo,
+  type WaterInfo,
+  type WellInfo,
   type WorldInfo,
 } from "../net/messages.js";
 import {
@@ -93,6 +101,12 @@ export interface PointerInfo {
   earthwork: EarthworkInfo | null;
   /** The crossing under the pointer, if any (M5c slice AW). */
   crossing: CrossingInfo | null;
+  /** The well, spring or place at the water's edge drawn at today under the pointer, if any, and
+   * the rivers' flow today against their mean (null before the water is read; M6a slice AY). */
+  well: WellInfo | null;
+  spring: SpringInfo | null;
+  bank: BankDrawInfo | null;
+  flow: number | null;
   /** The worn ground under the pointer, if any. */
   path: { wear: number; trail: boolean } | null;
 }
@@ -222,6 +236,9 @@ export class MapView {
   private readonly crossingsLayer = new Graphics();
   private crossings: CrossingInfo[] = [];
   private crossingScale = 0;
+  private readonly waterLayer = new Graphics();
+  private water: WaterInfo | null = null;
+  private waterScale = 0;
   /** Each changed ground tile's revision as last drawn, by index. */
   private groundSeen = new Map<number, number>();
   private readonly wornLayer = new Container();
@@ -272,6 +289,7 @@ export class MapView {
       this.depositsLayer,
       this.earthworksLayer,
       this.crossingsLayer,
+      this.waterLayer,
       this.buildingsLayer,
       this.settlementLayer,
       this.peopleLayer,
@@ -323,6 +341,8 @@ export class MapView {
     this.earthworksLayer.clear();
     this.crossings = [];
     this.crossingsLayer.clear();
+    this.water = null;
+    this.waterLayer.clear();
     this.groundSeen.clear();
     this.setPaths(null);
     this.peopleLayer.clear();
@@ -424,6 +444,37 @@ export class MapView {
       g.moveTo(x0, y0);
       g.lineTo(x1, y1);
       g.stroke({ width: Math.max(look.widthM, 2.2 * pxM), color: look.colour, alpha: look.alpha, cap: "butt" });
+    }
+  }
+
+  /** The wells, springs and places drawn at today, as the host last listed them (null for none). */
+  setWater(info: WaterInfo | null): void {
+    this.water = info;
+    this.drawWater();
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** Each well as its shaft, never smaller than about two pixels across; each spring and each
+   * place drawn at as a dot about three pixels across, those drawn at more widely. */
+  private drawWater(): void {
+    const g = this.waterLayer;
+    g.clear();
+    this.waterScale = this.scale;
+    const water = this.water;
+    if (!water) return;
+    const pxM = 1 / Math.max(this.scale, 1e-6);
+    for (const b of water.banks) {
+      g.circle(b.x, b.y, (1.2 + Math.min(2, Math.sqrt(b.trips) / 4)) * pxM);
+      g.fill({ color: BANK_COLOUR, alpha: 0.7 });
+    }
+    for (const s of water.springs) {
+      g.circle(s.x, s.y, 1.6 * pxM);
+      g.fill({ color: SPRING_COLOUR, alpha: s.drawnL > 0 ? 0.95 : 0.6 });
+    }
+    for (const w of water.wells) {
+      const look = wellLook(w);
+      g.circle(w.x, w.y, Math.max(look.radiusM, 1.1 * pxM));
+      g.fill({ color: look.colour, alpha: look.alpha });
     }
   }
 
@@ -876,6 +927,10 @@ export class MapView {
       deposit: depositAt(this.deposits, xM, yM),
       earthwork: earthworkAt(this.earthworks, xM, yM),
       crossing: crossingAt(this.crossings, xM, yM, 4 / this.scale),
+      well: wellAt(this.water?.wells ?? [], xM, yM, 3 / this.scale),
+      spring: springAt(this.water?.springs ?? [], xM, yM, 4 / this.scale),
+      bank: bankAt(this.water?.banks ?? [], xM, yM, 4 / this.scale),
+      flow: this.water?.flow ?? null,
       path: pathAt(this.paths, cellX, cellY),
     };
   }
@@ -893,6 +948,9 @@ export class MapView {
       }
       if (this.crossings.length > 0 && Math.abs(Math.log(scale / this.crossingScale)) > 0.15) {
         this.drawCrossings();
+      }
+      if (this.water && Math.abs(Math.log(scale / this.waterScale)) > 0.15) {
+        this.drawWater();
       }
       this.updateDetail();
       this.scaleSettlements();
@@ -1083,6 +1141,11 @@ export class MapView {
         state: c.state,
         words: c.words,
       })),
+      // M6a slice AY: wells, where each is and what has become of it; springs and places drawn at.
+      wells: (this.water?.wells ?? []).map((w) => ({ x: w.x, y: w.y, state: w.state, words: w.words })),
+      springs: this.water?.springs.length ?? 0,
+      banks: this.water?.banks.length ?? 0,
+      flow: this.water?.flow ?? null,
       groundTiles: this.groundSeen.size,
       wornTiles: this.paths?.worn.length ?? 0,
       trails: this.paths?.trails.length ?? 0,

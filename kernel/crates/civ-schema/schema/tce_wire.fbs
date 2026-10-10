@@ -368,6 +368,10 @@ table Snapshot {
   // gives way (0 = none). Fetch the crossings with GetCrossings when it differs from the revision
   // last fetched.
   crossings_rev: ulong (id: 19);
+  // Wire 1.61 (M6a slice AY): changes whenever a well is begun, dug deeper, opens, rots, is
+  // relined, given up or falls in, and with each day lived while the world has wells or springs
+  // (0 = neither). Fetch them with GetWater when it differs from the revision last fetched.
+  water_rev: ulong (id: 20);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -594,7 +598,10 @@ table GetOrder {}
 // Wire 1.60 (M5c slice AW): every crossing over water.
 table GetCrossings {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings }
+// Wire 1.61 (M6a slice AY): the wells and springs.
+table GetWater {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater }
 
 table Query {
   body: QueryBody (id: 1);
@@ -858,6 +865,10 @@ table PersonInfo {
   // The buildings of other settlements they have seen since their household's last taste review,
   // in words (wire 1.56, M5b slice AR): "At Westford: Cal's hut, Bo's longhouse"; empty when none.
   seen_away: string (id: 55);
+  // Where their household drew water today, in words (wire 1.61, M6a slice AY, ADR-0021 §1):
+  // "Their household drew 6 loads today at its own well beside home; each of them uses 20 L a
+  // day"; "... has drawn no water yet today ...".
+  water: string (id: 56);
 }
 
 // Wire 1.47 (M4c slice AJ): a claim that may be whispered.
@@ -1674,6 +1685,63 @@ table Crossings {
   crossings: [CrossingInfo] (id: 1);
 }
 
+// A well (wire 1.61, M6a slice AY, step three; ADR-0021 §3): where it is, by what system, how
+// deep it is dug and meant to go, the water standing in it now, and its lining's condition.
+table WellInfo {
+  id: ulong (id: 0);
+  // Its well system's name: "Timber-lined well".
+  system: string (id: 1);
+  // Its centre, metres from the map's north-west corner, and the radius dug, metres.
+  x: float (id: 2);
+  y: float (id: 3);
+  radius_m: float (id: 4);
+  // 0 being dug, 1 open, 2 given up, 3 fallen in. Append only.
+  state: ubyte (id: 5);
+  // How deep it is dug and lined, and how deep its diggers now mean to take it, metres.
+  depth_m: float (id: 6);
+  target_m: float (id: 7);
+  // While open: the water standing in its shaft, metres deep, and how far below the ground its
+  // surface is (0 otherwise).
+  water_m: float (id: 8);
+  below_m: float (id: 9);
+  // Its lining's quality (0 until it opens) and the share rot has taken.
+  quality: float (id: 10);
+  loss: float (id: 11);
+  // The household it is the well of.
+  household: ulong (id: 12);
+  // In words: "Ada's household's timber-lined well, open since year 2: 4.1 m deep, 1.8 m of
+  // water standing 2.3 m down; rot has taken a tenth of its lining".
+  words: string (id: 13);
+}
+
+// A spring today (wire 1.61, M6a slice AY): where it rises, what flows to it in a day, and what
+// people drew there today.
+struct SpringInfo {
+  x: float;
+  y: float;
+  flow_m3_day: float;
+  drawn_l: float;
+}
+
+// Where people stood at a river's or lake's edge to draw water today (wire 1.61, M6a slice AY),
+// and how many times they came for it there.
+struct BankDraw {
+  x: float;
+  y: float;
+  trips: uint;
+}
+
+table Water {
+  // The snapshot revision this is at.
+  rev: ulong (id: 0);
+  wells: [WellInfo] (id: 1);
+  // Every spring flowing today.
+  springs: [SpringInfo] (id: 2);
+  // The rivers' flow today against their mean (1 is the mean).
+  flow: float (id: 3);
+  banks: [BankDraw] (id: 4);
+}
+
 // A tile of what earthworks have done to the ground, numbered row by row across the map. Its
 // revision changes whenever one of its cells does: read the elevation under a tile again when its
 // revision differs from the one last seen (the elevation raster serves the ground as changed).
@@ -1995,7 +2063,7 @@ table Order {
   encounters: [string] (id: 15);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings }
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water }
 
 table Response {
   body: ResponseBody (id: 1);

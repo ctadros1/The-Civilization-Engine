@@ -290,6 +290,7 @@ describe("decoders", () => {
       earthworksRev: 0,
       weatherRev: 0,
       crossingsRev: 0,
+      waterRev: 0,
     });
   });
 
@@ -1024,6 +1025,50 @@ describe("decoders", () => {
     });
     const query = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getCrossings()));
     expect(query.bodyType()).toBe(W.QueryBody.GetCrossings);
+  });
+
+  it("decodes the wells, springs and places drawn at today, and builds their query", () => {
+    const b = new flatbuffers.Builder(256);
+    const system = b.createString("Timber-lined well");
+    const words = b.createString("Ada's household's timber-lined well, being dug: 2.0 of 4.5 m");
+    const well = W.WellInfo.createWellInfo(b, 12n, system, 300, 400, 0.75, 0, 2, 4.5, 0, 0, 0, 0, 7n, words);
+    const wells = W.Water.createWellsVector(b, [well]);
+    W.Water.startSpringsVector(b, 1);
+    W.SpringInfo.createSpringInfo(b, 500, 600, 2.5, 150);
+    const springs = b.endVector();
+    W.Water.startBanksVector(b, 1);
+    W.BankDraw.createBankDraw(b, 120, 140, 6);
+    const banks = b.endVector();
+    const water = W.Water.createWater(b, 33n, wells, springs, 0.5, banks);
+    const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Water, water)));
+    expect(body.kind).toBe("water");
+    if (body.kind !== "water") return;
+    expect(body.water).toEqual({
+      rev: 33,
+      wells: [
+        {
+          id: 12,
+          system: "Timber-lined well",
+          x: 300,
+          y: 400,
+          radiusM: 0.75,
+          state: 0,
+          depthM: 2,
+          targetM: 4.5,
+          waterM: 0,
+          belowM: 0,
+          quality: 0,
+          loss: 0,
+          household: 7,
+          words: "Ada's household's timber-lined well, being dug: 2.0 of 4.5 m",
+        },
+      ],
+      springs: [{ x: 500, y: 600, flowM3Day: 2.5, drawnL: 150 }],
+      flow: 0.5,
+      banks: [{ x: 120, y: 140, trips: 6 }],
+    });
+    const query = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getWater()));
+    expect(query.bodyType()).toBe(W.QueryBody.GetWater);
   });
 
   it("decodes a raster tile response", () => {

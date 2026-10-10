@@ -348,6 +348,10 @@ export interface Snapshot {
   /** Wire 1.60: changes whenever a crossing is begun, worked on, opens, rots or gives way (0 =
    * none). Fetch the crossings with GetCrossings. */
   crossingsRev: number;
+  /** Wire 1.61: changes whenever a well is begun, dug deeper, opens, rots, is relined, given up or
+   * falls in, and with each day lived while the world has wells or springs (0 = neither). Fetch
+   * them with GetWater. */
+  waterRev: number;
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -769,6 +773,10 @@ export interface PersonInfo {
    * household's last taste review, in the kernel's words ("At Westford: Cal's hut"); empty when
    * none. */
   seenAway: string;
+  /** Wire 1.61 (M6a slice AY, ADR-0021 §1): where their household went for water today, in the
+   * kernel's words ("Their household went for water 6 times today: 4 times to its own well, twice
+   * to the water's edge; each of them uses 20 L a day, and it holds 85 L"). */
+  water: string;
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -1575,6 +1583,59 @@ export interface CrossingsInfo {
   crossings: CrossingInfo[];
 }
 
+/** A well (wire 1.61, M6a slice AY; ADR-0021 §3). */
+export interface WellInfo {
+  id: number;
+  /** Its well system's name: "Timber-lined well". */
+  system: string;
+  /** Its centre and the radius dug, metres. */
+  x: number;
+  y: number;
+  radiusM: number;
+  /** 0 being dug, 1 open, 2 given up, 3 fallen in. */
+  state: number;
+  /** How deep it is dug and lined, and how deep its diggers now mean to take it, metres. */
+  depthM: number;
+  targetM: number;
+  /** While open: the water standing in its shaft and how far below the ground its surface is,
+   * metres (0 otherwise). */
+  waterM: number;
+  belowM: number;
+  /** Its lining's quality (0 until it opens) and the share rot has taken. */
+  quality: number;
+  loss: number;
+  /** The household it is the well of. */
+  household: number;
+  /** In the kernel's words: "Ada's household's timber-lined well, open since year 2: ...". */
+  words: string;
+}
+
+/** A spring flowing today (wire 1.61): where it rises, what flows to it in a day (m³) and what was
+ * drawn there today (L). */
+export interface SpringInfo {
+  x: number;
+  y: number;
+  flowM3Day: number;
+  drawnL: number;
+}
+
+/** Where people stood at a river's or lake's edge to draw water today, and how many times they
+ * came for it there (wire 1.61). */
+export interface BankDrawInfo {
+  x: number;
+  y: number;
+  trips: number;
+}
+
+export interface WaterInfo {
+  rev: number;
+  wells: WellInfo[];
+  springs: SpringInfo[];
+  /** The rivers' flow today against their mean (1 is the mean). */
+  flow: number;
+  banks: BankDrawInfo[];
+}
+
 export interface EarthworksInfo {
   rev: number;
   works: EarthworkInfo[];
@@ -1604,6 +1665,7 @@ export type ResponseBody =
   | { kind: "deposits"; deposits: DepositsInfo }
   | { kind: "earthworks"; earthworks: EarthworksInfo }
   | { kind: "crossings"; crossings: CrossingsInfo }
+  | { kind: "water"; water: WaterInfo }
   | { kind: "weather"; weather: WeatherReport }
   | { kind: "standing"; standing: StandingInfo }
   | { kind: "government"; government: GovernmentInfo }
@@ -1893,6 +1955,12 @@ export function getCrossings(): Uint8Array {
   return query(b, W.QueryBody.GetCrossings, W.GetCrossings.endGetCrossings(b));
 }
 
+export function getWater(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetWater.startGetWater(b);
+  return query(b, W.QueryBody.GetWater, W.GetWater.endGetWater(b));
+}
+
 /** The observer lays down a deposit of `good` (a content id) at a point, metres (god tool). */
 export function placeDeposit(x: number, y: number, good: string, radiusM: number, exposed: boolean): Uint8Array {
   const b = new flatbuffers.Builder(64);
@@ -2147,6 +2215,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     earthworksRev: Number(s.earthworksRev()),
     weatherRev: Number(s.weatherRev()),
     crossingsRev: Number(s.crossingsRev()),
+    waterRev: Number(s.waterRev()),
   };
 }
 
@@ -2202,6 +2271,41 @@ function crossings(w: W.Crossings): CrossingsInfo {
     });
   }
   return { rev: Number(w.rev()), crossings: list };
+}
+
+function water(w: W.Water): WaterInfo {
+  const wells: WellInfo[] = [];
+  for (let i = 0; i < w.wellsLength(); i++) {
+    const v = w.wells(i);
+    if (!v) continue;
+    wells.push({
+      id: Number(v.id()),
+      system: v.system() ?? "",
+      x: v.x(),
+      y: v.y(),
+      radiusM: v.radiusM(),
+      state: v.state(),
+      depthM: v.depthM(),
+      targetM: v.targetM(),
+      waterM: v.waterM(),
+      belowM: v.belowM(),
+      quality: v.quality(),
+      loss: v.loss(),
+      household: Number(v.household()),
+      words: v.words() ?? "",
+    });
+  }
+  const springs: SpringInfo[] = [];
+  for (let i = 0; i < w.springsLength(); i++) {
+    const v = w.springs(i);
+    if (v) springs.push({ x: v.x(), y: v.y(), flowM3Day: v.flowM3Day(), drawnL: v.drawnL() });
+  }
+  const banks: BankDrawInfo[] = [];
+  for (let i = 0; i < w.banksLength(); i++) {
+    const v = w.banks(i);
+    if (v) banks.push({ x: v.x(), y: v.y(), trips: v.trips() });
+  }
+  return { rev: Number(w.rev()), wells, springs, flow: w.flow(), banks };
 }
 
 function earthworks(w: W.Earthworks): EarthworksInfo {
@@ -3279,6 +3383,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     reports,
     errand: p.errand() ?? "",
     seenAway: p.seenAway() ?? "",
+    water: p.water() ?? "",
   };
 }
 
@@ -3599,6 +3704,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Crossings()) as W.Crossings | null;
       if (!f) break;
       return { kind: "crossings", crossings: crossings(f) };
+    }
+    case W.ResponseBody.Water: {
+      const f = r.body(new W.Water()) as W.Water | null;
+      if (!f) break;
+      return { kind: "water", water: water(f) };
     }
     case W.ResponseBody.WeatherReport: {
       const f = r.body(new W.WeatherReport()) as W.WeatherReport | null;

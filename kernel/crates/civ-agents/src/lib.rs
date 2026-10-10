@@ -80,4 +80,4 @@ pub use params::{ActivityDef, Behavior, Catalog, PeopleParams, RecipeDef, SkillD
 pub use person::{
     Activity, Household, KnownPatch, Load, Person, Repro, Step, Target, Traits, Trip,
 };
-pub use population::{AgentEvent, Approximations, Ctx, Population, TimeUse};
+pub use population::{AgentEvent, Approximations, Ctx, Population, TimeUse, WaterDraws};

@@ -316,6 +316,14 @@ export class HostClient {
     return body.crossings;
   }
 
+  /** The wells, the springs flowing today and where people drew at the water's edge today (wire
+   * 1.61). */
+  async water(): Promise<M.WaterInfo> {
+    const body = await this.query(M.getWater());
+    if (body.kind !== "water") throw new HostError("internal", "expected water");
+    return body.water;
+  }
+
   /** Every settlement's standing as last worked out (wire 1.26). */
   async standing(): Promise<M.StandingInfo> {
     const body = await this.query(M.getStanding());

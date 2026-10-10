@@ -1375,6 +1375,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.reports = Some(fbb.create_vector(&reports));
         args.errand = Some(fbb.create_string(&super::markets::errand_words(sim, p.household)));
         args.seen_away = Some(fbb.create_string(&seen_away_words(sim, p.id)));
+        args.water = Some(fbb.create_string(&super::water::water_words(sim, p.household)));
     }
     let body = wire::PersonInfo::create(&mut fbb, &args);
     Ok(response(fbb, wire::ResponseBody::PersonInfo, body))

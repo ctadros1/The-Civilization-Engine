@@ -341,6 +341,21 @@ pub struct TimeUse {
     pub waiting: f64,
 }
 
+/// Loads of water drawn, by the kind of place they were drawn at, and the litres they came to
+/// (M6a slice AY; counters, not saved: for the dashboard's water row).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct WaterDraws {
+    /// Loads drawn from wells, and of those, loads the well held less than a full load of.
+    pub wells: u64,
+    pub short: u64,
+    /// Loads drawn at springs.
+    pub springs: u64,
+    /// Loads drawn at a river's or lake's edge.
+    pub banks: u64,
+    /// Litres drawn at all of them.
+    pub litres: f64,
+}
+
 /// What a gathering activity is expected to bring from each patch on one day, at equilibrium
 /// (see [`Land::typical_yields`]). Derived.
 #[derive(Debug, Default)]
@@ -427,6 +442,8 @@ pub struct Population {
     pub transfers: crate::ledger::Transfers,
     /// How people spent their time (counters, not saved).
     pub time_use: TimeUse,
+    /// Water drawn, by the kind of place (counters, not saved; M6a slice AY).
+    pub water_draws: WaterDraws,
     /// Each settlement's market (slice I).
     pub markets: Vec<crate::market::Market>,
     /// Every firm there has been, open and closed, in the order they were founded (slice J).
@@ -4405,11 +4422,15 @@ impl Population {
                 .copied()
                 .flatten()
                 .is_some_and(|(c, _)| c == cell);
+        let litres = ctx.params.household.carry_water_l;
         if spring {
-            let litres = ctx.params.household.carry_water_l;
             self.spring_draws
                 .draw(now.day_index(), patch as u32, litres);
+            self.water_draws.springs += 1;
+        } else {
+            self.water_draws.banks += 1;
         }
+        self.water_draws.litres += litres;
         self.log_work(crate::uses::Place::Source(cell), household, who, now, 0.0);
     }
 

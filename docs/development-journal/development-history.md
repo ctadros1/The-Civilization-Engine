@@ -1164,6 +1164,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** the observer's view of sources and wells (step four); covers, curbs and silt with contamination (slice BA).
 
+## 2026-10-10 — M6a slice AY, step four: the observer's view of water
+
+**What changed:** wire 1.61. The snapshot carries a water revision, which changes when a well changes and with each day. `GetWater` lists every well with its state, the water standing in it and its lining in words, every spring flowing today with what flows to it and what was drawn there, the places at the water's edge drawn at today, and the rivers' flow against their mean. The map draws wells by what has become of them, springs and the places drawn at, and the readout names each and the rivers' flow. The inspector says where a person's household went for water today, what each of them uses and what it holds. The dashboard has a water row, reported and not graded, because the use it reports follows an authored curve set inside the research's 10–30 L prior. The observer reads a well's water through the same rule the kernel's wells use.
+
+**Findings:** on the dashboard's five worlds over two years, wells gave 37 % of the water, springs 3 % and the rivers and lakes 60 %; 71 wells were open and 19 being dug at the end, none given up or fallen in; every household still used 20 L a day.
+
+**Evidence:** a host test of the query and the inspector's line on a well and draws set by hand; web unit tests of the decoding, the drawing, the hit tests and the words; an end-to-end test that a lived world serves the water to the map and the inspector; the row's unit test and a two-year dashboard; the full suite, clippy, the schema check and the smoke worlds.
+
+**Open:** the Water lens (coverage per home) is slice BB's; what people know of others' draws and suspect of a source is slice BA's. Slice AY is complete.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

@@ -624,6 +624,27 @@ impl Land {
             .flow_factor(&params.water, self.climatology.surplus_mm_per_day)
     }
 
+    /// The water table's head under terrain cell `cell` of a map `map_width` cells wide, metres,
+    /// and the rate a well's column of radius `radius_m` there refills toward it a day, over a
+    /// radius of influence `influence_m` (M6a slice AY, ADR-0021 §3).
+    pub fn ground_water(
+        &self,
+        cell: usize,
+        map_width: u32,
+        radius_m: f64,
+        influence_m: f64,
+    ) -> (f64, f64) {
+        let p = self.patches.of_cell(cell, map_width);
+        let head = self
+            .water
+            .heads
+            .get(p)
+            .copied()
+            .unwrap_or(f64::NEG_INFINITY);
+        let t = self.water.aquifer.t.get(p).copied().unwrap_or(0.0);
+        (head, wells::refill_rate(t, radius_m, influence_m))
+    }
+
     /// Places the deposits `params` rules lay down on `map` for world `seed`
     /// ([`deposits::place`]), each with a new permanent id from `ids`, after any it has; returns
     /// how many it placed. A world places them once: a new world as it is made, an older save on

@@ -16,7 +16,7 @@ use crate::decide::WellFacts;
 use crate::history::WellStep;
 use civ_land::RectCm;
 use civ_land::buildings::PlotUse;
-use civ_land::wells::{Well, WellState, refill_rate};
+use civ_land::wells::{Well, WellState};
 
 /// Keyed-randomness purpose of the day of the year a household weighs a well.
 const PURPOSE_WELL_REVIEW: u64 = 0x7765_6c6c_7265_7677; // "wellrevw"
@@ -115,11 +115,8 @@ fn wetness_at(ctx: &Ctx, cell: u32) -> f64 {
 /// The water table's head under `cell`, and the rate a column of well system `def` there refills
 /// toward it a day.
 fn ground_water(ctx: &Ctx, def: &crate::params::WellDef, cell: u32) -> (f64, f64) {
-    let p = ctx.land.patches.of_cell(cell as usize, ctx.map.width);
-    let water = &ctx.land.water;
-    let head = water.heads.get(p).copied().unwrap_or(f64::NEG_INFINITY);
-    let t = water.aquifer.t.get(p).copied().unwrap_or(0.0);
-    (head, refill_rate(t, def.radius_m, def.influence_m))
+    ctx.land
+        .ground_water(cell as usize, ctx.map.width, def.radius_m, def.influence_m)
 }
 
 /// What a household's weighing of a well came to (M6a slice AY, step three).
@@ -322,6 +319,9 @@ impl Population {
             w.draw(now, head, rate, area, got);
         }
         let cell = w.cell;
+        self.water_draws.wells += 1;
+        self.water_draws.short += u64::from(got < carry);
+        self.water_draws.litres += got;
         self.log_work(crate::uses::Place::Source(cell), household, who, now, 0.0);
         got
     }

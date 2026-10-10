@@ -169,6 +169,134 @@ pub struct WorldRun {
     /// Each pair of its settlements, by name, with what crossed each way and the contact that
     /// could carry it (M5b slice AR).
     pub neighbours: Vec<(String, String, crate::crossings::PairSeen)>,
+    /// Where it drew its water over the run, its wells at the end and what its people used a day
+    /// (M6a slice AY).
+    pub water: WaterSeen,
+}
+
+/// Where a world's people drew their water over a run, its wells at the end, and the litres each
+/// person used a day at the end (M6a slice AY, ADR-0021 §1).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct WaterSeen {
+    /// Loads drawn over the run, by the kind of place, and the litres they came to.
+    pub draws: Draws,
+    /// Its wells at the end: being dug, open, given up dry, fallen in.
+    pub wells: [u32; 4],
+    /// People living at the end, and the litres a day they used, summed over them; the least and
+    /// most any household's people used.
+    pub people: u32,
+    pub use_l: f64,
+    pub least_l: f64,
+    pub most_l: f64,
+}
+
+/// Loads of water drawn, by the kind of place ([`civ_agents::WaterDraws`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct Draws {
+    pub wells: u64,
+    pub short: u64,
+    pub springs: u64,
+    pub banks: u64,
+    pub litres: f64,
+}
+
+impl WaterSeen {
+    /// What `sim` drew its water from since it was made, and its wells and use now.
+    pub fn of(sim: &Sim) -> WaterSeen {
+        let d = sim.people().water_draws;
+        let mut out = WaterSeen {
+            draws: Draws {
+                wells: d.wells,
+                short: d.short,
+                springs: d.springs,
+                banks: d.banks,
+                litres: d.litres,
+            },
+            least_l: f64::INFINITY,
+            ..WaterSeen::default()
+        };
+        for w in &sim.land().wells.list {
+            out.wells[usize::from(w.state.code().0).min(3)] += 1;
+        }
+        let params = &sim.rules().people.household;
+        for (_, x) in sim.people().households.iter() {
+            if x.members.is_empty() {
+                continue;
+            }
+            let each = x.water_use(params);
+            out.people += x.members.len() as u32;
+            out.use_l += each * x.members.len() as f64;
+            out.least_l = out.least_l.min(each);
+            out.most_l = out.most_l.max(each);
+        }
+        if out.people == 0 {
+            out.least_l = 0.0;
+        }
+        out
+    }
+
+    fn join(&mut self, other: &WaterSeen) {
+        let (a, b) = (&mut self.draws, &other.draws);
+        a.wells += b.wells;
+        a.short += b.short;
+        a.springs += b.springs;
+        a.banks += b.banks;
+        a.litres += b.litres;
+        for (x, y) in self.wells.iter_mut().zip(other.wells) {
+            *x += y;
+        }
+        if other.people > 0 {
+            self.least_l = if self.people > 0 {
+                self.least_l.min(other.least_l)
+            } else {
+                other.least_l
+            };
+            self.most_l = self.most_l.max(other.most_l);
+        }
+        self.people += other.people;
+        self.use_l += other.use_l;
+    }
+
+    /// In words: "1,000 loads, 52% from wells (3% of them short of a load), none at springs, 48%
+    /// at the water's edge; wells at the end: 40 open, 3 being dug, none given up dry or fallen
+    /// in; people used 19.6 L a day on average (households 10-20 L)".
+    fn words(&self) -> String {
+        let d = &self.draws;
+        let loads = d.wells + d.springs + d.banks;
+        let share = |n: u64| {
+            if n == 0 {
+                "none".to_owned()
+            } else {
+                format!("{:.0}%", n as f64 / loads.max(1) as f64 * 100.0)
+            }
+        };
+        let short = if d.wells > 0 {
+            format!(
+                " ({:.0}% of them short of a load)",
+                d.short as f64 / d.wells as f64 * 100.0
+            )
+        } else {
+            String::new()
+        };
+        let [dug, open, dry, fell] = self.wells;
+        let used = if self.people > 0 {
+            format!(
+                "people used {:.1} L a day on average (households {:.0}-{:.0} L)",
+                self.use_l / f64::from(self.people),
+                self.least_l,
+                self.most_l
+            )
+        } else {
+            "nobody left to use any".to_owned()
+        };
+        format!(
+            "{loads} loads, {} from wells{short}, {} at springs, {} at the water's edge; wells at \
+             the end: {open} open, {dug} being dug, {dry} given up dry, {fell} fallen in; {used}",
+            share(d.wells),
+            share(d.springs),
+            share(d.banks)
+        )
+    }
 }
 
 /// People who came to live in one settlement from another, by why: the moves 05-06 §5.4 counts,
@@ -607,6 +735,7 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
     }
     world.gini = by_year.into_iter().map(|(y, (g, p))| (y, g, p)).collect();
     world.crime = CrimeSeen::of(&sim.people().order);
+    world.water = WaterSeen::of(sim);
     world.settlements = sim
         .land()
         .settlements
@@ -679,6 +808,7 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
         neighbours(worlds),
         accounting(worlds),
         crime(worlds),
+        water(worlds),
         Row::new(
             "Epidemics",
             "waterborne cases against contaminated sources",
@@ -1064,6 +1194,27 @@ fn crime(worlds: &[WorldRun]) -> Row {
             format!("too few attempts to take to judge, {MIN_ATTEMPTS} needed: {words}"),
         ),
     }
+}
+
+/// Where people drew their water, their wells and what they used a day, reported and not graded
+/// (M6a slice AY): what each uses follows the walk on a tuning curve set within research 12-01
+/// §2.1's prior of 10-30 L a day for carried water, so the prior cannot judge it.
+fn water(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Water",
+        "loads of water drawn over the runs by where, wells at the end, and the litres people \
+         used a day, all worlds together",
+        "reported: 10-30 L a person a day where water is carried",
+    )
+    .source("ADR-0021 §1; research 12-01 §2.1");
+    let mut all = WaterSeen {
+        least_l: f64::INFINITY,
+        ..WaterSeen::default()
+    };
+    for w in worlds {
+        all.join(&w.water);
+    }
+    row.graded(Grade::Gray, all.words())
 }
 
 /// The most a band may have grown by the end of year `y`, as a multiple of its founders.
@@ -1507,6 +1658,53 @@ mod tests {
     }
 
     #[test]
+    fn the_water_row_reports_where_water_was_drawn_wells_and_use_over_all_worlds() {
+        let mut a = world(1, &[40]);
+        a.water = WaterSeen {
+            draws: Draws {
+                wells: 50,
+                short: 5,
+                springs: 0,
+                banks: 50,
+                litres: 1_450.0,
+            },
+            wells: [1, 4, 0, 0],
+            people: 10,
+            use_l: 200.0,
+            least_l: 20.0,
+            most_l: 20.0,
+        };
+        let mut b = world(2, &[40]);
+        b.water = WaterSeen {
+            draws: Draws {
+                banks: 100,
+                litres: 1_500.0,
+                ..Draws::default()
+            },
+            wells: [0, 0, 1, 1],
+            people: 10,
+            use_l: 100.0,
+            least_l: 10.0,
+            most_l: 10.0,
+        };
+        // A world with nobody left adds its loads and wells, not its use.
+        let mut c = world(3, &[40, 0]);
+        c.water.draws.springs = 0;
+        let row = water(&[a, b, c]);
+        assert_eq!(row.grade, Grade::Gray);
+        assert_eq!(
+            row.text,
+            "200 loads, 25% from wells (10% of them short of a load), none at springs, 75% at the \
+             water's edge; wells at the end: 4 open, 1 being dug, 1 given up dry, 1 fallen in; \
+             people used 15.0 L a day on average (households 10-20 L)"
+        );
+        assert_eq!(
+            water(&[]).text.split("; ").last(),
+            Some("nobody left to use any")
+        );
+    }
+
+    #[test]
     fn rows_without_enough_to_judge_are_grey_say_why_and_never_pass() {
         let worlds = vec![world(1, &[40]), world(2, &[40])];
         let rows = grade(&worlds, 1);
@@ -1526,6 +1724,7 @@ mod tests {
             "Price convergence",
             "Neighbours",
             "Crime and poverty",
+            "Water",
             "Epidemics",
             "Regimes",
         ] {
@@ -1550,7 +1749,7 @@ mod tests {
         // Only population and the accounts are graded, both worlds keep their bands and no
         // settlement's accounts failed: a pass, but no grey row counts as one.
         assert!(dashboard.passed());
-        assert_eq!(dashboard.summary(), "2 passed, 12 not yet applicable");
+        assert_eq!(dashboard.summary(), "2 passed, 13 not yet applicable");
     }
 
     #[test]

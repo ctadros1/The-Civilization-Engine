@@ -446,8 +446,15 @@ seenAway(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+water():string|null
+water(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+water(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 116);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(56);
+  builder.startObject(57);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -889,6 +896,10 @@ static addErrand(builder:flatbuffers.Builder, errandOffset:flatbuffers.Offset) {
 
 static addSeenAway(builder:flatbuffers.Builder, seenAwayOffset:flatbuffers.Offset) {
   builder.addFieldOffset(55, seenAwayOffset, 0);
+}
+
+static addWater(builder:flatbuffers.Builder, waterOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(56, waterOffset, 0);
 }
 
 static endPersonInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

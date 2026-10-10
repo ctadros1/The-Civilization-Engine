@@ -1348,6 +1348,10 @@ export function bindUi(store: Store, actions: Actions): void {
     if (p.alive && p.seenAway) {
       nodes.push(el("p", { className: "seen-away", text: `Seen elsewhere: ${p.seenAway}.` }));
     }
+    // Where their household went for water today (wire 1.61, M6a slice AY).
+    if (p.alive && p.water) {
+      nodes.push(el("p", { className: "water", text: `${p.water}.` }));
+    }
     if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p), opinionBlock(p));
     if (p.alive) nodes.push(observerBlock(welcome, p));
     if (p.kin.length > 0 || p.family.length > 0) {

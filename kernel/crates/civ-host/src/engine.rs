@@ -524,6 +524,10 @@ impl Engine {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::crossings::crossings_response(&w.sim)),
             },
+            Request::GetWater => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::water::water_response(&w.sim)),
+            },
             Request::GetWeather => match &self.world {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::weather::weather_response(&w.sim)),
@@ -1792,6 +1796,140 @@ mod tests {
         let words = c.words().unwrap_or_default();
         assert!(
             words.contains("log footbridge, being built: 25% of 72 hours"),
+            "{words}"
+        );
+    }
+
+    #[test]
+    fn the_water_is_read_with_its_wells_in_words_and_a_household_s_draws_in_the_inspector() {
+        use civ_agents::uses::{Place, Worked};
+        use civ_land::fields::RectCm;
+        use civ_land::wells::{Well, WellState};
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetWater)),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Water");
+        let read = |h: &mut Harness| {
+            let Reply::Response(payload) = h.ask(Request::GetWater) else {
+                panic!("the water is read");
+            };
+            payload
+        };
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let water = response.body_as_water().expect("water");
+        assert_eq!(water.wells().map_or(0, |l| l.len()), 0);
+        assert!(water.flow() > 0.0);
+        let before = water.rev();
+        // An open well of the first household, its water standing at the water table, and one
+        // load drawn there and two at a bank today.
+        let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+        let household = sim
+            .people()
+            .households
+            .iter()
+            .map(|(_, x)| x.id)
+            .min()
+            .expect("a household");
+        let (person, settlement) = {
+            let x = sim.people().household(household).expect("the household");
+            (x.members[0], x.settlement.expect("a settlement"))
+        };
+        let system = sim
+            .rules()
+            .catalog
+            .well_index("core:well/timber_lined")
+            .expect("a timber-lined well");
+        let id = sim.allocate_id_for_tests();
+        let (w, now) = (sim.map().width, sim.now());
+        let cell = 40 * w + 40;
+        let (cx, cy) = civ_agents::population::cell_centre(sim.map(), cell as usize);
+        let ground = sim.map().elevation[cell as usize];
+        let head = sim.land().ground_water(cell as usize, w, 0.6, 50.0).0;
+        let depth = (f64::from(ground) - head + 1.0) as f32;
+        sim.land_mut_for_tests().wells.list.push(Well {
+            id,
+            system,
+            cell,
+            rect: RectCm {
+                x: (cx * 100.0) as i32 - 75,
+                y: (cy * 100.0) as i32 - 75,
+                w: 150,
+                h: 150,
+            },
+            household,
+            ground_m: ground,
+            depth_m: depth,
+            target_m: depth,
+            work_h: 100.0,
+            skill_h: 100.0,
+            quality: 0.6,
+            loss: 0.1,
+            mend_h: 0.0,
+            worth: 1.0,
+            level_m: head,
+            level_at: now,
+            drawn_l: 0.0,
+            begun: now,
+            state: WellState::Open { since: now },
+            crew: (0, 0),
+        });
+        let bank = cell + 3;
+        for place in [
+            Place::Source(cell),
+            Place::Source(bank),
+            Place::Source(bank),
+        ] {
+            sim.people_mut_for_tests().uses.worked(Worked {
+                place,
+                day: now.day_index(),
+                household,
+                settlement,
+                kcal: 0.0,
+                person: Some(person),
+            });
+        }
+        let rev = frames::water::water_rev(sim);
+        assert_ne!(rev, 0);
+        assert_ne!(rev, before);
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let water = response.body_as_water().expect("water");
+        assert_eq!(water.rev(), rev);
+        let well = water.wells().expect("a list").get(0);
+        assert_eq!((well.id(), well.state()), (id.get(), 1));
+        assert_eq!(well.household(), household.get());
+        assert_eq!(well.system(), Some("Timber-lined well"));
+        assert!((well.water_m() - 1.0).abs() < 1e-3, "{}", well.water_m());
+        let words = well.words().unwrap_or_default();
+        assert!(
+            words.contains("timber-lined well, open since year 1"),
+            "{words}"
+        );
+        assert!(
+            words.contains("1.0 m of water standing") && words.contains("a tenth of its lining"),
+            "{words}"
+        );
+        let banks = water.banks().expect("banks");
+        assert_eq!(banks.len(), 1);
+        assert_eq!(banks.get(0).trips(), 2);
+        // The inspector tells where the household went for water today.
+        let Reply::Response(payload) = h.ask(Request::GetPerson {
+            id: person.get(),
+            decisions: 0,
+        }) else {
+            panic!("the person is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let info = response.body_as_person_info().expect("a person");
+        let words = info.water().unwrap_or_default();
+        assert!(
+            words.starts_with(
+                "Their household went for water 3 times today: twice to the water's edge, \
+                 once to its own well; each of them uses"
+            ),
             "{words}"
         );
     }

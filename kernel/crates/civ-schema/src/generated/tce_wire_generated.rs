@@ -807,10 +807,10 @@ pub struct CommandBodyUnionTableOffset {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_QUERY_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_QUERY_BODY: u8 = 21;
+pub const ENUM_MAX_QUERY_BODY: u8 = 22;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 22] = [
+pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 23] = [
   QueryBody::NONE,
   QueryBody::GetRaster,
   QueryBody::GetHydrography,
@@ -833,6 +833,7 @@ pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 22] = [
   QueryBody::GetGovernment,
   QueryBody::GetOrder,
   QueryBody::GetCrossings,
+  QueryBody::GetWater,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -862,9 +863,10 @@ impl QueryBody {
   pub const GetGovernment: Self = Self(19);
   pub const GetOrder: Self = Self(20);
   pub const GetCrossings: Self = Self(21);
+  pub const GetWater: Self = Self(22);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 21;
+  pub const ENUM_MAX: u8 = 22;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::GetRaster,
@@ -888,6 +890,7 @@ impl QueryBody {
     Self::GetGovernment,
     Self::GetOrder,
     Self::GetCrossings,
+    Self::GetWater,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -914,6 +917,7 @@ impl QueryBody {
       Self::GetGovernment => Some("GetGovernment"),
       Self::GetOrder => Some("GetOrder"),
       Self::GetCrossings => Some("GetCrossings"),
+      Self::GetWater => Some("GetWater"),
       _ => None,
     }
   }
@@ -1353,10 +1357,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for BookKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RESPONSE_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RESPONSE_BODY: u8 = 22;
+pub const ENUM_MAX_RESPONSE_BODY: u8 = 23;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 23] = [
+pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 24] = [
   ResponseBody::NONE,
   ResponseBody::Ack,
   ResponseBody::RasterTile,
@@ -1380,6 +1384,7 @@ pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 23] = [
   ResponseBody::Government,
   ResponseBody::Order,
   ResponseBody::Crossings,
+  ResponseBody::Water,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1410,9 +1415,10 @@ impl ResponseBody {
   pub const Government: Self = Self(20);
   pub const Order: Self = Self(21);
   pub const Crossings: Self = Self(22);
+  pub const Water: Self = Self(23);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 22;
+  pub const ENUM_MAX: u8 = 23;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::Ack,
@@ -1437,6 +1443,7 @@ impl ResponseBody {
     Self::Government,
     Self::Order,
     Self::Crossings,
+    Self::Water,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1464,6 +1471,7 @@ impl ResponseBody {
       Self::Government => Some("Government"),
       Self::Order => Some("Order"),
       Self::Crossings => Some("Crossings"),
+      Self::Water => Some("Water"),
       _ => None,
     }
   }
@@ -2531,6 +2539,356 @@ impl<'a> BookLine {
         &x_le as *const _ as *const u8,
         self.0[6..].as_mut_ptr(),
         ::core::mem::size_of::<<BookKind as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct SpringInfo, aligned to 4
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct SpringInfo(pub [u8; 16]);
+impl Default for SpringInfo { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for SpringInfo {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("SpringInfo")
+      .field("x", &self.x())
+      .field("y", &self.y())
+      .field("flow_m3_day", &self.flow_m3_day())
+      .field("drawn_l", &self.drawn_l())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for SpringInfo {}
+impl<'a> ::flatbuffers::Follow<'a> for SpringInfo {
+  type Inner = &'a SpringInfo;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a SpringInfo>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a SpringInfo {
+  type Inner = &'a SpringInfo;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<SpringInfo>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for SpringInfo {
+    type Output = SpringInfo;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const SpringInfo as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(4)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for SpringInfo {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> SpringInfo {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    x: f32,
+    y: f32,
+    flow_m3_day: f32,
+    drawn_l: f32,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_x(x);
+    s.set_y(y);
+    s.set_flow_m3_day(flow_m3_day);
+    s.set_drawn_l(drawn_l);
+    s
+  }
+
+  pub fn x(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_x(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn y(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_y(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn flow_m3_day(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_flow_m3_day(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn drawn_l(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[12..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_drawn_l(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[12..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct BankDraw, aligned to 4
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct BankDraw(pub [u8; 12]);
+impl Default for BankDraw { 
+  fn default() -> Self { 
+    Self([0; 12])
+  }
+}
+impl ::core::fmt::Debug for BankDraw {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("BankDraw")
+      .field("x", &self.x())
+      .field("y", &self.y())
+      .field("trips", &self.trips())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for BankDraw {}
+impl<'a> ::flatbuffers::Follow<'a> for BankDraw {
+  type Inner = &'a BankDraw;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a BankDraw>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a BankDraw {
+  type Inner = &'a BankDraw;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<BankDraw>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for BankDraw {
+    type Output = BankDraw;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const BankDraw as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(4)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for BankDraw {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> BankDraw {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    x: f32,
+    y: f32,
+    trips: u32,
+  ) -> Self {
+    let mut s = Self([0; 12]);
+    s.set_x(x);
+    s.set_y(y);
+    s.set_trips(trips);
+    s
+  }
+
+  pub fn x(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_x(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn y(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_y(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn trips(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_trips(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
       );
     }
   }
@@ -6366,6 +6724,7 @@ impl<'a> Snapshot<'a> {
   pub const VT_EARTHWORKS_REV: ::flatbuffers::VOffsetT = 38;
   pub const VT_WEATHER_REV: ::flatbuffers::VOffsetT = 40;
   pub const VT_CROSSINGS_REV: ::flatbuffers::VOffsetT = 42;
+  pub const VT_WATER_REV: ::flatbuffers::VOffsetT = 44;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6377,6 +6736,7 @@ impl<'a> Snapshot<'a> {
     args: &'args SnapshotArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Snapshot<'bldr>> {
     let mut builder = SnapshotBuilder::new(_fbb);
+    builder.add_water_rev(args.water_rev);
     builder.add_crossings_rev(args.crossings_rev);
     builder.add_weather_rev(args.weather_rev);
     builder.add_earthworks_rev(args.earthworks_rev);
@@ -6541,6 +6901,13 @@ impl<'a> Snapshot<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Snapshot::VT_CROSSINGS_REV, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn water_rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Snapshot::VT_WATER_REV, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Snapshot<'_> {
@@ -6569,6 +6936,7 @@ impl ::flatbuffers::Verifiable for Snapshot<'_> {
      .visit_field::<u64>("earthworks_rev", Self::VT_EARTHWORKS_REV, false)?
      .visit_field::<u64>("weather_rev", Self::VT_WEATHER_REV, false)?
      .visit_field::<u64>("crossings_rev", Self::VT_CROSSINGS_REV, false)?
+     .visit_field::<u64>("water_rev", Self::VT_WATER_REV, false)?
      .finish();
     Ok(())
   }
@@ -6594,6 +6962,7 @@ pub struct SnapshotArgs<'a> {
     pub earthworks_rev: u64,
     pub weather_rev: u64,
     pub crossings_rev: u64,
+    pub water_rev: u64,
 }
 impl<'a> Default for SnapshotArgs<'a> {
   #[inline]
@@ -6619,6 +6988,7 @@ impl<'a> Default for SnapshotArgs<'a> {
       earthworks_rev: 0,
       weather_rev: 0,
       crossings_rev: 0,
+      water_rev: 0,
     }
   }
 }
@@ -6709,6 +7079,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SnapshotBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Snapshot::VT_CROSSINGS_REV, crossings_rev, 0);
   }
   #[inline]
+  pub fn add_water_rev(&mut self, water_rev: u64) {
+    self.fbb_.push_slot::<u64>(Snapshot::VT_WATER_REV, water_rev, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SnapshotBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SnapshotBuilder {
@@ -6746,6 +7120,7 @@ impl ::core::fmt::Debug for Snapshot<'_> {
       ds.field("earthworks_rev", &self.earthworks_rev());
       ds.field("weather_rev", &self.weather_rev());
       ds.field("crossings_rev", &self.crossings_rev());
+      ds.field("water_rev", &self.water_rev());
       ds.finish()
   }
 }
@@ -11153,6 +11528,84 @@ impl ::core::fmt::Debug for GetCrossings<'_> {
       ds.finish()
   }
 }
+pub enum GetWaterOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetWater<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetWater<'a> {
+  type Inner = GetWater<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetWater<'a> {
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetWater { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    _args: &'args GetWaterArgs
+  ) -> ::flatbuffers::WIPOffset<GetWater<'bldr>> {
+    let mut builder = GetWaterBuilder::new(_fbb);
+    builder.finish()
+  }
+
+}
+
+impl ::flatbuffers::Verifiable for GetWater<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetWaterArgs {
+}
+impl<'a> Default for GetWaterArgs {
+  #[inline]
+  fn default() -> Self {
+    GetWaterArgs {
+    }
+  }
+}
+
+pub struct GetWaterBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetWaterBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetWaterBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetWaterBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetWater<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetWater<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetWater");
+      ds.finish()
+  }
+}
 pub enum QueryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -11517,6 +11970,21 @@ impl<'a> Query<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_water(&self) -> Option<GetWater<'a>> {
+    if self.body_type() == QueryBody::GetWater {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetWater::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Query<'_> {
@@ -11548,6 +12016,7 @@ impl ::flatbuffers::Verifiable for Query<'_> {
           QueryBody::GetGovernment => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetGovernment>>("QueryBody::GetGovernment", pos),
           QueryBody::GetOrder => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetOrder>>("QueryBody::GetOrder", pos),
           QueryBody::GetCrossings => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetCrossings>>("QueryBody::GetCrossings", pos),
+          QueryBody::GetWater => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetWater>>("QueryBody::GetWater", pos),
           _ => Ok(()),
         }
      })?
@@ -11744,6 +12213,13 @@ impl ::core::fmt::Debug for Query<'_> {
         },
         QueryBody::GetCrossings => {
           if let Some(x) = self.body_as_get_crossings() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetWater => {
+          if let Some(x) = self.body_as_get_water() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -14221,6 +14697,7 @@ impl<'a> PersonInfo<'a> {
   pub const VT_REPORTS: ::flatbuffers::VOffsetT = 110;
   pub const VT_ERRAND: ::flatbuffers::VOffsetT = 112;
   pub const VT_SEEN_AWAY: ::flatbuffers::VOffsetT = 114;
+  pub const VT_WATER: ::flatbuffers::VOffsetT = 116;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -14242,6 +14719,7 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.water { builder.add_water(x); }
     if let Some(x) = args.seen_away { builder.add_seen_away(x); }
     if let Some(x) = args.errand { builder.add_errand(x); }
     if let Some(x) = args.reports { builder.add_reports(x); }
@@ -14684,6 +15162,13 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PersonInfo::VT_SEEN_AWAY, None)}
   }
+  #[inline]
+  pub fn water(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PersonInfo::VT_WATER, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -14748,6 +15233,7 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("reports", Self::VT_REPORTS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("errand", Self::VT_ERRAND, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("seen_away", Self::VT_SEEN_AWAY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("water", Self::VT_WATER, false)?
      .finish();
     Ok(())
   }
@@ -14809,6 +15295,7 @@ pub struct PersonInfoArgs<'a> {
     pub reports: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub errand: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub seen_away: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub water: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -14870,6 +15357,7 @@ impl<'a> Default for PersonInfoArgs<'a> {
       reports: None,
       errand: None,
       seen_away: None,
+      water: None,
     }
   }
 }
@@ -15104,6 +15592,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_SEEN_AWAY, seen_away);
   }
   #[inline]
+  pub fn add_water(&mut self, water: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_WATER, water);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -15177,6 +15669,7 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("reports", &self.reports());
       ds.field("errand", &self.errand());
       ds.field("seen_away", &self.seen_away());
+      ds.field("water", &self.water());
       ds.finish()
   }
 }
@@ -24725,6 +25218,487 @@ impl ::core::fmt::Debug for Crossings<'_> {
       ds.finish()
   }
 }
+pub enum WellInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WellInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WellInfo<'a> {
+  type Inner = WellInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WellInfo<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SYSTEM: ::flatbuffers::VOffsetT = 6;
+  pub const VT_X: ::flatbuffers::VOffsetT = 8;
+  pub const VT_Y: ::flatbuffers::VOffsetT = 10;
+  pub const VT_RADIUS_M: ::flatbuffers::VOffsetT = 12;
+  pub const VT_STATE: ::flatbuffers::VOffsetT = 14;
+  pub const VT_DEPTH_M: ::flatbuffers::VOffsetT = 16;
+  pub const VT_TARGET_M: ::flatbuffers::VOffsetT = 18;
+  pub const VT_WATER_M: ::flatbuffers::VOffsetT = 20;
+  pub const VT_BELOW_M: ::flatbuffers::VOffsetT = 22;
+  pub const VT_QUALITY: ::flatbuffers::VOffsetT = 24;
+  pub const VT_LOSS: ::flatbuffers::VOffsetT = 26;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 28;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 30;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WellInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WellInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<WellInfo<'bldr>> {
+    let mut builder = WellInfoBuilder::new(_fbb);
+    builder.add_household(args.household);
+    builder.add_id(args.id);
+    if let Some(x) = args.words { builder.add_words(x); }
+    builder.add_loss(args.loss);
+    builder.add_quality(args.quality);
+    builder.add_below_m(args.below_m);
+    builder.add_water_m(args.water_m);
+    builder.add_target_m(args.target_m);
+    builder.add_depth_m(args.depth_m);
+    builder.add_radius_m(args.radius_m);
+    builder.add_y(args.y);
+    builder.add_x(args.x);
+    if let Some(x) = args.system { builder.add_system(x); }
+    builder.add_state(args.state);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WellInfo::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn system(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WellInfo::VT_SYSTEM, None)}
+  }
+  #[inline]
+  pub fn x(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellInfo::VT_X, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn y(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellInfo::VT_Y, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn radius_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellInfo::VT_RADIUS_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn state(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WellInfo::VT_STATE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn depth_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellInfo::VT_DEPTH_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn target_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellInfo::VT_TARGET_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn water_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellInfo::VT_WATER_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn below_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellInfo::VT_BELOW_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn quality(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellInfo::VT_QUALITY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn loss(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellInfo::VT_LOSS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WellInfo::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WellInfo::VT_WORDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WellInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("system", Self::VT_SYSTEM, false)?
+     .visit_field::<f32>("x", Self::VT_X, false)?
+     .visit_field::<f32>("y", Self::VT_Y, false)?
+     .visit_field::<f32>("radius_m", Self::VT_RADIUS_M, false)?
+     .visit_field::<u8>("state", Self::VT_STATE, false)?
+     .visit_field::<f32>("depth_m", Self::VT_DEPTH_M, false)?
+     .visit_field::<f32>("target_m", Self::VT_TARGET_M, false)?
+     .visit_field::<f32>("water_m", Self::VT_WATER_M, false)?
+     .visit_field::<f32>("below_m", Self::VT_BELOW_M, false)?
+     .visit_field::<f32>("quality", Self::VT_QUALITY, false)?
+     .visit_field::<f32>("loss", Self::VT_LOSS, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WellInfoArgs<'a> {
+    pub id: u64,
+    pub system: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub x: f32,
+    pub y: f32,
+    pub radius_m: f32,
+    pub state: u8,
+    pub depth_m: f32,
+    pub target_m: f32,
+    pub water_m: f32,
+    pub below_m: f32,
+    pub quality: f32,
+    pub loss: f32,
+    pub household: u64,
+    pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for WellInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WellInfoArgs {
+      id: 0,
+      system: None,
+      x: 0.0,
+      y: 0.0,
+      radius_m: 0.0,
+      state: 0,
+      depth_m: 0.0,
+      target_m: 0.0,
+      water_m: 0.0,
+      below_m: 0.0,
+      quality: 0.0,
+      loss: 0.0,
+      household: 0,
+      words: None,
+    }
+  }
+}
+
+pub struct WellInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WellInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(WellInfo::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_system(&mut self, system: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WellInfo::VT_SYSTEM, system);
+  }
+  #[inline]
+  pub fn add_x(&mut self, x: f32) {
+    self.fbb_.push_slot::<f32>(WellInfo::VT_X, x, 0.0);
+  }
+  #[inline]
+  pub fn add_y(&mut self, y: f32) {
+    self.fbb_.push_slot::<f32>(WellInfo::VT_Y, y, 0.0);
+  }
+  #[inline]
+  pub fn add_radius_m(&mut self, radius_m: f32) {
+    self.fbb_.push_slot::<f32>(WellInfo::VT_RADIUS_M, radius_m, 0.0);
+  }
+  #[inline]
+  pub fn add_state(&mut self, state: u8) {
+    self.fbb_.push_slot::<u8>(WellInfo::VT_STATE, state, 0);
+  }
+  #[inline]
+  pub fn add_depth_m(&mut self, depth_m: f32) {
+    self.fbb_.push_slot::<f32>(WellInfo::VT_DEPTH_M, depth_m, 0.0);
+  }
+  #[inline]
+  pub fn add_target_m(&mut self, target_m: f32) {
+    self.fbb_.push_slot::<f32>(WellInfo::VT_TARGET_M, target_m, 0.0);
+  }
+  #[inline]
+  pub fn add_water_m(&mut self, water_m: f32) {
+    self.fbb_.push_slot::<f32>(WellInfo::VT_WATER_M, water_m, 0.0);
+  }
+  #[inline]
+  pub fn add_below_m(&mut self, below_m: f32) {
+    self.fbb_.push_slot::<f32>(WellInfo::VT_BELOW_M, below_m, 0.0);
+  }
+  #[inline]
+  pub fn add_quality(&mut self, quality: f32) {
+    self.fbb_.push_slot::<f32>(WellInfo::VT_QUALITY, quality, 0.0);
+  }
+  #[inline]
+  pub fn add_loss(&mut self, loss: f32) {
+    self.fbb_.push_slot::<f32>(WellInfo::VT_LOSS, loss, 0.0);
+  }
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(WellInfo::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WellInfo::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WellInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WellInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WellInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WellInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WellInfo");
+      ds.field("id", &self.id());
+      ds.field("system", &self.system());
+      ds.field("x", &self.x());
+      ds.field("y", &self.y());
+      ds.field("radius_m", &self.radius_m());
+      ds.field("state", &self.state());
+      ds.field("depth_m", &self.depth_m());
+      ds.field("target_m", &self.target_m());
+      ds.field("water_m", &self.water_m());
+      ds.field("below_m", &self.below_m());
+      ds.field("quality", &self.quality());
+      ds.field("loss", &self.loss());
+      ds.field("household", &self.household());
+      ds.field("words", &self.words());
+      ds.finish()
+  }
+}
+pub enum WaterOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Water<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Water<'a> {
+  type Inner = Water<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Water<'a> {
+  pub const VT_REV: ::flatbuffers::VOffsetT = 4;
+  pub const VT_WELLS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SPRINGS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_FLOW: ::flatbuffers::VOffsetT = 10;
+  pub const VT_BANKS: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Water { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WaterArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Water<'bldr>> {
+    let mut builder = WaterBuilder::new(_fbb);
+    builder.add_rev(args.rev);
+    if let Some(x) = args.banks { builder.add_banks(x); }
+    builder.add_flow(args.flow);
+    if let Some(x) = args.springs { builder.add_springs(x); }
+    if let Some(x) = args.wells { builder.add_wells(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Water::VT_REV, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn wells(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WellInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WellInfo>>>>(Water::VT_WELLS, None)}
+  }
+  #[inline]
+  pub fn springs(&self) -> Option<::flatbuffers::Vector<'a, SpringInfo>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, SpringInfo>>>(Water::VT_SPRINGS, None)}
+  }
+  #[inline]
+  pub fn flow(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Water::VT_FLOW, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn banks(&self) -> Option<::flatbuffers::Vector<'a, BankDraw>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, BankDraw>>>(Water::VT_BANKS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Water<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("rev", Self::VT_REV, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WellInfo>>>>("wells", Self::VT_WELLS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SpringInfo>>>("springs", Self::VT_SPRINGS, false)?
+     .visit_field::<f32>("flow", Self::VT_FLOW, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BankDraw>>>("banks", Self::VT_BANKS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WaterArgs<'a> {
+    pub rev: u64,
+    pub wells: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WellInfo<'a>>>>>,
+    pub springs: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SpringInfo>>>,
+    pub flow: f32,
+    pub banks: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BankDraw>>>,
+}
+impl<'a> Default for WaterArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WaterArgs {
+      rev: 0,
+      wells: None,
+      springs: None,
+      flow: 0.0,
+      banks: None,
+    }
+  }
+}
+
+pub struct WaterBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WaterBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_rev(&mut self, rev: u64) {
+    self.fbb_.push_slot::<u64>(Water::VT_REV, rev, 0);
+  }
+  #[inline]
+  pub fn add_wells(&mut self, wells: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WellInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Water::VT_WELLS, wells);
+  }
+  #[inline]
+  pub fn add_springs(&mut self, springs: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , SpringInfo>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Water::VT_SPRINGS, springs);
+  }
+  #[inline]
+  pub fn add_flow(&mut self, flow: f32) {
+    self.fbb_.push_slot::<f32>(Water::VT_FLOW, flow, 0.0);
+  }
+  #[inline]
+  pub fn add_banks(&mut self, banks: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , BankDraw>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Water::VT_BANKS, banks);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WaterBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WaterBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Water<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Water<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Water");
+      ds.field("rev", &self.rev());
+      ds.field("wells", &self.wells());
+      ds.field("springs", &self.springs());
+      ds.field("flow", &self.flow());
+      ds.field("banks", &self.banks());
+      ds.finish()
+  }
+}
 pub enum EarthworksOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -28726,6 +29700,21 @@ impl<'a> Response<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_water(&self) -> Option<Water<'a>> {
+    if self.body_type() == ResponseBody::Water {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Water::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Response<'_> {
@@ -28758,6 +29747,7 @@ impl ::flatbuffers::Verifiable for Response<'_> {
           ResponseBody::Government => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Government>>("ResponseBody::Government", pos),
           ResponseBody::Order => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Order>>("ResponseBody::Order", pos),
           ResponseBody::Crossings => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Crossings>>("ResponseBody::Crossings", pos),
+          ResponseBody::Water => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Water>>("ResponseBody::Water", pos),
           _ => Ok(()),
         }
      })?
@@ -28961,6 +29951,13 @@ impl ::core::fmt::Debug for Response<'_> {
         },
         ResponseBody::Crossings => {
           if let Some(x) = self.body_as_crossings() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::Water => {
+          if let Some(x) = self.body_as_water() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

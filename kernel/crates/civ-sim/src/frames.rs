@@ -39,6 +39,7 @@ pub mod order;
 pub mod paths;
 pub mod people;
 pub mod standing;
+pub mod water;
 pub mod wealth;
 pub mod weather;
 pub mod word;

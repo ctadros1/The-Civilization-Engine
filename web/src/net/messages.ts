@@ -1065,9 +1065,23 @@ export interface PolityLine {
 export interface RelationLine {
   polity: number;
   name: string;
-  /** "unknown", "known", "friendly" or "wary". */
+  /** "unknown", "known", "under agreement", "friendly" or "wary". */
   label: string;
   why: string[];
+  /** Wire 1.58 (M5c slice AU, ADR-0020 §6): the agreements between the two, newest first. */
+  agreements: AgreementLine[];
+}
+
+/**
+ * One agreement between two polities (wire 1.58), in the kernel's words: its terms, where it
+ * stands, and each side's law history, this polity's first.
+ */
+export interface AgreementLine {
+  id: number;
+  terms: string;
+  state: string;
+  ours: string;
+  theirs: string;
 }
 
 /** Every settlement's polity at `minute` (wire 1.27). */
@@ -3308,6 +3322,16 @@ function governmentInfo(w: W.Government): GovernmentInfo {
           name: r.name() ?? "",
           label: r.label() ?? "",
           why: Array.from({ length: r.whyLength() }, (_, j) => r.why(j) ?? ""),
+          agreements: Array.from({ length: r.agreementsLength() }, (_, j) => {
+            const a = r.agreements(j)!;
+            return {
+              id: Number(a.id()),
+              terms: a.terms() ?? "",
+              state: a.state() ?? "",
+              ours: a.ours() ?? "",
+              theirs: a.theirs() ?? "",
+            };
+          }),
         };
       }),
     });

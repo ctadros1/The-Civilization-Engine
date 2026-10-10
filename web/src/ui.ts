@@ -2331,6 +2331,20 @@ export function bindUi(store: Store, actions: Actions): void {
                 { className: "relation" },
                 el("strong", { text: `${r.name}: ${r.label}` }),
                 el("ul", {}, ...r.why.map((w) => el("li", { text: w }))),
+                // Its agreements with them, both law histories side by side (wire 1.58).
+                ...r.agreements.map((a) =>
+                  el(
+                    "div",
+                    { className: "agreement" },
+                    el("p", { text: `Agreement: ${a.terms}; ${a.state}.` }),
+                    el(
+                      "div",
+                      { className: "agreement-sides" },
+                      el("p", { className: "ours", text: `Here: ${a.ours}.` }),
+                      el("p", { className: "theirs", text: `At ${r.name}: ${a.theirs}.` }),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

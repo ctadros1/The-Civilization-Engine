@@ -194,6 +194,16 @@ impl View {
         if y + n <= 0.0 { 0.5 } else { y / (y + n) }
     }
 
+    /// How far the view leans toward the polity's good, -1 to 1 (M5c slice AU, step three): how
+    /// much more it leans toward "helps us" than "harms us", and how far past even toward "keeps
+    /// its word"; nothing at the prior. It weighs in stances on agreements with that polity as
+    /// regard for a sponsor does (ADR-0020 §3).
+    pub fn warmth(&self) -> f64 {
+        let w = self.lean(Domain::HelpsUs) - self.lean(Domain::HarmsUs)
+            + (self.lean(Domain::KeepsWord) - 0.5);
+        w.clamp(-1.0, 1.0)
+    }
+
     /// Evidence beyond the prior in every domain together.
     pub fn evidence(&self, params: &RelationsParams) -> f64 {
         self.yes

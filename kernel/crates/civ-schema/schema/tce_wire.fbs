@@ -1851,6 +1851,20 @@ table RelationLine {
   name: string (id: 1);
   label: string (id: 2);
   why: [string] (id: 3);
+  // Wire 1.58 (M5c slice AU, ADR-0020 §6): the agreements between the two, newest first.
+  agreements: [AgreementLine] (id: 4);
+}
+
+// One agreement between two polities (wire 1.58), in words rendered by the kernel: its terms
+// ("leave for Ashford's people to use the places Oakholt claims, for a year"), where it stands
+// ("in force since 3 May of year 12"), and each side's law history, this polity's first ("proposed
+// by Pirra on 2 May of year 12; passed on 3 May of year 12, 9 for, 2 against, 14 of 30 came").
+table AgreementLine {
+  id: ulong (id: 0);
+  terms: string (id: 1);
+  state: string (id: 2);
+  ours: string (id: 3);
+  theirs: string (id: 4);
 }
 
 table Government {

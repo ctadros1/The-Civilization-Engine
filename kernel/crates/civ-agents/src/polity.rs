@@ -670,6 +670,10 @@ pub struct StanceRecord {
     pub opinion: f32,
     /// What the law does to what they hold dear, points (M4c slice AG step three; 0 before).
     pub values: f32,
+    /// For an agreement, what they believe of the other polity added, points ([`PolityParams::
+    /// w_regard`] times their view's warmth; M5c slice AU step three): 0 for any other law, and
+    /// before.
+    pub view: f32,
 }
 
 /// What became of what a law asks of people and gives them (ADR-0013 §3, stages 6-7).

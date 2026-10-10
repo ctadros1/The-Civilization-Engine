@@ -4,6 +4,9 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { AgreementLine } from '../../tce/wire/agreement-line.js';
+
+
 export class RelationLine {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
@@ -53,8 +56,18 @@ whyLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+agreements(index: number, obj?:AgreementLine):AgreementLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? (obj || new AgreementLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+agreementsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startRelationLine(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(5);
 }
 
 static addPolity(builder:flatbuffers.Builder, polity:bigint) {
@@ -85,17 +98,34 @@ static startWhyVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addAgreements(builder:flatbuffers.Builder, agreementsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(4, agreementsOffset, 0);
+}
+
+static createAgreementsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startAgreementsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endRelationLine(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createRelationLine(builder:flatbuffers.Builder, polity:bigint, nameOffset:flatbuffers.Offset, labelOffset:flatbuffers.Offset, whyOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createRelationLine(builder:flatbuffers.Builder, polity:bigint, nameOffset:flatbuffers.Offset, labelOffset:flatbuffers.Offset, whyOffset:flatbuffers.Offset, agreementsOffset:flatbuffers.Offset):flatbuffers.Offset {
   RelationLine.startRelationLine(builder);
   RelationLine.addPolity(builder, polity);
   RelationLine.addName(builder, nameOffset);
   RelationLine.addLabel(builder, labelOffset);
   RelationLine.addWhy(builder, whyOffset);
+  RelationLine.addAgreements(builder, agreementsOffset);
   return RelationLine.endRelationLine(builder);
 }
 }

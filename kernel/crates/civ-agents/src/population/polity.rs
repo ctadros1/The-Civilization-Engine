@@ -1496,6 +1496,12 @@ impl Population {
             .filter(|l| l.status == LawStatus::InForce)
             .and_then(|l| Some((l.holder?, l.id)));
         let day = now.day_index();
+        // An agreement is weighed with what each believes of the other polity, as regard for its
+        // sponsor is (M5c slice AU, ADR-0020 §3).
+        let other = law
+            .agreement
+            .and_then(|a| self.agreements.of_law(law_id).filter(|x| x.0.id == a))
+            .map(|(a, s)| a.polities[1 - usize::from(s)]);
         // The store spoils under the roof it had until a new keeper takes it.
         let sheltered = self.polity_sheltered(pi);
         self.polities[pi].settle_stores(now, &ctx.catalog.goods, sheltered);
@@ -1516,6 +1522,14 @@ impl Population {
                 let talk = sign * self.opinion_points(p, policy, w_position);
                 // And what it does to what they hold dear (M4c slice AG).
                 let values = sign * self.value_points(ctx, p, policy);
+                let view = other.map_or(0.0, |o| {
+                    let rp = &params.relations;
+                    let warmth = self
+                        .polity_views
+                        .of(p, o, day, rp)
+                        .map_or(0.0, |v| v.warmth());
+                    pp.w_regard * warmth
+                });
                 let held = replaced.map_or(0.0, |(o, office)| {
                     if p == o {
                         1.0
@@ -1527,7 +1541,7 @@ impl Population {
                 let (stance, regard_points) = if p == sponsor {
                     (Stance::Support, 0.0)
                 } else {
-                    crate::polity::stance_between(gain + values + talk, regard, held, pp)
+                    crate::polity::stance_between(gain + values + talk + view, regard, held, pp)
                 };
                 Some(StanceRecord {
                     person: p,
@@ -1537,6 +1551,7 @@ impl Population {
                     regard: regard_points as f32,
                     opinion: talk as f32,
                     values: values as f32,
+                    view: view as f32,
                 })
             })
             .collect();

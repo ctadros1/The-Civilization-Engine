@@ -1563,3 +1563,14 @@ button.link:hover {
   padding-left: 0.6rem;
   border-left: 2px dashed var(--line);
 }
+
+/* Wire 1.58: an agreement between two polities, each side's law history side by side. */
+.relations .agreement {
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--line);
+}
+.relations .agreement-sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.4rem 1rem;
+}

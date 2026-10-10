@@ -25166,6 +25166,7 @@ impl<'a> LawSave<'a> {
   pub const VT_REFUSED: ::flatbuffers::VOffsetT = 92;
   pub const VT_REFUSED_KG: ::flatbuffers::VOffsetT = 94;
   pub const VT_AGREEMENT: ::flatbuffers::VOffsetT = 96;
+  pub const VT_STANCE_VIEWS: ::flatbuffers::VOffsetT = 98;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -25191,6 +25192,7 @@ impl<'a> LawSave<'a> {
     builder.add_proposed(args.proposed);
     builder.add_sponsor(args.sponsor);
     builder.add_id(args.id);
+    if let Some(x) = args.stance_views { builder.add_stance_views(x); }
     builder.add_refused(args.refused);
     if let Some(x) = args.stance_values { builder.add_stance_values(x); }
     if let Some(x) = args.stance_opinions { builder.add_stance_opinions(x); }
@@ -25557,6 +25559,13 @@ impl<'a> LawSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(LawSave::VT_AGREEMENT, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn stance_views(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(LawSave::VT_STANCE_VIEWS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for LawSave<'_> {
@@ -25612,6 +25621,7 @@ impl ::flatbuffers::Verifiable for LawSave<'_> {
      .visit_field::<u32>("refused", Self::VT_REFUSED, false)?
      .visit_field::<f64>("refused_kg", Self::VT_REFUSED_KG, false)?
      .visit_field::<u64>("agreement", Self::VT_AGREEMENT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("stance_views", Self::VT_STANCE_VIEWS, false)?
      .finish();
     Ok(())
   }
@@ -25664,6 +25674,7 @@ pub struct LawSaveArgs<'a> {
     pub refused: u32,
     pub refused_kg: f64,
     pub agreement: u64,
+    pub stance_views: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
 }
 impl<'a> Default for LawSaveArgs<'a> {
   #[inline]
@@ -25716,6 +25727,7 @@ impl<'a> Default for LawSaveArgs<'a> {
       refused: 0,
       refused_kg: 0.0,
       agreement: 0,
+      stance_views: None,
     }
   }
 }
@@ -25914,6 +25926,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LawSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(LawSave::VT_AGREEMENT, agreement, 0);
   }
   #[inline]
+  pub fn add_stance_views(&mut self, stance_views: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(LawSave::VT_STANCE_VIEWS, stance_views);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LawSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LawSaveBuilder {
@@ -25978,6 +25994,7 @@ impl ::core::fmt::Debug for LawSave<'_> {
       ds.field("refused", &self.refused());
       ds.field("refused_kg", &self.refused_kg());
       ds.field("agreement", &self.agreement());
+      ds.field("stance_views", &self.stance_views());
       ds.finish()
   }
 }

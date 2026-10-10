@@ -138,6 +138,33 @@ impl Agreement {
     pub fn open(&self) -> bool {
         self.state == AgreementState::Offered
     }
+
+    /// Its terms in words, `name` naming a polity by its settlement: "leave for Ashford's people
+    /// to use the places Oakholt claims, for a year".
+    pub fn words(&self, name: &dyn Fn(PermanentId) -> String) -> String {
+        let side = |s: u8| name(self.polities[usize::from(s)]);
+        let clauses: Vec<String> = self
+            .clauses
+            .iter()
+            .map(|c| match *c {
+                Clause::Leave { from } => format!(
+                    "leave for {}'s people to use the places {} claims",
+                    side(1 - from),
+                    side(from)
+                ),
+            })
+            .collect();
+        let term = match self.term_days {
+            0 => "until a law ends it".to_owned(),
+            365 => "for a year".to_owned(),
+            d if d % 365 == 0 => format!("for {} years", d / 365),
+            d => format!("for {d} days"),
+        };
+        if clauses.is_empty() {
+            return "no terms".to_owned();
+        }
+        format!("{}, {term}", clauses.join(", and "))
+    }
 }
 
 /// Every agreement, in the order made.
@@ -238,6 +265,25 @@ mod tests {
         let all = Agreements { list: vec![a] };
         assert!(all.problems().is_empty());
         assert!(all.between(id(10), id(20)) && !all.between(id(10), id(30)));
+    }
+
+    #[test]
+    fn terms_are_told_in_words() {
+        let mut a = offered(vec![Clause::Leave { from: 0 }, Clause::Leave { from: 1 }]);
+        let name = |p: PermanentId| if p == id(10) { "Oakholt" } else { "Ashford" }.to_owned();
+        assert_eq!(
+            a.words(&name),
+            "leave for Ashford's people to use the places Oakholt claims, and leave for \
+             Oakholt's people to use the places Ashford claims, for a year"
+        );
+        a.term_days = 1825;
+        a.clauses.truncate(1);
+        assert_eq!(
+            a.words(&name),
+            "leave for Ashford's people to use the places Oakholt claims, for 5 years"
+        );
+        a.clauses.clear();
+        assert_eq!(a.words(&name), "no terms");
     }
 
     #[test]

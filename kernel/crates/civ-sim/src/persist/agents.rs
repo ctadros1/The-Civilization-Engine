@@ -111,7 +111,7 @@ use super::{
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
-    finish, section, single_chunk, unreadable,
+    SCHEMA_V65, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -419,6 +419,8 @@ enum Schema {
     V64,
     /// Agreements between polities and the laws that decide them (M5c slice AU, step two).
     V65,
+    /// What views of another polity added to stances on an agreement (M5c slice AU, step three).
+    V66,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -498,7 +500,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V62 => Schema::V62,
         SCHEMA_V63 => Schema::V63,
         SCHEMA_V64 => Schema::V64,
-        SAVE_SCHEMA_VERSION => Schema::V65,
+        SCHEMA_V65 => Schema::V65,
+        SAVE_SCHEMA_VERSION => Schema::V66,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -846,6 +849,10 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     let stance_opinions = fbb.create_vector(&opinions);
                     let values: Vec<f32> = l.stances.iter().map(|r| r.values).collect();
                     let stance_values = fbb.create_vector(&values);
+                    // What views of another polity added, for an agreement (schema 66).
+                    let views: Vec<f32> = l.stances.iter().map(|r| r.view).collect();
+                    let stance_views =
+                        (views.iter().any(|&v| v != 0.0)).then(|| fbb.create_vector(&views));
                     let known: Vec<save::KnownSave> = l
                         .known
                         .iter()
@@ -903,6 +910,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             body_pass: l.body.map_or(0, |b| b.pass.code()),
                             stance_opinions: Some(stance_opinions),
                             stance_values: Some(stance_values),
+                            stance_views,
                         },
                     )
                 })
@@ -1159,6 +1167,10 @@ fn decode_polities(
                 .stance_values()
                 .map(|v| v.iter().collect())
                 .unwrap_or_default();
+            let views: Vec<f32> = l
+                .stance_views()
+                .map(|v| v.iter().collect())
+                .unwrap_or_default();
             for (k, r) in l.stances().iter().flatten().enumerate() {
                 stances.push(StanceRecord {
                     person: required(r.person(), "a stance")?,
@@ -1173,6 +1185,7 @@ fn decode_polities(
                     regard: r.regard(),
                     opinion: opinions.get(k).copied().unwrap_or(0.0),
                     values: values.get(k).copied().unwrap_or(0.0),
+                    view: views.get(k).copied().unwrap_or(0.0),
                 });
             }
             let mut known = Vec::new();
@@ -2751,7 +2764,8 @@ fn carried(
         | Schema::V62
         | Schema::V63
         | Schema::V64
-        | Schema::V65 => {
+        | Schema::V65
+        | Schema::V66 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2926,7 +2940,8 @@ fn decode_households(
             | Schema::V62
             | Schema::V63
             | Schema::V64
-            | Schema::V65 => {
+            | Schema::V65
+            | Schema::V66 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

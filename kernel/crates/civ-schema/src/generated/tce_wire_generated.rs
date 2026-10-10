@@ -26419,6 +26419,7 @@ impl<'a> RelationLine<'a> {
   pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
   pub const VT_LABEL: ::flatbuffers::VOffsetT = 8;
   pub const VT_WHY: ::flatbuffers::VOffsetT = 10;
+  pub const VT_AGREEMENTS: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -26431,6 +26432,7 @@ impl<'a> RelationLine<'a> {
   ) -> ::flatbuffers::WIPOffset<RelationLine<'bldr>> {
     let mut builder = RelationLineBuilder::new(_fbb);
     builder.add_polity(args.polity);
+    if let Some(x) = args.agreements { builder.add_agreements(x); }
     if let Some(x) = args.why { builder.add_why(x); }
     if let Some(x) = args.label { builder.add_label(x); }
     if let Some(x) = args.name { builder.add_name(x); }
@@ -26466,6 +26468,13 @@ impl<'a> RelationLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(RelationLine::VT_WHY, None)}
   }
+  #[inline]
+  pub fn agreements(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<AgreementLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<AgreementLine>>>>(RelationLine::VT_AGREEMENTS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for RelationLine<'_> {
@@ -26478,6 +26487,7 @@ impl ::flatbuffers::Verifiable for RelationLine<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("label", Self::VT_LABEL, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("why", Self::VT_WHY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<AgreementLine>>>>("agreements", Self::VT_AGREEMENTS, false)?
      .finish();
     Ok(())
   }
@@ -26487,6 +26497,7 @@ pub struct RelationLineArgs<'a> {
     pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub label: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub why: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub agreements: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<AgreementLine<'a>>>>>,
 }
 impl<'a> Default for RelationLineArgs<'a> {
   #[inline]
@@ -26496,6 +26507,7 @@ impl<'a> Default for RelationLineArgs<'a> {
       name: None,
       label: None,
       why: None,
+      agreements: None,
     }
   }
 }
@@ -26522,6 +26534,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RelationLineBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RelationLine::VT_WHY, why);
   }
   #[inline]
+  pub fn add_agreements(&mut self, agreements: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<AgreementLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RelationLine::VT_AGREEMENTS, agreements);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RelationLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RelationLineBuilder {
@@ -26543,6 +26559,171 @@ impl ::core::fmt::Debug for RelationLine<'_> {
       ds.field("name", &self.name());
       ds.field("label", &self.label());
       ds.field("why", &self.why());
+      ds.field("agreements", &self.agreements());
+      ds.finish()
+  }
+}
+pub enum AgreementLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct AgreementLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for AgreementLine<'a> {
+  type Inner = AgreementLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> AgreementLine<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_TERMS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_STATE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_OURS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_THEIRS: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    AgreementLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args AgreementLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<AgreementLine<'bldr>> {
+    let mut builder = AgreementLineBuilder::new(_fbb);
+    builder.add_id(args.id);
+    if let Some(x) = args.theirs { builder.add_theirs(x); }
+    if let Some(x) = args.ours { builder.add_ours(x); }
+    if let Some(x) = args.state { builder.add_state(x); }
+    if let Some(x) = args.terms { builder.add_terms(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(AgreementLine::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn terms(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(AgreementLine::VT_TERMS, None)}
+  }
+  #[inline]
+  pub fn state(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(AgreementLine::VT_STATE, None)}
+  }
+  #[inline]
+  pub fn ours(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(AgreementLine::VT_OURS, None)}
+  }
+  #[inline]
+  pub fn theirs(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(AgreementLine::VT_THEIRS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for AgreementLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("terms", Self::VT_TERMS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("state", Self::VT_STATE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("ours", Self::VT_OURS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theirs", Self::VT_THEIRS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct AgreementLineArgs<'a> {
+    pub id: u64,
+    pub terms: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub state: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub ours: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub theirs: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for AgreementLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    AgreementLineArgs {
+      id: 0,
+      terms: None,
+      state: None,
+      ours: None,
+      theirs: None,
+    }
+  }
+}
+
+pub struct AgreementLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> AgreementLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(AgreementLine::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_terms(&mut self, terms: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(AgreementLine::VT_TERMS, terms);
+  }
+  #[inline]
+  pub fn add_state(&mut self, state: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(AgreementLine::VT_STATE, state);
+  }
+  #[inline]
+  pub fn add_ours(&mut self, ours: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(AgreementLine::VT_OURS, ours);
+  }
+  #[inline]
+  pub fn add_theirs(&mut self, theirs: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(AgreementLine::VT_THEIRS, theirs);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> AgreementLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    AgreementLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<AgreementLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for AgreementLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("AgreementLine");
+      ds.field("id", &self.id());
+      ds.field("terms", &self.terms());
+      ds.field("state", &self.state());
+      ds.field("ours", &self.ours());
+      ds.field("theirs", &self.theirs());
       ds.finish()
   }
 }

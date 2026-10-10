@@ -209,12 +209,22 @@ describe("the government on the wire", () => {
     const relationWhy = W.RelationLine.createWhyVector(b, [
       b.createString("3 of 5 of its households know Ashford"),
     ]);
+    const agreement = W.AgreementLine.createAgreementLine(
+      b,
+      901n,
+      b.createString("leave for Ashford's people to use the places Stonewick claims, for a year"),
+      b.createString("in force since 20 May of year 3"),
+      b.createString("proposed by Ada on 2 May of year 3; passed on 3 May of year 3, 9 for, 2 against, 14 of 30 came"),
+      b.createString("proposed by Bram on 5 May of year 3; passed on 6 May of year 3, 7 for, 0 against, 9 of 20 came"),
+    );
+    const agreements = W.RelationLine.createAgreementsVector(b, [agreement]);
     const relation = W.RelationLine.createRelationLine(
       b,
       301n,
       b.createString("Ashford"),
-      b.createString("wary"),
+      b.createString("under agreement"),
       relationWhy,
+      agreements,
     );
     const relations = W.PolityLine.createRelationsVector(b, [relation]);
     const name = b.createString("Stonewick");
@@ -286,8 +296,17 @@ describe("the government on the wire", () => {
       {
         polity: 301,
         name: "Ashford",
-        label: "wary",
+        label: "under agreement",
         why: ["3 of 5 of its households know Ashford"],
+        agreements: [
+          {
+            id: 901,
+            terms: "leave for Ashford's people to use the places Stonewick claims, for a year",
+            state: "in force since 20 May of year 3",
+            ours: "proposed by Ada on 2 May of year 3; passed on 3 May of year 3, 9 for, 2 against, 14 of 30 came",
+            theirs: "proposed by Bram on 5 May of year 3; passed on 6 May of year 3, 7 for, 0 against, 9 of 20 came",
+          },
+        ],
       },
     ]);
     expect(p.customHistory).toHaveLength(2);

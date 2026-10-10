@@ -4,6 +4,7 @@
 
 export { Ack } from './wire/ack.js';
 export { ActivityInfo } from './wire/activity-info.js';
+export { AgreementLine } from './wire/agreement-line.js';
 export { Bless } from './wire/bless.js';
 export { BookEntryInfo } from './wire/book-entry-info.js';
 export { BookKind } from './wire/book-kind.js';

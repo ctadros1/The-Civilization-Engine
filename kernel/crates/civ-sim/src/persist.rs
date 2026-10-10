@@ -230,6 +230,9 @@ pub const SCHEMA_V63: u32 = 63;
 /// The schema version of M5c slice AU, step one: the claims households heard of, before
 /// agreements between polities (see [`agents`]).
 pub const SCHEMA_V64: u32 = 64;
+/// The schema version of M5c slice AU, step two: agreements between polities, before what views
+/// of another polity added to stances on them (see [`agents`]).
+pub const SCHEMA_V65: u32 = 65;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

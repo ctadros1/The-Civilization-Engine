@@ -407,6 +407,9 @@ struct PolityLineBuilder;
 struct RelationLine;
 struct RelationLineBuilder;
 
+struct AgreementLine;
+struct AgreementLineBuilder;
+
 struct Government;
 struct GovernmentBuilder;
 
@@ -16772,7 +16775,8 @@ struct RelationLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_POLITY = 4,
     VT_NAME = 6,
     VT_LABEL = 8,
-    VT_WHY = 10
+    VT_WHY = 10,
+    VT_AGREEMENTS = 12
   };
   uint64_t polity() const {
     return GetField<uint64_t>(VT_POLITY, 0);
@@ -16786,6 +16790,9 @@ struct RelationLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *why() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_WHY);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::AgreementLine>> *agreements() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::AgreementLine>> *>(VT_AGREEMENTS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -16797,6 +16804,9 @@ struct RelationLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_WHY) &&
            verifier.VerifyVector(why()) &&
            verifier.VerifyVectorOfStrings(why()) &&
+           VerifyOffset(verifier, VT_AGREEMENTS) &&
+           verifier.VerifyVector(agreements()) &&
+           verifier.VerifyVectorOfTables(agreements()) &&
            verifier.EndTable();
   }
 };
@@ -16817,6 +16827,9 @@ struct RelationLineBuilder {
   void add_why(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> why) {
     fbb_.AddOffset(RelationLine::VT_WHY, why);
   }
+  void add_agreements(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::AgreementLine>>> agreements) {
+    fbb_.AddOffset(RelationLine::VT_AGREEMENTS, agreements);
+  }
   explicit RelationLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -16833,9 +16846,11 @@ inline ::flatbuffers::Offset<RelationLine> CreateRelationLine(
     uint64_t polity = 0,
     ::flatbuffers::Offset<::flatbuffers::String> name = 0,
     ::flatbuffers::Offset<::flatbuffers::String> label = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> why = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> why = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::AgreementLine>>> agreements = 0) {
   RelationLineBuilder builder_(_fbb);
   builder_.add_polity(polity);
+  builder_.add_agreements(agreements);
   builder_.add_why(why);
   builder_.add_label(label);
   builder_.add_name(name);
@@ -16852,16 +16867,131 @@ inline ::flatbuffers::Offset<RelationLine> CreateRelationLineDirect(
     uint64_t polity = 0,
     const char *name = nullptr,
     const char *label = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *why = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *why = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::AgreementLine>> *agreements = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto label__ = label ? _fbb.CreateString(label) : 0;
   auto why__ = why ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*why) : 0;
+  auto agreements__ = agreements ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::AgreementLine>>(*agreements) : 0;
   return tce::wire::CreateRelationLine(
       _fbb,
       polity,
       name__,
       label__,
-      why__);
+      why__,
+      agreements__);
+}
+
+struct AgreementLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef AgreementLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_TERMS = 6,
+    VT_STATE = 8,
+    VT_OURS = 10,
+    VT_THEIRS = 12
+  };
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
+  }
+  const ::flatbuffers::String *terms() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_TERMS);
+  }
+  const ::flatbuffers::String *state() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_STATE);
+  }
+  const ::flatbuffers::String *ours() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_OURS);
+  }
+  const ::flatbuffers::String *theirs() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_THEIRS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_ID, 8) &&
+           VerifyOffset(verifier, VT_TERMS) &&
+           verifier.VerifyString(terms()) &&
+           VerifyOffset(verifier, VT_STATE) &&
+           verifier.VerifyString(state()) &&
+           VerifyOffset(verifier, VT_OURS) &&
+           verifier.VerifyString(ours()) &&
+           VerifyOffset(verifier, VT_THEIRS) &&
+           verifier.VerifyString(theirs()) &&
+           verifier.EndTable();
+  }
+};
+
+struct AgreementLineBuilder {
+  typedef AgreementLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(AgreementLine::VT_ID, id, 0);
+  }
+  void add_terms(::flatbuffers::Offset<::flatbuffers::String> terms) {
+    fbb_.AddOffset(AgreementLine::VT_TERMS, terms);
+  }
+  void add_state(::flatbuffers::Offset<::flatbuffers::String> state) {
+    fbb_.AddOffset(AgreementLine::VT_STATE, state);
+  }
+  void add_ours(::flatbuffers::Offset<::flatbuffers::String> ours) {
+    fbb_.AddOffset(AgreementLine::VT_OURS, ours);
+  }
+  void add_theirs(::flatbuffers::Offset<::flatbuffers::String> theirs) {
+    fbb_.AddOffset(AgreementLine::VT_THEIRS, theirs);
+  }
+  explicit AgreementLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<AgreementLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<AgreementLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<AgreementLine> CreateAgreementLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> terms = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> state = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> ours = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> theirs = 0) {
+  AgreementLineBuilder builder_(_fbb);
+  builder_.add_id(id);
+  builder_.add_theirs(theirs);
+  builder_.add_ours(ours);
+  builder_.add_state(state);
+  builder_.add_terms(terms);
+  return builder_.Finish();
+}
+
+struct AgreementLine::Traits {
+  using type = AgreementLine;
+  static auto constexpr Create = CreateAgreementLine;
+};
+
+inline ::flatbuffers::Offset<AgreementLine> CreateAgreementLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t id = 0,
+    const char *terms = nullptr,
+    const char *state = nullptr,
+    const char *ours = nullptr,
+    const char *theirs = nullptr) {
+  auto terms__ = terms ? _fbb.CreateString(terms) : 0;
+  auto state__ = state ? _fbb.CreateString(state) : 0;
+  auto ours__ = ours ? _fbb.CreateString(ours) : 0;
+  auto theirs__ = theirs ? _fbb.CreateString(theirs) : 0;
+  return tce::wire::CreateAgreementLine(
+      _fbb,
+      id,
+      terms__,
+      state__,
+      ours__,
+      theirs__);
 }
 
 struct Government FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

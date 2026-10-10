@@ -994,6 +994,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** AU step three: the observer's view of agreements and both law histories, views weighed in stances (ADR-0020 §3), failure recorded on each side once heard.
 
+## 2026-10-10 — M5c slice AU, step three: agreements in the observer, views in stances; slice AU complete
+
+**Goal:** make what people believe of another polity count where ADR-0020 §3 says it does, in stances on agreements, and show agreements to the observer.
+
+**What changed:** a view's warmth (helps us over harms us, and keeps its word past even) adds `w_regard` times itself to a stance on an agreement with that polity, kept with the stance (saves schema 66); a negotiator weighs their own view too. The relations classifier names a polity bound by an agreement in force *under agreement*, and the government panel lists each agreement with its terms, where it stands, and both sides' law histories side by side (wire 1.58).
+
+**Findings:** in the test villages, a negotiator from a village whose people all believed the other harmed them still agreed to terms, and their own gathering turned the agreement down: ratification, not the negotiator, carried the village's view (13-01 §5). Failure recorded on each side only once heard is not built; a failed agreement's laws lapse at once.
+
+**Evidence:** classifier unit tests for the new label and reasons; integration tests of the label and both histories for an agreement in force, and of a wary village's gathering turning one down with every stance keeping its view; the roundtrip of a schema-65 save; the web unit test decodes agreement lines.
+
+**Open:** slice AV, performance: gifts and recurring transfers carried by people, which would give one-sided leave something to be traded for.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

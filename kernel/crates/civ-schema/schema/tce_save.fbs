@@ -1160,6 +1160,9 @@ table LawSave {
   // The agreement with another polity this law decides, 0 for none (schema 65, M5c slice AU,
   // ADR-0020 §6).
   agreement: ulong (id: 46);
+  // What views of the other polity added to each stance on an agreement, points, in `stances`
+  // order (schema 66, M5c slice AU step three); absent when none did, and before.
+  stance_views: [float] (id: 47);
 }
 
 // `law` 0: called on cases only (M4b slice AB).

@@ -179,9 +179,10 @@ impl Population {
 
     /// What negotiator `n` of polity `pi` makes of each package with polity `oi`, being on side
     /// `side`, as a review weighs a move (ADR-0013 §5): their household's forecast, what the
-    /// template does to what they hold dear, and the forecasts of those who regard them, at the
-    /// support they predict among the members of their body they know; the forecasts over the
-    /// term, in years.
+    /// template does to what they hold dear and what they believe of the other polity, and the
+    /// forecasts of those who regard them, at the support they predict among the members of
+    /// their body they know (by those members' households' forecasts and regard alone: nobody
+    /// sees another's view); the forecasts over the term, in years.
     #[allow(clippy::too_many_arguments)]
     fn weigh_packages(
         &self,
@@ -207,7 +208,13 @@ impl Population {
                 .collect();
         };
         let creed = self.creed_for(ctx, n, k).map_or(0.0, |c| c.1);
-        let dear = (self.value_points(ctx, n, k) + creed) / pp.w_gain.max(1e-9);
+        // And what they believe of the other polity, as a stance on it weighs it (ADR-0020 §3).
+        let rp = &ctx.params.relations;
+        let view = self
+            .polity_views
+            .of(n, self.polities[oi].id, day, rp)
+            .map_or(0.0, |v| pp.w_regard * v.warmth());
+        let dear = (self.value_points(ctx, n, k) + creed + view) / pp.w_gain.max(1e-9);
         packages
             .iter()
             .map(|p| {
@@ -470,33 +477,12 @@ impl Population {
     /// An agreement's terms in words: "leave for Ashford's people to use the places Oakholt
     /// claims, for a year".
     pub(super) fn agreement_words(&self, ctx: &Ctx, a: &Agreement) -> String {
-        let name = |s: u8| {
-            self.polities
-                .iter()
-                .find(|p| p.id == a.polities[usize::from(s)])
-                .map_or_else(
-                    || "another settlement".to_owned(),
-                    |p| self.settlement_name(ctx, p.settlement),
-                )
-        };
-        let clauses: Vec<String> = a
-            .clauses
-            .iter()
-            .map(|c| match *c {
-                Clause::Leave { from } => format!(
-                    "leave for {}'s people to use the places {} claims",
-                    name(1 - from),
-                    name(from)
-                ),
-            })
-            .collect();
-        let term = match a.term_days {
-            0 => "until withdrawn".to_owned(),
-            365 => "for a year".to_owned(),
-            d if d % 365 == 0 => format!("for {} years", d / 365),
-            d => format!("for {d} days"),
-        };
-        format!("{}, {term}", clauses.join(", and "))
+        a.words(&|polity| {
+            self.polities.iter().find(|p| p.id == polity).map_or_else(
+                || "another settlement".to_owned(),
+                |p| self.settlement_name(ctx, p.settlement),
+            )
+        })
     }
 
     /// Adds a chronicle entry for agreement `id` at side 0's hearth.

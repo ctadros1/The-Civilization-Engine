@@ -11,10 +11,12 @@ use civ_agents::agreements::{AgreementState, Clause, Failure};
 use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome, PolicyKind};
 use civ_agents::ties::Act;
 use civ_agents::uses::{HeardClaim, Place, Worked};
+use civ_agents::views::ViewAct;
 use civ_agents::word::Wrong;
 use civ_agents::{AgreementStep, ChronicleKind};
 use civ_content::ContentRegistry;
 use civ_core::PermanentId;
+use civ_sim::relations::{self, Standing};
 use civ_sim::{NewWorld, Sim, persist};
 
 const PRESET: &str = "core:worldgen/river_valley";
@@ -333,6 +335,36 @@ fn neighbours_each_claiming_what_the_other_works_agree_on_leave_and_it_is_in_for
             .any(|e| e.0 == AgreementStep::InForce && e.1.contains("came into force"))
     );
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    // The observer names each side's relation by it, and shows both law histories.
+    let polity = |p: PermanentId| {
+        sim.people()
+            .polities
+            .iter()
+            .find(|x| x.id == p)
+            .expect("a polity")
+    };
+    let (a_, b_) = (polity(polities[0]), polity(polities[1]));
+    for (from, to) in [(a_, b_), (b_, a_)] {
+        let label = relations::relation_of(&sim, from, to);
+        assert_eq!(label.standing, Standing::UnderAgreement, "{:?}", label.why);
+        assert!(
+            label.why[0].starts_with("an agreement with "),
+            "{:?}",
+            label.why
+        );
+        let views = relations::agreements_between(&sim, from, to);
+        assert_eq!(views.len(), 1);
+        let v = &views[0];
+        assert!(v.state.starts_with("in force since"), "{}", v.state);
+        assert!(v.terms.contains("leave for"), "{}", v.terms);
+        for side in [&v.ours, &v.theirs] {
+            assert!(
+                side.contains("; passed on")
+                    && side.contains("that the other's gathering passed it"),
+                "{side}"
+            );
+        }
+    }
 
     // Under leave, people of the other village working a place one claims are not trespassing to
     // those who know their own law deciding it: B's households work A's place beside one of A's.
@@ -379,6 +411,72 @@ fn neighbours_each_claiming_what_the_other_works_agree_on_leave_and_it_is_in_for
     );
 
     // And the whole of it saves and loads.
+    saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+#[test]
+fn people_who_believe_the_other_village_harms_them_weigh_it_against_an_agreement() {
+    // As the first test, but everyone of B believes A's people harm theirs: each saw them
+    // trespass on ten days lately (ADR-0020 §3: a view weighs as regard for a sponsor does).
+    let Neighbours {
+        mut sim,
+        polities,
+        adults,
+        ..
+    } = neighbours(&[0, 1], [&[1], &[0]]);
+    let rp = sim.rules().people.relations.clone();
+    let today = sim.now().day_index();
+    let pop = sim.people_mut_for_tests();
+    for &p in &adults[1] {
+        pop.polity_views
+            .record(p, polities[0], ViewAct::SawTrespass, 10.0, today, &rp);
+    }
+    let warmth = pop
+        .polity_views
+        .of(adults[1][0], polities[0], today, &rp)
+        .expect("a view")
+        .warmth();
+    assert!(warmth < -0.4, "{warmth}");
+    let mut made = None;
+    for _ in 0..60 {
+        sim.advance_minutes(DAY).expect("lives");
+        let x = sim.people().agreements.list.first();
+        if let Some(a) = x.filter(|a| !a.open() || a.passed.iter().all(Option::is_some)) {
+            made = Some(a.clone());
+            break;
+        }
+    }
+    let a = made.unwrap_or_else(|| panic!("{:?}", agreement_entries(&sim)));
+    // B's side holds it against A: either B's negotiator saw no package worth sponsoring, or B's
+    // gathering turned it down, every stance there keeping what the view added.
+    let b_side = a.side_of(polities[1]).expect("B is a party");
+    match a.state {
+        AgreementState::Failed {
+            why: Failure::NoTerms,
+            ..
+        } => {}
+        AgreementState::Failed {
+            why: Failure::TurnedDown(s),
+            ..
+        } => {
+            assert_eq!(s, b_side);
+            let law = law_of(&sim, polities[1], a.id).expect("B's law");
+            let viewed: Vec<f32> = law
+                .stances
+                .iter()
+                .filter(|r| r.person != law.sponsor)
+                .map(|r| r.view)
+                .collect();
+            assert!(
+                !viewed.is_empty() && viewed.iter().all(|&v| v < 0.0),
+                "{viewed:?}"
+            );
+        }
+        other => panic!(
+            "B would not have it: {other:?} {:?}",
+            agreement_entries(&sim)
+        ),
+    }
     saves_and_goes_on_alike(&mut sim, DAY);
 }
 

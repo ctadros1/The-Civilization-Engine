@@ -2241,6 +2241,27 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
 }
 
 #[test]
+fn a_schema_65_save_loads_with_no_view_weighed_in_any_stance() {
+    // A schema-65 save, from before views of another polity weighed in stances on agreements (M5c
+    // slice AU, step three): no stance kept one.
+    let sim = load_first();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V65;
+    let path = republish("slice-au2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-65 save loads");
+    assert!(
+        loaded
+            .people()
+            .polities
+            .iter()
+            .flat_map(|p| &p.laws)
+            .flat_map(|l| &l.stances)
+            .all(|r| r.view == 0.0)
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_64_save_loads_with_no_agreement_between_polities() {
     // A schema-64 save, from before agreements between polities (M5c slice AU, step two): it
     // held none, and no law decided one; a world of one polity holds none anyway.

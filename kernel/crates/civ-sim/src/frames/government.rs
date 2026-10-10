@@ -508,6 +508,27 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                 let standing = fbb.create_string(label.standing.words());
                 let why: Vec<_> = label.why.iter().map(|w| fbb.create_string(w)).collect();
                 let why = fbb.create_vector(&why);
+                // The agreements between the two, both law histories side by side (wire 1.58).
+                let agreements: Vec<_> = crate::relations::agreements_between(sim, polity, other)
+                    .iter()
+                    .map(|a| {
+                        let terms = fbb.create_string(&a.terms);
+                        let state = fbb.create_string(&a.state);
+                        let ours = fbb.create_string(&a.ours);
+                        let theirs = fbb.create_string(&a.theirs);
+                        wire::AgreementLine::create(
+                            &mut fbb,
+                            &wire::AgreementLineArgs {
+                                id: a.id.get(),
+                                terms: Some(terms),
+                                state: Some(state),
+                                ours: Some(ours),
+                                theirs: Some(theirs),
+                            },
+                        )
+                    })
+                    .collect();
+                let agreements = fbb.create_vector(&agreements);
                 wire::RelationLine::create(
                     &mut fbb,
                     &wire::RelationLineArgs {
@@ -515,6 +536,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                         name: Some(name),
                         label: Some(standing),
                         why: Some(why),
+                        agreements: Some(agreements),
                     },
                 )
             })

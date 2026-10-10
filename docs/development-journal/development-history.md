@@ -1112,6 +1112,14 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** enclosures (slice AX's works); a lived failed ratification waits for contested ground to cost something.
 
+## 2026-10-10 — M5 closed; the fortification kit moves to M6
+
+**Decision:** enclosures were planned as M5c's last works. In M5 nobody takes from another village's stores, so a palisade round a village keeps out no taker; every household's forecast of an enclosure law would be a loss and nobody would build one. Built now, its design would be untested by use and likely rebuilt when M6 brings force and sieges. It moves to M6 with its design carried over (plan §9).
+
+**M5 as built:** several settlements with moves, visits, marriage and splinter founding (M5a); buying by report, fetching to resell, and diffusion of techniques and style through contact (M5b); claims over wild ground, agreements ratified by each side's own custom and performed with real goods, and log footbridges built by households and villages (M5c).
+
+**Open:** the trestle and other bridge systems; per-polity currencies; a treaty failing ratification in a lived world.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

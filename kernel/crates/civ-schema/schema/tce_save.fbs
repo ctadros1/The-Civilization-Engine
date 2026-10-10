@@ -417,6 +417,9 @@ table Household {
   // saves: begun empty when the save is loaded.
   midden_kg: double (id: 14);
   midden_at: long (id: 15);
+  // Schema 73 (M6a slice AY, ADR-0021 §1): litres each of its people uses a day, set by the walk
+  // to the water they last fetched; 0 (and absent in older saves) for the people profile's.
+  water_use_l: double (id: 16);
 }
 
 // Schema 10: one row of a household's posted terms (ADR-0006 §4). Goods are indexed like
@@ -1868,6 +1871,11 @@ table PlacesSave {
   // Schema 63 (M5c slice AT, step two): who did each piece of work in `worked`, in its order (0
   // when not known).
   worked_by: [ulong] (id: 15);
+  // Schema 73 (M6a slice AY, ADR-0021 §1): what has been drawn today at each spring, litres by
+  // its patch in patch order, on `draws_day`.
+  draws_day: long (id: 16);
+  draw_patches: [uint] (id: 17);
+  draw_litres: [double] (id: 18);
 }
 
 // Section "relation" (schema 63, M5c slice AT, ADR-0020 §3): what each person believes of the

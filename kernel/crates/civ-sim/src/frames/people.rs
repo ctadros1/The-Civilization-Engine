@@ -1224,7 +1224,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
             (Some(h), Some(stores)) => {
                 let members = h.members.len().max(1);
                 let kcal_day = members as f64 * params.household.daily_kcal_per_person;
-                let litres_day = members as f64 * params.household.water_l_per_person_day;
+                let litres_day = members as f64 * h.water_use(&params.household);
                 let fuel_day = population::fuel_per_day(params, members, now.day_index());
                 (
                     stock_kcal(stores, goods) / kcal_day.max(1.0),

@@ -133,6 +133,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `day_factor`, `bedtime_after_sunset_hours` | Weight of sleep pressure by day, and when the evening's sleep gate opens. |
 | `social` | `tau_h`, `quality_per_companion`, `household_quality` | Relatedness eases toward the quality of present company. |
 | `household` | `water_l_per_person_day`, `carry_water_l`, `water_target_days` | Water use, what one trip carries, the store people aim for. |
+| | `water_use_by_walk_min` | Optional (content API 70): what a person uses a day by the one-way walk to the water, pairs `[minutes, litres]` with minutes of 0 or more, rising, and litres from 1 to 100, interpolated between and held beyond the ends. A household's use follows the walk to the water it last fetched; left out, every household uses `water_l_per_person_day`. |
 | | `food_target_days`, `carry_kg`, `daily_kcal_per_person` | The food store people aim for, the load one person carries home, average need. |
 | | `harvest_margin_days` | The food a household wants in store beyond the first grain of its next harvest: stores short of that much make wild food worth going out for (`decision.w_lean`). |
 | | `raised_store_factor` | How many times as long goods keep on a raised store's floor as elsewhere under a roof (1 or more). |
@@ -716,6 +717,13 @@ norms they hold weigh), `revolt_days` (how long the call stands), `hold_days` (h
 officeholder, and more adults than stand with the gathering, must stand with it before it holds)
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
+
+Content API 70 (M6a slice AY, step two) brings water people choose: the `[household]` key
+`water_use_by_walk_min` (above). The core's people use 20 L a day while the walk is a quarter of
+an hour or less each way, falling to 10 L at half an hour (research 12-01 §2.1: up to 20 L at 5-30
+minutes, often under 5 L beyond; its prior for carried water is 10-30 L). Springs are sources:
+people fetch from the nearest that flows and has a load left today when it is nearer than the
+river or lake.
 
 Content API 69 (M6a slice AY, step one) brings water under the ground: the land profile's
 optional `[groundwater]` section and its `[[groundwater.unit]]` tables (above), from which each

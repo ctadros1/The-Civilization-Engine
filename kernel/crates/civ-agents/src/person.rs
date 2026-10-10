@@ -687,6 +687,10 @@ pub struct Household {
     pub water_l: f64,
     /// When water was last brought up to date.
     pub water_at: SimTime,
+    /// Litres each of its people uses a day, set by the walk to the water they last fetched
+    /// (M6a slice AY, ADR-0021 §1); 0 until then, which uses the profile's
+    /// `water_l_per_person_day`.
+    pub water_use_l: f64,
     /// Patches they have gathered in, and what they found.
     pub known: Vec<KnownPatch>,
     /// Their stores are under a roof: goods that keep better there spoil at their sheltered rates,
@@ -869,6 +873,15 @@ impl Household {
     pub fn water_at_time(&self, t: SimTime, litres_per_day: f64) -> f64 {
         let days = (t.minutes() - self.water_at.minutes()).max(0) as f64 / 1440.0;
         (self.water_l - days * litres_per_day).max(0.0)
+    }
+
+    /// Litres each of its people uses a day ([`Household::water_use_l`]).
+    pub fn water_use(&self, params: &crate::params::HouseholdParams) -> f64 {
+        if self.water_use_l > 0.0 {
+            self.water_use_l
+        } else {
+            params.water_l_per_person_day
+        }
     }
 
     /// Brings the water store up to `t`.
@@ -1062,6 +1075,7 @@ mod tests {
             stores_at: SimTime::ZERO,
             water_l: 100.0,
             water_at: SimTime::ZERO,
+            water_use_l: 0.0,
             known: Vec::new(),
             sheltered: false,
             keeping: Keeping::default(),

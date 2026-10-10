@@ -527,47 +527,50 @@ impl Water {
         self.heads.get(p).copied()
     }
 
-    /// The springs today: patches off the water whose head stands at their lowest ground, where
-    /// what flows to them from the patches round them is at least `spring_min_m3_day`.
-    pub fn springs(&self, params: &WaterParams) -> Vec<Spring> {
+    /// The spring in patch `p` today, if it has one: a patch off the water whose head stands at
+    /// its lowest ground, where what flows to it from the patches round it at today's heads is at
+    /// least `spring_min_m3_day`.
+    pub fn spring_at(&self, params: &WaterParams, p: usize) -> Option<Spring> {
         let aq = &self.aquifer;
-        if self.heads.len() != aq.len() {
-            return Vec::new();
+        if self.heads.len() != aq.len() || p >= aq.len() {
+            return None;
+        }
+        let (Some((cell, z)), None) = (aq.seep[p], aq.stage[p]) else {
+            return None;
+        };
+        if self.heads[p] < f64::from(z) - 1e-6 {
+            return None;
         }
         let cols = aq.cols as usize;
-        let mut out = Vec::new();
-        for p in 0..aq.len() {
-            let (Some((cell, z)), None) = (aq.seep[p], aq.stage[p]) else {
-                continue;
-            };
-            if self.heads[p] < f64::from(z) - 1e-6 {
-                continue;
-            }
-            let (x, y) = (p % cols, p / cols);
-            let mut q = 0.0;
-            let mut add =
-                |c: f64, other: usize| q += (c * (self.heads[other] - self.heads[p])).max(0.0);
-            if x + 1 < cols {
-                add(aq.c_east[p], p + 1);
-            }
-            if x > 0 {
-                add(aq.c_east[p - 1], p - 1);
-            }
-            if y + 1 < aq.rows as usize {
-                add(aq.c_south[p], p + cols);
-            }
-            if y > 0 {
-                add(aq.c_south[p - cols], p - cols);
-            }
-            if q >= params.spring_min_m3_day {
-                out.push(Spring {
-                    patch: p as u32,
-                    cell,
-                    flow_m3_day: q,
-                });
-            }
+        let (x, y) = (p % cols, p / cols);
+        let mut q = 0.0;
+        let mut add = |c: f64, other: usize| {
+            q += (c * (self.heads[other] - self.heads[p])).max(0.0);
+        };
+        if x + 1 < cols {
+            add(aq.c_east[p], p + 1);
         }
-        out
+        if x > 0 {
+            add(aq.c_east[p - 1], p - 1);
+        }
+        if y + 1 < aq.rows as usize {
+            add(aq.c_south[p], p + cols);
+        }
+        if y > 0 {
+            add(aq.c_south[p - cols], p - cols);
+        }
+        (q >= params.spring_min_m3_day).then_some(Spring {
+            patch: p as u32,
+            cell,
+            flow_m3_day: q,
+        })
+    }
+
+    /// The springs today, in patch order ([`Water::spring_at`]).
+    pub fn springs(&self, params: &WaterParams) -> Vec<Spring> {
+        (0..self.aquifer.len())
+            .filter_map(|p| self.spring_at(params, p))
+            .collect()
     }
 
     /// What is wrong with saved water state for the aquifer, if anything.

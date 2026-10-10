@@ -185,10 +185,8 @@ impl Population {
         if let Some(x) = self.household_mut(id) {
             let members = x.members.len();
             x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
-            x.settle_water(
-                now,
-                members as f64 * params.household.water_l_per_person_day,
-            );
+            let use_l = x.water_use(&params.household);
+            x.settle_water(now, members as f64 * use_l);
             let len = goods.len().max(x.stores.len());
             x.stores.resize(len, 0.0);
         }
@@ -1658,6 +1656,7 @@ impl Population {
             stores_at: ctx.now,
             water_l: 0.0,
             water_at: ctx.now,
+            water_use_l: 0.0,
             known: natal.known.clone(),
             sheltered: false,
             keeping: crate::person::Keeping::default(),

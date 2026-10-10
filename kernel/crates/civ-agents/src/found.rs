@@ -710,6 +710,7 @@ fn add_family(
             * params.household.water_l_per_person_day
             * params.household.water_target_days,
         water_at: now,
+        water_use_l: 0.0,
         known: Vec::new(),
         sheltered: false,
         keeping: crate::person::Keeping::default(),
@@ -1633,6 +1634,7 @@ pub(crate) mod tests {
             household: HouseholdParams {
                 water_l_per_person_day: 20.0,
                 carry_water_l: 15.0,
+                water_use_by_walk: Vec::new(),
                 water_target_days: 1.5,
                 food_target_days: 5.0,
                 carry_kg: 20.0,

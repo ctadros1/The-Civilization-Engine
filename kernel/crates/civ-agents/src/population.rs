@@ -237,6 +237,10 @@ struct HomeField {
     /// The paths survey and crossings it was walked out on ([`civ_land::Land::route_revision`]).
     rev: u64,
     water: Option<(u32, f32)>,
+    /// Springs in reach that would be nearer than `water` if they flowed (M6a slice AY):
+    /// walking seconds, patch and the cell it rises at, nearest first. Whether one flows, and
+    /// has water left today, is asked when water is fetched.
+    springs: Vec<(f32, u32, u32)>,
     /// Per kind of place (the index in `Population::places`), blocks by walking time to their
     /// cell, seconds.
     places: Vec<Vec<(u32, f32)>>,
@@ -496,6 +500,8 @@ pub struct Population {
     /// The places each household's people work, and the outsiders they saw there (M5c slice AT,
     /// ADR-0020 §5).
     pub uses: crate::uses::Uses,
+    /// What has been drawn today at each spring (M6a slice AY, ADR-0021 §1).
+    pub spring_draws: crate::uses::SpringDraws,
     /// What people believe of other polities they have heard of (M5c slice AT, ADR-0020 §3).
     pub polity_views: crate::views::Views,
     /// The claims of other polities each household has heard of (M5c slice AU, ADR-0020 §2).
@@ -1593,6 +1599,7 @@ impl Population {
             .nav
             .travel_field(&ctx.map.elevation, cell, reach, &|c| wear.factor(c));
         let water = nearest_water(ctx.map, &field);
+        let springs = springs_in_reach(ctx.land, &field, water.map_or(f32::INFINITY, |w| w.1));
         let places = self
             .places
             .iter()
@@ -1625,6 +1632,7 @@ impl Population {
                 day,
                 rev,
                 water,
+                springs,
                 places,
                 reach: field,
                 site_ground: farm::site_ground(ctx.map, &breakable, ctx.params),
@@ -2515,7 +2523,8 @@ impl Population {
         let fuel = fuel_kg(&stores, goods);
         let edible = if fuel > 0.0 { food_all } else { food_raw };
         let household_fuel_day = fuel_per_day(params, member_count, now.day_index());
-        let water_l = hh.water_at_time(now, members * params.household.water_l_per_person_day);
+        let water_day = members * hh.water_use(&params.household);
+        let water_l = hh.water_at_time(now, water_day);
         let doy = civ_land::day_of_year(now.day_index());
         let sun = needs::daylight(params.latitude_deg, doy);
         let minute = now.minute_of_day();
@@ -2586,7 +2595,7 @@ impl Population {
             food_days: stock / kcal_day.max(1.0),
             food_target_days: params.household.food_target_days,
             food_outlook_days,
-            water_days: water_l / (members * params.household.water_l_per_person_day).max(1e-6),
+            water_days: water_l / water_day.max(1e-6),
             water_target_days: params.household.water_target_days,
             household_kcal_day: kcal_day,
             has_food: edible > 1.0,
@@ -2788,13 +2797,7 @@ impl Population {
             }
         }
         let home = self.homes.get(&field_key);
-        let water = home.and_then(|f| {
-            f.water.map(|(cell, s)| WaterOption {
-                cell,
-                walk_min: f64::from(s) / 60.0,
-                at: cell_centre(ctx.map, cell as usize),
-            })
-        });
+        let water = home.and_then(|f| self.water_source(ctx, f));
         let land_params = ctx.land_params;
         let map = ctx.map;
         let (places, priors) = (&self.places, &self.priors);
@@ -4132,6 +4135,10 @@ impl Population {
                 }
                 Some(Behavior::FetchWater) => {
                     p.carrying.water_l = params.household.carry_water_l as f32;
+                    if let Target::Water(cell) = p.act.target {
+                        let (who, household) = (p.id, p.household);
+                        self.drew_water(ctx, cell, household, who, now);
+                    }
                 }
                 Some(Behavior::Farm) => {
                     if let (Some(d), Target::Field(field)) = (def.as_ref(), p.act.target)
@@ -4346,6 +4353,56 @@ impl Population {
 
     /// `person` of `household` worked `place` now and got `kcal` of food there: logged for the
     /// day's end, when who else worked it that day is known (M5c slice AT, ADR-0020 §5).
+    /// Someone of `household` drew a load of water at `cell` (M6a slice AY, ADR-0021 §1): at a
+    /// spring it counts against what flows to it today, and every draw is logged as a use.
+    fn drew_water(
+        &mut self,
+        ctx: &Ctx,
+        cell: u32,
+        household: PermanentId,
+        who: PermanentId,
+        now: SimTime,
+    ) {
+        let patch = ctx.land.patches.of_cell(cell as usize, ctx.map.width);
+        let aq = &ctx.land.water.aquifer;
+        let spring = aq.stage.get(patch).is_some_and(Option::is_none)
+            && aq
+                .seep
+                .get(patch)
+                .copied()
+                .flatten()
+                .is_some_and(|(c, _)| c == cell);
+        if spring {
+            let litres = ctx.params.household.carry_water_l;
+            self.spring_draws
+                .draw(now.day_index(), patch as u32, litres);
+        }
+        self.log_work(crate::uses::Place::Source(cell), household, who, now, 0.0);
+    }
+
+    /// Where people of a household with `home` fetch water now (M6a slice AY, ADR-0021 §1): the
+    /// nearest spring that flows and has a load left today, if one is nearer than the river or
+    /// lake, else the river or lake.
+    fn water_source(&self, ctx: &Ctx, home: &HomeField) -> Option<WaterOption> {
+        let (water, params) = (&ctx.land.water, &ctx.land_params.water);
+        let carry = ctx.params.household.carry_water_l;
+        let day = ctx.now.day_index();
+        let option = |cell: u32, s: f32| WaterOption {
+            cell,
+            walk_min: f64::from(s) / 60.0,
+            at: cell_centre(ctx.map, cell as usize),
+        };
+        for &(s, patch, cell) in &home.springs {
+            let Some(spring) = water.spring_at(params, patch as usize) else {
+                continue;
+            };
+            if spring.flow_m3_day * 1000.0 - self.spring_draws.drawn(day, patch) >= carry {
+                return Some(option(cell, s));
+            }
+        }
+        home.water.map(|(cell, s)| option(cell, s))
+    }
+
     fn log_work(
         &mut self,
         place: crate::uses::Place,
@@ -5096,6 +5153,7 @@ impl Population {
             return;
         };
         let load: Load = std::mem::take(&mut p.carrying);
+        let target = p.act.target;
         let hh_id = p.household;
         self.changed(hh_id);
         let Some(&own) = self.hh_index.get(&hh_id) else {
@@ -5104,8 +5162,21 @@ impl Population {
         let settlement = self.households.get(own).and_then(|x| x.settlement);
         if let Some(x) = self.households.get_mut(own) {
             let members = x.members.len().max(1) as f64;
-            x.settle_water(now, members * params.household.water_l_per_person_day);
+            let litres_day = members * x.water_use(&params.household);
+            x.settle_water(now, litres_day);
             x.water_l += f64::from(load.water_l);
+        }
+        // What its people use from now follows the walk to the water just fetched (ADR-0021 §1).
+        if load.water_l > 0.0
+            && let Target::Water(cell) = target
+        {
+            let walk = settlement
+                .and_then(|s| self.homes.get(&s))
+                .or_else(|| self.homes.get(&hh_id))
+                .and_then(|f| f.reach.seconds_to(cell as usize));
+            if let (Some(s), Some(x)) = (walk, self.households.get_mut(own)) {
+                x.water_use_l = params.household.water_use_l(f64::from(s) / 60.0);
+            }
         }
         let Some(g) = load.good.map(usize::from) else {
             return;
@@ -5474,6 +5545,25 @@ fn lay_out_places(ctx: &Ctx, range: u32, in_water: bool) -> Places {
     }
 }
 
+/// The springs that could rise within `field`'s reach nearer than `bank_s` seconds (M6a slice
+/// AY): each patch off the water whose lowest ground is reachable, with the walk to it, nearest
+/// first. Which of them flow changes with the heads, so it is asked when water is fetched.
+fn springs_in_reach(land: &Land, field: &TravelField, bank_s: f32) -> Vec<(f32, u32, u32)> {
+    let aq = &land.water.aquifer;
+    let mut out: Vec<(f32, u32, u32)> = (0..aq.len())
+        .filter_map(|p| {
+            let (cell, _) = aq.seep[p]?;
+            if aq.stage[p].is_some() {
+                return None;
+            }
+            let s = field.seconds_to(cell as usize)?;
+            (s < bank_s).then_some((s, p as u32, cell))
+        })
+        .collect();
+    out.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+    out
+}
+
 /// The reachable cell closest in walking time that is next to fresh water (river or lake, not
 /// the sea), with its walking time in seconds.
 fn nearest_water(map: &WorldMap, field: &TravelField) -> Option<(u32, f32)> {
@@ -5506,10 +5596,23 @@ mod tests {
     use super::*;
     use crate::params::{Eaten, GoodUse};
 
+    #[test]
+    fn water_use_follows_the_walk_within_the_curve_and_holds_beyond_it() {
+        let mut h = household();
+        assert_eq!(h.water_use_l(40.0), h.water_l_per_person_day);
+        h.water_use_by_walk = vec![(15.0, 20.0), (30.0, 10.0)];
+        assert_eq!(h.water_use_l(0.0), 20.0);
+        assert_eq!(h.water_use_l(15.0), 20.0);
+        assert!((h.water_use_l(22.5) - 15.0).abs() < 1e-12);
+        assert_eq!(h.water_use_l(30.0), 10.0);
+        assert_eq!(h.water_use_l(90.0), 10.0);
+    }
+
     fn household() -> HouseholdParams {
         HouseholdParams {
             water_l_per_person_day: 20.0,
             carry_water_l: 15.0,
+            water_use_by_walk: Vec::new(),
             water_target_days: 1.5,
             food_target_days: 5.0,
             carry_kg: 20.0,

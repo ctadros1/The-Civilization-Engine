@@ -111,8 +111,8 @@ use super::{
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
-    SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, finish,
-    section, single_chunk, unreadable,
+    SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
+    finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -442,6 +442,8 @@ enum Schema {
     V71,
     /// Water under the ground and the rivers' runoff store (M6a slice AY).
     V72,
+    /// Sources people choose and the water they use (M6a slice AY, step two).
+    V73,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -528,7 +530,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V69 => Schema::V69,
         SCHEMA_V70 => Schema::V70,
         SCHEMA_V71 => Schema::V71,
-        SAVE_SCHEMA_VERSION => Schema::V72,
+        SCHEMA_V72 => Schema::V72,
+        SAVE_SCHEMA_VERSION => Schema::V73,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -733,6 +736,7 @@ pub(super) fn decode<R: Read + Seek>(
             people.seen_away,
             people.founding_ways,
             people.uses,
+            people.spring_draws,
         ) = (
             d.known,
             d.contacts,
@@ -745,6 +749,7 @@ pub(super) fn decode<R: Read + Seek>(
             d.seen,
             d.ways,
             d.uses,
+            d.draws,
         );
     }
     // What people believe of other polities (schema 63); before, nobody held a view.
@@ -2886,7 +2891,8 @@ fn carried(
         | Schema::V69
         | Schema::V70
         | Schema::V71
-        | Schema::V72 => {
+        | Schema::V72
+        | Schema::V73 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2954,6 +2960,7 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                     admired: raw(h.admired),
                     midden_kg: h.midden.kg,
                     midden_at: h.midden.at.minutes(),
+                    water_use_l: h.water_use_l,
                 },
             )
         })
@@ -3068,7 +3075,8 @@ fn decode_households(
             | Schema::V69
             | Schema::V70
             | Schema::V71
-            | Schema::V72 => {
+            | Schema::V72
+            | Schema::V73 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3151,6 +3159,20 @@ fn decode_households(
                 _ => civ_agents::params::Taste::default(),
             },
             admired: id(h.admired()),
+            // Before schema 73 every household used the profile's water a day.
+            water_use_l: {
+                let l = if schema >= Schema::V73 {
+                    h.water_use_l()
+                } else {
+                    0.0
+                };
+                if !(l.is_finite() && l >= 0.0) {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} uses {l} litres of water a day"
+                    )));
+                }
+                l
+            },
             // Before schema 27 no household kept a midden: one is begun as the save is loaded.
             midden: if schema < Schema::V27 {
                 civ_agents::person::Midden::begun(now)
@@ -6868,6 +6890,11 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
         .map(|w| w.person.map_or(0, PermanentId::get))
         .collect();
     let worked_by = (!worked_by.is_empty()).then(|| fbb.create_vector(&worked_by));
+    let draws = &people.spring_draws;
+    let draw_patches: Vec<u32> = draws.drawn.iter().map(|d| d.0).collect();
+    let draw_litres: Vec<f64> = draws.drawn.iter().map(|d| d.1).collect();
+    let draw_patches = (!draw_patches.is_empty()).then(|| fbb.create_vector(&draw_patches));
+    let draw_litres = (!draw_litres.is_empty()).then(|| fbb.create_vector(&draw_litres));
     let root = save::PlacesSave::create(
         &mut fbb,
         &save::PlacesSaveArgs {
@@ -6887,6 +6914,9 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
             uses,
             worked,
             worked_by,
+            draws_day: draws.day,
+            draw_patches,
+            draw_litres,
         },
     );
     finish(fbb, root)
@@ -6907,6 +6937,7 @@ struct PlacesDecoded {
     seen: BTreeMap<PermanentId, Vec<PermanentId>>,
     ways: BTreeMap<PermanentId, civ_agents::params::Taste>,
     uses: civ_agents::uses::Uses,
+    draws: civ_agents::uses::SpringDraws,
 }
 
 fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError> {
@@ -7212,7 +7243,29 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
             person: by.get(k).copied().and_then(PermanentId::from_raw),
         });
     }
+    // What was drawn today at each spring (schema 73); before, nothing.
+    let patches: Vec<u32> = root
+        .draw_patches()
+        .map(|v| v.iter().collect())
+        .unwrap_or_default();
+    let litres: Vec<f64> = root
+        .draw_litres()
+        .map(|v| v.iter().collect())
+        .unwrap_or_default();
+    if patches.len() != litres.len()
+        || patches.windows(2).any(|w| w[0] >= w[1])
+        || litres.iter().any(|l| !(l.is_finite() && *l >= 0.0))
+    {
+        return Err(LoadError::Malformed(
+            "section `places` has malformed draws at springs".to_owned(),
+        ));
+    }
+    let draws = civ_agents::uses::SpringDraws {
+        day: root.draws_day(),
+        drawn: patches.into_iter().zip(litres).collect(),
+    };
     Ok(PlacesDecoded {
+        draws,
         known: out,
         contacts,
         unmatched,

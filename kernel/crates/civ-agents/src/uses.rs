@@ -1,5 +1,7 @@
 //! The places people work, and who else they see working them (M5c slice AT, ADR-0020 §5): a
-//! patch block a gathering trip works, or a deposit dug. Each day's work is logged as it is done
+//! patch block a gathering trip works, a deposit dug, or water drawn (M6a slice AY, ADR-0021 §1).
+//! Water drawn is logged so households know where they draw and whom they saw there; no polity
+//! claims a place to draw water. Each day's work is logged as it is done
 //! and folded in at the day's end: a household counts a day at a place however many of its people
 //! went, the food they got there, and, for each other settlement whose people worked the same
 //! place that day, a day it saw outsiders there. What a household holds fades by the content's
@@ -16,15 +18,25 @@ pub enum Place {
     Patch(u32),
     /// A deposit, by its permanent id.
     Deposit(PermanentId),
+    /// Where water is drawn: the cell people stand on at a river's or lake's edge or a spring
+    /// (M6a slice AY).
+    Source(u32),
 }
 
 impl Place {
-    /// Its kind and number in saves: 0 a patch, 1 a deposit.
+    /// Its kind and number in saves: 0 a patch, 1 a deposit, 2 a source of water.
     pub fn code(self) -> (u8, u64) {
         match self {
             Place::Patch(p) => (0, u64::from(p)),
             Place::Deposit(d) => (1, d.get()),
+            Place::Source(c) => (2, u64::from(c)),
         }
+    }
+
+    /// Whether a polity may claim it (ADR-0020 §5): a block of wild ground or a deposit, never a
+    /// source of water.
+    pub fn claimable(self) -> bool {
+        !matches!(self, Place::Source(_))
     }
 
     /// The place saved as `kind` and `id`.
@@ -32,7 +44,43 @@ impl Place {
         match kind {
             0 => u32::try_from(id).ok().map(Place::Patch),
             1 => PermanentId::from_raw(id).map(Place::Deposit),
+            2 => u32::try_from(id).ok().map(Place::Source),
             _ => None,
+        }
+    }
+}
+
+/// What has been drawn today at each spring (M6a slice AY, ADR-0021 §1): a spring gives what
+/// flows to it in a day, and those who come once it is drawn go elsewhere. Saved; let go at the
+/// day's turn.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct SpringDraws {
+    /// The day the draws are for.
+    pub day: i64,
+    /// Litres drawn at each spring, by its patch, in patch order.
+    pub drawn: Vec<(u32, f64)>,
+}
+
+impl SpringDraws {
+    /// Litres drawn on `day` at the spring of `patch`.
+    pub fn drawn(&self, day: i64, patch: u32) -> f64 {
+        if self.day != day {
+            return 0.0;
+        }
+        self.drawn
+            .binary_search_by_key(&patch, |d| d.0)
+            .map_or(0.0, |i| self.drawn[i].1)
+    }
+
+    /// `litres` drawn on `day` at the spring of `patch`.
+    pub fn draw(&mut self, day: i64, patch: u32, litres: f64) {
+        if self.day != day {
+            self.day = day;
+            self.drawn.clear();
+        }
+        match self.drawn.binary_search_by_key(&patch, |d| d.0) {
+            Ok(i) => self.drawn[i].1 += litres,
+            Err(i) => self.drawn.insert(i, (patch, litres)),
         }
     }
 }
@@ -523,11 +571,16 @@ mod tests {
             Place::Patch(0),
             Place::Patch(u32::MAX),
             Place::Deposit(id(5)),
+            Place::Source(17),
         ] {
             let (k, n) = p.code();
             assert_eq!(Place::from_code(k, n), Some(p));
         }
-        assert_eq!(Place::from_code(2, 1), None);
+        assert_eq!(Place::from_code(3, 1), None);
+        assert_eq!(Place::from_code(2, u64::from(u32::MAX) + 1), None);
         assert_eq!(Place::from_code(1, 0), None);
+        // Nobody claims a source of water.
+        assert!(Place::Patch(3).claimable() && Place::Deposit(id(5)).claimable());
+        assert!(!Place::Source(17).claimable());
     }
 }

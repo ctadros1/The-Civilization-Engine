@@ -65,6 +65,11 @@ household_quality = 0.45
 [household]
 water_l_per_person_day = 20.0    # research 10-01 §2.1
 carry_water_l = 15.0             # 10-25 L per trip
+# What a person uses a day by the one-way walk to the water (content API 70; ADR-0021 §1): the
+# 20 L above while a round trip takes half an hour or less, falling to 10 L at an hour. Research
+# 12-01 §2.1: basic access is usually up to 20 L a person a day at 5-30 minutes, often under
+# 5 L beyond; its prior for carried water is 10-30 L. A tuning curve within that prior.
+water_use_by_walk_min = [[15.0, 20.0], [30.0, 10.0]]
 water_target_days = 1.5
 food_target_days = 5.0
 ready_food_days = 2.0            # bread and porridge in hand: bread keeps a few days (tuning)

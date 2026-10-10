@@ -236,6 +236,7 @@ mod tests {
                 stores_at: SimTime::ZERO,
                 water_l: 0.0,
                 water_at: SimTime::ZERO,
+                water_use_l: 0.0,
                 known: Vec::new(),
                 sheltered: false,
                 keeping: crate::person::Keeping::default(),

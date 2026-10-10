@@ -1125,6 +1125,10 @@ pub(crate) struct Social {
 pub(crate) struct Household {
     pub water_l_per_person_day: f64,
     pub carry_water_l: f64,
+    /// Content API 70: what a person uses a day by the one-way walk to the water, pairs of
+    /// minutes and litres; none for `water_l_per_person_day` whatever the walk.
+    #[serde(default)]
+    pub water_use_by_walk_min: Vec<[f64; 2]>,
     pub water_target_days: f64,
     pub food_target_days: f64,
     pub ready_food_days: f64,
@@ -1369,6 +1373,11 @@ impl PeopleFile {
             household: HouseholdParams {
                 water_l_per_person_day: h.water_l_per_person_day,
                 carry_water_l: h.carry_water_l,
+                water_use_by_walk: h
+                    .water_use_by_walk_min
+                    .iter()
+                    .map(|&[m, l]| (m, l))
+                    .collect(),
                 water_target_days: h.water_target_days,
                 food_target_days: h.food_target_days,
                 ready_food_days: h.ready_food_days,
@@ -2067,6 +2076,21 @@ impl PeopleFile {
             &mut p,
         );
         positive("household.carry_water_l", h.carry_water_l, &mut p);
+        let mut last = f64::NEG_INFINITY;
+        for &[m, l] in &h.water_use_by_walk_min {
+            if !(m.is_finite() && m >= 0.0 && m > last) {
+                p.push(
+                    "`household.water_use_by_walk_min` needs minutes of 0 or more, rising"
+                        .to_owned(),
+                );
+            }
+            if !(l.is_finite() && (1.0..=100.0).contains(&l)) {
+                p.push(format!(
+                    "`household.water_use_by_walk_min` litres must be between 1 and 100 (got {l})"
+                ));
+            }
+            last = m;
+        }
         positive("household.water_target_days", h.water_target_days, &mut p);
         positive("household.food_target_days", h.food_target_days, &mut p);
         positive("household.ready_food_days", h.ready_food_days, &mut p);

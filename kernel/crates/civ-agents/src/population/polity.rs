@@ -707,7 +707,7 @@ impl Population {
             .iter()
             .flat_map(|&h| self.uses.outsiders_seen(h, since))
             .map(|(u, _)| u.place)
-            .filter(|p| claimed.binary_search(p).is_err())
+            .filter(|p| p.claimable() && claimed.binary_search(p).is_err())
             .collect();
         out.sort_unstable();
         out.dedup();

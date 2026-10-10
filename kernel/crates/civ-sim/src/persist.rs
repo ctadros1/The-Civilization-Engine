@@ -251,6 +251,9 @@ pub const SCHEMA_V70: u32 = 70;
 /// The schema version of M5c slice AX: the room to work on a crossing, before water under the
 /// ground (see [`agents`]).
 pub const SCHEMA_V71: u32 = 71;
+/// The schema version of M6a slice AY, step one: water under the ground, before sources people
+/// choose (see [`agents`]).
+pub const SCHEMA_V72: u32 = 72;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

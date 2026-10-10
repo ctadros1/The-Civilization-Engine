@@ -1144,6 +1144,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** sources people choose and use that flexes (step two), wells (step three), the observer's view (step four).
 
+## 2026-10-10 — M6a slice AY, step two: water people choose
+
+**What changed:** springs became sources. People fetch from the nearest spring that flows and has water left today when it is nearer than the river, and a spring gives only what flows to it in a day. Every draw is logged as a use of its source, which no polity may claim. What a household uses a day now falls as its walk to the water lengthens (content API 70, saves 73).
+
+**Findings:** villages are founded within 90 m of a river, so a spring nearer than the river is rare. On one of three demo-like worlds, springs gave two-thirds of the water; on the other two, none. Nobody walks far enough yet to use less than 20 L.
+
+**Evidence:** tests that a spring gives its day's water and then sends people to the river (the cap checked by breaking it), that a dry spring is left alone, and that draws save and load exactly; a year on three worlds; forty days from one save, changed only in the water rate and the draws logged, at the same speed; the full suite, clippy and the smoke worlds.
+
+**Open:** wells (step three), the observer's view (step four).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

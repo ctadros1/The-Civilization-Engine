@@ -864,6 +864,10 @@ pub struct HouseholdParams {
     pub water_l_per_person_day: f64,
     /// Litres one person carries per trip.
     pub carry_water_l: f64,
+    /// What a person uses a day by the walk to the water (M6a slice AY, ADR-0021 §1): pairs of
+    /// one-way minutes and litres, minutes rising, interpolated between and held beyond the
+    /// ends. Empty: `water_l_per_person_day` whatever the walk.
+    pub water_use_by_walk: Vec<(f64, f64)>,
     /// Days of water a household tries to keep.
     pub water_target_days: f64,
     /// Days of food a household tries to keep.
@@ -906,6 +910,35 @@ pub struct HouseholdParams {
     /// ...and points toward staying before either; the day's chance is `leave_per_day` times the
     /// logistic of going's points less staying's.
     pub leave_stay: f64,
+}
+
+impl HouseholdParams {
+    /// Litres a person uses a day when the water is `walk_min` minutes' walk away, one way
+    /// (ADR-0021 §1): `water_use_by_walk` interpolated, held beyond its ends.
+    pub fn water_use_l(&self, walk_min: f64) -> f64 {
+        let curve = &self.water_use_by_walk;
+        let (Some(&first), Some(&last)) = (curve.first(), curve.last()) else {
+            return self.water_l_per_person_day;
+        };
+        if walk_min <= first.0 {
+            return first.1;
+        }
+        if walk_min >= last.0 {
+            return last.1;
+        }
+        for w in curve.windows(2) {
+            let ((m0, l0), (m1, l1)) = (w[0], w[1]);
+            if walk_min <= m1 {
+                let t = if m1 > m0 {
+                    (walk_min - m0) / (m1 - m0)
+                } else {
+                    1.0
+                };
+                return l0 + (l1 - l0) * t;
+            }
+        }
+        last.1
+    }
 }
 
 /// How choices are scored and sampled (research 01-09 §4.3, 04-07 §2.3).
@@ -1563,6 +1596,7 @@ pub fn interpolate(table: &[(f64, f64)], x: f64) -> f64 {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]

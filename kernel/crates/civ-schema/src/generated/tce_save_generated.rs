@@ -17926,6 +17926,7 @@ impl<'a> Household<'a> {
   pub const VT_ADMIRED: ::flatbuffers::VOffsetT = 30;
   pub const VT_MIDDEN_KG: ::flatbuffers::VOffsetT = 32;
   pub const VT_MIDDEN_AT: ::flatbuffers::VOffsetT = 34;
+  pub const VT_WATER_USE_L: ::flatbuffers::VOffsetT = 36;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -17937,6 +17938,7 @@ impl<'a> Household<'a> {
     args: &'args HouseholdArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Household<'bldr>> {
     let mut builder = HouseholdBuilder::new(_fbb);
+    builder.add_water_use_l(args.water_use_l);
     builder.add_midden_at(args.midden_at);
     builder.add_midden_kg(args.midden_kg);
     builder.add_admired(args.admired);
@@ -18069,6 +18071,13 @@ impl<'a> Household<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(Household::VT_MIDDEN_AT, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn water_use_l(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(Household::VT_WATER_USE_L, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Household<'_> {
@@ -18093,6 +18102,7 @@ impl ::flatbuffers::Verifiable for Household<'_> {
      .visit_field::<u64>("admired", Self::VT_ADMIRED, false)?
      .visit_field::<f64>("midden_kg", Self::VT_MIDDEN_KG, false)?
      .visit_field::<i64>("midden_at", Self::VT_MIDDEN_AT, false)?
+     .visit_field::<f64>("water_use_l", Self::VT_WATER_USE_L, false)?
      .finish();
     Ok(())
   }
@@ -18114,6 +18124,7 @@ pub struct HouseholdArgs<'a> {
     pub admired: u64,
     pub midden_kg: f64,
     pub midden_at: i64,
+    pub water_use_l: f64,
 }
 impl<'a> Default for HouseholdArgs<'a> {
   #[inline]
@@ -18135,6 +18146,7 @@ impl<'a> Default for HouseholdArgs<'a> {
       admired: 0,
       midden_kg: 0.0,
       midden_at: 0,
+      water_use_l: 0.0,
     }
   }
 }
@@ -18209,6 +18221,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<i64>(Household::VT_MIDDEN_AT, midden_at, 0);
   }
   #[inline]
+  pub fn add_water_use_l(&mut self, water_use_l: f64) {
+    self.fbb_.push_slot::<f64>(Household::VT_WATER_USE_L, water_use_l, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdBuilder {
@@ -18242,6 +18258,7 @@ impl ::core::fmt::Debug for Household<'_> {
       ds.field("admired", &self.admired());
       ds.field("midden_kg", &self.midden_kg());
       ds.field("midden_at", &self.midden_at());
+      ds.field("water_use_l", &self.water_use_l());
       ds.finish()
   }
 }
@@ -32840,6 +32857,9 @@ impl<'a> PlacesSave<'a> {
   pub const VT_USES: ::flatbuffers::VOffsetT = 30;
   pub const VT_WORKED: ::flatbuffers::VOffsetT = 32;
   pub const VT_WORKED_BY: ::flatbuffers::VOffsetT = 34;
+  pub const VT_DRAWS_DAY: ::flatbuffers::VOffsetT = 36;
+  pub const VT_DRAW_PATCHES: ::flatbuffers::VOffsetT = 38;
+  pub const VT_DRAW_LITRES: ::flatbuffers::VOffsetT = 40;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32851,6 +32871,9 @@ impl<'a> PlacesSave<'a> {
     args: &'args PlacesSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<PlacesSave<'bldr>> {
     let mut builder = PlacesSaveBuilder::new(_fbb);
+    builder.add_draws_day(args.draws_day);
+    if let Some(x) = args.draw_litres { builder.add_draw_litres(x); }
+    if let Some(x) = args.draw_patches { builder.add_draw_patches(x); }
     if let Some(x) = args.worked_by { builder.add_worked_by(x); }
     if let Some(x) = args.worked { builder.add_worked(x); }
     if let Some(x) = args.uses { builder.add_uses(x); }
@@ -32983,6 +33006,27 @@ impl<'a> PlacesSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(PlacesSave::VT_WORKED_BY, None)}
   }
+  #[inline]
+  pub fn draws_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(PlacesSave::VT_DRAWS_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn draw_patches(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(PlacesSave::VT_DRAW_PATCHES, None)}
+  }
+  #[inline]
+  pub fn draw_litres(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(PlacesSave::VT_DRAW_LITRES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PlacesSave<'_> {
@@ -33007,6 +33051,9 @@ impl ::flatbuffers::Verifiable for PlacesSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PlaceUseSave>>>>("uses", Self::VT_USES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, WorkedSave>>>("worked", Self::VT_WORKED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("worked_by", Self::VT_WORKED_BY, false)?
+     .visit_field::<i64>("draws_day", Self::VT_DRAWS_DAY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("draw_patches", Self::VT_DRAW_PATCHES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("draw_litres", Self::VT_DRAW_LITRES, false)?
      .finish();
     Ok(())
   }
@@ -33028,6 +33075,9 @@ pub struct PlacesSaveArgs<'a> {
     pub uses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PlaceUseSave<'a>>>>>,
     pub worked: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, WorkedSave>>>,
     pub worked_by: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub draws_day: i64,
+    pub draw_patches: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub draw_litres: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
 }
 impl<'a> Default for PlacesSaveArgs<'a> {
   #[inline]
@@ -33049,6 +33099,9 @@ impl<'a> Default for PlacesSaveArgs<'a> {
       uses: None,
       worked: None,
       worked_by: None,
+      draws_day: 0,
+      draw_patches: None,
+      draw_litres: None,
     }
   }
 }
@@ -33123,6 +33176,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlacesSaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_WORKED_BY, worked_by);
   }
   #[inline]
+  pub fn add_draws_day(&mut self, draws_day: i64) {
+    self.fbb_.push_slot::<i64>(PlacesSave::VT_DRAWS_DAY, draws_day, 0);
+  }
+  #[inline]
+  pub fn add_draw_patches(&mut self, draw_patches: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_DRAW_PATCHES, draw_patches);
+  }
+  #[inline]
+  pub fn add_draw_litres(&mut self, draw_litres: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlacesSave::VT_DRAW_LITRES, draw_litres);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlacesSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PlacesSaveBuilder {
@@ -33156,6 +33221,9 @@ impl ::core::fmt::Debug for PlacesSave<'_> {
       ds.field("uses", &self.uses());
       ds.field("worked", &self.worked());
       ds.field("worked_by", &self.worked_by());
+      ds.field("draws_day", &self.draws_day());
+      ds.field("draw_patches", &self.draw_patches());
+      ds.field("draw_litres", &self.draw_litres());
       ds.finish()
   }
 }

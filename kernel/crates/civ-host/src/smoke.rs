@@ -245,12 +245,14 @@ pub(crate) fn check_people(sim: &mut Sim, content: &ContentRegistry) -> Vec<Stri
     if homeless > 0 {
         failures.push(format!("{homeless} homes stand where nobody can walk"));
     }
-    let per_person = content.people.params.household.water_l_per_person_day;
+    let household = &content.people.params.household;
     let dry = sim
         .people()
         .households
         .iter()
-        .filter(|(_, h)| h.water_at_time(now, h.members.len() as f64 * per_person) <= 0.0)
+        .filter(|(_, h)| {
+            h.water_at_time(now, h.members.len() as f64 * h.water_use(household)) <= 0.0
+        })
         .count();
     if dry > 0 {
         failures.push(format!("{dry} households have no water"));

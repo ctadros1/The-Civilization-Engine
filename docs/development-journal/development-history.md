@@ -970,6 +970,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** slice AU, agreements: seeking terms, packages, ratification by each custom, and failure as an outcome.
 
+## 2026-10-10 — M5c slice AU, step one: claims that bind outsiders' choices
+
+**Goal:** give a claim, and so leave to use it, a real consequence before building agreements (ADR-0020 §5: outsiders use a claimed place only by leave).
+
+**What changed:** word of a claim crosses at the hearth with travellers (`share_claims`), each household keeping the claims of other polities it heard of; when choosing where to gather or dig, a household weighs a place another polity claims at half its worth (`claimed_worth`), unless its own polity claims it too. Saves schema 64, content API 61.
+
+**Findings:** through slice AT a claim had changed nobody's choices, which would have made leave grant nothing. The first build discounted places both villages claimed, so two villages that both claimed their shared fishing places each abandoned them; a place one's own polity claims is now held as one's own. Word spreads fast: within the first year every household of villages with neighbours in reach knew another's claims. Mutual claimants stay wary; a village that claims little keeps off others' claims and stays at peace.
+
+**Evidence:** a unit test of the claims-heard record; integration tests of word crossing with a visiting kin and of two lives of one world in which knowing of a claim kept the outsiders away; the roundtrip of a schema-63 save; a forty-day digest comparison on a village of 1,000.
+
+**Open:** AU step two, the agreement itself: seeking terms, the meeting, packages of leave, ratification by each custom.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

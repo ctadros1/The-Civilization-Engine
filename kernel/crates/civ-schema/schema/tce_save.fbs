@@ -1857,6 +1857,21 @@ table ViewSave {
 
 table RelationsSave {
   views: [ViewSave] (id: 0);
+  // Schema 64 (M5c slice AU, ADR-0020 §2): the claims of other polities each household heard of,
+  // by household, place and law.
+  heard: [HeardClaimSave] (id: 1);
+}
+
+// A place another polity's law claims, as `household` heard of it on `day` from `from` (schema
+// 64): `kind` 0 a patch block by its centre patch, 1 a deposit.
+table HeardClaimSave {
+  household: ulong (id: 0);
+  kind: ubyte (id: 1);
+  place: ulong (id: 2);
+  law: ulong (id: 3);
+  polity: ulong (id: 4);
+  day: long (id: 5);
+  from: ulong (id: 6);
 }
 
 // Outsiders a household saw at a place (schema 62): days, fading, and the last day.

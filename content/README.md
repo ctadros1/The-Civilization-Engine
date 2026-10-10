@@ -716,6 +716,17 @@ officeholder, and more adults than stand with the gathering, must stand with it 
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
 
+Content API 61 (M5c slice AU, step one) brings claims that bind outsiders' choices (ADR-0020
+§2, §5): the `[relations]` keys `share_claims` (0 to 1; 0.15, inside research 09-16 §2.2's 0.05–0.25
+for routine news) and `claimed_worth` (0 to 1; 0.5, a design prior). Someone who knows a claim
+their polity's law in force makes tells a companion from another settlement at the hearth with
+`share_claims`, and so does someone whose household heard of another polity's claim; the
+listener's household then holds every place the law claims. Word of a claim crosses no other
+way. A household that heard of another polity's claim on a place weighs it, when choosing where
+to gather or dig, at `claimed_worth` of what it would yield: it goes there only when nothing
+else is half as good, and is held to trespass if seen there. A place its own polity claims too it
+holds as its own and weighs whole. A claim heard of is let go once no law in force makes it.
+
 Content API 60 (M5c slice AT, step two) brings views of other polities (ADR-0020 §3): the
 people profile's `[relations]` table, with `prior` (0.01 to 100; 1 in the core pack, ADR-0020 §3's
 α = β = 1), `half_life_days` (1 to 36,500; 1,826, ADR-0020's five years), `seen_trespass` and

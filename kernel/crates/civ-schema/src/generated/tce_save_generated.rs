@@ -32720,6 +32720,7 @@ impl<'a> ::flatbuffers::Follow<'a> for RelationsSave<'a> {
 
 impl<'a> RelationsSave<'a> {
   pub const VT_VIEWS: ::flatbuffers::VOffsetT = 4;
+  pub const VT_HEARD: ::flatbuffers::VOffsetT = 6;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32731,6 +32732,7 @@ impl<'a> RelationsSave<'a> {
     args: &'args RelationsSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<RelationsSave<'bldr>> {
     let mut builder = RelationsSaveBuilder::new(_fbb);
+    if let Some(x) = args.heard { builder.add_heard(x); }
     if let Some(x) = args.views { builder.add_views(x); }
     builder.finish()
   }
@@ -32743,6 +32745,13 @@ impl<'a> RelationsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ViewSave>>>>(RelationsSave::VT_VIEWS, None)}
   }
+  #[inline]
+  pub fn heard(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HeardClaimSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HeardClaimSave>>>>(RelationsSave::VT_HEARD, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for RelationsSave<'_> {
@@ -32752,18 +32761,21 @@ impl ::flatbuffers::Verifiable for RelationsSave<'_> {
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ViewSave>>>>("views", Self::VT_VIEWS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<HeardClaimSave>>>>("heard", Self::VT_HEARD, false)?
      .finish();
     Ok(())
   }
 }
 pub struct RelationsSaveArgs<'a> {
     pub views: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ViewSave<'a>>>>>,
+    pub heard: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HeardClaimSave<'a>>>>>,
 }
 impl<'a> Default for RelationsSaveArgs<'a> {
   #[inline]
   fn default() -> Self {
     RelationsSaveArgs {
       views: None,
+      heard: None,
     }
   }
 }
@@ -32776,6 +32788,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RelationsSaveBuilder<'a, 'b, 
   #[inline]
   pub fn add_views(&mut self, views: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ViewSave<'b >>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RelationsSave::VT_VIEWS, views);
+  }
+  #[inline]
+  pub fn add_heard(&mut self, heard: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<HeardClaimSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RelationsSave::VT_HEARD, heard);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RelationsSaveBuilder<'a, 'b, A> {
@@ -32796,6 +32812,205 @@ impl ::core::fmt::Debug for RelationsSave<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
     let mut ds = f.debug_struct("RelationsSave");
       ds.field("views", &self.views());
+      ds.field("heard", &self.heard());
+      ds.finish()
+  }
+}
+pub enum HeardClaimSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct HeardClaimSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for HeardClaimSave<'a> {
+  type Inner = HeardClaimSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> HeardClaimSave<'a> {
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_KIND: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PLACE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 10;
+  pub const VT_POLITY: ::flatbuffers::VOffsetT = 12;
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 14;
+  pub const VT_FROM: ::flatbuffers::VOffsetT = 16;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    HeardClaimSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args HeardClaimSaveArgs
+  ) -> ::flatbuffers::WIPOffset<HeardClaimSave<'bldr>> {
+    let mut builder = HeardClaimSaveBuilder::new(_fbb);
+    builder.add_from(args.from);
+    builder.add_day(args.day);
+    builder.add_polity(args.polity);
+    builder.add_law(args.law);
+    builder.add_place(args.place);
+    builder.add_household(args.household);
+    builder.add_kind(args.kind);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(HeardClaimSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn kind(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(HeardClaimSave::VT_KIND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn place(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(HeardClaimSave::VT_PLACE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(HeardClaimSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn polity(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(HeardClaimSave::VT_POLITY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(HeardClaimSave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn from(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(HeardClaimSave::VT_FROM, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for HeardClaimSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<u8>("kind", Self::VT_KIND, false)?
+     .visit_field::<u64>("place", Self::VT_PLACE, false)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<u64>("polity", Self::VT_POLITY, false)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<u64>("from", Self::VT_FROM, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct HeardClaimSaveArgs {
+    pub household: u64,
+    pub kind: u8,
+    pub place: u64,
+    pub law: u64,
+    pub polity: u64,
+    pub day: i64,
+    pub from: u64,
+}
+impl<'a> Default for HeardClaimSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    HeardClaimSaveArgs {
+      household: 0,
+      kind: 0,
+      place: 0,
+      law: 0,
+      polity: 0,
+      day: 0,
+      from: 0,
+    }
+  }
+}
+
+pub struct HeardClaimSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HeardClaimSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(HeardClaimSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_kind(&mut self, kind: u8) {
+    self.fbb_.push_slot::<u8>(HeardClaimSave::VT_KIND, kind, 0);
+  }
+  #[inline]
+  pub fn add_place(&mut self, place: u64) {
+    self.fbb_.push_slot::<u64>(HeardClaimSave::VT_PLACE, place, 0);
+  }
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(HeardClaimSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_polity(&mut self, polity: u64) {
+    self.fbb_.push_slot::<u64>(HeardClaimSave::VT_POLITY, polity, 0);
+  }
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(HeardClaimSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_from(&mut self, from: u64) {
+    self.fbb_.push_slot::<u64>(HeardClaimSave::VT_FROM, from, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HeardClaimSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    HeardClaimSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<HeardClaimSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for HeardClaimSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("HeardClaimSave");
+      ds.field("household", &self.household());
+      ds.field("kind", &self.kind());
+      ds.field("place", &self.place());
+      ds.field("law", &self.law());
+      ds.field("polity", &self.polity());
+      ds.field("day", &self.day());
+      ds.field("from", &self.from());
       ds.finish()
   }
 }

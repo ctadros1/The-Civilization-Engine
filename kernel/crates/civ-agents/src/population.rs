@@ -493,6 +493,8 @@ pub struct Population {
     pub uses: crate::uses::Uses,
     /// What people believe of other polities they have heard of (M5c slice AT, ADR-0020 §3).
     pub polity_views: crate::views::Views,
+    /// The claims of other polities each household has heard of (M5c slice AU, ADR-0020 §2).
+    pub claims_heard: crate::uses::ClaimsHeard,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -1127,6 +1129,7 @@ impl Population {
         out.extend(self.convergence.problems());
         out.extend(self.uses.problems());
         out.extend(self.polity_views.problems());
+        out.extend(self.claims_heard.problems());
         for (&p, seen) in &self.seen_away {
             if self.person(p).is_none() {
                 out.push(format!(
@@ -2797,6 +2800,24 @@ impl Population {
         // nearest it knows, to be weighed and found not needed.
         let toward = hearth.unwrap_or(hh.home);
         let toward = (f64::from(toward.0), f64::from(toward.1));
+        // A place the household has heard another polity's law claims is worth the content's
+        // share of what it would yield to it (M5c slice AU, ADR-0020 §5: outsiders use a claimed
+        // place by leave); it may still go there when nothing else is as good. One its own
+        // polity claims too it holds as its own.
+        let own = hh.settlement.and_then(|s| self.polity_of(s));
+        let own_polity = own.map(|i| self.polities[i].id);
+        let claimed_worth = ctx.params.relations.claimed_worth;
+        let worth = |place: crate::uses::Place| {
+            let theirs = self
+                .claims_heard
+                .claimed(hh.id, place, own_polity)
+                .is_some();
+            if theirs && !own.is_some_and(|i| self.polities[i].claim_on(place).is_some()) {
+                claimed_worth
+            } else {
+                1.0
+            }
+        };
         let dig = |def: usize| -> Option<PatchOption> {
             {
                 let a = catalog.activities.get(def)?;
@@ -2836,7 +2857,8 @@ impl Population {
                     if walk > f64::from(a.max_walk_minutes) || kg_per_hour <= 0.0 {
                         continue;
                     }
-                    let value = kg_per_hour * hours / (hours + 2.0 * walk / 60.0);
+                    let value = kg_per_hour * hours / (hours + 2.0 * walk / 60.0)
+                        * worth(crate::uses::Place::Deposit(d.id));
                     if best.is_none_or(|(v, _)| value > v) {
                         best = Some((
                             value,
@@ -2935,7 +2957,8 @@ impl Population {
                     continue;
                 }
                 let kg_per_hour = rate * res.unit_kg;
-                let value = kg_per_hour * hours / (hours + 2.0 * walk / 60.0);
+                let value = kg_per_hour * hours / (hours + 2.0 * walk / 60.0)
+                    * worth(crate::uses::Place::Patch(patch));
                 if best.is_none_or(|(bv, _)| value > bv) {
                     best = Some((
                         value,

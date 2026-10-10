@@ -343,6 +343,10 @@ pub(crate) struct RelationsFile {
     pub half_life_days: f64,
     pub seen_trespass: f64,
     pub heard_trespass: f64,
+    /// Content API 61 (M5c slice AU): word of claims at the hearth, and what a claimed place is
+    /// worth to a household that heard of the claim.
+    pub share_claims: f64,
+    pub claimed_worth: f64,
 }
 
 /// Word of mouth and grievances (M4c slice AE, ADR-0016; content API 39). See
@@ -1594,6 +1598,8 @@ impl PeopleFile {
                 half_life_days: self.relations.half_life_days,
                 seen_trespass: self.relations.seen_trespass,
                 heard_trespass: self.relations.heard_trespass,
+                share_claims: self.relations.share_claims,
+                claimed_worth: self.relations.claimed_worth,
             },
             names,
         }
@@ -1707,6 +1713,16 @@ impl PeopleFile {
             if !(x.is_finite() && (0.0..=100.0).contains(&x)) {
                 p.push(format!(
                     "`relations.{name}` must be between 0 and 100 (got {x})"
+                ));
+            }
+        }
+        for (name, x) in [
+            ("share_claims", v.share_claims),
+            ("claimed_worth", v.claimed_worth),
+        ] {
+            if !(x.is_finite() && (0.0..=1.0).contains(&x)) {
+                p.push(format!(
+                    "`relations.{name}` must be between 0 and 1 (got {x})"
                 ));
             }
         }

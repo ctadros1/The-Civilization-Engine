@@ -21,6 +21,13 @@ pub struct RelationsParams {
     pub seen_trespass: f64,
     /// The same from hearing of it told at the hearth.
     pub heard_trespass: f64,
+    /// The chance someone tells a companion of a claim on a place their polity's law makes, or
+    /// one of another polity's their household heard of, when the companion's household has not
+    /// heard of it (content API 61).
+    pub share_claims: f64,
+    /// What a place a household has heard another polity claims is worth to it, as a share of
+    /// what it would yield (content API 61).
+    pub claimed_worth: f64,
 }
 
 impl RelationsParams {
@@ -31,6 +38,8 @@ impl RelationsParams {
             half_life_days: 1826.0,
             seen_trespass: 1.0,
             heard_trespass: 0.5,
+            share_claims: 0.15,
+            claimed_worth: 0.5,
         }
     }
 }

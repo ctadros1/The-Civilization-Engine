@@ -885,6 +885,15 @@ prior = 1.0
 half_life_days = 1826.0
 seen_trespass = 1.0
 heard_trespass = 0.5
+# Word of a claim on a place crosses only with travellers (ADR-0020 §2): someone who knows a claim
+# their polity's law makes tells a companion from elsewhere at the hearth with `share_claims`, and
+# so does someone whose household heard of another polity's claim (research 09-16 §2.2: 0.05-0.25
+# for routine news). A household that heard of another polity's claim on a place weighs it at
+# `claimed_worth` of what it would yield to it (ADR-0020 §5: outsiders use a claimed place only by
+# leave; research 13-05 §1.1 counts exclusive control among the outcomes over a resource): it
+# still goes when nothing else is half as good, and is held to trespass if seen. A design prior.
+share_claims = 0.15
+claimed_worth = 0.5
 
 [moving]                         # moving to another settlement (M5a slice AN, ADR-0018 §5); design priors
 # Once a year on a day of its own, and when it forms, a household weighs joining each settlement it

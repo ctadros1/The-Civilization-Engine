@@ -5,7 +5,7 @@ use std::path::Path;
 use std::sync::OnceLock;
 
 use civ_agents::polity::{IssueKind, Law, LawStatus, PolicyKind};
-use civ_agents::uses::{Place, Worked};
+use civ_agents::uses::{HeardClaim, Place, Worked};
 use civ_agents::views::{Domain, ViewAct};
 use civ_agents::word::{Blamed, Wrong};
 use civ_content::ContentRegistry;
@@ -319,6 +319,152 @@ fn people_who_see_outsiders_work_a_claimed_place_hold_it_against_them_and_think_
     relations_named_change_nothing(&mut sim);
     // All of it saves and loads exactly, and goes on alike.
     saves_and_goes_on_alike(&mut sim, 3 * DAY);
+}
+
+#[test]
+fn word_of_a_claim_crosses_with_visitors_and_a_household_that_heard_of_it_goes_there_less() {
+    let (mut sim, polity_id, law, written) = a_claim_decided();
+    assert_eq!(
+        law.status,
+        LawStatus::InForce,
+        "world 5's gathering passed it"
+    );
+    let (ours, theirs, their_polity) = {
+        let pop = sim.people();
+        let a = pop
+            .polities
+            .iter()
+            .find(|p| p.id == polity_id)
+            .expect("ours");
+        let b = pop
+            .polities
+            .iter()
+            .find(|p| p.id != polity_id)
+            .expect("theirs");
+        (a.settlement, b.settlement, b.id)
+    };
+    // The place their households worked most in the past month (not the one the setup wrote in),
+    // which our polity now claims under the same law (as though its gathering had named it too).
+    sim.advance_minutes(30 * DAY).expect("lives");
+    let day = sim.now().day_index();
+    let half = sim.rules().people.places.use_half_life_days;
+    let their_households = households_of(&sim, theirs);
+    let worked_there = |sim: &Sim, place: Place| -> f64 {
+        their_households
+            .iter()
+            .filter_map(|&h| sim.people().uses.held(h, place, day + 60, half))
+            .map(|u| f64::from(u.days))
+            .sum()
+    };
+    let place = {
+        let pop = sim.people();
+        let mut places: Vec<Place> = their_households
+            .iter()
+            .filter_map(|h| pop.uses.households.get(h))
+            .flatten()
+            .filter(|u| matches!(u.place, Place::Patch(_)) && u.place != written)
+            .map(|u| u.place)
+            .collect();
+        places.sort_unstable();
+        places.dedup();
+        places
+            .into_iter()
+            .max_by(|&a, &b| worked_there(&sim, a).total_cmp(&worked_there(&sim, b)))
+            .expect("they gather somewhere")
+    };
+    let ours_polity = sim
+        .people_mut_for_tests()
+        .polities
+        .iter_mut()
+        .find(|p| p.id == polity_id)
+        .expect("ours");
+    ours_polity.claimed.push((law.id, place));
+
+    // Word of it crosses only with travellers: kin of ours living there visit, and people of ours
+    // who know the claim tell them at the hearth.
+    let teller = {
+        let pop = sim.people();
+        households_of(&sim, ours)
+            .into_iter()
+            .filter_map(|h| pop.household(h))
+            .flat_map(|x| x.members.iter().copied())
+            .find(|&m| {
+                law.knows(m)
+                    && pop
+                        .person(m)
+                        .is_some_and(|p| p.age_years(sim.now()) >= 30.0)
+            })
+            .expect("an elder of ours knows the claim")
+    };
+    // The world as it is now, to live twice below.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "two").expect("saves");
+    let kin: Vec<PermanentId> = {
+        let pop = sim.people();
+        their_households
+            .iter()
+            .filter_map(|&h| pop.household(h))
+            .flat_map(|x| x.members.iter().copied())
+            .filter(|&m| {
+                pop.person(m)
+                    .is_some_and(|p| p.age_years(sim.now()) >= 16.0)
+            })
+            .take(4)
+            .collect()
+    };
+    let pop = sim.people_mut_for_tests();
+    for c in kin {
+        pop.records.get_mut(&c).expect("on record").mother = Some(teller);
+    }
+    let mut heard = None;
+    for _ in 0..120 {
+        sim.advance_minutes(DAY).expect("lives");
+        heard = their_households.iter().find_map(|&h| {
+            sim.people()
+                .claims_heard
+                .of(h)
+                .iter()
+                .find(|c| c.law == law.id)
+                .copied()
+        });
+        if heard.is_some() {
+            break;
+        }
+    }
+    let heard = heard.expect("a household of theirs heard of the claim");
+    assert_eq!(heard.polity, polity_id);
+    assert_ne!(heard.polity, their_polity);
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+
+    // Two lives of the same world a month long, one in which every household of theirs has
+    // heard of the claim on the place: there they work it less.
+    let mut alike = persist::load(&saved.path, content()).expect("loads");
+    let mut unheard = persist::load(&saved.path, content()).expect("loads");
+    let pop = alike.people_mut_for_tests();
+    for &h in &their_households {
+        pop.claims_heard.learn(
+            h,
+            HeardClaim {
+                place,
+                law: law.id,
+                polity: polity_id,
+                day,
+                from: teller,
+            },
+        );
+    }
+    assert!(unheard.people().claims_heard.households.is_empty());
+    alike.advance_minutes(30 * DAY).expect("lives");
+    unheard.advance_minutes(30 * DAY).expect("lives");
+    let (knowing, not) = (worked_there(&alike, place), worked_there(&unheard, place));
+    assert!(
+        knowing < not,
+        "{knowing} days there knowing of the claim, {not} not"
+    );
+    saves_and_goes_on_alike(&mut alike, 2 * DAY);
 }
 
 /// A copy of `sim` whose relation labels and government panel are worked out every day lives

@@ -218,6 +218,8 @@ impl Population {
             self.share_places(ctx, me, q);
             // And of what is offered elsewhere (M5b slice AP, ADR-0019 §1).
             self.share_reports(ctx, me, q);
+            // And of the places a polity's law claims (M5c slice AU, ADR-0020 §2).
+            self.share_claims(ctx, me, q);
         }
     }
 

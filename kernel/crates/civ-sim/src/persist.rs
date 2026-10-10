@@ -224,6 +224,9 @@ pub const SCHEMA_V61: u32 = 61;
 /// The schema version of M5c slice AT, step one: the places people work and claims on them,
 /// before who did the work and people's views of other polities (see [`agents`]).
 pub const SCHEMA_V62: u32 = 62;
+/// The schema version of M5c slice AT, step two: who did the work and people's views of other
+/// polities, before the claims households heard of (see [`agents`]).
+pub const SCHEMA_V63: u32 = 63;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

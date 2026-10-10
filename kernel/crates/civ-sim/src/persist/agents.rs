@@ -110,8 +110,8 @@ use super::{
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
-    SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, finish, section,
-    single_chunk, unreadable,
+    SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, finish,
+    section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -415,6 +415,8 @@ enum Schema {
     V62,
     /// Who did the work, and people's views of other polities (M5c slice AT, step two).
     V63,
+    /// The claims of other polities households heard of (M5c slice AU, step one).
+    V64,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -492,7 +494,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V60 => Schema::V60,
         SCHEMA_V61 => Schema::V61,
         SCHEMA_V62 => Schema::V62,
-        SAVE_SCHEMA_VERSION => Schema::V63,
+        SCHEMA_V63 => Schema::V63,
+        SAVE_SCHEMA_VERSION => Schema::V64,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -714,7 +717,7 @@ pub(super) fn decode<R: Read + Seek>(
     // What people believe of other polities (schema 63); before, nobody held a view.
     if schema >= Schema::V63 {
         let bytes = single_chunk(reader, SECTION_RELATIONS)?;
-        people.polity_views = decode_relations(&bytes, rules)?;
+        (people.polity_views, people.claims_heard) = decode_relations(&bytes, rules)?;
     }
     // Settlements' founding ways (schema 61); before them a founding band's is drawn again from
     // its key, and any other settlement's taken as its households' now.
@@ -2736,7 +2739,8 @@ fn carried(
         | Schema::V60
         | Schema::V61
         | Schema::V62
-        | Schema::V63 => {
+        | Schema::V63
+        | Schema::V64 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2909,7 +2913,8 @@ fn decode_households(
             | Schema::V60
             | Schema::V61
             | Schema::V62
-            | Schema::V63 => {
+            | Schema::V63
+            | Schema::V64 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -7090,11 +7095,37 @@ fn encode_relations(people: &Population) -> Vec<u8> {
         })
         .collect();
     let views = (!views.is_empty()).then(|| fbb.create_vector(&views));
-    let root = save::RelationsSave::create(&mut fbb, &save::RelationsSaveArgs { views });
+    // The claims of other polities households heard of (schema 64).
+    let heard: Vec<_> = people
+        .claims_heard
+        .households
+        .iter()
+        .flat_map(|(&h, list)| list.iter().map(move |c| (h, c)))
+        .map(|(h, c)| {
+            let (kind, place) = c.place.code();
+            save::HeardClaimSave::create(
+                &mut fbb,
+                &save::HeardClaimSaveArgs {
+                    household: h.get(),
+                    kind,
+                    place,
+                    law: c.law.get(),
+                    polity: c.polity.get(),
+                    day: c.day,
+                    from: c.from.get(),
+                },
+            )
+        })
+        .collect();
+    let heard = (!heard.is_empty()).then(|| fbb.create_vector(&heard));
+    let root = save::RelationsSave::create(&mut fbb, &save::RelationsSaveArgs { views, heard });
     finish(fbb, root)
 }
 
-fn decode_relations(bytes: &[u8], rules: &Rules) -> Result<civ_agents::views::Views, LoadError> {
+fn decode_relations(
+    bytes: &[u8],
+    rules: &Rules,
+) -> Result<(civ_agents::views::Views, civ_agents::uses::ClaimsHeard), LoadError> {
     use civ_agents::views::{DOMAINS, View, ViewAct, ViewReason, Views};
     let root = flatbuffers::root::<save::RelationsSave>(bytes)
         .map_err(|e| unreadable(SECTION_RELATIONS, &e))?;
@@ -7135,7 +7166,31 @@ fn decode_relations(bytes: &[u8], rules: &Rules) -> Result<civ_agents::views::Vi
             reason,
         });
     }
-    Ok(out)
+    // The claims of other polities households heard of (schema 64); before, none.
+    let mut heard = civ_agents::uses::ClaimsHeard::default();
+    for c in root.heard().iter().flatten() {
+        let household = required(c.household(), "a household that heard of a claim")?;
+        let place = civ_agents::uses::Place::from_code(c.kind(), c.place()).ok_or_else(|| {
+            LoadError::Malformed(format!(
+                "household {household} heard of a claim on place {} of kind {}",
+                c.place(),
+                c.kind()
+            ))
+        })?;
+        let claim = civ_agents::uses::HeardClaim {
+            place,
+            law: required(c.law(), "the law of a claim heard of")?,
+            polity: required(c.polity(), "the polity of a claim heard of")?,
+            day: c.day(),
+            from: required(c.from(), "who told of a claim")?,
+        };
+        if !heard.learn(household, claim) {
+            return Err(LoadError::Malformed(format!(
+                "household {household} heard of one claim twice"
+            )));
+        }
+    }
+    Ok((out, heard))
 }
 
 fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> Vec<u8> {

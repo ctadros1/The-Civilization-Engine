@@ -154,6 +154,10 @@ impl Population {
         let mut views = std::mem::take(&mut self.polity_views);
         views.prune(day, &ctx.params.relations, |p| self.person(p).is_some());
         self.polity_views = views;
+        // Claims heard of that no law in force makes now are let go (M5c slice AU).
+        if !self.claims_heard.households.is_empty() {
+            self.forget_ended_claims();
+        }
         self.lapse_keepers(ctx);
         for pi in 0..self.polities.len() {
             if self.polities[pi]

@@ -3,11 +3,109 @@
 //! it, and what they come to believe of that settlement's polity.
 
 use super::*;
-use crate::uses::Meeting;
+use crate::polity::LawStatus;
+use crate::uses::{HeardClaim, Meeting, Place};
 use crate::views::ViewAct;
 use crate::word::{Blamed, Grieved, Wrong};
 
+/// The purpose of the draws on whether word of a claim is passed on at the hearth.
+pub const PURPOSE_CLAIM_TOLD: u64 = 0x636c_6169_6d74_6f6c; // "claimtol"
+
 impl Population {
+    /// `a` and `b` keep company at the hearth (M5c slice AU, ADR-0020 §2): each tells the other,
+    /// with the content's chance, of a claim their polity's law in force makes that they know of,
+    /// when the other lives elsewhere, and of another polity's claim their household heard of,
+    /// unless it is the other's own polity's; the listener's household then holds every place the
+    /// law claims. Word of a claim crosses no other way.
+    pub(crate) fn share_claims(&mut self, ctx: &Ctx, a: PermanentId, b: PermanentId) {
+        let home_of = |p: PermanentId| {
+            let q = self.person(p)?;
+            Some((q.household, self.household(q.household)?.settlement))
+        };
+        let (Some(ha), Some(hb)) = (home_of(a), home_of(b)) else {
+            return;
+        };
+        let polity_id = |s: Option<PermanentId>| {
+            s.and_then(|s| self.polity_of(s))
+                .map(|i| self.polities[i].id)
+        };
+        let day = ctx.now.day_index();
+        let mut learnt: Vec<(PermanentId, HeardClaim)> = Vec::new();
+        for ((teller, (th, ts)), (listener, (lh, ls))) in [((a, ha), (b, hb)), ((b, hb), (a, ha))] {
+            let theirs = polity_id(ls);
+            // What the teller can tell of: their own polity's claims in force that they know,
+            // when the listener lives elsewhere, and the claims their household heard of.
+            let mut told: Vec<(PermanentId, PermanentId, Place)> = Vec::new();
+            if ts.is_some()
+                && ts != ls
+                && let Some(p) = ts
+                    .and_then(|s| self.polity_of(s))
+                    .map(|i| &self.polities[i])
+            {
+                for &(law, place) in &p.claimed {
+                    if p.laws
+                        .iter()
+                        .any(|l| l.id == law && l.status == LawStatus::InForce && l.knows(teller))
+                    {
+                        told.push((law, p.id, place));
+                    }
+                }
+            }
+            for c in self.claims_heard.of(th) {
+                if Some(c.polity) != theirs {
+                    told.push((c.law, c.polity, c.place));
+                }
+            }
+            let mut laws: Vec<PermanentId> = told.iter().map(|t| t.0).collect();
+            laws.sort_unstable();
+            laws.dedup();
+            for law in laws {
+                if self.claims_heard.knows_law(lh, law) {
+                    continue;
+                }
+                let key = [
+                    ctx.seed,
+                    PURPOSE_CLAIM_TOLD,
+                    teller.get(),
+                    listener.get(),
+                    law.get(),
+                    ctx.now.minutes() as u64,
+                ];
+                if Rng64::from_key(&key).next_f64() >= ctx.params.relations.share_claims {
+                    continue;
+                }
+                for &(_, polity, place) in told.iter().filter(|t| t.0 == law) {
+                    let claim = HeardClaim {
+                        place,
+                        law,
+                        polity,
+                        day,
+                        from: teller,
+                    };
+                    learnt.push((lh, claim));
+                }
+            }
+        }
+        for (household, claim) in learnt {
+            self.claims_heard.learn(household, claim);
+        }
+    }
+
+    /// Lets go of claims heard of that no law in force makes now, and of households no more.
+    pub(super) fn forget_ended_claims(&mut self) {
+        let mut heard = std::mem::take(&mut self.claims_heard);
+        heard.retain(|h, c| {
+            self.hh_index.contains_key(&h)
+                && self.polities.iter().any(|p| {
+                    p.id == c.polity
+                        && p.laws
+                            .iter()
+                            .any(|l| l.id == c.law && l.status == LawStatus::InForce)
+                })
+        });
+        self.claims_heard = heard;
+    }
+
     /// People of more than one settlement worked one place on one day (ADR-0020 §4–§5). Each who
     /// worked it for a polity that claims it, and knows the claim, holds a grievance against each
     /// household of another settlement seen there, the harm the food that household got there in

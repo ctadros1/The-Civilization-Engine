@@ -2241,6 +2241,20 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
 }
 
 #[test]
+fn a_schema_63_save_loads_with_no_claim_heard_of() {
+    // A schema-63 save, from before households heard of other polities' claims (M5c slice AU):
+    // it held none, and a world of one polity holds none anyway.
+    let sim = load_first();
+    assert!(sim.people().claims_heard.households.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V63;
+    let path = republish("slice-at2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-63 save loads");
+    assert!(loaded.people().claims_heard.households.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_62_save_loads_with_no_view_of_another_polity_and_nobody_named_for_the_days_work() {
     // A schema-62 save, from before people held views of other polities and before the day's
     // work named who did it (M5c slice AT, step two): it held neither.

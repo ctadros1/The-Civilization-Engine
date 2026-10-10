@@ -110,6 +110,88 @@ pub fn per_year(sum: f64, half_life_days: f64) -> f64 {
     sum * 365.0 * std::f64::consts::LN_2 / half_life_days
 }
 
+/// A place another polity's law claims, as a household heard of it (M5c slice AU, ADR-0020 §2):
+/// word of a claim crosses only with travellers.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HeardClaim {
+    pub place: Place,
+    /// The law that claims it, and its polity.
+    pub law: PermanentId,
+    pub polity: PermanentId,
+    /// The day the household first heard of it, and who told it.
+    pub day: i64,
+    pub from: PermanentId,
+}
+
+/// The claims of other polities households have heard of, by household, each in place and then
+/// law order.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ClaimsHeard {
+    pub households: BTreeMap<PermanentId, Vec<HeardClaim>>,
+}
+
+impl ClaimsHeard {
+    /// The claims `household` heard of.
+    pub fn of(&self, household: PermanentId) -> &[HeardClaim] {
+        self.households.get(&household).map_or(&[], Vec::as_slice)
+    }
+
+    /// Whether `household` heard of law `law`'s claim.
+    pub fn knows_law(&self, household: PermanentId, law: PermanentId) -> bool {
+        self.of(household).iter().any(|c| c.law == law)
+    }
+
+    /// `household` hears of `claim`; returns whether it was news to it.
+    pub fn learn(&mut self, household: PermanentId, claim: HeardClaim) -> bool {
+        let list = self.households.entry(household).or_default();
+        match list.binary_search_by(|c| (c.place, c.law).cmp(&(claim.place, claim.law))) {
+            Ok(_) => false,
+            Err(at) => {
+                list.insert(at, claim);
+                true
+            }
+        }
+    }
+
+    /// A claim `household` heard of on `place` by a polity other than `own`, if any.
+    pub fn claimed(
+        &self,
+        household: PermanentId,
+        place: Place,
+        own: Option<PermanentId>,
+    ) -> Option<&HeardClaim> {
+        let list = self.of(household);
+        let from = list.partition_point(|c| c.place < place);
+        list[from..]
+            .iter()
+            .take_while(|c| c.place == place)
+            .find(|c| Some(c.polity) != own)
+    }
+
+    /// Keeps only what `keep` says, by household and claim, and lets go of households left with
+    /// none.
+    pub fn retain(&mut self, keep: impl Fn(PermanentId, &HeardClaim) -> bool) {
+        for (&h, list) in self.households.iter_mut() {
+            list.retain(|c| keep(h, c));
+        }
+        self.households.retain(|_, list| !list.is_empty());
+    }
+
+    /// What is wrong with the record, if anything: claims out of order or repeated.
+    pub fn problems(&self) -> Vec<String> {
+        self.households
+            .iter()
+            .filter(|(_, list)| {
+                list.is_empty()
+                    || list
+                        .windows(2)
+                        .any(|w| (w[0].place, w[0].law) >= (w[1].place, w[1].law))
+            })
+            .map(|(h, _)| format!("household {h}'s claims heard of are out of order or repeated"))
+            .collect()
+    }
+}
+
 /// Days worked below which a place a household no longer sees outsiders at is let go.
 const LET_GO_DAYS: f32 = 0.05;
 
@@ -387,6 +469,40 @@ mod tests {
         assert_eq!(u.outsiders_seen(id(1), 0).count(), 1);
         u.prune(400, 10.0, 365, |_| true);
         assert!(u.households.is_empty());
+    }
+
+    #[test]
+    fn a_claim_heard_of_is_known_once_and_never_as_ones_own_polity_s() {
+        let mut heard = ClaimsHeard::default();
+        let claim = |place, law, polity| HeardClaim {
+            place,
+            law: id(law),
+            polity: id(polity),
+            day: 3,
+            from: id(77),
+        };
+        assert!(heard.learn(id(1), claim(Place::Patch(9), 50, 500)));
+        assert!(!heard.learn(id(1), claim(Place::Patch(9), 50, 500)));
+        assert!(heard.learn(id(1), claim(Place::Patch(2), 50, 500)));
+        assert!(heard.learn(id(1), claim(Place::Deposit(id(4)), 60, 600)));
+        assert!(heard.knows_law(id(1), id(50)) && !heard.knows_law(id(2), id(50)));
+        // Another polity's claim counts; one's own polity's does not.
+        assert!(
+            heard
+                .claimed(id(1), Place::Patch(9), Some(id(600)))
+                .is_some()
+        );
+        assert!(
+            heard
+                .claimed(id(1), Place::Patch(9), Some(id(500)))
+                .is_none()
+        );
+        assert!(heard.claimed(id(1), Place::Patch(3), None).is_none());
+        assert!(heard.problems().is_empty());
+        heard.retain(|_, c| c.law != id(50));
+        assert_eq!(heard.of(id(1)).len(), 1);
+        heard.retain(|_, _| false);
+        assert!(heard.households.is_empty());
     }
 
     #[test]

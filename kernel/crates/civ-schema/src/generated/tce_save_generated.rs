@@ -14972,6 +14972,7 @@ impl<'a> Land<'a> {
   pub const VT_RESOURCE_GOODS: ::flatbuffers::VOffsetT = 30;
   pub const VT_RESOURCE_UNIT_KG: ::flatbuffers::VOffsetT = 32;
   pub const VT_WEATHER: ::flatbuffers::VOffsetT = 34;
+  pub const VT_WATER: ::flatbuffers::VOffsetT = 36;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -14987,6 +14988,7 @@ impl<'a> Land<'a> {
     builder.add_climate_deviate(args.climate_deviate);
     builder.add_climate_year(args.climate_year);
     builder.add_stock_day(args.stock_day);
+    if let Some(x) = args.water { builder.add_water(x); }
     if let Some(x) = args.weather { builder.add_weather(x); }
     if let Some(x) = args.resource_unit_kg { builder.add_resource_unit_kg(x); }
     if let Some(x) = args.resource_goods { builder.add_resource_goods(x); }
@@ -15115,6 +15117,13 @@ impl<'a> Land<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Weather>>(Land::VT_WEATHER, None)}
   }
+  #[inline]
+  pub fn water(&self) -> Option<Groundwater<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Groundwater>>(Land::VT_WATER, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Land<'_> {
@@ -15139,6 +15148,7 @@ impl ::flatbuffers::Verifiable for Land<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("resource_goods", Self::VT_RESOURCE_GOODS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("resource_unit_kg", Self::VT_RESOURCE_UNIT_KG, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<Weather>>("weather", Self::VT_WEATHER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<Groundwater>>("water", Self::VT_WATER, false)?
      .finish();
     Ok(())
   }
@@ -15160,6 +15170,7 @@ pub struct LandArgs<'a> {
     pub resource_goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub resource_unit_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
     pub weather: Option<::flatbuffers::WIPOffset<Weather<'a>>>,
+    pub water: Option<::flatbuffers::WIPOffset<Groundwater<'a>>>,
 }
 impl<'a> Default for LandArgs<'a> {
   #[inline]
@@ -15181,6 +15192,7 @@ impl<'a> Default for LandArgs<'a> {
       resource_goods: None,
       resource_unit_kg: None,
       weather: None,
+      water: None,
     }
   }
 }
@@ -15255,6 +15267,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LandBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Weather>>(Land::VT_WEATHER, weather);
   }
   #[inline]
+  pub fn add_water(&mut self, water: ::flatbuffers::WIPOffset<Groundwater<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Groundwater>>(Land::VT_WATER, water);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LandBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LandBuilder {
@@ -15288,6 +15304,120 @@ impl ::core::fmt::Debug for Land<'_> {
       ds.field("resource_goods", &self.resource_goods());
       ds.field("resource_unit_kg", &self.resource_unit_kg());
       ds.field("weather", &self.weather());
+      ds.field("water", &self.water());
+      ds.finish()
+  }
+}
+pub enum GroundwaterOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Groundwater<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Groundwater<'a> {
+  type Inner = Groundwater<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Groundwater<'a> {
+  pub const VT_HEADS: ::flatbuffers::VOffsetT = 4;
+  pub const VT_RUNOFF_MM: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Groundwater { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GroundwaterArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Groundwater<'bldr>> {
+    let mut builder = GroundwaterBuilder::new(_fbb);
+    builder.add_runoff_mm(args.runoff_mm);
+    if let Some(x) = args.heads { builder.add_heads(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn heads(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(Groundwater::VT_HEADS, None)}
+  }
+  #[inline]
+  pub fn runoff_mm(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(Groundwater::VT_RUNOFF_MM, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Groundwater<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("heads", Self::VT_HEADS, false)?
+     .visit_field::<f64>("runoff_mm", Self::VT_RUNOFF_MM, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GroundwaterArgs<'a> {
+    pub heads: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+    pub runoff_mm: f64,
+}
+impl<'a> Default for GroundwaterArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    GroundwaterArgs {
+      heads: None,
+      runoff_mm: 0.0,
+    }
+  }
+}
+
+pub struct GroundwaterBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GroundwaterBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_heads(&mut self, heads: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Groundwater::VT_HEADS, heads);
+  }
+  #[inline]
+  pub fn add_runoff_mm(&mut self, runoff_mm: f64) {
+    self.fbb_.push_slot::<f64>(Groundwater::VT_RUNOFF_MM, runoff_mm, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GroundwaterBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GroundwaterBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Groundwater<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Groundwater<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Groundwater");
+      ds.field("heads", &self.heads());
+      ds.field("runoff_mm", &self.runoff_mm());
       ds.finish()
   }
 }

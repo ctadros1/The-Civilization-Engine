@@ -3,6 +3,8 @@
 Status: Accepted
 Date: 2026-10-10
 Milestone: M6a
+Amended: 2026-10-10, M6a slice AY step one, to match what was built: §2's heads are settled to
+where the mean recharge holds them, not spun up over years (plan §9).
 
 ## Context
 
@@ -51,8 +53,9 @@ issue, policy and influence kinds, and the save schema.
   the weather's reference soil cannot hold (until now discarded). Cells exchange with their
   neighbours and with river cells, and wells draw on them. "Do not give each well an independent
   renewable supply" (03-02, executive recommendation).
-- **Heads spin up** from each cell's height above drainage over some years of the landscape's
-  climatology when a world is made, or when a save from before this ADR loads.
+- **Heads are settled** to where the landscape's mean recharge would hold them for good, when a
+  world is made (before the year a new world lives first) or when a save from before this ADR
+  loads: what years of its climatology average toward, at a fraction of the cost.
 - **Springs** are derived, never saved: a land cell off the river network where the head stands
   above the ground, flowing what the aquifer sheds there, dry when heads fall.
 

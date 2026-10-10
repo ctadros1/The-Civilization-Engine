@@ -1132,6 +1132,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** M6a's four slices (AY to BB), starting with a clean re-measure of the 3×1,000 bench; M6b and M6c are designed when reached.
 
+## 2026-10-10 — M6a slice AY, step one: water under the ground
+
+**Goal:** give each world a water table and rivers that rise and fall, before anyone draws from them.
+
+**What changed:** what the soil cannot hold on a day now drains to a shallow aquifer (one head per 128 m patch, in three units of ground whose conductivity and storage each world draws within the hydrology report's priors) or runs off. Heads exchange with their neighbours and the rivers, seep out where they meet the ground, and make springs there. A runoff store for the world turns the day's runoff and groundwater into the rivers' flow against their mean. Saves 72, content API 69.
+
+**Findings:** the bench of 3,000 people measured alone takes 1,287 s a year (slice AL: 1,179). The water balances to the cubic metre over thirty years. Homes on the valley floors sit 1–4 m above the water table, as early dug wells were. The rivers are flashy, because the silty lower slopes hold almost nothing. Springs are plentiful, 8–24 a square kilometre.
+
+**Evidence:** unit tests of the storage equation and the accounts; thirty-year probes on two seeds; depths on four; forty days lived from one save by the build before and this one, the same in every section but the content and the land; the full suite, clippy and the smoke worlds.
+
+**Open:** sources people choose and use that flexes (step two), wells (step three), the observer's view (step four).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

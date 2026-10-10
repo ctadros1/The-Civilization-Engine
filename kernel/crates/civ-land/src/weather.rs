@@ -372,6 +372,9 @@ pub struct Climatology {
     pub month_precip_mm: [f64; 12],
     /// The long-run mean of the days by month that end with snow lying on the valley floor.
     pub month_snow_days: [f64; 12],
+    /// The long-run mean of what the reference soil cannot hold, mm a day: what the land gives
+    /// its rivers and its ground water (M6a slice AY).
+    pub surplus_mm_per_day: f64,
 }
 
 /// The key of a landscape: its preset's id, hashed (FNV-1a).
@@ -525,6 +528,7 @@ impl Climatology {
             season_need_mm: vec![0.0; crops.len()],
             month_precip_mm: [0.0; 12],
             month_snow_days: [0.0; 12],
+            surplus_mm_per_day: 0.0,
         };
         c.measure(params, landscape);
         c
@@ -544,6 +548,7 @@ impl Climatology {
         let (mut cover_sum, mut cover_days) = ([0.0; 12], [0.0f64; 12]);
         // Each crop's root-zone water, water needed and water got this season.
         let mut seasons = vec![(0.0, 0.0, 0.0); n];
+        let mut surplus = 0.0;
         let years = CLIMATOLOGY_YEARS as i64;
         for day in 0..(years + 1) * DAYS_PER_YEAR {
             let counted = day >= DAYS_PER_YEAR;
@@ -576,12 +581,14 @@ impl Climatology {
                 }
             }
             if counted {
+                surplus += water.surplus_mm;
                 let m = month_of(day);
                 cover_sum[m] += w.cover_ease;
                 cover_days[m] += 1.0;
             }
         }
         self.stream = world;
+        self.surplus_mm_per_day = surplus / (years * DAYS_PER_YEAR) as f64;
         for r in w.months.iter().filter(|r| r.year > 1) {
             let m = usize::from(r.month);
             self.month_precip_mm[m] += f64::from(r.precip_mm) / years as f64;
@@ -750,6 +757,9 @@ pub struct DayWater {
     pub et0_mm: Vec<f64>,
     /// The reference soil's water at the start of the day, mm.
     pub soil_before_mm: f64,
+    /// What the reference soil could not hold today, mm: it drains down or runs off (M6a slice
+    /// AY, ADR-0021 §2).
+    pub surplus_mm: f64,
 }
 
 /// A world's weather: today's, what tomorrow depends on, and the record. Saved.
@@ -1042,6 +1052,7 @@ impl Weather {
             input_mm: Vec::with_capacity(bands),
             et0_mm: Vec::with_capacity(bands),
             soil_before_mm: self.soil_mm,
+            surplus_mm: 0.0,
         };
         for b in 0..bands {
             let t = self.mean_c_at(params, self.band_mid_m(b));
@@ -1061,7 +1072,9 @@ impl Weather {
         }
         let r = self.reference_band(params);
         let need = params.cover_kc * water.et0_mm[r];
-        root_zone_day(&mut self.soil_mm, water.input_mm[r], need, params);
+        let used = root_zone_day(&mut self.soil_mm, water.input_mm[r], need, params);
+        water.surplus_mm =
+            (water.soil_before_mm + water.input_mm[r] - used - self.soil_mm).max(0.0);
         let now = ease(self.soil_mm, params.soil_water_mm, params.easy_water_share);
         self.cover_ease += (now - self.cover_ease) / EASE_DAYS;
         self.record(params, r);

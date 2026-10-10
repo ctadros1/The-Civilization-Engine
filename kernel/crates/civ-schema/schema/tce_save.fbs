@@ -150,6 +150,17 @@ table Land {
   // Schema 24 (M3c slice U, ADR-0012 §1): the weather. Absent in older saves, whose weather
   // starts from `climate_deviate` with the soil at field capacity and no snow.
   weather: Weather (id: 15);
+  // Schema 72 (M6a slice AY, ADR-0021 §2): water under the ground and the rivers' runoff store.
+  // Absent in older saves, whose heads are settled where the landscape's mean recharge holds
+  // them, the store holding what that mean keeps in it.
+  water: Groundwater (id: 16);
+}
+
+// Schema 72: the water table's head in each patch, metres, in the patches' order, and the water
+// in the runoff store after the day's outflow, mm over the map's land.
+table Groundwater {
+  heads: [double] (id: 0);
+  runoff_mm: double (id: 1);
 }
 
 // Schema 24 (ADR-0012 §1): one day's weather at the height the normals are for.

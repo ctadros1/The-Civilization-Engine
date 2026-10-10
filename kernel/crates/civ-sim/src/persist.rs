@@ -248,6 +248,9 @@ pub const SCHEMA_V69: u32 = 69;
 /// The schema version of M5c slice AW, step three: the crossings polities build, before the room
 /// to work on a crossing was kept (see [`agents`]).
 pub const SCHEMA_V70: u32 = 70;
+/// The schema version of M5c slice AX: the room to work on a crossing, before water under the
+/// ground (see [`agents`]).
+pub const SCHEMA_V71: u32 = 71;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

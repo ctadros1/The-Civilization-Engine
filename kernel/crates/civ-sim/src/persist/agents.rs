@@ -111,8 +111,8 @@ use super::{
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
-    SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, finish, section,
-    single_chunk, unreadable,
+    SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, finish,
+    section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -440,6 +440,8 @@ enum Schema {
     V70,
     /// The room to work on a crossing (M5c slice AX).
     V71,
+    /// Water under the ground and the rivers' runoff store (M6a slice AY).
+    V72,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -525,7 +527,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V68 => Schema::V68,
         SCHEMA_V69 => Schema::V69,
         SCHEMA_V70 => Schema::V70,
-        SAVE_SCHEMA_VERSION => Schema::V71,
+        SCHEMA_V71 => Schema::V71,
+        SAVE_SCHEMA_VERSION => Schema::V72,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -533,7 +536,7 @@ pub(super) fn decode<R: Read + Seek>(
         }
     };
     let bytes = single_chunk(reader, SECTION_LAND)?;
-    let mut land = decode_land(&bytes, rules, map, climatology)?;
+    let mut land = decode_land(&bytes, rules, map, climatology, seed)?;
     let bytes = single_chunk(reader, SECTION_SETTLE)?;
     land.settlements = decode_settlements(&bytes)?;
 
@@ -2018,6 +2021,14 @@ fn encode_land(land: &Land, rules: &Rules) -> Vec<u8> {
     let flat: Vec<f32> = land.stocks.iter().flatten().copied().collect();
     let stocks = fbb.create_vector(&flat);
     let weather = encode_weather(&mut fbb, &land.weather);
+    let heads = fbb.create_vector(&land.water.heads);
+    let water = save::Groundwater::create(
+        &mut fbb,
+        &save::GroundwaterArgs {
+            heads: Some(heads),
+            runoff_mm: land.water.runoff_mm,
+        },
+    );
     let root = save::Land::create(
         &mut fbb,
         &save::LandArgs {
@@ -2034,6 +2045,7 @@ fn encode_land(land: &Land, rules: &Rules) -> Vec<u8> {
             resource_goods: Some(resource_goods),
             resource_unit_kg: Some(resource_unit_kg),
             weather: Some(weather),
+            water: Some(water),
             ..Default::default()
         },
     );
@@ -2140,6 +2152,7 @@ fn decode_land(
     rules: &Rules,
     map: &WorldMap,
     climatology: Climatology,
+    seed: u64,
 ) -> Result<Land, LoadError> {
     let l = flatbuffers::root::<save::Land>(bytes).map_err(|e| unreadable(SECTION_LAND, &e))?;
     let n = l.cols() as usize * l.rows() as usize;
@@ -2226,6 +2239,8 @@ fn decode_land(
         ground: civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
         // Read from its own section (schema 68 on).
         crossings: Default::default(),
+        // The heads and the store below (schema 72 on); the aquifer derived.
+        water: Default::default(),
     };
     // A grid of the wrong size is reported by `Land::problems`; only fill stocks on a sound one.
     if land.patches.class.len() == n
@@ -2247,6 +2262,19 @@ fn decode_land(
                     land.stocks.push(vec![0.0; n]);
                     land.fill_equilibrium(&rules.land, r, land.stock_day);
                 }
+            }
+        }
+        // Before schema 72 there was no water under the ground: the heads settle where the
+        // landscape's mean recharge holds them (ADR-0021 §2).
+        land.derive_water(map, &rules.land, seed);
+        match l.water() {
+            Some(w) => {
+                land.water.heads = w.heads().map(|v| v.iter().collect()).unwrap_or_default();
+                land.water.runoff_mm = w.runoff_mm();
+            }
+            None => {
+                let mean = land.climatology.surplus_mm_per_day;
+                land.water.settle(&rules.land.water, mean);
             }
         }
     }
@@ -2857,7 +2885,8 @@ fn carried(
         | Schema::V68
         | Schema::V69
         | Schema::V70
-        | Schema::V71 => {
+        | Schema::V71
+        | Schema::V72 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3038,7 +3067,8 @@ fn decode_households(
             | Schema::V68
             | Schema::V69
             | Schema::V70
-            | Schema::V71 => {
+            | Schema::V71
+            | Schema::V72 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

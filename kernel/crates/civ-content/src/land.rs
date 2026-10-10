@@ -2,7 +2,8 @@
 
 use civ_land::deposits::DepositRule;
 use civ_land::{
-    Growth, HabitatRule, LandParams, PathParams, ResourceParams, SoilParams, WeatherParams,
+    AquiferUnit, Growth, HabitatRule, LandParams, PathParams, ResourceParams, SoilParams,
+    WaterParams, WeatherParams,
 };
 use serde::Deserialize;
 
@@ -32,6 +33,106 @@ pub(crate) struct LandFile {
     /// Where deposits lie (content API 18); a profile may have none.
     #[serde(default)]
     pub deposit: Vec<DepositFile>,
+    /// How water moves under the ground and down the rivers (ADR-0021 §1–§2; content API 69).
+    /// A profile may leave it out: then one unit of alluvial sand lies under everything.
+    #[serde(default)]
+    pub groundwater: Option<GroundwaterFile>,
+}
+
+/// The `[groundwater]` section of a land profile (ADR-0021 §1–§2; content API 69).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct GroundwaterFile {
+    pub recharge_share: f64,
+    pub recession_days: f64,
+    pub spring_min_m3_day: f64,
+    pub unit: Vec<AquiferUnitFile>,
+}
+
+/// One unit of ground under the habitats it names (`[[groundwater.unit]]`).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AquiferUnitFile {
+    pub name: String,
+    /// Habitat ids it lies under; none for every habitat no earlier unit names.
+    #[serde(default)]
+    pub habitats: Vec<String>,
+    pub k_m_day: [f64; 2],
+    pub specific_yield: [f64; 2],
+    pub thickness_m: f64,
+}
+
+impl GroundwaterFile {
+    fn params(&self) -> WaterParams {
+        WaterParams {
+            recharge_share: self.recharge_share,
+            recession_days: self.recession_days,
+            spring_min_m3_day: self.spring_min_m3_day,
+            units: self
+                .unit
+                .iter()
+                .map(|u| AquiferUnit {
+                    name: u.name.clone(),
+                    habitats: u.habitats.clone(),
+                    k_m_day: u.k_m_day,
+                    specific_yield: u.specific_yield,
+                    thickness_m: u.thickness_m,
+                })
+                .collect(),
+        }
+    }
+
+    fn problems(&self, habitats: &[Habitat], p: &mut Vec<String>) {
+        for (name, v, least, most) in [
+            ("recharge_share", self.recharge_share, 0.0, 1.0),
+            ("recession_days", self.recession_days, 0.1, 365.0),
+            ("spring_min_m3_day", self.spring_min_m3_day, 0.0, 10_000.0),
+        ] {
+            if !(v.is_finite() && (least..=most).contains(&v)) {
+                p.push(format!(
+                    "`groundwater.{name}` must be between {least} and {most} (got {v})"
+                ));
+            }
+        }
+        if self.unit.is_empty() || self.unit.len() > 16 {
+            p.push("`groundwater` needs 1 to 16 units".to_owned());
+        }
+        if !self.unit.last().is_some_and(|u| u.habitats.is_empty()) {
+            p.push(
+                "the last `groundwater.unit` must name no habitats, to lie under the rest"
+                    .to_owned(),
+            );
+        }
+        for (n, u) in self.unit.iter().enumerate() {
+            let n = n + 1;
+            let range =
+                |name: &str, [lo, hi]: [f64; 2], least: f64, most: f64, p: &mut Vec<String>| {
+                    if !(lo.is_finite() && hi.is_finite() && least <= lo && lo <= hi && hi <= most)
+                    {
+                        p.push(format!(
+                        "groundwater unit {n}'s `{name}` must be [least, most] within {least} to \
+                         {most} (got [{lo}, {hi}])"
+                    ));
+                    }
+                };
+            // 03-02 §2.2's priors run from 1e-7 m/day (clay) to 1,000 (open gravel).
+            range("k_m_day", u.k_m_day, 1e-9, 10_000.0, p);
+            range("specific_yield", u.specific_yield, 1e-4, 0.5, p);
+            if !(u.thickness_m.is_finite() && (0.1..=500.0).contains(&u.thickness_m)) {
+                p.push(format!(
+                    "groundwater unit {n}'s `thickness_m` must be between 0.1 and 500"
+                ));
+            }
+            if u.name.trim().is_empty() {
+                p.push(format!("groundwater unit {n} needs a name"));
+            }
+            for h in &u.habitats {
+                if !habitats.iter().any(|x| &x.id == h) {
+                    p.push(format!("groundwater unit {n} names unknown habitat `{h}`"));
+                }
+            }
+        }
+    }
 }
 
 /// Where one kind of deposit lies and how large its bodies are (ADR-0010 §1; content API 18).
@@ -435,6 +536,10 @@ impl LandFile {
                     })
                 })
                 .collect::<Option<Vec<_>>>()?,
+            water: self
+                .groundwater
+                .as_ref()
+                .map_or_else(WaterParams::default, GroundwaterFile::params),
         })
     }
 
@@ -504,6 +609,9 @@ impl LandFile {
         }
         self.weather.problems(&mut p);
         self.soil.problems(&mut p);
+        if let Some(g) = &self.groundwater {
+            g.problems(&self.habitat, &mut p);
+        }
         let w = &self.paths;
         if !(w.wear_per_walk > 0.0 && w.wear_per_walk < 1.0) {
             p.push("`paths.wear_per_walk` must be above 0 and below 1".to_owned());

@@ -18,7 +18,12 @@ plan wins. Check a brief's citations against the reports before relying on one.
 | [m5-diffusion.md](m5-diffusion.md) | M5b | Carriers between settlements, techniques and style through contact, provenance, the roof-style demo |
 | [m5-trade.md](m5-trade.md) | M5b | Who carries goods and why, price reports, convergence to a band and its row, money between settlements |
 | [m5-relations.md](m5-relations.md) | M5c | Knowing a neighbour, views of a polity, treaties as two laws, tribute short of conquest, enclosures, emblems |
+| [m6-health.md](m6-health.md) | M6a | Water sources and use, groundwater, springs and wells, waste and contamination, diseases and episodes, tending, what people notice and suspect, responses |
+| [m6-fire.md](m6-fire.md) | M6b | Ignition and spread between buildings, fighting fires, floods and storms on what people built, rebuilding and building codes |
+| [m6-war.md](m6-war.md) | M6c | Raids and war as choices, fighting and its losses, sieges, surrender and annexation, the fortification kit |
+| [m6-observer.md](m6-observer.md) | M6 | Incidents in layers, episodes and typed links, aggregates, coverage lenses, hazard god tools, the chronicle by episode |
 
 The M4 briefs were written on 2026-10-07 for the M4 design (plan §9, "M4a design"); the M5
-briefs on 2026-10-09 for the M5 design (plan §9, "M5 design"). The M5 briefs' bridges (in the
-settlements brief) are designed with M5c's works.
+briefs on 2026-10-09 for the M5 design (plan §9, "M5 design"); the M6 briefs on 2026-10-10 for
+the M6 design (plan §9, "M6 design"). The M5 briefs' bridges (in the settlements brief) are
+designed with M5c's works.

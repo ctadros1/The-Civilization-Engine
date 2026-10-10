@@ -27,6 +27,7 @@ the milestone is too big and gets split.
 | [0018](0018-settlements-residence-movement.md) | Several settlements: identities, residence and movement | Accepted | M5a |
 | [0019](0019-exchange-between-settlements.md) | Exchange between settlements: reach by reports, trades where they settle | Accepted | M5b |
 | [0020](0020-relations-between-polities.md) | Relations between polities: agreements ratified by each custom, views held by people | Accepted | M5c |
+| [0021](0021-water-and-sickness.md) | Water and sickness: sources people choose, loads that are conserved, infections no choice reads | Accepted | M6a |
 
 ## Template
 

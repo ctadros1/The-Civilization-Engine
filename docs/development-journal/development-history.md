@@ -1139,6 +1139,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** the trestle and other bridge systems; per-polity currencies; a treaty failing ratification in a lived world.
 
+## 2026-10-10 — M6 designed: water and sickness first
+
+**Goal:** design M6, Towns and their troubles, from the research before building any of it.
+
+**Decision:** four briefs (health, fire, war, the observer) read the water, sanitation, disease, hydrology, fire, war and observer reports. M6 is split in three, each with its part of the demo: M6a, water and sickness (a cholera outbreak traced to a well); M6b, fire, masonry and floods (a great fire leads to a masonry code); M6c, war and conquest (a siege ends in annexation). M6a comes first because floods rise from its rivers by the day, sieges turn on its wells, and every later hazard is watched in its Incidents panel. ADR-0021 decides water and sickness: sources people choose, a saved aquifer, wells as pits with parts, conserved loads, diseases as content with infections no choice reads, suspicion each person tallies from what they saw, and responses only through existing pipelines. ADR-0015 is amended so that incidents of every kind keep its three layers, with episodes and typed links recorded when they happen.
+
+**Guardrails kept:** no infection without an introduction, and the observer's plague tool targets a person, never a source, so a well is traced by people or by the observer's page, not chosen. No world gets a scheduled outbreak; the epidemics row stays grey unless someone introduced a disease.
+
+**Evidence:** the briefs' key citations checked against the reports (plan §9, "M6 design").
+
+**Open:** M6a's four slices (AY to BB), starting with a clean re-measure of the 3×1,000 bench; M6b and M6c are designed when reached.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

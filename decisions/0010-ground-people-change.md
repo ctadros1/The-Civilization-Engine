@@ -3,6 +3,7 @@
 Status: Accepted
 Date: 2026-10-04
 Milestone: M3b
+Amended: 2026-10-10, M6 design: a well is a pit whose yield is its water column (ADR-0021 §3).
 
 ## Context
 

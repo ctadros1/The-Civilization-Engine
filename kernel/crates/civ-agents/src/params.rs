@@ -58,11 +58,15 @@ pub enum Behavior {
     /// Walk to a seller's door in another settlement the household holds a price report of, buy
     /// there if its terms still serve, and walk home within the day (M5b slice AP, ADR-0019 §2).
     Fetch,
+    /// Take up goods its polity's store set aside for a payment an agreement owes, walk them to
+    /// the other settlement's hearth and hand them over, and walk home within the day (M5c slice
+    /// AV, ADR-0020 §7): only for the one who is to carry them.
+    Carry,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 21] = [
+    pub const ALL: [Behavior; 22] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -84,6 +88,7 @@ impl Behavior {
         Behavior::Petition,
         Behavior::Visit,
         Behavior::Fetch,
+        Behavior::Carry,
     ];
 
     /// The authored name of a behavior.
@@ -110,6 +115,7 @@ impl Behavior {
             Behavior::Petition => "petition",
             Behavior::Visit => "visit",
             Behavior::Fetch => "fetch",
+            Behavior::Carry => "carry",
         }
     }
 

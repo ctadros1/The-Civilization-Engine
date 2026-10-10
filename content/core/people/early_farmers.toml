@@ -899,9 +899,26 @@ claimed_worth = 0.5
 # lost if nobody puts it to the other gathering within `answer_days`, or a side never hears of the
 # other's decision within as long; once in force it runs one of `terms_days` (a year or five; 0
 # would be until withdrawn). Design priors: the research gives no waiting time for a village's word.
-packages = 8
+packages = 16
 answer_days = 120
 terms_days = [365, 1825]
+# Goods for leave (M5c slice AV, ADR-0020 §7): a polity with a common store in force may give,
+# for leave to use the places the other claims, a gift once or a transfer every `transfer_days`, of
+# the good its store holds most, into the other's store when it keeps one. Each household weighs
+# its share of what its store gives or gets. A payment due is set aside from the store and walked
+# to the other's hearth by its keeper, or else by the one who agreed to it; one not handed over
+# within `deliver_days` is missed, its cause kept. Amounts and days are design priors: research
+# 13-02 §2.3 gives a ceremonial relation "no default GDP percentage", and early villages' gifts
+# no quantities.
+gifts_kg = [100, 400]
+transfers_kg = [100]
+transfer_days = 365
+deliver_days = 30
+# Carrying it is worth `carry_points` to its carrier as a duty, against the walk there and back
+# (`decision.w_walk_hour`, 2 points an hour): a design prior, enough to outweigh the longest walk
+# the activity allows (two hours each way, 8 points) by about a morning's useful work (4 points).
+# First set at 3, it never outweighed a walk of an hour and a half each way, and nobody carried.
+carry_points = 12.0
 
 [moving]                         # moving to another settlement (M5a slice AN, ADR-0018 §5); design priors
 # Once a year on a day of its own, and when it forms, a household weighs joining each settlement it

@@ -40,15 +40,69 @@ struct Stakes {
     /// What people of the other settlement take at places its own polity claims and it works,
     /// that its claim kept and leave to them would give up.
     owe: f64,
+    /// Its share of what its polity's store gives or gets: one household's of the settlement's
+    /// (M5c slice AV; a design prior: the store is everyone's levy).
+    share: f64,
 }
 
 impl Stakes {
-    /// Its forecast of a package by which its polity `gives` leave and `gets` it, in the units of
-    /// [`crate::polity::against_gain`].
-    fn gain(&self, gives: bool, gets: bool, pp: &crate::polity::PolityParams) -> f64 {
-        let recover = if gets { self.recover } else { 0.0 };
-        let owe = if gives { self.owe } else { 0.0 };
-        crate::polity::against_gain(&self.outlook, recover, owe, pp)
+    /// Its forecast of `clauses` for side `side`, in the units of
+    /// [`crate::polity::against_gain`], a year and once: leave from the other gives back what
+    /// the other's claims cost it, leave to the other gives up what its own claim kept, and its
+    /// share of what its store gets and gives by gifts (once) and transfers (a year), `kcal`
+    /// giving a kilogram's food energy by good.
+    fn forecast(
+        &self,
+        clauses: &[Clause],
+        side: u8,
+        kcal: &dyn Fn(u16) -> f64,
+        pp: &crate::polity::PolityParams,
+    ) -> (f64, f64) {
+        let mut recover = if clauses.contains(&Clause::Leave { from: 1 - side }) {
+            self.recover
+        } else {
+            0.0
+        };
+        let mut owe = if clauses.contains(&Clause::Leave { from: side }) {
+            self.owe
+        } else {
+            0.0
+        };
+        let (mut got, mut gave) = (0.0, 0.0);
+        for c in clauses {
+            match *c {
+                Clause::Leave { .. } => {}
+                Clause::Gift { from, good, kg } => {
+                    let k = f64::from(kg) * kcal(good) * self.share;
+                    if from == side {
+                        gave += k;
+                    } else {
+                        got += k;
+                    }
+                }
+                Clause::Transfer {
+                    from,
+                    good,
+                    kg,
+                    every_days,
+                } => {
+                    let k = f64::from(kg) * kcal(good) * self.share * 365.0
+                        / f64::from(every_days.max(1));
+                    if from == side {
+                        owe += k;
+                    } else {
+                        recover += k;
+                    }
+                }
+            }
+        }
+        let year = crate::polity::against_gain(&self.outlook, recover, owe, pp);
+        let once = if got > 0.0 || gave > 0.0 {
+            crate::polity::against_gain(&self.outlook, got, gave, pp)
+        } else {
+            0.0
+        };
+        (year, once)
     }
 }
 
@@ -128,7 +182,9 @@ impl Population {
         let keeps = ctx.params.polity.claim_keeps;
         let other = &self.polities[oi];
         let ours = self.polities[pi].claims_now();
-        self.homes_in(self.polities[pi].settlement)
+        let homes = self.homes_in(self.polities[pi].settlement);
+        let share = 1.0 / homes.len().max(1) as f64;
+        homes
             .into_iter()
             .filter_map(|h| {
                 let outlook = self.outlook(ctx, h)?;
@@ -159,6 +215,7 @@ impl Population {
                     outlook,
                     recover: recover * keeps,
                     owe: owe * keeps,
+                    share,
                 })
             })
             .collect()
@@ -215,17 +272,25 @@ impl Population {
             .of(n, self.polities[oi].id, day, rp)
             .map_or(0.0, |v| pp.w_regard * v.warmth());
         let dear = (self.value_points(ctx, n, k) + creed + view) / pp.w_gain.max(1e-9);
+        let kcal = |g: u16| {
+            ctx.catalog
+                .goods
+                .get(usize::from(g))
+                .map_or(0.0, |d| d.kcal_per_kg)
+        };
         packages
             .iter()
             .map(|p| {
-                let gives = p.clauses.contains(&Clause::Leave { from: side });
-                let gets = p.clauses.contains(&Clause::Leave { from: 1 - side });
+                let years = f64::from(p.term_days) / 365.0;
+                // A year's forecast over the term, and what comes once.
                 let gain = |h: PermanentId| {
                     stakes
                         .binary_search_by_key(&h, |s| s.household)
-                        .map_or(0.0, |i| stakes[i].gain(gives, gets, pp))
+                        .map_or((0.0, 0.0), |i| {
+                            stakes[i].forecast(&p.clauses, side, &kcal, pp)
+                        })
                 };
-                let (mut weighed, mut weight, mut support, mut oppose) = (0.0, 0.0, 0, 0);
+                let (mut weighed, mut weight, mut support, mut oppose) = ((0.0, 0.0), 0.0, 0, 0);
                 for &(a, h) in &members {
                     if a == n {
                         continue;
@@ -233,26 +298,32 @@ impl Population {
                     let g = gain(h);
                     let regard = self.ties.regard(a, n, day, tp).clamp(0.0, 1.0);
                     if regard > 0.0 {
-                        weighed += regard * g;
+                        weighed.0 += regard * g.0;
+                        weighed.1 += regard * g.1;
                         weight += regard;
                     }
                     if self.ties.known(n, a, day, tp) > 0.0 {
                         let to_n = self.ties.regard(a, n, day, tp);
-                        match crate::polity::stance(pp.w_gain * g, to_n, pp).0 {
+                        match crate::polity::stance(pp.w_gain * (g.0 + g.1), to_n, pp).0 {
                             crate::polity::Stance::Support => support += 1,
                             crate::polity::Stance::Oppose => oppose += 1,
                             crate::polity::Stance::Abstain => {}
                         }
                     }
                 }
-                let followers = if weight > 0.0 { weighed / weight } else { 0.0 };
+                let followers = if weight > 0.0 {
+                    (weighed.0 / weight, weighed.1 / weight)
+                } else {
+                    (0.0, 0.0)
+                };
                 let support = if support + oppose > 0 {
                     f64::from(support) / f64::from(support + oppose)
                 } else {
                     0.5
                 };
-                let years = f64::from(p.term_days) / 365.0;
-                let forecast = (gain(own) + pp.w_followers * followers) * years;
+                let mine = gain(own);
+                let forecast = (mine.0 + pp.w_followers * followers.0) * years
+                    + (mine.1 + pp.w_followers * followers.1);
                 Weighed {
                     score: support * pp.w_gain * (forecast + dear) - pp.propose_cost,
                     support,
@@ -454,6 +525,44 @@ impl Population {
         if can.len() == 2 {
             sets.push(can.clone());
         }
+        // Goods for leave (M5c slice AV, ADR-0020 §7): one side's leave, and from the other's
+        // common store a gift or a transfer of the good it holds most, into the first side's
+        // store, when both keep one. A store with too little of it offers no gift that large.
+        for &c in &can {
+            let Clause::Leave { from } = c else {
+                continue;
+            };
+            let payer = 1 - from;
+            let (Some((good, held)), true) = (
+                self.store_good(ctx, sides[usize::from(payer)]),
+                self.keeps_store(ctx, sides[usize::from(from)]),
+            ) else {
+                continue;
+            };
+            for &kg in &rp.gifts_kg {
+                if f64::from(kg) <= held {
+                    sets.push(vec![
+                        c,
+                        Clause::Gift {
+                            from: payer,
+                            good,
+                            kg,
+                        },
+                    ]);
+                }
+            }
+            for &kg in &rp.transfers_kg {
+                sets.push(vec![
+                    c,
+                    Clause::Transfer {
+                        from: payer,
+                        good,
+                        kg,
+                        every_days: rp.transfer_days.max(1),
+                    },
+                ]);
+            }
+        }
         sets.iter()
             .flat_map(|c| {
                 rp.terms_days.iter().map(move |&t| Package {
@@ -463,6 +572,29 @@ impl Population {
             })
             .take(rp.packages as usize)
             .collect()
+    }
+
+    /// Whether polity `pi` keeps a common store by a law in force.
+    fn keeps_store(&self, ctx: &Ctx, pi: usize) -> bool {
+        self.polities[pi]
+            .in_force(&ctx.catalog.policies, PolicyKind::CommonStore)
+            .next()
+            .is_some()
+    }
+
+    /// The good polity `pi`'s common store holds most of, and how much, kilograms, if it keeps
+    /// one and holds anything (M5c slice AV).
+    fn store_good(&self, ctx: &Ctx, pi: usize) -> Option<(u16, f64)> {
+        if !self.keeps_store(ctx, pi) {
+            return None;
+        }
+        self.polities[pi]
+            .stores
+            .iter()
+            .enumerate()
+            .filter(|&(_, &kg)| kg > 0.0)
+            .max_by(|a, b| a.1.total_cmp(b.1).then(b.0.cmp(&a.0)))
+            .map(|(g, &kg)| (g as u16, kg))
     }
 
     /// The name of settlement `s`, or "another settlement".
@@ -477,12 +609,20 @@ impl Population {
     /// An agreement's terms in words: "leave for Ashford's people to use the places Oakholt
     /// claims, for a year".
     pub(super) fn agreement_words(&self, ctx: &Ctx, a: &Agreement) -> String {
-        a.words(&|polity| {
-            self.polities.iter().find(|p| p.id == polity).map_or_else(
-                || "another settlement".to_owned(),
-                |p| self.settlement_name(ctx, p.settlement),
-            )
-        })
+        a.words(
+            &|polity| {
+                self.polities.iter().find(|p| p.id == polity).map_or_else(
+                    || "another settlement".to_owned(),
+                    |p| self.settlement_name(ctx, p.settlement),
+                )
+            },
+            &|g| {
+                ctx.catalog
+                    .goods
+                    .get(usize::from(g))
+                    .map_or_else(|| "goods".to_owned(), |d| d.name.to_lowercase())
+            },
+        )
     }
 
     /// Adds a chronicle entry for agreement `id` at side 0's hearth.
@@ -528,8 +668,7 @@ impl Population {
         };
         let s = usize::from(side);
         let (n, polity, other) = (a.negotiators[s], a.polities[s], a.polities[1 - s]);
-        let gives = a.clauses.contains(&Clause::Leave { from: side });
-        let gets = a.clauses.contains(&Clause::Leave { from: 1 - side });
+        let clauses = a.clauses.clone();
         let (Some(pi), Some(oi)) = (
             self.polities.iter().position(|p| p.id == polity),
             self.polities.iter().position(|p| p.id == other),
@@ -537,10 +676,19 @@ impl Population {
             return;
         };
         let pp = &ctx.params.polity;
+        let kcal = |g: u16| {
+            ctx.catalog
+                .goods
+                .get(usize::from(g))
+                .map_or(0.0, |d| d.kcal_per_kg)
+        };
         let stakes: Vec<(PermanentId, f32)> = self
             .stakes_of(ctx, pi, oi)
             .iter()
-            .map(|x| (x.household, (pp.w_gain * x.gain(gives, gets, pp)) as f32))
+            .map(|x| {
+                let (year, once) = x.forecast(&clauses, side, &kcal, pp);
+                (x.household, (pp.w_gain * (year + once)) as f32)
+            })
             .collect();
         let m = MoveOption {
             policy: k,
@@ -807,5 +955,59 @@ impl Population {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn stakes() -> Stakes {
+        Stakes {
+            household: PermanentId::from_raw(1).expect("non-zero"),
+            outlook: Outlook {
+                held: 1_500_000.0,
+                harvest: 3_000_000.0,
+                year_need: 4_000_000.0,
+            },
+            recover: 150_000.0,
+            owe: 0.0,
+            share: 0.1,
+        }
+    }
+
+    #[test]
+    fn goods_weigh_for_who_gets_them_and_against_who_gives_them_by_its_share() {
+        let pp = crate::polity::PolityParams::core();
+        let kcal = |_: u16| 3_400.0;
+        let s = stakes();
+        let leave = Clause::Leave { from: 1 };
+        let gift = Clause::Gift {
+            from: 0,
+            good: 0,
+            kg: 400,
+        };
+        let transfer = Clause::Transfer {
+            from: 0,
+            good: 0,
+            kg: 100,
+            every_days: 365,
+        };
+        // Side 0 gets leave from side 1 and gives the goods; side 1 the other way about.
+        let plain = s.forecast(&[leave], 0, &kcal, &pp);
+        assert!(plain.0 > 0.0 && plain.1 == 0.0, "{plain:?}");
+        let giving = s.forecast(&[leave, gift], 0, &kcal, &pp);
+        assert_eq!(giving.0, plain.0, "a gift weighs once, not a year");
+        assert!(giving.1 < 0.0, "{giving:?}");
+        let getting = s.forecast(&[leave, gift], 1, &kcal, &pp);
+        assert!(getting.1 > 0.0 && getting.0 <= 0.0, "{getting:?}");
+        // A transfer weighs each year, against what leave gives back.
+        let paying = s.forecast(&[leave, transfer], 0, &kcal, &pp);
+        assert!(paying.0 < plain.0 && paying.1 == 0.0, "{paying:?}");
+        let paid = s.forecast(&[leave, transfer], 1, &kcal, &pp);
+        assert!(paid.0 > 0.0, "{paid:?}");
+        // Only its share: a household of twice as many shares gets half as much.
+        let half = Stakes { share: 0.05, ..s };
+        assert!(half.forecast(&[leave, gift], 1, &kcal, &pp).1 < getting.1);
     }
 }

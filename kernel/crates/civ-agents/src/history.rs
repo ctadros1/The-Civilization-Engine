@@ -709,6 +709,10 @@ pub enum AgreementStep {
     Failed = 3,
     /// Its term ran out, or a law of one side ended it.
     Ended = 4,
+    /// A payment it owes was handed over at the other's hearth (M5c slice AV).
+    Delivered = 5,
+    /// A payment it owes was missed, its cause told.
+    Missed = 6,
 }
 
 /// What happened to a coalition, in a [`ChronicleKind::Coalition`] entry. Numeric in saves:

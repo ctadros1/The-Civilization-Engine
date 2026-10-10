@@ -352,6 +352,14 @@ pub(crate) struct RelationsFile {
     pub packages: u32,
     pub answer_days: i64,
     pub terms_days: Vec<u32>,
+    /// Content API 63 (M5c slice AV): the gifts and transfers a store may give for leave, the days
+    /// between transfers, the days a payment may take to be handed over, and what carrying one
+    /// is worth to its carrier.
+    pub gifts_kg: Vec<u32>,
+    pub transfers_kg: Vec<u32>,
+    pub transfer_days: u32,
+    pub deliver_days: i64,
+    pub carry_points: f64,
 }
 
 /// Word of mouth and grievances (M4c slice AE, ADR-0016; content API 39). See
@@ -1608,6 +1616,11 @@ impl PeopleFile {
                 packages: self.relations.packages,
                 answer_days: self.relations.answer_days,
                 terms_days: self.relations.terms_days.clone(),
+                gifts_kg: self.relations.gifts_kg.clone(),
+                transfers_kg: self.relations.transfers_kg.clone(),
+                transfer_days: self.relations.transfer_days,
+                deliver_days: self.relations.deliver_days,
+                carry_points: self.relations.carry_points,
             },
             names,
         }
@@ -1751,6 +1764,32 @@ impl PeopleFile {
                 "`relations.terms_days` must name at least one term of at most 36500 days (got \
                  {:?})",
                 v.terms_days
+            ));
+        }
+        for (key, list) in [("gifts_kg", &v.gifts_kg), ("transfers_kg", &v.transfers_kg)] {
+            if list.len() > 8 || list.iter().any(|&kg| kg == 0 || kg > 100_000) {
+                p.push(format!(
+                    "`relations.{key}` must name at most 8 amounts of 1 to 100000 kg (got \
+                     {list:?})"
+                ));
+            }
+        }
+        if !(1..=3650).contains(&v.transfer_days) {
+            p.push(format!(
+                "`relations.transfer_days` must be between 1 and 3650 (got {})",
+                v.transfer_days
+            ));
+        }
+        if !(1..=365).contains(&v.deliver_days) {
+            p.push(format!(
+                "`relations.deliver_days` must be between 1 and 365 (got {})",
+                v.deliver_days
+            ));
+        }
+        if !(v.carry_points.is_finite() && (0.0..=100.0).contains(&v.carry_points)) {
+            p.push(format!(
+                "`relations.carry_points` must be between 0 and 100 (got {})",
+                v.carry_points
             ));
         }
         if !(1..=256).contains(&f.candidates) {

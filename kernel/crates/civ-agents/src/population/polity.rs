@@ -171,6 +171,10 @@ impl Population {
         // Agreements between polities: a gathering's decision on one, a side not yet put to its
         // gathering, and one coming into force, failing or ending (M5c slice AU).
         self.agreements_day(ctx);
+        // And the payments they owe, set aside and carried (M5c slice AV).
+        if !self.agreements.list.is_empty() {
+            self.dues_day(ctx);
+        }
         // Cases still waiting go before the next gathering (M4b slice AB).
         if self
             .order

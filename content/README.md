@@ -716,6 +716,21 @@ officeholder, and more adults than stand with the gathering, must stand with it 
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
 
+Content API 63 (M5c slice AV, step one) brings goods for leave, and payments carried (ADR-0020
+§7): the behaviour `carry` and its activity `core:activity/walk_owed_goods` (one way at most
+`max_walk_minutes`, 120, as a visit; daylight only, and only for the one named to carry a payment
+set aside), and the `[relations]` keys `gifts_kg` and `transfers_kg` (at most 8 amounts each, 1 to
+100,000 kg; 100 and 400 for a gift and 100 for a transfer, design priors: research 13-02 §2.3
+gives a ceremonial relation no default share), `transfer_days` (1 to 3,650; 365), `deliver_days`
+(1 to 365; 30) and `carry_points` (0 to 100; 12, enough to outweigh the longest walk allowed, at
+`decision.w_walk_hour`, by about a morning's useful work), all design priors. `packages` becomes
+16, still inside research 13-01 §3.3's 8–32, so the goods packages fit beside leave's. A polity
+whose common store is in force may give, for leave to the places the other claims, a gift once or
+a transfer every `transfer_days` of the good its store holds most, into the other's store when it
+keeps one; a payment falls due when the agreement comes into force, the store sets aside what it
+holds of it each midnight, its keeper (or else the one who agreed to the terms) may walk it to the
+other's hearth, and one not handed over within `deliver_days` is missed, its cause kept.
+
 Content API 62 (M5c slice AU, step two) brings agreements between polities (ADR-0020 §6): the
 policy kind `agreement` (`core:policy/word_given`, answering the issue `claimed_from_us`; it
 asks no question and bears reciprocity +0.5 and security −0.5, authoring judgements), and the

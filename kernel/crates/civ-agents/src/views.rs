@@ -36,6 +36,16 @@ pub struct RelationsParams {
     /// The terms an agreement may run once in force, days, in the order weighed; 0 until
     /// withdrawn (content API 62).
     pub terms_days: Vec<u32>,
+    /// The gifts a polity's store may give for leave, kilograms of the good it holds most, in
+    /// the order weighed (content API 63; M5c slice AV).
+    pub gifts_kg: Vec<u32>,
+    /// The transfers it may pay for leave, kilograms every `transfer_days`.
+    pub transfers_kg: Vec<u32>,
+    pub transfer_days: u32,
+    /// Days a payment may take to be handed over once due before it is missed.
+    pub deliver_days: i64,
+    /// What carrying a payment owed is worth to the one who is to carry it, points.
+    pub carry_points: f64,
 }
 
 impl RelationsParams {
@@ -48,9 +58,14 @@ impl RelationsParams {
             heard_trespass: 0.5,
             share_claims: 0.15,
             claimed_worth: 0.5,
-            packages: 8,
+            packages: 16,
             answer_days: 120,
             terms_days: vec![365, 1825],
+            gifts_kg: vec![100, 400],
+            transfers_kg: vec![100],
+            transfer_days: 365,
+            deliver_days: 30,
+            carry_points: 12.0,
         }
     }
 }

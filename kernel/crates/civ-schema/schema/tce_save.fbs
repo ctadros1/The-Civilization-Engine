@@ -1868,6 +1868,34 @@ table RelationsSave {
   heard: [HeardClaimSave] (id: 1);
   // Schema 65 (M5c slice AU, ADR-0020 §6): every agreement between polities, in the order made.
   agreements: [AgreementSave] (id: 2);
+  // Schema 67 (M5c slice AV, ADR-0020 §7): every payment agreements owe, in the order they fell
+  // due, and the goods their clauses and payments name, by content id.
+  dues: [DueSave] (id: 3);
+  goods: [string] (id: 4);
+}
+
+// A payment an agreement owes (schema 67): `good` indexes `RelationsSave.goods`; `state` 0 owed,
+// 1 met on `state_day`, 2 missed on `state_day` for `why` (0 the store held none, 1 nobody to
+// carry it, 2 nobody carried it); `carrier` 0 for nobody; `held_kg` what it holds, as of minute
+// `held_at`.
+table DueSave {
+  id: ulong (id: 0);
+  agreement: ulong (id: 1);
+  clause: ubyte (id: 2);
+  from_polity: ulong (id: 3);
+  to_polity: ulong (id: 4);
+  good: ushort (id: 5);
+  owed_kg: double (id: 6);
+  made: long (id: 7);
+  due: long (id: 8);
+  set_aside_kg: double (id: 9);
+  arrived_kg: double (id: 10);
+  carrier: ulong (id: 11);
+  state: ubyte (id: 12);
+  state_day: long (id: 13);
+  why: ubyte (id: 14);
+  held_kg: double (id: 15);
+  held_at: long (id: 16);
 }
 
 // An agreement between two polities (schema 65): side 0 is the polity whose member sought terms.
@@ -1898,6 +1926,11 @@ table AgreementSave {
   why_kind: ubyte (id: 17);
   why_side: ubyte (id: 18);
   by: ubyte = 255 (id: 19);
+  // Schema 67 (M5c slice AV): what each clause gives, in `clause_kind` order: the good (indexing
+  // `RelationsSave.goods`), kilograms, and days between payments (0 for leave, and a gift's).
+  clause_good: [ushort] (id: 20);
+  clause_kg: [uint] (id: 21);
+  clause_days: [uint] (id: 22);
 }
 
 // A place another polity's law claims, as `household` heard of it on `day` from `from` (schema

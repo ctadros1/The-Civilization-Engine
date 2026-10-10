@@ -111,7 +111,7 @@ use super::{
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
-    SCHEMA_V65, finish, section, single_chunk, unreadable,
+    SCHEMA_V65, SCHEMA_V66, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -267,7 +267,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             encode_influences(&sim.people.influences, rules),
         ),
         section(SECTION_PLACES, 0, encode_places(&sim.people, &goods)),
-        section(SECTION_RELATIONS, 0, encode_relations(&sim.people)),
+        section(SECTION_RELATIONS, 0, encode_relations(&sim.people, &goods)),
     ]
 }
 
@@ -421,6 +421,8 @@ enum Schema {
     V65,
     /// What views of another polity added to stances on an agreement (M5c slice AU, step three).
     V66,
+    /// Goods an agreement moves, and the payments owed under it (M5c slice AV).
+    V67,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -501,7 +503,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V63 => Schema::V63,
         SCHEMA_V64 => Schema::V64,
         SCHEMA_V65 => Schema::V65,
-        SAVE_SCHEMA_VERSION => Schema::V66,
+        SCHEMA_V66 => Schema::V66,
+        SAVE_SCHEMA_VERSION => Schema::V67,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2765,7 +2768,8 @@ fn carried(
         | Schema::V63
         | Schema::V64
         | Schema::V65
-        | Schema::V66 => {
+        | Schema::V66
+        | Schema::V67 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2941,7 +2945,8 @@ fn decode_households(
             | Schema::V63
             | Schema::V64
             | Schema::V65
-            | Schema::V66 => {
+            | Schema::V66
+            | Schema::V67 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -7098,7 +7103,7 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
 
 // ---- relations ---------------------------------------------------------------------------------
 
-fn encode_relations(people: &Population) -> Vec<u8> {
+fn encode_relations(people: &Population, goods: &[&str]) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let views: Vec<_> = people
         .polity_views
@@ -7157,6 +7162,21 @@ fn encode_relations(people: &Population) -> Vec<u8> {
             let (kinds, sides): (Vec<u8>, Vec<u8>) = a.clauses.iter().map(|c| c.code()).unzip();
             let clause_kind = fbb.create_vector(&kinds);
             let clause_side = fbb.create_vector(&sides);
+            // What each clause gives (schema 67), only when one moves goods.
+            let (clause_good, clause_kg, clause_days) = if a.clauses.iter().any(|c| c.moves_goods())
+            {
+                let amounts: Vec<(u16, u32, u32)> = a.clauses.iter().map(|c| c.amount()).collect();
+                let good: Vec<u16> = amounts.iter().map(|x| x.0).collect();
+                let kg: Vec<u32> = amounts.iter().map(|x| x.1).collect();
+                let days: Vec<u32> = amounts.iter().map(|x| x.2).collect();
+                (
+                    Some(fbb.create_vector(&good)),
+                    Some(fbb.create_vector(&kg)),
+                    Some(fbb.create_vector(&days)),
+                )
+            } else {
+                (None, None, None)
+            };
             let (state, state_day, (why_kind, why_side), by) = match a.state {
                 AgreementState::Offered => (0, 0, (0, 0), u8::MAX),
                 AgreementState::InForce { since } => (1, since, (0, 0), u8::MAX),
@@ -7187,17 +7207,66 @@ fn encode_relations(people: &Population) -> Vec<u8> {
                     why_kind,
                     why_side,
                     by,
+                    clause_good,
+                    clause_kg,
+                    clause_days,
                 },
             )
         })
         .collect();
     let agreements = (!agreements.is_empty()).then(|| fbb.create_vector(&agreements));
+    // The payments agreements owe (schema 67).
+    let dues: Vec<_> = people
+        .agreements
+        .dues
+        .iter()
+        .map(|d| {
+            use civ_agents::agreements::DueState;
+            let (state, state_day, why) = match d.state {
+                DueState::Open => (0, 0, 0),
+                DueState::Met { day } => (1, day, 0),
+                DueState::Missed { day, why } => (2, day, why.code()),
+            };
+            save::DueSave::create(
+                &mut fbb,
+                &save::DueSaveArgs {
+                    id: d.id.get(),
+                    agreement: d.agreement.get(),
+                    clause: d.clause,
+                    from_polity: d.from.get(),
+                    to_polity: d.to.get(),
+                    good: d.good,
+                    owed_kg: d.owed_kg,
+                    made: d.made,
+                    due: d.due,
+                    set_aside_kg: d.set_aside_kg,
+                    arrived_kg: d.arrived_kg,
+                    carrier: d.carrier.map_or(0, PermanentId::get),
+                    state,
+                    state_day,
+                    why,
+                    held_kg: d.stores.get(usize::from(d.good)).copied().unwrap_or(0.0),
+                    held_at: d.stores_at.minutes(),
+                },
+            )
+        })
+        .collect();
+    let names_goods = !dues.is_empty()
+        || people
+            .agreements
+            .list
+            .iter()
+            .any(|a| a.clauses.iter().any(|c| c.moves_goods()));
+    let dues = (!dues.is_empty()).then(|| fbb.create_vector(&dues));
+    let goods = names_goods.then(|| strings(&mut fbb, goods));
     let root = save::RelationsSave::create(
         &mut fbb,
         &save::RelationsSaveArgs {
             views,
             heard,
             agreements,
+            dues,
+            goods,
         },
     );
     finish(fbb, root)
@@ -7274,8 +7343,14 @@ fn decode_relations(bytes: &[u8], rules: &Rules) -> Result<Relations, LoadError>
             )));
         }
     }
-    // Agreements between polities (schema 65); before, none.
+    // Agreements between polities (schema 65); before, none. What a clause gives names a good of
+    // the saved dictionary (schema 67); a clause or payment of a good the loaded content no longer
+    // has is dropped, and the payments of an agreement's later clauses renumbered.
+    let goods = good_map(&read_strings(root.goods()), rules);
+    let good_of =
+        |index: u16, what: &dyn Fn() -> String| saved_good(&goods, u32::from(index), what);
     let mut agreements = civ_agents::agreements::Agreements::default();
+    let mut clause_maps: HashMap<PermanentId, Vec<Option<u8>>> = HashMap::new();
     for a in root.agreements().iter().flatten() {
         use civ_agents::agreements::{Agreement, AgreementState, Clause, Failure};
         let id = required(a.id(), "an agreement")?;
@@ -7291,13 +7366,38 @@ fn decode_relations(bytes: &[u8], rules: &Rules) -> Result<Relations, LoadError>
         if kinds.len() != sides.len() {
             return Err(bad("clause kinds and sides of different lengths"));
         }
+        let amounts = |v: Option<flatbuffers::Vector<'_, u32>>| -> Result<Vec<u32>, LoadError> {
+            match v {
+                None => Ok(vec![0; kinds.len()]),
+                Some(v) if v.len() == kinds.len() => Ok(v.iter().collect()),
+                Some(_) => Err(bad("clause amounts and kinds of different lengths")),
+            }
+        };
+        let saved_goods: Vec<u16> = match a.clause_good() {
+            None => vec![0; kinds.len()],
+            Some(v) if v.len() == kinds.len() => v.iter().collect(),
+            Some(_) => return Err(bad("clause goods and kinds of different lengths")),
+        };
+        let (kgs, days) = (amounts(a.clause_kg())?, amounts(a.clause_days())?);
         let mut clauses = Vec::with_capacity(kinds.len());
-        for (&k, &s) in kinds.iter().zip(&sides) {
+        let mut clause_map = Vec::with_capacity(kinds.len());
+        for (k, (&kind, &side)) in kinds.iter().zip(&sides).enumerate() {
+            let good = if kind == 0 {
+                Some(0)
+            } else {
+                good_of(saved_goods[k], &|| format!("agreement {id}'s clause {k}"))?
+            };
+            let Some(good) = good else {
+                clause_map.push(None);
+                continue;
+            };
+            clause_map.push(Some(clauses.len() as u8));
             clauses.push(
-                Clause::from_code(k, s)
-                    .ok_or_else(|| bad(&format!("a clause of kind {k} and side {s}")))?,
+                Clause::from_code(kind, side, good, kgs[k], days[k])
+                    .ok_or_else(|| bad(&format!("a clause of kind {kind} and side {side}")))?,
             );
         }
+        clause_maps.insert(id, clause_map);
         let day = |d: i64| (d >= 0).then_some(d);
         let state = match a.state() {
             0 => AgreementState::Offered,
@@ -7339,6 +7439,53 @@ fn decode_relations(bytes: &[u8], rules: &Rules) -> Result<Relations, LoadError>
             passed: [day(a.passed_a()), day(a.passed_b())],
             heard: [day(a.heard_a()), day(a.heard_b())],
             state,
+        });
+    }
+    // The payments agreements owe (schema 67); before, none.
+    for d in root.dues().iter().flatten() {
+        use civ_agents::agreements::{Due, DueState, Miss};
+        let id = required(d.id(), "a payment an agreement owes")?;
+        let bad = |what: &str| LoadError::Malformed(format!("payment {id} has {what}"));
+        let agreement = required(d.agreement(), "the agreement a payment is owed under")?;
+        let clause = match clause_maps.get(&agreement) {
+            None => return Err(bad(&format!("agreement {agreement}, which is not kept"))),
+            Some(map) => match map.get(usize::from(d.clause())) {
+                None => return Err(bad(&format!("clause {}, which it lacks", d.clause()))),
+                Some(None) => continue,
+                Some(&Some(c)) => c,
+            },
+        };
+        let Some(good) = good_of(d.good(), &|| format!("payment {id}"))? else {
+            continue;
+        };
+        let state = match d.state() {
+            0 => DueState::Open,
+            1 => DueState::Met { day: d.state_day() },
+            2 => DueState::Missed {
+                day: d.state_day(),
+                why: Miss::from_code(d.why()).ok_or_else(|| bad("an unknown miss"))?,
+            },
+            c => return Err(bad(&format!("state code {c}"))),
+        };
+        let mut stores = vec![0.0; rules.catalog.goods.len()];
+        stores[usize::from(good)] = d.held_kg();
+        agreements.dues.push(Due {
+            id,
+            agreement,
+            clause,
+            from: required(d.from_polity(), "the polity a payment is owed by")?,
+            to: required(d.to_polity(), "the polity a payment is owed to")?,
+            good,
+            owed_kg: d.owed_kg(),
+            made: d.made(),
+            due: d.due(),
+            set_aside_kg: d.set_aside_kg(),
+            arrived_kg: d.arrived_kg(),
+            carrier: PermanentId::from_raw(d.carrier()),
+            state,
+            stores,
+            stores_at: SimTime::from_minutes(d.held_at()),
+            flows: Default::default(),
         });
     }
     Ok((out, heard, agreements))

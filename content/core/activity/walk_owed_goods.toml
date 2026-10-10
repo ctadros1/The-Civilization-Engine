@@ -1,0 +1,24 @@
+# Carrying a payment an agreement owes (M5c slice AV, ADR-0020 §7; research 13-02 §1.2 F: "tribute
+# requires actual transport and storage"; 13-01 §6.2: "grain must be collected and transported").
+# Only for the one who is to carry it: the keeper of the paying store, or else the one who agreed
+# to the terms. They take up what the store set aside where it is kept, walk it to the other
+# settlement's hearth and hand it over, and walk home the same day; what spoils on the way is lost.
+# Chosen only in daylight that lasts the walk there and back. `min_minutes` is the time to take it
+# up and to hand it over, each; `max_walk_minutes` one way, as for a visit (research 09-16 §2.1:
+# about 25 km a day on foot). Its id sorts after every older activity's: activities are kept in id
+# order.
+kind = "activity"
+id = "core:activity/walk_owed_goods"
+name = "Carry goods owed"
+doing = "carrying goods owed"
+behavior = "carry"
+par = 2.0
+min_age_years = 15.0
+max_age_years = 130.0
+min_minutes = 15
+max_minutes = 15
+daylight_only = true
+max_walk_minutes = 120
+technique = ""
+tools = []
+rate = 1.0

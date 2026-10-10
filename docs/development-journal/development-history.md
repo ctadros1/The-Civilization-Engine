@@ -1006,6 +1006,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** slice AV, performance: gifts and recurring transfers carried by people, which would give one-sided leave something to be traded for.
 
+## 2026-10-10 — M5c slice AV, step one: goods for leave, and payments carried
+
+**Goal:** give one-sided leave something to be traded for, and perform what an agreement gives with real goods carried by people (ADR-0020 §7).
+
+**What changed:** two clause kinds, a gift once and a transfer every `transfer_days`, of the good a polity's common store holds most, offered for leave only when the giver keeps a store in force and the receiver keeps one too; each household weighs its share. A payment falls due when the agreement comes into force (a transfer again on its days); each midnight the paying store sets aside what it holds of it into the payment, a ledger holder of its own on the new `agreement` channel that spoils in the open; the store's keeper, or else the one who agreed to the terms, may choose to carry it to the other's hearth (the new `carry` behaviour), where it goes into the other's store; one not handed over within `deliver_days` is missed and its cause kept. Saves schema 67, content API 63.
+
+**Findings:** the first `carry_points` (3) never outweighed a walk of an hour and a half each way, so nobody carried; it is 12, the longest allowed walk's cost plus a morning's work, recorded as a design prior. In the AU test world where one village claimed what the other worked and the meeting parted with none, grain on offer did not change the outcome: the counterpart held the agreement against what they hold dear, which a household's share of 400 kg did not outweigh, and the seeker's own people opposed giving that much. Nothing was tuned.
+
+**Evidence:** integration tests of a gift and a transfer set aside, carried by the keeper and met with every kilogram accounted for, and of a transfer from an empty store falling due again and missed for that cause, each saved, loaded and lived on alike; a unit test of how goods weigh in a household's forecast; the roundtrip of a schema-66 save; the full suite and clippy; a forty-day comparison on a village of 1,000.
+
+**Open:** AV step two: views written by performance, word of a miss crossing with travellers, the tributary label and both burden ratios, payments in the observer.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

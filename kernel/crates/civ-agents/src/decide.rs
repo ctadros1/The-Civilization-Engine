@@ -72,9 +72,27 @@ pub struct Facts {
     pub petition: Option<GatheringFacts>,
     /// The round of the watch they keep, if they keep one and may walk it now (M4b slice AC).
     pub watch: Option<WatchFacts>,
+    /// A payment an agreement owes that they are to carry, set aside and waiting, if they can
+    /// walk it there and back in the day (M5c slice AV).
+    pub carry: Option<CarryFacts>,
     /// Whether a blow keeps them from work today (M4c slice AI, step four): they eat, drink, rest,
     /// sleep and keep company, and do no work.
     pub hurt: bool,
+}
+
+/// A payment someone is to carry (M5c slice AV, ADR-0020 §7): where the store set it aside, the
+/// hearth of the settlement it goes to, the walk there from home, and what carrying it is worth.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CarryFacts {
+    /// Where the paying store keeps it, metres.
+    pub store: (f32, f32),
+    /// The settlement it goes to, and its hearth, metres.
+    pub settlement: PermanentId,
+    pub hearth: (f32, f32),
+    /// One-way walk to that hearth, minutes.
+    pub walk_min: f64,
+    /// Points: the duty.
+    pub points: f64,
 }
 
 /// A round of the watch someone keeps (M4b slice AC): the homes it passes, in order, and what
@@ -543,6 +561,11 @@ pub fn candidates(
     for i in order {
         let def = &defs[i];
         let id = i as u16;
+        // Carrying goods owed is open only to the one who is to carry them (M5c slice AV), and
+        // is no part of anyone else's choice: not even a reason it was left out.
+        if def.behavior == Behavior::Carry && f.carry.is_none() {
+            continue;
+        }
         if f.age < def.min_age_years {
             excluded.push((id, Reason::TooYoung));
             continue;
@@ -1281,6 +1304,33 @@ pub fn candidates(
                 steps.push(Step::Walk { to: f.home });
                 out.push(finish(id, Target::None, terms, steps));
             }
+            Behavior::Carry => {
+                // A payment an agreement owes (M5c slice AV): taken up where the store keeps it,
+                // walked to the other hearth and handed over, home the same day. Nothing is said
+                // of it to one who carries nothing.
+                let Some(c) = f.carry else {
+                    continue;
+                };
+                if f.daylight_left_min < 2.0 * c.walk_min + 2.0 * f64::from(def.min_minutes) {
+                    excluded.push((id, Reason::NotInDark));
+                    continue;
+                }
+                term(&mut terms, Reason::Duty, c.points);
+                term(
+                    &mut terms,
+                    Reason::Walking,
+                    -w.w_walk_hour * 2.0 * c.walk_min / 60.0,
+                );
+                let stand = def.min_minutes.max(1);
+                let steps = vec![
+                    Step::Walk { to: c.store },
+                    Step::Work { minutes: stand },
+                    Step::Walk { to: c.hearth },
+                    Step::Work { minutes: stand },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Hearth(c.settlement), terms, steps));
+            }
             Behavior::Rest => {
                 term(&mut terms, Reason::Rest, w.w_rest);
                 let mut steps = walk_home_first(f);
@@ -1571,6 +1621,7 @@ mod tests {
             hearth: None,
             gathering: None,
             watch: None,
+            carry: None,
         }
     }
 

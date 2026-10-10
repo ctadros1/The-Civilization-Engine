@@ -233,6 +233,9 @@ pub const SCHEMA_V64: u32 = 64;
 /// The schema version of M5c slice AU, step two: agreements between polities, before what views
 /// of another polity added to stances on them (see [`agents`]).
 pub const SCHEMA_V65: u32 = 65;
+/// The schema version of M5c slice AU, step three: what views of another polity added to stances
+/// on them, before the goods agreements move and the payments owed under them (see [`agents`]).
+pub const SCHEMA_V66: u32 = 66;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

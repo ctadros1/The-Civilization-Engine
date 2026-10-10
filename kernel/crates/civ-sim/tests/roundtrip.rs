@@ -2241,6 +2241,29 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
 }
 
 #[test]
+fn a_schema_66_save_loads_with_no_payment_owed() {
+    // A schema-66 save, from before agreements moved goods (M5c slice AV): no clause gave goods,
+    // and no payment was owed; a world of one polity owes none anyway.
+    let sim = load_first();
+    assert!(sim.people().agreements.dues.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V66;
+    let path = republish("slice-au3", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-66 save loads");
+    assert!(loaded.people().agreements.dues.is_empty());
+    assert!(
+        loaded
+            .people()
+            .agreements
+            .list
+            .iter()
+            .flat_map(|a| &a.clauses)
+            .all(|c| !c.moves_goods())
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_65_save_loads_with_no_view_weighed_in_any_stance() {
     // A schema-65 save, from before views of another polity weighed in stances on agreements (M5c
     // slice AU, step three): no stance kept one.

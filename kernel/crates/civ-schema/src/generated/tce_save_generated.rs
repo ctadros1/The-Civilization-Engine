@@ -32756,6 +32756,8 @@ impl<'a> RelationsSave<'a> {
   pub const VT_VIEWS: ::flatbuffers::VOffsetT = 4;
   pub const VT_HEARD: ::flatbuffers::VOffsetT = 6;
   pub const VT_AGREEMENTS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_DUES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_GOODS: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32767,6 +32769,8 @@ impl<'a> RelationsSave<'a> {
     args: &'args RelationsSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<RelationsSave<'bldr>> {
     let mut builder = RelationsSaveBuilder::new(_fbb);
+    if let Some(x) = args.goods { builder.add_goods(x); }
+    if let Some(x) = args.dues { builder.add_dues(x); }
     if let Some(x) = args.agreements { builder.add_agreements(x); }
     if let Some(x) = args.heard { builder.add_heard(x); }
     if let Some(x) = args.views { builder.add_views(x); }
@@ -32795,6 +32799,20 @@ impl<'a> RelationsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<AgreementSave>>>>(RelationsSave::VT_AGREEMENTS, None)}
   }
+  #[inline]
+  pub fn dues(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<DueSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<DueSave>>>>(RelationsSave::VT_DUES, None)}
+  }
+  #[inline]
+  pub fn goods(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(RelationsSave::VT_GOODS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for RelationsSave<'_> {
@@ -32806,6 +32824,8 @@ impl ::flatbuffers::Verifiable for RelationsSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ViewSave>>>>("views", Self::VT_VIEWS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<HeardClaimSave>>>>("heard", Self::VT_HEARD, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<AgreementSave>>>>("agreements", Self::VT_AGREEMENTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<DueSave>>>>("dues", Self::VT_DUES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("goods", Self::VT_GOODS, false)?
      .finish();
     Ok(())
   }
@@ -32814,6 +32834,8 @@ pub struct RelationsSaveArgs<'a> {
     pub views: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ViewSave<'a>>>>>,
     pub heard: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HeardClaimSave<'a>>>>>,
     pub agreements: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<AgreementSave<'a>>>>>,
+    pub dues: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<DueSave<'a>>>>>,
+    pub goods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for RelationsSaveArgs<'a> {
   #[inline]
@@ -32822,6 +32844,8 @@ impl<'a> Default for RelationsSaveArgs<'a> {
       views: None,
       heard: None,
       agreements: None,
+      dues: None,
+      goods: None,
     }
   }
 }
@@ -32844,6 +32868,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RelationsSaveBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RelationsSave::VT_AGREEMENTS, agreements);
   }
   #[inline]
+  pub fn add_dues(&mut self, dues: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<DueSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RelationsSave::VT_DUES, dues);
+  }
+  #[inline]
+  pub fn add_goods(&mut self, goods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RelationsSave::VT_GOODS, goods);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RelationsSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RelationsSaveBuilder {
@@ -32864,6 +32896,376 @@ impl ::core::fmt::Debug for RelationsSave<'_> {
       ds.field("views", &self.views());
       ds.field("heard", &self.heard());
       ds.field("agreements", &self.agreements());
+      ds.field("dues", &self.dues());
+      ds.field("goods", &self.goods());
+      ds.finish()
+  }
+}
+pub enum DueSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct DueSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for DueSave<'a> {
+  type Inner = DueSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> DueSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_AGREEMENT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CLAUSE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_FROM_POLITY: ::flatbuffers::VOffsetT = 10;
+  pub const VT_TO_POLITY: ::flatbuffers::VOffsetT = 12;
+  pub const VT_GOOD: ::flatbuffers::VOffsetT = 14;
+  pub const VT_OWED_KG: ::flatbuffers::VOffsetT = 16;
+  pub const VT_MADE: ::flatbuffers::VOffsetT = 18;
+  pub const VT_DUE: ::flatbuffers::VOffsetT = 20;
+  pub const VT_SET_ASIDE_KG: ::flatbuffers::VOffsetT = 22;
+  pub const VT_ARRIVED_KG: ::flatbuffers::VOffsetT = 24;
+  pub const VT_CARRIER: ::flatbuffers::VOffsetT = 26;
+  pub const VT_STATE: ::flatbuffers::VOffsetT = 28;
+  pub const VT_STATE_DAY: ::flatbuffers::VOffsetT = 30;
+  pub const VT_WHY: ::flatbuffers::VOffsetT = 32;
+  pub const VT_HELD_KG: ::flatbuffers::VOffsetT = 34;
+  pub const VT_HELD_AT: ::flatbuffers::VOffsetT = 36;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    DueSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args DueSaveArgs
+  ) -> ::flatbuffers::WIPOffset<DueSave<'bldr>> {
+    let mut builder = DueSaveBuilder::new(_fbb);
+    builder.add_held_at(args.held_at);
+    builder.add_held_kg(args.held_kg);
+    builder.add_state_day(args.state_day);
+    builder.add_carrier(args.carrier);
+    builder.add_arrived_kg(args.arrived_kg);
+    builder.add_set_aside_kg(args.set_aside_kg);
+    builder.add_due(args.due);
+    builder.add_made(args.made);
+    builder.add_owed_kg(args.owed_kg);
+    builder.add_to_polity(args.to_polity);
+    builder.add_from_polity(args.from_polity);
+    builder.add_agreement(args.agreement);
+    builder.add_id(args.id);
+    builder.add_good(args.good);
+    builder.add_why(args.why);
+    builder.add_state(args.state);
+    builder.add_clause(args.clause);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(DueSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn agreement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(DueSave::VT_AGREEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn clause(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(DueSave::VT_CLAUSE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn from_polity(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(DueSave::VT_FROM_POLITY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn to_polity(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(DueSave::VT_TO_POLITY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn good(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(DueSave::VT_GOOD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn owed_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(DueSave::VT_OWED_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn made(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(DueSave::VT_MADE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn due(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(DueSave::VT_DUE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn set_aside_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(DueSave::VT_SET_ASIDE_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn arrived_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(DueSave::VT_ARRIVED_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn carrier(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(DueSave::VT_CARRIER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn state(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(DueSave::VT_STATE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn state_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(DueSave::VT_STATE_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn why(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(DueSave::VT_WHY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn held_kg(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(DueSave::VT_HELD_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn held_at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(DueSave::VT_HELD_AT, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for DueSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("agreement", Self::VT_AGREEMENT, false)?
+     .visit_field::<u8>("clause", Self::VT_CLAUSE, false)?
+     .visit_field::<u64>("from_polity", Self::VT_FROM_POLITY, false)?
+     .visit_field::<u64>("to_polity", Self::VT_TO_POLITY, false)?
+     .visit_field::<u16>("good", Self::VT_GOOD, false)?
+     .visit_field::<f64>("owed_kg", Self::VT_OWED_KG, false)?
+     .visit_field::<i64>("made", Self::VT_MADE, false)?
+     .visit_field::<i64>("due", Self::VT_DUE, false)?
+     .visit_field::<f64>("set_aside_kg", Self::VT_SET_ASIDE_KG, false)?
+     .visit_field::<f64>("arrived_kg", Self::VT_ARRIVED_KG, false)?
+     .visit_field::<u64>("carrier", Self::VT_CARRIER, false)?
+     .visit_field::<u8>("state", Self::VT_STATE, false)?
+     .visit_field::<i64>("state_day", Self::VT_STATE_DAY, false)?
+     .visit_field::<u8>("why", Self::VT_WHY, false)?
+     .visit_field::<f64>("held_kg", Self::VT_HELD_KG, false)?
+     .visit_field::<i64>("held_at", Self::VT_HELD_AT, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct DueSaveArgs {
+    pub id: u64,
+    pub agreement: u64,
+    pub clause: u8,
+    pub from_polity: u64,
+    pub to_polity: u64,
+    pub good: u16,
+    pub owed_kg: f64,
+    pub made: i64,
+    pub due: i64,
+    pub set_aside_kg: f64,
+    pub arrived_kg: f64,
+    pub carrier: u64,
+    pub state: u8,
+    pub state_day: i64,
+    pub why: u8,
+    pub held_kg: f64,
+    pub held_at: i64,
+}
+impl<'a> Default for DueSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    DueSaveArgs {
+      id: 0,
+      agreement: 0,
+      clause: 0,
+      from_polity: 0,
+      to_polity: 0,
+      good: 0,
+      owed_kg: 0.0,
+      made: 0,
+      due: 0,
+      set_aside_kg: 0.0,
+      arrived_kg: 0.0,
+      carrier: 0,
+      state: 0,
+      state_day: 0,
+      why: 0,
+      held_kg: 0.0,
+      held_at: 0,
+    }
+  }
+}
+
+pub struct DueSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DueSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(DueSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_agreement(&mut self, agreement: u64) {
+    self.fbb_.push_slot::<u64>(DueSave::VT_AGREEMENT, agreement, 0);
+  }
+  #[inline]
+  pub fn add_clause(&mut self, clause: u8) {
+    self.fbb_.push_slot::<u8>(DueSave::VT_CLAUSE, clause, 0);
+  }
+  #[inline]
+  pub fn add_from_polity(&mut self, from_polity: u64) {
+    self.fbb_.push_slot::<u64>(DueSave::VT_FROM_POLITY, from_polity, 0);
+  }
+  #[inline]
+  pub fn add_to_polity(&mut self, to_polity: u64) {
+    self.fbb_.push_slot::<u64>(DueSave::VT_TO_POLITY, to_polity, 0);
+  }
+  #[inline]
+  pub fn add_good(&mut self, good: u16) {
+    self.fbb_.push_slot::<u16>(DueSave::VT_GOOD, good, 0);
+  }
+  #[inline]
+  pub fn add_owed_kg(&mut self, owed_kg: f64) {
+    self.fbb_.push_slot::<f64>(DueSave::VT_OWED_KG, owed_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_made(&mut self, made: i64) {
+    self.fbb_.push_slot::<i64>(DueSave::VT_MADE, made, 0);
+  }
+  #[inline]
+  pub fn add_due(&mut self, due: i64) {
+    self.fbb_.push_slot::<i64>(DueSave::VT_DUE, due, 0);
+  }
+  #[inline]
+  pub fn add_set_aside_kg(&mut self, set_aside_kg: f64) {
+    self.fbb_.push_slot::<f64>(DueSave::VT_SET_ASIDE_KG, set_aside_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_arrived_kg(&mut self, arrived_kg: f64) {
+    self.fbb_.push_slot::<f64>(DueSave::VT_ARRIVED_KG, arrived_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_carrier(&mut self, carrier: u64) {
+    self.fbb_.push_slot::<u64>(DueSave::VT_CARRIER, carrier, 0);
+  }
+  #[inline]
+  pub fn add_state(&mut self, state: u8) {
+    self.fbb_.push_slot::<u8>(DueSave::VT_STATE, state, 0);
+  }
+  #[inline]
+  pub fn add_state_day(&mut self, state_day: i64) {
+    self.fbb_.push_slot::<i64>(DueSave::VT_STATE_DAY, state_day, 0);
+  }
+  #[inline]
+  pub fn add_why(&mut self, why: u8) {
+    self.fbb_.push_slot::<u8>(DueSave::VT_WHY, why, 0);
+  }
+  #[inline]
+  pub fn add_held_kg(&mut self, held_kg: f64) {
+    self.fbb_.push_slot::<f64>(DueSave::VT_HELD_KG, held_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_held_at(&mut self, held_at: i64) {
+    self.fbb_.push_slot::<i64>(DueSave::VT_HELD_AT, held_at, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> DueSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    DueSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<DueSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for DueSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("DueSave");
+      ds.field("id", &self.id());
+      ds.field("agreement", &self.agreement());
+      ds.field("clause", &self.clause());
+      ds.field("from_polity", &self.from_polity());
+      ds.field("to_polity", &self.to_polity());
+      ds.field("good", &self.good());
+      ds.field("owed_kg", &self.owed_kg());
+      ds.field("made", &self.made());
+      ds.field("due", &self.due());
+      ds.field("set_aside_kg", &self.set_aside_kg());
+      ds.field("arrived_kg", &self.arrived_kg());
+      ds.field("carrier", &self.carrier());
+      ds.field("state", &self.state());
+      ds.field("state_day", &self.state_day());
+      ds.field("why", &self.why());
+      ds.field("held_kg", &self.held_kg());
+      ds.field("held_at", &self.held_at());
       ds.finish()
   }
 }
@@ -32903,6 +33305,9 @@ impl<'a> AgreementSave<'a> {
   pub const VT_WHY_KIND: ::flatbuffers::VOffsetT = 38;
   pub const VT_WHY_SIDE: ::flatbuffers::VOffsetT = 40;
   pub const VT_BY: ::flatbuffers::VOffsetT = 42;
+  pub const VT_CLAUSE_GOOD: ::flatbuffers::VOffsetT = 44;
+  pub const VT_CLAUSE_KG: ::flatbuffers::VOffsetT = 46;
+  pub const VT_CLAUSE_DAYS: ::flatbuffers::VOffsetT = 48;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32927,6 +33332,9 @@ impl<'a> AgreementSave<'a> {
     builder.add_polity_b(args.polity_b);
     builder.add_polity_a(args.polity_a);
     builder.add_id(args.id);
+    if let Some(x) = args.clause_days { builder.add_clause_days(x); }
+    if let Some(x) = args.clause_kg { builder.add_clause_kg(x); }
+    if let Some(x) = args.clause_good { builder.add_clause_good(x); }
     builder.add_term_days(args.term_days);
     if let Some(x) = args.clause_side { builder.add_clause_side(x); }
     if let Some(x) = args.clause_kind { builder.add_clause_kind(x); }
@@ -33078,6 +33486,27 @@ impl<'a> AgreementSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u8>(AgreementSave::VT_BY, Some(255)).unwrap()}
   }
+  #[inline]
+  pub fn clause_good(&self) -> Option<::flatbuffers::Vector<'a, u16>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u16>>>(AgreementSave::VT_CLAUSE_GOOD, None)}
+  }
+  #[inline]
+  pub fn clause_kg(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(AgreementSave::VT_CLAUSE_KG, None)}
+  }
+  #[inline]
+  pub fn clause_days(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(AgreementSave::VT_CLAUSE_DAYS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for AgreementSave<'_> {
@@ -33106,6 +33535,9 @@ impl ::flatbuffers::Verifiable for AgreementSave<'_> {
      .visit_field::<u8>("why_kind", Self::VT_WHY_KIND, false)?
      .visit_field::<u8>("why_side", Self::VT_WHY_SIDE, false)?
      .visit_field::<u8>("by", Self::VT_BY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u16>>>("clause_good", Self::VT_CLAUSE_GOOD, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("clause_kg", Self::VT_CLAUSE_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("clause_days", Self::VT_CLAUSE_DAYS, false)?
      .finish();
     Ok(())
   }
@@ -33131,6 +33563,9 @@ pub struct AgreementSaveArgs<'a> {
     pub why_kind: u8,
     pub why_side: u8,
     pub by: u8,
+    pub clause_good: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u16>>>,
+    pub clause_kg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub clause_days: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
 }
 impl<'a> Default for AgreementSaveArgs<'a> {
   #[inline]
@@ -33156,6 +33591,9 @@ impl<'a> Default for AgreementSaveArgs<'a> {
       why_kind: 0,
       why_side: 0,
       by: 255,
+      clause_good: None,
+      clause_kg: None,
+      clause_days: None,
     }
   }
 }
@@ -33246,6 +33684,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> AgreementSaveBuilder<'a, 'b, 
     self.fbb_.push_slot::<u8>(AgreementSave::VT_BY, by, 255);
   }
   #[inline]
+  pub fn add_clause_good(&mut self, clause_good: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u16>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(AgreementSave::VT_CLAUSE_GOOD, clause_good);
+  }
+  #[inline]
+  pub fn add_clause_kg(&mut self, clause_kg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(AgreementSave::VT_CLAUSE_KG, clause_kg);
+  }
+  #[inline]
+  pub fn add_clause_days(&mut self, clause_days: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(AgreementSave::VT_CLAUSE_DAYS, clause_days);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> AgreementSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     AgreementSaveBuilder {
@@ -33283,6 +33733,9 @@ impl ::core::fmt::Debug for AgreementSave<'_> {
       ds.field("why_kind", &self.why_kind());
       ds.field("why_side", &self.why_side());
       ds.field("by", &self.by());
+      ds.field("clause_good", &self.clause_good());
+      ds.field("clause_kg", &self.clause_kg());
+      ds.field("clause_days", &self.clause_days());
       ds.finish()
   }
 }

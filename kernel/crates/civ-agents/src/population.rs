@@ -57,6 +57,7 @@ mod market;
 mod moving;
 mod norm;
 mod opinion;
+mod payments;
 mod places;
 mod polity;
 mod relations;
@@ -1034,6 +1035,10 @@ impl Population {
         for p in &self.polities {
             all.absorb(&p.flows);
         }
+        // And what payments agreements owe hold, set aside and on the road (M5c slice AV).
+        for d in &self.agreements.dues {
+            all.absorb(&d.flows);
+        }
         all
     }
 
@@ -1046,7 +1051,8 @@ impl Population {
             .iter()
             .map(|(_, h)| &h.stores)
             .chain(self.firms.iter().map(|f| &f.stores))
-            .chain(self.polities.iter().map(|p| &p.stores));
+            .chain(self.polities.iter().map(|p| &p.stores))
+            .chain(self.agreements.dues.iter().map(|d| &d.stores));
         for s in stores {
             if out.len() < s.len() {
                 out.resize(s.len(), 0.0);
@@ -2578,6 +2584,7 @@ impl Population {
             gathering: self.gathering_facts(ctx, p.id, age, &hh, minute, evening_start),
             petition: self.petition_facts(ctx, p.id, age, &hh, minute, evening_start),
             watch: self.watch_facts(ctx, p.id, &hh, dark),
+            carry: self.carry_facts(ctx, p.id, field_key, dark),
             hurt: self
                 .order
                 .hurt_until(p.id)
@@ -3947,7 +3954,8 @@ impl Population {
                 | Behavior::Hire
                 | Behavior::Build
                 | Behavior::Take
-                | Behavior::Watch,
+                | Behavior::Watch
+                | Behavior::Carry,
             ) => (def_par, false, 0.0),
             None => (params.energy.idle_par, false, 0.0),
         };
@@ -4090,6 +4098,14 @@ impl Population {
                 Some(Behavior::Watch) => {
                     let who = p.id;
                     self.stood_watch(who, minutes);
+                }
+                Some(Behavior::Carry) => {
+                    // Handed over at the other hearth; at the store, taking it up moves nothing
+                    // (M5c slice AV).
+                    if let Target::Hearth(s) = p.act.target {
+                        let (who, pos) = (p.id, p.pos);
+                        self.hand_over(ctx, who, s, pos);
+                    }
                 }
                 Some(Behavior::Trade | Behavior::Fetch) => {
                     if let Target::Household(seller) | Target::Firm(seller) = p.act.target {

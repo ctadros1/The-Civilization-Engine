@@ -5,7 +5,9 @@
 //! heard of the other's decision, and failure (turned down, too few came, never put to a
 //! gathering, never answered) is an outcome, never repaired. The binding subject is the polity.
 
-use civ_core::PermanentId;
+use civ_core::{PermanentId, SimTime};
+
+use crate::person::Flows;
 
 /// A clause of an agreement. Codes are part of saves: append only.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -13,6 +15,17 @@ pub enum Clause {
     /// The polity on side `from` (0 or 1) gives the other's people leave to use the places it
     /// claims.
     Leave { from: u8 },
+    /// The polity on side `from` gives the other's store `kg` of good `good` (by catalog index)
+    /// once, from its own common store (M5c slice AV, ADR-0020 §7).
+    Gift { from: u8, good: u16, kg: u32 },
+    /// The polity on side `from` gives the other's store `kg` of good `good` every `every_days`
+    /// while it is in force, the first when it comes into force, from its own common store.
+    Transfer {
+        from: u8,
+        good: u16,
+        kg: u32,
+        every_days: u32,
+    },
 }
 
 impl Clause {
@@ -20,15 +33,164 @@ impl Clause {
     pub fn code(self) -> (u8, u8) {
         match self {
             Clause::Leave { from } => (0, from),
+            Clause::Gift { from, .. } => (1, from),
+            Clause::Transfer { from, .. } => (2, from),
         }
     }
 
-    /// The clause saved as `kind` and `side`.
-    pub fn from_code(kind: u8, side: u8) -> Option<Clause> {
-        match (kind, side) {
-            (0, 0 | 1) => Some(Clause::Leave { from: side }),
+    /// What it gives, in saves: the good, the kilograms and the days between payments (0 for
+    /// leave, and for a gift's days).
+    pub fn amount(self) -> (u16, u32, u32) {
+        match self {
+            Clause::Leave { .. } => (0, 0, 0),
+            Clause::Gift { good, kg, .. } => (good, kg, 0),
+            Clause::Transfer {
+                good,
+                kg,
+                every_days,
+                ..
+            } => (good, kg, every_days),
+        }
+    }
+
+    /// The clause saved as `kind` and `side`, giving `good`, `kg` and `days` (see
+    /// [`Clause::amount`]).
+    pub fn from_code(kind: u8, side: u8, good: u16, kg: u32, days: u32) -> Option<Clause> {
+        if side > 1 {
+            return None;
+        }
+        match kind {
+            0 => Some(Clause::Leave { from: side }),
+            1 => Some(Clause::Gift {
+                from: side,
+                good,
+                kg,
+            }),
+            2 if days > 0 => Some(Clause::Transfer {
+                from: side,
+                good,
+                kg,
+                every_days: days,
+            }),
             _ => None,
         }
+    }
+
+    /// The side that gives by it.
+    pub fn from(self) -> u8 {
+        match self {
+            Clause::Leave { from } | Clause::Gift { from, .. } | Clause::Transfer { from, .. } => {
+                from
+            }
+        }
+    }
+
+    /// Whether it moves goods: a gift or a transfer.
+    pub fn moves_goods(self) -> bool {
+        !matches!(self, Clause::Leave { .. })
+    }
+}
+
+/// Why a payment an agreement owes was missed (M5c slice AV, ADR-0020 §7: a miss keeps its cause
+/// in the truth layer). Codes are part of saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Miss {
+    /// Nothing was set aside by the day it was due: the store held none of the good.
+    EmptyStore,
+    /// It was set aside, and nobody of the paying settlement could carry it.
+    NoCarrier,
+    /// It was set aside and someone could carry it, and nobody did by the day it was due.
+    NotCarried,
+}
+
+impl Miss {
+    /// Its code in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The miss with code `code`.
+    pub fn from_code(code: u8) -> Option<Miss> {
+        [Miss::EmptyStore, Miss::NoCarrier, Miss::NotCarried]
+            .get(usize::from(code))
+            .copied()
+    }
+
+    /// In words, after "missed: ".
+    pub fn words(self) -> &'static str {
+        match self {
+            Miss::EmptyStore => "the store held none of it",
+            Miss::NoCarrier => "nobody was there to carry it",
+            Miss::NotCarried => "nobody carried it in time",
+        }
+    }
+}
+
+/// Where a payment stands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DueState {
+    /// Owed, and not yet handed over.
+    Open,
+    /// Handed over at the other's hearth on `day`.
+    Met { day: i64 },
+    /// Not handed over by the day it was due; `day` the day it was given up.
+    Missed { day: i64, why: Miss },
+}
+
+/// One payment an agreement in force owes (M5c slice AV, ADR-0020 §7), with its four accounts:
+/// what was owed, what the paying store set aside, and what arrived (what the paying store's
+/// households paid in is its levy's own account). What is set aside it holds, a ledger holder of
+/// its own, spoiling in the open until it is handed over; what is left of it when a payment is
+/// given up goes back to the paying store.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Due {
+    /// Its id, as a ledger holder.
+    pub id: PermanentId,
+    pub agreement: PermanentId,
+    /// The clause of the agreement it pays, by index.
+    pub clause: u8,
+    /// The paying and receiving polities.
+    pub from: PermanentId,
+    pub to: PermanentId,
+    pub good: u16,
+    /// Owed, kilograms.
+    pub owed_kg: f64,
+    /// The day it fell due, and the day by which it must be handed over.
+    pub made: i64,
+    pub due: i64,
+    /// Set aside from the paying store so far, kilograms, and handed over at the other hearth.
+    pub set_aside_kg: f64,
+    pub arrived_kg: f64,
+    /// Who is to carry it, once it is set aside.
+    pub carrier: Option<PermanentId>,
+    pub state: DueState,
+    /// What it holds now, by good (catalog index), last brought up to date at `stores_at`.
+    pub stores: Vec<f64>,
+    pub stores_at: SimTime,
+    pub flows: Flows,
+}
+
+impl Due {
+    /// Whether it is still owed.
+    pub fn open(&self) -> bool {
+        self.state == DueState::Open
+    }
+
+    /// Brings what it holds up to `t`: it spoils in the open.
+    pub fn settle_stores(&mut self, t: SimTime, goods: &[crate::params::GoodDef]) {
+        if t <= self.stores_at {
+            return;
+        }
+        self.stores.resize(goods.len(), 0.0);
+        let days = (t.minutes() - self.stores_at.minutes()) as f64 / 1440.0;
+        for (g, (kg, d)) in self.stores.iter_mut().zip(goods).enumerate() {
+            if d.half_life_days > 0.0 && *kg > 0.0 {
+                let after = *kg * 0.5f64.powf(days / d.half_life_days);
+                self.flows.add(crate::person::Flow::Spoiled, g, *kg - after);
+                *kg = after;
+            }
+        }
+        self.stores_at = t;
     }
 }
 
@@ -139,10 +301,20 @@ impl Agreement {
         self.state == AgreementState::Offered
     }
 
-    /// Its terms in words, `name` naming a polity by its settlement: "leave for Ashford's people
-    /// to use the places Oakholt claims, for a year".
-    pub fn words(&self, name: &dyn Fn(PermanentId) -> String) -> String {
+    /// Its terms in words, `name` naming a polity by its settlement and `good` a good by its
+    /// catalog index: "leave for Ashford's people to use the places Oakholt claims, and 100 kg of
+    /// grain from Ashford's store to Oakholt's each year, for 5 years".
+    pub fn words(
+        &self,
+        name: &dyn Fn(PermanentId) -> String,
+        good: &dyn Fn(u16) -> String,
+    ) -> String {
         let side = |s: u8| name(self.polities[usize::from(s)]);
+        let every = |d: u32| match d {
+            365 => "each year".to_owned(),
+            d if d % 365 == 0 => format!("every {} years", d / 365),
+            d => format!("every {d} days"),
+        };
         let clauses: Vec<String> = self
             .clauses
             .iter()
@@ -151,6 +323,24 @@ impl Agreement {
                     "leave for {}'s people to use the places {} claims",
                     side(1 - from),
                     side(from)
+                ),
+                Clause::Gift { from, good: g, kg } => format!(
+                    "a gift of {kg} kg of {} from {}'s store to {}'s",
+                    good(g),
+                    side(from),
+                    side(1 - from)
+                ),
+                Clause::Transfer {
+                    from,
+                    good: g,
+                    kg,
+                    every_days,
+                } => format!(
+                    "{kg} kg of {} from {}'s store to {}'s {}",
+                    good(g),
+                    side(from),
+                    side(1 - from),
+                    every(every_days)
                 ),
             })
             .collect();
@@ -167,10 +357,12 @@ impl Agreement {
     }
 }
 
-/// Every agreement, in the order made.
+/// Every agreement, in the order made, and every payment they owe (M5c slice AV), in the order
+/// they fell due.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Agreements {
     pub list: Vec<Agreement>,
+    pub dues: Vec<Due>,
 }
 
 impl Agreements {
@@ -211,6 +403,17 @@ impl Agreements {
         let mut out = Vec::new();
         if self.list.windows(2).any(|w| w[0].id >= w[1].id) {
             out.push("agreements are out of order or repeated".to_owned());
+        }
+        if self.dues.windows(2).any(|w| w[0].id >= w[1].id) {
+            out.push("payments owed are out of order or repeated".to_owned());
+        }
+        for d in &self.dues {
+            if !self.list.iter().any(|a| a.id == d.agreement) {
+                out.push(format!("payment {} names a missing agreement", d.id));
+            }
+            if d.arrived_kg > d.set_aside_kg + 1e-6 || d.stores.iter().any(|&kg| kg < -1e-9) {
+                out.push(format!("payment {} arrived more than was set aside", d.id));
+            }
         }
         for a in &self.list {
             if a.polities[0] == a.polities[1] {
@@ -262,7 +465,10 @@ mod tests {
         assert!(a.leave(id(20), id(10)));
         assert!(!a.leave(id(10), id(20)), "the clause runs one way");
         assert!(!a.leave(id(20), id(30)), "nobody else's");
-        let all = Agreements { list: vec![a] };
+        let all = Agreements {
+            list: vec![a],
+            dues: Vec::new(),
+        };
         assert!(all.problems().is_empty());
         assert!(all.between(id(10), id(20)) && !all.between(id(10), id(30)));
     }
@@ -271,28 +477,68 @@ mod tests {
     fn terms_are_told_in_words() {
         let mut a = offered(vec![Clause::Leave { from: 0 }, Clause::Leave { from: 1 }]);
         let name = |p: PermanentId| if p == id(10) { "Oakholt" } else { "Ashford" }.to_owned();
+        let good = |_: u16| "grain".to_owned();
         assert_eq!(
-            a.words(&name),
+            a.words(&name, &good),
             "leave for Ashford's people to use the places Oakholt claims, and leave for \
              Oakholt's people to use the places Ashford claims, for a year"
         );
         a.term_days = 1825;
         a.clauses.truncate(1);
         assert_eq!(
-            a.words(&name),
+            a.words(&name, &good),
             "leave for Ashford's people to use the places Oakholt claims, for 5 years"
         );
+        a.clauses.push(Clause::Transfer {
+            from: 1,
+            good: 3,
+            kg: 100,
+            every_days: 365,
+        });
+        a.clauses.push(Clause::Gift {
+            from: 1,
+            good: 3,
+            kg: 400,
+        });
+        assert_eq!(
+            a.words(&name, &good),
+            "leave for Ashford's people to use the places Oakholt claims, and 100 kg of grain \
+             from Ashford's store to Oakholt's each year, and a gift of 400 kg of grain from \
+             Ashford's store to Oakholt's, for 5 years"
+        );
         a.clauses.clear();
-        assert_eq!(a.words(&name), "no terms");
+        assert_eq!(a.words(&name, &good), "no terms");
     }
 
     #[test]
     fn codes_round_trip() {
-        for c in [Clause::Leave { from: 0 }, Clause::Leave { from: 1 }] {
-            let (k, s) = c.code();
-            assert_eq!(Clause::from_code(k, s), Some(c));
+        for c in [
+            Clause::Leave { from: 0 },
+            Clause::Leave { from: 1 },
+            Clause::Gift {
+                from: 1,
+                good: 4,
+                kg: 200,
+            },
+            Clause::Transfer {
+                from: 0,
+                good: 4,
+                kg: 100,
+                every_days: 365,
+            },
+        ] {
+            let ((k, s), (g, kg, d)) = (c.code(), c.amount());
+            assert_eq!(Clause::from_code(k, s, g, kg, d), Some(c));
         }
-        assert_eq!(Clause::from_code(0, 2), None);
+        assert_eq!(Clause::from_code(0, 2, 0, 0, 0), None);
+        assert_eq!(
+            Clause::from_code(2, 0, 4, 100, 0),
+            None,
+            "a transfer needs its days"
+        );
+        for m in [Miss::EmptyStore, Miss::NoCarrier, Miss::NotCarried] {
+            assert_eq!(Miss::from_code(m.code()), Some(m));
+        }
         for f in [
             Failure::NoTerms,
             Failure::TurnedDown(1),

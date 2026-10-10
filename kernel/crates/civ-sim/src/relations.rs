@@ -133,6 +133,7 @@ pub fn evidence(sim: &crate::Sim, from: &Polity, to: &Polity) -> RelationEvidenc
             .and_then(|x| sim.land().settlements.iter().find(|s| s.id == x.settlement))
             .map_or_else(|| "another settlement".to_owned(), |s| s.name.clone())
     };
+    let good = |g: u16| good_name(sim, g);
     for a in &pop.agreements.list {
         let Some(side) = a.side_of(from.id) else {
             continue;
@@ -146,7 +147,7 @@ pub fn evidence(sim: &crate::Sim, from: &Polity, to: &Polity) -> RelationEvidenc
                 .any(|l| l.id == law && l.status == civ_agents::polity::LawStatus::InForce)
         });
         if a.in_force() && own_law_in_force {
-            e.in_force.push(a.words(&name));
+            e.in_force.push(a.words(&name, &good));
         } else if a.open() {
             e.pending += 1;
         } else if !a.in_force() {
@@ -286,6 +287,7 @@ pub fn agreements_between(sim: &crate::Sim, from: &Polity, to: &Polity) -> Vec<A
             .map_or_else(|| "another settlement".to_owned(), |s| s.name.clone())
     };
     let on = |day: i64| day_words(civ_core::SimTime::from_minutes(day * 24 * 60));
+    let good = |g: u16| good_name(sim, g);
     let mut out = Vec::new();
     for a in pop.agreements.list.iter().rev() {
         let (Some(us), Some(them)) = (a.side_of(from.id), a.side_of(to.id)) else {
@@ -371,13 +373,22 @@ pub fn agreements_between(sim: &crate::Sim, from: &Polity, to: &Polity) -> Vec<A
         };
         out.push(AgreementView {
             id: a.id,
-            terms: a.words(&name),
+            terms: a.words(&name, &good),
             state,
             ours: history(us),
             theirs: history(them),
         });
     }
     out
+}
+
+/// A good's name, in lower case: "grain".
+fn good_name(sim: &crate::Sim, g: u16) -> String {
+    sim.rules()
+        .catalog
+        .goods
+        .get(usize::from(g))
+        .map_or_else(|| "goods".to_owned(), |d| d.name.to_lowercase())
 }
 
 /// "3 of 4", "1 of 1".

@@ -404,6 +404,9 @@ struct LawLineBuilder;
 struct PolityLine;
 struct PolityLineBuilder;
 
+struct RelationLine;
+struct RelationLineBuilder;
+
 struct Government;
 struct GovernmentBuilder;
 
@@ -16390,7 +16393,8 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_PETITIONS = 46,
     VT_REFUSALS = 48,
     VT_REVOLTS = 50,
-    VT_COUPS = 52
+    VT_COUPS = 52,
+    VT_RELATIONS = 54
   };
   uint64_t polity() const {
     return GetField<uint64_t>(VT_POLITY, 0);
@@ -16467,6 +16471,9 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *coups() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_COUPS);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RelationLine>> *relations() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RelationLine>> *>(VT_RELATIONS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -16521,6 +16528,9 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_COUPS) &&
            verifier.VerifyVector(coups()) &&
            verifier.VerifyVectorOfStrings(coups()) &&
+           VerifyOffset(verifier, VT_RELATIONS) &&
+           verifier.VerifyVector(relations()) &&
+           verifier.VerifyVectorOfTables(relations()) &&
            verifier.EndTable();
   }
 };
@@ -16604,6 +16614,9 @@ struct PolityLineBuilder {
   void add_coups(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coups) {
     fbb_.AddOffset(PolityLine::VT_COUPS, coups);
   }
+  void add_relations(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RelationLine>>> relations) {
+    fbb_.AddOffset(PolityLine::VT_RELATIONS, relations);
+  }
   explicit PolityLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -16641,13 +16654,15 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLine(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> petitions = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> refusals = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> revolts = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coups = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coups = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RelationLine>>> relations = 0) {
   PolityLineBuilder builder_(_fbb);
   builder_.add_gathering_minute(gathering_minute);
   builder_.add_gathering_law(gathering_law);
   builder_.add_founded_minute(founded_minute);
   builder_.add_settlement(settlement);
   builder_.add_polity(polity);
+  builder_.add_relations(relations);
   builder_.add_coups(coups);
   builder_.add_revolts(revolts);
   builder_.add_refusals(refusals);
@@ -16702,7 +16717,8 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *petitions = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *refusals = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *revolts = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *coups = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *coups = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::RelationLine>> *relations = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto custom__ = custom ? _fbb.CreateString(custom) : 0;
   auto store__ = store ? _fbb.CreateString(store) : 0;
@@ -16718,6 +16734,7 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
   auto refusals__ = refusals ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*refusals) : 0;
   auto revolts__ = revolts ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*revolts) : 0;
   auto coups__ = coups ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*coups) : 0;
+  auto relations__ = relations ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::RelationLine>>(*relations) : 0;
   return tce::wire::CreatePolityLine(
       _fbb,
       polity,
@@ -16744,7 +16761,107 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
       petitions__,
       refusals__,
       revolts__,
-      coups__);
+      coups__,
+      relations__);
+}
+
+struct RelationLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef RelationLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_POLITY = 4,
+    VT_NAME = 6,
+    VT_LABEL = 8,
+    VT_WHY = 10
+  };
+  uint64_t polity() const {
+    return GetField<uint64_t>(VT_POLITY, 0);
+  }
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  const ::flatbuffers::String *label() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_LABEL);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *why() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_WHY);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_POLITY, 8) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyOffset(verifier, VT_LABEL) &&
+           verifier.VerifyString(label()) &&
+           VerifyOffset(verifier, VT_WHY) &&
+           verifier.VerifyVector(why()) &&
+           verifier.VerifyVectorOfStrings(why()) &&
+           verifier.EndTable();
+  }
+};
+
+struct RelationLineBuilder {
+  typedef RelationLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_polity(uint64_t polity) {
+    fbb_.AddElement<uint64_t>(RelationLine::VT_POLITY, polity, 0);
+  }
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(RelationLine::VT_NAME, name);
+  }
+  void add_label(::flatbuffers::Offset<::flatbuffers::String> label) {
+    fbb_.AddOffset(RelationLine::VT_LABEL, label);
+  }
+  void add_why(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> why) {
+    fbb_.AddOffset(RelationLine::VT_WHY, why);
+  }
+  explicit RelationLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<RelationLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<RelationLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<RelationLine> CreateRelationLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t polity = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> label = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> why = 0) {
+  RelationLineBuilder builder_(_fbb);
+  builder_.add_polity(polity);
+  builder_.add_why(why);
+  builder_.add_label(label);
+  builder_.add_name(name);
+  return builder_.Finish();
+}
+
+struct RelationLine::Traits {
+  using type = RelationLine;
+  static auto constexpr Create = CreateRelationLine;
+};
+
+inline ::flatbuffers::Offset<RelationLine> CreateRelationLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t polity = 0,
+    const char *name = nullptr,
+    const char *label = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *why = nullptr) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto label__ = label ? _fbb.CreateString(label) : 0;
+  auto why__ = why ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*why) : 0;
+  return tce::wire::CreateRelationLine(
+      _fbb,
+      polity,
+      name__,
+      label__,
+      why__);
 }
 
 struct Government FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

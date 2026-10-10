@@ -56,10 +56,22 @@ impl Population {
                         continue;
                     }
                     let need = self.day_need(household, ctx.params).max(1.0);
-                    for &(o, _, kcal) in &outsiders {
-                        let blamed = Blamed::Household(o);
+                    for &(o, os, kcal) in &outsiders {
+                        // One grievance for each other settlement's people: one already held
+                        // against a household of theirs is raised again, so the trespass of
+                        // many households does not crowd out what else one holds.
+                        let (blamed, under) = self
+                            .word
+                            .grievances_of(who)
+                            .find(|g| {
+                                g.wrong == Wrong::Trespass
+                                    && matches!(g.blamed, Blamed::Household(h)
+                                        if self.household(h).and_then(|x| x.settlement)
+                                            == Some(os))
+                            })
+                            .map_or((Blamed::Household(o), law), |g| (g.blamed, g.law));
                         let issue = Grieved::Extraction;
-                        self.grieve(ctx, who, issue, blamed, law, kcal / need, Wrong::Trespass);
+                        self.grieve(ctx, who, issue, blamed, under, kcal / need, Wrong::Trespass);
                     }
                     for &polity in &theirs {
                         let seen = rp.seen_trespass;

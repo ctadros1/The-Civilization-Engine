@@ -958,6 +958,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** step three: word of another polity's gatherings and laws, the relation labels from a pure classifier, and the relations panel.
 
+## 2026-10-10 — M5c slice AT, step three: relation labels; slice AT complete
+
+**Goal:** name how each polity stands toward its neighbours, from each side's own people, without anything in the world reading it (ADR-0020 §1), and show it in the observer.
+
+**What changed:** a pure classifier (`civ_sim::relations`) names each side's standing (unknown, known, friendly, wary) from how many of its households know the other, the views its adults hold, the trespass grievances, and the claims both make, with the reasons in sentences; the government panel lists it under "Toward its neighbours" (wire 1.57). A person now holds one trespass grievance for each other settlement's people.
+
+**Findings:** measuring step two showed each outsider household seen becoming a grievance of its own, which could crowd out grievances against one's own gathering (a person holds eight); now bounded, at most one person in a village held eight. In the M5a demo's world, by year 6, 8 of 12 ordered pairs of villages read wary, the two sides of a pair often differing. Word of a gathering already crossed only with visitors; word of laws moves to AU, the first thing that would read it.
+
+**Evidence:** unit tests of the classifier's names and reasons; the integration test now checks both sides' evidence and that naming relations daily changes no saved section; the web unit test decodes the relation lines; the settlements e2e sees each polity know the other in the government panel.
+
+**Open:** slice AU, agreements: seeking terms, packages, ratification by each custom, and failure as an outcome.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

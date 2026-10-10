@@ -2312,6 +2312,30 @@ export function bindUi(store: Store, actions: Actions): void {
       if (p.coups.length > 0) {
         block.append(el("ul", { className: "coups" }, ...p.coups.map((v) => el("li", { text: v }))));
       }
+      // How it stands toward the other polities, from its own side (wire 1.57, ADR-0020 §1).
+      if (p.relations.length > 0) {
+        block.append(
+          el(
+            "details",
+            { className: "relations" },
+            el("summary", {
+              text: `Toward its neighbours: ${p.relations.map((r) => `${r.name} ${r.label}`).join(", ")}`,
+            }),
+            el("p", {
+              className: "aside",
+              text: "Worked out afterwards from what its own people hold; nothing in the world reads it.",
+            }),
+            ...p.relations.map((r) =>
+              el(
+                "div",
+                { className: "relation" },
+                el("strong", { text: `${r.name}: ${r.label}` }),
+                el("ul", {}, ...r.why.map((w) => el("li", { text: w }))),
+              ),
+            ),
+          ),
+        );
+      }
       const label = labelText(p);
       if (label !== "") {
         block.append(

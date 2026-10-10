@@ -1,7 +1,8 @@
 // M5a slices AK and AM end to end (ADR-0018): a world made with a neighbouring group has two
 // settlements, each founded by one of the groups the world began with, and the inspector says
-// where a person lives, how they came there, and the other places their household knows; and
-// each settlement's way of building (M5b slice AR).
+// where a person lives, how they came there, and the other places their household knows; each
+// settlement's way of building (M5b slice AR); and how each polity stands toward the other (M5c
+// slice AT).
 
 import { expect, test } from "@playwright/test";
 
@@ -56,6 +57,32 @@ test("a world made with neighbours has a settlement for each group", async ({ pa
     const places = page.locator("#people-body .places");
     await expect(places).toContainText("Places their household knows");
     await expect(places).toContainText("came to the valley alongside its founders");
+
+    // Each polity's standing toward the other, from its own people's side (wire 1.57, M5c slice
+    // AT, ADR-0020 §1): the groups knew where the others camped, so each knows the other, and
+    // nobody yet holds a view of the other's polity.
+    await page.evaluate(() => window.__TCE__.select(null));
+    await page.locator("#speeds").getByRole("radio", { name: "Max" }).click();
+    await page.getByRole("button", { name: "Run" }).click();
+    await page.waitForFunction(
+      () => {
+        const polities = window.__TCE__.state().government?.polities ?? [];
+        return polities.length === 2 && polities.every((p) => p.relations.length === 1);
+      },
+      undefined,
+      { timeout: 120_000 },
+    );
+    if (!(await page.evaluate(() => window.__TCE__.state().clock?.paused))) {
+      await page.getByRole("button", { name: "Pause" }).click();
+    }
+    const government = (await page.evaluate(() => window.__TCE__.state().government))!;
+    for (const p of government.polities) {
+      expect(p.relations[0]!.label).toBe("known");
+      expect(p.relations[0]!.why[0]).toContain("of its households know");
+    }
+    await expect(page.locator("#government-body .relations").first()).toContainText(
+      "Toward its neighbours:",
+    );
   } finally {
     await host.stop();
   }

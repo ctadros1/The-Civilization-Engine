@@ -25919,6 +25919,7 @@ impl<'a> PolityLine<'a> {
   pub const VT_REFUSALS: ::flatbuffers::VOffsetT = 48;
   pub const VT_REVOLTS: ::flatbuffers::VOffsetT = 50;
   pub const VT_COUPS: ::flatbuffers::VOffsetT = 52;
+  pub const VT_RELATIONS: ::flatbuffers::VOffsetT = 54;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -25935,6 +25936,7 @@ impl<'a> PolityLine<'a> {
     builder.add_founded_minute(args.founded_minute);
     builder.add_settlement(args.settlement);
     builder.add_polity(args.polity);
+    if let Some(x) = args.relations { builder.add_relations(x); }
     if let Some(x) = args.coups { builder.add_coups(x); }
     if let Some(x) = args.revolts { builder.add_revolts(x); }
     if let Some(x) = args.refusals { builder.add_refusals(x); }
@@ -26134,6 +26136,13 @@ impl<'a> PolityLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PolityLine::VT_COUPS, None)}
   }
+  #[inline]
+  pub fn relations(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RelationLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RelationLine>>>>(PolityLine::VT_RELATIONS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolityLine<'_> {
@@ -26167,6 +26176,7 @@ impl ::flatbuffers::Verifiable for PolityLine<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("refusals", Self::VT_REFUSALS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("revolts", Self::VT_REVOLTS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("coups", Self::VT_COUPS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RelationLine>>>>("relations", Self::VT_RELATIONS, false)?
      .finish();
     Ok(())
   }
@@ -26197,6 +26207,7 @@ pub struct PolityLineArgs<'a> {
     pub refusals: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub revolts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub coups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub relations: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RelationLine<'a>>>>>,
 }
 impl<'a> Default for PolityLineArgs<'a> {
   #[inline]
@@ -26227,6 +26238,7 @@ impl<'a> Default for PolityLineArgs<'a> {
       refusals: None,
       revolts: None,
       coups: None,
+      relations: None,
     }
   }
 }
@@ -26337,6 +26349,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolityLineBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_COUPS, coups);
   }
   #[inline]
+  pub fn add_relations(&mut self, relations: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<RelationLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_RELATIONS, relations);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolityLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolityLineBuilder {
@@ -26379,6 +26395,154 @@ impl ::core::fmt::Debug for PolityLine<'_> {
       ds.field("refusals", &self.refusals());
       ds.field("revolts", &self.revolts());
       ds.field("coups", &self.coups());
+      ds.field("relations", &self.relations());
+      ds.finish()
+  }
+}
+pub enum RelationLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RelationLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RelationLine<'a> {
+  type Inner = RelationLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RelationLine<'a> {
+  pub const VT_POLITY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_LABEL: ::flatbuffers::VOffsetT = 8;
+  pub const VT_WHY: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RelationLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RelationLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<RelationLine<'bldr>> {
+    let mut builder = RelationLineBuilder::new(_fbb);
+    builder.add_polity(args.polity);
+    if let Some(x) = args.why { builder.add_why(x); }
+    if let Some(x) = args.label { builder.add_label(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn polity(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RelationLine::VT_POLITY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(RelationLine::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn label(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(RelationLine::VT_LABEL, None)}
+  }
+  #[inline]
+  pub fn why(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(RelationLine::VT_WHY, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RelationLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("polity", Self::VT_POLITY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("label", Self::VT_LABEL, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("why", Self::VT_WHY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RelationLineArgs<'a> {
+    pub polity: u64,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub label: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub why: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+}
+impl<'a> Default for RelationLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    RelationLineArgs {
+      polity: 0,
+      name: None,
+      label: None,
+      why: None,
+    }
+  }
+}
+
+pub struct RelationLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RelationLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_polity(&mut self, polity: u64) {
+    self.fbb_.push_slot::<u64>(RelationLine::VT_POLITY, polity, 0);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RelationLine::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_label(&mut self, label: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RelationLine::VT_LABEL, label);
+  }
+  #[inline]
+  pub fn add_why(&mut self, why: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RelationLine::VT_WHY, why);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RelationLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RelationLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RelationLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RelationLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RelationLine");
+      ds.field("polity", &self.polity());
+      ds.field("name", &self.name());
+      ds.field("label", &self.label());
+      ds.field("why", &self.why());
       ds.finish()
   }
 }

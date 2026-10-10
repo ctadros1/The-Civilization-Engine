@@ -5,6 +5,7 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { LawLine } from '../../tce/wire/law-line.js';
+import { RelationLine } from '../../tce/wire/relation-line.js';
 
 
 export class PolityLine {
@@ -233,8 +234,18 @@ coupsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+relations(index: number, obj?:RelationLine):RelationLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 54);
+  return offset ? (obj || new RelationLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+relationsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 54);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPolityLine(builder:flatbuffers.Builder) {
-  builder.startObject(25);
+  builder.startObject(26);
 }
 
 static addPolity(builder:flatbuffers.Builder, polity:bigint) {
@@ -469,12 +480,28 @@ static startCoupsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addRelations(builder:flatbuffers.Builder, relationsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(25, relationsOffset, 0);
+}
+
+static createRelationsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startRelationsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endPolityLine(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:bigint, nameOffset:flatbuffers.Offset, foundedMinute:bigint, customOffset:flatbuffers.Offset, members:number, storeOffset:flatbuffers.Offset, storeKg:number, lawsOffset:flatbuffers.Offset, gatheringLaw:bigint, gatheringMinute:bigint, gatheringPresent:number, officesOffset:flatbuffers.Offset, labelOffset:flatbuffers.Offset, labelModifiersOffset:flatbuffers.Offset, labelWhyOffset:flatbuffers.Offset, labelConfidence:number, gatheringCasesOffset:flatbuffers.Offset, customHistoryOffset:flatbuffers.Offset, bodyMembers:number, factionsOffset:flatbuffers.Offset, petitionsOffset:flatbuffers.Offset, refusalsOffset:flatbuffers.Offset, revoltsOffset:flatbuffers.Offset, coupsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:bigint, nameOffset:flatbuffers.Offset, foundedMinute:bigint, customOffset:flatbuffers.Offset, members:number, storeOffset:flatbuffers.Offset, storeKg:number, lawsOffset:flatbuffers.Offset, gatheringLaw:bigint, gatheringMinute:bigint, gatheringPresent:number, officesOffset:flatbuffers.Offset, labelOffset:flatbuffers.Offset, labelModifiersOffset:flatbuffers.Offset, labelWhyOffset:flatbuffers.Offset, labelConfidence:number, gatheringCasesOffset:flatbuffers.Offset, customHistoryOffset:flatbuffers.Offset, bodyMembers:number, factionsOffset:flatbuffers.Offset, petitionsOffset:flatbuffers.Offset, refusalsOffset:flatbuffers.Offset, revoltsOffset:flatbuffers.Offset, coupsOffset:flatbuffers.Offset, relationsOffset:flatbuffers.Offset):flatbuffers.Offset {
   PolityLine.startPolityLine(builder);
   PolityLine.addPolity(builder, polity);
   PolityLine.addSettlement(builder, settlement);
@@ -501,6 +528,7 @@ static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:b
   PolityLine.addRefusals(builder, refusalsOffset);
   PolityLine.addRevolts(builder, revoltsOffset);
   PolityLine.addCoups(builder, coupsOffset);
+  PolityLine.addRelations(builder, relationsOffset);
   return PolityLine.endPolityLine(builder);
 }
 }

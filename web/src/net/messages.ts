@@ -1054,6 +1054,20 @@ export interface PolityLine {
   revolts: string[];
   /** Wire 1.45 (M4c slice AI, step three): its coups, newest first, in the kernel's words. */
   coups: string[];
+  /**
+   * Wire 1.57 (M5c slice AT, ADR-0020 §1): how it stands toward each other lived-in polity, from
+   * its own people's side, worked out afterwards and read by nothing in the world.
+   */
+  relations: RelationLine[];
+}
+
+/** One polity's standing toward another (wire 1.57): a label and the reasons, in the kernel's words. */
+export interface RelationLine {
+  polity: number;
+  name: string;
+  /** "unknown", "known", "friendly" or "wary". */
+  label: string;
+  why: string[];
 }
 
 /** Every settlement's polity at `minute` (wire 1.27). */
@@ -3287,6 +3301,15 @@ function governmentInfo(w: W.Government): GovernmentInfo {
       refusals: Array.from({ length: p.refusalsLength() }, (_, k) => p.refusals(k) ?? ""),
       revolts: Array.from({ length: p.revoltsLength() }, (_, k) => p.revolts(k) ?? ""),
       coups: Array.from({ length: p.coupsLength() }, (_, k) => p.coups(k) ?? ""),
+      relations: Array.from({ length: p.relationsLength() }, (_, k) => {
+        const r = p.relations(k)!;
+        return {
+          polity: Number(r.polity()),
+          name: r.name() ?? "",
+          label: r.label() ?? "",
+          why: Array.from({ length: r.whyLength() }, (_, j) => r.why(j) ?? ""),
+        };
+      }),
     });
   }
   return { minute: Number(w.minute()), polities };

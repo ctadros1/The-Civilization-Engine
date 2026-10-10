@@ -10,6 +10,7 @@ use civ_agents::views::{Domain, ViewAct};
 use civ_agents::word::{Blamed, Wrong};
 use civ_content::ContentRegistry;
 use civ_core::PermanentId;
+use civ_sim::relations::{self, Standing};
 use civ_sim::{NewWorld, Sim, persist};
 
 const PRESET: &str = "core:worldgen/river_valley";
@@ -284,8 +285,73 @@ fn people_who_see_outsiders_work_a_claimed_place_hold_it_against_them_and_think_
         }
     }
     assert!(heard, "nobody heard of the trespass");
+    // Each side's relation is named from its own people: both know the other and claim the place,
+    // and one of ours, who saw it, believes the other's people harm theirs.
+    {
+        let pop = sim.people();
+        let ours = pop
+            .polities
+            .iter()
+            .find(|p| p.id == polity_id)
+            .expect("ours");
+        let other = pop
+            .polities
+            .iter()
+            .find(|p| p.id == their_polity)
+            .expect("theirs");
+        let e = relations::evidence(&sim, ours, other);
+        assert_eq!(e.knowing, e.households);
+        assert!(
+            e.harms >= 1 && e.aggrieved >= 1 && e.views > e.harms,
+            "{e:?}"
+        );
+        assert_eq!((e.claims, e.contested), (1, 1));
+        let label = relations::relation_of(&sim, ours, other);
+        assert!(
+            matches!(label.standing, Standing::Known | Standing::Wary),
+            "{label:?}"
+        );
+        assert!(
+            label.why.iter().any(|w| w.contains("claimed by")),
+            "{label:?}"
+        );
+    }
+    relations_named_change_nothing(&mut sim);
     // All of it saves and loads exactly, and goes on alike.
     saves_and_goes_on_alike(&mut sim, 3 * DAY);
+}
+
+/// A copy of `sim` whose relation labels and government panel are worked out every day lives
+/// exactly as one never labelled (ADR-0020 §1: nothing reads a label).
+fn relations_named_change_nothing(sim: &mut Sim) {
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(sim, &saves, commons_persist::SaveKind::Manual, "named").expect("saves");
+    let mut plain = persist::load(&saved.path, content()).expect("loads");
+    let mut named = persist::load(&saved.path, content()).expect("loads");
+    for _ in 0..5 {
+        plain.advance_minutes(DAY).expect("advances");
+        named.advance_minutes(DAY).expect("advances");
+        for a in &named.people().polities {
+            for b in relations::others(&named, a.id) {
+                let _ = relations::relation_of(&named, a, b);
+            }
+        }
+        let _ = civ_sim::frames::government::government_response(&named);
+    }
+    let (a, b) = (
+        persist::encode_sections(&plain),
+        persist::encode_sections(&named),
+    );
+    for (x, y) in a.iter().zip(&b) {
+        assert!(
+            x.tag == persist::SECTION_META || x.bytes == y.bytes,
+            "section `{}` differs once named",
+            x.tag
+        );
+    }
 }
 
 #[test]

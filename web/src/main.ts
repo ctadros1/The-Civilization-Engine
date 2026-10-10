@@ -1084,6 +1084,7 @@ const hooks = {
               customHistory: p.customHistory,
               revolts: p.revolts,
               coups: p.coups,
+              relations: p.relations,
               petitions: p.petitions,
               refusals: p.refusals,
               laws: p.laws.map((l) => ({

@@ -108,6 +108,7 @@ export { ReasonInfo } from './wire/reason-info.js';
 export { RecoverWorld } from './wire/recover-world.js';
 export { Recovery } from './wire/recovery.js';
 export { RegimeInfo } from './wire/regime-info.js';
+export { RelationLine } from './wire/relation-line.js';
 export { Response } from './wire/response.js';
 export { ResponseBody } from './wire/response-body.js';
 export { RunUntil } from './wire/run-until.js';

@@ -1837,6 +1837,20 @@ table PolityLine {
   // by the kernel ("Bo called on those who keep the watch on 3 May of year 2 to take the deciding
   // with them; it held on 11 May of year 2, 2 of 3 watchers with it, none with the gathering").
   coups: [string] (id: 24);
+  // Wire 1.57 (M5c slice AT, ADR-0020 §1): how it stands toward each other lived-in polity, from
+  // its own people's side, worked out afterwards and read by nothing in the world.
+  relations: [RelationLine] (id: 25);
+}
+
+// One polity's standing toward another (wire 1.57): the other polity and its settlement's name, a
+// label ("unknown", "known", "friendly" or "wary") and the reasons in sentences rendered by the
+// kernel ("12 of 40 of its adults hold a view of Ashford's polity: 9 believe its people harm
+// theirs, 0 that they help them").
+table RelationLine {
+  polity: ulong (id: 0);
+  name: string (id: 1);
+  label: string (id: 2);
+  why: [string] (id: 3);
 }
 
 table Government {

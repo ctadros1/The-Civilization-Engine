@@ -15,6 +15,7 @@
 pub mod frames;
 pub mod labels;
 pub mod persist;
+pub mod relations;
 
 use std::fmt;
 use std::sync::Arc;

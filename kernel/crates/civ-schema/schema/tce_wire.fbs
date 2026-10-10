@@ -1865,6 +1865,10 @@ table AgreementLine {
   state: string (id: 2);
   ours: string (id: 3);
   theirs: string (id: 4);
+  // Wire 1.59 (M5c slice AV): each payment it owed, oldest first, in words ("400 kg of grain
+  // from Oakholt's store, owed from 3 May of year 12: 400 kg set aside, 398 kg arrived; met on
+  // 9 May of year 12").
+  payments: [string] (id: 5);
 }
 
 table Government {

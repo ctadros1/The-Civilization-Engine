@@ -919,6 +919,12 @@ deliver_days = 30
 # the activity allows (two hours each way, 8 points) by about a morning's useful work (4 points).
 # First set at 3, it never outweighed a walk of an hour and a half each way, and nobody carried.
 carry_points = 12.0
+# Performance (M5c slice AV, step two; research 13-01 §1.5: update trust "only after a relevant
+# opportunity"): a payment falling due is one. When it is handed over, or missed, each of the
+# receiving polity's people who knows its own law deciding the agreement takes `performance` of
+# evidence that the paying polity keeps its word, or does not; a gift handed over is as much that
+# it helps. As much as a trespass seen (`seen_trespass`); a design prior.
+performance = 1.0
 
 [moving]                         # moving to another settlement (M5a slice AN, ADR-0018 §5); design priors
 # Once a year on a day of its own, and when it forms, a household weighs joining each settlement it

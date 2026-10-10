@@ -55,8 +55,20 @@ theirs(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+payments(index: number):string
+payments(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+payments(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+paymentsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startAgreementLine(builder:flatbuffers.Builder) {
-  builder.startObject(5);
+  builder.startObject(6);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -79,18 +91,35 @@ static addTheirs(builder:flatbuffers.Builder, theirsOffset:flatbuffers.Offset) {
   builder.addFieldOffset(4, theirsOffset, 0);
 }
 
+static addPayments(builder:flatbuffers.Builder, paymentsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(5, paymentsOffset, 0);
+}
+
+static createPaymentsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startPaymentsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endAgreementLine(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createAgreementLine(builder:flatbuffers.Builder, id:bigint, termsOffset:flatbuffers.Offset, stateOffset:flatbuffers.Offset, oursOffset:flatbuffers.Offset, theirsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createAgreementLine(builder:flatbuffers.Builder, id:bigint, termsOffset:flatbuffers.Offset, stateOffset:flatbuffers.Offset, oursOffset:flatbuffers.Offset, theirsOffset:flatbuffers.Offset, paymentsOffset:flatbuffers.Offset):flatbuffers.Offset {
   AgreementLine.startAgreementLine(builder);
   AgreementLine.addId(builder, id);
   AgreementLine.addTerms(builder, termsOffset);
   AgreementLine.addState(builder, stateOffset);
   AgreementLine.addOurs(builder, oursOffset);
   AgreementLine.addTheirs(builder, theirsOffset);
+  AgreementLine.addPayments(builder, paymentsOffset);
   return AgreementLine.endAgreementLine(builder);
 }
 }

@@ -209,6 +209,11 @@ describe("the government on the wire", () => {
     const relationWhy = W.RelationLine.createWhyVector(b, [
       b.createString("3 of 5 of its households know Ashford"),
     ]);
+    const payments = W.AgreementLine.createPaymentsVector(b, [
+      b.createString(
+        "100 kg of grain from Stonewick's store, owed from 20 May of year 3: 100 kg set aside, 99 kg arrived; met on 24 May of year 3",
+      ),
+    ]);
     const agreement = W.AgreementLine.createAgreementLine(
       b,
       901n,
@@ -216,6 +221,7 @@ describe("the government on the wire", () => {
       b.createString("in force since 20 May of year 3"),
       b.createString("proposed by Ada on 2 May of year 3; passed on 3 May of year 3, 9 for, 2 against, 14 of 30 came"),
       b.createString("proposed by Bram on 5 May of year 3; passed on 6 May of year 3, 7 for, 0 against, 9 of 20 came"),
+      payments,
     );
     const agreements = W.RelationLine.createAgreementsVector(b, [agreement]);
     const relation = W.RelationLine.createRelationLine(
@@ -305,6 +311,9 @@ describe("the government on the wire", () => {
             state: "in force since 20 May of year 3",
             ours: "proposed by Ada on 2 May of year 3; passed on 3 May of year 3, 9 for, 2 against, 14 of 30 came",
             theirs: "proposed by Bram on 5 May of year 3; passed on 6 May of year 3, 7 for, 0 against, 9 of 20 came",
+            payments: [
+              "100 kg of grain from Stonewick's store, owed from 20 May of year 3: 100 kg set aside, 99 kg arrived; met on 24 May of year 3",
+            ],
           },
         ],
       },

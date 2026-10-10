@@ -2,7 +2,9 @@
 //! (ADR-0020 §1): unknown, known, under agreement, friendly or wary, with the reasons why. No
 //! relation is saved and nothing in the world reads a label: the people live in `civ-agents`,
 //! which cannot see this crate. Each side's label is worked out from its own people and its own
-//! laws alone, so the two can differ. Tribute (slice AV) will add its own name.
+//! laws alone, so the two can differ. A polity paying the other a recurring transfer under an
+//! agreement in force is *tributary* to it, its burden given both ways research 13-02 §2.1 asks
+//! (M5c slice AV, step two).
 //!
 //! The thresholds are display conventions, uncalibrated, not findings.
 
@@ -46,6 +48,16 @@ pub struct RelationEvidence {
     /// failed or ended.
     pub pending: u32,
     pub over: u32,
+    /// What it pays the other a year by transfers in force, in words ("100 kg of grain"), and
+    /// that as a share of what its households' fields bring in an ordinary year (T/Y) and of
+    /// what they bring beyond its people's need (T/(Y − C)), in tenths of a percent; `None`
+    /// where its fields bring nothing, or no more than its people need (research 13-02 §2.1:
+    /// a subsistence shortfall). M5c slice AV, step two.
+    pub pays: Option<String>,
+    pub of_output: Option<u32>,
+    pub of_surplus: Option<u32>,
+    /// What the other pays it a year by transfers in force, in words.
+    pub paid: Option<String>,
 }
 
 /// The name a label gives a relation.
@@ -57,6 +69,8 @@ pub enum Standing {
     Known,
     /// An agreement with the other is in force by a law of its own (M5c slice AU).
     UnderAgreement,
+    /// It pays the other a recurring transfer under an agreement in force (M5c slice AV).
+    Tributary,
     /// Enough of its adults believe the other helps them.
     Friendly,
     /// Enough of its adults believe the other harms them.
@@ -70,6 +84,7 @@ impl Standing {
             Standing::Unknown => "unknown",
             Standing::Known => "known",
             Standing::UnderAgreement => "under agreement",
+            Standing::Tributary => "tributary",
             Standing::Friendly => "friendly",
             Standing::Wary => "wary",
         }
@@ -154,6 +169,31 @@ pub fn evidence(sim: &crate::Sim, from: &Polity, to: &Polity) -> RelationEvidenc
             e.over += 1;
         }
     }
+    // Transfers in force each way (M5c slice AV, step two).
+    let burden = |payer: &Polity, to: &Polity| {
+        pop.burden(
+            sim.land(),
+            &rules.catalog,
+            &rules.people,
+            now,
+            payer.id,
+            to.id,
+        )
+    };
+    let goods_words = |b: &civ_agents::population::Burden| {
+        b.goods
+            .iter()
+            .map(|&(g, kg)| format!("{kg:.0} kg of {}", good(g)))
+            .collect::<Vec<_>>()
+            .join(" and ")
+    };
+    let permille = |x: f64| (x * 1000.0).round().clamp(0.0, f64::from(u32::MAX)) as u32;
+    if let Some(b) = burden(from, to) {
+        e.pays = Some(goods_words(&b));
+        e.of_output = b.of_output().map(permille);
+        e.of_surplus = b.of_surplus().map(permille);
+    }
+    e.paid = burden(to, from).map(|b| goods_words(&b));
     let (ours, other) = (from.claims_now(), to.claims_now());
     e.claims = ours.len() as u32;
     e.contested = ours
@@ -168,6 +208,8 @@ pub fn classify(e: &RelationEvidence, other: &str) -> RelationLabel {
     let share = |n: u32| f64::from(n) / f64::from(e.adults.max(1));
     let standing = if e.knowing == 0 && e.views == 0 && e.in_force.is_empty() {
         Standing::Unknown
+    } else if e.pays.is_some() {
+        Standing::Tributary
     } else if !e.in_force.is_empty() {
         Standing::UnderAgreement
     } else if share(e.harms) >= WARY && e.harms >= e.helps {
@@ -178,6 +220,27 @@ pub fn classify(e: &RelationEvidence, other: &str) -> RelationLabel {
         Standing::Known
     };
     let mut why = Vec::new();
+    if let Some(goods) = &e.pays {
+        let pct = |x: u32| format!("{:.1} %", f64::from(x) / 10.0);
+        let burden = match (e.of_output, e.of_surplus) {
+            (None, _) => "its households' fields bring nothing yet".to_owned(),
+            (Some(y), None) => format!(
+                "{} of what its households' fields bring in an ordinary year, which is no more \
+                 than its people need",
+                pct(y)
+            ),
+            (Some(y), Some(s)) => format!(
+                "{} of what its households' fields bring in an ordinary year, {} of what they \
+                 bring beyond its people's need",
+                pct(y),
+                pct(s)
+            ),
+        };
+        why.push(format!("it pays {other} {goods} a year: {burden}"));
+    }
+    if let Some(goods) = &e.paid {
+        why.push(format!("{other} pays it {goods} a year"));
+    }
     for terms in &e.in_force {
         why.push(format!("an agreement with {other} is in force: {terms}"));
     }
@@ -272,6 +335,9 @@ pub struct AgreementView {
     /// year 12 that the other's gathering passed it".
     pub ours: String,
     pub theirs: String,
+    /// Each payment it owed, oldest first (M5c slice AV): "400 kg of grain from Oakholt's store,
+    /// owed from 3 May of year 12: 400 kg set aside, 398 kg arrived; met on 9 May of year 12".
+    pub payments: Vec<String>,
 }
 
 /// The agreements between `from` and `to`, newest first, as `from`'s observer sees them.
@@ -371,12 +437,50 @@ pub fn agreements_between(sim: &crate::Sim, from: &Polity, to: &Polity) -> Vec<A
             }
             words
         };
+        let payments = pop
+            .agreements
+            .dues
+            .iter()
+            .filter(|d| d.agreement == a.id)
+            .map(|d| {
+                use civ_agents::agreements::DueState;
+                let mut words = format!(
+                    "{:.0} kg of {} from {}'s store, owed from {}: ",
+                    d.owed_kg,
+                    good(d.good),
+                    name(d.from),
+                    on(d.made)
+                );
+                if d.set_aside_kg <= 0.0 {
+                    words += "nothing set aside";
+                } else {
+                    words += &format!(
+                        "{:.0} kg set aside, {:.0} kg arrived",
+                        d.set_aside_kg, d.arrived_kg
+                    );
+                }
+                match d.state {
+                    DueState::Open => {
+                        words += &format!("; due by {}", on(d.due));
+                        if let Some(c) = d.carrier {
+                            words += &format!(", {} to carry it", pop.name_of(c));
+                        }
+                    }
+                    DueState::Met { day } => words += &format!("; met on {}", on(day)),
+                    DueState::Missed { day, why } => {
+                        words += &format!("; missed on {}: {}", on(day), why.words());
+                    }
+                }
+                words
+            })
+            .collect();
         out.push(AgreementView {
             id: a.id,
             terms: a.words(&name, &good),
             state,
             ours: history(us),
             theirs: history(them),
+            payments,
         });
     }
     out
@@ -495,5 +599,44 @@ mod tests {
         assert!(label.why.contains(
             &"1 agreement with Ashford is before a gathering or awaiting word".to_owned()
         ));
+    }
+
+    #[test]
+    fn a_polity_paying_a_transfer_in_force_is_tributary_and_its_burden_given_both_ways() {
+        let terms = "leave for Oakholt's people to use the places Ashford claims, for five \
+                     years, for 100 kg of grain from Oakholt's store to Ashford's each year";
+        let paying = RelationEvidence {
+            in_force: vec![terms.to_owned()],
+            pays: Some("100 kg of grain".to_owned()),
+            of_output: Some(25),
+            of_surplus: Some(100),
+            ..known(20, 0, 0, 0)
+        };
+        let label = classify(&paying, "Ashford");
+        assert_eq!(label.standing, Standing::Tributary);
+        assert_eq!(label.standing.words(), "tributary");
+        assert_eq!(
+            label.why[0],
+            "it pays Ashford 100 kg of grain a year: 2.5 % of what its households' fields bring \
+             in an ordinary year, 10.0 % of what they bring beyond its people's need"
+        );
+        // 13-02 §2.1: no surplus ratio where the fields bring no more than the need.
+        let short = RelationEvidence {
+            of_surplus: None,
+            ..paying.clone()
+        };
+        assert!(
+            classify(&short, "Ashford").why[0].ends_with("which is no more \
+                 than its people need")
+        );
+        // The other side is under agreement, and says what it receives.
+        let receiving = RelationEvidence {
+            in_force: vec![terms.to_owned()],
+            paid: Some("100 kg of grain".to_owned()),
+            ..known(20, 0, 0, 0)
+        };
+        let label = classify(&receiving, "Oakholt");
+        assert_eq!(label.standing, Standing::UnderAgreement);
+        assert_eq!(label.why[0], "Oakholt pays it 100 kg of grain a year");
     }
 }

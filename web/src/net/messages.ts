@@ -1065,7 +1065,7 @@ export interface PolityLine {
 export interface RelationLine {
   polity: number;
   name: string;
-  /** "unknown", "known", "under agreement", "friendly" or "wary". */
+  /** "unknown", "known", "under agreement", "tributary", "friendly" or "wary". */
   label: string;
   why: string[];
   /** Wire 1.58 (M5c slice AU, ADR-0020 §6): the agreements between the two, newest first. */
@@ -1082,6 +1082,11 @@ export interface AgreementLine {
   state: string;
   ours: string;
   theirs: string;
+  /**
+   * Wire 1.59 (M5c slice AV): each payment it owed, oldest first ("400 kg of grain from
+   * Oakholt's store, owed from 3 May of year 12: 400 kg set aside, 398 kg arrived; met on ...").
+   */
+  payments: string[];
 }
 
 /** Every settlement's polity at `minute` (wire 1.27). */
@@ -3330,6 +3335,7 @@ function governmentInfo(w: W.Government): GovernmentInfo {
               state: a.state() ?? "",
               ours: a.ours() ?? "",
               theirs: a.theirs() ?? "",
+              payments: Array.from({ length: a.paymentsLength() }, (_, k) => a.payments(k) ?? ""),
             };
           }),
         };

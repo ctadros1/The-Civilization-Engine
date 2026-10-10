@@ -11,7 +11,7 @@ use civ_agents::agreements::{AgreementState, Clause, Failure};
 use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome, PolicyKind};
 use civ_agents::ties::Act;
 use civ_agents::uses::{HeardClaim, Place, Worked};
-use civ_agents::views::ViewAct;
+use civ_agents::views::{Domain, ViewAct};
 use civ_agents::word::Wrong;
 use civ_agents::{AgreementStep, ChronicleKind};
 use civ_content::ContentRegistry;
@@ -623,31 +623,76 @@ fn keep_store(sim: &mut Sim, polity: PermanentId, keeper: Option<PermanentId>, k
     grain
 }
 
-/// An agreement between `polities` with `clauses`, put in force by hand on day `since`, A's first
-/// adult and B's having agreed on it.
+/// An agreement between `polities` with `clauses`, put in force by hand on day `since` by a law
+/// of each side passed that day and known to all its `adults`, the first adult of each side
+/// having agreed on it.
 fn in_force(
     sim: &mut Sim,
     polities: [PermanentId; 2],
-    negotiators: [PermanentId; 2],
+    adults: &[Vec<PermanentId>; 2],
     clauses: Vec<Clause>,
     since: i64,
 ) -> PermanentId {
     let id = sim.allocate_id_for_tests();
-    sim.people_mut_for_tests()
-        .agreements
-        .list
-        .push(civ_agents::agreements::Agreement {
-            id,
-            polities,
-            negotiators,
-            clauses,
-            term_days: 1825,
-            made: since,
-            laws: [None, None],
-            passed: [Some(since); 2],
-            heard: [Some(since); 2],
-            state: AgreementState::InForce { since },
+    let laws = [sim.allocate_id_for_tests(), sim.allocate_id_for_tests()];
+    let policy = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.kind == PolicyKind::Agreement)
+        .expect("an agreement template") as u16;
+    let now = sim.now();
+    let negotiators = [adults[0][0], adults[1][0]];
+    let pop = sim.people_mut_for_tests();
+    for s in 0..2 {
+        let polity = pop
+            .polities
+            .iter_mut()
+            .find(|p| p.id == polities[s])
+            .expect("its polity");
+        polity.laws.push(Law {
+            id: laws[s],
+            policy,
+            kind: PolicyKind::Agreement,
+            levy_share: 0.0,
+            holder: None,
+            relief_days: 0.0,
+            sanction: Default::default(),
+            hours: (0, 0),
+            status: LawStatus::InForce,
+            sponsor: negotiators[s],
+            proposed: now,
+            issue: if s == 0 {
+                IssueKind::ClaimedFromUs
+            } else {
+                IssueKind::TermsSought
+            },
+            meets_day: since,
+            decided: Some(now),
+            outcome: Some(Outcome::Passed),
+            eligible: adults[s].len() as u32,
+            stances: Vec::new(),
+            known: adults[s].iter().map(|&p| (p, since)).collect(),
+            compliance: Default::default(),
+            watch: Default::default(),
+            body: None,
+            ends: None,
+            agreement: Some(id),
         });
+    }
+    pop.agreements.list.push(civ_agents::agreements::Agreement {
+        id,
+        polities,
+        negotiators,
+        clauses,
+        term_days: 1825,
+        made: since,
+        laws: [Some(laws[0]), Some(laws[1])],
+        passed: [Some(since); 2],
+        heard: [Some(since); 2],
+        state: AgreementState::InForce { since },
+    });
     id
 }
 
@@ -678,7 +723,7 @@ fn a_store_sets_aside_what_an_agreement_owes_and_its_keeper_carries_it_to_the_ot
     let id = in_force(
         &mut sim,
         polities,
-        [adults[0][0], adults[1][0]],
+        &adults,
         vec![
             Clause::Leave { from: 1 },
             Clause::Gift {
@@ -785,6 +830,75 @@ fn a_store_sets_aside_what_an_agreement_owes_and_its_keeper_carries_it_to_the_ot
         "{}",
         views[0].terms
     );
+    // And each payment, with what was set aside and what arrived (wire 1.59).
+    assert_eq!(views[0].payments.len(), 2, "{:?}", views[0].payments);
+    for line in &views[0].payments {
+        assert!(
+            line.contains("kg of grain from")
+                && line.contains("set aside")
+                && line.contains("; met on"),
+            "{line}"
+        );
+    }
+
+    // Those of B who know B's law deciding it take each payment met as evidence that A keeps its
+    // word, and the gift that A helps (M5c slice AV, step two); A's people take nothing.
+    let rp = sim.rules().people.relations.clone();
+    let day = sim.now().day_index();
+    let b_views: Vec<_> = adults[1]
+        .iter()
+        .filter_map(|&p| sim.people().polity_views.of(p, polities[0], day, &rp))
+        .collect();
+    assert!(!b_views.is_empty());
+    for v in &b_views {
+        assert!(v.lean(Domain::KeepsWord) > 0.7, "{v:?}");
+        assert!(v.lean(Domain::HelpsUs) > 0.6, "{v:?}");
+        assert!(v.warmth() > 0.0, "{v:?}");
+    }
+    assert!(adults[0].iter().all(|&p| {
+        sim.people()
+            .polity_views
+            .of(p, polities[1], day, &rp)
+            .is_none()
+    }));
+    // A pays a transfer in force: it is tributary to B, its burden given both ways (research
+    // 13-02 §2.1); B is under agreement, and says what it receives.
+    let polity = |p: PermanentId| {
+        sim.people()
+            .polities
+            .iter()
+            .find(|x| x.id == p)
+            .expect("a polity")
+    };
+    let (a_, b_) = (polity(polities[0]), polity(polities[1]));
+    let label = relations::relation_of(&sim, a_, b_);
+    assert_eq!(label.standing, Standing::Tributary, "{:?}", label.why);
+    assert!(
+        label.why[0].contains("100 kg of grain a year: ")
+            && label.why[0].contains("of what its households' fields bring in an ordinary year"),
+        "{:?}",
+        label.why
+    );
+    let label = relations::relation_of(&sim, b_, a_);
+    assert_eq!(label.standing, Standing::UnderAgreement, "{:?}", label.why);
+    assert!(
+        label.why[0].ends_with("pays it 100 kg of grain a year"),
+        "{:?}",
+        label.why
+    );
+    let burden = sim
+        .people()
+        .burden(
+            sim.land(),
+            &sim.rules().catalog,
+            &sim.rules().people,
+            sim.now(),
+            polities[0],
+            polities[1],
+        )
+        .expect("A pays B");
+    assert_eq!(burden.goods, vec![(grain as u16, 100.0)]);
+    assert!(burden.paid > 0.0 && burden.need > 0.0);
     saves_and_goes_on_alike(&mut sim, DAY);
 }
 
@@ -803,7 +917,7 @@ fn a_payment_the_store_cannot_meet_is_missed_and_its_cause_kept_and_a_transfer_f
     in_force(
         &mut sim,
         polities,
-        [adults[0][0], adults[1][0]],
+        &adults,
         vec![Clause::Transfer {
             from: 0,
             good: grain as u16,
@@ -854,6 +968,40 @@ fn a_payment_the_store_cannot_meet_is_missed_and_its_cause_kept_and_a_transfer_f
         missed[0].contains("was missed: the store held none of it"),
         "{}",
         missed[0]
+    );
+    // Those of B who know the agreement take the miss as evidence that A does not keep its word.
+    let rp = sim.rules().people.relations.clone();
+    let day = sim.now().day_index();
+    for &p in &adults[1] {
+        let v = sim
+            .people()
+            .polity_views
+            .of(p, polities[0], day, &rp)
+            .expect("a view of A");
+        assert!(v.lean(Domain::KeepsWord) < 0.5, "{v:?}");
+        assert_eq!(
+            v.reason.map(|r| r.act),
+            Some(civ_agents::views::ViewAct::PaymentMissed)
+        );
+    }
+    let views = relations::agreements_between(
+        &sim,
+        sim.people()
+            .polities
+            .iter()
+            .find(|p| p.id == polities[1])
+            .expect("B"),
+        sim.people()
+            .polities
+            .iter()
+            .find(|p| p.id == polities[0])
+            .expect("A"),
+    );
+    assert!(
+        views[0].payments[0].contains("nothing set aside; missed on")
+            && views[0].payments[0].ends_with("the store held none of it"),
+        "{:?}",
+        views[0].payments
     );
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
     saves_and_goes_on_alike(&mut sim, DAY);

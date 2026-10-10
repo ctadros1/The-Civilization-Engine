@@ -2343,6 +2343,16 @@ export function bindUi(store: Store, actions: Actions): void {
                       el("p", { className: "ours", text: `Here: ${a.ours}.` }),
                       el("p", { className: "theirs", text: `At ${r.name}: ${a.theirs}.` }),
                     ),
+                    // What it owed, set aside and handed over (wire 1.59).
+                    ...(a.payments.length > 0
+                      ? [
+                          el(
+                            "ul",
+                            { className: "payments" },
+                            ...a.payments.map((w) => el("li", { text: `Payment: ${w}.` })),
+                          ),
+                        ]
+                      : []),
                   ),
                 ),
               ),

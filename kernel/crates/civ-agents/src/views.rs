@@ -46,6 +46,10 @@ pub struct RelationsParams {
     pub deliver_days: i64,
     /// What carrying a payment owed is worth to the one who is to carry it, points.
     pub carry_points: f64,
+    /// Evidence that the paying polity keeps its word from a payment handed over or missed, and
+    /// that it helps from a gift handed over, to those of the receiving polity who know its law
+    /// deciding the agreement (content API 64).
+    pub performance: f64,
 }
 
 impl RelationsParams {
@@ -66,6 +70,7 @@ impl RelationsParams {
             transfer_days: 365,
             deliver_days: 30,
             carry_points: 12.0,
+            performance: 1.0,
         }
     }
 }
@@ -110,11 +115,24 @@ pub enum ViewAct {
     SawTrespass = 0,
     /// One heard of that told at the hearth.
     HeardTrespass = 1,
+    /// A payment it owed one's polity under an agreement one knows was handed over (M5c slice
+    /// AV).
+    PaymentMet = 2,
+    /// A payment it owed one's polity under an agreement one knows never came.
+    PaymentMissed = 3,
+    /// A gift it gave one's polity under an agreement one knows was handed over.
+    GiftReceived = 4,
 }
 
 impl ViewAct {
     /// Every act, in code order.
-    pub const ALL: [ViewAct; 2] = [ViewAct::SawTrespass, ViewAct::HeardTrespass];
+    pub const ALL: [ViewAct; 5] = [
+        ViewAct::SawTrespass,
+        ViewAct::HeardTrespass,
+        ViewAct::PaymentMet,
+        ViewAct::PaymentMissed,
+        ViewAct::GiftReceived,
+    ];
 
     /// Its number in saves.
     pub fn code(self) -> u8 {
@@ -130,6 +148,9 @@ impl ViewAct {
     pub fn writes(self) -> (Domain, bool) {
         match self {
             ViewAct::SawTrespass | ViewAct::HeardTrespass => (Domain::HarmsUs, true),
+            ViewAct::PaymentMet => (Domain::KeepsWord, true),
+            ViewAct::PaymentMissed => (Domain::KeepsWord, false),
+            ViewAct::GiftReceived => (Domain::HelpsUs, true),
         }
     }
 
@@ -138,6 +159,9 @@ impl ViewAct {
         match self {
             ViewAct::SawTrespass => "saw its people work a place our polity claims",
             ViewAct::HeardTrespass => "heard its people worked a place our polity claims",
+            ViewAct::PaymentMet => "a payment it owed our polity came",
+            ViewAct::PaymentMissed => "a payment it owed our polity never came",
+            ViewAct::GiftReceived => "our polity received its gift",
         }
     }
 }
@@ -368,6 +392,25 @@ mod tests {
         for a in ViewAct::ALL {
             assert_eq!(ViewAct::from_code(a.code()), Some(a));
         }
-        assert_eq!(ViewAct::from_code(2), None);
+        assert_eq!(ViewAct::from_code(5), None);
+    }
+
+    #[test]
+    fn payments_write_keeping_ones_word_and_gifts_helping() {
+        let params = RelationsParams::core();
+        let mut views = Views::default();
+        views.record(id(1), id(9), ViewAct::PaymentMet, 1.0, 10, &params);
+        views.record(id(1), id(9), ViewAct::PaymentMet, 1.0, 10, &params);
+        views.record(id(1), id(9), ViewAct::GiftReceived, 1.0, 10, &params);
+        let v = views.of(id(1), id(9), 10, &params).expect("a view");
+        assert!(v.lean(Domain::KeepsWord) > 0.7 && v.lean(Domain::HelpsUs) > 0.6);
+        assert!(v.warmth() > 0.3, "{}", v.warmth());
+        views.record(id(2), id(9), ViewAct::PaymentMissed, 2.0, 10, &params);
+        let w = views.of(id(2), id(9), 10, &params).expect("a view");
+        assert!(
+            w.lean(Domain::KeepsWord) < 0.3 && w.warmth() < -0.2,
+            "{}",
+            w.warmth()
+        );
     }
 }

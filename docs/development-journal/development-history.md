@@ -1018,6 +1018,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** AV step two: views written by performance, word of a miss crossing with travellers, the tributary label and both burden ratios, payments in the observer.
 
+## 2026-10-10 — M5c slice AV, step two: performance seen, the tributary label, payments in the observer; slice AV complete
+
+**Goal:** let what an agreement's payments do shape what people believe of the payer, and show the burden of paying and each payment to the observer (ADR-0020 §3, §7; research 13-01 §1.5, 13-02 §2.1).
+
+**What changed:** a payment handed over in full, or missed, is evidence to those of the receiving polity who know its law deciding the agreement that the payer keeps its word or does not, and a gift handed over that it helps (content API 64). A polity paying a yearly transfer under an agreement in force is labelled *tributary*, its burden given as T/Y and T/(Y − C) or a subsistence shortfall; the receiver says what it receives. The government panel lists each agreement's payments (wire 1.59).
+
+**Findings:** in the demo worlds lived six years with goods on offer, the larger villages kept common stores of up to 11 t of grain, but every meeting (five, in the M5a world) parted with none and the seed-9 world held none; goods for leave do not unblock the funnel, which stops upstream.
+
+**Evidence:** integration tests of views after payments met and missed, the tributary label and burden, and the panel's payment lines; classifier and views unit tests; the web unit test decodes payment lines; the full suite, clippy and the smoke seeds.
+
+**Open:** slice AW, crossings (bridges by system and span, their load computed per bridge).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

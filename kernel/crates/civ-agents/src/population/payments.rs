@@ -15,9 +15,39 @@ use crate::agreements::{AgreementState, Clause, Due, DueState, Miss};
 use crate::decide::CarryFacts;
 use crate::history::AgreementStep;
 use crate::ledger::{Channel, Leg};
+use crate::views::ViewAct;
 
 /// Less than this of a good is nothing, kilograms.
 const NOTHING_KG: f64 = 1e-6;
+
+/// What one polity pays another each year under the agreements in force between them, against
+/// what its households grow and need (M5c slice AV, step two; research 13-02 §2.1: record both
+/// T/Y and T/(Y − subsistence), and a subsistence shortfall when Y does not exceed it).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Burden {
+    /// What it transfers a year, by good (catalog index), kilograms.
+    pub goods: Vec<(u16, f64)>,
+    /// T: the food energy of that, kilocalories a year.
+    pub paid: f64,
+    /// Y: what its households' fields bring in an ordinary year as their records say, less the
+    /// seed, kilocalories.
+    pub output: f64,
+    /// C: a year of its people's food, kilocalories.
+    pub need: f64,
+}
+
+impl Burden {
+    /// T/Y, when its fields bring anything.
+    pub fn of_output(&self) -> Option<f64> {
+        (self.output > 0.0).then(|| self.paid / self.output)
+    }
+
+    /// T/(Y − C), when its fields bring more than its people need; otherwise a subsistence
+    /// shortfall, and `None`.
+    pub fn of_surplus(&self) -> Option<f64> {
+        (self.output > self.need).then(|| self.paid / (self.output - self.need))
+    }
+}
 
 impl Population {
     /// The payments' midnight (M5c slice AV), after the agreements': those falling due are
@@ -162,6 +192,56 @@ impl Population {
             );
             let agreement = self.agreements.dues[i].agreement;
             self.chronicle_payment(ctx, agreement, AgreementStep::Missed, sentence);
+            self.performance_known(ctx, i, false);
+        }
+    }
+
+    /// Payment `i` was handed over in full (`met`) or missed: each of the receiving polity's
+    /// people living there who knows its own law deciding the agreement takes it as evidence
+    /// that the paying polity keeps its word or does not, and a gift handed over as evidence
+    /// that it helps (M5c slice AV, step two; research 13-01 §1.5: trust moves only after a
+    /// relevant opportunity, and a payment falling due is one).
+    fn performance_known(&mut self, ctx: &Ctx, i: usize, met: bool) {
+        let d = &self.agreements.dues[i];
+        let (clause, from, to) = (usize::from(d.clause), d.from, d.to);
+        let Some(a) = self.agreements.get(d.agreement) else {
+            return;
+        };
+        let gift = matches!(a.clauses.get(clause), Some(Clause::Gift { .. }));
+        let Some(law) = a.side_of(to).and_then(|s| a.laws[usize::from(s)]) else {
+            return;
+        };
+        let Some(p) = self.polities.iter().find(|p| p.id == to) else {
+            return;
+        };
+        let settlement = p.settlement;
+        let Some(l) = p.laws.iter().find(|l| l.id == law) else {
+            return;
+        };
+        let knowers: Vec<PermanentId> = l
+            .known
+            .iter()
+            .map(|k| k.0)
+            .filter(|&q| {
+                self.person(q)
+                    .and_then(|x| self.household(x.household))
+                    .is_some_and(|x| x.settlement == Some(settlement))
+            })
+            .collect();
+        let (rp, day) = (&ctx.params.relations, ctx.now.day_index());
+        let units = rp.performance;
+        for q in knowers {
+            if met {
+                self.polity_views
+                    .record(q, from, ViewAct::PaymentMet, units, day, rp);
+                if gift {
+                    self.polity_views
+                        .record(q, from, ViewAct::GiftReceived, units, day, rp);
+                }
+            } else {
+                self.polity_views
+                    .record(q, from, ViewAct::PaymentMissed, units, day, rp);
+            }
         }
     }
 
@@ -310,7 +390,8 @@ impl Population {
         let day = ctx.now.day_index();
         let d = &mut self.agreements.dues[i];
         d.arrived_kg += held;
-        if d.set_aside_kg >= d.owed_kg - NOTHING_KG {
+        let met = d.set_aside_kg >= d.owed_kg - NOTHING_KG;
+        if met {
             d.state = DueState::Met { day };
         }
         let (from, agreement) = (d.from, d.agreement);
@@ -323,6 +404,83 @@ impl Population {
             self.polity_name(ctx, to)
         );
         self.chronicle_payment(ctx, agreement, AgreementStep::Delivered, sentence);
+        if met {
+            self.performance_known(ctx, i, true);
+        }
+    }
+
+    /// What polity `payer` pays polity `to` each year by the transfers of agreements in force
+    /// between them, against what its households grow and need on `now`, if it pays anything
+    /// (M5c slice AV, step two). Gifts, paid once, are not counted.
+    pub fn burden(
+        &self,
+        land: &civ_land::Land,
+        catalog: &Catalog,
+        params: &PeopleParams,
+        now: SimTime,
+        payer: PermanentId,
+        to: PermanentId,
+    ) -> Option<Burden> {
+        let mut goods: Vec<(u16, f64)> = Vec::new();
+        for a in &self.agreements.list {
+            if !a.in_force() {
+                continue;
+            }
+            let (Some(s), Some(_)) = (a.side_of(payer), a.side_of(to)) else {
+                continue;
+            };
+            for c in &a.clauses {
+                if let Clause::Transfer {
+                    from,
+                    good,
+                    kg,
+                    every_days,
+                } = *c
+                    && from == s
+                {
+                    let year = f64::from(kg) * 365.0 / f64::from(every_days.max(1));
+                    match goods.iter_mut().find(|g| g.0 == good) {
+                        Some(g) => g.1 += year,
+                        None => goods.push((good, year)),
+                    }
+                }
+            }
+        }
+        if goods.is_empty() || payer == to {
+            return None;
+        }
+        let kcal = |g: u16| {
+            catalog
+                .goods
+                .get(usize::from(g))
+                .map_or(0.0, |d| d.kcal_per_kg)
+        };
+        let paid = goods.iter().map(|&(g, kg)| kg * kcal(g)).sum();
+        let settlement = self.polities.iter().find(|p| p.id == payer)?.settlement;
+        let crop = catalog.crops.get(params.farm.crop);
+        let (mut output, mut need) = (0.0, 0.0);
+        for (_, x) in self.households.iter() {
+            if x.members.is_empty() || x.settlement != Some(settlement) {
+                continue;
+            }
+            need += x.members.len() as f64 * params.household.daily_kcal_per_person * 365.0;
+            let Some(crop) = crop else {
+                continue;
+            };
+            let fields = || self.fields_of(land, x.id);
+            let area: f64 = fields().map(Field::area_ha).sum();
+            if area > 0.0 {
+                let per_ha = farm::expected_yield_kg_ha(fields(), crop, now.day_index());
+                let k = catalog.goods.get(crop.good).map_or(0.0, |g| g.kcal_per_kg);
+                output += (per_ha - crop.seed_kg_per_ha).max(0.0) * area * k;
+            }
+        }
+        Some(Burden {
+            goods,
+            paid,
+            output,
+            need,
+        })
     }
 
     /// The name of polity `p`'s settlement.

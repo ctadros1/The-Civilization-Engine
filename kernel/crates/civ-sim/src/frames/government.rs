@@ -516,6 +516,10 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                         let state = fbb.create_string(&a.state);
                         let ours = fbb.create_string(&a.ours);
                         let theirs = fbb.create_string(&a.theirs);
+                        // Its payments (wire 1.59).
+                        let payments: Vec<_> =
+                            a.payments.iter().map(|w| fbb.create_string(w)).collect();
+                        let payments = fbb.create_vector(&payments);
                         wire::AgreementLine::create(
                             &mut fbb,
                             &wire::AgreementLineArgs {
@@ -524,6 +528,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                                 state: Some(state),
                                 ours: Some(ours),
                                 theirs: Some(theirs),
+                                payments: Some(payments),
                             },
                         )
                     })

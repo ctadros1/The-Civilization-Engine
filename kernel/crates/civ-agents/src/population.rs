@@ -58,6 +58,7 @@ mod moving;
 mod norm;
 mod opinion;
 mod payments;
+pub use payments::Burden;
 mod places;
 mod polity;
 mod relations;

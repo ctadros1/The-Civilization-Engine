@@ -716,6 +716,13 @@ officeholder, and more adults than stand with the gathering, must stand with it 
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
 
+Content API 64 (M5c slice AV, step two) brings performance seen: the `[relations]` key
+`performance` (0 to 10; 1.0, as much as a trespass seen, a design prior; research 13-01 §1.5:
+trust moves only after a relevant opportunity). When a payment an agreement owes is handed over in
+full, or missed, each of the receiving polity's people who knows its own law deciding the
+agreement takes that much evidence that the paying polity keeps its word, or does not; a gift
+handed over is as much that it helps.
+
 Content API 63 (M5c slice AV, step one) brings goods for leave, and payments carried (ADR-0020
 §7): the behaviour `carry` and its activity `core:activity/walk_owed_goods` (one way at most
 `max_walk_minutes`, 120, as a visit; daylight only, and only for the one named to carry a payment

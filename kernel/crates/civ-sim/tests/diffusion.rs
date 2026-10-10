@@ -313,7 +313,8 @@ fn a_building_seen_in_another_settlement_moves_taste_as_a_stranger_s_or_a_friend
 fn a_visitor_sees_the_new_buildings_about_the_hearth_and_saves_keep_them() {
     // A woman of the first settlement is made the mother of an adult of the second, as if they had
     // married away: they visit, and see the homes newly built about each other's hearth.
-    let mut sim = world(3, 30, &[30]);
+    // World 9: its two camps are on one bank of the trunk river, which nobody can wade.
+    let mut sim = world(9, 30, &[30]);
     let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
     until_housed(&mut sim);
     let adult = |sim: &Sim, s: PermanentId, female: bool| {

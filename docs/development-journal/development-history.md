@@ -1054,6 +1054,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** AW step three, a polity's public work for a crossing beyond one log, and the observer's view of crossings.
 
+## 2026-10-10 — Fix: walkers stepped between a river's cells
+
+**Goal:** make rivers too big to wade the barriers the model has said they were since M1, found while measuring what the trunk river cuts off for AW step three.
+
+**What changed:** a diagonal step passes through one of the two cells at its corner, so it is walked no faster than the better of them allows and not at all when neither can be walked; straight lines that straighten routes, and the cells a walk is traced over for wades and crossings, keep the same rule (ADR-0004 §7).
+
+**Findings:** before the fix, the M5a demo's map had 522 places where a walker crossed the river too big to wade in one 13-second step and 2,648 where a stream was crossed dry. After it, the seed-9 demo world's two villages cannot reach each other at all; land across the river from a village is far, so a year of the village of 1,000 breaks 308 fields, not 649, with the same people at the year's end; and a year costs 390 s, not 265, mostly in the weeks after loading an older save. Households now wade five times as often, and a village's wades at one stream would repay a log though no household's alone would. The M5a and M5b demos ran before the fix and were not re-run.
+
+**Evidence:** a test of a river running corner to corner, too big to wade and small enough; the corner-aware trace; the full suite (tests of visits, buying and diffusion moved from world 3, whose camps are now three hours apart round the river, to worlds 9 and 10); clippy; the ten smoke worlds; a ten-year dashboard quick look passing seven rows, moves amber where founding groups were placed on opposite banks.
+
+**Open:** AW step three: a crossing the village builds together, and the observer's view of crossings.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

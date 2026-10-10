@@ -328,7 +328,8 @@ fn founding_groups_that_know_each_other_know_where_each_camped_and_no_more() {
 #[test]
 fn a_walk_in_sight_of_another_settlement_makes_it_known_and_word_of_it_goes_round() {
     use civ_agents::places::PlaceHow;
-    let mut sim = world(3, 50, &[30]).expect("generates");
+    // World 9: its two camps are on one bank of the trunk river, which nobody can wade.
+    let mut sim = world(9, 50, &[30]).expect("generates");
     // Bring the second camp's hearth to 900 m east of the first's, so that some of the first's
     // walks pass within sight of it and others do not.
     let first = sim.land().settlements[0].clone();
@@ -396,7 +397,8 @@ fn kin_living_in_another_settlement_are_visited_and_each_visit_is_counted() {
     // Two settlements that know where each other camped. A woman of the first is made the mother
     // of an adult of the second, as if they had married away: the visit is worth her company to
     // him and his to her, against the walk there and back (M5a slice AM).
-    let mut sim = world_knowing(3, 30, &[30], true).expect("generates");
+    // World 10: its two camps are on one bank of the trunk river, which nobody can wade.
+    let mut sim = world_knowing(10, 30, &[30], true).expect("generates");
     let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
     let mother = adults_of(&sim, a)
         .into_iter()
@@ -453,7 +455,8 @@ fn kin_living_in_another_settlement_are_visited_and_each_visit_is_counted() {
 fn someone_who_found_no_partner_at_home_goes_to_look_elsewhere() {
     // Every unpartnered adult of the first settlement looked for a partner at home today and found
     // nobody: the hope of meeting someone is a reason to go to the other settlement's hearth.
-    let mut sim = world_knowing(3, 30, &[30], true).expect("generates");
+    // World 10: its two camps are on one bank of the trunk river, which nobody can wade.
+    let mut sim = world_knowing(10, 30, &[30], true).expect("generates");
     let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
     let today = sim.now().day_index();
     let seekers: Vec<_> = adults_of(&sim, a)
@@ -679,7 +682,8 @@ fn a_household_out_of_food_goes_where_its_kin_are_and_its_kin_follow() {
     // the band, kin of those who just went, follow them, one after another (research 05-06 §1.2:
     // chain migration); none is drawn beyond the map while kin are a walk away (M5a slice AN,
     // ADR-0018 §3, §5).
-    let mut sim = world_knowing(3, 50, &[50], true).expect("generates");
+    // World 10: its two camps are on one bank of the trunk river, which nobody can wade.
+    let mut sim = world_knowing(10, 50, &[50], true).expect("generates");
     let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
     let (household, parent) = household_of(&sim, a);
     kin_in(&mut sim, parent, b, 5);

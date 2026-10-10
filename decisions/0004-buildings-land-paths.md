@@ -106,6 +106,11 @@ first load and every other section empty.
   opens or falls is planned around at once rather than at the next survey (01-08 §4, §7).
 - A walk under way over a crossing that gives way stops where the walker is; whoever is on it
   falls. No cached route crosses a fallen crossing.
+- A diagonal step passes through one of the two cells at its corner, so it is walked no faster
+  than the better of them allows and not at all when neither can be walked; a straight line
+  through a corner is held to the same. Until step three of slice AW found it, a walker could
+  step past a river running from corner to corner without wading it, and so cross a river too big
+  to wade wherever it ran diagonally; wadeable streams were crossed that way dry.
 - Crossings are records of their own in land, saved (schema 68), each with its spanned water cells
   in order, its banks, its members and its state.
 - Each walk counts, for the walker's household, every river cell it wades (not walked on a deck),

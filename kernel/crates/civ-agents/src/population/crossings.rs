@@ -12,7 +12,7 @@ use crate::decide::CrossingFacts;
 use crate::history::{Cause, CrossingStep};
 use crate::uses::per_year;
 use civ_land::crossings::{Collapse, Crossing, CrossingOwner, CrossingState};
-use civ_land::paths::cells_along;
+use civ_land::paths::cells_along_by;
 
 /// Keyed-randomness purpose of who dies when a crossing gives way under them.
 const PURPOSE_FALL: u64 = 0x6272_6964_6765_6661; // "bridgefa"
@@ -40,6 +40,16 @@ struct Proposal {
     net_h: f64,
     /// A crossing begun there by a household that is no more, taken over.
     taken: Option<usize>,
+}
+
+/// Which of the two cells `a` and `b` at a corner a walk turning through it went by: the better
+/// ground, as the walking grid takes the step (`a` when they are alike).
+pub(super) fn better_corner(nav: &civ_world::nav::NavGrid, a: u32, b: u32) -> u32 {
+    if nav.ground(b as usize) > nav.ground(a as usize) {
+        b
+    } else {
+        a
+    }
 }
 
 /// The site at river cell `cell`, if a crossing could stand there.
@@ -578,9 +588,11 @@ impl Population {
                     .map(|(&pt, _)| pt),
             );
             if rest.len() > 1
-                && cells_along(&rest, map.cell_size_m, map.width, map.height)
-                    .iter()
-                    .any(|c| cells.contains(c))
+                && cells_along_by(&rest, map.cell_size_m, map.width, map.height, |a, b| {
+                    better_corner(ctx.nav, a, b)
+                })
+                .iter()
+                .any(|c| cells.contains(c))
             {
                 stop.push((h, at));
             }

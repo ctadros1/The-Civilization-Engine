@@ -108,7 +108,14 @@ struct Scene {
 }
 
 fn scene() -> Scene {
-    let mut sim = world(3, 30, &[30]);
+    // World 10: its two camps are on one bank of the trunk river, which nobody can wade, about an
+    // hour's walk apart.
+    scene_in(10)
+}
+
+/// [`scene`] in world `seed`.
+fn scene_in(seed: u64) -> Scene {
+    let mut sim = world(seed, 30, &[30]);
     sim.advance_minutes(DAY).expect("advances");
     let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
     let sickle = good(&sim, "core:good/sickle");
@@ -706,7 +713,7 @@ fn a_visitor_hears_what_those_they_keep_company_with_offer() {
     // A woman of the first settlement is made the mother of an adult of the second, as if they
     // had married away: they visit, and at the hearth each hears what the other's household
     // offers (ADR-0019 §1).
-    let mut sim = world(3, 30, &[30]);
+    let mut sim = world(10, 30, &[30]);
     let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
     let adult = |sim: &Sim, s: PermanentId, female: bool| {
         let pop = sim.people();
@@ -783,7 +790,7 @@ fn an_ask_anchors_on_what_replacing_the_good_from_elsewhere_would_cost() {
     // in one of them holds a fresh report of a seller in the second that offers what the
     // household sells, for next to nothing. At its next review of what it offers, its ask falls
     // toward what replacing the good from there would cost it; in the other world it does not.
-    let mut worlds = [world(3, 30, &[30]), world(3, 30, &[30])];
+    let mut worlds = [world(10, 30, &[30]), world(10, 30, &[30])];
     for sim in &mut worlds {
         sim.advance_minutes(2 * DAY).expect("advances");
     }
@@ -1235,16 +1242,17 @@ fn an_errand_to_a_seller_who_sold_out_buys_nothing_and_is_counted_with_why() {
 
 #[test]
 fn nobody_fetches_to_sell_what_their_neighbours_do_not_want_or_the_twin_stops() {
+    // World 3 throughout: its walk to the seller is long.
     // Wanted for less than it would cost to fetch: no errand.
-    let mut sc = scene();
+    let mut sc = scene_in(3);
     let keep = reseller(&mut sc, 4.0, 0.5);
     review_holding(&mut sc.sim, sc.buyer, f64::from(keep) + 0.3);
     assert!(!sc.sim.people().reports.errands.contains_key(&sc.buyer));
 
     // Wanted for more than the sickles and the trading cost, but not enough to pay for the walk
-    // too (there, a unit costs it about 2.2 hours without the walk and 3.0 with it, its margin
-    // included): no errand.
-    let mut sc = scene();
+    // too (in world 3, whose way to the seller goes round the river, a unit costs it about 2.2
+    // hours without the walk and more than 2.6 with it, its margin included): no errand.
+    let mut sc = scene_in(3);
     let keep = reseller(&mut sc, 4.0, 2.6);
     review_holding(&mut sc.sim, sc.buyer, f64::from(keep) + 0.3);
     assert!(!sc.sim.people().reports.errands.contains_key(&sc.buyer));
@@ -1252,7 +1260,7 @@ fn nobody_fetches_to_sell_what_their_neighbours_do_not_want_or_the_twin_stops() 
     // Wanted, but a neighbour at home already offers as many as are wanted: no errand (research
     // 08-12 §1.6: depth, not price alone). The neighbour reviews on another day, so its offer
     // stands at the reseller's review.
-    let mut sc = scene();
+    let mut sc = scene_in(3);
     let keep = reseller(&mut sc, 4.0, 60.0);
     let (buyer, sickle) = (sc.buyer, sc.sickle);
     let review_days = i64::from(sc.sim.rules().people.market.review_days.max(1));
@@ -1279,7 +1287,7 @@ fn nobody_fetches_to_sell_what_their_neighbours_do_not_want_or_the_twin_stops() 
     assert!(!sc.sim.people().reports.errands.contains_key(&buyer));
 
     // Wanted, but under the demo's twin (ADR-0019 §8): planned, never run.
-    let mut sc = scene();
+    let mut sc = scene_in(3);
     let keep = reseller(&mut sc, 4.0, 60.0);
     let Scene {
         mut sim,

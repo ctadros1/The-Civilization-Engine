@@ -3861,11 +3861,13 @@ impl Population {
         // A crossing on the way is stepped onto, and one that gives way under them stops the
         // walk; the streams it wades are their household's to remember (M5c slice AW).
         let (who, household) = (p.id, p.household);
-        let along = civ_land::paths::cells_along(
+        let nav = ctx.nav;
+        let along = civ_land::paths::cells_along_by(
             &points,
             ctx.map.cell_size_m,
             ctx.map.width,
             ctx.map.height,
+            |a, b| crossings::better_corner(nav, a, b),
         );
         if !ctx.land.crossings.list.is_empty() && !self.step_on(ctx, who, &along) {
             return false;

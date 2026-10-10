@@ -8,7 +8,7 @@ use std::path::Path;
 use std::sync::OnceLock;
 
 use civ_agents::agreements::{AgreementState, Clause, Failure};
-use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome, PolicyKind};
+use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome, PolicyKind, Stance};
 use civ_agents::ties::Act;
 use civ_agents::uses::{HeardClaim, Place, Worked};
 use civ_agents::views::{Domain, ViewAct};
@@ -479,6 +479,84 @@ fn people_who_believe_the_other_village_harms_them_weigh_it_against_an_agreement
             agreement_entries(&sim)
         ),
     }
+    saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+#[test]
+fn a_gathering_turns_down_terms_its_negotiator_expected_to_pass_by_what_those_who_came_believe() {
+    // As the first test, but most of B's people believe A's people harm theirs: each saw them
+    // trespass these past weeks. Only the few of B whom A's people know think nothing of A. Whoever
+    // of B meets A's seeker is one of those few, and expects B's gathering to back terms by what
+    // its members' households stand to gain and whom they regard (nobody sees another's view):
+    // the two agree, and B's gathering turns it down by what those who came believe (M5's fourth
+    // part, ADR-0020 §6: failure is an outcome, recorded on both sides once heard).
+    let Neighbours {
+        mut sim,
+        polities,
+        adults,
+        ..
+    } = neighbours(&[0, 1], [&[1], &[0]]);
+    let rp = sim.rules().people.relations.clone();
+    let today = sim.now().day_index();
+    let pop = sim.people_mut_for_tests();
+    for &p in adults[1].iter().skip(3) {
+        pop.polity_views
+            .record(p, polities[0], ViewAct::SawTrespass, 30.0, today, &rp);
+    }
+    let mut decided = None;
+    for _ in 0..60 {
+        sim.advance_minutes(DAY).expect("lives");
+        let x = sim.people().agreements.list.first();
+        if let Some(a) = x.filter(|a| !a.open() || a.passed.iter().all(Option::is_some)) {
+            decided = Some(a.clone());
+            break;
+        }
+    }
+    let a = decided.unwrap_or_else(|| panic!("{:?}", agreement_entries(&sim)));
+    let b_side = a.side_of(polities[1]).expect("B is a party");
+    assert!(
+        adults[1][..3].contains(&a.negotiators[usize::from(b_side)]),
+        "B's negotiator is one A's people know"
+    );
+    assert!(
+        matches!(
+            a.state,
+            AgreementState::Failed { why: Failure::TurnedDown(s), .. } if s == b_side
+        ),
+        "{:?} {:?}",
+        a.state,
+        agreement_entries(&sim)
+    );
+    // Who came, and what they held: B's law kept every stance, those against holding what they
+    // believe of A, and A's gathering passed its own.
+    let law_b = law_of(&sim, polities[1], a.id).expect("B's law");
+    assert_eq!(law_b.outcome, Some(Outcome::Failed));
+    let (_, support, oppose) = law_b.counts();
+    assert!(oppose > support, "{support} for, {oppose} against");
+    assert!(
+        law_b
+            .stances
+            .iter()
+            .filter(|r| r.stance == Stance::Oppose)
+            .all(|r| r.view < 0.0),
+        "those against hold A harms them"
+    );
+    let law_a = law_of(&sim, polities[0], a.id).expect("A's law");
+    assert_eq!(law_a.outcome, Some(Outcome::Passed));
+    // Both sides' law histories, side by side, as the observer shows them.
+    let polity = |p: PermanentId| {
+        sim.people()
+            .polities
+            .iter()
+            .find(|x| x.id == p)
+            .expect("a polity")
+    };
+    let views = relations::agreements_between(&sim, polity(polities[0]), polity(polities[1]));
+    assert_eq!(views.len(), 1);
+    let v = &views[0];
+    assert!(v.state.contains("turned it down"), "{}", v.state);
+    assert!(v.ours.contains("; passed on"), "{}", v.ours);
+    assert!(v.theirs.contains("; turned down on"), "{}", v.theirs);
     saves_and_goes_on_alike(&mut sim, DAY);
 }
 

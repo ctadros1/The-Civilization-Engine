@@ -546,6 +546,10 @@ vote_memory_days = 365
 prior_lean = 1.0
 prior_years = 4.0
 lean_harvest = 0.5               # a lean year's harvest, as a share of an ordinary one
+# Content API 59 (M5c slice AT, ADR-0020 §5): a household weighing a claim on places its people
+# work believes it keeps this share of what outsiders take there. A claim is only words until
+# outsiders heed it; a design prior, no figure in the reports.
+claim_keeps = 0.5
 # Below half a year's food a household cannot live through the year: food there is worth the most,
 # and a household that would fall below it by paying a levy cannot pay (09-01 §6.4).
 subsistence_share = 0.5
@@ -851,6 +855,11 @@ w_ties = 4.0
 w_seek = 6.0
 seek_days = 180
 revisit_days = 30.0
+# Content API 59 (M5c slice AT, ADR-0020 §5): a household holds the places its people work (a
+# patch block gathered, a deposit dug), the days and food it got there, and the days people of
+# another settlement worked the same place the same day; what it holds halves every
+# `use_half_life_days`, so outsiders seen years ago weigh little. A design prior.
+use_half_life_days = 180.0
 
 [reports]                        # prices heard of elsewhere (M5b slice AP, ADR-0019 §1); design priors
 # A household knows another settlement's offers only by report: what a member saw at a seller's

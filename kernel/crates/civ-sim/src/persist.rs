@@ -218,6 +218,9 @@ pub const SCHEMA_V59: u32 = 59;
 /// The schema version of M5b slice AR, step two: techniques seen in other settlements and the
 /// settlements an arrival or a loss concerns, before settlements' founding ways (see [`agents`]).
 pub const SCHEMA_V60: u32 = 60;
+/// The schema version of M5b slice AR, step three: settlements' founding ways, before the places
+/// people work and the claims laws make on them (see [`agents`]).
+pub const SCHEMA_V61: u32 = 61;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

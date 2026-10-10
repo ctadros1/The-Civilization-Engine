@@ -487,6 +487,9 @@ pub struct Population {
     /// three clocks, research 11-02 §4): a founding band's drawn way, else the mean taste of the
     /// households that founded it.
     pub founding_ways: BTreeMap<PermanentId, crate::params::Taste>,
+    /// The places each household's people work, and the outsiders they saw there (M5c slice AT,
+    /// ADR-0020 §5).
+    pub uses: crate::uses::Uses,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -1119,6 +1122,7 @@ impl Population {
                 .problems(|h| self.household(h).map(|x| x.settlement)),
         );
         out.extend(self.convergence.problems());
+        out.extend(self.uses.problems());
         for (&p, seen) in &self.seen_away {
             if self.person(p).is_none() {
                 out.push(format!(
@@ -3986,9 +3990,16 @@ impl Population {
                         }
                         p.carrying.good = Some(res.good as u16);
                         p.carrying.kg = (kept * res.unit_kg) as f32;
-                        let hh_id = p.household;
+                        let (hh_id, kcal) = (p.household, kept * res.unit_kg);
                         let seen = (r as u16, patch, got, hours, now.day_index());
                         self.remember_patch(hh_id, seen, res.renewal_days());
+                        // Who worked this place today (M5c slice AT): food got, kcal.
+                        let kcal = ctx
+                            .catalog
+                            .goods
+                            .get(res.good)
+                            .map_or(0.0, |g| kcal * g.kcal_per_kg);
+                        self.log_work(crate::uses::Place::Patch(patch), hh_id, now, kcal);
                     }
                 }
                 // Digging at a deposit's pit (M3b slice Q, ADR-0010 §2).
@@ -4013,6 +4024,7 @@ impl Population {
                             p.carrying.good = Some(good as u16);
                             p.carrying.kg = kg as f32;
                         }
+                        self.log_work(crate::uses::Place::Deposit(deposit), household, now, 0.0);
                     }
                 }
                 Some(Behavior::FetchWater) => {
@@ -4210,6 +4222,27 @@ impl Population {
             let next = s.practised(p.skill(k), hours);
             p.set_skill(k, next);
         }
+    }
+
+    /// Someone of `household` worked `place` now and got `kcal` of food there: logged for the
+    /// day's end, when who else worked it that day is known (M5c slice AT, ADR-0020 §5).
+    fn log_work(
+        &mut self,
+        place: crate::uses::Place,
+        household: PermanentId,
+        now: SimTime,
+        kcal: f64,
+    ) {
+        let Some(settlement) = self.household(household).and_then(|x| x.settlement) else {
+            return;
+        };
+        self.uses.worked(crate::uses::Worked {
+            place,
+            day: now.day_index(),
+            household,
+            settlement,
+            kcal: kcal as f32,
+        });
     }
 
     /// Records what a trip found at a place: `(resource, place, units, hours, day)`. Households of a

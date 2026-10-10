@@ -86,6 +86,9 @@ pub struct PlacesParams {
     /// Days after a member of the household was there over which the wish to go again grows
     /// back to the whole of what those there are worth.
     pub revisit_days: f64,
+    /// Days over which what a household holds of the places its people work, and of the outsiders
+    /// it saw there, halves (M5c slice AT; content API 59).
+    pub use_half_life_days: f64,
 }
 
 impl PlacesParams {
@@ -99,6 +102,7 @@ impl PlacesParams {
             w_seek: 6.0,
             seek_days: 180,
             revisit_days: 30.0,
+            use_half_life_days: 180.0,
         }
     }
 

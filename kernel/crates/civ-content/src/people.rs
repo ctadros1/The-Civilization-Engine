@@ -289,6 +289,9 @@ pub(crate) struct PlacesFile {
     pub w_seek: f64,
     pub seek_days: i64,
     pub revisit_days: f64,
+    /// Content API 59 (M5c slice AT): days over which what a household holds of the places its
+    /// people work halves.
+    pub use_half_life_days: f64,
 }
 
 /// What moving to another settlement is worth to a household (M5a slice AN, ADR-0018 §5; content
@@ -603,6 +606,9 @@ pub(crate) struct PolityFile {
     pub prior_lean: f64,
     pub prior_years: f64,
     pub lean_harvest: f64,
+    /// Content API 59 (M5c slice AT): the share of what outsiders take that a claim is believed to
+    /// keep.
+    pub claim_keeps: f64,
     pub subsistence_share: f64,
     pub comply_base: f64,
     pub w_stance: f64,
@@ -630,6 +636,7 @@ impl PolityFile {
             prior_lean: self.prior_lean,
             prior_years: self.prior_years,
             lean_harvest: self.lean_harvest,
+            claim_keeps: self.claim_keeps,
             subsistence_share: self.subsistence_share,
             comply_base: self.comply_base,
             w_stance: self.w_stance,
@@ -662,6 +669,7 @@ impl PolityFile {
             ("polity.prior_lean", self.prior_lean, 0.0, 100.0),
             ("polity.prior_years", self.prior_years, 0.01, 100.0),
             ("polity.lean_harvest", self.lean_harvest, 0.0, 1.0),
+            ("polity.claim_keeps", self.claim_keeps, 0.0, 1.0),
             ("polity.subsistence_share", self.subsistence_share, 0.0, 1.0),
             ("polity.comply_base", self.comply_base, -100.0, 100.0),
             ("polity.w_stance", self.w_stance, 0.0, 100.0),
@@ -1544,6 +1552,7 @@ impl PeopleFile {
                 w_seek: self.places.w_seek,
                 seek_days: self.places.seek_days,
                 revisit_days: self.places.revisit_days,
+                use_half_life_days: self.places.use_half_life_days,
             },
             moving: civ_agents::places::MovingParams {
                 w_kin: self.moving.w_kin,
@@ -1599,6 +1608,14 @@ impl PeopleFile {
             if !(v.is_finite() && (0.0..=100.0).contains(&v)) {
                 p.push(format!("`{key}` must be between 0 and 100 (got {v})"));
             }
+        }
+        if !(self.places.use_half_life_days.is_finite()
+            && (1.0..=3650.0).contains(&self.places.use_half_life_days))
+        {
+            p.push(format!(
+                "`places.use_half_life_days` must be between 1 and 3650 (got {})",
+                self.places.use_half_life_days
+            ));
         }
         if !(self.places.revisit_days.is_finite()
             && (1.0..=3650.0).contains(&self.places.revisit_days))

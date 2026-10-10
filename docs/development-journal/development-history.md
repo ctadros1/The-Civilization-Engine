@@ -934,6 +934,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** slice AT; whether neighbours with plentiful land ever hold an issue a clause answers is measured before anything is tuned.
 
+## 2026-10-10 — M5c slice AT, step one: claims on wild ground
+
+**Goal:** give access clauses something to grant (ADR-0020 §5): who works which wild places, who else is seen there, and a law by which a gathering claims them.
+
+**What changed:** each household keeps the places its people gather from or dig at (days worked, food got, and the days people of another settlement were seen working the same place the same day), fading over 180 days (`civ_agents::uses`). Outsiders seen within the year at a place the polity does not claim make a new issue, `outsiders`; a new policy kind, `claim_place` (`core:policy/wild_ground`), names every such place when proposed, and households weigh it by what they believe outsiders take at the places they work. Saves schema 62, content API 59.
+
+**Findings:** opinion's monthly draws are keyed by a template's index in the catalog, which is sorted by id, so a new template whose id sorted before an existing one would have changed every world; the template is named to sort last. In the first test world the claim passed 10 to 2, but by what people hold dear far more than by its forecast (a tenth of a point against up to three quarters), which is expected while a claim has no consequence.
+
+**Evidence:** unit tests of the record (a day counted once, outsiders seen, fading and letting go, the codes); an integration test in which sixty days of a shared fishing place lead to the issue, a proposal, a decision and the law's places, with a save that loads and goes on alike; a world of one settlement keeps its places and sees no outsiders; the roundtrip of a schema-61 save; a forty-day digest comparison on a village of 1,000 against the previous build, the only differences the new record and the policy dictionary.
+
+**Open:** step two, use of a claimed place without leave as a grievance and per-person views of a polity; step three, the relation labels, the relations view and the funnel measured in the demo worlds.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

@@ -1200,6 +1200,16 @@ table PolitySave {
   // For each version, in `versions` order, who called those who took it from the gathering, 0
   // for one made by the custom's procedure (schema 44, M4c slice AI); absent before.
   seized_by: [ulong] (id: 12);
+  // The places its laws claim, by law (schema 62, M5c slice AT, ADR-0020 §5); absent before.
+  claimed: [PlaceClaimSave] (id: 13);
+}
+
+// A place a law claims (schema 62): `kind` 0 a patch block by its centre patch, 1 a deposit by
+// its permanent id.
+struct PlaceClaimSave {
+  law: ulong;
+  kind: ubyte;
+  place: ulong;
 }
 
 table Polities {
@@ -1821,6 +1831,40 @@ table PlacesSave {
   seen: [SeenSave] (id: 11);
   // Schema 61 (M5b slice AR, step three): each settlement's way of building when it was founded.
   ways: [WaySave] (id: 12);
+  // Schema 62 (M5c slice AT, ADR-0020 §5): the places households' people work, by household and
+  // place, and the work logged since the last day's end, in the order done.
+  uses: [PlaceUseSave] (id: 13);
+  worked: [WorkedSave] (id: 14);
+}
+
+// Outsiders a household saw at a place (schema 62): days, fading, and the last day.
+struct OutsidersSave {
+  settlement: ulong;
+  days: float;
+  last: long;
+}
+
+// What `household` holds of a place its people work (schema 62): `kind` 0 a patch block by its
+// centre patch, 1 a deposit by its permanent id; days worked and food got there, kcal, both
+// fading, reckoned to `day`; those of other settlements seen there, in settlement order.
+table PlaceUseSave {
+  household: ulong (id: 0);
+  kind: ubyte (id: 1);
+  place: ulong (id: 2);
+  days: float (id: 3);
+  kcal: float (id: 4);
+  day: long (id: 5);
+  outsiders: [OutsidersSave] (id: 6);
+}
+
+// Work at a place logged and not yet folded in (schema 62).
+struct WorkedSave {
+  kind: ubyte;
+  place: ulong;
+  day: long;
+  household: ulong;
+  settlement: ulong;
+  kcal: float;
 }
 
 // A settlement's way of building when it was founded (schema 61): roof pitch in hundredths of a

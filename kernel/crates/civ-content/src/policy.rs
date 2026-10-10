@@ -184,7 +184,8 @@ impl PolicyFile {
                 | PolicyKind::KeepWatch
                 | PolicyKind::Curfew
                 | PolicyKind::AmendBody
-                | PolicyKind::Repeal),
+                | PolicyKind::Repeal
+                | PolicyKind::ClaimPlace),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -224,7 +225,8 @@ impl PolicyFile {
                 | PolicyKind::KeepWatch
                 | PolicyKind::Curfew
                 | PolicyKind::AmendBody
-                | PolicyKind::Repeal,
+                | PolicyKind::Repeal
+                | PolicyKind::ClaimPlace,
             )
             | None => {}
         }

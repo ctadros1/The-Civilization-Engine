@@ -2241,6 +2241,33 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
 }
 
 #[test]
+fn a_schema_61_save_loads_with_no_place_worked_on_record_and_nothing_claimed() {
+    // A schema-61 save, from before households kept the places their people work and the
+    // outsiders seen there, and before laws claimed places (M5c slice AT): it held neither.
+    let mut sim = load_first();
+    assert!(
+        !sim.people().uses.households.is_empty(),
+        "this build keeps the places people work"
+    );
+    let pop = sim.people_mut_for_tests();
+    pop.uses = Default::default();
+    for p in &mut pop.polities {
+        p.claimed.clear();
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V61;
+    let path = republish("slice-ar3", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-61 save loads");
+    assert!(loaded.people().uses.households.is_empty());
+    assert!(loaded.people().uses.today.is_empty());
+    loaded.advance_minutes(2 * 24 * 60).expect("goes on");
+    assert!(
+        !loaded.people().uses.households.is_empty(),
+        "and its people's work is kept from then on"
+    );
+}
+
+#[test]
 fn a_schema_60_save_loads_with_its_founding_bands_ways_drawn_again() {
     // A schema-60 save, from before settlements' founding ways were kept (M5b slice AR, step
     // three): a founding band's is drawn again from its key, so it comes back as it was.

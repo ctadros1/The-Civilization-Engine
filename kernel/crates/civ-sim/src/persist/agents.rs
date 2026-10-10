@@ -110,7 +110,8 @@ use super::{
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
-    SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, finish, section, single_chunk, unreadable,
+    SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, finish, section, single_chunk,
+    unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -407,6 +408,8 @@ enum Schema {
     V60,
     /// Settlements' founding ways (M5b slice AR, step three).
     V61,
+    /// The places people work, the outsiders seen there, and claims on them (M5c slice AT).
+    V62,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -482,7 +485,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V58 => Schema::V58,
         SCHEMA_V59 => Schema::V59,
         SCHEMA_V60 => Schema::V60,
-        SAVE_SCHEMA_VERSION => Schema::V61,
+        SCHEMA_V61 => Schema::V61,
+        SAVE_SCHEMA_VERSION => Schema::V62,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -686,6 +690,7 @@ pub(super) fn decode<R: Read + Seek>(
             people.convergence,
             people.seen_away,
             people.founding_ways,
+            people.uses,
         ) = (
             d.known,
             d.contacts,
@@ -697,6 +702,7 @@ pub(super) fn decode<R: Read + Seek>(
             d.convergence,
             d.seen,
             d.ways,
+            d.uses,
         );
     }
     // Settlements' founding ways (schema 61); before them a founding band's is drawn again from
@@ -903,6 +909,16 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 .map(|v| v.seized_by.map_or(0, PermanentId::get))
                 .collect();
             let seized_by = fbb.create_vector(&seized);
+            // The places its laws claim (schema 62).
+            let claimed: Vec<save::PlaceClaimSave> = p
+                .claimed
+                .iter()
+                .map(|&(law, place)| {
+                    let (kind, id) = place.code();
+                    save::PlaceClaimSave::new(law.get(), kind, id)
+                })
+                .collect();
+            let claimed = (!claimed.is_empty()).then(|| fbb.create_vector(&claimed));
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -940,6 +956,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     reviewed: p.reviewed,
                     versions: Some(versions),
                     seized_by: Some(seized_by),
+                    claimed,
                 },
             )
         })
@@ -996,6 +1013,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::Overruled => 3,
         IssueKind::Petition => 4,
         IssueKind::Founding => 5,
+        IssueKind::Outsiders => 6,
     }
 }
 
@@ -1098,6 +1116,7 @@ fn decode_polities(
                 3 => IssueKind::Overruled,
                 4 => IssueKind::Petition,
                 5 => IssueKind::Founding,
+                6 => IssueKind::Outsiders,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -1268,6 +1287,27 @@ fn decode_polities(
         if versions.last().map(|v| v.body) != Some(body) {
             return Err(bad(format!("polity {id}'s custom is not its last version")));
         }
+        // The places its laws claim (schema 62); before, none.
+        let mut claimed = Vec::new();
+        for c in p.claimed().iter().flatten() {
+            let (Some(law), Some(place)) = (
+                PermanentId::from_raw(c.law()),
+                civ_agents::uses::Place::from_code(c.kind(), c.place()),
+            ) else {
+                return Err(bad(format!(
+                    "polity {id} claims place {} of kind {} by law {}",
+                    c.place(),
+                    c.kind(),
+                    c.law()
+                )));
+            };
+            if !laws.iter().any(|l| l.id == law) {
+                return Err(bad(format!(
+                    "polity {id} claims a place by a missing law {law}"
+                )));
+            }
+            claimed.push((law, place));
+        }
         out.push(Polity {
             id,
             settlement,
@@ -1280,6 +1320,7 @@ fn decode_polities(
             laws,
             gathering,
             reviewed: p.reviewed(),
+            claimed,
         });
     }
     Ok(out)
@@ -2682,7 +2723,8 @@ fn carried(
         | Schema::V58
         | Schema::V59
         | Schema::V60
-        | Schema::V61 => {
+        | Schema::V61
+        | Schema::V62 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2853,7 +2895,8 @@ fn decode_households(
             | Schema::V58
             | Schema::V59
             | Schema::V60
-            | Schema::V61 => {
+            | Schema::V61
+            | Schema::V62 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -6594,6 +6637,52 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let ways = (!ways.is_empty()).then(|| fbb.create_vector(&ways));
+    // The places households' people work, and the work not yet folded in (schema 62).
+    let uses: Vec<_> = people
+        .uses
+        .households
+        .iter()
+        .flat_map(|(&h, list)| list.iter().map(move |u| (h, u)))
+        .map(|(h, u)| {
+            let outsiders: Vec<save::OutsidersSave> = u
+                .outsiders
+                .iter()
+                .map(|o| save::OutsidersSave::new(o.settlement.get(), o.days, o.last))
+                .collect();
+            let outsiders = (!outsiders.is_empty()).then(|| fbb.create_vector(&outsiders));
+            let (kind, place) = u.place.code();
+            save::PlaceUseSave::create(
+                &mut fbb,
+                &save::PlaceUseSaveArgs {
+                    household: h.get(),
+                    kind,
+                    place,
+                    days: u.days,
+                    kcal: u.kcal,
+                    day: u.day,
+                    outsiders,
+                },
+            )
+        })
+        .collect();
+    let uses = (!uses.is_empty()).then(|| fbb.create_vector(&uses));
+    let worked: Vec<save::WorkedSave> = people
+        .uses
+        .today
+        .iter()
+        .map(|w| {
+            let (kind, place) = w.place.code();
+            save::WorkedSave::new(
+                kind,
+                place,
+                w.day,
+                w.household.get(),
+                w.settlement.get(),
+                w.kcal,
+            )
+        })
+        .collect();
+    let worked = (!worked.is_empty()).then(|| fbb.create_vector(&worked));
     let root = save::PlacesSave::create(
         &mut fbb,
         &save::PlacesSaveArgs {
@@ -6610,6 +6699,8 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
             errands,
             seen,
             ways,
+            uses,
+            worked,
         },
     );
     finish(fbb, root)
@@ -6629,6 +6720,7 @@ struct PlacesDecoded {
     convergence: civ_agents::convergence::Convergence,
     seen: BTreeMap<PermanentId, Vec<PermanentId>>,
     ways: BTreeMap<PermanentId, civ_agents::params::Taste>,
+    uses: civ_agents::uses::Uses,
 }
 
 fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError> {
@@ -6891,6 +6983,43 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
             },
         );
     }
+    // The places households' people work, and the work not yet folded in (schema 62).
+    let mut uses = civ_agents::uses::Uses::default();
+    let place_of = |kind: u8, id: u64| {
+        civ_agents::uses::Place::from_code(kind, id).ok_or_else(|| {
+            LoadError::Malformed(format!("a place worked has kind {kind} and number {id}"))
+        })
+    };
+    for u in root.uses().iter().flatten() {
+        let household = required(u.household(), "a household that works a place")?;
+        let mut outsiders = Vec::new();
+        for o in u.outsiders().iter().flatten() {
+            outsiders.push(civ_agents::uses::Outsiders {
+                settlement: required(o.settlement(), "a settlement seen at a place")?,
+                days: o.days(),
+                last: o.last(),
+            });
+        }
+        uses.households
+            .entry(household)
+            .or_default()
+            .push(civ_agents::uses::PlaceUse {
+                place: place_of(u.kind(), u.place())?,
+                days: u.days(),
+                kcal: u.kcal(),
+                outsiders,
+                day: u.day(),
+            });
+    }
+    for w in root.worked().iter().flatten() {
+        uses.today.push(civ_agents::uses::Worked {
+            place: place_of(w.kind(), w.place())?,
+            day: w.day(),
+            household: required(w.household(), "a household that worked a place")?,
+            settlement: required(w.settlement(), "a settlement whose people worked a place")?,
+            kcal: w.kcal(),
+        });
+    }
     Ok(PlacesDecoded {
         known: out,
         contacts,
@@ -6902,6 +7031,7 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
         convergence,
         seen,
         ways,
+        uses,
     })
 }
 

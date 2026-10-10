@@ -1,0 +1,22 @@
+# A claim on wild ground (M5c slice AT, ADR-0020 §5; the M5 relations brief §1.3: "a policy by
+# which a gathering claims a place ... that outsiders use only by leave"). When the settlement's
+# people have seen people of another settlement working places theirs work (a patch they gather
+# from, a deposit they dig) within the last year, anyone may propose that the gathering claim
+# those places. Its own people's use is unchanged, and nobody is stopped: a claim is words until
+# outsiders heed it, or an agreement grants them leave. A household weighs it by what it believes
+# outsiders take at the places it works there and the share of that a claim would keep
+# (`polity.claim_keeps`, a design prior). Whether anyone proposes one, and whether a gathering
+# passes it, is people's choice. Its id sorts after every older template's: hearth talk about a
+# question is keyed by a template's place in id order, so an id sorting earlier would shift theirs.
+kind = "policy"
+id = "core:policy/wild_ground"
+name = "Claim on wild ground"
+description = "The places where people of another settlement were seen at work are claimed: they may use them only by leave."
+does = "claim_place"
+answers = ["outsiders"]
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 0.5      # what its people gather is kept for them
+"core:value/reciprocity" = -0.5  # ground neighbours have shared is closed to them

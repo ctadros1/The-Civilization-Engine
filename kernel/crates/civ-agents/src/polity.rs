@@ -44,11 +44,15 @@ pub enum PolicyKind {
     /// deciding weighs ending the laws the custom it replaced made (research 09-11 §1.6:
     /// provisional authority over what survives, unless actors dismantle it).
     Repeal,
+    /// The polity claims the places where its people saw people of another settlement at work:
+    /// outsiders may use them only by leave (M5c slice AT, ADR-0020 §5). Its own people's use is
+    /// unchanged, and nobody is stopped: a claim is words until outsiders heed it.
+    ClaimPlace,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 7] = [
+    pub const ALL: [PolicyKind; 8] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -56,6 +60,7 @@ impl PolicyKind {
         PolicyKind::Curfew,
         PolicyKind::AmendBody,
         PolicyKind::Repeal,
+        PolicyKind::ClaimPlace,
     ];
 
     /// The authored name.
@@ -68,6 +73,7 @@ impl PolicyKind {
             PolicyKind::Curfew => "curfew",
             PolicyKind::AmendBody => "amend_body",
             PolicyKind::Repeal => "repeal",
+            PolicyKind::ClaimPlace => "claim_place",
         }
     }
 
@@ -100,17 +106,21 @@ pub enum IssueKind {
     /// it weighs which of the laws the old custom made stand (research 09-11 §1.6). It opens
     /// moves to that body's members, for those laws alone.
     Founding,
+    /// People of another settlement worked places a household of the settlement works, within
+    /// the last year, at places it has not claimed (M5c slice AT): what its members saw.
+    Outsiders,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 6] = [
+    pub const ALL: [IssueKind; 7] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
         IssueKind::Overruled,
         IssueKind::Petition,
         IssueKind::Founding,
+        IssueKind::Outsiders,
     ];
 
     /// The authored name.
@@ -122,6 +132,7 @@ impl IssueKind {
             IssueKind::Overruled => "overruled",
             IssueKind::Petition => "petition",
             IssueKind::Founding => "founding",
+            IssueKind::Outsiders => "outsiders",
         }
     }
 
@@ -144,6 +155,7 @@ impl IssueKind {
                 "the deciding had been taken from the gathering, and the laws it made stood only \
                  until the new body weighed them"
             }
+            IssueKind::Outsiders => "people of another settlement worked the places theirs did",
         }
     }
 }
@@ -314,6 +326,10 @@ pub struct PolityParams {
     pub prior_years: f64,
     /// A lean year's harvest, as a share of an ordinary one.
     pub lean_harvest: f64,
+    /// The share of what outsiders take at places its people work that a household believes a
+    /// claim on those places keeps for it (M5c slice AT, ADR-0020 §5): a design prior, since a
+    /// claim is only words until outsiders heed it.
+    pub claim_keeps: f64,
     /// The share of a year's food below which a household cannot live: food there is worth the
     /// most, and a household that would fall below it cannot pay a levy.
     pub subsistence_share: f64,
@@ -350,6 +366,7 @@ impl PolityParams {
             prior_lean: 1.0,
             prior_years: 4.0,
             lean_harvest: 0.5,
+            claim_keeps: 0.5,
             subsistence_share: 0.5,
             comply_base: 0.0,
             w_stance: 1.0,
@@ -854,6 +871,11 @@ pub fn law_words(
     if def.is_some_and(|d| d.kind == PolicyKind::Repeal) {
         return "an end to a law in force".to_owned();
     }
+    if def.is_some_and(|d| d.kind == PolicyKind::ClaimPlace) {
+        return "a claim on the places where people of another settlement worked: they may use \
+                them only by leave"
+            .to_owned();
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::AgainstTaking) {
         return format!(
             "a law against taking: whoever is found to have taken from another household's \
@@ -920,6 +942,7 @@ pub fn ending_words(
             ended.hours.0, ended.hours.1
         ),
         Some(PolicyKind::AmendBody) => "a change of the custom".to_owned(),
+        Some(PolicyKind::ClaimPlace) => "the claim on places outsiders worked".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -1111,6 +1134,9 @@ pub struct Polity {
     /// Every version of its custom, oldest first: the founding custom, then each amendment
     /// (ADR-0017 §1). The last is `body`.
     pub versions: Vec<CustomVersion>,
+    /// The places its claims name, each with the law that names it (M5c slice AT, ADR-0020 §5):
+    /// recorded when the claim is proposed, and claimed while that law is in force.
+    pub claimed: Vec<(PermanentId, crate::uses::Place)>,
 }
 
 /// A version of a polity's custom (ADR-0017 §1): its body, since when, and the law that made it
@@ -1164,7 +1190,26 @@ impl Polity {
                 law: None,
                 seized_by: None,
             }],
+            claimed: Vec::new(),
         }
+    }
+
+    /// The places it claims now: those named by its claims in force (M5c slice AT), in place
+    /// order.
+    pub fn claims_now(&self) -> Vec<crate::uses::Place> {
+        let mut out: Vec<crate::uses::Place> = self
+            .claimed
+            .iter()
+            .filter(|(law, _)| {
+                self.laws
+                    .iter()
+                    .any(|l| l.id == *law && l.status == LawStatus::InForce)
+            })
+            .map(|&(_, p)| p)
+            .collect();
+        out.sort_unstable();
+        out.dedup();
+        out
     }
 
     /// The law before the gathering, if any.
@@ -1222,9 +1267,22 @@ impl Polity {
         policies: &[PolicyDef],
         name_of: &dyn Fn(PermanentId) -> String,
     ) -> String {
-        let repeal = policies
-            .get(usize::from(law.policy))
-            .is_some_and(|d| d.kind == PolicyKind::Repeal);
+        let kind = policies.get(usize::from(law.policy)).map(|d| d.kind);
+        let repeal = kind == Some(PolicyKind::Repeal);
+        // A claim says how many places it names (M5c slice AT).
+        if kind == Some(PolicyKind::ClaimPlace) {
+            let n = self.claimed.iter().filter(|c| c.0 == law.id).count();
+            return format!(
+                "a claim on {} where people of another settlement worked: they may use {} \
+                 only by leave",
+                if n == 1 {
+                    "a place".to_owned()
+                } else {
+                    format!("{n} places")
+                },
+                if n == 1 { "it" } else { "them" }
+            );
+        }
         match law
             .ends
             .filter(|_| repeal)

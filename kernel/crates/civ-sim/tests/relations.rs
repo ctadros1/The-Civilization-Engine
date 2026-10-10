@@ -476,6 +476,67 @@ fn word_of_a_claim_crosses_with_visitors_and_a_household_that_heard_of_it_goes_t
         "{knowing} days there knowing of the claim, {not} not"
     );
     saves_and_goes_on_alike(&mut alike, 2 * DAY);
+
+    // Unless they are going hungry: then need, not the claim, decides where they gather (M5c
+    // slice AX). Two more lives of the world, their households' food gone and their people
+    // drawing on their bodies' reserve, one knowing of the claim: they gather alike.
+    let lives = [true, false].map(|knows| {
+        let mut sim = persist::load(&saved.path, content()).expect("loads");
+        let now = sim.now();
+        let params = sim.rules().people.clone();
+        let food: Vec<bool> = sim
+            .rules()
+            .catalog
+            .goods
+            .iter()
+            .map(|g| g.kcal_per_kg > 0.0)
+            .collect();
+        let pop = sim.people_mut_for_tests();
+        for &h in &their_households {
+            let members = {
+                let x = pop
+                    .households
+                    .iter_mut()
+                    .find(|(_, x)| x.id == h)
+                    .expect("lives");
+                for (kg, &edible) in x.1.stores.iter_mut().zip(&food) {
+                    if edible {
+                        *kg = 0.0;
+                    }
+                }
+                x.1.members.clone()
+            };
+            for (_, p) in pop
+                .people
+                .iter_mut()
+                .filter(|(_, p)| members.contains(&p.id))
+            {
+                let reserve = civ_agents::population::reserve_kcal(p, now, &params);
+                p.energy_kcal = -(0.8 * reserve) as f32;
+                p.needs_at = now;
+            }
+            if knows {
+                pop.claims_heard.learn(
+                    h,
+                    HeardClaim {
+                        place,
+                        law: law.id,
+                        polity: polity_id,
+                        day,
+                        from: teller,
+                    },
+                );
+            }
+        }
+        sim.advance_minutes(5 * DAY).expect("lives");
+        sim
+    });
+    let (knowing, not) = (
+        worked_there(&lives[0], place),
+        worked_there(&lives[1], place),
+    );
+    assert!(not > 0.0, "they gathered there going hungry");
+    assert_eq!(knowing, not, "going hungry, knowing of the claim or not");
 }
 
 /// A copy of `sim` whose relation labels and government panel are worked out every day lives

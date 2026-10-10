@@ -29,3 +29,14 @@ immunity_years = [3.0, 10.0]
 # The hazard a day each shedding member of a household puts on each other member (hands, food and
 # shared vessels): a tuning value, calibrated on attack patterns (05-03 §2.2: no portable R0).
 household_hazard = 0.03
+# What one shedding person adds to their household's heap a day, in doses: an amount that, drunk,
+# is a hazard of one (12-02 §5.4's exponential with its rate taken into the dose). The research
+# gives the structure, not these numbers: design priors, calibrated in the step-two probe (plan
+# §9) so that a heap's wash into a well beside it gives its drinkers a dose of the order of one.
+# The ill shed far more than the silent (rice-water stools), so a hundredth (a design prior).
+shed_ill_per_day = 2000.0
+shed_silent_per_day = 20.0
+# The share of a load that dies a day outside a person, in heaps, ground and water: cholera
+# "can also involve aquatic environmental persistence" (05-03 §1.2), so a slow rate, a half-life
+# of about five days (a design prior).
+decay_per_day = 0.13

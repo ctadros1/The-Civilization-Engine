@@ -1994,7 +1994,8 @@ table WellsSave {
 
 // An infection (schema 75, M6a slice AZ; ADR-0021 §5): `disease` its content id; the day it came
 // and how (`acquired` 0 the observer, `source` an influence record's number; 1 a household,
-// `source` its id); its course in days, half-open (`ill_from` equal to `ill_until` when it brought
+// `source` its id; from schema 76, 2 water drawn at a well, `source` its id, 3 at a river reach,
+// `source` its index, and 4 or more water from another place, as `NodeSave` code 4 less); its course in days, half-open (`ill_from` equal to `ill_until` when it brought
 // no symptoms); `ended` the day it ended (-1 while it runs) and `outcome` 0 recovered, 1 died,
 // 2 gone (died of something else or left the world).
 table EpisodeSave {
@@ -2017,6 +2018,61 @@ table EpisodeSave {
 // Every infection, in the order they came (schema 75).
 table SicknessSave {
   episodes: [EpisodeSave] (id: 0);
+}
+
+// A place a load lies or passes (schema 76, M6a slice AZ, step two; ADR-0021 §4): `code` 0 a
+// person shedding it (`id` theirs), 1 a household's heap (`id` the household), 2 a well (`id`
+// its), 3 a river reach (`id` its index), 4 a household's stored water (`id` the household).
+struct NodeSave {
+  code: ubyte;
+  id: ulong;
+}
+
+// A load of a disease (`disease` its index in `ContagionSave.diseases`) at `at`, doses.
+struct LoadSave {
+  at: NodeSave;
+  disease: ushort;
+  amount: double;
+}
+
+// The part of a household's stored water's load of a disease drawn at `source`, doses.
+struct StoredSave {
+  household: ulong;
+  source: NodeSave;
+  disease: ushort;
+  amount: double;
+}
+
+// A load soaking through the ground from `from` to `to`, arriving on day `arrives`.
+struct TransitSave {
+  arrives: long;
+  from: NodeSave;
+  to: NodeSave;
+  disease: ushort;
+  amount: double;
+}
+
+// One move of a load on `day`: `how` 0 shed, 1 washed off, 2 soaked in, 3 arrived through the
+// ground, 4 drawn with water.
+struct MoveSave {
+  day: long;
+  from: NodeSave;
+  to: NodeSave;
+  disease: ushort;
+  how: ubyte;
+  amount: double;
+}
+
+// What people shed, where it lies and where it went (schema 76): loads by place, stored water's
+// loads by where they were drawn, loads on their way through the ground in the order sent, and
+// the moves of the last 400 days in the order made.
+table ContagionSave {
+  // Disease content ids at save time.
+  diseases: [string] (id: 0);
+  loads: [LoadSave] (id: 1);
+  stores: [StoredSave] (id: 2);
+  transit: [TransitSave] (id: 3);
+  moves: [MoveSave] (id: 4);
 }
 
 table RelationsSave {

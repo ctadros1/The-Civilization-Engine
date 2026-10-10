@@ -51,6 +51,9 @@ pub enum Acquired {
     /// From living with members who shed it: the household, as the source, never one of them
     /// (05-03 §7.4: a mixture is not one person).
     Household { household: PermanentId },
+    /// From water drunk: where most of what they drank of it was drawn (step two), a well or a
+    /// river reach.
+    Water { source: crate::contagion::Node },
 }
 
 impl Acquired {
@@ -59,6 +62,11 @@ impl Acquired {
         match self {
             Acquired::Observer { influence } => (0, u64::from(influence)),
             Acquired::Household { household } => (1, household.get()),
+            Acquired::Water { source } => match source {
+                crate::contagion::Node::Well(w) => (2, w.get()),
+                crate::contagion::Node::Reach(r) => (3, u64::from(r)),
+                other => (4 + other.code().0, other.code().1),
+            },
         }
     }
 
@@ -71,7 +79,15 @@ impl Acquired {
             1 => Some(Acquired::Household {
                 household: PermanentId::from_raw(n)?,
             }),
-            _ => None,
+            2 => Some(Acquired::Water {
+                source: crate::contagion::Node::Well(PermanentId::from_raw(n)?),
+            }),
+            3 => Some(Acquired::Water {
+                source: crate::contagion::Node::Reach(u32::try_from(n).ok()?),
+            }),
+            c @ 4.. => Some(Acquired::Water {
+                source: crate::contagion::Node::from_code(c - 4, n)?,
+            }),
         }
     }
 }
@@ -314,6 +330,9 @@ mod tests {
             severe_death_per_day: 0.2,
             immunity_years: [3.0, 10.0],
             household_hazard: 0.03,
+            shed_ill_per_day: 1000.0,
+            shed_silent_per_day: 10.0,
+            decay_per_day: 0.2,
         }
     }
 

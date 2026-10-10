@@ -112,7 +112,7 @@ use super::{
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
-    SCHEMA_V73, SCHEMA_V74, finish, section, single_chunk, unreadable,
+    SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -183,6 +183,9 @@ pub const SECTION_CROSSINGS: SectionTag = SectionTag::new("crossing");
 pub const SECTION_WELLS: SectionTag = SectionTag::new("wells");
 /// Section: infections (schema 75, M6a slice AZ).
 pub const SECTION_SICKNESS: SectionTag = SectionTag::new("sickness");
+/// Section: what people shed, where it lies and where it went (schema 76, M6a slice AZ, step
+/// two).
+pub const SECTION_CONTAGION: SectionTag = SectionTag::new("pathogen");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -282,6 +285,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         ),
         section(SECTION_WELLS, 0, encode_wells(&sim.land, rules)),
         section(SECTION_SICKNESS, 0, encode_sickness(&sim.people, rules)),
+        section(SECTION_CONTAGION, 0, encode_contagion(&sim.people, rules)),
     ]
 }
 
@@ -454,6 +458,8 @@ enum Schema {
     V74,
     /// Infections (M6a slice AZ).
     V75,
+    /// What people shed, moved through the ground and water (M6a slice AZ, step two).
+    V76,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -543,7 +549,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V72 => Schema::V72,
         SCHEMA_V73 => Schema::V73,
         SCHEMA_V74 => Schema::V74,
-        SAVE_SCHEMA_VERSION => Schema::V75,
+        SCHEMA_V75 => Schema::V75,
+        SAVE_SCHEMA_VERSION => Schema::V76,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -785,6 +792,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V75 {
         let bytes = single_chunk(reader, SECTION_SICKNESS)?;
         people.sickness = decode_sickness(&bytes, rules)?;
+    }
+    // What people shed (schema 76); before, nothing lies anywhere.
+    if schema >= Schema::V76 {
+        let bytes = single_chunk(reader, SECTION_CONTAGION)?;
+        people.contagion = decode_contagion(&bytes, rules)?;
     }
     // Settlements' founding ways (schema 61); before them a founding band's is drawn again from
     // its key, and any other settlement's taken as its households' now.
@@ -2920,7 +2932,8 @@ fn carried(
         | Schema::V72
         | Schema::V73
         | Schema::V74
-        | Schema::V75 => {
+        | Schema::V75
+        | Schema::V76 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3106,7 +3119,8 @@ fn decode_households(
             | Schema::V72
             | Schema::V73
             | Schema::V74
-            | Schema::V75 => {
+            | Schema::V75
+            | Schema::V76 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -8083,6 +8097,148 @@ fn decode_sickness(
         });
     }
     Ok(Sickness::with(list))
+}
+
+fn node_save(n: civ_agents::contagion::Node) -> save::NodeSave {
+    let (code, id) = n.code();
+    save::NodeSave::new(code, id)
+}
+
+fn node_load(n: &save::NodeSave) -> Result<civ_agents::contagion::Node, LoadError> {
+    civ_agents::contagion::Node::from_code(n.code(), n.id()).ok_or_else(|| {
+        LoadError::Malformed(format!(
+            "a load lies at an unknown place {}:{}",
+            n.code(),
+            n.id()
+        ))
+    })
+}
+
+fn encode_contagion(people: &Population, rules: &Rules) -> Vec<u8> {
+    let c = &people.contagion;
+    let mut fbb = FlatBufferBuilder::new();
+    let ids: Vec<_> = rules
+        .catalog
+        .diseases
+        .iter()
+        .map(|d| fbb.create_string(&d.id))
+        .collect();
+    let diseases = fbb.create_vector(&ids);
+    let loads: Vec<_> = c
+        .loads
+        .iter()
+        .map(|(&(node, d), &amount)| save::LoadSave::new(&node_save(node), d, amount))
+        .collect();
+    let loads = fbb.create_vector(&loads);
+    let stores: Vec<_> = c
+        .stores
+        .iter()
+        .flat_map(|(&(household, d), s)| {
+            s.iter().map(move |(&source, &amount)| {
+                save::StoredSave::new(household.get(), &node_save(source), d, amount)
+            })
+        })
+        .collect();
+    let stores = fbb.create_vector(&stores);
+    let transit: Vec<_> = c
+        .transit
+        .iter()
+        .map(|t| {
+            save::TransitSave::new(
+                t.arrives,
+                &node_save(t.from),
+                &node_save(t.to),
+                t.disease,
+                t.amount,
+            )
+        })
+        .collect();
+    let transit = fbb.create_vector(&transit);
+    let moves: Vec<_> = c
+        .moves
+        .iter()
+        .map(|m| {
+            save::MoveSave::new(
+                m.day,
+                &node_save(m.from),
+                &node_save(m.to),
+                m.disease,
+                m.how.code(),
+                m.amount,
+            )
+        })
+        .collect();
+    let moves = fbb.create_vector(&moves);
+    let root = save::ContagionSave::create(
+        &mut fbb,
+        &save::ContagionSaveArgs {
+            diseases: Some(diseases),
+            loads: Some(loads),
+            stores: Some(stores),
+            transit: Some(transit),
+            moves: Some(moves),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// Loads of a disease the loaded content no longer has are let go.
+fn decode_contagion(
+    bytes: &[u8],
+    rules: &Rules,
+) -> Result<civ_agents::contagion::Contagion, LoadError> {
+    use civ_agents::contagion::{Contagion, How, Move, Transit};
+    let root = flatbuffers::root::<save::ContagionSave>(bytes)
+        .map_err(|e| unreadable(SECTION_CONTAGION, &e))?;
+    let map: Vec<Option<u16>> = read_strings(root.diseases())
+        .iter()
+        .map(|id| {
+            rules
+                .catalog
+                .disease_index(id)
+                .and_then(|i| u16::try_from(i).ok())
+        })
+        .collect();
+    let disease = |d: u16| map.get(usize::from(d)).copied().flatten();
+    let mut c = Contagion::default();
+    for l in root.loads().iter().flatten() {
+        if let Some(d) = disease(l.disease()) {
+            c.add(node_load(l.at())?, d, l.amount());
+        }
+    }
+    for s in root.stores().iter().flatten() {
+        if let Some(d) = disease(s.disease()) {
+            let household = required(s.household(), "a store's household")?;
+            c.store_add(household, d, node_load(s.source())?, s.amount());
+        }
+    }
+    for t in root.transit().iter().flatten() {
+        if let Some(d) = disease(t.disease()) {
+            c.transit.push(Transit {
+                arrives: t.arrives(),
+                disease: d,
+                from: node_load(t.from())?,
+                to: node_load(t.to())?,
+                amount: t.amount(),
+            });
+        }
+    }
+    for m in root.moves().iter().flatten() {
+        if let Some(d) = disease(m.disease()) {
+            let how = How::from_code(m.how()).ok_or_else(|| {
+                LoadError::Malformed(format!("a load moved in an unknown way {}", m.how()))
+            })?;
+            c.moves.push(Move {
+                day: m.day(),
+                disease: d,
+                how,
+                from: node_load(m.from())?,
+                to: node_load(m.to())?,
+                amount: m.amount(),
+            });
+        }
+    }
+    Ok(c)
 }
 
 fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> Vec<u8> {

@@ -319,6 +319,9 @@ impl Population {
             w.draw(now, head, rate, area, got);
         }
         let cell = w.cell;
+        if got > 0.0 {
+            self.drew_load_from_well(well, household, now.day_index(), got / held);
+        }
         self.water_draws.wells += 1;
         self.water_draws.short += u64::from(got < carry);
         self.water_draws.litres += got;

@@ -1,9 +1,11 @@
-//! Sickness among people (M6a slice AZ; ADR-0021 §5, §8; research 05-03 §7.2-§7.6). At each
+//! Sickness among people (M6a slice AZ; ADR-0021 §4, §5, §8; research 05-03 §7.2-§7.6). At each
 //! day's turn every infection runs its course: someone severely ill may die of it, by a draw of
-//! their own each day; one whose course has run recovers, protected for a while. Then whoever is
-//! exposed today, by every route, takes it or not by one draw (1 − e^(−ΣH)). The observer's plague
-//! tool brings a disease to one person, as if they took it elsewhere. Nothing here is read by any
-//! choice: people know only who they see abed.
+//! their own each day; one whose course has run recovers, protected for a while. Then what people
+//! shed moves through the ground and water (`contagion`), and whoever is exposed today, by every
+//! route (living with those who shed it, and what they drank of their household's water), takes
+//! it or not by one draw (1 − e^(−ΣH)), recorded as coming by the route that brought the most of
+//! it. The observer's plague tool brings a disease to one person, as if they took it elsewhere.
+//! Nothing here is read by any choice: people know only who they see abed.
 
 use super::*;
 use crate::Cause;
@@ -14,7 +16,7 @@ use crate::sickness::{Acquired, Outcome, SickDraw, course, sickness_rng};
 impl Population {
     /// The day's turn for infections (see the module documentation).
     pub(super) fn sickness_day(&mut self, ctx: &mut Ctx, day: i64) {
-        if self.sickness.quiet() {
+        if self.sickness.quiet() && self.contagion.is_empty() {
             return;
         }
         let running = self.sickness.running().to_vec();
@@ -54,6 +56,8 @@ impl Population {
                 self.sickness.end(i, day, Outcome::Recovered);
             }
         }
+        // What people shed moves through the ground and water (step two).
+        self.contagion_day(ctx, day);
         // Who is exposed today, by every route, before anyone takes it: nobody infected today
         // sheds before tomorrow, so no chain runs within a day.
         let mut shedding: BTreeMap<(PermanentId, u16), u32> = BTreeMap::new();
@@ -73,7 +77,8 @@ impl Population {
                 *shedding.entry((p.household, e.disease)).or_default() += 1;
             }
         }
-        let mut taken = Vec::new();
+        // Each person's hazards of each disease, by route.
+        let mut exposed: BTreeMap<(PermanentId, u16), Vec<(f64, Acquired)>> = BTreeMap::new();
         for ((household, disease), shedders) in shedding {
             let Some(def) = ctx.catalog.diseases.get(usize::from(disease)) else {
                 continue;
@@ -82,19 +87,42 @@ impl Population {
                 continue;
             };
             let hazard = def.household_hazard.max(0.0) * f64::from(shedders);
-            let chance = 1.0 - (-hazard).exp();
             for &m in &x.members {
-                if self.sickness.protected(m, disease, day) {
-                    continue;
-                }
-                let u = sickness_rng(ctx.seed, m, day, disease, SickDraw::Infection).next_f64();
-                if u < chance {
-                    taken.push((m, disease, household));
-                }
+                exposed
+                    .entry((m, disease))
+                    .or_default()
+                    .push((hazard, Acquired::Household { household }));
             }
         }
-        for (m, disease, household) in taken {
-            self.infect(ctx, m, disease, day, Acquired::Household { household });
+        // A dose drunk is a hazard of one (12-02 §5.4's exponential, its rate in the dose).
+        for (m, disease, dose, source) in self.water_doses(ctx) {
+            exposed
+                .entry((m, disease))
+                .or_default()
+                .push((dose, Acquired::Water { source }));
+        }
+        let mut taken = Vec::new();
+        for ((m, disease), hazards) in exposed {
+            if self.sickness.protected(m, disease, day) {
+                continue;
+            }
+            let total: f64 = hazards.iter().map(|(h, _)| h.max(0.0)).sum();
+            if total <= 0.0 {
+                continue;
+            }
+            let u = sickness_rng(ctx.seed, m, day, disease, SickDraw::Infection).next_f64();
+            if u < 1.0 - (-total).exp() {
+                // Taken by the route that brought the most of it.
+                let (_, acquired) = hazards
+                    .iter()
+                    .copied()
+                    .reduce(|a, b| if b.0 > a.0 { b } else { a })
+                    .expect("a hazard");
+                taken.push((m, disease, acquired));
+            }
+        }
+        for (m, disease, acquired) in taken {
+            self.infect(ctx, m, disease, day, acquired);
         }
     }
 

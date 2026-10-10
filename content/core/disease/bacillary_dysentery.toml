@@ -28,3 +28,12 @@ immunity_years = [0.5, 2.0]
 # introductions into a village of 99 saw 84 % of household contacts take it, the whole home almost
 # every time, since it is shed some 13 days; at 0.02, 46 % (plan §9).
 household_hazard = 0.02
+# What one shedding person adds to their household's heap a day, in doses (as cholera's): a small
+# infectious dose makes each stool many doses, so as much as cholera's ill though less is passed,
+# and those shedding after their symptoms shed a tenth (design priors, calibrated in the step-two
+# probe, plan §9).
+shed_ill_per_day = 2000.0
+shed_silent_per_day = 200.0
+# Shigella has no environmental reservoir to speak of (05-03 §1.2 names none): a half-life of about
+# two days (a design prior).
+decay_per_day = 0.3

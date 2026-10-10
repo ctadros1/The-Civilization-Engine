@@ -184,11 +184,11 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 32 land, field, plot, building,
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 33 land, field, plot, building,
     // wear, market, firm, wealth, knowledge, deposits, earth, ties, polity, order, word, opinion,
-    // norms, values, creeds, factions, influence, places, relation, crossing, wells, sickness and
-    // people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 32);
+    // norms, values, creeds, factions, influence, places, relation, crossing, wells, sickness,
+    // pathogen and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 33);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())

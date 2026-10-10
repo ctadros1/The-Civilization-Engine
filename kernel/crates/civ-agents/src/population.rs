@@ -40,6 +40,7 @@ use crate::person::{
 };
 
 mod cases;
+mod contagion;
 mod crime;
 mod crossings;
 mod deposits;
@@ -445,6 +446,12 @@ pub struct Population {
     pub time_use: TimeUse,
     /// Every infection there has been (M6a slice AZ; ADR-0021 §5). Saved.
     pub sickness: crate::sickness::Sickness,
+    /// What people shed, where it lies and where it went (M6a slice AZ, step two; ADR-0021
+    /// §4). Saved.
+    pub contagion: crate::contagion::Contagion,
+    /// River cells by the reach they belong to, for loads washed or drawn there. Derived from the
+    /// map when first needed; not saved.
+    reach_cells: Option<BTreeMap<u32, u32>>,
     /// Water drawn, by the kind of place (counters, not saved; M6a slice AY).
     pub water_draws: WaterDraws,
     /// Each settlement's market (slice I).
@@ -4435,6 +4442,9 @@ impl Population {
             self.water_draws.banks += 1;
         }
         self.water_draws.litres += litres;
+        if !spring {
+            self.drew_load_from_reach(ctx, cell, household, litres);
+        }
         self.log_work(crate::uses::Place::Source(cell), household, who, now, 0.0);
     }
 

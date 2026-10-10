@@ -2,8 +2,8 @@
 
 use civ_land::deposits::DepositRule;
 use civ_land::{
-    AquiferUnit, Growth, HabitatRule, LandParams, PathParams, ResourceParams, SoilParams,
-    WaterParams, WeatherParams,
+    AquiferUnit, ContaminationParams, Growth, HabitatRule, LandParams, PathParams, ResourceParams,
+    SoilParams, WaterParams, WeatherParams,
 };
 use serde::Deserialize;
 
@@ -37,6 +37,58 @@ pub(crate) struct LandFile {
     /// A profile may leave it out: then one unit of alluvial sand lies under everything.
     #[serde(default)]
     pub groundwater: Option<GroundwaterFile>,
+    /// How what people shed moves through the ground and water (ADR-0021 §4; content API 73).
+    /// A profile may leave it out: then the defaults hold.
+    #[serde(default)]
+    pub contamination: Option<ContaminationFile>,
+}
+
+/// The `[contamination]` section of a land profile (ADR-0021 §4; content API 73).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ContaminationFile {
+    pub wash_per_mm: f64,
+    pub wash_max: f64,
+    pub runoff_radius_m: f64,
+    pub seep_per_day: f64,
+    pub link_radius_m: f64,
+    pub capture_share: f64,
+    pub min_gradient: f64,
+    pub drink_l_per_day: f64,
+}
+
+impl ContaminationFile {
+    fn params(&self) -> ContaminationParams {
+        ContaminationParams {
+            wash_per_mm: self.wash_per_mm,
+            wash_max: self.wash_max,
+            runoff_radius_m: self.runoff_radius_m,
+            seep_per_day: self.seep_per_day,
+            link_radius_m: self.link_radius_m,
+            capture_share: self.capture_share,
+            min_gradient: self.min_gradient,
+            drink_l_per_day: self.drink_l_per_day,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, least, most) in [
+            ("wash_per_mm", self.wash_per_mm, 0.0, 1.0),
+            ("wash_max", self.wash_max, 0.0, 1.0),
+            ("runoff_radius_m", self.runoff_radius_m, 0.0, 1000.0),
+            ("seep_per_day", self.seep_per_day, 0.0, 1.0),
+            ("link_radius_m", self.link_radius_m, 0.0, 1000.0),
+            ("capture_share", self.capture_share, 0.0, 1.0),
+            ("min_gradient", self.min_gradient, 0.0, 1.0),
+            ("drink_l_per_day", self.drink_l_per_day, 0.0, 30.0),
+        ] {
+            if !(v.is_finite() && (least..=most).contains(&v)) {
+                p.push(format!(
+                    "`contamination.{name}` must be between {least} and {most} (got {v})"
+                ));
+            }
+        }
+    }
 }
 
 /// The `[groundwater]` section of a land profile (ADR-0021 §1–§2; content API 69).
@@ -540,6 +592,10 @@ impl LandFile {
                 .groundwater
                 .as_ref()
                 .map_or_else(WaterParams::default, GroundwaterFile::params),
+            contamination: self
+                .contamination
+                .as_ref()
+                .map_or_else(ContaminationParams::default, ContaminationFile::params),
         })
     }
 
@@ -611,6 +667,9 @@ impl LandFile {
         self.soil.problems(&mut p);
         if let Some(g) = &self.groundwater {
             g.problems(&self.habitat, &mut p);
+        }
+        if let Some(c) = &self.contamination {
+            c.problems(&mut p);
         }
         let w = &self.paths;
         if !(w.wear_per_walk > 0.0 && w.wear_per_walk < 1.0) {

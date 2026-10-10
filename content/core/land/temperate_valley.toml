@@ -124,6 +124,21 @@ trail_until = 0.15
 # with its neighbours and with the rivers (03-02 §1.3); where it reaches the lowest ground of a
 # patch it seeps out. What reaches the water and what runs off pass through one runoff store,
 # whose outflow against the landscape's mean scales every reach's mean discharge.
+# How what people shed moves through this ground and water (M6a slice AZ, step two; ADR-0021 §4;
+# research 12-02 §5.2-§5.3, 03-02 §1.6). The research gives the structure (sparse links from a
+# heap to the wells and rivers near it, each with a travel time and a capture share before the
+# separate decay; runoff off the ground to wellheads; concentration as load over litres), not
+# these numbers: all are tuning values, calibrated in the step-two probe (plan §9).
+[contamination]
+wash_per_mm = 0.01               # a day's surplus of 10 mm washes a tenth of a heap off
+wash_max = 0.5                   # at most half in one day
+runoff_radius_m = 30.0           # 12-02 §2.2's 30 m setback, taken as the reach of runoff
+seep_per_day = 0.02              # what soaks into the ground beneath a heap a day
+link_radius_m = 30.0             # 03-02 §1.6's 15-30 m setbacks: how far a link may run
+capture_share = 0.1              # what of the soaked load reaches its receptors before decay
+min_gradient = 0.005             # the water table's least slope (03-02 §1.6's example: 0.01)
+drink_l_per_day = 3.0            # of the household's water each person drinks a day
+
 [groundwater]
 recharge_share = 0.5             # tuning: the research gives no partition for this landscape
 recession_days = 3.0             # the runoff store lets go 28 % of what it holds a day (tuning)

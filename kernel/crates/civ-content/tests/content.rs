@@ -66,7 +66,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 72
+kernel_content_api = 73
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -383,6 +383,14 @@ fn diseases_check_their_numbers_and_routes() {
                 "incubation_days = [0.0, 1.0]",
             ),
             "incubation_days",
+        ),
+        (
+            real_cholera.replace("decay_per_day = 0.13", "decay_per_day = 1.5"),
+            "decay_per_day",
+        ),
+        (
+            real_cholera.replace("shed_ill_per_day = 2000.0", "shed_ill_per_day = -1.0"),
+            "shed_ill_per_day",
         ),
     ] {
         assert_ne!(body, real_cholera, "{needle}: the edit applies");
@@ -1282,6 +1290,21 @@ fn profiles_check_their_ranges_and_fields() {
         ("people/early_farmers.toml", &people),
     ]);
     assert_eq!(codes(&report), vec!["E3001"]);
+
+    // How what people shed moves (ADR-0021 §4) stays in range.
+    let land =
+        real("land/temperate_valley.toml").replace("capture_share = 0.1 ", "capture_share = 1.5 ");
+    assert_ne!(land, real("land/temperate_valley.toml"), "the edit applies");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("`contamination.capture_share`")
+    );
 
     // The month's storm on roofs (ADR-0012 §5) stays in range, and so does the snow they keep.
     let land = real("land/temperate_valley.toml")

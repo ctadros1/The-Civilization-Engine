@@ -1,7 +1,8 @@
-//! Diseases (`kind = "disease"`, content API 72, M6a slice AZ; ADR-0021 §5; research 05-03 §1.1,
+//! Diseases (`kind = "disease"`, content API 72-73, M6a slice AZ; ADR-0021 §5; research 05-03 §1.1,
 //! §2.1, §3.2, §7.3, §7.6): the routes one passes by, its own clocks, who has symptoms and who
 //! is severely ill, the chance a day of dying while severely ill, how long an infection protects,
-//! and the household hazard. No rate of cases or deaths is authored: those come from who meets it.
+//! the household hazard, and (API 73) what one sheds a day and how fast it dies outside a person.
+//! No rate of cases or deaths is authored: those come from who meets it.
 
 use civ_agents::params::{Days, DiseaseDef, DiseaseRoute};
 use serde::Deserialize;
@@ -35,6 +36,9 @@ pub(crate) struct DiseaseFile {
     pub immunity_years: [f64; 2],
     #[serde(default)]
     pub household_hazard: f64,
+    pub shed_ill_per_day: f64,
+    pub shed_silent_per_day: f64,
+    pub decay_per_day: f64,
 }
 
 fn days([mean, sd]: [f64; 2]) -> Days {
@@ -63,6 +67,9 @@ impl DiseaseFile {
             severe_death_per_day: self.severe_death_per_day,
             immunity_years: self.immunity_years,
             household_hazard: self.household_hazard,
+            shed_ill_per_day: self.shed_ill_per_day,
+            shed_silent_per_day: self.shed_silent_per_day,
+            decay_per_day: self.decay_per_day,
         })
     }
 
@@ -99,6 +106,9 @@ impl DiseaseFile {
             ("symptomatic", self.symptomatic, 0.0, 1.0),
             ("severe_death_per_day", self.severe_death_per_day, 0.0, 1.0),
             ("household_hazard", self.household_hazard, 0.0, 10.0),
+            ("shed_ill_per_day", self.shed_ill_per_day, 0.0, 1e12),
+            ("shed_silent_per_day", self.shed_silent_per_day, 0.0, 1e12),
+            ("decay_per_day", self.decay_per_day, 0.0, 1.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

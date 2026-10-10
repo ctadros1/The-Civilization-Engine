@@ -30,6 +30,7 @@ pub mod bridge;
 pub mod build;
 pub mod caution;
 pub mod condition;
+pub mod contagion;
 pub mod convergence;
 pub mod crime;
 pub mod decide;

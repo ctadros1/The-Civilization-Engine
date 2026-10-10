@@ -1184,6 +1184,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** loads and the water route (step two); tending, incidents and outbreak episodes (step three); the observer's view (step four).
 
+## 2026-10-10 — M6a slice AZ, step two: what people shed, moved through ground and water
+
+**What changed:** each disease now has a load, counted in doses (an amount that, drunk, is a hazard of one), in each household's heap beside its home, each well, each river reach and each household's stored water, kept by where it was drawn; loads soaking through the ground are on their way to a well or river until the day they arrive (saves 76, content API 73). Each midnight loads decay, those underway arrive, whoever sheds adds the day's shedding to their household's heap, a wet day washes a share of each heap to the wellheads and banks within reach and no higher, and a share soaks in toward the wells and rivers within reach and no higher, arriving after the hydrology report's travel time through that ground, less what dies on the way. Water drawn carries its share of a well's or reach's load home; what each person drinks of it is their dose, summed with the household route and drawn once, and an infection by water names the well or reach most of it came from. A day's moves along each way are recorded.
+
+**Findings:** in a village of 106 lived two years (24 wells), twenty cholera introductions infected 153 people, 94 of them by a well and none by the river, which no heap lay within reach of; six outbreaks reached 14 to 43 people, each when the person it was brought to was ill and their heap lay above a well others drew from. Twelve dysentery introductions infected 286, 216 by wells, four outbreaks reaching 41 to 69 people, since it is shed for weeks. At the map's 8 m grain one step of ground decides whether a heap reaches a well: the test household's own well lay 5 cm above its home, so its own heap never reached it. Nothing changes in a world where nobody is brought a disease.
+
+**Evidence:** unit tests of loads, stores, decay and merged moves; integration tests of a wet day washing a heap into the well below it with nothing lost or made, its drawers carrying the load home and nobody else holding any, travel time and decay through slow and fast ground, a household drinking a heavy load and every member's record naming the well, no load in a world nobody sheds in, and exact saves; the content ranges; a digest comparison of forty days of the village of 1,000; the probes; the full suite, clippy and the smoke worlds.
+
+**Open:** shedding where people work and not only at home, covered wellheads, lakes as sources, food and hands; tending, incidents and outbreak episodes (step three); the observer's view (step four).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

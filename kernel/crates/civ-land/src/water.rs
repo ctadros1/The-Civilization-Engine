@@ -54,6 +54,46 @@ pub struct AquiferUnit {
     pub thickness_m: f64,
 }
 
+/// How what is shed from people moves through a landscape's ground and water (M6a slice AZ,
+/// step two; ADR-0021 §4; research 12-02 §5.2-§5.3, 03-02 §1.6). Every share is a tuning value:
+/// the research gives the structure (sparse links with a travel time and decay, runoff off the
+/// ground, concentration as load over litres), not the numbers for this landscape.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ContaminationParams {
+    /// The share of a heap's load a day's surplus washes off, per mm of surplus, and the most it
+    /// washes off in a day.
+    pub wash_per_mm: f64,
+    pub wash_max: f64,
+    /// How far downslope what washes off a heap reaches a wellhead or a bank, metres.
+    pub runoff_radius_m: f64,
+    /// The share of a heap's load that soaks into the ground a day.
+    pub seep_per_day: f64,
+    /// How far down the water table's slope what soaks in may reach a well or a river, metres,
+    /// and the share of it that does (the rest is held or lost in the ground).
+    pub link_radius_m: f64,
+    pub capture_share: f64,
+    /// The least slope taken for the water table, so ground that is level at the map's grain
+    /// still carries water along (03-02 §1.6's illustration takes 0.01).
+    pub min_gradient: f64,
+    /// Litres of their household's water each person drinks a day: what carries a dose of it.
+    pub drink_l_per_day: f64,
+}
+
+impl Default for ContaminationParams {
+    fn default() -> ContaminationParams {
+        ContaminationParams {
+            wash_per_mm: 0.01,
+            wash_max: 0.5,
+            runoff_radius_m: 30.0,
+            seep_per_day: 0.02,
+            link_radius_m: 30.0,
+            capture_share: 0.1,
+            min_gradient: 0.005,
+            drink_l_per_day: 3.0,
+        }
+    }
+}
+
 /// How a landscape's water moves under the ground and down its rivers (ADR-0021 §1–§2).
 #[derive(Clone, Debug, PartialEq)]
 pub struct WaterParams {
@@ -358,6 +398,9 @@ pub struct Water {
     pub heads: Vec<f64>,
     /// Water in the runoff store, mm over the map's land, after today's outflow. Saved.
     pub runoff_mm: f64,
+    /// What the reference soil could not hold on the last day lived, mm: what washed off the
+    /// ground that day (M6a slice AZ). Set as each day is lived; neither saved nor compared.
+    pub last_surplus_mm: f64,
     /// Scratch for a sub-step's inflows. Neither saved nor compared.
     scratch: Vec<f64>,
 }
@@ -384,6 +427,7 @@ impl Water {
             aquifer: Aquifer::derive(map, patches, habitats, params, seed),
             heads: Vec::new(),
             runoff_mm: 0.0,
+            last_surplus_mm: 0.0,
             scratch: Vec::new(),
         }
     }
@@ -458,6 +502,7 @@ impl Water {
     /// patches and to the water, seepage, then the runoff store. Every volume is accounted for:
     /// what the aquifer gains is recharge less what reached the water and what seeped out.
     pub fn day(&mut self, params: &WaterParams, surplus_mm: f64) -> WaterDay {
+        self.last_surplus_mm = surplus_mm.max(0.0);
         let aq = &self.aquifer;
         let n = aq.len();
         let mut out = WaterDay::default();
@@ -675,6 +720,7 @@ mod tests {
             aquifer: aq,
             heads,
             runoff_mm: 0.0,
+            last_surplus_mm: 0.0,
             scratch: Vec::new(),
         }
     }

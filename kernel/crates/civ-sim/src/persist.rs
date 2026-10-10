@@ -259,6 +259,9 @@ pub const SCHEMA_V72: u32 = 72;
 pub const SCHEMA_V73: u32 = 73;
 /// The schema version of M6a slice AY, step three: wells, before infections (see [`agents`]).
 pub const SCHEMA_V74: u32 = 74;
+/// The schema version of M6a slice AZ, step one: infections, before what people shed moved
+/// through the ground and water (see [`agents`]).
+pub const SCHEMA_V75: u32 = 75;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

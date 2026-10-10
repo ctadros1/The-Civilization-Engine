@@ -41,7 +41,7 @@ pub use fields::{
 };
 pub use paths::{PathParams, Trail, ViewTile, Wear, WearTile};
 pub use soil::{FieldSoil, HarvestRecord, Limit, SoilParams};
-pub use water::{AquiferUnit, Water, WaterParams};
+pub use water::{AquiferUnit, ContaminationParams, Water, WaterParams};
 pub use weather::{Climatology, MonthRecord, Unworkable, Weather, WeatherDay, WeatherParams};
 
 use civ_core::time::{DAYS_PER_YEAR, MONTH_STARTS};
@@ -166,6 +166,8 @@ pub struct LandParams {
     pub deposits: Vec<deposits::DepositRule>,
     /// How water moves under the ground and down the rivers (ADR-0021 §1–§2).
     pub water: WaterParams,
+    /// How what people shed moves through the ground and water (ADR-0021 §4).
+    pub contamination: ContaminationParams,
 }
 
 impl ResourceParams {
@@ -1419,6 +1421,7 @@ mod tests {
             },
             deposits: Vec::new(),
             water: WaterParams::default(),
+            contamination: ContaminationParams::default(),
         }
     }
 

@@ -697,6 +697,13 @@ pub struct DiseaseDef {
     /// The hazard a day each member shedding it puts on each other member of a household
     /// (05-03 §7.2: summed over routes, drawn once a day).
     pub household_hazard: f64,
+    /// What someone sheds of it a day while ill, and while shedding without symptoms, in doses: a
+    /// dose drunk is a hazard of 1 (12-02 §5.4's exponential dose-response with its rate folded
+    /// into the unit).
+    pub shed_ill_per_day: f64,
+    pub shed_silent_per_day: f64,
+    /// The share of it outside a body that dies a day, in heaps, the ground and water.
+    pub decay_per_day: f64,
 }
 
 impl DiseaseDef {

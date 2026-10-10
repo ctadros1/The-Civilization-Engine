@@ -160,12 +160,24 @@ impl ClaimsHeard {
         place: Place,
         own: Option<PermanentId>,
     ) -> Option<&HeardClaim> {
+        self.claimed_without_leave(household, place, own, |_| false)
+    }
+
+    /// As [`ClaimsHeard::claimed`], of the polities `leave` says do not give the household's
+    /// people leave (M5c slice AU: an agreement in force that they know of).
+    pub fn claimed_without_leave(
+        &self,
+        household: PermanentId,
+        place: Place,
+        own: Option<PermanentId>,
+        leave: impl Fn(PermanentId) -> bool,
+    ) -> Option<&HeardClaim> {
         let list = self.of(household);
         let from = list.partition_point(|c| c.place < place);
         list[from..]
             .iter()
             .take_while(|c| c.place == place)
-            .find(|c| Some(c.polity) != own)
+            .find(|c| Some(c.polity) != own && !leave(c.polity))
     }
 
     /// Keeps only what `keep` says, by household and claim, and lets go of households left with

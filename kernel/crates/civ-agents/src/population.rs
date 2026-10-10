@@ -61,6 +61,7 @@ mod places;
 mod polity;
 mod relations;
 mod residence;
+mod terms;
 mod values;
 mod watch;
 mod word;
@@ -495,6 +496,8 @@ pub struct Population {
     pub polity_views: crate::views::Views,
     /// The claims of other polities each household has heard of (M5c slice AU, ADR-0020 §2).
     pub claims_heard: crate::uses::ClaimsHeard,
+    /// Agreements between polities, in the order made (M5c slice AU, ADR-0020 §6).
+    pub agreements: crate::agreements::Agreements,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -1130,6 +1133,7 @@ impl Population {
         out.extend(self.uses.problems());
         out.extend(self.polity_views.problems());
         out.extend(self.claims_heard.problems());
+        out.extend(self.agreements.problems());
         for (&p, seen) in &self.seen_away {
             if self.person(p).is_none() {
                 out.push(format!(
@@ -2803,14 +2807,18 @@ impl Population {
         // A place the household has heard another polity's law claims is worth the content's
         // share of what it would yield to it (M5c slice AU, ADR-0020 §5: outsiders use a claimed
         // place by leave); it may still go there when nothing else is as good. One its own
-        // polity claims too it holds as its own.
+        // polity claims too it holds as its own, and so one an agreement in force gives its people
+        // leave to use, when one of them knows their own polity's law deciding it.
         let own = hh.settlement.and_then(|s| self.polity_of(s));
         let own_polity = own.map(|i| self.polities[i].id);
         let claimed_worth = ctx.params.relations.claimed_worth;
         let worth = |place: crate::uses::Place| {
+            let leave = |from: PermanentId| {
+                own.is_some_and(|i| self.leave_known(from, self.polities[i].id, i, &hh.members))
+            };
             let theirs = self
                 .claims_heard
-                .claimed(hh.id, place, own_polity)
+                .claimed_without_leave(hh.id, place, own_polity, leave)
                 .is_some();
             if theirs && !own.is_some_and(|i| self.polities[i].claim_on(place).is_some()) {
                 claimed_worth

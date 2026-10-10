@@ -25165,6 +25165,7 @@ impl<'a> LawSave<'a> {
   pub const VT_ENDS: ::flatbuffers::VOffsetT = 90;
   pub const VT_REFUSED: ::flatbuffers::VOffsetT = 92;
   pub const VT_REFUSED_KG: ::flatbuffers::VOffsetT = 94;
+  pub const VT_AGREEMENT: ::flatbuffers::VOffsetT = 96;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -25176,6 +25177,7 @@ impl<'a> LawSave<'a> {
     args: &'args LawSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<LawSave<'bldr>> {
     let mut builder = LawSaveBuilder::new(_fbb);
+    builder.add_agreement(args.agreement);
     builder.add_refused_kg(args.refused_kg);
     builder.add_ends(args.ends);
     builder.add_watch_night(args.watch_night);
@@ -25548,6 +25550,13 @@ impl<'a> LawSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f64>(LawSave::VT_REFUSED_KG, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn agreement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LawSave::VT_AGREEMENT, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for LawSave<'_> {
@@ -25602,6 +25611,7 @@ impl ::flatbuffers::Verifiable for LawSave<'_> {
      .visit_field::<u64>("ends", Self::VT_ENDS, false)?
      .visit_field::<u32>("refused", Self::VT_REFUSED, false)?
      .visit_field::<f64>("refused_kg", Self::VT_REFUSED_KG, false)?
+     .visit_field::<u64>("agreement", Self::VT_AGREEMENT, false)?
      .finish();
     Ok(())
   }
@@ -25653,6 +25663,7 @@ pub struct LawSaveArgs<'a> {
     pub ends: u64,
     pub refused: u32,
     pub refused_kg: f64,
+    pub agreement: u64,
 }
 impl<'a> Default for LawSaveArgs<'a> {
   #[inline]
@@ -25704,6 +25715,7 @@ impl<'a> Default for LawSaveArgs<'a> {
       ends: 0,
       refused: 0,
       refused_kg: 0.0,
+      agreement: 0,
     }
   }
 }
@@ -25898,6 +25910,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LawSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f64>(LawSave::VT_REFUSED_KG, refused_kg, 0.0);
   }
   #[inline]
+  pub fn add_agreement(&mut self, agreement: u64) {
+    self.fbb_.push_slot::<u64>(LawSave::VT_AGREEMENT, agreement, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LawSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LawSaveBuilder {
@@ -25961,6 +25977,7 @@ impl ::core::fmt::Debug for LawSave<'_> {
       ds.field("ends", &self.ends());
       ds.field("refused", &self.refused());
       ds.field("refused_kg", &self.refused_kg());
+      ds.field("agreement", &self.agreement());
       ds.finish()
   }
 }
@@ -32721,6 +32738,7 @@ impl<'a> ::flatbuffers::Follow<'a> for RelationsSave<'a> {
 impl<'a> RelationsSave<'a> {
   pub const VT_VIEWS: ::flatbuffers::VOffsetT = 4;
   pub const VT_HEARD: ::flatbuffers::VOffsetT = 6;
+  pub const VT_AGREEMENTS: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32732,6 +32750,7 @@ impl<'a> RelationsSave<'a> {
     args: &'args RelationsSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<RelationsSave<'bldr>> {
     let mut builder = RelationsSaveBuilder::new(_fbb);
+    if let Some(x) = args.agreements { builder.add_agreements(x); }
     if let Some(x) = args.heard { builder.add_heard(x); }
     if let Some(x) = args.views { builder.add_views(x); }
     builder.finish()
@@ -32752,6 +32771,13 @@ impl<'a> RelationsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HeardClaimSave>>>>(RelationsSave::VT_HEARD, None)}
   }
+  #[inline]
+  pub fn agreements(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<AgreementSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<AgreementSave>>>>(RelationsSave::VT_AGREEMENTS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for RelationsSave<'_> {
@@ -32762,6 +32788,7 @@ impl ::flatbuffers::Verifiable for RelationsSave<'_> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ViewSave>>>>("views", Self::VT_VIEWS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<HeardClaimSave>>>>("heard", Self::VT_HEARD, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<AgreementSave>>>>("agreements", Self::VT_AGREEMENTS, false)?
      .finish();
     Ok(())
   }
@@ -32769,6 +32796,7 @@ impl ::flatbuffers::Verifiable for RelationsSave<'_> {
 pub struct RelationsSaveArgs<'a> {
     pub views: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ViewSave<'a>>>>>,
     pub heard: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HeardClaimSave<'a>>>>>,
+    pub agreements: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<AgreementSave<'a>>>>>,
 }
 impl<'a> Default for RelationsSaveArgs<'a> {
   #[inline]
@@ -32776,6 +32804,7 @@ impl<'a> Default for RelationsSaveArgs<'a> {
     RelationsSaveArgs {
       views: None,
       heard: None,
+      agreements: None,
     }
   }
 }
@@ -32792,6 +32821,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RelationsSaveBuilder<'a, 'b, 
   #[inline]
   pub fn add_heard(&mut self, heard: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<HeardClaimSave<'b >>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RelationsSave::VT_HEARD, heard);
+  }
+  #[inline]
+  pub fn add_agreements(&mut self, agreements: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<AgreementSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RelationsSave::VT_AGREEMENTS, agreements);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RelationsSaveBuilder<'a, 'b, A> {
@@ -32813,6 +32846,426 @@ impl ::core::fmt::Debug for RelationsSave<'_> {
     let mut ds = f.debug_struct("RelationsSave");
       ds.field("views", &self.views());
       ds.field("heard", &self.heard());
+      ds.field("agreements", &self.agreements());
+      ds.finish()
+  }
+}
+pub enum AgreementSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct AgreementSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for AgreementSave<'a> {
+  type Inner = AgreementSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> AgreementSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_POLITY_A: ::flatbuffers::VOffsetT = 6;
+  pub const VT_POLITY_B: ::flatbuffers::VOffsetT = 8;
+  pub const VT_NEGOTIATOR_A: ::flatbuffers::VOffsetT = 10;
+  pub const VT_NEGOTIATOR_B: ::flatbuffers::VOffsetT = 12;
+  pub const VT_CLAUSE_KIND: ::flatbuffers::VOffsetT = 14;
+  pub const VT_CLAUSE_SIDE: ::flatbuffers::VOffsetT = 16;
+  pub const VT_TERM_DAYS: ::flatbuffers::VOffsetT = 18;
+  pub const VT_MADE: ::flatbuffers::VOffsetT = 20;
+  pub const VT_LAW_A: ::flatbuffers::VOffsetT = 22;
+  pub const VT_LAW_B: ::flatbuffers::VOffsetT = 24;
+  pub const VT_PASSED_A: ::flatbuffers::VOffsetT = 26;
+  pub const VT_PASSED_B: ::flatbuffers::VOffsetT = 28;
+  pub const VT_HEARD_A: ::flatbuffers::VOffsetT = 30;
+  pub const VT_HEARD_B: ::flatbuffers::VOffsetT = 32;
+  pub const VT_STATE: ::flatbuffers::VOffsetT = 34;
+  pub const VT_STATE_DAY: ::flatbuffers::VOffsetT = 36;
+  pub const VT_WHY_KIND: ::flatbuffers::VOffsetT = 38;
+  pub const VT_WHY_SIDE: ::flatbuffers::VOffsetT = 40;
+  pub const VT_BY: ::flatbuffers::VOffsetT = 42;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    AgreementSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args AgreementSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<AgreementSave<'bldr>> {
+    let mut builder = AgreementSaveBuilder::new(_fbb);
+    builder.add_state_day(args.state_day);
+    builder.add_heard_b(args.heard_b);
+    builder.add_heard_a(args.heard_a);
+    builder.add_passed_b(args.passed_b);
+    builder.add_passed_a(args.passed_a);
+    builder.add_law_b(args.law_b);
+    builder.add_law_a(args.law_a);
+    builder.add_made(args.made);
+    builder.add_negotiator_b(args.negotiator_b);
+    builder.add_negotiator_a(args.negotiator_a);
+    builder.add_polity_b(args.polity_b);
+    builder.add_polity_a(args.polity_a);
+    builder.add_id(args.id);
+    builder.add_term_days(args.term_days);
+    if let Some(x) = args.clause_side { builder.add_clause_side(x); }
+    if let Some(x) = args.clause_kind { builder.add_clause_kind(x); }
+    builder.add_by(args.by);
+    builder.add_why_side(args.why_side);
+    builder.add_why_kind(args.why_kind);
+    builder.add_state(args.state);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(AgreementSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn polity_a(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(AgreementSave::VT_POLITY_A, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn polity_b(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(AgreementSave::VT_POLITY_B, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn negotiator_a(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(AgreementSave::VT_NEGOTIATOR_A, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn negotiator_b(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(AgreementSave::VT_NEGOTIATOR_B, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn clause_kind(&self) -> Option<::flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u8>>>(AgreementSave::VT_CLAUSE_KIND, None)}
+  }
+  #[inline]
+  pub fn clause_side(&self) -> Option<::flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u8>>>(AgreementSave::VT_CLAUSE_SIDE, None)}
+  }
+  #[inline]
+  pub fn term_days(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(AgreementSave::VT_TERM_DAYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn made(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(AgreementSave::VT_MADE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn law_a(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(AgreementSave::VT_LAW_A, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn law_b(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(AgreementSave::VT_LAW_B, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn passed_a(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(AgreementSave::VT_PASSED_A, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn passed_b(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(AgreementSave::VT_PASSED_B, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn heard_a(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(AgreementSave::VT_HEARD_A, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn heard_b(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(AgreementSave::VT_HEARD_B, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn state(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(AgreementSave::VT_STATE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn state_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(AgreementSave::VT_STATE_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn why_kind(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(AgreementSave::VT_WHY_KIND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn why_side(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(AgreementSave::VT_WHY_SIDE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn by(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(AgreementSave::VT_BY, Some(255)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for AgreementSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("polity_a", Self::VT_POLITY_A, false)?
+     .visit_field::<u64>("polity_b", Self::VT_POLITY_B, false)?
+     .visit_field::<u64>("negotiator_a", Self::VT_NEGOTIATOR_A, false)?
+     .visit_field::<u64>("negotiator_b", Self::VT_NEGOTIATOR_B, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u8>>>("clause_kind", Self::VT_CLAUSE_KIND, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u8>>>("clause_side", Self::VT_CLAUSE_SIDE, false)?
+     .visit_field::<u32>("term_days", Self::VT_TERM_DAYS, false)?
+     .visit_field::<i64>("made", Self::VT_MADE, false)?
+     .visit_field::<u64>("law_a", Self::VT_LAW_A, false)?
+     .visit_field::<u64>("law_b", Self::VT_LAW_B, false)?
+     .visit_field::<i64>("passed_a", Self::VT_PASSED_A, false)?
+     .visit_field::<i64>("passed_b", Self::VT_PASSED_B, false)?
+     .visit_field::<i64>("heard_a", Self::VT_HEARD_A, false)?
+     .visit_field::<i64>("heard_b", Self::VT_HEARD_B, false)?
+     .visit_field::<u8>("state", Self::VT_STATE, false)?
+     .visit_field::<i64>("state_day", Self::VT_STATE_DAY, false)?
+     .visit_field::<u8>("why_kind", Self::VT_WHY_KIND, false)?
+     .visit_field::<u8>("why_side", Self::VT_WHY_SIDE, false)?
+     .visit_field::<u8>("by", Self::VT_BY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct AgreementSaveArgs<'a> {
+    pub id: u64,
+    pub polity_a: u64,
+    pub polity_b: u64,
+    pub negotiator_a: u64,
+    pub negotiator_b: u64,
+    pub clause_kind: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u8>>>,
+    pub clause_side: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u8>>>,
+    pub term_days: u32,
+    pub made: i64,
+    pub law_a: u64,
+    pub law_b: u64,
+    pub passed_a: i64,
+    pub passed_b: i64,
+    pub heard_a: i64,
+    pub heard_b: i64,
+    pub state: u8,
+    pub state_day: i64,
+    pub why_kind: u8,
+    pub why_side: u8,
+    pub by: u8,
+}
+impl<'a> Default for AgreementSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    AgreementSaveArgs {
+      id: 0,
+      polity_a: 0,
+      polity_b: 0,
+      negotiator_a: 0,
+      negotiator_b: 0,
+      clause_kind: None,
+      clause_side: None,
+      term_days: 0,
+      made: 0,
+      law_a: 0,
+      law_b: 0,
+      passed_a: -1,
+      passed_b: -1,
+      heard_a: -1,
+      heard_b: -1,
+      state: 0,
+      state_day: 0,
+      why_kind: 0,
+      why_side: 0,
+      by: 255,
+    }
+  }
+}
+
+pub struct AgreementSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> AgreementSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(AgreementSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_polity_a(&mut self, polity_a: u64) {
+    self.fbb_.push_slot::<u64>(AgreementSave::VT_POLITY_A, polity_a, 0);
+  }
+  #[inline]
+  pub fn add_polity_b(&mut self, polity_b: u64) {
+    self.fbb_.push_slot::<u64>(AgreementSave::VT_POLITY_B, polity_b, 0);
+  }
+  #[inline]
+  pub fn add_negotiator_a(&mut self, negotiator_a: u64) {
+    self.fbb_.push_slot::<u64>(AgreementSave::VT_NEGOTIATOR_A, negotiator_a, 0);
+  }
+  #[inline]
+  pub fn add_negotiator_b(&mut self, negotiator_b: u64) {
+    self.fbb_.push_slot::<u64>(AgreementSave::VT_NEGOTIATOR_B, negotiator_b, 0);
+  }
+  #[inline]
+  pub fn add_clause_kind(&mut self, clause_kind: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(AgreementSave::VT_CLAUSE_KIND, clause_kind);
+  }
+  #[inline]
+  pub fn add_clause_side(&mut self, clause_side: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(AgreementSave::VT_CLAUSE_SIDE, clause_side);
+  }
+  #[inline]
+  pub fn add_term_days(&mut self, term_days: u32) {
+    self.fbb_.push_slot::<u32>(AgreementSave::VT_TERM_DAYS, term_days, 0);
+  }
+  #[inline]
+  pub fn add_made(&mut self, made: i64) {
+    self.fbb_.push_slot::<i64>(AgreementSave::VT_MADE, made, 0);
+  }
+  #[inline]
+  pub fn add_law_a(&mut self, law_a: u64) {
+    self.fbb_.push_slot::<u64>(AgreementSave::VT_LAW_A, law_a, 0);
+  }
+  #[inline]
+  pub fn add_law_b(&mut self, law_b: u64) {
+    self.fbb_.push_slot::<u64>(AgreementSave::VT_LAW_B, law_b, 0);
+  }
+  #[inline]
+  pub fn add_passed_a(&mut self, passed_a: i64) {
+    self.fbb_.push_slot::<i64>(AgreementSave::VT_PASSED_A, passed_a, -1);
+  }
+  #[inline]
+  pub fn add_passed_b(&mut self, passed_b: i64) {
+    self.fbb_.push_slot::<i64>(AgreementSave::VT_PASSED_B, passed_b, -1);
+  }
+  #[inline]
+  pub fn add_heard_a(&mut self, heard_a: i64) {
+    self.fbb_.push_slot::<i64>(AgreementSave::VT_HEARD_A, heard_a, -1);
+  }
+  #[inline]
+  pub fn add_heard_b(&mut self, heard_b: i64) {
+    self.fbb_.push_slot::<i64>(AgreementSave::VT_HEARD_B, heard_b, -1);
+  }
+  #[inline]
+  pub fn add_state(&mut self, state: u8) {
+    self.fbb_.push_slot::<u8>(AgreementSave::VT_STATE, state, 0);
+  }
+  #[inline]
+  pub fn add_state_day(&mut self, state_day: i64) {
+    self.fbb_.push_slot::<i64>(AgreementSave::VT_STATE_DAY, state_day, 0);
+  }
+  #[inline]
+  pub fn add_why_kind(&mut self, why_kind: u8) {
+    self.fbb_.push_slot::<u8>(AgreementSave::VT_WHY_KIND, why_kind, 0);
+  }
+  #[inline]
+  pub fn add_why_side(&mut self, why_side: u8) {
+    self.fbb_.push_slot::<u8>(AgreementSave::VT_WHY_SIDE, why_side, 0);
+  }
+  #[inline]
+  pub fn add_by(&mut self, by: u8) {
+    self.fbb_.push_slot::<u8>(AgreementSave::VT_BY, by, 255);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> AgreementSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    AgreementSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<AgreementSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for AgreementSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("AgreementSave");
+      ds.field("id", &self.id());
+      ds.field("polity_a", &self.polity_a());
+      ds.field("polity_b", &self.polity_b());
+      ds.field("negotiator_a", &self.negotiator_a());
+      ds.field("negotiator_b", &self.negotiator_b());
+      ds.field("clause_kind", &self.clause_kind());
+      ds.field("clause_side", &self.clause_side());
+      ds.field("term_days", &self.term_days());
+      ds.field("made", &self.made());
+      ds.field("law_a", &self.law_a());
+      ds.field("law_b", &self.law_b());
+      ds.field("passed_a", &self.passed_a());
+      ds.field("passed_b", &self.passed_b());
+      ds.field("heard_a", &self.heard_a());
+      ds.field("heard_b", &self.heard_b());
+      ds.field("state", &self.state());
+      ds.field("state_day", &self.state_day());
+      ds.field("why_kind", &self.why_kind());
+      ds.field("why_side", &self.why_side());
+      ds.field("by", &self.by());
       ds.finish()
   }
 }

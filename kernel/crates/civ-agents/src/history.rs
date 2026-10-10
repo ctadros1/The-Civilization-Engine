@@ -689,6 +689,26 @@ pub enum ChronicleKind {
     /// founded; `pos` the site; `number` what happened ([`CoalitionStep`]); `name` the settlement
     /// left, for a founding, else empty.
     Coalition,
+    /// Two polities' people met to seek terms, or an agreement between their polities came into
+    /// force, failed or ended (M5c slice AU, ADR-0020 §6): `people` are the two who met, side 0's
+    /// first; `settlement` side 0's; `number` the step ([`AgreementStep`]); `name` the sentence.
+    Agreement,
+}
+
+/// What happened to an agreement, in a [`ChronicleKind::Agreement`] entry. Numeric in saves:
+/// append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AgreementStep {
+    /// The two who met agreed on terms to put to their gatherings.
+    Agreed = 0,
+    /// They parted with none.
+    NoTerms = 1,
+    /// Both gatherings passed it and each side heard of the other's decision.
+    InForce = 2,
+    /// It failed before coming into force.
+    Failed = 3,
+    /// Its term ran out, or a law of one side ended it.
+    Ended = 4,
 }
 
 /// What happened to a coalition, in a [`ChronicleKind::Coalition`] entry. Numeric in saves:
@@ -1198,7 +1218,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::CustomTaken
         | ChronicleKind::RevoltFailed
         | ChronicleKind::CoupFailed
-        | ChronicleKind::Encounter => {
+        | ChronicleKind::Encounter
+        | ChronicleKind::Agreement => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

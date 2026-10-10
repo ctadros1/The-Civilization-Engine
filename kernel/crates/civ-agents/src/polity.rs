@@ -48,11 +48,15 @@ pub enum PolicyKind {
     /// outsiders may use them only by leave (M5c slice AT, ADR-0020 §5). Its own people's use is
     /// unchanged, and nobody is stopped: a claim is words until outsiders heed it.
     ClaimPlace,
+    /// The polity's side of an agreement with another polity (M5c slice AU, ADR-0020 §6): its
+    /// gathering ratifies what two who met agreed on; it is in force only once both have passed
+    /// it and each has heard of the other's decision.
+    Agreement,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 8] = [
+    pub const ALL: [PolicyKind; 9] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -61,6 +65,7 @@ impl PolicyKind {
         PolicyKind::AmendBody,
         PolicyKind::Repeal,
         PolicyKind::ClaimPlace,
+        PolicyKind::Agreement,
     ];
 
     /// The authored name.
@@ -74,6 +79,7 @@ impl PolicyKind {
             PolicyKind::AmendBody => "amend_body",
             PolicyKind::Repeal => "repeal",
             PolicyKind::ClaimPlace => "claim_place",
+            PolicyKind::Agreement => "agreement",
         }
     }
 
@@ -109,11 +115,18 @@ pub enum IssueKind {
     /// People of another settlement worked places a household of the settlement works, within
     /// the last year, at places it has not claimed (M5c slice AT): what its members saw.
     Outsiders,
+    /// A household of the settlement heard that another polity claims places its people work,
+    /// which its own polity does not claim (M5c slice AU): what its members were told.
+    ClaimedFromUs,
+    /// One of the settlement's people met someone of another settlement who sought terms
+    /// between their polities, and the two agreed on some to put to their gatherings (M5c slice
+    /// AU). It answers no settlement's issue and opens no move to anyone.
+    TermsSought,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 7] = [
+    pub const ALL: [IssueKind; 9] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -121,6 +134,8 @@ impl IssueKind {
         IssueKind::Petition,
         IssueKind::Founding,
         IssueKind::Outsiders,
+        IssueKind::ClaimedFromUs,
+        IssueKind::TermsSought,
     ];
 
     /// The authored name.
@@ -133,6 +148,8 @@ impl IssueKind {
             IssueKind::Petition => "petition",
             IssueKind::Founding => "founding",
             IssueKind::Outsiders => "outsiders",
+            IssueKind::ClaimedFromUs => "claimed_from_us",
+            IssueKind::TermsSought => "terms_sought",
         }
     }
 
@@ -156,6 +173,10 @@ impl IssueKind {
                  until the new body weighed them"
             }
             IssueKind::Outsiders => "people of another settlement worked the places theirs did",
+            IssueKind::ClaimedFromUs => "another settlement claims places theirs work",
+            IssueKind::TermsSought => {
+                "one of theirs met someone of another settlement who sought terms with them"
+            }
         }
     }
 }
@@ -749,6 +770,8 @@ pub struct Law {
     /// The law in force it would replace, if any (M4c slice AH): a common store at another
     /// share, or at none, in place of the one in force.
     pub ends: Option<PermanentId>,
+    /// For the polity's side of an agreement: which (M5c slice AU).
+    pub agreement: Option<PermanentId>,
 }
 
 impl Law {
@@ -876,6 +899,9 @@ pub fn law_words(
                 them only by leave"
             .to_owned();
     }
+    if def.is_some_and(|d| d.kind == PolicyKind::Agreement) {
+        return "an agreement with a neighbouring polity".to_owned();
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::AgainstTaking) {
         return format!(
             "a law against taking: whoever is found to have taken from another household's \
@@ -943,6 +969,7 @@ pub fn ending_words(
         ),
         Some(PolicyKind::AmendBody) => "a change of the custom".to_owned(),
         Some(PolicyKind::ClaimPlace) => "the claim on places outsiders worked".to_owned(),
+        Some(PolicyKind::Agreement) => "the agreement with a neighbouring polity".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -1699,6 +1726,7 @@ pub(crate) mod tests {
             watch: WatchRecord::default(),
             body: None,
             ends: None,
+            agreement: None,
         };
         assert!(law.learn(pid(9), 3));
         assert!(law.learn(pid(4), 5));
@@ -1752,6 +1780,7 @@ pub(crate) mod tests {
             watch: WatchRecord::default(),
             body: None,
             ends: None,
+            agreement: None,
         };
         let name_of = |_: PermanentId| "Ada".to_owned();
         assert_eq!(
@@ -1857,6 +1886,7 @@ pub(crate) mod tests {
             },
             body: None,
             ends: None,
+            agreement: None,
         });
         assert_eq!(polity.watcher().map(|w| w.0), Some(pid(9)));
         assert!(polity.keeper().is_none(), "a watch keeps no store");
@@ -2006,6 +2036,7 @@ pub(crate) mod tests {
             watch: WatchRecord::default(),
             body: Some(elders),
             ends: None,
+            agreement: None,
         };
         let policies = [PolicyDef {
             id: "core:policy/amend_custom".to_owned(),

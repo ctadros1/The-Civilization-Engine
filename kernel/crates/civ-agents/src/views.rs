@@ -28,6 +28,14 @@ pub struct RelationsParams {
     /// What a place a household has heard another polity claims is worth to it, as a share of
     /// what it would yield (content API 61).
     pub claimed_worth: f64,
+    /// The most packages two who meet weigh (content API 62; ADR-0020 §6).
+    pub packages: u32,
+    /// Days within which an agreement must be put to the other gathering, and each side must
+    /// hear of the other's decision, or it fails (content API 62).
+    pub answer_days: i64,
+    /// The terms an agreement may run once in force, days, in the order weighed; 0 until
+    /// withdrawn (content API 62).
+    pub terms_days: Vec<u32>,
 }
 
 impl RelationsParams {
@@ -40,6 +48,9 @@ impl RelationsParams {
             heard_trespass: 0.5,
             share_claims: 0.15,
             claimed_worth: 0.5,
+            packages: 8,
+            answer_days: 120,
+            terms_days: vec![365, 1825],
         }
     }
 }

@@ -142,6 +142,7 @@ impl Population {
                         .collect();
                 witnesses.sort_unstable();
                 witnesses.dedup();
+                let claimant = self.polities[pi].id;
                 for who in witnesses {
                     let knows = self.polities[pi]
                         .laws
@@ -153,8 +154,21 @@ impl Population {
                     if !knows {
                         continue;
                     }
+                    // Those of a polity they know an agreement gives leave are not trespassing
+                    // (M5c slice AU).
+                    let by_leave: Vec<bool> = outsiders
+                        .iter()
+                        .map(|o| {
+                            self.polity_of(o.1).is_some_and(|i| {
+                                self.leave_known(claimant, self.polities[i].id, pi, &[who])
+                            })
+                        })
+                        .collect();
                     let need = self.day_need(household, ctx.params).max(1.0);
-                    for &(o, os, kcal) in &outsiders {
+                    for (k, &(o, os, kcal)) in outsiders.iter().enumerate() {
+                        if by_leave[k] {
+                            continue;
+                        }
                         // One grievance for each other settlement's people: one already held
                         // against a household of theirs is raised again, so the trespass of
                         // many households does not crowd out what else one holds.
@@ -172,6 +186,9 @@ impl Population {
                         self.grieve(ctx, who, issue, blamed, under, kcal / need, Wrong::Trespass);
                     }
                     for &polity in &theirs {
+                        if self.leave_known(claimant, polity, pi, &[who]) {
+                            continue;
+                        }
                         let seen = rp.seen_trespass;
                         self.polity_views
                             .record(who, polity, ViewAct::SawTrespass, seen, day, rp);

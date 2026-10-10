@@ -1309,6 +1309,7 @@ fn a_refused_petition_has_its_organizer_weigh_leaving_together_with_its_faction(
         watch: Default::default(),
         body: None,
         ends: None,
+        agreement: None,
     });
     pop.factions.petitions.push(Petition {
         id: asked,

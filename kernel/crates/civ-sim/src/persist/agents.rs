@@ -110,8 +110,8 @@ use super::{
     SCHEMA_V33, SCHEMA_V34, SCHEMA_V35, SCHEMA_V36, SCHEMA_V37, SCHEMA_V38, SCHEMA_V39, SCHEMA_V40,
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
-    SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, finish,
-    section, single_chunk, unreadable,
+    SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
+    finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -417,6 +417,8 @@ enum Schema {
     V63,
     /// The claims of other polities households heard of (M5c slice AU, step one).
     V64,
+    /// Agreements between polities and the laws that decide them (M5c slice AU, step two).
+    V65,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -495,7 +497,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V61 => Schema::V61,
         SCHEMA_V62 => Schema::V62,
         SCHEMA_V63 => Schema::V63,
-        SAVE_SCHEMA_VERSION => Schema::V64,
+        SCHEMA_V64 => Schema::V64,
+        SAVE_SCHEMA_VERSION => Schema::V65,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -717,7 +720,8 @@ pub(super) fn decode<R: Read + Seek>(
     // What people believe of other polities (schema 63); before, nobody held a view.
     if schema >= Schema::V63 {
         let bytes = single_chunk(reader, SECTION_RELATIONS)?;
-        (people.polity_views, people.claims_heard) = decode_relations(&bytes, rules)?;
+        (people.polity_views, people.claims_heard, people.agreements) =
+            decode_relations(&bytes, rules)?;
     }
     // Settlements' founding ways (schema 61); before them a founding band's is drawn again from
     // its key, and any other settlement's taken as its households' now.
@@ -870,6 +874,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             broken: c.broken,
                             broken_unaware: c.broken_unaware,
                             ends: l.ends.map_or(0, PermanentId::get),
+                            agreement: l.agreement.map_or(0, PermanentId::get),
                             status: law_status_code(l.status),
                             sponsor: l.sponsor.get(),
                             proposed: l.proposed.minutes(),
@@ -1028,6 +1033,8 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::Petition => 4,
         IssueKind::Founding => 5,
         IssueKind::Outsiders => 6,
+        IssueKind::ClaimedFromUs => 7,
+        IssueKind::TermsSought => 8,
     }
 }
 
@@ -1131,6 +1138,8 @@ fn decode_polities(
                 4 => IssueKind::Petition,
                 5 => IssueKind::Founding,
                 6 => IssueKind::Outsiders,
+                7 => IssueKind::ClaimedFromUs,
+                8 => IssueKind::TermsSought,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -1188,6 +1197,7 @@ fn decode_polities(
                 hours: (l.from_hour(), l.to_hour()),
                 status,
                 ends: PermanentId::from_raw(l.ends()),
+                agreement: PermanentId::from_raw(l.agreement()),
                 sponsor: required(l.sponsor(), "a law's sponsor")?,
                 proposed: time(l.proposed()),
                 issue,
@@ -2740,7 +2750,8 @@ fn carried(
         | Schema::V61
         | Schema::V62
         | Schema::V63
-        | Schema::V64 => {
+        | Schema::V64
+        | Schema::V65 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2914,7 +2925,8 @@ fn decode_households(
             | Schema::V61
             | Schema::V62
             | Schema::V63
-            | Schema::V64 => {
+            | Schema::V64
+            | Schema::V65 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3584,6 +3596,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::InfluenceTurned => 40,
         ChronicleKind::Moved => 41,
         ChronicleKind::Coalition => 42,
+        ChronicleKind::Agreement => 43,
     }
 }
 
@@ -3631,6 +3644,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         40 => Some(ChronicleKind::InfluenceTurned),
         41 => Some(ChronicleKind::Moved),
         42 => Some(ChronicleKind::Coalition),
+        43 => Some(ChronicleKind::Agreement),
         _ => None,
     }
 }
@@ -7118,14 +7132,69 @@ fn encode_relations(people: &Population) -> Vec<u8> {
         })
         .collect();
     let heard = (!heard.is_empty()).then(|| fbb.create_vector(&heard));
-    let root = save::RelationsSave::create(&mut fbb, &save::RelationsSaveArgs { views, heard });
+    // Agreements between polities (schema 65).
+    let agreements: Vec<_> = people
+        .agreements
+        .list
+        .iter()
+        .map(|a| {
+            use civ_agents::agreements::AgreementState;
+            let (kinds, sides): (Vec<u8>, Vec<u8>) = a.clauses.iter().map(|c| c.code()).unzip();
+            let clause_kind = fbb.create_vector(&kinds);
+            let clause_side = fbb.create_vector(&sides);
+            let (state, state_day, (why_kind, why_side), by) = match a.state {
+                AgreementState::Offered => (0, 0, (0, 0), u8::MAX),
+                AgreementState::InForce { since } => (1, since, (0, 0), u8::MAX),
+                AgreementState::Failed { day, why } => (2, day, why.code(), u8::MAX),
+                AgreementState::Ended { day, by } => (3, day, (0, 0), by.unwrap_or(u8::MAX)),
+            };
+            let law = |s: usize| a.laws[s].map_or(0, PermanentId::get);
+            save::AgreementSave::create(
+                &mut fbb,
+                &save::AgreementSaveArgs {
+                    id: a.id.get(),
+                    polity_a: a.polities[0].get(),
+                    polity_b: a.polities[1].get(),
+                    negotiator_a: a.negotiators[0].get(),
+                    negotiator_b: a.negotiators[1].get(),
+                    clause_kind: Some(clause_kind),
+                    clause_side: Some(clause_side),
+                    term_days: a.term_days,
+                    made: a.made,
+                    law_a: law(0),
+                    law_b: law(1),
+                    passed_a: a.passed[0].unwrap_or(-1),
+                    passed_b: a.passed[1].unwrap_or(-1),
+                    heard_a: a.heard[0].unwrap_or(-1),
+                    heard_b: a.heard[1].unwrap_or(-1),
+                    state,
+                    state_day,
+                    why_kind,
+                    why_side,
+                    by,
+                },
+            )
+        })
+        .collect();
+    let agreements = (!agreements.is_empty()).then(|| fbb.create_vector(&agreements));
+    let root = save::RelationsSave::create(
+        &mut fbb,
+        &save::RelationsSaveArgs {
+            views,
+            heard,
+            agreements,
+        },
+    );
     finish(fbb, root)
 }
 
-fn decode_relations(
-    bytes: &[u8],
-    rules: &Rules,
-) -> Result<(civ_agents::views::Views, civ_agents::uses::ClaimsHeard), LoadError> {
+type Relations = (
+    civ_agents::views::Views,
+    civ_agents::uses::ClaimsHeard,
+    civ_agents::agreements::Agreements,
+);
+
+fn decode_relations(bytes: &[u8], rules: &Rules) -> Result<Relations, LoadError> {
     use civ_agents::views::{DOMAINS, View, ViewAct, ViewReason, Views};
     let root = flatbuffers::root::<save::RelationsSave>(bytes)
         .map_err(|e| unreadable(SECTION_RELATIONS, &e))?;
@@ -7190,7 +7259,74 @@ fn decode_relations(
             )));
         }
     }
-    Ok((out, heard))
+    // Agreements between polities (schema 65); before, none.
+    let mut agreements = civ_agents::agreements::Agreements::default();
+    for a in root.agreements().iter().flatten() {
+        use civ_agents::agreements::{Agreement, AgreementState, Clause, Failure};
+        let id = required(a.id(), "an agreement")?;
+        let bad = |what: &str| LoadError::Malformed(format!("agreement {id} has {what}"));
+        let kinds: Vec<u8> = a
+            .clause_kind()
+            .map(|v| v.iter().collect())
+            .unwrap_or_default();
+        let sides: Vec<u8> = a
+            .clause_side()
+            .map(|v| v.iter().collect())
+            .unwrap_or_default();
+        if kinds.len() != sides.len() {
+            return Err(bad("clause kinds and sides of different lengths"));
+        }
+        let mut clauses = Vec::with_capacity(kinds.len());
+        for (&k, &s) in kinds.iter().zip(&sides) {
+            clauses.push(
+                Clause::from_code(k, s)
+                    .ok_or_else(|| bad(&format!("a clause of kind {k} and side {s}")))?,
+            );
+        }
+        let day = |d: i64| (d >= 0).then_some(d);
+        let state = match a.state() {
+            0 => AgreementState::Offered,
+            1 => AgreementState::InForce {
+                since: a.state_day(),
+            },
+            2 => AgreementState::Failed {
+                day: a.state_day(),
+                why: Failure::from_code(a.why_kind(), a.why_side())
+                    .ok_or_else(|| bad("an unknown failure"))?,
+            },
+            3 => AgreementState::Ended {
+                day: a.state_day(),
+                by: match a.by() {
+                    u8::MAX => None,
+                    s @ (0 | 1) => Some(s),
+                    _ => return Err(bad("an ending by an unknown side")),
+                },
+            },
+            c => return Err(bad(&format!("state code {c}"))),
+        };
+        agreements.list.push(Agreement {
+            id,
+            polities: [
+                required(a.polity_a(), "an agreement's polity")?,
+                required(a.polity_b(), "an agreement's polity")?,
+            ],
+            negotiators: [
+                required(a.negotiator_a(), "an agreement's negotiator")?,
+                required(a.negotiator_b(), "an agreement's negotiator")?,
+            ],
+            clauses,
+            term_days: a.term_days(),
+            made: a.made(),
+            laws: [
+                PermanentId::from_raw(a.law_a()),
+                PermanentId::from_raw(a.law_b()),
+            ],
+            passed: [day(a.passed_a()), day(a.passed_b())],
+            heard: [day(a.heard_a()), day(a.heard_b())],
+            state,
+        });
+    }
+    Ok((out, heard, agreements))
 }
 
 fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> Vec<u8> {

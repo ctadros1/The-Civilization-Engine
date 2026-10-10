@@ -168,6 +168,9 @@ impl Population {
                 self.decide_gathering(ctx, pi);
             }
         }
+        // Agreements between polities: a gathering's decision on one, a side not yet put to its
+        // gathering, and one coming into force, failing or ending (M5c slice AU).
+        self.agreements_day(ctx);
         // Cases still waiting go before the next gathering (M4b slice AB).
         if self
             .order
@@ -199,6 +202,9 @@ impl Population {
             if day - p.reviewed >= i64::from(ctx.params.polity.review_days.max(1)) {
                 self.polities[pi].reviewed = day;
                 self.review(ctx, pi);
+                // Terms with another polity are sought when nothing was put to the gathering
+                // (M5c slice AU).
+                self.seek_terms(ctx, pi);
             }
         }
     }
@@ -1126,6 +1132,9 @@ impl Population {
                     // A claim names the places where the settlement's people saw outsiders at
                     // work (M5c slice AT): one move, its places fixed when it is proposed.
                     PolicyKind::ClaimPlace => moves.push(blank),
+                    // Seeking terms with another polity is weighed apart, after these (M5c
+                    // slice AU): it is a meeting before it is a law.
+                    PolicyKind::Agreement => {}
                     // While founding, an end to each law the old custom made (M4c slice AI): a
                     // store's levy ends as a petition would end it, the store giving what it
                     // holds; any other law is repealed.
@@ -1371,7 +1380,24 @@ impl Population {
             watch: Default::default(),
             body: m.body,
             ends: m.ends,
+            agreement: None,
         };
+        // A claim names the places the settlement's people saw outsiders at, unclaimed (M5c
+        // slice AT): named before it is told, so its words count them.
+        if def.kind == PolicyKind::ClaimPlace {
+            let settlement = self.polities[pi].settlement;
+            let mut households: Vec<PermanentId> = self
+                .households
+                .iter()
+                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                .map(|(_, x)| x.id)
+                .collect();
+            households.sort_unstable();
+            let places = self.unclaimed_outsider_places(ctx, pi, &households);
+            self.polities[pi]
+                .claimed
+                .extend(places.into_iter().map(|p| (id, p)));
+        }
         // "Mira proposed themselves as keeper of the common store", not "Mira as keeper"; and
         // the creed they proposed it under, if any (M4c slice AG).
         let held = creed
@@ -1392,23 +1418,7 @@ impl Population {
         if let Some(k) = creed {
             self.ideologies.note_creed(id, k);
         }
-        // A claim names the places the settlement's people saw outsiders at, unclaimed (M5c
-        // slice AT).
-        let places = if def.kind == PolicyKind::ClaimPlace {
-            let settlement = self.polities[pi].settlement;
-            let mut households: Vec<PermanentId> = self
-                .households
-                .iter()
-                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
-                .map(|(_, x)| x.id)
-                .collect();
-            households.sort_unstable();
-            self.unclaimed_outsider_places(ctx, pi, &households)
-        } else {
-            Vec::new()
-        };
         let polity = &mut self.polities[pi];
-        polity.claimed.extend(places.into_iter().map(|p| (id, p)));
         polity.laws.push(law);
         polity.gathering = Some(Gathering {
             law: Some(id),

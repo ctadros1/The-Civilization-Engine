@@ -894,6 +894,14 @@ heard_trespass = 0.5
 # still goes when nothing else is half as good, and is held to trespass if seen. A design prior.
 share_claims = 0.15
 claimed_worth = 0.5
+# Agreements (ADR-0020 §6): two who meet weigh at most `packages` packages of clauses and terms
+# (research 13-01 §3.3: 8-32 a bargaining decision; 09-05 §2.3: 3-8 alternatives a round); one is
+# lost if nobody puts it to the other gathering within `answer_days`, or a side never hears of the
+# other's decision within as long; once in force it runs one of `terms_days` (a year or five; 0
+# would be until withdrawn). Design priors: the research gives no waiting time for a village's word.
+packages = 8
+answer_days = 120
+terms_days = [365, 1825]
 
 [moving]                         # moving to another settlement (M5a slice AN, ADR-0018 §5); design priors
 # Once a year on a day of its own, and when it forms, a household weighs joining each settlement it

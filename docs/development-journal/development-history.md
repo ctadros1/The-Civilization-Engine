@@ -982,6 +982,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** AU step two, the agreement itself: seeking terms, the meeting, packages of leave, ratification by each custom.
 
+## 2026-10-10 — M5c slice AU, step two: agreements between polities
+
+**Goal:** the agreement of ADR-0020 §6: one shared record and a law on each side, each decided by its own custom, in force only once each side has heard of the other's decision.
+
+**What changed:** the issue *claimed from us*; seeking terms, by an elder who may propose and would sponsor some package, with the one of the other settlement they know best; up to eight packages of leave (either side's claims, or both, for a year or five) weighed by each negotiator's household forecast and the support they expect at home; each side's law (`core:policy/word_given`), word of each decision carried by travellers, and failure or ending recorded with its reason; leave in force lifts the discount and the trespass for those who know their own law. Saves schema 65, content API 62. Also fixed: a claim's proposal was told before its places were named.
+
+**Findings:** the first build let anyone holding the issue seek terms, and three meetings in two years parted with none, one over a clay pit the food forecast weighs at nothing; seeking is now a move weighed like any other. In six years of each demo world no agreement was made: villages counter-claim the places they share within weeks, every claim passes, and leave between two claimants grants nothing either lacks. Nothing was tuned; a cost to contested claims (views in stances, force) or something to give for leave (gifts) is what would bring agreements.
+
+**Evidence:** unit tests of the record and its codes; integration tests of an agreement sought, passed by both gatherings and in force once kin carried word both ways (and no trespass under it), and of a meeting that parts with none and is remembered; the roundtrip of a schema-64 save; the full suite, clippy and the smoke seeds; a forty-day comparison on a village of 1,000, the same after re-encoding.
+
+**Open:** AU step three: the observer's view of agreements and both law histories, views weighed in stances (ADR-0020 §3), failure recorded on each side once heard.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

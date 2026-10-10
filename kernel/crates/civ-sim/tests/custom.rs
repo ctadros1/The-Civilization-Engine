@@ -119,6 +119,7 @@ fn law(sim: &Sim, id: u64, policy: u16, sponsor: PermanentId) -> Law {
         watch: Default::default(),
         body: None,
         ends: None,
+        agreement: None,
     }
 }
 

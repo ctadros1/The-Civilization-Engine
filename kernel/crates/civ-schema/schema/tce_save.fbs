@@ -1157,6 +1157,9 @@ table LawSave {
   // Levies kept back openly in a faction's refusal, and the grain (schema 43, M4c slice AH).
   refused: uint (id: 44);
   refused_kg: double (id: 45);
+  // The agreement with another polity this law decides, 0 for none (schema 65, M5c slice AU,
+  // ADR-0020 §6).
+  agreement: ulong (id: 46);
 }
 
 // `law` 0: called on cases only (M4b slice AB).
@@ -1860,6 +1863,38 @@ table RelationsSave {
   // Schema 64 (M5c slice AU, ADR-0020 §2): the claims of other polities each household heard of,
   // by household, place and law.
   heard: [HeardClaimSave] (id: 1);
+  // Schema 65 (M5c slice AU, ADR-0020 §6): every agreement between polities, in the order made.
+  agreements: [AgreementSave] (id: 2);
+}
+
+// An agreement between two polities (schema 65): side 0 is the polity whose member sought terms.
+// `clause_kind` and `clause_side` are its clauses in order (kind 0: side `clause_side` gives the
+// other's people leave to use the places it claims). Each side's `law`, `passed` and `heard` is 0,
+// or `passed`/`heard` -1, when not yet. `state` 0 offered, 1 in force since `state_day`, 2 failed
+// on `state_day` (`why_kind`, `why_side`: 0 no terms, 1 turned down, 2 too few came, 3 never put
+// to a gathering, 4 never answered), 3 ended on `state_day` (`by` 255 when its term ran out, else
+// the side whose law ended it).
+table AgreementSave {
+  id: ulong (id: 0);
+  polity_a: ulong (id: 1);
+  polity_b: ulong (id: 2);
+  negotiator_a: ulong (id: 3);
+  negotiator_b: ulong (id: 4);
+  clause_kind: [ubyte] (id: 5);
+  clause_side: [ubyte] (id: 6);
+  term_days: uint (id: 7);
+  made: long (id: 8);
+  law_a: ulong (id: 9);
+  law_b: ulong (id: 10);
+  passed_a: long = -1 (id: 11);
+  passed_b: long = -1 (id: 12);
+  heard_a: long = -1 (id: 13);
+  heard_b: long = -1 (id: 14);
+  state: ubyte (id: 15);
+  state_day: long (id: 16);
+  why_kind: ubyte (id: 17);
+  why_side: ubyte (id: 18);
+  by: ubyte = 255 (id: 19);
 }
 
 // A place another polity's law claims, as `household` heard of it on `day` from `from` (schema

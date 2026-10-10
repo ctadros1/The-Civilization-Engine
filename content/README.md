@@ -716,6 +716,25 @@ officeholder, and more adults than stand with the gathering, must stand with it 
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
 
+Content API 62 (M5c slice AU, step two) brings agreements between polities (ADR-0020 §6): the
+policy kind `agreement` (`core:policy/word_given`, answering the issue `claimed_from_us`; it
+asks no question and bears reciprocity +0.5 and security −0.5, authoring judgements), and the
+`[relations]` keys `packages` (1 to 32; 8, inside research 13-01 §3.3's 8–32 and 09-05 §2.3's
+3–8 per round), `answer_days` (1 to 3,650; 120, a design prior) and `terms_days` (at least one
+term of at most 36,500 days, 0 for one that runs until a law ends it; 365 and 1,825, from
+ADR-0020's menu of a year and five years). Someone
+whose household heard that another polity claims places it works, and who may propose at home,
+meets the one of that settlement they know best who may propose there; the two weigh leave to
+use the places either side claims, for each term, up to `packages` of them, each by their own
+household's forecast and the support they predict at home, and agree on the one both expect to
+pass and to be worth sponsoring, or part with none. Each sponsors it at home as a law of the
+template; it is in force once both gatherings have passed it and each side has heard of the
+other's decision from someone of the other settlement. A side not put to its gathering within
+`answer_days`, or not hearing within `answer_days` of the later decision, fails it. Leave in force
+lifts `claimed_worth` and the trespass for those who know their own polity's law deciding it.
+The issue `terms_sought` names why the other side's negotiator proposed it; it answers no
+settlement's issue.
+
 Content API 61 (M5c slice AU, step one) brings claims that bind outsiders' choices (ADR-0020
 §2, §5): the `[relations]` keys `share_claims` (0 to 1; 0.15, inside research 09-16 §2.2's 0.05–0.25
 for routine news) and `claimed_worth` (0 to 1; 0.5, a design prior). Someone who knows a claim

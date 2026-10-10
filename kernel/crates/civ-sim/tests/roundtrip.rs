@@ -2241,6 +2241,28 @@ fn a_schema_48_save_loads_with_no_one_blessed() {
 }
 
 #[test]
+fn a_schema_64_save_loads_with_no_agreement_between_polities() {
+    // A schema-64 save, from before agreements between polities (M5c slice AU, step two): it
+    // held none, and no law decided one; a world of one polity holds none anyway.
+    let sim = load_first();
+    assert!(sim.people().agreements.list.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V64;
+    let path = republish("slice-au1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-64 save loads");
+    assert!(loaded.people().agreements.list.is_empty());
+    assert!(
+        loaded
+            .people()
+            .polities
+            .iter()
+            .flat_map(|p| &p.laws)
+            .all(|l| l.agreement.is_none())
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_63_save_loads_with_no_claim_heard_of() {
     // A schema-63 save, from before households heard of other polities' claims (M5c slice AU):
     // it held none, and a world of one polity holds none anyway.

@@ -161,6 +161,17 @@ fn outsiders_seen_at_a_place_make_an_issue_and_a_gathering_decides_a_claim_on_it
     } else {
         assert!(polity.claims_now().is_empty());
     }
+    // The chronicle tells the proposal with the places it names, as its decision does.
+    let proposed = pop
+        .chronicle
+        .iter()
+        .find(|e| e.kind == civ_agents::ChronicleKind::LawProposed && e.name.contains("claim"))
+        .expect("the claim was proposed");
+    assert!(
+        proposed.name.contains("a claim on a place"),
+        "{}",
+        proposed.name
+    );
     assert!(pop.problems(u64::MAX, usize::MAX).is_empty());
     // All of it saves and loads exactly, and goes on alike.
     saves_and_goes_on_alike(&mut sim, 3 * DAY);

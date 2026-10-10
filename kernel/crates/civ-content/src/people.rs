@@ -347,6 +347,11 @@ pub(crate) struct RelationsFile {
     /// worth to a household that heard of the claim.
     pub share_claims: f64,
     pub claimed_worth: f64,
+    /// Content API 62 (M5c slice AU, step two): the packages two who meet weigh, the days an
+    /// agreement waits for the other gathering and for word of it, and the terms it may run.
+    pub packages: u32,
+    pub answer_days: i64,
+    pub terms_days: Vec<u32>,
 }
 
 /// Word of mouth and grievances (M4c slice AE, ADR-0016; content API 39). See
@@ -1600,6 +1605,9 @@ impl PeopleFile {
                 heard_trespass: self.relations.heard_trespass,
                 share_claims: self.relations.share_claims,
                 claimed_worth: self.relations.claimed_worth,
+                packages: self.relations.packages,
+                answer_days: self.relations.answer_days,
+                terms_days: self.relations.terms_days.clone(),
             },
             names,
         }
@@ -1725,6 +1733,25 @@ impl PeopleFile {
                     "`relations.{name}` must be between 0 and 1 (got {x})"
                 ));
             }
+        }
+        if !(1..=32).contains(&v.packages) {
+            p.push(format!(
+                "`relations.packages` must be between 1 and 32 (got {})",
+                v.packages
+            ));
+        }
+        if !(1..=3650).contains(&v.answer_days) {
+            p.push(format!(
+                "`relations.answer_days` must be between 1 and 3650 (got {})",
+                v.answer_days
+            ));
+        }
+        if v.terms_days.is_empty() || v.terms_days.iter().any(|&t| t > 36_500) {
+            p.push(format!(
+                "`relations.terms_days` must name at least one term of at most 36500 days (got \
+                 {:?})",
+                v.terms_days
+            ));
         }
         if !(1..=256).contains(&f.candidates) {
             p.push(format!(

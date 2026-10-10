@@ -220,6 +220,9 @@ impl Population {
             self.share_reports(ctx, me, q);
             // And of the places a polity's law claims (M5c slice AU, ADR-0020 §2).
             self.share_claims(ctx, me, q);
+            // And of what a gathering decided on an agreement between their polities (M5c slice
+            // AU, ADR-0020 §6).
+            self.share_agreement_word(ctx, me, q);
         }
     }
 

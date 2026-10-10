@@ -64,6 +64,7 @@ mod places;
 mod polity;
 mod relations;
 mod residence;
+mod sickness;
 mod terms;
 mod values;
 mod watch;
@@ -442,6 +443,8 @@ pub struct Population {
     pub transfers: crate::ledger::Transfers,
     /// How people spent their time (counters, not saved).
     pub time_use: TimeUse,
+    /// Every infection there has been (M6a slice AZ; ADR-0021 §5). Saved.
+    pub sickness: crate::sickness::Sickness,
     /// Water drawn, by the kind of place (counters, not saved; M6a slice AY).
     pub water_draws: WaterDraws,
     /// Each settlement's market (slice I).
@@ -2635,6 +2638,7 @@ impl Population {
                 .order
                 .hurt_until(p.id)
                 .is_some_and(|d| d >= now.day_index()),
+            ill: self.sickness.ill(p.id, now.day_index()),
         };
         let limits = Limits {
             sleep_needed_min: needs::minutes_to_rest(&params.sleep, f64::from(p.sleep_pressure)),

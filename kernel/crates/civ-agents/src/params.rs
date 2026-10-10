@@ -557,6 +557,9 @@ pub struct Catalog {
     /// Well systems, in content id order (M6a slice AY, step three). Wells refer to them by
     /// index, saves by content id.
     pub wells: Vec<WellDef>,
+    /// Diseases, in content id order (M6a slice AZ). Episodes refer to them by index, saves by
+    /// content id.
+    pub diseases: Vec<DiseaseDef>,
 }
 
 /// A well system (content kind `well`, M6a slice AY, step three; ADR-0021 §3; research 03-02
@@ -610,6 +613,103 @@ impl Catalog {
     /// The well system with content id `id`, by index.
     pub fn well_index(&self, id: &str) -> Option<usize> {
         self.wells.iter().position(|w| w.id == id)
+    }
+}
+
+/// The routes a disease passes by (ADR-0021 §5; research 05-03 §1.2). Codes are part of content:
+/// append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DiseaseRoute {
+    /// Water drunk that carries it (M6a slice AZ, step two).
+    Water,
+    /// Living under one roof with someone shedding it: hands, food and shared vessels.
+    Household,
+}
+
+impl DiseaseRoute {
+    /// Its key in content.
+    pub fn key(self) -> &'static str {
+        match self {
+            DiseaseRoute::Water => "water",
+            DiseaseRoute::Household => "household",
+        }
+    }
+
+    /// The route with a key.
+    pub fn from_key(key: &str) -> Option<DiseaseRoute> {
+        [DiseaseRoute::Water, DiseaseRoute::Household]
+            .into_iter()
+            .find(|r| r.key() == key)
+    }
+}
+
+/// A duration a disease's clock draws, days: lognormal with this arithmetic mean and standard
+/// deviation (research 05-03 §7.3); a standard deviation of 0 is the mean exactly.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Days {
+    pub mean: f64,
+    pub sd: f64,
+}
+
+impl Days {
+    /// The duration for a standard normal draw `z`, days: 05-03 §7.3's lognormal with
+    /// `σ² = ln(1 + s²/m²)` and `μ = ln m − σ²/2`.
+    pub fn at(self, z: f64) -> f64 {
+        if self.mean <= 0.0 {
+            return 0.0;
+        }
+        if self.sd <= 0.0 {
+            return self.mean;
+        }
+        let var = (1.0 + (self.sd / self.mean).powi(2)).ln();
+        (self.mean.ln() - var / 2.0 + var.sqrt() * z).exp()
+    }
+}
+
+/// A disease (content kind `disease`, M6a slice AZ; ADR-0021 §5; research 05-03 §1.1, §2.1,
+/// §3.2, §7.2-§7.6): the routes it passes by, its own clocks (infection to symptoms, to
+/// shedding, how long people are ill and shed), who has symptoms and who is severely ill, the
+/// chance a day of dying while severely ill, and how long an infection protects. Nothing about
+/// it is a rate of cases or deaths: those come from who meets it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DiseaseDef {
+    pub id: String,
+    pub name: String,
+    pub routes: Vec<DiseaseRoute>,
+    /// Infection to symptoms (and to the time shedding is reckoned from), days.
+    pub incubation: Days,
+    /// How many days before symptoms shedding begins (0: with them; never before infection).
+    pub shed_lead_days: f64,
+    /// How long shedding lasts from its start, days; and how long it goes on after illness
+    /// ends (05-03 §2.1: Shigella's up to two weeks).
+    pub shed: Days,
+    pub shed_after: Days,
+    /// The share of infections with symptoms, and how long those are ill, days.
+    pub symptomatic: f64,
+    pub ill: Days,
+    /// Of those with symptoms, the share severely ill, by age `(years, share)`, interpolated.
+    pub severe_by_age: Vec<(f64, f64)>,
+    /// The chance a day of dying while severely ill (05-03 §7.6: a hazard by stage, never a
+    /// fate drawn at infection).
+    pub severe_death_per_day: f64,
+    /// How long an infection protects against another, years: drawn evenly between the two.
+    pub immunity_years: [f64; 2],
+    /// The hazard a day each member shedding it puts on each other member of a household
+    /// (05-03 §7.2: summed over routes, drawn once a day).
+    pub household_hazard: f64,
+}
+
+impl DiseaseDef {
+    /// Whether it passes by `route`.
+    pub fn passes_by(&self, route: DiseaseRoute) -> bool {
+        self.routes.contains(&route)
+    }
+}
+
+impl Catalog {
+    /// The disease with content id `id`, by index.
+    pub fn disease_index(&self, id: &str) -> Option<usize> {
+        self.diseases.iter().position(|d| d.id == id)
     }
 }
 

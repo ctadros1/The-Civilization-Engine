@@ -27,17 +27,21 @@ pub enum InfluenceKind {
     /// A migration wave (M5a slice AN): the target is its first arrival, the subject the
     /// households it brings; [`Wave`] holds the rest.
     Wave = 5,
+    /// A disease brought to one person, as if they took it elsewhere (M6a slice AZ, ADR-0021
+    /// §8): the subject is the disease's index in the catalog; their episode names this record.
+    Plague = 6,
 }
 
 impl InfluenceKind {
     /// Every kind, in code order.
-    pub const ALL: [InfluenceKind; 6] = [
+    pub const ALL: [InfluenceKind; 7] = [
         InfluenceKind::Whisper,
         InfluenceKind::Ideology,
         InfluenceKind::Agitator,
         InfluenceKind::Bless,
         InfluenceKind::Curse,
         InfluenceKind::Wave,
+        InfluenceKind::Plague,
     ];
 
     /// Its number in saves.

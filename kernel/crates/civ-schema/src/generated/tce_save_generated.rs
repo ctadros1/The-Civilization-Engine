@@ -689,16 +689,17 @@ impl ::flatbuffers::SimpleToVerifyInSlice for Origin {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_CAUSE: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_CAUSE: u8 = 5;
+pub const ENUM_MAX_CAUSE: u8 = 6;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_CAUSE: [Cause; 6] = [
+pub const ENUM_VALUES_CAUSE: [Cause; 7] = [
   Cause::Unspecified,
   Cause::Starvation,
   Cause::Childbirth,
   Cause::Collapse,
   Cause::Violence,
   Cause::Fell,
+  Cause::Disease,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -712,9 +713,10 @@ impl Cause {
   pub const Collapse: Self = Self(3);
   pub const Violence: Self = Self(4);
   pub const Fell: Self = Self(5);
+  pub const Disease: Self = Self(6);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 5;
+  pub const ENUM_MAX: u8 = 6;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Unspecified,
     Self::Starvation,
@@ -722,6 +724,7 @@ impl Cause {
     Self::Collapse,
     Self::Violence,
     Self::Fell,
+    Self::Disease,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -732,6 +735,7 @@ impl Cause {
       Self::Collapse => Some("Collapse"),
       Self::Violence => Some("Violence"),
       Self::Fell => Some("Fell"),
+      Self::Disease => Some("Disease"),
       _ => None,
     }
   }
@@ -31411,6 +31415,7 @@ impl<'a> InfluencesSave<'a> {
   pub const VT_LIST: ::flatbuffers::VOffsetT = 4;
   pub const VT_IDEOLOGIES: ::flatbuffers::VOffsetT = 6;
   pub const VT_WAVES: ::flatbuffers::VOffsetT = 8;
+  pub const VT_DISEASES: ::flatbuffers::VOffsetT = 10;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -31422,6 +31427,7 @@ impl<'a> InfluencesSave<'a> {
     args: &'args InfluencesSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<InfluencesSave<'bldr>> {
     let mut builder = InfluencesSaveBuilder::new(_fbb);
+    if let Some(x) = args.diseases { builder.add_diseases(x); }
     if let Some(x) = args.waves { builder.add_waves(x); }
     if let Some(x) = args.ideologies { builder.add_ideologies(x); }
     if let Some(x) = args.list { builder.add_list(x); }
@@ -31450,6 +31456,13 @@ impl<'a> InfluencesSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WaveSave>>>>(InfluencesSave::VT_WAVES, None)}
   }
+  #[inline]
+  pub fn diseases(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(InfluencesSave::VT_DISEASES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for InfluencesSave<'_> {
@@ -31461,6 +31474,7 @@ impl ::flatbuffers::Verifiable for InfluencesSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<InfluenceSave>>>>("list", Self::VT_LIST, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("ideologies", Self::VT_IDEOLOGIES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WaveSave>>>>("waves", Self::VT_WAVES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("diseases", Self::VT_DISEASES, false)?
      .finish();
     Ok(())
   }
@@ -31469,6 +31483,7 @@ pub struct InfluencesSaveArgs<'a> {
     pub list: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<InfluenceSave<'a>>>>>,
     pub ideologies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub waves: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WaveSave<'a>>>>>,
+    pub diseases: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for InfluencesSaveArgs<'a> {
   #[inline]
@@ -31477,6 +31492,7 @@ impl<'a> Default for InfluencesSaveArgs<'a> {
       list: None,
       ideologies: None,
       waves: None,
+      diseases: None,
     }
   }
 }
@@ -31499,6 +31515,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> InfluencesSaveBuilder<'a, 'b,
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(InfluencesSave::VT_WAVES, waves);
   }
   #[inline]
+  pub fn add_diseases(&mut self, diseases: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(InfluencesSave::VT_DISEASES, diseases);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> InfluencesSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     InfluencesSaveBuilder {
@@ -31519,6 +31539,7 @@ impl ::core::fmt::Debug for InfluencesSave<'_> {
       ds.field("list", &self.list());
       ds.field("ideologies", &self.ideologies());
       ds.field("waves", &self.waves());
+      ds.field("diseases", &self.diseases());
       ds.finish()
   }
 }
@@ -34626,6 +34647,419 @@ impl ::core::fmt::Debug for WellsSave<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
     let mut ds = f.debug_struct("WellsSave");
       ds.field("list", &self.list());
+      ds.finish()
+  }
+}
+pub enum EpisodeSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct EpisodeSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for EpisodeSave<'a> {
+  type Inner = EpisodeSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> EpisodeSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_PERSON: ::flatbuffers::VOffsetT = 6;
+  pub const VT_DISEASE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_INFECTED: ::flatbuffers::VOffsetT = 10;
+  pub const VT_ACQUIRED: ::flatbuffers::VOffsetT = 12;
+  pub const VT_SOURCE: ::flatbuffers::VOffsetT = 14;
+  pub const VT_SHED_FROM: ::flatbuffers::VOffsetT = 16;
+  pub const VT_SHED_UNTIL: ::flatbuffers::VOffsetT = 18;
+  pub const VT_ILL_FROM: ::flatbuffers::VOffsetT = 20;
+  pub const VT_ILL_UNTIL: ::flatbuffers::VOffsetT = 22;
+  pub const VT_SEVERE: ::flatbuffers::VOffsetT = 24;
+  pub const VT_IMMUNE_UNTIL: ::flatbuffers::VOffsetT = 26;
+  pub const VT_ENDED: ::flatbuffers::VOffsetT = 28;
+  pub const VT_OUTCOME: ::flatbuffers::VOffsetT = 30;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    EpisodeSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args EpisodeSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<EpisodeSave<'bldr>> {
+    let mut builder = EpisodeSaveBuilder::new(_fbb);
+    builder.add_ended(args.ended);
+    builder.add_immune_until(args.immune_until);
+    builder.add_ill_until(args.ill_until);
+    builder.add_ill_from(args.ill_from);
+    builder.add_shed_until(args.shed_until);
+    builder.add_shed_from(args.shed_from);
+    builder.add_source(args.source);
+    builder.add_infected(args.infected);
+    builder.add_person(args.person);
+    if let Some(x) = args.disease { builder.add_disease(x); }
+    builder.add_id(args.id);
+    builder.add_outcome(args.outcome);
+    builder.add_severe(args.severe);
+    builder.add_acquired(args.acquired);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(EpisodeSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(EpisodeSave::VT_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn disease(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(EpisodeSave::VT_DISEASE, None)}
+  }
+  #[inline]
+  pub fn infected(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(EpisodeSave::VT_INFECTED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn acquired(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(EpisodeSave::VT_ACQUIRED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn source(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(EpisodeSave::VT_SOURCE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn shed_from(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(EpisodeSave::VT_SHED_FROM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn shed_until(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(EpisodeSave::VT_SHED_UNTIL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ill_from(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(EpisodeSave::VT_ILL_FROM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ill_until(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(EpisodeSave::VT_ILL_UNTIL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn severe(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(EpisodeSave::VT_SEVERE, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn immune_until(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(EpisodeSave::VT_IMMUNE_UNTIL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ended(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(EpisodeSave::VT_ENDED, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn outcome(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(EpisodeSave::VT_OUTCOME, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for EpisodeSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("person", Self::VT_PERSON, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("disease", Self::VT_DISEASE, false)?
+     .visit_field::<i64>("infected", Self::VT_INFECTED, false)?
+     .visit_field::<u8>("acquired", Self::VT_ACQUIRED, false)?
+     .visit_field::<u64>("source", Self::VT_SOURCE, false)?
+     .visit_field::<i64>("shed_from", Self::VT_SHED_FROM, false)?
+     .visit_field::<i64>("shed_until", Self::VT_SHED_UNTIL, false)?
+     .visit_field::<i64>("ill_from", Self::VT_ILL_FROM, false)?
+     .visit_field::<i64>("ill_until", Self::VT_ILL_UNTIL, false)?
+     .visit_field::<bool>("severe", Self::VT_SEVERE, false)?
+     .visit_field::<i64>("immune_until", Self::VT_IMMUNE_UNTIL, false)?
+     .visit_field::<i64>("ended", Self::VT_ENDED, false)?
+     .visit_field::<u8>("outcome", Self::VT_OUTCOME, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct EpisodeSaveArgs<'a> {
+    pub id: u32,
+    pub person: u64,
+    pub disease: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub infected: i64,
+    pub acquired: u8,
+    pub source: u64,
+    pub shed_from: i64,
+    pub shed_until: i64,
+    pub ill_from: i64,
+    pub ill_until: i64,
+    pub severe: bool,
+    pub immune_until: i64,
+    pub ended: i64,
+    pub outcome: u8,
+}
+impl<'a> Default for EpisodeSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    EpisodeSaveArgs {
+      id: 0,
+      person: 0,
+      disease: None,
+      infected: 0,
+      acquired: 0,
+      source: 0,
+      shed_from: 0,
+      shed_until: 0,
+      ill_from: 0,
+      ill_until: 0,
+      severe: false,
+      immune_until: 0,
+      ended: -1,
+      outcome: 0,
+    }
+  }
+}
+
+pub struct EpisodeSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EpisodeSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(EpisodeSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_person(&mut self, person: u64) {
+    self.fbb_.push_slot::<u64>(EpisodeSave::VT_PERSON, person, 0);
+  }
+  #[inline]
+  pub fn add_disease(&mut self, disease: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(EpisodeSave::VT_DISEASE, disease);
+  }
+  #[inline]
+  pub fn add_infected(&mut self, infected: i64) {
+    self.fbb_.push_slot::<i64>(EpisodeSave::VT_INFECTED, infected, 0);
+  }
+  #[inline]
+  pub fn add_acquired(&mut self, acquired: u8) {
+    self.fbb_.push_slot::<u8>(EpisodeSave::VT_ACQUIRED, acquired, 0);
+  }
+  #[inline]
+  pub fn add_source(&mut self, source: u64) {
+    self.fbb_.push_slot::<u64>(EpisodeSave::VT_SOURCE, source, 0);
+  }
+  #[inline]
+  pub fn add_shed_from(&mut self, shed_from: i64) {
+    self.fbb_.push_slot::<i64>(EpisodeSave::VT_SHED_FROM, shed_from, 0);
+  }
+  #[inline]
+  pub fn add_shed_until(&mut self, shed_until: i64) {
+    self.fbb_.push_slot::<i64>(EpisodeSave::VT_SHED_UNTIL, shed_until, 0);
+  }
+  #[inline]
+  pub fn add_ill_from(&mut self, ill_from: i64) {
+    self.fbb_.push_slot::<i64>(EpisodeSave::VT_ILL_FROM, ill_from, 0);
+  }
+  #[inline]
+  pub fn add_ill_until(&mut self, ill_until: i64) {
+    self.fbb_.push_slot::<i64>(EpisodeSave::VT_ILL_UNTIL, ill_until, 0);
+  }
+  #[inline]
+  pub fn add_severe(&mut self, severe: bool) {
+    self.fbb_.push_slot::<bool>(EpisodeSave::VT_SEVERE, severe, false);
+  }
+  #[inline]
+  pub fn add_immune_until(&mut self, immune_until: i64) {
+    self.fbb_.push_slot::<i64>(EpisodeSave::VT_IMMUNE_UNTIL, immune_until, 0);
+  }
+  #[inline]
+  pub fn add_ended(&mut self, ended: i64) {
+    self.fbb_.push_slot::<i64>(EpisodeSave::VT_ENDED, ended, -1);
+  }
+  #[inline]
+  pub fn add_outcome(&mut self, outcome: u8) {
+    self.fbb_.push_slot::<u8>(EpisodeSave::VT_OUTCOME, outcome, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EpisodeSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    EpisodeSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<EpisodeSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for EpisodeSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("EpisodeSave");
+      ds.field("id", &self.id());
+      ds.field("person", &self.person());
+      ds.field("disease", &self.disease());
+      ds.field("infected", &self.infected());
+      ds.field("acquired", &self.acquired());
+      ds.field("source", &self.source());
+      ds.field("shed_from", &self.shed_from());
+      ds.field("shed_until", &self.shed_until());
+      ds.field("ill_from", &self.ill_from());
+      ds.field("ill_until", &self.ill_until());
+      ds.field("severe", &self.severe());
+      ds.field("immune_until", &self.immune_until());
+      ds.field("ended", &self.ended());
+      ds.field("outcome", &self.outcome());
+      ds.finish()
+  }
+}
+pub enum SicknessSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SicknessSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for SicknessSave<'a> {
+  type Inner = SicknessSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> SicknessSave<'a> {
+  pub const VT_EPISODES: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    SicknessSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SicknessSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<SicknessSave<'bldr>> {
+    let mut builder = SicknessSaveBuilder::new(_fbb);
+    if let Some(x) = args.episodes { builder.add_episodes(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn episodes(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EpisodeSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EpisodeSave>>>>(SicknessSave::VT_EPISODES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for SicknessSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<EpisodeSave>>>>("episodes", Self::VT_EPISODES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SicknessSaveArgs<'a> {
+    pub episodes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EpisodeSave<'a>>>>>,
+}
+impl<'a> Default for SicknessSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SicknessSaveArgs {
+      episodes: None,
+    }
+  }
+}
+
+pub struct SicknessSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SicknessSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_episodes(&mut self, episodes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<EpisodeSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SicknessSave::VT_EPISODES, episodes);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SicknessSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SicknessSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<SicknessSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for SicknessSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("SicknessSave");
+      ds.field("episodes", &self.episodes());
       ds.finish()
   }
 }

@@ -166,6 +166,8 @@ pub enum Reason {
     /// The walking a well the household is making would save its people over the well's life,
     /// for the work this session puts into it (M6a slice AY, step three).
     Well = 140,
+    /// Excluded: illness keeps them abed (M6a slice AZ): they sleep, eat and rest at home.
+    Ill = 141,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -177,7 +179,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 74] = [
+    pub const ALL: [Reason; 75] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -252,6 +254,7 @@ impl Reason {
         Reason::PublicWork,
         Reason::Crowded,
         Reason::Well,
+        Reason::Ill,
     ];
 
     /// The reason with this code.
@@ -338,6 +341,7 @@ impl Reason {
             Reason::PublicWork => "the work the gathering asked of their household",
             Reason::Crowded => "as many as there is room for are already at work on it today",
             Reason::Well => "the walking a well would save",
+            Reason::Ill => "illness keeps them abed",
         }
     }
 }
@@ -413,17 +417,20 @@ pub enum Cause {
     Violence,
     /// In a fall when a crossing gave way under them (M5c slice AW).
     Fell,
+    /// Of a disease (M6a slice AZ, ADR-0021 §5): their episode names it.
+    Disease,
 }
 
 impl Cause {
     /// Every cause.
-    pub const ALL: [Cause; 6] = [
+    pub const ALL: [Cause; 7] = [
         Cause::Unspecified,
         Cause::Starvation,
         Cause::Childbirth,
         Cause::Collapse,
         Cause::Violence,
         Cause::Fell,
+        Cause::Disease,
     ];
 
     /// The key a chronicle entry keeps it as.
@@ -435,11 +442,14 @@ impl Cause {
             Cause::Collapse => "collapse",
             Cause::Violence => "violence",
             Cause::Fell => "fell",
+            Cause::Disease => "disease",
         }
     }
 
-    /// The cause with a key.
+    /// The cause with a key; a chronicle entry's may name the disease after a colon
+    /// ("disease:cholera").
     pub fn from_key(key: &str) -> Option<Cause> {
+        let key = key.split(':').next().unwrap_or(key);
         Cause::ALL.into_iter().find(|c| c.key() == key)
     }
 
@@ -452,6 +462,7 @@ impl Cause {
             Cause::Collapse => "a building's collapse",
             Cause::Violence => "a blow struck by another",
             Cause::Fell => "a fall when a crossing gave way",
+            Cause::Disease => "disease",
         }
     }
 }
@@ -920,6 +931,10 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 Some(Cause::Collapse) => format!(" died when a building gave way, {age}."),
                 Some(Cause::Violence) => format!(" died of a blow, {age}."),
                 Some(Cause::Fell) => format!(" fell when a crossing gave way, and died, {age}."),
+                Some(Cause::Disease) => match event.name.split_once(':') {
+                    Some((_, what)) if !what.is_empty() => format!(" died of {what}, {age}."),
+                    _ => format!(" died of a disease, {age}."),
+                },
                 _ => format!(" died, {age}."),
             };
             vec![who, Span::Text(how)]
@@ -1249,6 +1264,7 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 ) => "sent ",
                 Some(crate::influence::InfluenceKind::Bless) => "blessed ",
                 Some(crate::influence::InfluenceKind::Curse) => "cursed ",
+                Some(crate::influence::InfluenceKind::Plague) => "brought a disease to ",
                 None => "reached ",
             };
             let lead = format!("One recorded influence: the observer {verb}");

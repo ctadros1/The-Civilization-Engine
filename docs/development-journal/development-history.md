@@ -1174,6 +1174,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** the Water lens (coverage per home) is slice BB's; what people know of others' draws and suspect of a source is slice BA's. Slice AY is complete.
 
+## 2026-10-10 — M6a slice AZ, step one: diseases and infections
+
+**What changed:** diseases became content (content API 72): cholera and bacillary dysentery, each with its own clocks from the epidemiology report, the share of infections with symptoms, the share of the ill severely so, a daily chance of dying while severely ill, how long an infection protects, and how strongly it passes between people who share a home. An infection is a record of its own: how it came (the observer, or a household's shedding members), its course drawn when it comes, and how it ended (saves 75). Each day the severely ill may die of it by a draw of their own, a course that has run ends, and whoever is exposed draws once. The ill keep to their beds. A death by disease names the disease in the chronicle and the inspector. The observer's plague tool brings a disease to one person; no world has one until then.
+
+**Findings:** introduced into a lived village of 99, cholera barely passed within homes (9 % of household contacts), so its outbreaks died out within a week; dysentery at first took the whole home almost every time (84 %), because it is shed for about 13 days, and its household hazard was lowered to give 46 %. Neither leaves the home until the water route exists.
+
+**Evidence:** unit tests of the lognormal clocks, the order of a course and protection; integration tests for no case without an introduction, the observer's infection and its refusal, the ill abed, a household taking it, a death by disease named in the record, and exact saves; the content kind's ranges; thirty-introduction probes of each disease; the full suite, clippy and the smoke worlds.
+
+**Open:** loads and the water route (step two); tending, incidents and outbreak episodes (step three); the observer's view (step four).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

@@ -731,6 +731,56 @@ fn wave_words(sim: &Sim, i: &Influence) -> String {
     format!("Came with a wave the observer sent, carrying {months:.0} months' food: {came}; {now}")
 }
 
+/// What a plague in `i` brought and what became of it (M6a slice AZ): the observer's own record,
+/// so it tells the truth of their infection.
+fn plague_words(sim: &Sim, i: &Influence) -> String {
+    use civ_agents::sickness::{Acquired, Outcome};
+    let day = |d: i64| day_words(SimTime::from_minutes(d * DAY));
+    let name = sim
+        .rules
+        .catalog
+        .diseases
+        .get(i.subject as usize)
+        .map_or_else(|| "a disease".to_owned(), |d| d.name.to_lowercase());
+    let lead = format!(
+        "Brought {name} {}, as if they took it elsewhere",
+        day_words(i.at)
+    );
+    let Some(e) = sim
+        .people
+        .sickness
+        .episodes()
+        .iter()
+        .find(|e| e.acquired == (Acquired::Observer { influence: i.id }))
+    else {
+        return format!("{lead}.");
+    };
+    let course = if e.symptomatic() {
+        let how = if e.course.severe {
+            "severely ill"
+        } else {
+            "ill"
+        };
+        format!(
+            "{how} from {} to {}",
+            day(e.course.ill_from),
+            day(e.course.ill_until)
+        )
+    } else {
+        "it brought no symptoms".to_owned()
+    };
+    let end = match e.ended {
+        None => "it runs".to_owned(),
+        Some((_, Outcome::Recovered)) => format!(
+            "they recovered, protected until {}",
+            day(e.course.immune_until)
+        ),
+        Some((d, Outcome::Died)) => format!("it killed them {}", day(d)),
+        Some((d, Outcome::Gone)) => format!("they were gone {} while it ran", day(d)),
+    };
+    format!("{lead}: {course}; {end}.")
+}
+
 /// What a blessing or a curse in `i` is and what it turned.
 fn luck_words(sim: &Sim, i: &Influence) -> String {
     let day = |d: i64| day_words(SimTime::from_minutes(d * DAY));
@@ -797,6 +847,7 @@ pub fn influence_lines<'a>(
                 InfluenceKind::Agitator => agitator_words(sim, i, p.id),
                 InfluenceKind::Bless | InfluenceKind::Curse => luck_words(sim, i),
                 InfluenceKind::Wave => wave_words(sim, i),
+                InfluenceKind::Plague => plague_words(sim, i),
             };
             let what = fbb.create_string(&words);
             wire::InfluenceLine::create(

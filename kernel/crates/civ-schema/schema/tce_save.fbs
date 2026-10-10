@@ -446,7 +446,7 @@ table Households {
 enum Origin : ubyte { Founder = 0, Born = 1, Spawned = 2 }
 
 // Collapse (3): a building gave way around them (slice P's second step, ADR-0009 §5).
-enum Cause : ubyte { Unspecified = 0, Starvation = 1, Childbirth = 2, Collapse = 3, Violence = 4, Fell = 5 }
+enum Cause : ubyte { Unspecified = 0, Starvation = 1, Childbirth = 2, Collapse = 3, Violence = 4, Fell = 5, Disease = 6 }
 
 table PersonRecord {
   id: ulong (id: 0);
@@ -1752,6 +1752,9 @@ table InfluencesSave {
   // Schema 54 (M5a slice AN): the migration waves sent (influence kind 5), in the order sent;
   // absent before.
   waves: [WaveSave] (id: 2);
+  // Schema 75 (M6a slice AZ): disease content ids at save time, which a plague's (kind 6)
+  // subject indexes; absent before.
+  diseases: [string] (id: 3);
 }
 
 // Schema 54 (M5a slice AN): a migration wave. `parents` holds two ids for each run of three
@@ -1987,6 +1990,33 @@ table WellSave {
 // Every well, in the order begun (schema 74).
 table WellsSave {
   list: [WellSave] (id: 0);
+}
+
+// An infection (schema 75, M6a slice AZ; ADR-0021 §5): `disease` its content id; the day it came
+// and how (`acquired` 0 the observer, `source` an influence record's number; 1 a household,
+// `source` its id); its course in days, half-open (`ill_from` equal to `ill_until` when it brought
+// no symptoms); `ended` the day it ended (-1 while it runs) and `outcome` 0 recovered, 1 died,
+// 2 gone (died of something else or left the world).
+table EpisodeSave {
+  id: uint (id: 0);
+  person: ulong (id: 1);
+  disease: string (id: 2);
+  infected: long (id: 3);
+  acquired: ubyte (id: 4);
+  source: ulong (id: 5);
+  shed_from: long (id: 6);
+  shed_until: long (id: 7);
+  ill_from: long (id: 8);
+  ill_until: long (id: 9);
+  severe: bool (id: 10);
+  immune_until: long (id: 11);
+  ended: long = -1 (id: 12);
+  outcome: ubyte (id: 13);
+}
+
+// Every infection, in the order they came (schema 75).
+table SicknessSave {
+  episodes: [EpisodeSave] (id: 0);
 }
 
 table RelationsSave {

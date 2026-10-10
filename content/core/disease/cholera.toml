@@ -1,0 +1,31 @@
+# Cholera (M6a slice AZ; ADR-0021 §5): an acute infection that passes by water and between those
+# who share a home. Its clocks are research 05-03 §2.1's; how many fall ill and die comes from who
+# meets it, never from here. No world has it until the observer brings it (ADR-0021 §8).
+kind = "disease"
+id = "core:disease/cholera"
+name = "Cholera"
+routes = ["water", "household"]
+# Infection to symptoms: 12 hours to 5 days (05-03 §2.1, high confidence), as a lognormal of mean
+# 1.5 and sd 1 day (a design prior inside that range).
+incubation_days = [1.5, 1.0]
+# Shedding begins with the illness, or at that time in those with no symptoms, and lasts 1-10 days
+# "including infections with few or no symptoms" (05-03 §2.1): mean 5, sd 2.5.
+shed_lead_days = 0.0
+shed_days = [5.0, 2.5]
+# 05-03 does not give the share of infections with symptoms; most are mild or silent ("few or no
+# symptoms"). A design prior.
+symptomatic = 0.25
+# Days ill: a design prior (the research gives none).
+ill_days = [4.0, 1.5]
+# Of those ill, the share severely so (dehydrated), flat by age for want of evidence (05-03 §3.3:
+# no defensible age matrix); a design prior.
+severe_by_age = [[0, 0.4], [80, 0.4]]
+# While severely ill, the chance a day of dying: 0.2 a day over the illness kills about half of the
+# severely ill untreated, 05-03 §3.2's "can reach approximately 50%" of clinical cases taken for the
+# severe (a design prior; rehydration, slice AZ later, brings it toward under 1%).
+severe_death_per_day = 0.2
+# Protection after an infection: "at least 3-10 years" (05-03 §2.1, moderate confidence).
+immunity_years = [3.0, 10.0]
+# The hazard a day each shedding member of a household puts on each other member (hands, food and
+# shared vessels): a tuning value, calibrated on attack patterns (05-03 §2.2: no portable R0).
+household_hazard = 0.03

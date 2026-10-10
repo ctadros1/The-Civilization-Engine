@@ -32,6 +32,7 @@ mod activity;
 mod bridge;
 mod building;
 mod crop;
+mod disease;
 mod good;
 mod ideology;
 mod land;
@@ -50,7 +51,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 71;
+pub const KERNEL_CONTENT_API: u32 = 72;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -417,6 +418,7 @@ struct Parsed {
     ideologies: Vec<Def<ideology::IdeologyFile>>,
     bridges: Vec<Def<bridge::BridgeFile>>,
     wells: Vec<Def<well::WellFile>>,
+    diseases: Vec<Def<disease::DiseaseFile>>,
     /// Files declaring `kind = "people"`, parsed or not (so a broken profile is not also
     /// reported as a missing one).
     people_files: usize,
@@ -1114,6 +1116,13 @@ fn resolve(
         }
     }
     wells.sort_by(|a, b| a.id.cmp(&b.id));
+    // Diseases (M6a slice AZ): their problems are reported as each file is read.
+    let mut diseases: Vec<_> = parsed
+        .diseases
+        .iter()
+        .filter_map(|d| d.file.def())
+        .collect();
+    diseases.sort_by(|a, b| a.id.cmp(&b.id));
     let catalog = Catalog {
         activities,
         goods,
@@ -1129,6 +1138,7 @@ fn resolve(
         ideologies,
         bridges,
         wells,
+        diseases,
     };
     knowledge_problems(c, parsed, &catalog, land.as_ref());
     (people, land, catalog)
@@ -1328,6 +1338,7 @@ fn parsed_tables(parsed: &Parsed) -> Vec<(&str, &toml::Table)> {
     all.extend(tables(&parsed.ideologies, |f| &f.id));
     all.extend(tables(&parsed.bridges, |f| &f.id));
     all.extend(tables(&parsed.wells, |f| &f.id));
+    all.extend(tables(&parsed.diseases, |f| &f.id));
     all
 }
 
@@ -1397,7 +1408,7 @@ fn range_problems(c: &mut Collector, rel: &str, problems: Vec<String>) {
     }
 }
 
-const KINDS: [&str; 18] = [
+const KINDS: [&str; 19] = [
     worldgen::KIND,
     people::KIND,
     land::KIND,
@@ -1416,6 +1427,7 @@ const KINDS: [&str; 18] = [
     ideology::KIND,
     bridge::KIND,
     well::KIND,
+    disease::KIND,
 ];
 
 fn compile_file(
@@ -1587,6 +1599,16 @@ fn compile_file(
             if check_identity(c, pack, rel, &file.id, bridge::ID_KIND, seen_ids) {
                 range_problems(c, rel, file.problems());
                 parsed.bridges.push(def(rel, pack, file, table));
+            }
+        }
+        disease::KIND => {
+            let Some(file) = parse::<disease::DiseaseFile>(c, rel, source) else {
+                return;
+            };
+            debug_assert_eq!(file.kind, disease::KIND, "dispatched on kind");
+            if check_identity(c, pack, rel, &file.id, disease::ID_KIND, seen_ids) {
+                range_problems(c, rel, file.problems());
+                parsed.diseases.push(def(rel, pack, file, table));
             }
         }
         well::KIND => {

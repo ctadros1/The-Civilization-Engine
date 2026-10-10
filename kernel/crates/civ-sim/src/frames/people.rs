@@ -1192,10 +1192,23 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
     let mut fbb = FlatBufferBuilder::new();
     let name = fbb.create_string(&record.given);
     let (died_minute, cause) = match record.died {
-        Some((at, cause)) => (at.minutes(), cause.label()),
-        None => (0, ""),
+        // A disease's death names the disease (M6a slice AZ): the observer's truth.
+        Some((at, civ_agents::Cause::Disease)) => (
+            at.minutes(),
+            pop.sickness
+                .of(pid)
+                .filter(|e| {
+                    e.ended
+                        .is_some_and(|(_, o)| o == civ_agents::sickness::Outcome::Died)
+                })
+                .filter_map(|e| sim.rules.catalog.diseases.get(usize::from(e.disease)))
+                .last()
+                .map_or_else(|| "disease".to_owned(), |d| d.name.to_lowercase()),
+        ),
+        Some((at, cause)) => (at.minutes(), cause.label().to_owned()),
+        None => (0, String::new()),
     };
-    let cause = fbb.create_string(cause);
+    let cause = fbb.create_string(&cause);
     let origin = fbb.create_string(match record.origin {
         Origin::Founder => "one of the founding band",
         Origin::Born => "born here",

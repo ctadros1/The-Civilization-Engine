@@ -83,6 +83,9 @@ pub struct Facts {
     /// Whether a blow keeps them from work today (M4c slice AI, step four): they eat, drink, rest,
     /// sleep and keep company, and do no work.
     pub hurt: bool,
+    /// Whether illness keeps them abed today (M6a slice AZ, ADR-0021 §5): they sleep, eat and
+    /// rest at home, and do nothing else.
+    pub ill: bool,
 }
 
 /// A crossing someone's household is building, or their polity is and they know the law that
@@ -702,6 +705,16 @@ pub fn candidates(
         }
         if def.daylight_only && f.dark {
             excluded.push((id, Reason::NotInDark));
+            continue;
+        }
+        // Illness keeps them abed (M6a slice AZ).
+        if f.ill
+            && !matches!(
+                def.behavior,
+                Behavior::Sleep | Behavior::Eat | Behavior::Rest
+            )
+        {
+            excluded.push((id, Reason::Ill));
             continue;
         }
         // A blow keeps them from work (M4c slice AI, step four).
@@ -1759,6 +1772,7 @@ mod tests {
         Facts {
             petition: None,
             hurt: false,
+            ill: false,
             age: 30.0,
             capacity: 1.0,
             hunger: 0.5,

@@ -257,6 +257,8 @@ pub const SCHEMA_V72: u32 = 72;
 /// The schema version of M6a slice AY, step two: sources people choose and the water they use,
 /// before wells (see [`agents`]).
 pub const SCHEMA_V73: u32 = 73;
+/// The schema version of M6a slice AY, step three: wells, before infections (see [`agents`]).
+pub const SCHEMA_V74: u32 = 74;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

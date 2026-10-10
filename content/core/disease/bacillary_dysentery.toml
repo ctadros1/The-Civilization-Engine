@@ -1,0 +1,30 @@
+# Bacillary dysentery, the flux (Shigella; M6a slice AZ; ADR-0021 §5): passes by water and, more
+# than cholera, between those who share a home and care for one another (05-03 §1.2: "not
+# exclusively 'dirty river disease'"). Its clocks are research 05-03 §2.1's.
+kind = "disease"
+id = "core:disease/bacillary_dysentery"
+name = "Bacillary dysentery"
+routes = ["water", "household"]
+# Symptoms commonly begin in 1-2 days (05-03 §2.1, high confidence).
+incubation_days = [1.5, 0.5]
+# Shedding begins with the illness and goes on up to two weeks after symptoms end (05-03 §2.1).
+shed_lead_days = 0.0
+shed_days = [7.0, 2.0]
+shed_after_days = [6.0, 4.0]
+# A design prior: most infections at an infectious dose bring symptoms.
+symptomatic = 0.7
+# Illness commonly lasts about 7 days (05-03 §2.1).
+ill_days = [7.0, 2.0]
+# Of those ill, the share severely so, flat by age (no defensible age matrix; a design prior).
+severe_by_age = [[0, 0.2], [80, 0.2]]
+# While severely ill, the chance a day of dying: 0.03 a day over a week kills about a fifth of the
+# severely ill, so about 4 % of those ill, under 05-03 §3.2's upper benchmark of 15 % among
+# hospitalized S. dysenteriae type 1 patients (a design prior).
+severe_death_per_day = 0.03
+# "Do not give lifelong immunity to the entire Shigella genus" (05-03 §2.1): half a year to two
+# years (a design prior).
+immunity_years = [0.5, 2.0]
+# Household and caregiver transmission matter (05-03 §1.2): a tuning value. At 0.06 a probe of 30
+# introductions into a village of 99 saw 84 % of household contacts take it, the whole home almost
+# every time, since it is shed some 13 days; at 0.02, 46 % (plan §9).
+household_hazard = 0.02

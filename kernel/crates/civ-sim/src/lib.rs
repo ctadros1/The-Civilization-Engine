@@ -880,6 +880,22 @@ impl Sim {
         self.influence(|people, ctx| people.bless(ctx, person, curse, days, share))
     }
 
+    /// The observer brings disease `disease` (its content id) to `person`, as if they took it
+    /// elsewhere (god tool, M6a slice AZ, ADR-0021 §8). Whether it goes further is the disease's
+    /// and people's.
+    pub fn plague(
+        &mut self,
+        person: civ_core::PermanentId,
+        disease: &str,
+    ) -> Result<civ_agents::population::Reached, String> {
+        let index = self
+            .rules
+            .catalog
+            .disease_index(disease)
+            .ok_or_else(|| format!("the content has no disease `{disease}`"))?;
+        self.influence(|people, ctx| people.plague(ctx, person, index))
+    }
+
     /// Runs god tool `tool` on the people with a context for now, then schedules what it planned.
     fn influence<T>(
         &mut self,

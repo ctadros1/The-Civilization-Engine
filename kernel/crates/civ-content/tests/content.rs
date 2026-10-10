@@ -66,7 +66,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 71
+kernel_content_api = 72
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -336,6 +336,59 @@ fn wells_check_their_numbers_and_need_their_lining_inside_their_shaft() {
         let report = load_fixture(&[
             ("worldgen/river_valley.toml", &real_preset()),
             ("well/timber_lined.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(
+            report.diagnostics[0].message.contains(needle),
+            "{needle}: {}",
+            report.diagnostics[0].message
+        );
+    }
+}
+
+#[test]
+fn diseases_check_their_numbers_and_routes() {
+    let real_cholera = real("disease/cholera.toml");
+    let fine = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("disease/cholera.toml", &real_cholera),
+    ]);
+    assert!(codes(&fine).is_empty(), "{:?}", codes(&fine));
+    for (body, needle) in [
+        (
+            real_cholera.replace("symptomatic = 0.25", "symptomatic = 1.5"),
+            "symptomatic",
+        ),
+        (
+            real_cholera.replace("routes = [\"water\", \"household\"]", "routes = [\"air\"]"),
+            "unknown route `air`",
+        ),
+        (
+            real_cholera.replace(
+                "immunity_years = [3.0, 10.0]",
+                "immunity_years = [10.0, 3.0]",
+            ),
+            "immunity_years",
+        ),
+        (
+            real_cholera.replace(
+                "severe_by_age = [[0, 0.4], [80, 0.4]]",
+                "severe_by_age = [[80, 0.4], [0, 0.4]]",
+            ),
+            "ages must rise",
+        ),
+        (
+            real_cholera.replace(
+                "incubation_days = [1.5, 1.0]",
+                "incubation_days = [0.0, 1.0]",
+            ),
+            "incubation_days",
+        ),
+    ] {
+        assert_ne!(body, real_cholera, "{needle}: the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            ("disease/cholera.toml", &body),
         ]);
         assert_eq!(codes(&report), vec!["E3001"], "{needle}");
         assert!(
@@ -1355,6 +1408,11 @@ fn the_fingerprint_covers_every_kind() {
             "learn_rate = 0.12",
         ),
         ("value/autonomy.toml", "sd = 0.8", "sd = 0.9"),
+        (
+            "disease/cholera.toml",
+            "household_hazard = 0.03",
+            "household_hazard = 0.04",
+        ),
     ] {
         let body = real(path).replace(from, to);
         assert_ne!(body, real(path), "{path}: the edit applies");

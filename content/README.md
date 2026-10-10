@@ -718,6 +718,22 @@ officeholder, and more adults than stand with the gathering, must stand with it 
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
 
+Content API 72 (M6a slice AZ, step one) brings diseases: a new content kind (`kind = "disease"`,
+files under `disease/`), with `routes` (the ways it passes: `water`, `household`), its own clocks
+as `[mean, sd]` days of a lognormal (research 05-03 §7.3): `incubation_days` (infection to
+symptoms), `shed_lead_days` (how long before symptoms shedding starts; 0 with them), `shed_days`
+(how long shedding lasts from its start), `shed_after_days` (how long it goes on after illness
+ends) and `ill_days`; `symptomatic` (the share of infections with symptoms), `severe_by_age`
+(`[[age, share], ...]`, the share of the ill severely so, interpolated), `severe_death_per_day`
+(the chance a day of dying while severely ill: a hazard by stage, never a fate drawn at
+infection, 05-03 §7.6), `immunity_years` (`[least, most]`, drawn evenly) and `household_hazard`
+(what each shedding member puts on each other member of a household a day; exposure by every
+route is summed and drawn once a day, 05-03 §7.2). Nothing about a disease is a rate of cases or
+deaths. The core's `core:disease/cholera` and `core:disease/bacillary_dysentery` take their clocks
+from 05-03 §2.1; their shares, death hazards and household hazards are design priors and tuning
+values, each marked in its file. No world has a disease until the observer brings one (ADR-0021
+§8).
+
 Content API 71 (M6a slice AY, step three) brings wells: a new content kind, well systems (`kind =
 "well"`, files under `well/`), with `technique` and `skill` (as a bridge system's; the skill is
 practised by the work and its lining's quality drawn from it, ADR-0009 §6), `dig_radius_m` (the

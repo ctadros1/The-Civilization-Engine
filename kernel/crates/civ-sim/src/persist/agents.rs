@@ -112,7 +112,7 @@ use super::{
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
-    SCHEMA_V73, finish, section, single_chunk, unreadable,
+    SCHEMA_V73, SCHEMA_V74, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -181,6 +181,8 @@ pub const SECTION_RELATIONS: SectionTag = SectionTag::new("relation");
 pub const SECTION_CROSSINGS: SectionTag = SectionTag::new("crossing");
 /// Section: wells (schema 74, M6a slice AY, step three).
 pub const SECTION_WELLS: SectionTag = SectionTag::new("wells");
+/// Section: infections (schema 75, M6a slice AZ).
+pub const SECTION_SICKNESS: SectionTag = SectionTag::new("sickness");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -279,6 +281,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             encode_crossings(&sim.land, &sim.people.fords, rules),
         ),
         section(SECTION_WELLS, 0, encode_wells(&sim.land, rules)),
+        section(SECTION_SICKNESS, 0, encode_sickness(&sim.people, rules)),
     ]
 }
 
@@ -449,6 +452,8 @@ enum Schema {
     V73,
     /// Wells (M6a slice AY, step three).
     V74,
+    /// Infections (M6a slice AZ).
+    V75,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -537,7 +542,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V71 => Schema::V71,
         SCHEMA_V72 => Schema::V72,
         SCHEMA_V73 => Schema::V73,
-        SAVE_SCHEMA_VERSION => Schema::V74,
+        SCHEMA_V74 => Schema::V74,
+        SAVE_SCHEMA_VERSION => Schema::V75,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -774,6 +780,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V74 {
         let bytes = single_chunk(reader, SECTION_WELLS)?;
         land.wells = decode_wells(&bytes, rules, map)?;
+    }
+    // Infections (schema 75); before, none.
+    if schema >= Schema::V75 {
+        let bytes = single_chunk(reader, SECTION_SICKNESS)?;
+        people.sickness = decode_sickness(&bytes, rules)?;
     }
     // Settlements' founding ways (schema 61); before them a founding band's is drawn again from
     // its key, and any other settlement's taken as its households' now.
@@ -2908,7 +2919,8 @@ fn carried(
         | Schema::V71
         | Schema::V72
         | Schema::V73
-        | Schema::V74 => {
+        | Schema::V74
+        | Schema::V75 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3093,7 +3105,8 @@ fn decode_households(
             | Schema::V71
             | Schema::V72
             | Schema::V73
-            | Schema::V74 => {
+            | Schema::V74
+            | Schema::V75 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3852,6 +3865,7 @@ fn encode_history(pop: &Population) -> Vec<u8> {
                         Cause::Collapse => save::Cause::Collapse,
                         Cause::Violence => save::Cause::Violence,
                         Cause::Fell => save::Cause::Fell,
+                        Cause::Disease => save::Cause::Disease,
                     },
                 ),
                 None => (false, 0, save::Cause::Unspecified),
@@ -3968,6 +3982,7 @@ fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
             save::Cause::Collapse => Cause::Collapse,
             save::Cause::Violence => Cause::Violence,
             save::Cause::Fell => Cause::Fell,
+            save::Cause::Disease => Cause::Disease,
             other => {
                 return Err(LoadError::Incompatible(format!(
                     "record {rid} has cause of death {}, which this build does not know",
@@ -7975,6 +7990,101 @@ fn decode_wells(
     Ok(wells)
 }
 
+fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let list: Vec<_> = people
+        .sickness
+        .episodes()
+        .iter()
+        .map(|e| {
+            let disease = fbb.create_string(
+                rules
+                    .catalog
+                    .diseases
+                    .get(usize::from(e.disease))
+                    .map_or("", |d| d.id.as_str()),
+            );
+            let (acquired, source) = e.acquired.code();
+            let (ended, outcome) = e.ended.map_or((-1, 0), |(d, o)| (d, o.code()));
+            save::EpisodeSave::create(
+                &mut fbb,
+                &save::EpisodeSaveArgs {
+                    id: e.id,
+                    person: e.person.get(),
+                    disease: Some(disease),
+                    infected: e.infected,
+                    acquired,
+                    source,
+                    shed_from: e.course.shed_from,
+                    shed_until: e.course.shed_until,
+                    ill_from: e.course.ill_from,
+                    ill_until: e.course.ill_until,
+                    severe: e.course.severe,
+                    immune_until: e.course.immune_until,
+                    ended,
+                    outcome,
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let root = save::SicknessSave::create(
+        &mut fbb,
+        &save::SicknessSaveArgs {
+            episodes: Some(list),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// An infection of a disease the loaded content no longer has is let go.
+fn decode_sickness(
+    bytes: &[u8],
+    rules: &Rules,
+) -> Result<civ_agents::sickness::Sickness, LoadError> {
+    use civ_agents::sickness::{Acquired, Course, Episode, Outcome, Sickness};
+    let root = flatbuffers::root::<save::SicknessSave>(bytes)
+        .map_err(|e| unreadable(SECTION_SICKNESS, &e))?;
+    let mut list = Vec::new();
+    for e in root.episodes().iter().flatten() {
+        let Some(disease) = rules
+            .catalog
+            .disease_index(e.disease().unwrap_or_default())
+            .and_then(|i| u16::try_from(i).ok())
+        else {
+            continue;
+        };
+        let acquired = Acquired::from_code(e.acquired(), e.source()).ok_or_else(|| {
+            LoadError::Malformed(format!("episode {} came by an unknown way", e.id()))
+        })?;
+        let ended = if e.ended() < 0 {
+            None
+        } else {
+            let outcome = Outcome::from_code(e.outcome()).ok_or_else(|| {
+                LoadError::Malformed(format!("episode {} ended in an unknown way", e.id()))
+            })?;
+            Some((e.ended(), outcome))
+        };
+        list.push(Episode {
+            id: e.id(),
+            person: required(e.person(), "an episode's person")?,
+            disease,
+            infected: e.infected(),
+            acquired,
+            course: Course {
+                shed_from: e.shed_from(),
+                shed_until: e.shed_until(),
+                ill_from: e.ill_from(),
+                ill_until: e.ill_until(),
+                severe: e.severe(),
+                immune_until: e.immune_until(),
+            },
+            ended,
+        });
+    }
+    Ok(Sickness::with(list))
+}
+
 fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let list: Vec<_> = inf
@@ -8009,6 +8119,13 @@ fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> 
         .map(|d| fbb.create_string(&d.id))
         .collect();
     let ids = fbb.create_vector(&ids);
+    let diseases: Vec<_> = rules
+        .catalog
+        .diseases
+        .iter()
+        .map(|d| fbb.create_string(&d.id))
+        .collect();
+    let diseases = fbb.create_vector(&diseases);
     let point = |p: (f32, f32)| save::Point::new(p.0, p.1);
     let waves: Vec<_> = inf
         .waves
@@ -8050,6 +8167,7 @@ fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> 
             list: Some(list),
             ideologies: Some(ids),
             waves: Some(waves),
+            diseases: Some(diseases),
         },
     );
     finish(fbb, root)
@@ -8074,6 +8192,15 @@ fn decode_influences(
                 .and_then(|i| u32::try_from(i).ok())
         })
         .collect();
+    let diseases: Vec<Option<u32>> = read_strings(root.diseases())
+        .iter()
+        .map(|id| {
+            rules
+                .catalog
+                .disease_index(id)
+                .and_then(|i| u32::try_from(i).ok())
+        })
+        .collect();
     let mut list = Vec::new();
     for i in root.list().iter().flatten() {
         let kind = InfluenceKind::from_code(i.kind()).ok_or_else(|| {
@@ -8090,6 +8217,12 @@ fn decode_influences(
                     _ => continue,
                 }
             }
+            // A plague's disease, by its content id at save time: one the loaded content no longer
+            // has is let go, as its infections are.
+            InfluenceKind::Plague => match diseases.get(i.subject() as usize) {
+                Some(Some(k)) => *k,
+                _ => continue,
+            },
         };
         list.push(Influence {
             id: i.id(),

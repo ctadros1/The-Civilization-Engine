@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/previews/civilization-engine-mark.svg" width="88" height="88" alt="The Civilization Engine mark"></p>
+<p align="center"><img src="assets/previews/civilization-engine-icon.png" width="88" height="88" alt="The Civilization Engine icon"></p>
 <h1 align="center">The Civilization Engine</h1>
 <p align="center"><strong>A bottom-up simulation of how people build a civilization.</strong></p>
 <p align="center">People make a living, raise families, trade, learn, build and govern. Their choices shape the settlements and institutions that emerge.</p>

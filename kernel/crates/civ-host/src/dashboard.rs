@@ -172,6 +172,8 @@ pub struct WorldRun {
     /// Where it drew its water over the run, its wells at the end and what its people used a day
     /// (M6a slice AY).
     pub water: WaterSeen,
+    /// The fires it saw, against the households that kept fires (M6b slice BD).
+    pub fires: FiresSeen,
     /// Its infections over the run, and how each outbreak's cases sat against its sources (M6a
     /// slice BB).
     pub epidemics: EpidemicsSeen,
@@ -334,6 +336,59 @@ pub struct Draws {
     pub springs: u64,
     pub banks: u64,
     pub litres: f64,
+}
+
+/// The fires a world saw (M6b slice BD; research 12-03 §4.4, §5.7).
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub struct FiresSeen {
+    /// Households counted at each year's end, summed.
+    pub household_years: u64,
+    /// Fires in use that escaped.
+    pub escapes: u32,
+    /// Of them, those somebody put out, at once or while they grew.
+    pub put_out: u32,
+    /// Buildings that burned, but for those the observer set alight.
+    pub burned: u32,
+    /// Of them, those a burning neighbour caught.
+    pub spread: u32,
+    /// Fires the observer set.
+    pub set: u32,
+    /// People who died in them.
+    pub deaths: u32,
+}
+
+impl FiresSeen {
+    /// Counts `sim`'s fires since it was made, keeping the household-years already counted.
+    pub fn count(&mut self, sim: &Sim) {
+        let fires = &sim.people().fires;
+        self.escapes = fires.ignitions.len() as u32;
+        self.put_out = fires
+            .ignitions
+            .iter()
+            .filter(|i| i.put_out_by.is_some())
+            .count() as u32;
+        let set = |f: &&civ_agents::fire::Fire| {
+            matches!(f.kindled, civ_agents::fire::Kindled::Observer { .. })
+        };
+        self.set = fires.list.iter().filter(set).count() as u32;
+        self.burned = fires.list.len() as u32 - self.set;
+        self.spread = fires
+            .list
+            .iter()
+            .filter(|f| matches!(f.kindled, civ_agents::fire::Kindled::Neighbour { .. }))
+            .count() as u32;
+        self.deaths = fires.list.iter().map(|f| f.deaths.len() as u32).sum();
+    }
+
+    fn join(&mut self, o: &FiresSeen) {
+        self.household_years += o.household_years;
+        self.escapes += o.escapes;
+        self.put_out += o.put_out;
+        self.burned += o.burned;
+        self.spread += o.spread;
+        self.set += o.set;
+        self.deaths += o.deaths;
+    }
 }
 
 impl WaterSeen {
@@ -821,6 +876,7 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
         world.failures.extend(run.year_end(sim, y));
         let living = sim.people().living();
         world.people.push(living);
+        world.fires.household_years += sim.people().households.len() as u64;
         most = most.max(living);
         if living < KEEP && world.ended.is_none() {
             world.ended = Some(format!("fell to {living} in year {y}, from {most} at most"));
@@ -872,6 +928,7 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
     world.gini = by_year.into_iter().map(|(y, (g, p))| (y, g, p)).collect();
     world.crime = CrimeSeen::of(&sim.people().order);
     world.water = WaterSeen::of(sim);
+    world.fires.count(sim);
     world.epidemics = std::mem::take(&mut run.epidemics);
     world.epidemics.finish(sim);
     world.settlements = sim
@@ -948,6 +1005,7 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
         crime(worlds),
         water(worlds),
         epidemics(worlds),
+        fires(worlds),
         regimes(worlds),
     ]
 }
@@ -1355,6 +1413,34 @@ fn water(worlds: &[WorldRun]) -> Row {
 /// that drew the disease at that source against the rest, by households as Snow's comparison was
 /// (research 12-02 §4, 05-04 §3.2). Grey unless the observer brought a disease, since nothing
 /// else brings one until imports from off the map exist (ADR-0021 §8).
+/// Fires in use that escaped, per 1,000 household-years: research 12-03 §4.4 puts unintended
+/// household fires at 1 to 100 (a modern survey's 10 as the order of magnitude); how many become
+/// building losses, and spread, is reported and left to emerge.
+fn fires(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Fires",
+        "fires in use that escaped, per 1,000 household-years, with how many were put out, \
+         burned a building, spread and killed",
+        "1 to 100 per 1,000 household-years",
+    )
+    .source("research 12-03 §4.4, §5.7; ADR-0022");
+    let mut all = FiresSeen::default();
+    for w in worlds {
+        all.join(&w.fires);
+    }
+    if all.household_years == 0 {
+        return row.graded(Grade::Gray, "no household lived a year".to_owned());
+    }
+    let rate = f64::from(all.escapes) * 1000.0 / all.household_years as f64;
+    let text = format!(
+        "{rate:.1} per 1,000 household-years ({} escapes in {} household-years); {} put out, \
+         {} buildings burned, {} of them caught from a neighbour, {} died; {} set by the observer",
+        all.escapes, all.household_years, all.put_out, all.burned, all.spread, all.deaths, all.set,
+    );
+    let inside = (1.0..=100.0).contains(&rate);
+    row.graded(if inside { Grade::Green } else { Grade::Amber }, text)
+}
+
 fn epidemics(worlds: &[WorldRun]) -> Row {
     let row = Row::new(
         "Epidemics",
@@ -1883,6 +1969,27 @@ mod tests {
     }
 
     #[test]
+    fn the_fire_row_judges_escapes_per_thousand_household_years() {
+        let with = |household_years, escapes| {
+            let mut w = world(1, &[40]);
+            w.fires = FiresSeen {
+                household_years,
+                escapes,
+                put_out: escapes / 2,
+                ..FiresSeen::default()
+            };
+            w
+        };
+        assert_eq!(fires(&[world(1, &[40])]).grade, Grade::Gray);
+        // Two worlds' household-years are summed: 10 escapes in 1,000 is the survey's order.
+        let row = fires(&[with(600, 6), with(400, 4)]);
+        assert_eq!(row.grade, Grade::Green, "{}", row.text);
+        assert!(row.text.starts_with("10.0 per 1,000"), "{}", row.text);
+        assert_eq!(fires(&[with(1000, 0)]).grade, Grade::Amber);
+        assert_eq!(fires(&[with(1000, 500)]).grade, Grade::Amber);
+    }
+
+    #[test]
     fn the_epidemics_row_is_grey_until_a_disease_is_brought_and_judges_each_outbreak_s_source() {
         let outbreak =
             |id: u32, water: u32, drew: (u32, u32, u32), rest: (u32, u32, u32)| OutbreakSeen {
@@ -2100,7 +2207,7 @@ mod tests {
         // Only population and the accounts are graded, both worlds keep their bands and no
         // settlement's accounts failed: a pass, but no grey row counts as one.
         assert!(dashboard.passed());
-        assert_eq!(dashboard.summary(), "2 passed, 13 not yet applicable");
+        assert_eq!(dashboard.summary(), "2 passed, 14 not yet applicable");
     }
 
     #[test]

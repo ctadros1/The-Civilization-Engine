@@ -372,6 +372,47 @@ fn people_draw_from_their_own_well_and_the_water_table_gives_what_they_drew() {
 }
 
 #[test]
+fn a_household_passes_over_a_source_its_people_suspect_while_it_knows_another() {
+    use civ_agents::uses::Place;
+    use civ_agents::word::Counts;
+    let (mut sim, h, well) = an_open_well();
+    let source = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.water_source_for_tests(ctx, h, false))
+            .expect("a source")
+    };
+    assert_eq!(source(&mut sim).well, Some(well));
+    // One of its people comes to suspect the well (M6a slice BA): it goes elsewhere.
+    let cell = sim.land().wells.get(well).expect("the well").cell;
+    let member = sim.people().household(h).expect("a household").members[0];
+    let today = sim.now().day_index();
+    sim.people_mut_for_tests()
+        .word
+        .suspect(member, Place::Source(cell), Counts::default(), today);
+    let mut suspected = vec![cell];
+    let mut next = source(&mut sim);
+    assert_eq!(next.well, None);
+    // Each source it goes to instead, once suspected too, is passed over for another it knows,
+    // never for one suspected; suspecting every one it knows, it draws where it would have.
+    while next.well.is_none() {
+        assert!(
+            !suspected.contains(&next.cell),
+            "went back to a suspected source"
+        );
+        assert!(suspected.len() < 20, "no end to the sources it knows");
+        suspected.push(next.cell);
+        sim.people_mut_for_tests().word.suspect(
+            member,
+            Place::Source(next.cell),
+            Counts::default(),
+            today,
+        );
+        next = source(&mut sim);
+    }
+    assert_eq!(next.well, Some(well));
+    assert!(suspected.len() >= 2);
+}
+
+#[test]
 fn a_well_serves_its_household_its_kin_and_anyone_short_of_water() {
     let (mut sim, h, well) = an_open_well();
     let at = sim

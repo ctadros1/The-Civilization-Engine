@@ -112,8 +112,8 @@ use super::{
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
-    SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, finish, section,
-    single_chunk, unreadable,
+    SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, finish,
+    section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -467,6 +467,9 @@ enum Schema {
     V78,
     /// Suspicions of a source, and the households seen drawing water (M6a slice BA, step two).
     V79,
+    /// The chronicle's suspicions (M6a slice BA, step three): no new state, a chronicle kind
+    /// appended.
+    V80,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -560,7 +563,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V76 => Schema::V76,
         SCHEMA_V77 => Schema::V77,
         SCHEMA_V78 => Schema::V78,
-        SAVE_SCHEMA_VERSION => Schema::V79,
+        SCHEMA_V79 => Schema::V79,
+        SAVE_SCHEMA_VERSION => Schema::V80,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2946,7 +2950,8 @@ fn carried(
         | Schema::V76
         | Schema::V77
         | Schema::V78
-        | Schema::V79 => {
+        | Schema::V79
+        | Schema::V80 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3136,7 +3141,8 @@ fn decode_households(
             | Schema::V76
             | Schema::V77
             | Schema::V78
-            | Schema::V79 => {
+            | Schema::V79
+            | Schema::V80 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3824,6 +3830,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Crossing => 44,
         ChronicleKind::Well => 45,
         ChronicleKind::Outbreak => 46,
+        ChronicleKind::Suspicion => 47,
     }
 }
 
@@ -3875,6 +3882,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         44 => Some(ChronicleKind::Crossing),
         45 => Some(ChronicleKind::Well),
         46 => Some(ChronicleKind::Outbreak),
+        47 => Some(ChronicleKind::Suspicion),
         _ => None,
     }
 }

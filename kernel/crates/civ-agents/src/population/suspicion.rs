@@ -9,6 +9,7 @@
 //! sickness or what a source holds.
 
 use super::*;
+use crate::history::ChronicleKind;
 use crate::uses::Place;
 use crate::word::{Claim, ClaimKind, Counts};
 
@@ -70,14 +71,49 @@ impl Population {
             {
                 self.word.unsuspect(person, source);
             }
-            let settlement = self
-                .person(person)
-                .and_then(|p| self.household(p.household))
+            let home = self.person(person).map(|p| p.household);
+            let settlement = home
+                .and_then(|h| self.household(h))
                 .and_then(|x| x.settlement);
             for (source, counts) in suspect {
+                // The first of a household to suspect a source it draws at is told in the
+                // chronicle: from now on the household passes it over while it knows another.
+                let first_at_home = home.is_some_and(|h| {
+                    self.sources_of(h).contains(&source)
+                        && self.household(h).is_some_and(|x| {
+                            x.members.iter().all(|&m| {
+                                self.word
+                                    .suspicions_of(m)
+                                    .iter()
+                                    .all(|s| s.source != source)
+                            })
+                        })
+                });
                 if self.word.suspect(person, source, counts, day)
                     && let Some(settlement) = settlement
                 {
+                    if first_at_home {
+                        let sentence = format!(
+                            " came to suspect the water their household draws at {}: of {} \
+                             households they know that draw there, {} had sickness lately, \
+                             against {} of {} that draw elsewhere.",
+                            self.source_words(ctx, source),
+                            counts.at,
+                            counts.sick_at,
+                            counts.sick_elsewhere,
+                            counts.elsewhere
+                        );
+                        let (_, id) = source.code();
+                        self.chronicle_push(
+                            ctx.now,
+                            ChronicleKind::Suspicion,
+                            vec![person],
+                            Some(settlement),
+                            None,
+                            id as f64,
+                            sentence,
+                        );
+                    }
                     let claim = self.word.make(Claim {
                         id: 0,
                         kind: ClaimKind::Suspicion,
@@ -97,6 +133,47 @@ impl Population {
     #[doc(hidden)]
     pub fn suspicion_day_for_tests(&mut self, ctx: &Ctx) {
         self.suspicion_day(ctx);
+    }
+
+    /// A source of water in words, as its people know it: "Wren's well", "the spring", "the
+    /// water's edge".
+    pub(crate) fn source_words(&self, ctx: &Ctx, source: Place) -> String {
+        let Place::Source(cell) = source else {
+            return "a place".to_owned();
+        };
+        if let Some(w) = ctx.land.wells.list.iter().find(|w| w.cell == cell) {
+            return match self.household(w.household).and_then(|x| x.members.first()) {
+                Some(&m) => format!("{}'s household's well", self.name_of(m)),
+                None => "a well".to_owned(),
+            };
+        }
+        let patch = ctx.land.patches.of_cell(cell as usize, ctx.map.width);
+        let spring = ctx
+            .land
+            .water
+            .aquifer
+            .seep
+            .get(patch)
+            .copied()
+            .flatten()
+            .is_some_and(|(c, _)| c == cell);
+        if spring {
+            "the spring".to_owned()
+        } else {
+            "the water's edge".to_owned()
+        }
+    }
+
+    /// The sources household `x`'s people suspect, in place order.
+    pub(crate) fn suspected_sources(&self, x: &Household) -> Vec<Place> {
+        let mut out: Vec<Place> = x
+            .members
+            .iter()
+            .flat_map(|&m| self.word.suspicions_of(m).iter().map(|s| s.source))
+            .collect();
+        out.sort_unstable();
+        out.dedup();
+        out
     }
 
     /// The households `person` (of `household`) knows to draw at each source, as of `day`: their

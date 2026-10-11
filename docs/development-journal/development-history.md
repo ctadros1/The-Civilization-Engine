@@ -1234,6 +1234,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** households' responses (step three); issues and policies, the drought tool and the observer's view (steps four and five).
 
+## 2026-10-11 — M6a slice BA, step three (first part): passing over a suspected source
+
+**What changed:** a household draws elsewhere when one of its people suspects its source and it knows another, and goes back to it only when every source it knows is suspect. The chronicle tells when the first of a household came to suspect the water it draws, with the counts (saves 80).
+
+**Findings:** a household that knows several springs passes over each in turn as it comes to suspect it, never one already suspected, before going back to its own well; the test first assumed a single alternative.
+
+**Evidence:** integration tests of passing over and of the chronicle's sentence; the full suite, clippy and the smoke worlds.
+
+**Open:** covering a well, and reconsidering where to live after a death or a suspicion (the rest of step three).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

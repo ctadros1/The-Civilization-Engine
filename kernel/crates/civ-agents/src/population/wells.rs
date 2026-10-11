@@ -214,6 +214,7 @@ impl Population {
         x: &Household,
         short: bool,
         bound_min: f64,
+        shunned: &dyn Fn(u32) -> bool,
     ) -> Option<WaterOption> {
         let wells = &ctx.land.wells.list;
         if !wells.iter().any(Well::is_open) {
@@ -232,14 +233,17 @@ impl Population {
             }
             _ => best,
         };
-        for w in wells.iter().filter(|w| w.is_open() && w.household == x.id) {
+        for w in wells
+            .iter()
+            .filter(|w| w.is_open() && w.household == x.id && !shunned(w.cell))
+        {
             best = pick(best, w);
         }
         let bound = best.map_or(bound_min, |b| b.0.min(bound_min));
         let metres_a_minute = ctx.nav.params().top_speed_ms() * 60.0;
         let near: Vec<&Well> = wells
             .iter()
-            .filter(|w| w.is_open() && w.household != x.id)
+            .filter(|w| w.is_open() && w.household != x.id && !shunned(w.cell))
             .filter(|w| {
                 let at = w.rect.centre_m();
                 let metres = f64::from((at.0 - x.home.0).hypot(at.1 - x.home.1));

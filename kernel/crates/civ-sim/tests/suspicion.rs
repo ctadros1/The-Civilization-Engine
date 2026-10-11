@@ -180,6 +180,26 @@ fn someone_suspects_the_well_whose_households_fell_sick_and_word_of_it_goes_roun
             ),
         "{words}"
     );
+    // The first of their household to suspect a source it draws at is told in the chronicle.
+    let told: Vec<_> = sim
+        .people()
+        .chronicle
+        .iter()
+        .filter(|c| c.kind == civ_agents::ChronicleKind::Suspicion)
+        .collect();
+    assert_eq!(told.len(), 1);
+    assert_eq!(told[0].people, vec![person]);
+    assert!(
+        told[0]
+            .name
+            .starts_with(" came to suspect the water their household draws at ")
+            && told[0].name.ends_with(
+                ": of 5 households they know that draw there, 3 had sickness lately, against 0 \
+                 of 6 that draw elsewhere."
+            ),
+        "{}",
+        told[0].name
+    );
     // It saves and loads exactly, with the households seen drawing water.
     reloaded(&mut sim);
     // Word of it goes round.

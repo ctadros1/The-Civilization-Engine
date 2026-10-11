@@ -4463,15 +4463,40 @@ impl Population {
     /// nearest spring that flows and has a load left today, if one is nearer than the river or
     /// lake, else the river or lake; or, for household `x` (and whether it is short of water),
     /// the nearest well it may draw at that holds a load, if that is nearer still (step three).
+    /// A source its people suspect is passed over while it knows another (M6a slice BA, ADR-0021
+    /// §7); when every source it knows is suspect, it draws where it would have.
     fn water_source(
         &self,
         ctx: &Ctx,
         home: Option<&HomeField>,
         x: Option<(&Household, bool)>,
     ) -> Option<WaterOption> {
-        let other = home.and_then(|home| self.spring_or_bank(ctx, home));
+        let suspect = x.map_or_else(Vec::new, |(x, _)| self.suspected_sources(x));
+        let shunned = |cell: u32| {
+            suspect
+                .binary_search(&crate::uses::Place::Source(cell))
+                .is_ok()
+        };
+        let chosen = self.water_source_among(ctx, home, x, &shunned);
+        if chosen.is_none() && !suspect.is_empty() {
+            return self.water_source_among(ctx, home, x, &|_| false);
+        }
+        chosen
+    }
+
+    /// [`Self::water_source`] among the sources `shunned` does not pass over.
+    fn water_source_among(
+        &self,
+        ctx: &Ctx,
+        home: Option<&HomeField>,
+        x: Option<(&Household, bool)>,
+        shunned: &dyn Fn(u32) -> bool,
+    ) -> Option<WaterOption> {
+        let other = home
+            .and_then(|home| self.spring_or_bank(ctx, home, shunned))
+            .filter(|o| !shunned(o.cell));
         let bound = other.map_or(f64::INFINITY, |o| 2.0 * o.walk_min);
-        let well = x.and_then(|(x, short)| self.well_option(ctx, x, short, bound));
+        let well = x.and_then(|(x, short)| self.well_option(ctx, x, short, bound, shunned));
         // The well is chosen when its walk there and back and its lift take no longer.
         match (well, other) {
             (Some(w), Some(o)) if 2.0 * o.walk_min < 2.0 * w.walk_min + w.lift_min => Some(o),
@@ -4480,9 +4505,14 @@ impl Population {
         }
     }
 
-    /// The nearest spring that flows and has a load left today, if one is nearer than the river
-    /// or lake, else the river or lake, from `home`.
-    fn spring_or_bank(&self, ctx: &Ctx, home: &HomeField) -> Option<WaterOption> {
+    /// The nearest spring that flows, has a load left today and is not `shunned`, if one is
+    /// nearer than the river or lake, else the river or lake, from `home`.
+    fn spring_or_bank(
+        &self,
+        ctx: &Ctx,
+        home: &HomeField,
+        shunned: &dyn Fn(u32) -> bool,
+    ) -> Option<WaterOption> {
         let (water, params) = (&ctx.land.water, &ctx.land_params.water);
         let carry = ctx.params.household.carry_water_l;
         let day = ctx.now.day_index();
@@ -4494,6 +4524,9 @@ impl Population {
             lift_min: 0.0,
         };
         for &(s, patch, cell) in &home.springs {
+            if shunned(cell) {
+                continue;
+            }
             let Some(spring) = water.spring_at(params, patch as usize) else {
                 continue;
             };

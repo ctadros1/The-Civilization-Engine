@@ -746,6 +746,10 @@ pub enum ChronicleKind {
     /// case, when it began; `settlement` where; `number` the step ([`OutbreakStep`]); `name` the
     /// sentence, with its counts when it ended.
     Outbreak,
+    /// The first of a household came to suspect a source of water it draws at (M6a slice BA,
+    /// ADR-0021 §6-§7): `people` who; `settlement` where; `number` the source's place number;
+    /// `name` the rest of the sentence, with the counts.
+    Suspicion,
 }
 
 /// What happened to an outbreak, in a [`ChronicleKind::Outbreak`] entry. Numeric in saves:
@@ -1323,6 +1327,10 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 None => vec![Span::Text(format!("Someone {}", event.name))],
             }
         }
+        ChronicleKind::Suspicion => match person(0) {
+            Some(who) => vec![who, Span::Text(event.name.clone())],
+            None => vec![Span::Text(format!("Someone{}", event.name))],
+        },
         ChronicleKind::Taking => match person(0) {
             Some(who) => vec![who, Span::Text(format!(" {}", event.name))],
             None => vec![Span::Text(format!("Someone {}", event.name))],

@@ -1205,6 +1205,15 @@ fn node_words(sim: &Sim, node: Node) -> String {
     }
 }
 
+/// A load in words: "less than a dose", "1 dose", "120 doses".
+fn dose_words(doses: f64) -> String {
+    match doses.round() as i64 {
+        ..=0 => "less than a dose".to_owned(),
+        1 => "1 dose".to_owned(),
+        n => format!("{n} doses"),
+    }
+}
+
 /// What fouled a source with an outbreak's disease, as the kernel recorded it: the loads that
 /// reached it, from where and how, from shortly before the outbreak began.
 fn fouled_lines(sim: &Sim, o: &Outbreak, key: SourceKey) -> Vec<String> {
@@ -1251,7 +1260,7 @@ fn fouled_lines(sim: &Sim, o: &Outbreak, key: SourceKey) -> Vec<String> {
             };
             (
                 doses,
-                format!("{doses:.0} doses {way} {}", node_words(sim, from)),
+                format!("{} {way} {}", dose_words(doses), node_words(sim, from)),
             )
         })
         .collect();
@@ -1494,8 +1503,14 @@ pub fn outbreak_response(sim: &Sim, id: u32, limit: usize) -> Option<Vec<u8>> {
     let mut ways: Vec<(u32, String)> = ways.into_iter().map(|((_, w), n)| (n, w)).collect();
     ways.sort_by_key(|w| std::cmp::Reverse(w.0));
     let routes: Vec<String> = ways.into_iter().map(|(n, w)| format!("{n} {w}")).collect();
-    // The sources its cases drank from, and those its settlement's people suspect.
+    // The sources its cases drank from, those its settlement's people suspect, and those its
+    // settlement's polity was asked to close since it began (a suspicion may fade, a law stays).
     let mut keys: BTreeSet<SourceKey> = cases.iter().filter_map(|e| f.source_of(e)).collect();
+    for &(s, law, place) in &f.closures {
+        if o.settlement.is_none_or(|st| st == s) && law.proposed.day_index() >= o.began {
+            keys.extend(key_of(sim, place));
+        }
+    }
     for s in &pop.word.suspicions {
         let lives_here = pop
             .person(s.holder)
@@ -1660,6 +1675,13 @@ pub fn chronicle_link(sim: &Sim, e: &ChronicleEvent) -> Option<(u8, u32)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_load_reads_in_doses_and_less_than_one_says_so() {
+        assert_eq!(dose_words(0.3), "less than a dose");
+        assert_eq!(dose_words(1.2), "1 dose");
+        assert_eq!(dose_words(119.6), "120 doses");
+    }
 
     #[test]
     fn lists_and_counts_read_as_words() {

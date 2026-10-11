@@ -779,6 +779,66 @@ fn the_incidents_list_every_case_and_an_outbreak_s_page_traces_the_well_its_wate
     );
     assert_eq!(first.truth().map(|t| t.len()), Some(truth.len()));
 
+    // A law to close water nobody drank it from, made since it began, lists that water too, with
+    // what the polity did, whether or not anyone still suspects it.
+    {
+        use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome as Decided, PolicyKind};
+        let (home, _) = household(&sim, h);
+        let elsewhere = cell_of(sim.map(), home) as u32;
+        let policy = sim
+            .rules()
+            .catalog
+            .policies
+            .iter()
+            .position(|d| d.kind == PolicyKind::CloseSource)
+            .expect("the core content has the template");
+        let id = sim.allocate_id_for_tests();
+        let now = sim.now();
+        let pop = sim.people_mut_for_tests();
+        let p = &mut pop.polities[0];
+        p.laws.push(Law {
+            id,
+            policy: policy as u16,
+            kind: PolicyKind::CloseSource,
+            levy_share: 0.0,
+            holder: None,
+            relief_days: 0.0,
+            sanction: Default::default(),
+            hours: (0, 0),
+            status: LawStatus::InForce,
+            sponsor: holder,
+            proposed: now,
+            issue: IssueKind::SourceSuspected,
+            meets_day: now.day_index(),
+            decided: Some(now),
+            outcome: Some(Decided::Passed),
+            eligible: 1,
+            stances: Vec::new(),
+            known: Vec::new(),
+            compliance: Default::default(),
+            watch: Default::default(),
+            body: None,
+            ends: None,
+            agreement: None,
+        });
+        p.closed.push((id, Place::Source(elsewhere)));
+    }
+    let bytes = page(&sim);
+    let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+    let info = response.body_as_outbreak_info().expect("an outbreak");
+    let closed = info
+        .sources()
+        .expect("sources")
+        .iter()
+        .find(|s| s.name() == Some("the river"))
+        .expect("the water a law would close is listed");
+    assert_eq!(closed.cases(), 0);
+    let polity: Vec<&str> = closed.polity().expect("polity").iter().collect();
+    assert!(
+        polity.len() == 1 && polity[0] != "No law names it",
+        "{polity:?}"
+    );
+
     // Saved and loaded, the cases keep their households and every page reads the same.
     let loaded = reloaded(&mut sim);
     assert_eq!(

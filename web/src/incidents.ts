@@ -23,7 +23,7 @@ function count(n: number, one: string, many: string): string {
 
 /**
  * A kind's totals in a sentence, counts before anything else (ADR-0015 §8): "Takings: 12 in all;
- * 5 known to someone; 2 before a gathering", "Illness: 9 cases; 3 known to someone; none named by a
+ * 5 known to someone; 2 before a gathering", "Illness: 9 cases; 3 known to someone now; none named by a
  * law; 9 the observer's".
  */
 export function totalsLine(t: IncidentTotal): string {
@@ -35,7 +35,8 @@ export function totalsLine(t: IncidentTotal): string {
     if (t.all === 0) return "Illness: no case";
     const observer = t.observer > 0 ? `; ${t.observer} the observer's` : "";
     const law = t.polity === 0 ? "none named by a law" : `${t.polity} named by a law`;
-    return `Illness: ${count(t.all, "case", "cases")}; ${t.known} known to someone; ${law}${observer}`;
+    // Word of sickness fades as news does, so what is known of past cases is what is known now.
+    return `Illness: ${count(t.all, "case", "cases")}; ${t.known} known to someone now; ${law}${observer}`;
   }
   return `${t.all} in all`;
 }

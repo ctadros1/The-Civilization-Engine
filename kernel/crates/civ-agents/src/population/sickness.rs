@@ -11,10 +11,16 @@
 
 use super::*;
 use crate::Cause;
+use crate::contagion::Node;
 use crate::decide::TendFacts;
 use crate::influence::InfluenceKind;
 use crate::params::DiseaseRoute;
 use crate::sickness::{Acquired, Outcome, SickDraw, course, sickness_rng};
+
+/// An outbreak is over only once less than this much of its disease is left with its
+/// settlement's households, doses: drunk whole, less than a dose is a hazard under one (a design
+/// prior).
+pub const OUTBREAK_LEFT_DOSES: f64 = 1.0;
 
 impl Population {
     /// The day's turn for infections (see the module documentation).
@@ -206,9 +212,53 @@ impl Population {
         }
     }
 
+    /// What is left of `disease` with settlement `settlement`'s households (anyone's for `None`),
+    /// doses: in their heaps and stored water, in their wells and their polity's, and on its way
+    /// through the ground to any of those. What reaches a river is carried off by the next day.
+    fn disease_left(&self, ctx: &Ctx, disease: u16, settlement: Option<PermanentId>) -> f64 {
+        let ours = |h: PermanentId| {
+            settlement.is_none_or(|s| self.household(h).is_some_and(|x| x.settlement == Some(s)))
+        };
+        let node_ours = |n: Node| match n {
+            Node::Midden(h) | Node::Store(h) => ours(h),
+            Node::Well(w) => ctx.land.wells.get(w).is_some_and(|w| {
+                ours(w.household)
+                    || w.polity.is_some_and(|p| {
+                        self.polities
+                            .iter()
+                            .any(|q| q.id == p && settlement.is_none_or(|s| q.settlement == s))
+                    })
+            }),
+            _ => false,
+        };
+        let c = &self.contagion;
+        let heaps_and_wells: f64 = c
+            .loads
+            .iter()
+            .filter(|&(&(n, d), _)| d == disease && node_ours(n))
+            .map(|(_, &a)| a)
+            .sum();
+        let stored: f64 = c
+            .stores
+            .iter()
+            .filter(|&(&(h, d), _)| d == disease && ours(h))
+            .flat_map(|(_, from)| from.values())
+            .sum();
+        let underway: f64 = c
+            .transit
+            .iter()
+            .filter(|t| t.disease == disease && node_ours(t.to))
+            .map(|t| t.amount)
+            .sum();
+        heaps_and_wells + stored + underway
+    }
+
     /// Ends each open outbreak none of whose cases has run for as long as a new infection of its
-    /// disease can take to show (its incubation's mean and three spreads, at least a day), and
-    /// tells it with its counts.
+    /// disease can take to show (its incubation's mean and three spreads, at least a day), and of
+    /// whose disease less than [`OUTBREAK_LEFT_DOSES`] is left with its settlement's households,
+    /// and tells it with its counts. While its disease lies in their heaps, wells or water, a new
+    /// case of it there is the same outbreak (M6a slice BB: one the observer began was otherwise
+    /// closed with its wells still fouled, and the cases after counted as nobody's doing).
     fn end_outbreaks(&mut self, ctx: &Ctx, day: i64) {
         let open: Vec<_> = self
             .sickness
@@ -237,7 +287,10 @@ impl Population {
             let quiet = (def.incubation.mean + 3.0 * def.incubation.sd)
                 .ceil()
                 .max(1.0) as i64;
-            if runs || day - last < quiet {
+            if runs
+                || day - last < quiet
+                || self.disease_left(ctx, o.disease, o.settlement) >= OUTBREAK_LEFT_DOSES
+            {
                 continue;
             }
             self.sickness.end_outbreak(o.id, day);

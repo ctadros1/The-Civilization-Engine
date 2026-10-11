@@ -1316,6 +1316,26 @@ The full end-to-end run found the knowledge test still counting the founders' te
 
 **Open:** the M6a demo.
 
+## 2026-10-11 — M6a slice BB, step five: the M6a demo
+
+**What changed:** civ-sim's `cholera_world` example and an end-to-end demo bring cholera to one person in a village that has dug its wells, chosen by the observer (a home whose heap lies above a shared well) and on the first wet day; both choices are logged as nudges. Outbreaks now last while their disease is left in their settlement's heaps, wells and water; the outbreak page lists water a closing law named; the illness totals say what is known now.
+
+**Findings:** brought at the end of a dry summer, cholera spread to nobody in four worlds; on a wet day it reached 44 people in the first world. It went from heap to well to household to heap through seven households' own wells. Nobody suspected a well; two people suspected the spring, which most households also drew at and no case drank from, and the gathering closed it at the second asking (nobody came the first time, while many were abed). The demo also showed the epidemic split into two outbreaks, the second not marked as the observer's, and the chronicle saying cholera had left while the wells held it: fixed by ending an outbreak only when less than a dose of its disease is left.
+
+**Evidence:** the outbreak test under the new ending rule; a closing law's water on the outbreak page; three demo runs; the full suite, clippy, the web tests and the end-to-end tests.
+
+**Open:** M6a is complete. M6b, fire, masonry and floods, is to be designed from its brief.
+
+## 2026-10-11 — M6b design: fire, masonry and floods
+
+**What changed:** M6b is designed from the fire and observer briefs, with research 12-03 (urban fire), 11-09 (building codes) and 11-08 (building materials) read in full. One ADR, ADR-0022 (fire, floods and storms), amends the weather (dryness and a daily wind from their own keys), M6a's water (fords on the day's flow), building components (masonry walls and tile) and earthworks (banks and ditches as lines). Plan §7 splits M6b into six slices: BC, a building burns; BD, fires people start and fight; BE, masonry, brick and tile; BF, floods and storms; BG, banks and ditches; BH, building rules and the M6b demo. Plan §9 answers the brief's twelve open questions.
+
+**Findings:** the reports agree that there is no defensible fire rate per early-farming household (12-03 §2.1). Fires should come from the fires people use, and most should die where someone is there to see them. A great fire is "not a date on the simulation's disaster calendar". Huts with eaves a metre apart under dry thatch are the configuration in which a full-scale test burned twenty dwellings in about five minutes (12-03 §2.2). The risk is real in today's villages, and response and spacing, not tuning spread down, must answer it. Building codes were never one invention (11-09), and a disaster opens politics without passing laws. Masonry is a chain of assemblies, not a ladder (11-08).
+
+**Evidence:** the ADR and plan entries cite each figure they rest on, checked against the reports. 07-05 §3.1 confirms that stone construction and sun-dried earthen units are early Neolithic, which is why founders bring them.
+
+**Open:** slice BC.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

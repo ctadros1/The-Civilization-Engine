@@ -436,9 +436,20 @@ fn an_outbreak_begins_with_its_first_case_gathers_the_rest_and_ends_when_none_ha
         sim.people().sickness.outbreaks()
     );
     // It ends once no case has run for as long as a new infection could take to show (cholera's
-    // 1.5 days and three spreads of 1: five days), and is told with its counts.
+    // 1.5 days and three spreads of 1: five days) and less than a dose of it is left in the
+    // village's heaps, wells and water (what was shed into the heap decays there), and is told
+    // with its counts.
+    // (Cholera is the only disease here, and the village the only settlement.)
+    let left = |sim: &Sim| {
+        let c = &sim.people().contagion;
+        c.loads.values().sum::<f64>()
+            + c.stores.values().flat_map(|s| s.values()).sum::<f64>()
+            + c.transit.iter().map(|t| t.amount).sum::<f64>()
+    };
     let mut ended = None;
-    for _ in 0..80 {
+    let mut left_before = f64::INFINITY;
+    for _ in 0..200 {
+        left_before = left(&sim);
         sim.advance_minutes(DAY).expect("lives");
         if let Some(day) = sim.people().sickness.outbreaks()[0].ended {
             ended = Some(day);
@@ -454,7 +465,10 @@ fn an_outbreak_begins_with_its_first_case_gathers_the_rest_and_ends_when_none_ha
         .max()
         .expect("all ended");
     assert!(s.episodes().iter().all(|e| e.ended.is_some()));
-    assert_eq!(ended, last + 5);
+    assert!(ended >= last + 5, "{ended} {last}");
+    // It ended on the first day both held: five days, and less than a dose left.
+    assert!(left(&sim) < 1.0, "{}", left(&sim));
+    assert!(ended == last + 5 || left_before >= 1.0, "{left_before}");
     let closed = entry(&sim, OutbreakStep::Ended);
     assert_eq!(closed.len(), 1);
     let took = s.episodes().len();

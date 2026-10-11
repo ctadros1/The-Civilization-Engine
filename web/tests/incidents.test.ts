@@ -11,10 +11,10 @@ describe("the Incidents panel's words", () => {
       "Takings: 12 in all; 5 known to someone; 2 before a gathering",
     );
     expect(totalsLine({ kind: 2, all: 1, known: 0, polity: 0, observer: 0 })).toBe(
-      "Illness: 1 case; 0 known to someone; none named by a law",
+      "Illness: 1 case; 0 known to someone now; none named by a law",
     );
     expect(totalsLine({ kind: 2, all: 9, known: 3, polity: 2, observer: 9 })).toBe(
-      "Illness: 9 cases; 3 known to someone; 2 named by a law; 9 the observer's",
+      "Illness: 9 cases; 3 known to someone now; 2 named by a law; 9 the observer's",
     );
     expect(kindClass(1)).toBe("taking");
     expect(kindClass(2)).toBe("illness");

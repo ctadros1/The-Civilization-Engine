@@ -28,6 +28,7 @@ the milestone is too big and gets split.
 | [0019](0019-exchange-between-settlements.md) | Exchange between settlements: reach by reports, trades where they settle | Accepted | M5b |
 | [0020](0020-relations-between-polities.md) | Relations between polities: agreements ratified by each custom, views held by people | Accepted | M5c |
 | [0021](0021-water-and-sickness.md) | Water and sickness: sources people choose, loads that are conserved, infections no choice reads | Accepted | M6a |
+| [0022](0022-fire-floods-and-storms.md) | Fire, floods and storms: hazards from what people do and what the weather brings, damage on parts, rules people propose | Accepted | M6b |
 
 ## Template
 

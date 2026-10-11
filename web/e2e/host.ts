@@ -96,6 +96,27 @@ export function makeTheftWorld(saves: string, seed = "4"): string {
   return done.stdout;
 }
 
+/**
+ * Makes a village with wells and brings cholera to one person in `saves`, with the
+ * `cholera_world` example of civ-sim (most introductions go no further than a home or two, and
+ * each world draws its own identity), and waits; returns what the example printed, which says
+ * what happened in each world and which was kept. Needs cargo.
+ */
+export function makeCholeraWorld(saves: string, seed = "1"): string {
+  const done = spawnSync(
+    "cargo",
+    [
+      ...["run", "--release", "--quiet", "-p", "civ-sim", "--example", "cholera_world"],
+      ...["--", saves, seed],
+    ],
+    { cwd: path.join(repo, "kernel"), encoding: "utf8", timeout: 3_600_000 },
+  );
+  if (done.status !== 0) {
+    throw new Error(`cholera_world failed (${done.status}):\n${done.stdout}\n${done.stderr}`);
+  }
+  return done.stdout;
+}
+
 export interface Host {
   url: string;
   process: ChildProcess;

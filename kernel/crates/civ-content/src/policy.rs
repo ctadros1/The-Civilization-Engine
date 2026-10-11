@@ -190,7 +190,8 @@ impl PolicyFile {
                 | PolicyKind::ClaimPlace
                 | PolicyKind::Agreement
                 | PolicyKind::BuildCrossing
-                | PolicyKind::CloseSource),
+                | PolicyKind::CloseSource
+                | PolicyKind::DigWell),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -234,7 +235,8 @@ impl PolicyFile {
                 | PolicyKind::ClaimPlace
                 | PolicyKind::Agreement
                 | PolicyKind::BuildCrossing
-                | PolicyKind::CloseSource,
+                | PolicyKind::CloseSource
+                | PolicyKind::DigWell,
             )
             | None => {}
         }

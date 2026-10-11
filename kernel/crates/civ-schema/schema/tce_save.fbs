@@ -420,6 +420,9 @@ table Household {
   // Schema 73 (M6a slice AY, ADR-0021 §1): litres each of its people uses a day, set by the walk
   // to the water they last fetched; 0 (and absent in older saves) for the people profile's.
   water_use_l: double (id: 16);
+  // Schema 83 (M6a slice BA, step four): minutes of the walk from home to the water its people
+  // last fetched, one way; 0 (and absent in older saves) until they fetch again.
+  water_walk_min: float (id: 17);
 }
 
 // Schema 10: one row of a household's posted terms (ADR-0006 §4). Goods are indexed like
@@ -1228,6 +1231,23 @@ table PolitySave {
   // The sources of water its laws to close one name, by law (schema 82, M6a slice BA step four),
   // each of kind 2; absent before.
   closed: [PlaceClaimSave] (id: 15);
+  // Where its laws to dig a well together would dig one (schema 83, M6a slice BA step four);
+  // absent before.
+  wells: [PublicWellSave] (id: 16);
+}
+
+// Where a law would dig a well (schema 83): its cell and ground, its well system's content id,
+// the depth it would be dug to and the work it would take.
+table PublicWellSave {
+  law: ulong (id: 0);
+  cell: uint (id: 1);
+  system: string (id: 2);
+  x_cm: int (id: 3);
+  y_cm: int (id: 4);
+  w_cm: int (id: 5);
+  h_cm: int (id: 6);
+  target_m: float (id: 7);
+  labour_h: float (id: 8);
 }
 
 // Where a law would build a crossing (schema 70): the river cell, the bridge system's content id,
@@ -2010,11 +2030,23 @@ table WellSave {
   // Its lid and curb (schema 81, M6a slice BA): hours of covering owed, and whether it has one.
   cover_h: float (id: 25);
   covered: bool (id: 26);
+  // The polity whose gathering agreed to dig it (schema 83, M6a slice BA step four), 0 for a
+  // household's; a polity's well holds the polity's id as its household.
+  polity: ulong (id: 27);
 }
 
-// Every well, in the order begun (schema 74).
+// Hours a household's people gave to a polity's well (schema 83).
+struct WellShareSave {
+  well: ulong;
+  household: ulong;
+  hours: float;
+}
+
+// Every well, in the order begun (schema 74), and the hours households gave to polities' wells
+// (schema 83), by well and then household.
 table WellsSave {
   list: [WellSave] (id: 0);
+  shares: [WellShareSave] (id: 1);
 }
 
 // An infection (schema 75, M6a slice AZ; ADR-0021 §5): `disease` its content id; the day it came

@@ -128,6 +128,9 @@ pub struct WellFacts {
     pub walk_min: f64,
     pub left_h: f64,
     pub saves_per_hour: f64,
+    /// Points: keeping to the gathering's word on a polity's well, while the household has not
+    /// given the share asked of it (M6a slice BA, step four); 0 for its own.
+    pub duty: f64,
     pub full: bool,
 }
 
@@ -1516,7 +1519,7 @@ pub fn candidates(
                     walk_min: c.walk_min,
                     left_h: c.left_h,
                     saves_per_hour: c.saves_per_hour,
-                    duty: 0.0,
+                    duty: c.duty,
                     full: c.full,
                 };
                 match session_at_site(def, w, f, &site, Reason::Well, &mut terms) {
@@ -2310,6 +2313,7 @@ mod tests {
             walk_min: 0.1,
             left_h: 20.0,
             saves_per_hour: 6.0,
+            duty: 0.0,
             full: false,
         };
         let f = Facts {

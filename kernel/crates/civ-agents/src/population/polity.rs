@@ -49,6 +49,9 @@ pub(super) struct Forecasts {
     /// household (M6a slice BA, step four), by the source's cell, then by household id: the food
     /// its sickness believed avoided is worth, and the food its longer walks would cost, kcal.
     closures: Vec<(u32, Vec<ClosureForecast>)>,
+    /// Where the settlement's people could dig a well together, if anywhere (M6a slice BA, step
+    /// four).
+    pub(super) well: Option<super::wells::PublicWell>,
 }
 
 /// What closing a source would bring a household (M6a slice BA, step four): the household, the
@@ -133,6 +136,21 @@ impl Forecasts {
                     .binary_search_by_key(&h, |k| k.0)
                     .map_or(0.0, |i| self.hour_kcal[i].1);
                 let saved = p.wades_of(h) * p.hours_a_wade * kcal;
+                let owed = p.share_h() / p.life.max(1e-9) * kcal;
+                crate::polity::kept_gain(o, saved, pp) - crate::polity::levy_cost(o, owed, pp)
+            }
+            // A well dug together (M6a slice BA, step four), as a crossing: the food a year the
+            // hours of walking it would save the household could bring, less what its share of
+            // the work, spread over the lining's life, could.
+            Some(PolicyKind::DigWell) => {
+                let Some(p) = self.well.as_ref().filter(|p| m.site == Some(p.site.cell)) else {
+                    return 0.0;
+                };
+                let kcal = self
+                    .hour_kcal
+                    .binary_search_by_key(&h, |k| k.0)
+                    .map_or(0.0, |i| self.hour_kcal[i].1);
+                let saved = p.saves_of(h) * kcal;
                 let owed = p.share_h() / p.life.max(1e-9) * kcal;
                 crate::polity::kept_gain(o, saved, pp) - crate::polity::levy_cost(o, owed, pp)
             }
@@ -537,7 +555,9 @@ impl Population {
     /// found food taken from its store within the last year (`takings`); and its people saw
     /// people of another settlement working places theirs work, unclaimed (`outsiders`, M5c
     /// slice AT); a household's people saw their own sick lately (`sickness`), and someone holds
-    /// that a source it does not close sickens (`suspected`, M6a slice BA, step four).
+    /// that a source it does not close sickens (`suspected`), and its households walk far enough
+    /// for water that a well dug together would repay its work (`water_far`, M6a slice BA, step
+    /// four).
     #[allow(clippy::too_many_arguments)]
     fn issues(
         &self,
@@ -551,6 +571,7 @@ impl Population {
         fords: bool,
         sickness: bool,
         suspected: bool,
+        water_far: bool,
     ) -> Vec<IssueKind> {
         let mut out = Vec::new();
         if self.lean_lately(ctx, settlement) || pressed {
@@ -576,6 +597,9 @@ impl Population {
         }
         if suspected {
             out.push(IssueKind::SourceSuspected);
+        }
+        if water_far {
+            out.push(IssueKind::WaterFar);
         }
         out
     }
@@ -696,8 +720,10 @@ impl Population {
         households: &[PermanentId],
         adults: &[(PermanentId, PermanentId)],
     ) -> Forecasts {
-        let sites = self.public_sites(ctx, self.polities[pi].settlement, households);
-        self.forecasts_with(ctx, pi, households, adults, sites)
+        let settlement = self.polities[pi].settlement;
+        let sites = self.public_sites(ctx, settlement, households);
+        let well = self.public_well(ctx, settlement, households);
+        self.forecasts_with(ctx, pi, households, adults, sites, well)
     }
 
     /// [`Population::forecasts`], with the crossing sites already found.
@@ -708,6 +734,7 @@ impl Population {
         households: &[PermanentId],
         adults: &[(PermanentId, PermanentId)],
         sites: Vec<super::crossings::PublicSite>,
+        well: Option<super::wells::PublicWell>,
     ) -> Forecasts {
         let outlooks: Vec<(PermanentId, Outlook)> = households
             .iter()
@@ -746,7 +773,7 @@ impl Population {
             watchers,
             claim,
             closures,
-            hour_kcal: if sites.is_empty() {
+            hour_kcal: if sites.is_empty() && well.is_none() {
                 Vec::new()
             } else {
                 households
@@ -755,6 +782,7 @@ impl Population {
                     .collect()
             },
             sites,
+            well,
         }
     }
 
@@ -939,15 +967,24 @@ impl Population {
         settlement: PermanentId,
         cell: u32,
     ) -> Vec<(PermanentId, f64)> {
+        self.site_gains_for_tests(ctx, settlement, PolicyKind::CloseSource, cell)
+    }
+
+    /// What a law of kind `kind` naming the site at `cell` (a source to close, a well to dig)
+    /// would bring each household of settlement `settlement`, points, as its members would weigh
+    /// it at the gathering: for tests.
+    #[doc(hidden)]
+    pub fn site_gains_for_tests(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+        kind: PolicyKind,
+        cell: u32,
+    ) -> Vec<(PermanentId, f64)> {
         let Some(pi) = self.polity_of(settlement) else {
             return Vec::new();
         };
-        let Some(k) = ctx
-            .catalog
-            .policies
-            .iter()
-            .position(|d| d.kind == PolicyKind::CloseSource)
-        else {
+        let Some(k) = ctx.catalog.policies.iter().position(|d| d.kind == kind) else {
             return Vec::new();
         };
         let mut households: Vec<PermanentId> = self
@@ -1224,6 +1261,8 @@ impl Population {
             .filter(|&h| self.sick_at_home(h))
             .collect();
         let (suspecting, _) = self.suspecting(pi, &adults);
+        // Where its people could dig a well together.
+        let well = self.public_well(ctx, settlement, &households);
         let issues = self.issues(
             ctx,
             settlement,
@@ -1235,6 +1274,7 @@ impl Population {
             !sites.is_empty(),
             !sick_homes.is_empty(),
             !suspecting.is_empty(),
+            well.is_some(),
         );
         let polity = &self.polities[pi];
         // A watch may have one more while takings continue (M4c slice AI: a watch of several):
@@ -1266,8 +1306,9 @@ impl Population {
                 if d.kind == PolicyKind::BuildCrossing {
                     return !building_crossing;
                 }
-                // Another closing, of a source none in force closes (M6a slice BA).
-                if d.kind == PolicyKind::CloseSource {
+                // Another closing, of a source none in force closes, and another well once none
+                // is being dug (M6a slice BA).
+                if matches!(d.kind, PolicyKind::CloseSource | PolicyKind::DigWell) {
                     return true;
                 }
                 (d.kind == PolicyKind::KeepWatch && taken_since)
@@ -1311,7 +1352,7 @@ impl Population {
             params,
         );
         // What each household expects, to forecast what a move would bring it.
-        let fc = self.forecasts_with(ctx, pi, &households, &adults, sites);
+        let fc = self.forecasts_with(ctx, pi, &households, &adults, sites, well);
         let outlooks = &fc.outlooks;
         // Who could keep the store: adults whose household is under a roof.
         let roofed: Vec<PermanentId> = adults
@@ -1457,10 +1498,10 @@ impl Population {
                         hours: l.hours,
                         body: None,
                         ends: None,
-                        // A closing names its source (M6a slice BA).
+                        // A closing names its source, and a well its site (M6a slice BA).
                         site: match self.polities[pi].closure_of(l.id) {
                             Some(crate::uses::Place::Source(cell)) => Some(cell),
-                            _ => None,
+                            _ => self.polities[pi].well_site_of(l.id).map(|s| s.cell),
                         },
                         own_gain: 0.0,
                         followers_gain: 0.0,
@@ -1586,6 +1627,16 @@ impl Population {
                                     ..blank
                                 });
                             }
+                        }
+                    }
+                    // A well beside the hearth, where the settlement's people could dig one
+                    // together (M6a slice BA, step four).
+                    PolicyKind::DigWell => {
+                        if let Some(p) = &fc.well {
+                            moves.push(MoveOption {
+                                site: Some(p.site.cell),
+                                ..blank
+                            });
                         }
                     }
                     // Seeking terms with another polity is weighed apart, after these (M5c
@@ -1757,6 +1808,7 @@ impl Population {
                             || self.polities[pi].site_of(l.id).map(|s| s.cell) == m.site
                             || self.polities[pi].closure_of(l.id)
                                 == m.site.map(crate::uses::Place::Source)
+                            || self.polities[pi].well_site_of(l.id).map(|s| s.cell) == m.site
                     })
                     .filter(|l| {
                         l.decided
@@ -1864,6 +1916,26 @@ impl Population {
                 .find(|p| p.site.cell == cell)
             {
                 self.polities[pi].sites.push((id, p.site));
+            }
+        }
+        // A well names its site, as the settlement's people would dig it now (M6a slice BA, step
+        // four).
+        if def.kind == PolicyKind::DigWell
+            && let Some(cell) = m.site
+        {
+            let settlement = self.polities[pi].settlement;
+            let mut households: Vec<PermanentId> = self
+                .households
+                .iter()
+                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                .map(|(_, x)| x.id)
+                .collect();
+            households.sort_unstable();
+            if let Some(p) = self
+                .public_well(ctx, settlement, &households)
+                .filter(|p| p.site.cell == cell)
+            {
+                self.polities[pi].wells.push((id, p.site));
             }
         }
         // A closing names the source its sponsor suspects (M6a slice BA, step four).
@@ -2083,6 +2155,14 @@ impl Population {
         {
             let polity = self.polities[pi].id;
             self.begin_public_crossing(ctx, polity, site);
+        }
+        // A well passed is begun at once, the polity's (M6a slice BA, step four).
+        if outcome == Outcome::Passed
+            && kind == PolicyKind::DigWell
+            && let Some(site) = self.polities[pi].well_site_of(law_id)
+        {
+            let polity = self.polities[pi].id;
+            self.begin_public_well(ctx, polity, site);
         }
         // A law that replaces one in force supersedes it (M4c slice AH).
         if outcome == Outcome::Passed

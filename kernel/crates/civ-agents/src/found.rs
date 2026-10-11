@@ -711,6 +711,7 @@ fn add_family(
             * params.household.water_target_days,
         water_at: now,
         water_use_l: 0.0,
+        water_walk_min: 0.0,
         known: Vec::new(),
         sheltered: false,
         keeping: crate::person::Keeping::default(),

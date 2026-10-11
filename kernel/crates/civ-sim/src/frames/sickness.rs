@@ -59,19 +59,19 @@ fn when(today: i64, day: i64) -> String {
 /// Where water was drawn, in words: "Bo's household's well", "the river".
 fn source_words(sim: &Sim, source: Node) -> String {
     match source {
-        Node::Well(w) => sim
-            .land
-            .wells
-            .get(w)
-            .and_then(|w| {
-                sim.people
-                    .household(w.household)
-                    .and_then(|x| x.members.first().copied())
-            })
-            .map_or_else(
-                || "a well".to_owned(),
-                |m| format!("{}'s household's well", sim.people.name_of(m)),
-            ),
+        Node::Well(w) => match sim.land.wells.get(w) {
+            Some(w) if w.polity.is_some() => format!("{} well", super::water::whose_well(sim, w)),
+            w => w
+                .and_then(|w| {
+                    sim.people
+                        .household(w.household)
+                        .and_then(|x| x.members.first().copied())
+                })
+                .map_or_else(
+                    || "a well".to_owned(),
+                    |m| format!("{}'s household's well", sim.people.name_of(m)),
+                ),
+        },
         Node::Reach(_) => "the river".to_owned(),
         _ => "their store".to_owned(),
     }

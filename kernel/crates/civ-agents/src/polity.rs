@@ -63,11 +63,16 @@ pub enum PolicyKind {
     /// curfew's is (research 09-06 §1.5), with no sanction in v0. Someone with no other source
     /// they know draws there still (need over the gathering's word, as over a claim).
     CloseSource,
+    /// The polity digs a well beside the hearth (M6a slice BA, step four; ADR-0021 §7): it begins
+    /// once passed, the polity's, and each household is asked an equal share of its work, as a
+    /// crossing built together is (09-06: labour asked and labour given are kept apart); once
+    /// open, the polity's people may draw at it. Nobody is made to work.
+    DigWell,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 11] = [
+    pub const ALL: [PolicyKind; 12] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -79,6 +84,7 @@ impl PolicyKind {
         PolicyKind::Agreement,
         PolicyKind::BuildCrossing,
         PolicyKind::CloseSource,
+        PolicyKind::DigWell,
     ];
 
     /// The authored name.
@@ -95,6 +101,7 @@ impl PolicyKind {
             PolicyKind::Agreement => "agreement",
             PolicyKind::BuildCrossing => "build_crossing",
             PolicyKind::CloseSource => "close_source",
+            PolicyKind::DigWell => "dig_well",
         }
     }
 
@@ -146,11 +153,16 @@ pub enum IssueKind {
     /// Someone holds that a source of water sickens, from their own tally (M6a slice BA, step
     /// four): what one person holds, so it opens moves to them alone, as `Overruled` does.
     SourceSuspected,
+    /// A household of the settlement walks far for water, as it last walked it (so far that its
+    /// people use less water for the walk), and a well dug together beside the hearth would save
+    /// the settlement's households more walking over its lining's life than its work (M6a slice
+    /// BA, step four), as fords make a crossing an issue.
+    WaterFar,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 12] = [
+    pub const ALL: [IssueKind; 13] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -163,6 +175,7 @@ impl IssueKind {
         IssueKind::Fords,
         IssueKind::Sickness,
         IssueKind::SourceSuspected,
+        IssueKind::WaterFar,
     ];
 
     /// The authored name.
@@ -180,6 +193,7 @@ impl IssueKind {
             IssueKind::Fords => "fords",
             IssueKind::Sickness => "sickness",
             IssueKind::SourceSuspected => "source_suspected",
+            IssueKind::WaterFar => "water_far",
         }
     }
 
@@ -210,6 +224,7 @@ impl IssueKind {
             IssueKind::Fords => "its people waded a stream a crossing could span",
             IssueKind::Sickness => "its people had sickness at home lately",
             IssueKind::SourceSuspected => "they hold that the water there sickens",
+            IssueKind::WaterFar => "its people walked far for water",
         }
     }
 }
@@ -945,6 +960,11 @@ pub fn law_words(
                 work"
             .to_owned();
     }
+    // Without the site at hand (see [`Polity::words_of`]), only what it is.
+    if def.is_some_and(|d| d.kind == PolicyKind::DigWell) {
+        return "a well dug together beside the hearth, each household doing its share of the work"
+            .to_owned();
+    }
     // Without the source at hand (see [`Polity::words_of`]), only what it does.
     if def.is_some_and(|d| d.kind == PolicyKind::CloseSource) {
         return "the closing of a source of water: nobody may draw there".to_owned();
@@ -1019,6 +1039,7 @@ pub fn ending_words(
         Some(PolicyKind::Agreement) => "the agreement with a neighbouring polity".to_owned(),
         Some(PolicyKind::BuildCrossing) => "the work on a crossing".to_owned(),
         Some(PolicyKind::CloseSource) => "the closing of a source of water".to_owned(),
+        Some(PolicyKind::DigWell) => "the work on a well".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -1219,6 +1240,25 @@ pub struct Polity {
     /// The sources of water its laws to close one name, each with its law (M6a slice BA, step
     /// four): recorded when the law is proposed, and closed while that law is in force.
     pub closed: Vec<(PermanentId, crate::uses::Place)>,
+    /// Where its laws to dig a well together would dig one, each with its law (M6a slice BA,
+    /// step four): recorded when the law is proposed.
+    pub wells: Vec<(PermanentId, WellSite)>,
+}
+
+/// Where a law would dig a well (M6a slice BA, step four): its cell and ground, its well system
+/// by its place in the catalog, how deep it would be dug and the work it would take.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WellSite {
+    /// The cell its shaft is sunk in.
+    pub cell: u32,
+    /// The ground its digging would take.
+    pub rect: civ_land::fields::RectCm,
+    /// Its well system, by index in the catalog's.
+    pub system: u16,
+    /// How deep it would be dug, metres: a metre below where its people expect water.
+    pub target_m: f32,
+    /// The work it takes, hours.
+    pub labour_h: f32,
 }
 
 /// Where a law would build a crossing (M5c slice AW, step three): the river cell, the bridge
@@ -1289,12 +1329,18 @@ impl Polity {
             claimed: Vec::new(),
             sites: Vec::new(),
             closed: Vec::new(),
+            wells: Vec::new(),
         }
     }
 
     /// Where law `law` would build a crossing, if it is one that would (M5c slice AW).
     pub fn site_of(&self, law: PermanentId) -> Option<CrossingSite> {
         self.sites.iter().find(|s| s.0 == law).map(|s| s.1)
+    }
+
+    /// Where law `law` would dig a well, if it is one that would (M6a slice BA).
+    pub fn well_site_of(&self, law: PermanentId) -> Option<WellSite> {
+        self.wells.iter().find(|w| w.0 == law).map(|w| w.1)
     }
 
     /// The source of water law `law` would close, if it is one that would (M6a slice BA).
@@ -1430,6 +1476,16 @@ impl Polity {
                 "a crossing over the {:.1} m stream where its people wade, each household doing \
                  its share of {:.0} hours of work",
                 site.span_m, site.labour_h
+            );
+        }
+        // A well says how deep it would be dug and the work it asks (M6a slice BA).
+        if kind == Some(PolicyKind::DigWell)
+            && let Some(site) = self.well_site_of(law.id)
+        {
+            return format!(
+                "a well {:.1} m deep beside the hearth, each household doing its share of {:.0} \
+                 hours of work",
+                site.target_m, site.labour_h
             );
         }
         match law

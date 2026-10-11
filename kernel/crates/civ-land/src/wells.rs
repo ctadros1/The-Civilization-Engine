@@ -58,8 +58,11 @@ pub struct Well {
     pub cell: u32,
     /// The ground its digging took: no plot, field or pit may be laid over it.
     pub rect: RectCm,
-    /// The household it is the well of.
+    /// The household it is the well of; for a polity's well, the polity's id.
     pub household: PermanentId,
+    /// The polity whose gathering agreed to dig it (M6a slice BA, step four), if it is a
+    /// polity's: its people are asked equal shares of the work and may draw at it.
+    pub polity: Option<PermanentId>,
     /// The ground at its mouth, metres.
     pub ground_m: f32,
     /// How deep it is dug and lined, metres.
@@ -165,9 +168,31 @@ pub fn refill_rate(t_m2_day: f64, radius_m: f64, influence_m: f64) -> f64 {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Wells {
     pub list: Vec<Well>,
+    /// The hours each household's people gave to a polity's wells (M6a slice BA, step four;
+    /// research 09-06: labour asked and labour given are kept apart), by well and then
+    /// household.
+    pub shares: Vec<(PermanentId, PermanentId, f32)>,
 }
 
 impl Wells {
+    /// The hours household `household`'s people gave to well `well`.
+    pub fn given(&self, well: PermanentId, household: PermanentId) -> f32 {
+        self.shares
+            .binary_search_by_key(&(well, household), |s| (s.0, s.1))
+            .map_or(0.0, |i| self.shares[i].2)
+    }
+
+    /// `hours` more of household `household`'s people's work on well `well`.
+    pub fn add_given(&mut self, well: PermanentId, household: PermanentId, hours: f32) {
+        match self
+            .shares
+            .binary_search_by_key(&(well, household), |s| (s.0, s.1))
+        {
+            Ok(i) => self.shares[i].2 += hours,
+            Err(i) => self.shares.insert(i, (well, household, hours)),
+        }
+    }
+
     /// The well with id `id`.
     pub fn get(&self, id: PermanentId) -> Option<&Well> {
         self.list.iter().find(|w| w.id == id)
@@ -221,6 +246,21 @@ impl Wells {
                 out.push(format!("well {} has a lining out of range", w.id));
             }
         }
+        if self
+            .shares
+            .windows(2)
+            .any(|p| (p[0].0, p[0].1) >= (p[1].0, p[1].1))
+        {
+            out.push("wells' shares are out of order".to_owned());
+        }
+        for &(well, _, hours) in &self.shares {
+            if !self.list.iter().any(|w| w.id == well && w.polity.is_some()) {
+                out.push(format!("a share is given to well {well}, no polity's"));
+            }
+            if !(hours.is_finite() && hours >= 0.0) {
+                out.push(format!("a share of well {well} is not a number of hours"));
+            }
+        }
         out
     }
 }
@@ -241,6 +281,7 @@ mod tests {
                 h: 150,
             },
             household: PermanentId::from_raw(2).expect("an id"),
+            polity: None,
             ground_m: 100.0,
             depth_m: depth,
             target_m: depth,

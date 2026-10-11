@@ -1112,6 +1112,13 @@ pub struct HouseholdParams {
 impl HouseholdParams {
     /// Litres a person uses a day when the water is `walk_min` minutes' walk away, one way
     /// (ADR-0021 §1): `water_use_by_walk` interpolated, held beyond its ends.
+    /// The one-way walk to water, minutes, from which a household's walk is far (M6a slice BA,
+    /// step four): where its people begin to use less water for the walk, the first point of
+    /// `water_use_by_walk`. None without the curve: then no walk is far.
+    pub fn far_walk_min(&self) -> Option<f64> {
+        self.water_use_by_walk.first().map(|p| p.0)
+    }
+
     pub fn water_use_l(&self, walk_min: f64) -> f64 {
         let curve = &self.water_use_by_walk;
         let (Some(&first), Some(&last)) = (curve.first(), curve.last()) else {

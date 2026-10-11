@@ -827,3 +827,161 @@ fn a_well_someone_suspects_is_put_to_the_gathering_to_close_and_kept_by_those_wh
     assert_eq!((c.broken, c.broken_unaware), (1, 1));
     reloaded(&mut sim);
 }
+
+#[test]
+fn a_well_dug_together_by_law_is_worked_in_shares_and_its_people_draw_at_it() {
+    use civ_agents::polity::{LawStatus, PolicyKind};
+    let mut sim = village(6);
+    // Homes stand, and nobody has a well yet.
+    for _ in 0..3 {
+        to_morning(&mut sim, 8 * 60);
+    }
+    let all = households(&sim);
+    let settlement = sim
+        .people()
+        .household(all[0])
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    // Its people walk under a minute to the water: no walk is far, whatever a well would save.
+    assert!(all.iter().all(|&h| {
+        sim.people()
+            .household(h)
+            .expect("a household")
+            .water_walk_min
+            < 1.0
+    }));
+    assert!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.public_well_for_tests(ctx, settlement))
+            .is_none()
+    );
+    // Its people walked far for water: a quarter of an hour each way, as far as the people
+    // profile's use of water begins to fall with the walk.
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        x.water_walk_min = 15.0;
+    }
+    let (site, saves, life) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.public_well_for_tests(ctx, settlement))
+        .expect("a well worth digging together");
+    let (hearth, name) = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == settlement)
+        .map(|s| (s.hearth_m, s.name.clone()))
+        .expect("the settlement");
+    let at = site.rect.centre_m();
+    assert!(
+        (at.0 - hearth.0).hypot(at.1 - hearth.1) < 15.0,
+        "{at:?} {hearth:?}"
+    );
+    let saved: f64 = saves.iter().map(|s| s.1).sum::<f64>() * life;
+    assert!(
+        saved > f64::from(site.labour_h),
+        "{saved} {}",
+        site.labour_h
+    );
+    assert!(saves.iter().all(|s| s.1 > 0.0), "{saves:?}");
+    // Each household gains by it.
+    let gains = sim.with_ctx_for_tests(|pop, ctx| {
+        pop.site_gains_for_tests(ctx, settlement, PolicyKind::DigWell, site.cell)
+    });
+    assert!(gains.iter().all(|g| g.1 > 0.0), "{gains:?}");
+    // At the polity's review, someone proposes it, the issue being the walk.
+    {
+        let pop = sim.people_mut_for_tests();
+        pop.every_adult_deliberates = true;
+    }
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.settlement == settlement)
+        .expect("a polity");
+    let mut proposed = None;
+    for _ in 0..12 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        let law = sim.people().polities[pi].agenda().cloned();
+        match law {
+            Some(l) if l.kind == PolicyKind::DigWell => {
+                proposed = Some(l);
+                break;
+            }
+            Some(_) => continue,
+            None => break,
+        }
+    }
+    let law = proposed.expect("a well proposed");
+    assert_eq!(law.issue, civ_agents::polity::IssueKind::WaterFar);
+    assert_eq!(sim.people().polities[pi].well_site_of(law.id), Some(site));
+    let what = civ_sim::frames::word::law_text(&sim, &sim.people().polities[pi], &law);
+    assert_eq!(
+        what,
+        format!(
+            "a well {:.1} m deep beside the hearth, each household doing its share of {:.0} \
+             hours of work",
+            site.target_m, site.labour_h
+        )
+    );
+    // Passed, as its gathering would pass it: the polity begins it.
+    let polity = sim.people().polities[pi].id;
+    sim.people_mut_for_tests().polities[pi]
+        .law_mut(law.id)
+        .expect("the law")
+        .status = LawStatus::InForce;
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_public_well_for_tests(ctx, polity, site));
+    let well = sim
+        .land()
+        .wells
+        .list
+        .iter()
+        .find(|w| w.polity == Some(polity))
+        .expect("the polity's well")
+        .id;
+    let w = *sim.land().wells.get(well).expect("the well");
+    assert_eq!((w.cell, w.state), (site.cell, WellState::Digging));
+    let words = civ_sim::frames::water::well_words(&sim, &w);
+    assert!(
+        words.starts_with(&format!("{name}'s timber-lined well, being dug")),
+        "{words}"
+    );
+    // Someone of one household works on it: their household's share is kept.
+    let first = all[0];
+    let worker = sim.people().household(first).expect("a household").members[0];
+    sim.with_ctx_for_tests(|pop, ctx| pop.well_work_by_for_tests(ctx, worker, well, 3.0));
+    assert!((sim.land().wells.given(well, first) - 3.0).abs() < 1e-4);
+    assert!(sim.land().wells.get(well).expect("the well").depth_m > 0.0);
+    reloaded(&mut sim);
+    // Another household's people finish it where water stands above its floor.
+    set_water(&mut sim, well, 2.0);
+    let second = all[1];
+    let worker = sim.people().household(second).expect("a household").members[0];
+    let hours = hours_left(&sim, well) + 0.5;
+    sim.with_ctx_for_tests(|pop, ctx| pop.well_work_by_for_tests(ctx, worker, well, hours));
+    let w = *sim.land().wells.get(well).expect("the well");
+    assert!(w.is_open(), "{w:?}");
+    assert!(sim.land().wells.given(well, second) > 0.0);
+    let told = well_entries(&sim);
+    assert!(
+        told.iter().any(|(_, s)| s.starts_with(&format!(
+            "{name}'s people finished the timber-lined well their gathering agreed to dig beside \
+             the hearth"
+        ))),
+        "{told:?}"
+    );
+    // Its people draw at it by right.
+    let drawn = all.iter().any(|&h| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.water_source_for_tests(ctx, h, false))
+            .is_some_and(|o| o.well == Some(well))
+    });
+    assert!(drawn, "nobody of the settlement would draw at its well");
+    reloaded(&mut sim);
+}

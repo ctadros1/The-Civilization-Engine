@@ -80,6 +80,21 @@ fn share(x: f32) -> String {
     }
 }
 
+/// Whose well `w` is, before its name: "Ada's household's", "Ashford's" for a polity's (M6a
+/// slice BA, step four), "a" when its household is gone.
+pub fn whose_well(sim: &Sim, w: &Well) -> String {
+    if let Some(p) = w.polity {
+        return sim
+            .people
+            .polities
+            .iter()
+            .find(|q| q.id == p)
+            .and_then(|q| sim.land.settlements.iter().find(|s| s.id == q.settlement))
+            .map_or_else(|| "the village's".to_owned(), |s| format!("{}'s", s.name));
+    }
+    eldest_name(sim, w.household).map_or_else(|| "a".to_owned(), |n| format!("{n}'s household's"))
+}
+
 /// A well in words: "Ada's household's timber-lined well, being dug: 2.0 of 4.5 m", "..., open
 /// since year 2: 4.1 m deep, 1.8 m of water standing 2.3 m down; rot has taken a tenth of its
 /// lining", "..., given up dry at 10.0 m in year 3", "..., fell in in year 9".
@@ -90,9 +105,7 @@ fn words(sim: &Sim, w: &Well, (water_m, below_m): (f64, f64)) -> String {
         .wells
         .get(w.system)
         .map_or_else(|| "well".to_owned(), |d| d.name.to_lowercase());
-    let whose = eldest_name(sim, w.household)
-        .map_or_else(|| "a".to_owned(), |n| format!("{n}'s household's"));
-    let what = format!("{whose} {name}");
+    let what = format!("{} {name}", whose_well(sim, w));
     match w.state {
         WellState::Digging => format!("{what}, being dug: {:.1} of {:.1} m", w.depth_m, w.target_m),
         WellState::Open { since } => {
@@ -271,10 +284,7 @@ pub fn water_words(sim: &Sim, household: PermanentId) -> String {
         }
         let place = match (own, other) {
             (Some(_), _) => "its own well".to_owned(),
-            (None, Some(v)) => eldest_name(sim, v.household).map_or_else(
-                || "a well".to_owned(),
-                |n| format!("{n}'s household's well"),
-            ),
+            (None, Some(v)) => format!("{} well", whose_well(sim, v)),
             (None, None) if spring_cell(sim, cell) => "a spring".to_owned(),
             (None, None) => "the water's edge".to_owned(),
         };

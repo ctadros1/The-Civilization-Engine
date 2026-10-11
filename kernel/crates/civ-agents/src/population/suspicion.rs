@@ -146,6 +146,18 @@ impl Population {
             return "a place".to_owned();
         };
         if let Some(w) = ctx.land.wells.list.iter().find(|w| w.cell == cell) {
+            // A polity's well is its settlement's (M6a slice BA, step four).
+            if let Some(p) = w.polity {
+                return self
+                    .polities
+                    .iter()
+                    .find(|q| q.id == p)
+                    .and_then(|q| ctx.land.settlements.iter().find(|s| s.id == q.settlement))
+                    .map_or_else(
+                        || "the village's well".to_owned(),
+                        |s| format!("{}'s well", s.name),
+                    );
+            }
             return match self.household(w.household).and_then(|x| x.members.first()) {
                 Some(&m) => format!("{}'s household's well", self.name_of(m)),
                 None => "a well".to_owned(),

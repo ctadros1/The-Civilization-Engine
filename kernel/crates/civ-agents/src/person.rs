@@ -693,6 +693,9 @@ pub struct Household {
     /// (M6a slice AY, ADR-0021 §1); 0 until then, which uses the profile's
     /// `water_l_per_person_day`.
     pub water_use_l: f64,
+    /// Minutes of the walk from home to the water its people last fetched, one way (M6a slice
+    /// BA, step four): how far they walk for water, as they walked it; 0 until they fetch.
+    pub water_walk_min: f32,
     /// Patches they have gathered in, and what they found.
     pub known: Vec<KnownPatch>,
     /// Their stores are under a roof: goods that keep better there spoil at their sheltered rates,
@@ -1078,6 +1081,7 @@ mod tests {
             water_l: 100.0,
             water_at: SimTime::ZERO,
             water_use_l: 0.0,
+            water_walk_min: 0.0,
             known: Vec::new(),
             sheltered: false,
             keeping: Keeping::default(),

@@ -33,6 +33,44 @@ const SHORT_DAYS: f64 = 0.5;
 const LONGEST_LIFE_YEARS: f64 = 50.0;
 /// Cells a household's people search for the walk from home to the water they draw from now.
 const SOURCE_ROUTE_BUDGET: usize = 200_000;
+/// The side of the ground at the hearth a polity's well is sunk beside, metres (M6a slice BA,
+/// step four; a design prior: the gathering place, as a household's is sunk beside its home).
+const HEARTH_SPOT_M: f64 = 4.0;
+
+/// A well a polity's people could dig together beside the hearth (M6a slice BA, step four;
+/// ADR-0021 §7), and what it would be worth to each of the settlement's households: the walking
+/// a year it would save them, from the walk to the water each last fetched, as they walked it.
+#[derive(Clone, Debug)]
+pub(crate) struct PublicWell {
+    /// What it would dig.
+    pub(crate) site: crate::polity::WellSite,
+    /// The years its lining would last, at the quality the settlement's people would lay it on
+    /// average.
+    pub(crate) life: f64,
+    /// The hours of walking a year it would save each household, by household id.
+    pub(crate) saves: Vec<(PermanentId, f64)>,
+    /// How many households its work would be asked of.
+    pub(crate) households: usize,
+}
+
+impl PublicWell {
+    /// The share of its work asked of each household, hours.
+    pub(crate) fn share_h(&self) -> f64 {
+        f64::from(self.site.labour_h) / self.households.max(1) as f64
+    }
+
+    /// The hours of walking a year it would save household `h`.
+    pub(crate) fn saves_of(&self, h: PermanentId) -> f64 {
+        self.saves
+            .binary_search_by_key(&h, |s| s.0)
+            .map_or(0.0, |i| self.saves[i].1)
+    }
+
+    /// The hours of walking it would save all the households over its life, less its work.
+    fn pooled_net_h(&self) -> f64 {
+        self.saves.iter().map(|s| s.1).sum::<f64>() * self.life - f64::from(self.site.labour_h)
+    }
+}
 
 /// A square of side `side` metres centred at `at` metres.
 fn square(at: (f64, f64), side: f64) -> RectCm {
@@ -203,6 +241,25 @@ impl Population {
         out
     }
 
+    /// Whether well `w` is household `x`'s own or its polity's (M6a slice BA, step four): the
+    /// wells its people draw at by right.
+    fn ours(&self, x: &Household) -> impl Fn(&Well) -> bool + use<> {
+        let (own, polity) = (x.id, self.polity_id_of(x.settlement));
+        move |w: &Well| w.household == own || (w.polity.is_some() && w.polity == polity)
+    }
+
+    /// The id of settlement `settlement`'s polity, if it has one.
+    fn polity_id_of(&self, settlement: Option<PermanentId>) -> Option<PermanentId> {
+        settlement
+            .and_then(|s| self.polity_of(s))
+            .map(|pi| self.polities[pi].id)
+    }
+
+    /// Whether well `w` is the polity's of settlement `settlement`.
+    fn of_polity(&self, w: &Well, settlement: Option<PermanentId>) -> bool {
+        w.polity.is_some() && w.polity == self.polity_id_of(settlement)
+    }
+
     /// The open well people of household `x` may draw at that holds a load now and takes least
     /// time there and back with its lift (ADR-0021 §1, rights v0): their own, their kin's
     /// households', or, while `short` of water, any. Wells whose round trip would take longer
@@ -220,6 +277,7 @@ impl Population {
         if !wells.iter().any(Well::is_open) {
             return None;
         }
+        let ours = self.ours(x);
         let carry = ctx.params.household.carry_water_l;
         // (minutes a load takes there, walk, lift, well)
         let mut best: Option<(f64, f64, f64, &Well)> = None;
@@ -235,7 +293,7 @@ impl Population {
         };
         for w in wells
             .iter()
-            .filter(|w| w.is_open() && w.household == x.id && !shunned(w.cell))
+            .filter(|w| w.is_open() && ours(w) && !shunned(w.cell))
         {
             best = pick(best, w);
         }
@@ -243,7 +301,7 @@ impl Population {
         let metres_a_minute = ctx.nav.params().top_speed_ms() * 60.0;
         let near: Vec<&Well> = wells
             .iter()
-            .filter(|w| w.is_open() && w.household != x.id && !shunned(w.cell))
+            .filter(|w| w.is_open() && !ours(w) && !shunned(w.cell))
             .filter(|w| {
                 let at = w.rect.centre_m();
                 let metres = f64::from((at.0 - x.home.0).hypot(at.1 - x.home.1));
@@ -412,16 +470,30 @@ impl Population {
             well.state = WellState::FellIn { on: ctx.now };
             well.mend_h = 0.0;
             let name = def.name.to_lowercase();
-            let whose = self
-                .elder_of(w.household, ctx.now, ctx.params)
-                .map(|e| format!("{}'s household's", self.name_of(e)));
+            let whose = match w.polity {
+                Some(p) => self
+                    .polities
+                    .iter()
+                    .find(|q| q.id == p)
+                    .map(|q| format!("{}'s", self.village_name(ctx, Some(q.settlement)))),
+                None => self
+                    .elder_of(w.household, ctx.now, ctx.params)
+                    .map(|e| format!("{}'s household's", self.name_of(e))),
+            };
             let sentence = match whose {
                 Some(whose) => {
                     format!("{whose} {name} fell in: its lining had rotted through.")
                 }
                 None => format!("A {name} fell in: its lining had rotted through."),
             };
-            let settlement = self.household(w.household).and_then(|x| x.settlement);
+            let settlement = match w.polity {
+                Some(p) => self
+                    .polities
+                    .iter()
+                    .find(|q| q.id == p)
+                    .map(|q| q.settlement),
+                None => self.household(w.household).and_then(|x| x.settlement),
+            };
             self.chronicle_push(
                 ctx.now,
                 ChronicleKind::Well,
@@ -491,12 +563,11 @@ impl Population {
         except: Option<PermanentId>,
     ) -> Option<Source> {
         let kin = self.kin_households(x);
+        let ours = self.ours(x);
         let carry = ctx.params.household.carry_water_l;
         let mut best: Option<Source> = None;
         for w in ctx.land.wells.list.iter().filter(|w| w.is_open()) {
-            if Some(w.id) == except
-                || !(w.household == x.id || kin.binary_search(&w.household).is_ok())
-            {
+            if Some(w.id) == except || !(ours(w) || kin.binary_search(&w.household).is_ok()) {
                 continue;
             }
             let Some(def) = ctx.catalog.wells.get(w.system) else {
@@ -526,18 +597,8 @@ impl Population {
             .settlement
             .filter(|s| self.homes.contains_key(s))
             .unwrap_or(x.id);
-        let field = self.homes.get(&key)?;
-        let (cell, water_z) = match self.water_source(ctx, Some(field), None, None) {
-            Some(o) => {
-                let spring = field.springs.iter().any(|&(_, _, c)| c == o.cell);
-                let z = if spring {
-                    f64::from(ctx.map.elevation[o.cell as usize])
-                } else {
-                    water_beside(ctx.map, o.cell)
-                };
-                (o.cell, z)
-            }
-            None => return best,
+        let Some((cell, water_z)) = self.spring_or_bank_level(ctx, key) else {
+            return best;
         };
         let wear = &ctx.land.wear;
         let from = cell_of(ctx.map, x.home);
@@ -566,6 +627,27 @@ impl Population {
         best
     }
 
+    /// Settlement `settlement`'s name, or "the village".
+    fn village_name(&self, ctx: &Ctx, settlement: Option<PermanentId>) -> String {
+        settlement
+            .and_then(|s| ctx.land.settlements.iter().find(|t| t.id == s))
+            .map_or_else(|| "the village".to_owned(), |t| t.name.clone())
+    }
+
+    /// The spring or edge of the water the people of the home field `key` go to, and the level its
+    /// water stands at, metres.
+    fn spring_or_bank_level(&self, ctx: &Ctx, key: PermanentId) -> Option<(u32, f64)> {
+        let field = self.homes.get(&key)?;
+        let o = self.water_source(ctx, Some(field), None, None)?;
+        let spring = field.springs.iter().any(|&(_, _, c)| c == o.cell);
+        let z = if spring {
+            f64::from(ctx.map.elevation[o.cell as usize])
+        } else {
+            water_beside(ctx.map, o.cell)
+        };
+        Some((o.cell, z))
+    }
+
     /// The level household `x` expects water at under `site`, from what its people know: the
     /// water standing in the nearest well of its settlement they could have seen dug, or, where
     /// that well was given up dry, deeper than its floor; with none, the water they draw from now.
@@ -578,6 +660,7 @@ impl Population {
             .filter(|w| matches!(w.state, WellState::Open { .. } | WellState::GivenUp { .. }))
             .filter(|w| {
                 w.household == x.id
+                    || self.of_polity(w, x.settlement)
                     || self
                         .household(w.household)
                         .is_some_and(|y| y.settlement.is_some() && y.settlement == x.settlement)
@@ -776,6 +859,7 @@ impl Population {
             cell,
             rect,
             household,
+            polity: None,
             ground_m: ground,
             depth_m: 0.0,
             target_m: target as f32,
@@ -800,18 +884,311 @@ impl Population {
         }
     }
 
-    /// The well household `x`'s people may work on, if any: where its work is done, the walk
-    /// there, the work left and what each hour of it is worth (M6a slice AY, step three).
-    pub(super) fn well_facts(&self, ctx: &Ctx, x: &Household, dark: bool) -> Option<WellFacts> {
-        if dark || ctx.land.wells.list.is_empty() {
+    /// Where settlement `settlement`'s people could dig a well together (M6a slice BA, step four;
+    /// ADR-0021 §7), once one of its households walks far for water (so far, as it last walked
+    /// it, that its people use less water for the walk: research 12-01 §2.1), weighed as a
+    /// household weighs its own beside its home: beside the hearth,
+    /// a metre below where they expect water (from the settlement's wells, else the water they
+    /// draw from now), of the system its people know whose walking saved over its lining's life
+    /// most exceeds its work. Each of households `households` would save, every load its people
+    /// use a year, the walk to the water it last fetched there and back, as they walked it, less
+    /// the walk to the well and back and its lift. None when no such well would repay its work,
+    /// a polity's well is being dug already, or content has no policy to dig one.
+    pub(crate) fn public_well(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+        households: &[PermanentId],
+    ) -> Option<PublicWell> {
+        if !ctx
+            .catalog
+            .policies
+            .iter()
+            .any(|d| d.kind == crate::polity::PolicyKind::DigWell)
+        {
             return None;
         }
-        let w = ctx
+        Self::well_kit(ctx)?;
+        let params = ctx.params;
+        let carry = params.household.carry_water_l.max(1e-6);
+        let homes: Vec<&Household> = households
+            .iter()
+            .filter_map(|&h| self.household(h))
+            .filter(|x| !x.members.is_empty())
+            .collect();
+        // Some household walks far: so far that its people use less water for it.
+        let far = params.household.far_walk_min()?;
+        if !homes.iter().any(|x| f64::from(x.water_walk_min) >= far) {
+            return None;
+        }
+        let loads = |x: &Household| {
+            x.members.len() as f64 * x.water_use(&params.household) / carry * DAYS_PER_YEAR as f64
+        };
+        // Nothing to save anyone: no household walks far enough to repay the least of any well.
+        let most_h: f64 = homes
+            .iter()
+            .map(|x| loads(x) * 2.0 * f64::from(x.water_walk_min) / 60.0)
+            .sum::<f64>()
+            * LONGEST_LIFE_YEARS;
+        let dig_h_per_m3 = params.digging.h_per_m3;
+        let least_h = ctx
+            .catalog
+            .wells
+            .iter()
+            .map(|d| d.water_m * d.h_per_m(dig_h_per_m3))
+            .fold(f64::INFINITY, f64::min);
+        if most_h <= least_h {
+            return None;
+        }
+        let polity = self.polity_id_of(Some(settlement))?;
+        if ctx
             .land
             .wells
             .list
             .iter()
-            .find(|w| w.household == x.id && w.is_worked())?;
+            .any(|w| w.polity == Some(polity) && w.state == WellState::Digging)
+        {
+            return None;
+        }
+        let hearth = ctx
+            .land
+            .settlements
+            .iter()
+            .find(|s| s.id == settlement)?
+            .hearth_m;
+        let hearth = (f64::from(hearth.0), f64::from(hearth.1));
+        let spot = square(hearth, HEARTH_SPOT_M);
+        let source_z = self.spring_or_bank_level(ctx, settlement).map(|l| l.1)?;
+        let first = homes.first()?;
+        let knows = |t: Option<usize>| {
+            t.is_none_or(|t| {
+                homes
+                    .iter()
+                    .flat_map(|x| x.members.iter())
+                    .filter_map(|&m| self.person(m))
+                    .any(|p| p.knows(t))
+            })
+        };
+        let spread = params.build.quality_spread;
+        let mut best: Option<PublicWell> = None;
+        for (system, def) in ctx.catalog.wells.iter().enumerate() {
+            if !knows(def.technique) {
+                continue;
+            }
+            let Some(rect) = well_site(ctx, &spot, hearth, 2.0 * def.dig_radius_m) else {
+                continue;
+            };
+            let at = rect.centre_m();
+            let cell = cell_of(ctx.map, at) as u32;
+            let ground = f64::from(ctx.map.elevation[cell as usize]);
+            let expect = self.expected_water(ctx, first, at, source_z);
+            let target = (ground - expect).max(0.0) + def.water_m;
+            if target > def.max_depth_m {
+                continue;
+            }
+            let lift = lift_min(def, ground - expect);
+            let saves: Vec<(PermanentId, f64)> = homes
+                .iter()
+                .map(|x| {
+                    let trip = Self::well_walk_s(ctx, x.home, at)
+                        .map_or(f64::INFINITY, |s| 2.0 * s / 60.0 + lift);
+                    let now = 2.0 * f64::from(x.water_walk_min);
+                    (x.id, loads(x) * (now - trip).max(0.0) / 60.0)
+                })
+                .collect();
+            let skill = homes
+                .iter()
+                .map(|x| self.well_skill(ctx, x, def))
+                .sum::<f64>()
+                / homes.len().max(1) as f64;
+            let quality = condition::expected_quality(skill, spread);
+            let rot = def.loss_per_year * wetness_at(ctx, cell);
+            let life = if rot > 0.0 {
+                (quality / rot).min(LONGEST_LIFE_YEARS)
+            } else {
+                LONGEST_LIFE_YEARS
+            };
+            let mut saves = saves;
+            saves.sort_unstable_by_key(|s| s.0);
+            let p = PublicWell {
+                site: crate::polity::WellSite {
+                    cell,
+                    rect,
+                    system: system as u16,
+                    target_m: target as f32,
+                    labour_h: (target * def.h_per_m(dig_h_per_m3)) as f32,
+                },
+                life,
+                saves,
+                households: homes.len(),
+            };
+            if best
+                .as_ref()
+                .is_none_or(|b| p.pooled_net_h() > b.pooled_net_h())
+            {
+                best = Some(p);
+            }
+        }
+        best.filter(|p| p.pooled_net_h() > 0.0)
+    }
+
+    /// Polity `polity` begins the well its law names at `site` (M6a slice BA, step four), unless
+    /// the ground there is no longer free.
+    pub(super) fn begin_public_well(
+        &mut self,
+        ctx: &mut Ctx,
+        polity: PermanentId,
+        site: crate::polity::WellSite,
+    ) {
+        if ctx.catalog.wells.get(usize::from(site.system)).is_none()
+            || !crate::build::plot_clear(ctx.land, ctx.map, ctx.nav, &site.rect)
+        {
+            return;
+        }
+        let ground = ctx.map.elevation[site.cell as usize];
+        let id = ctx.ids.allocate();
+        ctx.land.wells.list.push(Well {
+            id,
+            system: usize::from(site.system),
+            cell: site.cell,
+            rect: site.rect,
+            household: polity,
+            polity: Some(polity),
+            ground_m: ground,
+            depth_m: 0.0,
+            target_m: site.target_m,
+            work_h: 0.0,
+            skill_h: 0.0,
+            quality: 0.0,
+            loss: 0.0,
+            mend_h: 0.0,
+            cover_h: 0.0,
+            covered: false,
+            worth: 0.0,
+            level_m: f64::from(ground),
+            level_at: ctx.now,
+            drawn_l: 0.0,
+            begun: ctx.now,
+            state: WellState::Digging,
+            crew: (0, 0),
+        });
+    }
+
+    /// Polity `polity` begins a well at `site`, as its law passed would: for tests.
+    #[doc(hidden)]
+    pub fn begin_public_well_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        polity: PermanentId,
+        site: crate::polity::WellSite,
+    ) {
+        self.begin_public_well(ctx, polity, site);
+    }
+
+    /// Where settlement `settlement`'s people could dig a well together now, the walking a year
+    /// it would save each household and its lining's life: for tests.
+    #[doc(hidden)]
+    #[allow(clippy::type_complexity)]
+    pub fn public_well_for_tests(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+    ) -> Option<(crate::polity::WellSite, Vec<(PermanentId, f64)>, f64)> {
+        let mut households: Vec<PermanentId> = self
+            .households
+            .iter()
+            .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+            .map(|(_, x)| x.id)
+            .collect();
+        households.sort_unstable();
+        self.public_well(ctx, settlement, &households)
+            .map(|p| (p.site, p.saves, p.life))
+    }
+
+    /// The well household `x`'s people may work on, if any: their household's own, else one
+    /// their polity is digging under a law in force they know of (M6a slice BA, step four);
+    /// where its work is done, the walk there, the work left, what each hour of it is worth,
+    /// and, while the household has not given the share of a polity's well asked of it, what
+    /// keeping to the gathering's word is worth to `person`, as for a crossing built together (M6a
+    /// slice AY, step three).
+    pub(super) fn well_facts(
+        &self,
+        ctx: &Ctx,
+        x: &Household,
+        person: PermanentId,
+        dark: bool,
+    ) -> Option<WellFacts> {
+        if dark || ctx.land.wells.list.is_empty() {
+            return None;
+        }
+        let mut duty = 0.0;
+        let mut worth = None;
+        let w = match ctx
+            .land
+            .wells
+            .list
+            .iter()
+            .find(|w| w.household == x.id && w.is_worked())
+        {
+            Some(w) => w,
+            None => {
+                let pi = self.polity_of(x.settlement?)?;
+                let polity = &self.polities[pi];
+                let (w, law) = ctx
+                    .land
+                    .wells
+                    .list
+                    .iter()
+                    .filter(|w| w.polity == Some(polity.id) && w.state == WellState::Digging)
+                    .find_map(|w| {
+                        let law = polity.laws.iter().find(|l| {
+                            l.status == crate::polity::LawStatus::InForce
+                                && l.kind == crate::polity::PolicyKind::DigWell
+                                && l.knows(person)
+                                && polity.well_site_of(l.id).is_some_and(|s| s.cell == w.cell)
+                        })?;
+                        Some((w, law))
+                    })?;
+                let households = self
+                    .households
+                    .iter()
+                    .filter(|(_, y)| y.settlement == x.settlement && !y.members.is_empty())
+                    .count()
+                    .max(1);
+                let labour_h = polity
+                    .well_site_of(law.id)
+                    .map_or(1.0, |s| f64::from(s.labour_h).max(1.0));
+                let share = labour_h / households as f64;
+                if f64::from(ctx.land.wells.given(w.id, x.id)) + 1e-6 < share {
+                    let stance = law
+                        .stances
+                        .iter()
+                        .find(|r| r.person == person)
+                        .map_or(0.0, |r| r.stance.sign());
+                    let regard = self.ties.regard(
+                        person,
+                        law.sponsor,
+                        ctx.now.day_index(),
+                        &ctx.params.ties,
+                    );
+                    let norm = self.norm_points(ctx, person);
+                    duty =
+                        crate::polity::comply_points(norm, stance, regard, 0.0, &ctx.params.polity)
+                            .max(0.0);
+                }
+                // Each hour of it is worth the walking a year it would save this household.
+                let def = ctx.catalog.wells.get(w.system)?;
+                let lift = lift_min(def, f64::from(w.target_m) - def.water_m);
+                let trip = Self::well_walk_s(ctx, x.home, w.rect.centre_m())
+                    .map_or(f64::INFINITY, |s| 2.0 * s / 60.0 + lift);
+                let carry = ctx.params.household.carry_water_l.max(1e-6);
+                let loads = x.members.len() as f64 * x.water_use(&ctx.params.household) / carry
+                    * DAYS_PER_YEAR as f64;
+                let year_h = loads * (2.0 * f64::from(x.water_walk_min) - trip).max(0.0) / 60.0;
+                worth = Some(year_h / labour_h);
+                w
+            }
+        };
         let def = ctx.catalog.wells.get(w.system)?;
         let left_h = if w.state == WellState::Digging {
             f64::from(w.target_m - w.depth_m).max(0.0) * def.h_per_m(ctx.params.digging.h_per_m3)
@@ -827,7 +1204,8 @@ impl Population {
             at,
             walk_min: walk_s / 60.0,
             left_h,
-            saves_per_hour: f64::from(w.worth),
+            saves_per_hour: worth.unwrap_or(f64::from(w.worth)),
+            duty,
             full: w.crew.0 == ctx.now.day_index() && u32::from(w.crew.1) >= def.crew,
         })
     }
@@ -845,7 +1223,21 @@ impl Population {
         else {
             return;
         };
-        let Some(&h) = self.index.get(&who) else {
+        self.well_work_by_for_tests(ctx, who, well, hours);
+    }
+
+    /// `hours` of a capable adult's work on well `well` by `who`, for their household: for tests.
+    #[doc(hidden)]
+    pub fn well_work_by_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        well: PermanentId,
+        hours: f64,
+    ) {
+        let (Some(&h), Some(household)) =
+            (self.index.get(&who), self.person(who).map(|p| p.household))
+        else {
             return;
         };
         self.well_work(ctx, (h, who), household, well, hours);
@@ -911,13 +1303,13 @@ impl Population {
         well: PermanentId,
         hours: f64,
     ) {
-        let Some(i) = ctx
-            .land
-            .wells
-            .list
-            .iter()
-            .position(|w| w.id == well && w.household == household && w.is_worked())
-        else {
+        // Their household's own, or their polity's (M6a slice BA, step four).
+        let polity = self.polity_id_of(self.household(household).and_then(|x| x.settlement));
+        let Some(i) = ctx.land.wells.list.iter().position(|w| {
+            w.id == well
+                && (w.household == household || (w.polity.is_some() && w.polity == polity))
+                && w.is_worked()
+        }) else {
             return;
         };
         let Some(def) = ctx.catalog.wells.get(ctx.land.wells.list[i].system) else {
@@ -946,6 +1338,11 @@ impl Population {
         };
         if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
             p.set_skill(k, s.practised(p.skill(k), done));
+        }
+        // What each household gave of a polity's well is kept (research 09-06: labour asked and
+        // labour given apart).
+        if ctx.land.wells.list[i].polity.is_some() {
+            ctx.land.wells.add_given(well, household, done as f32);
         }
         let w = &mut ctx.land.wells.list[i];
         w.work_h += done as f32;
@@ -1017,11 +1414,19 @@ impl Population {
             well.level_at = now;
             well.state = WellState::Open { since: now };
             well.skill_h = 0.0;
-            let sentence = format!(
-                "{}'s household dug a {name} {depth:.1} m deep beside their home, and it met \
-                 water.",
-                self.name_of(who)
-            );
+            let sentence = match w.polity {
+                Some(_) => format!(
+                    "{}'s people finished the {name} their gathering agreed to dig beside the \
+                     hearth, {} digging the last of it: {depth:.1} m deep, it met water.",
+                    self.village_name(ctx, settlement),
+                    self.name_of(who)
+                ),
+                None => format!(
+                    "{}'s household dug a {name} {depth:.1} m deep beside their home, and it met \
+                     water.",
+                    self.name_of(who)
+                ),
+            };
             self.chronicle_push(
                 now,
                 ChronicleKind::Well,
@@ -1036,11 +1441,18 @@ impl Population {
             ctx.land.wells.list[i].target_m = depth + 1.0;
         } else {
             ctx.land.wells.list[i].state = WellState::GivenUp { on: now };
-            let sentence = format!(
-                "{}'s household gave up the {name} it was digging beside its home: {depth:.1} m \
-                 down, it had met no water.",
-                self.name_of(who)
-            );
+            let sentence = match w.polity {
+                Some(_) => format!(
+                    "{}'s people gave up the {name} their gathering agreed to dig beside the \
+                     hearth: {depth:.1} m down, it had met no water.",
+                    self.village_name(ctx, settlement)
+                ),
+                None => format!(
+                    "{}'s household gave up the {name} it was digging beside its home: \
+                     {depth:.1} m down, it had met no water.",
+                    self.name_of(who)
+                ),
+            };
             self.chronicle_push(
                 now,
                 ChronicleKind::Well,

@@ -2655,7 +2655,7 @@ impl Population {
             watch: self.watch_facts(ctx, p.id, &hh, dark),
             carry: self.carry_facts(ctx, p.id, field_key, dark),
             crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),
-            well: self.well_facts(ctx, &hh, dark),
+            well: self.well_facts(ctx, &hh, p.id, dark),
             hurt: self
                 .order
                 .hurt_until(p.id)
@@ -5355,6 +5355,7 @@ impl Population {
             };
             if let (Some(s), Some(x)) = (walk, self.households.get_mut(own)) {
                 x.water_use_l = params.household.water_use_l(s / 60.0);
+                x.water_walk_min = (s / 60.0) as f32;
             }
         }
         let Some(g) = load.good.map(usize::from) else {

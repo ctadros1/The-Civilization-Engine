@@ -1893,6 +1893,7 @@ mod tests {
                 h: 150,
             },
             household,
+            polity: None,
             ground_m: ground,
             depth_m: depth,
             target_m: depth,

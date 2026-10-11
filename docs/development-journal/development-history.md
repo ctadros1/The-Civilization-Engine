@@ -1264,6 +1264,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** a closing stands until a founding body repeals it, and nothing proposes ending one once nobody suspects its source; `water_far` and digging a well together (the rest of step four).
 
+## 2026-10-11 — M6a slice BA, step four (second part): a well dug together by law
+
+**What changed:** households keep the walk to the water they last fetched; the issue `water_far` holds when one of them walks so far that its people use less water and a well beside the hearth would repay its work; the policy *dig a well* begins a polity's well, asks each household an equal share of its work (given as each person chooses, weighing the gathering's word) and lets all the polity's people draw there (saves 83, content API 79).
+
+**Findings:** at first the issue was only whether a shared well repaid its work, and a shallow well beside the hearth repaid it even for households 25 seconds from the river, so every village proposed one in its first week; tying "far" to the walk at which people start to use less water (research 12-01 §2.1) left ordinary villages as they were. Held at 15-minute walks, three villages each proposed, passed and finished a well within about 230 days, a third to two-thirds of households giving its work.
+
+**Evidence:** an integration test from the issue to the open well drawn at by right, with shares and saves; the six gathering tests that had changed passing again; the full suite, clippy, the schema check and the smoke worlds; a probe of three villages for a year as they live and with far walks.
+
+**Open:** relining and covering a polity's well; the drought tool and the observer's view of what people believe (step five).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

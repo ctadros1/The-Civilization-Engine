@@ -1675,6 +1675,7 @@ impl Population {
             water_l: 0.0,
             water_at: ctx.now,
             water_use_l: 0.0,
+            water_walk_min: 0.0,
             known: natal.known.clone(),
             sheltered: false,
             keeping: crate::person::Keeping::default(),

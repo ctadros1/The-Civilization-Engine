@@ -113,7 +113,7 @@ use super::{
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
-    SCHEMA_V81, finish, section, single_chunk, unreadable,
+    SCHEMA_V81, SCHEMA_V82, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -475,6 +475,9 @@ enum Schema {
     /// The issues of sickness and of a suspected source, and laws closing a source of water
     /// (M6a slice BA, step four).
     V82,
+    /// Wells dug together by law, with the hours each household gave, and households' walks to
+    /// water (M6a slice BA, step four).
+    V83,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -571,7 +574,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V79 => Schema::V79,
         SCHEMA_V80 => Schema::V80,
         SCHEMA_V81 => Schema::V81,
-        SAVE_SCHEMA_VERSION => Schema::V82,
+        SCHEMA_V82 => Schema::V82,
+        SAVE_SCHEMA_VERSION => Schema::V83,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1073,6 +1077,34 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let sites = (!sites.is_empty()).then(|| fbb.create_vector(&sites));
+            // Where its laws would dig wells (schema 83).
+            let wells: Vec<_> = p
+                .wells
+                .iter()
+                .map(|&(law, site)| {
+                    let system = rules
+                        .catalog
+                        .wells
+                        .get(usize::from(site.system))
+                        .map_or("", |d| d.id.as_str());
+                    let system = fbb.create_string(system);
+                    save::PublicWellSave::create(
+                        &mut fbb,
+                        &save::PublicWellSaveArgs {
+                            law: law.get(),
+                            cell: site.cell,
+                            system: Some(system),
+                            x_cm: site.rect.x,
+                            y_cm: site.rect.y,
+                            w_cm: site.rect.w,
+                            h_cm: site.rect.h,
+                            target_m: site.target_m,
+                            labour_h: site.labour_h,
+                        },
+                    )
+                })
+                .collect();
+            let wells = (!wells.is_empty()).then(|| fbb.create_vector(&wells));
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -1113,6 +1145,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     claimed,
                     sites,
                     closed,
+                    wells,
                 },
             )
         })
@@ -1175,6 +1208,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::Fords => 9,
         IssueKind::Sickness => 10,
         IssueKind::SourceSuspected => 11,
+        IssueKind::WaterFar => 12,
     }
 }
 
@@ -1283,6 +1317,7 @@ fn decode_polities(
                 9 => IssueKind::Fords,
                 10 => IssueKind::Sickness,
                 11 => IssueKind::SourceSuspected,
+                12 => IssueKind::WaterFar,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -1526,6 +1561,37 @@ fn decode_polities(
             }
             closed.push((law, place));
         }
+        // Where its laws would dig wells (schema 83); before, nowhere. One of a well system the
+        // loaded content lacks is dropped: its law can dig nothing.
+        let mut wells = Vec::new();
+        for c in p.wells().iter().flatten() {
+            let law = PermanentId::from_raw(c.law())
+                .filter(|law| laws.iter().any(|l| l.id == *law))
+                .ok_or_else(|| {
+                    bad(format!(
+                        "polity {id} names a well's site by a missing law {}",
+                        c.law()
+                    ))
+                })?;
+            let Some(system) = rules.catalog.well_index(c.system().unwrap_or("")) else {
+                continue;
+            };
+            wells.push((
+                law,
+                civ_agents::polity::WellSite {
+                    cell: c.cell(),
+                    rect: civ_land::RectCm {
+                        x: c.x_cm(),
+                        y: c.y_cm(),
+                        w: c.w_cm(),
+                        h: c.h_cm(),
+                    },
+                    system: system as u16,
+                    target_m: c.target_m(),
+                    labour_h: c.labour_h(),
+                },
+            ));
+        }
         out.push(Polity {
             id,
             settlement,
@@ -1541,6 +1607,7 @@ fn decode_polities(
             claimed,
             sites,
             closed,
+            wells,
         });
     }
     Ok(out)
@@ -2997,7 +3064,8 @@ fn carried(
         | Schema::V79
         | Schema::V80
         | Schema::V81
-        | Schema::V82 => {
+        | Schema::V82
+        | Schema::V83 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3066,6 +3134,7 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                     midden_kg: h.midden.kg,
                     midden_at: h.midden.at.minutes(),
                     water_use_l: h.water_use_l,
+                    water_walk_min: h.water_walk_min,
                 },
             )
         })
@@ -3190,7 +3259,8 @@ fn decode_households(
             | Schema::V79
             | Schema::V80
             | Schema::V81
-            | Schema::V82 => {
+            | Schema::V82
+            | Schema::V83 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3286,6 +3356,20 @@ fn decode_households(
                     )));
                 }
                 l
+            },
+            // Before schema 83 no walk to water was recorded: none until its people fetch again.
+            water_walk_min: {
+                let m = if schema >= Schema::V83 {
+                    h.water_walk_min()
+                } else {
+                    0.0
+                };
+                if !(m.is_finite() && m >= 0.0) {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} walks {m} minutes to water"
+                    )));
+                }
+                m
             },
             // Before schema 27 no household kept a midden: one is begun as the save is loaded.
             midden: if schema < Schema::V27 {
@@ -8104,12 +8188,28 @@ fn encode_wells(land: &Land, rules: &Rules) -> Vec<u8> {
                     crew: w.crew.1,
                     cover_h: w.cover_h,
                     covered: w.covered,
+                    polity: w.polity.map_or(0, PermanentId::get),
                 },
             )
         })
         .collect();
     let list = fbb.create_vector(&list);
-    let root = save::WellsSave::create(&mut fbb, &save::WellsSaveArgs { list: Some(list) });
+    let shares: Vec<save::WellShareSave> = land
+        .wells
+        .shares
+        .iter()
+        .map(|&(well, household, hours)| {
+            save::WellShareSave::new(well.get(), household.get(), hours)
+        })
+        .collect();
+    let shares = (!shares.is_empty()).then(|| fbb.create_vector(&shares));
+    let root = save::WellsSave::create(
+        &mut fbb,
+        &save::WellsSaveArgs {
+            list: Some(list),
+            shares,
+        },
+    );
     finish(fbb, root)
 }
 
@@ -8147,6 +8247,7 @@ fn decode_wells(
                 h: w.h_cm(),
             },
             household: required(w.household(), "a well's household")?,
+            polity: PermanentId::from_raw(w.polity()),
             ground_m: w.ground_m(),
             depth_m: w.depth_m(),
             target_m: w.target_m(),
@@ -8166,7 +8267,23 @@ fn decode_wells(
             crew: (w.crew_day(), w.crew()),
         });
     }
-    let wells = Wells { list };
+    // The hours households gave to polities' wells (schema 83); a share of a well dropped with
+    // its system goes with it.
+    let mut shares = Vec::new();
+    for s in root.shares().iter().flatten() {
+        let (Some(well), Some(household)) = (
+            PermanentId::from_raw(s.well()),
+            PermanentId::from_raw(s.household()),
+        ) else {
+            return Err(LoadError::Malformed(
+                "a share of a well names nothing".to_owned(),
+            ));
+        };
+        if list.iter().any(|w: &Well| w.id == well) {
+            shares.push((well, household, s.hours()));
+        }
+    }
+    let wells = Wells { list, shares };
     let problems = wells.problems(rules.catalog.wells.len());
     if let Some(p) = problems.first() {
         return Err(LoadError::Malformed(p.clone()));

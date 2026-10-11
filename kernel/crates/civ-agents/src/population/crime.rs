@@ -614,9 +614,19 @@ impl Population {
             }
             // One who keeps the watch chooses, once, what to do with what they saw (M4b slice
             // AC): one who looked away or was paid to tells nobody; one who reported or told
-            // tells those taken from, whatever their regard.
-            let watcher = self.keeps_watch_over(w.holder, target)
-                || self.order.sighting(w.holder, w.incident).is_some();
+            // tells those taken from, whatever their regard. One named to the watch after they
+            // had already told those taken from saw it as anyone would, and chooses nothing.
+            let told = || {
+                self.household(target).is_some_and(|x| {
+                    x.members.iter().any(|&m| {
+                        self.order
+                            .belief(m, w.incident)
+                            .is_some_and(|b| b.from == Some(w.holder))
+                    })
+                })
+            };
+            let watcher = self.order.sighting(w.holder, w.incident).is_some()
+                || (self.keeps_watch_over(w.holder, target) && !told());
             if watcher {
                 let kept = match self.order.sighting(w.holder, w.incident) {
                     Some(s) => s.kept,

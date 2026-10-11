@@ -764,6 +764,83 @@ fn a_watcher_chooses_once_what_to_do_with_a_taking_they_saw() {
 }
 
 #[test]
+fn one_named_to_the_watch_after_telling_of_a_taking_makes_no_watcher_s_choice_about_it() {
+    // A witness who told those taken from as anyone would, and whom the village named to the
+    // watch afterwards, chooses nothing more about that taking (a further watcher named while
+    // takings went on was found looking away from one they had already told of).
+    use civ_agents::crime::{Belief, Incident, Outcome as Taken, Source};
+    use civ_agents::polity::PolicyKind;
+    let mut sim = world_with(content(), 3);
+    sim.advance_minutes(DAY).expect("advances");
+    let now = sim.now();
+    let homes: Vec<(PermanentId, Vec<PermanentId>, (f32, f32))> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, h)| !h.members.is_empty())
+        .map(|(_, h)| (h.id, h.members.clone(), h.home))
+        .collect();
+    assert!(homes.len() >= 3, "three households");
+    let (taker_hh, taker) = (homes[0].0, homes[0].1[0]);
+    let (target, told, place) = (homes[1].0, homes[1].1[0], homes[1].2);
+    let witness = homes[2].1[0];
+    let id = {
+        let order = &mut sim.people_mut_for_tests().order;
+        let id = order.incidents.last().map_or(1, |i| i.id + 1);
+        order.incidents.push(Incident {
+            id,
+            at: now,
+            actor: taker,
+            actor_household: taker_hh,
+            target,
+            place,
+            outcome: Taken::Taken,
+            goods: Vec::new(),
+            kcal: 0.0,
+            seen_by: vec![witness],
+            noticed: false,
+            food_days: f32::NAN,
+            richer: f32::NAN,
+        });
+        let day = now.day_index();
+        order.learn(Belief {
+            holder: witness,
+            incident: id,
+            taker: Some(taker),
+            source: Source::Saw,
+            from: None,
+            origin: Some(witness),
+            day,
+        });
+        order.learn(Belief {
+            holder: told,
+            incident: id,
+            taker: Some(taker),
+            source: Source::Told,
+            from: Some(witness),
+            origin: Some(witness),
+            day,
+        });
+        id
+    };
+    // Then the village names them to the watch.
+    a_law(&mut sim, PolicyKind::KeepWatch);
+    sim.people_mut_for_tests().polities[0]
+        .laws
+        .iter_mut()
+        .find(|l| l.kind == PolicyKind::KeepWatch)
+        .expect("the law")
+        .holder = Some(witness);
+    sim.advance_minutes(2 * DAY).expect("advances");
+    let order = &sim.people().order;
+    assert!(
+        order.sighting(witness, id).is_none(),
+        "{:?}",
+        order.sighting(witness, id)
+    );
+}
+
+#[test]
 fn a_watcher_without_objection_asks_to_be_paid_and_the_payment_moves_on_its_channel() {
     use civ_agents::crime::Kept;
     use civ_agents::polity::PolicyKind;

@@ -267,6 +267,51 @@ fn a_wet_day_washes_a_heap_into_the_well_below_it_and_its_drawers_carry_it_home(
 }
 
 #[test]
+fn a_covered_wellhead_takes_its_share_of_what_an_open_one_would_and_the_rest_soaks_away() {
+    // One wet day's runoff from a heap above the well, with the well open and then covered (M6a
+    // slice BA): the covered mouth takes the content's share of what the open one took, every
+    // other place below takes the same, and what it turned away is lost to the ground.
+    let runoff = |covered: bool| {
+        let (mut sim, _, well) = an_open_well();
+        let (above, _, _) = a_heap_above(&sim, well);
+        let d = cholera(&sim);
+        if covered {
+            let w = sim.land_mut_for_tests().wells.list.iter_mut();
+            for w in w.filter(|w| w.id == well) {
+                w.covered = true;
+            }
+        }
+        sim.people_mut_for_tests()
+            .contagion
+            .add(Node::Midden(above), d, 1000.0);
+        sim.land_mut_for_tests().water.last_surplus_mm = 20.0;
+        let day = sim.now().day_index();
+        sim.with_ctx_for_tests(|pop, ctx| pop.contagion_day_for_tests(ctx));
+        let share = sim.rules().catalog.wells[0].covered_runoff;
+        let moves: Vec<(Node, f64)> = sim
+            .people()
+            .contagion
+            .moves
+            .iter()
+            .filter(|m| m.how == How::Runoff && m.day == day)
+            .map(|m| (m.to, m.amount))
+            .collect();
+        (moves, Node::Well(well), share)
+    };
+    let (open, well, share) = runoff(false);
+    let (covered, _, _) = runoff(true);
+    let at = |moves: &[(Node, f64)], n: Node| moves.iter().find(|m| m.0 == n).map_or(0.0, |m| m.1);
+    let open_well = at(&open, well);
+    assert!(open_well > 0.0);
+    assert!((at(&covered, well) - open_well * share).abs() < 1e-9);
+    for &(n, a) in open.iter().filter(|m| m.0 != well) {
+        assert!((at(&covered, n) - a).abs() < 1e-12, "{n:?}");
+    }
+    let total = |moves: &[(Node, f64)]| moves.iter().map(|m| m.1).sum::<f64>();
+    assert!((total(&open) - total(&covered) - open_well * (1.0 - share)).abs() < 1e-9);
+}
+
+#[test]
 fn what_soaks_in_arrives_after_the_ground_s_travel_time_sooner_through_faster_ground() {
     let (mut sim, _, well) = an_open_well();
     let mut fast = reloaded(&mut sim);

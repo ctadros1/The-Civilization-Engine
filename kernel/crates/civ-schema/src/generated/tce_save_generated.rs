@@ -35490,6 +35490,8 @@ impl<'a> WellSave<'a> {
   pub const VT_STATE_AT: ::flatbuffers::VOffsetT = 48;
   pub const VT_CREW_DAY: ::flatbuffers::VOffsetT = 50;
   pub const VT_CREW: ::flatbuffers::VOffsetT = 52;
+  pub const VT_COVER_H: ::flatbuffers::VOffsetT = 54;
+  pub const VT_COVERED: ::flatbuffers::VOffsetT = 56;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -35509,6 +35511,7 @@ impl<'a> WellSave<'a> {
     builder.add_level_m(args.level_m);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    builder.add_cover_h(args.cover_h);
     builder.add_worth(args.worth);
     builder.add_mend_h(args.mend_h);
     builder.add_loss(args.loss);
@@ -35524,6 +35527,7 @@ impl<'a> WellSave<'a> {
     builder.add_x_cm(args.x_cm);
     builder.add_cell(args.cell);
     if let Some(x) = args.system { builder.add_system(x); }
+    builder.add_covered(args.covered);
     builder.add_crew(args.crew);
     builder.add_state(args.state);
     builder.finish()
@@ -35705,6 +35709,20 @@ impl<'a> WellSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u8>(WellSave::VT_CREW, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn cover_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WellSave::VT_COVER_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn covered(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(WellSave::VT_COVERED, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WellSave<'_> {
@@ -35738,6 +35756,8 @@ impl ::flatbuffers::Verifiable for WellSave<'_> {
      .visit_field::<i64>("state_at", Self::VT_STATE_AT, false)?
      .visit_field::<i64>("crew_day", Self::VT_CREW_DAY, false)?
      .visit_field::<u8>("crew", Self::VT_CREW, false)?
+     .visit_field::<f32>("cover_h", Self::VT_COVER_H, false)?
+     .visit_field::<bool>("covered", Self::VT_COVERED, false)?
      .finish();
     Ok(())
   }
@@ -35768,6 +35788,8 @@ pub struct WellSaveArgs<'a> {
     pub state_at: i64,
     pub crew_day: i64,
     pub crew: u8,
+    pub cover_h: f32,
+    pub covered: bool,
 }
 impl<'a> Default for WellSaveArgs<'a> {
   #[inline]
@@ -35798,6 +35820,8 @@ impl<'a> Default for WellSaveArgs<'a> {
       state_at: 0,
       crew_day: 0,
       crew: 0,
+      cover_h: 0.0,
+      covered: false,
     }
   }
 }
@@ -35908,6 +35932,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WellSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u8>(WellSave::VT_CREW, crew, 0);
   }
   #[inline]
+  pub fn add_cover_h(&mut self, cover_h: f32) {
+    self.fbb_.push_slot::<f32>(WellSave::VT_COVER_H, cover_h, 0.0);
+  }
+  #[inline]
+  pub fn add_covered(&mut self, covered: bool) {
+    self.fbb_.push_slot::<bool>(WellSave::VT_COVERED, covered, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WellSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WellSaveBuilder {
@@ -35950,6 +35982,8 @@ impl ::core::fmt::Debug for WellSave<'_> {
       ds.field("state_at", &self.state_at());
       ds.field("crew_day", &self.crew_day());
       ds.field("crew", &self.crew());
+      ds.field("cover_h", &self.cover_h());
+      ds.field("covered", &self.covered());
       ds.finish()
   }
 }

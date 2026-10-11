@@ -600,6 +600,11 @@ pub struct WellDef {
     pub loss_per_year: f64,
     /// How many may begin a session of work on one in a day: the room in its shaft.
     pub crew: u32,
+    /// Labour to make one a lid and curb, hours (M6a slice BA).
+    pub cover_h: f64,
+    /// The share of what an open mouth would take of the runoff from the ground round it that a
+    /// covered one takes (ADR-0021 §4: "far less into a covered, curbed well").
+    pub covered_runoff: f64,
 }
 
 impl WellDef {

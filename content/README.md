@@ -719,6 +719,14 @@ officeholder, and more adults than stand with the gathering, must stand with it 
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
 
+Content API 77 (M6a slice BA, step three) brings answers to suspicion. A `well` kind gains
+`cover_h` (0 to 1,000: hours to make one a lid and curb, owed by a household that suspects its
+own well) and `covered_runoff` (0 to 1: the share of the runoff an open mouth would take that a
+covered one takes); the core's timber-lined well takes 8 and 0.1, design priors. The people
+profile's `[moving]` gains `w_sickness` (points for the share of the settlement's households a
+household's members know had sickness lately, weighed against staying; the core's 3 is a design
+prior set as `w_grievance`).
+
 Content API 76 (M6a slice BA, step two) brings suspicion of a source. The people profile gains
 a `[suspicion]` table: `min_households` (1 to 1,000: households known to draw at a source, at
 least, before its share counts), `min_sick` (1 to 1,000: of those, households that had sickness

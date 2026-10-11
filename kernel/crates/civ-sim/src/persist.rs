@@ -274,6 +274,9 @@ pub const SCHEMA_V78: u32 = 78;
 /// The schema version of M6a slice BA, step two: suspicions, before the chronicle told them
 /// (see [`agents`]).
 pub const SCHEMA_V79: u32 = 79;
+/// The schema version of M6a slice BA, step three's first part: the chronicle's suspicions,
+/// before wells had lids (see [`agents`]).
+pub const SCHEMA_V80: u32 = 80;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

@@ -93,6 +93,10 @@ impl Population {
                     && let Some(settlement) = settlement
                 {
                     if first_at_home {
+                        // Its household reconsiders where to live (ADR-0021 §7, ADR-0018 §5).
+                        if let Some(h) = home {
+                            self.review_due.insert(h);
+                        }
                         let sentence = format!(
                             " came to suspect the water their household draws at {}: of {} \
                              households they know that draw there, {} had sickness lately, \

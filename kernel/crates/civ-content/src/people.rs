@@ -357,6 +357,8 @@ pub(crate) struct MovingFile {
     pub w_stake: f64,
     pub cost: f64,
     pub reviews: u32,
+    /// Content API 77 (M6a slice BA, step three).
+    pub w_sickness: f64,
 }
 
 /// What founding a settlement of its own is worth to a household, and what a coalition must hold
@@ -1672,6 +1674,7 @@ impl PeopleFile {
                 w_stake: self.moving.w_stake,
                 cost: self.moving.cost,
                 reviews: self.moving.reviews,
+                w_sickness: self.moving.w_sickness,
             },
             founding: civ_agents::places::FoundingParams {
                 cost: self.founding.cost,
@@ -1761,6 +1764,7 @@ impl PeopleFile {
             ("moving.w_grievance", self.moving.w_grievance),
             ("moving.w_stake", self.moving.w_stake),
             ("moving.cost", self.moving.cost),
+            ("moving.w_sickness", self.moving.w_sickness),
         ] {
             if !(v.is_finite() && (0.0..=100.0).contains(&v)) {
                 p.push(format!("`{key}` must be between 0 and 100 (got {v})"));

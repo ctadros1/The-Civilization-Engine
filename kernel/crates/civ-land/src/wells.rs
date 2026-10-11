@@ -77,6 +77,12 @@ pub struct Well {
     pub loss: f32,
     /// Hours of relining still owed, while its household is relining it (0 otherwise).
     pub mend_h: f32,
+    /// Hours of covering still owed, while its household is making it a lid and curb (0
+    /// otherwise; M6a slice BA).
+    pub cover_h: f32,
+    /// Whether a lid and curb keep most of what washes over the ground out of its mouth (M6a
+    /// slice BA, ADR-0021 §4).
+    pub covered: bool,
     /// The hours of walking a year each hour of the work owed on it saves its household, as its
     /// household weighed it when it began the work.
     pub worth: f32,
@@ -103,9 +109,10 @@ impl Well {
         matches!(self.state, WellState::Open { .. })
     }
 
-    /// Whether work is owed on it: it is being dug, or relined.
+    /// Whether work is owed on it: it is being dug, relined or covered.
     pub fn is_worked(&self) -> bool {
-        self.state == WellState::Digging || (self.is_open() && self.mend_h > 0.0)
+        self.state == WellState::Digging
+            || (self.is_open() && (self.mend_h > 0.0 || self.cover_h > 0.0))
     }
 
     /// The water surface in its shaft at `now`, its patch's water table standing at `head` and
@@ -242,6 +249,8 @@ mod tests {
             quality: 0.5,
             loss: 0.0,
             mend_h: 0.0,
+            cover_h: 0.0,
+            covered: false,
             worth: 0.0,
             level_m: level,
             level_at: SimTime::ZERO,

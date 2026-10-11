@@ -69,6 +69,10 @@ impl Population {
                         for k in kin {
                             self.word.hear(k, claim, day, None, Some(k));
                         }
+                        // Those left reconsider where to live (ADR-0021 §7, ADR-0018 §5).
+                        if self.household(household).is_some() {
+                            self.review_due.insert(household);
+                        }
                     }
                     continue;
                 }

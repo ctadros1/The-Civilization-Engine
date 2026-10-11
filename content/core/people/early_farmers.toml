@@ -972,6 +972,11 @@ w_grievance = 3.0
 w_stake = 3.0
 cost = 2.0
 reviews = 2
+# Sickness (M6a slice BA, ADR-0021 §7): `w_sickness` for the share of their settlement's households
+# its members know had sickness lately, its own among them (05-06 §5.1 counts safety among what
+# moves people; no value). A death of sickness at home, or the first of a household to suspect the
+# water it draws, sets it weighing where to live at once. A design prior, set as `w_grievance`.
+w_sickness = 3.0
 
 [founding]                       # founding a settlement of their own (M5a slice AO); design priors
 # At the same review, a household also weighs founding a settlement with others at a site a member

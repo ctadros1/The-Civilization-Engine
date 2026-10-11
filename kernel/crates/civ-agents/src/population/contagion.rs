@@ -255,13 +255,28 @@ impl Population {
                 let near = self.receptors(ctx, home, z, params.runoff_radius_m);
                 let total: f64 = near.iter().map(|r| 1.0 / r.distance_m).sum();
                 for r in near {
+                    // A covered mouth takes only its well's share of what an open one would; the
+                    // rest soaks away (M6a slice BA).
+                    let mouth = match r.node {
+                        Node::Well(w) => ctx.land.wells.get(w).map_or(1.0, |w| {
+                            if w.covered {
+                                ctx.catalog
+                                    .wells
+                                    .get(w.system)
+                                    .map_or(1.0, |d| d.covered_runoff)
+                            } else {
+                                1.0
+                            }
+                        }),
+                        _ => 1.0,
+                    };
                     let m = Move {
                         day,
                         disease,
                         how: How::Runoff,
                         from,
                         to: r.node,
-                        amount: washed / r.distance_m / total,
+                        amount: washed / r.distance_m / total * mouth,
                     };
                     self.deliver(ctx, m);
                 }

@@ -2004,6 +2004,9 @@ table WellSave {
   state_at: long (id: 22);
   crew_day: long (id: 23);
   crew: ubyte (id: 24);
+  // Its lid and curb (schema 81, M6a slice BA): hours of covering owed, and whether it has one.
+  cover_h: float (id: 25);
+  covered: bool (id: 26);
 }
 
 // Every well, in the order begun (schema 74).

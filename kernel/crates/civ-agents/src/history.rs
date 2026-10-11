@@ -769,6 +769,8 @@ pub enum WellStep {
     GivenUp = 1,
     /// Its lining rotted through and the shaft fell in.
     FellIn = 2,
+    /// Its household made it a lid and curb (M6a slice BA).
+    Covered = 3,
 }
 
 /// What happened to a crossing, in a [`ChronicleKind::Crossing`] entry. Numeric in saves:

@@ -1901,6 +1901,8 @@ mod tests {
             quality: 0.6,
             loss: 0.1,
             mend_h: 0.0,
+            cover_h: 0.0,
+            covered: false,
             worth: 1.0,
             level_m: head,
             level_at: now,

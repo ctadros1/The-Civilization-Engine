@@ -39,6 +39,8 @@ pub fn water_rev(sim: &Sim) -> u64 {
             w.work_h.to_bits(),
             w.loss.to_bits(),
             w.mend_h.to_bits(),
+            w.cover_h.to_bits(),
+            w.covered,
             w.household.get(),
         )
             .hash(&mut hasher);
@@ -101,6 +103,13 @@ fn words(sim: &Sim, w: &Well, (water_m, below_m): (f64, f64)) -> String {
             };
             let mend = if w.mend_h > 0.0 {
                 format!("; being relined, {:.0} hours of work left", w.mend_h)
+            } else if w.cover_h > 0.0 {
+                format!(
+                    "; being made a lid and curb, {:.0} hours of work left",
+                    w.cover_h
+                )
+            } else if w.covered {
+                "; it has a lid and curb".to_owned()
             } else {
                 String::new()
             };
@@ -124,6 +133,11 @@ fn words(sim: &Sim, w: &Well, (water_m, below_m): (f64, f64)) -> String {
 
 /// Whether terrain cell `cell` is where a spring may rise: the lowest ground of a patch off the
 /// water.
+/// Well `w` in the kernel's words, as `GetWater` lists it.
+pub fn well_words(sim: &Sim, w: &Well) -> String {
+    words(sim, w, standing(sim, w))
+}
+
 fn spring_cell(sim: &Sim, cell: u32) -> bool {
     let aq = &sim.land.water.aquifer;
     let p = sim.land.patches.of_cell(cell as usize, sim.map.width);

@@ -1244,6 +1244,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** covering a well, and reconsidering where to live after a death or a suspicion (the rest of step three).
 
+## 2026-10-11 — M6a slice BA, step three (second part): a lid for a suspected well, moving away from sickness
+
+**What changed:** a household that suspects its own well makes it a lid and curb as chosen work, after which its mouth takes a tenth of the runoff an open one would. A death of sickness at home, or a household's first suspicion of its water, sets it weighing where to live, with the sickness it believes at home counted against staying (saves 81, content API 77).
+
+**Findings:** the research names a well's cover and apron as part of its construction and says mending a wellhead changes what its users drink, but gives no share; the lid's tenth is a design prior.
+
+**Evidence:** integration tests of the lid owed, worked and told, of the covered mouth's share of runoff with every other place unchanged, and of the weighing's term; the full suite, clippy and the smoke worlds.
+
+**Open:** issues and policies (step four); the drought tool and the observer's view of what people believe (step five).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

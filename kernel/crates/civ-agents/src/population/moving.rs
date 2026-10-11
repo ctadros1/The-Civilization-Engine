@@ -125,6 +125,7 @@ impl Population {
             .map_or(Draw::default(), |d| d.1);
         let fed_here = self.fed_share(ctx, home);
         let grievance = self.grievance_of(ctx, household);
+        let sickness = self.sickness_believed(household, home);
         let stake = self
             .outlook(ctx, household)
             .map_or(0.0, |o| (o.harvest / o.year_need.max(1.0)).clamp(0.0, 1.0));
@@ -149,6 +150,7 @@ impl Population {
                 + mp.w_ties * (sat(there.known) - sat(here.known))
                 + mp.w_fed * fed
                 + mp.w_grievance * grievance
+                + mp.w_sickness * sickness
                 - mp.w_stake * stake
                 - mp.cost
                 - ctx.params.decision.w_walk_hour * walk_h;
@@ -268,6 +270,34 @@ impl Population {
             .clamp(0.0, 1.0)
     }
 
+    /// The share of settlement `home`'s households that household `household`'s members know had
+    /// sickness lately, its own among them (M6a slice BA): the word of it they hold.
+    pub(super) fn sickness_believed(&self, household: PermanentId, home: PermanentId) -> f64 {
+        let Some(x) = self.household(household) else {
+            return 0.0;
+        };
+        let mut sick: Vec<PermanentId> = x
+            .members
+            .iter()
+            .flat_map(|&m| self.word.heard_by(m))
+            .filter_map(|h| self.word.claim(h.claim))
+            .filter(|c| c.kind == crate::word::ClaimKind::Sickness && c.settlement == home)
+            .filter_map(|c| c.subject)
+            .collect();
+        if sick.is_empty() {
+            return 0.0;
+        }
+        sick.sort_unstable();
+        sick.dedup();
+        let here = self
+            .households
+            .iter()
+            .filter(|(_, y)| y.settlement == Some(home))
+            .count()
+            .max(1);
+        (sick.len() as f64 / here as f64).clamp(0.0, 1.0)
+    }
+
     /// Hours' walk from `from`'s hearth to `to`'s, at the pace people walk off trails.
     fn walk_hours(&self, ctx: &Ctx, from: PermanentId, to: PermanentId) -> f64 {
         let at = |s: PermanentId| {
@@ -289,6 +319,17 @@ impl Population {
     /// is no more: its ground, home and workshop stand as a household's that left.
     pub(super) fn relocate(&mut self, ctx: &mut Ctx, from: PermanentId, to: PermanentId) {
         self.relocate_as(ctx, from, to, ResidenceWhy::Moved);
+    }
+
+    /// What household `household` finds each settlement it knows worth over staying now: for
+    /// tests.
+    #[doc(hidden)]
+    pub fn move_worth_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+    ) -> Vec<(PermanentId, f64)> {
+        self.move_worth(ctx, household)
     }
 
     /// [`Population::relocate`], for tests that need a household to move on a given day.

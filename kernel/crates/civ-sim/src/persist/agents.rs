@@ -112,8 +112,8 @@ use super::{
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
-    SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, finish,
-    section, single_chunk, unreadable,
+    SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
+    finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -470,6 +470,8 @@ enum Schema {
     /// The chronicle's suspicions (M6a slice BA, step three): no new state, a chronicle kind
     /// appended.
     V80,
+    /// Wells' lids and curbs (M6a slice BA, step three).
+    V81,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -564,7 +566,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V77 => Schema::V77,
         SCHEMA_V78 => Schema::V78,
         SCHEMA_V79 => Schema::V79,
-        SAVE_SCHEMA_VERSION => Schema::V80,
+        SCHEMA_V80 => Schema::V80,
+        SAVE_SCHEMA_VERSION => Schema::V81,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2951,7 +2954,8 @@ fn carried(
         | Schema::V77
         | Schema::V78
         | Schema::V79
-        | Schema::V80 => {
+        | Schema::V80
+        | Schema::V81 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3142,7 +3146,8 @@ fn decode_households(
             | Schema::V77
             | Schema::V78
             | Schema::V79
-            | Schema::V80 => {
+            | Schema::V80
+            | Schema::V81 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -8054,6 +8059,8 @@ fn encode_wells(land: &Land, rules: &Rules) -> Vec<u8> {
                     state_at: state_at.minutes(),
                     crew_day: w.crew.0,
                     crew: w.crew.1,
+                    cover_h: w.cover_h,
+                    covered: w.covered,
                 },
             )
         })
@@ -8105,6 +8112,8 @@ fn decode_wells(
             quality: w.quality(),
             loss: w.loss(),
             mend_h: w.mend_h(),
+            cover_h: w.cover_h(),
+            covered: w.covered(),
             worth: w.worth(),
             level_m: w.level_m(),
             level_at: SimTime::from_minutes(w.level_at()),

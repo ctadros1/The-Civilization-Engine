@@ -30,6 +30,9 @@ pub(crate) struct WellFile {
     pub lift_min_per_m: f64,
     pub loss_per_year: f64,
     pub crew: u32,
+    /// Content API 77 (M6a slice BA, step three).
+    pub cover_h: f64,
+    pub covered_runoff: f64,
 }
 
 impl WellFile {
@@ -49,6 +52,8 @@ impl WellFile {
             lift_min_per_m: self.lift_min_per_m,
             loss_per_year: self.loss_per_year,
             crew: self.crew,
+            cover_h: self.cover_h,
+            covered_runoff: self.covered_runoff,
         }
     }
 
@@ -65,6 +70,8 @@ impl WellFile {
             ("lift_min_per_m", self.lift_min_per_m, 0.0, 10.0),
             ("loss_per_year", self.loss_per_year, 0.0, 1.0),
             ("crew", f64::from(self.crew), 1.0, 20.0),
+            ("cover_h", self.cover_h, 0.0, 1000.0),
+            ("covered_runoff", self.covered_runoff, 0.0, 1.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

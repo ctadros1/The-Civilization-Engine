@@ -413,6 +413,46 @@ fn a_household_passes_over_a_source_its_people_suspect_while_it_knows_another() 
 }
 
 #[test]
+fn a_household_that_suspects_its_own_well_makes_it_a_lid_and_curb() {
+    use civ_agents::uses::Place;
+    use civ_agents::word::Counts;
+    let (mut sim, h, well) = an_open_well();
+    let cell = sim.land().wells.get(well).expect("the well").cell;
+    let member = sim.people().household(h).expect("a household").members[0];
+    let today = sim.now().day_index();
+    sim.people_mut_for_tests()
+        .word
+        .suspect(member, Place::Source(cell), Counts::default(), today);
+    // At the day's turn the work is owed, as relining is.
+    to_morning(&mut sim, 0);
+    let w = *sim.land().wells.get(well).expect("the well");
+    let cover_h = sim.rules().catalog.wells[w.system].cover_h as f32;
+    assert!(w.covered || w.cover_h > 0.0, "{w:?}");
+    assert!(w.cover_h <= cover_h);
+    if !w.covered {
+        assert!(w.is_worked());
+        let words = civ_sim::frames::water::well_words(&sim, &w);
+        assert!(words.contains("being made a lid and curb"), "{words}");
+        sim.with_ctx_for_tests(|pop, ctx| {
+            pop.well_work_for_tests(ctx, well, f64::from(cover_h) + 0.5)
+        });
+    }
+    let w = *sim.land().wells.get(well).expect("the well");
+    assert!(w.covered && w.cover_h == 0.0 && !w.is_worked(), "{w:?}");
+    let words = civ_sim::frames::water::well_words(&sim, &w);
+    assert!(words.ends_with("it has a lid and curb"), "{words}");
+    assert!(sim.people().chronicle.iter().any(|c| {
+        c.kind == civ_agents::ChronicleKind::Well
+            && c.name
+                .ends_with("made their timber-lined well a lid and curb.")
+    }));
+    // It is not covered again.
+    to_morning(&mut sim, 0);
+    let w = *sim.land().wells.get(well).expect("the well");
+    assert!(w.covered && w.cover_h == 0.0);
+}
+
+#[test]
 fn a_well_serves_its_household_its_kin_and_anyone_short_of_water() {
     let (mut sim, h, well) = an_open_well();
     let at = sim

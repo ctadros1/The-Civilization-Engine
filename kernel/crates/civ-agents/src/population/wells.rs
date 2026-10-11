@@ -339,6 +339,26 @@ impl Population {
     /// level, which gives what is drawn there.
     pub(super) fn wells_day(&mut self, ctx: &mut Ctx) {
         let now = ctx.now;
+        // A household whose people suspect its own well makes it a lid and curb (M6a slice BA,
+        // ADR-0021 §7): the hours are owed until done.
+        if !self.word.suspicions.is_empty() {
+            for i in 0..ctx.land.wells.list.len() {
+                let w = ctx.land.wells.list[i];
+                if !w.is_open() || w.covered || w.cover_h > 0.0 || w.mend_h > 0.0 {
+                    continue;
+                }
+                let Some(def) = ctx.catalog.wells.get(w.system) else {
+                    continue;
+                };
+                let suspect = self.household(w.household).is_some_and(|x| {
+                    self.suspected_sources(x)
+                        .contains(&crate::uses::Place::Source(w.cell))
+                });
+                if suspect && def.cover_h > 0.0 {
+                    ctx.land.wells.list[i].cover_h = def.cover_h as f32;
+                }
+            }
+        }
         for i in 0..ctx.land.wells.list.len() {
             let w = ctx.land.wells.list[i];
             if !w.is_open() {
@@ -764,6 +784,8 @@ impl Population {
             quality: 0.0,
             loss: 0.0,
             mend_h: 0.0,
+            cover_h: 0.0,
+            covered: false,
             worth: (year_h / labour.max(1e-6)) as f32,
             level_m: f64::from(ground),
             level_at: ctx.now,
@@ -793,8 +815,10 @@ impl Population {
         let def = ctx.catalog.wells.get(w.system)?;
         let left_h = if w.state == WellState::Digging {
             f64::from(w.target_m - w.depth_m).max(0.0) * def.h_per_m(ctx.params.digging.h_per_m3)
-        } else {
+        } else if w.mend_h > 0.0 {
             f64::from(w.mend_h)
+        } else {
+            f64::from(w.cover_h)
         };
         let at = w.rect.centre_m();
         let walk_s = Self::well_walk_s(ctx, x.home, at)?;
@@ -892,10 +916,14 @@ impl Population {
         let (now, seed, spread) = (ctx.now, ctx.seed, ctx.params.build.quality_spread);
         let per_m = def.h_per_m(ctx.params.digging.h_per_m3);
         let w = ctx.land.wells.list[i];
+        // Owed a lid and curb with no relining owed (M6a slice BA).
+        let covering = w.state != WellState::Digging && w.mend_h <= 0.0;
         let done = if w.state == WellState::Digging {
             let left_m = f64::from(w.target_m - w.depth_m).max(0.0);
             let m = (hours / per_m.max(1e-9)).clamp(0.0, left_m);
             m * per_m
+        } else if covering {
+            hours.clamp(0.0, f64::from(w.cover_h))
         } else {
             hours.clamp(0.0, f64::from(w.mend_h))
         };
@@ -904,6 +932,31 @@ impl Population {
         }
         let w = &mut ctx.land.wells.list[i];
         w.work_h += done as f32;
+        if covering {
+            w.cover_h = (f64::from(w.cover_h) - done).max(0.0) as f32;
+            if w.cover_h > 1e-4 {
+                return;
+            }
+            w.cover_h = 0.0;
+            w.covered = true;
+            let place = Some(w.rect.centre_m());
+            let sentence = format!(
+                "{}'s household made their {} a lid and curb.",
+                self.name_of(who),
+                def.name.to_lowercase()
+            );
+            let settlement = self.household(household).and_then(|x| x.settlement);
+            self.chronicle_push(
+                now,
+                ChronicleKind::Well,
+                vec![who],
+                settlement,
+                place,
+                f64::from(WellStep::Covered as u8),
+                sentence,
+            );
+            return;
+        }
         w.skill_h += (done * level) as f32;
         if w.state != WellState::Digging {
             // Relining.

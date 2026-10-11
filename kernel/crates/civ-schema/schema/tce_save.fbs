@@ -192,6 +192,9 @@ table WeatherMonth {
   snow_days: ubyte (id: 9);
   // The reference soil's water as a share of what it holds, summed over the days.
   soil_sum: float (id: 10);
+  // Schema 84 (M6a slice BA, step five; ADR-0021 §8): the observer's drought held its weather
+  // on one of its days.
+  held: bool (id: 11);
 }
 
 // Schema 24: the weather's state. Today's weather (the day after the land's last), what
@@ -209,6 +212,10 @@ table Weather {
   soil_mm: double (id: 5);
   cover_ease: double (id: 6);
   months: [WeatherMonth] (id: 7);
+  // Schema 84: the observer's drought, the slow anomaly held at `hold_slow` until day
+  // `hold_until` (not including it); 0 (and absent before) when none holds.
+  hold_slow: double (id: 8);
+  hold_until: long (id: 9);
 }
 
 // Section "settle": settlements.

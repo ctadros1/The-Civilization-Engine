@@ -113,7 +113,7 @@ use super::{
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
-    SCHEMA_V81, SCHEMA_V82, finish, section, single_chunk, unreadable,
+    SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -478,6 +478,8 @@ enum Schema {
     /// Wells dug together by law, with the hours each household gave, and households' walks to
     /// water (M6a slice BA, step four).
     V83,
+    /// The observer's drought, with the months it held marked (M6a slice BA, step five).
+    V84,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -575,7 +577,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V80 => Schema::V80,
         SCHEMA_V81 => Schema::V81,
         SCHEMA_V82 => Schema::V82,
-        SAVE_SCHEMA_VERSION => Schema::V83,
+        SCHEMA_V83 => Schema::V83,
+        SAVE_SCHEMA_VERSION => Schema::V84,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2254,6 +2257,7 @@ fn encode_weather<'a>(
                     frost_days: m.frost_days,
                     snow_days: m.snow_days,
                     soil_sum: m.soil_sum,
+                    held: m.held,
                 },
             )
         })
@@ -2270,6 +2274,8 @@ fn encode_weather<'a>(
             soil_mm: w.soil_mm,
             cover_ease: w.cover_ease,
             months: Some(months),
+            hold_slow: w.hold.map_or(0.0, |h| h.0),
+            hold_until: w.hold.map_or(0, |h| h.1),
         },
     )
 }
@@ -2308,8 +2314,11 @@ fn decode_weather(w: save::Weather<'_>) -> Option<Weather> {
                 frost_days: m.frost_days(),
                 snow_days: m.snow_days(),
                 soil_sum: m.soil_sum(),
+                held: m.held(),
             })
             .collect(),
+        // The observer's drought (schema 84); none before.
+        hold: (w.hold_until() > 0).then(|| (w.hold_slow(), w.hold_until())),
     })
 }
 
@@ -3065,7 +3074,8 @@ fn carried(
         | Schema::V80
         | Schema::V81
         | Schema::V82
-        | Schema::V83 => {
+        | Schema::V83
+        | Schema::V84 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3260,7 +3270,8 @@ fn decode_households(
             | Schema::V80
             | Schema::V81
             | Schema::V82
-            | Schema::V83 => {
+            | Schema::V83
+            | Schema::V84 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -8718,7 +8729,8 @@ fn decode_influences(
             InfluenceKind::Whisper
             | InfluenceKind::Bless
             | InfluenceKind::Curse
-            | InfluenceKind::Wave => i.subject(),
+            | InfluenceKind::Wave
+            | InfluenceKind::Drought => i.subject(),
             InfluenceKind::Ideology | InfluenceKind::Agitator => {
                 match map.get(i.subject() as usize) {
                     Some(Some(k)) => *k,

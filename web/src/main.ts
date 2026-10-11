@@ -817,6 +817,14 @@ const tellOfIdeology = (person: number, ideology: number): Promise<void> =>
 const plague = (person: number, disease: number): Promise<void> =>
   influence(M.plague(person, disease), "Brought");
 
+/** Holds back the rain, then asks for the weather again at once: the hold shows before the next
+ * day is lived. */
+async function drought(months: number, depth: number): Promise<void> {
+  await influence(M.drought(months, depth), "The rain is held back");
+  weatherKey = "";
+  void syncWeather();
+}
+
 /** Opens workshop `id`'s page in the workshops panel, or goes back to the list. */
 function openFirm(id: number | null): void {
   store.update({ firm: id === null ? null : { id, info: null, error: null } });
@@ -987,6 +995,7 @@ bindUi(store, {
   bless,
   setPlacingAgitator,
   setPlacingWave,
+  drought,
 });
 
 /**

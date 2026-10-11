@@ -465,8 +465,20 @@ sicknessLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+suspicions(index: number):string
+suspicions(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+suspicions(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 120);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+suspicionsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 120);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(58);
+  builder.startObject(59);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -927,6 +939,22 @@ static createSicknessVector(builder:flatbuffers.Builder, data:flatbuffers.Offset
 }
 
 static startSicknessVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addSuspicions(builder:flatbuffers.Builder, suspicionsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(58, suspicionsOffset, 0);
+}
+
+static createSuspicionsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startSuspicionsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 

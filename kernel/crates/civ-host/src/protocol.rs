@@ -116,6 +116,13 @@ pub enum Request {
         /// An index into `Welcome.diseases`.
         disease: u32,
     },
+    /// Hold back the rain over the settlement for a while (god tool, M6a slice BA, ADR-0021 §8).
+    Drought {
+        /// How many months it holds, 3 to 24.
+        months: u32,
+        /// How dry, in standard deviations of the slow wet-or-dry spell, 0 to 3.
+        depth: f32,
+    },
     /// Lay down a deposit (god tool, ADR-0010 §1).
     PlaceDeposit {
         /// Metres from the map's north-west corner.
@@ -514,6 +521,15 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                     Ok(Request::Plague {
                         person: b.person(),
                         disease: b.disease(),
+                    })
+                }
+                wire::CommandBody::Drought => {
+                    let b = command
+                        .body_as_drought()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::Drought {
+                        months: b.months(),
+                        depth: b.depth(),
                     })
                 }
                 other => Err(format!("unknown command {}", other.0)),
@@ -1182,6 +1198,28 @@ mod tests {
             Ok(Request::Plague {
                 person: 9,
                 disease: 1
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::Drought::create(
+            &mut fbb,
+            &wire::DroughtArgs {
+                months: 9,
+                depth: 1.5,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::Drought,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::Drought {
+                months: 9,
+                depth: 1.5
             })
         );
         let mut fbb = FlatBufferBuilder::new();

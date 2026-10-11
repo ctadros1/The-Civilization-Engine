@@ -180,6 +180,19 @@ fn someone_suspects_the_well_whose_households_fell_sick_and_word_of_it_goes_roun
             ),
         "{words}"
     );
+    // The inspector tells what they hold, since when and on what counts (wire 1.63).
+    let inspected = civ_sim::frames::sickness::suspicion_words(&sim, person);
+    assert_eq!(inspected.len(), 1, "{inspected:?}");
+    assert!(
+        inspected[0].starts_with("Holds since ")
+            && inspected[0].contains(" that the water at ")
+            && inspected[0].ends_with(
+                " sickens: of 5 households they know that draw there, 3 had sickness lately, \
+                 against 0 of 6 that draw elsewhere"
+            ),
+        "{}",
+        inspected[0]
+    );
     // The first of their household to suspect a source it draws at is told in the chronicle.
     let told: Vec<_> = sim
         .people()
@@ -234,6 +247,7 @@ fn someone_suspects_the_well_whose_households_fell_sick_and_word_of_it_goes_roun
     }
     sim.with_ctx_for_tests(|pop, ctx| pop.suspicion_day_for_tests(ctx));
     assert!(sim.people().word.suspicions_of(person).is_empty());
+    assert!(civ_sim::frames::sickness::suspicion_words(&sim, person).is_empty());
 }
 
 #[test]

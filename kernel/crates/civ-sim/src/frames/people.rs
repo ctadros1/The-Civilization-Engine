@@ -1396,6 +1396,12 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         .map(|w| fbb.create_string(w))
         .collect();
     args.sickness = Some(fbb.create_vector(&sickness));
+    // The sources they hold sicken (wire 1.63).
+    let suspicions: Vec<_> = super::sickness::suspicion_words(sim, pid)
+        .iter()
+        .map(|w| fbb.create_string(w))
+        .collect();
+    args.suspicions = Some(fbb.create_vector(&suspicions));
     let body = wire::PersonInfo::create(&mut fbb, &args);
     Ok(response(fbb, wire::ResponseBody::PersonInfo, body))
 }

@@ -786,6 +786,15 @@ fn wave_words(sim: &Sim, i: &Influence) -> String {
     format!("Came with a wave the observer sent, carrying {months:.0} months' food: {came}; {now}")
 }
 
+/// What a drought in `i` held back (M6a slice BA, step five).
+fn drought_words(i: &Influence) -> String {
+    format!(
+        "Held back the rain for {} months, until {}",
+        i.subject,
+        day_words(SimTime::from_minutes(i.until * DAY))
+    )
+}
+
 /// What a plague in `i` brought and what became of it (M6a slice AZ): the observer's own record,
 /// so it tells the truth of their infection.
 fn plague_words(sim: &Sim, i: &Influence) -> String {
@@ -903,6 +912,7 @@ pub fn influence_lines<'a>(
                 InfluenceKind::Bless | InfluenceKind::Curse => luck_words(sim, i),
                 InfluenceKind::Wave => wave_words(sim, i),
                 InfluenceKind::Plague => plague_words(sim, i),
+                InfluenceKind::Drought => drought_words(i),
             };
             let what = fbb.create_string(&words);
             wire::InfluenceLine::create(

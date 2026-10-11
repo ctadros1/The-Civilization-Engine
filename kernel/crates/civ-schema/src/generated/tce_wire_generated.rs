@@ -665,10 +665,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_COMMAND_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_COMMAND_BODY: u8 = 16;
+pub const ENUM_MAX_COMMAND_BODY: u8 = 17;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 17] = [
+pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 18] = [
   CommandBody::NONE,
   CommandBody::NewWorld,
   CommandBody::SaveWorld,
@@ -686,6 +686,7 @@ pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 17] = [
   CommandBody::Bless,
   CommandBody::SendWave,
   CommandBody::Plague,
+  CommandBody::Drought,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -710,9 +711,10 @@ impl CommandBody {
   pub const Bless: Self = Self(14);
   pub const SendWave: Self = Self(15);
   pub const Plague: Self = Self(16);
+  pub const Drought: Self = Self(17);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 16;
+  pub const ENUM_MAX: u8 = 17;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::NewWorld,
@@ -731,6 +733,7 @@ impl CommandBody {
     Self::Bless,
     Self::SendWave,
     Self::Plague,
+    Self::Drought,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -752,6 +755,7 @@ impl CommandBody {
       Self::Bless => Some("Bless"),
       Self::SendWave => Some("SendWave"),
       Self::Plague => Some("Plague"),
+      Self::Drought => Some("Drought"),
       _ => None,
     }
   }
@@ -9461,6 +9465,119 @@ impl ::core::fmt::Debug for Plague<'_> {
       ds.finish()
   }
 }
+pub enum DroughtOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Drought<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Drought<'a> {
+  type Inner = Drought<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Drought<'a> {
+  pub const VT_MONTHS: ::flatbuffers::VOffsetT = 4;
+  pub const VT_DEPTH: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Drought { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args DroughtArgs
+  ) -> ::flatbuffers::WIPOffset<Drought<'bldr>> {
+    let mut builder = DroughtBuilder::new(_fbb);
+    builder.add_depth(args.depth);
+    builder.add_months(args.months);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn months(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Drought::VT_MONTHS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn depth(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Drought::VT_DEPTH, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Drought<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("months", Self::VT_MONTHS, false)?
+     .visit_field::<f32>("depth", Self::VT_DEPTH, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct DroughtArgs {
+    pub months: u32,
+    pub depth: f32,
+}
+impl<'a> Default for DroughtArgs {
+  #[inline]
+  fn default() -> Self {
+    DroughtArgs {
+      months: 0,
+      depth: 0.0,
+    }
+  }
+}
+
+pub struct DroughtBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DroughtBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_months(&mut self, months: u32) {
+    self.fbb_.push_slot::<u32>(Drought::VT_MONTHS, months, 0);
+  }
+  #[inline]
+  pub fn add_depth(&mut self, depth: f32) {
+    self.fbb_.push_slot::<f32>(Drought::VT_DEPTH, depth, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> DroughtBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    DroughtBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Drought<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Drought<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Drought");
+      ds.field("months", &self.months());
+      ds.field("depth", &self.depth());
+      ds.finish()
+  }
+}
 pub enum CommandOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -9750,6 +9867,21 @@ impl<'a> Command<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_drought(&self) -> Option<Drought<'a>> {
+    if self.body_type() == CommandBody::Drought {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Drought::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Command<'_> {
@@ -9776,6 +9908,7 @@ impl ::flatbuffers::Verifiable for Command<'_> {
           CommandBody::Bless => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Bless>>("CommandBody::Bless", pos),
           CommandBody::SendWave => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SendWave>>("CommandBody::SendWave", pos),
           CommandBody::Plague => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Plague>>("CommandBody::Plague", pos),
+          CommandBody::Drought => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Drought>>("CommandBody::Drought", pos),
           _ => Ok(()),
         }
      })?
@@ -9937,6 +10070,13 @@ impl ::core::fmt::Debug for Command<'_> {
         },
         CommandBody::Plague => {
           if let Some(x) = self.body_as_plague() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::Drought => {
+          if let Some(x) = self.body_as_drought() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -14986,6 +15126,7 @@ impl<'a> PersonInfo<'a> {
   pub const VT_SEEN_AWAY: ::flatbuffers::VOffsetT = 114;
   pub const VT_WATER: ::flatbuffers::VOffsetT = 116;
   pub const VT_SICKNESS: ::flatbuffers::VOffsetT = 118;
+  pub const VT_SUSPICIONS: ::flatbuffers::VOffsetT = 120;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -15007,6 +15148,7 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.suspicions { builder.add_suspicions(x); }
     if let Some(x) = args.sickness { builder.add_sickness(x); }
     if let Some(x) = args.water { builder.add_water(x); }
     if let Some(x) = args.seen_away { builder.add_seen_away(x); }
@@ -15465,6 +15607,13 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PersonInfo::VT_SICKNESS, None)}
   }
+  #[inline]
+  pub fn suspicions(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PersonInfo::VT_SUSPICIONS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -15531,6 +15680,7 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("seen_away", Self::VT_SEEN_AWAY, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("water", Self::VT_WATER, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("sickness", Self::VT_SICKNESS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("suspicions", Self::VT_SUSPICIONS, false)?
      .finish();
     Ok(())
   }
@@ -15594,6 +15744,7 @@ pub struct PersonInfoArgs<'a> {
     pub seen_away: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub water: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub sickness: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub suspicions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -15657,6 +15808,7 @@ impl<'a> Default for PersonInfoArgs<'a> {
       seen_away: None,
       water: None,
       sickness: None,
+      suspicions: None,
     }
   }
 }
@@ -15899,6 +16051,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_SICKNESS, sickness);
   }
   #[inline]
+  pub fn add_suspicions(&mut self, suspicions: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_SUSPICIONS, suspicions);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -15974,6 +16130,7 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("seen_away", &self.seen_away());
       ds.field("water", &self.water());
       ds.field("sickness", &self.sickness());
+      ds.field("suspicions", &self.suspicions());
       ds.finish()
   }
 }
@@ -26213,6 +26370,7 @@ impl<'a> WeatherMonthInfo<'a> {
   pub const VT_FROST_DAYS: ::flatbuffers::VOffsetT = 24;
   pub const VT_SNOW_DAYS: ::flatbuffers::VOffsetT = 26;
   pub const VT_SOIL: ::flatbuffers::VOffsetT = 28;
+  pub const VT_HELD: ::flatbuffers::VOffsetT = 30;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -26232,6 +26390,7 @@ impl<'a> WeatherMonthInfo<'a> {
     builder.add_mean_c(args.mean_c);
     builder.add_usual_mm(args.usual_mm);
     builder.add_precip_mm(args.precip_mm);
+    builder.add_held(args.held);
     builder.add_snow_days(args.snow_days);
     builder.add_frost_days(args.frost_days);
     builder.add_wet_days(args.wet_days);
@@ -26332,6 +26491,13 @@ impl<'a> WeatherMonthInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(WeatherMonthInfo::VT_SOIL, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn held(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(WeatherMonthInfo::VT_HELD, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WeatherMonthInfo<'_> {
@@ -26353,6 +26519,7 @@ impl ::flatbuffers::Verifiable for WeatherMonthInfo<'_> {
      .visit_field::<u8>("frost_days", Self::VT_FROST_DAYS, false)?
      .visit_field::<u8>("snow_days", Self::VT_SNOW_DAYS, false)?
      .visit_field::<f32>("soil", Self::VT_SOIL, false)?
+     .visit_field::<bool>("held", Self::VT_HELD, false)?
      .finish();
     Ok(())
   }
@@ -26371,6 +26538,7 @@ pub struct WeatherMonthInfoArgs {
     pub frost_days: u8,
     pub snow_days: u8,
     pub soil: f32,
+    pub held: bool,
 }
 impl<'a> Default for WeatherMonthInfoArgs {
   #[inline]
@@ -26389,6 +26557,7 @@ impl<'a> Default for WeatherMonthInfoArgs {
       frost_days: 0,
       snow_days: 0,
       soil: 0.0,
+      held: false,
     }
   }
 }
@@ -26451,6 +26620,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WeatherMonthInfoBuilder<'a, '
     self.fbb_.push_slot::<f32>(WeatherMonthInfo::VT_SOIL, soil, 0.0);
   }
   #[inline]
+  pub fn add_held(&mut self, held: bool) {
+    self.fbb_.push_slot::<bool>(WeatherMonthInfo::VT_HELD, held, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WeatherMonthInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WeatherMonthInfoBuilder {
@@ -26481,6 +26654,7 @@ impl ::core::fmt::Debug for WeatherMonthInfo<'_> {
       ds.field("frost_days", &self.frost_days());
       ds.field("snow_days", &self.snow_days());
       ds.field("soil", &self.soil());
+      ds.field("held", &self.held());
       ds.finish()
   }
 }
@@ -26506,6 +26680,7 @@ impl<'a> WeatherReport<'a> {
   pub const VT_TODAY: ::flatbuffers::VOffsetT = 10;
   pub const VT_MONTHS: ::flatbuffers::VOffsetT = 12;
   pub const VT_MONTH: ::flatbuffers::VOffsetT = 14;
+  pub const VT_DROUGHT: ::flatbuffers::VOffsetT = 16;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -26518,6 +26693,7 @@ impl<'a> WeatherReport<'a> {
   ) -> ::flatbuffers::WIPOffset<WeatherReport<'bldr>> {
     let mut builder = WeatherReportBuilder::new(_fbb);
     builder.add_rev(args.rev);
+    if let Some(x) = args.drought { builder.add_drought(x); }
     if let Some(x) = args.months { builder.add_months(x); }
     if let Some(x) = args.today { builder.add_today(x); }
     builder.add_annual_mm(args.annual_mm);
@@ -26569,6 +26745,13 @@ impl<'a> WeatherReport<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u8>(WeatherReport::VT_MONTH, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn drought(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WeatherReport::VT_DROUGHT, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WeatherReport<'_> {
@@ -26583,6 +26766,7 @@ impl ::flatbuffers::Verifiable for WeatherReport<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<DayWeather>>("today", Self::VT_TODAY, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WeatherMonthInfo>>>>("months", Self::VT_MONTHS, false)?
      .visit_field::<u8>("month", Self::VT_MONTH, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("drought", Self::VT_DROUGHT, false)?
      .finish();
     Ok(())
   }
@@ -26594,6 +26778,7 @@ pub struct WeatherReportArgs<'a> {
     pub today: Option<::flatbuffers::WIPOffset<DayWeather<'a>>>,
     pub months: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WeatherMonthInfo<'a>>>>>,
     pub month: u8,
+    pub drought: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for WeatherReportArgs<'a> {
   #[inline]
@@ -26605,6 +26790,7 @@ impl<'a> Default for WeatherReportArgs<'a> {
       today: None,
       months: None,
       month: 0,
+      drought: None,
     }
   }
 }
@@ -26639,6 +26825,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WeatherReportBuilder<'a, 'b, 
     self.fbb_.push_slot::<u8>(WeatherReport::VT_MONTH, month, 0);
   }
   #[inline]
+  pub fn add_drought(&mut self, drought: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WeatherReport::VT_DROUGHT, drought);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WeatherReportBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WeatherReportBuilder {
@@ -26662,6 +26852,7 @@ impl ::core::fmt::Debug for WeatherReport<'_> {
       ds.field("today", &self.today());
       ds.field("months", &self.months());
       ds.field("month", &self.month());
+      ds.field("drought", &self.drought());
       ds.finish()
   }
 }

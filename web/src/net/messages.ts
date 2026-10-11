@@ -234,6 +234,8 @@ export interface WeatherMonth {
   snowDays: number;
   /** The soil water under the wild cover, on average, as a share of what the soil holds. */
   soil: number;
+  /** Whether the observer's drought held the weather on any of its days (wire 1.63). */
+  held: boolean;
 }
 
 /** Every month's weather (wire 1.24). */
@@ -248,6 +250,8 @@ export interface WeatherReport {
   months: WeatherMonth[];
   /** Today's month, 0 for January. */
   month: number;
+  /** The observer's drought while it holds, in words; empty when none holds (wire 1.63). */
+  drought: string;
 }
 
 export interface Task {
@@ -791,6 +795,11 @@ export interface PersonInfo {
    * first, at most five ("Ill with cholera since yesterday, day 2 of 4; took it in water drawn at
    * Bo's household's well; ..."). The kernel's truth, which no one in the world knows. */
   sickness: string[];
+  /** Wire 1.63 (M6a slice BA): the sources of water they hold sicken, with the counts of their
+   * latest tally ("Holds since 3 May of year 2 that the water at Bo's household's well sickens:
+   * of 5 households they know that draw there, 3 had sickness lately, against 0 of 6 that draw
+   * elsewhere"). What they believe, which may be wrong. */
+  suspicions: string[];
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -1835,6 +1844,13 @@ export function tellOfIdeology(person: number, ideology: number): Uint8Array {
  * index into Welcome.diseases. They have it as if they took it elsewhere; whether it goes further
  * is the disease's and people's. Refused for someone who already has it.
  */
+/** Holds back the rain for `months` months, `depth` standard deviations dry (god tool, wire 1.63). */
+export function drought(months: number, depth: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.Drought.createDrought(b, months, depth);
+  return command(b, W.CommandBody.Drought, body);
+}
+
 export function plague(person: number, disease: number): Uint8Array {
   const b = new flatbuffers.Builder(32);
   const body = W.Plague.createPlague(b, BigInt(person), disease);
@@ -2682,6 +2698,7 @@ function weatherReport(r: W.WeatherReport): WeatherReport {
       frostDays: x.frostDays(),
       snowDays: x.snowDays(),
       soil: x.soil(),
+      held: x.held(),
     });
   }
   return {
@@ -2691,6 +2708,7 @@ function weatherReport(r: W.WeatherReport): WeatherReport {
     today: dayWeather(r.today()),
     months,
     month: r.month(),
+    drought: r.drought() ?? "",
   };
 }
 
@@ -3421,6 +3439,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     seenAway: p.seenAway() ?? "",
     water: p.water() ?? "",
     sickness: Array.from({ length: p.sicknessLength() }, (_, k) => p.sickness(k) ?? ""),
+    suspicions: Array.from({ length: p.suspicionsLength() }, (_, k) => p.suspicions(k) ?? ""),
   };
 }
 

@@ -134,6 +134,9 @@ struct SendWaveBuilder;
 struct Plague;
 struct PlagueBuilder;
 
+struct Drought;
+struct DroughtBuilder;
+
 struct Command;
 struct CommandBuilder;
 
@@ -732,11 +735,12 @@ enum class CommandBody : uint8_t {
   Bless = 14,
   SendWave = 15,
   Plague = 16,
+  Drought = 17,
   MIN = NONE,
-  MAX = Plague
+  MAX = Drought
 };
 
-inline const CommandBody (&EnumValuesCommandBody())[17] {
+inline const CommandBody (&EnumValuesCommandBody())[18] {
   static const CommandBody values[] = {
     CommandBody::NONE,
     CommandBody::NewWorld,
@@ -754,13 +758,14 @@ inline const CommandBody (&EnumValuesCommandBody())[17] {
     CommandBody::SendAgitator,
     CommandBody::Bless,
     CommandBody::SendWave,
-    CommandBody::Plague
+    CommandBody::Plague,
+    CommandBody::Drought
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandBody() {
-  static const char * const names[18] = {
+  static const char * const names[19] = {
     "NONE",
     "NewWorld",
     "SaveWorld",
@@ -778,13 +783,14 @@ inline const char * const *EnumNamesCommandBody() {
     "Bless",
     "SendWave",
     "Plague",
+    "Drought",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandBody(CommandBody e) {
-  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::Plague)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::Drought)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandBody()[index];
 }
@@ -855,6 +861,10 @@ template<> struct CommandBodyTraits<tce::wire::SendWave> {
 
 template<> struct CommandBodyTraits<tce::wire::Plague> {
   static const CommandBody enum_value = CommandBody::Plague;
+};
+
+template<> struct CommandBodyTraits<tce::wire::Drought> {
+  static const CommandBody enum_value = CommandBody::Drought;
 };
 
 template <bool B = false>
@@ -5871,6 +5881,64 @@ struct Plague::Traits {
   static auto constexpr Create = CreatePlague;
 };
 
+struct Drought FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef DroughtBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_MONTHS = 4,
+    VT_DEPTH = 6
+  };
+  uint32_t months() const {
+    return GetField<uint32_t>(VT_MONTHS, 0);
+  }
+  float depth() const {
+    return GetField<float>(VT_DEPTH, 0.0f);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_MONTHS, 4) &&
+           VerifyField<float>(verifier, VT_DEPTH, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct DroughtBuilder {
+  typedef Drought Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_months(uint32_t months) {
+    fbb_.AddElement<uint32_t>(Drought::VT_MONTHS, months, 0);
+  }
+  void add_depth(float depth) {
+    fbb_.AddElement<float>(Drought::VT_DEPTH, depth, 0.0f);
+  }
+  explicit DroughtBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Drought> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Drought>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Drought> CreateDrought(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t months = 0,
+    float depth = 0.0f) {
+  DroughtBuilder builder_(_fbb);
+  builder_.add_depth(depth);
+  builder_.add_months(months);
+  return builder_.Finish();
+}
+
+struct Drought::Traits {
+  using type = Drought;
+  static auto constexpr Create = CreateDrought;
+};
+
 struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef CommandBuilder Builder;
   struct Traits;
@@ -5932,6 +6000,9 @@ struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::Plague *body_as_Plague() const {
     return body_type() == tce::wire::CommandBody::Plague ? static_cast<const tce::wire::Plague *>(body()) : nullptr;
+  }
+  const tce::wire::Drought *body_as_Drought() const {
+    return body_type() == tce::wire::CommandBody::Drought ? static_cast<const tce::wire::Drought *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -6005,6 +6076,10 @@ template<> inline const tce::wire::SendWave *Command::body_as<tce::wire::SendWav
 
 template<> inline const tce::wire::Plague *Command::body_as<tce::wire::Plague>() const {
   return body_as_Plague();
+}
+
+template<> inline const tce::wire::Drought *Command::body_as<tce::wire::Drought>() const {
+  return body_as_Drought();
 }
 
 struct CommandBuilder {
@@ -8817,7 +8892,8 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_ERRAND = 112,
     VT_SEEN_AWAY = 114,
     VT_WATER = 116,
-    VT_SICKNESS = 118
+    VT_SICKNESS = 118,
+    VT_SUSPICIONS = 120
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -8993,6 +9069,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *sickness() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_SICKNESS);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *suspicions() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_SUSPICIONS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -9102,6 +9181,9 @@ struct PersonInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_SICKNESS) &&
            verifier.VerifyVector(sickness()) &&
            verifier.VerifyVectorOfStrings(sickness()) &&
+           VerifyOffset(verifier, VT_SUSPICIONS) &&
+           verifier.VerifyVector(suspicions()) &&
+           verifier.VerifyVectorOfStrings(suspicions()) &&
            verifier.EndTable();
   }
 };
@@ -9284,6 +9366,9 @@ struct PersonInfoBuilder {
   void add_sickness(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> sickness) {
     fbb_.AddOffset(PersonInfo::VT_SICKNESS, sickness);
   }
+  void add_suspicions(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> suspicions) {
+    fbb_.AddOffset(PersonInfo::VT_SUSPICIONS, suspicions);
+  }
   explicit PersonInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -9354,7 +9439,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
     ::flatbuffers::Offset<::flatbuffers::String> errand = 0,
     ::flatbuffers::Offset<::flatbuffers::String> seen_away = 0,
     ::flatbuffers::Offset<::flatbuffers::String> water = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> sickness = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> sickness = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> suspicions = 0) {
   PersonInfoBuilder builder_(_fbb);
   builder_.add_household_admired(household_admired);
   builder_.add_left_minute(left_minute);
@@ -9366,6 +9452,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfo(
   builder_.add_died_minute(died_minute);
   builder_.add_born_minute(born_minute);
   builder_.add_id(id);
+  builder_.add_suspicions(suspicions);
   builder_.add_sickness(sickness);
   builder_.add_water(water);
   builder_.add_seen_away(seen_away);
@@ -9481,7 +9568,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
     const char *errand = nullptr,
     const char *seen_away = nullptr,
     const char *water = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *sickness = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *sickness = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *suspicions = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto cause__ = cause ? _fbb.CreateString(cause) : 0;
   auto origin__ = origin ? _fbb.CreateString(origin) : 0;
@@ -9511,6 +9599,7 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
   auto seen_away__ = seen_away ? _fbb.CreateString(seen_away) : 0;
   auto water__ = water ? _fbb.CreateString(water) : 0;
   auto sickness__ = sickness ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*sickness) : 0;
+  auto suspicions__ = suspicions ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*suspicions) : 0;
   return tce::wire::CreatePersonInfo(
       _fbb,
       id,
@@ -9570,7 +9659,8 @@ inline ::flatbuffers::Offset<PersonInfo> CreatePersonInfoDirect(
       errand__,
       seen_away__,
       water__,
-      sickness__);
+      sickness__,
+      suspicions__);
 }
 
 struct NewsLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -16432,7 +16522,8 @@ struct WeatherMonthInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_MAX_C = 22,
     VT_FROST_DAYS = 24,
     VT_SNOW_DAYS = 26,
-    VT_SOIL = 28
+    VT_SOIL = 28,
+    VT_HELD = 30
   };
   int64_t year() const {
     return GetField<int64_t>(VT_YEAR, 0);
@@ -16473,6 +16564,9 @@ struct WeatherMonthInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   float soil() const {
     return GetField<float>(VT_SOIL, 0.0f);
   }
+  bool held() const {
+    return GetField<uint8_t>(VT_HELD, 0) != 0;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -16489,6 +16583,7 @@ struct WeatherMonthInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_FROST_DAYS, 1) &&
            VerifyField<uint8_t>(verifier, VT_SNOW_DAYS, 1) &&
            VerifyField<float>(verifier, VT_SOIL, 4) &&
+           VerifyField<uint8_t>(verifier, VT_HELD, 1) &&
            verifier.EndTable();
   }
 };
@@ -16536,6 +16631,9 @@ struct WeatherMonthInfoBuilder {
   void add_soil(float soil) {
     fbb_.AddElement<float>(WeatherMonthInfo::VT_SOIL, soil, 0.0f);
   }
+  void add_held(bool held) {
+    fbb_.AddElement<uint8_t>(WeatherMonthInfo::VT_HELD, static_cast<uint8_t>(held), 0);
+  }
   explicit WeatherMonthInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -16561,7 +16659,8 @@ inline ::flatbuffers::Offset<WeatherMonthInfo> CreateWeatherMonthInfo(
     float max_c = 0.0f,
     uint8_t frost_days = 0,
     uint8_t snow_days = 0,
-    float soil = 0.0f) {
+    float soil = 0.0f,
+    bool held = false) {
   WeatherMonthInfoBuilder builder_(_fbb);
   builder_.add_year(year);
   builder_.add_soil(soil);
@@ -16571,6 +16670,7 @@ inline ::flatbuffers::Offset<WeatherMonthInfo> CreateWeatherMonthInfo(
   builder_.add_mean_c(mean_c);
   builder_.add_usual_mm(usual_mm);
   builder_.add_precip_mm(precip_mm);
+  builder_.add_held(held);
   builder_.add_snow_days(snow_days);
   builder_.add_frost_days(frost_days);
   builder_.add_wet_days(wet_days);
@@ -16593,7 +16693,8 @@ struct WeatherReport FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_ANNUAL_MM = 8,
     VT_TODAY = 10,
     VT_MONTHS = 12,
-    VT_MONTH = 14
+    VT_MONTH = 14,
+    VT_DROUGHT = 16
   };
   uint64_t rev() const {
     return GetField<uint64_t>(VT_REV, 0);
@@ -16613,6 +16714,9 @@ struct WeatherReport FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint8_t month() const {
     return GetField<uint8_t>(VT_MONTH, 0);
   }
+  const ::flatbuffers::String *drought() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_DROUGHT);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -16625,6 +16729,8 @@ struct WeatherReport FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVector(months()) &&
            verifier.VerifyVectorOfTables(months()) &&
            VerifyField<uint8_t>(verifier, VT_MONTH, 1) &&
+           VerifyOffset(verifier, VT_DROUGHT) &&
+           verifier.VerifyString(drought()) &&
            verifier.EndTable();
   }
 };
@@ -16651,6 +16757,9 @@ struct WeatherReportBuilder {
   void add_month(uint8_t month) {
     fbb_.AddElement<uint8_t>(WeatherReport::VT_MONTH, month, 0);
   }
+  void add_drought(::flatbuffers::Offset<::flatbuffers::String> drought) {
+    fbb_.AddOffset(WeatherReport::VT_DROUGHT, drought);
+  }
   explicit WeatherReportBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -16669,9 +16778,11 @@ inline ::flatbuffers::Offset<WeatherReport> CreateWeatherReport(
     float annual_mm = 0.0f,
     ::flatbuffers::Offset<tce::wire::DayWeather> today = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WeatherMonthInfo>>> months = 0,
-    uint8_t month = 0) {
+    uint8_t month = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> drought = 0) {
   WeatherReportBuilder builder_(_fbb);
   builder_.add_rev(rev);
+  builder_.add_drought(drought);
   builder_.add_months(months);
   builder_.add_today(today);
   builder_.add_annual_mm(annual_mm);
@@ -16692,8 +16803,10 @@ inline ::flatbuffers::Offset<WeatherReport> CreateWeatherReportDirect(
     float annual_mm = 0.0f,
     ::flatbuffers::Offset<tce::wire::DayWeather> today = 0,
     const std::vector<::flatbuffers::Offset<tce::wire::WeatherMonthInfo>> *months = nullptr,
-    uint8_t month = 0) {
+    uint8_t month = 0,
+    const char *drought = nullptr) {
   auto months__ = months ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::WeatherMonthInfo>>(*months) : 0;
+  auto drought__ = drought ? _fbb.CreateString(drought) : 0;
   return tce::wire::CreateWeatherReport(
       _fbb,
       rev,
@@ -16701,7 +16814,8 @@ inline ::flatbuffers::Offset<WeatherReport> CreateWeatherReportDirect(
       annual_mm,
       today,
       months__,
-      month);
+      month,
+      drought__);
 }
 
 struct SettlementStanding FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -19159,6 +19273,10 @@ inline bool VerifyCommandBody(::flatbuffers::VerifierTemplate<B> &verifier, cons
     }
     case CommandBody::Plague: {
       auto ptr = reinterpret_cast<const tce::wire::Plague *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case CommandBody::Drought: {
+      auto ptr = reinterpret_cast<const tce::wire::Drought *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

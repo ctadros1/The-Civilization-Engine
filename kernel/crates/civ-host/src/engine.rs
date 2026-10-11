@@ -430,6 +430,7 @@ impl Engine {
                 share,
             } => self.bless(person, curse, days, share),
             Request::Plague { person, disease } => self.plague(person, disease),
+            Request::Drought { months, depth } => self.drought(months, depth),
             Request::GetRaster(query) => match &self.world {
                 None => no_world(),
                 Some(w) => match frames::raster_response(
@@ -1261,6 +1262,37 @@ impl Engine {
         match world.sim.plague(id, &key) {
             Ok(_) => {
                 let text = format!("{name} has {what}, as if they took it elsewhere");
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
+    /// The observer holds back the rain over the settlement for `months` months, `depth`
+    /// standard deviations dry (M6a slice BA, ADR-0021 §8).
+    fn drought(&mut self, months: u32, depth: f32) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        match world.sim.drought(months, f64::from(depth)) {
+            Ok(reached) => {
+                let until = world.sim.land().weather.hold.map_or(0, |(_, until)| until);
+                let text = format!(
+                    "The observer {} the rain for {months} months, {depth:.1} standard deviations \
+                     dry, until {}",
+                    if reached.repeat {
+                        "again holds back"
+                    } else {
+                        "holds back"
+                    },
+                    civ_agents::polity::day_words(SimTime::from_minutes(until * 1440))
+                );
                 self.changed = true;
                 self.urgent = true;
                 self.event(wire::EventKind::Info, text.clone());
@@ -2265,6 +2297,61 @@ mod tests {
             lines[0].starts_with("Took cholera today")
                 && lines[0].contains("; brought by the observer, as if they took it elsewhere"),
             "{lines:?}"
+        );
+    }
+
+    #[test]
+    fn the_observer_can_hold_back_the_rain_and_the_weather_panel_tells_of_it() {
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::Drought {
+                months: 6,
+                depth: 1.5,
+            })),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Dry years");
+        let reply = h.ask(Request::Drought {
+            months: 6,
+            depth: 1.5,
+        });
+        let Reply::Response(ack) = reply else {
+            panic!("held: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(
+            message.starts_with(
+                "The observer holds back the rain for 6 months, 1.5 standard deviations dry, until"
+            ),
+            "{message}"
+        );
+        // Out of bounds, in length or depth, is refused.
+        for (months, depth) in [(2, 1.0), (25, 1.0), (6, 0.0), (6, 3.5), (6, f32::NAN)] {
+            assert_eq!(
+                error_code(&h.ask(Request::Drought { months, depth })),
+                Some(wire::ErrorCode::BadRequest),
+                "{months} months, {depth} deep"
+            );
+        }
+        let Reply::Response(payload) = h.ask(Request::GetWeather) else {
+            panic!("the weather is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let report = response.body_as_weather_report().expect("a report");
+        let drought = report.drought().expect("the drought is told");
+        assert!(
+            drought.starts_with("The observer holds back the rain, 1.5 standard deviations dry"),
+            "{drought}"
+        );
+        let months = report.months().expect("months");
+        assert!(
+            !months.is_empty() && months.get(months.len() - 1).held(),
+            "this month is held"
         );
     }
 

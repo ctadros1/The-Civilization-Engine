@@ -5,7 +5,7 @@
 use civ_agents::contagion::Node;
 use civ_agents::params::{Catalog, DiseaseRoute};
 use civ_agents::sickness::{Acquired, Episode, Outcome};
-use civ_core::PermanentId;
+use civ_core::{PermanentId, SimTime};
 use civ_schema::flatbuffers::{FlatBufferBuilder, ForwardsUOffset, Vector, WIPOffset};
 use civ_schema::wire;
 
@@ -225,6 +225,31 @@ fn episode_words(sim: &Sim, e: &Episode) -> String {
         });
     }
     parts.join("; ")
+}
+
+/// The sources of water `person` holds sicken, in words, in the order of their sources, with the
+/// counts of their latest tally (M6a slice BA, step five): "Holds since 3 May of year 2 that the
+/// water at Bo's household's well sickens: of 5 households they know that draw there, 3 had
+/// sickness lately, against 0 of 6 that draw elsewhere".
+pub fn suspicion_words(sim: &Sim, person: PermanentId) -> Vec<String> {
+    sim.people
+        .word
+        .suspicions_of(person)
+        .iter()
+        .map(|s| {
+            let c = s.counts;
+            format!(
+                "Holds since {} that the water at {} sickens: of {} households they know that draw \
+                 there, {} had sickness lately, against {} of {} that draw elsewhere",
+                civ_agents::polity::day_words(SimTime::from_minutes(s.since * 1440)),
+                place_words(sim, s.source),
+                c.at,
+                c.sick_at,
+                c.sick_elsewhere,
+                c.elsewhere
+            )
+        })
+        .collect()
 }
 
 /// `person`'s infections in words, the latest first, at most five.

@@ -154,6 +154,9 @@ export interface Actions {
   /** Arms or disarms the tool that sends a migration wave of `households` households over `days`
    * days, each carrying `months` months of food, where the map is clicked (M5a slice AN). */
   setPlacingWave(on: boolean, households: number, days: number, months: number): void;
+  /** Hold back the rain for `months` months, `depth` standard deviations dry (god tool, M6a
+   * slice BA). */
+  drought(months: number, depth: number): Promise<void>;
 }
 
 const MAX_SEED = (1n << 64n) - 1n;
@@ -538,6 +541,12 @@ export function bindUi(store: Store, actions: Actions): void {
   for (const s of waveChoices) {
     s.addEventListener("change", () => armWave(addWave.getAttribute("aria-pressed") === "true"));
   }
+  const holdRain = $<HTMLButtonElement>("hold-rain");
+  holdRain.addEventListener("click", () => {
+    const months = Number($<HTMLSelectElement>("drought-months").value) || 12;
+    const depth = Number($<HTMLSelectElement>("drought-depth").value) || 1.5;
+    void actions.drought(months, depth);
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key !== " " || isTyping(event.target)) return;
     if (document.querySelector("dialog[open]")) return;
@@ -1394,6 +1403,18 @@ export function bindUi(store: Store, actions: Actions): void {
         ),
       );
     }
+    // The water they hold sickens, and why (wire 1.63, M6a slice BA): what they believe from what
+    // they heard, which may be wrong.
+    if (p.alive && p.suspicions.length > 0) {
+      nodes.push(
+        el(
+          "div",
+          { className: "suspicions" },
+          el("h4", { text: "Suspects the water" }),
+          el("ul", {}, ...p.suspicions.map((line) => el("li", { text: `${line}.` }))),
+        ),
+      );
+    }
     if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p), opinionBlock(p));
     if (p.alive) nodes.push(observerBlock(welcome, p));
     if (p.kin.length > 0 || p.family.length > 0) {
@@ -2143,6 +2164,9 @@ export function bindUi(store: Store, actions: Actions): void {
     if (w.today) {
       nodes.push(el("p", { className: "weather-today", text: `Today: ${w.today.words}.` }));
     }
+    if (w.drought) {
+      nodes.push(el("p", { className: "weather-drought", text: `${w.drought}.` }));
+    }
     nodes.push(
       el("p", {
         className: "aside",
@@ -2154,12 +2178,13 @@ export function bindUi(store: Store, actions: Actions): void {
       {},
       ...["Month", "Rain mm", "", "Mean °C", "Frost", "Snow", "Soil"].map((h) => el("th", { text: h })),
     );
-    const months = monthRows(w).map((r) =>
+    const monthList = monthRows(w);
+    const months = monthList.map((r) =>
       el(
         "tr",
-        { className: r.partial ? "partial" : "" },
-        ...[r.month, r.rain, r.rainWord, r.temp, String(r.frost), String(r.snow), r.soil].map((v) =>
-          el("td", { text: v }),
+        { className: [r.partial ? "partial" : "", r.held ? "held" : ""].filter(Boolean).join(" ") },
+        ...[r.held ? `${r.month} (held)` : r.month, r.rain, r.rainWord, r.temp, String(r.frost), String(r.snow), r.soil].map(
+          (v) => el("td", { text: v }),
         ),
       ),
     );
@@ -2170,6 +2195,11 @@ export function bindUi(store: Store, actions: Actions): void {
         el("table", { className: "weather-months" }, el("thead", {}, monthHead), el("tbody", {}, ...months)),
       ),
     );
+    if (monthList.some((r) => r.held)) {
+      nodes.push(
+        el("p", { className: "note", text: "(held): the observer's drought held that month's weather on some of its days." }),
+      );
+    }
     const yearHead = el(
       "tr",
       {},
@@ -2795,6 +2825,10 @@ export function bindUi(store: Store, actions: Actions): void {
     for (const id of ["wave-households", "wave-days", "wave-months"]) $<HTMLSelectElement>(id).disabled = wave.disabled;
     wave.setAttribute("aria-pressed", String(state.placingWave));
     wave.classList.toggle("active", state.placingWave);
+    // The drought (M6a slice BA): the rain held back over the valley.
+    const rain = $<HTMLButtonElement>("hold-rain");
+    rain.disabled = !open || !world;
+    for (const id of ["drought-months", "drought-depth"]) $<HTMLSelectElement>(id).disabled = rain.disabled;
     renderSpeeds(state);
     renderConnection(state);
     renderBanner(state);

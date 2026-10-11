@@ -283,6 +283,9 @@ pub const SCHEMA_V81: u32 = 81;
 /// The schema version of M6a slice BA, step four's first part: laws closing a source, before
 /// wells dug together and households' walks to water (see [`agents`]).
 pub const SCHEMA_V82: u32 = 82;
+/// The schema version of M6a slice BA, step four's second part: wells dug together, before the
+/// observer's drought (see [`agents`]).
+pub const SCHEMA_V83: u32 = 83;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

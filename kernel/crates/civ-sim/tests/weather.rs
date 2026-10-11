@@ -107,3 +107,105 @@ fn what_stood_out_in_the_weather_is_noted_on_the_first_of_the_next_month() {
     let loaded = persist::load(&saved.path, content()).expect("loads");
     assert_eq!(loaded.people().chronicle, sim.people().chronicle);
 }
+
+/// The world of seed `seed` with nobody living in it, so its years pass quickly.
+fn empty(seed: u64) -> Sim {
+    let mut sim = world(seed);
+    let living: Vec<_> = sim.people().people.iter().map(|(_, p)| p.id).collect();
+    for id in living {
+        sim.die_for_tests(id);
+    }
+    sim
+}
+
+#[test]
+fn the_observer_holds_back_the_rain_and_the_months_it_held_are_drier_and_marked() {
+    use civ_agents::influence::InfluenceKind;
+    let mut dry = empty(4);
+    let mut free = empty(4);
+    assert_eq!(dry.land().weather, free.land().weather);
+    // Out of bounds, in length or depth, is refused and holds nothing.
+    for (months, depth) in [(2, 1.0), (25, 1.0), (6, 0.0), (6, 3.5), (6, f64::NAN)] {
+        assert!(dry.drought(months, depth).is_err(), "{months} {depth}");
+    }
+    assert_eq!(dry.land().weather.hold, None);
+    let day = dry.now().day_index();
+    let reached = dry.drought(9, 2.0).expect("held");
+    assert!(!reached.repeat);
+    let until = day + (9.0_f64 * 365.0 / 12.0).round() as i64;
+    assert_eq!(dry.land().weather.hold, Some((-2.0, until)));
+    let begun = dry.land().weather.months.len() - 1;
+    assert!(dry.land().weather.months[begun].held);
+    // A record of the observer's act, and a line in the chronicle; a second use refreshes it.
+    let records = |sim: &Sim| -> Vec<(u32, u32, i64)> {
+        sim.people()
+            .influences
+            .list
+            .iter()
+            .filter(|i| i.kind == InfluenceKind::Drought)
+            .map(|i| (i.uses, i.subject, i.until))
+            .collect()
+    };
+    assert_eq!(records(&dry), vec![(1, 9, until)]);
+    assert!(dry.drought(9, 2.0).expect("held again").repeat);
+    assert_eq!(records(&dry), vec![(2, 9, until)]);
+    let lines: Vec<_> = dry
+        .people()
+        .chronicle
+        .iter()
+        .filter(|e| {
+            e.kind == ChronicleKind::Influence
+                && e.number == f64::from(InfluenceKind::Drought.code())
+        })
+        .collect();
+    assert_eq!(lines.len(), 2);
+    assert!(
+        lines[0]
+            .name
+            .starts_with(": for 9 months the weather runs dry, until "),
+        "{}",
+        lines[0].name
+    );
+    assert_eq!(lines[0].settlement, Some(dry.land().settlements[0].id));
+    // Kept across a save, and the world goes on alike (saves 84).
+    let dir = tempfile::tempdir().expect("tempdir");
+    let saves = SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(&mut dry, &saves, SaveKind::Manual, "drought").expect("saves");
+    let mut loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.land().weather, dry.land().weather);
+    assert_eq!(records(&loaded), records(&dry));
+    // Through the drought and a month past it.
+    let minutes = (until - day + 31) * 24 * 60;
+    for sim in [&mut dry, &mut free, &mut loaded] {
+        sim.advance_minutes(minutes).expect("advances");
+    }
+    assert_eq!(loaded.land().weather, dry.land().weather);
+    assert_eq!(loaded.land().water, dry.land().water);
+    let (wd, wf) = (&dry.land().weather, &free.land().weather);
+    assert_eq!(wd.hold, None, "let go on its day");
+    let held: Vec<usize> = (0..wd.months.len())
+        .filter(|&k| wd.months[k].held)
+        .collect();
+    let last = held.last().copied().expect("months held");
+    assert_eq!(held, (begun..=last).collect::<Vec<_>>());
+    assert!(
+        last >= begun + 9 && last + 1 < wd.months.len(),
+        "{begun}..={last}"
+    );
+    assert!(wf.months.iter().all(|m| !m.held));
+    let rain = |w: &civ_land::Weather| -> f64 {
+        w.months[begun + 1..last]
+            .iter()
+            .map(|m| f64::from(m.precip_mm))
+            .sum()
+    };
+    assert!(
+        rain(wd) < 0.85 * rain(wf),
+        "{:.0} mm against {:.0} mm",
+        rain(wd),
+        rain(wf)
+    );
+    // The ground holds less water for it.
+    let heads = |sim: &Sim| -> f64 { sim.land().water.heads.iter().sum() };
+    assert!(heads(&dry) < heads(&free), "the water table falls");
+}

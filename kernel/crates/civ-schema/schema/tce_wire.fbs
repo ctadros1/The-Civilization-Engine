@@ -523,7 +523,15 @@ table Plague {
   disease: uint (id: 1);
 }
 
-union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave, Plague }
+// Wire 1.63 (M6a slice BA, step five; ADR-0021 §8): the observer holds back the rain for
+// `months` months (3 to 24), the weather's slow anomaly held `depth` standard deviations dry (0
+// to 3). A use while one holds makes it end `months` from now.
+table Drought {
+  months: uint (id: 0);
+  depth: float (id: 1);
+}
+
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave, Plague, Drought }
 
 table Command {
   body: CommandBody (id: 1);
@@ -893,6 +901,11 @@ table PersonInfo {
   // day 2 of 4; took it in the water their household drew at Bo's well; tended 3 hours today, by
   // one who knows fluid replacement; one of 14 cases of the outbreak at Ashford").
   sickness: [string] (id: 57);
+  // The sources of water they hold sicken, in words, with the counts of their latest tally (wire
+  // 1.63, M6a slice BA, step five): what they believe, beside the truth above ("Holds since 3
+  // May of year 2 that the water at Bo's household's well sickens: of 5 households they know
+  // that draw there, 3 had sickness lately, against 0 of 6 that draw elsewhere").
+  suspicions: [string] (id: 58);
 }
 
 // Wire 1.47 (M4c slice AJ): a claim that may be whispered.
@@ -1812,6 +1825,8 @@ table WeatherMonthInfo {
   snow_days: ubyte (id: 11);
   // The soil water under the wild cover, on average, as a share of what the soil holds.
   soil: float (id: 12);
+  // Wire 1.63: the observer's drought held its weather on one of its days.
+  held: bool (id: 13);
 }
 
 table WeatherReport {
@@ -1825,6 +1840,9 @@ table WeatherReport {
   months: [WeatherMonthInfo] (id: 4);
   // Today's month, 0 for January.
   month: ubyte (id: 5);
+  // Wire 1.63: the observer's drought while it holds, in words ("The observer holds back the
+  // rain, 2 standard deviations dry, until 3 May of year 2"); absent when none holds.
+  drought: string (id: 6);
 }
 
 // A settlement's standing (wire 1.26): its notables first, then those most esteemed, at most

@@ -1288,6 +1288,13 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 Some(crate::influence::InfluenceKind::Bless) => "blessed ",
                 Some(crate::influence::InfluenceKind::Curse) => "cursed ",
                 Some(crate::influence::InfluenceKind::Plague) => "brought a disease to ",
+                // The rain held back reaches no one person (M6a slice BA, step five).
+                Some(crate::influence::InfluenceKind::Drought) => {
+                    return vec![Span::Text(format!(
+                        "One recorded influence: the observer held back the rain{}",
+                        event.name
+                    ))];
+                }
                 None => "reached ",
             };
             let lead = format!("One recorded influence: the observer {verb}");

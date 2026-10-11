@@ -113,12 +113,21 @@ pub fn weather_response(sim: &Sim) -> Vec<u8> {
                     frost_days: m.frost_days,
                     snow_days: m.snow_days,
                     soil: m.soil() as f32,
+                    held: m.held,
                 },
             )
         })
         .collect();
     let months = fbb.create_vector(&months);
     let today = day_weather(&mut fbb, sim);
+    // The observer's drought while it holds (wire 1.63).
+    let drought = land.weather.hold.map(|(value, until)| {
+        fbb.create_string(&format!(
+            "The observer holds back the rain, {:.1} standard deviations dry, until {}",
+            -value,
+            civ_agents::polity::day_words(civ_core::SimTime::from_minutes(until * 1440))
+        ))
+    });
     let body = wire::WeatherReport::create(
         &mut fbb,
         &wire::WeatherReportArgs {
@@ -128,6 +137,7 @@ pub fn weather_response(sim: &Sim) -> Vec<u8> {
             today: Some(today),
             months: Some(months),
             month: month_of(land.weather.today.day) as u8,
+            drought,
         },
     );
     response(fbb, wire::ResponseBody::WeatherReport, body)
@@ -188,6 +198,7 @@ mod tests {
             soil_mm,
             cover_ease: 1.0,
             months: Vec::new(),
+            hold: None,
         }
     }
 

@@ -28,6 +28,7 @@ export { Decision } from './wire/decision.js';
 export { DepositInfo } from './wire/deposit-info.js';
 export { Deposits } from './wire/deposits.js';
 export { DiseaseInfo } from './wire/disease-info.js';
+export { Drought } from './wire/drought.js';
 export { EarthworkInfo } from './wire/earthwork-info.js';
 export { Earthworks } from './wire/earthworks.js';
 export { ErrorCode } from './wire/error-code.js';

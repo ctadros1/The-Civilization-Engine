@@ -121,6 +121,13 @@ describe("builders", () => {
     expect([body.person(), body.disease()]).toEqual([42n, 1]);
   });
 
+  it("builds the observer's drought", () => {
+    const command = W.Command.getRootAsCommand(bb(M.drought(9, 1.5)));
+    expect(command.bodyType()).toBe(W.CommandBody.Drought);
+    const body = command.body(new W.Drought()) as W.Drought;
+    expect([body.months(), body.depth()]).toEqual([9, 1.5]);
+  });
+
   it("builds the observer's agitator and a blessing or curse", () => {
     const sent = W.Command.getRootAsCommand(bb(M.sendAgitator(120, 340, 1)));
     expect(sent.bodyType()).toBe(W.CommandBody.SendAgitator);

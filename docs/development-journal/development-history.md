@@ -1274,6 +1274,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** relining and covering a polity's well; the drought tool and the observer's view of what people believe (step five).
 
+## 2026-10-11 — M6a slice BA, step five: the drought tool and what people suspect
+
+**What changed:** the observer can hold back the rain for 3 to 24 months at a chosen depth: the weather's slow wet-or-dry spell is held dry while every other draw stays the world's own, each month it touches is marked as held, and the use is an influence record with a chronicle line. The weather panel tells the drought and marks its months; the inspector tells which water someone suspects, since when and on what counts (saves 84, wire 1.63).
+
+**Findings:** holding the spell after its monthly draw, rather than skipping the draw, keeps the rest of the weather exactly the world's: unheld, the same world differs only by the held value's memory once it lets go. A month's record begins only on its first day lived, which the first test of letting go forgot. In three probe villages a year's drought at 2 sd let about 70% of the usual rain fall, cut the first harvest by 3-26% and the stores by 25-68%, and lowered the water table about half a metre, without anyone going short within fifteen months.
+
+**Evidence:** unit tests of the hold, an integration test of the tool with saving and loading mid-drought, the host's command and weather report, the inspector's suspicion words, a web unit test and an end-to-end run of the observer; the full suite, clippy, the schema check and the smoke worlds; the probe.
+
+**Open:** a drought over one settlement (the weather is the world's); one Incidents panel and the M6a demo (slice BB).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

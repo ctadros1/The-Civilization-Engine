@@ -896,6 +896,18 @@ impl Sim {
         self.influence(|people, ctx| people.plague(ctx, person, index))
     }
 
+    /// The observer holds back the rain for `months` months, the weather's slow anomaly held
+    /// `depth` standard deviations dry (god tool, M6a slice BA, step five; ADR-0021 §8). What
+    /// follows, in the soil, the rivers, the water table, wells, springs and harvests, is the
+    /// world's.
+    pub fn drought(
+        &mut self,
+        months: u32,
+        depth: f64,
+    ) -> Result<civ_agents::population::Reached, String> {
+        self.influence(|people, ctx| people.drought(ctx, months, depth))
+    }
+
     /// Runs god tool `tool` on the people with a context for now, then schedules what it planned.
     fn influence<T>(
         &mut self,

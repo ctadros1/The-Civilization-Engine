@@ -256,6 +256,9 @@ pub struct MonthRecord {
     pub snow_days: u8,
     /// The reference soil's water as a share of what it holds, summed over the days.
     pub soil_sum: f32,
+    /// Whether the observer's drought held its weather on any of its days (M6a slice BA, step
+    /// five; ADR-0021 §8: the months it touches are marked, so statistics can leave them out).
+    pub held: bool,
 }
 
 impl MonthRecord {
@@ -781,6 +784,10 @@ pub struct Weather {
     pub cover_ease: f64,
     /// Each month's record, oldest first; the last is the month in progress.
     pub months: Vec<MonthRecord>,
+    /// The observer's drought (M6a slice BA, step five; ADR-0021 §8): the slow anomaly held at
+    /// this value, in standard deviations, until the day given (not including it). Each month's
+    /// draw is made as ever, so the days after it run as they would from where it left them.
+    pub hold: Option<(f64, i64)>,
 }
 
 impl Weather {
@@ -814,9 +821,21 @@ impl Weather {
             soil_mm: params.soil_water_mm,
             cover_ease: 1.0,
             months: Vec::new(),
+            hold: None,
         };
         w.draw(params, climate, first);
         w
+    }
+
+    /// The observer holds the slow anomaly at `value` standard deviations from now until day
+    /// `until` (M6a slice BA, step five; ADR-0021 §8): wet days are fewer and lighter, and summers
+    /// warmer, as in any dry spell of the same depth; tomorrow is the first day drawn under it.
+    pub fn hold_dry(&mut self, value: f64, until: i64) {
+        self.hold = Some((value, until));
+        self.slow = value;
+        if let Some(m) = self.months.last_mut() {
+            m.held = true;
+        }
     }
 
     /// A world's weather restored from a save older than weather (ADR-0012 §6): its slow anomaly
@@ -994,6 +1013,12 @@ impl Weather {
             let a = (-1.0 / params.slow_months.max(1e-6)).exp();
             self.slow = a * self.slow + (1.0 - a * a).sqrt() * normal(&mut rng);
         }
+        // The observer's drought, while it holds (the draw above is made all the same).
+        match self.hold {
+            Some((value, until)) if day < until => self.slow = value,
+            Some(_) => self.hold = None,
+            None => {}
+        }
         let q0 = params.wet_days[month];
         let q = (q0 * (1.0 + params.slow_wet_days * self.slow)).clamp(0.02, 0.95);
         let rho = params.persistence;
@@ -1099,9 +1124,11 @@ impl Weather {
                 ..MonthRecord::default()
             });
         }
+        let held = self.hold.is_some_and(|(_, until)| t.day < until);
         let soil = (self.soil_mm / params.soil_water_mm.max(1e-9)) as f32;
         let snow = f64::from(self.snow_mm[band]) >= SNOW_COVER_MM;
         if let Some(m) = self.months.last_mut() {
+            m.held |= held;
             m.days = m.days.saturating_add(1);
             m.precip_mm += t.precip_mm;
             m.wet_days += u8::from(f64::from(t.precip_mm) >= params.wet_day_mm);
@@ -1123,7 +1150,8 @@ impl Weather {
             .all(|v| v.is_finite())
             && [self.anomaly, self.slow, self.soil_mm, self.cover_ease]
                 .iter()
-                .all(|v| v.is_finite());
+                .all(|v| v.is_finite())
+            && self.hold.is_none_or(|(v, _)| v.is_finite());
         if !finite || t.precip_mm < 0.0 || t.min_c > t.max_c {
             out.push("the weather is not a number or out of order".to_owned());
         }
@@ -1248,6 +1276,58 @@ pub(crate) mod tests {
         assert_ne!(live(&other_seed, 3).0.months, wa.months);
         // The climatology is the landscape's, whatever the world.
         assert_eq!(a.crop_mean, other_seed.crop_mean);
+    }
+
+    #[test]
+    fn a_drought_holds_the_slow_spell_dry_marks_its_months_and_lets_go_as_any_spell_does() {
+        let p = params();
+        let c = climate(3, landscape_key("core:worldgen/river_valley"));
+        let (mut free, _) = live(&c, 1);
+        let mut dry = free.clone();
+        let until = DAYS_PER_YEAR + 182;
+        dry.hold_dry(-2.0, until);
+        assert!(
+            dry.months.last().is_some_and(|m| m.held),
+            "the month it began"
+        );
+        let (mut rain_free, mut rain_dry) = (0.0, 0.0);
+        while dry.today.day + 1 < until {
+            free.live(&p, &c);
+            dry.live(&p, &c);
+            assert_eq!(dry.slow, -2.0, "day {}", dry.today.day);
+            rain_free += f64::from(free.today.precip_mm);
+            rain_dry += f64::from(dry.today.precip_mm);
+        }
+        // Fewer and lighter wet days: about two-thirds of the rain, the same draws made.
+        assert!(
+            rain_dry < 0.85 * rain_free,
+            "{rain_dry:.0} mm against {rain_free:.0} mm"
+        );
+        assert!(dry.months[12..].iter().all(|m| m.held));
+        assert!(free.months.iter().all(|m| !m.held));
+        assert!(dry.months[..11].iter().all(|m| !m.held));
+        // The hold lets go on its day, and the spell drifts back as any dry spell would: at the
+        // next month's draw the two differ only by the held value's memory, the same deviate
+        // drawn for both.
+        let before = (free.slow, dry.slow);
+        dry.live(&p, &c);
+        free.live(&p, &c);
+        assert_eq!(dry.hold, None);
+        while day_of_year(free.today.day) != MONTH_STARTS[month_of(free.today.day)] {
+            free.live(&p, &c);
+            dry.live(&p, &c);
+        }
+        let a = (-1.0 / p.slow_months).exp();
+        assert!(
+            ((dry.slow - free.slow) - a * (before.1 - before.0)).abs() < 1e-12,
+            "{} against {}",
+            dry.slow - free.slow,
+            a * (before.1 - before.0)
+        );
+        // The new month's record begins when its first day is lived.
+        dry.live(&p, &c);
+        let last = dry.months.last().expect("a month");
+        assert!(!last.held, "{} {}", last.year, last.month);
     }
 
     #[test]

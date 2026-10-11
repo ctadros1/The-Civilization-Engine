@@ -2676,7 +2676,7 @@ impl Population {
                 .hurt_until(p.id)
                 .is_some_and(|d| d >= now.day_index()),
             ill: self.sickness.ill(p.id, now.day_index()),
-            home_afire: self.home_afire(p.household, now, params),
+            home_afire: self.knows_home_afire(p.id, p.household, now, params),
             tend: self.tend_facts(ctx, p.id, &hh),
         };
         let limits = Limits {

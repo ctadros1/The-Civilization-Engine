@@ -301,6 +301,9 @@ pub const SCHEMA_V87: u32 = 87;
 /// The schema version of M6b slice BC: a building's fire, before fires from the fires people use
 /// (see [`agents`]).
 pub const SCHEMA_V88: u32 = 88;
+/// The schema version of M6b slice BD, step one: fires from the fires people use, put out at
+/// once or catching, before escapes grew and people noticed (see [`agents`]).
+pub const SCHEMA_V89: u32 = 89;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

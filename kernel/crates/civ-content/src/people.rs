@@ -75,7 +75,8 @@ pub(crate) struct PeopleFile {
 }
 
 /// How buildings burn and fire passes between them (M6b slice BC, ADR-0022 §4-§5; content API
-/// 81). See [`civ_agents::fire::FireParams`] for what each means.
+/// 81), how fires in use escape (slice BD; content API 82), and how an escape grows and people
+/// notice and shout (content API 83). See [`civ_agents::fire::FireParams`] for what each means.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct FireFile {
@@ -97,6 +98,10 @@ pub(crate) struct FireFile {
     pub hearth_banked_per_hour: f64,
     pub worked_per_hour: f64,
     pub beside_m: f64,
+    pub grow_minutes: [f64; 2],
+    pub wake_minutes: [f64; 2],
+    pub sight_m: f64,
+    pub earshot_m: f64,
 }
 
 impl FireFile {
@@ -120,6 +125,10 @@ impl FireFile {
             hearth_banked_per_hour: self.hearth_banked_per_hour,
             worked_per_hour: self.worked_per_hour,
             beside_m: self.beside_m,
+            grow_minutes: self.grow_minutes,
+            wake_minutes: self.wake_minutes,
+            sight_m: self.sight_m,
+            earshot_m: self.earshot_m,
         }
     }
 
@@ -174,6 +183,12 @@ impl FireFile {
             ),
             ("fire.worked_per_hour", self.worked_per_hour, 0.0, 0.1),
             ("fire.beside_m", self.beside_m, 0.0, 50.0),
+            ("fire.grow_minutes[0]", self.grow_minutes[0], 0.0, 600.0),
+            ("fire.grow_minutes[1]", self.grow_minutes[1], 0.0, 600.0),
+            ("fire.wake_minutes[0]", self.wake_minutes[0], 0.0, 600.0),
+            ("fire.wake_minutes[1]", self.wake_minutes[1], 0.0, 600.0),
+            ("fire.sight_m", self.sight_m, 0.0, 2000.0),
+            ("fire.earshot_m", self.earshot_m, 0.0, 1000.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
@@ -184,6 +199,14 @@ impl FireFile {
         }
         if self.reference_moisture >= self.extinction_moisture {
             p.push("`fire.reference_moisture` must be below `fire.extinction_moisture`".to_owned());
+        }
+        for (name, [lo, hi]) in [
+            ("fire.grow_minutes", self.grow_minutes),
+            ("fire.wake_minutes", self.wake_minutes),
+        ] {
+            if lo > hi {
+                p.push(format!("`{name}` must run from the least to the most"));
+            }
         }
     }
 }

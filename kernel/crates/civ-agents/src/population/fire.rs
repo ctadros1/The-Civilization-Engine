@@ -4,15 +4,21 @@
 //!
 //! Fires start from the observer's hand and, from slice BD, where fire is used: a household's
 //! hearth and the fires it works at home escape now and then, keyed by building and minute, and
-//! someone awake there puts most out at once. Nobody notices a fire from elsewhere, shouts or
-//! fights it yet: those awake in a burning building get out and do nothing at home until it is
-//! out; those asleep wake only when it is fully involved around them, and a share of them do not
-//! get out.
+//! someone awake there puts most out at once. An escape left alone grows inside for some minutes
+//! before it reaches the covering; someone coming by puts it out, as does someone asleep inside
+//! who wakes to it in time.
+//!
+//! People notice a burning building by being in it or seeing it, and whoever comes to know of a
+//! fire shouts once: those within earshot hear, wake if asleep, and stop what they are doing to
+//! decide again (ADR-0022 §6). Each comes to know only what they saw or heard (§7), and someone
+//! keeps away from home only once they know it burns. Nobody fights a fire yet: those awake in a
+//! burning building get out; those still asleep wake when it is fully involved around them, and
+//! a share of them do not get out.
 
 use super::*;
 use crate::fire::{
-    Conflagration, Fire, FireParams, Hearth, Ignition, Kindled, Outline, Stage, Weighed,
-    charred_loss,
+    Conflagration, Fire, FireParams, Hearth, Ignition, Kindled, Knew, Noticed, Outline, Stage,
+    Weighed, charred_loss,
 };
 use crate::history::{Cause, FireStep};
 use crate::influence::InfluenceKind;
@@ -31,10 +37,17 @@ pub const PURPOSE_IGNITE: u64 = 0x6967_6e69_7465_3031; // "ignite01"
 /// Purpose tag for whether a candidate ignition happens, and from which fire, keyed by building
 /// and minute.
 pub const PURPOSE_IGNITE_TAKES: u64 = 0x6967_6e74_616b_3031; // "igntak01"
+/// Purpose tag for how long an escape left alone grows before it reaches the covering, keyed by
+/// building and minute.
+pub const PURPOSE_IGNITE_GROWS: u64 = 0x6967_6e67_7277_3031; // "igngrw01"
+/// Purpose tag for when someone asleep in a building wakes to an escape there, keyed by person
+/// and ignition.
+pub const PURPOSE_FIRE_WAKE: u64 = 0x6669_7265_7761_6b31; // "firewak1"
 
-/// The share of those asleep in a building when it is fully involved around them who do not get
-/// out (a design prior: ADR-0022 §5 has sleepers never woken die; a building fully involved wakes
-/// anyone, and some still get out).
+/// The share of those still asleep in a building when it is fully involved around them who do
+/// not get out (a design prior: ADR-0022 §5 has sleepers never woken die; a building fully
+/// involved wakes anyone, and some still get out). Those woken earlier, by a shout or an escape
+/// they wake to, are awake by then and get out.
 pub const CAUGHT_ASLEEP_DIES: f64 = 0.5;
 
 /// Building `b`'s outline as fire sees it: the edge of its roof, from its plot (the box its roof
@@ -101,18 +114,82 @@ fn chars(kind: GroupKind) -> bool {
 }
 
 impl Population {
-    /// Whether a building of household `household` burns now. A fire burns at most as long as
-    /// its stages last, so only the newest fires are looked at.
-    pub fn home_afire(&self, household: PermanentId, now: SimTime, params: &PeopleParams) -> bool {
+    /// Whether person `person` knows that a building of household `household` burns now: they
+    /// were in it, woke to it or saw it (ADR-0022 §7; hearing a shout names no building). A fire
+    /// burns at most as long as its stages last, so only the newest records are looked at.
+    pub fn knows_home_afire(
+        &self,
+        person: PermanentId,
+        household: PermanentId,
+        now: SimTime,
+        params: &PeopleParams,
+    ) -> bool {
         let p = &params.fire;
         let span = (p.involve_minutes + p.involved_minutes).ceil() as i64 + 1;
         let since = now.minutes() - span;
         self.fires
-            .list
+            .knew
             .iter()
             .rev()
-            .take_while(|f| f.began.minutes() >= since)
-            .any(|f| f.burning() && f.household == household)
+            .take_while(|k| k.at.minutes() >= since)
+            .any(|k| {
+                k.person == person
+                    && k.how != Noticed::Heard
+                    && self
+                        .fires
+                        .get(k.fire)
+                        .is_some_and(|f| f.burning() && f.household == household)
+            })
+    }
+
+    /// Whether person `person` knows of fire `fire`, and of the conflagration (or lone fire) it
+    /// is part of.
+    fn knows_of(&self, fire: u32, person: PermanentId) -> (bool, bool) {
+        let root = self.fires.root(fire);
+        let since = self.fires.get(root).map_or(0, |f| f.began.minutes());
+        let (mut knows_fire, mut knows_root) = (false, false);
+        for k in self.fires.knew.iter().rev() {
+            if k.at.minutes() < since {
+                break;
+            }
+            if k.person == person && self.fires.root(k.fire) == root {
+                knows_root = true;
+                knows_fire |= k.fire == fire;
+            }
+        }
+        (knows_fire, knows_root)
+    }
+
+    /// Someone awake in or within `within_m` of outline `o` at minute `t`: the nearest, then the
+    /// first by id.
+    fn awake_beside(&self, o: &Outline, t: f64, within_m: f64) -> Option<PermanentId> {
+        let mut beside: Option<(f64, PermanentId)> = None;
+        for (_, q) in self.people.iter() {
+            if q.asleep {
+                continue;
+            }
+            let d = outside(o, q.position_at(t));
+            if d <= within_m && beside.is_none_or(|(bd, bid)| (d, q.id) < (bd, bid)) {
+                beside = Some((d, q.id));
+            }
+        }
+        beside.map(|(_, who)| who)
+    }
+
+    /// Person `h` stops where they stand and decides again in a minute: woken, or what they were
+    /// doing ended. Someone awake carrying a load goes on to set it down where it was going, as
+    /// nothing holds goods on the ground.
+    fn stop_and_think(&mut self, ctx: &mut Ctx, h: Handle<Person>) {
+        let t = ctx.now.minutes() as f64;
+        let Some(p) = self.people.get_mut(h) else {
+            return;
+        };
+        let laden = p.carrying.kg > 0.0 || p.carrying.water_l > 0.0;
+        if laden && !p.asleep {
+            return;
+        }
+        p.pos = p.position_at(t);
+        self.wait(ctx, h, 1);
     }
 
     /// The index of the covering's good of building `b`, by the catalog's goods: the material of
@@ -215,7 +292,8 @@ impl Population {
     /// the rate of the home's fires in use now against the bound its candidates were drawn at:
     /// the hearth lit while any of its people is awake at home and banked otherwise, and a worked
     /// fire for each of them baking or firing pots there. Someone awake in or beside the building
-    /// puts it out at once, and only the count records it; otherwise its covering catches.
+    /// puts it out at once, and only the count records it; otherwise it grows inside, stepped a
+    /// minute at a time, until it is put out or reaches the covering.
     pub(super) fn ignite(&mut self, ctx: &mut Ctx, building: PermanentId) {
         let now = ctx.now;
         let p = ctx.params.fire.clone();
@@ -228,7 +306,13 @@ impl Population {
         else {
             return;
         };
-        if !b.roofed() || self.fires.burning_in(building).is_some() {
+        let growing = self
+            .fires
+            .ignitions
+            .iter()
+            .rev()
+            .any(|g| g.growing() && g.building == building);
+        if !b.roofed() || growing || self.fires.burning_in(building).is_some() {
             return;
         }
         let Some(x) = self.household(b.household) else {
@@ -282,32 +366,37 @@ impl Population {
             Hearth::Banked
         };
         // Someone awake in or beside it puts it out at once; the nearest, then the first by id.
-        let mut beside: Option<(f64, PermanentId)> = None;
-        for (_, q) in self.people.iter() {
-            if q.asleep {
-                continue;
-            }
-            let d = outside(&o, q.position_at(t));
-            if d <= p.beside_m && beside.is_none_or(|(bd, bid)| (d, q.id) < (bd, bid)) {
-                beside = Some((d, q.id));
-            }
-        }
-        let id = self.fires.ignitions.len() as u32 + 1;
-        let mut ignition = Ignition {
-            id,
+        let put_out_by = self.awake_beside(&o, t, p.beside_m);
+        // Left alone, it grows inside for a while before it reaches the covering.
+        let grows = if put_out_by.is_some() {
+            0.0
+        } else {
+            let key = [
+                ctx.seed,
+                PURPOSE_IGNITE_GROWS,
+                building.get(),
+                now.minutes() as u64,
+            ];
+            let [lo, hi] = p.grow_minutes;
+            lo.max(0.0) + Rng64::from_key(&key).next_f64() * (hi - lo).max(0.0)
+        };
+        let was = self.fires.active();
+        self.fires.ignitions.push(Ignition {
+            id: self.fires.ignitions.len() as u32 + 1,
             at: now,
             building,
             household: b.household,
             settlement,
             hearth: kind,
             moisture: ctx.land.weather.today.fuel_moisture,
-            put_out_by: beside.map(|(_, who)| who),
+            grows_min: grows as f32,
+            ended: put_out_by.map(|_| now),
+            put_out_by,
             fire: None,
-        };
-        if ignition.put_out_by.is_none() && self.catch_threshold(ctx, &b).is_some() {
-            ignition.fire = Some(self.kindle(ctx, &b, Kindled::Ignition { ignition: id }));
+        });
+        if !was && self.fires.active() {
+            ctx.schedule.push((now.plus_minutes(1), AgentEvent::Fire));
         }
-        self.fires.ignitions.push(ignition);
     }
 
     /// The observer sets building `building`'s covering alight (ADR-0022 §14): it burns as any
@@ -357,7 +446,15 @@ impl Population {
             f64::from(InfluenceKind::Fire.code()),
             format!(" {words}."),
         );
+        let was = self.fires.active();
         self.kindle(ctx, &b, Kindled::Observer { influence });
+        if !was {
+            ctx.schedule
+                .push((ctx.now.plus_minutes(1), AgentEvent::Fire));
+        }
+        // Whoever sees it now knows of it and shouts.
+        let plots = plot_boxes(ctx.land);
+        self.notice(ctx, &plots);
         Ok(super::influence::Reached {
             id: influence,
             repeat: false,
@@ -380,10 +477,9 @@ impl Population {
         }
     }
 
-    /// Building `b`'s covering catches now, as `kindled` says: a fire begins, and the minute's
-    /// stepping with it if nothing burned before.
+    /// Building `b`'s covering catches now, as `kindled` says: a fire begins. The caller steps it:
+    /// a minute's stepping is under way, or begun by the caller if nothing was active before.
     fn kindle(&mut self, ctx: &mut Ctx, b: &Building, kindled: Kindled) -> u32 {
-        let first = !self.fires.any_burning();
         let id = self.fires.list.len() as u32 + 1;
         let settlement = self.household(b.household).and_then(|x| x.settlement);
         self.fires.list.push(Fire {
@@ -400,26 +496,22 @@ impl Population {
             deaths: Vec::new(),
         });
         self.fires.exposure.retain(|(x, _)| *x != b.id);
-        if first {
-            ctx.schedule
-                .push((ctx.now.plus_minutes(1), AgentEvent::Fire));
-        }
         id
     }
 
-    /// One minute of every fire burning (ADR-0022 §4-§5): each burns on and does its damage,
-    /// those burnt out end, its heat reaches the buildings near it and may catch them, and those
-    /// inside burning buildings get out or are caught. Another minute follows while anything
-    /// burns.
+    /// One minute of every fire burning and every escape growing (ADR-0022 §3-§6): each fire
+    /// burns on and does its damage, its heat reaches the buildings near it and may catch them,
+    /// each escape grows, is put out or reaches its covering, those burnt out end, and people
+    /// notice, shout and hear. Another minute follows while anything burns or grows.
     pub(super) fn fire_minute(&mut self, ctx: &mut Ctx) {
         let now = ctx.now;
+        if !self.fires.active() {
+            return;
+        }
         let p = ctx.params.fire.clone();
         let burning: Vec<usize> = (0..self.fires.list.len())
             .filter(|&i| self.fires.list[i].burning())
             .collect();
-        if burning.is_empty() {
-            return;
-        }
         let plots = plot_boxes(ctx.land);
         // Each fire burns on, and those burnt out end.
         let mut ended = Vec::new();
@@ -429,14 +521,218 @@ impl Population {
             }
         }
         // Heat on the buildings near those still burning; some catch.
-        self.spread(ctx, &plots, &p);
+        if !burning.is_empty() {
+            self.spread(ctx, &plots, &p);
+        }
+        // Escapes grow, are put out, or reach their coverings.
+        self.grow(ctx, &plots, &p);
         for i in ended {
             self.burn_out(ctx, i);
         }
-        if self.fires.any_burning() {
+        // Who sees what burns now, and the shouts.
+        self.notice(ctx, &plots);
+        if self.fires.active() {
             ctx.schedule.push((now.plus_minutes(1), AgentEvent::Fire));
-        } else {
+        }
+        if !self.fires.any_burning() {
             self.fires.exposure.clear();
+        }
+    }
+
+    /// A minute of every escape growing inside (slice BD; 12-03 §1.2): someone awake in or
+    /// beside its building puts it out, as does someone asleep inside who wakes to it by a draw
+    /// of their own; left alone for its minutes, it reaches the covering, which catches if it
+    /// can.
+    fn grow(
+        &mut self,
+        ctx: &mut Ctx,
+        plots: &FastMap<PermanentId, civ_land::RectCm>,
+        p: &FireParams,
+    ) {
+        let now = ctx.now;
+        let t = now.minutes() as f64;
+        let growing: Vec<usize> = (0..self.fires.ignitions.len())
+            .filter(|&i| self.fires.ignitions[i].growing())
+            .collect();
+        for gi in growing {
+            let g = self.fires.ignitions[gi];
+            let b = ctx
+                .land
+                .buildings
+                .iter()
+                .find(|b| b.id == g.building)
+                .cloned();
+            let o = b.as_ref().and_then(|b| outline_of(plots, b));
+            let (Some(b), Some(o)) = (b, o) else {
+                // Its building is gone: it goes out with it.
+                self.fires.ignitions[gi].ended = Some(now);
+                continue;
+            };
+            if !b.roofed() || self.fires.burning_in(b.id).is_some() {
+                // Its roof is gone, or it burns already from elsewhere.
+                self.fires.ignitions[gi].ended = Some(now);
+                continue;
+            }
+            // Someone awake in or beside it finds it and puts it out.
+            if let Some(who) = self.awake_beside(&o, t, p.beside_m) {
+                let g = &mut self.fires.ignitions[gi];
+                g.ended = Some(now);
+                g.put_out_by = Some(who);
+                continue;
+            }
+            // Someone asleep inside wakes to it in time: the first by their draw, then by id.
+            let minutes = (now.minutes() - g.at.minutes()) as f64;
+            let [lo, hi] = p.wake_minutes;
+            let mut woke: Option<(f64, PermanentId, Handle<Person>)> = None;
+            for (h, q) in self.people.iter() {
+                if !q.asleep || q.trip.is_some() || !within(&o, q.position_at(t)) {
+                    continue;
+                }
+                let key = [ctx.seed, PURPOSE_FIRE_WAKE, q.id.get(), u64::from(g.id)];
+                let w = lo.max(0.0) + Rng64::from_key(&key).next_f64() * (hi - lo).max(0.0);
+                if minutes >= w && woke.is_none_or(|(bw, bid, _)| (w, q.id) < (bw, bid)) {
+                    woke = Some((w, q.id, h));
+                }
+            }
+            if let Some((_, who, h)) = woke {
+                self.stop_and_think(ctx, h);
+                let g = &mut self.fires.ignitions[gi];
+                g.ended = Some(now);
+                g.put_out_by = Some(who);
+                continue;
+            }
+            if minutes >= f64::from(g.grows_min) {
+                // It reaches the covering, which catches if it can.
+                self.fires.ignitions[gi].ended = Some(now);
+                if self.catch_threshold(ctx, &b).is_some() {
+                    let fire = self.kindle(ctx, &b, Kindled::Ignition { ignition: g.id });
+                    self.fires.ignitions[gi].fire = Some(fire);
+                }
+            }
+        }
+    }
+
+    /// Who comes to know of the fires burning now, and the shouts (ADR-0022 §6-§7). Anyone awake
+    /// within sight of a burning building notices it, or is inside it; each fire they see or are
+    /// in is a record of theirs. Whoever comes to know of a conflagration (or lone fire) they did
+    /// not know of shouts, those who saw it at once and those who heard a shout the minute after:
+    /// anyone within earshot who did not know of it hears, waking if asleep. Anyone awake who
+    /// comes to know of one stops what they are doing and decides again.
+    fn notice(&mut self, ctx: &mut Ctx, plots: &FastMap<PermanentId, civ_land::RectCm>) {
+        let now = ctx.now;
+        let t = now.minutes() as f64;
+        let (sight, earshot) = (ctx.params.fire.sight_m, ctx.params.fire.earshot_m);
+        // The fires burning now, with their outlines and the conflagrations they are part of.
+        let burning: Vec<(u32, u32, Outline)> = self
+            .fires
+            .list
+            .iter()
+            .filter(|f| f.burning())
+            .filter_map(|f| {
+                let b = ctx.land.buildings.iter().find(|b| b.id == f.building)?;
+                Some((f.id, self.fires.root(f.id), outline_of(plots, b)?))
+            })
+            .collect();
+        if burning.is_empty() {
+            return;
+        }
+        // Who knows of what already: each record since the earliest of these fires began.
+        let since = burning
+            .iter()
+            .filter_map(|&(id, _, _)| self.fires.get(id).map(|f| f.began.minutes()))
+            .min()
+            .unwrap_or(now.minutes());
+        let roots: Vec<u32> = burning.iter().map(|&(_, r, _)| r).collect();
+        let mut knows_fire: std::collections::HashSet<(u32, PermanentId)> = Default::default();
+        let mut knows_root: std::collections::HashSet<(u32, PermanentId)> = Default::default();
+        let start = self
+            .fires
+            .knew
+            .iter()
+            .rposition(|k| k.at.minutes() < since)
+            .map_or(0, |i| i + 1);
+        for k in &self.fires.knew[start..] {
+            let root = self.fires.root(k.fire);
+            if roots.contains(&root) {
+                knows_fire.insert((k.fire, k.person));
+                knows_root.insert((root, k.person));
+            }
+        }
+        // Those in or within sight of a fire who did not know of it.
+        let mut seen: Vec<(Handle<Person>, Knew, bool)> = Vec::new();
+        for (h, q) in self.people.iter() {
+            if q.asleep {
+                continue;
+            }
+            let at = q.position_at(t);
+            for &(fire, root, ref o) in &burning {
+                let d = outside(o, at);
+                if d > sight || knows_fire.contains(&(fire, q.id)) {
+                    continue;
+                }
+                let how = if q.trip.is_none() && within(o, at) {
+                    Noticed::Inside
+                } else {
+                    Noticed::Saw
+                };
+                let new_to_it = knows_root.insert((root, q.id));
+                knows_fire.insert((fire, q.id));
+                let knew = Knew {
+                    fire,
+                    person: q.id,
+                    at: now,
+                    how,
+                    shouted: !new_to_it,
+                };
+                seen.push((h, knew, new_to_it));
+            }
+        }
+        for (h, knew, new_to_it) in seen {
+            self.fires.knew.push(knew);
+            if new_to_it {
+                self.stop_and_think(ctx, h);
+            }
+        }
+        // The shouts: everyone who came to know of a fire and has not shouted of it.
+        let shouts: Vec<(usize, u32, u32, (f32, f32))> = (start..self.fires.knew.len())
+            .filter(|&i| !self.fires.knew[i].shouted)
+            .filter_map(|i| {
+                let k = self.fires.knew[i];
+                let root = self.fires.root(k.fire);
+                let at = self.person(k.person)?.position_at(t);
+                roots.contains(&root).then_some((i, k.fire, root, at))
+            })
+            .collect();
+        for &(i, _, _, _) in &shouts {
+            self.fires.knew[i].shouted = true;
+        }
+        let mut heard: Vec<(Handle<Person>, Knew)> = Vec::new();
+        for (_, fire, root, from) in shouts {
+            for (h, q) in self.people.iter() {
+                if knows_root.contains(&(root, q.id)) {
+                    continue;
+                }
+                let at = q.position_at(t);
+                let d = f64::from(at.0 - from.0).hypot(f64::from(at.1 - from.1));
+                if d > earshot {
+                    continue;
+                }
+                knows_root.insert((root, q.id));
+                heard.push((
+                    h,
+                    Knew {
+                        fire,
+                        person: q.id,
+                        at: now,
+                        how: Noticed::Heard,
+                        shouted: false,
+                    },
+                ));
+            }
+        }
+        for (h, knew) in heard {
+            self.fires.knew.push(knew);
+            self.stop_and_think(ctx, h);
         }
     }
 
@@ -563,6 +859,17 @@ impl Population {
                 if Rng64::from_key(&key).next_f64() < CAUGHT_ASLEEP_DIES {
                     dead.push(who);
                     continue;
+                }
+                // Woken by it, they know of it, and shout if it is news to them.
+                let (fire, root) = self.knows_of(id, who);
+                if !fire {
+                    self.fires.knew.push(Knew {
+                        fire: id,
+                        person: who,
+                        at: ctx.now,
+                        how: Noticed::Woke,
+                        shouted: root,
+                    });
                 }
             }
             // Out, and deciding again; their home is not where they will go.

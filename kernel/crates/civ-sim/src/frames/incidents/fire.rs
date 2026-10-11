@@ -2,10 +2,10 @@
 //! fire as an incident in the one shape, its page with its stages and what it caught from, a page
 //! for each conflagration with its fires in the order they caught and the buildings its heat
 //! reached that held, how a building on the map stands to its latest fire, and the chronicle's
-//! links to them. Only the kernel's records are read: nobody in the world sees or tells of a fire
-//! until slice BD, and the knowledge layer says so.
+//! links to them. The knowledge layer reads only people's records of a fire (slice BD, step two):
+//! who was in it, woke to it, saw it or heard the alarm, and whether anyone saw it start.
 
-use civ_agents::fire::{Conflagration, Fire, Hearth, Kindled, Stage};
+use civ_agents::fire::{Conflagration, Fire, Hearth, Kindled, Knew, Noticed, Stage};
 use civ_agents::history::{Cause, ChronicleEvent, ChronicleKind, FireStep};
 use civ_agents::influence::InfluenceKind;
 use civ_agents::polity::day_words;
@@ -177,6 +177,112 @@ fn losses(sim: &Sim, deaths: &[PermanentId], goods_kg: f32) -> String {
     s
 }
 
+/// People's records of fire `f`: who was in it, woke to it, saw it or heard the alarm of it,
+/// oldest first.
+fn knew_of<'a>(sim: &'a Sim, f: &Fire) -> Vec<&'a Knew> {
+    let knew = &sim.people.fires.knew;
+    let start = knew.partition_point(|k| k.at < f.began);
+    knew[start..].iter().filter(|k| k.fire == f.id).collect()
+}
+
+/// What people know of a fire, in short: "Seen burning by 5; 2 were inside; 23 heard the alarm".
+fn known_words(knew: &[&Knew]) -> String {
+    let count = |how: Noticed| knew.iter().filter(|k| k.how == how).count();
+    let (inside, woke, saw, heard) = (
+        count(Noticed::Inside),
+        count(Noticed::Woke),
+        count(Noticed::Saw),
+        count(Noticed::Heard),
+    );
+    let mut parts = Vec::new();
+    if saw > 0 {
+        parts.push(format!("Seen burning by {saw}"));
+    }
+    if inside > 0 {
+        parts.push(format!(
+            "{inside} {} inside",
+            if inside == 1 { "was" } else { "were" }
+        ));
+    }
+    if woke > 0 {
+        parts.push(format!("{woke} woke to it inside"));
+    }
+    if heard > 0 {
+        parts.push(format!("{heard} heard the alarm"));
+    }
+    if parts.is_empty() {
+        return "Nobody saw it burn or heard of it".to_owned();
+    }
+    let mut s = parts.join("; ");
+    if let Some(first) = s.get(..1) {
+        s = format!("{}{}", first.to_uppercase(), &s[1..]);
+    }
+    s
+}
+
+/// The knowledge layer of fire `f`'s page: who knew first and how, whether anyone saw it start,
+/// and how far the alarm went. Nobody knows its cause who did not see it start (ADR-0022 §7).
+fn knowledge_lines(sim: &Sim, f: &Fire, summary: &str) -> Vec<String> {
+    let knew = knew_of(sim, f);
+    let mut lines = vec![summary.to_owned()];
+    let first_hand: Vec<&&Knew> = knew.iter().filter(|k| k.how != Noticed::Heard).collect();
+    if let Some(k) = first_hand.first() {
+        let how = match k.how {
+            Noticed::Inside => "was inside when it caught",
+            Noticed::Woke => "woke to it inside",
+            _ => "saw it burning",
+        };
+        lines.push(format!(
+            "First to know: {}, who {how} at {}",
+            sim.people.name_of(k.person),
+            clock(k.at)
+        ));
+    }
+    let at_start: Vec<String> = first_hand
+        .iter()
+        .filter(|k| k.at == f.began && k.how != Noticed::Woke)
+        .map(|k| sim.people.name_of(k.person))
+        .collect();
+    if at_start.is_empty() {
+        if !knew.is_empty() {
+            lines.push(
+                "Nobody saw it start: to those who know of it, it was found burning".to_owned(),
+            );
+        }
+    } else {
+        let what = match f.kindled {
+            Kindled::Neighbour { .. } => "its roof catch from the fire beside it",
+            _ => "its roof catch",
+        };
+        lines.push(format!("{} saw {what}", names_list(&at_start)));
+    }
+    if let Some(last) = knew.iter().rev().find(|k| k.how == Noticed::Heard) {
+        let heard = knew.iter().filter(|k| k.how == Noticed::Heard).count();
+        lines.push(format!(
+            "The alarm reached {heard} {} by {}",
+            if heard == 1 { "person" } else { "people" },
+            clock(last.at)
+        ));
+    }
+    lines
+}
+
+/// "Ada", "Ada and Bo", "Ada, Bo and 3 others".
+fn names_list(names: &[String]) -> String {
+    match names {
+        [] => String::new(),
+        [a] => a.clone(),
+        [a, b] => format!("{a} and {b}"),
+        [a, b, rest @ ..] => {
+            let n = rest.len();
+            format!(
+                "{a}, {b} and {n} {}",
+                if n == 1 { "other" } else { "others" }
+            )
+        }
+    }
+}
+
 /// When fire `f` was fully involved, if it was by now.
 fn involved_at(sim: &Sim, f: &Fire) -> Option<SimTime> {
     let p = &sim.rules.people.fire;
@@ -207,7 +313,7 @@ pub(super) fn fire_row(sim: &Sim, f: &Fire) -> Row {
             cause_words(sim, f),
             losses(sim, &f.deaths, f.goods_kg)
         ),
-        known: "Who saw it or heard of it is not yet recorded".to_owned(),
+        known: known_words(&knew_of(sim, f)),
         polity: "No gathering was told of it".to_owned(),
         observer: observer_of(sim, f),
         outbreak: 0,
@@ -340,7 +446,7 @@ pub(super) fn fire_page(sim: &Sim, f: &Fire) -> Page {
             truth.extend(held);
         }
     }
-    let knowledge = vec![row.known.clone()];
+    let knowledge = knowledge_lines(sim, f, &row.known);
     let polity = vec![row.polity.clone()];
     (row, steps, links, [truth, knowledge, polity])
 }

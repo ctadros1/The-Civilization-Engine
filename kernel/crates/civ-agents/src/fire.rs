@@ -31,7 +31,7 @@
 
 use civ_core::{PermanentId, SimTime};
 
-/// How fire behaves (the people profile's `[fire]`; content API 81). Every figure is a design
+/// How fire behaves (the people profile's `[fire]`; from content API 81). Every figure is a design
 /// prior unless its comment cites a measurement.
 #[derive(Clone, Debug, PartialEq)]
 pub struct FireParams {
@@ -80,6 +80,18 @@ pub struct FireParams {
     pub worked_per_hour: f64,
     /// How near the building, metres, someone awake must be to put an ignition out at once.
     pub beside_m: f64,
+    /// The least and most minutes an escape left alone grows inside before it reaches the
+    /// covering (slice BD; 12-03 §1.2: an ignition is locally controlled or growing before the
+    /// building is involved). Drawn evenly between them.
+    pub grow_minutes: [f64; 2],
+    /// The least and most minutes after an escape before someone asleep in the building wakes to
+    /// it (12-03 §2.5: 5 to 30 or more for the sleeping). Drawn evenly between them, for each
+    /// sleeper and escape.
+    pub wake_minutes: [f64; 2],
+    /// How far, metres, someone awake sees a building burning (ADR-0022 §6).
+    pub sight_m: f64,
+    /// How far, metres, a shout of fire is heard (ADR-0022 §6).
+    pub earshot_m: f64,
 }
 
 /// How far a building's fire has gone.
@@ -115,6 +127,10 @@ impl FireParams {
             hearth_banked_per_hour: 1.0e-6,
             worked_per_hour: 4.0e-6,
             beside_m: 3.0,
+            grow_minutes: [2.0, 15.0],
+            wake_minutes: [5.0, 30.0],
+            sight_m: 150.0,
+            earshot_m: 60.0,
         }
     }
 
@@ -397,11 +413,67 @@ pub struct Ignition {
     pub hearth: Hearth,
     /// The water exposed fuel held that day, as a share of its dry mass.
     pub moisture: f32,
-    /// Who put it out at once, if anyone did.
+    /// Minutes it grows inside, left alone, before it reaches the covering (0 for one put out
+    /// at once).
+    pub grows_min: f32,
+    /// When it was put out, reached the covering, or went out; none while it grows.
+    pub ended: Option<SimTime>,
+    /// Who put it out, at once or while it grew, if anyone did.
     pub put_out_by: Option<PermanentId>,
     /// The building's fire it became, if nobody did and its covering could catch (neither: it
     /// went out with nothing to catch).
     pub fire: Option<u32>,
+}
+
+impl Ignition {
+    /// Whether it still grows inside, neither put out nor yet at the covering.
+    pub fn growing(&self) -> bool {
+        self.ended.is_none()
+    }
+}
+
+/// How someone came to know of a building's fire (ADR-0022 §6). Numeric in saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Noticed {
+    /// They were awake inside when its covering caught.
+    Inside = 0,
+    /// They were asleep inside and it woke them when it was fully involved around them.
+    Woke = 1,
+    /// They saw it burning.
+    Saw = 2,
+    /// They heard the shout of fire.
+    Heard = 3,
+}
+
+impl Noticed {
+    /// How someone came to know, for its code in a save.
+    pub fn from_code(code: u8) -> Option<Noticed> {
+        match code {
+            0 => Some(Noticed::Inside),
+            1 => Some(Noticed::Woke),
+            2 => Some(Noticed::Saw),
+            3 => Some(Noticed::Heard),
+            _ => None,
+        }
+    }
+}
+
+/// Someone came to know of a fire (ADR-0022 §7): a record of a person, not of the fire. Each
+/// fire they are inside or see is one; hearing of a fire is one for each conflagration (or lone
+/// fire) they had not known of. Saved.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Knew {
+    /// The fire: the one they saw or were in, or the one whose shout they heard.
+    pub fire: u32,
+    /// Who.
+    pub person: PermanentId,
+    /// When.
+    pub at: SimTime,
+    /// How.
+    pub how: Noticed,
+    /// Whether they have shouted of it: each shouts once for each fire they come to know of
+    /// first, the minute after.
+    pub shouted: bool,
 }
 
 /// A building's fire: the kernel's record of it, from its covering catching to its burning out
@@ -491,12 +563,19 @@ pub struct Fires {
     pub weighed: Vec<Weighed>,
     /// Every unintended ignition of a fire in use, oldest first (slice BD).
     pub ignitions: Vec<Ignition>,
+    /// Who came to know of each fire, and how, oldest first (slice BD).
+    pub knew: Vec<Knew>,
 }
 
 impl Fires {
     /// Whether any fire burns.
     pub fn any_burning(&self) -> bool {
         self.list.iter().any(Fire::burning)
+    }
+
+    /// Whether anything needs a minute's stepping: a fire burning, or an escape growing.
+    pub fn active(&self) -> bool {
+        self.any_burning() || self.ignitions.iter().rev().any(Ignition::growing)
     }
 
     /// The fire burning in `building`, if any.
@@ -558,6 +637,20 @@ impl Fires {
                 .is_some_and(|f| f == 0 || f as usize > self.list.len())
             {
                 out.push(format!("ignition {} became an unknown fire", g.id));
+            }
+            if g.growing() && (g.put_out_by.is_some() || g.fire.is_some()) {
+                out.push(format!("ignition {} grows but has ended", g.id));
+            }
+            if !g.grows_min.is_finite() || g.grows_min < 0.0 {
+                out.push(format!("ignition {} grows for an invalid time", g.id));
+            }
+        }
+        for (i, k) in self.knew.iter().enumerate() {
+            if k.fire == 0 || k.fire as usize > self.list.len() {
+                out.push(format!("someone knew of an unknown fire {}", k.fire));
+            }
+            if i > 0 && self.knew[i - 1].at > k.at {
+                out.push("who knew of fires is out of order".to_owned());
             }
         }
         if self

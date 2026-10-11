@@ -1077,3 +1077,15 @@ hearth_lit_per_hour = 2.0e-6
 hearth_banked_per_hour = 1.0e-6
 worked_per_hour = 4.0e-6
 beside_m = 3.0
+# An escape left alone grows inside before it reaches the covering (12-03 §1.2: ignition, then
+# locally controlled or growing, then the building involved). No source gives how long for an
+# early house; a design prior, drawn evenly between the two. Someone coming within `beside_m`
+# while it grows puts it out, as does someone asleep inside who wakes to it in time: each wakes
+# after a draw between `wake_minutes` (12-03 §2.5: 5 to 30 or more minutes for the sleeping).
+grow_minutes = [2.0, 15.0]
+wake_minutes = [5.0, 30.0]
+# Anyone awake within `sight_m` of a burning building sees it, and whoever comes to know of a fire
+# shouts: those within `earshot_m` hear, wake and stop to decide again (ADR-0022 §6). Design
+# priors: a roof alight is seen across a village, a raised voice heard about one plot-row away.
+sight_m = 150.0
+earshot_m = 60.0

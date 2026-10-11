@@ -1376,6 +1376,16 @@ The full end-to-end run found the knowledge test still counting the founders' te
 
 **Open:** noticing (sight, waking, the watch), the shout and the choices that fight a fire; the sweep of the rate over 1–100 per 1,000 household-years once fighting exists.
 
+## 2026-10-11 — M6b slice BD, step two: noticing a fire and the shout
+
+**What changed:** an escape left alone now grows inside for 2 to 15 minutes before it reaches the roof; anyone who comes by puts it out, as does someone asleep inside who wakes to it first (a draw of 5 to 30 minutes each). Anyone awake within 150 m sees a burning building; whoever comes to know of a fire shouts once, and everyone within 60 m who did not know hears, wakes or stops, and shouts in turn the minute after. Each is a record of a person, and someone keeps from home only once they have seen it burn. The fire's page fills its knowledge layer from those records. Saves 90, content API 83, no wire change.
+
+**Findings:** the alarm needs a sight shorter than a shout carries to matter by day: at 150 m everyone a shout could reach has already seen the fire. At night it is what wakes neighbours. Interrupting people mid-walk would drop what they carry, as nothing holds goods on the ground, so someone carrying a load goes on to set it down. Most deaths in night fires still come from the share of sleepers caught when a hut is fully involved: about one death a fire at multiplied rates, a figure for the calibration sweep.
+
+**Evidence:** a hut alight at noon is seen by exactly those awake within sight and heard by exactly those within earshot of them; at night, sleepers woken by their burning hut wake their neighbours; escapes grow before catching and some are put out while they grow, the same at any speed; a save with escapes pending lives on exactly. Eight worlds measured about 10 escapes per 1,000 household-years: three quarters put out at once, one in ten while it grew, one in ten catching.
+
+**Open:** step three, the choices people make at a fire: leading out, water carried from stores and sources, stripping a threatened roof, carrying goods out, pulling down, keeping away.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

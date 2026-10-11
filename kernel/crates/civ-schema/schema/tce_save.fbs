@@ -2188,6 +2188,21 @@ table IgnitionSave {
   moisture: float (id: 6);
   put_out_by: ulong (id: 7);
   fire: uint (id: 8);
+  // Schema 90: minutes it grows before the covering, and when it ended (put out, caught or gone
+  // out); `ended_set` false while it grows.
+  grows_min: float (id: 9);
+  ended: long (id: 10);
+  ended_set: bool (id: 11);
+}
+
+// Someone came to know of a fire (schema 90, M6b slice BD, step two; ADR-0022 §6-§7): `how` 0
+// inside, 1 woken by it, 2 saw it, 3 heard the shout.
+table KnewSave {
+  fire: uint (id: 0);
+  person: ulong (id: 1);
+  at: long (id: 2);
+  how: ubyte (id: 3);
+  shouted: bool (id: 4);
 }
 
 table FiresSave {
@@ -2197,6 +2212,8 @@ table FiresSave {
   weighed: [WeighedSave] (id: 3);
   // Schema 89.
   ignitions: [IgnitionSave] (id: 4);
+  // Schema 90.
+  knew: [KnewSave] (id: 5);
 }
 
 // A place a load lies or passes (schema 76, M6a slice AZ, step two; ADR-0021 §4): `code` 0 a

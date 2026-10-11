@@ -626,32 +626,265 @@ fn homes_catch_fire_from_their_hearths_at_the_same_minutes_whatever_the_speed() 
             break;
         }
     }
+    // The same escapes, fires and knowledge of them, whatever the speed.
     let fires = &a.people().fires;
-    assert_eq!(fires.ignitions, b.people().fires.ignitions);
-    assert_eq!(fires.list, b.people().fires.list);
+    assert_eq!(fires, &b.people().fires);
     assert!(fires.problems().is_empty(), "{:?}", fires.problems());
     let ignitions = &fires.ignitions;
     assert!(ignitions.len() >= 5, "{} ignitions", ignitions.len());
+    let [lo, hi] = a.rules().people.fire.grow_minutes;
     // Only homes ignite; a hearth lit has someone awake at home, who puts it out at once.
     for g in ignitions {
         assert!(huts.contains(&g.building));
         if g.hearth == Hearth::Lit {
-            assert!(g.put_out_by.is_some(), "a lit hearth's ignition escaped");
+            assert_eq!(g.ended, Some(g.at), "a lit hearth's ignition escaped");
+            assert!(g.put_out_by.is_some());
         }
         assert_ne!(g.hearth, Hearth::Worked);
+        if g.ended == Some(g.at) {
+            assert!(
+                g.put_out_by.is_some(),
+                "only one put out at once ends at once"
+            );
+            continue;
+        }
+        // Left alone, it grew for its minutes before it could reach the roof.
+        assert!(
+            f64::from(g.grows_min) >= lo && f64::from(g.grows_min) <= hi,
+            "grew {} minutes",
+            g.grows_min
+        );
         if let Some(f) = g.fire {
             let fire = fires.get(f).expect("its fire");
             assert_eq!(fire.kindled, Kindled::Ignition { ignition: g.id });
-            assert_eq!((fire.building, fire.began), (g.building, g.at));
+            assert_eq!((fire.building, Some(fire.began)), (g.building, g.ended));
+            let grew = fire.began.minutes() - g.at.minutes();
+            assert!(grew as f32 >= g.grows_min, "caught after {grew} minutes");
         }
     }
-    // Most are put out at once; some, with nobody awake there, catch.
-    let put_out = ignitions.iter().filter(|g| g.put_out_by.is_some()).count();
+    // Most are put out, at once or while they grow; some, with nobody to find them, catch.
+    let at_once = ignitions
+        .iter()
+        .filter(|g| g.put_out_by.is_some() && g.ended == Some(g.at))
+        .count();
+    let growing = ignitions
+        .iter()
+        .filter(|g| g.put_out_by.is_some() && g.ended > Some(g.at))
+        .count();
     let caught = ignitions.iter().filter(|g| g.fire.is_some()).count();
     assert!(
-        put_out > 0 && caught > 0,
-        "{put_out} put out, {caught} caught"
+        at_once > 0 && growing > 0 && caught > 0,
+        "{at_once} put out at once, {growing} while growing, {caught} caught"
     );
+}
+
+/// The people awake or asleep, and where, at this minute.
+fn placed(sim: &Sim) -> Vec<(PermanentId, (f32, f32), bool)> {
+    let t = sim.now().minutes() as f64;
+    sim.people()
+        .people
+        .iter()
+        .map(|(_, p)| (p.id, p.position_at(t), p.asleep))
+        .collect()
+}
+
+fn apart(a: (f32, f32), b: (f32, f32)) -> f64 {
+    f64::from(a.0 - b.0).hypot(f64::from(a.1 - b.1))
+}
+
+#[test]
+fn a_hut_alight_at_noon_is_seen_within_sight_and_its_alarm_heard_within_earshot() {
+    use civ_agents::fire::Noticed;
+    use civ_schema::{flatbuffers, wire};
+    use civ_sim::frames::incidents::{self, FIRE};
+    use std::collections::BTreeSet;
+    let (mut sim, huts) = block(4, 1, 1, 3.0, 1.0, 0.15);
+    // Sight shorter than a shout carries, so that the alarm reaches some who did not see it.
+    sim.rules_mut_for_tests()
+        .expect("rules")
+        .people
+        .fire
+        .sight_m = 60.0;
+    let (sight, earshot) = {
+        let p = &sim.rules().people.fire;
+        (p.sight_m, p.earshot_m)
+    };
+    let at = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == huts[0])
+        .map(|b| build::centre_m(&b.spec))
+        .expect("the hut");
+    let r = f64::from(hut_span_m()) / 2.0;
+    let before = placed(&sim);
+    let where_ = |id: PermanentId| before.iter().find(|x| x.0 == id).map(|x| x.1);
+    sim.set_fire(huts[0]).expect("set alight");
+    let now = sim.now();
+    let knew = sim.people().fires.knew.clone();
+    // Everyone awake within sight of its roof saw it at once, and nobody else did.
+    let seen: BTreeSet<PermanentId> = before
+        .iter()
+        .filter(|&&(_, p, asleep)| !asleep && (apart(p, at) - r).max(0.0) <= sight)
+        .map(|x| x.0)
+        .collect();
+    let saw: BTreeSet<PermanentId> = knew
+        .iter()
+        .filter(|k| k.how == Noticed::Saw)
+        .map(|k| k.person)
+        .collect();
+    assert!(!saw.is_empty(), "nobody saw it");
+    assert_eq!(saw, seen);
+    // Each who saw it shouted at once: everyone else within earshot of one of them heard it,
+    // awake or asleep, and nobody further.
+    let in_earshot: BTreeSet<PermanentId> = before
+        .iter()
+        .filter(|&&(id, p, _)| {
+            !saw.contains(&id)
+                && saw
+                    .iter()
+                    .any(|&s| where_(s).is_some_and(|q| apart(q, p) <= earshot))
+        })
+        .map(|x| x.0)
+        .collect();
+    let heard: BTreeSet<PermanentId> = knew
+        .iter()
+        .filter(|k| k.how == Noticed::Heard)
+        .map(|k| k.person)
+        .collect();
+    assert!(!heard.is_empty(), "nobody heard the alarm");
+    assert_eq!(heard, in_earshot);
+    assert_eq!(knew.len(), saw.len() + heard.len(), "one record each");
+    assert!(
+        knew.iter()
+            .all(|k| k.at == now && k.shouted == (k.how != Noticed::Heard))
+    );
+    // Those who came to know of it are awake and stopped to decide again, unless carrying a load
+    // home.
+    for k in &knew {
+        let p = sim.people().person(k.person).expect("living");
+        assert!(!p.asleep, "woken by the shout");
+        let laden = p.carrying.kg > 0.0 || p.carrying.water_l > 0.0;
+        assert!(
+            laden || p.act.steps == vec![civ_agents::person::Step::Wait { minutes: 1 }],
+            "stopped"
+        );
+    }
+    // Its household keeps from home only those who saw it (none was inside).
+    let (household, _) = first(&sim);
+    let members = sim
+        .people()
+        .household(household)
+        .expect("the household")
+        .members
+        .clone();
+    for m in members {
+        assert_eq!(
+            sim.people()
+                .knows_home_afire(m, household, now, &sim.rules().people),
+            saw.contains(&m),
+            "only those who saw it know their hut burns"
+        );
+    }
+    // A minute on, those who heard shout in turn: each new hearer is within earshot of one.
+    sim.advance_minutes(1).expect("advances");
+    let later = placed(&sim);
+    let knew = sim.people().fires.knew.clone();
+    let shouting: Vec<(f32, f32)> = knew
+        .iter()
+        .filter(|k| k.at == now && k.how == Noticed::Heard)
+        .chain(
+            knew.iter()
+                .filter(|k| k.at > now && k.how != Noticed::Heard),
+        )
+        .filter_map(|k| later.iter().find(|x| x.0 == k.person).map(|x| x.1))
+        .collect();
+    for k in knew
+        .iter()
+        .filter(|k| k.at > now && k.how == Noticed::Heard)
+    {
+        let p = later.iter().find(|x| x.0 == k.person).expect("placed").1;
+        assert!(
+            shouting.iter().any(|&q| apart(p, q) <= earshot),
+            "heard from beyond earshot"
+        );
+    }
+    // Burnt out, its page says who knew of it, first, and that they saw its roof catch.
+    sim.advance_minutes(45).expect("advances");
+    assert!(sim.people().fires.problems().is_empty());
+    let bytes = incidents::incident_response(&sim, FIRE, 1).expect("a page");
+    let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+    let info = response.body_as_incident_info().expect("a fire's page");
+    let lines: Vec<&str> = info.knowledge().expect("what people know").iter().collect();
+    let seen_by = sim
+        .people()
+        .fires
+        .knew
+        .iter()
+        .filter(|k| k.how == Noticed::Saw)
+        .count();
+    assert!(seen_by >= saw.len());
+    assert!(
+        lines[0].starts_with(&format!("Seen burning by {seen_by}")),
+        "{lines:?}"
+    );
+    assert!(lines.iter().any(|l| l.starts_with("First to know: ")));
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.ends_with(&format!("{} others saw its roof catch", saw.len() - 2))),
+        "{lines:?}"
+    );
+    assert!(lines.iter().any(|l| l.starts_with("The alarm reached ")));
+}
+
+#[test]
+fn at_night_those_woken_by_their_burning_hut_wake_their_neighbours() {
+    use civ_agents::fire::Noticed;
+    let (mut woke, mut roused) = (0, 0);
+    for seed in 4..8 {
+        let mut sim = world(seed);
+        let (household, home) = first(&sim);
+        let id = hut(&mut sim, household, home);
+        // Two in the morning of the second day: the village is abed.
+        sim.advance_minutes(20 * 60).expect("advances");
+        set_day(&mut sim, 1.0, 0.15);
+        let before = placed(&sim);
+        sim.set_fire(id).expect("set alight");
+        sim.advance_minutes(3).expect("advances");
+        let fire = sim.people().fires.list[0].clone();
+        let knew = &sim.people().fires.knew;
+        // Those of the household asleep inside who got out woke to it when it was fully
+        // involved; nobody else did.
+        for k in knew.iter().filter(|k| k.how == Noticed::Woke) {
+            woke += 1;
+            assert_eq!(k.fire, fire.id);
+            assert!(!fire.deaths.contains(&k.person));
+            let p = sim.people().person(k.person).expect("living");
+            assert_eq!(p.household, household);
+            assert!(
+                apart(
+                    before.iter().find(|x| x.0 == k.person).expect("placed").1,
+                    home
+                ) < 3.0
+            );
+        }
+        // Their shout woke others asleep near.
+        roused += knew
+            .iter()
+            .filter(|k| {
+                k.how == Noticed::Heard
+                    && before.iter().any(|x| x.0 == k.person && x.2)
+                    && sim
+                        .people()
+                        .person(k.person)
+                        .is_some_and(|p| p.household != household)
+            })
+            .count();
+        assert!(sim.people().fires.problems().is_empty());
+    }
+    assert!(woke > 0, "nobody woke to a burning hut");
+    assert!(roused > 0, "no neighbour was woken by the alarm");
 }
 
 #[test]

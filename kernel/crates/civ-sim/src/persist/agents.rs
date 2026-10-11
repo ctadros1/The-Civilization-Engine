@@ -114,7 +114,7 @@ use super::{
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
-    finish, section, single_chunk, unreadable,
+    SCHEMA_V89, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -495,6 +495,8 @@ enum Schema {
     V88,
     /// Ignitions of the fires people use, and the pending event that weighs one (M6b slice BD).
     V89,
+    /// Escapes that grow before the covering, and who knew of each fire (M6b slice BD, step two).
+    V90,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -598,7 +600,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V86 => Schema::V86,
         SCHEMA_V87 => Schema::V87,
         SCHEMA_V88 => Schema::V88,
-        SAVE_SCHEMA_VERSION => Schema::V89,
+        SCHEMA_V89 => Schema::V89,
+        SAVE_SCHEMA_VERSION => Schema::V90,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -849,7 +852,7 @@ pub(super) fn decode<R: Read + Seek>(
     // Fires (schema 88); before, none has burned.
     if schema >= Schema::V88 {
         let bytes = single_chunk(reader, SECTION_FIRES)?;
-        people.fires = decode_fires(&bytes)?;
+        people.fires = decode_fires(&bytes, schema)?;
     }
     // Settlements' founding ways (schema 61); before them a founding band's is drawn again from
     // its key, and any other settlement's taken as its households' now.
@@ -3124,7 +3127,8 @@ fn carried(
         | Schema::V86
         | Schema::V87
         | Schema::V88
-        | Schema::V89 => {
+        | Schema::V89
+        | Schema::V90 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3325,7 +3329,8 @@ fn decode_households(
             | Schema::V86
             | Schema::V87
             | Schema::V88
-            | Schema::V89 => {
+            | Schema::V89
+            | Schema::V90 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -8567,11 +8572,31 @@ fn encode_fires(people: &Population) -> Vec<u8> {
                     moisture: g.moisture,
                     put_out_by: g.put_out_by.map_or(0, PermanentId::get),
                     fire: g.fire.unwrap_or(0),
+                    grows_min: g.grows_min,
+                    ended: g.ended.map_or(0, SimTime::minutes),
+                    ended_set: g.ended.is_some(),
                 },
             )
         })
         .collect();
     let ignitions = fbb.create_vector(&ignitions);
+    let knew: Vec<_> = fires
+        .knew
+        .iter()
+        .map(|k| {
+            save::KnewSave::create(
+                &mut fbb,
+                &save::KnewSaveArgs {
+                    fire: k.fire,
+                    person: k.person.get(),
+                    at: k.at.minutes(),
+                    how: k.how as u8,
+                    shouted: k.shouted,
+                },
+            )
+        })
+        .collect();
+    let knew = fbb.create_vector(&knew);
     let root = save::FiresSave::create(
         &mut fbb,
         &save::FiresSaveArgs {
@@ -8580,13 +8605,18 @@ fn encode_fires(people: &Population) -> Vec<u8> {
             exposure: Some(exposure),
             weighed: Some(weighed),
             ignitions: Some(ignitions),
+            knew: Some(knew),
         },
     );
     finish(fbb, root)
 }
 
-fn decode_fires(bytes: &[u8]) -> Result<civ_agents::fire::Fires, LoadError> {
-    use civ_agents::fire::{Conflagration, Fire, Fires, Hearth, Ignition, Kindled, Weighed};
+/// Before schema 90 an escape caught or was put out in the minute it happened: each has ended
+/// then, and nobody's knowledge of a fire was kept.
+fn decode_fires(bytes: &[u8], schema: Schema) -> Result<civ_agents::fire::Fires, LoadError> {
+    use civ_agents::fire::{
+        Conflagration, Fire, Fires, Hearth, Ignition, Kindled, Knew, Noticed, Weighed,
+    };
     let root =
         flatbuffers::root::<save::FiresSave>(bytes).map_err(|e| unreadable(SECTION_FIRES, &e))?;
     let at = |m: i64| (m >= 0).then(|| SimTime::from_minutes(m));
@@ -8665,8 +8695,28 @@ fn decode_fires(bytes: &[u8]) -> Result<civ_agents::fire::Fires, LoadError> {
                 LoadError::Malformed(format!("ignition {} came from an unknown fire", g.id()))
             })?,
             moisture: g.moisture(),
+            grows_min: g.grows_min(),
+            ended: if schema >= Schema::V90 {
+                g.ended_set().then(|| SimTime::from_minutes(g.ended()))
+            } else {
+                Some(SimTime::from_minutes(g.at()))
+            },
             put_out_by: PermanentId::from_raw(g.put_out_by()),
             fire: (g.fire() > 0).then_some(g.fire()),
+        });
+    }
+    for k in root.knew().iter().flatten() {
+        out.knew.push(Knew {
+            fire: k.fire(),
+            person: required(k.person(), "someone who knew of a fire")?,
+            at: SimTime::from_minutes(k.at()),
+            how: Noticed::from_code(k.how()).ok_or_else(|| {
+                LoadError::Malformed(format!(
+                    "someone knew of fire {} by an unknown way",
+                    k.fire()
+                ))
+            })?,
+            shouted: k.shouted(),
         });
     }
     Ok(out)

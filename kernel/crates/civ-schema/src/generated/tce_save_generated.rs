@@ -38305,6 +38305,9 @@ impl<'a> IgnitionSave<'a> {
   pub const VT_MOISTURE: ::flatbuffers::VOffsetT = 16;
   pub const VT_PUT_OUT_BY: ::flatbuffers::VOffsetT = 18;
   pub const VT_FIRE: ::flatbuffers::VOffsetT = 20;
+  pub const VT_GROWS_MIN: ::flatbuffers::VOffsetT = 22;
+  pub const VT_ENDED: ::flatbuffers::VOffsetT = 24;
+  pub const VT_ENDED_SET: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -38316,14 +38319,17 @@ impl<'a> IgnitionSave<'a> {
     args: &'args IgnitionSaveArgs
   ) -> ::flatbuffers::WIPOffset<IgnitionSave<'bldr>> {
     let mut builder = IgnitionSaveBuilder::new(_fbb);
+    builder.add_ended(args.ended);
     builder.add_put_out_by(args.put_out_by);
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
     builder.add_building(args.building);
     builder.add_at(args.at);
+    builder.add_grows_min(args.grows_min);
     builder.add_fire(args.fire);
     builder.add_moisture(args.moisture);
     builder.add_id(args.id);
+    builder.add_ended_set(args.ended_set);
     builder.add_hearth(args.hearth);
     builder.finish()
   }
@@ -38392,6 +38398,27 @@ impl<'a> IgnitionSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(IgnitionSave::VT_FIRE, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn grows_min(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(IgnitionSave::VT_GROWS_MIN, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn ended(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(IgnitionSave::VT_ENDED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ended_set(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(IgnitionSave::VT_ENDED_SET, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for IgnitionSave<'_> {
@@ -38409,6 +38436,9 @@ impl ::flatbuffers::Verifiable for IgnitionSave<'_> {
      .visit_field::<f32>("moisture", Self::VT_MOISTURE, false)?
      .visit_field::<u64>("put_out_by", Self::VT_PUT_OUT_BY, false)?
      .visit_field::<u32>("fire", Self::VT_FIRE, false)?
+     .visit_field::<f32>("grows_min", Self::VT_GROWS_MIN, false)?
+     .visit_field::<i64>("ended", Self::VT_ENDED, false)?
+     .visit_field::<bool>("ended_set", Self::VT_ENDED_SET, false)?
      .finish();
     Ok(())
   }
@@ -38423,6 +38453,9 @@ pub struct IgnitionSaveArgs {
     pub moisture: f32,
     pub put_out_by: u64,
     pub fire: u32,
+    pub grows_min: f32,
+    pub ended: i64,
+    pub ended_set: bool,
 }
 impl<'a> Default for IgnitionSaveArgs {
   #[inline]
@@ -38437,6 +38470,9 @@ impl<'a> Default for IgnitionSaveArgs {
       moisture: 0.0,
       put_out_by: 0,
       fire: 0,
+      grows_min: 0.0,
+      ended: 0,
+      ended_set: false,
     }
   }
 }
@@ -38483,6 +38519,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> IgnitionSaveBuilder<'a, 'b, A
     self.fbb_.push_slot::<u32>(IgnitionSave::VT_FIRE, fire, 0);
   }
   #[inline]
+  pub fn add_grows_min(&mut self, grows_min: f32) {
+    self.fbb_.push_slot::<f32>(IgnitionSave::VT_GROWS_MIN, grows_min, 0.0);
+  }
+  #[inline]
+  pub fn add_ended(&mut self, ended: i64) {
+    self.fbb_.push_slot::<i64>(IgnitionSave::VT_ENDED, ended, 0);
+  }
+  #[inline]
+  pub fn add_ended_set(&mut self, ended_set: bool) {
+    self.fbb_.push_slot::<bool>(IgnitionSave::VT_ENDED_SET, ended_set, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> IgnitionSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     IgnitionSaveBuilder {
@@ -38509,6 +38557,173 @@ impl ::core::fmt::Debug for IgnitionSave<'_> {
       ds.field("moisture", &self.moisture());
       ds.field("put_out_by", &self.put_out_by());
       ds.field("fire", &self.fire());
+      ds.field("grows_min", &self.grows_min());
+      ds.field("ended", &self.ended());
+      ds.field("ended_set", &self.ended_set());
+      ds.finish()
+  }
+}
+pub enum KnewSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct KnewSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for KnewSave<'a> {
+  type Inner = KnewSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> KnewSave<'a> {
+  pub const VT_FIRE: ::flatbuffers::VOffsetT = 4;
+  pub const VT_PERSON: ::flatbuffers::VOffsetT = 6;
+  pub const VT_AT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_HOW: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SHOUTED: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    KnewSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args KnewSaveArgs
+  ) -> ::flatbuffers::WIPOffset<KnewSave<'bldr>> {
+    let mut builder = KnewSaveBuilder::new(_fbb);
+    builder.add_at(args.at);
+    builder.add_person(args.person);
+    builder.add_fire(args.fire);
+    builder.add_shouted(args.shouted);
+    builder.add_how(args.how);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn fire(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(KnewSave::VT_FIRE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(KnewSave::VT_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(KnewSave::VT_AT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn how(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(KnewSave::VT_HOW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn shouted(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(KnewSave::VT_SHOUTED, Some(false)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for KnewSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("fire", Self::VT_FIRE, false)?
+     .visit_field::<u64>("person", Self::VT_PERSON, false)?
+     .visit_field::<i64>("at", Self::VT_AT, false)?
+     .visit_field::<u8>("how", Self::VT_HOW, false)?
+     .visit_field::<bool>("shouted", Self::VT_SHOUTED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct KnewSaveArgs {
+    pub fire: u32,
+    pub person: u64,
+    pub at: i64,
+    pub how: u8,
+    pub shouted: bool,
+}
+impl<'a> Default for KnewSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    KnewSaveArgs {
+      fire: 0,
+      person: 0,
+      at: 0,
+      how: 0,
+      shouted: false,
+    }
+  }
+}
+
+pub struct KnewSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> KnewSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_fire(&mut self, fire: u32) {
+    self.fbb_.push_slot::<u32>(KnewSave::VT_FIRE, fire, 0);
+  }
+  #[inline]
+  pub fn add_person(&mut self, person: u64) {
+    self.fbb_.push_slot::<u64>(KnewSave::VT_PERSON, person, 0);
+  }
+  #[inline]
+  pub fn add_at(&mut self, at: i64) {
+    self.fbb_.push_slot::<i64>(KnewSave::VT_AT, at, 0);
+  }
+  #[inline]
+  pub fn add_how(&mut self, how: u8) {
+    self.fbb_.push_slot::<u8>(KnewSave::VT_HOW, how, 0);
+  }
+  #[inline]
+  pub fn add_shouted(&mut self, shouted: bool) {
+    self.fbb_.push_slot::<bool>(KnewSave::VT_SHOUTED, shouted, false);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> KnewSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    KnewSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<KnewSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for KnewSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("KnewSave");
+      ds.field("fire", &self.fire());
+      ds.field("person", &self.person());
+      ds.field("at", &self.at());
+      ds.field("how", &self.how());
+      ds.field("shouted", &self.shouted());
       ds.finish()
   }
 }
@@ -38533,6 +38748,7 @@ impl<'a> FiresSave<'a> {
   pub const VT_EXPOSURE: ::flatbuffers::VOffsetT = 8;
   pub const VT_WEIGHED: ::flatbuffers::VOffsetT = 10;
   pub const VT_IGNITIONS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_KNEW: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -38544,6 +38760,7 @@ impl<'a> FiresSave<'a> {
     args: &'args FiresSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<FiresSave<'bldr>> {
     let mut builder = FiresSaveBuilder::new(_fbb);
+    if let Some(x) = args.knew { builder.add_knew(x); }
     if let Some(x) = args.ignitions { builder.add_ignitions(x); }
     if let Some(x) = args.weighed { builder.add_weighed(x); }
     if let Some(x) = args.exposure { builder.add_exposure(x); }
@@ -38588,6 +38805,13 @@ impl<'a> FiresSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IgnitionSave>>>>(FiresSave::VT_IGNITIONS, None)}
   }
+  #[inline]
+  pub fn knew(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KnewSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KnewSave>>>>(FiresSave::VT_KNEW, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FiresSave<'_> {
@@ -38601,6 +38825,7 @@ impl ::flatbuffers::Verifiable for FiresSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ExposureSave>>>>("exposure", Self::VT_EXPOSURE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WeighedSave>>>>("weighed", Self::VT_WEIGHED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<IgnitionSave>>>>("ignitions", Self::VT_IGNITIONS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<KnewSave>>>>("knew", Self::VT_KNEW, false)?
      .finish();
     Ok(())
   }
@@ -38611,6 +38836,7 @@ pub struct FiresSaveArgs<'a> {
     pub exposure: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ExposureSave<'a>>>>>,
     pub weighed: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WeighedSave<'a>>>>>,
     pub ignitions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IgnitionSave<'a>>>>>,
+    pub knew: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KnewSave<'a>>>>>,
 }
 impl<'a> Default for FiresSaveArgs<'a> {
   #[inline]
@@ -38621,6 +38847,7 @@ impl<'a> Default for FiresSaveArgs<'a> {
       exposure: None,
       weighed: None,
       ignitions: None,
+      knew: None,
     }
   }
 }
@@ -38651,6 +38878,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FiresSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FiresSave::VT_IGNITIONS, ignitions);
   }
   #[inline]
+  pub fn add_knew(&mut self, knew: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<KnewSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FiresSave::VT_KNEW, knew);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FiresSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FiresSaveBuilder {
@@ -38673,6 +38904,7 @@ impl ::core::fmt::Debug for FiresSave<'_> {
       ds.field("exposure", &self.exposure());
       ds.field("weighed", &self.weighed());
       ds.field("ignitions", &self.ignitions());
+      ds.field("knew", &self.knew());
       ds.finish()
   }
 }

@@ -112,8 +112,8 @@ use super::{
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
-    SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, finish, section, single_chunk,
-    unreadable,
+    SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -465,6 +465,8 @@ enum Schema {
     V77,
     /// Claims that a household had sickness (M6a slice BA): no new state, a claim kind appended.
     V78,
+    /// Suspicions of a source, and the households seen drawing water (M6a slice BA, step two).
+    V79,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -557,7 +559,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V75 => Schema::V75,
         SCHEMA_V76 => Schema::V76,
         SCHEMA_V77 => Schema::V77,
-        SAVE_SCHEMA_VERSION => Schema::V78,
+        SCHEMA_V78 => Schema::V78,
+        SAVE_SCHEMA_VERSION => Schema::V79,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2942,7 +2945,8 @@ fn carried(
         | Schema::V75
         | Schema::V76
         | Schema::V77
-        | Schema::V78 => {
+        | Schema::V78
+        | Schema::V79 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3131,7 +3135,8 @@ fn decode_households(
             | Schema::V75
             | Schema::V76
             | Schema::V77
-            | Schema::V78 => {
+            | Schema::V78
+            | Schema::V79 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5781,6 +5786,15 @@ fn encode_word(word: &civ_agents::word::Word) -> Vec<u8> {
                 }
                 None => (255, 0, 0),
             };
+            let (place_kind, place, counts) = match c.suspected {
+                Some((p, n)) => {
+                    let (k, id) = p.code();
+                    let counts =
+                        fbb.create_vector(&[n.sick_at, n.at, n.sick_elsewhere, n.elsewhere]);
+                    (k, id, Some(counts))
+                }
+                None => (255, 0, None),
+            };
             save::ClaimSave::create(
                 &mut fbb,
                 &save::ClaimSaveArgs {
@@ -5792,6 +5806,9 @@ fn encode_word(word: &civ_agents::word::Word) -> Vec<u8> {
                     blamed_kind,
                     blamed,
                     issue,
+                    place_kind,
+                    place,
+                    counts,
                 },
             )
         })
@@ -5833,6 +5850,24 @@ fn encode_word(word: &civ_agents::word::Word) -> Vec<u8> {
         })
         .collect();
     let grievances = fbb.create_vector(&grievances);
+    let suspicions: Vec<save::SuspicionSave> = word
+        .suspicions
+        .iter()
+        .map(|s| {
+            let (kind, place) = s.source.code();
+            save::SuspicionSave::new(
+                s.holder.get(),
+                place,
+                s.since,
+                s.counts.sick_at,
+                s.counts.at,
+                s.counts.sick_elsewhere,
+                s.counts.elsewhere,
+                kind,
+            )
+        })
+        .collect();
+    let suspicions = fbb.create_vector(&suspicions);
     let root = save::WordSave::create(
         &mut fbb,
         &save::WordSaveArgs {
@@ -5840,13 +5875,17 @@ fn encode_word(word: &civ_agents::word::Word) -> Vec<u8> {
             heard: Some(heard),
             grievances: Some(grievances),
             next: word.next,
+            suspicions: Some(suspicions),
         },
     );
     finish(fbb, root)
 }
 
 fn decode_word(bytes: &[u8]) -> Result<civ_agents::word::Word, LoadError> {
-    use civ_agents::word::{Blamed, Claim, ClaimKind, Grievance, Grieved, Heard, Word, Wrong};
+    use civ_agents::uses::Place;
+    use civ_agents::word::{
+        Blamed, Claim, ClaimKind, Counts, Grievance, Grieved, Heard, Suspicion, Word, Wrong,
+    };
     let root =
         flatbuffers::root::<save::WordSave>(bytes).map_err(|e| unreadable(SECTION_WORD, &e))?;
     let bad = |what: String| LoadError::Malformed(what);
@@ -5866,6 +5905,25 @@ fn decode_word(bytes: &[u8]) -> Result<civ_agents::word::Word, LoadError> {
                 .ok_or_else(|| bad(format!("claim {} has issue code {}", c.id(), c.issue())))?;
             Some((blamed, issue))
         };
+        let suspected = if c.place_kind() == 255 {
+            None
+        } else {
+            let place = Place::from_code(c.place_kind(), c.place())
+                .ok_or_else(|| bad(format!("claim {} suspects no place known", c.id())))?;
+            let n: Vec<u16> = c.counts().map(|v| v.iter().collect()).unwrap_or_default();
+            let [sick_at, at, sick_elsewhere, elsewhere] = n[..] else {
+                return Err(bad(format!("claim {} has {} counts of 4", c.id(), n.len())));
+            };
+            Some((
+                place,
+                Counts {
+                    sick_at,
+                    at,
+                    sick_elsewhere,
+                    elsewhere,
+                },
+            ))
+        };
         word.claims.push(Claim {
             id: c.id(),
             kind,
@@ -5873,6 +5931,7 @@ fn decode_word(bytes: &[u8]) -> Result<civ_agents::word::Word, LoadError> {
             day: c.day(),
             subject: id(c.subject()),
             grievance,
+            suspected,
         });
     }
     if !word.claims.windows(2).all(|w| w[0].id < w[1].id) {
@@ -5911,6 +5970,27 @@ fn decode_word(bytes: &[u8]) -> Result<civ_agents::word::Word, LoadError> {
             wrong: Wrong::from_code(g.wrong())
                 .ok_or_else(|| bad(format!("a grievance has cause code {}", g.wrong())))?,
         });
+    }
+    for s in root.suspicions().iter().flatten() {
+        word.suspicions.push(Suspicion {
+            holder: required(s.holder(), "a suspicion's holder")?,
+            source: Place::from_code(s.place_kind(), s.place())
+                .ok_or_else(|| bad("a suspicion of no place known".to_owned()))?,
+            since: s.since(),
+            counts: Counts {
+                sick_at: s.sick_at(),
+                at: s.at(),
+                sick_elsewhere: s.sick_elsewhere(),
+                elsewhere: s.elsewhere(),
+            },
+        });
+    }
+    if !word
+        .suspicions
+        .windows(2)
+        .all(|w| (w[0].holder, w[0].source) < (w[1].holder, w[1].source))
+    {
+        return Err(bad("suspicions are out of order".to_owned()));
     }
     Ok(word)
 }
@@ -6911,6 +6991,13 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
                 .map(|o| save::OutsidersSave::new(o.settlement.get(), o.days, o.last))
                 .collect();
             let outsiders = (!outsiders.is_empty()).then(|| fbb.create_vector(&outsiders));
+            // Households seen drawing water there (schema 79).
+            let seen: Vec<save::SeenAtSave> = u
+                .seen
+                .iter()
+                .map(|x| save::SeenAtSave::new(x.household.get(), x.days, x.last))
+                .collect();
+            let seen = (!seen.is_empty()).then(|| fbb.create_vector(&seen));
             let (kind, place) = u.place.code();
             save::PlaceUseSave::create(
                 &mut fbb,
@@ -6922,6 +7009,7 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
                     kcal: u.kcal,
                     day: u.day,
                     outsiders,
+                    seen,
                 },
             )
         })
@@ -7278,6 +7366,14 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
                 last: o.last(),
             });
         }
+        let mut seen = Vec::new();
+        for x in u.seen().iter().flatten() {
+            seen.push(civ_agents::uses::SeenAt {
+                household: required(x.household(), "a household seen drawing water")?,
+                days: x.days(),
+                last: x.last(),
+            });
+        }
         uses.households
             .entry(household)
             .or_default()
@@ -7286,6 +7382,7 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
                 days: u.days(),
                 kcal: u.kcal(),
                 outsiders,
+                seen,
                 day: u.day(),
             });
     }

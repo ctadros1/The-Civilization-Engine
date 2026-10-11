@@ -1687,6 +1687,8 @@ pub struct PeopleParams {
     pub reports: crate::reports::ReportParams,
     /// How views of other polities are held (M5c slice AT, ADR-0020 §3).
     pub relations: crate::views::RelationsParams,
+    /// How people tally a source of water (M6a slice BA, ADR-0021 §6).
+    pub suspicion: crate::suspicion::SuspicionParams,
     /// Names.
     pub names: NameParams,
 }

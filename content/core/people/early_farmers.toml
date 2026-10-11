@@ -995,3 +995,23 @@ walk_hours = 2.0
 candidates = 16
 buffer_months = 2.0
 work_h_per_day = 6.0
+
+[suspicion]                      # suspecting a source of water (M6a slice BA, ADR-0021 §6); design priors
+# Each person tallies their own records (research 12-02 §4, 05-04 §3.2: who draws where is the
+# exposure that tells sources apart; Snow counted houses). The households they know to draw at a
+# source are their own if it draws there, those their household saw drawing there the same day,
+# and the households of those they know at least `known_min` well (a tie's familiarity) whose
+# usual source it is; a household draws at a source it has drawn at for `draws_min_days` days,
+# fading at the places' half-life. Of those at a source, how many had sickness lately (a household's
+# sickness they heard of and still hold as news) is set against the rest they know. They suspect
+# the source when at least `min_households` draw there, at least `min_sick` of them had sickness,
+# and their share is at least `ratio` times the rest's (counted with half a sick household in one
+# more, so that a source everyone draws at is never suspect). Snow's 8.5-fold contrast between two
+# water companies orients `ratio`; it is not a target. Someone tallies on first hearing of a
+# household's sickness, and every `review_days` while they hold news of sickness or a suspicion.
+min_households = 3
+min_sick = 2
+ratio = 3.0
+draws_min_days = 2.0
+known_min = 0.3
+review_days = 7

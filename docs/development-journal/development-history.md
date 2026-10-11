@@ -1224,6 +1224,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** who draws where and suspicion (step two); responses, issues and policies, the drought tool and the observer's view (steps three to five).
 
+## 2026-10-11 — M6a slice BA, step two: who draws where, and suspicion
+
+**What changed:** each household holds the other households it sees drawing water where it does. Someone who hears of a household's sickness tallies the sources they know: of the households they know to draw at each, how many had sickness lately, against those elsewhere. When a source's share is well above the rest, over a minimum count, they suspect it, and say so once with their counts, which word carries (saves 79, content API 76). Nothing acts on a suspicion yet.
+
+**Findings:** in a village of 106 with a well for nearly every household, eight of ten cholera introductions stayed small. Two spread through four wells, and in each one person suspected a well nobody took it from: kin draw at each other's wells, so a shared well confounded the contrast, and the well that spread it had too few households known to draw there. This is the brief's "nothing to trace" risk, measured and left for the time-boxed demo.
+
+**Evidence:** unit tests of the tally and of households seen at a source; integration tests of a suspicion formed with exact counts, told, let go and saved; a world without sickness holding none; a probe; the full suite, clippy and the smoke worlds.
+
+**Open:** households' responses (step three); issues and policies, the drought tool and the observer's view (steps four and five).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

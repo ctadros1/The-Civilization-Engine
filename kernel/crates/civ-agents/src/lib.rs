@@ -60,6 +60,7 @@ pub mod sickness;
 pub mod standing;
 pub mod structure;
 pub mod style;
+pub mod suspicion;
 pub mod ties;
 pub mod uses;
 pub mod value;

@@ -226,6 +226,8 @@ impl Population {
         // Households tell their members of gatherings ahead, and those short of food who find
         // the common store empty hold it against it (M4c slice AE).
         self.word_day(ctx);
+        // Those who hold news of sickness tally the sources they know (M6a slice BA).
+        self.suspicion_day(ctx);
         self.grieve_empty_stores(ctx);
         // Petitions that have sat go before the gathering, and those decided are answered; then
         // those whose day it is review where they belong (M4c slice AH).

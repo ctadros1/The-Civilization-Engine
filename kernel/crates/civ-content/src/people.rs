@@ -68,6 +68,55 @@ pub(crate) struct PeopleFile {
     pub reports: ReportsFile,
     /// How views of other polities are held (M5c slice AT; content API 60).
     pub relations: RelationsFile,
+    /// How people tally a source of water (M6a slice BA, step two; content API 76).
+    pub suspicion: SuspicionFile,
+}
+
+/// How people tally a source of water (M6a slice BA, ADR-0021 §6; content API 76). See
+/// [`civ_agents::suspicion::SuspicionParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct SuspicionFile {
+    pub min_households: u32,
+    pub min_sick: u32,
+    pub ratio: f64,
+    pub draws_min_days: f64,
+    pub known_min: f64,
+    pub review_days: u32,
+}
+
+impl SuspicionFile {
+    fn params(&self) -> civ_agents::suspicion::SuspicionParams {
+        civ_agents::suspicion::SuspicionParams {
+            min_households: self.min_households,
+            min_sick: self.min_sick,
+            ratio: self.ratio,
+            draws_min_days: self.draws_min_days,
+            known_min: self.known_min,
+            review_days: self.review_days,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("suspicion.min_households", self.min_households, 1, 1000),
+            ("suspicion.min_sick", self.min_sick, 1, 1000),
+            ("suspicion.review_days", self.review_days, 1, 365),
+        ] {
+            if !(lo..=hi).contains(&v) {
+                p.push(format!("`{name}` must be {lo} to {hi} (got {v})"));
+            }
+        }
+        for (name, v, lo, hi) in [
+            ("suspicion.ratio", self.ratio, 1.0, 100.0),
+            ("suspicion.draws_min_days", self.draws_min_days, 0.0, 365.0),
+            ("suspicion.known_min", self.known_min, 0.0, 1.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+    }
 }
 
 /// Factions, their petitions, refusals and revolts (M4c slices AH-AI, ADR-0017 §2-4; content API
@@ -1637,6 +1686,7 @@ impl PeopleFile {
                 max_age_days: self.reports.max_age_days,
                 share_told: self.reports.share_told,
             },
+            suspicion: self.suspicion.params(),
             relations: civ_agents::views::RelationsParams {
                 prior: self.relations.prior,
                 half_life_days: self.relations.half_life_days,
@@ -1666,6 +1716,7 @@ impl PeopleFile {
         self.polity.problems(&mut p);
         self.crime.problems(&mut p);
         self.word.problems(&mut p);
+        self.suspicion.problems(&mut p);
         if !(self.places.sight_m.is_finite() && (0.0..=10_000.0).contains(&self.places.sight_m)) {
             p.push(format!(
                 "`places.sight_m` must be between 0 and 10000 (got {})",

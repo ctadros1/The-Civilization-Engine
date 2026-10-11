@@ -208,6 +208,7 @@ fn aggrieved_at(
             day,
             subject: Some(a),
             grievance: Some((against, issue)),
+            suspected: None,
         });
         for &b in &holders {
             pop.word.hear(b, claim, day, (a != b).then_some(a), Some(a));

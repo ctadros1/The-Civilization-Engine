@@ -197,6 +197,7 @@ impl Population {
                 day,
                 subject: Some(household),
                 grievance: None,
+                suspected: None,
             }),
         }
     }

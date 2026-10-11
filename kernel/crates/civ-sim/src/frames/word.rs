@@ -124,6 +124,25 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
                 None => format!("{who} holds a grievance"),
             }
         }
+        ClaimKind::Suspicion => {
+            let who = c.subject.map_or_else(|| "someone".to_owned(), name_of);
+            let households = |n: u16| match n {
+                1 => "1 household".to_owned(),
+                n => format!("{n} households"),
+            };
+            match c.suspected {
+                Some((place, n)) => format!(
+                    "{who} holds that the water at {} sickens: of {} they know that draw there, {} \
+                     had sickness lately, against {} of {} that draw elsewhere",
+                    super::sickness::place_words(sim, place),
+                    households(n.at),
+                    n.sick_at,
+                    n.sick_elsewhere,
+                    n.elsewhere
+                ),
+                None => format!("{who} holds that a source of water sickens"),
+            }
+        }
         ClaimKind::Sickness => {
             let from = day_words(SimTime::from_minutes(c.day * DAY));
             match c.subject {
@@ -486,8 +505,9 @@ pub fn news_lines<'a>(
         .filter(|c| !pop.word.has_heard(p.id, c.id))
         .filter(|c| match c.kind {
             ClaimKind::Grievance => c.subject.is_some_and(|s| s != p.id),
-            // Another household's sickness, while it is news (M6a slice BA).
+            // Another household's sickness, or another's suspicion, while it is news (M6a slice BA).
             ClaimKind::Sickness => c.subject != Some(p.household),
+            ClaimKind::Suspicion => c.subject != Some(p.id),
             _ => c.day >= today,
         })
         .take(MAX_NEWS_SHOWN)
@@ -583,7 +603,7 @@ fn whisper_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
             })
         }),
         // What people do of sickness they heard of is slice BA's later steps.
-        ClaimKind::Sickness => None,
+        ClaimKind::Sickness | ClaimKind::Suspicion => None,
         ClaimKind::Grievance => {
             let against = c.grievance.map(|g| g.0);
             let m = pop.factions.membership(p).copied();

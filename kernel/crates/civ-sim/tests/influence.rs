@@ -105,6 +105,7 @@ fn a_whisper_is_heard_as_news_is_and_a_repeat_adds_nothing() {
         day,
         subject: Some(holder),
         grievance: Some((Blamed::Body(body), Grieved::Extraction)),
+        suspected: None,
     });
     pop.word.hear(holder, claim, day, None, Some(holder));
     let before = {

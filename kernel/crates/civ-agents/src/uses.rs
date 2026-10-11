@@ -5,7 +5,9 @@
 //! and folded in at the day's end: a household counts a day at a place however many of its people
 //! went, the food they got there, and, for each other settlement whose people worked the same
 //! place that day, a day it saw outsiders there. What a household holds fades by the content's
-//! half-life, so what it saw long ago weighs little; nobody holds what another household saw.
+//! half-life, so what it saw long ago weighs little; nobody holds what another household saw. At
+//! a source of water a household also holds the other households it saw drawing there the same
+//! day (M6a slice BA, ADR-0021 §6), fading alike.
 
 use std::collections::BTreeMap;
 
@@ -115,6 +117,15 @@ pub struct Outsiders {
     pub last: i64,
 }
 
+/// Another household a household saw drawing water at a source on `days` of the days its own
+/// people did (fading), the last on `last` (M6a slice BA).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SeenAt {
+    pub household: PermanentId,
+    pub days: f32,
+    pub last: i64,
+}
+
 /// What a household holds of a place its people work.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PlaceUse {
@@ -125,6 +136,8 @@ pub struct PlaceUse {
     pub kcal: f32,
     /// Those of other settlements seen there, in settlement order.
     pub outsiders: Vec<Outsiders>,
+    /// At a source of water: the other households seen drawing there, in household order.
+    pub seen: Vec<SeenAt>,
     /// The day the fading was reckoned to.
     pub day: i64,
 }
@@ -136,6 +149,9 @@ impl PlaceUse {
         self.kcal *= f;
         for o in &mut self.outsiders {
             o.days *= f;
+        }
+        for x in &mut self.seen {
+            x.days *= f;
         }
         self.day = self.day.max(day);
     }
@@ -272,8 +288,9 @@ impl Uses {
 
     /// Folds in the work logged since the last fold (ADR-0020 §5): per day and place, each
     /// household that worked it counts the day once and the food its people got, and a day of
-    /// outsiders for each other settlement whose people worked it that day. Returns where people
-    /// of more than one settlement met, in day and place order.
+    /// outsiders for each other settlement whose people worked it that day; at a source of water,
+    /// a day for each other household that drew there that day. Returns where people of more than
+    /// one settlement met, in day and place order.
     pub fn fold(&mut self, half_life_days: f64) -> Vec<Meeting> {
         let mut meetings = Vec::new();
         if self.today.is_empty() {
@@ -296,6 +313,13 @@ impl Uses {
             let mut settlements: Vec<PermanentId> = group.iter().map(|w| w.settlement).collect();
             settlements.sort_unstable();
             settlements.dedup();
+            let drawers: Vec<PermanentId> = if matches!(place, Place::Source(_)) {
+                let mut h: Vec<PermanentId> = group.iter().map(|w| w.household).collect();
+                h.dedup();
+                h
+            } else {
+                Vec::new()
+            };
             if settlements.len() > 1 {
                 meetings.push(Meeting {
                     place,
@@ -323,6 +347,7 @@ impl Uses {
                                 days: 0.0,
                                 kcal: 0.0,
                                 outsiders: Vec::new(),
+                                seen: Vec::new(),
                                 day,
                             },
                         );
@@ -343,6 +368,22 @@ impl Uses {
                             o,
                             Outsiders {
                                 settlement: s,
+                                days: 1.0,
+                                last: day,
+                            },
+                        ),
+                    }
+                }
+                for &other in drawers.iter().filter(|&&h| h != household) {
+                    match u.seen.binary_search_by(|x| x.household.cmp(&other)) {
+                        Ok(x) => {
+                            u.seen[x].days += 1.0;
+                            u.seen[x].last = u.seen[x].last.max(day);
+                        }
+                        Err(x) => u.seen.insert(
+                            x,
+                            SeenAt {
+                                household: other,
                                 days: 1.0,
                                 last: day,
                             },
@@ -404,6 +445,8 @@ impl Uses {
             for u in list.iter_mut() {
                 u.fade_to(day, half_life_days);
                 u.outsiders.retain(|o| day - o.last <= memory_days);
+                u.seen
+                    .retain(|x| x.days >= LET_GO_DAYS && here(x.household));
             }
             list.retain(|u| u.days >= LET_GO_DAYS || !u.outsiders.is_empty());
         }
@@ -422,7 +465,11 @@ impl Uses {
             }
             for u in list {
                 let bad = |x: f32| !x.is_finite() || x < 0.0;
-                if bad(u.days) || bad(u.kcal) || u.outsiders.iter().any(|o| bad(o.days)) {
+                if bad(u.days)
+                    || bad(u.kcal)
+                    || u.outsiders.iter().any(|o| bad(o.days))
+                    || u.seen.iter().any(|x| bad(x.days))
+                {
                     out.push(format!(
                         "household {h} holds a count of {:?} below zero",
                         u.place
@@ -437,6 +484,15 @@ impl Uses {
                         u.place
                     ));
                 }
+                if u.seen.windows(2).any(|w| w[0].household >= w[1].household)
+                    || u.seen.iter().any(|x| x.household == *h)
+                {
+                    out.push(format!(
+                        "household {h}'s households seen at {:?} are out of order, repeated or \
+                         itself",
+                        u.place
+                    ));
+                }
             }
         }
         out
@@ -446,6 +502,41 @@ impl Uses {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn at_a_source_each_household_holds_the_others_it_saw_draw_there_that_day() {
+        let mut u = Uses::default();
+        let well = Place::Source(40);
+        let patch = Place::Patch(7);
+        for (place, day, h) in [
+            (well, 10, 1),
+            (well, 10, 1),
+            (well, 10, 2),
+            (well, 10, 3),
+            (well, 11, 1),
+            (well, 11, 2),
+            (patch, 10, 1),
+            (patch, 10, 4),
+        ] {
+            u.worked(work(place, day, h, 9, 0.0));
+        }
+        u.fold(100.0);
+        let held = |u: &Uses, h: u64, place: Place| u.held(id(h), place, 11, 100.0).expect("held");
+        let one = held(&u, 1, well);
+        // Two days, the first faded a day at a half-life of 100.
+        let two = 1.0 + 0.5f32.powf(0.01);
+        assert!((one.days - two).abs() < 1e-5, "{}", one.days);
+        let seen: Vec<_> = one.seen.iter().map(|x| (x.household, x.last)).collect();
+        assert_eq!(seen, vec![(id(2), 11), (id(3), 10)]);
+        assert!((one.seen[0].days - two).abs() < 1e-5);
+        assert!(held(&u, 3, well).seen.iter().all(|x| x.household != id(3)));
+        // Working the same patch is not drawing water together.
+        assert!(held(&u, 1, patch).seen.is_empty());
+        assert!(u.problems().is_empty());
+        // A household no more is let go from what others saw.
+        u.prune(11, 100.0, 365, |h| h != id(3));
+        assert!(held(&u, 1, well).seen.iter().all(|x| x.household != id(3)));
+    }
 
     fn id(n: u64) -> PermanentId {
         PermanentId::from_raw(n).expect("non-zero")

@@ -77,6 +77,50 @@ fn source_words(sim: &Sim, source: Node) -> String {
     }
 }
 
+/// A source of water people draw at, in words (M6a slice BA): "Wren's household's well", "the
+/// spring near Bo's household's home", "the water's edge near Bo's household's home".
+pub fn place_words(sim: &Sim, place: civ_agents::uses::Place) -> String {
+    use civ_agents::uses::Place;
+    let Place::Source(cell) = place else {
+        return "a place".to_owned();
+    };
+    if let Some(w) = sim.land.wells.list.iter().find(|w| w.cell == cell) {
+        return source_words(sim, Node::Well(w.id));
+    }
+    let width = sim.map.width;
+    let patch = sim.land.patches.of_cell(cell as usize, width);
+    let aq = &sim.land.water.aquifer;
+    let spring = aq
+        .seep
+        .get(patch)
+        .copied()
+        .flatten()
+        .is_some_and(|(c, _)| c == cell);
+    let what = if spring {
+        "the spring"
+    } else {
+        "the water's edge"
+    };
+    let at = civ_agents::population::cell_centre(&sim.map, cell as usize);
+    let near = sim
+        .people
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .filter_map(|x| {
+            let d = (x.home.0 - at.0).hypot(x.home.1 - at.1);
+            (d <= 400.0).then_some((d, x.id))
+        })
+        .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+    match near {
+        Some((_, h)) => format!(
+            "{what} near {}'s home",
+            super::people::household_name(sim, h)
+        ),
+        None => what.to_owned(),
+    }
+}
+
 /// One infection in words (see `PersonInfo.sickness`).
 fn episode_words(sim: &Sim, e: &Episode) -> String {
     let today = sim.now().day_index();

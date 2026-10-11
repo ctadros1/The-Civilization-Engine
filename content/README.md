@@ -719,6 +719,16 @@ officeholder, and more adults than stand with the gathering, must stand with it 
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
 
+Content API 76 (M6a slice BA, step two) brings suspicion of a source. The people profile gains
+a `[suspicion]` table: `min_households` (1 to 1,000: households known to draw at a source, at
+least, before its share counts), `min_sick` (1 to 1,000: of those, households that had sickness
+lately, at least), `ratio` (1 to 100: how many times the share among the rest it must be),
+`draws_min_days` (0 to 365: faded days of drawing from which a household draws at a source),
+`known_min` (0 to 1: a tie's familiarity from which someone knows a household's usual source) and
+`review_days` (1 to 365: days between tallies while someone holds news of sickness or a
+suspicion). The core's 3, 2, 3, 2, 0.3 and 7 are design priors; research 12-02 §4's 8.5-fold
+contrast between water companies orients `ratio`.
+
 Content API 75 (M6a slice BA, step one) brings sickness seen. The people profile's `[word]`
 gains `share_sickness` (0 to 1: the chance someone tells a companion at the hearth of a household's
 sickness they heard of; research 09-16 §2.2's 0.4-0.9 for urgent, personally relevant news, the

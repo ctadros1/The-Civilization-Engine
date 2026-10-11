@@ -16,23 +16,27 @@ pub const PURPOSE_WORD_HOME: u64 = 0x776f_7264_686f_6d65; // "wordhome"
 pub const PURPOSE_WORD_HEARTH: u64 = 0x776f_7264_6865_6172; // "wordhear"
 
 /// What a draw about word of claim `c` is keyed by: for a gathering or petition its settlement,
-/// for a household's sickness the household; the day and its kind; so that other claims made or
-/// let go never move it (ADR-0016 §6).
+/// for a household's sickness the household, for a suspicion its holder and source; the day and
+/// its kind; so that other claims made or let go never move it (ADR-0016 §6).
 fn claim_key(c: &Claim) -> u64 {
     let whose = match c.kind {
-        ClaimKind::Sickness => c.subject.map_or(0, PermanentId::get),
+        ClaimKind::Sickness | ClaimKind::Suspicion => c.subject.map_or(0, PermanentId::get),
         _ => c.settlement.get(),
     };
-    whose ^ (c.day as u64).rotate_left(40) ^ (u64::from(c.kind.code()) << 56)
+    let source = c.suspected.map_or(0, |(place, _)| {
+        let (kind, id) = place.code();
+        id.rotate_left(20) ^ u64::from(kind)
+    });
+    whose ^ source ^ (c.day as u64).rotate_left(40) ^ (u64::from(c.kind.code()) << 56)
 }
 
 /// Whether claim `c` is told as news on `day`, and how likely a companion at the hearth is to tell
-/// it: a call still ahead, or a household's sickness still held (pruning lets it go when it is no
-/// longer news).
+/// it: a call still ahead, or a household's sickness or a suspicion still held (pruning lets
+/// either go when it is no longer news).
 fn hearth_chance(c: &Claim, day: i64, wp: &crate::word::WordParams) -> Option<f64> {
     if call_ahead(c, day) {
         Some(wp.share_urgent)
-    } else if c.kind == ClaimKind::Sickness {
+    } else if c.kind.held_news() {
         Some(wp.share_sickness)
     } else {
         None
@@ -67,6 +71,7 @@ impl Population {
                 day: meets,
                 subject: law,
                 grievance: None,
+                suspected: None,
             }),
         };
         for &p in first {
@@ -114,6 +119,7 @@ impl Population {
                 day,
                 subject: Some(petition),
                 grievance: None,
+                suspected: None,
             }),
         };
         for &p in first {
@@ -145,6 +151,7 @@ impl Population {
                 day: until,
                 subject: Some(subject),
                 grievance: None,
+                suspected: None,
             }),
         };
         for &p in first {
@@ -190,7 +197,8 @@ impl Population {
     }
 
     /// Midnight (ADR-0016 §3): each member of a household tells each other member of a gathering
-    /// ahead, or of another household's sickness, that they heard of, by the content's chance;
+    /// ahead, or of a household's sickness or a suspicion, that they heard of, by the content's
+    /// chance;
     /// then what is no longer news is let go, and so is what those who died or left held. Who
     /// tells is fixed at the start, so the order households are seen in changes nothing.
     pub(super) fn word_day(&mut self, ctx: &Ctx) {
@@ -206,7 +214,7 @@ impl Population {
             .word
             .claims
             .iter()
-            .filter(|c| call_ahead(c, day) || c.kind == ClaimKind::Sickness)
+            .filter(|c| call_ahead(c, day) || c.kind.held_news())
             .map(|c| (c.id, claim_key(c)))
             .collect();
         if ahead.is_empty() {
@@ -677,6 +685,7 @@ impl Population {
                     day,
                     subject: Some(teller),
                     grievance: Some((blamed, issue)),
+                    suspected: None,
                 })
             });
             self.word.hear(teller, claim, day, None, Some(teller));

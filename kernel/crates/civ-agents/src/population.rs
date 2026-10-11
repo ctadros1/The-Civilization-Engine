@@ -66,6 +66,7 @@ mod polity;
 mod relations;
 mod residence;
 mod sickness;
+mod suspicion;
 mod terms;
 mod values;
 mod watch;

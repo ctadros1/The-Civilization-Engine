@@ -1296,6 +1296,16 @@ The full end-to-end run found the knowledge test still counting the founders' te
 
 **Open:** links from the chronicle, the Water lens, the epidemics row, and the M6a demo.
 
+## 2026-10-11 — M6a slice BB, steps two and four: chronicle links and the epidemics row
+
+**What changed:** a chronicle entry that tells a taking, an outbreak's beginning or end, a death of disease or the observer's bringing a disease now names its incident or outbreak and where it happened, matched by its stamp and person (the same event recorded twice, never a link inferred from nearness in time); the observer's chronicle opens it in the Incidents panel or centres the map on it (wire 1.65). The dashboard's epidemics row is built: each outbreak with five cases by water or more is judged by the share of households with a case among those that drew the disease at its commonest source against the rest, by households as Snow's water-company comparison was, and clusters at twice the rest's share or more; grey while nothing brings a disease, which on the dashboard is always, until imports exist.
+
+**Findings:** the outbreak page from step one counted "households that drew there since it began" from the households' records of places they use, but those records are reckoned forward to today every day, so the count took in every household that had drawn there within about two years. The page and the row now read the drawing moves the kernel keeps, which say who drew the disease where and when; the page says so when an outbreak began before the moves kept.
+
+**Evidence:** the outbreak integration test in the page's words and the row's split; chronicle links for the observer's bringing a disease, the outbreak's beginning and every taking; unit tests of the row's grey, green, amber and red; a world lived 75 days at Max after cholera was brought, judged as the dashboard does; web decoding tests and the sickness end-to-end test opening a case from the chronicle.
+
+**Open:** the Water lens (who could reach which water, and who did come) and the M6a demo.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

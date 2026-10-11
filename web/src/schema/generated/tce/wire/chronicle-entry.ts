@@ -5,6 +5,7 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { Span } from '../../tce/wire/span.js';
+import { Vec2 } from '../../tce/wire/vec2.js';
 
 
 export class ChronicleEntry {
@@ -45,8 +46,23 @@ spansLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+incidentKind():number {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : 0;
+}
+
+incident():number {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
+at(obj?:Vec2):Vec2|null {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? (obj || new Vec2()).__init(this.bb_pos + offset, this.bb!) : null;
+}
+
 static startChronicleEntry(builder:flatbuffers.Builder) {
-  builder.startObject(3);
+  builder.startObject(6);
 }
 
 static addSeq(builder:flatbuffers.Builder, seq:bigint) {
@@ -73,16 +89,21 @@ static startSpansVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addIncidentKind(builder:flatbuffers.Builder, incidentKind:number) {
+  builder.addFieldInt8(3, incidentKind, 0);
+}
+
+static addIncident(builder:flatbuffers.Builder, incident:number) {
+  builder.addFieldInt32(4, incident, 0);
+}
+
+static addAt(builder:flatbuffers.Builder, atOffset:flatbuffers.Offset) {
+  builder.addFieldStruct(5, atOffset, 0);
+}
+
 static endChronicleEntry(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createChronicleEntry(builder:flatbuffers.Builder, seq:bigint, minute:bigint, spansOffset:flatbuffers.Offset):flatbuffers.Offset {
-  ChronicleEntry.startChronicleEntry(builder);
-  ChronicleEntry.addSeq(builder, seq);
-  ChronicleEntry.addMinute(builder, minute);
-  ChronicleEntry.addSpans(builder, spansOffset);
-  return ChronicleEntry.endChronicleEntry(builder);
-}
 }

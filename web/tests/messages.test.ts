@@ -562,12 +562,26 @@ describe("decoders", () => {
       span(W.SpanKind.Text, " set up ", 0n),
       span(W.SpanKind.Firm, "Wren's sickle workshop", 77n),
     ]);
-    const entry = W.ChronicleEntry.createChronicleEntry(b, 4n, 1440n, spans);
-    const entries = W.Chronicle.createEntriesVector(b, [entry]);
+    W.ChronicleEntry.startChronicleEntry(b);
+    W.ChronicleEntry.addSeq(b, 4n);
+    W.ChronicleEntry.addMinute(b, 1440n);
+    W.ChronicleEntry.addSpans(b, spans);
+    const entry = W.ChronicleEntry.endChronicleEntry(b);
+    // Wire 1.65: an entry that tells of an outbreak links to its page, and says where.
+    const outbreakSpans = W.ChronicleEntry.createSpansVector(b, [span(W.SpanKind.Text, "An outbreak", 0n)]);
+    W.ChronicleEntry.startChronicleEntry(b);
+    W.ChronicleEntry.addSeq(b, 5n);
+    W.ChronicleEntry.addMinute(b, 2880n);
+    W.ChronicleEntry.addSpans(b, outbreakSpans);
+    W.ChronicleEntry.addIncidentKind(b, 3);
+    W.ChronicleEntry.addIncident(b, 2);
+    W.ChronicleEntry.addAt(b, W.Vec2.createVec2(b, 120, 340));
+    const linked = W.ChronicleEntry.endChronicleEntry(b);
+    const entries = W.Chronicle.createEntriesVector(b, [entry, linked]);
     const response = W.Response.createResponse(
       b,
       W.ResponseBody.Chronicle,
-      W.Chronicle.createChronicle(b, entries, 4n),
+      W.Chronicle.createChronicle(b, entries, 5n),
     );
     const body = M.decodeResponse(finish(b, response));
     if (body.kind !== "chronicle") throw new Error("expected the chronicle");
@@ -576,6 +590,8 @@ describe("decoders", () => {
       ["text", 0],
       ["firm", 77],
     ]);
+    expect([body.entries[0]!.link, body.entries[0]!.at]).toEqual([null, null]);
+    expect([body.entries[1]!.link, body.entries[1]!.at]).toEqual([{ kind: 3, id: 2 }, [120, 340]]);
   });
 
   it("builds a buildings query and decodes the buildings", () => {

@@ -772,6 +772,12 @@ table ChronicleEntry {
   seq: ulong (id: 0);
   minute: long (id: 1);
   spans: [Span] (id: 2);
+  // Wire 1.65 (M6a slice BB, ADR-0015 §8): the incident or outbreak the entry tells of, for its
+  // page (1 a taking, 2 a case of illness, 3 an outbreak; 0 none), found from the records, never
+  // from nearness in time; and where it happened, metres (absent when the entry names no place).
+  incident_kind: ubyte (id: 3);
+  incident: uint (id: 4);
+  at: Vec2 (id: 5);
 }
 
 table Chronicle {

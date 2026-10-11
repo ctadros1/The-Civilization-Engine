@@ -596,12 +596,17 @@ pub fn chronicle_response(sim: &Sim, after_seq: u64, limit: u32) -> Vec<u8> {
                 })
                 .collect();
             let spans = fbb.create_vector(&spans);
+            // The incident or outbreak it tells of (wire 1.65).
+            let link = super::incidents::chronicle_link(sim, e);
             wire::ChronicleEntry::create(
                 &mut fbb,
                 &wire::ChronicleEntryArgs {
                     seq: e.seq,
                     minute: e.at.minutes(),
                     spans: Some(spans),
+                    incident_kind: link.map_or(0, |l| l.0),
+                    incident: link.map_or(0, |l| l.1),
+                    at: e.place.map(|(x, y)| wire::Vec2::new(x, y)).as_ref(),
                 },
             )
         })

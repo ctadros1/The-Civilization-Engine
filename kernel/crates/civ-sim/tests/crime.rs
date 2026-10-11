@@ -620,6 +620,30 @@ fn under_a_law_against_taking_cases_are_brought_heard_and_their_findings_owed() 
             "{:?}",
             row.happened()
         );
+        // Each taking the chronicle tells links to its incident, where it happened (wire 1.65).
+        let bytes = civ_sim::frames::people::chronicle_response(&sim, 0, 256);
+        let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+        let entries = response
+            .body_as_chronicle()
+            .and_then(|c| c.entries())
+            .expect("entries");
+        let told: Vec<_> = pop
+            .chronicle
+            .iter()
+            .take(256)
+            .filter(|e| e.kind == civ_agents::ChronicleKind::Taking)
+            .collect();
+        assert!(!told.is_empty());
+        for e in told {
+            let entry = entries
+                .iter()
+                .find(|x| x.seq() == e.seq)
+                .expect("the entry");
+            assert_eq!(entry.incident_kind(), TAKING, "{}", e.name);
+            let i = order.incident(entry.incident()).expect("its incident");
+            assert_eq!((i.actor, i.at), (e.people[0], e.at));
+            assert!(entry.at().is_some());
+        }
     }
     // A loaded world runs by the content's rules: so must this one, to go on alike.
     sim.rules_mut_for_tests()

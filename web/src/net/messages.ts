@@ -649,6 +649,10 @@ export interface ChronicleEntry {
   seq: number;
   minute: number;
   spans: Span[];
+  /** Wire 1.65: the incident or outbreak the entry tells of, for its page (kind 1 a taking, 2 a
+   * case of illness, 3 an outbreak), and where it happened, metres. */
+  link: { kind: number; id: number } | null;
+  at: [number, number] | null;
 }
 
 export interface Term {
@@ -2767,7 +2771,14 @@ function chronicle(c: W.Chronicle): { entries: ChronicleEntry[]; head: number } 
       if (!s) continue;
       spans.push({ kind: SPAN_KINDS[s.kind()] ?? "text", text: s.text() ?? "", id: Number(s.id()) });
     }
-    entries.push({ seq: Number(e.seq()), minute: Number(e.minute()), spans });
+    const at = e.at();
+    entries.push({
+      seq: Number(e.seq()),
+      minute: Number(e.minute()),
+      spans,
+      link: e.incidentKind() !== 0 ? { kind: e.incidentKind(), id: e.incident() } : null,
+      at: at ? [at.x(), at.y()] : null,
+    });
   }
   return { entries, head: Number(c.head()) };
 }

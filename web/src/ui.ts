@@ -135,6 +135,8 @@ export interface Actions {
   openIncident(kind: number, id: number): void;
   openOutbreak(id: number): void;
   closeIncidentPage(): void;
+  /** Centres the map on a point, metres (the camera moves only when asked). */
+  locate(xM: number, yM: number): void;
   /** Run ahead by `minutes` of simulated time. */
   runAhead(minutes: number): Promise<void>;
   /**
@@ -1595,7 +1597,26 @@ export function bindUi(store: Store, actions: Actions): void {
               text.append(span.text);
             }
           }
-          return el("li", {}, el("span", { className: "when", text: formatSimMinute(e.minute) }), text);
+          // Wire 1.65: the incident or outbreak it tells of opens its page; where it happened
+          // can be looked at. The camera moves only when asked.
+          const tools: (Node | string)[] = [];
+          if (e.link) {
+            const { kind, id } = e.link;
+            const open = link("Open", () => {
+              if (kind === 3) actions.openOutbreak(id);
+              else actions.openIncident(kind, id);
+              $("incidents-panel").scrollIntoView({ block: "nearest" });
+            });
+            open.classList.add("chronicle-open");
+            tools.push(" ", open);
+          }
+          if (e.at) {
+            const [x, y] = e.at;
+            const locate = link("Locate", () => actions.locate(x, y));
+            locate.classList.add("chronicle-locate");
+            tools.push(" ", locate);
+          }
+          return el("li", {}, el("span", { className: "when", text: formatSimMinute(e.minute) }), text, ...tools);
         }),
     );
     // A chronicle reads oldest first; follow new entries unless the reader scrolled back.

@@ -80,6 +80,11 @@ test("the observer brings cholera to someone, and the inspector tells of it", as
     if (shots) await page.locator("#incidents-panel").screenshot({ path: `${shots}/outbreak-page.png` });
     await incidents.locator(".incident-back").click();
     await expect(row).toHaveCount(1);
+    // The chronicle's entry for it opens the same page (wire 1.65).
+    const told = page.locator("#chronicle li").filter({ hasText: "brought a disease to" });
+    await told.locator(".chronicle-open").click();
+    await expect(incidents.locator(".incident-steps li").first()).toContainText("Took it:");
+    await incidents.locator(".incident-back").click();
 
     // A second time is refused while it runs in them, and nothing more is recorded.
     await inspector.getByLabel("Bring").selectOption({ label: "Cholera" });

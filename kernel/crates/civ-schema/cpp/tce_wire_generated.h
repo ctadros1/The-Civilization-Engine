@@ -8680,7 +8680,10 @@ struct ChronicleEntry FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SEQ = 4,
     VT_MINUTE = 6,
-    VT_SPANS = 8
+    VT_SPANS = 8,
+    VT_INCIDENT_KIND = 10,
+    VT_INCIDENT = 12,
+    VT_AT = 14
   };
   uint64_t seq() const {
     return GetField<uint64_t>(VT_SEQ, 0);
@@ -8691,6 +8694,15 @@ struct ChronicleEntry FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::Span>> *spans() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::Span>> *>(VT_SPANS);
   }
+  uint8_t incident_kind() const {
+    return GetField<uint8_t>(VT_INCIDENT_KIND, 0);
+  }
+  uint32_t incident() const {
+    return GetField<uint32_t>(VT_INCIDENT, 0);
+  }
+  const tce::wire::Vec2 *at() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_AT);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -8699,6 +8711,9 @@ struct ChronicleEntry FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_SPANS) &&
            verifier.VerifyVector(spans()) &&
            verifier.VerifyVectorOfTables(spans()) &&
+           VerifyField<uint8_t>(verifier, VT_INCIDENT_KIND, 1) &&
+           VerifyField<uint32_t>(verifier, VT_INCIDENT, 4) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_AT, 4) &&
            verifier.EndTable();
   }
 };
@@ -8716,6 +8731,15 @@ struct ChronicleEntryBuilder {
   void add_spans(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::Span>>> spans) {
     fbb_.AddOffset(ChronicleEntry::VT_SPANS, spans);
   }
+  void add_incident_kind(uint8_t incident_kind) {
+    fbb_.AddElement<uint8_t>(ChronicleEntry::VT_INCIDENT_KIND, incident_kind, 0);
+  }
+  void add_incident(uint32_t incident) {
+    fbb_.AddElement<uint32_t>(ChronicleEntry::VT_INCIDENT, incident, 0);
+  }
+  void add_at(const tce::wire::Vec2 *at) {
+    fbb_.AddStruct(ChronicleEntry::VT_AT, at);
+  }
   explicit ChronicleEntryBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -8731,11 +8755,17 @@ inline ::flatbuffers::Offset<ChronicleEntry> CreateChronicleEntry(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t seq = 0,
     int64_t minute = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::Span>>> spans = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::Span>>> spans = 0,
+    uint8_t incident_kind = 0,
+    uint32_t incident = 0,
+    const tce::wire::Vec2 *at = nullptr) {
   ChronicleEntryBuilder builder_(_fbb);
   builder_.add_minute(minute);
   builder_.add_seq(seq);
+  builder_.add_at(at);
+  builder_.add_incident(incident);
   builder_.add_spans(spans);
+  builder_.add_incident_kind(incident_kind);
   return builder_.Finish();
 }
 
@@ -8748,13 +8778,19 @@ inline ::flatbuffers::Offset<ChronicleEntry> CreateChronicleEntryDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     uint64_t seq = 0,
     int64_t minute = 0,
-    const std::vector<::flatbuffers::Offset<tce::wire::Span>> *spans = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::Span>> *spans = nullptr,
+    uint8_t incident_kind = 0,
+    uint32_t incident = 0,
+    const tce::wire::Vec2 *at = nullptr) {
   auto spans__ = spans ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::Span>>(*spans) : 0;
   return tce::wire::CreateChronicleEntry(
       _fbb,
       seq,
       minute,
-      spans__);
+      spans__,
+      incident_kind,
+      incident,
+      at);
 }
 
 struct Chronicle FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

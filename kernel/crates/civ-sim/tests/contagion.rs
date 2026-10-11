@@ -522,6 +522,14 @@ fn the_incidents_list_every_case_and_an_outbreak_s_page_traces_the_well_its_wate
             to: Node::Well(well),
             amount: 120.0,
         });
+        pop.contagion.moves.push(Move {
+            day,
+            disease: d,
+            how: How::Drawn,
+            from: Node::Well(well),
+            to: Node::Store(other),
+            amount: 1.0e6,
+        });
     }
     sim.advance_minutes(4).expect("lives past midnight");
     let episodes = sim.people().sickness.episodes().to_vec();
@@ -684,8 +692,18 @@ fn the_incidents_list_every_case_and_an_outbreak_s_page_traces_the_well_its_wate
     );
     assert_eq!(first.cases(), others.len() as u32);
     let truth: Vec<&str> = first.truth().expect("truth").iter().collect();
-    assert!(
-        truth[0].starts_with("Of ") && truth[0].contains("that drew there since it began"),
+    // Of the households, the one that drew it at the well had every case but the first; the rest
+    // had only the observer's (the moves the kernel keeps, not the households' faded records).
+    let rest = households(&sim).len() - 1;
+    let n = others.len();
+    assert_eq!(
+        truth[0],
+        format!(
+            "Of 1 household that drew cholera in its water since it began, 1 had a case ({n} \
+             case{}); of {rest} household{} that did not, 1 had a case (1 case)",
+            if n == 1 { "" } else { "s" },
+            if rest == 1 { "" } else { "s" },
+        ),
         "{truth:?}"
     );
     assert!(
@@ -700,6 +718,42 @@ fn the_incidents_list_every_case_and_an_outbreak_s_page_traces_the_well_its_wate
     assert_eq!(info.members_total(), episodes.len() as u32);
     assert_eq!(info.members().map(|m| m.len()), Some(episodes.len()));
     assert!(incidents::outbreak_response(&sim, 99, 0).is_none());
+    // The dashboard's epidemics row reads the same split (plan §4.7).
+    let c = incidents::clustering(&sim, 1).expect("the outbreak");
+    assert_eq!((c.cases, c.water_cases), (episodes.len() as u32, n as u32));
+    assert!(c.name.starts_with("Cholera at "), "{}", c.name);
+    let s = c.source.expect("a source");
+    assert!(s.name.ends_with("'s household's well"), "{}", s.name);
+    assert_eq!(s.took, n as u32);
+    assert_eq!(
+        (s.drew.households, s.drew.with_case, s.drew.cases),
+        (1, 1, n as u32)
+    );
+    assert_eq!(
+        (s.rest.households, s.rest.with_case, s.rest.cases),
+        (rest as u32, 1, 1)
+    );
+    assert_eq!(s.drew.attack(), Some(1.0));
+    assert!(incidents::clustering(&sim, 99).is_none());
+    // The chronicle links the observer's bringing it to the case, and the outbreak's beginning to
+    // its page, each with where it happened (wire 1.65).
+    let bytes = civ_sim::frames::people::chronicle_response(&sim, 0, 1000);
+    let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+    let links: Vec<(u8, u32, bool)> = response
+        .body_as_chronicle()
+        .and_then(|c| c.entries())
+        .expect("entries")
+        .iter()
+        .filter(|e| e.incident_kind() != 0)
+        .map(|e| (e.incident_kind(), e.incident(), e.at().is_some()))
+        .collect();
+    assert!(links.contains(&(ILLNESS, 1, false)), "{links:?}");
+    assert!(
+        links
+            .iter()
+            .any(|&(k, id, _)| k == incidents::OUTBREAK && id == 1),
+        "{links:?}"
+    );
 
     // Someone comes to suspect the well: what people hold changes, and only that.
     let cell = sim.land().wells.get(well).expect("the well").cell;

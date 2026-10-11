@@ -365,6 +365,8 @@ pub struct LongRun {
     /// Each settlement's accounts over the run, summed: births, deaths, arrivals and departures,
     /// and of those, arrivals from off the map and departures off it.
     pub moves: Moves,
+    /// Each outbreak that has ended, judged as the month after it began (M6a slice BB).
+    pub epidemics: crate::dashboard::EpidemicsSeen,
 }
 
 /// Each settlement's accounts over a run, summed over its settlements (ADR-0018 §3).
@@ -397,6 +399,7 @@ impl LongRun {
             ids_by_month: std::collections::VecDeque::new(),
             accounting: Vec::new(),
             moves: Moves::default(),
+            epidemics: crate::dashboard::EpidemicsSeen::default(),
         }
     }
 
@@ -452,6 +455,7 @@ impl LongRun {
                 return Ok(());
             }
             self.economy.sample(sim);
+            self.epidemics.sample(sim);
             self.ids_by_month.push_back(sim.ids().peek_next());
             if self.ids_by_month.len() > 12 {
                 self.ids_by_month.pop_front();

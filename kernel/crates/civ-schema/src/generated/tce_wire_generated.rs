@@ -14944,6 +14944,9 @@ impl<'a> ChronicleEntry<'a> {
   pub const VT_SEQ: ::flatbuffers::VOffsetT = 4;
   pub const VT_MINUTE: ::flatbuffers::VOffsetT = 6;
   pub const VT_SPANS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_INCIDENT_KIND: ::flatbuffers::VOffsetT = 10;
+  pub const VT_INCIDENT: ::flatbuffers::VOffsetT = 12;
+  pub const VT_AT: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -14957,7 +14960,10 @@ impl<'a> ChronicleEntry<'a> {
     let mut builder = ChronicleEntryBuilder::new(_fbb);
     builder.add_minute(args.minute);
     builder.add_seq(args.seq);
+    if let Some(x) = args.at { builder.add_at(x); }
+    builder.add_incident(args.incident);
     if let Some(x) = args.spans { builder.add_spans(x); }
+    builder.add_incident_kind(args.incident_kind);
     builder.finish()
   }
 
@@ -14983,6 +14989,27 @@ impl<'a> ChronicleEntry<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Span>>>>(ChronicleEntry::VT_SPANS, None)}
   }
+  #[inline]
+  pub fn incident_kind(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(ChronicleEntry::VT_INCIDENT_KIND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn incident(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ChronicleEntry::VT_INCIDENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn at(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(ChronicleEntry::VT_AT, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ChronicleEntry<'_> {
@@ -14994,6 +15021,9 @@ impl ::flatbuffers::Verifiable for ChronicleEntry<'_> {
      .visit_field::<u64>("seq", Self::VT_SEQ, false)?
      .visit_field::<i64>("minute", Self::VT_MINUTE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Span>>>>("spans", Self::VT_SPANS, false)?
+     .visit_field::<u8>("incident_kind", Self::VT_INCIDENT_KIND, false)?
+     .visit_field::<u32>("incident", Self::VT_INCIDENT, false)?
+     .visit_field::<Vec2>("at", Self::VT_AT, false)?
      .finish();
     Ok(())
   }
@@ -15002,6 +15032,9 @@ pub struct ChronicleEntryArgs<'a> {
     pub seq: u64,
     pub minute: i64,
     pub spans: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Span<'a>>>>>,
+    pub incident_kind: u8,
+    pub incident: u32,
+    pub at: Option<&'a Vec2>,
 }
 impl<'a> Default for ChronicleEntryArgs<'a> {
   #[inline]
@@ -15010,6 +15043,9 @@ impl<'a> Default for ChronicleEntryArgs<'a> {
       seq: 0,
       minute: 0,
       spans: None,
+      incident_kind: 0,
+      incident: 0,
+      at: None,
     }
   }
 }
@@ -15032,6 +15068,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ChronicleEntryBuilder<'a, 'b,
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ChronicleEntry::VT_SPANS, spans);
   }
   #[inline]
+  pub fn add_incident_kind(&mut self, incident_kind: u8) {
+    self.fbb_.push_slot::<u8>(ChronicleEntry::VT_INCIDENT_KIND, incident_kind, 0);
+  }
+  #[inline]
+  pub fn add_incident(&mut self, incident: u32) {
+    self.fbb_.push_slot::<u32>(ChronicleEntry::VT_INCIDENT, incident, 0);
+  }
+  #[inline]
+  pub fn add_at(&mut self, at: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(ChronicleEntry::VT_AT, at);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ChronicleEntryBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ChronicleEntryBuilder {
@@ -15052,6 +15100,9 @@ impl ::core::fmt::Debug for ChronicleEntry<'_> {
       ds.field("seq", &self.seq());
       ds.field("minute", &self.minute());
       ds.field("spans", &self.spans());
+      ds.field("incident_kind", &self.incident_kind());
+      ds.field("incident", &self.incident());
+      ds.field("at", &self.at());
       ds.finish()
   }
 }

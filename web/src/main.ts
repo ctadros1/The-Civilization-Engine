@@ -1099,6 +1099,7 @@ bindUi(store, {
     const s = store.state.snapshot?.settlements.find((x) => x.id === id);
     if (s) lookAt(s.x, s.y, 0.5);
   },
+  locate: (xM, yM) => lookAt(xM, yM, 1),
   openFirm,
   setIncidentKind,
   moreIncidents: () => void moreIncidents(),

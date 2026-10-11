@@ -420,7 +420,11 @@ describe("people payloads", () => {
     const t2 = b.createString("Alderford");
     const s2 = W.Span.createSpan(b, W.SpanKind.Settlement, t2, 3n);
     const spans = W.ChronicleEntry.createSpansVector(b, [s1, s2]);
-    const entry = W.ChronicleEntry.createChronicleEntry(b, 2n, 85_320n, spans);
+    W.ChronicleEntry.startChronicleEntry(b);
+    W.ChronicleEntry.addSeq(b, 2n);
+    W.ChronicleEntry.addMinute(b, 85_320n);
+    W.ChronicleEntry.addSpans(b, spans);
+    const entry = W.ChronicleEntry.endChronicleEntry(b);
     const entries = W.Chronicle.createEntriesVector(b, [entry]);
     const body = W.Chronicle.createChronicle(b, entries, 2n);
     b.finish(W.Response.createResponse(b, W.ResponseBody.Chronicle, body));
@@ -436,6 +440,8 @@ describe("people payloads", () => {
             { kind: "text", text: "They made camp at ", id: 0 },
             { kind: "settlement", text: "Alderford", id: 3 },
           ],
+          link: null,
+          at: null,
         },
       ],
     });

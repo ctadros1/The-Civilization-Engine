@@ -9,8 +9,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
 
+use civ_agents::OutbreakStep;
 use civ_agents::contagion::{How, Node};
 use civ_agents::crime::{CaseStage, Incident, Outcome as Taken, Source};
+use civ_agents::history::{ChronicleEvent, ChronicleKind};
 use civ_agents::polity::{Law, LawStatus, Outcome as Decided, PolicyKind, day_words};
 use civ_agents::sickness::{Acquired, Episode, Outbreak, Outcome};
 use civ_agents::uses::Place;
@@ -30,6 +32,8 @@ use crate::Sim;
 pub const TAKING: u8 = 1;
 /// A case of illness: an infection (ADR-0021 §5).
 pub const ILLNESS: u8 = 2;
+/// An outbreak, as a chronicle entry's link names it (wire 1.65).
+pub const OUTBREAK: u8 = 3;
 
 /// Rows a page carries when none is asked, and at most.
 const DEFAULT_ROWS: usize = 50;
@@ -219,12 +223,7 @@ impl<'a> Facts<'a> {
     /// The source an infection's water came from, as a source's key.
     fn source_of(&self, e: &Episode) -> Option<SourceKey> {
         match e.acquired {
-            Acquired::Water {
-                source: Node::Well(w),
-            } => Some(SourceKey::Well(w)),
-            Acquired::Water {
-                source: Node::Reach(_),
-            } => Some(SourceKey::River),
+            Acquired::Water { source } => node_key(source),
             _ => None,
         }
     }
@@ -249,6 +248,15 @@ impl<'a> Facts<'a> {
             })
             .map(|&(_, law, _)| law)
             .collect()
+    }
+}
+
+/// The key of a node water is drawn from: a well, or a stretch of the river.
+fn node_key(node: Node) -> Option<SourceKey> {
+    match node {
+        Node::Well(w) => Some(SourceKey::Well(w)),
+        Node::Reach(_) => Some(SourceKey::River),
+        _ => None,
     }
 }
 
@@ -792,6 +800,15 @@ fn outbreak_counts(sim: &Sim, o: &Outbreak) -> (u32, u32, u32) {
     (took, ill, died)
 }
 
+/// A disease's name: "Cholera".
+fn disease_name(sim: &Sim, disease: u16) -> String {
+    sim.rules
+        .catalog
+        .diseases
+        .get(usize::from(disease))
+        .map_or_else(|| "A disease".to_owned(), |d| d.name.clone())
+}
+
 /// "at Hazelford", or "among people of no settlement".
 fn settlement_place(sim: &Sim, settlement: Option<PermanentId>) -> String {
     settlement
@@ -808,12 +825,7 @@ fn outbreak_row<'a>(
     o: &Outbreak,
 ) -> WIPOffset<wire::OutbreakRow<'a>> {
     let sim = f.sim;
-    let disease = sim
-        .rules
-        .catalog
-        .diseases
-        .get(usize::from(o.disease))
-        .map_or_else(|| "A disease".to_owned(), |d| d.name.clone());
+    let disease = disease_name(sim, o.disease);
     let (took, ill, died) = outbreak_counts(sim, o);
     let span = match o.ended {
         Some(end) => format!("from {} to {}", day_text(o.began), day_text(end)),
@@ -1255,6 +1267,189 @@ fn fouled_lines(sim: &Sim, o: &Outbreak, key: SourceKey) -> Vec<String> {
     )]
 }
 
+/// One side of an outbreak's households: how many, how many had a case of it, and its cases.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Side {
+    pub households: u32,
+    pub with_case: u32,
+    pub cases: u32,
+}
+
+impl Side {
+    /// The share of its households that had a case, if it has any households.
+    pub fn attack(&self) -> Option<f64> {
+        (self.households > 0).then(|| f64::from(self.with_case) / f64::from(self.households))
+    }
+
+    fn add(&mut self, cases: u32) {
+        self.households += 1;
+        self.with_case += u32::from(cases > 0);
+        self.cases += cases;
+    }
+}
+
+/// An outbreak's households, each with its cases of it: its settlement's households with people
+/// now, and every household one of its cases began in, so a household it emptied still counts.
+fn outbreak_households(f: &Facts, o: &Outbreak, cases: &[&Episode]) -> BTreeMap<PermanentId, u32> {
+    let mut out: BTreeMap<PermanentId, u32> = f
+        .sim
+        .people
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .filter(|x| !x.members.is_empty() && o.settlement.is_none_or(|s| x.settlement == Some(s)))
+        .map(|x| (x.id, 0))
+        .collect();
+    for e in cases {
+        if let Some(h) = f.household_of(e) {
+            *out.entry(h).or_default() += 1;
+        }
+    }
+    out
+}
+
+/// The households that drew outbreak `o`'s disease in water at `key` from the day it began to
+/// its end, as the moves the kernel keeps say (a draw too slight to count is not recorded).
+fn drew_from(sim: &Sim, o: &Outbreak, key: SourceKey) -> BTreeSet<PermanentId> {
+    let until = o.ended.unwrap_or(i64::MAX);
+    sim.people
+        .contagion
+        .moves
+        .iter()
+        .filter(|m| {
+            m.how == How::Drawn
+                && m.disease == o.disease
+                && m.day >= o.began
+                && m.day <= until
+                && node_key(m.from) == Some(key)
+        })
+        .filter_map(|m| match m.to {
+            Node::Store(h) => Some(h),
+            _ => None,
+        })
+        .collect()
+}
+
+/// An outbreak's households split into those that drew its disease at a source and the rest.
+fn split(households: &BTreeMap<PermanentId, u32>, drew: &BTreeSet<PermanentId>) -> (Side, Side) {
+    let (mut a, mut b) = (Side::default(), Side::default());
+    for (h, &n) in households {
+        if drew.contains(h) {
+            a.add(n);
+        } else {
+            b.add(n);
+        }
+    }
+    (a, b)
+}
+
+/// Who drew an outbreak's disease at a source, against the rest, in words: "Of 12 households
+/// that drew cholera in its water since it began, 7 had a case (9 cases); of 30 that did not, 2
+/// had a case (2 cases)".
+fn exposure_line(sim: &Sim, o: &Outbreak, drew: Side, rest: Side) -> String {
+    let disease = disease_name(sim, o.disease).to_lowercase();
+    let kept_from = sim.now().day_index() - civ_agents::contagion::MOVES_KEPT_DAYS;
+    let since = if o.began < kept_from {
+        format!("from {}, the earliest still recorded", day_text(kept_from))
+    } else {
+        "since it began".to_owned()
+    };
+    let n = |x: u32, one: &str, many: &str| plural(x as usize, one, many);
+    if drew.households == 0 {
+        return format!(
+            "No household drew {disease} in its water {since}; of {}, {} had a case ({})",
+            n(rest.households, "household", "households"),
+            rest.with_case,
+            n(rest.cases, "case", "cases"),
+        );
+    }
+    format!(
+        "Of {} that drew {disease} in its water {since}, {} had a case ({}); of {} that did not, \
+         {} had a case ({})",
+        n(drew.households, "household", "households"),
+        drew.with_case,
+        n(drew.cases, "case", "cases"),
+        n(rest.households, "household", "households"),
+        rest.with_case,
+        n(rest.cases, "case", "cases"),
+    )
+}
+
+/// The source most of an outbreak's water cases took it at, with how many did and the outbreak's
+/// households that drew its disease there against the rest.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SourceSplit {
+    pub name: String,
+    pub took: u32,
+    pub drew: Side,
+    pub rest: Side,
+}
+
+/// How an outbreak's cases sat against its sources (the dashboard's epidemics row, plan §4.7:
+/// waterborne epidemics cluster on contaminated sources).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Clustering {
+    /// "Cholera at Hazelford, from 3 May of year 2 to 9 July of year 2".
+    pub name: String,
+    pub cases: u32,
+    /// Those of its cases who took it in water.
+    pub water_cases: u32,
+    /// `None` when none of its cases took it in water.
+    pub source: Option<SourceSplit>,
+}
+
+/// How outbreak `id`'s cases sat against the source most of its water cases took it at, or
+/// `None` when there is no such outbreak. Reads the moves the kernel keeps for 400 days, so an
+/// outbreak is best judged soon after it ends.
+pub fn clustering(sim: &Sim, id: u32) -> Option<Clustering> {
+    let o = sim
+        .people
+        .sickness
+        .outbreaks()
+        .iter()
+        .find(|o| o.id == id)?;
+    let f = Facts::of(sim);
+    let cases: Vec<&Episode> = sim.people.sickness.cases(o.id).collect();
+    let mut by_key: BTreeMap<SourceKey, u32> = BTreeMap::new();
+    for e in &cases {
+        if let Some(k) = f.source_of(e) {
+            *by_key.entry(k).or_default() += 1;
+        }
+    }
+    let water_cases = by_key.values().sum();
+    // The commonest source; of two as common, the first in key order.
+    let most = by_key
+        .iter()
+        .fold(None::<(SourceKey, u32)>, |best, (&k, &n)| match best {
+            Some((_, m)) if m >= n => best,
+            _ => Some((k, n)),
+        });
+    let source = most.map(|(key, took)| {
+        let households = outbreak_households(&f, o, &cases);
+        let (drew, rest) = split(&households, &drew_from(sim, o, key));
+        SourceSplit {
+            name: key_words(sim, key),
+            took,
+            drew,
+            rest,
+        }
+    });
+    let span = match o.ended {
+        Some(end) => format!("from {} to {}", day_text(o.began), day_text(end)),
+        None => format!("from {}", day_text(o.began)),
+    };
+    Some(Clustering {
+        name: format!(
+            "{} {}, {span}",
+            disease_name(sim, o.disease),
+            settlement_place(sim, o.settlement)
+        ),
+        cases: cases.len() as u32,
+        water_cases,
+        source,
+    })
+}
+
 /// A `Response` with outbreak `id`'s page, its newest `limit` cases listed (the default for 0),
 /// or `None` when there is no such outbreak.
 pub fn outbreak_response(sim: &Sim, id: u32, limit: usize) -> Option<Vec<u8>> {
@@ -1310,52 +1505,14 @@ pub fn outbreak_response(sim: &Sim, id: u32, limit: usize) -> Option<Vec<u8>> {
             keys.insert(k);
         }
     }
-    // The households of its settlement and the cases each had.
-    let households: Vec<PermanentId> = pop
-        .households
-        .iter()
-        .map(|(_, x)| x)
-        .filter(|x| o.settlement.is_none_or(|s| x.settlement == Some(s)))
-        .map(|x| x.id)
-        .collect();
-    let mut cases_of: BTreeMap<PermanentId, u32> = BTreeMap::new();
-    for e in &cases {
-        if let Some(h) = f.household_of(e) {
-            *cases_of.entry(h).or_default() += 1;
-        }
-    }
-    let tally = |list: &mut dyn Iterator<Item = PermanentId>| {
-        list.fold((0usize, 0usize, 0usize), |(n, with, c), h| {
-            let k = cases_of.get(&h).copied().unwrap_or(0) as usize;
-            (n + 1, with + usize::from(k > 0), c + k)
-        })
-    };
+    // Its households and the cases each had, split at each source by who drew the disease there.
+    let households = outbreak_households(&f, o, &cases);
     let mut fbb = FlatBufferBuilder::new();
     let mut sources = Vec::new();
     for key in keys {
-        // Who drew there since it began, as each household's own record of its draws says.
-        let drew: BTreeSet<PermanentId> = households
-            .iter()
-            .copied()
-            .filter(|h| {
-                pop.uses.households.get(h).is_some_and(|list| {
-                    list.iter()
-                        .any(|u| u.day >= o.began && key_of(sim, u.place) == Some(key))
-                })
-            })
-            .collect();
-        let (n_in, with_in, cases_in) = tally(&mut drew.iter().copied());
-        let (n_out, with_out, cases_out) =
-            tally(&mut households.iter().copied().filter(|h| !drew.contains(h)));
+        let (drew, rest) = split(&households, &drew_from(sim, o, key));
         let took_here = cases.iter().filter(|e| f.source_of(e) == Some(key)).count() as u32;
-        let mut truth = vec![format!(
-            "Of {} that drew there since it began, {with_in} had a case ({}); of {} that did \
-             not, {with_out} had a case ({})",
-            plural(n_in, "household", "households"),
-            plural(cases_in, "case", "cases"),
-            plural(n_out, "household", "households"),
-            plural(cases_out, "case", "cases"),
-        )];
+        let mut truth = vec![exposure_line(sim, o, drew, rest)];
         truth.extend(fouled_lines(sim, o, key));
         let holders = suspecting(sim, key);
         let knowledge = vec![match holders.first() {
@@ -1439,6 +1596,65 @@ pub fn outbreak_response(sim: &Sim, id: u32, limit: usize) -> Option<Vec<u8>> {
         },
     );
     Some(response(fbb, wire::ResponseBody::OutbreakInfo, body))
+}
+
+/// The incident or outbreak a chronicle entry tells of, as its kind and number, found in the
+/// records the entry was written from, never by nearness in time alone (wire 1.65; 15-01 §3.5): a
+/// taking by its taker and minute; an outbreak's beginning by its first case, its end by its
+/// settlement and day; a death of a disease, and the observer's bringing one, by the case.
+pub fn chronicle_link(sim: &Sim, e: &ChronicleEvent) -> Option<(u8, u32)> {
+    let pop = &sim.people;
+    let who = e.people.first().copied();
+    let day = e.at.day_index();
+    match e.kind {
+        ChronicleKind::Taking => pop
+            .order
+            .incidents
+            .iter()
+            .rev()
+            .find(|i| i.at == e.at && Some(i.actor) == who)
+            .map(|i| (TAKING, i.id)),
+        ChronicleKind::Outbreak => {
+            let outbreaks = pop.sickness.outbreaks();
+            let found = if e.number.round() as u8 == OutbreakStep::Began as u8 {
+                outbreaks.iter().find(|o| {
+                    o.began == day
+                        && pop
+                            .sickness
+                            .episodes()
+                            .iter()
+                            .any(|c| c.id == o.first && Some(c.person) == who)
+                })
+            } else {
+                outbreaks
+                    .iter()
+                    .find(|o| o.ended == Some(day) && o.settlement == e.settlement)
+            };
+            found.map(|o| (OUTBREAK, o.id))
+        }
+        ChronicleKind::Died if e.name.starts_with("disease:") => pop
+            .sickness
+            .episodes()
+            .iter()
+            .rev()
+            .find(|c| Some(c.person) == who && c.ended == Some((day, Outcome::Died)))
+            .map(|c| (ILLNESS, c.id)),
+        ChronicleKind::Influence
+            if e.number.round() as u8 == civ_agents::influence::InfluenceKind::Plague.code() =>
+        {
+            pop.sickness
+                .episodes()
+                .iter()
+                .rev()
+                .find(|c| {
+                    Some(c.person) == who
+                        && c.infected == day
+                        && matches!(c.acquired, Acquired::Observer { .. })
+                })
+                .map(|c| (ILLNESS, c.id))
+        }
+        _ => None,
+    }
 }
 
 #[cfg(test)]

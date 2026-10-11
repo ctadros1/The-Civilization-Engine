@@ -40,6 +40,7 @@ test("a theft from the act to its end: seen, told, brought, decided, owed", asyn
       (n) =>
         window.__TCE__.state().world?.name === n &&
         (window.__TCE__.state().order?.minute ?? 0) > 0 &&
+        window.__TCE__.state().incidents !== null &&
         (window.__TCE__.state().government?.polities.length ?? 0) > 0 &&
         window.__TCE__.map().state === "ready",
       NAME,
@@ -49,27 +50,35 @@ test("a theft from the act to its end: seen, told, brought, decided, owed", asyn
       await page.getByRole("button", { name: "Pause" }).click();
     }
 
-    // The takings: totals, then each shown as it happened and as people believe it.
+    // The takings: totals, then each shown as it happened, as people know it and as the polity
+    // knows it, in the one Incidents panel (wire 1.64).
     const state = await page.evaluate(() => window.__TCE__.state());
     const order = state.order!;
-    const panel = page.locator("#order-body");
+    const incidents = state.incidents!;
+    const panel = page.locator("#incidents-body");
     await expect(panel.locator(".order-totals")).toContainText(`${order.attempts} attempt`);
-    await expect(panel.locator("li.taking")).toHaveCount(order.incidents.length);
-    // The taking brought before the gathering, if one was: its three layers.
-    const brought = order.known.find((k) => k.case !== "");
-    let story: Record<string, string> = { case: "no taking was brought before the gathering" };
-    if (brought) {
-      const at = order.incidents.findIndex((i) => i.id === brought.incident);
-      expect(at, "the taking brought is among those shown").toBeGreaterThanOrEqual(0);
-      const item = panel.locator("li.taking").nth(at);
-      await expect(item.locator(".happened")).toContainText(order.incidents[at]!.actor);
-      await expect(item.locator(".case")).toContainText(brought.case.slice(1, 40));
+    await expect(panel.locator("li.incident")).toHaveCount(incidents.rows.length);
+    // The taking brought before the gathering, if one is shown: its three layers.
+    const at = incidents.rows.findIndex((r) => r.kind === 1 && r.polity !== "No gathering was told of it");
+    let story: Record<string, string> = { case: "no taking shown was brought before the gathering" };
+    if (at >= 0) {
+      const brought = incidents.rows[at]!;
+      const item = panel.locator("li.incident").nth(at);
+      await expect(item.locator(".happened")).toContainText(brought.who);
+      await expect(item.locator(".case")).toContainText(brought.polity.slice(1, 40));
       await item.scrollIntoViewIfNeeded();
       story = {
         happened: await item.locator(".happened").innerText(),
-        believed: await item.locator(".believed").innerText(),
+        known: await item.locator(".believed").innerText(),
         case: await item.locator(".case").innerText(),
       };
+      // Its page: the steps it went through, to the gathering's decision.
+      await item.locator(".incident-open").click();
+      await expect(panel.locator(".incident-steps li")).toHaveCount(7);
+      await expect(panel.locator(".incident-steps li").nth(5)).toContainText("Before the gathering:");
+      story.steps = await panel.locator(".incident-steps").innerText();
+      await panel.locator(".incident-back").click();
+      await expect(panel.locator("li.incident")).toHaveCount(incidents.rows.length);
     }
 
     // The government: the law against taking, opened to its history, and the cases heard.

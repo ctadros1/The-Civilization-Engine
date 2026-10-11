@@ -206,6 +206,17 @@ struct GetCrossingsBuilder;
 struct GetWater;
 struct GetWaterBuilder;
 
+struct IncidentKey;
+
+struct GetIncidents;
+struct GetIncidentsBuilder;
+
+struct GetIncident;
+struct GetIncidentBuilder;
+
+struct GetOutbreak;
+struct GetOutbreakBuilder;
+
 struct Query;
 struct QueryBuilder;
 
@@ -452,6 +463,33 @@ struct KnownLineBuilder;
 
 struct Order;
 struct OrderBuilder;
+
+struct IncidentRow;
+struct IncidentRowBuilder;
+
+struct IncidentTotal;
+struct IncidentTotalBuilder;
+
+struct OutbreakRow;
+struct OutbreakRowBuilder;
+
+struct Incidents;
+struct IncidentsBuilder;
+
+struct IncidentStep;
+struct IncidentStepBuilder;
+
+struct IncidentLink;
+struct IncidentLinkBuilder;
+
+struct IncidentInfo;
+struct IncidentInfoBuilder;
+
+struct OutbreakSource;
+struct OutbreakSourceBuilder;
+
+struct OutbreakInfo;
+struct OutbreakInfoBuilder;
 
 struct Response;
 struct ResponseBuilder;
@@ -896,11 +934,14 @@ enum class QueryBody : uint8_t {
   GetOrder = 20,
   GetCrossings = 21,
   GetWater = 22,
+  GetIncidents = 23,
+  GetIncident = 24,
+  GetOutbreak = 25,
   MIN = NONE,
-  MAX = GetWater
+  MAX = GetOutbreak
 };
 
-inline const QueryBody (&EnumValuesQueryBody())[23] {
+inline const QueryBody (&EnumValuesQueryBody())[26] {
   static const QueryBody values[] = {
     QueryBody::NONE,
     QueryBody::GetRaster,
@@ -924,13 +965,16 @@ inline const QueryBody (&EnumValuesQueryBody())[23] {
     QueryBody::GetGovernment,
     QueryBody::GetOrder,
     QueryBody::GetCrossings,
-    QueryBody::GetWater
+    QueryBody::GetWater,
+    QueryBody::GetIncidents,
+    QueryBody::GetIncident,
+    QueryBody::GetOutbreak
   };
   return values;
 }
 
 inline const char * const *EnumNamesQueryBody() {
-  static const char * const names[24] = {
+  static const char * const names[27] = {
     "NONE",
     "GetRaster",
     "GetHydrography",
@@ -954,13 +998,16 @@ inline const char * const *EnumNamesQueryBody() {
     "GetOrder",
     "GetCrossings",
     "GetWater",
+    "GetIncidents",
+    "GetIncident",
+    "GetOutbreak",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameQueryBody(QueryBody e) {
-  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetWater)) return "";
+  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetOutbreak)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesQueryBody()[index];
 }
@@ -1055,6 +1102,18 @@ template<> struct QueryBodyTraits<tce::wire::GetCrossings> {
 
 template<> struct QueryBodyTraits<tce::wire::GetWater> {
   static const QueryBody enum_value = QueryBody::GetWater;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetIncidents> {
+  static const QueryBody enum_value = QueryBody::GetIncidents;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetIncident> {
+  static const QueryBody enum_value = QueryBody::GetIncident;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetOutbreak> {
+  static const QueryBody enum_value = QueryBody::GetOutbreak;
 };
 
 template <bool B = false>
@@ -1240,11 +1299,14 @@ enum class ResponseBody : uint8_t {
   Order = 21,
   Crossings = 22,
   Water = 23,
+  Incidents = 24,
+  IncidentInfo = 25,
+  OutbreakInfo = 26,
   MIN = NONE,
-  MAX = Water
+  MAX = OutbreakInfo
 };
 
-inline const ResponseBody (&EnumValuesResponseBody())[24] {
+inline const ResponseBody (&EnumValuesResponseBody())[27] {
   static const ResponseBody values[] = {
     ResponseBody::NONE,
     ResponseBody::Ack,
@@ -1269,13 +1331,16 @@ inline const ResponseBody (&EnumValuesResponseBody())[24] {
     ResponseBody::Government,
     ResponseBody::Order,
     ResponseBody::Crossings,
-    ResponseBody::Water
+    ResponseBody::Water,
+    ResponseBody::Incidents,
+    ResponseBody::IncidentInfo,
+    ResponseBody::OutbreakInfo
   };
   return values;
 }
 
 inline const char * const *EnumNamesResponseBody() {
-  static const char * const names[25] = {
+  static const char * const names[28] = {
     "NONE",
     "Ack",
     "RasterTile",
@@ -1300,13 +1365,16 @@ inline const char * const *EnumNamesResponseBody() {
     "Order",
     "Crossings",
     "Water",
+    "Incidents",
+    "IncidentInfo",
+    "OutbreakInfo",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameResponseBody(ResponseBody e) {
-  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Water)) return "";
+  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::OutbreakInfo)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesResponseBody()[index];
 }
@@ -1407,6 +1475,18 @@ template<> struct ResponseBodyTraits<tce::wire::Water> {
   static const ResponseBody enum_value = ResponseBody::Water;
 };
 
+template<> struct ResponseBodyTraits<tce::wire::Incidents> {
+  static const ResponseBody enum_value = ResponseBody::Incidents;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::IncidentInfo> {
+  static const ResponseBody enum_value = ResponseBody::IncidentInfo;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::OutbreakInfo> {
+  static const ResponseBody enum_value = ResponseBody::OutbreakInfo;
+};
+
 template <bool B = false>
 bool VerifyResponseBody(::flatbuffers::VerifierTemplate<B> &verifier, const void *obj, ResponseBody type);
 template <bool B = false>
@@ -1471,6 +1551,49 @@ FLATBUFFERS_STRUCT_END(SkillLine, 8);
 
 struct SkillLine::Traits {
   using type = SkillLine;
+};
+
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(8) IncidentKey FLATBUFFERS_FINAL_CLASS {
+ private:
+  int64_t minute_;
+  uint8_t kind_;
+  int8_t padding0__;  int16_t padding1__;
+  uint32_t id_;
+
+ public:
+  struct Traits;
+  IncidentKey()
+      : minute_(0),
+        kind_(0),
+        padding0__(0),
+        padding1__(0),
+        id_(0) {
+    (void)padding0__;
+    (void)padding1__;
+  }
+  IncidentKey(int64_t _minute, uint8_t _kind, uint32_t _id)
+      : minute_(::flatbuffers::EndianScalar(_minute)),
+        kind_(::flatbuffers::EndianScalar(_kind)),
+        padding0__(0),
+        padding1__(0),
+        id_(::flatbuffers::EndianScalar(_id)) {
+    (void)padding0__;
+    (void)padding1__;
+  }
+  int64_t minute() const {
+    return ::flatbuffers::EndianScalar(minute_);
+  }
+  uint8_t kind() const {
+    return ::flatbuffers::EndianScalar(kind_);
+  }
+  uint32_t id() const {
+    return ::flatbuffers::EndianScalar(id_);
+  }
+};
+FLATBUFFERS_STRUCT_END(IncidentKey, 16);
+
+struct IncidentKey::Traits {
+  using type = IncidentKey;
 };
 
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) Term FLATBUFFERS_FINAL_CLASS {
@@ -4370,7 +4493,8 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_EARTHWORKS_REV = 38,
     VT_WEATHER_REV = 40,
     VT_CROSSINGS_REV = 42,
-    VT_WATER_REV = 44
+    VT_WATER_REV = 44,
+    VT_INCIDENTS_REV = 46
   };
   const tce::wire::WorldInfo *world() const {
     return GetPointer<const tce::wire::WorldInfo *>(VT_WORLD);
@@ -4435,6 +4559,9 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint64_t water_rev() const {
     return GetField<uint64_t>(VT_WATER_REV, 0);
   }
+  uint64_t incidents_rev() const {
+    return GetField<uint64_t>(VT_INCIDENTS_REV, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -4468,6 +4595,7 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_WEATHER_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_CROSSINGS_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_WATER_REV, 8) &&
+           VerifyField<uint64_t>(verifier, VT_INCIDENTS_REV, 8) &&
            verifier.EndTable();
   }
 };
@@ -4539,6 +4667,9 @@ struct SnapshotBuilder {
   void add_water_rev(uint64_t water_rev) {
     fbb_.AddElement<uint64_t>(Snapshot::VT_WATER_REV, water_rev, 0);
   }
+  void add_incidents_rev(uint64_t incidents_rev) {
+    fbb_.AddElement<uint64_t>(Snapshot::VT_INCIDENTS_REV, incidents_rev, 0);
+  }
   explicit SnapshotBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -4572,8 +4703,10 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshot(
     uint64_t earthworks_rev = 0,
     uint64_t weather_rev = 0,
     uint64_t crossings_rev = 0,
-    uint64_t water_rev = 0) {
+    uint64_t water_rev = 0,
+    uint64_t incidents_rev = 0) {
   SnapshotBuilder builder_(_fbb);
+  builder_.add_incidents_rev(incidents_rev);
   builder_.add_water_rev(water_rev);
   builder_.add_crossings_rev(crossings_rev);
   builder_.add_weather_rev(weather_rev);
@@ -4625,7 +4758,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
     uint64_t earthworks_rev = 0,
     uint64_t weather_rev = 0,
     uint64_t crossings_rev = 0,
-    uint64_t water_rev = 0) {
+    uint64_t water_rev = 0,
+    uint64_t incidents_rev = 0) {
   auto last_error__ = last_error ? _fbb.CreateString(last_error) : 0;
   auto people__ = people ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PersonBrief>>(*people) : 0;
   auto settlements__ = settlements ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SettlementBrief>>(*settlements) : 0;
@@ -4651,7 +4785,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
       earthworks_rev,
       weather_rev,
       crossings_rev,
-      water_rev);
+      water_rev,
+      incidents_rev);
 }
 
 struct Event FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -7062,6 +7197,200 @@ struct GetWater::Traits {
   static auto constexpr Create = CreateGetWater;
 };
 
+struct GetIncidents FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetIncidentsBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SETTLEMENT = 4,
+    VT_KIND = 6,
+    VT_BEFORE = 8,
+    VT_LIMIT = 10
+  };
+  uint64_t settlement() const {
+    return GetField<uint64_t>(VT_SETTLEMENT, 0);
+  }
+  uint8_t kind() const {
+    return GetField<uint8_t>(VT_KIND, 0);
+  }
+  const tce::wire::IncidentKey *before() const {
+    return GetStruct<const tce::wire::IncidentKey *>(VT_BEFORE);
+  }
+  uint32_t limit() const {
+    return GetField<uint32_t>(VT_LIMIT, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_SETTLEMENT, 8) &&
+           VerifyField<uint8_t>(verifier, VT_KIND, 1) &&
+           VerifyField<tce::wire::IncidentKey>(verifier, VT_BEFORE, 8) &&
+           VerifyField<uint32_t>(verifier, VT_LIMIT, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetIncidentsBuilder {
+  typedef GetIncidents Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_settlement(uint64_t settlement) {
+    fbb_.AddElement<uint64_t>(GetIncidents::VT_SETTLEMENT, settlement, 0);
+  }
+  void add_kind(uint8_t kind) {
+    fbb_.AddElement<uint8_t>(GetIncidents::VT_KIND, kind, 0);
+  }
+  void add_before(const tce::wire::IncidentKey *before) {
+    fbb_.AddStruct(GetIncidents::VT_BEFORE, before);
+  }
+  void add_limit(uint32_t limit) {
+    fbb_.AddElement<uint32_t>(GetIncidents::VT_LIMIT, limit, 0);
+  }
+  explicit GetIncidentsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetIncidents> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetIncidents>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetIncidents> CreateGetIncidents(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t settlement = 0,
+    uint8_t kind = 0,
+    const tce::wire::IncidentKey *before = nullptr,
+    uint32_t limit = 0) {
+  GetIncidentsBuilder builder_(_fbb);
+  builder_.add_settlement(settlement);
+  builder_.add_limit(limit);
+  builder_.add_before(before);
+  builder_.add_kind(kind);
+  return builder_.Finish();
+}
+
+struct GetIncidents::Traits {
+  using type = GetIncidents;
+  static auto constexpr Create = CreateGetIncidents;
+};
+
+struct GetIncident FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetIncidentBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_KIND = 4,
+    VT_ID = 6
+  };
+  uint8_t kind() const {
+    return GetField<uint8_t>(VT_KIND, 0);
+  }
+  uint32_t id() const {
+    return GetField<uint32_t>(VT_ID, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_KIND, 1) &&
+           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetIncidentBuilder {
+  typedef GetIncident Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_kind(uint8_t kind) {
+    fbb_.AddElement<uint8_t>(GetIncident::VT_KIND, kind, 0);
+  }
+  void add_id(uint32_t id) {
+    fbb_.AddElement<uint32_t>(GetIncident::VT_ID, id, 0);
+  }
+  explicit GetIncidentBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetIncident> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetIncident>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetIncident> CreateGetIncident(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t kind = 0,
+    uint32_t id = 0) {
+  GetIncidentBuilder builder_(_fbb);
+  builder_.add_id(id);
+  builder_.add_kind(kind);
+  return builder_.Finish();
+}
+
+struct GetIncident::Traits {
+  using type = GetIncident;
+  static auto constexpr Create = CreateGetIncident;
+};
+
+struct GetOutbreak FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetOutbreakBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_LIMIT = 6
+  };
+  uint32_t id() const {
+    return GetField<uint32_t>(VT_ID, 0);
+  }
+  uint32_t limit() const {
+    return GetField<uint32_t>(VT_LIMIT, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           VerifyField<uint32_t>(verifier, VT_LIMIT, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetOutbreakBuilder {
+  typedef GetOutbreak Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint32_t id) {
+    fbb_.AddElement<uint32_t>(GetOutbreak::VT_ID, id, 0);
+  }
+  void add_limit(uint32_t limit) {
+    fbb_.AddElement<uint32_t>(GetOutbreak::VT_LIMIT, limit, 0);
+  }
+  explicit GetOutbreakBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetOutbreak> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetOutbreak>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetOutbreak> CreateGetOutbreak(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    uint32_t limit = 0) {
+  GetOutbreakBuilder builder_(_fbb);
+  builder_.add_limit(limit);
+  builder_.add_id(id);
+  return builder_.Finish();
+}
+
+struct GetOutbreak::Traits {
+  using type = GetOutbreak;
+  static auto constexpr Create = CreateGetOutbreak;
+};
+
 struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef QueryBuilder Builder;
   struct Traits;
@@ -7141,6 +7470,15 @@ struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::GetWater *body_as_GetWater() const {
     return body_type() == tce::wire::QueryBody::GetWater ? static_cast<const tce::wire::GetWater *>(body()) : nullptr;
+  }
+  const tce::wire::GetIncidents *body_as_GetIncidents() const {
+    return body_type() == tce::wire::QueryBody::GetIncidents ? static_cast<const tce::wire::GetIncidents *>(body()) : nullptr;
+  }
+  const tce::wire::GetIncident *body_as_GetIncident() const {
+    return body_type() == tce::wire::QueryBody::GetIncident ? static_cast<const tce::wire::GetIncident *>(body()) : nullptr;
+  }
+  const tce::wire::GetOutbreak *body_as_GetOutbreak() const {
+    return body_type() == tce::wire::QueryBody::GetOutbreak ? static_cast<const tce::wire::GetOutbreak *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -7238,6 +7576,18 @@ template<> inline const tce::wire::GetCrossings *Query::body_as<tce::wire::GetCr
 
 template<> inline const tce::wire::GetWater *Query::body_as<tce::wire::GetWater>() const {
   return body_as_GetWater();
+}
+
+template<> inline const tce::wire::GetIncidents *Query::body_as<tce::wire::GetIncidents>() const {
+  return body_as_GetIncidents();
+}
+
+template<> inline const tce::wire::GetIncident *Query::body_as<tce::wire::GetIncident>() const {
+  return body_as_GetIncident();
+}
+
+template<> inline const tce::wire::GetOutbreak *Query::body_as<tce::wire::GetOutbreak>() const {
+  return body_as_GetOutbreak();
 }
 
 struct QueryBuilder {
@@ -18914,6 +19264,1213 @@ inline ::flatbuffers::Offset<Order> CreateOrderDirect(
       encounters__);
 }
 
+struct IncidentRow FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef IncidentRowBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_KIND = 4,
+    VT_ID = 6,
+    VT_MINUTE = 8,
+    VT_SETTLEMENT = 10,
+    VT_AT = 12,
+    VT_WHO = 14,
+    VT_WHO_NAME = 16,
+    VT_HAPPENED = 18,
+    VT_KNOWN = 20,
+    VT_POLITY = 22,
+    VT_OBSERVER = 24,
+    VT_OUTBREAK = 26,
+    VT_OPEN = 28
+  };
+  uint8_t kind() const {
+    return GetField<uint8_t>(VT_KIND, 0);
+  }
+  uint32_t id() const {
+    return GetField<uint32_t>(VT_ID, 0);
+  }
+  int64_t minute() const {
+    return GetField<int64_t>(VT_MINUTE, 0);
+  }
+  uint64_t settlement() const {
+    return GetField<uint64_t>(VT_SETTLEMENT, 0);
+  }
+  const tce::wire::Vec2 *at() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_AT);
+  }
+  uint64_t who() const {
+    return GetField<uint64_t>(VT_WHO, 0);
+  }
+  const ::flatbuffers::String *who_name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WHO_NAME);
+  }
+  const ::flatbuffers::String *happened() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_HAPPENED);
+  }
+  const ::flatbuffers::String *known() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_KNOWN);
+  }
+  const ::flatbuffers::String *polity() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_POLITY);
+  }
+  uint32_t observer() const {
+    return GetField<uint32_t>(VT_OBSERVER, 0);
+  }
+  uint32_t outbreak() const {
+    return GetField<uint32_t>(VT_OUTBREAK, 0);
+  }
+  bool open() const {
+    return GetField<uint8_t>(VT_OPEN, 0) != 0;
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_KIND, 1) &&
+           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           VerifyField<int64_t>(verifier, VT_MINUTE, 8) &&
+           VerifyField<uint64_t>(verifier, VT_SETTLEMENT, 8) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_AT, 4) &&
+           VerifyField<uint64_t>(verifier, VT_WHO, 8) &&
+           VerifyOffset(verifier, VT_WHO_NAME) &&
+           verifier.VerifyString(who_name()) &&
+           VerifyOffset(verifier, VT_HAPPENED) &&
+           verifier.VerifyString(happened()) &&
+           VerifyOffset(verifier, VT_KNOWN) &&
+           verifier.VerifyString(known()) &&
+           VerifyOffset(verifier, VT_POLITY) &&
+           verifier.VerifyString(polity()) &&
+           VerifyField<uint32_t>(verifier, VT_OBSERVER, 4) &&
+           VerifyField<uint32_t>(verifier, VT_OUTBREAK, 4) &&
+           VerifyField<uint8_t>(verifier, VT_OPEN, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct IncidentRowBuilder {
+  typedef IncidentRow Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_kind(uint8_t kind) {
+    fbb_.AddElement<uint8_t>(IncidentRow::VT_KIND, kind, 0);
+  }
+  void add_id(uint32_t id) {
+    fbb_.AddElement<uint32_t>(IncidentRow::VT_ID, id, 0);
+  }
+  void add_minute(int64_t minute) {
+    fbb_.AddElement<int64_t>(IncidentRow::VT_MINUTE, minute, 0);
+  }
+  void add_settlement(uint64_t settlement) {
+    fbb_.AddElement<uint64_t>(IncidentRow::VT_SETTLEMENT, settlement, 0);
+  }
+  void add_at(const tce::wire::Vec2 *at) {
+    fbb_.AddStruct(IncidentRow::VT_AT, at);
+  }
+  void add_who(uint64_t who) {
+    fbb_.AddElement<uint64_t>(IncidentRow::VT_WHO, who, 0);
+  }
+  void add_who_name(::flatbuffers::Offset<::flatbuffers::String> who_name) {
+    fbb_.AddOffset(IncidentRow::VT_WHO_NAME, who_name);
+  }
+  void add_happened(::flatbuffers::Offset<::flatbuffers::String> happened) {
+    fbb_.AddOffset(IncidentRow::VT_HAPPENED, happened);
+  }
+  void add_known(::flatbuffers::Offset<::flatbuffers::String> known) {
+    fbb_.AddOffset(IncidentRow::VT_KNOWN, known);
+  }
+  void add_polity(::flatbuffers::Offset<::flatbuffers::String> polity) {
+    fbb_.AddOffset(IncidentRow::VT_POLITY, polity);
+  }
+  void add_observer(uint32_t observer) {
+    fbb_.AddElement<uint32_t>(IncidentRow::VT_OBSERVER, observer, 0);
+  }
+  void add_outbreak(uint32_t outbreak) {
+    fbb_.AddElement<uint32_t>(IncidentRow::VT_OUTBREAK, outbreak, 0);
+  }
+  void add_open(bool open) {
+    fbb_.AddElement<uint8_t>(IncidentRow::VT_OPEN, static_cast<uint8_t>(open), 0);
+  }
+  explicit IncidentRowBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<IncidentRow> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<IncidentRow>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<IncidentRow> CreateIncidentRow(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t kind = 0,
+    uint32_t id = 0,
+    int64_t minute = 0,
+    uint64_t settlement = 0,
+    const tce::wire::Vec2 *at = nullptr,
+    uint64_t who = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> who_name = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> happened = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> known = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> polity = 0,
+    uint32_t observer = 0,
+    uint32_t outbreak = 0,
+    bool open = false) {
+  IncidentRowBuilder builder_(_fbb);
+  builder_.add_who(who);
+  builder_.add_settlement(settlement);
+  builder_.add_minute(minute);
+  builder_.add_outbreak(outbreak);
+  builder_.add_observer(observer);
+  builder_.add_polity(polity);
+  builder_.add_known(known);
+  builder_.add_happened(happened);
+  builder_.add_who_name(who_name);
+  builder_.add_at(at);
+  builder_.add_id(id);
+  builder_.add_open(open);
+  builder_.add_kind(kind);
+  return builder_.Finish();
+}
+
+struct IncidentRow::Traits {
+  using type = IncidentRow;
+  static auto constexpr Create = CreateIncidentRow;
+};
+
+inline ::flatbuffers::Offset<IncidentRow> CreateIncidentRowDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t kind = 0,
+    uint32_t id = 0,
+    int64_t minute = 0,
+    uint64_t settlement = 0,
+    const tce::wire::Vec2 *at = nullptr,
+    uint64_t who = 0,
+    const char *who_name = nullptr,
+    const char *happened = nullptr,
+    const char *known = nullptr,
+    const char *polity = nullptr,
+    uint32_t observer = 0,
+    uint32_t outbreak = 0,
+    bool open = false) {
+  auto who_name__ = who_name ? _fbb.CreateString(who_name) : 0;
+  auto happened__ = happened ? _fbb.CreateString(happened) : 0;
+  auto known__ = known ? _fbb.CreateString(known) : 0;
+  auto polity__ = polity ? _fbb.CreateString(polity) : 0;
+  return tce::wire::CreateIncidentRow(
+      _fbb,
+      kind,
+      id,
+      minute,
+      settlement,
+      at,
+      who,
+      who_name__,
+      happened__,
+      known__,
+      polity__,
+      observer,
+      outbreak,
+      open);
+}
+
+struct IncidentTotal FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef IncidentTotalBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_KIND = 4,
+    VT_ALL = 6,
+    VT_KNOWN = 8,
+    VT_POLITY = 10,
+    VT_OBSERVER = 12
+  };
+  uint8_t kind() const {
+    return GetField<uint8_t>(VT_KIND, 0);
+  }
+  uint32_t all() const {
+    return GetField<uint32_t>(VT_ALL, 0);
+  }
+  uint32_t known() const {
+    return GetField<uint32_t>(VT_KNOWN, 0);
+  }
+  uint32_t polity() const {
+    return GetField<uint32_t>(VT_POLITY, 0);
+  }
+  uint32_t observer() const {
+    return GetField<uint32_t>(VT_OBSERVER, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_KIND, 1) &&
+           VerifyField<uint32_t>(verifier, VT_ALL, 4) &&
+           VerifyField<uint32_t>(verifier, VT_KNOWN, 4) &&
+           VerifyField<uint32_t>(verifier, VT_POLITY, 4) &&
+           VerifyField<uint32_t>(verifier, VT_OBSERVER, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct IncidentTotalBuilder {
+  typedef IncidentTotal Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_kind(uint8_t kind) {
+    fbb_.AddElement<uint8_t>(IncidentTotal::VT_KIND, kind, 0);
+  }
+  void add_all(uint32_t all) {
+    fbb_.AddElement<uint32_t>(IncidentTotal::VT_ALL, all, 0);
+  }
+  void add_known(uint32_t known) {
+    fbb_.AddElement<uint32_t>(IncidentTotal::VT_KNOWN, known, 0);
+  }
+  void add_polity(uint32_t polity) {
+    fbb_.AddElement<uint32_t>(IncidentTotal::VT_POLITY, polity, 0);
+  }
+  void add_observer(uint32_t observer) {
+    fbb_.AddElement<uint32_t>(IncidentTotal::VT_OBSERVER, observer, 0);
+  }
+  explicit IncidentTotalBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<IncidentTotal> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<IncidentTotal>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<IncidentTotal> CreateIncidentTotal(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t kind = 0,
+    uint32_t all = 0,
+    uint32_t known = 0,
+    uint32_t polity = 0,
+    uint32_t observer = 0) {
+  IncidentTotalBuilder builder_(_fbb);
+  builder_.add_observer(observer);
+  builder_.add_polity(polity);
+  builder_.add_known(known);
+  builder_.add_all(all);
+  builder_.add_kind(kind);
+  return builder_.Finish();
+}
+
+struct IncidentTotal::Traits {
+  using type = IncidentTotal;
+  static auto constexpr Create = CreateIncidentTotal;
+};
+
+struct OutbreakRow FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef OutbreakRowBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_DISEASE = 6,
+    VT_SETTLEMENT = 8,
+    VT_BEGAN = 10,
+    VT_ENDED = 12,
+    VT_TOOK = 14,
+    VT_ILL = 16,
+    VT_DIED = 18,
+    VT_OBSERVER = 20,
+    VT_WORDS = 22
+  };
+  uint32_t id() const {
+    return GetField<uint32_t>(VT_ID, 0);
+  }
+  const ::flatbuffers::String *disease() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_DISEASE);
+  }
+  uint64_t settlement() const {
+    return GetField<uint64_t>(VT_SETTLEMENT, 0);
+  }
+  int64_t began() const {
+    return GetField<int64_t>(VT_BEGAN, 0);
+  }
+  int64_t ended() const {
+    return GetField<int64_t>(VT_ENDED, 0);
+  }
+  uint32_t took() const {
+    return GetField<uint32_t>(VT_TOOK, 0);
+  }
+  uint32_t ill() const {
+    return GetField<uint32_t>(VT_ILL, 0);
+  }
+  uint32_t died() const {
+    return GetField<uint32_t>(VT_DIED, 0);
+  }
+  uint32_t observer() const {
+    return GetField<uint32_t>(VT_OBSERVER, 0);
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           VerifyOffset(verifier, VT_DISEASE) &&
+           verifier.VerifyString(disease()) &&
+           VerifyField<uint64_t>(verifier, VT_SETTLEMENT, 8) &&
+           VerifyField<int64_t>(verifier, VT_BEGAN, 8) &&
+           VerifyField<int64_t>(verifier, VT_ENDED, 8) &&
+           VerifyField<uint32_t>(verifier, VT_TOOK, 4) &&
+           VerifyField<uint32_t>(verifier, VT_ILL, 4) &&
+           VerifyField<uint32_t>(verifier, VT_DIED, 4) &&
+           VerifyField<uint32_t>(verifier, VT_OBSERVER, 4) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           verifier.EndTable();
+  }
+};
+
+struct OutbreakRowBuilder {
+  typedef OutbreakRow Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint32_t id) {
+    fbb_.AddElement<uint32_t>(OutbreakRow::VT_ID, id, 0);
+  }
+  void add_disease(::flatbuffers::Offset<::flatbuffers::String> disease) {
+    fbb_.AddOffset(OutbreakRow::VT_DISEASE, disease);
+  }
+  void add_settlement(uint64_t settlement) {
+    fbb_.AddElement<uint64_t>(OutbreakRow::VT_SETTLEMENT, settlement, 0);
+  }
+  void add_began(int64_t began) {
+    fbb_.AddElement<int64_t>(OutbreakRow::VT_BEGAN, began, 0);
+  }
+  void add_ended(int64_t ended) {
+    fbb_.AddElement<int64_t>(OutbreakRow::VT_ENDED, ended, 0);
+  }
+  void add_took(uint32_t took) {
+    fbb_.AddElement<uint32_t>(OutbreakRow::VT_TOOK, took, 0);
+  }
+  void add_ill(uint32_t ill) {
+    fbb_.AddElement<uint32_t>(OutbreakRow::VT_ILL, ill, 0);
+  }
+  void add_died(uint32_t died) {
+    fbb_.AddElement<uint32_t>(OutbreakRow::VT_DIED, died, 0);
+  }
+  void add_observer(uint32_t observer) {
+    fbb_.AddElement<uint32_t>(OutbreakRow::VT_OBSERVER, observer, 0);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(OutbreakRow::VT_WORDS, words);
+  }
+  explicit OutbreakRowBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<OutbreakRow> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<OutbreakRow>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<OutbreakRow> CreateOutbreakRow(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> disease = 0,
+    uint64_t settlement = 0,
+    int64_t began = 0,
+    int64_t ended = 0,
+    uint32_t took = 0,
+    uint32_t ill = 0,
+    uint32_t died = 0,
+    uint32_t observer = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+  OutbreakRowBuilder builder_(_fbb);
+  builder_.add_ended(ended);
+  builder_.add_began(began);
+  builder_.add_settlement(settlement);
+  builder_.add_words(words);
+  builder_.add_observer(observer);
+  builder_.add_died(died);
+  builder_.add_ill(ill);
+  builder_.add_took(took);
+  builder_.add_disease(disease);
+  builder_.add_id(id);
+  return builder_.Finish();
+}
+
+struct OutbreakRow::Traits {
+  using type = OutbreakRow;
+  static auto constexpr Create = CreateOutbreakRow;
+};
+
+inline ::flatbuffers::Offset<OutbreakRow> CreateOutbreakRowDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    const char *disease = nullptr,
+    uint64_t settlement = 0,
+    int64_t began = 0,
+    int64_t ended = 0,
+    uint32_t took = 0,
+    uint32_t ill = 0,
+    uint32_t died = 0,
+    uint32_t observer = 0,
+    const char *words = nullptr) {
+  auto disease__ = disease ? _fbb.CreateString(disease) : 0;
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateOutbreakRow(
+      _fbb,
+      id,
+      disease__,
+      settlement,
+      began,
+      ended,
+      took,
+      ill,
+      died,
+      observer,
+      words__);
+}
+
+struct Incidents FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef IncidentsBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_MINUTE = 4,
+    VT_ROWS = 6,
+    VT_NEXT = 8,
+    VT_TOTALS = 10,
+    VT_OUTBREAKS = 12
+  };
+  int64_t minute() const {
+    return GetField<int64_t>(VT_MINUTE, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>> *rows() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>> *>(VT_ROWS);
+  }
+  const tce::wire::IncidentKey *next() const {
+    return GetStruct<const tce::wire::IncidentKey *>(VT_NEXT);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentTotal>> *totals() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentTotal>> *>(VT_TOTALS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OutbreakRow>> *outbreaks() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OutbreakRow>> *>(VT_OUTBREAKS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_MINUTE, 8) &&
+           VerifyOffset(verifier, VT_ROWS) &&
+           verifier.VerifyVector(rows()) &&
+           verifier.VerifyVectorOfTables(rows()) &&
+           VerifyField<tce::wire::IncidentKey>(verifier, VT_NEXT, 8) &&
+           VerifyOffset(verifier, VT_TOTALS) &&
+           verifier.VerifyVector(totals()) &&
+           verifier.VerifyVectorOfTables(totals()) &&
+           VerifyOffset(verifier, VT_OUTBREAKS) &&
+           verifier.VerifyVector(outbreaks()) &&
+           verifier.VerifyVectorOfTables(outbreaks()) &&
+           verifier.EndTable();
+  }
+};
+
+struct IncidentsBuilder {
+  typedef Incidents Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_minute(int64_t minute) {
+    fbb_.AddElement<int64_t>(Incidents::VT_MINUTE, minute, 0);
+  }
+  void add_rows(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>>> rows) {
+    fbb_.AddOffset(Incidents::VT_ROWS, rows);
+  }
+  void add_next(const tce::wire::IncidentKey *next) {
+    fbb_.AddStruct(Incidents::VT_NEXT, next);
+  }
+  void add_totals(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentTotal>>> totals) {
+    fbb_.AddOffset(Incidents::VT_TOTALS, totals);
+  }
+  void add_outbreaks(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OutbreakRow>>> outbreaks) {
+    fbb_.AddOffset(Incidents::VT_OUTBREAKS, outbreaks);
+  }
+  explicit IncidentsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Incidents> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Incidents>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Incidents> CreateIncidents(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t minute = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>>> rows = 0,
+    const tce::wire::IncidentKey *next = nullptr,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentTotal>>> totals = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OutbreakRow>>> outbreaks = 0) {
+  IncidentsBuilder builder_(_fbb);
+  builder_.add_minute(minute);
+  builder_.add_outbreaks(outbreaks);
+  builder_.add_totals(totals);
+  builder_.add_next(next);
+  builder_.add_rows(rows);
+  return builder_.Finish();
+}
+
+struct Incidents::Traits {
+  using type = Incidents;
+  static auto constexpr Create = CreateIncidents;
+};
+
+inline ::flatbuffers::Offset<Incidents> CreateIncidentsDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t minute = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::IncidentRow>> *rows = nullptr,
+    const tce::wire::IncidentKey *next = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::IncidentTotal>> *totals = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::OutbreakRow>> *outbreaks = nullptr) {
+  auto rows__ = rows ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::IncidentRow>>(*rows) : 0;
+  auto totals__ = totals ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::IncidentTotal>>(*totals) : 0;
+  auto outbreaks__ = outbreaks ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::OutbreakRow>>(*outbreaks) : 0;
+  return tce::wire::CreateIncidents(
+      _fbb,
+      minute,
+      rows__,
+      next,
+      totals__,
+      outbreaks__);
+}
+
+struct IncidentStep FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef IncidentStepBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_LABEL = 4,
+    VT_MINUTE = 6,
+    VT_STATE = 8,
+    VT_BY_DAY = 10,
+    VT_WORDS = 12
+  };
+  const ::flatbuffers::String *label() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_LABEL);
+  }
+  int64_t minute() const {
+    return GetField<int64_t>(VT_MINUTE, 0);
+  }
+  uint8_t state() const {
+    return GetField<uint8_t>(VT_STATE, 0);
+  }
+  bool by_day() const {
+    return GetField<uint8_t>(VT_BY_DAY, 0) != 0;
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_LABEL) &&
+           verifier.VerifyString(label()) &&
+           VerifyField<int64_t>(verifier, VT_MINUTE, 8) &&
+           VerifyField<uint8_t>(verifier, VT_STATE, 1) &&
+           VerifyField<uint8_t>(verifier, VT_BY_DAY, 1) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           verifier.EndTable();
+  }
+};
+
+struct IncidentStepBuilder {
+  typedef IncidentStep Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_label(::flatbuffers::Offset<::flatbuffers::String> label) {
+    fbb_.AddOffset(IncidentStep::VT_LABEL, label);
+  }
+  void add_minute(int64_t minute) {
+    fbb_.AddElement<int64_t>(IncidentStep::VT_MINUTE, minute, 0);
+  }
+  void add_state(uint8_t state) {
+    fbb_.AddElement<uint8_t>(IncidentStep::VT_STATE, state, 0);
+  }
+  void add_by_day(bool by_day) {
+    fbb_.AddElement<uint8_t>(IncidentStep::VT_BY_DAY, static_cast<uint8_t>(by_day), 0);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(IncidentStep::VT_WORDS, words);
+  }
+  explicit IncidentStepBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<IncidentStep> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<IncidentStep>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<IncidentStep> CreateIncidentStep(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::String> label = 0,
+    int64_t minute = 0,
+    uint8_t state = 0,
+    bool by_day = false,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+  IncidentStepBuilder builder_(_fbb);
+  builder_.add_minute(minute);
+  builder_.add_words(words);
+  builder_.add_label(label);
+  builder_.add_by_day(by_day);
+  builder_.add_state(state);
+  return builder_.Finish();
+}
+
+struct IncidentStep::Traits {
+  using type = IncidentStep;
+  static auto constexpr Create = CreateIncidentStep;
+};
+
+inline ::flatbuffers::Offset<IncidentStep> CreateIncidentStepDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *label = nullptr,
+    int64_t minute = 0,
+    uint8_t state = 0,
+    bool by_day = false,
+    const char *words = nullptr) {
+  auto label__ = label ? _fbb.CreateString(label) : 0;
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateIncidentStep(
+      _fbb,
+      label__,
+      minute,
+      state,
+      by_day,
+      words__);
+}
+
+struct IncidentLink FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef IncidentLinkBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_RELATION = 4,
+    VT_TARGET = 6,
+    VT_ID = 8,
+    VT_WORDS = 10
+  };
+  uint8_t relation() const {
+    return GetField<uint8_t>(VT_RELATION, 0);
+  }
+  uint8_t target() const {
+    return GetField<uint8_t>(VT_TARGET, 0);
+  }
+  uint64_t id() const {
+    return GetField<uint64_t>(VT_ID, 0);
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_RELATION, 1) &&
+           VerifyField<uint8_t>(verifier, VT_TARGET, 1) &&
+           VerifyField<uint64_t>(verifier, VT_ID, 8) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           verifier.EndTable();
+  }
+};
+
+struct IncidentLinkBuilder {
+  typedef IncidentLink Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_relation(uint8_t relation) {
+    fbb_.AddElement<uint8_t>(IncidentLink::VT_RELATION, relation, 0);
+  }
+  void add_target(uint8_t target) {
+    fbb_.AddElement<uint8_t>(IncidentLink::VT_TARGET, target, 0);
+  }
+  void add_id(uint64_t id) {
+    fbb_.AddElement<uint64_t>(IncidentLink::VT_ID, id, 0);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(IncidentLink::VT_WORDS, words);
+  }
+  explicit IncidentLinkBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<IncidentLink> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<IncidentLink>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<IncidentLink> CreateIncidentLink(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t relation = 0,
+    uint8_t target = 0,
+    uint64_t id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+  IncidentLinkBuilder builder_(_fbb);
+  builder_.add_id(id);
+  builder_.add_words(words);
+  builder_.add_target(target);
+  builder_.add_relation(relation);
+  return builder_.Finish();
+}
+
+struct IncidentLink::Traits {
+  using type = IncidentLink;
+  static auto constexpr Create = CreateIncidentLink;
+};
+
+inline ::flatbuffers::Offset<IncidentLink> CreateIncidentLinkDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t relation = 0,
+    uint8_t target = 0,
+    uint64_t id = 0,
+    const char *words = nullptr) {
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateIncidentLink(
+      _fbb,
+      relation,
+      target,
+      id,
+      words__);
+}
+
+struct IncidentInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef IncidentInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ROW = 4,
+    VT_STEPS = 6,
+    VT_LINKS = 8,
+    VT_TRUTH = 10,
+    VT_KNOWLEDGE = 12,
+    VT_POLITY = 14
+  };
+  const tce::wire::IncidentRow *row() const {
+    return GetPointer<const tce::wire::IncidentRow *>(VT_ROW);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentStep>> *steps() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentStep>> *>(VT_STEPS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentLink>> *links() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentLink>> *>(VT_LINKS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *truth() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_TRUTH);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *knowledge() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_KNOWLEDGE);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *polity() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_POLITY);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ROW) &&
+           verifier.VerifyTable(row()) &&
+           VerifyOffset(verifier, VT_STEPS) &&
+           verifier.VerifyVector(steps()) &&
+           verifier.VerifyVectorOfTables(steps()) &&
+           VerifyOffset(verifier, VT_LINKS) &&
+           verifier.VerifyVector(links()) &&
+           verifier.VerifyVectorOfTables(links()) &&
+           VerifyOffset(verifier, VT_TRUTH) &&
+           verifier.VerifyVector(truth()) &&
+           verifier.VerifyVectorOfStrings(truth()) &&
+           VerifyOffset(verifier, VT_KNOWLEDGE) &&
+           verifier.VerifyVector(knowledge()) &&
+           verifier.VerifyVectorOfStrings(knowledge()) &&
+           VerifyOffset(verifier, VT_POLITY) &&
+           verifier.VerifyVector(polity()) &&
+           verifier.VerifyVectorOfStrings(polity()) &&
+           verifier.EndTable();
+  }
+};
+
+struct IncidentInfoBuilder {
+  typedef IncidentInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_row(::flatbuffers::Offset<tce::wire::IncidentRow> row) {
+    fbb_.AddOffset(IncidentInfo::VT_ROW, row);
+  }
+  void add_steps(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentStep>>> steps) {
+    fbb_.AddOffset(IncidentInfo::VT_STEPS, steps);
+  }
+  void add_links(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentLink>>> links) {
+    fbb_.AddOffset(IncidentInfo::VT_LINKS, links);
+  }
+  void add_truth(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> truth) {
+    fbb_.AddOffset(IncidentInfo::VT_TRUTH, truth);
+  }
+  void add_knowledge(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> knowledge) {
+    fbb_.AddOffset(IncidentInfo::VT_KNOWLEDGE, knowledge);
+  }
+  void add_polity(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> polity) {
+    fbb_.AddOffset(IncidentInfo::VT_POLITY, polity);
+  }
+  explicit IncidentInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<IncidentInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<IncidentInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<IncidentInfo> CreateIncidentInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<tce::wire::IncidentRow> row = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentStep>>> steps = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentLink>>> links = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> truth = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> knowledge = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> polity = 0) {
+  IncidentInfoBuilder builder_(_fbb);
+  builder_.add_polity(polity);
+  builder_.add_knowledge(knowledge);
+  builder_.add_truth(truth);
+  builder_.add_links(links);
+  builder_.add_steps(steps);
+  builder_.add_row(row);
+  return builder_.Finish();
+}
+
+struct IncidentInfo::Traits {
+  using type = IncidentInfo;
+  static auto constexpr Create = CreateIncidentInfo;
+};
+
+inline ::flatbuffers::Offset<IncidentInfo> CreateIncidentInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<tce::wire::IncidentRow> row = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::IncidentStep>> *steps = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::IncidentLink>> *links = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *truth = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *knowledge = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *polity = nullptr) {
+  auto steps__ = steps ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::IncidentStep>>(*steps) : 0;
+  auto links__ = links ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::IncidentLink>>(*links) : 0;
+  auto truth__ = truth ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*truth) : 0;
+  auto knowledge__ = knowledge ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*knowledge) : 0;
+  auto polity__ = polity ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*polity) : 0;
+  return tce::wire::CreateIncidentInfo(
+      _fbb,
+      row,
+      steps__,
+      links__,
+      truth__,
+      knowledge__,
+      polity__);
+}
+
+struct OutbreakSource FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef OutbreakSourceBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_NAME = 4,
+    VT_CASES = 6,
+    VT_TRUTH = 8,
+    VT_KNOWLEDGE = 10,
+    VT_POLITY = 12
+  };
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  uint32_t cases() const {
+    return GetField<uint32_t>(VT_CASES, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *truth() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_TRUTH);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *knowledge() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_KNOWLEDGE);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *polity() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_POLITY);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyField<uint32_t>(verifier, VT_CASES, 4) &&
+           VerifyOffset(verifier, VT_TRUTH) &&
+           verifier.VerifyVector(truth()) &&
+           verifier.VerifyVectorOfStrings(truth()) &&
+           VerifyOffset(verifier, VT_KNOWLEDGE) &&
+           verifier.VerifyVector(knowledge()) &&
+           verifier.VerifyVectorOfStrings(knowledge()) &&
+           VerifyOffset(verifier, VT_POLITY) &&
+           verifier.VerifyVector(polity()) &&
+           verifier.VerifyVectorOfStrings(polity()) &&
+           verifier.EndTable();
+  }
+};
+
+struct OutbreakSourceBuilder {
+  typedef OutbreakSource Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(OutbreakSource::VT_NAME, name);
+  }
+  void add_cases(uint32_t cases) {
+    fbb_.AddElement<uint32_t>(OutbreakSource::VT_CASES, cases, 0);
+  }
+  void add_truth(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> truth) {
+    fbb_.AddOffset(OutbreakSource::VT_TRUTH, truth);
+  }
+  void add_knowledge(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> knowledge) {
+    fbb_.AddOffset(OutbreakSource::VT_KNOWLEDGE, knowledge);
+  }
+  void add_polity(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> polity) {
+    fbb_.AddOffset(OutbreakSource::VT_POLITY, polity);
+  }
+  explicit OutbreakSourceBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<OutbreakSource> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<OutbreakSource>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<OutbreakSource> CreateOutbreakSource(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    uint32_t cases = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> truth = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> knowledge = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> polity = 0) {
+  OutbreakSourceBuilder builder_(_fbb);
+  builder_.add_polity(polity);
+  builder_.add_knowledge(knowledge);
+  builder_.add_truth(truth);
+  builder_.add_cases(cases);
+  builder_.add_name(name);
+  return builder_.Finish();
+}
+
+struct OutbreakSource::Traits {
+  using type = OutbreakSource;
+  static auto constexpr Create = CreateOutbreakSource;
+};
+
+inline ::flatbuffers::Offset<OutbreakSource> CreateOutbreakSourceDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *name = nullptr,
+    uint32_t cases = 0,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *truth = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *knowledge = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *polity = nullptr) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto truth__ = truth ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*truth) : 0;
+  auto knowledge__ = knowledge ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*knowledge) : 0;
+  auto polity__ = polity ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*polity) : 0;
+  return tce::wire::CreateOutbreakSource(
+      _fbb,
+      name__,
+      cases,
+      truth__,
+      knowledge__,
+      polity__);
+}
+
+struct OutbreakInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef OutbreakInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ROW = 4,
+    VT_CAUSE = 6,
+    VT_CAUSE_LINK = 8,
+    VT_START = 10,
+    VT_TOOK = 12,
+    VT_ONSET = 14,
+    VT_ROUTES = 16,
+    VT_SOURCES = 18,
+    VT_MEMBERS = 20,
+    VT_MEMBERS_TOTAL = 22
+  };
+  const tce::wire::OutbreakRow *row() const {
+    return GetPointer<const tce::wire::OutbreakRow *>(VT_ROW);
+  }
+  const ::flatbuffers::String *cause() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_CAUSE);
+  }
+  const tce::wire::IncidentLink *cause_link() const {
+    return GetPointer<const tce::wire::IncidentLink *>(VT_CAUSE_LINK);
+  }
+  int64_t start() const {
+    return GetField<int64_t>(VT_START, 0);
+  }
+  const ::flatbuffers::Vector<uint16_t> *took() const {
+    return GetPointer<const ::flatbuffers::Vector<uint16_t> *>(VT_TOOK);
+  }
+  const ::flatbuffers::Vector<uint16_t> *onset() const {
+    return GetPointer<const ::flatbuffers::Vector<uint16_t> *>(VT_ONSET);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *routes() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_ROUTES);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OutbreakSource>> *sources() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OutbreakSource>> *>(VT_SOURCES);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>> *members() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>> *>(VT_MEMBERS);
+  }
+  uint32_t members_total() const {
+    return GetField<uint32_t>(VT_MEMBERS_TOTAL, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ROW) &&
+           verifier.VerifyTable(row()) &&
+           VerifyOffset(verifier, VT_CAUSE) &&
+           verifier.VerifyString(cause()) &&
+           VerifyOffset(verifier, VT_CAUSE_LINK) &&
+           verifier.VerifyTable(cause_link()) &&
+           VerifyField<int64_t>(verifier, VT_START, 8) &&
+           VerifyOffset(verifier, VT_TOOK) &&
+           verifier.VerifyVector(took()) &&
+           VerifyOffset(verifier, VT_ONSET) &&
+           verifier.VerifyVector(onset()) &&
+           VerifyOffset(verifier, VT_ROUTES) &&
+           verifier.VerifyVector(routes()) &&
+           verifier.VerifyVectorOfStrings(routes()) &&
+           VerifyOffset(verifier, VT_SOURCES) &&
+           verifier.VerifyVector(sources()) &&
+           verifier.VerifyVectorOfTables(sources()) &&
+           VerifyOffset(verifier, VT_MEMBERS) &&
+           verifier.VerifyVector(members()) &&
+           verifier.VerifyVectorOfTables(members()) &&
+           VerifyField<uint32_t>(verifier, VT_MEMBERS_TOTAL, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct OutbreakInfoBuilder {
+  typedef OutbreakInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_row(::flatbuffers::Offset<tce::wire::OutbreakRow> row) {
+    fbb_.AddOffset(OutbreakInfo::VT_ROW, row);
+  }
+  void add_cause(::flatbuffers::Offset<::flatbuffers::String> cause) {
+    fbb_.AddOffset(OutbreakInfo::VT_CAUSE, cause);
+  }
+  void add_cause_link(::flatbuffers::Offset<tce::wire::IncidentLink> cause_link) {
+    fbb_.AddOffset(OutbreakInfo::VT_CAUSE_LINK, cause_link);
+  }
+  void add_start(int64_t start) {
+    fbb_.AddElement<int64_t>(OutbreakInfo::VT_START, start, 0);
+  }
+  void add_took(::flatbuffers::Offset<::flatbuffers::Vector<uint16_t>> took) {
+    fbb_.AddOffset(OutbreakInfo::VT_TOOK, took);
+  }
+  void add_onset(::flatbuffers::Offset<::flatbuffers::Vector<uint16_t>> onset) {
+    fbb_.AddOffset(OutbreakInfo::VT_ONSET, onset);
+  }
+  void add_routes(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> routes) {
+    fbb_.AddOffset(OutbreakInfo::VT_ROUTES, routes);
+  }
+  void add_sources(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OutbreakSource>>> sources) {
+    fbb_.AddOffset(OutbreakInfo::VT_SOURCES, sources);
+  }
+  void add_members(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>>> members) {
+    fbb_.AddOffset(OutbreakInfo::VT_MEMBERS, members);
+  }
+  void add_members_total(uint32_t members_total) {
+    fbb_.AddElement<uint32_t>(OutbreakInfo::VT_MEMBERS_TOTAL, members_total, 0);
+  }
+  explicit OutbreakInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<OutbreakInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<OutbreakInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<OutbreakInfo> CreateOutbreakInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<tce::wire::OutbreakRow> row = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> cause = 0,
+    ::flatbuffers::Offset<tce::wire::IncidentLink> cause_link = 0,
+    int64_t start = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint16_t>> took = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint16_t>> onset = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> routes = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OutbreakSource>>> sources = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>>> members = 0,
+    uint32_t members_total = 0) {
+  OutbreakInfoBuilder builder_(_fbb);
+  builder_.add_start(start);
+  builder_.add_members_total(members_total);
+  builder_.add_members(members);
+  builder_.add_sources(sources);
+  builder_.add_routes(routes);
+  builder_.add_onset(onset);
+  builder_.add_took(took);
+  builder_.add_cause_link(cause_link);
+  builder_.add_cause(cause);
+  builder_.add_row(row);
+  return builder_.Finish();
+}
+
+struct OutbreakInfo::Traits {
+  using type = OutbreakInfo;
+  static auto constexpr Create = CreateOutbreakInfo;
+};
+
+inline ::flatbuffers::Offset<OutbreakInfo> CreateOutbreakInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<tce::wire::OutbreakRow> row = 0,
+    const char *cause = nullptr,
+    ::flatbuffers::Offset<tce::wire::IncidentLink> cause_link = 0,
+    int64_t start = 0,
+    const std::vector<uint16_t> *took = nullptr,
+    const std::vector<uint16_t> *onset = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *routes = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::OutbreakSource>> *sources = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::IncidentRow>> *members = nullptr,
+    uint32_t members_total = 0) {
+  auto cause__ = cause ? _fbb.CreateString(cause) : 0;
+  auto took__ = took ? _fbb.CreateVector<uint16_t>(*took) : 0;
+  auto onset__ = onset ? _fbb.CreateVector<uint16_t>(*onset) : 0;
+  auto routes__ = routes ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*routes) : 0;
+  auto sources__ = sources ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::OutbreakSource>>(*sources) : 0;
+  auto members__ = members ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::IncidentRow>>(*members) : 0;
+  return tce::wire::CreateOutbreakInfo(
+      _fbb,
+      row,
+      cause__,
+      cause_link,
+      start,
+      took__,
+      onset__,
+      routes__,
+      sources__,
+      members__,
+      members_total);
+}
+
 struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef ResponseBuilder Builder;
   struct Traits;
@@ -18996,6 +20553,15 @@ struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::Water *body_as_Water() const {
     return body_type() == tce::wire::ResponseBody::Water ? static_cast<const tce::wire::Water *>(body()) : nullptr;
+  }
+  const tce::wire::Incidents *body_as_Incidents() const {
+    return body_type() == tce::wire::ResponseBody::Incidents ? static_cast<const tce::wire::Incidents *>(body()) : nullptr;
+  }
+  const tce::wire::IncidentInfo *body_as_IncidentInfo() const {
+    return body_type() == tce::wire::ResponseBody::IncidentInfo ? static_cast<const tce::wire::IncidentInfo *>(body()) : nullptr;
+  }
+  const tce::wire::OutbreakInfo *body_as_OutbreakInfo() const {
+    return body_type() == tce::wire::ResponseBody::OutbreakInfo ? static_cast<const tce::wire::OutbreakInfo *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -19097,6 +20663,18 @@ template<> inline const tce::wire::Crossings *Response::body_as<tce::wire::Cross
 
 template<> inline const tce::wire::Water *Response::body_as<tce::wire::Water>() const {
   return body_as_Water();
+}
+
+template<> inline const tce::wire::Incidents *Response::body_as<tce::wire::Incidents>() const {
+  return body_as_Incidents();
+}
+
+template<> inline const tce::wire::IncidentInfo *Response::body_as<tce::wire::IncidentInfo>() const {
+  return body_as_IncidentInfo();
+}
+
+template<> inline const tce::wire::OutbreakInfo *Response::body_as<tce::wire::OutbreakInfo>() const {
+  return body_as_OutbreakInfo();
 }
 
 struct ResponseBuilder {
@@ -19390,6 +20968,18 @@ inline bool VerifyQueryBody(::flatbuffers::VerifierTemplate<B> &verifier, const 
       auto ptr = reinterpret_cast<const tce::wire::GetWater *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case QueryBody::GetIncidents: {
+      auto ptr = reinterpret_cast<const tce::wire::GetIncidents *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case QueryBody::GetIncident: {
+      auto ptr = reinterpret_cast<const tce::wire::GetIncident *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case QueryBody::GetOutbreak: {
+      auto ptr = reinterpret_cast<const tce::wire::GetOutbreak *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -19503,6 +21093,18 @@ inline bool VerifyResponseBody(::flatbuffers::VerifierTemplate<B> &verifier, con
     }
     case ResponseBody::Water: {
       auto ptr = reinterpret_cast<const tce::wire::Water *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::Incidents: {
+      auto ptr = reinterpret_cast<const tce::wire::Incidents *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::IncidentInfo: {
+      auto ptr = reinterpret_cast<const tce::wire::IncidentInfo *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::OutbreakInfo: {
+      auto ptr = reinterpret_cast<const tce::wire::OutbreakInfo *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

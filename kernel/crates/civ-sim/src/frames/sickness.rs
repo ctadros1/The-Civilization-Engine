@@ -57,7 +57,7 @@ fn when(today: i64, day: i64) -> String {
 }
 
 /// Where water was drawn, in words: "Bo's household's well", "the river".
-fn source_words(sim: &Sim, source: Node) -> String {
+pub(crate) fn source_words(sim: &Sim, source: Node) -> String {
     match source {
         Node::Well(w) => match sim.land.wells.get(w) {
             Some(w) if w.polity.is_some() => format!("{} well", super::water::whose_well(sim, w)),
@@ -122,7 +122,7 @@ pub fn place_words(sim: &Sim, place: civ_agents::uses::Place) -> String {
 }
 
 /// One infection in words (see `PersonInfo.sickness`).
-fn episode_words(sim: &Sim, e: &Episode) -> String {
+pub(crate) fn episode_words(sim: &Sim, e: &Episode) -> String {
     let today = sim.now().day_index();
     let name = sim
         .rules

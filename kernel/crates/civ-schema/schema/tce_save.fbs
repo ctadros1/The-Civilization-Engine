@@ -2088,6 +2088,8 @@ table EpisodeSave {
   care_total_h: float (id: 19);
   // The outbreak it is part of, by number (0: none; schema 77).
   outbreak: uint (id: 20);
+  // The household they lived in when they took it (0: not recorded; schema 85, M6a slice BB).
+  household: ulong (id: 21);
 }
 
 // An outbreak (schema 77, M6a slice AZ step three; ADR-0015 §8): its number, disease (content

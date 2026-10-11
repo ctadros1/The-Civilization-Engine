@@ -339,6 +339,27 @@ export class HostClient {
   }
 
   /** Takings: what happened, and what people believe and chose (wire 1.30). */
+  /** A page of incidents of every kind asked, newest first (wire 1.64). */
+  async incidents(settlement: number, kind: number, before: M.IncidentKey | null, limit: number): Promise<M.IncidentsInfo> {
+    const body = await this.query(M.getIncidents(settlement, kind, before, limit));
+    if (body.kind !== "incidents") throw new HostError("internal", "expected incidents");
+    return body.incidents;
+  }
+
+  /** One incident's page: its steps, links and layers (wire 1.64). */
+  async incident(kind: number, id: number): Promise<M.IncidentInfo> {
+    const body = await this.query(M.getIncident(kind, id));
+    if (body.kind !== "incident") throw new HostError("internal", "expected an incident");
+    return body.incident;
+  }
+
+  /** One outbreak's page: its counts, curve, sources and cases (wire 1.64). */
+  async outbreak(id: number, limit: number): Promise<M.OutbreakInfo> {
+    const body = await this.query(M.getOutbreak(id, limit));
+    if (body.kind !== "outbreak") throw new HostError("internal", "expected an outbreak");
+    return body.outbreak;
+  }
+
   async order(): Promise<M.OrderInfo> {
     const body = await this.query(M.getOrder());
     if (body.kind !== "order") throw new HostError("internal", "expected order");

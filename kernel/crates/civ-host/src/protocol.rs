@@ -197,6 +197,31 @@ pub enum Request {
     GetCrossings,
     /// The wells, springs and water drawn today (wire 1.61).
     GetWater,
+    /// A page of incidents of every kind, newest first (wire 1.64, ADR-0015 §8).
+    GetIncidents {
+        /// A settlement's permanent id, or 0 for every settlement.
+        settlement: u64,
+        /// 0 for every kind; 1 takings; 2 cases of illness.
+        kind: u8,
+        /// Where the page goes on from: (minute, kind, number) of the last row before it.
+        before: Option<(i64, u8, u32)>,
+        /// Rows asked: 0 for the default.
+        limit: u32,
+    },
+    /// One incident's page (wire 1.64).
+    GetIncident {
+        /// 1 a taking; 2 a case of illness.
+        kind: u8,
+        /// Its number among incidents of its kind.
+        id: u32,
+    },
+    /// One outbreak's page (wire 1.64).
+    GetOutbreak {
+        /// Its number.
+        id: u32,
+        /// Cases to list: 0 for the default.
+        limit: u32,
+    },
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -593,6 +618,35 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                 wire::QueryBody::GetOrder => Ok(Request::GetOrder),
                 wire::QueryBody::GetCrossings => Ok(Request::GetCrossings),
                 wire::QueryBody::GetWater => Ok(Request::GetWater),
+                wire::QueryBody::GetIncidents => {
+                    let b = query
+                        .body_as_get_incidents()
+                        .ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetIncidents {
+                        settlement: b.settlement(),
+                        kind: b.kind(),
+                        before: b.before().map(|k| (k.minute(), k.kind(), k.id())),
+                        limit: b.limit(),
+                    })
+                }
+                wire::QueryBody::GetIncident => {
+                    let b = query
+                        .body_as_get_incident()
+                        .ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetIncident {
+                        kind: b.kind(),
+                        id: b.id(),
+                    })
+                }
+                wire::QueryBody::GetOutbreak => {
+                    let b = query
+                        .body_as_get_outbreak()
+                        .ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetOutbreak {
+                        id: b.id(),
+                        limit: b.limit(),
+                    })
+                }
                 other => Err(format!("unknown query {}", other.0)),
             }
         }
@@ -834,6 +888,9 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
         .sim
         .map_or(0, civ_sim::frames::crossings::crossings_rev);
     let water_rev = parts.sim.map_or(0, civ_sim::frames::water::water_rev);
+    let incidents_rev = parts
+        .sim
+        .map_or(0, civ_sim::frames::incidents::incidents_rev);
     let task = parts.task.map(|t| {
         let name = fbb.create_string(&t.name);
         let stage = fbb.create_string(&t.stage);
@@ -888,6 +945,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             weather_rev,
             crossings_rev,
             water_rev,
+            incidents_rev,
         },
     );
     finish(fbb, root)
@@ -1270,6 +1328,81 @@ mod tests {
         assert_eq!(
             decode_request(FrameKind::Query, &query(wire::QueryBody::GetFirm, Some(42))),
             Ok(Request::GetFirm { id: 42 })
+        );
+    }
+
+    #[test]
+    fn incident_queries_decode_into_requests() {
+        let mut fbb = FlatBufferBuilder::new();
+        let key = wire::IncidentKey::new(14_400, 2, 7);
+        let body = wire::GetIncidents::create(
+            &mut fbb,
+            &wire::GetIncidentsArgs {
+                settlement: 9,
+                kind: 2,
+                before: Some(&key),
+                limit: 25,
+            },
+        );
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetIncidents,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetIncidents {
+                settlement: 9,
+                kind: 2,
+                before: Some((14_400, 2, 7)),
+                limit: 25,
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::GetIncidents::create(&mut fbb, &wire::GetIncidentsArgs::default());
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetIncidents,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetIncidents {
+                settlement: 0,
+                kind: 0,
+                before: None,
+                limit: 0,
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::GetIncident::create(&mut fbb, &wire::GetIncidentArgs { kind: 1, id: 3 });
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetIncident,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetIncident { kind: 1, id: 3 })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::GetOutbreak::create(&mut fbb, &wire::GetOutbreakArgs { id: 2, limit: 10 });
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetOutbreak,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetOutbreak { id: 2, limit: 10 })
         );
     }
 

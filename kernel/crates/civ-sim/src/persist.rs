@@ -286,6 +286,9 @@ pub const SCHEMA_V82: u32 = 82;
 /// The schema version of M6a slice BA, step four's second part: wells dug together, before the
 /// observer's drought (see [`agents`]).
 pub const SCHEMA_V83: u32 = 83;
+/// The schema version of M6a slice BA, step five: the observer's drought, before infections kept
+/// the household they began in (see [`agents`]).
+pub const SCHEMA_V84: u32 = 84;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

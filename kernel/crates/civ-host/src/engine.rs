@@ -530,6 +530,41 @@ impl Engine {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::water::water_response(&w.sim)),
             },
+            Request::GetIncidents {
+                settlement,
+                kind,
+                before,
+                limit,
+            } => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::incidents::incidents_response(
+                    &w.sim,
+                    civ_core::PermanentId::from_raw(settlement),
+                    kind,
+                    before,
+                    limit as usize,
+                )),
+            },
+            Request::GetIncident { kind, id } => match &self.world {
+                None => no_world(),
+                Some(w) => match frames::incidents::incident_response(&w.sim, kind, id) {
+                    Some(payload) => Reply::Response(payload),
+                    None => Reply::Error(
+                        wire::ErrorCode::NotFound,
+                        format!("no incident of kind {kind} numbered {id}"),
+                    ),
+                },
+            },
+            Request::GetOutbreak { id, limit } => match &self.world {
+                None => no_world(),
+                Some(w) => match frames::incidents::outbreak_response(&w.sim, id, limit as usize) {
+                    Some(payload) => Reply::Response(payload),
+                    None => Reply::Error(
+                        wire::ErrorCode::NotFound,
+                        format!("no outbreak numbered {id}"),
+                    ),
+                },
+            },
             Request::GetWeather => match &self.world {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::weather::weather_response(&w.sim)),
@@ -2297,6 +2332,90 @@ mod tests {
             lines[0].starts_with("Took cholera today")
                 && lines[0].contains("; brought by the observer, as if they took it elsewhere"),
             "{lines:?}"
+        );
+    }
+
+    #[test]
+    fn the_incidents_list_a_case_the_observer_brought_with_its_page_and_its_outbreak() {
+        let mut h = Harness::new(None, None);
+        let list = Request::GetIncidents {
+            settlement: 0,
+            kind: 0,
+            before: None,
+            limit: 0,
+        };
+        assert_eq!(
+            error_code(&h.ask(list.clone())),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Incidents");
+        let (person, cholera) = {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            let person = sim
+                .people()
+                .people
+                .iter()
+                .map(|(_, p)| p.id.get())
+                .min()
+                .expect("someone");
+            let cholera = sim
+                .rules()
+                .catalog
+                .disease_index("core:disease/cholera")
+                .expect("cholera in the core content");
+            (person, u32::try_from(cholera).expect("a small index"))
+        };
+        let Reply::Response(_) = h.ask(Request::Plague {
+            person,
+            disease: cholera,
+        }) else {
+            panic!("brought");
+        };
+        let Reply::Response(payload) = h.ask(list) else {
+            panic!("the incidents are read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let incidents = response.body_as_incidents().expect("incidents");
+        let rows: Vec<(u8, u32, u64, u32)> = incidents
+            .rows()
+            .expect("rows")
+            .iter()
+            .filter(|r| r.kind() == 2)
+            .map(|r| (r.kind(), r.id(), r.who(), r.outbreak()))
+            .collect();
+        assert_eq!(rows, vec![(2, 1, person, 1)]);
+        let Reply::Response(payload) = h.ask(Request::GetIncident { kind: 2, id: 1 }) else {
+            panic!("its page is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let info = response.body_as_incident_info().expect("a page");
+        assert_eq!(
+            info.steps()
+                .expect("steps")
+                .iter()
+                .next()
+                .and_then(|s| s.label()),
+            Some("Took it")
+        );
+        let Reply::Response(payload) = h.ask(Request::GetOutbreak { id: 1, limit: 0 }) else {
+            panic!("its outbreak is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let outbreak = response.body_as_outbreak_info().expect("an outbreak");
+        assert!(
+            outbreak
+                .cause()
+                .is_some_and(|c| c.contains("brought by the observer")),
+            "{:?}",
+            outbreak.cause()
+        );
+        assert_eq!(
+            error_code(&h.ask(Request::GetIncident { kind: 2, id: 99 })),
+            Some(wire::ErrorCode::NotFound)
+        );
+        assert_eq!(
+            error_code(&h.ask(Request::GetOutbreak { id: 99, limit: 0 })),
+            Some(wire::ErrorCode::NotFound)
         );
     }
 

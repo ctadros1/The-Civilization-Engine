@@ -73,22 +73,28 @@ test("a polity, its custom and a law's history in the government panel", async (
       await page.locator("#government-panel").screenshot({ path: `${shots}/m4a-government.png` });
     }
 
-    // M4b slice AA: the Takings panel, what happened beside what people believe (wire 1.30).
-    // Whether anyone took in these lean weeks is the world's; the panel shows whichever it was.
-    await page.waitForFunction(() => window.__TCE__.state().order !== null, null, {
-      timeout: 60_000,
-    });
+    // M4b slice AA: takings, what happened beside what people know (wire 1.30), shown since M6a
+    // slice BB in the one Incidents panel (wire 1.64). Whether anyone took in these lean weeks is
+    // the world's; the panel shows whichever it was.
+    await page.waitForFunction(
+      () => window.__TCE__.state().order !== null && window.__TCE__.state().incidents !== null,
+      null,
+      { timeout: 60_000 },
+    );
     const order = (await page.evaluate(() => window.__TCE__.state().order))!;
+    const incidents = (await page.evaluate(() => window.__TCE__.state().incidents))!;
     console.log(`order: ${JSON.stringify({ ...order, known: order.known.slice(0, 5) })}`);
-    const takings = page.locator("#order-body");
+    const takings = page.locator("#incidents-body");
     await expect(takings.locator(".order-totals")).toContainText(
       order.attempts === 0 ? "Nobody has gone to take" : `${order.attempts} attempt`,
     );
-    await expect(takings.locator("li.taking")).toHaveCount(order.incidents.length);
-    if (order.incidents.length > 0) {
-      const first = takings.locator("li.taking").first();
-      await expect(first.locator(".happened")).toContainText(order.incidents[0]!.actor);
-      await expect(first.locator(".believed")).toContainText("What people believe:");
+    await expect(takings.locator("li.incident")).toHaveCount(incidents.rows.length);
+    const firstTaking = incidents.rows.find((r) => r.kind === 1);
+    if (firstTaking) {
+      const first = takings.locator("li.incident.taking").first();
+      await expect(first.locator(".happened")).toContainText(firstTaking.who);
+      await expect(first.locator(".believed")).toContainText("What people know:");
+      await expect(first.locator(".case")).toContainText("What the polity knows and did:");
     }
   } finally {
     await host.stop();

@@ -366,6 +366,10 @@ export interface Snapshot {
    * falls in, and with each day lived while the world has wells or springs (0 = neither). Fetch
    * them with GetWater. */
   waterRev: number;
+  /** Wire 1.64: changes whenever an incident or an outbreak opens, moves on or ends, or what
+   * people know of one or what a polity did about one changes (0 = no incident yet). Fetch them
+   * with GetIncidents. */
+  incidentsRev: number;
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -1695,7 +1699,132 @@ export type ResponseBody =
   | { kind: "weather"; weather: WeatherReport }
   | { kind: "standing"; standing: StandingInfo }
   | { kind: "government"; government: GovernmentInfo }
-  | { kind: "order"; order: OrderInfo };
+  | { kind: "order"; order: OrderInfo }
+  | { kind: "incidents"; incidents: IncidentsInfo }
+  | { kind: "incident"; incident: IncidentInfo }
+  | { kind: "outbreak"; outbreak: OutbreakInfo };
+
+// ---- Incidents (wire 1.64, M6a slice BB, ADR-0015 §8) --------------------------------------
+
+/** 1 a taking, 2 a case of illness. */
+export type IncidentKind = 1 | 2;
+
+/** Where a list of incidents goes on from. */
+export interface IncidentKey {
+  minute: number;
+  kind: number;
+  id: number;
+}
+
+/** One incident of any kind, its three layers in the kernel's words and kept apart. */
+export interface IncidentRow {
+  kind: number;
+  id: number;
+  /** When it began: a taking to the minute, an infection to the day. */
+  minute: number;
+  settlement: number;
+  at: [number, number];
+  /** Whom the words begin with: the one who went to take, or the one who took ill. */
+  who: number;
+  whoName: string;
+  /** What happened, after the name: the kernel's truth, which nobody in the world reads. */
+  happened: string;
+  /** What people know. */
+  known: string;
+  /** What the polity knows and did. */
+  polity: string;
+  /** The observer's influence that started it (0: none). */
+  observer: number;
+  /** The outbreak it is part of (0: none). */
+  outbreak: number;
+  open: boolean;
+}
+
+/** How many incidents of a kind there are, in the scope asked. */
+export interface IncidentTotal {
+  kind: number;
+  all: number;
+  known: number;
+  polity: number;
+  observer: number;
+}
+
+/** An outbreak: the episode its cases are part of. */
+export interface OutbreakRow {
+  id: number;
+  disease: string;
+  settlement: number;
+  /** Minutes; ended -1 while it runs. */
+  began: number;
+  ended: number;
+  took: number;
+  ill: number;
+  died: number;
+  observer: number;
+  words: string;
+}
+
+export interface IncidentsInfo {
+  minute: number;
+  rows: IncidentRow[];
+  next: IncidentKey | null;
+  totals: IncidentTotal[];
+  outbreaks: OutbreakRow[];
+}
+
+/** A step in an incident's chain. */
+export interface IncidentStep {
+  label: string;
+  /** -1 when not reached or not recorded. */
+  minute: number;
+  state: "reached" | "not reached" | "not recorded";
+  byDay: boolean;
+  words: string;
+}
+
+export type LinkRelation = "caused_by" | "part_of" | "responded_to";
+export type LinkTarget = "influence" | "person" | "household" | "source" | "outbreak" | "taking" | "illness";
+
+/** A typed link, recorded when it happened. */
+export interface IncidentLink {
+  relation: LinkRelation;
+  target: LinkTarget;
+  id: number;
+  words: string;
+}
+
+export interface IncidentInfo {
+  row: IncidentRow;
+  steps: IncidentStep[];
+  links: IncidentLink[];
+  truth: string[];
+  knowledge: string[];
+  polity: string[];
+}
+
+/** A source of water an outbreak's cases drank from, or one people suspect. */
+export interface OutbreakSource {
+  name: string;
+  cases: number;
+  truth: string[];
+  knowledge: string[];
+  polity: string[];
+}
+
+export interface OutbreakInfo {
+  row: OutbreakRow;
+  cause: string;
+  causeLink: IncidentLink | null;
+  /** The first day of the curve, as a minute. */
+  start: number;
+  /** Cases by day from `start`: those who took it, and those who fell ill. */
+  took: number[];
+  onset: number[];
+  routes: string[];
+  sources: OutbreakSource[];
+  members: IncidentRow[];
+  membersTotal: number;
+}
 
 export type ErrorCode =
   | "unknown"
@@ -1999,6 +2128,31 @@ export function getCrossings(): Uint8Array {
   return query(b, W.QueryBody.GetCrossings, W.GetCrossings.endGetCrossings(b));
 }
 
+/** A page of incidents (wire 1.64): `settlement` 0 for every one, `kind` 0 for every kind. */
+export function getIncidents(settlement: number, kind: number, before: IncidentKey | null, limit: number): Uint8Array {
+  const b = new flatbuffers.Builder(64);
+  W.GetIncidents.startGetIncidents(b);
+  W.GetIncidents.addSettlement(b, BigInt(settlement));
+  W.GetIncidents.addKind(b, kind);
+  if (before) {
+    W.GetIncidents.addBefore(b, W.IncidentKey.createIncidentKey(b, BigInt(before.minute), before.kind, before.id));
+  }
+  W.GetIncidents.addLimit(b, limit);
+  return query(b, W.QueryBody.GetIncidents, W.GetIncidents.endGetIncidents(b));
+}
+
+/** One incident's page (wire 1.64). */
+export function getIncident(kind: number, id: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  return query(b, W.QueryBody.GetIncident, W.GetIncident.createGetIncident(b, kind, id));
+}
+
+/** One outbreak's page (wire 1.64): `limit` cases listed, 0 for the default. */
+export function getOutbreak(id: number, limit: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  return query(b, W.QueryBody.GetOutbreak, W.GetOutbreak.createGetOutbreak(b, id, limit));
+}
+
 export function getWater(): Uint8Array {
   const b = new flatbuffers.Builder(16);
   W.GetWater.startGetWater(b);
@@ -2267,6 +2421,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     weatherRev: Number(s.weatherRev()),
     crossingsRev: Number(s.crossingsRev()),
     waterRev: Number(s.waterRev()),
+    incidentsRev: Number(s.incidentsRev()),
   };
 }
 
@@ -2675,6 +2830,149 @@ function dayWeather(w: W.DayWeather | null): DayWeather | null {
     soil: w.soil(),
     words: w.words() ?? "",
     snowLineM: w.snowLineM(),
+  };
+}
+
+function strings(n: number, at: (i: number) => string | null): string[] {
+  return Array.from({ length: n }, (_, i) => at(i) ?? "");
+}
+
+function incidentRow(r: W.IncidentRow): IncidentRow {
+  const at = r.at();
+  return {
+    kind: r.kind(),
+    id: r.id(),
+    minute: Number(r.minute()),
+    settlement: Number(r.settlement()),
+    at: [at?.x() ?? 0, at?.y() ?? 0],
+    who: Number(r.who()),
+    whoName: r.whoName() ?? "",
+    happened: r.happened() ?? "",
+    known: r.known() ?? "",
+    polity: r.polity() ?? "",
+    observer: r.observer(),
+    outbreak: r.outbreak(),
+    open: r.open(),
+  };
+}
+
+function outbreakRow(o: W.OutbreakRow): OutbreakRow {
+  return {
+    id: o.id(),
+    disease: o.disease() ?? "",
+    settlement: Number(o.settlement()),
+    began: Number(o.began()),
+    ended: Number(o.ended()),
+    took: o.took(),
+    ill: o.ill(),
+    died: o.died(),
+    observer: o.observer(),
+    words: o.words() ?? "",
+  };
+}
+
+const LINK_RELATIONS: LinkRelation[] = ["caused_by", "part_of", "responded_to"];
+const LINK_TARGETS: LinkTarget[] = ["influence", "person", "household", "source", "outbreak", "taking", "illness"];
+
+function incidentLink(l: W.IncidentLink): IncidentLink {
+  return {
+    relation: LINK_RELATIONS[l.relation()] ?? "caused_by",
+    target: LINK_TARGETS[l.target()] ?? "influence",
+    id: Number(l.id()),
+    words: l.words() ?? "",
+  };
+}
+
+const STEP_STATES: IncidentStep["state"][] = ["reached", "not reached", "not recorded"];
+
+function incidentsInfo(f: W.Incidents): IncidentsInfo {
+  const rows: IncidentRow[] = [];
+  for (let i = 0; i < f.rowsLength(); i++) {
+    const r = f.rows(i);
+    if (r) rows.push(incidentRow(r));
+  }
+  const totals: IncidentTotal[] = [];
+  for (let i = 0; i < f.totalsLength(); i++) {
+    const t = f.totals(i);
+    if (t) totals.push({ kind: t.kind(), all: t.all(), known: t.known(), polity: t.polity(), observer: t.observer() });
+  }
+  const outbreaks: OutbreakRow[] = [];
+  for (let i = 0; i < f.outbreaksLength(); i++) {
+    const o = f.outbreaks(i);
+    if (o) outbreaks.push(outbreakRow(o));
+  }
+  const n = f.next();
+  return {
+    minute: Number(f.minute()),
+    rows,
+    next: n ? { minute: Number(n.minute()), kind: n.kind(), id: n.id() } : null,
+    totals,
+    outbreaks,
+  };
+}
+
+function incidentInfo(f: W.IncidentInfo): IncidentInfo {
+  const row = f.row();
+  const steps: IncidentStep[] = [];
+  for (let i = 0; i < f.stepsLength(); i++) {
+    const s = f.steps(i);
+    if (!s) continue;
+    steps.push({
+      label: s.label() ?? "",
+      minute: Number(s.minute()),
+      state: STEP_STATES[s.state()] ?? "not recorded",
+      byDay: s.byDay(),
+      words: s.words() ?? "",
+    });
+  }
+  const links: IncidentLink[] = [];
+  for (let i = 0; i < f.linksLength(); i++) {
+    const l = f.links(i);
+    if (l) links.push(incidentLink(l));
+  }
+  return {
+    row: row ? incidentRow(row) : incidentRow(new W.IncidentRow()),
+    steps,
+    links,
+    truth: strings(f.truthLength(), (i) => f.truth(i)),
+    knowledge: strings(f.knowledgeLength(), (i) => f.knowledge(i)),
+    polity: strings(f.polityLength(), (i) => f.polity(i)),
+  };
+}
+
+function outbreakInfo(f: W.OutbreakInfo): OutbreakInfo {
+  const row = f.row();
+  const sources: OutbreakSource[] = [];
+  for (let i = 0; i < f.sourcesLength(); i++) {
+    const s = f.sources(i);
+    if (!s) continue;
+    sources.push({
+      name: s.name() ?? "",
+      cases: s.cases(),
+      truth: strings(s.truthLength(), (k) => s.truth(k)),
+      knowledge: strings(s.knowledgeLength(), (k) => s.knowledge(k)),
+      polity: strings(s.polityLength(), (k) => s.polity(k)),
+    });
+  }
+  const members: IncidentRow[] = [];
+  for (let i = 0; i < f.membersLength(); i++) {
+    const m = f.members(i);
+    if (m) members.push(incidentRow(m));
+  }
+  const link = f.causeLink();
+  return {
+    row: row
+      ? outbreakRow(row)
+      : { id: 0, disease: "", settlement: 0, began: 0, ended: -1, took: 0, ill: 0, died: 0, observer: 0, words: "" },
+    cause: f.cause() ?? "",
+    causeLink: link ? incidentLink(link) : null,
+    start: Number(f.start()),
+    took: Array.from(f.tookArray() ?? []),
+    onset: Array.from(f.onsetArray() ?? []),
+    routes: strings(f.routesLength(), (i) => f.routes(i)),
+    sources,
+    members,
+    membersTotal: f.membersTotal(),
   };
 }
 
@@ -3760,6 +4058,21 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Crossings()) as W.Crossings | null;
       if (!f) break;
       return { kind: "crossings", crossings: crossings(f) };
+    }
+    case W.ResponseBody.Incidents: {
+      const f = r.body(new W.Incidents()) as W.Incidents | null;
+      if (!f) break;
+      return { kind: "incidents", incidents: incidentsInfo(f) };
+    }
+    case W.ResponseBody.IncidentInfo: {
+      const f = r.body(new W.IncidentInfo()) as W.IncidentInfo | null;
+      if (!f) break;
+      return { kind: "incident", incident: incidentInfo(f) };
+    }
+    case W.ResponseBody.OutbreakInfo: {
+      const f = r.body(new W.OutbreakInfo()) as W.OutbreakInfo | null;
+      if (!f) break;
+      return { kind: "outbreak", outbreak: outbreakInfo(f) };
     }
     case W.ResponseBody.Water: {
       const f = r.body(new W.Water()) as W.Water | null;

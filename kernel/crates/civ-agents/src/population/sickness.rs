@@ -390,7 +390,10 @@ impl Population {
         let settlement = self.household(p.household).and_then(|x| x.settlement);
         let mut rng = sickness_rng(ctx.seed, person, day, disease, SickDraw::Course);
         let c = course(def, age, day, &mut rng);
-        let i = self.sickness.add(person, disease, day, acquired, c);
+        let home = p.household;
+        let i = self
+            .sickness
+            .add(person, Some(home), disease, day, acquired, c);
         // Part of the outbreak open where they live, or the first case of a new one.
         let (_, began) = self.sickness.join_outbreak(i, settlement);
         if began {

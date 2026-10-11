@@ -1284,6 +1284,18 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** a drought over one settlement (the weather is the world's); one Incidents panel and the M6a demo (slice BB).
 
+## 2026-10-11 — M6a slice BB, step one: one Incidents panel
+
+**What changed:** one kernel query now presents takings and cases of illness in one shape, a page at a time, each with what happened, what people know and what their polity knows and did, in the kernel's words and kept apart; each incident has a page of stamped steps and typed links, and each outbreak a page tracing its cases to the water they drank, what fouled it as recorded beside who suspects it and what the polity did. The observer's Takings panel became the Incidents panel. Infections keep the household they began in (saves 85, wire 1.64).
+
+**Findings:** a dead person's household could not be recovered from the records, so the case of someone who died of it lost its home and its household's word; the episode now keeps it. Midway through, the container's disk allowance filled (build output at 21 GB) and rustc failed without a message; deleting the dev-profile build and incremental caches freed it, and the kernel now builds on the test profile only.
+
+The full end-to-end run found the knowledge test still counting the founders' techniques from before wells (11, not 12). Repeated smoke runs found a rare failure (2 runs in 14) where one coastal world ends its month with a household without water; it did not reproduce outside the smoke harness in 60 tries and is logged in the plan for investigation.
+
+**Evidence:** an integration test from an outbreak the observer began through a fouled well to its pages, paged, saved and loaded; a takings case's page through the gathering's decision; host decoding and replies; web decoding and wording tests; end to end, the panel, a case's page and its outbreak's; the government and M4b demo views on the new panel; the full suite, clippy, the schema check and the smoke worlds.
+
+**Open:** links from the chronicle, the Water lens, the epidemics row, and the M6a demo.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

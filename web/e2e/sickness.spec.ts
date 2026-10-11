@@ -53,6 +53,34 @@ test("the observer brings cholera to someone, and the inspector tells of it", as
     );
     if (shots) await inspector.screenshot({ path: `${shots}/sickness-inspector.png` });
 
+    // The Incidents panel (wire 1.64, M6a slice BB): the case among the illness, marked the
+    // observer's, its outbreak listed; its page tells its steps, and the outbreak's page its cause.
+    const incidents = page.locator("#incidents-body");
+    await incidents.getByLabel("Kind of incident").selectOption("2");
+    const row = incidents.locator("li.incident.illness").filter({ hasText: name! });
+    await expect(row).toHaveCount(1);
+    await expect(row.locator(".happened")).toContainText("brought by the observer as if they took it elsewhere");
+    await expect(row.locator(".happened")).toContainText("(the observer's)");
+    await expect(row.locator(".believed")).toContainText("What people know: Nobody knows of it");
+    await expect(row.locator(".case")).toContainText("What the polity knows and did: No law names it.");
+    await expect(incidents.locator(".incident-totals")).toContainText("Illness: 1 case;");
+    await expect(incidents.locator("li.outbreak")).toHaveCount(1);
+    await expect(incidents.locator("li.outbreak")).toContainText("1 took it");
+    await row.locator(".incident-open").click();
+    const steps = incidents.locator(".incident-steps li");
+    await expect(steps).toHaveCount(6);
+    await expect(steps.first()).toContainText("Took it:");
+    await expect(steps.last()).toContainText("Ended: not reached — it runs");
+    await expect(incidents.locator(".layer-truth")).toContainText("kernel's truth");
+    if (shots) await page.locator("#incidents-panel").screenshot({ path: `${shots}/incident-page.png` });
+    await incidents.locator(".incident-links").getByRole("button", { name: /^Part of the outbreak/ }).click();
+    await expect(incidents.locator(".outbreak-cause")).toContainText(`Began with ${name}, brought by the observer`);
+    await expect(incidents.locator(".outbreak-routes")).toContainText("1 brought by the observer");
+    await expect(incidents.locator("svg.outbreak-curve")).toHaveCount(1);
+    if (shots) await page.locator("#incidents-panel").screenshot({ path: `${shots}/outbreak-page.png` });
+    await incidents.locator(".incident-back").click();
+    await expect(row).toHaveCount(1);
+
     // A second time is refused while it runs in them, and nothing more is recorded.
     await inspector.getByLabel("Bring").selectOption({ label: "Cholera" });
     await inspector.getByRole("button", { name: "Bring it" }).click();

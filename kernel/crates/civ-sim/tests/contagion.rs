@@ -480,3 +480,265 @@ fn loads_stores_loads_underway_and_moves_save_load_and_go_on_alike() {
     loaded.advance_minutes(4 * DAY).expect("advances");
     same(&sim, &loaded);
 }
+
+#[test]
+fn the_incidents_list_every_case_and_an_outbreak_s_page_traces_the_well_its_water_came_from() {
+    // Wire 1.64 (M6a slice BB, ADR-0015 §8).
+    use civ_agents::contagion::Move;
+    use civ_agents::uses::Place;
+    use civ_agents::word::{Counts, Suspicion};
+    use civ_schema::{flatbuffers, wire};
+    use civ_sim::frames::incidents::{self, ILLNESS, TAKING};
+
+    let (mut sim, h, well) = an_open_well();
+    let d = cholera(&sim);
+    {
+        let rules = sim.rules_mut_for_tests().expect("the rules are not shared");
+        let def = &mut rules.catalog.diseases[usize::from(d)];
+        def.household_hazard = 0.0;
+        def.severe_death_per_day = 0.0;
+    }
+    // The observer brings cholera to someone of the well's household: the outbreak's first case.
+    let (_, members) = household(&sim, h);
+    sim.plague(members[0], CHOLERA).expect("brought");
+    // Another household's water, drawn at the well, holds a heavy load of it just before
+    // midnight; a wet day had washed some into the well from the first household's heap.
+    let other = households(&sim)
+        .into_iter()
+        .find(|&x| x != h)
+        .expect("another household");
+    to_morning(&mut sim, 0);
+    sim.advance_minutes(DAY - 2).expect("lives");
+    set_water(&mut sim, other, 200.0);
+    let day = sim.now().day_index();
+    {
+        let pop = sim.people_mut_for_tests();
+        pop.contagion.store_add(other, d, Node::Well(well), 1.0e6);
+        pop.contagion.moves.push(Move {
+            day,
+            disease: d,
+            how: How::Runoff,
+            from: Node::Midden(h),
+            to: Node::Well(well),
+            amount: 120.0,
+        });
+    }
+    sim.advance_minutes(4).expect("lives past midnight");
+    let episodes = sim.people().sickness.episodes().to_vec();
+    let (_, others) = household(&sim, other);
+    assert_eq!(episodes.len(), 1 + others.len());
+    assert!(episodes.iter().all(|e| e.outbreak == Some(1)));
+    // Each case keeps the household it began in (saves 85).
+    assert_eq!(episodes[0].household, Some(h));
+    assert!(episodes[1..].iter().all(|e| e.household == Some(other)));
+
+    // The list: every case, newest first, all of them the observer's, since it began the
+    // outbreak.
+    let bytes = incidents::incidents_response(&sim, None, ILLNESS, None, 0);
+    let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+    let list = response.body_as_incidents().expect("incidents");
+    let rows = list.rows().expect("rows");
+    assert_eq!(rows.len(), episodes.len());
+    assert!(list.next().is_none());
+    let observers = rows.get(rows.len() - 1);
+    assert_eq!((observers.kind(), observers.id()), (ILLNESS, 1));
+    let happened = observers.happened().unwrap_or_default();
+    assert!(
+        happened.starts_with("took cholera on ")
+            && happened.contains(", brought by the observer as if they took it elsewhere"),
+        "{happened}"
+    );
+    assert!(
+        observers
+            .known()
+            .is_some_and(|k| k.starts_with("Nobody knows of it")),
+        "{:?}",
+        observers.known()
+    );
+    assert_eq!(observers.polity(), Some("No law names it"));
+    assert!(observers.observer() > 0);
+    assert_eq!(observers.outbreak(), 1);
+    let drank = rows.get(0);
+    let happened = drank.happened().unwrap_or_default();
+    assert!(
+        happened.contains(" in water drawn at ") && happened.contains("'s household's well"),
+        "{happened}"
+    );
+    assert!(
+        drank
+            .polity()
+            .is_some_and(|p| p.starts_with("No law names ") && p.ends_with("'s household's well")),
+        "{:?}",
+        drank.polity()
+    );
+    let total = list
+        .totals()
+        .expect("totals")
+        .iter()
+        .find(|t| t.kind() == ILLNESS)
+        .expect("illness counted");
+    assert_eq!(
+        (total.all(), total.observer(), total.polity()),
+        (episodes.len() as u32, episodes.len() as u32, 0)
+    );
+    let outbreaks = list.outbreaks().expect("outbreaks");
+    assert_eq!(outbreaks.len(), 1);
+    assert!(
+        outbreaks
+            .get(0)
+            .words()
+            .is_some_and(|w| w.starts_with("Cholera at ") && w.ends_with("; it runs")),
+        "{:?}",
+        outbreaks.get(0).words()
+    );
+    // A page at a time, each going on from where the last stopped.
+    let mut paged = Vec::new();
+    let mut before = None;
+    loop {
+        let bytes = incidents::incidents_response(&sim, None, ILLNESS, before, 1);
+        let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+        let page = response.body_as_incidents().expect("incidents");
+        paged.extend(page.rows().expect("rows").iter().map(|r| r.id()));
+        match page.next() {
+            Some(k) => before = Some((k.minute(), k.kind(), k.id())),
+            None => break,
+        }
+    }
+    assert_eq!(paged, rows.iter().map(|r| r.id()).collect::<Vec<_>>());
+    // Another settlement's list has none of them.
+    let bytes = incidents::incidents_response(&sim, PermanentId::from_raw(999_999), 0, None, 0);
+    let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+    assert_eq!(
+        response
+            .body_as_incidents()
+            .and_then(|l| l.rows())
+            .map(|r| r.len()),
+        Some(0)
+    );
+
+    // A case's page: its steps in order, each reached or not, and its links.
+    let bytes = incidents::incident_response(&sim, ILLNESS, 1).expect("a page");
+    let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+    let info = response.body_as_incident_info().expect("a page");
+    let steps = info.steps().expect("steps");
+    let labels: Vec<&str> = steps
+        .iter()
+        .map(|s| s.label().unwrap_or_default())
+        .collect();
+    assert_eq!(
+        labels,
+        ["Took it", "Shed it", "Fell ill", "Seen", "Tended", "Ended"]
+    );
+    assert_eq!((steps.get(0).state(), steps.get(0).by_day()), (0, true));
+    assert_eq!(
+        (steps.get(5).state(), steps.get(5).words()),
+        (1, Some("it runs"))
+    );
+    let links: Vec<(u8, u8, u64)> = info
+        .links()
+        .expect("links")
+        .iter()
+        .map(|l| (l.relation(), l.target(), l.id()))
+        .collect();
+    assert!(links.contains(&(1, 4, 1)), "part of outbreak 1: {links:?}");
+    assert!(
+        links.iter().any(|&(r, t, _)| (r, t) == (0, 0)),
+        "caused by the observer: {links:?}"
+    );
+    assert!(incidents::incident_response(&sim, ILLNESS, 999).is_none());
+    assert!(incidents::incident_response(&sim, TAKING, 999).is_none());
+    assert!(incidents::incident_response(&sim, 7, 1).is_none());
+
+    // The outbreak's page traces its cases to the well, the truth beside what people hold.
+    let page = |sim: &Sim| incidents::outbreak_response(sim, 1, 0).expect("a page");
+    let bytes = page(&sim);
+    let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+    let info = response.body_as_outbreak_info().expect("an outbreak");
+    let row = info.row().expect("its row");
+    assert_eq!(row.took(), episodes.len() as u32);
+    assert!(row.observer() > 0);
+    let cause = info.cause().unwrap_or_default();
+    assert!(
+        cause.starts_with("Began with ") && cause.contains("brought by the observer"),
+        "{cause}"
+    );
+    assert_eq!(info.cause_link().map(|l| l.target()), Some(0));
+    let took: u32 = info.took().expect("a curve").iter().map(u32::from).sum();
+    assert_eq!(took, episodes.len() as u32);
+    let routes: Vec<&str> = info.routes().expect("routes").iter().collect();
+    assert!(routes.contains(&"1 brought by the observer"), "{routes:?}");
+    assert!(
+        routes
+            .iter()
+            .any(|r| r.starts_with(&format!("{} in water drawn at ", others.len()))),
+        "{routes:?}"
+    );
+    let sources = info.sources().expect("sources");
+    let first = sources.get(0);
+    assert!(
+        first
+            .name()
+            .is_some_and(|n| n.ends_with("'s household's well")),
+        "{:?}",
+        first.name()
+    );
+    assert_eq!(first.cases(), others.len() as u32);
+    let truth: Vec<&str> = first.truth().expect("truth").iter().collect();
+    assert!(
+        truth[0].starts_with("Of ") && truth[0].contains("that drew there since it began"),
+        "{truth:?}"
+    );
+    assert!(
+        truth[1].starts_with("Fouled from ")
+            && truth[1].contains("120 doses washed from the heap of "),
+        "{truth:?}"
+    );
+    let knowledge: Vec<&str> = first.knowledge().expect("knowledge").iter().collect();
+    assert_eq!(knowledge, ["Nobody suspects it"]);
+    let polity: Vec<&str> = first.polity().expect("polity").iter().collect();
+    assert_eq!(polity, ["No law names it"]);
+    assert_eq!(info.members_total(), episodes.len() as u32);
+    assert_eq!(info.members().map(|m| m.len()), Some(episodes.len()));
+    assert!(incidents::outbreak_response(&sim, 99, 0).is_none());
+
+    // Someone comes to suspect the well: what people hold changes, and only that.
+    let cell = sim.land().wells.get(well).expect("the well").cell;
+    let holder = others[0];
+    {
+        let pop = sim.people_mut_for_tests();
+        pop.word.suspicions.push(Suspicion {
+            holder,
+            source: Place::Source(cell),
+            since: day,
+            counts: Counts::default(),
+        });
+        pop.word.suspicions.sort_by_key(|s| (s.holder, s.source));
+    }
+    let bytes = page(&sim);
+    let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+    let info = response.body_as_outbreak_info().expect("an outbreak");
+    let first = info.sources().expect("sources").get(0);
+    let knowledge: Vec<&str> = first.knowledge().expect("knowledge").iter().collect();
+    assert!(
+        knowledge[0].starts_with("1 person suspects it, the first since "),
+        "{knowledge:?}"
+    );
+    assert_eq!(first.truth().map(|t| t.len()), Some(truth.len()));
+
+    // Saved and loaded, the cases keep their households and every page reads the same.
+    let loaded = reloaded(&mut sim);
+    assert_eq!(
+        incidents::incidents_response(&loaded, None, 0, None, 0),
+        incidents::incidents_response(&sim, None, 0, None, 0)
+    );
+    assert_eq!(page(&loaded), page(&sim));
+    assert_eq!(
+        incidents::incident_response(&loaded, ILLNESS, 2),
+        incidents::incident_response(&sim, ILLNESS, 2)
+    );
+    // While a case runs, the revision moves on with each day lived.
+    let rev = incidents::incidents_rev(&sim);
+    assert!(rev > 0);
+    to_morning(&mut sim, 0);
+    assert_ne!(incidents::incidents_rev(&sim), rev);
+}

@@ -10,6 +10,9 @@ import type {
   FirmInfo,
   GovernmentInfo,
   OrderInfo,
+  IncidentsInfo,
+  IncidentInfo,
+  OutbreakInfo,
   KnowledgeInfo,
   MarketInfo,
   PersonInfo,
@@ -113,6 +116,17 @@ export interface AppState {
   order: OrderInfo | null;
   /** Why the takings could not be read. */
   orderError: string | null;
+  /** The Incidents panel's kind (0 every kind, 1 takings, 2 illness; wire 1.64). */
+  incidentKind: number;
+  /** The incidents read so far, newest first, with where the next page goes on from (null = not
+   * read yet). */
+  incidents: IncidentsInfo | null;
+  /** Why the incidents could not be read. */
+  incidentsError: string | null;
+  /** An incident's page, when one is open in the panel. */
+  incidentPage: { kind: number; id: number; info: IncidentInfo | null; error: string | null } | null;
+  /** An outbreak's page, when one is open in the panel. */
+  outbreakPage: { id: number; info: OutbreakInfo | null; error: string | null } | null;
 }
 
 export const MAX_EVENTS = 300;
@@ -158,6 +172,11 @@ export function initialState(): AppState {
     governmentError: null,
     order: null,
     orderError: null,
+    incidentKind: 0,
+    incidents: null,
+    incidentsError: null,
+    incidentPage: null,
+    outbreakPage: null,
   };
 }
 

@@ -570,6 +570,57 @@ fn under_a_law_against_taking_cases_are_brought_heard_and_their_findings_owed() 
     let told = |k: civ_agents::ChronicleKind| pop.chronicle.iter().any(|e| e.kind == k);
     assert!(told(civ_agents::ChronicleKind::CaseBrought));
     assert!(told(civ_agents::ChronicleKind::CaseHeard));
+    // The incidents list every taking, and a heard case's page tells its steps through the
+    // gathering's decision (wire 1.64, M6a slice BB).
+    {
+        use civ_schema::{flatbuffers, wire};
+        use civ_sim::frames::incidents::{self, TAKING};
+        let bytes = incidents::incidents_response(&sim, None, TAKING, None, 200);
+        let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+        let list = response.body_as_incidents().expect("incidents");
+        let total = list
+            .totals()
+            .expect("totals")
+            .iter()
+            .find(|t| t.kind() == TAKING)
+            .expect("takings counted");
+        assert_eq!(total.all() as usize, order.incidents.len());
+        assert!(total.polity() as usize >= 1 && total.polity() as usize <= order.cases.len());
+        assert_eq!(
+            list.rows().map(|r| r.len()),
+            Some(order.incidents.len().min(200))
+        );
+        let c = order
+            .cases
+            .iter()
+            .find(|c| c.stage != CaseStage::Open)
+            .expect("a heard case");
+        let bytes = incidents::incident_response(&sim, TAKING, c.incident).expect("a page");
+        let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+        let info = response.body_as_incident_info().expect("a page");
+        let steps: Vec<(&str, u8)> = info
+            .steps()
+            .expect("steps")
+            .iter()
+            .map(|s| (s.label().unwrap_or_default(), s.state()))
+            .collect();
+        assert_eq!(steps[0], ("Went to take", 0));
+        assert_eq!(steps[1], ("Seen", 0));
+        assert_eq!(steps[5], ("Before the gathering", 0));
+        assert_eq!(steps[6], ("Decided", 0));
+        let row = info.row().expect("its row");
+        assert!(
+            row.polity()
+                .is_some_and(|p| p.contains(" brought it before the gathering on the word of ")),
+            "{:?}",
+            row.polity()
+        );
+        assert!(
+            row.happened().is_some_and(|h| h.contains("; seen by ")),
+            "{:?}",
+            row.happened()
+        );
+    }
     // A loaded world runs by the content's rules: so must this one, to go on alike.
     sim.rules_mut_for_tests()
         .expect("rules not yet shared")

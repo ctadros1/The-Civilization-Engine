@@ -1564,6 +1564,86 @@ button.link:hover {
   border-left: 2px dashed var(--line);
 }
 
+/* Wire 1.64 (M6a slice BB): one Incidents panel for every kind, each incident's layers kept
+   apart, its page with stamped steps and links, and an outbreak's page with its sources. Neutral
+   colours only: direction and size, never desirability. */
+.incidents-panel .incident-kind {
+  margin-left: 0.3rem;
+}
+.incidents-panel .incident-totals,
+.incidents-panel .outbreaks {
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+}
+.incidents-panel .incidents {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+.incidents-panel .incident {
+  margin-bottom: 0.5rem;
+}
+.incidents-panel .incident-open,
+.incidents-panel .outbreak-open {
+  font-size: 0.85em;
+}
+.incidents-panel .incident-steps {
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+}
+.incidents-panel .step-not-reached,
+.incidents-panel .step-not-recorded {
+  color: var(--muted);
+  font-style: italic;
+}
+.incidents-panel .incident-links {
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+  font-size: 0.9em;
+}
+.incidents-panel .incident-layers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.4rem 1rem;
+}
+.incidents-panel .layer-block h4 {
+  margin: 0.3rem 0 0.2rem;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+.incidents-panel .layer-block ul {
+  margin: 0;
+  padding-left: 1rem;
+}
+.incidents-panel .layer-known {
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--line);
+}
+.incidents-panel .layer-polity {
+  padding-left: 0.6rem;
+  border-left: 2px dashed var(--line);
+}
+.incidents-panel .outbreak-source {
+  margin: 0.4rem 0 0.6rem;
+}
+.incidents-panel .source-name {
+  margin: 0.2rem 0;
+  font-weight: 600;
+}
+.incidents-panel .outbreak-curve {
+  display: block;
+  width: 100%;
+  height: 3rem;
+  margin: 0.3rem 0;
+}
+.incidents-panel .outbreak-curve .took {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 0.6;
+}
+.incidents-panel .outbreak-curve .onset {
+  fill: var(--text);
+}
+
 /* Wire 1.58: an agreement between two polities, each side's law history side by side. */
 .relations .agreement {
   padding-left: 0.6rem;

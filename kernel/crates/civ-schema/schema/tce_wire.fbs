@@ -383,6 +383,10 @@ table Snapshot {
   // relined, given up or falls in, and with each day lived while the world has wells or springs
   // (0 = neither). Fetch them with GetWater when it differs from the revision last fetched.
   water_rev: ulong (id: 20);
+  // Wire 1.64 (M6a slice BB, ADR-0015 §8): changes whenever an incident or an outbreak opens,
+  // moves on or ends, or what people know of one or what a polity did about one changes (0 = no
+  // incident yet). Fetch them with GetIncidents when it differs from the revision last fetched.
+  incidents_rev: ulong (id: 21);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -628,7 +632,41 @@ table GetCrossings {}
 // Wire 1.61 (M6a slice AY): the wells and springs.
 table GetWater {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater }
+// Wire 1.64 (M6a slice BB, ADR-0015 §8): where a list of incidents goes on from: the newest
+// first, ordered by when each began, then its kind, then its number.
+struct IncidentKey {
+  minute: long;
+  kind: ubyte;
+  id: uint;
+}
+
+// Wire 1.64: incidents of every kind in one shape, newest first, a page at a time. Kinds: 1 a
+// taking (ADR-0015 §1), 2 a case of illness (an infection, ADR-0021 §5).
+table GetIncidents {
+  // A settlement's permanent id; 0 for every settlement.
+  settlement: ulong (id: 0);
+  // 0 for every kind.
+  kind: ubyte (id: 1);
+  // Absent for the newest; else the `next` of the page before.
+  before: IncidentKey (id: 2);
+  // 0 for the default of 50; at most 200.
+  limit: uint (id: 3);
+}
+
+// Wire 1.64: one incident's page: its steps, its links and its three layers.
+table GetIncident {
+  kind: ubyte (id: 0);
+  id: uint (id: 1);
+}
+
+// Wire 1.64: one outbreak's page: its counts, its cause, its curve, its sources and its cases.
+table GetOutbreak {
+  id: uint (id: 0);
+  // How many of its cases to list, newest first: 0 for the default of 100; at most 500.
+  limit: uint (id: 1);
+}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak }
 
 table Query {
   body: QueryBody (id: 1);
@@ -2109,7 +2147,161 @@ table Order {
   encounters: [string] (id: 15);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water }
+// ---- Incidents (wire 1.64, M6a slice BB, ADR-0015 §8) ---------------------------------------
+//
+// Every kind of incident in one shape, its three layers kept apart and each in the kernel's
+// words: what happened (the kernel's truth, which nobody in the world reads), what people know
+// (beliefs and word with their sources) and what the polity knows and did (its cases and laws).
+// A layer with nothing in it says so; it is never filled from the truth.
+
+table IncidentRow {
+  // 1 a taking, 2 a case of illness.
+  kind: ubyte (id: 0);
+  // Its number among incidents of its kind.
+  id: uint (id: 1);
+  // When it began: a taking to the minute, an infection to the day (its midnight).
+  minute: long (id: 2);
+  // The settlement it belongs to (0 for none).
+  settlement: ulong (id: 3);
+  // Where it happened, metres: the home taken from, or the home of the one who took ill.
+  at: Vec2 (id: 4);
+  // Whom the words begin with: the one who went to take, or the one who took ill.
+  who: ulong (id: 5);
+  who_name: string (id: 6);
+  // What happened, after the name: "took 12 kg of grain from the household of Rilla on 4 May of
+  // year 3; seen by Bram", "took cholera on 3 May of year 2 in water drawn at Bo's household's
+  // well; ill 4 days, severely; died on 7 May of year 2".
+  happened: string (id: 7);
+  // What people know: "5 believe they know who took, from 1 account", "Known to 12 people as
+  // sickness in Bo's household, from 1 first-hand account", "Nobody knows of it".
+  known: string (id: 8);
+  // What the polity knows and did: the case brought for it, or the law that names its source;
+  // "No gathering was told of it" when nothing.
+  polity: string (id: 9);
+  // The observer's influence that started it, by number (0: none): a case of an outbreak whose
+  // first case the observer brought counts as the observer's.
+  observer: uint (id: 10);
+  // The outbreak it is part of, by number (0: none).
+  outbreak: uint (id: 11);
+  // Whether it still runs: an infection not yet over.
+  open: bool (id: 12);
+}
+
+// How many incidents of a kind there are, in the scope asked: all of them (the kernel's truth),
+// those someone in the world knows of, those before a polity, and those the observer started.
+table IncidentTotal {
+  kind: ubyte (id: 0);
+  all: uint (id: 1);
+  known: uint (id: 2);
+  polity: uint (id: 3);
+  observer: uint (id: 4);
+}
+
+// An outbreak (ADR-0021 §5): the episode its cases are part of.
+table OutbreakRow {
+  id: uint (id: 0);
+  // The disease's name.
+  disease: string (id: 1);
+  settlement: ulong (id: 2);
+  // The day it began and the day it was over, as minutes (ended -1 while it runs).
+  began: long (id: 3);
+  ended: long (id: 4);
+  // Those who took it, those who fell ill and those who died of it.
+  took: uint (id: 5);
+  ill: uint (id: 6);
+  died: uint (id: 7);
+  // The observer's influence that began it, by number (0: none).
+  observer: uint (id: 8);
+  // In words: "Cholera at Hazelford, from 3 May of year 2: 14 took it, 9 fell ill, 2 died; it
+  // runs".
+  words: string (id: 9);
+}
+
+table Incidents {
+  minute: long (id: 0);
+  // Newest first.
+  rows: [IncidentRow] (id: 1);
+  // Where the next page begins; absent when this page is the last.
+  next: IncidentKey (id: 2);
+  // One for each kind, over all time in the scope asked.
+  totals: [IncidentTotal] (id: 3);
+  // Every outbreak in the scope asked, newest first.
+  outbreaks: [OutbreakRow] (id: 4);
+}
+
+// A step in an incident's chain (12-07 §1.1): it began, was seen, was told, was answered, ended.
+table IncidentStep {
+  // "Took it", "Fell ill", "Seen", "Told", "Before the gathering", "Ended".
+  label: string (id: 0);
+  // When, as a minute (-1 when not reached or not recorded).
+  minute: long (id: 1);
+  // 0 reached, 1 not reached, 2 not recorded.
+  state: ubyte (id: 2);
+  // Known only to the day: the observer shows the day, never an hour.
+  by_day: bool (id: 3);
+  // What the step was, in words: "by Bram and Ada", "by their household".
+  words: string (id: 4);
+}
+
+// A typed link, recorded when it happened (15-02 §1.1): never inferred from time.
+table IncidentLink {
+  // 0 caused_by, 1 part_of, 2 responded_to.
+  relation: ubyte (id: 0);
+  // What it points at: 0 an influence of the observer, 1 a person, 2 a household, 3 a source of
+  // water, 4 an outbreak, 5 a taking, 6 a case of illness.
+  target: ubyte (id: 1);
+  id: ulong (id: 2);
+  // In words: "brought by the observer (one recorded influence)", "part of the outbreak of
+  // cholera at Hazelford", "caught in water drawn at Bo's household's well".
+  words: string (id: 3);
+}
+
+table IncidentInfo {
+  row: IncidentRow (id: 0);
+  steps: [IncidentStep] (id: 1);
+  links: [IncidentLink] (id: 2);
+  // Each layer in lines, kept apart.
+  truth: [string] (id: 3);
+  knowledge: [string] (id: 4);
+  polity: [string] (id: 5);
+}
+
+// A source of water an outbreak's cases drank from, or one people suspect, with what the kernel
+// recorded beside what people know and what the polity did.
+table OutbreakSource {
+  // "Bo's household's well", "the river", "the spring near Ada's household's home".
+  name: string (id: 0);
+  // Cases that took it in water drawn there.
+  cases: uint (id: 1);
+  // The truth: who drew there and who fell ill among them and among the rest; what fouled it.
+  truth: [string] (id: 2);
+  // What people hold: who suspects it, since when, on what counts.
+  knowledge: [string] (id: 3);
+  // What the polity did: the laws that would close it, and how each was decided.
+  polity: [string] (id: 4);
+}
+
+table OutbreakInfo {
+  row: OutbreakRow (id: 0);
+  // How it began, in words: "Began with Ada, brought cholera by the observer, as if they took it
+  // elsewhere (one recorded influence)".
+  cause: string (id: 1);
+  // The first case's own link: the observer's influence, a household or a source.
+  cause_link: IncidentLink (id: 2);
+  // Cases by day from the day it began: those who took it, and those who fell ill.
+  start: long (id: 3);
+  took: [ushort] (id: 4);
+  onset: [ushort] (id: 5);
+  // How its cases took it, in words: "9 in water drawn at Bo's household's well", "4 at home",
+  // "1 brought by the observer".
+  routes: [string] (id: 6);
+  sources: [OutbreakSource] (id: 7);
+  // Its cases, newest first, at most the limit asked.
+  members: [IncidentRow] (id: 8);
+  members_total: uint (id: 9);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo }
 
 table Response {
   body: ResponseBody (id: 1);

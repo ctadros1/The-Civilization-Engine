@@ -33,6 +33,7 @@ pub mod earthworks;
 pub mod fields;
 pub mod firms;
 pub mod government;
+pub mod incidents;
 pub mod knowledge;
 pub mod markets;
 pub mod order;

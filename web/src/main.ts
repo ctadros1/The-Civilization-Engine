@@ -78,6 +78,7 @@ const client = new HostClient(socketUrl(), {
     void syncStanding();
     void syncGovernment();
     void syncOrder();
+    void syncIncidents();
     void syncDeposits();
     void syncEarthworks();
     void syncCrossings();
@@ -825,6 +826,123 @@ async function drought(months: number, depth: number): Promise<void> {
   void syncWeather();
 }
 
+// ---- Incidents (wire 1.64, M6a slice BB) -----------------------------------------------------
+
+/** `epoch:world:revision:kind` of the incidents shown, and the world they belong to. */
+let incidentsKey = "";
+let incidentsWorld = "";
+let incidentsBusy = false;
+/** Rows a first page asks for: as many as are shown, so new incidents never cut the list short. */
+const INCIDENT_PAGE = 50;
+
+/** Fetches the incidents, and the page open, when an incident or what is known of one changes. */
+async function syncIncidents(): Promise<void> {
+  const s = store.state;
+  const world = s.snapshot?.world;
+  if (!world) return;
+  if (world.worldId !== incidentsWorld) {
+    incidentsWorld = world.worldId;
+    incidentsKey = "";
+    store.update({ incidents: null, incidentsError: null, incidentPage: null, outbreakPage: null });
+  }
+  const rev = s.snapshot?.incidentsRev ?? 0;
+  const key = `${s.epoch}:${world.worldId}:${rev}:${s.incidentKind}`;
+  if (key === incidentsKey || incidentsBusy) return;
+  incidentsBusy = true;
+  const worldKey = world.worldId;
+  let ok = false;
+  try {
+    const shown = s.incidents?.rows.length ?? 0;
+    const limit = Math.min(200, Math.max(INCIDENT_PAGE, shown));
+    const incidents = await client.incidents(0, s.incidentKind, null, limit);
+    if (incidentsWorld === worldKey) {
+      incidentsKey = key;
+      store.update({ incidents, incidentsError: null });
+      ok = true;
+    }
+  } catch (e) {
+    if (incidentsWorld === worldKey) store.update({ incidentsError: errorText(e) });
+  } finally {
+    incidentsBusy = false;
+  }
+  if (ok) {
+    const page = store.state.incidentPage;
+    if (page) void loadIncident(page.kind, page.id);
+    const outbreak = store.state.outbreakPage;
+    if (outbreak) void loadOutbreak(outbreak.id);
+    void syncIncidents();
+  }
+}
+
+/** Shows incidents of one kind (0 every kind) in the panel. */
+function setIncidentKind(kind: number): void {
+  if (kind === store.state.incidentKind) return;
+  store.update({ incidentKind: kind, incidents: null, incidentsError: null });
+  incidentsKey = "";
+  void syncIncidents();
+}
+
+/** Reads the next page of incidents and adds it to those shown. */
+async function moreIncidents(): Promise<void> {
+  const shown = store.state.incidents;
+  if (!shown?.next || incidentsBusy) return;
+  incidentsBusy = true;
+  try {
+    const page = await client.incidents(0, store.state.incidentKind, shown.next, INCIDENT_PAGE);
+    if (store.state.incidents === shown) {
+      store.update({ incidents: { ...page, rows: [...shown.rows, ...page.rows] } });
+    }
+  } catch (e) {
+    store.update({ incidentsError: errorText(e) });
+  } finally {
+    incidentsBusy = false;
+  }
+}
+
+async function loadIncident(kind: number, id: number): Promise<void> {
+  try {
+    const info = await client.incident(kind, id);
+    const page = store.state.incidentPage;
+    if (page && page.kind === kind && page.id === id) {
+      store.update({ incidentPage: { kind, id, info, error: null } });
+    }
+  } catch (e) {
+    const page = store.state.incidentPage;
+    if (page && page.kind === kind && page.id === id) {
+      store.update({ incidentPage: { ...page, error: errorText(e) } });
+    }
+  }
+}
+
+async function loadOutbreak(id: number): Promise<void> {
+  try {
+    const info = await client.outbreak(id, 0);
+    if (store.state.outbreakPage?.id === id) {
+      store.update({ outbreakPage: { id, info, error: null } });
+    }
+  } catch (e) {
+    const page = store.state.outbreakPage;
+    if (page?.id === id) store.update({ outbreakPage: { ...page, error: errorText(e) } });
+  }
+}
+
+/** Opens an incident's page in the Incidents panel. */
+function openIncident(kind: number, id: number): void {
+  store.update({ incidentPage: { kind, id, info: null, error: null }, outbreakPage: null });
+  void loadIncident(kind, id);
+}
+
+/** Opens an outbreak's page in the Incidents panel. */
+function openOutbreak(id: number): void {
+  store.update({ outbreakPage: { id, info: null, error: null }, incidentPage: null });
+  void loadOutbreak(id);
+}
+
+/** Back to the list of incidents. */
+function closeIncidentPage(): void {
+  store.update({ incidentPage: null, outbreakPage: null });
+}
+
 /** Opens workshop `id`'s page in the workshops panel, or goes back to the list. */
 function openFirm(id: number | null): void {
   store.update({ firm: id === null ? null : { id, info: null, error: null } });
@@ -982,6 +1100,11 @@ bindUi(store, {
     if (s) lookAt(s.x, s.y, 0.5);
   },
   openFirm,
+  setIncidentKind,
+  moreIncidents: () => void moreIncidents(),
+  openIncident,
+  openOutbreak,
+  closeIncidentPage,
   runAhead: async (minutes) => {
     const clock = store.state.snapshot?.clock;
     if (clock) await command(M.runUntil(clock.minute + minutes));
@@ -1185,6 +1308,45 @@ const hooks = {
             })),
           }
         : null,
+      incidentKind: s.incidentKind,
+      incidents: s.incidents
+        ? {
+            next: s.incidents.next,
+            totals: s.incidents.totals,
+            outbreaks: s.incidents.outbreaks,
+            rows: s.incidents.rows.map((r) => ({
+              kind: r.kind,
+              id: r.id,
+              who: r.whoName,
+              happened: r.happened,
+              known: r.known,
+              polity: r.polity,
+              observer: r.observer,
+              outbreak: r.outbreak,
+            })),
+          }
+        : null,
+      incidentPage: s.incidentPage?.info
+        ? {
+            kind: s.incidentPage.kind,
+            id: s.incidentPage.id,
+            steps: s.incidentPage.info.steps,
+            links: s.incidentPage.info.links,
+            truth: s.incidentPage.info.truth,
+            knowledge: s.incidentPage.info.knowledge,
+            polity: s.incidentPage.info.polity,
+          }
+        : null,
+      outbreakPage: s.outbreakPage?.info
+        ? {
+            row: s.outbreakPage.info.row,
+            cause: s.outbreakPage.info.cause,
+            routes: s.outbreakPage.info.routes,
+            sources: s.outbreakPage.info.sources,
+            members: s.outbreakPage.info.members.length,
+            membersTotal: s.outbreakPage.info.membersTotal,
+          }
+        : null,
       order: s.order
         ? {
             minute: s.order.minute,
@@ -1311,6 +1473,8 @@ const hooks = {
     store.state.snapshot?.people.map((p) => ({ id: p.id, sex: p.sex, ageYears: p.ageYears })) ?? [],
   select: (id: number | null) => select(id),
   openFirm: (id: number | null) => openFirm(id),
+  openIncident: (kind: number, id: number) => openIncident(kind, id),
+  openOutbreak: (id: number) => openOutbreak(id),
   /** Introduces a technique, by content id, to a person (god tool). */
   introduceTechnique: (person: number, id: string, awareOnly: boolean) => {
     const technique = store.state.welcome?.techniques.findIndex((t) => t.id === id) ?? -1;

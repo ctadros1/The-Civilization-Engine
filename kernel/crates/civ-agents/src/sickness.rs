@@ -208,6 +208,9 @@ pub struct Episode {
     /// Its number, from 1, in the order infections came.
     pub id: u32,
     pub person: PermanentId,
+    /// The household they lived in when they took it (M6a slice BB, schema 85): where the
+    /// incident happened. `None` from an older save.
+    pub household: Option<PermanentId>,
     /// Its disease, by index in the catalog's diseases.
     pub disease: u16,
     /// The day it came, and how.
@@ -400,9 +403,11 @@ impl Sickness {
     }
 
     /// Records a new infection, numbered here; returns its index.
+    #[allow(clippy::too_many_arguments)]
     pub fn add(
         &mut self,
         person: PermanentId,
+        household: Option<PermanentId>,
         disease: u16,
         day: i64,
         acquired: Acquired,
@@ -412,6 +417,7 @@ impl Sickness {
         self.push(Episode {
             id,
             person,
+            household,
             disease,
             infected: day,
             acquired,
@@ -585,7 +591,7 @@ mod tests {
             immune_until: 1_000,
         };
         assert!(!s.protected(id, 0, 10));
-        let i = s.add(id, 0, 10, Acquired::Observer { influence: 1 }, course);
+        let i = s.add(id, None, 0, 10, Acquired::Observer { influence: 1 }, course);
         assert!(s.protected(id, 0, 10) && !s.protected(id, 1, 10));
         assert!(!s.ill(id, 10) && s.ill(id, 11) && s.ill(id, 13) && !s.ill(id, 14));
         assert!(s.get(i).is_some_and(|e| e.shedding(14) && !e.shedding(15)));

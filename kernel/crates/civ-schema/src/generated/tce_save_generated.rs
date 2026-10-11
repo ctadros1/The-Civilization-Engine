@@ -36647,6 +36647,7 @@ impl<'a> EpisodeSave<'a> {
   pub const VT_CARE_RR: ::flatbuffers::VOffsetT = 40;
   pub const VT_CARE_TOTAL_H: ::flatbuffers::VOffsetT = 42;
   pub const VT_OUTBREAK: ::flatbuffers::VOffsetT = 44;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 46;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -36658,6 +36659,7 @@ impl<'a> EpisodeSave<'a> {
     args: &'args EpisodeSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<EpisodeSave<'bldr>> {
     let mut builder = EpisodeSaveBuilder::new(_fbb);
+    builder.add_household(args.household);
     builder.add_care_day(args.care_day);
     builder.add_care_by(args.care_by);
     builder.add_care_first(args.care_first);
@@ -36830,6 +36832,13 @@ impl<'a> EpisodeSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(EpisodeSave::VT_OUTBREAK, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(EpisodeSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for EpisodeSave<'_> {
@@ -36859,6 +36868,7 @@ impl ::flatbuffers::Verifiable for EpisodeSave<'_> {
      .visit_field::<f32>("care_rr", Self::VT_CARE_RR, false)?
      .visit_field::<f32>("care_total_h", Self::VT_CARE_TOTAL_H, false)?
      .visit_field::<u32>("outbreak", Self::VT_OUTBREAK, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
      .finish();
     Ok(())
   }
@@ -36885,6 +36895,7 @@ pub struct EpisodeSaveArgs<'a> {
     pub care_rr: f32,
     pub care_total_h: f32,
     pub outbreak: u32,
+    pub household: u64,
 }
 impl<'a> Default for EpisodeSaveArgs<'a> {
   #[inline]
@@ -36911,6 +36922,7 @@ impl<'a> Default for EpisodeSaveArgs<'a> {
       care_rr: 1.0,
       care_total_h: 0.0,
       outbreak: 0,
+      household: 0,
     }
   }
 }
@@ -37005,6 +37017,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EpisodeSaveBuilder<'a, 'b, A>
     self.fbb_.push_slot::<u32>(EpisodeSave::VT_OUTBREAK, outbreak, 0);
   }
   #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(EpisodeSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EpisodeSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     EpisodeSaveBuilder {
@@ -37043,6 +37059,7 @@ impl ::core::fmt::Debug for EpisodeSave<'_> {
       ds.field("care_rr", &self.care_rr());
       ds.field("care_total_h", &self.care_total_h());
       ds.field("outbreak", &self.outbreak());
+      ds.field("household", &self.household());
       ds.finish()
   }
 }

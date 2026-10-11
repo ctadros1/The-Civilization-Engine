@@ -4,7 +4,9 @@
 //! from members who shed it; the severely ill die of it by their own draws, the record naming the
 //! disease; the household tends its sick, and a day of care lowers that day's risk, a carer who
 //! knows fluid replacement lowering cholera's further and teaching it at home; and infections and
-//! their care save and load exactly.
+//! their care save and load exactly. Sickness seen (M6a slice BA, step one; ADR-0021 §6): a
+//! household's members see someone of theirs abed and its close kin learn of a death of it, and
+//! word of it goes round as any word does.
 
 use std::path::Path;
 use std::sync::OnceLock;
@@ -512,4 +514,143 @@ fn infections_save_load_and_go_on_alike() {
     sim.advance_minutes(3 * DAY).expect("advances");
     loaded.advance_minutes(3 * DAY).expect("advances");
     same(&sim, &loaded);
+}
+
+/// Cholera that nobody takes from anyone and that sheds nothing: only the one brought falls ill.
+fn cholera_alone(sim: &mut Sim, deadly: bool) {
+    set_cholera(sim, |d| {
+        d.household_hazard = 0.0;
+        d.shed_ill_per_day = 0.0;
+        d.shed_silent_per_day = 0.0;
+        d.symptomatic = 1.0;
+        for s in &mut d.severe_by_age {
+            s.1 = if deadly { 1.0 } else { 0.0 };
+        }
+        d.severe_death_per_day = if deadly { 1.0 } else { 0.0 };
+    });
+}
+
+#[test]
+fn a_household_sees_its_sick_and_word_of_it_goes_round() {
+    use civ_agents::word::ClaimKind;
+    let mut sim = village(3);
+    cholera_alone(&mut sim, false);
+    to_morning(&mut sim, 9 * 60);
+    let (target, family) = someone_with_family(&sim);
+    let household = sim.people().person(target).expect("alive").household;
+    sim.plague(target, CHOLERA).expect("brought");
+    // Nobody has seen anything before they lie abed.
+    assert!(sim.people().word.sickness(household).is_none());
+    let e = sim.people().sickness.episodes()[0];
+    let ill_from = e.course.ill_from;
+    while sim.now().day_index() <= ill_from {
+        to_morning(&mut sim, 0);
+    }
+    let pop = sim.people();
+    let c = *pop.word.sickness(household).expect("seen");
+    assert_eq!(c.kind, ClaimKind::Sickness);
+    assert!(c.day == ill_from || c.day == e.infected + 1, "{c:?}");
+    // Its members saw it at first hand; nobody else did.
+    for &m in family.iter().chain([&target]) {
+        let h = pop
+            .word
+            .heard_by(m)
+            .iter()
+            .find(|h| h.claim == c.id)
+            .expect("seen at home");
+        assert_eq!((h.from, h.origin), (None, Some(m)));
+    }
+    assert!(
+        pop.word
+            .heard
+            .iter()
+            .filter(|h| h.claim == c.id && h.from.is_none())
+            .all(|h| family.contains(&h.holder) || h.holder == target)
+    );
+    assert_eq!(
+        pop.word
+            .claims
+            .iter()
+            .filter(|c| c.kind == ClaimKind::Sickness)
+            .count(),
+        1,
+        "one household had sickness"
+    );
+    // Word of it goes round: at the hearth and in others' homes, from those who were told.
+    for _ in 0..10 {
+        to_morning(&mut sim, 0);
+    }
+    let pop = sim.people();
+    let told: Vec<_> = pop
+        .word
+        .heard
+        .iter()
+        .filter(|h| h.claim == c.id && h.from.is_some())
+        .collect();
+    assert!(!told.is_empty(), "word went round");
+    assert!(told.iter().all(|h| h.origin.is_some()));
+    // While it is news, the observer may whisper it to someone outside the household who has
+    // not heard it; thirty days after it was first seen it is let go.
+    let first = c.day;
+    while sim.now().day_index() <= first + 31 {
+        to_morning(&mut sim, 0);
+    }
+    let pop = sim.people();
+    assert!(
+        pop.word.claim(c.id).is_none(),
+        "sickness first seen more than thirty days ago is no longer news"
+    );
+}
+
+#[test]
+fn kin_elsewhere_learn_of_a_death_by_sickness() {
+    let mut sim = village(3);
+    cholera_alone(&mut sim, true);
+    to_morning(&mut sim, 9 * 60);
+    // A founding band's households are its families, so make one of another household a child of
+    // the one who will die, on record.
+    let (dying, kin) = {
+        let pop = sim.people();
+        let (dying, _) = someone_with_family(&sim);
+        let home = pop.person(dying).expect("alive").household;
+        let kin = pop
+            .people
+            .iter()
+            .map(|(_, p)| p)
+            .find(|p| p.household != home)
+            .map(|p| p.id)
+            .expect("someone of another household");
+        (dying, kin)
+    };
+    {
+        let female = sim.people().person(dying).expect("alive").sex == civ_agents::Sex::Female;
+        let pop = sim.people_mut_for_tests();
+        let r = pop.records.get_mut(&kin).expect("on record");
+        if female {
+            r.mother = Some(dying);
+        } else {
+            r.father = Some(dying);
+        }
+        pop.forget_kin();
+    }
+    let household = sim.people().person(dying).expect("alive").household;
+    sim.plague(dying, CHOLERA).expect("brought");
+    for _ in 0..12 {
+        to_morning(&mut sim, 0);
+        if sim.people().person(dying).is_none() {
+            break;
+        }
+    }
+    assert!(sim.people().person(dying).is_none(), "died of it");
+    let pop = sim.people();
+    let c = pop.word.sickness(household).expect("seen");
+    let h = pop
+        .word
+        .heard_by(kin)
+        .iter()
+        .find(|h| h.claim == c.id)
+        .expect("their child elsewhere learns of the death");
+    // They may have heard of the sickness already as word; they learn of it again at the death.
+    let (died, _) = pop.records[&dying].died.expect("dead");
+    assert_eq!(h.last, died.day_index(), "{h:?}");
 }

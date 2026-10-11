@@ -5,7 +5,9 @@
 //! route (living with those who shed it, and what they drank of their household's water), takes
 //! it or not by one draw (1 − e^(−ΣH)), recorded as coming by the route that brought the most of
 //! it. The observer's plague tool brings a disease to one person, as if they took it elsewhere.
-//! Nothing here is read by any choice: people know only who they see abed.
+//! Nothing here is read by any choice: people know only who they see abed. A household's members
+//! see someone of theirs abed, and its close kin learn of a death of it, as a claim that the
+//! household had sickness from a day, told as any word is (M6a slice BA, ADR-0021 §6).
 
 use super::*;
 use crate::Cause;
@@ -52,8 +54,22 @@ impl Population {
                 }
                 if u < chance {
                     let name = format!("disease:{}", def.name.to_lowercase());
+                    // Their close kin learn of the death, and with it of the sickness (ADR-0021
+                    // §6), wherever they live.
+                    let home = self
+                        .person(e.person)
+                        .map(|p| p.household)
+                        .and_then(|h| Some((h, self.household(h)?.settlement?)));
+                    self.refresh_kin();
+                    let kin = self.close_kin(e.person);
                     self.sickness.end(i, day, Outcome::Died);
                     self.die_named(ctx, e.person, Cause::Disease, name);
+                    if let Some((household, settlement)) = home {
+                        let claim = self.sickness_claim(household, settlement, lived, None);
+                        for k in kin {
+                            self.word.hear(k, claim, day, None, Some(k));
+                        }
+                    }
                     continue;
                 }
             }
@@ -130,6 +146,59 @@ impl Population {
             self.infect(ctx, m, disease, day, acquired);
         }
         self.end_outbreaks(ctx, day);
+        self.sickness_seen(ctx, day);
+    }
+
+    /// Sickness seen (M6a slice BA, ADR-0021 §6): the members of each household with someone abed
+    /// today see it, at first hand. A household's sickness first seen more than the content's
+    /// spell ago is new sickness, a new claim.
+    fn sickness_seen(&mut self, ctx: &Ctx, day: i64) {
+        let spell = i64::from(ctx.params.word.sickness_spell_days);
+        let mut abed: Vec<PermanentId> = self
+            .sickness
+            .running()
+            .iter()
+            .filter_map(|&i| self.sickness.get(i))
+            .filter(|e| e.ill_on(day))
+            .filter_map(|e| self.person(e.person).map(|p| p.household))
+            .collect();
+        abed.sort_unstable();
+        abed.dedup();
+        for household in abed {
+            let Some((settlement, members)) = self
+                .household(household)
+                .and_then(|x| Some((x.settlement?, x.members.clone())))
+            else {
+                continue;
+            };
+            let claim = self.sickness_claim(household, settlement, day, Some(spell));
+            for m in members {
+                self.word.hear(m, claim, day, None, Some(m));
+            }
+        }
+    }
+
+    /// The claim that someone of `household` (of `settlement`) lay sick: the one held, if it was
+    /// first seen no more than `spell` days before `day` (any held, without a spell), or else a new
+    /// one from `day`.
+    fn sickness_claim(
+        &mut self,
+        household: PermanentId,
+        settlement: PermanentId,
+        day: i64,
+        spell: Option<i64>,
+    ) -> u32 {
+        match self.word.sickness(household) {
+            Some(c) if spell.is_none_or(|s| day - c.day <= s) => c.id,
+            _ => self.word.make(crate::word::Claim {
+                id: 0,
+                kind: crate::word::ClaimKind::Sickness,
+                settlement,
+                day,
+                subject: Some(household),
+                grievance: None,
+            }),
+        }
     }
 
     /// Ends each open outbreak none of whose cases has run for as long as a new infection of its

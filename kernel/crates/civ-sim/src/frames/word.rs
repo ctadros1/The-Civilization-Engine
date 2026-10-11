@@ -44,7 +44,7 @@ pub fn blamed_words(sim: &Sim, blamed: Blamed) -> String {
 
 /// What a claim says, in words: "a gathering meets on 3 May of year 2 to decide on a common
 /// store, taking a tenth of each harvest"; "Bo holds a grievance against the gathering over food
-/// when their household was short".
+/// when their household was short"; "someone of Bo's household lay sick from 3 May of year 2".
 pub fn claim_words(sim: &Sim, c: &Claim) -> String {
     let pop = &sim.people;
     let name_of = |id: PermanentId| pop.name_of(id);
@@ -122,6 +122,16 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
                     issue.words()
                 ),
                 None => format!("{who} holds a grievance"),
+            }
+        }
+        ClaimKind::Sickness => {
+            let from = day_words(SimTime::from_minutes(c.day * DAY));
+            match c.subject {
+                Some(h) => format!(
+                    "someone of {} lay sick from {from}",
+                    super::people::household_name(sim, h)
+                ),
+                None => format!("someone lay sick from {from}"),
             }
         }
     }
@@ -476,6 +486,8 @@ pub fn news_lines<'a>(
         .filter(|c| !pop.word.has_heard(p.id, c.id))
         .filter(|c| match c.kind {
             ClaimKind::Grievance => c.subject.is_some_and(|s| s != p.id),
+            // Another household's sickness, while it is news (M6a slice BA).
+            ClaimKind::Sickness => c.subject != Some(p.household),
             _ => c.day >= today,
         })
         .take(MAX_NEWS_SHOWN)
@@ -570,6 +582,8 @@ fn whisper_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
                 .to_owned()
             })
         }),
+        // What people do of sickness they heard of is slice BA's later steps.
+        ClaimKind::Sickness => None,
         ClaimKind::Grievance => {
             let against = c.grievance.map(|g| g.0);
             let m = pop.factions.membership(p).copied();

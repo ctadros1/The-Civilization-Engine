@@ -1214,6 +1214,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** what people see of sickness and suspect of a source (slice BA); the Incidents panel and a map of outbreaks (slice BB).
 
+## 2026-10-11 — M6a slice BA, step one: sickness seen and told
+
+**What changed:** a household's members see someone of theirs abed, as a claim that someone of the household lay sick from a day; its close kin elsewhere learn of it at a death of it; and word of it goes round at home and at the hearth while it is news, thirty days (saves 78, content API 75). Nothing acts on it yet.
+
+**Findings:** founding households are whole families, so no founder has close kin in another household; the test sets one on record. The kin index was read without being brought up to date first, which the death now does. In a village of 100 at one hearth, word of a household's sickness reached nearly everyone within twelve days.
+
+**Evidence:** unit tests of the claim's lookup and letting go; integration tests of first-hand seeing, telling, letting go and kin at a death; a probe; the full suite, clippy and the smoke worlds.
+
+**Open:** who draws where and suspicion (step two); responses, issues and policies, the drought tool and the observer's view (steps three to five).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

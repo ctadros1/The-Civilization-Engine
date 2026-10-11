@@ -380,6 +380,10 @@ pub(crate) struct WordFile {
     pub reminder: f64,
     pub tell_floor: f64,
     pub remind_days: u32,
+    /// Content API 75 (M6a slice BA, step one).
+    pub share_sickness: f64,
+    pub sickness_days: u32,
+    pub sickness_spell_days: u32,
 }
 
 impl WordFile {
@@ -395,6 +399,9 @@ impl WordFile {
             reminder: self.reminder,
             tell_floor: self.tell_floor,
             remind_days: self.remind_days,
+            share_sickness: self.share_sickness,
+            sickness_days: self.sickness_days,
+            sickness_spell_days: self.sickness_spell_days,
         }
     }
 
@@ -406,6 +413,7 @@ impl WordFile {
             ("word.full_harm_days", self.full_harm_days, 0.01, 3650.0),
             ("word.reminder", self.reminder, 0.0, 1.0),
             ("word.tell_floor", self.tell_floor, 0.0, 1.0),
+            ("word.share_sickness", self.share_sickness, 0.0, 1.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
@@ -435,6 +443,14 @@ impl WordFile {
                 "`word.max_grievances` must be 1 to 64 (got {})",
                 self.max_grievances
             ));
+        }
+        for (name, v) in [
+            ("word.sickness_days", self.sickness_days),
+            ("word.sickness_spell_days", self.sickness_spell_days),
+        ] {
+            if !(1..=365).contains(&v) {
+                p.push(format!("`{name}` must be 1 to 365 (got {v})"));
+            }
         }
     }
 }

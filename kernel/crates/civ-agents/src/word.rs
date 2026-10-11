@@ -1,7 +1,8 @@
 //! Word of mouth and grievances (M4c slice AE, ADR-0016 §2–§3).
 //!
-//! **Claims** are shared, written once and never changed: that a gathering is called for a day, or
-//! that someone holds a grievance against a party. **Hearing records** are per person: when they
+//! **Claims** are shared, written once and never changed: that a gathering is called for a day,
+//! that someone holds a grievance against a party, or that a household had sickness from a day
+//! (M6a slice BA, ADR-0021 §6). **Hearing records** are per person: when they
 //! first and last heard a claim, from whom, and the one it began with. A claim travels only by
 //! contact (the household at midnight, companions at the hearth); absence of a record is not
 //! having heard. **Grievances** are per person: a harm, the party blamed, the law whose terms it
@@ -24,16 +25,20 @@ pub enum ClaimKind {
     /// A faction calls on everyone to stand with its body in place of the gathering's, until a
     /// day (M4c slice AI).
     Revolt = 4,
+    /// Someone of a household lay sick from a day (M6a slice BA, ADR-0021 §6): seen by its
+    /// members, known to its kin at a death, told as any claim.
+    Sickness = 5,
 }
 
 impl ClaimKind {
     /// Every kind, in code order.
-    pub const ALL: [ClaimKind; 5] = [
+    pub const ALL: [ClaimKind; 6] = [
         ClaimKind::Gathering,
         ClaimKind::Grievance,
         ClaimKind::Petition,
         ClaimKind::Refusal,
         ClaimKind::Revolt,
+        ClaimKind::Sickness,
     ];
 
     /// Its number in saves.
@@ -56,10 +61,12 @@ pub struct Claim {
     pub kind: ClaimKind,
     /// The settlement it concerns.
     pub settlement: PermanentId,
-    /// The day it concerns: the day a gathering meets; the day a grievance was first told.
+    /// The day it concerns: the day a gathering meets; the day a grievance was first told; the
+    /// day someone of a household was first seen abed.
     pub day: i64,
     /// For a gathering called on a law, the law; for a grievance, the one who holds it; for a
-    /// petition, the petition; for a refusal or a revolt, it (its `day` the last it stands).
+    /// petition, the petition; for a refusal or a revolt, it (its `day` the last it stands); for
+    /// sickness, the household.
     pub subject: Option<PermanentId>,
     /// For a grievance: the party blamed and the issue.
     pub grievance: Option<(Blamed, Grieved)>,
@@ -135,6 +142,14 @@ impl Word {
         self.episode(ClaimKind::Refusal, refusal)
     }
 
+    /// The latest claim that someone of `household` lay sick, if one is still held.
+    pub fn sickness(&self, household: PermanentId) -> Option<&Claim> {
+        self.claims
+            .iter()
+            .rev()
+            .find(|c| c.kind == ClaimKind::Sickness && c.subject == Some(household))
+    }
+
     /// The claim of kind `kind` about episode `subject` (a refusal or a revolt), if one was made.
     pub fn episode(&self, kind: ClaimKind, subject: PermanentId) -> Option<u32> {
         self.claims
@@ -194,13 +209,15 @@ impl Word {
     }
 
     /// Lets go of what is no longer news on `today`: a gathering's call once its day has passed,
-    /// and a grievance told more than `news_days` ago and not since; and of claims nobody holds.
-    pub fn prune(&mut self, today: i64, news_days: i64) {
+    /// a grievance told more than `news_days` ago and not since, and sickness first seen more than
+    /// `sickness_days` ago; and of claims nobody holds.
+    pub fn prune(&mut self, today: i64, news_days: i64, sickness_days: i64) {
         let stale = |c: &Claim, last: i64| match c.kind {
             ClaimKind::Gathering | ClaimKind::Petition | ClaimKind::Refusal | ClaimKind::Revolt => {
                 c.day < today
             }
             ClaimKind::Grievance => last + news_days < today,
+            ClaimKind::Sickness => c.day + sickness_days < today,
         };
         let claims = &self.claims;
         let find = |id: u32| {
@@ -466,6 +483,16 @@ pub struct WordParams {
     /// Days before a harm that goes on (a store still empty) raises its grievance again: it is a
     /// reminder, never re-added each day (04-06 §5.3).
     pub remind_days: u32,
+    /// Content API 75 (M6a slice BA): the chance someone tells a companion at the hearth of a
+    /// household's sickness they heard of and that is still news (09-16 §2.2: 0.4–0.9 for
+    /// urgent, personally relevant news; its low end).
+    pub share_sickness: f64,
+    /// Days a household's sickness stays news after it was first seen, and counts as lately
+    /// (a design prior).
+    pub sickness_days: u32,
+    /// Days after a household's sickness was first seen before someone abed there again is new
+    /// sickness, seen and told afresh (a design prior).
+    pub sickness_spell_days: u32,
 }
 
 impl WordParams {
@@ -482,6 +509,9 @@ impl WordParams {
             reminder: 0.1,
             tell_floor: 0.2,
             remind_days: 7,
+            share_sickness: 0.4,
+            sickness_days: 30,
+            sickness_spell_days: 14,
         }
     }
 
@@ -521,10 +551,34 @@ mod tests {
         assert_eq!((h[0].from, h[0].origin), (Some(id(5)), Some(id(5))));
         assert!(w.has_heard(id(5), c) && !w.has_heard(id(4), c));
         // A gathering's call is news until its day has passed.
-        w.prune(10, 60);
+        w.prune(10, 60, 30);
         assert!(w.has_heard(id(3), c));
-        w.prune(11, 60);
+        w.prune(11, 60, 30);
         assert!(!w.has_heard(id(3), c) && w.claim(c).is_none());
+    }
+
+    #[test]
+    fn a_household_s_sickness_is_news_for_its_days_and_the_latest_is_found() {
+        let mut w = Word::default();
+        let sick = |day| Claim {
+            id: 0,
+            kind: ClaimKind::Sickness,
+            settlement: id(1),
+            day,
+            subject: Some(id(20)),
+            grievance: None,
+        };
+        let first = w.make(sick(10));
+        let again = w.make(sick(40));
+        w.hear(id(5), first, 10, None, Some(id(5)));
+        w.hear(id(5), again, 40, None, Some(id(5)));
+        assert_eq!(w.sickness(id(20)).map(|c| c.id), Some(again));
+        assert!(w.sickness(id(21)).is_none());
+        // Thirty days after it was first seen it is still news; a day later it is let go.
+        w.prune(40, 60, 30);
+        assert!(w.has_heard(id(5), first));
+        w.prune(41, 60, 30);
+        assert!(!w.has_heard(id(5), first) && w.has_heard(id(5), again));
     }
 
     #[test]

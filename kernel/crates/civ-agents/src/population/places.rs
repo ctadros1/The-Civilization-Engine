@@ -305,7 +305,7 @@ impl Population {
 
     /// Has the index of everyone's children rebuilt when next wanted: for when a record's parents
     /// change after it was written.
-    pub(crate) fn forget_kin(&mut self) {
+    pub fn forget_kin(&mut self) {
         self.children_indexed = usize::MAX;
     }
 

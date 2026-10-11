@@ -265,6 +265,9 @@ pub const SCHEMA_V75: u32 = 75;
 /// The schema version of M6a slice AZ, step two: what people shed, before care (see
 /// [`agents`]).
 pub const SCHEMA_V76: u32 = 76;
+/// The schema version of M6a slice AZ, step three: care given the ill, before claims that a
+/// household had sickness (see [`agents`]).
+pub const SCHEMA_V77: u32 = 77;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

@@ -732,6 +732,16 @@ tell_floor = 0.2
 # A harm that goes on (a store still empty while the household is short) raises its grievance
 # again only after `remind_days`: a reminder, never re-added each day (04-06 §5.3).
 remind_days = 7
+# Sickness seen (M6a slice BA, ADR-0021 §6): a household's members see someone of theirs abed and
+# its close kin learn of a death of it; others hear of it only as word. Someone tells a companion
+# at the hearth of a household's sickness they heard of with `share_sickness` (09-16 §2.2:
+# 0.4-0.9 for urgent, personally relevant news; its low end, for news of another household), and
+# members tell each other at home with `share_home`. It stays news, and counts as lately, for
+# `sickness_days` after it was first seen; someone abed there more than `sickness_spell_days`
+# after it was first seen is new sickness, seen and told afresh. Both design priors.
+share_sickness = 0.4
+sickness_days = 30
+sickness_spell_days = 14
 
 [opinion]                        # where people stand on the questions content names (M4c slice AG, ADR-0016 §4)
 # Each adult holds a position, 0 against to 1 for, on each question a policy template asks. Its

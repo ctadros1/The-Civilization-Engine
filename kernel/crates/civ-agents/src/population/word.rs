@@ -2,7 +2,8 @@
 //! broadcast. Its sponsor, or whoever brought its case, knows first; each midnight a household's
 //! members tell one another what they heard, and companions at the hearth tell each other, each
 //! by a keyed chance; only those who heard may come (research 09-16 §1.3: attendance and timing
-//! decide who hears). What anyone has heard is their own record; nothing here reads another's
+//! decide who hears). A household's sickness travels the same way while it is news (M6a slice
+//! BA, ADR-0021 §6). What anyone has heard is their own record; nothing here reads another's
 //! except to pass on what they could tell.
 
 use super::*;
@@ -14,10 +15,28 @@ pub const PURPOSE_WORD_HOME: u64 = 0x776f_7264_686f_6d65; // "wordhome"
 /// Purpose tag for a companion at the hearth telling another.
 pub const PURPOSE_WORD_HEARTH: u64 = 0x776f_7264_6865_6172; // "wordhear"
 
-/// What a draw about word of gathering or petition `c` is keyed by: its settlement, the day it
-/// meets and its kind, so that other claims made or let go never move it (ADR-0016 §6).
-fn gathering_key(c: &Claim) -> u64 {
-    c.settlement.get() ^ (c.day as u64).rotate_left(40) ^ (u64::from(c.kind.code()) << 56)
+/// What a draw about word of claim `c` is keyed by: for a gathering or petition its settlement,
+/// for a household's sickness the household; the day and its kind; so that other claims made or
+/// let go never move it (ADR-0016 §6).
+fn claim_key(c: &Claim) -> u64 {
+    let whose = match c.kind {
+        ClaimKind::Sickness => c.subject.map_or(0, PermanentId::get),
+        _ => c.settlement.get(),
+    };
+    whose ^ (c.day as u64).rotate_left(40) ^ (u64::from(c.kind.code()) << 56)
+}
+
+/// Whether claim `c` is told as news on `day`, and how likely a companion at the hearth is to tell
+/// it: a call still ahead, or a household's sickness still held (pruning lets it go when it is no
+/// longer news).
+fn hearth_chance(c: &Claim, day: i64, wp: &crate::word::WordParams) -> Option<f64> {
+    if call_ahead(c, day) {
+        Some(wp.share_urgent)
+    } else if c.kind == ClaimKind::Sickness {
+        Some(wp.share_sickness)
+    } else {
+        None
+    }
 }
 
 /// Whether claim `c` is a call still ahead on `day`: a gathering, a petition or a refusal.
@@ -171,23 +190,24 @@ impl Population {
     }
 
     /// Midnight (ADR-0016 §3): each member of a household tells each other member of a gathering
-    /// ahead that they heard of, by the content's chance; then what is no longer news is let go,
-    /// and so is what those who died or left held. Who tells is fixed at the start, so the order
-    /// households are seen in changes nothing.
+    /// ahead, or of another household's sickness, that they heard of, by the content's chance;
+    /// then what is no longer news is let go, and so is what those who died or left held. Who
+    /// tells is fixed at the start, so the order households are seen in changes nothing.
     pub(super) fn word_day(&mut self, ctx: &Ctx) {
         let wp = &ctx.params.word;
         let day = ctx.now.day_index();
         let index = &self.index;
         self.word.let_go_of_gone(|p| index.contains_key(&p));
-        self.word.prune(day, i64::from(wp.news_days));
-        // Each with the settlement and day it is keyed by: never the claim's number, which
-        // unrelated claims move (ADR-0016 §6).
+        self.word
+            .prune(day, i64::from(wp.news_days), i64::from(wp.sickness_days));
+        // Each with what it is keyed by: never the claim's number, which unrelated claims move
+        // (ADR-0016 §6).
         let ahead: Vec<(u32, u64)> = self
             .word
             .claims
             .iter()
-            .filter(|c| call_ahead(c, day))
-            .map(|c| (c.id, gathering_key(c)))
+            .filter(|c| call_ahead(c, day) || c.kind == ClaimKind::Sickness)
+            .map(|c| (c.id, claim_key(c)))
             .collect();
         if ahead.is_empty() {
             return;
@@ -240,20 +260,19 @@ impl Population {
         }
     }
 
-    /// `a` and `b` keep company at the hearth: each tells the other of a gathering ahead that
-    /// they heard of and the other has not, and of the grievances they hold keenly, each by the
-    /// content's chance (ADR-0016 §3).
+    /// `a` and `b` keep company at the hearth: each tells the other of a gathering ahead, and of a
+    /// household's sickness still news, that they heard of and the other has not, and of the
+    /// grievances they hold keenly, each by the content's chance (ADR-0016 §3; ADR-0021 §6).
     pub(crate) fn share_word(&mut self, ctx: &Ctx, a: PermanentId, b: PermanentId) {
         let wp = &ctx.params.word;
         let day = ctx.now.day_index();
         let mut told: Vec<(PermanentId, u32, PermanentId, Option<PermanentId>)> = Vec::new();
         for (teller, listener) in [(a, b), (b, a)] {
             for h in self.word.heard_by(teller) {
-                let Some(which) = self
+                let Some((which, chance)) = self
                     .word
                     .claim(h.claim)
-                    .filter(|c| call_ahead(c, day))
-                    .map(gathering_key)
+                    .and_then(|c| Some((claim_key(c), hearth_chance(c, day, wp)?)))
                 else {
                     continue;
                 };
@@ -268,7 +287,7 @@ impl Population {
                     which,
                     ctx.now.minutes() as u64,
                 ];
-                if Rng64::from_key(&key).next_f64() < wp.share_urgent {
+                if Rng64::from_key(&key).next_f64() < chance {
                     told.push((listener, h.claim, teller, h.origin));
                 }
             }

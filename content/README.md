@@ -719,6 +719,13 @@ officeholder, and more adults than stand with the gathering, must stand with it 
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
 
+Content API 75 (M6a slice BA, step one) brings sickness seen. The people profile's `[word]`
+gains `share_sickness` (0 to 1: the chance someone tells a companion at the hearth of a household's
+sickness they heard of; research 09-16 §2.2's 0.4-0.9 for urgent, personally relevant news, the
+core taking 0.4), `sickness_days` (1 to 365: how long a household's sickness stays news after it
+was first seen) and `sickness_spell_days` (1 to 365: how long after it was first seen someone abed
+there again is new sickness, seen and told afresh); the core's 30 and 14 are design priors.
+
 Content API 74 (M6a slice AZ, step three) brings care. A disease gives `care_h_per_day` (0 to
 24: the hours of a carer's time a day that count as tending someone ill of it) and `care_rr` (0
 to 1: what a severe day with that much care does to the chance of dying that day, as a relative

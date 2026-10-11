@@ -568,11 +568,13 @@ pub enum Flow {
     Received,
     /// Given to another household.
     Given,
+    /// Lost to fire (M6b slice BC; ADR-0022 §5), and later flood or storm.
+    Lost,
 }
 
 impl Flow {
     /// Every kind, in a fixed order.
-    pub const ALL: [Flow; 13] = [
+    pub const ALL: [Flow; 14] = [
         Flow::Brought,
         Flow::Got,
         Flow::Made,
@@ -586,6 +588,7 @@ impl Flow {
         Flow::Departed,
         Flow::Received,
         Flow::Given,
+        Flow::Lost,
     ];
 
     /// Whether goods of this kind of flow enter stores (rather than leave them).
@@ -1107,6 +1110,7 @@ mod tests {
             sheltered_half_life_days: 0.0,
             timber: None,
             store: None,
+            fire: None,
         };
         vec![
             good("meat", GoodUse::Food, 1500.0, 3.0, Eaten::Cooked),

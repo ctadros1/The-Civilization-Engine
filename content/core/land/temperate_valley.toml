@@ -99,10 +99,12 @@ storm_veer_deg = 30.0
 # Dryness: the water exposed fuel such as thatch holds, as a share of its dry mass (12-03 §1.5:
 # it follows recent weather). A dry day settles it at the first share at a mean of 0 °C and the
 # second at 25 °C, most of the way within `fuel_days`; rain or snow adds to it at once, up to
-# `fuel_wet_moisture`. Design priors: no report gives thatch's moisture.
-fuel_dry_moisture = [0.25, 0.08]
-fuel_days = 3.0
-fuel_wetting_per_mm = 0.05
+# `fuel_wet_moisture`. Design priors: no report gives thatch's moisture. On this valley's weather a
+# year averages about 0.2 and a summer day's middle about 0.14, and about one day in twenty is too
+# wet to catch at all (the people profile's `fire.extinction_moisture`).
+fuel_dry_moisture = [0.2, 0.08]
+fuel_days = 1.0
+fuel_wetting_per_mm = 0.015
 fuel_wet_moisture = 0.6
 
 # The soil's nitrogen (ADR-0012 §3; content API 27), kilograms a hectare of native ground of

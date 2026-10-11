@@ -35,11 +35,14 @@ pub enum InfluenceKind {
     /// and `until` the first day it no longer holds; the months of the weather's record it
     /// touched are marked.
     Drought = 7,
+    /// A building's covering set alight (M6b slice BC, ADR-0022 §14): the target is the
+    /// building, the subject its fire's number.
+    Fire = 8,
 }
 
 impl InfluenceKind {
     /// Every kind, in code order.
-    pub const ALL: [InfluenceKind; 8] = [
+    pub const ALL: [InfluenceKind; 9] = [
         InfluenceKind::Whisper,
         InfluenceKind::Ideology,
         InfluenceKind::Agitator,
@@ -48,6 +51,7 @@ impl InfluenceKind {
         InfluenceKind::Wave,
         InfluenceKind::Plague,
         InfluenceKind::Drought,
+        InfluenceKind::Fire,
     ];
 
     /// Its number in saves.

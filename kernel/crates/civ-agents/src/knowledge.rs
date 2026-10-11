@@ -304,6 +304,7 @@ mod tests {
             tool: None,
             timber: None,
             store: None,
+            fire: None,
         };
         let goods = vec![
             food("fish", 600.0, 2.0, 0.0),

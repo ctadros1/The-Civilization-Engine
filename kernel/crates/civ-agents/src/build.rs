@@ -1200,6 +1200,7 @@ pub(crate) mod tests {
             tool: None,
             timber: None,
             store: None,
+            fire: None,
         };
         vec![good("core:good/timber"), good("core:good/thatch")]
     }
@@ -1473,6 +1474,7 @@ pub(crate) mod tests {
             tool: None,
             timber: None,
             store: None,
+            fire: None,
         };
         let goods = vec![
             good("grain", GoodUse::Food, 3340.0, 1560.0, 4932.0),

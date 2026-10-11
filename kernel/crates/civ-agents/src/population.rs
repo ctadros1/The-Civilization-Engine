@@ -46,6 +46,7 @@ mod crossings;
 mod deposits;
 mod digging;
 mod faction;
+mod fire;
 mod firm;
 mod force;
 mod founding;
@@ -160,6 +161,9 @@ pub enum AgentEvent {
         /// The activity version it belongs to.
         version: u32,
     },
+    /// A minute of every fire burning (M6b slice BC, ADR-0022 §4): one is pending whenever a
+    /// fire burns.
+    Fire,
 }
 
 /// The approximations the kernel makes as it advances (ADR-0011 §4), each on or off on its own.
@@ -461,6 +465,9 @@ pub struct Population {
     /// What people shed, where it lies and where it went (M6a slice AZ, step two; ADR-0021
     /// §4). Saved.
     pub contagion: crate::contagion::Contagion,
+    /// Every fire there has been, the conflagrations they made, and the exposure of buildings
+    /// near those burning now (M6b slice BC; ADR-0022 §4, §13). Saved.
+    pub fires: crate::fire::Fires,
     /// River cells by the reach they belong to, for loads washed or drawn there. Derived from the
     /// map when first needed; not saved.
     reach_cells: Option<BTreeMap<u32, u32>>,
@@ -1188,6 +1195,7 @@ impl Population {
                 .problems(|h| self.household(h).map(|x| x.settlement)),
         );
         out.extend(self.convergence.problems());
+        out.extend(self.fires.problems());
         out.extend(self.uses.problems());
         out.extend(self.polity_views.problems());
         out.extend(self.claims_heard.problems());
@@ -1471,6 +1479,7 @@ impl Population {
                 }
                 self.run_steps(ctx, h, 0);
             }
+            AgentEvent::Fire => self.fire_minute(ctx),
         }
     }
 
@@ -2661,6 +2670,7 @@ impl Population {
                 .hurt_until(p.id)
                 .is_some_and(|d| d >= now.day_index()),
             ill: self.sickness.ill(p.id, now.day_index()),
+            home_afire: self.home_afire(p.household, now, params),
             tend: self.tend_facts(ctx, p.id, &hh),
         };
         let limits = Limits {
@@ -5872,6 +5882,7 @@ mod tests {
             sheltered_half_life_days: 0.0,
             timber: None,
             store: None,
+            fire: None,
         };
         vec![
             good("bread", GoodUse::Food, 2500.0, 1000.0, Eaten::Raw),

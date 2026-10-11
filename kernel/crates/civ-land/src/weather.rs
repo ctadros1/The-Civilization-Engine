@@ -1374,9 +1374,9 @@ pub(crate) mod tests {
             wind_persistence: 0.6,
             gust_factor: 1.7,
             storm_veer_deg: 30.0,
-            fuel_dry_moisture: [0.25, 0.08],
-            fuel_days: 3.0,
-            fuel_wetting_per_mm: 0.05,
+            fuel_dry_moisture: [0.2, 0.08],
+            fuel_days: 1.0,
+            fuel_wetting_per_mm: 0.015,
             fuel_wet_moisture: 0.6,
         }
     }
@@ -1524,7 +1524,7 @@ pub(crate) mod tests {
         let p = params();
         let mut w = Weather::new(&p, &c, 100.0, 1100.0, 0);
         let (mut summer, mut winter) = ((0.0, 0.0), (0.0, 0.0));
-        let (mut rises, mut wet_days) = (0, 0);
+        let mut wet_days = 0;
         for _ in 0..10 * DAYS_PER_YEAR {
             let before = w.today.fuel_moisture;
             w.live(&p, &c);
@@ -1532,13 +1532,20 @@ pub(crate) mod tests {
             let m = f64::from(t.fuel_moisture);
             assert!((0.08 - 1e-6..=0.6 + 1e-6).contains(&m), "fuel moisture {m}");
             if t.precip_mm >= 2.0 {
-                // Fuel is never dry on a day of rain, and fuel that was not already soaked
-                // takes it up.
-                assert!(m >= 0.18 - 1e-6, "{m} on a day of {} mm", t.precip_mm);
-                if before < 0.3 {
-                    wet_days += 1;
-                    rises += usize::from(t.fuel_moisture > before);
-                }
+                // A day of rain leaves fuel wetter than the same day dry would, by what the
+                // rain adds, up to the wettest it gets.
+                let mut dry = w.clone();
+                dry.today.precip_mm = 0.0;
+                dry.draw_wind_and_fuel(&p, &c, (before > 0.0).then_some(f64::from(before)));
+                let dried = f64::from(dry.today.fuel_moisture);
+                let took = (p.fuel_wetting_per_mm * f64::from(t.precip_mm))
+                    .min(p.fuel_wet_moisture - dried);
+                assert!(
+                    took > 0.0 && (m - dried - took).abs() < 1e-6,
+                    "{m} against {dried} dry on a day of {} mm",
+                    t.precip_mm
+                );
+                wet_days += 1;
             }
             match month_of(t.day) {
                 6 | 7 => summer = (summer.0 + m, summer.1 + 1.0),
@@ -1546,7 +1553,7 @@ pub(crate) mod tests {
                 _ => {}
             }
         }
-        assert!(wet_days > 100 && rises == wet_days, "{rises} of {wet_days}");
+        assert!(wet_days > 100, "{wet_days} wet days");
         // Summer's fuel is drier than winter's.
         let (s, wi) = (summer.0 / summer.1, winter.0 / winter.1);
         assert!(s < wi - 0.03, "summer {s:.3}, winter {wi:.3}");

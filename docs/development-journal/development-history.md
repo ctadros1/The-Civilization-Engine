@@ -1346,6 +1346,16 @@ The full end-to-end run found the knowledge test still counting the founders' te
 
 **Open:** step two, a building's fire.
 
+## 2026-10-11 — M6b slice BC, step two: a building burns
+
+**What changed:** in the kernel, a building the observer sets alight burns by stages, a minute at a time while anything burns. Its heat reaches roofs within 10 m by the gap between roof edges, carried downwind and summed over every fire near. Each threatened roof keeps an exposure store and catches by a hazard above its threshold, which dryness moves. Coverings burn away, timber chars as loss of section, half the infill goes, and the goods kept under the roof burn on a new `Lost` ledger channel. The awake inside get out and stay out; half of those still asleep when it is fully involved die of `Burned`. Fires caught from one another form a conflagration, and the chronicle tells each. Saves 88, content API 81.
+
+**Findings:** the first integration run had huts 8 m apart in still air all catching. The threshold scaled from the landscape's mean dryness, and step one's fuel figures put that mean (0.40) above the moisture of extinction (0.35), so every threshold collapsed to about 1 % of its figure. Two fixes. A good's catch figure now holds at a fixed reference moisture (0.12), so it means the same in every climate. Thatch now dries within a day and takes up 0.015 of its mass a millimetre of rain: the core valley averages about 0.2, and one day in twenty is too wet to catch. A second finding: only goods with a sheltered half-life ever lie under a roof, so the `burns` shares first written for tools, firewood, fresh food and timber did nothing. They were removed, and the content check now refuses them. The tests' clock was also wrong: a world begins at six in the morning, so "noon" and "2 a.m." were 6 p.m. and 8 a.m.
+
+**Evidence:** pure-model tests (heat by gap and wind, exposure and threshold, char, stages, outlines, the twenty-hut block, half-minute convergence); world tests (the block burns within minutes with every fire's cause, wider gaps, still air or damp thatch lose only the four lit, a hut's stages, damage, goods and chronicle, sleepers, 18 of 44 dying, and nobody staying in a burning home, an exact save mid-fire).
+
+**Open:** step three, the observer's view: the fire tool on the wire and in the web, burning and burnt buildings on the map, fire incidents and conflagration pages.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

@@ -86,6 +86,9 @@ pub struct Facts {
     /// Whether illness keeps them abed today (M6a slice AZ, ADR-0021 §5): they sleep, eat and
     /// rest at home, and do nothing else.
     pub ill: bool,
+    /// Whether a building of their household burns now (M6b slice BC, ADR-0022 §6): they do
+    /// nothing at home until it is out.
+    pub home_afire: bool,
     /// Members of their household ill at home and still owed care today, if any (M6a slice AZ,
     /// step three).
     pub tend: Option<TendFacts>,
@@ -1693,6 +1696,16 @@ pub fn candidates(
         .collect();
     out.retain(|c| !slower.contains(&c.scored.def));
     excluded.extend(slower.into_iter().map(|d| (d, Reason::BetterWay)));
+    // A household whose home burns does nothing there until the fire is out (M6b slice BC).
+    if f.home_afire {
+        let home: Vec<u16> = out
+            .iter()
+            .filter(|c| c.scored.target == Target::Home)
+            .map(|c| c.scored.def)
+            .collect();
+        out.retain(|c| c.scored.target != Target::Home);
+        excluded.extend(home.into_iter().map(|d| (d, Reason::HomeAfire)));
+    }
     (out, excluded)
 }
 
@@ -1805,6 +1818,7 @@ mod tests {
             petition: None,
             hurt: false,
             ill: false,
+            home_afire: false,
             tend: None,
             age: 30.0,
             capacity: 1.0,

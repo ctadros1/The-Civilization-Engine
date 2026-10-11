@@ -467,7 +467,8 @@ table Households {
 enum Origin : ubyte { Founder = 0, Born = 1, Spawned = 2 }
 
 // Collapse (3): a building gave way around them (slice P's second step, ADR-0009 §5).
-enum Cause : ubyte { Unspecified = 0, Starvation = 1, Childbirth = 2, Collapse = 3, Violence = 4, Fell = 5, Disease = 6 }
+// Schema 88 (M6b slice BC): Burned, caught asleep in a building fully involved.
+enum Cause : ubyte { Unspecified = 0, Starvation = 1, Childbirth = 2, Collapse = 3, Violence = 4, Fell = 5, Disease = 6, Burned = 7 }
 
 table PersonRecord {
   id: ulong (id: 0);
@@ -1764,7 +1765,8 @@ table FactionsSave {
 }
 
 // Section "events": the scheduler's pending events.
-enum EventKind : ubyte { AgentStep = 0 }
+// Schema 88 (M6b slice BC): FireStep, a minute of every fire burning, pending whenever one burns.
+enum EventKind : ubyte { AgentStep = 0, FireStep = 1 }
 
 table PendingEvent {
   at: long (id: 0);
@@ -2120,6 +2122,61 @@ table OutbreakSave {
 table SicknessSave {
   episodes: [EpisodeSave] (id: 0);
   outbreaks: [OutbreakSave] (id: 1);
+}
+
+// Section "fires" (schema 88, M6b slice BC; ADR-0022 §13): a building's fire, from its covering
+// catching to its burning out. `kindled` 0: the observer (`source` the influence), 1: a burning
+// neighbour (`source` its fire, with the gap, the wind, the cosine toward this building from it
+// and the fuel's water then). `episode` 0: none. `ended` -1 while it burns.
+table FireSave {
+  id: uint (id: 0);
+  building: ulong (id: 1);
+  household: ulong (id: 2);
+  settlement: ulong (id: 3);
+  x: float (id: 4);
+  y: float (id: 5);
+  began: long (id: 6);
+  kindled: ubyte (id: 7);
+  source: uint (id: 8);
+  gap_m: float (id: 9);
+  wind_ms: float (id: 10);
+  toward: float (id: 11);
+  moisture: float (id: 12);
+  episode: uint (id: 13);
+  ended: long = -1 (id: 14);
+  goods_kg: float (id: 15);
+  deaths: [ulong] (id: 16);
+}
+
+// A conflagration: fires that spread from one building to others. `ended` -1 while any burns.
+table ConflagrationSave {
+  id: uint (id: 0);
+  settlement: ulong (id: 1);
+  first: uint (id: 2);
+  began: long (id: 3);
+  ended: long = -1 (id: 4);
+}
+
+// A building's exposure near fires burning now, kW/m².
+table ExposureSave {
+  building: ulong (id: 0);
+  kw: double (id: 1);
+}
+
+// A building the spread weighed, by the first fire of its conflagration or the lone fire.
+table WeighedSave {
+  fire: uint (id: 0);
+  building: ulong (id: 1);
+  peak_kw: float (id: 2);
+  threshold_kw: float (id: 3);
+  caught: bool (id: 4);
+}
+
+table FiresSave {
+  fires: [FireSave] (id: 0);
+  episodes: [ConflagrationSave] (id: 1);
+  exposure: [ExposureSave] (id: 2);
+  weighed: [WeighedSave] (id: 3);
 }
 
 // A place a load lies or passes (schema 76, M6a slice AZ, step two; ADR-0021 §4): `code` 0 a

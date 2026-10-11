@@ -295,6 +295,9 @@ pub const SCHEMA_V85: u32 = 85;
 /// The schema version of M6a slice BB, step three: places remember the days worked there
 /// exactly, before the weather kept a daily wind and the fuel's dryness (see [`agents`]).
 pub const SCHEMA_V86: u32 = 86;
+/// The schema version of M6b slice BC, step one: the weather's wind and dryness, before fires
+/// (see [`agents`]).
+pub const SCHEMA_V87: u32 = 87;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

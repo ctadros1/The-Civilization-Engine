@@ -11,3 +11,9 @@ sheltered_half_life_days = 4932.0 # as `grain`
 eaten = "never"
 shared = false
 reserve_for = "core:good/grain"
+
+# How it burns (ADR-0022 §5; content API 81).
+# As grain: half lost under a fully involved roof (a design prior).
+[fire]
+catch_kw_m2 = 0.0
+burns = 0.5

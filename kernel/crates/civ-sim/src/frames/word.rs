@@ -795,6 +795,29 @@ fn drought_words(i: &Influence) -> String {
     )
 }
 
+/// What the observer's fire in `i` came to (M6b slice BC): the kernel's record of it.
+fn fire_words(sim: &Sim, i: &Influence) -> String {
+    let fires = &sim.people.fires;
+    let Some(f) = fires.get(i.subject) else {
+        return "Set a building alight".to_owned();
+    };
+    let spread = f
+        .episode
+        .and_then(|e| fires.episodes.get(e as usize - 1))
+        .map(|e| {
+            fires
+                .list
+                .iter()
+                .filter(|x| x.episode == Some(e.id))
+                .count()
+        });
+    match (f.ended, spread) {
+        (None, _) => "Set a building alight: it burns".to_owned(),
+        (Some(_), Some(n)) => format!("Set a building alight: the fire spread to {} more", n - 1),
+        (Some(_), None) => "Set a building alight: it burned out alone".to_owned(),
+    }
+}
+
 /// What a plague in `i` brought and what became of it (M6a slice AZ): the observer's own record,
 /// so it tells the truth of their infection.
 fn plague_words(sim: &Sim, i: &Influence) -> String {
@@ -913,6 +936,7 @@ pub fn influence_lines<'a>(
                 InfluenceKind::Wave => wave_words(sim, i),
                 InfluenceKind::Plague => plague_words(sim, i),
                 InfluenceKind::Drought => drought_words(i),
+                InfluenceKind::Fire => fire_words(sim, i),
             };
             let what = fbb.create_string(&words);
             wire::InfluenceLine::create(

@@ -37,6 +37,7 @@ pub mod decide;
 pub mod demography;
 pub mod faction;
 pub mod farm;
+pub mod fire;
 pub mod firm;
 pub mod fords;
 pub mod found;

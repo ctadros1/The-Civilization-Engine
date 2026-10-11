@@ -171,6 +171,8 @@ pub enum Reason {
     /// Members of the household ill at home and still owed a day's care (M6a slice AZ, step
     /// three).
     Tend = 142,
+    /// A fire burns at home (M6b slice BC; ADR-0022 §6): nothing is done there until it is out.
+    HomeAfire = 143,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -182,7 +184,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 76] = [
+    pub const ALL: [Reason; 77] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -259,6 +261,7 @@ impl Reason {
         Reason::Well,
         Reason::Ill,
         Reason::Tend,
+        Reason::HomeAfire,
     ];
 
     /// The reason with this code.
@@ -347,6 +350,7 @@ impl Reason {
             Reason::Well => "the walking a well would save",
             Reason::Ill => "illness keeps them abed",
             Reason::Tend => "someone ill at home needs tending",
+            Reason::HomeAfire => "a fire burns at home",
         }
     }
 }
@@ -424,11 +428,14 @@ pub enum Cause {
     Fell,
     /// Of a disease (M6a slice AZ, ADR-0021 §5): their episode names it.
     Disease,
+    /// In a fire, caught asleep in a building when it was fully involved (M6b slice BC; ADR-0022
+    /// §5): the fire's record names them.
+    Burned,
 }
 
 impl Cause {
     /// Every cause.
-    pub const ALL: [Cause; 7] = [
+    pub const ALL: [Cause; 8] = [
         Cause::Unspecified,
         Cause::Starvation,
         Cause::Childbirth,
@@ -436,6 +443,7 @@ impl Cause {
         Cause::Violence,
         Cause::Fell,
         Cause::Disease,
+        Cause::Burned,
     ];
 
     /// The key a chronicle entry keeps it as.
@@ -448,6 +456,7 @@ impl Cause {
             Cause::Violence => "violence",
             Cause::Fell => "fell",
             Cause::Disease => "disease",
+            Cause::Burned => "burned",
         }
     }
 
@@ -468,6 +477,7 @@ impl Cause {
             Cause::Violence => "a blow struck by another",
             Cause::Fell => "a fall when a crossing gave way",
             Cause::Disease => "disease",
+            Cause::Burned => "fire",
         }
     }
 }
@@ -750,6 +760,22 @@ pub enum ChronicleKind {
     /// ADR-0021 §6-§7): `people` who; `settlement` where; `number` the source's place number;
     /// `name` the rest of the sentence, with the counts.
     Suspicion,
+    /// A building burned out, or a fire spread from one building to another or ended (M6b slice
+    /// BC, ADR-0022 §13): `people` the household whose building burned, its eldest first;
+    /// `settlement` where; `place` the building; `number` the step ([`FireStep`]); `name` the
+    /// sentence, with its counts.
+    Fire,
+}
+
+/// What happened in a fire, in a [`ChronicleKind::Fire`] entry. Numeric in saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FireStep {
+    /// A building burned out, its fire having reached no other.
+    Burned = 0,
+    /// A fire reached a second building: a conflagration began.
+    Spread = 1,
+    /// A conflagration's last fire burned out.
+    Ended = 2,
 }
 
 /// What happened to an outbreak, in a [`ChronicleKind::Outbreak`] entry. Numeric in saves:
@@ -1295,6 +1321,13 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                         event.name
                     ))];
                 }
+                // A building set alight (M6b slice BC): its words are the entry's.
+                Some(crate::influence::InfluenceKind::Fire) => {
+                    return vec![Span::Text(format!(
+                        "One recorded influence: the observer set alight{}",
+                        event.name
+                    ))];
+                }
                 None => "reached ",
             };
             let lead = format!("One recorded influence: the observer {verb}");
@@ -1327,7 +1360,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::Agreement
         | ChronicleKind::Crossing
         | ChronicleKind::Well
-        | ChronicleKind::Outbreak => {
+        | ChronicleKind::Outbreak
+        | ChronicleKind::Fire => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

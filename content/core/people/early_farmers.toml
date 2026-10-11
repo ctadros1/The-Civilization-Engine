@@ -1031,3 +1031,37 @@ review_days = 7
 case_days = 8.0
 case_death_share = 0.2
 w_death = 1000.0
+
+[fire]                           # buildings burning (M6b slice BC, ADR-0022 §4-§5); design priors unless cited
+# A fully involved building puts `flux_kw` on a surface 1 m and 4 m from it, kW/m² (research 12-03
+# §2.2: 36 and 5 in the studied configuration of informal dwellings), falling exponentially between
+# and beyond; a covering alight before then puts `covering_flux_share` of it. Buildings within
+# `reach_m` are weighed. The wind stretches a gap downwind of a burning building to
+# `gap * exp(-wind_stretch_per_ms * wind * cos)`, so firebrands and leaning flames are one route.
+reach_m = 10.0
+flux_kw = [36.0, 5.0]
+covering_flux_share = 0.5
+wind_stretch_per_ms = 0.1
+# A threatened building's exposure moves toward the heat on it over `exposure_minutes`, and its
+# covering catches by a hazard of `catch_per_minute` for each multiple of its threshold the
+# exposure stands above it (12-03 §1.4: accumulated exposure, not distance alone). Exposed fuel
+# holding `extinction_moisture` of its dry mass in water does not catch at all (fire behaviour's
+# moisture of extinction); a good's `catch_kw_m2` is its threshold at `reference_moisture`, drier
+# fuel catching at less and wetter at more, falling to nothing at extinction.
+exposure_minutes = 1.0
+catch_per_minute = 1.0
+extinction_moisture = 0.35
+reference_moisture = 0.12
+# Stages: fully involved `involve_minutes` after the covering catches (12-03 §2.2: a dwelling
+# passed 1,000 °C within about a minute), burnt out `involved_minutes` later; the covering is
+# gone in `covering_minutes`.
+involve_minutes = 1.0
+involved_minutes = 30.0
+covering_minutes = 15.0
+# Char on the exposed faces of timber fully involved: `char_mm_first_hour` in the first hour, as
+# `(t / 60)^char_exponent` (11-08 §2.5: about 0.8 mm/min at first and 0.6 over the hour; a 200 mm
+# member keeps a 128 mm core). A full burn takes `infill_loss` of a wall's infill: wattle burns,
+# daub stays.
+char_mm_first_hour = 36.0
+char_exponent = 0.813
+infill_loss = 0.5

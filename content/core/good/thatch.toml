@@ -11,3 +11,10 @@ sheltered_half_life_days = 0.0   # kept outside, by the work
 eaten = "never"
 shared = false
 reserve_for = ""
+
+# How it burns (ADR-0022 §5; content API 81).
+# A thatch covering catches from a neighbour's heat above about 10 kW/m² at the fire's reference
+# dryness (a design prior below wood's piloted ignition at about 12.5: dry grass and reed catch
+# sooner). Bundles kept for repair lie in the open, so none burns under a roof.
+[fire]
+catch_kw_m2 = 10.0

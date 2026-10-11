@@ -1779,6 +1779,7 @@ pub(crate) mod tests {
             reports: crate::reports::ReportParams::core(),
             relations: crate::views::RelationsParams::core(),
             suspicion: crate::suspicion::SuspicionParams::core(),
+            fire: crate::fire::FireParams::core(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

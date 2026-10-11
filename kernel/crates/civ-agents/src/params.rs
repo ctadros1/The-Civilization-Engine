@@ -303,6 +303,19 @@ pub struct GoodDef {
     pub timber: Option<crate::structure::Timber>,
     /// For a store (a pot): the room each one gives.
     pub store: Option<StoreDef>,
+    /// How it burns (M6b slice BC; content API 81): `None` for a good fire does not touch.
+    pub fire: Option<GoodFire>,
+}
+
+/// How a good burns (M6b slice BC; ADR-0022 §4, §5). Design priors: the reports give no
+/// covering's catching heat or share of a store a burning roof takes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GoodFire {
+    /// As a roof's covering: the exposure, kW/m², above which it catches at the fire's
+    /// `reference_moisture`; 0 for one that does not catch from a neighbour's heat.
+    pub catch_kw_m2: f64,
+    /// The share of what lies under a roof that burns when the building is fully involved.
+    pub burns: f64,
 }
 
 impl GoodDef {
@@ -1701,6 +1714,8 @@ pub struct PeopleParams {
     pub relations: crate::views::RelationsParams,
     /// How people tally a source of water (M6a slice BA, ADR-0021 §6).
     pub suspicion: crate::suspicion::SuspicionParams,
+    /// How buildings burn and fire passes between them (M6b slice BC, ADR-0022 §4).
+    pub fire: crate::fire::FireParams,
     /// Names.
     pub names: NameParams,
 }

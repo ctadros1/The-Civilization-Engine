@@ -11,3 +11,9 @@ sheltered_half_life_days = 90.0
 eaten = "cooked"
 shared = false
 reserve_for = ""
+
+# How it burns (ADR-0022 §5; content API 81).
+# Groats under a burning roof are mostly lost (a design prior).
+[fire]
+catch_kw_m2 = 0.0
+burns = 0.8

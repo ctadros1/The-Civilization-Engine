@@ -689,10 +689,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for Origin {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_CAUSE: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_CAUSE: u8 = 6;
+pub const ENUM_MAX_CAUSE: u8 = 7;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_CAUSE: [Cause; 7] = [
+pub const ENUM_VALUES_CAUSE: [Cause; 8] = [
   Cause::Unspecified,
   Cause::Starvation,
   Cause::Childbirth,
@@ -700,6 +700,7 @@ pub const ENUM_VALUES_CAUSE: [Cause; 7] = [
   Cause::Violence,
   Cause::Fell,
   Cause::Disease,
+  Cause::Burned,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -714,9 +715,10 @@ impl Cause {
   pub const Violence: Self = Self(4);
   pub const Fell: Self = Self(5);
   pub const Disease: Self = Self(6);
+  pub const Burned: Self = Self(7);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 6;
+  pub const ENUM_MAX: u8 = 7;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Unspecified,
     Self::Starvation,
@@ -725,6 +727,7 @@ impl Cause {
     Self::Violence,
     Self::Fell,
     Self::Disease,
+    Self::Burned,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -736,6 +739,7 @@ impl Cause {
       Self::Violence => Some("Violence"),
       Self::Fell => Some("Fell"),
       Self::Disease => Some("Disease"),
+      Self::Burned => Some("Burned"),
       _ => None,
     }
   }
@@ -1401,11 +1405,12 @@ impl ::flatbuffers::SimpleToVerifyInSlice for TradeChannel {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_EVENT_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_EVENT_KIND: u8 = 0;
+pub const ENUM_MAX_EVENT_KIND: u8 = 1;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_EVENT_KIND: [EventKind; 1] = [
+pub const ENUM_VALUES_EVENT_KIND: [EventKind; 2] = [
   EventKind::AgentStep,
+  EventKind::FireStep,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1414,16 +1419,19 @@ pub struct EventKind(pub u8);
 #[allow(non_upper_case_globals)]
 impl EventKind {
   pub const AgentStep: Self = Self(0);
+  pub const FireStep: Self = Self(1);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 0;
+  pub const ENUM_MAX: u8 = 1;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::AgentStep,
+    Self::FireStep,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
     match self {
       Self::AgentStep => Some("AgentStep"),
+      Self::FireStep => Some("FireStep"),
       _ => None,
     }
   }
@@ -37456,6 +37464,962 @@ impl ::core::fmt::Debug for SicknessSave<'_> {
     let mut ds = f.debug_struct("SicknessSave");
       ds.field("episodes", &self.episodes());
       ds.field("outbreaks", &self.outbreaks());
+      ds.finish()
+  }
+}
+pub enum FireSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct FireSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for FireSave<'a> {
+  type Inner = FireSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> FireSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_BUILDING: ::flatbuffers::VOffsetT = 6;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 8;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 10;
+  pub const VT_X: ::flatbuffers::VOffsetT = 12;
+  pub const VT_Y: ::flatbuffers::VOffsetT = 14;
+  pub const VT_BEGAN: ::flatbuffers::VOffsetT = 16;
+  pub const VT_KINDLED: ::flatbuffers::VOffsetT = 18;
+  pub const VT_SOURCE: ::flatbuffers::VOffsetT = 20;
+  pub const VT_GAP_M: ::flatbuffers::VOffsetT = 22;
+  pub const VT_WIND_MS: ::flatbuffers::VOffsetT = 24;
+  pub const VT_TOWARD: ::flatbuffers::VOffsetT = 26;
+  pub const VT_MOISTURE: ::flatbuffers::VOffsetT = 28;
+  pub const VT_EPISODE: ::flatbuffers::VOffsetT = 30;
+  pub const VT_ENDED: ::flatbuffers::VOffsetT = 32;
+  pub const VT_GOODS_KG: ::flatbuffers::VOffsetT = 34;
+  pub const VT_DEATHS: ::flatbuffers::VOffsetT = 36;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    FireSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args FireSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<FireSave<'bldr>> {
+    let mut builder = FireSaveBuilder::new(_fbb);
+    builder.add_ended(args.ended);
+    builder.add_began(args.began);
+    builder.add_settlement(args.settlement);
+    builder.add_household(args.household);
+    builder.add_building(args.building);
+    if let Some(x) = args.deaths { builder.add_deaths(x); }
+    builder.add_goods_kg(args.goods_kg);
+    builder.add_episode(args.episode);
+    builder.add_moisture(args.moisture);
+    builder.add_toward(args.toward);
+    builder.add_wind_ms(args.wind_ms);
+    builder.add_gap_m(args.gap_m);
+    builder.add_source(args.source);
+    builder.add_y(args.y);
+    builder.add_x(args.x);
+    builder.add_id(args.id);
+    builder.add_kindled(args.kindled);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(FireSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn building(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(FireSave::VT_BUILDING, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(FireSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(FireSave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn x(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FireSave::VT_X, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn y(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FireSave::VT_Y, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn began(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(FireSave::VT_BEGAN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn kindled(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(FireSave::VT_KINDLED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn source(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(FireSave::VT_SOURCE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn gap_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FireSave::VT_GAP_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn wind_ms(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FireSave::VT_WIND_MS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn toward(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FireSave::VT_TOWARD, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn moisture(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FireSave::VT_MOISTURE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn episode(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(FireSave::VT_EPISODE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ended(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(FireSave::VT_ENDED, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn goods_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FireSave::VT_GOODS_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn deaths(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(FireSave::VT_DEATHS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for FireSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("building", Self::VT_BUILDING, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<f32>("x", Self::VT_X, false)?
+     .visit_field::<f32>("y", Self::VT_Y, false)?
+     .visit_field::<i64>("began", Self::VT_BEGAN, false)?
+     .visit_field::<u8>("kindled", Self::VT_KINDLED, false)?
+     .visit_field::<u32>("source", Self::VT_SOURCE, false)?
+     .visit_field::<f32>("gap_m", Self::VT_GAP_M, false)?
+     .visit_field::<f32>("wind_ms", Self::VT_WIND_MS, false)?
+     .visit_field::<f32>("toward", Self::VT_TOWARD, false)?
+     .visit_field::<f32>("moisture", Self::VT_MOISTURE, false)?
+     .visit_field::<u32>("episode", Self::VT_EPISODE, false)?
+     .visit_field::<i64>("ended", Self::VT_ENDED, false)?
+     .visit_field::<f32>("goods_kg", Self::VT_GOODS_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("deaths", Self::VT_DEATHS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct FireSaveArgs<'a> {
+    pub id: u32,
+    pub building: u64,
+    pub household: u64,
+    pub settlement: u64,
+    pub x: f32,
+    pub y: f32,
+    pub began: i64,
+    pub kindled: u8,
+    pub source: u32,
+    pub gap_m: f32,
+    pub wind_ms: f32,
+    pub toward: f32,
+    pub moisture: f32,
+    pub episode: u32,
+    pub ended: i64,
+    pub goods_kg: f32,
+    pub deaths: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+}
+impl<'a> Default for FireSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    FireSaveArgs {
+      id: 0,
+      building: 0,
+      household: 0,
+      settlement: 0,
+      x: 0.0,
+      y: 0.0,
+      began: 0,
+      kindled: 0,
+      source: 0,
+      gap_m: 0.0,
+      wind_ms: 0.0,
+      toward: 0.0,
+      moisture: 0.0,
+      episode: 0,
+      ended: -1,
+      goods_kg: 0.0,
+      deaths: None,
+    }
+  }
+}
+
+pub struct FireSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FireSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(FireSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_building(&mut self, building: u64) {
+    self.fbb_.push_slot::<u64>(FireSave::VT_BUILDING, building, 0);
+  }
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(FireSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(FireSave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_x(&mut self, x: f32) {
+    self.fbb_.push_slot::<f32>(FireSave::VT_X, x, 0.0);
+  }
+  #[inline]
+  pub fn add_y(&mut self, y: f32) {
+    self.fbb_.push_slot::<f32>(FireSave::VT_Y, y, 0.0);
+  }
+  #[inline]
+  pub fn add_began(&mut self, began: i64) {
+    self.fbb_.push_slot::<i64>(FireSave::VT_BEGAN, began, 0);
+  }
+  #[inline]
+  pub fn add_kindled(&mut self, kindled: u8) {
+    self.fbb_.push_slot::<u8>(FireSave::VT_KINDLED, kindled, 0);
+  }
+  #[inline]
+  pub fn add_source(&mut self, source: u32) {
+    self.fbb_.push_slot::<u32>(FireSave::VT_SOURCE, source, 0);
+  }
+  #[inline]
+  pub fn add_gap_m(&mut self, gap_m: f32) {
+    self.fbb_.push_slot::<f32>(FireSave::VT_GAP_M, gap_m, 0.0);
+  }
+  #[inline]
+  pub fn add_wind_ms(&mut self, wind_ms: f32) {
+    self.fbb_.push_slot::<f32>(FireSave::VT_WIND_MS, wind_ms, 0.0);
+  }
+  #[inline]
+  pub fn add_toward(&mut self, toward: f32) {
+    self.fbb_.push_slot::<f32>(FireSave::VT_TOWARD, toward, 0.0);
+  }
+  #[inline]
+  pub fn add_moisture(&mut self, moisture: f32) {
+    self.fbb_.push_slot::<f32>(FireSave::VT_MOISTURE, moisture, 0.0);
+  }
+  #[inline]
+  pub fn add_episode(&mut self, episode: u32) {
+    self.fbb_.push_slot::<u32>(FireSave::VT_EPISODE, episode, 0);
+  }
+  #[inline]
+  pub fn add_ended(&mut self, ended: i64) {
+    self.fbb_.push_slot::<i64>(FireSave::VT_ENDED, ended, -1);
+  }
+  #[inline]
+  pub fn add_goods_kg(&mut self, goods_kg: f32) {
+    self.fbb_.push_slot::<f32>(FireSave::VT_GOODS_KG, goods_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_deaths(&mut self, deaths: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FireSave::VT_DEATHS, deaths);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FireSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    FireSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<FireSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for FireSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("FireSave");
+      ds.field("id", &self.id());
+      ds.field("building", &self.building());
+      ds.field("household", &self.household());
+      ds.field("settlement", &self.settlement());
+      ds.field("x", &self.x());
+      ds.field("y", &self.y());
+      ds.field("began", &self.began());
+      ds.field("kindled", &self.kindled());
+      ds.field("source", &self.source());
+      ds.field("gap_m", &self.gap_m());
+      ds.field("wind_ms", &self.wind_ms());
+      ds.field("toward", &self.toward());
+      ds.field("moisture", &self.moisture());
+      ds.field("episode", &self.episode());
+      ds.field("ended", &self.ended());
+      ds.field("goods_kg", &self.goods_kg());
+      ds.field("deaths", &self.deaths());
+      ds.finish()
+  }
+}
+pub enum ConflagrationSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ConflagrationSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for ConflagrationSave<'a> {
+  type Inner = ConflagrationSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> ConflagrationSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_FIRST: ::flatbuffers::VOffsetT = 8;
+  pub const VT_BEGAN: ::flatbuffers::VOffsetT = 10;
+  pub const VT_ENDED: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    ConflagrationSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ConflagrationSaveArgs
+  ) -> ::flatbuffers::WIPOffset<ConflagrationSave<'bldr>> {
+    let mut builder = ConflagrationSaveBuilder::new(_fbb);
+    builder.add_ended(args.ended);
+    builder.add_began(args.began);
+    builder.add_settlement(args.settlement);
+    builder.add_first(args.first);
+    builder.add_id(args.id);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ConflagrationSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ConflagrationSave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn first(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ConflagrationSave::VT_FIRST, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn began(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(ConflagrationSave::VT_BEGAN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ended(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(ConflagrationSave::VT_ENDED, Some(-1)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for ConflagrationSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<u32>("first", Self::VT_FIRST, false)?
+     .visit_field::<i64>("began", Self::VT_BEGAN, false)?
+     .visit_field::<i64>("ended", Self::VT_ENDED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ConflagrationSaveArgs {
+    pub id: u32,
+    pub settlement: u64,
+    pub first: u32,
+    pub began: i64,
+    pub ended: i64,
+}
+impl<'a> Default for ConflagrationSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    ConflagrationSaveArgs {
+      id: 0,
+      settlement: 0,
+      first: 0,
+      began: 0,
+      ended: -1,
+    }
+  }
+}
+
+pub struct ConflagrationSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ConflagrationSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(ConflagrationSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(ConflagrationSave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_first(&mut self, first: u32) {
+    self.fbb_.push_slot::<u32>(ConflagrationSave::VT_FIRST, first, 0);
+  }
+  #[inline]
+  pub fn add_began(&mut self, began: i64) {
+    self.fbb_.push_slot::<i64>(ConflagrationSave::VT_BEGAN, began, 0);
+  }
+  #[inline]
+  pub fn add_ended(&mut self, ended: i64) {
+    self.fbb_.push_slot::<i64>(ConflagrationSave::VT_ENDED, ended, -1);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ConflagrationSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ConflagrationSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<ConflagrationSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for ConflagrationSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("ConflagrationSave");
+      ds.field("id", &self.id());
+      ds.field("settlement", &self.settlement());
+      ds.field("first", &self.first());
+      ds.field("began", &self.began());
+      ds.field("ended", &self.ended());
+      ds.finish()
+  }
+}
+pub enum ExposureSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ExposureSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for ExposureSave<'a> {
+  type Inner = ExposureSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> ExposureSave<'a> {
+  pub const VT_BUILDING: ::flatbuffers::VOffsetT = 4;
+  pub const VT_KW: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    ExposureSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ExposureSaveArgs
+  ) -> ::flatbuffers::WIPOffset<ExposureSave<'bldr>> {
+    let mut builder = ExposureSaveBuilder::new(_fbb);
+    builder.add_kw(args.kw);
+    builder.add_building(args.building);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn building(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ExposureSave::VT_BUILDING, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn kw(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(ExposureSave::VT_KW, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for ExposureSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("building", Self::VT_BUILDING, false)?
+     .visit_field::<f64>("kw", Self::VT_KW, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ExposureSaveArgs {
+    pub building: u64,
+    pub kw: f64,
+}
+impl<'a> Default for ExposureSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    ExposureSaveArgs {
+      building: 0,
+      kw: 0.0,
+    }
+  }
+}
+
+pub struct ExposureSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ExposureSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_building(&mut self, building: u64) {
+    self.fbb_.push_slot::<u64>(ExposureSave::VT_BUILDING, building, 0);
+  }
+  #[inline]
+  pub fn add_kw(&mut self, kw: f64) {
+    self.fbb_.push_slot::<f64>(ExposureSave::VT_KW, kw, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ExposureSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ExposureSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<ExposureSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for ExposureSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("ExposureSave");
+      ds.field("building", &self.building());
+      ds.field("kw", &self.kw());
+      ds.finish()
+  }
+}
+pub enum WeighedSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WeighedSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WeighedSave<'a> {
+  type Inner = WeighedSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WeighedSave<'a> {
+  pub const VT_FIRE: ::flatbuffers::VOffsetT = 4;
+  pub const VT_BUILDING: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PEAK_KW: ::flatbuffers::VOffsetT = 8;
+  pub const VT_THRESHOLD_KW: ::flatbuffers::VOffsetT = 10;
+  pub const VT_CAUGHT: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WeighedSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WeighedSaveArgs
+  ) -> ::flatbuffers::WIPOffset<WeighedSave<'bldr>> {
+    let mut builder = WeighedSaveBuilder::new(_fbb);
+    builder.add_building(args.building);
+    builder.add_threshold_kw(args.threshold_kw);
+    builder.add_peak_kw(args.peak_kw);
+    builder.add_fire(args.fire);
+    builder.add_caught(args.caught);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn fire(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WeighedSave::VT_FIRE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn building(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WeighedSave::VT_BUILDING, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn peak_kw(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WeighedSave::VT_PEAK_KW, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn threshold_kw(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WeighedSave::VT_THRESHOLD_KW, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn caught(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(WeighedSave::VT_CAUGHT, Some(false)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WeighedSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("fire", Self::VT_FIRE, false)?
+     .visit_field::<u64>("building", Self::VT_BUILDING, false)?
+     .visit_field::<f32>("peak_kw", Self::VT_PEAK_KW, false)?
+     .visit_field::<f32>("threshold_kw", Self::VT_THRESHOLD_KW, false)?
+     .visit_field::<bool>("caught", Self::VT_CAUGHT, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WeighedSaveArgs {
+    pub fire: u32,
+    pub building: u64,
+    pub peak_kw: f32,
+    pub threshold_kw: f32,
+    pub caught: bool,
+}
+impl<'a> Default for WeighedSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    WeighedSaveArgs {
+      fire: 0,
+      building: 0,
+      peak_kw: 0.0,
+      threshold_kw: 0.0,
+      caught: false,
+    }
+  }
+}
+
+pub struct WeighedSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WeighedSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_fire(&mut self, fire: u32) {
+    self.fbb_.push_slot::<u32>(WeighedSave::VT_FIRE, fire, 0);
+  }
+  #[inline]
+  pub fn add_building(&mut self, building: u64) {
+    self.fbb_.push_slot::<u64>(WeighedSave::VT_BUILDING, building, 0);
+  }
+  #[inline]
+  pub fn add_peak_kw(&mut self, peak_kw: f32) {
+    self.fbb_.push_slot::<f32>(WeighedSave::VT_PEAK_KW, peak_kw, 0.0);
+  }
+  #[inline]
+  pub fn add_threshold_kw(&mut self, threshold_kw: f32) {
+    self.fbb_.push_slot::<f32>(WeighedSave::VT_THRESHOLD_KW, threshold_kw, 0.0);
+  }
+  #[inline]
+  pub fn add_caught(&mut self, caught: bool) {
+    self.fbb_.push_slot::<bool>(WeighedSave::VT_CAUGHT, caught, false);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WeighedSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WeighedSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WeighedSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WeighedSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WeighedSave");
+      ds.field("fire", &self.fire());
+      ds.field("building", &self.building());
+      ds.field("peak_kw", &self.peak_kw());
+      ds.field("threshold_kw", &self.threshold_kw());
+      ds.field("caught", &self.caught());
+      ds.finish()
+  }
+}
+pub enum FiresSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct FiresSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for FiresSave<'a> {
+  type Inner = FiresSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> FiresSave<'a> {
+  pub const VT_FIRES: ::flatbuffers::VOffsetT = 4;
+  pub const VT_EPISODES: ::flatbuffers::VOffsetT = 6;
+  pub const VT_EXPOSURE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_WEIGHED: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    FiresSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args FiresSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<FiresSave<'bldr>> {
+    let mut builder = FiresSaveBuilder::new(_fbb);
+    if let Some(x) = args.weighed { builder.add_weighed(x); }
+    if let Some(x) = args.exposure { builder.add_exposure(x); }
+    if let Some(x) = args.episodes { builder.add_episodes(x); }
+    if let Some(x) = args.fires { builder.add_fires(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn fires(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FireSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FireSave>>>>(FiresSave::VT_FIRES, None)}
+  }
+  #[inline]
+  pub fn episodes(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConflagrationSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConflagrationSave>>>>(FiresSave::VT_EPISODES, None)}
+  }
+  #[inline]
+  pub fn exposure(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ExposureSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ExposureSave>>>>(FiresSave::VT_EXPOSURE, None)}
+  }
+  #[inline]
+  pub fn weighed(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WeighedSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WeighedSave>>>>(FiresSave::VT_WEIGHED, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for FiresSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FireSave>>>>("fires", Self::VT_FIRES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ConflagrationSave>>>>("episodes", Self::VT_EPISODES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ExposureSave>>>>("exposure", Self::VT_EXPOSURE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WeighedSave>>>>("weighed", Self::VT_WEIGHED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct FiresSaveArgs<'a> {
+    pub fires: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FireSave<'a>>>>>,
+    pub episodes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConflagrationSave<'a>>>>>,
+    pub exposure: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ExposureSave<'a>>>>>,
+    pub weighed: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WeighedSave<'a>>>>>,
+}
+impl<'a> Default for FiresSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    FiresSaveArgs {
+      fires: None,
+      episodes: None,
+      exposure: None,
+      weighed: None,
+    }
+  }
+}
+
+pub struct FiresSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FiresSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_fires(&mut self, fires: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<FireSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FiresSave::VT_FIRES, fires);
+  }
+  #[inline]
+  pub fn add_episodes(&mut self, episodes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ConflagrationSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FiresSave::VT_EPISODES, episodes);
+  }
+  #[inline]
+  pub fn add_exposure(&mut self, exposure: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ExposureSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FiresSave::VT_EXPOSURE, exposure);
+  }
+  #[inline]
+  pub fn add_weighed(&mut self, weighed: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WeighedSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FiresSave::VT_WEIGHED, weighed);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FiresSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    FiresSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<FiresSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for FiresSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("FiresSave");
+      ds.field("fires", &self.fires());
+      ds.field("episodes", &self.episodes());
+      ds.field("exposure", &self.exposure());
+      ds.field("weighed", &self.weighed());
       ds.finish()
   }
 }

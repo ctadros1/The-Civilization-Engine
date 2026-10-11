@@ -908,6 +908,16 @@ impl Sim {
         self.influence(|people, ctx| people.drought(ctx, months, depth))
     }
 
+    /// The observer sets building `building`'s covering alight (god tool, M6b slice BC; ADR-0022
+    /// §14). It burns as any fire does: whether it spreads, and what it takes, is the fire's and
+    /// the weather's.
+    pub fn set_fire(
+        &mut self,
+        building: civ_core::PermanentId,
+    ) -> Result<civ_agents::population::Reached, String> {
+        self.influence(|people, ctx| people.set_fire(ctx, building))
+    }
+
     /// Runs god tool `tool` on the people with a context for now, then schedules what it planned.
     fn influence<T>(
         &mut self,

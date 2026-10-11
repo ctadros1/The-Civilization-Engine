@@ -70,6 +70,100 @@ pub(crate) struct PeopleFile {
     pub relations: RelationsFile,
     /// How people tally a source of water (M6a slice BA, step two; content API 76).
     pub suspicion: SuspicionFile,
+    /// How buildings burn and fire passes between them (M6b slice BC; content API 81).
+    pub fire: FireFile,
+}
+
+/// How buildings burn and fire passes between them (M6b slice BC, ADR-0022 §4-§5; content API
+/// 81). See [`civ_agents::fire::FireParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct FireFile {
+    pub reach_m: f64,
+    pub flux_kw: [f64; 2],
+    pub covering_flux_share: f64,
+    pub wind_stretch_per_ms: f64,
+    pub exposure_minutes: f64,
+    pub catch_per_minute: f64,
+    pub extinction_moisture: f64,
+    pub reference_moisture: f64,
+    pub involve_minutes: f64,
+    pub involved_minutes: f64,
+    pub covering_minutes: f64,
+    pub char_mm_first_hour: f64,
+    pub char_exponent: f64,
+    pub infill_loss: f64,
+}
+
+impl FireFile {
+    fn params(&self) -> civ_agents::fire::FireParams {
+        civ_agents::fire::FireParams {
+            reach_m: self.reach_m,
+            flux_kw: self.flux_kw,
+            covering_flux_share: self.covering_flux_share,
+            wind_stretch_per_ms: self.wind_stretch_per_ms,
+            exposure_minutes: self.exposure_minutes,
+            catch_per_minute: self.catch_per_minute,
+            extinction_moisture: self.extinction_moisture,
+            reference_moisture: self.reference_moisture,
+            involve_minutes: self.involve_minutes,
+            involved_minutes: self.involved_minutes,
+            covering_minutes: self.covering_minutes,
+            char_mm_first_hour: self.char_mm_first_hour,
+            char_exponent: self.char_exponent,
+            infill_loss: self.infill_loss,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("fire.reach_m", self.reach_m, 0.0, 100.0),
+            ("fire.flux_kw[0]", self.flux_kw[0], 0.1, 500.0),
+            ("fire.flux_kw[1]", self.flux_kw[1], 0.1, 500.0),
+            (
+                "fire.covering_flux_share",
+                self.covering_flux_share,
+                0.0,
+                1.0,
+            ),
+            (
+                "fire.wind_stretch_per_ms",
+                self.wind_stretch_per_ms,
+                0.0,
+                1.0,
+            ),
+            ("fire.exposure_minutes", self.exposure_minutes, 0.01, 120.0),
+            ("fire.catch_per_minute", self.catch_per_minute, 0.0, 60.0),
+            (
+                "fire.extinction_moisture",
+                self.extinction_moisture,
+                0.01,
+                3.0,
+            ),
+            ("fire.reference_moisture", self.reference_moisture, 0.0, 3.0),
+            ("fire.involve_minutes", self.involve_minutes, 0.0, 600.0),
+            ("fire.involved_minutes", self.involved_minutes, 1.0, 6000.0),
+            ("fire.covering_minutes", self.covering_minutes, 0.1, 600.0),
+            (
+                "fire.char_mm_first_hour",
+                self.char_mm_first_hour,
+                0.0,
+                200.0,
+            ),
+            ("fire.char_exponent", self.char_exponent, 0.1, 2.0),
+            ("fire.infill_loss", self.infill_loss, 0.0, 1.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        if self.flux_kw[1] >= self.flux_kw[0] {
+            p.push("`fire.flux_kw` must fall from 1 m to 4 m".to_owned());
+        }
+        if self.reference_moisture >= self.extinction_moisture {
+            p.push("`fire.reference_moisture` must be below `fire.extinction_moisture`".to_owned());
+        }
+    }
 }
 
 /// How people tally a source of water (M6a slice BA, ADR-0021 §6; content API 76), and what they
@@ -1705,6 +1799,7 @@ impl PeopleFile {
                 share_told: self.reports.share_told,
             },
             suspicion: self.suspicion.params(),
+            fire: self.fire.params(),
             relations: civ_agents::views::RelationsParams {
                 prior: self.relations.prior,
                 half_life_days: self.relations.half_life_days,
@@ -1735,6 +1830,7 @@ impl PeopleFile {
         self.crime.problems(&mut p);
         self.word.problems(&mut p);
         self.suspicion.problems(&mut p);
+        self.fire.problems(&mut p);
         if !(self.places.sight_m.is_finite() && (0.0..=10_000.0).contains(&self.places.sight_m)) {
             p.push(format!(
                 "`places.sight_m` must be between 0 and 10000 (got {})",

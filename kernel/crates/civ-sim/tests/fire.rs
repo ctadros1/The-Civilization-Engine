@@ -1,0 +1,400 @@
+//! A building burns (M6b slice BC; ADR-0022 §4, §5, §13, §14): the observer sets a covering
+//! alight, the building burns by stages, its heat reaches its neighbours by the gap and the wind,
+//! their coverings catch or hold, timber chars, goods under the roof burn, sleepers caught inside
+//! may die, and the fire's record and the chronicle tell of it, all kept exactly across a save.
+
+use std::path::Path;
+use std::sync::OnceLock;
+use std::sync::atomic::AtomicBool;
+
+use civ_agents::build::{self, Shape};
+use civ_agents::fire::{Kindled, Stage};
+use civ_agents::history::{Cause, ChronicleKind};
+use civ_agents::influence::InfluenceKind;
+use civ_agents::params::BuildingDef;
+use civ_agents::person::Flow;
+use civ_content::ContentRegistry;
+use civ_core::PermanentId;
+use civ_grammar::{GroupKind, Stage as BuildStage};
+use civ_land::GroupState;
+use civ_sim::{NewWorld, Sim, persist};
+use commons_persist::{SaveDir, SaveKind};
+
+fn content() -> &'static ContentRegistry {
+    static CONTENT: OnceLock<ContentRegistry> = OnceLock::new();
+    CONTENT.get_or_init(|| {
+        let root = civ_content::find_content_root(Path::new(env!("CARGO_MANIFEST_DIR")))
+            .expect("content/ is above the crate");
+        civ_content::load(&root)
+            .registry
+            .expect("the core content loads")
+    })
+}
+
+fn world(seed: u64) -> Sim {
+    Sim::create(
+        &NewWorld {
+            name: "Fire".to_owned(),
+            seed,
+            preset_id: "core:worldgen/river_valley".to_owned(),
+            size_cells: 512,
+            band_size: 0,
+            neighbours: Vec::new(),
+            neighbours_known: false,
+            regime_id: String::new(),
+        },
+        content(),
+        &mut |_| {},
+        &AtomicBool::new(false),
+    )
+    .expect("generates")
+}
+
+fn hut_def() -> &'static BuildingDef {
+    let catalog = &content().catalog;
+    &catalog.buildings[catalog
+        .building_index("core:building/hut")
+        .expect("the hut")]
+}
+
+/// The first household of the world and where it lives.
+fn first(sim: &Sim) -> (PermanentId, (f32, f32)) {
+    let (_, h) = sim
+        .people()
+        .households
+        .iter()
+        .min_by_key(|(_, h)| h.id)
+        .expect("a household");
+    (h.id, h.home)
+}
+
+/// A finished hut of `household` at `at`.
+fn hut(sim: &mut Sim, household: PermanentId, at: (f32, f32)) -> PermanentId {
+    let spec = build::design_shape(
+        hut_def(),
+        &content().catalog.goods,
+        Shape::Round { radius: 310 },
+        at,
+        None,
+    )
+    .expect("a hut");
+    sim.place_building_for_tests(household, spec, BuildStage::ALL.len() as u8)
+        .expect("placed")
+}
+
+/// The width of a hut's roof, metres: the box its plot covers.
+fn hut_span_m() -> f32 {
+    let spec = build::design_shape(
+        hut_def(),
+        &content().catalog.goods,
+        Shape::Round { radius: 310 },
+        (0.0, 0.0),
+        None,
+    )
+    .expect("a hut");
+    build::plot_rect(&spec, hut_def()).w as f32 / 100.0
+}
+
+/// World `seed` at noon of its first day, the day's wind set to `wind_ms` from the west and the
+/// thatch holding `moisture` of its mass: a block of huts `rows` deep (west to east) and `cols`
+/// across, `gap_m` apart roof to roof, east of the first household's home. The world and the
+/// huts, west row first.
+fn block(
+    seed: u64,
+    rows: usize,
+    cols: usize,
+    gap_m: f32,
+    wind_ms: f32,
+    moisture: f32,
+) -> (Sim, Vec<PermanentId>) {
+    let mut sim = world(seed);
+    sim.advance_minutes(6 * 60).expect("advances");
+    let (household, home) = first(&sim);
+    let step = hut_span_m() + gap_m;
+    let mut huts = Vec::new();
+    for r in 0..rows {
+        for c in 0..cols {
+            let at = (home.0 + 60.0 + r as f32 * step, home.1 + c as f32 * step);
+            huts.push(hut(&mut sim, household, at));
+        }
+    }
+    set_day(&mut sim, wind_ms, moisture);
+    (sim, huts)
+}
+
+/// Today's wind `wind_ms` from the west and the thatch holding `moisture` of its mass.
+fn set_day(sim: &mut Sim, wind_ms: f32, moisture: f32) {
+    let w = &mut sim.land_mut_for_tests().weather;
+    w.today.wind_ms = wind_ms;
+    w.today.wind_from_deg = 270.0;
+    w.today.gust_ms = wind_ms * 1.7;
+    w.today.fuel_moisture = moisture;
+}
+
+/// How many of `huts` burned.
+fn burned(sim: &Sim, huts: &[PermanentId]) -> usize {
+    huts.iter()
+        .filter(|&&h| sim.people().fires.list.iter().any(|f| f.building == h))
+        .count()
+}
+
+#[test]
+fn a_block_of_huts_a_metre_and_a_half_apart_in_wind_burns_within_minutes() {
+    // 12-03 §2.2: twenty dwellings 1-2 m apart in 4.2-6.9 m/s of wind, four lit together, were
+    // all involved within about five minutes.
+    let (mut sim, huts) = block(1, 5, 4, 1.5, 5.5, 0.12);
+    let began = sim.now();
+    for &h in &huts[..4] {
+        let reached = sim.set_fire(h).expect("set alight");
+        assert!(!reached.repeat);
+    }
+    sim.advance_minutes(15).expect("advances");
+    assert_eq!(
+        burned(&sim, &huts),
+        20,
+        "every hut caught within the quarter hour"
+    );
+    let fires = &sim.people().fires;
+    let last = fires
+        .list
+        .iter()
+        .map(|f| f.began.minutes() - began.minutes())
+        .max()
+        .expect("fires");
+    assert!(last <= 12, "the last caught {last} minutes in");
+    // The first four were the observer's; every other caught from a burning neighbour and is
+    // part of a conflagration.
+    for f in &fires.list {
+        match f.kindled {
+            Kindled::Observer { influence } => {
+                assert!(huts[..4].contains(&f.building));
+                let i = sim
+                    .people()
+                    .influences
+                    .list
+                    .iter()
+                    .find(|i| i.id == influence)
+                    .expect("its influence");
+                assert_eq!(
+                    (i.kind, i.target, i.subject),
+                    (InfluenceKind::Fire, f.building, f.id)
+                );
+            }
+            Kindled::Neighbour { fire, gap_m, .. } => {
+                assert!(fire < f.id && (0.0..10.0).contains(&gap_m));
+                assert!(f.episode.is_some());
+            }
+        }
+    }
+    // Every fire burns out half an hour on, and the conflagrations end with them.
+    sim.advance_minutes(60).expect("advances");
+    let fires = &sim.people().fires;
+    assert!(fires.list.iter().all(|f| f.ended.is_some()));
+    assert!(!fires.episodes.is_empty() && fires.episodes.iter().all(|e| e.ended.is_some()));
+    assert!(fires.exposure.is_empty());
+    assert!(fires.problems().is_empty(), "{:?}", fires.problems());
+    let told = sim
+        .people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == ChronicleKind::Fire)
+        .count();
+    assert!(told >= 2, "the chronicle tells the spread and its end");
+}
+
+#[test]
+fn wider_gaps_still_air_or_damp_thatch_lose_fewer_huts() {
+    let lost = |gap: f32, wind: f32, moisture: f32| -> usize {
+        let (mut sim, huts) = block(2, 5, 4, gap, wind, moisture);
+        for &h in &huts[..4] {
+            sim.set_fire(h).expect("set alight");
+        }
+        sim.advance_minutes(90).expect("advances");
+        burned(&sim, &huts)
+    };
+    let close = lost(1.5, 5.5, 0.12);
+    assert_eq!(close, 20);
+    let wide = lost(8.0, 0.0, 0.12);
+    assert!(wide < close, "8 m apart in a calm: {wide}");
+    let damp = lost(3.0, 5.5, 0.34);
+    assert!(damp < close, "damp thatch 3 m apart: {damp}");
+}
+
+#[test]
+fn a_hut_burns_out_as_parts_its_goods_burn_and_what_is_left_is_weighed() {
+    let mut sim = world(3);
+    sim.advance_minutes(6 * 60).expect("advances");
+    let (household, home) = first(&sim);
+    let id = hut(&mut sim, household, home);
+    set_day(&mut sim, 1.0, 0.12);
+    let lost = |sim: &Sim| -> f64 {
+        sim.people()
+            .households
+            .iter()
+            .find(|(_, h)| h.id == household)
+            .map_or(0.0, |(_, h)| {
+                (0..content().catalog.goods.len())
+                    .map(|g| h.flows.get(Flow::Lost, g))
+                    .sum()
+            })
+    };
+    sim.set_fire(id).expect("set alight");
+    // Refused again while it burns, and for a building that is not there.
+    assert!(sim.set_fire(id).is_err());
+    assert!(
+        sim.set_fire(PermanentId::from_raw(u64::MAX - 1).expect("an id"))
+            .is_err()
+    );
+    let params = sim.rules().people.fire.clone();
+    sim.advance_minutes(1).expect("advances");
+    assert_eq!(
+        params.stage_at(sim.people().fires.list[0].minutes_at(sim.now())),
+        Stage::Involved
+    );
+    sim.advance_minutes(40).expect("advances");
+    let fire = sim.people().fires.list[0].clone();
+    assert!(fire.ended.is_some() && fire.episode.is_none());
+    // What lay under its roof burned, counted as lost.
+    assert!(fire.goods_kg > 0.0);
+    let goods = f64::from(fire.goods_kg);
+    assert!((lost(&sim) - goods).abs() < 1e-4 * goods.max(1.0));
+    let b = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == id)
+        .expect("the hut")
+        .clone();
+    // The covering is gone, the timber charred, the wattle half burned.
+    for c in &b.condition {
+        match GroupKind::of_group(c.group) {
+            Some(GroupKind::Covering) => {
+                assert_eq!((c.loss, c.state), (1.0, GroupState::Failed));
+            }
+            Some(GroupKind::Posts | GroupKind::RoofFrame) => assert!(c.loss > 0.0),
+            Some(GroupKind::Infill) => assert!(c.loss >= 0.5),
+            _ => {}
+        }
+    }
+    // A building whose covering is gone cannot be set alight again.
+    assert!(sim.set_fire(id).is_err());
+    // The chronicle: the observer's hand, and the hut burned out.
+    let lines: Vec<_> = sim
+        .people()
+        .chronicle
+        .iter()
+        .filter(|e| {
+            e.kind == ChronicleKind::Fire
+                || (e.kind == ChronicleKind::Influence
+                    && e.number == f64::from(InfluenceKind::Fire.code()))
+        })
+        .map(|e| e.name.clone())
+        .collect();
+    assert_eq!(lines.len(), 2, "{lines:?}");
+    assert!(
+        lines[1].starts_with("Fire burned out the hut of "),
+        "{}",
+        lines[1]
+    );
+}
+
+/// How many of `dead` died in a fire.
+fn died_in(sim: &Sim, dead: &[PermanentId]) -> usize {
+    dead.iter()
+        .filter(|d| {
+            sim.people()
+                .records
+                .get(d)
+                .is_some_and(|r| matches!(r.died, Some((_, Cause::Burned))))
+        })
+        .count()
+}
+
+#[test]
+fn those_asleep_when_their_hut_is_fully_involved_get_out_or_die_and_none_sleep_on_in_it() {
+    // Several worlds, each with its first household asleep in a hut at its home at night.
+    let (mut caught, mut died) = (0, 0);
+    for seed in 4..12 {
+        let mut sim = world(seed);
+        let (household, home) = first(&sim);
+        let id = hut(&mut sim, household, home);
+        // Two in the morning of the second day (a world begins at six): the household is abed.
+        sim.advance_minutes(20 * 60).expect("advances");
+        set_day(&mut sim, 1.0, 0.15);
+        let at_home = |sim: &Sim| -> Vec<PermanentId> {
+            let t = sim.now().minutes() as f64;
+            sim.people()
+                .people
+                .iter()
+                .filter(|(_, p)| {
+                    p.household == household && p.asleep && p.trip.is_none() && {
+                        let at = p.position_at(t);
+                        (at.0 - home.0).hypot(at.1 - home.1) < 2.0
+                    }
+                })
+                .map(|(_, p)| p.id)
+                .collect()
+        };
+        let asleep = at_home(&sim);
+        sim.set_fire(id).expect("set alight");
+        sim.advance_minutes(2).expect("advances");
+        let fire = sim.people().fires.list[0].clone();
+        for &who in &asleep {
+            caught += 1;
+            let record = sim.people().records.get(&who).expect("a record");
+            match record.died {
+                Some((_, cause)) => {
+                    died += 1;
+                    assert_eq!(cause, Cause::Burned);
+                    assert!(fire.deaths.contains(&who));
+                }
+                None => {
+                    let p = sim.people().person(who).expect("living");
+                    assert!(!p.asleep, "woken by the fire");
+                }
+            }
+        }
+        assert_eq!(fire.deaths.len(), died_in(&sim, &fire.deaths));
+        // While it burns, none of the household sleeps on in it or comes back to.
+        for _ in 0..28 {
+            sim.advance_minutes(1).expect("advances");
+            assert!(
+                at_home(&sim).is_empty(),
+                "seed {seed}: someone slept in a burning hut"
+            );
+        }
+    }
+    assert!(caught > 0, "nobody was asleep at home");
+    assert!(
+        died > 0 && died < caught,
+        "{died} of {caught} caught asleep died"
+    );
+}
+
+#[test]
+fn a_world_saved_mid_fire_burns_on_as_if_never_saved() {
+    let (mut sim, huts) = block(5, 3, 3, 2.0, 4.0, 0.12);
+    for &h in &huts[..3] {
+        sim.set_fire(h).expect("set alight");
+    }
+    sim.advance_minutes(4).expect("advances");
+    assert!(sim.people().fires.any_burning());
+    let dir = tempfile::tempdir().expect("tempdir");
+    let saves = SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "fire").expect("saves");
+    let mut loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().fires, sim.people().fires);
+    for s in [&mut sim, &mut loaded] {
+        s.advance_minutes(60).expect("advances");
+    }
+    assert_eq!(loaded.people().fires, sim.people().fires);
+    let conditions = |s: &Sim| -> Vec<_> {
+        s.land()
+            .buildings
+            .iter()
+            .map(|b| (b.id, b.condition.clone(), b.state))
+            .collect()
+    };
+    assert_eq!(conditions(&loaded), conditions(&sim));
+    assert_eq!(loaded.people().chronicle, sim.people().chronicle);
+}

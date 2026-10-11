@@ -222,6 +222,7 @@ mod tests {
             }),
             timber: None,
             store: None,
+            fire: None,
         }
     }
 

@@ -263,9 +263,9 @@ mod tests {
             wind_persistence: 0.6,
             gust_factor: 1.7,
             storm_veer_deg: 30.0,
-            fuel_dry_moisture: [0.25, 0.08],
-            fuel_days: 3.0,
-            fuel_wetting_per_mm: 0.05,
+            fuel_dry_moisture: [0.2, 0.08],
+            fuel_days: 1.0,
+            fuel_wetting_per_mm: 0.015,
             fuel_wet_moisture: 0.6,
         }
     }

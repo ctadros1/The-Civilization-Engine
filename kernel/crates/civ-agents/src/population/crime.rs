@@ -1252,6 +1252,7 @@ mod tests {
             tool: None,
             timber: None,
             store: None,
+            fire: None,
         }
     }
 

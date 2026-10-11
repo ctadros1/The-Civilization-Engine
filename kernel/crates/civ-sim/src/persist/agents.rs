@@ -113,8 +113,8 @@ use super::{
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
-    SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, finish, section,
-    single_chunk, unreadable,
+    SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, finish,
+    section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -188,6 +188,8 @@ pub const SECTION_SICKNESS: SectionTag = SectionTag::new("sickness");
 /// Section: what people shed, where it lies and where it went (schema 76, M6a slice AZ, step
 /// two).
 pub const SECTION_CONTAGION: SectionTag = SectionTag::new("pathogen");
+/// Section: fires, conflagrations and the exposure near those burning (schema 88; M6b slice BC).
+pub const SECTION_FIRES: SectionTag = SectionTag::new("fires");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -288,6 +290,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         section(SECTION_WELLS, 0, encode_wells(&sim.land, rules)),
         section(SECTION_SICKNESS, 0, encode_sickness(&sim.people, rules)),
         section(SECTION_CONTAGION, 0, encode_contagion(&sim.people, rules)),
+        section(SECTION_FIRES, 0, encode_fires(&sim.people)),
     ]
 }
 
@@ -488,6 +491,8 @@ enum Schema {
     V86,
     /// The weather keeps a daily wind and the fuel's dryness (M6b slice BC, step one).
     V87,
+    /// Fires, conflagrations and the exposure near those burning (M6b slice BC, step two).
+    V88,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -589,7 +594,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V84 => Schema::V84,
         SCHEMA_V85 => Schema::V85,
         SCHEMA_V86 => Schema::V86,
-        SAVE_SCHEMA_VERSION => Schema::V87,
+        SCHEMA_V87 => Schema::V87,
+        SAVE_SCHEMA_VERSION => Schema::V88,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -836,6 +842,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V76 {
         let bytes = single_chunk(reader, SECTION_CONTAGION)?;
         people.contagion = decode_contagion(&bytes, rules)?;
+    }
+    // Fires (schema 88); before, none has burned.
+    if schema >= Schema::V88 {
+        let bytes = single_chunk(reader, SECTION_FIRES)?;
+        people.fires = decode_fires(&bytes)?;
     }
     // Settlements' founding ways (schema 61); before them a founding band's is drawn again from
     // its key, and any other settlement's taken as its households' now.
@@ -3108,7 +3119,8 @@ fn carried(
         | Schema::V84
         | Schema::V85
         | Schema::V86
-        | Schema::V87 => {
+        | Schema::V87
+        | Schema::V88 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3307,7 +3319,8 @@ fn decode_households(
             | Schema::V84
             | Schema::V85
             | Schema::V86
-            | Schema::V87 => {
+            | Schema::V87
+            | Schema::V88 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -4010,6 +4023,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Well => 45,
         ChronicleKind::Outbreak => 46,
         ChronicleKind::Suspicion => 47,
+        ChronicleKind::Fire => 48,
     }
 }
 
@@ -4062,6 +4076,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         45 => Some(ChronicleKind::Well),
         46 => Some(ChronicleKind::Outbreak),
         47 => Some(ChronicleKind::Suspicion),
+        48 => Some(ChronicleKind::Fire),
         _ => None,
     }
 }
@@ -4085,6 +4100,7 @@ fn encode_history(pop: &Population) -> Vec<u8> {
                         Cause::Violence => save::Cause::Violence,
                         Cause::Fell => save::Cause::Fell,
                         Cause::Disease => save::Cause::Disease,
+                        Cause::Burned => save::Cause::Burned,
                     },
                 ),
                 None => (false, 0, save::Cause::Unspecified),
@@ -4202,6 +4218,7 @@ fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
             save::Cause::Violence => Cause::Violence,
             save::Cause::Fell => Cause::Fell,
             save::Cause::Disease => Cause::Disease,
+            save::Cause::Burned => Cause::Burned,
             other => {
                 return Err(LoadError::Incompatible(format!(
                     "record {rid} has cause of death {}, which this build does not know",
@@ -5818,7 +5835,12 @@ fn encode_events(sim: &Sim) -> Vec<u8> {
         .pending_events()
         .into_iter()
         .map(|e| {
-            let SimEvent::Agent(AgentEvent::Step { person, version }) = e.event;
+            let (kind, person, version) = match e.event {
+                SimEvent::Agent(AgentEvent::Step { person, version }) => {
+                    (save::EventKind::AgentStep, person.get(), version)
+                }
+                SimEvent::Agent(AgentEvent::Fire) => (save::EventKind::FireStep, 0, 0),
+            };
             save::PendingEvent::create(
                 &mut fbb,
                 &save::PendingEventArgs {
@@ -5826,8 +5848,8 @@ fn encode_events(sim: &Sim) -> Vec<u8> {
                     phase: e.phase,
                     tiebreak: e.tiebreak,
                     seq: e.seq,
-                    kind: save::EventKind::AgentStep,
-                    person: person.get(),
+                    kind,
+                    person,
                     version,
                 },
             )
@@ -5853,6 +5875,7 @@ fn decode_events(bytes: &[u8]) -> Result<Vec<PendingEvent<SimEvent>>, LoadError>
                 person: required(e.person(), "an event's person")?,
                 version: e.version(),
             }),
+            save::EventKind::FireStep => SimEvent::Agent(AgentEvent::Fire),
             other => {
                 return Err(LoadError::Incompatible(format!(
                     "a pending event is of kind {}, which this build does not know",
@@ -8423,6 +8446,180 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
     finish(fbb, root)
 }
 
+fn encode_fires(people: &Population) -> Vec<u8> {
+    use civ_agents::fire::Kindled;
+    let mut fbb = FlatBufferBuilder::new();
+    let fires = &people.fires;
+    let list: Vec<_> = fires
+        .list
+        .iter()
+        .map(|f| {
+            let deaths: Vec<u64> = f.deaths.iter().map(|d| d.get()).collect();
+            let deaths = fbb.create_vector(&deaths);
+            let (kindled, source, gap_m, wind_ms, toward, moisture) = match f.kindled {
+                Kindled::Observer { influence } => (0, influence, 0.0, 0.0, 0.0, 0.0),
+                Kindled::Neighbour {
+                    fire,
+                    gap_m,
+                    wind_ms,
+                    toward,
+                    moisture,
+                } => (1, fire, gap_m, wind_ms, toward, moisture),
+            };
+            save::FireSave::create(
+                &mut fbb,
+                &save::FireSaveArgs {
+                    id: f.id,
+                    building: f.building.get(),
+                    household: f.household.get(),
+                    settlement: f.settlement.map_or(0, PermanentId::get),
+                    x: f.at.0,
+                    y: f.at.1,
+                    began: f.began.minutes(),
+                    kindled,
+                    source,
+                    gap_m,
+                    wind_ms,
+                    toward,
+                    moisture,
+                    episode: f.episode.unwrap_or(0),
+                    ended: f.ended.map_or(-1, |t| t.minutes()),
+                    goods_kg: f.goods_kg,
+                    deaths: Some(deaths),
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let episodes: Vec<_> = fires
+        .episodes
+        .iter()
+        .map(|e| {
+            save::ConflagrationSave::create(
+                &mut fbb,
+                &save::ConflagrationSaveArgs {
+                    id: e.id,
+                    settlement: e.settlement.map_or(0, PermanentId::get),
+                    first: e.first,
+                    began: e.began.minutes(),
+                    ended: e.ended.map_or(-1, |t| t.minutes()),
+                },
+            )
+        })
+        .collect();
+    let episodes = fbb.create_vector(&episodes);
+    let exposure: Vec<_> = fires
+        .exposure
+        .iter()
+        .map(|&(b, kw)| {
+            save::ExposureSave::create(
+                &mut fbb,
+                &save::ExposureSaveArgs {
+                    building: b.get(),
+                    kw,
+                },
+            )
+        })
+        .collect();
+    let exposure = fbb.create_vector(&exposure);
+    let weighed: Vec<_> = fires
+        .weighed
+        .iter()
+        .map(|w| {
+            save::WeighedSave::create(
+                &mut fbb,
+                &save::WeighedSaveArgs {
+                    fire: w.fire,
+                    building: w.building.get(),
+                    peak_kw: w.peak_kw,
+                    threshold_kw: w.threshold_kw,
+                    caught: w.caught,
+                },
+            )
+        })
+        .collect();
+    let weighed = fbb.create_vector(&weighed);
+    let root = save::FiresSave::create(
+        &mut fbb,
+        &save::FiresSaveArgs {
+            fires: Some(list),
+            episodes: Some(episodes),
+            exposure: Some(exposure),
+            weighed: Some(weighed),
+        },
+    );
+    finish(fbb, root)
+}
+
+fn decode_fires(bytes: &[u8]) -> Result<civ_agents::fire::Fires, LoadError> {
+    use civ_agents::fire::{Conflagration, Fire, Fires, Kindled, Weighed};
+    let root =
+        flatbuffers::root::<save::FiresSave>(bytes).map_err(|e| unreadable(SECTION_FIRES, &e))?;
+    let at = |m: i64| (m >= 0).then(|| SimTime::from_minutes(m));
+    let mut out = Fires::default();
+    for f in root.fires().iter().flatten() {
+        let kindled = match f.kindled() {
+            0 => Kindled::Observer {
+                influence: f.source(),
+            },
+            1 => Kindled::Neighbour {
+                fire: f.source(),
+                gap_m: f.gap_m(),
+                wind_ms: f.wind_ms(),
+                toward: f.toward(),
+                moisture: f.moisture(),
+            },
+            other => {
+                return Err(LoadError::Malformed(format!(
+                    "fire {} was kindled in an unknown way {other}",
+                    f.id()
+                )));
+            }
+        };
+        out.list.push(Fire {
+            id: f.id(),
+            building: required(f.building(), "a fire's building")?,
+            household: required(f.household(), "a fire's household")?,
+            settlement: PermanentId::from_raw(f.settlement()),
+            at: (f.x(), f.y()),
+            began: SimTime::from_minutes(f.began()),
+            kindled,
+            episode: (f.episode() > 0).then_some(f.episode()),
+            ended: at(f.ended()),
+            goods_kg: f.goods_kg(),
+            deaths: f
+                .deaths()
+                .iter()
+                .flatten()
+                .filter_map(PermanentId::from_raw)
+                .collect(),
+        });
+    }
+    for e in root.episodes().iter().flatten() {
+        out.episodes.push(Conflagration {
+            id: e.id(),
+            settlement: PermanentId::from_raw(e.settlement()),
+            first: e.first(),
+            began: SimTime::from_minutes(e.began()),
+            ended: at(e.ended()),
+        });
+    }
+    for x in root.exposure().iter().flatten() {
+        out.exposure
+            .push((required(x.building(), "an exposed building")?, x.kw()));
+    }
+    for w in root.weighed().iter().flatten() {
+        out.weighed.push(Weighed {
+            fire: w.fire(),
+            building: required(w.building(), "a weighed building")?,
+            peak_kw: w.peak_kw(),
+            threshold_kw: w.threshold_kw(),
+            caught: w.caught(),
+        });
+    }
+    Ok(out)
+}
+
 /// An infection of a disease the loaded content no longer has is let go.
 fn decode_sickness(
     bytes: &[u8],
@@ -8771,7 +8968,8 @@ fn decode_influences(
             | InfluenceKind::Bless
             | InfluenceKind::Curse
             | InfluenceKind::Wave
-            | InfluenceKind::Drought => i.subject(),
+            | InfluenceKind::Drought
+            | InfluenceKind::Fire => i.subject(),
             InfluenceKind::Ideology | InfluenceKind::Agitator => {
                 match map.get(i.subject() as usize) {
                     Some(Some(k)) => *k,

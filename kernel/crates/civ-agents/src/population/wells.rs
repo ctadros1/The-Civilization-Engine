@@ -527,7 +527,7 @@ impl Population {
             .filter(|s| self.homes.contains_key(s))
             .unwrap_or(x.id);
         let field = self.homes.get(&key)?;
-        let (cell, water_z) = match self.water_source(ctx, Some(field), None) {
+        let (cell, water_z) = match self.water_source(ctx, Some(field), None, None) {
             Some(o) => {
                 let spring = field.springs.iter().any(|&(_, _, c)| c == o.cell);
                 let z = if spring {
@@ -865,7 +865,24 @@ impl Population {
             .settlement
             .filter(|s| self.homes.contains_key(s))
             .unwrap_or(x.id);
-        self.water_source(ctx, self.homes.get(&key), Some((x, short)))
+        self.water_source(ctx, self.homes.get(&key), Some((x, short)), None)
+    }
+
+    /// Where `person` would fetch water now for their household, as short of it or not, with
+    /// the closings they keep (M6a slice BA, step four): for tests.
+    #[doc(hidden)]
+    pub fn water_source_by_for_tests(
+        &self,
+        ctx: &Ctx,
+        person: PermanentId,
+        short: bool,
+    ) -> Option<WaterOption> {
+        let x = self.household(self.person(person)?.household)?;
+        let key = x
+            .settlement
+            .filter(|s| self.homes.contains_key(s))
+            .unwrap_or(x.id);
+        self.water_source(ctx, self.homes.get(&key), Some((x, short)), Some(person))
     }
 
     /// Someone sets off to work on well `well`: one of its crew today.

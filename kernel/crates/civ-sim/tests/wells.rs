@@ -410,6 +410,27 @@ fn a_household_passes_over_a_source_its_people_suspect_while_it_knows_another() 
     }
     assert_eq!(next.well, Some(well));
     assert!(suspected.len() >= 2);
+    // Among them, more than one stretch of the water's edge (M6a slice BA, step four): passing
+    // over the nearest, its people go further along the water.
+    let map = sim.map();
+    let w = map.width as i64;
+    let edges = suspected
+        .iter()
+        .filter(|&&c| {
+            let (x, y) = (i64::from(c) % w, i64::from(c) / w);
+            (-1..=1).any(|dx| {
+                (-1..=1).any(|dy| {
+                    let (nx, ny) = (x + dx, y + dy);
+                    nx >= 0
+                        && ny >= 0
+                        && nx < w
+                        && ny < map.height as i64
+                        && map.water[(ny * w + nx) as usize] != civ_world::WATER_LAND
+                })
+            })
+        })
+        .count();
+    assert!(edges >= 2, "{suspected:?}");
 }
 
 #[test]
@@ -618,4 +639,191 @@ fn wells_dug_and_drawn_from_save_load_and_go_on_alike() {
     sim.advance_minutes(DAY).expect("advances");
     loaded.advance_minutes(DAY).expect("advances");
     same(&sim, &loaded);
+}
+
+#[test]
+fn a_well_someone_suspects_is_put_to_the_gathering_to_close_and_kept_by_those_who_know_it() {
+    use civ_agents::polity::{LawStatus, PolicyKind, Stance, StanceRecord};
+    use civ_agents::word::Counts;
+    let (mut sim, h, well) = an_open_well();
+    let cell = sim.land().wells.get(well).expect("the well").cell;
+    let settlement = sim
+        .people()
+        .household(h)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let now = sim.now();
+    let today = now.day_index();
+    let grown = sim.rules().people.family.independent_age;
+    let adult = |sim: &Sim, of: PermanentId| {
+        sim.people()
+            .household(of)
+            .expect("a household")
+            .members
+            .iter()
+            .copied()
+            .find(|&m| {
+                sim.people()
+                    .person(m)
+                    .is_some_and(|p| p.age_years(now) >= grown)
+            })
+            .expect("an adult")
+    };
+    let a = adult(&sim, h);
+    // Someone of another household, who will not know of the law.
+    let other = households(&sim)
+        .into_iter()
+        .find(|&o| o != h)
+        .expect("another household");
+    let b = adult(&sim, other);
+    // Nothing else is before the gathering.
+    {
+        let pop = sim.people_mut_for_tests();
+        for p in &mut pop.polities {
+            p.gathering = None;
+            for l in &mut p.laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+    }
+    // Someone of another household holds, from their tally, that the well sickens: three of four
+    // households they know to draw there had sickness lately, against none of ten elsewhere. Its
+    // closing would cost the household that draws there its walk to other water, and it
+    // believes nothing avoided; the suspecting household draws elsewhere and neither gains nor
+    // loses.
+    let counts = Counts {
+        sick_at: 3,
+        at: 4,
+        sick_elsewhere: 0,
+        elsewhere: 10,
+    };
+    sim.people_mut_for_tests()
+        .word
+        .suspect(b, Place::Source(cell), counts, today);
+    let gains =
+        sim.with_ctx_for_tests(|pop, ctx| pop.closure_gains_for_tests(ctx, settlement, cell));
+    let gain_of = |gains: &[(PermanentId, f64)], x: PermanentId| {
+        gains.iter().find(|g| g.0 == x).map_or(0.0, |g| g.1)
+    };
+    assert!(gain_of(&gains, h) < 0.0, "{gains:?}");
+    assert_eq!(gain_of(&gains, other), 0.0);
+    sim.people_mut_for_tests()
+        .word
+        .unsuspect(b, Place::Source(cell));
+    // Now one of the well's own household holds it instead.
+    sim.people_mut_for_tests()
+        .word
+        .suspect(a, Place::Source(cell), counts, today);
+    // Their household gains by its closing: it believes the sickness it would avoid worth more
+    // than the walk to its other water. Nobody who suspects nothing gains, and a household that
+    // would draw there believing nothing would lose.
+    let gains =
+        sim.with_ctx_for_tests(|pop, ctx| pop.closure_gains_for_tests(ctx, settlement, cell));
+    assert!(gain_of(&gains, h) > 0.0, "{gains:?}");
+    for &(x, g) in &gains {
+        if x == h {
+            continue;
+        }
+        assert!(g <= 0.0, "{x}: {g}");
+        let draws_there = sim
+            .with_ctx_for_tests(|pop, ctx| pop.water_source_for_tests(ctx, x, false))
+            .is_some_and(|o| o.well == Some(well));
+        if draws_there {
+            assert!(g < 0.0, "{x} draws there and suspects nothing: {g}");
+        }
+    }
+    // At the polity's review, they propose closing it (the issue is theirs alone).
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+    let (pi, law) = {
+        let pop = sim.people();
+        let pi = pop
+            .polities
+            .iter()
+            .position(|p| p.settlement == settlement)
+            .expect("a polity");
+        let law = pop.polities[pi].agenda().expect("a proposal").clone();
+        (pi, law)
+    };
+    assert_eq!(law.kind, PolicyKind::CloseSource);
+    assert_eq!(law.sponsor, a);
+    assert_eq!(law.issue, civ_agents::polity::IssueKind::SourceSuspected);
+    assert_eq!(
+        sim.people().polities[pi].closure_of(law.id),
+        Some(Place::Source(cell))
+    );
+    let what = civ_sim::frames::word::law_text(&sim, &sim.people().polities[pi], &law);
+    assert!(
+        what.starts_with("the closing of ")
+            && what.ends_with("'s household's well: nobody may draw there"),
+        "{what}"
+    );
+    let told = sim
+        .people()
+        .chronicle
+        .iter()
+        .rev()
+        .find(|c| c.kind == ChronicleKind::LawProposed)
+        .expect("told");
+    assert_eq!(
+        told.name,
+        format!("{what}, because they hold that the water there sickens")
+    );
+    // It saves and loads exactly.
+    reloaded(&mut sim);
+    // Passed, as its gathering would pass it, and the suspicion let go: the sponsor keeps it,
+    // passing the well over for their household's other water; someone who has not heard of it
+    // draws where they would.
+    {
+        let pop = sim.people_mut_for_tests();
+        pop.word.unsuspect(a, Place::Source(cell));
+        let l = pop.polities[pi].law_mut(law.id).expect("the law");
+        l.status = LawStatus::InForce;
+        l.stances.push(StanceRecord {
+            person: a,
+            household: h,
+            stance: Stance::Support,
+            gain: 0.0,
+            regard: 0.0,
+            opinion: 0.0,
+            values: 0.0,
+            view: 0.0,
+        });
+    }
+    let by = |sim: &mut Sim, who: PermanentId| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.water_source_by_for_tests(ctx, who, false))
+            .expect("a source")
+    };
+    assert_ne!(
+        by(&mut sim, a).cell,
+        cell,
+        "the sponsor drew at the closed well"
+    );
+    assert_eq!(
+        sim.people().polities[pi].closed_now(),
+        vec![(Place::Source(cell), law.id)]
+    );
+    // Someone in their household who has not heard of it draws there still, while it is theirs.
+    if let Some(&c) = sim
+        .people()
+        .household(h)
+        .expect("a household")
+        .members
+        .iter()
+        .find(|&&m| m != a)
+    {
+        assert_eq!(by(&mut sim, c).well, Some(well));
+    }
+    // Drawing there breaks it, knowing of it or not.
+    sim.people_mut_for_tests().drew_at_for_tests(a, h, cell);
+    sim.people_mut_for_tests().drew_at_for_tests(b, other, cell);
+    let c = sim.people().polities[pi]
+        .laws
+        .iter()
+        .find(|l| l.id == law.id)
+        .expect("the law")
+        .compliance;
+    assert_eq!((c.broken, c.broken_unaware), (1, 1));
+    reloaded(&mut sim);
 }

@@ -113,7 +113,7 @@ use super::{
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
-    finish, section, single_chunk, unreadable,
+    SCHEMA_V81, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -472,6 +472,9 @@ enum Schema {
     V80,
     /// Wells' lids and curbs (M6a slice BA, step three).
     V81,
+    /// The issues of sickness and of a suspected source, and laws closing a source of water
+    /// (M6a slice BA, step four).
+    V82,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -567,7 +570,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V78 => Schema::V78,
         SCHEMA_V79 => Schema::V79,
         SCHEMA_V80 => Schema::V80,
-        SAVE_SCHEMA_VERSION => Schema::V81,
+        SCHEMA_V81 => Schema::V81,
+        SAVE_SCHEMA_VERSION => Schema::V82,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1035,6 +1039,16 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let claimed = (!claimed.is_empty()).then(|| fbb.create_vector(&claimed));
+            // The sources its laws close (schema 82).
+            let closed: Vec<save::PlaceClaimSave> = p
+                .closed
+                .iter()
+                .map(|&(law, place)| {
+                    let (kind, id) = place.code();
+                    save::PlaceClaimSave::new(law.get(), kind, id)
+                })
+                .collect();
+            let closed = (!closed.is_empty()).then(|| fbb.create_vector(&closed));
             // Where its laws would build crossings (schema 70).
             let sites: Vec<_> = p
                 .sites
@@ -1098,6 +1112,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     seized_by: Some(seized_by),
                     claimed,
                     sites,
+                    closed,
                 },
             )
         })
@@ -1158,6 +1173,8 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::ClaimedFromUs => 7,
         IssueKind::TermsSought => 8,
         IssueKind::Fords => 9,
+        IssueKind::Sickness => 10,
+        IssueKind::SourceSuspected => 11,
     }
 }
 
@@ -1264,6 +1281,8 @@ fn decode_polities(
                 7 => IssueKind::ClaimedFromUs,
                 8 => IssueKind::TermsSought,
                 9 => IssueKind::Fords,
+                10 => IssueKind::Sickness,
+                11 => IssueKind::SourceSuspected,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -1486,6 +1505,27 @@ fn decode_polities(
                 },
             ));
         }
+        // The sources its laws close (schema 82); before, none.
+        let mut closed = Vec::new();
+        for c in p.closed().iter().flatten() {
+            let (Some(law), Some(place @ civ_agents::uses::Place::Source(_))) = (
+                PermanentId::from_raw(c.law()),
+                civ_agents::uses::Place::from_code(c.kind(), c.place()),
+            ) else {
+                return Err(bad(format!(
+                    "polity {id} closes place {} of kind {} by law {}",
+                    c.place(),
+                    c.kind(),
+                    c.law()
+                )));
+            };
+            if !laws.iter().any(|l| l.id == law) {
+                return Err(bad(format!(
+                    "polity {id} closes a source by a missing law {law}"
+                )));
+            }
+            closed.push((law, place));
+        }
         out.push(Polity {
             id,
             settlement,
@@ -1500,6 +1540,7 @@ fn decode_polities(
             reviewed: p.reviewed(),
             claimed,
             sites,
+            closed,
         });
     }
     Ok(out)
@@ -2955,7 +2996,8 @@ fn carried(
         | Schema::V78
         | Schema::V79
         | Schema::V80
-        | Schema::V81 => {
+        | Schema::V81
+        | Schema::V82 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3147,7 +3189,8 @@ fn decode_households(
             | Schema::V78
             | Schema::V79
             | Schema::V80
-            | Schema::V81 => {
+            | Schema::V81
+            | Schema::V82 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

@@ -1,0 +1,27 @@
+# The closing of a source of water (M6a slice BA, step four; ADR-0021 §7; the M6 health brief
+# §1.8). Someone who holds, from their own tally, that a source of water sickens (the issue
+# `source_suspected`) may propose that nobody draw there. A household weighs it by its own
+# forecast in today's units: if its people would draw there and know somewhere else, the walking
+# to that other source for every load, each hour worth the food an hour of its work brings,
+# against what the sickness its people's tally of the source believes it brings would cost (the
+# people profile's `[suspicion]` `case_days`, `case_death_share` and `w_death`); a household
+# whose people suspect nothing believes nothing avoided. Keeping it is each person's choice, as a
+# curfew's is (research 09-06 §1.5): the custom that a gathering binds, where they stood on it and
+# their regard for its sponsor weigh toward passing the source over while they know another; it
+# carries no sanction in v0, and someone with nowhere else to draw draws there still. Whether
+# anyone proposes it, which source, and whether a gathering passes it, is people's choice; a
+# closing passed against a source that was never foul costs walking and does nothing. Its id
+# sorts after every older template's: hearth talk about a question is keyed by a template's place
+# in id order.
+kind = "policy"
+id = "core:policy/works_source_closed"
+name = "Closing of a source"
+description = "Nobody may draw water at a source someone holds sickens."
+does = "close_source"
+answers = ["source_suspected"]
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement (the M6 health brief: security for, autonomy against).
+[bears]
+"core:value/security" = 0.5
+"core:value/autonomy" = -0.5

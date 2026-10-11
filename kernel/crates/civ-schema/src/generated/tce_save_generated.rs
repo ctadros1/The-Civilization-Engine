@@ -28005,6 +28005,7 @@ impl<'a> PolitySave<'a> {
   pub const VT_SEIZED_BY: ::flatbuffers::VOffsetT = 28;
   pub const VT_CLAIMED: ::flatbuffers::VOffsetT = 30;
   pub const VT_SITES: ::flatbuffers::VOffsetT = 32;
+  pub const VT_CLOSED: ::flatbuffers::VOffsetT = 34;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -28021,6 +28022,7 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.closed { builder.add_closed(x); }
     if let Some(x) = args.sites { builder.add_sites(x); }
     if let Some(x) = args.claimed { builder.add_claimed(x); }
     if let Some(x) = args.seized_by { builder.add_seized_by(x); }
@@ -28140,6 +28142,13 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CrossingSiteSave>>>>(PolitySave::VT_SITES, None)}
   }
+  #[inline]
+  pub fn closed(&self) -> Option<::flatbuffers::Vector<'a, PlaceClaimSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, PlaceClaimSave>>>(PolitySave::VT_CLOSED, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -28163,6 +28172,7 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("seized_by", Self::VT_SEIZED_BY, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PlaceClaimSave>>>("claimed", Self::VT_CLAIMED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CrossingSiteSave>>>>("sites", Self::VT_SITES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PlaceClaimSave>>>("closed", Self::VT_CLOSED, false)?
      .finish();
     Ok(())
   }
@@ -28183,6 +28193,7 @@ pub struct PolitySaveArgs<'a> {
     pub seized_by: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
     pub claimed: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PlaceClaimSave>>>,
     pub sites: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CrossingSiteSave<'a>>>>>,
+    pub closed: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PlaceClaimSave>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -28203,6 +28214,7 @@ impl<'a> Default for PolitySaveArgs<'a> {
       seized_by: None,
       claimed: None,
       sites: None,
+      closed: None,
     }
   }
 }
@@ -28273,6 +28285,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_SITES, sites);
   }
   #[inline]
+  pub fn add_closed(&mut self, closed: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , PlaceClaimSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_CLOSED, closed);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -28305,6 +28321,7 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("seized_by", &self.seized_by());
       ds.field("claimed", &self.claimed());
       ds.field("sites", &self.sites());
+      ds.field("closed", &self.closed());
       ds.finish()
   }
 }

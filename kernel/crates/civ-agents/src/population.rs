@@ -113,6 +113,13 @@ const ROUTE_BUDGET: usize = 600_000;
 /// Days a settlement's travel-time field is reused before it is recomputed. It is walked out again
 /// sooner when the paths are surveyed, since walking costs change then.
 const FIELD_REFRESH_DAYS: i64 = 30;
+/// Further stretches of the water's edge a home knows beside the nearest (M6a slice BA, step
+/// four): where its people go along the water when a nearer one is passed over. A few, as a
+/// sponsor weighs a few sites (research 09-05 §3.3); an engineering choice.
+const BANKS_KNOWN: usize = 3;
+/// How far apart, metres, two stretches of the water's edge a home knows are at least: far
+/// enough to be another place to stand and draw, not the next step along (an engineering choice).
+const BANK_APART_M: f32 = 100.0;
 /// Minutes a person waits before deciding again when a walk cannot be routed.
 const WAIT_AFTER_FAILURE_MIN: u32 = 10;
 /// Cells beyond the ground people have walked that route searches are bounded by landmarks
@@ -242,6 +249,10 @@ struct HomeField {
     /// The paths survey and crossings it was walked out on ([`civ_land::Land::route_revision`]).
     rev: u64,
     water: Option<(u32, f32)>,
+    /// Further edges of the water in reach, each at least [`BANK_APART_M`] from `water` and from
+    /// each other, nearest first, at most [`BANKS_KNOWN`]: where people go along the water when a
+    /// nearer edge is passed over (M6a slice BA, step four), as walking seconds.
+    banks: Vec<(u32, f32)>,
     /// Springs in reach that would be nearer than `water` if they flowed (M6a slice AY):
     /// walking seconds, patch and the cell it rises at, nearest first. Whether one flows, and
     /// has water left today, is asked when water is fetched.
@@ -1628,7 +1639,9 @@ impl Population {
         let field = ctx
             .nav
             .travel_field(&ctx.map.elevation, cell, reach, &|c| wear.factor(c));
-        let water = nearest_water(ctx.map, &field);
+        let mut edges = water_edges(ctx.map, &field).into_iter();
+        let water = edges.next();
+        let banks: Vec<(u32, f32)> = edges.collect();
         let springs = springs_in_reach(ctx.land, &field, water.map_or(f32::INFINITY, |w| w.1));
         let places = self
             .places
@@ -1662,6 +1675,7 @@ impl Population {
                 day,
                 rev,
                 water,
+                banks,
                 springs,
                 places,
                 reach: field,
@@ -2831,7 +2845,7 @@ impl Population {
         }
         let home = self.homes.get(&field_key);
         let short = Self::short_of_water(water_l, water_day);
-        let water = self.water_source(ctx, home, Some((&hh, short)));
+        let water = self.water_source(ctx, home, Some((&hh, short)), me);
         let land_params = ctx.land_params;
         let map = ctx.map;
         let (places, priors) = (&self.places, &self.priors);
@@ -4191,10 +4205,14 @@ impl Population {
                             if let Some(p) = self.people.get_mut(h) {
                                 p.carrying.water_l = got as f32;
                             }
+                            if let Some(cell) = ctx.land.wells.get(well).map(|w| w.cell) {
+                                self.drew_at(who, household, cell);
+                            }
                         }
                         Target::Water(cell) => {
                             p.carrying.water_l = params.household.carry_water_l as f32;
                             self.drew_water(ctx, cell, household, who, now);
+                            self.drew_at(who, household, cell);
                         }
                         _ => p.carrying.water_l = params.household.carry_water_l as f32,
                     }
@@ -4464,14 +4482,24 @@ impl Population {
     /// lake, else the river or lake; or, for household `x` (and whether it is short of water),
     /// the nearest well it may draw at that holds a load, if that is nearer still (step three).
     /// A source its people suspect is passed over while it knows another (M6a slice BA, ADR-0021
-    /// §7); when every source it knows is suspect, it draws where it would have.
+    /// §7), and so is one a closing in force names that `who`, the one going, keeps (step four);
+    /// when every source it knows is passed over, it draws where it would have.
     fn water_source(
         &self,
         ctx: &Ctx,
         home: Option<&HomeField>,
         x: Option<(&Household, bool)>,
+        who: Option<PermanentId>,
     ) -> Option<WaterOption> {
-        let suspect = x.map_or_else(Vec::new, |(x, _)| self.suspected_sources(x));
+        let mut suspect = x.map_or_else(Vec::new, |(x, _)| self.suspected_sources(x));
+        if let (Some(who), Some((x, _))) = (who, x) {
+            let kept = self.closures_kept(ctx, who, x);
+            if !kept.is_empty() {
+                suspect.extend(kept);
+                suspect.sort_unstable();
+                suspect.dedup();
+            }
+        }
         let shunned = |cell: u32| {
             suspect
                 .binary_search(&crate::uses::Place::Source(cell))
@@ -4534,7 +4562,13 @@ impl Population {
                 return Some(option(cell, s));
             }
         }
-        home.water.map(|(cell, s)| option(cell, s))
+        // The nearest edge of the water, or the nearest further along it not passed over.
+        home.water
+            .into_iter()
+            .chain(home.banks.iter().copied())
+            .find(|&(cell, _)| !shunned(cell))
+            .or(home.water)
+            .map(|(cell, s)| option(cell, s))
     }
 
     fn log_work(
@@ -5718,31 +5752,45 @@ fn springs_in_reach(land: &Land, field: &TravelField, bank_s: f32) -> Vec<(f32, 
     out
 }
 
-/// The reachable cell closest in walking time that is next to fresh water (river or lake, not
-/// the sea), with its walking time in seconds.
-fn nearest_water(map: &WorldMap, field: &TravelField) -> Option<(u32, f32)> {
+/// The cells in `field` beside a river or lake (not the sea) that people may draw at, nearest
+/// in walking time first (then by cell): the nearest, and up to [`BANKS_KNOWN`] further ones,
+/// each at least [`BANK_APART_M`] from every one before it, so that each is its own stretch of
+/// the water's edge (M6a slice BA, step four).
+fn water_edges(map: &WorldMap, field: &TravelField) -> Vec<(u32, f32)> {
     let (w, h) = (map.width as i64, map.height as i64);
-    let mut best: Option<(u32, f32)> = None;
-    for (i, s) in field.iter() {
-        let better = best.is_none_or(|(bc, bs)| s < bs || (s == bs && (i as u32) < bc));
-        if !better {
-            continue;
+    let mut edges: Vec<(u32, f32)> = field
+        .iter()
+        .filter(|&(i, _)| {
+            let (x, y) = ((i as i64) % w, (i as i64) / w);
+            map.water[i] == WATER_RIVER
+                || civ_world::grid::D8.iter().any(|&(dx, dy)| {
+                    let (nx, ny) = (x + i64::from(dx), y + i64::from(dy));
+                    nx >= 0
+                        && ny >= 0
+                        && nx < w
+                        && ny < h
+                        && matches!(map.water[(ny * w + nx) as usize], WATER_RIVER | WATER_LAKE)
+                })
+        })
+        .map(|(i, s)| (i as u32, s))
+        .collect();
+    edges.sort_unstable_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
+    let apart = BANK_APART_M / map.cell_size_m.max(1e-3);
+    let mut out: Vec<(u32, f32)> = Vec::new();
+    for e in edges {
+        if out.len() > BANKS_KNOWN {
+            break;
         }
-        let (x, y) = ((i as i64) % w, (i as i64) / w);
-        let next_to_water = map.water[i] == WATER_RIVER
-            || civ_world::grid::D8.iter().any(|&(dx, dy)| {
-                let (nx, ny) = (x + i64::from(dx), y + i64::from(dy));
-                nx >= 0
-                    && ny >= 0
-                    && nx < w
-                    && ny < h
-                    && matches!(map.water[(ny * w + nx) as usize], WATER_RIVER | WATER_LAKE)
-            });
-        if next_to_water {
-            best = Some((i as u32, s));
+        let (x, y) = ((i64::from(e.0) % w) as f32, (i64::from(e.0) / w) as f32);
+        let far = out.iter().all(|o| {
+            let (ox, oy) = ((i64::from(o.0) % w) as f32, (i64::from(o.0) / w) as f32);
+            (x - ox).hypot(y - oy) >= apart
+        });
+        if far {
+            out.push(e);
         }
     }
-    best
+    out
 }
 
 #[cfg(test)]

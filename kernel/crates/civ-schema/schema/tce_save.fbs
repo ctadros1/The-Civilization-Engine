@@ -1225,6 +1225,9 @@ table PolitySave {
   // Where its laws to build a crossing would build one (schema 70, M5c slice AW step three);
   // absent before.
   sites: [CrossingSiteSave] (id: 14);
+  // The sources of water its laws to close one name, by law (schema 82, M6a slice BA step four),
+  // each of kind 2; absent before.
+  closed: [PlaceClaimSave] (id: 15);
 }
 
 // Where a law would build a crossing (schema 70): the river cell, the bridge system's content id,
@@ -1238,7 +1241,7 @@ table CrossingSiteSave {
 }
 
 // A place a law claims (schema 62): `kind` 0 a patch block by its centre patch, 1 a deposit by
-// its permanent id.
+// its permanent id; or a source of water a law closes (schema 82), kind 2 by its cell.
 struct PlaceClaimSave {
   law: ulong;
   kind: ubyte;

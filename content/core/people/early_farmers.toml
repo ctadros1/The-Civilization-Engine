@@ -1020,3 +1020,14 @@ ratio = 3.0
 draws_min_days = 2.0
 known_min = 0.3
 review_days = 7
+# What a household believes the sickness at a source it suspects costs it (content API 78; slice
+# BA, step four), weighed against the walking a closing of that source would ask (ADR-0021 §7, in
+# today's units): its people's tally says how much likelier a household drawing there was to have
+# sickness lately than one drawing elsewhere; a case costs `case_days` days of work (abed and
+# tended), and `case_death_share` of cases are believed to die, each death counted as `w_death`
+# days of work. Design priors: research 05-03 §3.2 has untreated clinical cholera killing up to
+# about half and prompt rehydration fewer than one in a hundred, neither the share of everyone
+# who takes it; what people hold dear weighs on top.
+case_days = 8.0
+case_death_share = 0.2
+w_death = 1000.0

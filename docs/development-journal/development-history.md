@@ -1254,6 +1254,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** issues and policies (step four); the drought tool and the observer's view of what people believe (step five).
 
+## 2026-10-11 — M6a slice BA, step four (first part): closing a suspected source by law
+
+**What changed:** the issues `sickness` and `source_suspected`, and the policy *close a source*: someone who suspects a source may propose that nobody draw there; each household stands on it by its own forecast in today's units (the walk to its other water against the sickness its people's tally believes the source brings, a believed death counted as `w_death` days of work), and once passed each person keeps it by their own weighing of the gathering's word, as a curfew is kept. A home also knows a few further stretches of the water's edge (saves 82, content API 78).
+
+**Findings:** in the first probe the gatherings of an outbreak village closed two wells and the village's one known edge of the river; with nowhere else they knew to draw, the wells' own households went on drawing at them, about a thousand knowing breaches each. A home had known only the nearest cell of the river. With three further stretches known, nobody broke a closing. The closing of the well people truly took the sickness from passed 24 days after its cluster of cases; one wrong well and one stretch of river nobody took it from were closed too.
+
+**Evidence:** an integration test of the forecast both ways, the proposal and its words, the save, keeping and breaking a closing; a household passing over its sources using more than one stretch of the water's edge; the full suite, clippy, the schema check and the smoke worlds; a ten-introduction probe.
+
+**Open:** a closing stands until a founding body repeals it, and nothing proposes ending one once nobody suspects its source; `water_far` and digging a well together (the rest of step four).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

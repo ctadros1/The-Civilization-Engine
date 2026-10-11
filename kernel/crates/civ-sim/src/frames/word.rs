@@ -42,6 +42,27 @@ pub fn blamed_words(sim: &Sim, blamed: Blamed) -> String {
     }
 }
 
+/// Law `law` of polity `polity` in words, as [`civ_agents::polity::Polity::words_of`] says it,
+/// but a closing naming its source as its people know it (M6a slice BA, step four): "the closing
+/// of Wren's household's well: nobody may draw there".
+pub fn law_text(
+    sim: &Sim,
+    polity: &civ_agents::polity::Polity,
+    law: &civ_agents::polity::Law,
+) -> String {
+    if law.kind == civ_agents::polity::PolicyKind::CloseSource
+        && let Some(source) = polity.closure_of(law.id)
+    {
+        return format!(
+            "the closing of {}: nobody may draw there",
+            super::sickness::place_words(sim, source)
+        );
+    }
+    polity.words_of(law, &sim.rules.catalog.policies, &|id| {
+        sim.people.name_of(id)
+    })
+}
+
 /// What a claim says, in words: "a gathering meets on 3 May of year 2 to decide on a common
 /// store, taking a tenth of each harvest"; "Bo holds a grievance against the gathering over food
 /// when their household was short"; "someone of Bo's household lay sick from 3 May of year 2".
@@ -59,7 +80,7 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
             match law {
                 Some((p, l)) => format!(
                     "a gathering meets on {day} to decide on {}",
-                    p.words_of(l, &sim.rules.catalog.policies, &name_of)
+                    law_text(sim, p, l)
                 ),
                 None => format!("a gathering meets on {day} to hear a case"),
             }

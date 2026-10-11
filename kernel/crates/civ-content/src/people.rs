@@ -72,7 +72,8 @@ pub(crate) struct PeopleFile {
     pub suspicion: SuspicionFile,
 }
 
-/// How people tally a source of water (M6a slice BA, ADR-0021 §6; content API 76). See
+/// How people tally a source of water (M6a slice BA, ADR-0021 §6; content API 76), and what they
+/// believe its sickness costs (content API 78). See
 /// [`civ_agents::suspicion::SuspicionParams`] for what each means.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -83,6 +84,9 @@ pub(crate) struct SuspicionFile {
     pub draws_min_days: f64,
     pub known_min: f64,
     pub review_days: u32,
+    pub case_days: f64,
+    pub case_death_share: f64,
+    pub w_death: f64,
 }
 
 impl SuspicionFile {
@@ -94,6 +98,9 @@ impl SuspicionFile {
             draws_min_days: self.draws_min_days,
             known_min: self.known_min,
             review_days: self.review_days,
+            case_days: self.case_days,
+            case_death_share: self.case_death_share,
+            w_death: self.w_death,
         }
     }
 
@@ -111,6 +118,14 @@ impl SuspicionFile {
             ("suspicion.ratio", self.ratio, 1.0, 100.0),
             ("suspicion.draws_min_days", self.draws_min_days, 0.0, 365.0),
             ("suspicion.known_min", self.known_min, 0.0, 1.0),
+            ("suspicion.case_days", self.case_days, 0.0, 365.0),
+            (
+                "suspicion.case_death_share",
+                self.case_death_share,
+                0.0,
+                1.0,
+            ),
+            ("suspicion.w_death", self.w_death, 0.0, 100_000.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

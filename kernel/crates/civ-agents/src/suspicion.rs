@@ -32,6 +32,16 @@ pub struct SuspicionParams {
     /// Days between someone's tallies while they hold news of sickness or a suspicion; they also
     /// tally on first hearing of a household's sickness.
     pub review_days: u32,
+    /// Days of work a household believes a case of sickness among its people costs it, the days
+    /// abed and those spent tending them (content API 78; a design prior).
+    pub case_days: f64,
+    /// The share of cases a household believes die of it (a design prior beside research 05-03
+    /// §3.2: untreated clinical cholera can kill about half, prompt rehydration fewer than one in
+    /// a hundred, and neither is the share of everyone who takes it).
+    pub case_death_share: f64,
+    /// Days of work a death is counted as (ADR-0021 §7: a design prior; what people hold dear
+    /// weighs on top).
+    pub w_death: f64,
 }
 
 impl SuspicionParams {
@@ -44,6 +54,9 @@ impl SuspicionParams {
             draws_min_days: 2.0,
             known_min: 0.3,
             review_days: 7,
+            case_days: 8.0,
+            case_death_share: 0.2,
+            w_death: 1000.0,
         }
     }
 }

@@ -50,7 +50,7 @@ pub fn water_rev(sim: &Sim) -> u64 {
 
 /// The water standing in an open well's shaft now and how far below its mouth its surface is,
 /// metres; `(0, 0)` for a well not open.
-fn standing(sim: &Sim, w: &Well) -> (f64, f64) {
+pub(crate) fn standing(sim: &Sim, w: &Well) -> (f64, f64) {
     let Some(def) = sim.rules.catalog.wells.get(w.system) else {
         return (0.0, 0.0);
     };
@@ -151,7 +151,7 @@ pub fn well_words(sim: &Sim, w: &Well) -> String {
     words(sim, w, standing(sim, w))
 }
 
-fn spring_cell(sim: &Sim, cell: u32) -> bool {
+pub(crate) fn spring_cell(sim: &Sim, cell: u32) -> bool {
     let aq = &sim.land.water.aquifer;
     let p = sim.land.patches.of_cell(cell as usize, sim.map.width);
     aq.stage.get(p).is_some_and(Option::is_none)

@@ -2277,6 +2277,8 @@ table PlaceUseSave {
   day: long (id: 5);
   outsiders: [OutsidersSave] (id: 6);
   seen: [SeenAtSave] (id: 7);
+  // Which of the last 64 days its people worked there: bit k for day `day - k` (schema 86).
+  recent: ulong (id: 8);
 }
 
 // Work at a place logged and not yet folded in (schema 62).

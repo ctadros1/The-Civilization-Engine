@@ -1670,6 +1670,51 @@ export interface WaterInfo {
   banks: BankDrawInfo[];
 }
 
+/** A source of water as one home stands to it (wire 1.66): `kind` 1 its own well, 2 a well by
+ * right (its polity's or its kin's), 3 another's well, 4 a spring, 5 the water's edge. */
+export interface CoverageSource {
+  name: string;
+  x: number;
+  y: number;
+  kind: number;
+  /** Walking minutes from the home on the walking grid; null when not within the search. */
+  minutes: number | null;
+  /** For *did come*: the days of the period its people drew there. */
+  days: number;
+}
+
+/** One home under a lens (wire 1.66): the water it could reach and where its people did come. */
+export interface CoverageHome {
+  household: number;
+  name: string;
+  x: number;
+  y: number;
+  settlement: number;
+  /** Could reach: the nearest source of any kind; null when none is within the search. */
+  nearest: CoverageSource | null;
+  /** The nearest its people may draw at by right, when that is not the nearest. */
+  byRight: CoverageSource | null;
+  /** Did come: where its people drew water in the period, most days first. */
+  drew: CoverageSource[];
+  words: string[];
+}
+
+/** A lens's homes with its legend's parts (15-01 §3.1): title, scope, period, denominator. */
+export interface CoverageInfo {
+  lens: number;
+  title: string;
+  scope: string;
+  /** Each layer's period: *could reach*'s, then *did come*'s. */
+  periods: string[];
+  denominator: string;
+  homes: CoverageHome[];
+  /** The search's furthest walk, minutes. */
+  limitMin: number;
+  /** The period of *did come*, days. */
+  days: number;
+  summary: string[];
+}
+
 export interface EarthworksInfo {
   rev: number;
   works: EarthworkInfo[];
@@ -1706,7 +1751,8 @@ export type ResponseBody =
   | { kind: "order"; order: OrderInfo }
   | { kind: "incidents"; incidents: IncidentsInfo }
   | { kind: "incident"; incident: IncidentInfo }
-  | { kind: "outbreak"; outbreak: OutbreakInfo };
+  | { kind: "outbreak"; outbreak: OutbreakInfo }
+  | { kind: "coverage"; coverage: CoverageInfo };
 
 // ---- Incidents (wire 1.64, M6a slice BB, ADR-0015 §8) --------------------------------------
 
@@ -2157,6 +2203,12 @@ export function getOutbreak(id: number, limit: number): Uint8Array {
   return query(b, W.QueryBody.GetOutbreak, W.GetOutbreak.createGetOutbreak(b, id, limit));
 }
 
+/** A lens over the homes of `settlement` (0: every settlement); lens 1 is water (wire 1.66). */
+export function getCoverage(settlement: number, lens: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  return query(b, W.QueryBody.GetCoverage, W.GetCoverage.createGetCoverage(b, BigInt(settlement), lens));
+}
+
 export function getWater(): Uint8Array {
   const b = new flatbuffers.Builder(16);
   W.GetWater.startGetWater(b);
@@ -2481,6 +2533,63 @@ function crossings(w: W.Crossings): CrossingsInfo {
     });
   }
   return { rev: Number(w.rev()), crossings: list };
+}
+
+function coverageSource(v: W.CoverageSource): CoverageSource {
+  const at = v.at();
+  const minutes = v.minutes();
+  return {
+    name: v.name() ?? "",
+    x: at?.x() ?? 0,
+    y: at?.y() ?? 0,
+    kind: v.kind(),
+    minutes: minutes < 0 ? null : minutes,
+    days: v.days(),
+  };
+}
+
+function coverage(c: W.Coverage): CoverageInfo {
+  const homes: CoverageHome[] = [];
+  for (let i = 0; i < c.homesLength(); i++) {
+    const h = c.homes(i);
+    if (!h) continue;
+    const at = h.at();
+    const nearest = h.nearest();
+    const byRight = h.byRight();
+    const drew: CoverageSource[] = [];
+    for (let j = 0; j < h.drewLength(); j++) {
+      const d = h.drew(j);
+      if (d) drew.push(coverageSource(d));
+    }
+    const words: string[] = [];
+    for (let j = 0; j < h.wordsLength(); j++) words.push(h.words(j));
+    homes.push({
+      household: Number(h.household()),
+      name: h.name() ?? "",
+      x: at?.x() ?? 0,
+      y: at?.y() ?? 0,
+      settlement: Number(h.settlement()),
+      nearest: nearest ? coverageSource(nearest) : null,
+      byRight: byRight ? coverageSource(byRight) : null,
+      drew,
+      words,
+    });
+  }
+  const summary: string[] = [];
+  for (let i = 0; i < c.summaryLength(); i++) summary.push(c.summary(i));
+  const periods: string[] = [];
+  for (let i = 0; i < c.periodsLength(); i++) periods.push(c.periods(i));
+  return {
+    lens: c.lens(),
+    title: c.title() ?? "",
+    scope: c.scope() ?? "",
+    periods,
+    denominator: c.denominator() ?? "",
+    homes,
+    limitMin: c.limitMin(),
+    days: c.days(),
+    summary,
+  };
 }
 
 function water(w: W.Water): WaterInfo {
@@ -4084,6 +4193,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.OutbreakInfo()) as W.OutbreakInfo | null;
       if (!f) break;
       return { kind: "outbreak", outbreak: outbreakInfo(f) };
+    }
+    case W.ResponseBody.Coverage: {
+      const f = r.body(new W.Coverage()) as W.Coverage | null;
+      if (!f) break;
+      return { kind: "coverage", coverage: coverage(f) };
     }
     case W.ResponseBody.Water: {
       const f = r.body(new W.Water()) as W.Water | null;

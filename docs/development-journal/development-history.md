@@ -1306,6 +1306,16 @@ The full end-to-end run found the knowledge test still counting the founders' te
 
 **Open:** the Water lens (who could reach which water, and who did come) and the M6a demo.
 
+## 2026-10-11 — M6a slice BB, step three: the Water lens
+
+**What changed:** the map has a lens control and one lens, Water, read per home with a legend naming its scope, period and denominator. *Could reach* gives each home's walk on the walking grid to the nearest water, and to the nearest its people may draw at by right when that is another; *did come* gives where its people drew water on each of the past 30 days. To make the second exact, each place a household uses now remembers which of the last 64 days its people worked there (saves 86); the lens query is wire 1.66.
+
+**Findings:** in the test world every home was within a minute of water, but for three of eight the nearest was a neighbour's well; all eight drew at the river's edge, as the rights in force say they should. The first screenshots showed the lens drawn under the people and its legend over the tool bar, and one period line for both layers; the lens now draws on top, the legend sits at the top right, and each layer names its own period.
+
+**Evidence:** unit tests of the record of days and the lens's words and counts; an integration test in a village with an open well, exact for a household given draws on chosen days; host decoding and replies; web decoding, banding and drawing tests; an end-to-end test of both layers, the legend and the readout; the full suite, clippy and the schema check.
+
+**Open:** the M6a demo.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

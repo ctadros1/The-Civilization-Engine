@@ -140,7 +140,13 @@ pub struct PlaceUse {
     pub seen: Vec<SeenAt>,
     /// The day the fading was reckoned to.
     pub day: i64,
+    /// Which of the last [`RECENT_DAYS`] days its people worked there: bit `k` for day `day - k`
+    /// (M6a slice BB: the Water lens's *did come*). Nothing in the world reads it.
+    pub recent: u64,
 }
+
+/// Days a place's [`PlaceUse::recent`] remembers, exactly.
+pub const RECENT_DAYS: i64 = 64;
 
 impl PlaceUse {
     fn fade_to(&mut self, day: i64, half_life_days: f64) {
@@ -153,7 +159,42 @@ impl PlaceUse {
         for x in &mut self.seen {
             x.days *= f;
         }
+        self.recent = recent_to(self.recent, day - self.day);
         self.day = self.day.max(day);
+    }
+
+    /// Marks day `day` as one its people worked there, if it is among the days remembered.
+    fn worked_on(&mut self, day: i64) {
+        let k = self.day - day;
+        if (0..RECENT_DAYS).contains(&k) {
+            self.recent |= 1 << k;
+        }
+    }
+
+    /// Which of the `days` to `today` (today one of them) its people worked there: bit `k` for
+    /// day `today - k`.
+    pub fn worked_in(&self, today: i64, days: i64) -> u64 {
+        let keep = match days {
+            ..=0 => 0,
+            RECENT_DAYS.. => u64::MAX,
+            n => (1u64 << n) - 1,
+        };
+        recent_to(self.recent, today - self.day) & keep
+    }
+
+    /// How many of the `days` to `today` (today one of them) its people worked there.
+    pub fn days_worked(&self, today: i64, days: i64) -> u32 {
+        self.worked_in(today, days).count_ones()
+    }
+}
+
+/// A [`PlaceUse::recent`] reckoned `ahead` days later: each day moves up a bit, and days older
+/// than [`RECENT_DAYS`] fall away.
+fn recent_to(recent: u64, ahead: i64) -> u64 {
+    match ahead {
+        ..=0 => recent,
+        RECENT_DAYS.. => 0,
+        n => recent << n,
     }
 }
 
@@ -349,6 +390,7 @@ impl Uses {
                                 outsiders: Vec::new(),
                                 seen: Vec::new(),
                                 day,
+                                recent: 0,
                             },
                         );
                         at
@@ -356,6 +398,7 @@ impl Uses {
                 };
                 let u = &mut list[at];
                 u.fade_to(day, half_life_days);
+                u.worked_on(day);
                 u.days += 1.0;
                 u.kcal += kcal;
                 for &s in settlements.iter().filter(|&&s| s != settlement) {
@@ -591,6 +634,37 @@ mod tests {
         assert_eq!(seen, vec![(fish, id(20))]);
         assert!(u.outsiders_seen(id(1), 6).next().is_none());
         assert!(u.problems().is_empty());
+    }
+
+    #[test]
+    fn the_last_64_days_worked_at_a_place_are_kept_exactly() {
+        let mut u = Uses::default();
+        let well = Place::Source(42);
+        // Drawn at twice on each of days 10, 11 and 15; folded and reckoned on as the days pass,
+        // as each day's turn does.
+        for day in [10, 11, 15] {
+            u.worked(work(well, day, 1, 10, 0.0));
+            u.worked(work(well, day, 1, 10, 0.0));
+            u.fold(180.0);
+            u.prune(day, 180.0, 365, |_| true);
+        }
+        u.prune(20, 180.0, 365, |_| true);
+        let h = u.held(id(1), well, 20, 180.0).expect("held");
+        assert_eq!(h.days_worked(20, 30), 3);
+        // The past week, today the seventh day: only day 15.
+        assert_eq!(h.days_worked(20, 7), 1);
+        assert_eq!(h.days_worked(20, 5), 0);
+        // Asked of a later day without reckoning on, it still knows them.
+        assert_eq!(h.days_worked(40, 30), 2);
+        // Folded late, a day already passed is still marked.
+        u.worked(work(well, 18, 1, 10, 0.0));
+        u.fold(180.0);
+        let h = u.held(id(1), well, 20, 180.0).expect("held");
+        assert_eq!(h.days_worked(20, 30), 4);
+        // After 64 days nothing of it is left exactly, though the fading record holds it.
+        let h = u.held(id(1), well, 90, 180.0).expect("held");
+        assert_eq!(h.days_worked(90, 64), 0);
+        assert!(h.days > 0.0);
     }
 
     #[test]

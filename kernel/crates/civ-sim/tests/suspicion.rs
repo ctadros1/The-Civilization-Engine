@@ -65,6 +65,7 @@ fn use_of(place: Place, day: i64, seen: &[PermanentId]) -> PlaceUse {
             })
             .collect(),
         day,
+        recent: 0,
     }
 }
 

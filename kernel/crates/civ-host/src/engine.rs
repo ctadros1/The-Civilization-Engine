@@ -565,6 +565,20 @@ impl Engine {
                     ),
                 },
             },
+            Request::GetCoverage { settlement, lens } => match &self.world {
+                None => no_world(),
+                Some(w) => match frames::coverage::coverage_response(
+                    &w.sim,
+                    civ_core::PermanentId::from_raw(settlement),
+                    lens,
+                ) {
+                    Some(payload) => Reply::Response(payload),
+                    None => Reply::Error(
+                        wire::ErrorCode::BadRequest,
+                        format!("no lens numbered {lens}"),
+                    ),
+                },
+            },
             Request::GetWeather => match &self.world {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::weather::weather_response(&w.sim)),
@@ -2416,6 +2430,25 @@ mod tests {
         assert_eq!(
             error_code(&h.ask(Request::GetOutbreak { id: 99, limit: 0 })),
             Some(wire::ErrorCode::NotFound)
+        );
+        // The Water lens reads every home (wire 1.66); a lens there is not is refused.
+        let Reply::Response(payload) = h.ask(Request::GetCoverage {
+            settlement: 0,
+            lens: 1,
+        }) else {
+            panic!("the lens is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let lens = response.body_as_coverage().expect("a lens");
+        assert_eq!((lens.lens(), lens.title()), (1, Some("Water")));
+        assert!(lens.homes().is_some_and(|h| !h.is_empty()));
+        assert_eq!(lens.summary().map(|s| s.len()), Some(2));
+        assert_eq!(
+            error_code(&h.ask(Request::GetCoverage {
+                settlement: 0,
+                lens: 9
+            })),
+            Some(wire::ErrorCode::BadRequest)
         );
     }
 

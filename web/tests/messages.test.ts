@@ -1320,3 +1320,79 @@ describe("decoders", () => {
     expect(events).toEqual([{ id: 7, simMinute: 85_320, unixMs: 1, kind: "saved", text: "Saved" }]);
   });
 });
+
+describe("the Water lens (wire 1.66)", () => {
+  function source(b: flatbuffers.Builder, name: string, x: number, kind: number, minutes: number, days: number) {
+    const n = b.createString(name);
+    W.CoverageSource.startCoverageSource(b);
+    W.CoverageSource.addName(b, n);
+    W.CoverageSource.addAt(b, W.Vec2.createVec2(b, x, 20));
+    W.CoverageSource.addKind(b, kind);
+    W.CoverageSource.addMinutes(b, minutes);
+    W.CoverageSource.addDays(b, days);
+    return W.CoverageSource.endCoverageSource(b);
+  }
+
+  it("decodes each home's nearest water and where its people drew it, and builds the query", () => {
+    const b = new flatbuffers.Builder(512);
+    const nearest = source(b, "Bo's household's well", 12, 1, 0.4, 0);
+    const edge = source(b, "the water's edge", 40, 5, -1, 0);
+    const drewWell = source(b, "Bo's household's well", 12, 1, 0.4, 28);
+    const drew = W.CoverageHome.createDrewVector(b, [drewWell]);
+    const words = W.CoverageHome.createWordsVector(b, [b.createString("Could reach: …"), b.createString("Did come: …")]);
+    const name = b.createString("Bo's household");
+    W.CoverageHome.startCoverageHome(b);
+    W.CoverageHome.addHousehold(b, 9n);
+    W.CoverageHome.addName(b, name);
+    W.CoverageHome.addAt(b, W.Vec2.createVec2(b, 10, 20));
+    W.CoverageHome.addSettlement(b, 3n);
+    W.CoverageHome.addNearest(b, nearest);
+    W.CoverageHome.addByRight(b, edge);
+    W.CoverageHome.addDrew(b, drew);
+    W.CoverageHome.addWords(b, words);
+    const home = W.CoverageHome.endCoverageHome(b);
+    const homes = W.Coverage.createHomesVector(b, [home]);
+    const summary = W.Coverage.createSummaryVector(b, [b.createString("Could reach: of 1 home"), b.createString("Did come: …")]);
+    const title = b.createString("Water");
+    const scope = b.createString("Ashford: 1 home");
+    const periods = W.Coverage.createPeriodsVector(b, [b.createString("now"), b.createString("the past 30 days")]);
+    const per = b.createString("homes");
+    W.Coverage.startCoverage(b);
+    W.Coverage.addLens(b, 1);
+    W.Coverage.addTitle(b, title);
+    W.Coverage.addScope(b, scope);
+    W.Coverage.addPeriods(b, periods);
+    W.Coverage.addDenominator(b, per);
+    W.Coverage.addHomes(b, homes);
+    W.Coverage.addLimitMin(b, 60);
+    W.Coverage.addDays(b, 30);
+    W.Coverage.addSummary(b, summary);
+    const root = W.Coverage.endCoverage(b);
+    const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Coverage, root)));
+    expect(body.kind).toBe("coverage");
+    if (body.kind !== "coverage") return;
+    const c = body.coverage;
+    expect([c.lens, c.title, c.scope, c.periods, c.denominator, c.limitMin, c.days]).toEqual([
+      1,
+      "Water",
+      "Ashford: 1 home",
+      ["now", "the past 30 days"],
+      "homes",
+      60,
+      30,
+    ]);
+    expect(c.summary).toEqual(["Could reach: of 1 home", "Did come: …"]);
+    const h = c.homes[0]!;
+    expect([h.household, h.name, h.x, h.y, h.settlement]).toEqual([9, "Bo's household", 10, 20, 3]);
+    expect(h.nearest?.kind).toBe(1);
+    expect(h.nearest?.minutes).toBeCloseTo(0.4);
+    // A walk not within the search reads as unknown, never as zero.
+    expect(h.byRight).toEqual({ name: "the water's edge", x: 40, y: 20, kind: 5, minutes: null, days: 0 });
+    expect(h.drew.map((s) => [s.name, s.days])).toEqual([["Bo's household's well", 28]]);
+    expect(h.words).toEqual(["Could reach: …", "Did come: …"]);
+    const q = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getCoverage(3, 1)));
+    expect(q.bodyType()).toBe(W.QueryBody.GetCoverage);
+    const g = q.body(new W.GetCoverage()) as W.GetCoverage;
+    expect([g.settlement(), g.lens()]).toEqual([3n, 1]);
+  });
+});

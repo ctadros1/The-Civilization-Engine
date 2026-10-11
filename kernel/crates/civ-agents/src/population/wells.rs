@@ -241,6 +241,15 @@ impl Population {
         out
     }
 
+    /// Which wells household `x`'s people may draw at by right (ADR-0021 §1, rights v0): their
+    /// own, their polity's and their kin's households'. Anyone short of water may draw at any;
+    /// the Water lens keeps that access apart from this permission (M6a slice BB, step three).
+    pub fn by_right(&self, x: &Household) -> impl Fn(&Well) -> bool + use<> {
+        let ours = self.ours(x);
+        let kin = self.kin_households(x);
+        move |w: &Well| ours(w) || kin.binary_search(&w.household).is_ok()
+    }
+
     /// Whether well `w` is household `x`'s own or its polity's (M6a slice BA, step four): the
     /// wells its people draw at by right.
     fn ours(&self, x: &Household) -> impl Fn(&Well) -> bool + use<> {

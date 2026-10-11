@@ -222,6 +222,13 @@ pub enum Request {
         /// Cases to list: 0 for the default.
         limit: u32,
     },
+    /// A lens read per home (wire 1.66): the Water lens's *could reach* and *did come*.
+    GetCoverage {
+        /// The settlement whose homes, 0 for every settlement.
+        settlement: u64,
+        /// 1: water.
+        lens: u8,
+    },
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -645,6 +652,15 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                     Ok(Request::GetOutbreak {
                         id: b.id(),
                         limit: b.limit(),
+                    })
+                }
+                wire::QueryBody::GetCoverage => {
+                    let b = query
+                        .body_as_get_coverage()
+                        .ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetCoverage {
+                        settlement: b.settlement(),
+                        lens: b.lens(),
                     })
                 }
                 other => Err(format!("unknown query {}", other.0)),
@@ -1403,6 +1419,28 @@ mod tests {
         assert_eq!(
             decode_request(FrameKind::Query, &finish(fbb, root)),
             Ok(Request::GetOutbreak { id: 2, limit: 10 })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::GetCoverage::create(
+            &mut fbb,
+            &wire::GetCoverageArgs {
+                settlement: 7,
+                lens: 1,
+            },
+        );
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetCoverage,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetCoverage {
+                settlement: 7,
+                lens: 1
+            })
         );
     }
 

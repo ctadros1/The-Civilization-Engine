@@ -24,6 +24,7 @@
 import { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 
 import { buildingAt, buildingMarks, type Mark } from "../buildings.js";
+import { homeAt, lensMarks, type LensLayer } from "../coverage.js";
 import { crossingAt, crossingEnds, crossingLook } from "../crossings.js";
 import { depositAt, depositLook } from "../deposits.js";
 import { changedTiles, detailTilesOver, earthworkAt, earthworkLook } from "../earthworks.js";
@@ -37,6 +38,8 @@ import {
   type BankDrawInfo,
   type BuildingInfo,
   type Clock,
+  type CoverageHome,
+  type CoverageInfo,
   type CrossingInfo,
   type CrossingsInfo,
   type DepositInfo,
@@ -107,6 +110,9 @@ export interface PointerInfo {
   spring: SpringInfo | null;
   bank: BankDrawInfo | null;
   flow: number | null;
+  /** The home under the pointer while a lens is shown, with what the lens reads of it (M6a slice
+   * BB, step three). */
+  home: CoverageHome | null;
   /** The worn ground under the pointer, if any. */
   path: { wear: number; trail: boolean } | null;
 }
@@ -239,6 +245,10 @@ export class MapView {
   private readonly waterLayer = new Graphics();
   private water: WaterInfo | null = null;
   private waterScale = 0;
+  private readonly lensLayer = new Graphics();
+  private lens: CoverageInfo | null = null;
+  private lensLayerShown: LensLayer = "";
+  private lensScale = 0;
   /** Each changed ground tile's revision as last drawn, by index. */
   private groundSeen = new Map<number, number>();
   private readonly wornLayer = new Container();
@@ -293,6 +303,7 @@ export class MapView {
       this.buildingsLayer,
       this.settlementLayer,
       this.peopleLayer,
+      this.lensLayer,
     );
     app.stage.addChild(this.world);
     this.attachInput(app.canvas);
@@ -343,6 +354,8 @@ export class MapView {
     this.crossingsLayer.clear();
     this.water = null;
     this.waterLayer.clear();
+    this.lens = null;
+    this.lensLayer.clear();
     this.groundSeen.clear();
     this.setPaths(null);
     this.peopleLayer.clear();
@@ -475,6 +488,42 @@ export class MapView {
       const look = wellLook(w);
       g.circle(w.x, w.y, Math.max(look.radiusM, 1.1 * pxM));
       g.fill({ color: look.colour, alpha: look.alpha });
+    }
+  }
+
+  /** The lens shown over the homes (the Water lens's `layer`), or none (M6a slice BB, step three). */
+  setLens(info: CoverageInfo | null, layer: LensLayer): void {
+    this.lens = layer ? info : null;
+    this.lensLayerShown = layer;
+    this.drawLens();
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** Each home as a disc about eight pixels across, over the people (hollow where the lens has
+   * nothing for it), and
+   * each line from a home to a source at least a pixel wide. */
+  private drawLens(): void {
+    const g = this.lensLayer;
+    g.clear();
+    this.lensScale = this.scale;
+    if (!this.lens) return;
+    const pxM = 1 / Math.max(this.scale, 1e-6);
+    const marks = lensMarks(this.lens, this.lensLayerShown);
+    for (const m of marks) {
+      if (m.type !== "line") continue;
+      g.moveTo(m.x0, m.y0);
+      g.lineTo(m.x1, m.y1);
+      g.stroke({ width: m.weight * pxM, color: m.colour, alpha: m.alpha });
+    }
+    for (const m of marks) {
+      if (m.type !== "home") continue;
+      g.circle(m.x, m.y, 4 * pxM);
+      if (m.hollow) {
+        g.stroke({ width: 1.5 * pxM, color: m.colour, alpha: 0.95 });
+      } else {
+        g.fill({ color: m.colour, alpha: 0.95 });
+        g.stroke({ width: 0.75 * pxM, color: 0x1a1e22, alpha: 0.8 });
+      }
     }
   }
 
@@ -931,6 +980,7 @@ export class MapView {
       spring: springAt(this.water?.springs ?? [], xM, yM, 4 / this.scale),
       bank: bankAt(this.water?.banks ?? [], xM, yM, 4 / this.scale),
       flow: this.water?.flow ?? null,
+      home: homeAt(this.lens, xM, yM, 5 / this.scale),
       path: pathAt(this.paths, cellX, cellY),
     };
   }
@@ -951,6 +1001,9 @@ export class MapView {
       }
       if (this.water && Math.abs(Math.log(scale / this.waterScale)) > 0.15) {
         this.drawWater();
+      }
+      if (this.lens && Math.abs(Math.log(scale / this.lensScale)) > 0.15) {
+        this.drawLens();
       }
       this.updateDetail();
       this.scaleSettlements();

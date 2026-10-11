@@ -217,6 +217,9 @@ struct GetIncidentBuilder;
 struct GetOutbreak;
 struct GetOutbreakBuilder;
 
+struct GetCoverage;
+struct GetCoverageBuilder;
+
 struct Query;
 struct QueryBuilder;
 
@@ -490,6 +493,15 @@ struct OutbreakSourceBuilder;
 
 struct OutbreakInfo;
 struct OutbreakInfoBuilder;
+
+struct CoverageSource;
+struct CoverageSourceBuilder;
+
+struct CoverageHome;
+struct CoverageHomeBuilder;
+
+struct Coverage;
+struct CoverageBuilder;
 
 struct Response;
 struct ResponseBuilder;
@@ -937,11 +949,12 @@ enum class QueryBody : uint8_t {
   GetIncidents = 23,
   GetIncident = 24,
   GetOutbreak = 25,
+  GetCoverage = 26,
   MIN = NONE,
-  MAX = GetOutbreak
+  MAX = GetCoverage
 };
 
-inline const QueryBody (&EnumValuesQueryBody())[26] {
+inline const QueryBody (&EnumValuesQueryBody())[27] {
   static const QueryBody values[] = {
     QueryBody::NONE,
     QueryBody::GetRaster,
@@ -968,13 +981,14 @@ inline const QueryBody (&EnumValuesQueryBody())[26] {
     QueryBody::GetWater,
     QueryBody::GetIncidents,
     QueryBody::GetIncident,
-    QueryBody::GetOutbreak
+    QueryBody::GetOutbreak,
+    QueryBody::GetCoverage
   };
   return values;
 }
 
 inline const char * const *EnumNamesQueryBody() {
-  static const char * const names[27] = {
+  static const char * const names[28] = {
     "NONE",
     "GetRaster",
     "GetHydrography",
@@ -1001,13 +1015,14 @@ inline const char * const *EnumNamesQueryBody() {
     "GetIncidents",
     "GetIncident",
     "GetOutbreak",
+    "GetCoverage",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameQueryBody(QueryBody e) {
-  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetOutbreak)) return "";
+  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetCoverage)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesQueryBody()[index];
 }
@@ -1114,6 +1129,10 @@ template<> struct QueryBodyTraits<tce::wire::GetIncident> {
 
 template<> struct QueryBodyTraits<tce::wire::GetOutbreak> {
   static const QueryBody enum_value = QueryBody::GetOutbreak;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetCoverage> {
+  static const QueryBody enum_value = QueryBody::GetCoverage;
 };
 
 template <bool B = false>
@@ -1302,11 +1321,12 @@ enum class ResponseBody : uint8_t {
   Incidents = 24,
   IncidentInfo = 25,
   OutbreakInfo = 26,
+  Coverage = 27,
   MIN = NONE,
-  MAX = OutbreakInfo
+  MAX = Coverage
 };
 
-inline const ResponseBody (&EnumValuesResponseBody())[27] {
+inline const ResponseBody (&EnumValuesResponseBody())[28] {
   static const ResponseBody values[] = {
     ResponseBody::NONE,
     ResponseBody::Ack,
@@ -1334,13 +1354,14 @@ inline const ResponseBody (&EnumValuesResponseBody())[27] {
     ResponseBody::Water,
     ResponseBody::Incidents,
     ResponseBody::IncidentInfo,
-    ResponseBody::OutbreakInfo
+    ResponseBody::OutbreakInfo,
+    ResponseBody::Coverage
   };
   return values;
 }
 
 inline const char * const *EnumNamesResponseBody() {
-  static const char * const names[28] = {
+  static const char * const names[29] = {
     "NONE",
     "Ack",
     "RasterTile",
@@ -1368,13 +1389,14 @@ inline const char * const *EnumNamesResponseBody() {
     "Incidents",
     "IncidentInfo",
     "OutbreakInfo",
+    "Coverage",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameResponseBody(ResponseBody e) {
-  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::OutbreakInfo)) return "";
+  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Coverage)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesResponseBody()[index];
 }
@@ -1485,6 +1507,10 @@ template<> struct ResponseBodyTraits<tce::wire::IncidentInfo> {
 
 template<> struct ResponseBodyTraits<tce::wire::OutbreakInfo> {
   static const ResponseBody enum_value = ResponseBody::OutbreakInfo;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::Coverage> {
+  static const ResponseBody enum_value = ResponseBody::Coverage;
 };
 
 template <bool B = false>
@@ -7391,6 +7417,64 @@ struct GetOutbreak::Traits {
   static auto constexpr Create = CreateGetOutbreak;
 };
 
+struct GetCoverage FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetCoverageBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SETTLEMENT = 4,
+    VT_LENS = 6
+  };
+  uint64_t settlement() const {
+    return GetField<uint64_t>(VT_SETTLEMENT, 0);
+  }
+  uint8_t lens() const {
+    return GetField<uint8_t>(VT_LENS, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_SETTLEMENT, 8) &&
+           VerifyField<uint8_t>(verifier, VT_LENS, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetCoverageBuilder {
+  typedef GetCoverage Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_settlement(uint64_t settlement) {
+    fbb_.AddElement<uint64_t>(GetCoverage::VT_SETTLEMENT, settlement, 0);
+  }
+  void add_lens(uint8_t lens) {
+    fbb_.AddElement<uint8_t>(GetCoverage::VT_LENS, lens, 0);
+  }
+  explicit GetCoverageBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetCoverage> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetCoverage>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetCoverage> CreateGetCoverage(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t settlement = 0,
+    uint8_t lens = 0) {
+  GetCoverageBuilder builder_(_fbb);
+  builder_.add_settlement(settlement);
+  builder_.add_lens(lens);
+  return builder_.Finish();
+}
+
+struct GetCoverage::Traits {
+  using type = GetCoverage;
+  static auto constexpr Create = CreateGetCoverage;
+};
+
 struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef QueryBuilder Builder;
   struct Traits;
@@ -7479,6 +7563,9 @@ struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::GetOutbreak *body_as_GetOutbreak() const {
     return body_type() == tce::wire::QueryBody::GetOutbreak ? static_cast<const tce::wire::GetOutbreak *>(body()) : nullptr;
+  }
+  const tce::wire::GetCoverage *body_as_GetCoverage() const {
+    return body_type() == tce::wire::QueryBody::GetCoverage ? static_cast<const tce::wire::GetCoverage *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -7588,6 +7675,10 @@ template<> inline const tce::wire::GetIncident *Query::body_as<tce::wire::GetInc
 
 template<> inline const tce::wire::GetOutbreak *Query::body_as<tce::wire::GetOutbreak>() const {
   return body_as_GetOutbreak();
+}
+
+template<> inline const tce::wire::GetCoverage *Query::body_as<tce::wire::GetCoverage>() const {
+  return body_as_GetCoverage();
 }
 
 struct QueryBuilder {
@@ -20507,6 +20598,429 @@ inline ::flatbuffers::Offset<OutbreakInfo> CreateOutbreakInfoDirect(
       members_total);
 }
 
+struct CoverageSource FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef CoverageSourceBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_NAME = 4,
+    VT_AT = 6,
+    VT_KIND = 8,
+    VT_MINUTES = 10,
+    VT_DAYS = 12
+  };
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  const tce::wire::Vec2 *at() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_AT);
+  }
+  uint8_t kind() const {
+    return GetField<uint8_t>(VT_KIND, 0);
+  }
+  float minutes() const {
+    return GetField<float>(VT_MINUTES, 0.0f);
+  }
+  uint16_t days() const {
+    return GetField<uint16_t>(VT_DAYS, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_AT, 4) &&
+           VerifyField<uint8_t>(verifier, VT_KIND, 1) &&
+           VerifyField<float>(verifier, VT_MINUTES, 4) &&
+           VerifyField<uint16_t>(verifier, VT_DAYS, 2) &&
+           verifier.EndTable();
+  }
+};
+
+struct CoverageSourceBuilder {
+  typedef CoverageSource Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(CoverageSource::VT_NAME, name);
+  }
+  void add_at(const tce::wire::Vec2 *at) {
+    fbb_.AddStruct(CoverageSource::VT_AT, at);
+  }
+  void add_kind(uint8_t kind) {
+    fbb_.AddElement<uint8_t>(CoverageSource::VT_KIND, kind, 0);
+  }
+  void add_minutes(float minutes) {
+    fbb_.AddElement<float>(CoverageSource::VT_MINUTES, minutes, 0.0f);
+  }
+  void add_days(uint16_t days) {
+    fbb_.AddElement<uint16_t>(CoverageSource::VT_DAYS, days, 0);
+  }
+  explicit CoverageSourceBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<CoverageSource> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<CoverageSource>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<CoverageSource> CreateCoverageSource(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    const tce::wire::Vec2 *at = nullptr,
+    uint8_t kind = 0,
+    float minutes = 0.0f,
+    uint16_t days = 0) {
+  CoverageSourceBuilder builder_(_fbb);
+  builder_.add_minutes(minutes);
+  builder_.add_at(at);
+  builder_.add_name(name);
+  builder_.add_days(days);
+  builder_.add_kind(kind);
+  return builder_.Finish();
+}
+
+struct CoverageSource::Traits {
+  using type = CoverageSource;
+  static auto constexpr Create = CreateCoverageSource;
+};
+
+inline ::flatbuffers::Offset<CoverageSource> CreateCoverageSourceDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *name = nullptr,
+    const tce::wire::Vec2 *at = nullptr,
+    uint8_t kind = 0,
+    float minutes = 0.0f,
+    uint16_t days = 0) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  return tce::wire::CreateCoverageSource(
+      _fbb,
+      name__,
+      at,
+      kind,
+      minutes,
+      days);
+}
+
+struct CoverageHome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef CoverageHomeBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_HOUSEHOLD = 4,
+    VT_NAME = 6,
+    VT_AT = 8,
+    VT_SETTLEMENT = 10,
+    VT_NEAREST = 12,
+    VT_BY_RIGHT = 14,
+    VT_DREW = 16,
+    VT_WORDS = 18
+  };
+  uint64_t household() const {
+    return GetField<uint64_t>(VT_HOUSEHOLD, 0);
+  }
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  const tce::wire::Vec2 *at() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_AT);
+  }
+  uint64_t settlement() const {
+    return GetField<uint64_t>(VT_SETTLEMENT, 0);
+  }
+  const tce::wire::CoverageSource *nearest() const {
+    return GetPointer<const tce::wire::CoverageSource *>(VT_NEAREST);
+  }
+  const tce::wire::CoverageSource *by_right() const {
+    return GetPointer<const tce::wire::CoverageSource *>(VT_BY_RIGHT);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CoverageSource>> *drew() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CoverageSource>> *>(VT_DREW);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *words() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_WORDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_HOUSEHOLD, 8) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_AT, 4) &&
+           VerifyField<uint64_t>(verifier, VT_SETTLEMENT, 8) &&
+           VerifyOffset(verifier, VT_NEAREST) &&
+           verifier.VerifyTable(nearest()) &&
+           VerifyOffset(verifier, VT_BY_RIGHT) &&
+           verifier.VerifyTable(by_right()) &&
+           VerifyOffset(verifier, VT_DREW) &&
+           verifier.VerifyVector(drew()) &&
+           verifier.VerifyVectorOfTables(drew()) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyVector(words()) &&
+           verifier.VerifyVectorOfStrings(words()) &&
+           verifier.EndTable();
+  }
+};
+
+struct CoverageHomeBuilder {
+  typedef CoverageHome Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_household(uint64_t household) {
+    fbb_.AddElement<uint64_t>(CoverageHome::VT_HOUSEHOLD, household, 0);
+  }
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(CoverageHome::VT_NAME, name);
+  }
+  void add_at(const tce::wire::Vec2 *at) {
+    fbb_.AddStruct(CoverageHome::VT_AT, at);
+  }
+  void add_settlement(uint64_t settlement) {
+    fbb_.AddElement<uint64_t>(CoverageHome::VT_SETTLEMENT, settlement, 0);
+  }
+  void add_nearest(::flatbuffers::Offset<tce::wire::CoverageSource> nearest) {
+    fbb_.AddOffset(CoverageHome::VT_NEAREST, nearest);
+  }
+  void add_by_right(::flatbuffers::Offset<tce::wire::CoverageSource> by_right) {
+    fbb_.AddOffset(CoverageHome::VT_BY_RIGHT, by_right);
+  }
+  void add_drew(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CoverageSource>>> drew) {
+    fbb_.AddOffset(CoverageHome::VT_DREW, drew);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> words) {
+    fbb_.AddOffset(CoverageHome::VT_WORDS, words);
+  }
+  explicit CoverageHomeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<CoverageHome> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<CoverageHome>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<CoverageHome> CreateCoverageHome(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t household = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    const tce::wire::Vec2 *at = nullptr,
+    uint64_t settlement = 0,
+    ::flatbuffers::Offset<tce::wire::CoverageSource> nearest = 0,
+    ::flatbuffers::Offset<tce::wire::CoverageSource> by_right = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CoverageSource>>> drew = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> words = 0) {
+  CoverageHomeBuilder builder_(_fbb);
+  builder_.add_settlement(settlement);
+  builder_.add_household(household);
+  builder_.add_words(words);
+  builder_.add_drew(drew);
+  builder_.add_by_right(by_right);
+  builder_.add_nearest(nearest);
+  builder_.add_at(at);
+  builder_.add_name(name);
+  return builder_.Finish();
+}
+
+struct CoverageHome::Traits {
+  using type = CoverageHome;
+  static auto constexpr Create = CreateCoverageHome;
+};
+
+inline ::flatbuffers::Offset<CoverageHome> CreateCoverageHomeDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t household = 0,
+    const char *name = nullptr,
+    const tce::wire::Vec2 *at = nullptr,
+    uint64_t settlement = 0,
+    ::flatbuffers::Offset<tce::wire::CoverageSource> nearest = 0,
+    ::flatbuffers::Offset<tce::wire::CoverageSource> by_right = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::CoverageSource>> *drew = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *words = nullptr) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto drew__ = drew ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::CoverageSource>>(*drew) : 0;
+  auto words__ = words ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*words) : 0;
+  return tce::wire::CreateCoverageHome(
+      _fbb,
+      household,
+      name__,
+      at,
+      settlement,
+      nearest,
+      by_right,
+      drew__,
+      words__);
+}
+
+struct Coverage FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef CoverageBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_LENS = 4,
+    VT_TITLE = 6,
+    VT_SCOPE = 8,
+    VT_PERIODS = 10,
+    VT_DENOMINATOR = 12,
+    VT_HOMES = 14,
+    VT_LIMIT_MIN = 16,
+    VT_DAYS = 18,
+    VT_SUMMARY = 20
+  };
+  uint8_t lens() const {
+    return GetField<uint8_t>(VT_LENS, 0);
+  }
+  const ::flatbuffers::String *title() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_TITLE);
+  }
+  const ::flatbuffers::String *scope() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_SCOPE);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *periods() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_PERIODS);
+  }
+  const ::flatbuffers::String *denominator() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_DENOMINATOR);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CoverageHome>> *homes() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CoverageHome>> *>(VT_HOMES);
+  }
+  float limit_min() const {
+    return GetField<float>(VT_LIMIT_MIN, 0.0f);
+  }
+  uint16_t days() const {
+    return GetField<uint16_t>(VT_DAYS, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *summary() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_SUMMARY);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_LENS, 1) &&
+           VerifyOffset(verifier, VT_TITLE) &&
+           verifier.VerifyString(title()) &&
+           VerifyOffset(verifier, VT_SCOPE) &&
+           verifier.VerifyString(scope()) &&
+           VerifyOffset(verifier, VT_PERIODS) &&
+           verifier.VerifyVector(periods()) &&
+           verifier.VerifyVectorOfStrings(periods()) &&
+           VerifyOffset(verifier, VT_DENOMINATOR) &&
+           verifier.VerifyString(denominator()) &&
+           VerifyOffset(verifier, VT_HOMES) &&
+           verifier.VerifyVector(homes()) &&
+           verifier.VerifyVectorOfTables(homes()) &&
+           VerifyField<float>(verifier, VT_LIMIT_MIN, 4) &&
+           VerifyField<uint16_t>(verifier, VT_DAYS, 2) &&
+           VerifyOffset(verifier, VT_SUMMARY) &&
+           verifier.VerifyVector(summary()) &&
+           verifier.VerifyVectorOfStrings(summary()) &&
+           verifier.EndTable();
+  }
+};
+
+struct CoverageBuilder {
+  typedef Coverage Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_lens(uint8_t lens) {
+    fbb_.AddElement<uint8_t>(Coverage::VT_LENS, lens, 0);
+  }
+  void add_title(::flatbuffers::Offset<::flatbuffers::String> title) {
+    fbb_.AddOffset(Coverage::VT_TITLE, title);
+  }
+  void add_scope(::flatbuffers::Offset<::flatbuffers::String> scope) {
+    fbb_.AddOffset(Coverage::VT_SCOPE, scope);
+  }
+  void add_periods(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> periods) {
+    fbb_.AddOffset(Coverage::VT_PERIODS, periods);
+  }
+  void add_denominator(::flatbuffers::Offset<::flatbuffers::String> denominator) {
+    fbb_.AddOffset(Coverage::VT_DENOMINATOR, denominator);
+  }
+  void add_homes(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CoverageHome>>> homes) {
+    fbb_.AddOffset(Coverage::VT_HOMES, homes);
+  }
+  void add_limit_min(float limit_min) {
+    fbb_.AddElement<float>(Coverage::VT_LIMIT_MIN, limit_min, 0.0f);
+  }
+  void add_days(uint16_t days) {
+    fbb_.AddElement<uint16_t>(Coverage::VT_DAYS, days, 0);
+  }
+  void add_summary(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> summary) {
+    fbb_.AddOffset(Coverage::VT_SUMMARY, summary);
+  }
+  explicit CoverageBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Coverage> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Coverage>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Coverage> CreateCoverage(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t lens = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> title = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> scope = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> periods = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> denominator = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CoverageHome>>> homes = 0,
+    float limit_min = 0.0f,
+    uint16_t days = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> summary = 0) {
+  CoverageBuilder builder_(_fbb);
+  builder_.add_summary(summary);
+  builder_.add_limit_min(limit_min);
+  builder_.add_homes(homes);
+  builder_.add_denominator(denominator);
+  builder_.add_periods(periods);
+  builder_.add_scope(scope);
+  builder_.add_title(title);
+  builder_.add_days(days);
+  builder_.add_lens(lens);
+  return builder_.Finish();
+}
+
+struct Coverage::Traits {
+  using type = Coverage;
+  static auto constexpr Create = CreateCoverage;
+};
+
+inline ::flatbuffers::Offset<Coverage> CreateCoverageDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint8_t lens = 0,
+    const char *title = nullptr,
+    const char *scope = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *periods = nullptr,
+    const char *denominator = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::CoverageHome>> *homes = nullptr,
+    float limit_min = 0.0f,
+    uint16_t days = 0,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *summary = nullptr) {
+  auto title__ = title ? _fbb.CreateString(title) : 0;
+  auto scope__ = scope ? _fbb.CreateString(scope) : 0;
+  auto periods__ = periods ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*periods) : 0;
+  auto denominator__ = denominator ? _fbb.CreateString(denominator) : 0;
+  auto homes__ = homes ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::CoverageHome>>(*homes) : 0;
+  auto summary__ = summary ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*summary) : 0;
+  return tce::wire::CreateCoverage(
+      _fbb,
+      lens,
+      title__,
+      scope__,
+      periods__,
+      denominator__,
+      homes__,
+      limit_min,
+      days,
+      summary__);
+}
+
 struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef ResponseBuilder Builder;
   struct Traits;
@@ -20598,6 +21112,9 @@ struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::OutbreakInfo *body_as_OutbreakInfo() const {
     return body_type() == tce::wire::ResponseBody::OutbreakInfo ? static_cast<const tce::wire::OutbreakInfo *>(body()) : nullptr;
+  }
+  const tce::wire::Coverage *body_as_Coverage() const {
+    return body_type() == tce::wire::ResponseBody::Coverage ? static_cast<const tce::wire::Coverage *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -20711,6 +21228,10 @@ template<> inline const tce::wire::IncidentInfo *Response::body_as<tce::wire::In
 
 template<> inline const tce::wire::OutbreakInfo *Response::body_as<tce::wire::OutbreakInfo>() const {
   return body_as_OutbreakInfo();
+}
+
+template<> inline const tce::wire::Coverage *Response::body_as<tce::wire::Coverage>() const {
+  return body_as_Coverage();
 }
 
 struct ResponseBuilder {
@@ -21016,6 +21537,10 @@ inline bool VerifyQueryBody(::flatbuffers::VerifierTemplate<B> &verifier, const 
       auto ptr = reinterpret_cast<const tce::wire::GetOutbreak *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case QueryBody::GetCoverage: {
+      auto ptr = reinterpret_cast<const tce::wire::GetCoverage *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -21141,6 +21666,10 @@ inline bool VerifyResponseBody(::flatbuffers::VerifierTemplate<B> &verifier, con
     }
     case ResponseBody::OutbreakInfo: {
       auto ptr = reinterpret_cast<const tce::wire::OutbreakInfo *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::Coverage: {
+      auto ptr = reinterpret_cast<const tce::wire::Coverage *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

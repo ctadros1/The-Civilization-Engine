@@ -796,3 +796,100 @@ fn the_incidents_list_every_case_and_an_outbreak_s_page_traces_the_well_its_wate
     to_morning(&mut sim, 0);
     assert_ne!(incidents::incidents_rev(&sim), rev);
 }
+
+#[test]
+fn the_water_lens_reads_each_home_s_nearest_water_and_the_days_its_people_drew_where() {
+    // Wire 1.66 (M6a slice BB, step three): could reach, on the walking grid, and did come, from
+    // the households' own record of the past 30 days.
+    use civ_agents::uses::{Place, Worked};
+    use civ_schema::{flatbuffers, wire};
+    use civ_sim::frames::coverage::{self, OTHERS_WELL, OWN_WELL, WATER};
+
+    let (mut sim, h, well) = an_open_well();
+    sim.advance_minutes(3 * DAY).expect("lives");
+    let homes = coverage::water_homes(&sim, None);
+    assert_eq!(homes.len(), households(&sim).len());
+    let metres_a_minute = sim.nav().params().top_speed_ms() * 60.0;
+    let cell = f64::from(sim.map().cell_size_m);
+    for x in &homes {
+        // Every home has water within the search, never nearer by the grid than in a straight
+        // line at the fastest walk (half a cell's slack each end for where in its cell each is).
+        let n = x.nearest.as_ref().expect("water within reach");
+        let walk = f64::from(n.minutes.expect("its walk"));
+        let straight = (f64::from(n.at.0 - x.at.0)).hypot(f64::from(n.at.1 - x.at.1));
+        assert!(
+            walk * metres_a_minute + cell * 1.5 >= straight,
+            "{walk} min for {straight} m"
+        );
+        // The nearest by right is given only when it is another, and is never another's well.
+        if let Some(r) = &x.by_right {
+            assert_ne!(r.kind, OTHERS_WELL);
+            assert!(r.minutes >= n.minutes);
+            assert_ne!(Some(r), x.nearest.as_ref());
+        }
+        // Everyone draws water every day: within the four days lived here, on one day at least,
+        // and no source on more days than that.
+        assert!(!x.drew.is_empty(), "{:?}", x.household);
+        assert!(x.drew.iter().all(|s| (1..=30).contains(&s.days)));
+    }
+    // Their own record, exactly: the well's household drew at it on two days of the past 30 and
+    // at the river on one long before, and nowhere else is held.
+    let (today, half) = (
+        sim.now().day_index(),
+        sim.rules().people.places.use_half_life_days,
+    );
+    let w = *sim.land().wells.get(well).expect("the well");
+    let settlement = sim
+        .people()
+        .households
+        .iter()
+        .find(|(_, x)| x.id == h)
+        .and_then(|(_, x)| x.settlement)
+        .expect("a settlement");
+    {
+        let uses = &mut sim.people_mut_for_tests().uses;
+        uses.households.remove(&h);
+        uses.today.retain(|x| x.household != h);
+        for day in [today - 40, today - 5, today - 2] {
+            let place = if day == today - 40 {
+                Place::Source(0)
+            } else {
+                Place::Source(w.cell)
+            };
+            uses.worked(Worked {
+                place,
+                day,
+                household: h,
+                settlement,
+                kcal: 0.0,
+                person: None,
+            });
+            uses.fold(half);
+        }
+        uses.prune(today, half, 365, |_| true);
+    }
+    let homes = coverage::water_homes(&sim, Some(settlement));
+    let mine = homes.iter().find(|x| x.household == h).expect("its home");
+    assert_eq!(mine.drew.len(), 1, "{:?}", mine.drew);
+    assert_eq!((mine.drew[0].kind, mine.drew[0].days), (OWN_WELL, 2));
+    assert!(coverage::home_words(mine)[1].ends_with("'s household's well on 2 days"));
+    // On the wire: every home, its words, the legend's parts and the counts.
+    let bytes = coverage::coverage_response(&sim, Some(settlement), WATER).expect("the lens");
+    let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+    let lens = response.body_as_coverage().expect("a lens");
+    assert_eq!(lens.homes().map(|v| v.len()), Some(homes.len()));
+    assert_eq!(lens.days(), 30);
+    assert!(lens.scope().is_some_and(|s| s.ends_with(" homes")));
+    let periods: Vec<&str> = lens.periods().expect("periods").iter().collect();
+    assert_eq!(
+        periods,
+        [
+            "now, on the paths as last surveyed",
+            "the past 30 days, today included"
+        ]
+    );
+    let summary: Vec<&str> = lens.summary().expect("counts").iter().collect();
+    assert!(summary[0].starts_with(&format!("Could reach: of {} homes", homes.len())));
+    assert!(summary[1].starts_with("Did come: in the past 30 days"));
+    assert!(coverage::coverage_response(&sim, None, 9).is_none());
+}

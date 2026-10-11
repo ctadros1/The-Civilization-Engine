@@ -52,6 +52,7 @@
               <button id="state-retry" type="button" hidden>Try again</button>
             </div>
           </div>
+          <div class="lens-legend" id="lens-legend" aria-live="polite" hidden></div>
           <div class="map-hud" id="map-hud" hidden>
             <div class="readout" id="readout" aria-live="off">&nbsp;</div>
             <div class="scalebar" id="scalebar"><div class="bar" id="scalebar-bar"></div><span id="scalebar-text"></span></div>
@@ -103,6 +104,11 @@
                 <option value="3">a great drought (3 sd)</option>
               </select>
               <label class="toggle"><input type="checkbox" id="show-rivers" checked /> Rivers</label>
+              <select id="lens" aria-label="Lens" title="A lens on the map, read per home: the water each home could reach, or where its people did come for water">
+                <option value="" selected>No lens</option>
+                <option value="reach">Water: could reach</option>
+                <option value="came">Water: did come</option>
+              </select>
             </div>
           </div>
         </section>

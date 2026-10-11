@@ -354,6 +354,13 @@ export class HostClient {
   }
 
   /** One outbreak's page: its counts, curve, sources and cases (wire 1.64). */
+  /** A lens over the homes of `settlement` (0: every settlement); lens 1 is water (wire 1.66). */
+  async coverage(settlement: number, lens: number): Promise<M.CoverageInfo> {
+    const body = await this.query(M.getCoverage(settlement, lens));
+    if (body.kind !== "coverage") throw new HostError("internal", "expected a lens");
+    return body.coverage;
+  }
+
   async outbreak(id: number, limit: number): Promise<M.OutbreakInfo> {
     const body = await this.query(M.getOutbreak(id, limit));
     if (body.kind !== "outbreak") throw new HostError("internal", "expected an outbreak");

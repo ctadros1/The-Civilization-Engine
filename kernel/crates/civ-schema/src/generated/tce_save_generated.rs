@@ -38745,6 +38745,7 @@ impl<'a> PlaceUseSave<'a> {
   pub const VT_DAY: ::flatbuffers::VOffsetT = 14;
   pub const VT_OUTSIDERS: ::flatbuffers::VOffsetT = 16;
   pub const VT_SEEN: ::flatbuffers::VOffsetT = 18;
+  pub const VT_RECENT: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -38756,6 +38757,7 @@ impl<'a> PlaceUseSave<'a> {
     args: &'args PlaceUseSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<PlaceUseSave<'bldr>> {
     let mut builder = PlaceUseSaveBuilder::new(_fbb);
+    builder.add_recent(args.recent);
     builder.add_day(args.day);
     builder.add_place(args.place);
     builder.add_household(args.household);
@@ -38824,6 +38826,13 @@ impl<'a> PlaceUseSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, SeenAtSave>>>(PlaceUseSave::VT_SEEN, None)}
   }
+  #[inline]
+  pub fn recent(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PlaceUseSave::VT_RECENT, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PlaceUseSave<'_> {
@@ -38840,6 +38849,7 @@ impl ::flatbuffers::Verifiable for PlaceUseSave<'_> {
      .visit_field::<i64>("day", Self::VT_DAY, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, OutsidersSave>>>("outsiders", Self::VT_OUTSIDERS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SeenAtSave>>>("seen", Self::VT_SEEN, false)?
+     .visit_field::<u64>("recent", Self::VT_RECENT, false)?
      .finish();
     Ok(())
   }
@@ -38853,6 +38863,7 @@ pub struct PlaceUseSaveArgs<'a> {
     pub day: i64,
     pub outsiders: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, OutsidersSave>>>,
     pub seen: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SeenAtSave>>>,
+    pub recent: u64,
 }
 impl<'a> Default for PlaceUseSaveArgs<'a> {
   #[inline]
@@ -38866,6 +38877,7 @@ impl<'a> Default for PlaceUseSaveArgs<'a> {
       day: 0,
       outsiders: None,
       seen: None,
+      recent: 0,
     }
   }
 }
@@ -38908,6 +38920,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlaceUseSaveBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlaceUseSave::VT_SEEN, seen);
   }
   #[inline]
+  pub fn add_recent(&mut self, recent: u64) {
+    self.fbb_.push_slot::<u64>(PlaceUseSave::VT_RECENT, recent, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlaceUseSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PlaceUseSaveBuilder {
@@ -38933,6 +38949,7 @@ impl ::core::fmt::Debug for PlaceUseSave<'_> {
       ds.field("day", &self.day());
       ds.field("outsiders", &self.outsiders());
       ds.field("seen", &self.seen());
+      ds.field("recent", &self.recent());
       ds.finish()
   }
 }

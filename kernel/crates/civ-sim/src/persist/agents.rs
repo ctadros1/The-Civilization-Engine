@@ -113,7 +113,8 @@ use super::{
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
-    SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, finish, section, single_chunk, unreadable,
+    SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, finish, section, single_chunk,
+    unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -482,6 +483,9 @@ enum Schema {
     V84,
     /// Each infection keeps the household it began in (M6a slice BB).
     V85,
+    /// Each place a household uses remembers which of the last 64 days its people worked there
+    /// (M6a slice BB, step three: the Water lens).
+    V86,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -581,7 +585,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V82 => Schema::V82,
         SCHEMA_V83 => Schema::V83,
         SCHEMA_V84 => Schema::V84,
-        SAVE_SCHEMA_VERSION => Schema::V85,
+        SCHEMA_V85 => Schema::V85,
+        SAVE_SCHEMA_VERSION => Schema::V86,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -3079,7 +3084,8 @@ fn carried(
         | Schema::V82
         | Schema::V83
         | Schema::V84
-        | Schema::V85 => {
+        | Schema::V85
+        | Schema::V86 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3276,7 +3282,8 @@ fn decode_households(
             | Schema::V82
             | Schema::V83
             | Schema::V84
-            | Schema::V85 => {
+            | Schema::V85
+            | Schema::V86 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -7166,6 +7173,7 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
                     day: u.day,
                     outsiders,
                     seen,
+                    recent: u.recent,
                 },
             )
         })
@@ -7540,6 +7548,8 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
                 outsiders,
                 seen,
                 day: u.day(),
+                // Which days were worked there, exactly (schema 86); before, none known.
+                recent: u.recent(),
             });
     }
     // Who did each piece of work (schema 63); before, nobody known.

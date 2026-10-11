@@ -815,10 +815,10 @@ pub struct CommandBodyUnionTableOffset {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_QUERY_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_QUERY_BODY: u8 = 25;
+pub const ENUM_MAX_QUERY_BODY: u8 = 26;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 26] = [
+pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 27] = [
   QueryBody::NONE,
   QueryBody::GetRaster,
   QueryBody::GetHydrography,
@@ -845,6 +845,7 @@ pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 26] = [
   QueryBody::GetIncidents,
   QueryBody::GetIncident,
   QueryBody::GetOutbreak,
+  QueryBody::GetCoverage,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -878,9 +879,10 @@ impl QueryBody {
   pub const GetIncidents: Self = Self(23);
   pub const GetIncident: Self = Self(24);
   pub const GetOutbreak: Self = Self(25);
+  pub const GetCoverage: Self = Self(26);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 25;
+  pub const ENUM_MAX: u8 = 26;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::GetRaster,
@@ -908,6 +910,7 @@ impl QueryBody {
     Self::GetIncidents,
     Self::GetIncident,
     Self::GetOutbreak,
+    Self::GetCoverage,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -938,6 +941,7 @@ impl QueryBody {
       Self::GetIncidents => Some("GetIncidents"),
       Self::GetIncident => Some("GetIncident"),
       Self::GetOutbreak => Some("GetOutbreak"),
+      Self::GetCoverage => Some("GetCoverage"),
       _ => None,
     }
   }
@@ -1377,10 +1381,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for BookKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RESPONSE_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RESPONSE_BODY: u8 = 26;
+pub const ENUM_MAX_RESPONSE_BODY: u8 = 27;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 27] = [
+pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 28] = [
   ResponseBody::NONE,
   ResponseBody::Ack,
   ResponseBody::RasterTile,
@@ -1408,6 +1412,7 @@ pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 27] = [
   ResponseBody::Incidents,
   ResponseBody::IncidentInfo,
   ResponseBody::OutbreakInfo,
+  ResponseBody::Coverage,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1442,9 +1447,10 @@ impl ResponseBody {
   pub const Incidents: Self = Self(24);
   pub const IncidentInfo: Self = Self(25);
   pub const OutbreakInfo: Self = Self(26);
+  pub const Coverage: Self = Self(27);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 26;
+  pub const ENUM_MAX: u8 = 27;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::Ack,
@@ -1473,6 +1479,7 @@ impl ResponseBody {
     Self::Incidents,
     Self::IncidentInfo,
     Self::OutbreakInfo,
+    Self::Coverage,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1504,6 +1511,7 @@ impl ResponseBody {
       Self::Incidents => Some("Incidents"),
       Self::IncidentInfo => Some("IncidentInfo"),
       Self::OutbreakInfo => Some("OutbreakInfo"),
+      Self::Coverage => Some("Coverage"),
       _ => None,
     }
   }
@@ -12606,6 +12614,119 @@ impl ::core::fmt::Debug for GetOutbreak<'_> {
       ds.finish()
   }
 }
+pub enum GetCoverageOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetCoverage<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetCoverage<'a> {
+  type Inner = GetCoverage<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetCoverage<'a> {
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 4;
+  pub const VT_LENS: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetCoverage { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GetCoverageArgs
+  ) -> ::flatbuffers::WIPOffset<GetCoverage<'bldr>> {
+    let mut builder = GetCoverageBuilder::new(_fbb);
+    builder.add_settlement(args.settlement);
+    builder.add_lens(args.lens);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(GetCoverage::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn lens(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(GetCoverage::VT_LENS, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for GetCoverage<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<u8>("lens", Self::VT_LENS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetCoverageArgs {
+    pub settlement: u64,
+    pub lens: u8,
+}
+impl<'a> Default for GetCoverageArgs {
+  #[inline]
+  fn default() -> Self {
+    GetCoverageArgs {
+      settlement: 0,
+      lens: 0,
+    }
+  }
+}
+
+pub struct GetCoverageBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetCoverageBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(GetCoverage::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_lens(&mut self, lens: u8) {
+    self.fbb_.push_slot::<u8>(GetCoverage::VT_LENS, lens, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetCoverageBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetCoverageBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetCoverage<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetCoverage<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetCoverage");
+      ds.field("settlement", &self.settlement());
+      ds.field("lens", &self.lens());
+      ds.finish()
+  }
+}
 pub enum QueryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -13030,6 +13151,21 @@ impl<'a> Query<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_coverage(&self) -> Option<GetCoverage<'a>> {
+    if self.body_type() == QueryBody::GetCoverage {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetCoverage::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Query<'_> {
@@ -13065,6 +13201,7 @@ impl ::flatbuffers::Verifiable for Query<'_> {
           QueryBody::GetIncidents => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetIncidents>>("QueryBody::GetIncidents", pos),
           QueryBody::GetIncident => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetIncident>>("QueryBody::GetIncident", pos),
           QueryBody::GetOutbreak => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetOutbreak>>("QueryBody::GetOutbreak", pos),
+          QueryBody::GetCoverage => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetCoverage>>("QueryBody::GetCoverage", pos),
           _ => Ok(()),
         }
      })?
@@ -13289,6 +13426,13 @@ impl ::core::fmt::Debug for Query<'_> {
         },
         QueryBody::GetOutbreak => {
           if let Some(x) = self.body_as_get_outbreak() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetCoverage => {
+          if let Some(x) = self.body_as_get_coverage() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -32308,6 +32452,617 @@ impl ::core::fmt::Debug for OutbreakInfo<'_> {
       ds.finish()
   }
 }
+pub enum CoverageSourceOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct CoverageSource<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for CoverageSource<'a> {
+  type Inner = CoverageSource<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> CoverageSource<'a> {
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 4;
+  pub const VT_AT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_KIND: ::flatbuffers::VOffsetT = 8;
+  pub const VT_MINUTES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_DAYS: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    CoverageSource { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CoverageSourceArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<CoverageSource<'bldr>> {
+    let mut builder = CoverageSourceBuilder::new(_fbb);
+    builder.add_minutes(args.minutes);
+    if let Some(x) = args.at { builder.add_at(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.add_days(args.days);
+    builder.add_kind(args.kind);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(CoverageSource::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn at(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(CoverageSource::VT_AT, None)}
+  }
+  #[inline]
+  pub fn kind(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(CoverageSource::VT_KIND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn minutes(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CoverageSource::VT_MINUTES, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn days(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(CoverageSource::VT_DAYS, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for CoverageSource<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<Vec2>("at", Self::VT_AT, false)?
+     .visit_field::<u8>("kind", Self::VT_KIND, false)?
+     .visit_field::<f32>("minutes", Self::VT_MINUTES, false)?
+     .visit_field::<u16>("days", Self::VT_DAYS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CoverageSourceArgs<'a> {
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub at: Option<&'a Vec2>,
+    pub kind: u8,
+    pub minutes: f32,
+    pub days: u16,
+}
+impl<'a> Default for CoverageSourceArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CoverageSourceArgs {
+      name: None,
+      at: None,
+      kind: 0,
+      minutes: 0.0,
+      days: 0,
+    }
+  }
+}
+
+pub struct CoverageSourceBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CoverageSourceBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CoverageSource::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_at(&mut self, at: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(CoverageSource::VT_AT, at);
+  }
+  #[inline]
+  pub fn add_kind(&mut self, kind: u8) {
+    self.fbb_.push_slot::<u8>(CoverageSource::VT_KIND, kind, 0);
+  }
+  #[inline]
+  pub fn add_minutes(&mut self, minutes: f32) {
+    self.fbb_.push_slot::<f32>(CoverageSource::VT_MINUTES, minutes, 0.0);
+  }
+  #[inline]
+  pub fn add_days(&mut self, days: u16) {
+    self.fbb_.push_slot::<u16>(CoverageSource::VT_DAYS, days, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CoverageSourceBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CoverageSourceBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<CoverageSource<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for CoverageSource<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("CoverageSource");
+      ds.field("name", &self.name());
+      ds.field("at", &self.at());
+      ds.field("kind", &self.kind());
+      ds.field("minutes", &self.minutes());
+      ds.field("days", &self.days());
+      ds.finish()
+  }
+}
+pub enum CoverageHomeOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct CoverageHome<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for CoverageHome<'a> {
+  type Inner = CoverageHome<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> CoverageHome<'a> {
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_AT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 10;
+  pub const VT_NEAREST: ::flatbuffers::VOffsetT = 12;
+  pub const VT_BY_RIGHT: ::flatbuffers::VOffsetT = 14;
+  pub const VT_DREW: ::flatbuffers::VOffsetT = 16;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    CoverageHome { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CoverageHomeArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<CoverageHome<'bldr>> {
+    let mut builder = CoverageHomeBuilder::new(_fbb);
+    builder.add_settlement(args.settlement);
+    builder.add_household(args.household);
+    if let Some(x) = args.words { builder.add_words(x); }
+    if let Some(x) = args.drew { builder.add_drew(x); }
+    if let Some(x) = args.by_right { builder.add_by_right(x); }
+    if let Some(x) = args.nearest { builder.add_nearest(x); }
+    if let Some(x) = args.at { builder.add_at(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CoverageHome::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(CoverageHome::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn at(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(CoverageHome::VT_AT, None)}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CoverageHome::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn nearest(&self) -> Option<CoverageSource<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<CoverageSource>>(CoverageHome::VT_NEAREST, None)}
+  }
+  #[inline]
+  pub fn by_right(&self) -> Option<CoverageSource<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<CoverageSource>>(CoverageHome::VT_BY_RIGHT, None)}
+  }
+  #[inline]
+  pub fn drew(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CoverageSource<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CoverageSource>>>>(CoverageHome::VT_DREW, None)}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(CoverageHome::VT_WORDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for CoverageHome<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<Vec2>("at", Self::VT_AT, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<CoverageSource>>("nearest", Self::VT_NEAREST, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<CoverageSource>>("by_right", Self::VT_BY_RIGHT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CoverageSource>>>>("drew", Self::VT_DREW, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("words", Self::VT_WORDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CoverageHomeArgs<'a> {
+    pub household: u64,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub at: Option<&'a Vec2>,
+    pub settlement: u64,
+    pub nearest: Option<::flatbuffers::WIPOffset<CoverageSource<'a>>>,
+    pub by_right: Option<::flatbuffers::WIPOffset<CoverageSource<'a>>>,
+    pub drew: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CoverageSource<'a>>>>>,
+    pub words: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+}
+impl<'a> Default for CoverageHomeArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CoverageHomeArgs {
+      household: 0,
+      name: None,
+      at: None,
+      settlement: 0,
+      nearest: None,
+      by_right: None,
+      drew: None,
+      words: None,
+    }
+  }
+}
+
+pub struct CoverageHomeBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CoverageHomeBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(CoverageHome::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CoverageHome::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_at(&mut self, at: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(CoverageHome::VT_AT, at);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(CoverageHome::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_nearest(&mut self, nearest: ::flatbuffers::WIPOffset<CoverageSource<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<CoverageSource>>(CoverageHome::VT_NEAREST, nearest);
+  }
+  #[inline]
+  pub fn add_by_right(&mut self, by_right: ::flatbuffers::WIPOffset<CoverageSource<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<CoverageSource>>(CoverageHome::VT_BY_RIGHT, by_right);
+  }
+  #[inline]
+  pub fn add_drew(&mut self, drew: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<CoverageSource<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CoverageHome::VT_DREW, drew);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CoverageHome::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CoverageHomeBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CoverageHomeBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<CoverageHome<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for CoverageHome<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("CoverageHome");
+      ds.field("household", &self.household());
+      ds.field("name", &self.name());
+      ds.field("at", &self.at());
+      ds.field("settlement", &self.settlement());
+      ds.field("nearest", &self.nearest());
+      ds.field("by_right", &self.by_right());
+      ds.field("drew", &self.drew());
+      ds.field("words", &self.words());
+      ds.finish()
+  }
+}
+pub enum CoverageOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Coverage<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Coverage<'a> {
+  type Inner = Coverage<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Coverage<'a> {
+  pub const VT_LENS: ::flatbuffers::VOffsetT = 4;
+  pub const VT_TITLE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SCOPE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_PERIODS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_DENOMINATOR: ::flatbuffers::VOffsetT = 12;
+  pub const VT_HOMES: ::flatbuffers::VOffsetT = 14;
+  pub const VT_LIMIT_MIN: ::flatbuffers::VOffsetT = 16;
+  pub const VT_DAYS: ::flatbuffers::VOffsetT = 18;
+  pub const VT_SUMMARY: ::flatbuffers::VOffsetT = 20;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Coverage { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CoverageArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Coverage<'bldr>> {
+    let mut builder = CoverageBuilder::new(_fbb);
+    if let Some(x) = args.summary { builder.add_summary(x); }
+    builder.add_limit_min(args.limit_min);
+    if let Some(x) = args.homes { builder.add_homes(x); }
+    if let Some(x) = args.denominator { builder.add_denominator(x); }
+    if let Some(x) = args.periods { builder.add_periods(x); }
+    if let Some(x) = args.scope { builder.add_scope(x); }
+    if let Some(x) = args.title { builder.add_title(x); }
+    builder.add_days(args.days);
+    builder.add_lens(args.lens);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn lens(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(Coverage::VT_LENS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn title(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(Coverage::VT_TITLE, None)}
+  }
+  #[inline]
+  pub fn scope(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(Coverage::VT_SCOPE, None)}
+  }
+  #[inline]
+  pub fn periods(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Coverage::VT_PERIODS, None)}
+  }
+  #[inline]
+  pub fn denominator(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(Coverage::VT_DENOMINATOR, None)}
+  }
+  #[inline]
+  pub fn homes(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CoverageHome<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CoverageHome>>>>(Coverage::VT_HOMES, None)}
+  }
+  #[inline]
+  pub fn limit_min(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Coverage::VT_LIMIT_MIN, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn days(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(Coverage::VT_DAYS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn summary(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Coverage::VT_SUMMARY, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Coverage<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u8>("lens", Self::VT_LENS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("title", Self::VT_TITLE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("scope", Self::VT_SCOPE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("periods", Self::VT_PERIODS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("denominator", Self::VT_DENOMINATOR, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CoverageHome>>>>("homes", Self::VT_HOMES, false)?
+     .visit_field::<f32>("limit_min", Self::VT_LIMIT_MIN, false)?
+     .visit_field::<u16>("days", Self::VT_DAYS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("summary", Self::VT_SUMMARY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CoverageArgs<'a> {
+    pub lens: u8,
+    pub title: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub scope: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub periods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub denominator: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub homes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CoverageHome<'a>>>>>,
+    pub limit_min: f32,
+    pub days: u16,
+    pub summary: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+}
+impl<'a> Default for CoverageArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CoverageArgs {
+      lens: 0,
+      title: None,
+      scope: None,
+      periods: None,
+      denominator: None,
+      homes: None,
+      limit_min: 0.0,
+      days: 0,
+      summary: None,
+    }
+  }
+}
+
+pub struct CoverageBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CoverageBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_lens(&mut self, lens: u8) {
+    self.fbb_.push_slot::<u8>(Coverage::VT_LENS, lens, 0);
+  }
+  #[inline]
+  pub fn add_title(&mut self, title: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Coverage::VT_TITLE, title);
+  }
+  #[inline]
+  pub fn add_scope(&mut self, scope: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Coverage::VT_SCOPE, scope);
+  }
+  #[inline]
+  pub fn add_periods(&mut self, periods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Coverage::VT_PERIODS, periods);
+  }
+  #[inline]
+  pub fn add_denominator(&mut self, denominator: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Coverage::VT_DENOMINATOR, denominator);
+  }
+  #[inline]
+  pub fn add_homes(&mut self, homes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<CoverageHome<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Coverage::VT_HOMES, homes);
+  }
+  #[inline]
+  pub fn add_limit_min(&mut self, limit_min: f32) {
+    self.fbb_.push_slot::<f32>(Coverage::VT_LIMIT_MIN, limit_min, 0.0);
+  }
+  #[inline]
+  pub fn add_days(&mut self, days: u16) {
+    self.fbb_.push_slot::<u16>(Coverage::VT_DAYS, days, 0);
+  }
+  #[inline]
+  pub fn add_summary(&mut self, summary: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Coverage::VT_SUMMARY, summary);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CoverageBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CoverageBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Coverage<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Coverage<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Coverage");
+      ds.field("lens", &self.lens());
+      ds.field("title", &self.title());
+      ds.field("scope", &self.scope());
+      ds.field("periods", &self.periods());
+      ds.field("denominator", &self.denominator());
+      ds.field("homes", &self.homes());
+      ds.field("limit_min", &self.limit_min());
+      ds.field("days", &self.days());
+      ds.field("summary", &self.summary());
+      ds.finish()
+  }
+}
 pub enum ResponseOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -32747,6 +33502,21 @@ impl<'a> Response<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_coverage(&self) -> Option<Coverage<'a>> {
+    if self.body_type() == ResponseBody::Coverage {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Coverage::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Response<'_> {
@@ -32783,6 +33553,7 @@ impl ::flatbuffers::Verifiable for Response<'_> {
           ResponseBody::Incidents => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Incidents>>("ResponseBody::Incidents", pos),
           ResponseBody::IncidentInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<IncidentInfo>>("ResponseBody::IncidentInfo", pos),
           ResponseBody::OutbreakInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<OutbreakInfo>>("ResponseBody::OutbreakInfo", pos),
+          ResponseBody::Coverage => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Coverage>>("ResponseBody::Coverage", pos),
           _ => Ok(()),
         }
      })?
@@ -33014,6 +33785,13 @@ impl ::core::fmt::Debug for Response<'_> {
         },
         ResponseBody::OutbreakInfo => {
           if let Some(x) = self.body_as_outbreak_info() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::Coverage => {
+          if let Some(x) = self.body_as_coverage() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

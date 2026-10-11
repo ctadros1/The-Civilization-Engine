@@ -168,6 +168,9 @@ pub enum Reason {
     Well = 140,
     /// Excluded: illness keeps them abed (M6a slice AZ): they sleep, eat and rest at home.
     Ill = 141,
+    /// Members of the household ill at home and still owed a day's care (M6a slice AZ, step
+    /// three).
+    Tend = 142,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -179,7 +182,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 75] = [
+    pub const ALL: [Reason; 76] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -255,6 +258,7 @@ impl Reason {
         Reason::Crowded,
         Reason::Well,
         Reason::Ill,
+        Reason::Tend,
     ];
 
     /// The reason with this code.
@@ -342,6 +346,7 @@ impl Reason {
             Reason::Crowded => "as many as there is room for are already at work on it today",
             Reason::Well => "the walking a well would save",
             Reason::Ill => "illness keeps them abed",
+            Reason::Tend => "someone ill at home needs tending",
         }
     }
 }
@@ -737,6 +742,18 @@ pub enum ChronicleKind {
     /// finished or found it; `place` the well; `number` the step ([`WellStep`]); `name` the
     /// sentence.
     Well,
+    /// An outbreak began or ended (M6a slice AZ, step three; ADR-0015 §8): `people` its first
+    /// case, when it began; `settlement` where; `number` the step ([`OutbreakStep`]); `name` the
+    /// sentence, with its counts when it ended.
+    Outbreak,
+}
+
+/// What happened to an outbreak, in a [`ChronicleKind::Outbreak`] entry. Numeric in saves:
+/// append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OutbreakStep {
+    Began = 0,
+    Ended = 1,
 }
 
 /// What happened to a well, in a [`ChronicleKind::Well`] entry. Numeric in saves: append only.
@@ -1296,7 +1313,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::Encounter
         | ChronicleKind::Agreement
         | ChronicleKind::Crossing
-        | ChronicleKind::Well => {
+        | ChronicleKind::Well
+        | ChronicleKind::Outbreak => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

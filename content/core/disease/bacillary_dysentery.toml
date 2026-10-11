@@ -37,3 +37,8 @@ shed_silent_per_day = 200.0
 # Shigella has no environmental reservoir to speak of (05-03 §1.2 names none): a half-life of about
 # two days (a design prior).
 decay_per_day = 0.3
+# Care (content API 74; ADR-0021 §5): two hours a day, and such a severe day 0.95 as deadly (05-05
+# §2.2, as cholera's). No treatment: rehydration chiefly changes cholera survival (05-03 §1.4), and
+# a remedy without evidence is authored with no effect (05-05 §1.3).
+care_h_per_day = 2.0
+care_rr = 0.95

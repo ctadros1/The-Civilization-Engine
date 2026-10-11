@@ -1194,6 +1194,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** shedding where people work and not only at home, covered wellheads, lakes as sources, food and hands; tending, incidents and outbreak episodes (step three); the observer's view (step four).
 
+## 2026-10-11 — M6a slice AZ, step three: tending, fluid replacement and outbreaks
+
+**What changed:** households tend their sick: a member sits with those ill at home, and each infection records who came first, the hours given each day and any treatment the carer knew (content API 74). The death of the severely ill is now drawn for the day just lived, so that day's care counts, in proportion to how much was given. Fluid replacement is a technique nobody brings: found only after very long tending, or given by the observer, then learnt by tending beside someone who knows it and by children at home, it brings cholera's daily risk to a twentieth. Every case is part of an outbreak in its settlement, which begins with a case while none is open and ends once no case has run for an incubation; the chronicle tells it when it begins and when it ends, with its counts (saves 77; ADR-0021 amended with that rule).
+
+**Findings:** care given all or nothing at two hours left people dying on days they were tended an hour, in households where five others were ill; proportional care replaced it. Twenty introductions into a village of 106 then killed 9 of the 41 ill with tending alone, and 2 with fluid replacement known to everyone, about the 1971 refugees' 3.6 %, with the same number infected. Inserting the new technique exposed an error-path bug in the content checks, which compared techniques by position after one had failed to compile.
+
+**Evidence:** a unit test of proportional care; integration tests of tending, care saved exactly, death without care that counts, fluid replacement by whoever tends, learning it in twenty hours, and an outbreak's whole course; the content ranges; the probes; a digest comparison; the full suite, clippy and the smoke worlds.
+
+**Open:** tending by kin from other households and the carer's exposure; the observer's view (step four).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

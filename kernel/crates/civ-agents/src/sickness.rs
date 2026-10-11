@@ -160,6 +160,48 @@ pub fn course(def: &DiseaseDef, age: f64, day: i64, rng: &mut Rng64) -> Course {
     }
 }
 
+/// The care an infection's bearer was given while ill (M6a slice AZ, step three; ADR-0021 §5;
+/// research 05-05 §1.1: care is someone else's labour, recorded where it was given).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Care {
+    /// The first day someone tended them, and who: when help came.
+    pub first: Option<(i64, PermanentId)>,
+    /// The last day they were tended, the hours given them that day, and the least relative risk
+    /// of dying any treatment a carer that day knew brings (1 for none).
+    pub day: i64,
+    pub hours: f32,
+    pub rr: f32,
+    /// Hours given them over the whole illness.
+    pub total_h: f32,
+}
+
+impl Care {
+    /// What the care given on day `day` does to the chance of dying that day of `def`, as a
+    /// relative risk: the least relative risk a carer brought that day (supportive care's, or a
+    /// treatment's), in proportion to the share of a day's care given (05-05 §2.2: an effect
+    /// applies only to care actually delivered). 1 on a day nobody tended them.
+    pub fn rr(&self, def: &DiseaseDef, day: i64) -> f64 {
+        if self.day != day || self.hours <= 0.0 {
+            return 1.0;
+        }
+        let best = def.care_rr.min(f64::from(self.rr)).clamp(0.0, 1.0);
+        let share = (f64::from(self.hours) / def.care_h_per_day.max(1e-6)).min(1.0);
+        1.0 - (1.0 - best) * share
+    }
+}
+
+impl Default for Care {
+    fn default() -> Care {
+        Care {
+            first: None,
+            day: 0,
+            hours: 0.0,
+            rr: 1.0,
+            total_h: 0.0,
+        }
+    }
+}
+
 /// One infection. Saved.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Episode {
@@ -174,6 +216,29 @@ pub struct Episode {
     pub course: Course,
     /// The day it ended, and how; `None` while it runs.
     pub ended: Option<(i64, Outcome)>,
+    /// The care its bearer was given (step three).
+    pub care: Care,
+    /// The outbreak it is part of, by number (step three; ADR-0015 §8's `part_of`).
+    pub outbreak: Option<u32>,
+}
+
+/// An outbreak (M6a slice AZ, step three; ADR-0015 §8, ADR-0021 §5 as amended): the cases of one
+/// disease among the people of one settlement, from the first until none of them has run for as
+/// long as a new infection can take to show (its incubation's mean and three spreads). A case
+/// taken while one is open in its settlement is part of it; one taken while none is begins one,
+/// and its acquisition record is the outbreak's cause. Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Outbreak {
+    /// Its number, from 1, in the order they began.
+    pub id: u32,
+    pub disease: u16,
+    /// Where its cases lived when they took it (`None`: no settlement).
+    pub settlement: Option<PermanentId>,
+    /// The day its first case took it, and that case's episode number.
+    pub began: i64,
+    pub first: u32,
+    /// The day it ended; `None` while it is open.
+    pub ended: Option<i64>,
 }
 
 impl Episode {
@@ -203,10 +268,12 @@ impl Episode {
     }
 }
 
-/// Every infection there has been, in the order they came. Saved; the indexes are derived.
+/// Every infection there has been, in the order they came, and every outbreak. Saved; the
+/// indexes are derived.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Sickness {
     episodes: Vec<Episode>,
+    outbreaks: Vec<Outbreak>,
     /// Episodes that run, by index, in order.
     running: Vec<usize>,
     /// Each person's episodes, by index, in order.
@@ -214,13 +281,68 @@ pub struct Sickness {
 }
 
 impl Sickness {
-    /// The store of `episodes`, in the order they came.
-    pub fn with(episodes: Vec<Episode>) -> Sickness {
-        let mut s = Sickness::default();
+    /// The store of `episodes`, in the order they came, and `outbreaks`, in the order they began.
+    pub fn with(episodes: Vec<Episode>, outbreaks: Vec<Outbreak>) -> Sickness {
+        let mut s = Sickness {
+            outbreaks,
+            ..Sickness::default()
+        };
         for e in episodes {
             s.push(e);
         }
         s
+    }
+
+    /// Every outbreak, in the order they began.
+    pub fn outbreaks(&self) -> &[Outbreak] {
+        &self.outbreaks
+    }
+
+    /// Whether any outbreak is open.
+    pub fn outbreak_open(&self) -> bool {
+        self.outbreaks.iter().any(|o| o.ended.is_none())
+    }
+
+    /// The episode at `index` is part of the open outbreak of its disease in `settlement`, or
+    /// begins one on its day; returns that outbreak's number and whether it began.
+    pub fn join_outbreak(&mut self, index: usize, settlement: Option<PermanentId>) -> (u32, bool) {
+        let Some(e) = self.episodes.get(index).copied() else {
+            return (0, false);
+        };
+        let open = self
+            .outbreaks
+            .iter()
+            .find(|o| o.ended.is_none() && o.disease == e.disease && o.settlement == settlement)
+            .map(|o| o.id);
+        let (id, began) = match open {
+            Some(id) => (id, false),
+            None => {
+                let id = self.outbreaks.len() as u32 + 1;
+                self.outbreaks.push(Outbreak {
+                    id,
+                    disease: e.disease,
+                    settlement,
+                    began: e.infected,
+                    first: e.id,
+                    ended: None,
+                });
+                (id, true)
+            }
+        };
+        self.episodes[index].outbreak = Some(id);
+        (id, began)
+    }
+
+    /// The episodes part of outbreak `id`.
+    pub fn cases(&self, id: u32) -> impl Iterator<Item = &Episode> {
+        self.episodes.iter().filter(move |e| e.outbreak == Some(id))
+    }
+
+    /// Ends outbreak `id` on `day`.
+    pub fn end_outbreak(&mut self, id: u32, day: i64) {
+        if let Some(o) = self.outbreaks.iter_mut().find(|o| o.id == id) {
+            o.ended.get_or_insert(day);
+        }
     }
 
     fn push(&mut self, e: Episode) {
@@ -295,8 +417,48 @@ impl Sickness {
             acquired,
             course,
             ended: None,
+            care: Care::default(),
+            outbreak: None,
         });
         self.episodes.len() - 1
+    }
+
+    /// The episodes running in `person` that make them ill on `day`, by index.
+    pub fn ill_with(&self, person: PermanentId, day: i64) -> Vec<usize> {
+        self.by_person.get(&person).map_or_else(Vec::new, |v| {
+            v.iter()
+                .copied()
+                .filter(|&i| self.episodes.get(i).is_some_and(|e| e.ill_on(day)))
+                .collect()
+        })
+    }
+
+    /// The hours of care the bearer of the episode at `index` has been given on `day`.
+    pub fn cared(&self, index: usize, day: i64) -> f64 {
+        self.episodes
+            .get(index)
+            .filter(|e| e.care.day == day)
+            .map_or(0.0, |e| f64::from(e.care.hours))
+    }
+
+    /// `who` gave the bearer of the episode at `index` `hours` of care on `day`, knowing a
+    /// treatment that brings its risk of dying to `rr` (1 for none).
+    pub fn tend(&mut self, index: usize, day: i64, who: PermanentId, hours: f64, rr: f64) {
+        let Some(e) = self.episodes.get_mut(index) else {
+            return;
+        };
+        let c = &mut e.care;
+        if c.first.is_none() {
+            c.first = Some((day, who));
+        }
+        if c.day != day || c.hours <= 0.0 {
+            c.day = day;
+            c.hours = 0.0;
+            c.rr = 1.0;
+        }
+        c.hours += hours as f32;
+        c.rr = c.rr.min(rr as f32);
+        c.total_h += hours as f32;
     }
 
     /// Ends the episode at `index` on `day`, as `outcome`.
@@ -333,7 +495,36 @@ mod tests {
             shed_ill_per_day: 1000.0,
             shed_silent_per_day: 10.0,
             decay_per_day: 0.2,
+            care_h_per_day: 2.0,
+            care_rr: 0.95,
+            treatments: Vec::new(),
         }
+    }
+
+    #[test]
+    fn care_lowers_the_day_s_risk_by_the_share_of_a_day_s_care_given() {
+        let mut d = cholera();
+        d.care_rr = 0.9;
+        let mut c = Care::default();
+        assert_eq!(c.rr(&d, 5), 1.0, "nobody came");
+        c.day = 5;
+        c.hours = 1.0;
+        c.rr = 1.0;
+        assert!(
+            (c.rr(&d, 5) - 0.95).abs() < 1e-12,
+            "half a day's care, half the effect"
+        );
+        assert_eq!(c.rr(&d, 6), 1.0, "care given another day");
+        c.hours = 3.0;
+        assert!(
+            (c.rr(&d, 5) - 0.9).abs() < 1e-12,
+            "a full day's care at most"
+        );
+        c.rr = 0.05;
+        assert!(
+            (c.rr(&d, 5) - 0.05).abs() < 1e-6,
+            "a treatment a carer knew"
+        );
     }
 
     #[test]
@@ -402,7 +593,7 @@ mod tests {
         assert!(s.quiet());
         assert!(s.protected(id, 0, 999) && !s.protected(id, 0, 1_000));
         // Saved and loaded, the indexes come back.
-        let again = Sickness::with(s.episodes().to_vec());
+        let again = Sickness::with(s.episodes().to_vec(), s.outbreaks().to_vec());
         assert_eq!(again, s);
     }
 }

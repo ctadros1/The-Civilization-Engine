@@ -2646,6 +2646,7 @@ impl Population {
                 .hurt_until(p.id)
                 .is_some_and(|d| d >= now.day_index()),
             ill: self.sickness.ill(p.id, now.day_index()),
+            tend: self.tend_facts(ctx, p.id, &hh),
         };
         let limits = Limits {
             sleep_needed_min: needs::minutes_to_rest(&params.sleep, f64::from(p.sleep_pressure)),
@@ -4043,7 +4044,12 @@ impl Population {
             }
             // Work at home is done among the household.
             Some(
-                Behavior::Eat | Behavior::Rest | Behavior::Play | Behavior::Make | Behavior::Try,
+                Behavior::Eat
+                | Behavior::Rest
+                | Behavior::Play
+                | Behavior::Make
+                | Behavior::Try
+                | Behavior::Tend,
             ) => (def_par, false, params.social.household_quality),
             Some(
                 Behavior::Gather
@@ -4262,6 +4268,10 @@ impl Population {
                     if let Target::Firm(firm) = p.act.target {
                         self.hired_work(ctx, h, firm, minutes);
                     }
+                }
+                Some(Behavior::Tend) => {
+                    let (who, household, def) = (p.id, p.household, p.act.def);
+                    self.tended(ctx, who, household, def, minutes);
                 }
                 Some(Behavior::Make) => {
                     if let Some(d) = def.as_ref() {

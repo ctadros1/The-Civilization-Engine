@@ -51,7 +51,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 73;
+pub const KERNEL_CONTENT_API: u32 = 74;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -81,7 +81,7 @@ pub enum Severity {
 /// | E3002 | The `kind` is unknown, or missing |
 /// | E3003 | Not exactly one world-generation preset is marked `default = true` |
 /// | E3004 | Not exactly one people profile, or not exactly one land profile |
-/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge or well system names it |
+/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge or well system names it, nor any disease as a treatment |
 /// | E3006 | Techniques' prerequisites form a cycle |
 /// | E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it |
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -1116,12 +1116,19 @@ fn resolve(
         }
     }
     wells.sort_by(|a, b| a.id.cmp(&b.id));
-    // Diseases (M6a slice AZ): their problems are reported as each file is read.
-    let mut diseases: Vec<_> = parsed
-        .diseases
-        .iter()
-        .filter_map(|d| d.file.def())
-        .collect();
+    // Diseases (M6a slice AZ): their problems are reported as each file is read; a treatment's
+    // technique is found here.
+    let mut diseases = Vec::new();
+    for d in &parsed.diseases {
+        for t in &d.file.treatment {
+            if technique_index(&t.technique).is_none() {
+                missing(c, parsed, &d.rel, "technique", &t.technique);
+            }
+        }
+        if let Some(def) = d.file.def(technique_index) {
+            diseases.push(def);
+        }
+    }
     diseases.sort_by(|a, b| a.id.cmp(&b.id));
     let catalog = Catalog {
         activities,
@@ -1182,6 +1189,12 @@ fn knowledge_problems(
             .find(|d| d.file.id == id)
             .map_or_else(String::new, |d| d.rel.clone())
     };
+    // Work names techniques by their place among every technique read; when one of them did not
+    // compile (it has said why, or failed with what it needed), those places no longer match the
+    // catalog's, and nothing below could be judged.
+    if catalog.techniques.len() != parsed.techniques.len() {
+        return;
+    }
     // People and saves refer to techniques by a 16-bit index.
     if catalog.techniques.len() > usize::from(u16::MAX) {
         c.push(
@@ -1200,14 +1213,19 @@ fn knowledge_problems(
             || catalog.recipes.iter().any(|r| r.technique == Some(t))
             || catalog.buildings.iter().any(|b| b.technique == Some(t))
             || catalog.bridges.iter().any(|b| b.technique == Some(t))
-            || catalog.wells.iter().any(|w| w.technique == Some(t));
+            || catalog.wells.iter().any(|w| w.technique == Some(t))
+            || parsed
+                .diseases
+                .iter()
+                .flat_map(|d| &d.file.treatment)
+                .any(|x| x.technique == def.id);
         if !gated {
             c.push(
                 "E3005",
                 &rel_of(&def.id),
                 None,
                 format!(
-                    "technique `{}` gates no work: no recipe, activity, building program, bridge or well system names it",
+                    "technique `{}` gates no work: no recipe, activity, building program, bridge or well system names it, nor any disease as a treatment",
                     def.id
                 ),
             );

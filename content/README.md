@@ -353,7 +353,7 @@ decided by people at run time.
 
 | Field | Meaning |
 |---|---|
-| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults), `take` (M4b: going to another household's home to take food from its store, when short; ADR-0015 §2), `watch` (M4b: the watch's rounds at night, for whoever holds the office), `petition` (M4c: going to the hearth on the evening a faction's petition sits, for an adult who has heard of it; ADR-0017 §3), `visit` (M5a: going to the hearth of another settlement the household knows and home the same day; ADR-0018 §2), `fetch` (M5b: going to a seller's door in another settlement by a price report the household holds, to buy at the terms it posts there now, for itself or to sell at home, and home the same day; ADR-0019 §2, §6), `carry` (M5c: taking up goods a payment owes where the paying store set them aside, walking them to the other settlement's hearth and home the same day, for the one who is to carry them; ADR-0020 §7), `bridge` (M5c: walking to the bank where the household is building a crossing, working on it and walking home, only while it is building one, or while their polity is building one under a law they know of), `well` (M6a: digging and lining the well the household is making beside its home, or relining it, only while one is owed work; ADR-0021 §3). |
+| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults), `take` (M4b: going to another household's home to take food from its store, when short; ADR-0015 §2), `watch` (M4b: the watch's rounds at night, for whoever holds the office), `petition` (M4c: going to the hearth on the evening a faction's petition sits, for an adult who has heard of it; ADR-0017 §3), `visit` (M5a: going to the hearth of another settlement the household knows and home the same day; ADR-0018 §2), `fetch` (M5b: going to a seller's door in another settlement by a price report the household holds, to buy at the terms it posts there now, for itself or to sell at home, and home the same day; ADR-0019 §2, §6), `carry` (M5c: taking up goods a payment owes where the paying store set them aside, walking them to the other settlement's hearth and home the same day, for the one who is to carry them; ADR-0020 §7), `bridge` (M5c: walking to the bank where the household is building a crossing, working on it and walking home, only while it is building one, or while their polity is building one under a law they know of), `well` (M6a: digging and lining the well the household is making beside its home, or relining it, only while one is owed work; ADR-0021 §3), `tend` (M6a: sitting at home with members of the household who are ill there and still owed a day's care, its hours shared among them; ADR-0021 §5). |
 | `resource` | For `gather` only: the land resource gathered (hunting, fishing, collecting firewood and cutting building materials are gathering too). A trip works until its load is full or its time runs out. |
 | `task` | For `farm` only: the field work, one of `prepare`, `sow`, `tend`, `reap`, `thresh`. |
 | `recipe` | For `make` only: the recipe worked, at home. |
@@ -718,6 +718,20 @@ norms they hold weigh), `revolt_days` (how long the call stands), `hold_days` (h
 officeholder, and more adults than stand with the gathering, must stand with it before it holds)
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
+
+Content API 74 (M6a slice AZ, step three) brings care. A disease gives `care_h_per_day` (0 to
+24: the hours of a carer's time a day that count as tending someone ill of it) and `care_rr` (0
+to 1: what a severe day with that much care does to the chance of dying that day, as a relative
+risk; research 05-05 §2.2's prior for organized supportive care is 0.95), and may give
+`[[treatment]]` tables, each a `technique` (content id) and an `rr` (0 to 1): when a carer that day
+knew it, the least such `rr` holds instead. A technique named only as a treatment gates no work
+but is allowed (E3005 counts treatments). The people profile's `[decision]` gains `w_tend`
+(points for tending a member of the household severely ill and still owed a day's care, half for
+one ill but not severely). The core adds the activity `core:activity/work_tending_the_sick`
+(behaviour `tend`: at home, its hours shared among the ill there) and the far technique
+`core:technique/fluid_replacement` (found only by tending, at 100,000 hours for half; learnt at
+home), which cholera names as a treatment at 0.05; dysentery has none (05-03 §1.4: rehydration
+chiefly changes cholera survival).
 
 Content API 73 (M6a slice AZ, step two) moves what people shed: a disease gives what one shedding
 person adds to their household's heap a day, in doses (`shed_ill_per_day` while ill and

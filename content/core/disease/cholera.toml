@@ -40,3 +40,15 @@ shed_silent_per_day = 20.0
 # "can also involve aquatic environmental persistence" (05-03 §1.2), so a slow rate, a half-life
 # of about five days (a design prior).
 decay_per_day = 0.13
+# Care (content API 74; ADR-0021 §5). A day's care is two hours of a carer's time (05-05 §2.2:
+# 1-4 caregiver-hours a patient-day for basic nursing, a scheduling assumption), and such a severe
+# day is 0.95 as deadly (05-05 §2.2's prior for organized supportive care, low confidence). A carer
+# who knows fluid replacement brings it to 0.05: some 4 % of the severely ill die, about 1.6 % of
+# the ill, between the 1971 refugees' 3.6 % and the demonstration unit's 1 % (05-05 §2.1; 05-03
+# §3.2: "below 1%" with adequate rehydration). Both are design priors.
+care_h_per_day = 2.0
+care_rr = 0.95
+
+[[treatment]]
+technique = "core:technique/fluid_replacement"
+rr = 0.05

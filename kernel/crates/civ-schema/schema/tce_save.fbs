@@ -2013,11 +2013,36 @@ table EpisodeSave {
   immune_until: long (id: 11);
   ended: long = -1 (id: 12);
   outcome: ubyte (id: 13);
+  // Schema 77 (step three): the care its bearer was given. The first day someone tended them
+  // (-1: nobody yet) and who; the last day they were tended, the hours that day and the least
+  // relative risk of dying a treatment a carer that day knew brings; the hours over the illness.
+  care_first: long = -1 (id: 14);
+  care_by: ulong (id: 15);
+  care_day: long (id: 16);
+  care_hours: float (id: 17);
+  care_rr: float = 1 (id: 18);
+  care_total_h: float (id: 19);
+  // The outbreak it is part of, by number (0: none; schema 77).
+  outbreak: uint (id: 20);
 }
 
-// Every infection, in the order they came (schema 75).
+// An outbreak (schema 77, M6a slice AZ step three; ADR-0015 §8): its number, disease (content
+// id), settlement (0: none), the day its first case took it and that case's episode number, and
+// the day it ended (-1 while open).
+table OutbreakSave {
+  id: uint (id: 0);
+  disease: string (id: 1);
+  settlement: ulong (id: 2);
+  began: long (id: 3);
+  first: uint (id: 4);
+  ended: long = -1 (id: 5);
+}
+
+// Every infection, in the order they came (schema 75), and every outbreak, in the order they
+// began (schema 77).
 table SicknessSave {
   episodes: [EpisodeSave] (id: 0);
+  outbreaks: [OutbreakSave] (id: 1);
 }
 
 // A place a load lies or passes (schema 76, M6a slice AZ, step two; ADR-0021 §4): `code` 0 a

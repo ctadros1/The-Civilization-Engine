@@ -68,11 +68,14 @@ pub enum Behavior {
     /// Dig and line the well the household is making beside its home (M6a slice AY, step three):
     /// the activity's numbers, the well system's labour.
     Well,
+    /// Sit with members of the household who are ill at home, bringing them water and food
+    /// (M6a slice AZ, step three; ADR-0021 §5).
+    Tend,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 24] = [
+    pub const ALL: [Behavior; 25] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -97,6 +100,7 @@ impl Behavior {
         Behavior::Carry,
         Behavior::Bridge,
         Behavior::Well,
+        Behavior::Tend,
     ];
 
     /// The authored name of a behavior.
@@ -126,6 +130,7 @@ impl Behavior {
             Behavior::Carry => "carry",
             Behavior::Bridge => "bridge",
             Behavior::Well => "well",
+            Behavior::Tend => "tend",
         }
     }
 
@@ -704,6 +709,15 @@ pub struct DiseaseDef {
     pub shed_silent_per_day: f64,
     /// The share of it outside a body that dies a day, in heaps, the ground and water.
     pub decay_per_day: f64,
+    /// The hours of care a day that count as tending someone ill of it, and what a severe day
+    /// with that much care does to the chance of dying that day, as a relative risk (05-05
+    /// §2.2: organized supportive care 0.95, a low-confidence prior).
+    pub care_h_per_day: f64,
+    pub care_rr: f64,
+    /// Techniques a carer may know that bring that relative risk lower still, by index in the
+    /// catalog's techniques: the least of those any carer that day knew holds (05-03 §3.2:
+    /// rehydration brings cholera's fatality "below 1%").
+    pub treatments: Vec<(usize, f64)>,
 }
 
 impl DiseaseDef {
@@ -925,16 +939,22 @@ impl Catalog {
 
     /// The youngest age at which anyone does work that technique `t` gates, years: the age a
     /// child brought up with it learns it (ADR-0008 §4). Building programs are worked by the
-    /// `build` activities, well systems by the `well` ones.
+    /// `build` activities, well systems by the `well` ones, and a disease's treatments by the
+    /// `tend` ones.
     pub fn work_age(&self, t: usize) -> Option<f64> {
         let builds = self.buildings.iter().any(|b| b.technique == Some(t));
         let digs = self.wells.iter().any(|w| w.technique == Some(t));
+        let treats = self
+            .diseases
+            .iter()
+            .any(|d| d.treatments.iter().any(|&(x, _)| x == t));
         self.activities
             .iter()
             .filter(|a| {
                 self.technique_of(a) == Some(t)
                     || (builds && a.behavior == Behavior::Build)
                     || (digs && a.behavior == Behavior::Well)
+                    || (treats && a.behavior == Behavior::Tend)
             })
             .map(|a| a.min_age_years)
             .reduce(f64::min)
@@ -1163,6 +1183,9 @@ pub struct DecisionParams {
     pub w_rest: f64,
     /// Points for children's play.
     pub w_play: f64,
+    /// Points for tending members of the household who are severely ill and still owed a day's
+    /// care; half as much for those ill but not severely (M6a slice AZ, step three).
+    pub w_tend: f64,
 }
 
 /// The first people of a new world (research 05-01 §4.5).

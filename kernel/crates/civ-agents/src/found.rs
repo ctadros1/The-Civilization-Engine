@@ -1676,6 +1676,7 @@ pub(crate) mod tests {
                 w_dark: 6.0,
                 w_rest: 1.0,
                 w_play: 3.0,
+                w_tend: 6.0,
             },
             band: BandParams {
                 default_size: 40,

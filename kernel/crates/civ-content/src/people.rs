@@ -1174,6 +1174,8 @@ pub(crate) struct Decision {
     pub w_dark: f64,
     pub w_rest: f64,
     pub w_play: f64,
+    /// Content API 74 (M6a slice AZ, step three).
+    pub w_tend: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1419,6 +1421,7 @@ impl PeopleFile {
                 w_dark: d.w_dark,
                 w_rest: d.w_rest,
                 w_play: d.w_play,
+                w_tend: d.w_tend,
             },
             band: BandParams {
                 default_size: b.default_size,
@@ -2226,6 +2229,7 @@ impl PeopleFile {
             ("w_dark", d.w_dark),
             ("w_rest", d.w_rest),
             ("w_play", d.w_play),
+            ("w_tend", d.w_tend),
         ] {
             non_negative(&format!("decision.{name}"), v, &mut p);
         }

@@ -42,6 +42,8 @@ fn people_files() -> Vec<(String, String)> {
         "technique",
         // The well system names the well-digging technique, which nothing else gates.
         "well",
+        // Cholera names fluid replacement as a treatment, which nothing else gates.
+        "disease",
     ] {
         let mut paths: Vec<_> = std::fs::read_dir(repo_content().join("core").join(dir))
             .expect("real content directory")
@@ -66,7 +68,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 73
+kernel_content_api = 74
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.

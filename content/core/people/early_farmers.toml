@@ -137,6 +137,10 @@ w_effort = 0.8
 w_dark = 6.0
 w_rest = 1.0
 w_play = 3.0
+# Tending a member of the household who is severely ill and still owed a day's care, half as much
+# for one ill but not severely (M6a slice AZ, step three): above ordinary work and company, below
+# food and water short at home (a tuning value; 05-05 §1.1: care is chosen labour).
+w_tend = 6.0
 
 [band]                           # research 05-01 §4.5: bands of 40 in at least six unrelated families
 default_size = 40

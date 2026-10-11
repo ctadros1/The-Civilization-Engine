@@ -1,7 +1,8 @@
 //! Diseases (`kind = "disease"`, content API 72-73, M6a slice AZ; ADR-0021 §5; research 05-03 §1.1,
 //! §2.1, §3.2, §7.3, §7.6): the routes one passes by, its own clocks, who has symptoms and who
 //! is severely ill, the chance a day of dying while severely ill, how long an infection protects,
-//! the household hazard, and (API 73) what one sheds a day and how fast it dies outside a person.
+//! the household hazard, (API 73) what one sheds a day and how fast it dies outside a person, and
+//! (API 74) the care that counts and what care and treatments do to the chance of dying.
 //! No rate of cases or deaths is authored: those come from who meets it.
 
 use civ_agents::params::{Days, DiseaseDef, DiseaseRoute};
@@ -39,6 +40,22 @@ pub(crate) struct DiseaseFile {
     pub shed_ill_per_day: f64,
     pub shed_silent_per_day: f64,
     pub decay_per_day: f64,
+    /// Content API 74: the hours of care a day that count, and what such a severe day does to the
+    /// chance of dying, as a relative risk.
+    pub care_h_per_day: f64,
+    pub care_rr: f64,
+    /// Techniques a carer may know that bring that relative risk lower still.
+    #[serde(default)]
+    pub treatment: Vec<TreatmentFile>,
+}
+
+/// A `[[treatment]]` of a disease: a technique, by content id, and the relative risk of dying on
+/// a severe day it brings when a carer who knows it gave a day's care.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TreatmentFile {
+    pub technique: String,
+    pub rr: f64,
 }
 
 fn days([mean, sd]: [f64; 2]) -> Days {
@@ -46,8 +63,14 @@ fn days([mean, sd]: [f64; 2]) -> Days {
 }
 
 impl DiseaseFile {
-    /// The compiled disease; `None` when a route is unknown (reported by [`Self::problems`]).
-    pub fn def(&self) -> Option<DiseaseDef> {
+    /// The compiled disease, its treatments' techniques found by `technique`; `None` when a route
+    /// is unknown (reported by [`Self::problems`]) or a technique is (reported by the caller).
+    pub fn def(&self, technique: impl Fn(&str) -> Option<usize>) -> Option<DiseaseDef> {
+        let treatments = self
+            .treatment
+            .iter()
+            .map(|t| technique(&t.technique).map(|i| (i, t.rr)))
+            .collect::<Option<Vec<_>>>()?;
         let routes = self
             .routes
             .iter()
@@ -70,6 +93,9 @@ impl DiseaseFile {
             shed_ill_per_day: self.shed_ill_per_day,
             shed_silent_per_day: self.shed_silent_per_day,
             decay_per_day: self.decay_per_day,
+            care_h_per_day: self.care_h_per_day,
+            care_rr: self.care_rr,
+            treatments,
         })
     }
 
@@ -109,9 +135,19 @@ impl DiseaseFile {
             ("shed_ill_per_day", self.shed_ill_per_day, 0.0, 1e12),
             ("shed_silent_per_day", self.shed_silent_per_day, 0.0, 1e12),
             ("decay_per_day", self.decay_per_day, 0.0, 1.0),
+            ("care_h_per_day", self.care_h_per_day, 0.0, 24.0),
+            ("care_rr", self.care_rr, 0.0, 1.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        for t in &self.treatment {
+            if !(t.rr.is_finite() && (0.0..=1.0).contains(&t.rr)) {
+                p.push(format!(
+                    "a treatment's `rr` must be between 0 and 1 (got {})",
+                    t.rr
+                ));
             }
         }
         let [lo, hi] = self.immunity_years;

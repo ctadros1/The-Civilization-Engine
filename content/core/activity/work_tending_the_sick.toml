@@ -1,0 +1,21 @@
+# Tending members of the household who are ill at home (M6a slice AZ, step three; ADR-0021 §5;
+# research 05-05 §1.1: household care is the foundation, and it takes someone else's labour). A
+# session sits with them, bringing water and food; its hours are shared among those ill there, and
+# a day's care counts once its disease's `care_h_per_day` is given. Light work about the home (a
+# PAR between resting and chores; 05-05 gives none). Ages and session lengths are tuning values.
+# Its id sorts after every older activity's: activities are kept in id order.
+kind = "activity"
+id = "core:activity/work_tending_the_sick"
+name = "Tend the sick"
+doing = "tending the sick"
+behavior = "tend"
+par = 1.8
+min_age_years = 10.0
+max_age_years = 130.0
+min_minutes = 60
+max_minutes = 120
+daylight_only = false
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

@@ -9,6 +9,7 @@
 
 use super::*;
 use crate::Cause;
+use crate::decide::TendFacts;
 use crate::influence::InfluenceKind;
 use crate::params::DiseaseRoute;
 use crate::sickness::{Acquired, Outcome, SickDraw, course, sickness_rng};
@@ -16,7 +17,7 @@ use crate::sickness::{Acquired, Outcome, SickDraw, course, sickness_rng};
 impl Population {
     /// The day's turn for infections (see the module documentation).
     pub(super) fn sickness_day(&mut self, ctx: &mut Ctx, day: i64) {
-        if self.sickness.quiet() && self.contagion.is_empty() {
+        if self.sickness.quiet() && self.contagion.is_empty() && !self.sickness.outbreak_open() {
             return;
         }
         let running = self.sickness.running().to_vec();
@@ -29,16 +30,20 @@ impl Population {
                 self.sickness.end(i, day, Outcome::Gone);
                 continue;
             }
+            // The day just lived, severely ill, may have killed them: less likely the more care
+            // they were given that day, and less still if a carer knew a treatment (step three;
+            // 05-05 §2.2, 05-03 §3.2).
+            let lived = day - 1;
             if e.course.severe
-                && e.ill_on(day)
+                && e.ill_on(lived)
                 && let Some(def) = ctx.catalog.diseases.get(usize::from(e.disease))
             {
-                let h = def.severe_death_per_day.clamp(0.0, 1.0);
+                let h = (def.severe_death_per_day * e.care.rr(def, lived)).clamp(0.0, 1.0);
                 let u =
-                    sickness_rng(ctx.seed, e.person, day, e.disease, SickDraw::Death).next_f64();
+                    sickness_rng(ctx.seed, e.person, lived, e.disease, SickDraw::Death).next_f64();
                 // A blessing or a curse moves their own chance, as it moves illness's in the life
                 // table (ADR-0016 §5); what it turned is noted.
-                let luck = self.influences.luck(e.person, day);
+                let luck = self.influences.luck(e.person, lived);
                 let chance = luck.map_or(h, |l| (h * l.harm()).min(1.0));
                 if let Some(l) = luck
                     && (u < chance) != (u < h)
@@ -124,6 +129,176 @@ impl Population {
         for (m, disease, acquired) in taken {
             self.infect(ctx, m, disease, day, acquired);
         }
+        self.end_outbreaks(ctx, day);
+    }
+
+    /// Ends each open outbreak none of whose cases has run for as long as a new infection of its
+    /// disease can take to show (its incubation's mean and three spreads, at least a day), and
+    /// tells it with its counts.
+    fn end_outbreaks(&mut self, ctx: &Ctx, day: i64) {
+        let open: Vec<_> = self
+            .sickness
+            .outbreaks()
+            .iter()
+            .filter(|o| o.ended.is_none())
+            .copied()
+            .collect();
+        for o in open {
+            let Some(def) = ctx.catalog.diseases.get(usize::from(o.disease)) else {
+                continue;
+            };
+            let (mut took, mut ill, mut died, mut last) = (0u32, 0u32, 0u32, o.began);
+            let mut runs = false;
+            for e in self.sickness.cases(o.id) {
+                took += 1;
+                ill += u32::from(e.symptomatic());
+                match e.ended {
+                    Some((d, outcome)) => {
+                        last = last.max(d);
+                        died += u32::from(outcome == Outcome::Died);
+                    }
+                    None => runs = true,
+                }
+            }
+            let quiet = (def.incubation.mean + 3.0 * def.incubation.sd)
+                .ceil()
+                .max(1.0) as i64;
+            if runs || day - last < quiet {
+                continue;
+            }
+            self.sickness.end_outbreak(o.id, day);
+            let place = o.settlement.map_or_else(
+                || "the people abroad".to_owned(),
+                |s| self.settlement_name(ctx, s),
+            );
+            let count = |n: u32, one: &str, many: &str| match n {
+                0 => format!("nobody {many}"),
+                1 => format!("one {one}"),
+                n => format!("{n} {many}"),
+            };
+            let sentence = format!(
+                "{} has left {place}: {} over {} days; {} and {}.",
+                def.name,
+                count(took, "took it", "took it"),
+                (last - o.began).max(1),
+                count(ill, "fell ill", "fell ill"),
+                count(died, "died", "died"),
+            );
+            self.chronicle_push(
+                ctx.now,
+                ChronicleKind::Outbreak,
+                Vec::new(),
+                o.settlement,
+                None,
+                f64::from(crate::OutbreakStep::Ended as u8),
+                sentence,
+            );
+        }
+    }
+
+    /// What person `who` of household `x` sees owed to its members ill at home today (step
+    /// three): see [`TendFacts`].
+    pub(super) fn tend_facts(
+        &self,
+        ctx: &Ctx,
+        who: PermanentId,
+        x: &Household,
+    ) -> Option<TendFacts> {
+        if self.sickness.quiet() {
+            return None;
+        }
+        let day = ctx.now.day_index();
+        let mut owed = 0.0;
+        for &m in x.members.iter().filter(|&&m| m != who) {
+            for i in self.sickness.ill_with(m, day) {
+                let Some(e) = self.sickness.get(i) else {
+                    continue;
+                };
+                let Some(def) = ctx.catalog.diseases.get(usize::from(e.disease)) else {
+                    continue;
+                };
+                let need = def.care_h_per_day.max(1e-6);
+                let left = ((need - self.sickness.cared(i, day)) / need).clamp(0.0, 1.0);
+                owed += left * if e.course.severe { 1.0 } else { 0.5 };
+            }
+        }
+        (owed > 1e-9).then_some(TendFacts { owed })
+    }
+
+    /// Person `who` of household `household` sat `minutes` with its members ill at home, at
+    /// activity `def` (step three): the hours are shared among them, each episode recording who
+    /// came and the least relative risk of dying a treatment the carer knows brings. The carer
+    /// practises each treatment they know, and one who does not know it learns it from a member
+    /// who does (ADR-0008 §4).
+    pub(super) fn tended(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        household: PermanentId,
+        def: u16,
+        minutes: u32,
+    ) {
+        let day = ctx.now.day_index();
+        let (Some(x), Some(carer)) = (self.household(household), self.person(who)) else {
+            return;
+        };
+        let ill: Vec<usize> = x
+            .members
+            .iter()
+            .filter(|&&m| m != who)
+            .flat_map(|&m| self.sickness.ill_with(m, day))
+            .collect();
+        if ill.is_empty() {
+            return;
+        }
+        let hours = f64::from(minutes) / 60.0;
+        let mut given = Vec::new();
+        let mut treatments: Vec<usize> = Vec::new();
+        for &i in &ill {
+            let Some(d) = self
+                .sickness
+                .get(i)
+                .and_then(|e| ctx.catalog.diseases.get(usize::from(e.disease)))
+            else {
+                continue;
+            };
+            let rr = d
+                .treatments
+                .iter()
+                .filter(|(t, _)| carer.knows(*t))
+                .map(|(_, rr)| *rr)
+                .fold(1.0, f64::min);
+            given.push((i, rr));
+            treatments.extend(d.treatments.iter().map(|(t, _)| *t));
+        }
+        for (i, rr) in given {
+            self.sickness
+                .tend(i, day, who, hours / ill.len() as f64, rr);
+        }
+        treatments.sort_unstable();
+        treatments.dedup();
+        for t in treatments {
+            self.practise(ctx, who, t, def, Target::Home, hours);
+        }
+    }
+
+    /// Person `who` of household `household` tends its ill at home for `minutes` now, at the
+    /// tending activity: for tests.
+    #[doc(hidden)]
+    pub fn tended_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        household: PermanentId,
+        minutes: u32,
+    ) {
+        let def = ctx
+            .catalog
+            .activities
+            .iter()
+            .position(|a| a.behavior == Behavior::Tend)
+            .map_or(0, |i| i as u16);
+        self.tended(ctx, who, household, def, minutes);
     }
 
     /// `person` takes `disease` on `day`, as `acquired` says: their course is drawn now.
@@ -136,10 +311,30 @@ impl Population {
         acquired: Acquired,
     ) -> Option<usize> {
         let def = ctx.catalog.diseases.get(usize::from(disease))?;
-        let age = self.person(person)?.age_years(ctx.now);
+        let p = self.person(person)?;
+        let (age, given) = (p.age_years(ctx.now), p.given.clone());
+        let settlement = self.household(p.household).and_then(|x| x.settlement);
         let mut rng = sickness_rng(ctx.seed, person, day, disease, SickDraw::Course);
         let c = course(def, age, day, &mut rng);
-        Some(self.sickness.add(person, disease, day, acquired, c))
+        let i = self.sickness.add(person, disease, day, acquired, c);
+        // Part of the outbreak open where they live, or the first case of a new one.
+        let (_, began) = self.sickness.join_outbreak(i, settlement);
+        if began {
+            let place = settlement.map_or_else(
+                || "the people abroad".to_owned(),
+                |s| self.settlement_name(ctx, s),
+            );
+            self.chronicle_push(
+                ctx.now,
+                ChronicleKind::Outbreak,
+                vec![person],
+                settlement,
+                None,
+                f64::from(crate::OutbreakStep::Began as u8),
+                format!("{} came to {place}: {given} took it.", def.name),
+            );
+        }
+        Some(i)
     }
 
     /// The observer brings disease `disease` (by index in the catalog) to `person`, as if they

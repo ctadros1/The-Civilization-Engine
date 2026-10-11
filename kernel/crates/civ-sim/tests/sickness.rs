@@ -1,14 +1,16 @@
-//! Sickness (M6a slice AZ, step one; ADR-0021 §5, §8; research 05-03): no disease without an
-//! introduction; the observer brings one to a person, as if they took it elsewhere; its course
-//! runs by its own clocks; the ill keep to their beds; a household takes it from members who shed
-//! it; the severely ill die of it by their own draws, the record naming the disease; and
-//! infections save and load exactly.
+//! Sickness (M6a slice AZ, steps one and three; ADR-0021 §5, §8; research 05-03, 05-05): no
+//! disease without an introduction; the observer brings one to a person, as if they took it
+//! elsewhere; its course runs by its own clocks; the ill keep to their beds; a household takes it
+//! from members who shed it; the severely ill die of it by their own draws, the record naming the
+//! disease; the household tends its sick, and a day of care lowers that day's risk, a carer who
+//! knows fluid replacement lowering cholera's further and teaching it at home; and infections and
+//! their care save and load exactly.
 
 use std::path::Path;
 use std::sync::OnceLock;
 
 use civ_agents::sickness::{Acquired, Outcome};
-use civ_agents::{Behavior, Cause, ChronicleKind};
+use civ_agents::{Behavior, Cause, ChronicleKind, OutbreakStep};
 use civ_content::ContentRegistry;
 use civ_core::PermanentId;
 use civ_sim::{NewWorld, Sim, persist};
@@ -225,6 +227,7 @@ fn the_severely_ill_die_of_it_and_the_record_names_the_disease() {
         d.symptomatic = 1.0;
         d.severe_by_age = vec![(0.0, 1.0)];
         d.severe_death_per_day = 1.0;
+        d.care_rr = 1.0;
     });
     to_morning(&mut sim, 9 * 60);
     let (target, _) = someone_with_family(&sim);
@@ -232,13 +235,16 @@ fn the_severely_ill_die_of_it_and_the_record_names_the_disease() {
     let e = sim.people().sickness.episodes()[0];
     assert!(e.course.severe);
     let today = sim.now().day_index();
+    // Alive through their first day ill; that day kills them at its end.
     sim.advance_minutes((e.course.ill_from - today) * DAY)
         .expect("lives");
+    assert!(sim.people().person(target).is_some(), "alive on the day");
+    to_morning(&mut sim, 1);
     assert!(sim.people().person(target).is_none(), "dead");
     let r = &sim.people().records[&target];
     assert_eq!(r.died.map(|(_, c)| c), Some(Cause::Disease));
     let e = sim.people().sickness.episodes()[0];
-    assert_eq!(e.ended, Some((e.course.ill_from, Outcome::Died)));
+    assert_eq!(e.ended, Some((e.course.ill_from + 1, Outcome::Died)));
     let died = sim
         .people()
         .chronicle
@@ -247,6 +253,227 @@ fn the_severely_ill_die_of_it_and_the_record_names_the_disease() {
         .find(|c| c.kind == ChronicleKind::Died && c.people.first() == Some(&target))
         .expect("the chronicle tells it");
     assert_eq!(died.name, "disease:cholera");
+}
+
+/// Someone of the largest household brought cholera that makes them severely ill for three days
+/// from the day after next, nobody else taking it; `f` changes its definition further. Returns
+/// them, their household's other members and the first day they are ill.
+fn severely_ill(
+    sim: &mut Sim,
+    f: impl FnOnce(&mut civ_agents::params::DiseaseDef),
+) -> (PermanentId, Vec<PermanentId>, i64) {
+    set_cholera(sim, |d| {
+        d.household_hazard = 0.0;
+        d.symptomatic = 1.0;
+        d.severe_by_age = vec![(0.0, 1.0)];
+        d.severe_death_per_day = 1.0;
+        d.incubation = civ_agents::params::Days { mean: 2.0, sd: 0.0 };
+        d.ill = civ_agents::params::Days { mean: 3.0, sd: 0.0 };
+        f(d);
+    });
+    to_morning(sim, 9 * 60);
+    let (target, family) = someone_with_family(sim);
+    sim.plague(target, CHOLERA).expect("brought");
+    let e = sim.people().sickness.episodes()[0];
+    assert!(e.course.severe);
+    (target, family, e.course.ill_from)
+}
+
+/// Lives on to 00:01 on day `day`.
+fn to_day(sim: &mut Sim, day: i64) {
+    let now = sim.now();
+    let left = day * DAY + 1 - now.minutes();
+    assert!(left > 0, "day {day} has begun");
+    sim.advance_minutes(left).expect("lives");
+}
+
+#[test]
+fn the_household_tends_its_sick_and_a_day_of_care_lowers_the_chance_of_dying() {
+    // Care that takes away all of the day's risk: they live while tended a day's care; where a
+    // day's care asks a thousand hours, the few given take away almost nothing, and they die
+    // after the first.
+    for (need, lives) in [(2.0, true), (1000.0, false)] {
+        let mut sim = village(3);
+        let (target, family, ill_from) = severely_ill(&mut sim, |d| {
+            d.care_rr = 0.0;
+            d.care_h_per_day = need;
+        });
+        to_day(&mut sim, ill_from + 1);
+        assert_eq!(
+            sim.people().person(target).is_some(),
+            lives,
+            "a day's care of {need} h"
+        );
+        let e = sim.people().sickness.episodes()[0];
+        let (first, by) = e.care.first.expect("someone came");
+        assert_eq!(first, ill_from, "help came the first day");
+        assert!(
+            family.contains(&by),
+            "a member of the household tended them"
+        );
+        assert_eq!(e.care.day, ill_from);
+        assert!(e.care.hours >= 2.0, "{} h", e.care.hours);
+        assert_eq!(e.care.rr, 1.0, "nobody knows a treatment");
+        // The care given saves and loads exactly.
+        let loaded = reloaded(&mut sim);
+        assert_eq!(loaded.people().sickness.episodes()[0].care, e.care);
+        if lives {
+            // Tended day after day, they outlive the illness.
+            to_day(&mut sim, ill_from + 3);
+            assert!(sim.people().person(target).is_some(), "alive after it");
+            let e = sim.people().sickness.episodes()[0];
+            assert!(e.ended.is_none_or(|(_, o)| o == Outcome::Recovered));
+            assert!(e.care.total_h >= 6.0, "{} h in all", e.care.total_h);
+        }
+    }
+}
+
+#[test]
+fn a_carer_who_knows_fluid_replacement_brings_cholera_s_risk_down() {
+    // Care alone changes nothing here; fluid replacement takes away all of the day's risk.
+    for knows in [false, true] {
+        let mut sim = village(3);
+        let (target, family, ill_from) = severely_ill(&mut sim, |d| {
+            d.care_rr = 1.0;
+            for t in &mut d.treatments {
+                t.1 = 0.0;
+            }
+        });
+        assert!(!sim.rules().catalog.diseases.is_empty());
+        let fluids = sim
+            .rules()
+            .catalog
+            .technique_index("core:technique/fluid_replacement")
+            .expect("content");
+        // Whoever of the household tends them knows it, or nobody does.
+        if knows {
+            for &m in &family {
+                sim.introduce_technique(m, "core:technique/fluid_replacement", false)
+                    .expect("taught");
+            }
+        }
+        to_day(&mut sim, ill_from + 1);
+        assert_eq!(sim.people().person(target).is_some(), knows);
+        let e = sim.people().sickness.episodes()[0];
+        assert_eq!(e.care.rr == 0.0, knows, "{:?}", e.care);
+        assert_eq!(
+            sim.people().person(family[0]).expect("alive").knows(fluids),
+            knows
+        );
+    }
+}
+
+#[test]
+fn one_who_tends_beside_a_household_that_knows_fluid_replacement_learns_it() {
+    let mut sim = village(3);
+    let (_, family, ill_from) = severely_ill(&mut sim, |d| d.care_rr = 1.0);
+    let fluids = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/fluid_replacement")
+        .expect("content");
+    let (teacher, learner) = (family[0], family[1]);
+    sim.introduce_technique(teacher, "core:technique/fluid_replacement", false)
+        .expect("taught");
+    to_day(&mut sim, ill_from);
+    sim.advance_minutes(8 * 60).expect("lives");
+    let household = sim.people().person(learner).expect("alive").household;
+    // Twenty hours of tending, in sessions: they know it at the end and not before.
+    for session in 0..20 {
+        assert!(
+            !sim.people().person(learner).expect("alive").knows(fluids),
+            "known after {session} hours"
+        );
+        sim.with_ctx_for_tests(|pop, ctx| pop.tended_for_tests(ctx, learner, household, 60));
+    }
+    assert!(sim.people().person(learner).expect("alive").knows(fluids));
+}
+
+#[test]
+fn an_outbreak_begins_with_its_first_case_gathers_the_rest_and_ends_when_none_has_run_a_while() {
+    let mut sim = village(3);
+    set_cholera(&mut sim, |d| {
+        d.household_hazard = 50.0;
+        d.severe_death_per_day = 0.0;
+    });
+    to_morning(&mut sim, 9 * 60);
+    let (target, family) = someone_with_family(&sim);
+    sim.plague(target, CHOLERA).expect("brought");
+    let began = sim.now().day_index();
+    let outbreaks = sim.people().sickness.outbreaks().to_vec();
+    assert_eq!(outbreaks.len(), 1);
+    let o = outbreaks[0];
+    assert_eq!((o.id, o.first, o.began, o.ended), (1, 1, began, None));
+    let entry = |sim: &Sim, step: OutbreakStep| {
+        sim.people()
+            .chronicle
+            .iter()
+            .filter(|c| c.kind == ChronicleKind::Outbreak && c.number == f64::from(step as u8))
+            .map(|c| (c.people.clone(), c.name.clone()))
+            .collect::<Vec<_>>()
+    };
+    let opened = entry(&sim, OutbreakStep::Began);
+    assert_eq!(opened.len(), 1);
+    assert_eq!(opened[0].0, vec![target]);
+    assert!(
+        opened[0].1.starts_with("Cholera came to "),
+        "{}",
+        opened[0].1
+    );
+    // The household takes it from them: every case is part of the one outbreak, and it stays
+    // open while any runs. Its records save and load exactly.
+    let e = sim.people().sickness.episodes()[0];
+    sim.advance_minutes((e.course.shed_from - began) * DAY)
+        .expect("lives");
+    let episodes = sim.people().sickness.episodes();
+    assert!(episodes.len() > family.len(), "the household took it");
+    assert!(episodes.iter().all(|e| e.outbreak == Some(1)));
+    let loaded = reloaded(&mut sim);
+    assert_eq!(
+        loaded.people().sickness.outbreaks(),
+        sim.people().sickness.outbreaks()
+    );
+    // It ends once no case has run for as long as a new infection could take to show (cholera's
+    // 1.5 days and three spreads of 1: five days), and is told with its counts.
+    let mut ended = None;
+    for _ in 0..80 {
+        sim.advance_minutes(DAY).expect("lives");
+        if let Some(day) = sim.people().sickness.outbreaks()[0].ended {
+            ended = Some(day);
+            break;
+        }
+    }
+    let ended = ended.expect("it ended");
+    let s = &sim.people().sickness;
+    let last = s
+        .episodes()
+        .iter()
+        .filter_map(|e| e.ended.map(|(d, _)| d))
+        .max()
+        .expect("all ended");
+    assert!(s.episodes().iter().all(|e| e.ended.is_some()));
+    assert_eq!(ended, last + 5);
+    let closed = entry(&sim, OutbreakStep::Ended);
+    assert_eq!(closed.len(), 1);
+    let took = s.episodes().len();
+    assert!(
+        closed[0].1.contains(&format!("{took} took it")),
+        "{}",
+        closed[0].1
+    );
+    assert!(closed[0].1.contains("nobody died"), "{}", closed[0].1);
+    // Another case after it ended begins another.
+    let other = sim
+        .people()
+        .households
+        .iter()
+        .flat_map(|(_, x)| x.members.clone())
+        .find(|m| !sim.people().sickness.of(*m).any(|_| true))
+        .expect("someone who never took it");
+    sim.plague(other, CHOLERA).expect("brought");
+    let outbreaks = sim.people().sickness.outbreaks();
+    assert_eq!(outbreaks.len(), 2);
+    assert_eq!(outbreaks[1].first as usize, took + 1);
 }
 
 /// A save of `sim` loaded again, checked to be the same section for section.

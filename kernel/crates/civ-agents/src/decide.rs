@@ -86,6 +86,17 @@ pub struct Facts {
     /// Whether illness keeps them abed today (M6a slice AZ, ADR-0021 §5): they sleep, eat and
     /// rest at home, and do nothing else.
     pub ill: bool,
+    /// Members of their household ill at home and still owed care today, if any (M6a slice AZ,
+    /// step three).
+    pub tend: Option<TendFacts>,
+}
+
+/// Members of someone's household ill at home and still owed care today (M6a slice AZ, step
+/// three; ADR-0021 §5): the share of a day's care owed, summed over them (each counts at most
+/// one), the severely ill whole and the others half.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TendFacts {
+    pub owed: f64,
 }
 
 /// A crossing someone's household is building, or their polity is and they know the law that
@@ -693,6 +704,11 @@ pub fn candidates(
         // And work on a well to all but those whose household is digging or relining one (M6a
         // slice AY, step three).
         if def.behavior == Behavior::Well && f.well.is_none() {
+            continue;
+        }
+        // And tending to all but those with someone ill at home still owed care (M6a slice AZ,
+        // step three).
+        if def.behavior == Behavior::Tend && f.tend.is_none() {
             continue;
         }
         if f.age < def.min_age_years {
@@ -1508,6 +1524,18 @@ pub fn candidates(
                     Err(why) => excluded.push((id, why)),
                 }
             }
+            Behavior::Tend => {
+                // Sitting with the household's sick at home, as long as care is owed them.
+                let Some(t) = f.tend else {
+                    continue;
+                };
+                term(&mut terms, Reason::Tend, w.w_tend * t.owed);
+                let mut steps = walk_home_first(f);
+                steps.push(Step::Work {
+                    minutes: def.min_minutes.max(1),
+                });
+                out.push(finish(id, Target::Home, terms, steps));
+            }
             Behavior::Rest => {
                 term(&mut terms, Reason::Rest, w.w_rest);
                 let mut steps = walk_home_first(f);
@@ -1731,6 +1759,7 @@ mod tests {
             w_dark: 5.0,
             w_rest: 1.0,
             w_play: 2.0,
+            w_tend: 6.0,
         }
     }
 
@@ -1773,6 +1802,7 @@ mod tests {
             petition: None,
             hurt: false,
             ill: false,
+            tend: None,
             age: 30.0,
             capacity: 1.0,
             hunger: 0.5,

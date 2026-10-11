@@ -8,7 +8,8 @@ where the mean recharge holds them, not spun up over years (plan §9). And M6a s
 three: §3's well is a record of its own, as a crossing is, not an earthwork with a building's
 groups: its shaft dug at ADR-0010's rate, its one lining rotting and drawn at a quality as
 ADR-0009's parts are; its household weighs it over the lining's life, but each session of the
-work weighs a year's saving (plan §9).
+work weighs a year's saving (plan §9). And M6a slice AZ step three: §5 gains when an outbreak
+opens and closes, the rule ADR-0015 §8 leaves to this ADR.
 
 ## Context
 
@@ -106,6 +107,13 @@ issue, policy and influence kinds, and the save schema.
   treated figure.
 - **Deaths** are `Cause::Disease` (appended), the episode naming its disease. Until a disease is
   measured endemic in lived worlds, its deaths are excess over the Siler baseline (05-01 §1.3).
+- **Outbreaks** (amended, step three; ADR-0015 §8 leaves the rule here): an outbreak is the cases
+  of one disease among the people of one settlement. A case taken while one is open there is
+  `part_of` it; one taken while none is begins one, and its acquisition record is the outbreak's
+  cause. It ends at the first midnight when none of its cases has run for as long as a new
+  infection of the disease can take to show (its incubation's mean and three spreads, at least a
+  day). Saved with its cases' links; the chronicle tells it when it begins and when it ends, with
+  its counts.
 - **No choice reads an episode's acquisition record, a source's load, or anyone's infection**
   beyond what is seen.
 

@@ -112,7 +112,7 @@ use super::{
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
-    SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, finish, section, single_chunk, unreadable,
+    SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -460,6 +460,8 @@ enum Schema {
     V75,
     /// What people shed, moved through the ground and water (M6a slice AZ, step two).
     V76,
+    /// Care given the ill (M6a slice AZ, step three).
+    V77,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -550,7 +552,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V73 => Schema::V73,
         SCHEMA_V74 => Schema::V74,
         SCHEMA_V75 => Schema::V75,
-        SAVE_SCHEMA_VERSION => Schema::V76,
+        SCHEMA_V76 => Schema::V76,
+        SAVE_SCHEMA_VERSION => Schema::V77,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2933,7 +2936,8 @@ fn carried(
         | Schema::V73
         | Schema::V74
         | Schema::V75
-        | Schema::V76 => {
+        | Schema::V76
+        | Schema::V77 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3120,7 +3124,8 @@ fn decode_households(
             | Schema::V73
             | Schema::V74
             | Schema::V75
-            | Schema::V76 => {
+            | Schema::V76
+            | Schema::V77 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3807,6 +3812,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Agreement => 43,
         ChronicleKind::Crossing => 44,
         ChronicleKind::Well => 45,
+        ChronicleKind::Outbreak => 46,
     }
 }
 
@@ -3857,6 +3863,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         43 => Some(ChronicleKind::Agreement),
         44 => Some(ChronicleKind::Crossing),
         45 => Some(ChronicleKind::Well),
+        46 => Some(ChronicleKind::Outbreak),
         _ => None,
     }
 }
@@ -8037,15 +8044,49 @@ fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
                     immune_until: e.course.immune_until,
                     ended,
                     outcome,
+                    care_first: e.care.first.map_or(-1, |(d, _)| d),
+                    care_by: e.care.first.map_or(0, |(_, p)| p.get()),
+                    care_day: e.care.day,
+                    care_hours: e.care.hours,
+                    care_rr: e.care.rr,
+                    care_total_h: e.care.total_h,
+                    outbreak: e.outbreak.unwrap_or(0),
                 },
             )
         })
         .collect();
     let list = fbb.create_vector(&list);
+    let outbreaks: Vec<_> = people
+        .sickness
+        .outbreaks()
+        .iter()
+        .map(|o| {
+            let disease = fbb.create_string(
+                rules
+                    .catalog
+                    .diseases
+                    .get(usize::from(o.disease))
+                    .map_or("", |d| d.id.as_str()),
+            );
+            save::OutbreakSave::create(
+                &mut fbb,
+                &save::OutbreakSaveArgs {
+                    id: o.id,
+                    disease: Some(disease),
+                    settlement: o.settlement.map_or(0, |s| s.get()),
+                    began: o.began,
+                    first: o.first,
+                    ended: o.ended.unwrap_or(-1),
+                },
+            )
+        })
+        .collect();
+    let outbreaks = fbb.create_vector(&outbreaks);
     let root = save::SicknessSave::create(
         &mut fbb,
         &save::SicknessSaveArgs {
             episodes: Some(list),
+            outbreaks: Some(outbreaks),
         },
     );
     finish(fbb, root)
@@ -8056,7 +8097,7 @@ fn decode_sickness(
     bytes: &[u8],
     rules: &Rules,
 ) -> Result<civ_agents::sickness::Sickness, LoadError> {
-    use civ_agents::sickness::{Acquired, Course, Episode, Outcome, Sickness};
+    use civ_agents::sickness::{Acquired, Care, Course, Episode, Outbreak, Outcome, Sickness};
     let root = flatbuffers::root::<save::SicknessSave>(bytes)
         .map_err(|e| unreadable(SECTION_SICKNESS, &e))?;
     let mut list = Vec::new();
@@ -8094,9 +8135,40 @@ fn decode_sickness(
                 immune_until: e.immune_until(),
             },
             ended,
+            care: Care {
+                first: if e.care_first() < 0 {
+                    None
+                } else {
+                    Some((e.care_first(), required(e.care_by(), "a carer")?))
+                },
+                day: e.care_day(),
+                hours: e.care_hours(),
+                rr: e.care_rr(),
+                total_h: e.care_total_h(),
+            },
+            outbreak: (e.outbreak() > 0).then_some(e.outbreak()),
         });
     }
-    Ok(Sickness::with(list))
+    // An outbreak of a disease the loaded content no longer has is let go with its cases.
+    let mut outbreaks = Vec::new();
+    for o in root.outbreaks().iter().flatten() {
+        let Some(disease) = rules
+            .catalog
+            .disease_index(o.disease().unwrap_or_default())
+            .and_then(|i| u16::try_from(i).ok())
+        else {
+            continue;
+        };
+        outbreaks.push(Outbreak {
+            id: o.id(),
+            disease,
+            settlement: PermanentId::from_raw(o.settlement()),
+            began: o.began(),
+            first: o.first(),
+            ended: (o.ended() >= 0).then_some(o.ended()),
+        });
+    }
+    Ok(Sickness::with(list, outbreaks))
 }
 
 fn node_save(n: civ_agents::contagion::Node) -> save::NodeSave {

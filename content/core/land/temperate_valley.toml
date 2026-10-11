@@ -83,6 +83,27 @@ storm_spread = 0.6
 roof_snow_share = 0.8
 roof_snow_full_deg = 30.0
 roof_snow_shed_deg = 60.0
+# The day's wind (ADR-0022 §2; content API 80): its mean a vector whose components along and across
+# the prevailing direction each wander as an AR(1) about their means (research 03-03 §1.4: vector
+# components, a separate gust). The reports give no figures for a valley's wind; these are design
+# priors for an inland basin in the westerlies: a prevailing wind from the west-south-west, a
+# day's mean wind of about 3.5 m/s, gusts 1.7 times it. On the month's storm day the wind is the
+# storm's when its gusts are stronger (its speed from its load, q = rho v^2 / 2), from a direction
+# about the prevailing one.
+wind_from_deg = 250.0
+wind_mean_ms = 2.0
+wind_sd_ms = 2.5
+wind_persistence = 0.6
+gust_factor = 1.7
+storm_veer_deg = 30.0
+# Dryness: the water exposed fuel such as thatch holds, as a share of its dry mass (12-03 §1.5:
+# it follows recent weather). A dry day settles it at the first share at a mean of 0 °C and the
+# second at 25 °C, most of the way within `fuel_days`; rain or snow adds to it at once, up to
+# `fuel_wet_moisture`. Design priors: no report gives thatch's moisture.
+fuel_dry_moisture = [0.25, 0.08]
+fuel_days = 3.0
+fuel_wetting_per_mm = 0.05
+fuel_wet_moisture = 0.6
 
 # The soil's nitrogen (ADR-0012 §3; content API 27), kilograms a hectare of native ground of
 # average richness (a field's ground scales its stocks). Two pools turn to mineral nitrogen once a

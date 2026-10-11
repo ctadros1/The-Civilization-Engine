@@ -113,8 +113,8 @@ use super::{
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
-    SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, finish, section, single_chunk,
-    unreadable,
+    SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -486,6 +486,8 @@ enum Schema {
     /// Each place a household uses remembers which of the last 64 days its people worked there
     /// (M6a slice BB, step three: the Water lens).
     V86,
+    /// The weather keeps a daily wind and the fuel's dryness (M6b slice BC, step one).
+    V87,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -586,7 +588,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V83 => Schema::V83,
         SCHEMA_V84 => Schema::V84,
         SCHEMA_V85 => Schema::V85,
-        SAVE_SCHEMA_VERSION => Schema::V86,
+        SCHEMA_V86 => Schema::V86,
+        SAVE_SCHEMA_VERSION => Schema::V87,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2244,6 +2247,10 @@ fn encode_weather<'a>(
             mean_c: t.mean_c,
             min_c: t.min_c,
             max_c: t.max_c,
+            wind_ms: t.wind_ms,
+            wind_from_deg: t.wind_from_deg,
+            gust_ms: t.gust_ms,
+            fuel_moisture: t.fuel_moisture,
         },
     );
     let snow_mm = fbb.create_vector(&w.snow_mm);
@@ -2284,6 +2291,8 @@ fn encode_weather<'a>(
             months: Some(months),
             hold_slow: w.hold.map_or(0.0, |h| h.0),
             hold_until: w.hold.map_or(0, |h| h.1),
+            wind_along: w.wind.0,
+            wind_across: w.wind.1,
         },
     )
 }
@@ -2299,9 +2308,14 @@ fn decode_weather(w: save::Weather<'_>) -> Option<Weather> {
             mean_c: t.mean_c(),
             min_c: t.min_c(),
             max_c: t.max_c(),
+            wind_ms: t.wind_ms(),
+            wind_from_deg: t.wind_from_deg(),
+            gust_ms: t.gust_ms(),
+            fuel_moisture: t.fuel_moisture(),
         },
         anomaly: w.anomaly(),
         slow: w.slow(),
+        wind: (w.wind_along(), w.wind_across()),
         snow_base_m: w.snow_base_m(),
         snow_mm: w.snow_mm().map(|v| v.iter().collect()).unwrap_or_default(),
         soil_mm: w.soil_mm(),
@@ -2379,9 +2393,17 @@ fn decode_land(
     // Before schema 24 there was no weather: it starts from the old year's deviate as its slow
     // anomaly, with the soil at field capacity and no snow (ADR-0012 §6).
     let weather = match l.weather() {
-        Some(w) => decode_weather(w).ok_or_else(|| {
-            LoadError::Malformed("section `land` has weather without a day".to_owned())
-        })?,
+        Some(w) => {
+            let mut weather = decode_weather(w).ok_or_else(|| {
+                LoadError::Malformed("section `land` has weather without a day".to_owned())
+            })?;
+            // Before schema 87 the day had no wind or dryness: they are drawn afresh, from no
+            // anomaly, with nothing else changed (a day's fuel is never dry to nothing).
+            if weather.today.fuel_moisture <= 0.0 {
+                weather.draw_new_fields(&rules.land.weather, &climatology);
+            }
+            weather
+        }
         None => {
             let (low, high) = civ_land::height_range(map);
             Weather::from_old(
@@ -3085,7 +3107,8 @@ fn carried(
         | Schema::V83
         | Schema::V84
         | Schema::V85
-        | Schema::V86 => {
+        | Schema::V86
+        | Schema::V87 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3283,7 +3306,8 @@ fn decode_households(
             | Schema::V83
             | Schema::V84
             | Schema::V85
-            | Schema::V86 => {
+            | Schema::V86
+            | Schema::V87 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

@@ -2985,7 +2985,9 @@ export function bindUi(store: Store, actions: Actions): void {
             day: clock.day,
             hour: clock.hour,
             minute: clock.minuteOfHour,
-          })} · ${clock.season}${clock.weather ? ` · ${clock.weather.words}` : ""}`
+          })} · ${clock.season}${clock.weather ? ` · ${clock.weather.words}` : ""}${
+            clock.weather?.windWords ? ` · ${clock.weather.windWords}` : ""
+          }`
         : "",
     );
     const run = $<HTMLButtonElement>("btn-run");

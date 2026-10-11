@@ -209,3 +209,59 @@ fn the_observer_holds_back_the_rain_and_the_months_it_held_are_drier_and_marked(
     let heads = |sim: &Sim| -> f64 { sim.land().water.heads.iter().sum() };
     assert!(heads(&dry) < heads(&free), "the water table falls");
 }
+
+#[test]
+fn the_wind_and_the_thatch_s_dryness_are_kept_across_a_save_and_drawn_afresh_from_an_older_one() {
+    let mut sim = empty(5);
+    sim.advance_minutes(40 * 24 * 60).expect("advances");
+    let t = sim.land().weather.today;
+    assert!(t.wind_ms >= 0.0 && t.fuel_moisture > 0.0, "{t:?}");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let saves = SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "wind").expect("saves");
+    let mut loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.land().weather, sim.land().weather);
+    // Lived on, the two days' winds and dryness stay alike.
+    for s in [&mut sim, &mut loaded] {
+        s.advance_minutes(10 * 24 * 60).expect("advances");
+    }
+    assert_eq!(loaded.land().weather, sim.land().weather);
+    // A save from before schema 87 holds no wind and no dryness (they read as nothing): they
+    // are drawn afresh on loading, from no anomaly, and nothing else of the weather changes.
+    {
+        let w = &mut sim.land_mut_for_tests().weather;
+        w.wind = (0.0, 0.0);
+        w.today.wind_ms = 0.0;
+        w.today.wind_from_deg = 0.0;
+        w.today.gust_ms = 0.0;
+        w.today.fuel_moisture = 0.0;
+    }
+    let before = sim.land().weather.clone();
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "old").expect("saves");
+    let old = persist::load(&saved.path, content()).expect("loads");
+    let w = &old.land().weather;
+    assert!(
+        w.today.fuel_moisture > 0.0 && w.today.wind_ms > 0.0,
+        "{:?}",
+        w.today
+    );
+    assert_eq!(
+        (
+            w.today.day,
+            w.today.precip_mm,
+            w.today.mean_c,
+            w.months.clone(),
+            w.soil_mm
+        ),
+        (
+            before.today.day,
+            before.today.precip_mm,
+            before.today.mean_c,
+            before.months.clone(),
+            before.soil_mm
+        )
+    );
+    let mut redrawn = before.clone();
+    redrawn.draw_new_fields(&old.rules().land.weather, &old.land().climatology);
+    assert_eq!(w, &redrawn);
+}

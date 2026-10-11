@@ -16941,6 +16941,10 @@ impl<'a> WeatherDay<'a> {
   pub const VT_MEAN_C: ::flatbuffers::VOffsetT = 10;
   pub const VT_MIN_C: ::flatbuffers::VOffsetT = 12;
   pub const VT_MAX_C: ::flatbuffers::VOffsetT = 14;
+  pub const VT_WIND_MS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_WIND_FROM_DEG: ::flatbuffers::VOffsetT = 18;
+  pub const VT_GUST_MS: ::flatbuffers::VOffsetT = 20;
+  pub const VT_FUEL_MOISTURE: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -16953,6 +16957,10 @@ impl<'a> WeatherDay<'a> {
   ) -> ::flatbuffers::WIPOffset<WeatherDay<'bldr>> {
     let mut builder = WeatherDayBuilder::new(_fbb);
     builder.add_day(args.day);
+    builder.add_fuel_moisture(args.fuel_moisture);
+    builder.add_gust_ms(args.gust_ms);
+    builder.add_wind_from_deg(args.wind_from_deg);
+    builder.add_wind_ms(args.wind_ms);
     builder.add_max_c(args.max_c);
     builder.add_min_c(args.min_c);
     builder.add_mean_c(args.mean_c);
@@ -17004,6 +17012,34 @@ impl<'a> WeatherDay<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(WeatherDay::VT_MAX_C, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn wind_ms(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WeatherDay::VT_WIND_MS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn wind_from_deg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WeatherDay::VT_WIND_FROM_DEG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn gust_ms(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WeatherDay::VT_GUST_MS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn fuel_moisture(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WeatherDay::VT_FUEL_MOISTURE, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WeatherDay<'_> {
@@ -17018,6 +17054,10 @@ impl ::flatbuffers::Verifiable for WeatherDay<'_> {
      .visit_field::<f32>("mean_c", Self::VT_MEAN_C, false)?
      .visit_field::<f32>("min_c", Self::VT_MIN_C, false)?
      .visit_field::<f32>("max_c", Self::VT_MAX_C, false)?
+     .visit_field::<f32>("wind_ms", Self::VT_WIND_MS, false)?
+     .visit_field::<f32>("wind_from_deg", Self::VT_WIND_FROM_DEG, false)?
+     .visit_field::<f32>("gust_ms", Self::VT_GUST_MS, false)?
+     .visit_field::<f32>("fuel_moisture", Self::VT_FUEL_MOISTURE, false)?
      .finish();
     Ok(())
   }
@@ -17029,6 +17069,10 @@ pub struct WeatherDayArgs {
     pub mean_c: f32,
     pub min_c: f32,
     pub max_c: f32,
+    pub wind_ms: f32,
+    pub wind_from_deg: f32,
+    pub gust_ms: f32,
+    pub fuel_moisture: f32,
 }
 impl<'a> Default for WeatherDayArgs {
   #[inline]
@@ -17040,6 +17084,10 @@ impl<'a> Default for WeatherDayArgs {
       mean_c: 0.0,
       min_c: 0.0,
       max_c: 0.0,
+      wind_ms: 0.0,
+      wind_from_deg: 0.0,
+      gust_ms: 0.0,
+      fuel_moisture: 0.0,
     }
   }
 }
@@ -17074,6 +17122,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WeatherDayBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<f32>(WeatherDay::VT_MAX_C, max_c, 0.0);
   }
   #[inline]
+  pub fn add_wind_ms(&mut self, wind_ms: f32) {
+    self.fbb_.push_slot::<f32>(WeatherDay::VT_WIND_MS, wind_ms, 0.0);
+  }
+  #[inline]
+  pub fn add_wind_from_deg(&mut self, wind_from_deg: f32) {
+    self.fbb_.push_slot::<f32>(WeatherDay::VT_WIND_FROM_DEG, wind_from_deg, 0.0);
+  }
+  #[inline]
+  pub fn add_gust_ms(&mut self, gust_ms: f32) {
+    self.fbb_.push_slot::<f32>(WeatherDay::VT_GUST_MS, gust_ms, 0.0);
+  }
+  #[inline]
+  pub fn add_fuel_moisture(&mut self, fuel_moisture: f32) {
+    self.fbb_.push_slot::<f32>(WeatherDay::VT_FUEL_MOISTURE, fuel_moisture, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WeatherDayBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WeatherDayBuilder {
@@ -17097,6 +17161,10 @@ impl ::core::fmt::Debug for WeatherDay<'_> {
       ds.field("mean_c", &self.mean_c());
       ds.field("min_c", &self.min_c());
       ds.field("max_c", &self.max_c());
+      ds.field("wind_ms", &self.wind_ms());
+      ds.field("wind_from_deg", &self.wind_from_deg());
+      ds.field("gust_ms", &self.gust_ms());
+      ds.field("fuel_moisture", &self.fuel_moisture());
       ds.finish()
   }
 }
@@ -17409,6 +17477,8 @@ impl<'a> Weather<'a> {
   pub const VT_MONTHS: ::flatbuffers::VOffsetT = 18;
   pub const VT_HOLD_SLOW: ::flatbuffers::VOffsetT = 20;
   pub const VT_HOLD_UNTIL: ::flatbuffers::VOffsetT = 22;
+  pub const VT_WIND_ALONG: ::flatbuffers::VOffsetT = 24;
+  pub const VT_WIND_ACROSS: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -17420,6 +17490,8 @@ impl<'a> Weather<'a> {
     args: &'args WeatherArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Weather<'bldr>> {
     let mut builder = WeatherBuilder::new(_fbb);
+    builder.add_wind_across(args.wind_across);
+    builder.add_wind_along(args.wind_along);
     builder.add_hold_until(args.hold_until);
     builder.add_hold_slow(args.hold_slow);
     builder.add_cover_ease(args.cover_ease);
@@ -17504,6 +17576,20 @@ impl<'a> Weather<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(Weather::VT_HOLD_UNTIL, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn wind_along(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(Weather::VT_WIND_ALONG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn wind_across(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(Weather::VT_WIND_ACROSS, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Weather<'_> {
@@ -17522,6 +17608,8 @@ impl ::flatbuffers::Verifiable for Weather<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WeatherMonth>>>>("months", Self::VT_MONTHS, false)?
      .visit_field::<f64>("hold_slow", Self::VT_HOLD_SLOW, false)?
      .visit_field::<i64>("hold_until", Self::VT_HOLD_UNTIL, false)?
+     .visit_field::<f64>("wind_along", Self::VT_WIND_ALONG, false)?
+     .visit_field::<f64>("wind_across", Self::VT_WIND_ACROSS, false)?
      .finish();
     Ok(())
   }
@@ -17537,6 +17625,8 @@ pub struct WeatherArgs<'a> {
     pub months: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WeatherMonth<'a>>>>>,
     pub hold_slow: f64,
     pub hold_until: i64,
+    pub wind_along: f64,
+    pub wind_across: f64,
 }
 impl<'a> Default for WeatherArgs<'a> {
   #[inline]
@@ -17552,6 +17642,8 @@ impl<'a> Default for WeatherArgs<'a> {
       months: None,
       hold_slow: 0.0,
       hold_until: 0,
+      wind_along: 0.0,
+      wind_across: 0.0,
     }
   }
 }
@@ -17602,6 +17694,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WeatherBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<i64>(Weather::VT_HOLD_UNTIL, hold_until, 0);
   }
   #[inline]
+  pub fn add_wind_along(&mut self, wind_along: f64) {
+    self.fbb_.push_slot::<f64>(Weather::VT_WIND_ALONG, wind_along, 0.0);
+  }
+  #[inline]
+  pub fn add_wind_across(&mut self, wind_across: f64) {
+    self.fbb_.push_slot::<f64>(Weather::VT_WIND_ACROSS, wind_across, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WeatherBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WeatherBuilder {
@@ -17629,6 +17729,8 @@ impl ::core::fmt::Debug for Weather<'_> {
       ds.field("months", &self.months());
       ds.field("hold_slow", &self.hold_slow());
       ds.field("hold_until", &self.hold_until());
+      ds.field("wind_along", &self.wind_along());
+      ds.field("wind_across", &self.wind_across());
       ds.finish()
   }
 }

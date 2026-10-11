@@ -173,6 +173,13 @@ table WeatherDay {
   mean_c: float (id: 3);
   min_c: float (id: 4);
   max_c: float (id: 5);
+  // Schema 87 (M6b slice BC; ADR-0022 §2): the day's mean wind, m/s, the direction it blows
+  // from (degrees clockwise from north), its strongest gust, m/s, and the water exposed fuel
+  // holds as a share of its dry mass. All 0 before: they are drawn afresh on loading.
+  wind_ms: float (id: 6);
+  wind_from_deg: float (id: 7);
+  gust_ms: float (id: 8);
+  fuel_moisture: float (id: 9);
 }
 
 // Schema 24: one month's weather as it was, at the height the normals are for.
@@ -216,6 +223,10 @@ table Weather {
   // `hold_until` (not including it); 0 (and absent before) when none holds.
   hold_slow: double (id: 8);
   hold_until: long (id: 9);
+  // Schema 87: today's wind along and across the prevailing direction, as anomalies in standard
+  // deviations (0 before).
+  wind_along: double (id: 10);
+  wind_across: double (id: 11);
 }
 
 // Section "settle": settlements.

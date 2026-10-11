@@ -230,6 +230,16 @@ table DayWeather {
   // Wire 1.25: the lowest height at which snow lies, metres (the foot of the lowest 100 m band
   // with 5 mm of water or more lying); infinite when it lies nowhere.
   snow_line_m: float = inf (id: 7);
+  // Wire 1.67 (M6b slice BC; ADR-0022 §2): the day's mean wind, m/s, the direction it blows from
+  // (degrees clockwise from north, the map's top), its strongest gust, m/s, the water exposed
+  // fuel such as thatch holds as a share of its dry mass, and that share on an average day.
+  wind_ms: float (id: 8);
+  wind_from_deg: float (id: 9);
+  gust_ms: float (id: 10);
+  fuel_moisture: float (id: 11);
+  fuel_usual: float (id: 12);
+  // Rendered by the kernel: "a gentle breeze from the west-south-west; thatch drier than usual".
+  wind_words: string (id: 13);
 }
 
 table WorldInfo {

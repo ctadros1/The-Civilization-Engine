@@ -176,6 +176,7 @@ describe("decoders", () => {
     const season = b.createString("spring");
     // Wire 1.24: today's weather rides on the clock.
     const words = b.createString("6 °C, light rain; snow lying");
+    const windWords = b.createString("a gentle breeze from the west, gusts to 7 m/s; thatch damp");
     W.DayWeather.startDayWeather(b);
     W.DayWeather.addPrecipMm(b, 3.5);
     W.DayWeather.addMeanC(b, 6);
@@ -186,6 +187,13 @@ describe("decoders", () => {
     W.DayWeather.addWords(b, words);
     // Wire 1.25: the snow line.
     W.DayWeather.addSnowLineM(b, 420);
+    // Wire 1.67: the wind and the thatch's dryness.
+    W.DayWeather.addWindMs(b, 4);
+    W.DayWeather.addWindFromDeg(b, 270);
+    W.DayWeather.addGustMs(b, 7);
+    W.DayWeather.addFuelMoisture(b, 0.25);
+    W.DayWeather.addFuelUsual(b, 0.125);
+    W.DayWeather.addWindWords(b, windWords);
     const weather = W.DayWeather.endDayWeather(b);
     W.Clock.startClock(b);
     W.Clock.addMinute(b, 85_320n);
@@ -243,6 +251,12 @@ describe("decoders", () => {
         soil: 0.75,
         words: "6 °C, light rain; snow lying",
         snowLineM: 420,
+        windMs: 4,
+        windFromDeg: 270,
+        gustMs: 7,
+        fuelMoisture: 0.25,
+        fuelUsual: 0.125,
+        windWords: "a gentle breeze from the west, gusts to 7 m/s; thatch damp",
       },
     });
     expect(snapshot.task).toEqual({

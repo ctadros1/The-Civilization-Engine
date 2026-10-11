@@ -213,6 +213,18 @@ export interface DayWeather {
   /** The lowest height at which snow lies, metres; Infinity when it lies nowhere, or from a
    * host before wire 1.25. */
   snowLineM: number;
+  /** The day's mean wind, m/s, the direction it blows from (degrees clockwise from north), and
+   * its strongest gust, m/s (wire 1.67, M6b slice BC); 0 from an older host. */
+  windMs: number;
+  windFromDeg: number;
+  gustMs: number;
+  /** The water exposed thatch holds as a share of its dry mass, and that share on an average
+   * day (wire 1.67). */
+  fuelMoisture: number;
+  fuelUsual: number;
+  /** Rendered by the kernel: "a gentle breeze from the west-south-west, gusts to 7 m/s; thatch
+   * drier than usual"; empty from an older host. */
+  windWords: string;
 }
 
 /** One month's weather on the valley floor, beside what the month usually brings (wire 1.24). */
@@ -2950,6 +2962,12 @@ function dayWeather(w: W.DayWeather | null): DayWeather | null {
     soil: w.soil(),
     words: w.words() ?? "",
     snowLineM: w.snowLineM(),
+    windMs: w.windMs(),
+    windFromDeg: w.windFromDeg(),
+    gustMs: w.gustMs(),
+    fuelMoisture: w.fuelMoisture(),
+    fuelUsual: w.fuelUsual(),
+    windWords: w.windWords() ?? "",
   };
 }
 

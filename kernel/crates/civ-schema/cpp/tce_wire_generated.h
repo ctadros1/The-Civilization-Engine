@@ -3473,7 +3473,13 @@ struct DayWeather FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_SNOW_MM = 12,
     VT_SOIL = 14,
     VT_WORDS = 16,
-    VT_SNOW_LINE_M = 18
+    VT_SNOW_LINE_M = 18,
+    VT_WIND_MS = 20,
+    VT_WIND_FROM_DEG = 22,
+    VT_GUST_MS = 24,
+    VT_FUEL_MOISTURE = 26,
+    VT_FUEL_USUAL = 28,
+    VT_WIND_WORDS = 30
   };
   float precip_mm() const {
     return GetField<float>(VT_PRECIP_MM, 0.0f);
@@ -3499,6 +3505,24 @@ struct DayWeather FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   float snow_line_m() const {
     return GetField<float>(VT_SNOW_LINE_M, std::numeric_limits<float>::infinity());
   }
+  float wind_ms() const {
+    return GetField<float>(VT_WIND_MS, 0.0f);
+  }
+  float wind_from_deg() const {
+    return GetField<float>(VT_WIND_FROM_DEG, 0.0f);
+  }
+  float gust_ms() const {
+    return GetField<float>(VT_GUST_MS, 0.0f);
+  }
+  float fuel_moisture() const {
+    return GetField<float>(VT_FUEL_MOISTURE, 0.0f);
+  }
+  float fuel_usual() const {
+    return GetField<float>(VT_FUEL_USUAL, 0.0f);
+  }
+  const ::flatbuffers::String *wind_words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WIND_WORDS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -3511,6 +3535,13 @@ struct DayWeather FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_WORDS) &&
            verifier.VerifyString(words()) &&
            VerifyField<float>(verifier, VT_SNOW_LINE_M, 4) &&
+           VerifyField<float>(verifier, VT_WIND_MS, 4) &&
+           VerifyField<float>(verifier, VT_WIND_FROM_DEG, 4) &&
+           VerifyField<float>(verifier, VT_GUST_MS, 4) &&
+           VerifyField<float>(verifier, VT_FUEL_MOISTURE, 4) &&
+           VerifyField<float>(verifier, VT_FUEL_USUAL, 4) &&
+           VerifyOffset(verifier, VT_WIND_WORDS) &&
+           verifier.VerifyString(wind_words()) &&
            verifier.EndTable();
   }
 };
@@ -3543,6 +3574,24 @@ struct DayWeatherBuilder {
   void add_snow_line_m(float snow_line_m) {
     fbb_.AddElement<float>(DayWeather::VT_SNOW_LINE_M, snow_line_m, std::numeric_limits<float>::infinity());
   }
+  void add_wind_ms(float wind_ms) {
+    fbb_.AddElement<float>(DayWeather::VT_WIND_MS, wind_ms, 0.0f);
+  }
+  void add_wind_from_deg(float wind_from_deg) {
+    fbb_.AddElement<float>(DayWeather::VT_WIND_FROM_DEG, wind_from_deg, 0.0f);
+  }
+  void add_gust_ms(float gust_ms) {
+    fbb_.AddElement<float>(DayWeather::VT_GUST_MS, gust_ms, 0.0f);
+  }
+  void add_fuel_moisture(float fuel_moisture) {
+    fbb_.AddElement<float>(DayWeather::VT_FUEL_MOISTURE, fuel_moisture, 0.0f);
+  }
+  void add_fuel_usual(float fuel_usual) {
+    fbb_.AddElement<float>(DayWeather::VT_FUEL_USUAL, fuel_usual, 0.0f);
+  }
+  void add_wind_words(::flatbuffers::Offset<::flatbuffers::String> wind_words) {
+    fbb_.AddOffset(DayWeather::VT_WIND_WORDS, wind_words);
+  }
   explicit DayWeatherBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -3563,8 +3612,20 @@ inline ::flatbuffers::Offset<DayWeather> CreateDayWeather(
     float snow_mm = 0.0f,
     float soil = 0.0f,
     ::flatbuffers::Offset<::flatbuffers::String> words = 0,
-    float snow_line_m = std::numeric_limits<float>::infinity()) {
+    float snow_line_m = std::numeric_limits<float>::infinity(),
+    float wind_ms = 0.0f,
+    float wind_from_deg = 0.0f,
+    float gust_ms = 0.0f,
+    float fuel_moisture = 0.0f,
+    float fuel_usual = 0.0f,
+    ::flatbuffers::Offset<::flatbuffers::String> wind_words = 0) {
   DayWeatherBuilder builder_(_fbb);
+  builder_.add_wind_words(wind_words);
+  builder_.add_fuel_usual(fuel_usual);
+  builder_.add_fuel_moisture(fuel_moisture);
+  builder_.add_gust_ms(gust_ms);
+  builder_.add_wind_from_deg(wind_from_deg);
+  builder_.add_wind_ms(wind_ms);
   builder_.add_snow_line_m(snow_line_m);
   builder_.add_words(words);
   builder_.add_soil(soil);
@@ -3590,8 +3651,15 @@ inline ::flatbuffers::Offset<DayWeather> CreateDayWeatherDirect(
     float snow_mm = 0.0f,
     float soil = 0.0f,
     const char *words = nullptr,
-    float snow_line_m = std::numeric_limits<float>::infinity()) {
+    float snow_line_m = std::numeric_limits<float>::infinity(),
+    float wind_ms = 0.0f,
+    float wind_from_deg = 0.0f,
+    float gust_ms = 0.0f,
+    float fuel_moisture = 0.0f,
+    float fuel_usual = 0.0f,
+    const char *wind_words = nullptr) {
   auto words__ = words ? _fbb.CreateString(words) : 0;
+  auto wind_words__ = wind_words ? _fbb.CreateString(wind_words) : 0;
   return tce::wire::CreateDayWeather(
       _fbb,
       precip_mm,
@@ -3601,7 +3669,13 @@ inline ::flatbuffers::Offset<DayWeather> CreateDayWeatherDirect(
       snow_mm,
       soil,
       words__,
-      snow_line_m);
+      snow_line_m,
+      wind_ms,
+      wind_from_deg,
+      gust_ms,
+      fuel_moisture,
+      fuel_usual,
+      wind_words__);
 }
 
 struct WorldInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

@@ -266,6 +266,18 @@ pub(crate) struct WeatherFile {
     pub roof_snow_share: f64,
     pub roof_snow_full_deg: f64,
     pub roof_snow_shed_deg: f64,
+    /// Content API 80 (M6b slice BC; ADR-0022 §2): the day's wind, a vector about the prevailing
+    /// direction with a gust, and how much water exposed fuel holds.
+    pub wind_from_deg: f64,
+    pub wind_mean_ms: f64,
+    pub wind_sd_ms: f64,
+    pub wind_persistence: f64,
+    pub gust_factor: f64,
+    pub storm_veer_deg: f64,
+    pub fuel_dry_moisture: [f64; 2],
+    pub fuel_days: f64,
+    pub fuel_wetting_per_mm: f64,
+    pub fuel_wet_moisture: f64,
 }
 
 /// How a landscape's soils hold nitrogen (ADR-0012 §3; content API 27). See [`SoilParams`] for
@@ -359,6 +371,16 @@ impl WeatherFile {
             roof_snow_share: self.roof_snow_share,
             roof_snow_full_deg: self.roof_snow_full_deg,
             roof_snow_shed_deg: self.roof_snow_shed_deg,
+            wind_from_deg: self.wind_from_deg,
+            wind_mean_ms: self.wind_mean_ms,
+            wind_sd_ms: self.wind_sd_ms,
+            wind_persistence: self.wind_persistence,
+            gust_factor: self.gust_factor,
+            storm_veer_deg: self.storm_veer_deg,
+            fuel_dry_moisture: self.fuel_dry_moisture,
+            fuel_days: self.fuel_days,
+            fuel_wetting_per_mm: self.fuel_wetting_per_mm,
+            fuel_wet_moisture: self.fuel_wet_moisture,
         }
     }
 
@@ -416,6 +438,28 @@ impl WeatherFile {
         one("roof_snow_share", self.roof_snow_share, 0.0, 2.0, p);
         one("roof_snow_full_deg", self.roof_snow_full_deg, 0.0, 90.0, p);
         one("roof_snow_shed_deg", self.roof_snow_shed_deg, 0.0, 90.0, p);
+        one("wind_from_deg", self.wind_from_deg, 0.0, 360.0, p);
+        one("wind_mean_ms", self.wind_mean_ms, 0.0, 30.0, p);
+        one("wind_sd_ms", self.wind_sd_ms, 0.0, 20.0, p);
+        one("wind_persistence", self.wind_persistence, 0.0, 0.99, p);
+        one("gust_factor", self.gust_factor, 1.0, 5.0, p);
+        one("storm_veer_deg", self.storm_veer_deg, 0.0, 180.0, p);
+        for (i, v) in self.fuel_dry_moisture.iter().enumerate() {
+            one(
+                if i == 0 {
+                    "fuel_dry_moisture[0]"
+                } else {
+                    "fuel_dry_moisture[1]"
+                },
+                *v,
+                0.01,
+                1.0,
+                p,
+            );
+        }
+        one("fuel_days", self.fuel_days, 0.1, 60.0, p);
+        one("fuel_wetting_per_mm", self.fuel_wetting_per_mm, 0.0, 1.0, p);
+        one("fuel_wet_moisture", self.fuel_wet_moisture, 0.01, 3.0, p);
         if self.roof_snow_shed_deg <= self.roof_snow_full_deg {
             p.push(format!(
                 "`weather.roof_snow_shed_deg` must be above `weather.roof_snow_full_deg` (got {} \

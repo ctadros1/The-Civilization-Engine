@@ -5513,6 +5513,12 @@ impl<'a> DayWeather<'a> {
   pub const VT_SOIL: ::flatbuffers::VOffsetT = 14;
   pub const VT_WORDS: ::flatbuffers::VOffsetT = 16;
   pub const VT_SNOW_LINE_M: ::flatbuffers::VOffsetT = 18;
+  pub const VT_WIND_MS: ::flatbuffers::VOffsetT = 20;
+  pub const VT_WIND_FROM_DEG: ::flatbuffers::VOffsetT = 22;
+  pub const VT_GUST_MS: ::flatbuffers::VOffsetT = 24;
+  pub const VT_FUEL_MOISTURE: ::flatbuffers::VOffsetT = 26;
+  pub const VT_FUEL_USUAL: ::flatbuffers::VOffsetT = 28;
+  pub const VT_WIND_WORDS: ::flatbuffers::VOffsetT = 30;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -5524,6 +5530,12 @@ impl<'a> DayWeather<'a> {
     args: &'args DayWeatherArgs<'args>
   ) -> ::flatbuffers::WIPOffset<DayWeather<'bldr>> {
     let mut builder = DayWeatherBuilder::new(_fbb);
+    if let Some(x) = args.wind_words { builder.add_wind_words(x); }
+    builder.add_fuel_usual(args.fuel_usual);
+    builder.add_fuel_moisture(args.fuel_moisture);
+    builder.add_gust_ms(args.gust_ms);
+    builder.add_wind_from_deg(args.wind_from_deg);
+    builder.add_wind_ms(args.wind_ms);
     builder.add_snow_line_m(args.snow_line_m);
     if let Some(x) = args.words { builder.add_words(x); }
     builder.add_soil(args.soil);
@@ -5592,6 +5604,48 @@ impl<'a> DayWeather<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(DayWeather::VT_SNOW_LINE_M, Some(f32::INFINITY)).unwrap()}
   }
+  #[inline]
+  pub fn wind_ms(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(DayWeather::VT_WIND_MS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn wind_from_deg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(DayWeather::VT_WIND_FROM_DEG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn gust_ms(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(DayWeather::VT_GUST_MS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn fuel_moisture(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(DayWeather::VT_FUEL_MOISTURE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn fuel_usual(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(DayWeather::VT_FUEL_USUAL, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn wind_words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(DayWeather::VT_WIND_WORDS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for DayWeather<'_> {
@@ -5608,6 +5662,12 @@ impl ::flatbuffers::Verifiable for DayWeather<'_> {
      .visit_field::<f32>("soil", Self::VT_SOIL, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
      .visit_field::<f32>("snow_line_m", Self::VT_SNOW_LINE_M, false)?
+     .visit_field::<f32>("wind_ms", Self::VT_WIND_MS, false)?
+     .visit_field::<f32>("wind_from_deg", Self::VT_WIND_FROM_DEG, false)?
+     .visit_field::<f32>("gust_ms", Self::VT_GUST_MS, false)?
+     .visit_field::<f32>("fuel_moisture", Self::VT_FUEL_MOISTURE, false)?
+     .visit_field::<f32>("fuel_usual", Self::VT_FUEL_USUAL, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("wind_words", Self::VT_WIND_WORDS, false)?
      .finish();
     Ok(())
   }
@@ -5621,6 +5681,12 @@ pub struct DayWeatherArgs<'a> {
     pub soil: f32,
     pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub snow_line_m: f32,
+    pub wind_ms: f32,
+    pub wind_from_deg: f32,
+    pub gust_ms: f32,
+    pub fuel_moisture: f32,
+    pub fuel_usual: f32,
+    pub wind_words: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for DayWeatherArgs<'a> {
   #[inline]
@@ -5634,6 +5700,12 @@ impl<'a> Default for DayWeatherArgs<'a> {
       soil: 0.0,
       words: None,
       snow_line_m: f32::INFINITY,
+      wind_ms: 0.0,
+      wind_from_deg: 0.0,
+      gust_ms: 0.0,
+      fuel_moisture: 0.0,
+      fuel_usual: 0.0,
+      wind_words: None,
     }
   }
 }
@@ -5676,6 +5748,30 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DayWeatherBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<f32>(DayWeather::VT_SNOW_LINE_M, snow_line_m, f32::INFINITY);
   }
   #[inline]
+  pub fn add_wind_ms(&mut self, wind_ms: f32) {
+    self.fbb_.push_slot::<f32>(DayWeather::VT_WIND_MS, wind_ms, 0.0);
+  }
+  #[inline]
+  pub fn add_wind_from_deg(&mut self, wind_from_deg: f32) {
+    self.fbb_.push_slot::<f32>(DayWeather::VT_WIND_FROM_DEG, wind_from_deg, 0.0);
+  }
+  #[inline]
+  pub fn add_gust_ms(&mut self, gust_ms: f32) {
+    self.fbb_.push_slot::<f32>(DayWeather::VT_GUST_MS, gust_ms, 0.0);
+  }
+  #[inline]
+  pub fn add_fuel_moisture(&mut self, fuel_moisture: f32) {
+    self.fbb_.push_slot::<f32>(DayWeather::VT_FUEL_MOISTURE, fuel_moisture, 0.0);
+  }
+  #[inline]
+  pub fn add_fuel_usual(&mut self, fuel_usual: f32) {
+    self.fbb_.push_slot::<f32>(DayWeather::VT_FUEL_USUAL, fuel_usual, 0.0);
+  }
+  #[inline]
+  pub fn add_wind_words(&mut self, wind_words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DayWeather::VT_WIND_WORDS, wind_words);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> DayWeatherBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     DayWeatherBuilder {
@@ -5701,6 +5797,12 @@ impl ::core::fmt::Debug for DayWeather<'_> {
       ds.field("soil", &self.soil());
       ds.field("words", &self.words());
       ds.field("snow_line_m", &self.snow_line_m());
+      ds.field("wind_ms", &self.wind_ms());
+      ds.field("wind_from_deg", &self.wind_from_deg());
+      ds.field("gust_ms", &self.gust_ms());
+      ds.field("fuel_moisture", &self.fuel_moisture());
+      ds.field("fuel_usual", &self.fuel_usual());
+      ds.field("wind_words", &self.wind_words());
       ds.finish()
   }
 }

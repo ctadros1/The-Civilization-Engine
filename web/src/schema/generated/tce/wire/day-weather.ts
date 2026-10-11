@@ -64,8 +64,40 @@ snowLineM():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : Infinity;
 }
 
+windMs():number {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+windFromDeg():number {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+gustMs():number {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+fuelMoisture():number {
+  const offset = this.bb!.__offset(this.bb_pos, 26);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+fuelUsual():number {
+  const offset = this.bb!.__offset(this.bb_pos, 28);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+windWords():string|null
+windWords(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+windWords(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 30);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startDayWeather(builder:flatbuffers.Builder) {
-  builder.startObject(8);
+  builder.startObject(14);
 }
 
 static addPrecipMm(builder:flatbuffers.Builder, precipMm:number) {
@@ -100,12 +132,36 @@ static addSnowLineM(builder:flatbuffers.Builder, snowLineM:number) {
   builder.addFieldFloat32(7, snowLineM, Infinity);
 }
 
+static addWindMs(builder:flatbuffers.Builder, windMs:number) {
+  builder.addFieldFloat32(8, windMs, 0.0);
+}
+
+static addWindFromDeg(builder:flatbuffers.Builder, windFromDeg:number) {
+  builder.addFieldFloat32(9, windFromDeg, 0.0);
+}
+
+static addGustMs(builder:flatbuffers.Builder, gustMs:number) {
+  builder.addFieldFloat32(10, gustMs, 0.0);
+}
+
+static addFuelMoisture(builder:flatbuffers.Builder, fuelMoisture:number) {
+  builder.addFieldFloat32(11, fuelMoisture, 0.0);
+}
+
+static addFuelUsual(builder:flatbuffers.Builder, fuelUsual:number) {
+  builder.addFieldFloat32(12, fuelUsual, 0.0);
+}
+
+static addWindWords(builder:flatbuffers.Builder, windWordsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(13, windWordsOffset, 0);
+}
+
 static endDayWeather(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createDayWeather(builder:flatbuffers.Builder, precipMm:number, meanC:number, minC:number, maxC:number, snowMm:number, soil:number, wordsOffset:flatbuffers.Offset, snowLineM:number):flatbuffers.Offset {
+static createDayWeather(builder:flatbuffers.Builder, precipMm:number, meanC:number, minC:number, maxC:number, snowMm:number, soil:number, wordsOffset:flatbuffers.Offset, snowLineM:number, windMs:number, windFromDeg:number, gustMs:number, fuelMoisture:number, fuelUsual:number, windWordsOffset:flatbuffers.Offset):flatbuffers.Offset {
   DayWeather.startDayWeather(builder);
   DayWeather.addPrecipMm(builder, precipMm);
   DayWeather.addMeanC(builder, meanC);
@@ -115,6 +171,12 @@ static createDayWeather(builder:flatbuffers.Builder, precipMm:number, meanC:numb
   DayWeather.addSoil(builder, soil);
   DayWeather.addWords(builder, wordsOffset);
   DayWeather.addSnowLineM(builder, snowLineM);
+  DayWeather.addWindMs(builder, windMs);
+  DayWeather.addWindFromDeg(builder, windFromDeg);
+  DayWeather.addGustMs(builder, gustMs);
+  DayWeather.addFuelMoisture(builder, fuelMoisture);
+  DayWeather.addFuelUsual(builder, fuelUsual);
+  DayWeather.addWindWords(builder, windWordsOffset);
   return DayWeather.endDayWeather(builder);
 }
 }

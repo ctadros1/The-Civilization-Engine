@@ -1336,6 +1336,16 @@ The full end-to-end run found the knowledge test still counting the founders' te
 
 **Open:** slice BC.
 
+## 2026-10-11 — M6b slice BC, step one: wind and dryness
+
+**What changed:** each day now has a mean wind (speed, the direction it blows from, a gust) and a dryness: the water exposed thatch holds. The wind wanders by the day about the land profile's prevailing direction, and is the storm's on the month's storm day. Dryness drifts toward an equilibrium set by warmth and takes up rain at once. Both are drawn from keys of their own, so no other draw of the weather changes. Saves 87, content API 80 and wire 1.67 carry them, and the clock tells them in words.
+
+**Findings:** the reports give no figures for a valley's wind or thatch's moisture (03-03 asks only for vector components and a separate gust; 12-03 §1.5 for fuel moisture that follows recent weather). Every figure is a design prior, flagged in the land profile.
+
+**Evidence:** weather unit tests cover independence from the other draws, direction, speed, persistence, storm days and dryness by season; a save test checks exact round trip and an older save's fresh draw; the frame's words test; the web decoder test.
+
+**Open:** step two, a building's fire.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

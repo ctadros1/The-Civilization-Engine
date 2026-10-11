@@ -292,6 +292,9 @@ pub const SCHEMA_V84: u32 = 84;
 /// The schema version of M6a slice BB, step one: infections keep the household they began in,
 /// before places remembered the days worked there exactly (see [`agents`]).
 pub const SCHEMA_V85: u32 = 85;
+/// The schema version of M6a slice BB, step three: places remember the days worked there
+/// exactly, before the weather kept a daily wind and the fuel's dryness (see [`agents`]).
+pub const SCHEMA_V86: u32 = 86;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

@@ -3545,7 +3545,11 @@ impl Population {
                 .is_some_and(|a| {
                     matches!(
                         a.behavior,
-                        Behavior::Watch | Behavior::Attend | Behavior::Douse
+                        Behavior::Watch
+                            | Behavior::Attend
+                            | Behavior::Douse
+                            | Behavior::Strip
+                            | Behavior::Salvage
                     )
                 });
             !exempt && self::polity::away_from_home(&c.steps, pos, hh.home)
@@ -4112,7 +4116,9 @@ impl Population {
                 | Behavior::Carry
                 | Behavior::Bridge
                 | Behavior::Well
-                | Behavior::Douse,
+                | Behavior::Douse
+                | Behavior::Strip
+                | Behavior::Salvage,
             ) => (def_par, false, 0.0),
             None => (params.energy.idle_par, false, 0.0),
         };
@@ -4247,6 +4253,25 @@ impl Population {
                             self.drew_at(who, household, cell);
                         }
                         _ => p.carrying.water_l = params.household.carry_water_l as f32,
+                    }
+                }
+                Some(Behavior::Strip) => {
+                    // Covering torn from the roof (M6b slice BD, step four).
+                    let (who, target) = (p.id, p.act.target);
+                    if let (Target::Building(building), Some(Step::Work { minutes })) =
+                        (target, step)
+                    {
+                        self.strip_roof(ctx, who, building, minutes);
+                    }
+                }
+                Some(Behavior::Salvage) => {
+                    // A load of goods taken up from under the roof; set down out of the way.
+                    let (who, household, target, step_at) =
+                        (p.id, p.household, p.act.target, p.act.step);
+                    if let Target::Building(building) = target
+                        && step_at <= 1
+                    {
+                        self.salvage(ctx, who, household, building);
                     }
                 }
                 Some(Behavior::Douse) => {

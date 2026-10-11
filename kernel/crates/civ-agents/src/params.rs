@@ -72,13 +72,20 @@ pub enum Behavior {
     /// (M6a slice AZ, step three; ADR-0021 §5).
     Tend,
     /// Carry water to a roof a fire threatens and throw it on: drawn from the household's store
-    /// at home, else the nearest source (M6b slice BD, step three; ADR-0022 §6).
+    /// at home when it holds one, else the nearest source (M6b slice BD, step three; ADR-0022 §6).
     Douse,
+    /// Tear the covering from a roof a fire threatens, so that it has nothing to catch: their
+    /// household's own, or another's with leave of one of its people there (M6b slice BD, step
+    /// four; ADR-0022 §6).
+    Strip,
+    /// Carry a load of the household's goods out from under a roof of its that a fire threatens
+    /// (M6b slice BD, step four; ADR-0022 §5: goods carried out survive).
+    Salvage,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 26] = [
+    pub const ALL: [Behavior; 28] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -105,6 +112,8 @@ impl Behavior {
         Behavior::Well,
         Behavior::Tend,
         Behavior::Douse,
+        Behavior::Strip,
+        Behavior::Salvage,
     ];
 
     /// The authored name of a behavior.
@@ -136,6 +145,8 @@ impl Behavior {
             Behavior::Well => "well",
             Behavior::Tend => "tend",
             Behavior::Douse => "douse",
+            Behavior::Strip => "strip",
+            Behavior::Salvage => "salvage",
         }
     }
 

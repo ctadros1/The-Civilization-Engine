@@ -107,6 +107,14 @@ pub struct FireParams {
     pub kin_share: f64,
     /// What saving a neighbour's building is worth, as a share of their own.
     pub neighbour_share: f64,
+    /// Square metres of a roof's covering one person strips a minute (slice BD, step four).
+    pub strip_m2_per_minute: f64,
+    /// What stripping a roof costs its household, as a share of what losing it to fire would:
+    /// the covering is gone either way, the rest of the building is not.
+    pub strip_cost: f64,
+    /// What the goods a household keeps under a roof are worth to it, as a share of the
+    /// building's worth (`w_save`), when a load of them is carried out of a fire's way.
+    pub salvage_share: f64,
 }
 
 /// How far a building's fire has gone.
@@ -151,6 +159,9 @@ impl FireParams {
             w_save: 20.0,
             kin_share: 0.5,
             neighbour_share: 0.25,
+            strip_m2_per_minute: 1.0,
+            strip_cost: 0.5,
+            salvage_share: 0.5,
         }
     }
 
@@ -624,6 +635,45 @@ pub struct Fires {
     pub wet: Vec<(PermanentId, f64)>,
     /// Every load of water thrown at a fire, oldest first (slice BD, step three).
     pub thrown: Vec<Thrown>,
+    /// Every stretch of covering torn from a roof a fire threatened, oldest first (slice BD,
+    /// step four).
+    pub stripped: Vec<Stripped>,
+    /// Every load of goods carried out from under a roof a fire threatened, oldest first.
+    pub salvaged: Vec<Salvaged>,
+}
+
+/// Covering someone tore from a roof a fire threatened (ADR-0022 §6): the kernel's truth. Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Stripped {
+    /// The fire it was done against: the first of the conflagration burning then.
+    pub fire: u32,
+    /// The building whose roof it was.
+    pub building: PermanentId,
+    /// Who.
+    pub person: PermanentId,
+    /// When.
+    pub at: SimTime,
+    /// Square metres torn off.
+    pub m2: f32,
+}
+
+/// Goods someone carried out from under a roof a fire threatened (ADR-0022 §5-§6: goods carried
+/// out survive): the kernel's truth. They stay their household's; the building's fire, if it
+/// comes, does not reach them. Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Salvaged {
+    /// The fire it was done against: the first of the conflagration burning then.
+    pub fire: u32,
+    /// The building they were carried out of.
+    pub building: PermanentId,
+    /// Who.
+    pub person: PermanentId,
+    /// When.
+    pub at: SimTime,
+    /// The good, by index in the catalog's goods.
+    pub good: u16,
+    /// Kilograms.
+    pub kg: f32,
 }
 
 impl Fires {
@@ -720,6 +770,21 @@ impl Fires {
                     t.fire
                 ));
             }
+        }
+        let known = |f: u32| f != 0 && f as usize <= self.list.len();
+        if self
+            .stripped
+            .iter()
+            .any(|s| !known(s.fire) || !(s.m2.is_finite() && s.m2 > 0.0))
+        {
+            out.push("a stripped roof is malformed".to_owned());
+        }
+        if self
+            .salvaged
+            .iter()
+            .any(|s| !known(s.fire) || !(s.kg.is_finite() && s.kg > 0.0))
+        {
+            out.push("goods carried out of a fire's way are malformed".to_owned());
         }
         for (i, k) in self.knew.iter().enumerate() {
             if k.fire == 0 || k.fire as usize > self.list.len() {

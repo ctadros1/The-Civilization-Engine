@@ -121,6 +121,16 @@ pub struct FireTarget {
     pub fill_min: u32,
     /// Minutes of walking: to the water, then to the roof.
     pub walk_min: f64,
+    /// Points: stripping its covering, less what that costs its household; none when it is not
+    /// theirs to strip (M6b slice BD, step four).
+    pub strip_points: Option<f64>,
+    /// Points: carrying a load of their household's goods out from under it; none when it is not
+    /// their household's or keeps nothing that burns.
+    pub salvage_points: Option<f64>,
+    /// Where goods carried out are set down, out of the fire's way, metres.
+    pub away: (f32, f32),
+    /// Minutes of walking straight to the roof.
+    pub to_roof_min: f64,
 }
 
 /// The roofs a fire someone knows of threatens (M6b slice BD, step three).
@@ -1593,6 +1603,58 @@ pub fn candidates(
                     from: t.from,
                 };
                 out.push(finish(id, target, terms, steps));
+            }
+            Behavior::Strip | Behavior::Salvage => {
+                // Tearing a threatened roof's covering off, or carrying the household's goods out
+                // from under it (M6b slice BD, step four; ADR-0022 §6).
+                let Some(fire) = f.fire.as_ref() else {
+                    continue;
+                };
+                let strip = def.behavior == Behavior::Strip;
+                let points_of = |t: &FireTarget| {
+                    if strip {
+                        t.strip_points
+                    } else {
+                        t.salvage_points
+                    }
+                };
+                let worth =
+                    |t: &FireTarget| points_of(t).map(|p| p - w.w_walk_hour * t.to_roof_min / 60.0);
+                let Some((t, _)) = fire
+                    .targets
+                    .iter()
+                    .filter_map(|t| worth(t).map(|v| (t, v)))
+                    .max_by(|a, b| {
+                        a.1.total_cmp(&b.1)
+                            .then_with(|| b.0.building.cmp(&a.0.building))
+                    })
+                else {
+                    continue;
+                };
+                term(
+                    &mut terms,
+                    Reason::FireThreatens,
+                    points_of(t).unwrap_or(0.0),
+                );
+                term(
+                    &mut terms,
+                    Reason::Walking,
+                    -w.w_walk_hour * t.to_roof_min / 60.0,
+                );
+                let work = Step::Work {
+                    minutes: def.min_minutes.max(1),
+                };
+                let steps = if strip {
+                    vec![Step::Walk { to: t.at }, work]
+                } else {
+                    vec![
+                        Step::Walk { to: t.at },
+                        work,
+                        Step::Walk { to: t.away },
+                        work,
+                    ]
+                };
+                out.push(finish(id, Target::Building(t.building), terms, steps));
             }
             Behavior::Tend => {
                 // Sitting with the household's sick at home, as long as care is owed them.

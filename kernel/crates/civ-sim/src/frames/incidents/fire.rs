@@ -374,7 +374,45 @@ fn held_lines(sim: &Sim, root: u32) -> Vec<String> {
 /// The water people carried against the fires begun with `root` (M6b slice BD, step three):
 /// "Water was carried against it: 16 loads, 240 L, by 9 people, 6 of the loads from their
 /// households' stores", or nothing when none was.
-fn water_line(sim: &Sim, root: u32) -> Option<String> {
+fn water_line(sim: &Sim, root: u32) -> Vec<String> {
+    let fires = &sim.people.fires;
+    let mut out: Vec<String> = Vec::new();
+    out.extend(thrown_line(sim, root));
+    // Roofs stripped and goods carried out (M6b slice BD, step four).
+    let stripped: Vec<_> = fires.stripped.iter().filter(|t| t.fire == root).collect();
+    if !stripped.is_empty() {
+        let mut roofs: Vec<PermanentId> = stripped.iter().map(|t| t.building).collect();
+        roofs.sort_unstable();
+        roofs.dedup();
+        let m2: f32 = stripped.iter().map(|t| t.m2).sum();
+        out.push(format!(
+            "Covering was torn from {} {} to save {}: {m2:.0} m²",
+            roofs.len(),
+            if roofs.len() == 1 { "roof" } else { "roofs" },
+            if roofs.len() == 1 { "it" } else { "them" },
+        ));
+    }
+    let salvaged: Vec<_> = fires.salvaged.iter().filter(|t| t.fire == root).collect();
+    if !salvaged.is_empty() {
+        let kg: f32 = salvaged.iter().map(|t| t.kg).sum();
+        let mut people: Vec<PermanentId> = salvaged.iter().map(|t| t.person).collect();
+        people.sort_unstable();
+        people.dedup();
+        out.push(format!(
+            "Goods were carried out of its way: {kg:.0} kg, by {} {}",
+            people.len(),
+            if people.len() == 1 {
+                "person"
+            } else {
+                "people"
+            },
+        ));
+    }
+    out
+}
+
+/// The water people carried against the fires begun with `root`, in a line, if any was.
+fn thrown_line(sim: &Sim, root: u32) -> Option<String> {
     let thrown: Vec<_> = sim
         .people
         .fires

@@ -114,7 +114,7 @@ use super::{
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
-    SCHEMA_V89, SCHEMA_V90, finish, section, single_chunk, unreadable,
+    SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -500,6 +500,8 @@ enum Schema {
     /// Water carried to a fire: wet roofs, loads thrown and the douse target (M6b slice BD, step
     /// three).
     V91,
+    /// Roofs stripped and goods carried out of a fire's way (M6b slice BD, step four).
+    V92,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -605,7 +607,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V88 => Schema::V88,
         SCHEMA_V89 => Schema::V89,
         SCHEMA_V90 => Schema::V90,
-        SAVE_SCHEMA_VERSION => Schema::V91,
+        SCHEMA_V91 => Schema::V91,
+        SAVE_SCHEMA_VERSION => Schema::V92,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -3138,7 +3141,8 @@ fn carried(
         | Schema::V88
         | Schema::V89
         | Schema::V90
-        | Schema::V91 => {
+        | Schema::V91
+        | Schema::V92 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3341,7 +3345,8 @@ fn decode_households(
             | Schema::V88
             | Schema::V89
             | Schema::V90
-            | Schema::V91 => {
+            | Schema::V91
+            | Schema::V92 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -8640,6 +8645,41 @@ fn encode_fires(people: &Population) -> Vec<u8> {
         })
         .collect();
     let thrown = fbb.create_vector(&thrown);
+    let stripped: Vec<_> = fires
+        .stripped
+        .iter()
+        .map(|t| {
+            save::StrippedSave::create(
+                &mut fbb,
+                &save::StrippedSaveArgs {
+                    fire: t.fire,
+                    building: t.building.get(),
+                    person: t.person.get(),
+                    at: t.at.minutes(),
+                    m2: t.m2,
+                },
+            )
+        })
+        .collect();
+    let stripped = fbb.create_vector(&stripped);
+    let salvaged: Vec<_> = fires
+        .salvaged
+        .iter()
+        .map(|t| {
+            save::SalvagedSave::create(
+                &mut fbb,
+                &save::SalvagedSaveArgs {
+                    fire: t.fire,
+                    building: t.building.get(),
+                    person: t.person.get(),
+                    at: t.at.minutes(),
+                    good: t.good,
+                    kg: t.kg,
+                },
+            )
+        })
+        .collect();
+    let salvaged = fbb.create_vector(&salvaged);
     let root = save::FiresSave::create(
         &mut fbb,
         &save::FiresSaveArgs {
@@ -8651,6 +8691,8 @@ fn encode_fires(people: &Population) -> Vec<u8> {
             knew: Some(knew),
             wet: Some(wet),
             thrown: Some(thrown),
+            stripped: Some(stripped),
+            salvaged: Some(salvaged),
         },
     );
     finish(fbb, root)
@@ -8660,7 +8702,8 @@ fn encode_fires(people: &Population) -> Vec<u8> {
 /// then, and nobody's knowledge of a fire was kept.
 fn decode_fires(bytes: &[u8], schema: Schema) -> Result<civ_agents::fire::Fires, LoadError> {
     use civ_agents::fire::{
-        Conflagration, Fire, Fires, Hearth, Ignition, Kindled, Knew, Noticed, Thrown, Weighed,
+        Conflagration, Fire, Fires, Hearth, Ignition, Kindled, Knew, Noticed, Salvaged, Stripped,
+        Thrown, Weighed,
     };
     let root =
         flatbuffers::root::<save::FiresSave>(bytes).map_err(|e| unreadable(SECTION_FIRES, &e))?;
@@ -8776,6 +8819,25 @@ fn decode_fires(bytes: &[u8], schema: Schema) -> Result<civ_agents::fire::Fires,
             at: SimTime::from_minutes(t.at()),
             litres: t.litres(),
             from: t.from(),
+        });
+    }
+    for t in root.stripped().iter().flatten() {
+        out.stripped.push(Stripped {
+            fire: t.fire(),
+            building: required(t.building(), "a stripped roof")?,
+            person: required(t.person(), "someone who stripped a roof")?,
+            at: SimTime::from_minutes(t.at()),
+            m2: t.m2(),
+        });
+    }
+    for t in root.salvaged().iter().flatten() {
+        out.salvaged.push(Salvaged {
+            fire: t.fire(),
+            building: required(t.building(), "a building goods were carried out of")?,
+            person: required(t.person(), "someone who carried goods out")?,
+            at: SimTime::from_minutes(t.at()),
+            good: t.good(),
+            kg: t.kg(),
         });
     }
     Ok(out)

@@ -1396,6 +1396,16 @@ The full end-to-end run found the knowledge test still counting the founders' te
 
 **Open:** stripping threatened roofs, carrying goods out and pulling down; fire seen and told and fire caution; the fire row, the lens and the calibration sweep.
 
+## 2026-10-11 — M6b slice BD, step four: stripping roofs and carrying goods out
+
+**What changed:** two more choices at a fire. Someone may tear the thatch from a roof a fire threatens (their own, or another's with leave of someone of its household beside it), worth it only when the roof stands more than half-way to catching, since stripping costs the covering; a roof with no covering has nothing to catch. Someone may carry a load of their household's goods out from under a threatened roof of its; the fire, if it comes, does not reach them. Saves 92, content API 85.
+
+**Findings:** with water at hand people carried water almost every time: it costs the household nothing, while stripping costs its roof. In five worlds no roof was stripped and two loads of goods were carried out. The choices are offered and weighed; when they win is for the calibration sweep to find.
+
+**Evidence:** paired worlds from one save, one where stripping and salvage are worth nothing: nothing is stripped or carried out there; elsewhere what is done is of the block, against the fire burning then, the household's own goods a load at a time. With the default tuning stripping is so rarely chosen that a test asserting it happened failed about half the time; the test now makes stripping free in some worlds and salvage generous in others, by turns, so each mechanic is exercised whichever way the tuning leans. A person who can find no water source at all is still offered neither choice (the facts are gathered only where water can be had); left as found, since a settlement without a reachable source is rare.
+
+**Open:** pulling a building down; fire seen and told and fire caution; the fire row, the lens and the calibration sweep.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

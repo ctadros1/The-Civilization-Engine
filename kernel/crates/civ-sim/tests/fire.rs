@@ -1057,3 +1057,68 @@ fn carrying_water_is_the_same_whatever_the_speed_and_across_a_save() {
     assert!(!a.people().fires.thrown.is_empty(), "nobody carried water");
     assert_eq!(a.people().fires, b.people().fires);
 }
+
+#[test]
+fn a_household_strips_its_threatened_roofs_and_carries_its_goods_out_of_the_way() {
+    let (mut strips, mut loads) = (0, 0);
+    for seed in 4..8 {
+        let (mut idle, mut busy, huts) = block_near_home(seed, 3.0, 5.5);
+        // In one, stripping costs as much as burning and goods are worth nothing to save. In the
+        // other, one of the two is made cheap, by turns, so that each is exercised whichever way
+        // the tuning leans (carrying water, or the other, would otherwise often be the better
+        // choice, and the scheduler's tie-break differs between worlds).
+        for (s, strip_cost, salvage_share) in [
+            (&mut idle, 1.0, 0.0),
+            (
+                &mut busy,
+                if seed % 2 == 0 { 0.0 } else { 1.0 },
+                if seed % 2 == 0 { 0.0 } else { 2.0 },
+            ),
+        ] {
+            let fire = &mut s.rules_mut_for_tests().expect("rules").people.fire;
+            fire.strip_cost = strip_cost;
+            fire.salvage_share = salvage_share;
+        }
+        for s in [&mut idle, &mut busy] {
+            s.set_fire(huts[0]).expect("set alight");
+            s.advance_minutes(120).expect("advances");
+            let fires = &s.people().fires;
+            assert!(fires.problems().is_empty(), "{:?}", fires.problems());
+        }
+        let quiet = &idle.people().fires;
+        assert!(quiet.stripped.is_empty() && quiet.salvaged.is_empty());
+        let fires = &busy.people().fires;
+        let (household, _) = first(&busy);
+        for s in &fires.stripped {
+            // A roof of the block, stripped by its own household or with leave, against the fire
+            // burning then; its covering is the poorer for it.
+            assert!(huts.contains(&s.building));
+            assert_eq!(fires.root(s.fire), s.fire);
+            let b = busy
+                .land()
+                .buildings
+                .iter()
+                .find(|b| b.id == s.building)
+                .expect("still stands");
+            assert!(
+                b.condition
+                    .iter()
+                    .filter(|c| GroupKind::of_group(c.group) == Some(GroupKind::Covering))
+                    .all(|c| c.loss > 0.0)
+            );
+        }
+        let carry = busy.rules().people.household.carry_kg as f32;
+        for s in &fires.salvaged {
+            // Only the household's own goods, a load at most each time.
+            assert!(huts.contains(&s.building));
+            let p = busy.people().person(s.person);
+            assert!(p.is_none_or(|p| p.household == household));
+            assert!(s.kg <= carry + 1e-3);
+        }
+        strips += fires.stripped.len();
+        loads += fires.salvaged.len();
+    }
+    eprintln!("stripped {strips}, loads {loads}");
+    assert!(strips > 0, "nobody stripped a roof");
+    assert!(loads > 0, "nobody carried goods out");
+}

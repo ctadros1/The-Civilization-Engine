@@ -18,8 +18,8 @@
 use super::*;
 use crate::decide::{FireFacts, FireTarget};
 use crate::fire::{
-    Conflagration, Fire, FireParams, Hearth, Ignition, Kindled, Knew, Noticed, Outline, Stage,
-    Thrown, Weighed, charred_loss,
+    Conflagration, Fire, FireParams, Hearth, Ignition, Kindled, Knew, Noticed, Outline, Salvaged,
+    Stage, Stripped, Thrown, Weighed, charred_loss,
 };
 use crate::history::{Cause, FireStep};
 use crate::influence::InfluenceKind;
@@ -498,6 +498,36 @@ impl Population {
             let at = build::centre_m(&b.spec);
             let walk =
                 |a: (f32, f32), b: (f32, f32)| f64::from(a.0 - b.0).hypot(f64::from(a.1 - b.1));
+            // Stripping it: theirs, or another's with leave of one of its people there awake.
+            let leave = b.household == hh.id
+                || self.people.iter().any(|(_, q)| {
+                    q.household == b.household
+                        && !q.asleep
+                        && walk(q.position_at(now.minutes() as f64), at) <= fp.reach_m
+                });
+            let strip_points = (leave && near > fp.strip_cost)
+                .then_some(fp.w_save * stake * (near - fp.strip_cost));
+            // Carrying their household's goods out from under it.
+            let salvage_points = if b.household == hh.id {
+                let kg = self.burnable_under(ctx, &b, &roots);
+                let carry = ctx.params.household.carry_kg;
+                (kg > 0.0 && carry > 0.0)
+                    .then(|| fp.w_save * fp.salvage_share * near * (kg / carry).min(1.0))
+            } else {
+                None
+            };
+            // Out of the fire's way: 15 m from it, away from the nearest fire burning.
+            let away = self
+                .fires
+                .list
+                .iter()
+                .filter(|f| f.burning())
+                .min_by(|a, c| walk(a.at, at).total_cmp(&walk(c.at, at)))
+                .map_or(at, |f| {
+                    let (dx, dy) = (at.0 - f.at.0, at.1 - f.at.1);
+                    let d = dx.hypot(dy).max(0.1);
+                    (at.0 + 15.0 * dx / d, at.1 + 15.0 * dy / d)
+                });
             targets.push(FireTarget {
                 building,
                 at,
@@ -506,6 +536,10 @@ impl Population {
                 fill_at,
                 fill_min,
                 walk_min: (walk(pos, fill_at) + walk(fill_at, at)) / speed,
+                strip_points,
+                salvage_points,
+                away,
+                to_roof_min: walk(pos, at) / speed,
             });
         }
         targets.sort_by(|a, b| {
@@ -515,6 +549,153 @@ impl Population {
         });
         targets.truncate(3);
         (!targets.is_empty()).then_some(FireFacts { targets })
+    }
+
+    /// Kilograms of goods that burn its household keeps under building `b`'s roof, less what was
+    /// carried out from under it against the fires begun with `roots` (M6b slice BD, step four).
+    fn burnable_under(&mut self, ctx: &Ctx, b: &Building, roots: &[u32]) -> f64 {
+        let Some(bi) = ctx.land.buildings.iter().position(|x| x.id == b.id) else {
+            return 0.0;
+        };
+        let kept = self.kept_by(ctx, b.household, bi);
+        let under: f64 = ctx
+            .catalog
+            .goods
+            .iter()
+            .enumerate()
+            .filter(|(_, d)| d.fire.is_some_and(|f| f.burns > 0.0))
+            .map(|(g, _)| {
+                kept.iter()
+                    .map(|k| k.get(g).copied().unwrap_or(0.0))
+                    .sum::<f64>()
+            })
+            .sum();
+        let out: f64 = self
+            .fires
+            .salvaged
+            .iter()
+            .filter(|s| s.building == b.id && roots.contains(&s.fire))
+            .map(|s| f64::from(s.kg))
+            .sum();
+        (under - out).max(0.0)
+    }
+
+    /// The fire burning nearest point `at`, as the first of its conflagration (or itself).
+    fn fire_against(&self, at: (f32, f32)) -> Option<u32> {
+        let d = |f: &Fire| f64::from(f.at.0 - at.0).hypot(f64::from(f.at.1 - at.1));
+        self.fires
+            .list
+            .iter()
+            .filter(|f| f.burning())
+            .min_by(|a, c| d(a).total_cmp(&d(c)).then_with(|| a.id.cmp(&c.id)))
+            .map(|f| self.fires.root(f.id))
+    }
+
+    /// Person `who` has torn covering from building `building`'s roof for `minutes` (M6b slice
+    /// BD, step four; ADR-0022 §6): its covering loses that share of its area, and once all of it
+    /// is gone it has nothing to catch. Nothing is restored: the household rethatches it as any
+    /// lost covering.
+    pub(super) fn strip_roof(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        building: PermanentId,
+        minutes: u32,
+    ) {
+        let plots = plot_boxes(ctx.land);
+        let Some(bi) = ctx.land.buildings.iter().position(|b| b.id == building) else {
+            return;
+        };
+        let b = &ctx.land.buildings[bi];
+        if !b.roofed() || self.fires.burning_in(building).is_some() {
+            return;
+        }
+        let at = build::centre_m(&b.spec);
+        let Some(fire) = self.fire_against(at) else {
+            return;
+        };
+        let area = outline_of(&plots, b).map_or(0.0, |o| o.area_m2());
+        let m2 = f64::from(minutes) * ctx.params.fire.strip_m2_per_minute;
+        if area <= 0.0 || m2 <= 0.0 {
+            return;
+        }
+        for c in &mut ctx.land.buildings[bi].condition {
+            if GroupKind::of_group(c.group) == Some(GroupKind::Covering) {
+                c.loss = (c.loss + (m2 / area) as f32).min(1.0);
+                if c.loss >= 1.0 {
+                    c.state = GroupState::Failed;
+                }
+            }
+        }
+        self.fires.stripped.push(Stripped {
+            fire,
+            building,
+            person: who,
+            at: ctx.now,
+            m2: m2.min(area) as f32,
+        });
+    }
+
+    /// Person `who` of `household` takes up a load of its goods from under building
+    /// `building`'s roof, those that burn and the most first, to carry out of the fire's way
+    /// (M6b slice BD, step four; ADR-0022 §5). They stay the household's; its fire, if it comes,
+    /// does not reach them.
+    pub(super) fn salvage(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        household: PermanentId,
+        building: PermanentId,
+    ) {
+        let Some(bi) = ctx.land.buildings.iter().position(|b| b.id == building) else {
+            return;
+        };
+        let b = ctx.land.buildings[bi].clone();
+        if b.household != household {
+            return;
+        }
+        let Some(fire) = self.fire_against(build::centre_m(&b.spec)) else {
+            return;
+        };
+        let kept = self.kept_by(ctx, household, bi);
+        let mut under: Vec<(f64, usize)> = ctx
+            .catalog
+            .goods
+            .iter()
+            .enumerate()
+            .filter(|(_, d)| d.fire.is_some_and(|f| f.burns > 0.0))
+            .map(|(g, _)| {
+                let kg: f64 = kept.iter().map(|k| k.get(g).copied().unwrap_or(0.0)).sum();
+                let out: f64 = self
+                    .fires
+                    .salvaged
+                    .iter()
+                    .filter(|s| {
+                        s.building == building && s.fire == fire && usize::from(s.good) == g
+                    })
+                    .map(|s| f64::from(s.kg))
+                    .sum();
+                ((kg - out).max(0.0), g)
+            })
+            .filter(|&(kg, _)| kg > 0.01)
+            .collect();
+        under.sort_by(|a, c| c.0.total_cmp(&a.0).then_with(|| a.1.cmp(&c.1)));
+        let mut room = ctx.params.household.carry_kg;
+        for (kg, g) in under {
+            if room <= 0.0 {
+                break;
+            }
+            let taken = kg.min(room);
+            room -= taken;
+            self.fires.salvaged.push(Salvaged {
+                fire,
+                building,
+                person: who,
+                at: ctx.now,
+                good: g as u16,
+                kg: taken as f32,
+            });
+        }
     }
 
     /// Person `h` of `household` draws a load of water for a fire where `from` says (M6b slice
@@ -1030,7 +1211,8 @@ impl Population {
         // Fully involved: the goods under the roof burn, and sleepers inside are caught.
         let caught = stage == Stage::Involved && was == Stage::Covering;
         if caught {
-            let lost = self.burn_goods(ctx, bi);
+            let root = self.fires.root(id);
+            let lost = self.burn_goods(ctx, bi, root);
             self.fires.list[i].goods_kg += lost as f32;
         }
         let o = outline_of(plots, &b);
@@ -1039,13 +1221,29 @@ impl Population {
     }
 
     /// The goods household of building `bi` keeps under its roof burn, each good its share
-    /// (ADR-0022 §5): lost from its stores. Kilograms lost.
-    fn burn_goods(&mut self, ctx: &mut Ctx, bi: usize) -> f64 {
-        let household = ctx.land.buildings[bi].household;
+    /// (ADR-0022 §5): lost from its stores. Goods carried out from under it against the fires
+    /// begun with `root` do not (slice BD, step four). Kilograms lost.
+    fn burn_goods(&mut self, ctx: &mut Ctx, bi: usize, root: u32) -> f64 {
+        let (household, building) = (ctx.land.buildings[bi].household, ctx.land.buildings[bi].id);
         let Some(hd) = self.hh_index.get(&household).copied() else {
             return 0.0;
         };
-        let kept = self.kept_by(ctx, household, bi);
+        let mut kept = self.kept_by(ctx, household, bi);
+        for s in self
+            .fires
+            .salvaged
+            .iter()
+            .filter(|s| s.fire == root && s.building == building)
+        {
+            let mut out = f64::from(s.kg);
+            for k in &mut kept {
+                if let Some(v) = k.get_mut(usize::from(s.good)) {
+                    let taken = out.min(*v);
+                    *v -= taken;
+                    out -= taken;
+                }
+            }
+        }
         let goods = &ctx.catalog.goods;
         let Some(x) = self.households.get_mut(hd) else {
             return 0.0;

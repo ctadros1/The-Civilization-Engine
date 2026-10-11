@@ -307,6 +307,9 @@ pub const SCHEMA_V89: u32 = 89;
 /// The schema version of M6b slice BD, step two: escapes that grow and who knew of each fire,
 /// before people carried water to one (see [`agents`]).
 pub const SCHEMA_V90: u32 = 90;
+/// The schema version of M6b slice BD, step three: water carried to a fire, before roofs were
+/// stripped and goods carried out (see [`agents`]).
+pub const SCHEMA_V91: u32 = 91;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

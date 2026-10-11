@@ -1103,3 +1103,14 @@ wet_drains_per_minute = 0.03
 w_save = 20.0
 kin_share = 0.5
 neighbour_share = 0.25
+# Stripping a threatened roof (slice BD, step four; ADR-0022 §6): one person tears off
+# `strip_m2_per_minute` of covering a minute, and a roof with no covering left has nothing to
+# catch. It costs the household `strip_cost` of what losing the roof to fire would (the covering
+# is gone either way), so it is worth doing only to a roof nearer catching than that. Their own
+# household's, or another's with leave of one of its people awake beside it. Design priors.
+strip_m2_per_minute = 1.0
+strip_cost = 0.5
+# Carrying goods out (ADR-0022 §5: goods carried out survive): a load of what would burn under a
+# threatened roof of their household's is worth `salvage_share` of saving the roof, scaled by how
+# much of a load is there. A design prior.
+salvage_share = 0.5

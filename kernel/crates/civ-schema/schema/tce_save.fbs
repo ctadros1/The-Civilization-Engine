@@ -2219,6 +2219,29 @@ table FiresSave {
   // Schema 91.
   wet: [WetSave] (id: 6);
   thrown: [ThrownSave] (id: 7);
+  // Schema 92.
+  stripped: [StrippedSave] (id: 8);
+  salvaged: [SalvagedSave] (id: 9);
+}
+
+// Covering torn from a roof a fire threatened (schema 92, M6b slice BD, step four).
+table StrippedSave {
+  fire: uint (id: 0);
+  building: ulong (id: 1);
+  person: ulong (id: 2);
+  at: long (id: 3);
+  m2: float (id: 4);
+}
+
+// Goods carried out from under a roof a fire threatened (schema 92): `good` by index in the
+// catalog's goods.
+table SalvagedSave {
+  fire: uint (id: 0);
+  building: ulong (id: 1);
+  person: ulong (id: 2);
+  at: long (id: 3);
+  good: ushort (id: 4);
+  kg: float (id: 5);
 }
 
 // Water standing on a roof near a fire burning now (schema 91, M6b slice BD, step three).

@@ -16,12 +16,14 @@
 //! a share of them do not get out.
 
 use super::*;
+use crate::decide::{FireFacts, FireTarget};
 use crate::fire::{
     Conflagration, Fire, FireParams, Hearth, Ignition, Kindled, Knew, Noticed, Outline, Stage,
-    Weighed, charred_loss,
+    Thrown, Weighed, charred_loss,
 };
 use crate::history::{Cause, FireStep};
 use crate::influence::InfluenceKind;
+use crate::person::FROM_STORE;
 use civ_grammar::GroupKind;
 use civ_land::{Building, GroupState, Land};
 
@@ -399,6 +401,229 @@ impl Population {
         }
     }
 
+    /// The roofs a fire person `h` knows of threatens, and how they would bring water to each
+    /// (M6b slice BD, step three; ADR-0022 §6): each roof the heat of a fire burning now reaches,
+    /// worth saving by whose it is (their household's, their close kin's or a neighbour's) and by
+    /// how near its exposure stands to what its covering needs to catch. The water is their
+    /// household's store when it holds a load, else the nearest source they would draw at.
+    /// Nothing for one who knows of no fire burning now.
+    pub(super) fn fire_facts(
+        &mut self,
+        ctx: &Ctx,
+        h: Handle<Person>,
+        hh: &Household,
+        water_l: f64,
+        short: bool,
+        field_key: PermanentId,
+    ) -> Option<FireFacts> {
+        if self.fires.exposure.is_empty() || !self.fires.any_burning() {
+            return None;
+        }
+        let now = ctx.now;
+        let p = self.people.get(h)?;
+        let (me, age, pos) = (p.id, p.age_years(now), p.pos);
+        let fp = &ctx.params.fire;
+        // The conflagrations (or lone fires) burning now, and whether they know of one.
+        let roots: Vec<u32> = self
+            .fires
+            .list
+            .iter()
+            .filter(|f| f.burning())
+            .map(|f| self.fires.root(f.id))
+            .collect();
+        let span = (fp.involve_minutes + fp.involved_minutes).ceil() as i64 + 1;
+        let since = roots
+            .iter()
+            .filter_map(|&r| self.fires.get(r).map(|f| f.began.minutes()))
+            .min()
+            .unwrap_or(now.minutes() - span);
+        let knows = self
+            .fires
+            .knew
+            .iter()
+            .rev()
+            .take_while(|k| k.at.minutes() >= since)
+            .any(|k| k.person == me && roots.contains(&self.fires.root(k.fire)));
+        if !knows {
+            return None;
+        }
+        // Where a load of water comes from.
+        let carry = ctx.params.household.carry_water_l;
+        let (from, fill_at, fill_min) = if water_l >= carry {
+            (FROM_STORE, hh.home, 1)
+        } else {
+            let home = self.homes.get(&field_key);
+            let water = self.water_source(ctx, home, Some((hh, short)), Some(me))?;
+            let from = water
+                .well
+                .and_then(|w| ctx.land.wells.get(w))
+                .map_or(water.cell, |w| w.cell);
+            (from, water.at, 1 + water.lift_min.round().max(0.0) as u32)
+        };
+        let speed = interpolate(&ctx.params.walk_speed_by_age, age).max(0.05) * 60.0;
+        let kin = self.kin_households(hh);
+        let exposed: Vec<(PermanentId, f64)> = self
+            .fires
+            .exposure
+            .iter()
+            .filter(|&&(_, s)| s > 0.0)
+            .copied()
+            .collect();
+        let mut targets = Vec::new();
+        for (building, store) in exposed {
+            let Some(b) = ctx
+                .land
+                .buildings
+                .iter()
+                .find(|b| b.id == building)
+                .cloned()
+            else {
+                continue;
+            };
+            let Some(threshold) = self.catch_threshold(ctx, &b) else {
+                continue;
+            };
+            let near = (store / threshold.max(1e-6)).clamp(0.0, 1.0);
+            let stake = if b.household == hh.id {
+                1.0
+            } else if kin.binary_search(&b.household).is_ok() {
+                fp.kin_share
+            } else {
+                fp.neighbour_share
+            };
+            let points = fp.w_save * stake * near;
+            if points <= 0.0 {
+                continue;
+            }
+            let at = build::centre_m(&b.spec);
+            let walk =
+                |a: (f32, f32), b: (f32, f32)| f64::from(a.0 - b.0).hypot(f64::from(a.1 - b.1));
+            targets.push(FireTarget {
+                building,
+                at,
+                points,
+                from,
+                fill_at,
+                fill_min,
+                walk_min: (walk(pos, fill_at) + walk(fill_at, at)) / speed,
+            });
+        }
+        targets.sort_by(|a, b| {
+            b.points
+                .total_cmp(&a.points)
+                .then_with(|| a.building.cmp(&b.building))
+        });
+        targets.truncate(3);
+        (!targets.is_empty()).then_some(FireFacts { targets })
+    }
+
+    /// Person `h` of `household` draws a load of water for a fire where `from` says (M6b slice
+    /// BD, step three): from the household's store at home, as much of a load as it holds; at a
+    /// well, what its column holds of a load; at a bank or spring, a load.
+    pub(super) fn draw_for_fire(
+        &mut self,
+        ctx: &mut Ctx,
+        h: Handle<Person>,
+        who: PermanentId,
+        household: PermanentId,
+        from: u32,
+    ) {
+        let (now, params) = (ctx.now, ctx.params);
+        let carry = params.household.carry_water_l;
+        let got = if from == FROM_STORE {
+            let Some(x) = self
+                .hh_index
+                .get(&household)
+                .copied()
+                .and_then(|i| self.households.get_mut(i))
+            else {
+                return;
+            };
+            let members = x.members.len().max(1) as f64;
+            let litres_day = members * x.water_use(&params.household);
+            x.settle_water(now, litres_day);
+            let got = x.water_l.min(carry).max(0.0);
+            x.water_l -= got;
+            got
+        } else if let Some(well) = ctx
+            .land
+            .wells
+            .list
+            .iter()
+            .find(|w| w.cell == from)
+            .map(|w| w.id)
+        {
+            let got = self.drew_from_well(ctx, well, household, who, now);
+            self.drew_at(who, household, from);
+            got
+        } else {
+            self.drew_water(ctx, from, household, who, now);
+            self.drew_at(who, household, from);
+            carry
+        };
+        if let Some(p) = self.people.get_mut(h) {
+            p.carrying.water_l = got as f32;
+        }
+    }
+
+    /// Person `h` throws the water they carry on building `building`'s roof (M6b slice BD, step
+    /// three; ADR-0022 §6): the share that stays on it wets it, while a fire burns near. Each
+    /// load is recorded against the fire burning then.
+    pub(super) fn throw_water(
+        &mut self,
+        ctx: &mut Ctx,
+        h: Handle<Person>,
+        who: PermanentId,
+        building: PermanentId,
+    ) {
+        let Some(p) = self.people.get_mut(h) else {
+            return;
+        };
+        let litres = f64::from(p.carrying.water_l);
+        p.carrying.water_l = 0.0;
+        let from = match p.act.target {
+            Target::Douse { from, .. } => from,
+            _ => FROM_STORE,
+        };
+        if litres <= 0.0 {
+            return;
+        }
+        // Against the fire burning nearest it: the first of its conflagration, or itself.
+        let Some(b) = ctx.land.buildings.iter().find(|b| b.id == building) else {
+            return;
+        };
+        let at = build::centre_m(&b.spec);
+        let fire = self
+            .fires
+            .list
+            .iter()
+            .filter(|f| f.burning())
+            .min_by(|a, c| {
+                let d = |f: &Fire| f64::from(f.at.0 - at.0).hypot(f64::from(f.at.1 - at.1));
+                d(a).total_cmp(&d(c)).then_with(|| a.id.cmp(&c.id))
+            })
+            .map(|f| self.fires.root(f.id));
+        let Some(fire) = fire else {
+            // Nothing burns any more: the water is spent on nothing.
+            return;
+        };
+        let stays = litres * ctx.params.fire.water_stays.clamp(0.0, 1.0);
+        if self.fires.burning_in(building).is_none() && stays > 0.0 {
+            match self.fires.wet.iter_mut().find(|(x, _)| *x == building) {
+                Some(w) => w.1 += stays,
+                None => self.fires.wet.push((building, stays)),
+            }
+        }
+        self.fires.thrown.push(Thrown {
+            fire,
+            building,
+            person: who,
+            at: ctx.now,
+            litres: litres as f32,
+            from,
+        });
+    }
+
     /// The observer sets building `building`'s covering alight (ADR-0022 §14): it burns as any
     /// fire does, and what follows is the fire's and people's. Refused for a building that is not
     /// roofed, already burns, or has no covering left to burn.
@@ -534,8 +759,15 @@ impl Population {
         if self.fires.active() {
             ctx.schedule.push((now.plus_minutes(1), AgentEvent::Fire));
         }
+        // Water on roofs runs off and dries.
+        let drains = (1.0 - p.wet_drains_per_minute).clamp(0.0, 1.0);
+        for w in &mut self.fires.wet {
+            w.1 *= drains;
+        }
+        self.fires.wet.retain(|&(_, l)| l > 0.01);
         if !self.fires.any_burning() {
             self.fires.exposure.clear();
+            self.fires.wet.clear();
         }
     }
 
@@ -961,6 +1193,9 @@ impl Population {
                 .iter()
                 .find(|(x, _)| *x == b.id)
                 .map_or(0.0, |&(_, s)| s);
+            // Water standing on its roof takes the heat first (M6b slice BD, step three).
+            let area = outline_of(plots, &b).map_or(0.0, |o| o.area_m2());
+            let heat = self.wet_takes(b.id, heat, area, p);
             let store = p.expose(before, heat, 1.0);
             match self.fires.exposure.iter_mut().find(|(x, _)| *x == b.id) {
                 Some(e) => e.1 = store,
@@ -995,6 +1230,22 @@ impl Population {
         }
         // Exposure that has cooled to nothing is let go.
         self.fires.exposure.retain(|&(_, s)| s > 0.01);
+    }
+
+    /// The heat `heat` (kW/m²) on building `building`'s roof of `area_m2` for a minute, less what
+    /// the water standing on it boils off: a wet covering cannot pass the boiling point until it
+    /// is dry, so only the heat its water could not take reaches its exposure.
+    fn wet_takes(&mut self, building: PermanentId, heat: f64, area_m2: f64, p: &FireParams) -> f64 {
+        let Some(w) = self.fires.wet.iter_mut().find(|(x, _)| *x == building) else {
+            return heat;
+        };
+        let needed = p.boiled_l(heat, area_m2, 1.0);
+        if needed <= 0.0 {
+            return heat;
+        }
+        let used = needed.min(w.1.max(0.0));
+        w.1 -= used;
+        heat * (1.0 - used / needed)
     }
 
     /// The spread weighed building `building` for the fires begun with `root`: the most its

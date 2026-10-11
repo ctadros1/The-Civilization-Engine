@@ -908,3 +908,152 @@ fn a_world_saved_with_ignitions_pending_lives_on_as_if_never_saved() {
     assert!(!a.people().fires.ignitions.is_empty());
     assert_eq!(a.people().fires, b.people().fires);
 }
+
+/// World `seed` at noon of its first day, the day's wind `wind_ms` from the west and thatch at
+/// 0.12: a block of huts two deep and three across, `gap_m` apart, of the first household, 15 m
+/// east of its home and 12 m south, saved and loaded twice so that both worlds are one world
+/// (M6b slice BD, step three).
+fn block_near_home(seed: u64, gap_m: f32, wind_ms: f32) -> (Sim, Sim, Vec<PermanentId>) {
+    let mut sim = world(seed);
+    sim.advance_minutes(6 * 60).expect("advances");
+    let (household, home) = first(&sim);
+    let step = hut_span_m() + gap_m;
+    let mut huts = Vec::new();
+    for r in 0..2 {
+        for c in 0..3 {
+            let at = (
+                home.0 + 15.0 + r as f32 * step,
+                home.1 + 12.0 + c as f32 * step,
+            );
+            huts.push(hut(&mut sim, household, at));
+        }
+    }
+    set_day(&mut sim, wind_ms, 0.12);
+    let dir = tempfile::tempdir().expect("tempdir");
+    let saves = SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "block").expect("saves");
+    let load = || persist::load(&saved.path, content()).expect("loads");
+    (load(), load(), huts)
+}
+
+#[test]
+fn people_carry_water_to_roofs_a_fire_threatens_and_save_some() {
+    use civ_agents::person::FROM_STORE;
+    let (mut lost_dry, mut lost_wet, mut loads) = (0, 0, 0);
+    for seed in 4..7 {
+        let (mut dry, mut wet, huts) = block_near_home(seed, 3.0, 5.5);
+        let carry = wet.rules().people.household.carry_water_l as f32;
+        // Nobody cares to carry water in one; in the other, as people do.
+        dry.rules_mut_for_tests().expect("rules").people.fire.w_save = 0.0;
+        for s in [&mut dry, &mut wet] {
+            s.set_fire(huts[0]).expect("set alight");
+            s.advance_minutes(120).expect("advances");
+            assert!(
+                s.people().fires.problems().is_empty(),
+                "{:?}",
+                s.people().fires.problems()
+            );
+        }
+        assert!(dry.people().fires.thrown.is_empty());
+        lost_dry += burned(&dry, &huts);
+        lost_wet += burned(&wet, &huts);
+        let fires = &wet.people().fires;
+        loads += fires.thrown.len();
+        for t in &fires.thrown {
+            // A load at most, thrown against the fire burning then, on a roof of the block.
+            assert!(t.litres > 0.0 && t.litres <= carry, "{} L", t.litres);
+            assert_eq!(fires.root(t.fire), t.fire);
+            assert!(huts.contains(&t.building));
+            if t.from == FROM_STORE {
+                continue;
+            }
+            assert!(t.from < wet.map().width * wet.map().height);
+        }
+        // Burnt out, nothing stands wet.
+        assert!(fires.wet.is_empty());
+        // The conflagration's page says what was carried against it.
+        if let Some(c) = fires
+            .episodes
+            .iter()
+            .find(|c| fires.thrown.iter().any(|t| t.fire == c.first))
+        {
+            use civ_schema::{flatbuffers, wire};
+            let bytes =
+                civ_sim::frames::incidents::conflagration_response(&wet, c.id).expect("page");
+            let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+            let info = response
+                .body_as_conflagration_info()
+                .expect("a conflagration");
+            let lines: Vec<&str> = info.held().expect("held").iter().collect();
+            assert!(
+                lines
+                    .iter()
+                    .any(|l| l.starts_with("Water was carried against it: ")),
+                "{lines:?}"
+            );
+        }
+    }
+    assert!(loads > 0, "nobody carried water");
+    assert!(
+        lost_wet < lost_dry,
+        "{lost_wet} burned with water carried, {lost_dry} without"
+    );
+}
+
+#[test]
+fn a_wet_roof_boils_its_water_off_before_it_can_catch() {
+    // Two huts 1.5 m apart in wind, nobody to carry water: the downwind one catches within
+    // minutes, unless its thatch holds water, which the heat must boil off first.
+    let caught_after = |litres: f64| -> Option<i64> {
+        let (mut sim, huts) = block(4, 2, 1, 1.5, 5.5, 0.12);
+        sim.rules_mut_for_tests().expect("rules").people.fire.w_save = 0.0;
+        if litres > 0.0 {
+            sim.people_mut_for_tests().fires.wet.push((huts[1], litres));
+        }
+        sim.set_fire(huts[0]).expect("set alight");
+        let began = sim.now().minutes();
+        sim.advance_minutes(30).expect("advances");
+        let fires = &sim.people().fires;
+        fires
+            .list
+            .iter()
+            .find(|f| f.building == huts[1])
+            .map(|f| f.began.minutes() - began)
+    };
+    let dry = caught_after(0.0).expect("a dry roof catches");
+    assert!(dry <= 5, "caught after {dry} minutes");
+    match caught_after(400.0) {
+        None => {}
+        Some(wet) => assert!(wet > dry + 5, "wet caught after {wet}, dry after {dry}"),
+    }
+}
+
+#[test]
+fn carrying_water_is_the_same_whatever_the_speed_and_across_a_save() {
+    let (mut a, mut b, huts) = block_near_home(4, 3.0, 5.5);
+    for s in [&mut a, &mut b] {
+        s.set_fire(huts[0]).expect("set alight");
+    }
+    // One lives the fire at once; the other in uneven steps, saved and loaded midway.
+    a.advance_minutes(90).expect("advances");
+    let mut left = 90;
+    let mut saved_once = false;
+    for step in [1, 3, 7, 2, 11].iter().cycle() {
+        let n = (*step).min(left);
+        b.advance_minutes(n).expect("advances");
+        left -= n;
+        if !saved_once && left < 60 {
+            saved_once = true;
+            let dir = tempfile::tempdir().expect("tempdir");
+            let saves =
+                SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("dir");
+            let saved = persist::save(&mut b, &saves, SaveKind::Manual, "mid").expect("saves");
+            b = persist::load(&saved.path, content()).expect("loads");
+        }
+        if left == 0 {
+            break;
+        }
+    }
+    assert!(!a.people().fires.thrown.is_empty(), "nobody carried water");
+    assert_eq!(a.people().fires, b.people().fires);
+}

@@ -52,7 +52,15 @@ pub enum Target {
     Crossing(PermanentId),
     /// A well, by permanent id: the one dug and lined (M6a slice AY, step three).
     Well(PermanentId),
+    /// A roof a fire threatens, by its building's permanent id, and where the water thrown on it
+    /// is drawn: the cell of a well or of the water at a bank or spring, or [`FROM_STORE`] for the
+    /// household's store at home (M6b slice BD, step three).
+    Douse { building: PermanentId, from: u32 },
 }
+
+/// Water for a fire drawn from the household's store at home, not a source (see
+/// [`Target::Douse`]).
+pub const FROM_STORE: u32 = u32::MAX;
 
 /// One step of an activity.
 #[derive(Clone, Copy, Debug, PartialEq)]

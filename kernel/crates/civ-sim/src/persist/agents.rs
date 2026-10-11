@@ -114,7 +114,7 @@ use super::{
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
-    SCHEMA_V89, finish, section, single_chunk, unreadable,
+    SCHEMA_V89, SCHEMA_V90, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -497,6 +497,9 @@ enum Schema {
     V89,
     /// Escapes that grow before the covering, and who knew of each fire (M6b slice BD, step two).
     V90,
+    /// Water carried to a fire: wet roofs, loads thrown and the douse target (M6b slice BD, step
+    /// three).
+    V91,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -601,7 +604,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V87 => Schema::V87,
         SCHEMA_V88 => Schema::V88,
         SCHEMA_V89 => Schema::V89,
-        SAVE_SCHEMA_VERSION => Schema::V90,
+        SCHEMA_V90 => Schema::V90,
+        SAVE_SCHEMA_VERSION => Schema::V91,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2126,6 +2130,7 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::Deposit(d) => (save::TargetKind::Deposit, 0, d.get()),
         Target::Crossing(c) => (save::TargetKind::Crossing, 0, c.get()),
         Target::Well(w) => (save::TargetKind::Well, 0, w.get()),
+        Target::Douse { building, from } => (save::TargetKind::Douse, from, building.get()),
     }
 }
 
@@ -2162,6 +2167,10 @@ fn target_of(
         save::TargetKind::Deposit => Target::Deposit(required(id, "a deposit target")?),
         save::TargetKind::Crossing => Target::Crossing(required(id, "a crossing target")?),
         save::TargetKind::Well => Target::Well(required(id, "a well target")?),
+        save::TargetKind::Douse => Target::Douse {
+            building: required(id, "a roof to throw water on")?,
+            from: index,
+        },
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -3128,7 +3137,8 @@ fn carried(
         | Schema::V87
         | Schema::V88
         | Schema::V89
-        | Schema::V90 => {
+        | Schema::V90
+        | Schema::V91 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3330,7 +3340,8 @@ fn decode_households(
             | Schema::V87
             | Schema::V88
             | Schema::V89
-            | Schema::V90 => {
+            | Schema::V90
+            | Schema::V91 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -8597,6 +8608,38 @@ fn encode_fires(people: &Population) -> Vec<u8> {
         })
         .collect();
     let knew = fbb.create_vector(&knew);
+    let wet: Vec<_> = fires
+        .wet
+        .iter()
+        .map(|&(building, litres)| {
+            save::WetSave::create(
+                &mut fbb,
+                &save::WetSaveArgs {
+                    building: building.get(),
+                    litres,
+                },
+            )
+        })
+        .collect();
+    let wet = fbb.create_vector(&wet);
+    let thrown: Vec<_> = fires
+        .thrown
+        .iter()
+        .map(|t| {
+            save::ThrownSave::create(
+                &mut fbb,
+                &save::ThrownSaveArgs {
+                    fire: t.fire,
+                    building: t.building.get(),
+                    person: t.person.get(),
+                    at: t.at.minutes(),
+                    litres: t.litres,
+                    from: t.from,
+                },
+            )
+        })
+        .collect();
+    let thrown = fbb.create_vector(&thrown);
     let root = save::FiresSave::create(
         &mut fbb,
         &save::FiresSaveArgs {
@@ -8606,6 +8649,8 @@ fn encode_fires(people: &Population) -> Vec<u8> {
             weighed: Some(weighed),
             ignitions: Some(ignitions),
             knew: Some(knew),
+            wet: Some(wet),
+            thrown: Some(thrown),
         },
     );
     finish(fbb, root)
@@ -8615,7 +8660,7 @@ fn encode_fires(people: &Population) -> Vec<u8> {
 /// then, and nobody's knowledge of a fire was kept.
 fn decode_fires(bytes: &[u8], schema: Schema) -> Result<civ_agents::fire::Fires, LoadError> {
     use civ_agents::fire::{
-        Conflagration, Fire, Fires, Hearth, Ignition, Kindled, Knew, Noticed, Weighed,
+        Conflagration, Fire, Fires, Hearth, Ignition, Kindled, Knew, Noticed, Thrown, Weighed,
     };
     let root =
         flatbuffers::root::<save::FiresSave>(bytes).map_err(|e| unreadable(SECTION_FIRES, &e))?;
@@ -8717,6 +8762,20 @@ fn decode_fires(bytes: &[u8], schema: Schema) -> Result<civ_agents::fire::Fires,
                 ))
             })?,
             shouted: k.shouted(),
+        });
+    }
+    for w in root.wet().iter().flatten() {
+        out.wet
+            .push((required(w.building(), "a wet roof")?, w.litres()));
+    }
+    for t in root.thrown().iter().flatten() {
+        out.thrown.push(Thrown {
+            fire: t.fire(),
+            building: required(t.building(), "a roof water was thrown on")?,
+            person: required(t.person(), "someone who threw water")?,
+            at: SimTime::from_minutes(t.at()),
+            litres: t.litres(),
+            from: t.from(),
         });
     }
     Ok(out)

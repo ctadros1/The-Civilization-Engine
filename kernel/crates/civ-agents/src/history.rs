@@ -173,6 +173,9 @@ pub enum Reason {
     Tend = 142,
     /// A fire burns at home (M6b slice BC; ADR-0022 §6): nothing is done there until it is out.
     HomeAfire = 143,
+    /// A roof a fire threatens, and what saving it is worth to them: their household's, their
+    /// kin's or a neighbour's, by how near it stands to catching (M6b slice BD, step three).
+    FireThreatens = 144,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -184,7 +187,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 77] = [
+    pub const ALL: [Reason; 78] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -262,6 +265,7 @@ impl Reason {
         Reason::Ill,
         Reason::Tend,
         Reason::HomeAfire,
+        Reason::FireThreatens,
     ];
 
     /// The reason with this code.
@@ -351,6 +355,7 @@ impl Reason {
             Reason::Ill => "illness keeps them abed",
             Reason::Tend => "someone ill at home needs tending",
             Reason::HomeAfire => "a fire burns at home",
+            Reason::FireThreatens => "a fire threatens a roof",
         }
     }
 }

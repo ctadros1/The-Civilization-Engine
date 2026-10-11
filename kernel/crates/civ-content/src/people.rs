@@ -102,6 +102,11 @@ pub(crate) struct FireFile {
     pub wake_minutes: [f64; 2],
     pub sight_m: f64,
     pub earshot_m: f64,
+    pub water_stays: f64,
+    pub wet_drains_per_minute: f64,
+    pub w_save: f64,
+    pub kin_share: f64,
+    pub neighbour_share: f64,
 }
 
 impl FireFile {
@@ -129,6 +134,11 @@ impl FireFile {
             wake_minutes: self.wake_minutes,
             sight_m: self.sight_m,
             earshot_m: self.earshot_m,
+            water_stays: self.water_stays,
+            wet_drains_per_minute: self.wet_drains_per_minute,
+            w_save: self.w_save,
+            kin_share: self.kin_share,
+            neighbour_share: self.neighbour_share,
         }
     }
 
@@ -189,6 +199,16 @@ impl FireFile {
             ("fire.wake_minutes[1]", self.wake_minutes[1], 0.0, 600.0),
             ("fire.sight_m", self.sight_m, 0.0, 2000.0),
             ("fire.earshot_m", self.earshot_m, 0.0, 1000.0),
+            ("fire.water_stays", self.water_stays, 0.0, 1.0),
+            (
+                "fire.wet_drains_per_minute",
+                self.wet_drains_per_minute,
+                0.0,
+                1.0,
+            ),
+            ("fire.w_save", self.w_save, 0.0, 1000.0),
+            ("fire.kin_share", self.kin_share, 0.0, 1.0),
+            ("fire.neighbour_share", self.neighbour_share, 0.0, 1.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

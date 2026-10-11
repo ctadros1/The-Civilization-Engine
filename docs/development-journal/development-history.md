@@ -1386,6 +1386,16 @@ The full end-to-end run found the knowledge test still counting the founders' te
 
 **Open:** step three, the choices people make at a fire: leading out, water carried from stores and sources, stripping a threatened roof, carrying goods out, pulling down, keeping away.
 
+## 2026-10-11 — M6b slice BD, step three: water carried to a fire
+
+**What changed:** a new behaviour, carrying water to a fire. Someone who knows of a fire burning now weighs carrying a load to a roof it threatens: worth most for their own household's, half for close kin's and a quarter for anyone's, by how near the roof stands to catching, less the walk. The water comes from their household's store when it holds a load, else from the source they would fetch from. Half of each load stays on the roof, and each minute the heat on a wet roof boils its water off first; only what the water cannot take reaches the roof's exposure. Each load is recorded, and the fire's page tells how much was carried and where. Saves 91, content API 84, no wire change.
+
+**Findings:** in a village as founded, homes 6 to 18 m apart, a lone hut fire seldom spreads, so water seldom decides anything. In a tight block beside the village in a strong wind, all 30 huts of five worlds burned with nobody carrying water and 20 with it. A first block placed across a river showed carriers walking 300 m around to a ford, which is right: water comes where people can walk. Dousing a roof already alight was not built: it is fully involved within the minute. In passing, two worlds made from one seed were found to diverge within hours; the scheduler's tie-break is seeded from each world's random identity by design, so probes now pair worlds from one save.
+
+**Evidence:** a wet roof catches long after a dry one, or not at all; people carry water to a burning block and fewer huts burn than when nobody cares to; the conflagration's page tells the water; the same carrying at any speed and across a save.
+
+**Open:** stripping threatened roofs, carrying goods out and pulling down; fire seen and told and fire caution; the fire row, the lens and the calibration sweep.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

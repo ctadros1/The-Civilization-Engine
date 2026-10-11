@@ -31,6 +31,9 @@
 
 use civ_core::{PermanentId, SimTime};
 
+/// The heat that boils off a litre of water, kJ.
+pub const LATENT_KJ_PER_L: f64 = 2257.0;
+
 /// How fire behaves (the people profile's `[fire]`; from content API 81). Every figure is a design
 /// prior unless its comment cites a measurement.
 #[derive(Clone, Debug, PartialEq)]
@@ -92,6 +95,18 @@ pub struct FireParams {
     pub sight_m: f64,
     /// How far, metres, a shout of fire is heard (ADR-0022 §6).
     pub earshot_m: f64,
+    /// The share of the water thrown on a roof that stays on it, the rest running off or
+    /// missing (slice BD, step three; 12-03 §1.7's η).
+    pub water_stays: f64,
+    /// The share of the water on a roof that runs off or dries each minute.
+    pub wet_drains_per_minute: f64,
+    /// Points: saving their household's own building from a fire, were it sure to catch
+    /// otherwise (slice BD, step three; ADR-0022 §6).
+    pub w_save: f64,
+    /// What saving a building of their close kin's household is worth, as a share of their own.
+    pub kin_share: f64,
+    /// What saving a neighbour's building is worth, as a share of their own.
+    pub neighbour_share: f64,
 }
 
 /// How far a building's fire has gone.
@@ -131,7 +146,19 @@ impl FireParams {
             wake_minutes: [5.0, 30.0],
             sight_m: 150.0,
             earshot_m: 60.0,
+            water_stays: 0.5,
+            wet_drains_per_minute: 0.03,
+            w_save: 20.0,
+            kin_share: 0.5,
+            neighbour_share: 0.25,
         }
+    }
+
+    /// Litres of water the heat `kw_m2` on a roof of `area_m2` boils off in `minutes`: a wet
+    /// covering cannot pass the boiling point until it is dry, so the heat goes into its water
+    /// first (2,257 kJ a litre).
+    pub fn boiled_l(&self, kw_m2: f64, area_m2: f64, minutes: f64) -> f64 {
+        (kw_m2.max(0.0) * area_m2.max(0.0) * minutes.max(0.0) * 60.0 / LATENT_KJ_PER_L).max(0.0)
     }
 
     /// How dryness scales an ignition hazard: 1 at `reference_moisture`, more for drier fuel,
@@ -271,6 +298,14 @@ pub enum Outline {
 }
 
 impl Outline {
+    /// The area of roof it covers in plan, m².
+    pub fn area_m2(&self) -> f64 {
+        match *self {
+            Outline::Round { r, .. } => std::f64::consts::PI * r * r,
+            Outline::Box { x0, y0, x1, y1 } => ((x1 - x0) * (y1 - y0)).abs(),
+        }
+    }
+
     /// Its centre, metres.
     pub fn centre(&self) -> (f64, f64) {
         match *self {
@@ -476,6 +511,25 @@ pub struct Knew {
     pub shouted: bool,
 }
 
+/// A load of water someone threw on a roof a fire threatened (ADR-0022 §6): the kernel's truth.
+/// Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Thrown {
+    /// The fire it was thrown against: the first of the conflagration burning then, or the lone
+    /// fire.
+    pub fire: u32,
+    /// The building it was thrown on.
+    pub building: PermanentId,
+    /// Who threw it.
+    pub person: PermanentId,
+    /// When.
+    pub at: SimTime,
+    /// Litres thrown.
+    pub litres: f32,
+    /// Where it was drawn: a source's cell, or [`crate::person::FROM_STORE`].
+    pub from: u32,
+}
+
 /// A building's fire: the kernel's record of it, from its covering catching to its burning out
 /// (ADR-0022 §13: an incident). Saved.
 #[derive(Clone, Debug, PartialEq)]
@@ -565,6 +619,11 @@ pub struct Fires {
     pub ignitions: Vec<Ignition>,
     /// Who came to know of each fire, and how, oldest first (slice BD).
     pub knew: Vec<Knew>,
+    /// The water standing on roofs near fires burning now, litres, by building id (slice BD,
+    /// step three).
+    pub wet: Vec<(PermanentId, f64)>,
+    /// Every load of water thrown at a fire, oldest first (slice BD, step three).
+    pub thrown: Vec<Thrown>,
 }
 
 impl Fires {
@@ -645,6 +704,23 @@ impl Fires {
                 out.push(format!("ignition {} grows for an invalid time", g.id));
             }
         }
+        if self.wet.iter().any(|&(_, l)| !(l.is_finite() && l >= 0.0)) {
+            out.push("a roof holds an invalid amount of water".to_owned());
+        }
+        for t in &self.thrown {
+            if t.fire == 0 || t.fire as usize > self.list.len() {
+                out.push(format!(
+                    "water was thrown against an unknown fire {}",
+                    t.fire
+                ));
+            }
+            if !(t.litres.is_finite() && t.litres > 0.0) {
+                out.push(format!(
+                    "a load thrown against fire {} held no water",
+                    t.fire
+                ));
+            }
+        }
         for (i, k) in self.knew.iter().enumerate() {
             if k.fire == 0 || k.fire as usize > self.list.len() {
                 out.push(format!("someone knew of an unknown fire {}", k.fire));
@@ -716,6 +792,15 @@ pub(crate) mod tests {
         assert!((p.ignition_scale(r) - 1.0).abs() < 1e-12);
         assert!(p.ignition_scale(0.06) > 1.0 && p.ignition_scale(0.25) < 0.5);
         assert_eq!(p.ignition_scale(0.4), 0.0);
+        // A wet roof's water takes the heat first: 10 kW/m² on 30 m² boils about 8 L a minute.
+        assert!((p.boiled_l(10.0, 30.0, 1.0) - 7.976).abs() < 0.01);
+        assert_eq!(p.boiled_l(-1.0, 30.0, 1.0), 0.0);
+        let round = Outline::Round {
+            x: 0.0,
+            y: 0.0,
+            r: 2.0,
+        };
+        assert!((round.area_m2() - std::f64::consts::PI * 4.0).abs() < 1e-9);
         // Below the threshold it never catches; above it, the more so the higher it stands.
         assert_eq!(p.catch_chance(9.0, 10.0, 1.0), 0.0);
         let a = p.catch_chance(15.0, 10.0, 1.0);

@@ -89,6 +89,9 @@ pub struct Facts {
     /// Whether they know a building of their household burns now, having been in it, woken to it
     /// or seen it (M6b slices BC and BD, ADR-0022 §6-§7): they do nothing at home until it is out.
     pub home_afire: bool,
+    /// Roofs a fire they know of threatens, and how they would bring water to each (M6b slice
+    /// BD, step three).
+    pub fire: Option<FireFacts>,
     /// Members of their household ill at home and still owed care today, if any (M6a slice AZ,
     /// step three).
     pub tend: Option<TendFacts>,
@@ -100,6 +103,30 @@ pub struct Facts {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TendFacts {
     pub owed: f64,
+}
+
+/// A roof a fire someone knows of threatens (M6b slice BD, step three; ADR-0022 §6): what saving
+/// it is worth to them, and how they would bring a load of water to it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FireTarget {
+    pub building: PermanentId,
+    /// Where to stand to throw water on it, metres.
+    pub at: (f32, f32),
+    /// Points: saving it, by whose it is and how near it stands to catching.
+    pub points: f64,
+    /// Where the water is drawn, as [`Target::Douse`]'s `from`, and where to stand to draw it.
+    pub from: u32,
+    pub fill_at: (f32, f32),
+    /// Minutes to draw a load there.
+    pub fill_min: u32,
+    /// Minutes of walking: to the water, then to the roof.
+    pub walk_min: f64,
+}
+
+/// The roofs a fire someone knows of threatens (M6b slice BD, step three).
+#[derive(Clone, Debug, PartialEq)]
+pub struct FireFacts {
+    pub targets: Vec<FireTarget>,
 }
 
 /// A crossing someone's household is building, or their polity is and they know the law that
@@ -1530,6 +1557,43 @@ pub fn candidates(
                     Err(why) => excluded.push((id, why)),
                 }
             }
+            Behavior::Douse => {
+                // A load of water carried to a roof a fire threatens (M6b slice BD, step three;
+                // ADR-0022 §6): drawn at home or at the nearest source, walked to the roof and
+                // thrown on it. Nothing is said of it to one who knows of no fire.
+                let Some(fire) = f.fire.as_ref() else {
+                    continue;
+                };
+                let worth = |t: &FireTarget| t.points - w.w_walk_hour * t.walk_min / 60.0;
+                let Some(t) = fire.targets.iter().max_by(|a, b| {
+                    worth(a)
+                        .total_cmp(&worth(b))
+                        .then_with(|| b.building.cmp(&a.building))
+                }) else {
+                    continue;
+                };
+                term(&mut terms, Reason::FireThreatens, t.points);
+                term(
+                    &mut terms,
+                    Reason::Walking,
+                    -w.w_walk_hour * t.walk_min / 60.0,
+                );
+                let steps = vec![
+                    Step::Walk { to: t.fill_at },
+                    Step::Work {
+                        minutes: t.fill_min.max(1),
+                    },
+                    Step::Walk { to: t.at },
+                    Step::Work {
+                        minutes: def.min_minutes.max(1),
+                    },
+                ];
+                let target = Target::Douse {
+                    building: t.building,
+                    from: t.from,
+                };
+                out.push(finish(id, target, terms, steps));
+            }
             Behavior::Tend => {
                 // Sitting with the household's sick at home, as long as care is owed them.
                 let Some(t) = f.tend else {
@@ -1820,6 +1884,7 @@ mod tests {
             hurt: false,
             ill: false,
             home_afire: false,
+            fire: None,
             tend: None,
             age: 30.0,
             capacity: 1.0,

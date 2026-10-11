@@ -2606,6 +2606,15 @@ impl Population {
             farm::days_to_harvest(c, self.fields_of(ctx.land, hh_id), now.day_index())
                 + params.household.harvest_margin_days
         });
+        // Roofs a fire they know of threatens (M6b slice BD, step three).
+        let fire_facts = self.fire_facts(
+            ctx,
+            h,
+            &hh,
+            water_l,
+            Self::short_of_water(water_l, water_day),
+            field_key,
+        );
         let Some(p) = self.people.get(h) else {
             return;
         };
@@ -2677,6 +2686,7 @@ impl Population {
                 .is_some_and(|d| d >= now.day_index()),
             ill: self.sickness.ill(p.id, now.day_index()),
             home_afire: self.knows_home_afire(p.id, p.household, now, params),
+            fire: fire_facts,
             tend: self.tend_facts(ctx, p.id, &hh),
         };
         let limits = Limits {
@@ -3521,8 +3531,8 @@ impl Population {
             }
         }
         // A curfew in force where they live (M4b slice AD): being away from home in its hours
-        // costs one who knows of it what keeping it weighs with them. The watch at its rounds and
-        // those at a gathering are exempt.
+        // costs one who knows of it what keeping it weighs with them. The watch at its rounds,
+        // those at a gathering and those carrying water to a fire are exempt.
         let curfew = self
             .people
             .get(h)
@@ -3532,7 +3542,12 @@ impl Population {
             let exempt = catalog
                 .activities
                 .get(usize::from(c.scored.def))
-                .is_some_and(|a| matches!(a.behavior, Behavior::Watch | Behavior::Attend));
+                .is_some_and(|a| {
+                    matches!(
+                        a.behavior,
+                        Behavior::Watch | Behavior::Attend | Behavior::Douse
+                    )
+                });
             !exempt && self::polity::away_from_home(&c.steps, pos, hh.home)
         };
         if let Some((_, _, Some(points))) = curfew {
@@ -4096,7 +4111,8 @@ impl Population {
                 | Behavior::Watch
                 | Behavior::Carry
                 | Behavior::Bridge
-                | Behavior::Well,
+                | Behavior::Well
+                | Behavior::Douse,
             ) => (def_par, false, 0.0),
             None => (params.energy.idle_par, false, 0.0),
         };
@@ -4231,6 +4247,18 @@ impl Population {
                             self.drew_at(who, household, cell);
                         }
                         _ => p.carrying.water_l = params.household.carry_water_l as f32,
+                    }
+                }
+                Some(Behavior::Douse) => {
+                    // A load drawn, or thrown on the roof (M6b slice BD, step three).
+                    let (who, household, target, step_at) =
+                        (p.id, p.household, p.act.target, p.act.step);
+                    if let Target::Douse { building, from } = target {
+                        if step_at <= 1 {
+                            self.draw_for_fire(ctx, h, who, household, from);
+                        } else {
+                            self.throw_water(ctx, h, who, building);
+                        }
                     }
                 }
                 Some(Behavior::Farm) => {

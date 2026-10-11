@@ -228,7 +228,7 @@ impl Population {
     }
 
     /// The households of `x`'s people's close kin, `x`'s own left out.
-    fn kin_households(&self, x: &Household) -> Vec<PermanentId> {
+    pub(crate) fn kin_households(&self, x: &Household) -> Vec<PermanentId> {
         let mut out: Vec<PermanentId> = x
             .members
             .iter()

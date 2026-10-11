@@ -692,6 +692,8 @@ pub fn describe_target(
             None => "a field".to_owned(),
         },
         Target::NewField => "new ground".to_owned(),
+        // A roof a fire threatens (M6b slice BD, step three).
+        Target::Douse { building, .. } => super::incidents::building_words(sim, building),
         Target::Household(id) => household_name(sim, id),
         Target::Building(id) => match sim.land.buildings.iter().find(|b| b.id == id) {
             Some(b) => {

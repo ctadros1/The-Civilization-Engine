@@ -258,7 +258,9 @@ table Settlements {
 // weighed in a decision.
 // Schema 14 adds Technique: the technique a session of trying works toward, by index into
 // People.techniques (in a decision receipt, into the content's techniques when it was saved).
-enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15 }
+// Douse (schema 91, M6b slice BD, step three): `index` where the water is drawn (a source's cell,
+// or 4294967295 the household's store), `id` the building it is thrown on.
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16 }
 
 enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
 
@@ -2214,6 +2216,26 @@ table FiresSave {
   ignitions: [IgnitionSave] (id: 4);
   // Schema 90.
   knew: [KnewSave] (id: 5);
+  // Schema 91.
+  wet: [WetSave] (id: 6);
+  thrown: [ThrownSave] (id: 7);
+}
+
+// Water standing on a roof near a fire burning now (schema 91, M6b slice BD, step three).
+table WetSave {
+  building: ulong (id: 0);
+  litres: double (id: 1);
+}
+
+// A load of water thrown at a fire (schema 91): `fire` the first of the conflagration (or the lone
+// fire) burning then, `from` where it was drawn (a source's cell, or 4294967295 the store).
+table ThrownSave {
+  fire: uint (id: 0);
+  building: ulong (id: 1);
+  person: ulong (id: 2);
+  at: long (id: 3);
+  litres: float (id: 4);
+  from: uint (id: 5);
 }
 
 // A place a load lies or passes (schema 76, M6a slice AZ, step two; ADR-0021 §4): `code` 0 a

@@ -343,21 +343,68 @@ fn held_lines(sim: &Sim, root: u32) -> Vec<String> {
                 .find(|b| b.id == w.building)
                 .map_or(w.building, |b| b.household);
             let name = capitalised(&building_name(sim, w.building, household));
+            let litres: f32 = fires
+                .thrown
+                .iter()
+                .filter(|t| t.fire == root && t.building == w.building)
+                .map(|t| t.litres)
+                .sum();
+            let water = if litres > 0.0 {
+                format!("; {litres:.0} L of water were thrown on it")
+            } else {
+                String::new()
+            };
             if w.threshold_kw.is_finite() {
                 format!(
                     "{name}: the heat on it rose to {:.1} kW/m² against the {:.1} its covering \
-                     needed",
+                     needed{water}",
                     w.peak_kw, w.threshold_kw
                 )
             } else {
                 format!(
                     "{name}: the heat on it rose to {:.1} kW/m², but its covering could not catch \
-                     (too wet, or none that burns)",
+                     (too wet, or none that burns){water}",
                     w.peak_kw
                 )
             }
         })
         .collect()
+}
+
+/// The water people carried against the fires begun with `root` (M6b slice BD, step three):
+/// "Water was carried against it: 16 loads, 240 L, by 9 people, 6 of the loads from their
+/// households' stores", or nothing when none was.
+fn water_line(sim: &Sim, root: u32) -> Option<String> {
+    let thrown: Vec<_> = sim
+        .people
+        .fires
+        .thrown
+        .iter()
+        .filter(|t| t.fire == root)
+        .collect();
+    if thrown.is_empty() {
+        return None;
+    }
+    let litres: f32 = thrown.iter().map(|t| t.litres).sum();
+    let mut people: Vec<PermanentId> = thrown.iter().map(|t| t.person).collect();
+    people.sort_unstable();
+    people.dedup();
+    let stores = thrown
+        .iter()
+        .filter(|t| t.from == civ_agents::person::FROM_STORE)
+        .count();
+    let loads = thrown.len();
+    Some(format!(
+        "Water was carried against it: {loads} {}, {litres:.0} L, by {} {}, {stores} of the loads \
+         from their households' stores",
+        if loads == 1 { "load" } else { "loads" },
+        people.len(),
+        if people.len() == 1 {
+            "person"
+        } else {
+            "people"
+        },
+    ))
 }
 
 /// A fire's page: its stages, what started it, the conflagration it is part of, and its three
@@ -445,6 +492,7 @@ pub(super) fn fire_page(sim: &Sim, f: &Fire) -> Page {
             truth.push("Its heat reached these, and they held:".to_owned());
             truth.extend(held);
         }
+        truth.extend(water_line(sim, f.id));
     }
     let knowledge = knowledge_lines(sim, f, &row.known);
     let polity = vec![row.polity.clone()];
@@ -558,7 +606,8 @@ pub fn conflagration_response(sim: &Sim, id: u32) -> Option<Vec<u8>> {
             Kindled::Observer { .. } | Kindled::Ignition { .. } => None,
         })
         .unwrap_or_default();
-    let held = held_lines(sim, c.first);
+    let mut held = held_lines(sim, c.first);
+    held.extend(water_line(sim, c.first));
     let mut fbb = FlatBufferBuilder::new();
     let row = conflagration_row(&mut fbb, sim, c);
     let cause = fbb.create_string(&cause);

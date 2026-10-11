@@ -71,11 +71,14 @@ pub enum Behavior {
     /// Sit with members of the household who are ill at home, bringing them water and food
     /// (M6a slice AZ, step three; ADR-0021 §5).
     Tend,
+    /// Carry water to a roof a fire threatens and throw it on: drawn from the household's store
+    /// at home, else the nearest source (M6b slice BD, step three; ADR-0022 §6).
+    Douse,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 25] = [
+    pub const ALL: [Behavior; 26] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -101,6 +104,7 @@ impl Behavior {
         Behavior::Bridge,
         Behavior::Well,
         Behavior::Tend,
+        Behavior::Douse,
     ];
 
     /// The authored name of a behavior.
@@ -131,6 +135,7 @@ impl Behavior {
             Behavior::Bridge => "bridge",
             Behavior::Well => "well",
             Behavior::Tend => "tend",
+            Behavior::Douse => "douse",
         }
     }
 

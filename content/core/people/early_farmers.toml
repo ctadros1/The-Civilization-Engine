@@ -1089,3 +1089,17 @@ wake_minutes = [5.0, 30.0]
 # priors: a roof alight is seen across a village, a raised voice heard about one plot-row away.
 sight_m = 150.0
 earshot_m = 60.0
+# Water carried to a fire (slice BD, step three; ADR-0022 §6). Of each load thrown on a roof,
+# `water_stays` stays on it (12-03 §1.7's η: the rest runs off or misses), and the water on a roof
+# runs off or dries at `wet_drains_per_minute`. While it stands, the heat on the roof boils it
+# off first (2,257 kJ a litre): a wet covering cannot catch until it is dry. Design priors.
+water_stays = 0.5
+wet_drains_per_minute = 0.03
+# What saving a building from a fire is worth to someone, points, were it sure to catch otherwise:
+# their household's own `w_save`, a close kin's household's that times `kin_share`, anyone else's
+# that times `neighbour_share` (ADR-0022 §6: kin, ties and their own property weigh). Each is
+# weighed by how near the roof's exposure stands to what its covering needs. Design priors: a
+# home is worth more than a day's hunger (`w_hunger` 10), a neighbour's about a field's work.
+w_save = 20.0
+kin_share = 0.5
+neighbour_share = 0.25

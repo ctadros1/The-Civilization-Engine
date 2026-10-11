@@ -1405,12 +1405,13 @@ impl ::flatbuffers::SimpleToVerifyInSlice for TradeChannel {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_EVENT_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_EVENT_KIND: u8 = 1;
+pub const ENUM_MAX_EVENT_KIND: u8 = 2;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_EVENT_KIND: [EventKind; 2] = [
+pub const ENUM_VALUES_EVENT_KIND: [EventKind; 3] = [
   EventKind::AgentStep,
   EventKind::FireStep,
+  EventKind::Ignite,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1420,18 +1421,21 @@ pub struct EventKind(pub u8);
 impl EventKind {
   pub const AgentStep: Self = Self(0);
   pub const FireStep: Self = Self(1);
+  pub const Ignite: Self = Self(2);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 1;
+  pub const ENUM_MAX: u8 = 2;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::AgentStep,
     Self::FireStep,
+    Self::Ignite,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
     match self {
       Self::AgentStep => Some("AgentStep"),
       Self::FireStep => Some("FireStep"),
+      Self::Ignite => Some("Ignite"),
       _ => None,
     }
   }
@@ -38276,6 +38280,238 @@ impl ::core::fmt::Debug for WeighedSave<'_> {
       ds.finish()
   }
 }
+pub enum IgnitionSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct IgnitionSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for IgnitionSave<'a> {
+  type Inner = IgnitionSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> IgnitionSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_AT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_BUILDING: ::flatbuffers::VOffsetT = 8;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 12;
+  pub const VT_HEARTH: ::flatbuffers::VOffsetT = 14;
+  pub const VT_MOISTURE: ::flatbuffers::VOffsetT = 16;
+  pub const VT_PUT_OUT_BY: ::flatbuffers::VOffsetT = 18;
+  pub const VT_FIRE: ::flatbuffers::VOffsetT = 20;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    IgnitionSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args IgnitionSaveArgs
+  ) -> ::flatbuffers::WIPOffset<IgnitionSave<'bldr>> {
+    let mut builder = IgnitionSaveBuilder::new(_fbb);
+    builder.add_put_out_by(args.put_out_by);
+    builder.add_settlement(args.settlement);
+    builder.add_household(args.household);
+    builder.add_building(args.building);
+    builder.add_at(args.at);
+    builder.add_fire(args.fire);
+    builder.add_moisture(args.moisture);
+    builder.add_id(args.id);
+    builder.add_hearth(args.hearth);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(IgnitionSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(IgnitionSave::VT_AT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn building(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(IgnitionSave::VT_BUILDING, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(IgnitionSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(IgnitionSave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn hearth(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(IgnitionSave::VT_HEARTH, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn moisture(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(IgnitionSave::VT_MOISTURE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn put_out_by(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(IgnitionSave::VT_PUT_OUT_BY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn fire(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(IgnitionSave::VT_FIRE, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for IgnitionSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<i64>("at", Self::VT_AT, false)?
+     .visit_field::<u64>("building", Self::VT_BUILDING, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<u8>("hearth", Self::VT_HEARTH, false)?
+     .visit_field::<f32>("moisture", Self::VT_MOISTURE, false)?
+     .visit_field::<u64>("put_out_by", Self::VT_PUT_OUT_BY, false)?
+     .visit_field::<u32>("fire", Self::VT_FIRE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct IgnitionSaveArgs {
+    pub id: u32,
+    pub at: i64,
+    pub building: u64,
+    pub household: u64,
+    pub settlement: u64,
+    pub hearth: u8,
+    pub moisture: f32,
+    pub put_out_by: u64,
+    pub fire: u32,
+}
+impl<'a> Default for IgnitionSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    IgnitionSaveArgs {
+      id: 0,
+      at: 0,
+      building: 0,
+      household: 0,
+      settlement: 0,
+      hearth: 0,
+      moisture: 0.0,
+      put_out_by: 0,
+      fire: 0,
+    }
+  }
+}
+
+pub struct IgnitionSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> IgnitionSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(IgnitionSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_at(&mut self, at: i64) {
+    self.fbb_.push_slot::<i64>(IgnitionSave::VT_AT, at, 0);
+  }
+  #[inline]
+  pub fn add_building(&mut self, building: u64) {
+    self.fbb_.push_slot::<u64>(IgnitionSave::VT_BUILDING, building, 0);
+  }
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(IgnitionSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(IgnitionSave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_hearth(&mut self, hearth: u8) {
+    self.fbb_.push_slot::<u8>(IgnitionSave::VT_HEARTH, hearth, 0);
+  }
+  #[inline]
+  pub fn add_moisture(&mut self, moisture: f32) {
+    self.fbb_.push_slot::<f32>(IgnitionSave::VT_MOISTURE, moisture, 0.0);
+  }
+  #[inline]
+  pub fn add_put_out_by(&mut self, put_out_by: u64) {
+    self.fbb_.push_slot::<u64>(IgnitionSave::VT_PUT_OUT_BY, put_out_by, 0);
+  }
+  #[inline]
+  pub fn add_fire(&mut self, fire: u32) {
+    self.fbb_.push_slot::<u32>(IgnitionSave::VT_FIRE, fire, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> IgnitionSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    IgnitionSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<IgnitionSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for IgnitionSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("IgnitionSave");
+      ds.field("id", &self.id());
+      ds.field("at", &self.at());
+      ds.field("building", &self.building());
+      ds.field("household", &self.household());
+      ds.field("settlement", &self.settlement());
+      ds.field("hearth", &self.hearth());
+      ds.field("moisture", &self.moisture());
+      ds.field("put_out_by", &self.put_out_by());
+      ds.field("fire", &self.fire());
+      ds.finish()
+  }
+}
 pub enum FiresSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -38296,6 +38532,7 @@ impl<'a> FiresSave<'a> {
   pub const VT_EPISODES: ::flatbuffers::VOffsetT = 6;
   pub const VT_EXPOSURE: ::flatbuffers::VOffsetT = 8;
   pub const VT_WEIGHED: ::flatbuffers::VOffsetT = 10;
+  pub const VT_IGNITIONS: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -38307,6 +38544,7 @@ impl<'a> FiresSave<'a> {
     args: &'args FiresSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<FiresSave<'bldr>> {
     let mut builder = FiresSaveBuilder::new(_fbb);
+    if let Some(x) = args.ignitions { builder.add_ignitions(x); }
     if let Some(x) = args.weighed { builder.add_weighed(x); }
     if let Some(x) = args.exposure { builder.add_exposure(x); }
     if let Some(x) = args.episodes { builder.add_episodes(x); }
@@ -38343,6 +38581,13 @@ impl<'a> FiresSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WeighedSave>>>>(FiresSave::VT_WEIGHED, None)}
   }
+  #[inline]
+  pub fn ignitions(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IgnitionSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IgnitionSave>>>>(FiresSave::VT_IGNITIONS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FiresSave<'_> {
@@ -38355,6 +38600,7 @@ impl ::flatbuffers::Verifiable for FiresSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ConflagrationSave>>>>("episodes", Self::VT_EPISODES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ExposureSave>>>>("exposure", Self::VT_EXPOSURE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WeighedSave>>>>("weighed", Self::VT_WEIGHED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<IgnitionSave>>>>("ignitions", Self::VT_IGNITIONS, false)?
      .finish();
     Ok(())
   }
@@ -38364,6 +38610,7 @@ pub struct FiresSaveArgs<'a> {
     pub episodes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConflagrationSave<'a>>>>>,
     pub exposure: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ExposureSave<'a>>>>>,
     pub weighed: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WeighedSave<'a>>>>>,
+    pub ignitions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IgnitionSave<'a>>>>>,
 }
 impl<'a> Default for FiresSaveArgs<'a> {
   #[inline]
@@ -38373,6 +38620,7 @@ impl<'a> Default for FiresSaveArgs<'a> {
       episodes: None,
       exposure: None,
       weighed: None,
+      ignitions: None,
     }
   }
 }
@@ -38399,6 +38647,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FiresSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FiresSave::VT_WEIGHED, weighed);
   }
   #[inline]
+  pub fn add_ignitions(&mut self, ignitions: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<IgnitionSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FiresSave::VT_IGNITIONS, ignitions);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FiresSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FiresSaveBuilder {
@@ -38420,6 +38672,7 @@ impl ::core::fmt::Debug for FiresSave<'_> {
       ds.field("episodes", &self.episodes());
       ds.field("exposure", &self.exposure());
       ds.field("weighed", &self.weighed());
+      ds.field("ignitions", &self.ignitions());
       ds.finish()
   }
 }

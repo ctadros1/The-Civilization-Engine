@@ -113,8 +113,8 @@ use super::{
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
-    SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, finish,
-    section, single_chunk, unreadable,
+    SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
+    finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -493,6 +493,8 @@ enum Schema {
     V87,
     /// Fires, conflagrations and the exposure near those burning (M6b slice BC, step two).
     V88,
+    /// Ignitions of the fires people use, and the pending event that weighs one (M6b slice BD).
+    V89,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -595,7 +597,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V85 => Schema::V85,
         SCHEMA_V86 => Schema::V86,
         SCHEMA_V87 => Schema::V87,
-        SAVE_SCHEMA_VERSION => Schema::V88,
+        SCHEMA_V88 => Schema::V88,
+        SAVE_SCHEMA_VERSION => Schema::V89,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -3120,7 +3123,8 @@ fn carried(
         | Schema::V85
         | Schema::V86
         | Schema::V87
-        | Schema::V88 => {
+        | Schema::V88
+        | Schema::V89 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3320,7 +3324,8 @@ fn decode_households(
             | Schema::V85
             | Schema::V86
             | Schema::V87
-            | Schema::V88 => {
+            | Schema::V88
+            | Schema::V89 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5840,6 +5845,9 @@ fn encode_events(sim: &Sim) -> Vec<u8> {
                     (save::EventKind::AgentStep, person.get(), version)
                 }
                 SimEvent::Agent(AgentEvent::Fire) => (save::EventKind::FireStep, 0, 0),
+                SimEvent::Agent(AgentEvent::Ignite { building }) => {
+                    (save::EventKind::Ignite, building.get(), 0)
+                }
             };
             save::PendingEvent::create(
                 &mut fbb,
@@ -5876,6 +5884,9 @@ fn decode_events(bytes: &[u8]) -> Result<Vec<PendingEvent<SimEvent>>, LoadError>
                 version: e.version(),
             }),
             save::EventKind::FireStep => SimEvent::Agent(AgentEvent::Fire),
+            save::EventKind::Ignite => SimEvent::Agent(AgentEvent::Ignite {
+                building: required(e.person(), "an ignition's building")?,
+            }),
             other => {
                 return Err(LoadError::Incompatible(format!(
                     "a pending event is of kind {}, which this build does not know",
@@ -8465,6 +8476,7 @@ fn encode_fires(people: &Population) -> Vec<u8> {
                     toward,
                     moisture,
                 } => (1, fire, gap_m, wind_ms, toward, moisture),
+                Kindled::Ignition { ignition } => (2, ignition, 0.0, 0.0, 0.0, 0.0),
             };
             save::FireSave::create(
                 &mut fbb,
@@ -8539,6 +8551,27 @@ fn encode_fires(people: &Population) -> Vec<u8> {
         })
         .collect();
     let weighed = fbb.create_vector(&weighed);
+    let ignitions: Vec<_> = fires
+        .ignitions
+        .iter()
+        .map(|g| {
+            save::IgnitionSave::create(
+                &mut fbb,
+                &save::IgnitionSaveArgs {
+                    id: g.id,
+                    at: g.at.minutes(),
+                    building: g.building.get(),
+                    household: g.household.get(),
+                    settlement: g.settlement.map_or(0, PermanentId::get),
+                    hearth: g.hearth as u8,
+                    moisture: g.moisture,
+                    put_out_by: g.put_out_by.map_or(0, PermanentId::get),
+                    fire: g.fire.unwrap_or(0),
+                },
+            )
+        })
+        .collect();
+    let ignitions = fbb.create_vector(&ignitions);
     let root = save::FiresSave::create(
         &mut fbb,
         &save::FiresSaveArgs {
@@ -8546,13 +8579,14 @@ fn encode_fires(people: &Population) -> Vec<u8> {
             episodes: Some(episodes),
             exposure: Some(exposure),
             weighed: Some(weighed),
+            ignitions: Some(ignitions),
         },
     );
     finish(fbb, root)
 }
 
 fn decode_fires(bytes: &[u8]) -> Result<civ_agents::fire::Fires, LoadError> {
-    use civ_agents::fire::{Conflagration, Fire, Fires, Kindled, Weighed};
+    use civ_agents::fire::{Conflagration, Fire, Fires, Hearth, Ignition, Kindled, Weighed};
     let root =
         flatbuffers::root::<save::FiresSave>(bytes).map_err(|e| unreadable(SECTION_FIRES, &e))?;
     let at = |m: i64| (m >= 0).then(|| SimTime::from_minutes(m));
@@ -8568,6 +8602,9 @@ fn decode_fires(bytes: &[u8]) -> Result<civ_agents::fire::Fires, LoadError> {
                 wind_ms: f.wind_ms(),
                 toward: f.toward(),
                 moisture: f.moisture(),
+            },
+            2 => Kindled::Ignition {
+                ignition: f.source(),
             },
             other => {
                 return Err(LoadError::Malformed(format!(
@@ -8615,6 +8652,21 @@ fn decode_fires(bytes: &[u8]) -> Result<civ_agents::fire::Fires, LoadError> {
             peak_kw: w.peak_kw(),
             threshold_kw: w.threshold_kw(),
             caught: w.caught(),
+        });
+    }
+    for g in root.ignitions().iter().flatten() {
+        out.ignitions.push(Ignition {
+            id: g.id(),
+            at: SimTime::from_minutes(g.at()),
+            building: required(g.building(), "an ignition's building")?,
+            household: required(g.household(), "an ignition's household")?,
+            settlement: PermanentId::from_raw(g.settlement()),
+            hearth: Hearth::from_code(g.hearth()).ok_or_else(|| {
+                LoadError::Malformed(format!("ignition {} came from an unknown fire", g.id()))
+            })?,
+            moisture: g.moisture(),
+            put_out_by: PermanentId::from_raw(g.put_out_by()),
+            fire: (g.fire() > 0).then_some(g.fire()),
         });
     }
     Ok(out)

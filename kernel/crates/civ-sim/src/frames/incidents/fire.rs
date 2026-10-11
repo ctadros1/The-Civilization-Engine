@@ -5,7 +5,7 @@
 //! links to them. Only the kernel's records are read: nobody in the world sees or tells of a fire
 //! until slice BD, and the knowledge layer says so.
 
-use civ_agents::fire::{Conflagration, Fire, Kindled, Stage};
+use civ_agents::fire::{Conflagration, Fire, Hearth, Kindled, Stage};
 use civ_agents::history::{Cause, ChronicleEvent, ChronicleKind, FireStep};
 use civ_agents::influence::InfluenceKind;
 use civ_agents::polity::day_words;
@@ -17,7 +17,7 @@ use civ_schema::wire;
 
 use super::{
     CAUSED_BY, CONFLAGRATION, FIRE, Link, PART_OF, Page, Row, Step, TO_CONFLAGRATION, TO_FIRE,
-    TO_INFLUENCE, capitalised, put_lines, put_link, put_row, settlement_place,
+    TO_HOUSEHOLD, TO_INFLUENCE, capitalised, put_lines, put_link, put_row, settlement_place,
 };
 use crate::Sim;
 use crate::frames::response;
@@ -106,6 +106,26 @@ fn cause_words(sim: &Sim, f: &Fire) -> String {
                 f64::from(moisture) * 100.0
             )
         }
+        Kindled::Ignition { ignition } => {
+            let g = ignition
+                .checked_sub(1)
+                .and_then(|i| sim.people.fires.ignitions.get(i as usize));
+            let from = match g.map(|g| g.hearth) {
+                Some(Hearth::Banked) => {
+                    "caught from its banked hearth, with none of its people awake at home"
+                }
+                Some(Hearth::Lit) => "caught from its hearth",
+                Some(Hearth::Worked) => "caught from a fire worked at home",
+                None => "caught from a fire in use",
+            };
+            match g {
+                Some(g) => format!(
+                    "{from}, its covering holding water {:.0}% of its dry weight",
+                    f64::from(g.moisture) * 100.0
+                ),
+                None => from.to_owned(),
+            }
+        }
     }
 }
 
@@ -121,6 +141,12 @@ fn cause_link(sim: &Sim, f: &Fire) -> Link {
         Kindled::Neighbour { fire, .. } => {
             Link(CAUSED_BY, TO_FIRE, u64::from(fire), cause_words(sim, f))
         }
+        Kindled::Ignition { .. } => Link(
+            CAUSED_BY,
+            TO_HOUSEHOLD,
+            f.household.get(),
+            cause_words(sim, f),
+        ),
     }
 }
 
@@ -130,7 +156,7 @@ pub(super) fn observer_of(sim: &Sim, f: &Fire) -> u32 {
     let first = fires.get(fires.root(f.id)).unwrap_or(f);
     match first.kindled {
         Kindled::Observer { influence } => influence,
-        Kindled::Neighbour { .. } => 0,
+        Kindled::Neighbour { .. } | Kindled::Ignition { .. } => 0,
     }
 }
 
@@ -423,7 +449,7 @@ pub fn conflagration_response(sim: &Sim, id: u32) -> Option<Vec<u8>> {
                 },
                 f64::from(moisture) * 100.0
             )),
-            Kindled::Observer { .. } => None,
+            Kindled::Observer { .. } | Kindled::Ignition { .. } => None,
         })
         .unwrap_or_default();
     let held = held_lines(sim, c.first);

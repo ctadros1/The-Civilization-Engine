@@ -93,6 +93,10 @@ pub(crate) struct FireFile {
     pub char_mm_first_hour: f64,
     pub char_exponent: f64,
     pub infill_loss: f64,
+    pub hearth_lit_per_hour: f64,
+    pub hearth_banked_per_hour: f64,
+    pub worked_per_hour: f64,
+    pub beside_m: f64,
 }
 
 impl FireFile {
@@ -112,6 +116,10 @@ impl FireFile {
             char_mm_first_hour: self.char_mm_first_hour,
             char_exponent: self.char_exponent,
             infill_loss: self.infill_loss,
+            hearth_lit_per_hour: self.hearth_lit_per_hour,
+            hearth_banked_per_hour: self.hearth_banked_per_hour,
+            worked_per_hour: self.worked_per_hour,
+            beside_m: self.beside_m,
         }
     }
 
@@ -152,6 +160,20 @@ impl FireFile {
             ),
             ("fire.char_exponent", self.char_exponent, 0.1, 2.0),
             ("fire.infill_loss", self.infill_loss, 0.0, 1.0),
+            (
+                "fire.hearth_lit_per_hour",
+                self.hearth_lit_per_hour,
+                0.0,
+                0.1,
+            ),
+            (
+                "fire.hearth_banked_per_hour",
+                self.hearth_banked_per_hour,
+                0.0,
+                0.1,
+            ),
+            ("fire.worked_per_hour", self.worked_per_hour, 0.0, 0.1),
+            ("fire.beside_m", self.beside_m, 0.0, 50.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

@@ -21,6 +21,12 @@
 //!   is loss of section (11-08 §2.5: about 0.6 mm/min over the first hour; a 200 mm member exposed
 //!   on four faces keeps a 128 mm core).
 //!
+//! - **Fires start where fire is used** (slice BD; ADR-0022 §3). A household's hearth, lit while
+//!   any of its people is awake at home and banked otherwise, and a fire worked at home (baking,
+//!   firing pots) each carry a hazard per hour, scaled by dryness. An ignition with someone awake
+//!   in or beside the building is put out at once and only counted; otherwise its covering
+//!   catches.
+//!
 //! Nothing here decides what anyone does.
 
 use civ_core::{PermanentId, SimTime};
@@ -64,6 +70,16 @@ pub struct FireParams {
     pub char_exponent: f64,
     /// The share of a wall's infill a full burn takes: wattle burns and daub stays.
     pub infill_loss: f64,
+    /// Ignitions per hour of a household's hearth while any of its people is awake at home, at
+    /// `reference_moisture` (slice BD; ADR-0022 §3).
+    pub hearth_lit_per_hour: f64,
+    /// Ignitions per hour of a banked hearth: embers kept while nobody of the household is
+    /// awake at home.
+    pub hearth_banked_per_hour: f64,
+    /// Ignitions per hour of each fire worked at home: someone baking or firing pots.
+    pub worked_per_hour: f64,
+    /// How near the building, metres, someone awake must be to put an ignition out at once.
+    pub beside_m: f64,
 }
 
 /// How far a building's fire has gone.
@@ -95,7 +111,22 @@ impl FireParams {
             char_mm_first_hour: 36.0,
             char_exponent: 0.813,
             infill_loss: 0.5,
+            hearth_lit_per_hour: 2.0e-6,
+            hearth_banked_per_hour: 1.0e-6,
+            worked_per_hour: 4.0e-6,
+            beside_m: 3.0,
         }
+    }
+
+    /// How dryness scales an ignition hazard: 1 at `reference_moisture`, more for drier fuel,
+    /// falling to nothing at `extinction_moisture` (12-03 §1.1, §1.5).
+    pub fn ignition_scale(&self, moisture: f64) -> f64 {
+        let x = self.extinction_moisture;
+        if x.is_nan() || x <= 0.0 {
+            return 0.0;
+        }
+        let reference = self.reference_moisture.clamp(0.0, x * 0.99);
+        ((1.0 - moisture.max(0.0) / x) / (1.0 - reference / x)).max(0.0)
     }
 
     /// The stage of a fire `minutes` after its covering caught.
@@ -318,6 +349,59 @@ pub enum Kindled {
         /// The water exposed fuel held, as a share of its dry mass.
         moisture: f32,
     },
+    /// A fire in use escaped its keeping with nobody awake there to put it out (slice BD).
+    Ignition {
+        /// The ignition's id.
+        ignition: u32,
+    },
+}
+
+/// The fire in use an ignition came from (ADR-0022 §3). Numeric in saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Hearth {
+    /// The household's hearth, lit while someone was awake at home.
+    Lit = 0,
+    /// The household's hearth, banked: embers kept while nobody of it was awake at home.
+    Banked = 1,
+    /// A fire worked at home: baking or firing pots.
+    Worked = 2,
+}
+
+impl Hearth {
+    /// The kind of fire for its code in a save.
+    pub fn from_code(code: u8) -> Option<Hearth> {
+        match code {
+            0 => Some(Hearth::Lit),
+            1 => Some(Hearth::Banked),
+            2 => Some(Hearth::Worked),
+            _ => None,
+        }
+    }
+}
+
+/// An unintended ignition of a fire in use (12-03 §1.2's first counter): put out at once by
+/// someone awake there, or the start of a building's fire. The kernel's truth. Saved.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Ignition {
+    /// Its id, from 1, in the order they happened.
+    pub id: u32,
+    /// When.
+    pub at: SimTime,
+    /// The building whose fire in use escaped.
+    pub building: PermanentId,
+    /// Its household.
+    pub household: PermanentId,
+    /// The settlement it stood in, if any.
+    pub settlement: Option<PermanentId>,
+    /// The fire in use it came from.
+    pub hearth: Hearth,
+    /// The water exposed fuel held that day, as a share of its dry mass.
+    pub moisture: f32,
+    /// Who put it out at once, if anyone did.
+    pub put_out_by: Option<PermanentId>,
+    /// The building's fire it became, if nobody did and its covering could catch (neither: it
+    /// went out with nothing to catch).
+    pub fire: Option<u32>,
 }
 
 /// A building's fire: the kernel's record of it, from its covering catching to its burning out
@@ -405,6 +489,8 @@ pub struct Fires {
     pub exposure: Vec<(PermanentId, f64)>,
     /// What the spread weighed.
     pub weighed: Vec<Weighed>,
+    /// Every unintended ignition of a fire in use, oldest first (slice BD).
+    pub ignitions: Vec<Ignition>,
 }
 
 impl Fires {
@@ -459,6 +545,19 @@ impl Fires {
         for (i, e) in self.episodes.iter().enumerate() {
             if e.id as usize != i + 1 || e.first == 0 || e.first as usize > self.list.len() {
                 out.push(format!("conflagration {} is malformed", e.id));
+            }
+        }
+        for (i, g) in self.ignitions.iter().enumerate() {
+            if g.id as usize != i + 1 {
+                out.push(format!("ignition {} is numbered out of order", g.id));
+            }
+            if g.put_out_by.is_some() && g.fire.is_some() {
+                out.push(format!("ignition {} was both put out and a fire", g.id));
+            }
+            if g.fire
+                .is_some_and(|f| f == 0 || f as usize > self.list.len())
+            {
+                out.push(format!("ignition {} became an unknown fire", g.id));
             }
         }
         if self
@@ -519,6 +618,11 @@ pub(crate) mod tests {
         assert!(p.threshold(10.0, 0.25).expect("catches") > 15.0);
         assert_eq!(p.threshold(10.0, 0.4), None);
         assert_eq!(p.threshold(0.0, 0.1), None);
+        // Dryness scales an ignition hazard the other way: 1 at the reference, more for drier
+        // fuel, none at the moisture of extinction.
+        assert!((p.ignition_scale(r) - 1.0).abs() < 1e-12);
+        assert!(p.ignition_scale(0.06) > 1.0 && p.ignition_scale(0.25) < 0.5);
+        assert_eq!(p.ignition_scale(0.4), 0.0);
         // Below the threshold it never catches; above it, the more so the higher it stands.
         assert_eq!(p.catch_chance(9.0, 10.0, 1.0), 0.0);
         let a = p.catch_chance(15.0, 10.0, 1.0);

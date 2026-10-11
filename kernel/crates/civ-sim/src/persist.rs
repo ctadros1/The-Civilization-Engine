@@ -298,6 +298,9 @@ pub const SCHEMA_V86: u32 = 86;
 /// The schema version of M6b slice BC, step one: the weather's wind and dryness, before fires
 /// (see [`agents`]).
 pub const SCHEMA_V87: u32 = 87;
+/// The schema version of M6b slice BC: a building's fire, before fires from the fires people use
+/// (see [`agents`]).
+pub const SCHEMA_V88: u32 = 88;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

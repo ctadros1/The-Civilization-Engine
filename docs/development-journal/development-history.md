@@ -1366,6 +1366,16 @@ The full end-to-end run found the knowledge test still counting the founders' te
 
 **Open:** slice BD, fires people start and fight.
 
+## 2026-10-11 — M6b slice BD, step one: fires from the fires people use
+
+**What changed:** the bench was measured first (1,447.4 s for a year of three villages of 1,000, against 1,286.5 s at the start of slice AY). Then fires start where fire is used. A household's hearth is lit while any of its people is awake at home and banked otherwise, and each of them baking or firing pots there works a fire of their own. Each escapes at a small rate an hour, scaled by the day's dryness. Anyone awake in or within 3 m of the building puts an escape out at once, and only the kernel's count keeps it; a banked hearth's escape with nobody near catches the roof and burns as the observer's fires do. Saves 89, content API 82.
+
+**Findings:** the ADR keyed draws by building and hour. Drawing a day's candidate minutes at midnight at the most a home's fires could give, then keeping each by what burns at its minute (thinning), gives the same fires at any speed for one draw per home a day, and the candidates ride the event queue so a save keeps them. Because "lit" means someone is awake at home, a lit hearth's or worked fire's escape is always put out; only banked hearths grow into fires. Three worlds gave 7 to 15 escapes per 1,000 household-years (ADR-0022's anchor is about 10), 1 to 4 of them catching.
+
+**Evidence:** the scale by dryness in the pure model; world tests with raised rates: the same escapes and fires in five days at once or uneven steps, lit hearths always put out, fires kindled by escapes, and a world saved with escapes pending living on exactly as if never saved.
+
+**Open:** noticing (sight, waking, the watch), the shout and the choices that fight a fire; the sweep of the rate over 1–100 per 1,000 household-years once fighting exists.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

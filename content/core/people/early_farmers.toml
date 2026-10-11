@@ -1065,3 +1065,15 @@ covering_minutes = 15.0
 char_mm_first_hour = 36.0
 char_exponent = 0.813
 infill_loss = 0.5
+# Fires start where fire is used (slice BD, ADR-0022 §3; 12-03 §1.1). A household's hearth is lit
+# while any of its people is awake at home and banked, its embers kept, otherwise; each fire it
+# works at home (baking, firing pots) adds its own. Each escapes its keeping at these rates an
+# hour at `reference_moisture`, scaled by dryness as a covering's threshold is. 12-03 §2.5 gives no
+# measured rate for any early household: 1-100 unintended fires per 1,000 household-years is to be
+# explored, 10 an order-of-magnitude anchor from a modern survey. These design priors give about
+# that (see PROJECT_PLAN §9). Someone awake within `beside_m` of the building puts an ignition out
+# at once (§1.2: most are), and only the count records it.
+hearth_lit_per_hour = 2.0e-6
+hearth_banked_per_hour = 1.0e-6
+worked_per_hour = 4.0e-6
+beside_m = 3.0

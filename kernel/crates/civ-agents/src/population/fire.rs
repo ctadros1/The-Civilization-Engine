@@ -2,13 +2,18 @@
 //! minute at a time while anything burns, its heat on the buildings near it, what it does to their
 //! parts, the goods under their roofs and those asleep inside, and the record of it.
 //!
-//! In this slice only the observer lights a fire. Nobody notices a fire, shouts or fights it
-//! yet (slice BD): those awake in a burning building get out and do nothing at home until it is
+//! Fires start from the observer's hand and, from slice BD, where fire is used: a household's
+//! hearth and the fires it works at home escape now and then, keyed by building and minute, and
+//! someone awake there puts most out at once. Nobody notices a fire from elsewhere, shouts or
+//! fights it yet: those awake in a burning building get out and do nothing at home until it is
 //! out; those asleep wake only when it is fully involved around them, and a share of them do not
 //! get out.
 
 use super::*;
-use crate::fire::{Conflagration, Fire, Kindled, Outline, Stage, Weighed, charred_loss};
+use crate::fire::{
+    Conflagration, Fire, FireParams, Hearth, Ignition, Kindled, Outline, Stage, Weighed,
+    charred_loss,
+};
 use crate::history::{Cause, FireStep};
 use crate::influence::InfluenceKind;
 use civ_grammar::GroupKind;
@@ -19,6 +24,13 @@ pub const PURPOSE_FIRE_CATCH: u64 = 0x6669_7265_6361_7431; // "firecat1"
 /// Purpose tag for whether a sleeper caught by a fully involved building gets out, keyed by
 /// person and fire.
 pub const PURPOSE_FIRE_CAUGHT: u64 = 0x6669_7265_6361_7531; // "firecau1"
+
+/// Purpose tag for the minutes at which a home's fires in use may escape on a day (slice BD),
+/// keyed by building and day.
+pub const PURPOSE_IGNITE: u64 = 0x6967_6e69_7465_3031; // "ignite01"
+/// Purpose tag for whether a candidate ignition happens, and from which fire, keyed by building
+/// and minute.
+pub const PURPOSE_IGNITE_TAKES: u64 = 0x6967_6e74_616b_3031; // "igntak01"
 
 /// The share of those asleep in a building when it is fully involved around them who do not get
 /// out (a design prior: ADR-0022 §5 has sleepers never woken die; a building fully involved wakes
@@ -48,6 +60,26 @@ fn within(o: &Outline, p: (f32, f32)) -> bool {
         Outline::Round { x: cx, y: cy, r } => (x - cx).hypot(y - cy) <= r,
         Outline::Box { x0, y0, x1, y1 } => x >= x0 && x <= x1 && y >= y0 && y <= y1,
     }
+}
+
+/// How far point `p` lies outside outline `o`, metres (0 within it).
+fn outside(o: &Outline, p: (f32, f32)) -> f64 {
+    let (x, y) = (f64::from(p.0), f64::from(p.1));
+    match *o {
+        Outline::Round { x: cx, y: cy, r } => ((x - cx).hypot(y - cy) - r).max(0.0),
+        Outline::Box { x0, y0, x1, y1 } => {
+            let dx = (x0 - x).max(x - x1).max(0.0);
+            let dy = (y0 - y).max(y - y1).max(0.0);
+            dx.hypot(dy)
+        }
+    }
+}
+
+/// The most a home's fires in use may give, ignitions an hour at the reference dryness: its
+/// hearth in whichever state gives more, and a worked fire for each of its `members`. The day's
+/// candidate minutes are drawn at this rate, and each kept by the rate at its minute.
+fn ignition_bound(p: &FireParams, members: usize) -> f64 {
+    p.hearth_lit_per_hour.max(p.hearth_banked_per_hour) + p.worked_per_hour * members as f64
 }
 
 /// Every plot's box, by its id.
@@ -119,6 +151,163 @@ impl Population {
         ctx.params
             .fire
             .threshold(catch, f64::from(today.fuel_moisture))
+    }
+
+    /// At midnight, each household's roofed home draws the minutes of the day ahead at which one
+    /// of its fires in use may escape (slice BD; ADR-0022 §3): candidates at the most its hearth
+    /// and worked fires could give, scaled by dryness, from a key of its own and the day, so the
+    /// same day lived at any speed has the same candidates. Each is weighed at its minute.
+    pub(super) fn plan_ignitions(&mut self, ctx: &mut Ctx, day: i64) {
+        let p = &ctx.params.fire;
+        let scale = p.ignition_scale(f64::from(ctx.land.weather.today.fuel_moisture));
+        if scale.is_nan() || scale <= 0.0 {
+            return;
+        }
+        let start = day * 1440;
+        for b in &ctx.land.buildings {
+            if !b.roofed() {
+                continue;
+            }
+            let home = ctx
+                .catalog
+                .building_index(&b.spec.program)
+                .and_then(|d| ctx.catalog.buildings.get(d))
+                .is_some_and(|d| d.use_ == civ_land::PlotUse::Dwelling);
+            let members = self.household(b.household).map_or(0, |x| x.members.len());
+            if !home || members == 0 {
+                continue;
+            }
+            let mean = ignition_bound(p, members) * scale * 24.0;
+            let mut rng = Rng64::from_key(&[ctx.seed, PURPOSE_IGNITE, b.id.get(), day as u64]);
+            let count = civ_land::poisson_quantile(mean, rng.next_f64());
+            for _ in 0..count {
+                // Within the day, after midnight's own work and before the next.
+                let minute = start + 1 + rng.below(1438) as i64;
+                ctx.schedule.push((
+                    SimTime::from_minutes(minute),
+                    AgentEvent::Ignite { building: b.id },
+                ));
+            }
+        }
+    }
+
+    /// Whether person `p` is working a fire: making with a recipe that burns fuel (baking,
+    /// firing pots).
+    fn works_fire(ctx: &Ctx, p: &Person) -> bool {
+        let catalog = ctx.catalog;
+        let Some(r) = catalog
+            .activities
+            .get(usize::from(p.act.def))
+            .and_then(|a| a.recipe)
+            .and_then(|r| catalog.recipes.get(r))
+        else {
+            return false;
+        };
+        r.inputs.iter().chain(&r.session_inputs).any(|&(g, _)| {
+            catalog
+                .goods
+                .get(g)
+                .is_some_and(|d| d.purpose == GoodUse::Fuel)
+        })
+    }
+
+    /// A candidate ignition at home `building` comes due (slice BD; ADR-0022 §3). It happens by
+    /// the rate of the home's fires in use now against the bound its candidates were drawn at:
+    /// the hearth lit while any of its people is awake at home and banked otherwise, and a worked
+    /// fire for each of them baking or firing pots there. Someone awake in or beside the building
+    /// puts it out at once, and only the count records it; otherwise its covering catches.
+    pub(super) fn ignite(&mut self, ctx: &mut Ctx, building: PermanentId) {
+        let now = ctx.now;
+        let p = ctx.params.fire.clone();
+        let Some(b) = ctx
+            .land
+            .buildings
+            .iter()
+            .find(|b| b.id == building)
+            .cloned()
+        else {
+            return;
+        };
+        if !b.roofed() || self.fires.burning_in(building).is_some() {
+            return;
+        }
+        let Some(x) = self.household(b.household) else {
+            return;
+        };
+        let (members, settlement) = (x.members.clone(), x.settlement);
+        let Some(o) = ctx
+            .land
+            .plots
+            .iter()
+            .find(|q| q.id == b.plot)
+            .map(|q| (q.id, q.rect))
+            .and_then(|(id, rect)| outline_of(&std::iter::once((id, rect)).collect(), &b))
+        else {
+            return;
+        };
+        let t = now.minutes() as f64;
+        let (mut awake, mut workers) = (false, 0usize);
+        for id in &members {
+            let Some(m) = self.person(*id) else {
+                continue;
+            };
+            if m.asleep || !within(&o, m.position_at(t)) {
+                continue;
+            }
+            awake = true;
+            workers += usize::from(Self::works_fire(ctx, m));
+        }
+        let hearth = if awake {
+            p.hearth_lit_per_hour
+        } else {
+            p.hearth_banked_per_hour
+        };
+        let worked = workers as f64 * p.worked_per_hour;
+        let bound = ignition_bound(&p, members.len());
+        let mut rng = Rng64::from_key(&[
+            ctx.seed,
+            PURPOSE_IGNITE_TAKES,
+            building.get(),
+            now.minutes() as u64,
+        ]);
+        let u = rng.next_f64() * bound;
+        if bound.is_nan() || bound <= 0.0 || u >= hearth + worked {
+            return;
+        }
+        let kind = if u >= hearth {
+            Hearth::Worked
+        } else if awake {
+            Hearth::Lit
+        } else {
+            Hearth::Banked
+        };
+        // Someone awake in or beside it puts it out at once; the nearest, then the first by id.
+        let mut beside: Option<(f64, PermanentId)> = None;
+        for (_, q) in self.people.iter() {
+            if q.asleep {
+                continue;
+            }
+            let d = outside(&o, q.position_at(t));
+            if d <= p.beside_m && beside.is_none_or(|(bd, bid)| (d, q.id) < (bd, bid)) {
+                beside = Some((d, q.id));
+            }
+        }
+        let id = self.fires.ignitions.len() as u32 + 1;
+        let mut ignition = Ignition {
+            id,
+            at: now,
+            building,
+            household: b.household,
+            settlement,
+            hearth: kind,
+            moisture: ctx.land.weather.today.fuel_moisture,
+            put_out_by: beside.map(|(_, who)| who),
+            fire: None,
+        };
+        if ignition.put_out_by.is_none() && self.catch_threshold(ctx, &b).is_some() {
+            ignition.fire = Some(self.kindle(ctx, &b, Kindled::Ignition { ignition: id }));
+        }
+        self.fires.ignitions.push(ignition);
     }
 
     /// The observer sets building `building`'s covering alight (ADR-0022 §14): it burns as any

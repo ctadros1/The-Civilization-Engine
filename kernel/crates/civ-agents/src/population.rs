@@ -164,6 +164,11 @@ pub enum AgentEvent {
     /// A minute of every fire burning (M6b slice BC, ADR-0022 §4): one is pending whenever a
     /// fire burns.
     Fire,
+    /// A home's fires in use may escape now (M6b slice BD, ADR-0022 §3): drawn at midnight.
+    Ignite {
+        /// The home.
+        building: PermanentId,
+    },
 }
 
 /// The approximations the kernel makes as it advances (ADR-0011 §4), each on or off on its own.
@@ -1480,6 +1485,7 @@ impl Population {
                 self.run_steps(ctx, h, 0);
             }
             AgentEvent::Fire => self.fire_minute(ctx),
+            AgentEvent::Ignite { building } => self.ignite(ctx, building),
         }
     }
 
@@ -5609,6 +5615,8 @@ impl Population {
             }
         }
         self.check_buildings(ctx);
+        // The minutes at which each home's fires in use may escape today (M6b slice BD).
+        self.plan_ignitions(ctx, day);
         // And the crossings over water (M5c slice AW): rot and failure, then the households
         // whose day it is weigh building one where their people wade.
         if !ctx.land.crossings.list.is_empty() {

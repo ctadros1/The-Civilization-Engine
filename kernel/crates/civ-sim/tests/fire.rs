@@ -184,6 +184,7 @@ fn a_block_of_huts_a_metre_and_a_half_apart_in_wind_burns_within_minutes() {
                 assert!(fire < f.id && (0.0..10.0).contains(&gap_m));
                 assert!(f.episode.is_some());
             }
+            Kindled::Ignition { .. } => panic!("a fire in use escaped in the quarter hour"),
         }
     }
     // Every fire burns out half an hour on, and the conflagrations end with them.
@@ -573,4 +574,104 @@ fn the_observer_sees_each_fire_its_conflagration_what_held_and_the_chronicle_s_l
         .map(|e| incidents::chronicle_link(&sim, e))
         .collect();
     assert_eq!(linked, vec![Some((FIRE, 1))]);
+}
+
+/// World `seed` with a hut at each of its first `homes` households' homes, saved; two copies
+/// loaded from that save, each with its homes' fires in use escaping at `per_hour` an hour, lit or
+/// banked (no worked fires).
+fn hearth_worlds(seed: u64, homes: usize, per_hour: f64) -> (Sim, Sim, Vec<PermanentId>) {
+    let mut sim = world(seed);
+    let mut households: Vec<(PermanentId, (f32, f32))> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| (h.id, h.home))
+        .collect();
+    households.sort_by_key(|h| h.0);
+    let huts: Vec<PermanentId> = households
+        .iter()
+        .take(homes)
+        .map(|&(h, at)| hut(&mut sim, h, at))
+        .collect();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let saves = SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "homes").expect("saves");
+    let load = || {
+        let mut s = persist::load(&saved.path, content()).expect("loads");
+        let fire = &mut s
+            .rules_mut_for_tests()
+            .expect("rules of its own")
+            .people
+            .fire;
+        fire.hearth_lit_per_hour = per_hour;
+        fire.hearth_banked_per_hour = per_hour;
+        fire.worked_per_hour = 0.0;
+        s
+    };
+    (load(), load(), huts)
+}
+
+#[test]
+fn homes_catch_fire_from_their_hearths_at_the_same_minutes_whatever_the_speed() {
+    use civ_agents::fire::Hearth;
+    let (mut a, mut b, huts) = hearth_worlds(9, 6, 0.02);
+    // One lives five days at once, the other in uneven pieces.
+    a.advance_minutes(5 * 1440).expect("advances");
+    let mut left = 5 * 1440;
+    for step in [7, 13, 101, 389, 1440].iter().cycle() {
+        let n = (*step).min(left);
+        b.advance_minutes(n).expect("advances");
+        left -= n;
+        if left == 0 {
+            break;
+        }
+    }
+    let fires = &a.people().fires;
+    assert_eq!(fires.ignitions, b.people().fires.ignitions);
+    assert_eq!(fires.list, b.people().fires.list);
+    assert!(fires.problems().is_empty(), "{:?}", fires.problems());
+    let ignitions = &fires.ignitions;
+    assert!(ignitions.len() >= 5, "{} ignitions", ignitions.len());
+    // Only homes ignite; a hearth lit has someone awake at home, who puts it out at once.
+    for g in ignitions {
+        assert!(huts.contains(&g.building));
+        if g.hearth == Hearth::Lit {
+            assert!(g.put_out_by.is_some(), "a lit hearth's ignition escaped");
+        }
+        assert_ne!(g.hearth, Hearth::Worked);
+        if let Some(f) = g.fire {
+            let fire = fires.get(f).expect("its fire");
+            assert_eq!(fire.kindled, Kindled::Ignition { ignition: g.id });
+            assert_eq!((fire.building, fire.began), (g.building, g.at));
+        }
+    }
+    // Most are put out at once; some, with nobody awake there, catch.
+    let put_out = ignitions.iter().filter(|g| g.put_out_by.is_some()).count();
+    let caught = ignitions.iter().filter(|g| g.fire.is_some()).count();
+    assert!(
+        put_out > 0 && caught > 0,
+        "{put_out} put out, {caught} caught"
+    );
+}
+
+#[test]
+fn a_world_saved_with_ignitions_pending_lives_on_as_if_never_saved() {
+    let (mut a, mut b, _) = hearth_worlds(10, 6, 0.02);
+    for s in [&mut a, &mut b] {
+        s.advance_minutes(1440 + 10 * 60).expect("advances");
+    }
+    // B is saved mid-morning with the day's candidates pending, and loaded.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let saves = SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(&mut b, &saves, SaveKind::Manual, "mid").expect("saves");
+    let mut b = persist::load(&saved.path, content()).expect("loads");
+    let fire = &mut b.rules_mut_for_tests().expect("rules").people.fire;
+    fire.hearth_lit_per_hour = 0.02;
+    fire.hearth_banked_per_hour = 0.02;
+    fire.worked_per_hour = 0.0;
+    for s in [&mut a, &mut b] {
+        s.advance_minutes(2 * 1440).expect("advances");
+    }
+    assert!(!a.people().fires.ignitions.is_empty());
+    assert_eq!(a.people().fires, b.people().fires);
 }

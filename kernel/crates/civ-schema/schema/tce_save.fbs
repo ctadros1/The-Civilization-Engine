@@ -1766,7 +1766,9 @@ table FactionsSave {
 
 // Section "events": the scheduler's pending events.
 // Schema 88 (M6b slice BC): FireStep, a minute of every fire burning, pending whenever one burns.
-enum EventKind : ubyte { AgentStep = 0, FireStep = 1 }
+// Schema 89 (M6b slice BD): Ignite, a home's fires in use may escape (`person` holds the
+// building's id).
+enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2 }
 
 table PendingEvent {
   at: long (id: 0);
@@ -2127,7 +2129,8 @@ table SicknessSave {
 // Section "fires" (schema 88, M6b slice BC; ADR-0022 §13): a building's fire, from its covering
 // catching to its burning out. `kindled` 0: the observer (`source` the influence), 1: a burning
 // neighbour (`source` its fire, with the gap, the wind, the cosine toward this building from it
-// and the fuel's water then). `episode` 0: none. `ended` -1 while it burns.
+// and the fuel's water then); schema 89: 2, a fire in use that escaped (`source` the ignition).
+// `episode` 0: none. `ended` -1 while it burns.
 table FireSave {
   id: uint (id: 0);
   building: ulong (id: 1);
@@ -2172,11 +2175,28 @@ table WeighedSave {
   caught: bool (id: 4);
 }
 
+// An unintended ignition of a fire in use (schema 89, M6b slice BD; ADR-0022 §3): `hearth` 0 a
+// lit hearth, 1 a banked one, 2 a fire worked at home; `put_out_by` the person who put it out
+// at once (0: nobody), `fire` the building's fire it became (0: none).
+table IgnitionSave {
+  id: uint (id: 0);
+  at: long (id: 1);
+  building: ulong (id: 2);
+  household: ulong (id: 3);
+  settlement: ulong (id: 4);
+  hearth: ubyte (id: 5);
+  moisture: float (id: 6);
+  put_out_by: ulong (id: 7);
+  fire: uint (id: 8);
+}
+
 table FiresSave {
   fires: [FireSave] (id: 0);
   episodes: [ConflagrationSave] (id: 1);
   exposure: [ExposureSave] (id: 2);
   weighed: [WeighedSave] (id: 3);
+  // Schema 89.
+  ignitions: [IgnitionSave] (id: 4);
 }
 
 // A place a load lies or passes (schema 76, M6a slice AZ, step two; ADR-0021 §4): `code` 0 a

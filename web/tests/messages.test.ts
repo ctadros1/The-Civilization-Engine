@@ -621,6 +621,7 @@ describe("decoders", () => {
     const symptoms = b.createString("the thatch leaks");
     const upkeep = b.createString("mending the covering, 40% done");
     const style = b.createString("roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut");
+    const fireWords = b.createString("fully involved since 02:15, set alight by the observer (one recorded influence)");
     const group = W.GroupInfo.createGroupInfo(
       b,
       0x0700,
@@ -669,6 +670,9 @@ describe("decoders", () => {
     W.BuildingInfo.addUpkeep(b, upkeep);
     W.BuildingInfo.addStyle(b, style);
     W.BuildingInfo.addStyleFrom(b, 12n);
+    W.BuildingInfo.addFire(b, 2);
+    W.BuildingInfo.addFireId(b, 3);
+    W.BuildingInfo.addFireWords(b, fireWords);
     const info = W.BuildingInfo.endBuildingInfo(b);
     const list = W.Buildings.createBuildingsVector(b, [info]);
     const buildings = W.Buildings.createBuildings(b, 77n, list);
@@ -737,6 +741,9 @@ describe("decoders", () => {
           upkeep: "mending the covering, 40% done",
           style: "roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut",
           styleFrom: 12,
+          fire: "involved",
+          fireId: 3,
+          fireWords: "fully involved since 02:15, set alight by the observer (one recorded influence)",
         },
       ],
     });
@@ -1138,6 +1145,7 @@ describe("decoders", () => {
       W.IncidentRow.addObserver(b, observer);
       W.IncidentRow.addOutbreak(b, 1);
       W.IncidentRow.addOpen(b, true);
+      W.IncidentRow.addConflagration(b, kind === 4 ? 2 : 0);
       return W.IncidentRow.endIncidentRow(b);
     };
     const expected = {
@@ -1154,6 +1162,7 @@ describe("decoders", () => {
       observer: 3,
       outbreak: 1,
       open: true,
+      conflagration: 0,
     };
     // The list, with where the next page goes on from.
     let b = new flatbuffers.Builder(512);
@@ -1164,12 +1173,17 @@ describe("decoders", () => {
     const outbreaks = W.Incidents.createOutbreaksVector(b, [
       W.OutbreakRow.createOutbreakRow(b, 1, disease, 5n, 1440n * 399n, -1n, 9, 4, 1, 3, words),
     ]);
+    const fireWords = b.createString("A fire at Hazelford since 02:14 on 3 May of year 2: 4 buildings caught so far; it burns");
+    const conflagrations = W.Incidents.createConflagrationsVector(b, [
+      W.ConflagrationRow.createConflagrationRow(b, 2, 5n, 1440n * 400n + 134n, -1n, 4, 1, 120.5, 6, fireWords),
+    ]);
     W.Incidents.startIncidents(b);
     W.Incidents.addMinute(b, 1440n * 401n);
     W.Incidents.addRows(b, rows);
     W.Incidents.addNext(b, W.IncidentKey.createIncidentKey(b, 1440n * 400n, 2, 7));
     W.Incidents.addTotals(b, totals);
     W.Incidents.addOutbreaks(b, outbreaks);
+    W.Incidents.addConflagrations(b, conflagrations);
     const list = W.Incidents.endIncidents(b);
     let body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Incidents, list)));
     expect(body.kind).toBe("incidents");
@@ -1191,6 +1205,19 @@ describe("decoders", () => {
           died: 1,
           observer: 3,
           words: "Cholera at Hazelford, from 3 May of year 2: 9 took it, 4 fell ill, 1 died; it runs",
+        },
+      ],
+      conflagrations: [
+        {
+          id: 2,
+          settlement: 5,
+          began: 1440 * 400 + 134,
+          ended: -1,
+          burned: 4,
+          died: 1,
+          goodsKg: 120.5,
+          observer: 6,
+          words: "A fire at Hazelford since 02:14 on 3 May of year 2: 4 buildings caught so far; it burns",
         },
       ],
     });
@@ -1284,6 +1311,47 @@ describe("decoders", () => {
     expect(o.bodyType()).toBe(W.QueryBody.GetOutbreak);
     const og = o.body(new W.GetOutbreak()) as W.GetOutbreak;
     expect([og.id(), og.limit()]).toEqual([2, 10]);
+    // Wire 1.68: a conflagration's page, its query, and the fire tool.
+    b = new flatbuffers.Builder(512);
+    const cWords = b.createString("A fire at Hazelford from 02:14 to 02:50: it burned 2 buildings");
+    const crow = W.ConflagrationRow.createConflagrationRow(b, 2, 5n, 134n, 170n, 2, 0, 0, 6, cWords);
+    const cCause = b.createString("Began at the hut of Ada's household, set alight by the observer");
+    const cLinkWords = b.createString("set alight by the observer (one recorded influence)");
+    const cLink = W.IncidentLink.createIncidentLink(b, 0, 0, 6n, cLinkWords);
+    const cWeather = b.createString("When it first spread: a gentle breeze at 4.0 m/s");
+    const cFires = W.ConflagrationInfo.createFiresVector(b, [row(b, 4, 1, 6), row(b, 4, 2, 6)]);
+    const cHeld = W.ConflagrationInfo.createHeldVector(b, [b.createString("The hut of Bo's household: held")]);
+    W.ConflagrationInfo.startConflagrationInfo(b);
+    W.ConflagrationInfo.addRow(b, crow);
+    W.ConflagrationInfo.addCause(b, cCause);
+    W.ConflagrationInfo.addCauseLink(b, cLink);
+    W.ConflagrationInfo.addWeather(b, cWeather);
+    W.ConflagrationInfo.addFires(b, cFires);
+    W.ConflagrationInfo.addHeld(b, cHeld);
+    const cInfo = W.ConflagrationInfo.endConflagrationInfo(b);
+    body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.ConflagrationInfo, cInfo)));
+    expect(body.kind).toBe("conflagration");
+    if (body.kind !== "conflagration") return;
+    expect(body.conflagration.row.ended).toBe(170);
+    expect(body.conflagration.cause).toBe("Began at the hut of Ada's household, set alight by the observer");
+    expect(body.conflagration.causeLink).toEqual({
+      relation: "caused_by",
+      target: "influence",
+      id: 6,
+      words: "set alight by the observer (one recorded influence)",
+    });
+    expect(body.conflagration.weather).toBe("When it first spread: a gentle breeze at 4.0 m/s");
+    expect(body.conflagration.fires.map((f) => [f.kind, f.id, f.conflagration])).toEqual([
+      [4, 1, 2],
+      [4, 2, 2],
+    ]);
+    expect(body.conflagration.held).toEqual(["The hut of Bo's household: held"]);
+    const cq = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getConflagration(2)));
+    expect(cq.bodyType()).toBe(W.QueryBody.GetConflagration);
+    expect((cq.body(new W.GetConflagration()) as W.GetConflagration).id()).toBe(2);
+    const fire = W.Command.getRootAsCommand(new flatbuffers.ByteBuffer(M.setFire(61)));
+    expect(fire.bodyType()).toBe(W.CommandBody.SetFire);
+    expect((fire.body(new W.SetFire()) as W.SetFire).building()).toBe(61n);
   });
 
   it("decodes a raster tile response", () => {

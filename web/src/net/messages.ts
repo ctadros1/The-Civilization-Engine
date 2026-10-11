@@ -549,7 +549,16 @@ export interface BuildingInfo {
    * Bo's hut"); and that building (0 for none; it may since be gone). */
   style: string;
   styleFrom: number;
+  /** Wire 1.68 (M6b slice BC): its latest fire, as it stands (none, covering alight, fully
+   * involved, burnt out); that fire's number (0 for none); and in words ("fully involved since
+   * 02:15, caught from the hut of Bo's household…", "burnt out at 02:45 on 3 May of year 2"). */
+  fire: BuildingFire;
+  fireId: number;
+  fireWords: string;
 }
+
+/** How a building stands to its latest fire (wire 1.68). */
+export type BuildingFire = "none" | "alight" | "involved" | "burnt";
 
 export type EventKind =
   | "info"
@@ -1764,12 +1773,13 @@ export type ResponseBody =
   | { kind: "incidents"; incidents: IncidentsInfo }
   | { kind: "incident"; incident: IncidentInfo }
   | { kind: "outbreak"; outbreak: OutbreakInfo }
+  | { kind: "conflagration"; conflagration: ConflagrationInfo }
   | { kind: "coverage"; coverage: CoverageInfo };
 
 // ---- Incidents (wire 1.64, M6a slice BB, ADR-0015 §8) --------------------------------------
 
-/** 1 a taking, 2 a case of illness. */
-export type IncidentKind = 1 | 2;
+/** 1 a taking, 2 a case of illness, 4 a building's fire (wire 1.68). */
+export type IncidentKind = 1 | 2 | 4;
 
 /** Where a list of incidents goes on from. */
 export interface IncidentKey {
@@ -1786,7 +1796,8 @@ export interface IncidentRow {
   minute: number;
   settlement: number;
   at: [number, number];
-  /** Whom the words begin with: the one who went to take, or the one who took ill. */
+  /** Whom the words begin with: the one who went to take, or the one who took ill; for a fire,
+   * the building that burned (its id), named "The hut of Wren's household". */
   who: number;
   whoName: string;
   /** What happened, after the name: the kernel's truth, which nobody in the world reads. */
@@ -1800,6 +1811,8 @@ export interface IncidentRow {
   /** The outbreak it is part of (0: none). */
   outbreak: number;
   open: boolean;
+  /** Wire 1.68: the conflagration a fire is part of (0: none). */
+  conflagration: number;
 }
 
 /** How many incidents of a kind there are, in the scope asked. */
@@ -1826,12 +1839,28 @@ export interface OutbreakRow {
   words: string;
 }
 
+/** A conflagration (wire 1.68): fires caught from one another. */
+export interface ConflagrationRow {
+  id: number;
+  settlement: number;
+  /** Minutes; ended -1 while it burns. */
+  began: number;
+  ended: number;
+  burned: number;
+  died: number;
+  goodsKg: number;
+  observer: number;
+  words: string;
+}
+
 export interface IncidentsInfo {
   minute: number;
   rows: IncidentRow[];
   next: IncidentKey | null;
   totals: IncidentTotal[];
   outbreaks: OutbreakRow[];
+  /** Wire 1.68: every conflagration in scope, newest first. */
+  conflagrations: ConflagrationRow[];
 }
 
 /** A step in an incident's chain. */
@@ -1845,7 +1874,17 @@ export interface IncidentStep {
 }
 
 export type LinkRelation = "caused_by" | "part_of" | "responded_to";
-export type LinkTarget = "influence" | "person" | "household" | "source" | "outbreak" | "taking" | "illness";
+export type LinkTarget =
+  | "influence"
+  | "person"
+  | "household"
+  | "source"
+  | "outbreak"
+  | "taking"
+  | "illness"
+  | "fire"
+  | "conflagration"
+  | "building";
 
 /** A typed link, recorded when it happened. */
 export interface IncidentLink {
@@ -1886,6 +1925,17 @@ export interface OutbreakInfo {
   sources: OutbreakSource[];
   members: IncidentRow[];
   membersTotal: number;
+}
+
+/** A conflagration's page (wire 1.68): how it began, the wind and dryness when it first spread,
+ * its fires in the order they caught, and the buildings its heat reached that held. */
+export interface ConflagrationInfo {
+  row: ConflagrationRow;
+  cause: string;
+  causeLink: IncidentLink | null;
+  weather: string;
+  fires: IncidentRow[];
+  held: string[];
 }
 
 export type ErrorCode =
@@ -2046,6 +2096,17 @@ export function plague(person: number, disease: number): Uint8Array {
   const b = new flatbuffers.Builder(32);
   const body = W.Plague.createPlague(b, BigInt(person), disease);
   return command(b, W.CommandBody.Plague, body);
+}
+
+/**
+ * The observer sets a building's covering alight (god tool, wire 1.68, ADR-0022 §14): it burns as
+ * any fire does. Refused for a building with no roof, one already burning, or one whose covering
+ * is gone.
+ */
+export function setFire(building: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.SetFire.createSetFire(b, BigInt(building));
+  return command(b, W.CommandBody.SetFire, body);
 }
 
 /**
@@ -2213,6 +2274,12 @@ export function getIncident(kind: number, id: number): Uint8Array {
 export function getOutbreak(id: number, limit: number): Uint8Array {
   const b = new flatbuffers.Builder(32);
   return query(b, W.QueryBody.GetOutbreak, W.GetOutbreak.createGetOutbreak(b, id, limit));
+}
+
+/** One conflagration's page (wire 1.68). */
+export function getConflagration(id: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  return query(b, W.QueryBody.GetConflagration, W.GetConflagration.createGetConflagration(b, id));
 }
 
 /** A lens over the homes of `settlement` (0: every settlement); lens 1 is water (wire 1.66). */
@@ -2991,6 +3058,21 @@ function incidentRow(r: W.IncidentRow): IncidentRow {
     observer: r.observer(),
     outbreak: r.outbreak(),
     open: r.open(),
+    conflagration: r.conflagration(),
+  };
+}
+
+function conflagrationRow(c: W.ConflagrationRow): ConflagrationRow {
+  return {
+    id: c.id(),
+    settlement: Number(c.settlement()),
+    began: Number(c.began()),
+    ended: Number(c.ended()),
+    burned: c.burned(),
+    died: c.died(),
+    goodsKg: c.goodsKg(),
+    observer: c.observer(),
+    words: c.words() ?? "",
   };
 }
 
@@ -3010,7 +3092,18 @@ function outbreakRow(o: W.OutbreakRow): OutbreakRow {
 }
 
 const LINK_RELATIONS: LinkRelation[] = ["caused_by", "part_of", "responded_to"];
-const LINK_TARGETS: LinkTarget[] = ["influence", "person", "household", "source", "outbreak", "taking", "illness"];
+const LINK_TARGETS: LinkTarget[] = [
+  "influence",
+  "person",
+  "household",
+  "source",
+  "outbreak",
+  "taking",
+  "illness",
+  "fire",
+  "conflagration",
+  "building",
+];
 
 function incidentLink(l: W.IncidentLink): IncidentLink {
   return {
@@ -3039,6 +3132,11 @@ function incidentsInfo(f: W.Incidents): IncidentsInfo {
     const o = f.outbreaks(i);
     if (o) outbreaks.push(outbreakRow(o));
   }
+  const conflagrations: ConflagrationRow[] = [];
+  for (let i = 0; i < f.conflagrationsLength(); i++) {
+    const c = f.conflagrations(i);
+    if (c) conflagrations.push(conflagrationRow(c));
+  }
   const n = f.next();
   return {
     minute: Number(f.minute()),
@@ -3046,6 +3144,7 @@ function incidentsInfo(f: W.Incidents): IncidentsInfo {
     next: n ? { minute: Number(n.minute()), kind: n.kind(), id: n.id() } : null,
     totals,
     outbreaks,
+    conflagrations,
   };
 }
 
@@ -3114,6 +3213,26 @@ function outbreakInfo(f: W.OutbreakInfo): OutbreakInfo {
   };
 }
 
+function conflagrationInfo(f: W.ConflagrationInfo): ConflagrationInfo {
+  const row = f.row();
+  const fires: IncidentRow[] = [];
+  for (let i = 0; i < f.firesLength(); i++) {
+    const x = f.fires(i);
+    if (x) fires.push(incidentRow(x));
+  }
+  const link = f.causeLink();
+  return {
+    row: row
+      ? conflagrationRow(row)
+      : { id: 0, settlement: 0, began: 0, ended: -1, burned: 0, died: 0, goodsKg: 0, observer: 0, words: "" },
+    cause: f.cause() ?? "",
+    causeLink: link ? incidentLink(link) : null,
+    weather: f.weather() ?? "",
+    fires,
+    held: strings(f.heldLength(), (i) => f.held(i)),
+  };
+}
+
 function weatherReport(r: W.WeatherReport): WeatherReport {
   const months: WeatherMonth[] = [];
   const m = new W.WeatherMonthInfo();
@@ -3169,6 +3288,9 @@ const BUILDING_STATES: Record<number, BuildingState> = {
   [W.BuildingState.Damaged]: "damaged",
   [W.BuildingState.Ruin]: "ruin",
 };
+
+/** A building's latest fire by its wire code (wire 1.68). */
+const BUILDING_FIRES: BuildingFire[] = ["none", "alight", "involved", "burnt"];
 
 function groups(x: W.BuildingInfo): GroupInfo[] {
   const out: GroupInfo[] = [];
@@ -3251,6 +3373,9 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
       upkeep: x.upkeep() ?? "",
       style: x.style() ?? "",
       styleFrom: Number(x.styleFrom()),
+      fire: BUILDING_FIRES[x.fire()] ?? "none",
+      fireId: x.fireId(),
+      fireWords: x.fireWords() ?? "",
     });
   }
   return { rev: Number(f.rev()), buildings: out };
@@ -4211,6 +4336,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.OutbreakInfo()) as W.OutbreakInfo | null;
       if (!f) break;
       return { kind: "outbreak", outbreak: outbreakInfo(f) };
+    }
+    case W.ResponseBody.ConflagrationInfo: {
+      const f = r.body(new W.ConflagrationInfo()) as W.ConflagrationInfo | null;
+      if (!f) break;
+      return { kind: "conflagration", conflagration: conflagrationInfo(f) };
     }
     case W.ResponseBody.Coverage: {
       const f = r.body(new W.Coverage()) as W.Coverage | null;

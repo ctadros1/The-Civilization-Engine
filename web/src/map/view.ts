@@ -527,6 +527,11 @@ export class MapView {
     }
   }
 
+  /** The building under a point in metres, if any (the fire tool's target, M6b slice BC). */
+  buildingUnder(xM: number, yM: number): BuildingInfo | null {
+    return buildingAt(this.buildings, xM, yM);
+  }
+
   /** The buildings, as the host last listed them. */
   setBuildings(buildings: BuildingInfo[]): void {
     this.buildings = buildings;
@@ -1177,6 +1182,10 @@ export class MapView {
       fields: this.fields.length,
       buildings: this.buildings.length,
       roofed: this.buildings.filter((b) => b.roofed).length,
+      // M6b slice BC: roofed buildings, where each stands and how it stands to its latest fire.
+      roofs: this.buildings
+        .filter((b) => b.roofed)
+        .map((b) => ({ id: b.id, x: b.x, y: b.y, fire: b.fire, words: b.fireWords })),
       // M3b slice R: buildings that followed an admired one, and frame buildings, where they stand.
       followed: this.buildings
         .filter((b) => b.styleFrom !== 0)

@@ -353,7 +353,6 @@ export class HostClient {
     return body.incident;
   }
 
-  /** One outbreak's page: its counts, curve, sources and cases (wire 1.64). */
   /** A lens over the homes of `settlement` (0: every settlement); lens 1 is water (wire 1.66). */
   async coverage(settlement: number, lens: number): Promise<M.CoverageInfo> {
     const body = await this.query(M.getCoverage(settlement, lens));
@@ -361,10 +360,18 @@ export class HostClient {
     return body.coverage;
   }
 
+  /** One outbreak's page: its counts, curve, sources and cases (wire 1.64). */
   async outbreak(id: number, limit: number): Promise<M.OutbreakInfo> {
     const body = await this.query(M.getOutbreak(id, limit));
     if (body.kind !== "outbreak") throw new HostError("internal", "expected an outbreak");
     return body.outbreak;
+  }
+
+  /** One conflagration's page: its cause, its fires and what held (wire 1.68). */
+  async conflagration(id: number): Promise<M.ConflagrationInfo> {
+    const body = await this.query(M.getConflagration(id));
+    if (body.kind !== "conflagration") throw new HostError("internal", "expected a conflagration");
+    return body.conflagration;
   }
 
   async order(): Promise<M.OrderInfo> {

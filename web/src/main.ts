@@ -932,7 +932,13 @@ async function syncIncidents(): Promise<void> {
   if (world.worldId !== incidentsWorld) {
     incidentsWorld = world.worldId;
     incidentsKey = "";
-    store.update({ incidents: null, incidentsError: null, incidentPage: null, outbreakPage: null });
+    store.update({
+      incidents: null,
+      incidentsError: null,
+      incidentPage: null,
+      outbreakPage: null,
+      conflagrationPage: null,
+    });
   }
   const rev = s.snapshot?.incidentsRev ?? 0;
   const key = `${s.epoch}:${world.worldId}:${rev}:${s.incidentKind}`;
@@ -959,6 +965,8 @@ async function syncIncidents(): Promise<void> {
     if (page) void loadIncident(page.kind, page.id);
     const outbreak = store.state.outbreakPage;
     if (outbreak) void loadOutbreak(outbreak.id);
+    const conflagration = store.state.conflagrationPage;
+    if (conflagration) void loadConflagration(conflagration.id);
     void syncIncidents();
   }
 }
@@ -1015,21 +1023,43 @@ async function loadOutbreak(id: number): Promise<void> {
   }
 }
 
+async function loadConflagration(id: number): Promise<void> {
+  try {
+    const info = await client.conflagration(id);
+    if (store.state.conflagrationPage?.id === id) {
+      store.update({ conflagrationPage: { id, info, error: null } });
+    }
+  } catch (e) {
+    const page = store.state.conflagrationPage;
+    if (page?.id === id) store.update({ conflagrationPage: { ...page, error: errorText(e) } });
+  }
+}
+
 /** Opens an incident's page in the Incidents panel. */
 function openIncident(kind: number, id: number): void {
-  store.update({ incidentPage: { kind, id, info: null, error: null }, outbreakPage: null });
+  store.update({
+    incidentPage: { kind, id, info: null, error: null },
+    outbreakPage: null,
+    conflagrationPage: null,
+  });
   void loadIncident(kind, id);
 }
 
 /** Opens an outbreak's page in the Incidents panel. */
 function openOutbreak(id: number): void {
-  store.update({ outbreakPage: { id, info: null, error: null }, incidentPage: null });
+  store.update({ outbreakPage: { id, info: null, error: null }, incidentPage: null, conflagrationPage: null });
   void loadOutbreak(id);
+}
+
+/** Opens a conflagration's page in the Incidents panel (wire 1.68). */
+function openConflagration(id: number): void {
+  store.update({ conflagrationPage: { id, info: null, error: null }, incidentPage: null, outbreakPage: null });
+  void loadConflagration(id);
 }
 
 /** Back to the list of incidents. */
 function closeIncidentPage(): void {
-  store.update({ incidentPage: null, outbreakPage: null });
+  store.update({ incidentPage: null, outbreakPage: null, conflagrationPage: null });
 }
 
 /** Opens workshop `id`'s page in the workshops panel, or goes back to the list. */
@@ -1202,6 +1232,7 @@ bindUi(store, {
   moreIncidents: () => void moreIncidents(),
   openIncident,
   openOutbreak,
+  openConflagration,
   closeIncidentPage,
   runAhead: async (minutes) => {
     const clock = store.state.snapshot?.clock;
@@ -1216,6 +1247,7 @@ bindUi(store, {
   bless,
   setPlacingAgitator,
   setPlacingWave,
+  setPlacingFire,
   drought,
 });
 
@@ -1224,7 +1256,14 @@ bindUi(store, {
  * come together.
  */
 function setPlacing(on: boolean, families = store.state.placeFamilies): void {
-  store.update({ placing: on, placeFamilies: families, placingDeposit: false, placingAgitator: false, placingWave: false });
+  store.update({
+    placing: on,
+    placeFamilies: families,
+    placingDeposit: false,
+    placingAgitator: false,
+    placingWave: false,
+    placingFire: false,
+  });
   map.setPlacing(on);
 }
 
@@ -1233,7 +1272,14 @@ function setPlacing(on: boolean, families = store.state.placeFamilies): void {
  * Welcome.ideologies) where the map is clicked (M4c slice AJ).
  */
 function setPlacingAgitator(on: boolean, ideology: number): void {
-  store.update({ placingAgitator: on, agitatorIdeology: ideology, placing: false, placingDeposit: false, placingWave: false });
+  store.update({
+    placingAgitator: on,
+    agitatorIdeology: ideology,
+    placing: false,
+    placingDeposit: false,
+    placingWave: false,
+    placingFire: false,
+  });
   map.setPlacing(on);
 }
 
@@ -1250,6 +1296,22 @@ function setPlacingWave(on: boolean, households: number, days: number, months: n
     placing: false,
     placingDeposit: false,
     placingAgitator: false,
+    placingFire: false,
+  });
+  map.setPlacing(on);
+}
+
+/**
+ * Arms or disarms the map tool that sets alight the building clicked (M6b slice BC, ADR-0022
+ * §14): its covering catches, and what follows is the fire's and people's.
+ */
+function setPlacingFire(on: boolean): void {
+  store.update({
+    placingFire: on,
+    placing: false,
+    placingDeposit: false,
+    placingAgitator: false,
+    placingWave: false,
   });
   map.setPlacing(on);
 }
@@ -1266,6 +1328,7 @@ function setPlacingDeposit(on: boolean, good: string, exposed: boolean): void {
     placing: false,
     placingAgitator: false,
     placingWave: false,
+    placingFire: false,
   });
   map.setPlacing(on);
 }
@@ -1274,6 +1337,16 @@ function setPlacingDeposit(on: boolean, good: string, exposed: boolean): void {
 const PLACED_DEPOSIT_RADIUS_M = 10;
 
 map.onPlace = (xM, yM) => {
+  if (store.state.placingFire) {
+    setPlacingFire(false);
+    const building = map.buildingUnder(xM, yM);
+    if (!building) {
+      store.update({ notice: { kind: "error", text: "There is no building there to set alight" } });
+      return;
+    }
+    void influence(M.setFire(building.id), "A building was set alight");
+    return;
+  }
   if (store.state.placingWave) {
     const { waveHouseholds, waveDays, waveMonths } = store.state;
     setPlacingWave(false, waveHouseholds, waveDays, waveMonths);
@@ -1324,6 +1397,7 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && store.state.placingAgitator) {
     setPlacingAgitator(false, store.state.agitatorIdeology);
   }
+  if (event.key === "Escape" && store.state.placingFire) setPlacingFire(false);
   if (event.key === "Escape" && store.state.placingWave) {
     const { waveHouseholds, waveDays, waveMonths } = store.state;
     setPlacingWave(false, waveHouseholds, waveDays, waveMonths);
@@ -1443,6 +1517,15 @@ const hooks = {
             sources: s.outbreakPage.info.sources,
             members: s.outbreakPage.info.members.length,
             membersTotal: s.outbreakPage.info.membersTotal,
+          }
+        : null,
+      conflagrationPage: s.conflagrationPage?.info
+        ? {
+            row: s.conflagrationPage.info.row,
+            cause: s.conflagrationPage.info.cause,
+            weather: s.conflagrationPage.info.weather,
+            fires: s.conflagrationPage.info.fires.length,
+            held: s.conflagrationPage.info.held,
           }
         : null,
       order: s.order
@@ -1607,6 +1690,8 @@ const hooks = {
     summary: lensInfo?.summary ?? [],
   }),
   pointerAt: (x: number, y: number) => map.pointerInfo(x, y),
+  /** Centres the map on a point, metres, at least `minScale` pixels a metre. */
+  centreOn: (xM: number, yM: number, minScale: number) => map.centreOn(xM, yM, minScale),
   panBy: (dx: number, dy: number) => map.panBy(dx, dy),
   zoomBy: (factor: number) => map.zoomBy(factor),
   fit: () => map.fit(),

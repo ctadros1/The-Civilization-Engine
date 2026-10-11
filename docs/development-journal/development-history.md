@@ -1356,6 +1356,16 @@ The full end-to-end run found the knowledge test still counting the founders' te
 
 **Open:** step three, the observer's view: the fire tool on the wire and in the web, burning and burnt buildings on the map, fire incidents and conflagration pages.
 
+## 2026-10-11 — M6b slice BC, step three: the observer sees a fire
+
+**What changed:** wire 1.68 adds the Set alight command, each building's latest fire (alight, fully involved, burnt out) with the kernel's words, a fourth kind of incident (a building's fire) and a page for each conflagration. The web arms a map tool that sets the building clicked alight, draws roofs alight in flame and burnt buildings charred, and the Incidents panel lists fires and the fires that spread, with their pages and typed links. The chronicle's fire entries, the observer's hand and deaths by fire open what they tell of.
+
+**Findings:** the knowledge layer of a fire has nothing to show until people notice fires (slice BD). It says so rather than borrowing from the truth. The map's click and the readout's hit-test agreed only once the canvas was measured after the tool was armed (arming moves the page).
+
+**Evidence:** a kernel test reads every new frame from a burning block and a lone hut; a host test drives the command and the queries; web decoder, drawing and totals tests; an end-to-end run sets a hut alight from the map in a sixty-day village and follows it to burnt out.
+
+**Open:** slice BD, fires people start and fight.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

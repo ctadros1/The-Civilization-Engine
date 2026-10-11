@@ -4,7 +4,12 @@
 //! what the polity knows and did, from its cases and laws), a page for each with its stamped steps
 //! and typed links, and a page for each outbreak with its sources, the truth beside what people
 //! hold and what their polity did. Each kind keeps its own store; this only reads them, and no
-//! choice reads what it builds.
+//! choice reads what it builds. Wire 1.68 adds a building's fire, and a page for each
+//! conflagration (M6b slice BC, step three; `fire`).
+
+mod fire;
+
+pub use fire::{building_fire, building_words, conflagration_response};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -34,6 +39,10 @@ pub const TAKING: u8 = 1;
 pub const ILLNESS: u8 = 2;
 /// An outbreak, as a chronicle entry's link names it (wire 1.65).
 pub const OUTBREAK: u8 = 3;
+/// A building's fire (wire 1.68, ADR-0022 §13).
+pub const FIRE: u8 = 4;
+/// A conflagration, as a chronicle entry's link names it (wire 1.68).
+pub const CONFLAGRATION: u8 = 5;
 
 /// Rows a page carries when none is asked, and at most.
 const DEFAULT_ROWS: usize = 50;
@@ -59,11 +68,14 @@ struct Row {
     settlement: Option<PermanentId>,
     at: (f32, f32),
     who: PermanentId,
+    /// Whom the words begin with, when not a person's name: a fire's building.
+    who_name: Option<String>,
     happened: String,
     known: String,
     polity: String,
     observer: u32,
     outbreak: u32,
+    conflagration: u32,
     open: bool,
 }
 
@@ -458,11 +470,13 @@ fn illness_row(f: &Facts, e: &Episode) -> (Row, bool, bool) {
             settlement,
             at: home_at(f.sim, f.household_of(e), settlement),
             who: e.person,
+            who_name: None,
             happened: illness_happened(f.sim, e),
             known,
             polity,
             observer: f.observer_of(e),
             outbreak: e.outbreak.unwrap_or(0),
+            conflagration: 0,
             open: e.ended.is_none(),
         },
         knows,
@@ -574,6 +588,7 @@ fn taking_row(sim: &Sim, i: &Incident) -> Row {
         settlement: taking_settlement(sim, i),
         at: i.place,
         who: i.actor,
+        who_name: None,
         happened: taking_happened(sim, i),
         known: taking_known(sim, i),
         polity: if case.is_empty() {
@@ -583,6 +598,7 @@ fn taking_row(sim: &Sim, i: &Incident) -> Row {
         },
         observer: 0,
         outbreak: 0,
+        conflagration: 0,
         open: false,
     }
 }
@@ -592,7 +608,10 @@ fn put_row<'a>(
     sim: &Sim,
     r: &Row,
 ) -> WIPOffset<wire::IncidentRow<'a>> {
-    let who_name = fbb.create_string(&sim.people.name_of(r.who));
+    let who_name = match &r.who_name {
+        Some(name) => fbb.create_string(name),
+        None => fbb.create_string(&sim.people.name_of(r.who)),
+    };
     let happened = fbb.create_string(&r.happened);
     let known = fbb.create_string(&r.known);
     let polity = fbb.create_string(&r.polity);
@@ -612,6 +631,7 @@ fn put_row<'a>(
             observer: r.observer,
             outbreak: r.outbreak,
             open: r.open,
+            conflagration: r.conflagration,
         },
     )
 }
@@ -630,7 +650,8 @@ pub fn incidents_rev(sim: &Sim) -> u64 {
     let pop = &sim.people;
     let order = &pop.order;
     let sickness = &pop.sickness;
-    if order.incidents.is_empty() && sickness.episodes().is_empty() {
+    let fires = &pop.fires;
+    if order.incidents.is_empty() && sickness.episodes().is_empty() && fires.list.is_empty() {
         return 0;
     }
     let mut h = DefaultHasher::new();
@@ -674,6 +695,17 @@ pub fn incidents_rev(sim: &Sim) -> u64 {
     if !sickness.running().is_empty() {
         sim.now().day_index().hash(&mut h);
     }
+    // A fire's words change with each minute it burns.
+    (
+        fires.list.len(),
+        fires.episodes.len(),
+        fires.list.iter().filter(|f| f.ended.is_some()).count(),
+        fires.weighed.len(),
+    )
+        .hash(&mut h);
+    if fires.any_burning() {
+        sim.now().minutes().hash(&mut h);
+    }
     h.finish().max(1)
 }
 
@@ -700,6 +732,7 @@ pub fn incidents_response(
     let mut totals: BTreeMap<u8, [u32; 4]> = BTreeMap::new();
     totals.insert(TAKING, [0; 4]);
     totals.insert(ILLNESS, [0; 4]);
+    totals.insert(FIRE, [0; 4]);
     for (at, i) in pop.order.incidents.iter().enumerate() {
         if !in_scope(taking_settlement(sim, i)) {
             continue;
@@ -727,6 +760,17 @@ pub fn incidents_response(
             keys.push(((e.infected * MINUTES_PER_DAY, ILLNESS, e.id), at));
         }
     }
+    for (at, x) in pop.fires.list.iter().enumerate() {
+        if !in_scope(x.settlement) {
+            continue;
+        }
+        let t = totals.entry(FIRE).or_default();
+        t[0] += 1;
+        t[3] += u32::from(fire::observer_of(sim, x) > 0);
+        if kind == 0 || kind == FIRE {
+            keys.push(((x.began.minutes(), FIRE, x.id), at));
+        }
+    }
     keys.sort_unstable_by_key(|k| std::cmp::Reverse(k.0));
     let start = before.map_or(0, |k| keys.partition_point(|&(key, _)| key >= k));
     let end = (start + limit).min(keys.len());
@@ -740,10 +784,10 @@ pub fn incidents_response(
     let rows: Vec<_> = page
         .iter()
         .map(|&((_, k, _), at)| {
-            let row = if k == TAKING {
-                taking_row(sim, &pop.order.incidents[at])
-            } else {
-                illness_row(&f, &pop.sickness.episodes()[at]).0
+            let row = match k {
+                TAKING => taking_row(sim, &pop.order.incidents[at]),
+                FIRE => fire::fire_row(sim, &pop.fires.list[at]),
+                _ => illness_row(&f, &pop.sickness.episodes()[at]).0,
             };
             put_row(&mut fbb, sim, &row)
         })
@@ -774,6 +818,15 @@ pub fn incidents_response(
         .map(|o| outbreak_row(&mut fbb, &f, o))
         .collect();
     let outbreaks = fbb.create_vector(&outbreaks);
+    let conflagrations: Vec<_> = pop
+        .fires
+        .episodes
+        .iter()
+        .rev()
+        .filter(|e| in_scope(e.settlement))
+        .map(|e| fire::conflagration_row(&mut fbb, sim, e))
+        .collect();
+    let conflagrations = fbb.create_vector(&conflagrations);
     let next = next.map(|(minute, kind, id)| wire::IncidentKey::new(minute, kind, id));
     let body = wire::Incidents::create(
         &mut fbb,
@@ -783,6 +836,7 @@ pub fn incidents_response(
             next: next.as_ref(),
             totals: Some(totals),
             outbreaks: Some(outbreaks),
+            conflagrations: Some(conflagrations),
         },
     );
     response(fbb, wire::ResponseBody::Incidents, body)
@@ -899,6 +953,8 @@ const TO_PERSON: u8 = 1;
 const TO_HOUSEHOLD: u8 = 2;
 const TO_SOURCE: u8 = 3;
 const TO_OUTBREAK: u8 = 4;
+const TO_FIRE: u8 = 7;
+const TO_CONFLAGRATION: u8 = 8;
 
 /// How a case was caught, as a link to what it was caught from.
 fn caught_link(sim: &Sim, e: &Episode) -> Link {
@@ -1147,6 +1203,7 @@ pub fn incident_response(sim: &Sim, kind: u8, id: u32) -> Option<Vec<u8>> {
     let (row, steps, links, [truth, knowledge, polity]) = match kind {
         TAKING => taking_page(sim, pop.order.incident(id)?),
         ILLNESS => illness_page(&f, pop.sickness.episodes().iter().find(|e| e.id == id)?),
+        FIRE => fire::fire_page(sim, pop.fires.get(id)?),
         _ => return None,
     };
     let mut fbb = FlatBufferBuilder::new();
@@ -1616,7 +1673,9 @@ pub fn outbreak_response(sim: &Sim, id: u32, limit: usize) -> Option<Vec<u8>> {
 /// The incident or outbreak a chronicle entry tells of, as its kind and number, found in the
 /// records the entry was written from, never by nearness in time alone (wire 1.65; 15-01 §3.5): a
 /// taking by its taker and minute; an outbreak's beginning by its first case, its end by its
-/// settlement and day; a death of a disease, and the observer's bringing one, by the case.
+/// settlement and day; a death of a disease, and the observer's bringing one, by the case; a
+/// fire, a conflagration, a death by fire and the observer's setting one (wire 1.68) as `fire`
+/// finds them.
 pub fn chronicle_link(sim: &Sim, e: &ChronicleEvent) -> Option<(u8, u32)> {
     let pop = &sim.people;
     let who = e.people.first().copied();
@@ -1667,6 +1726,9 @@ pub fn chronicle_link(sim: &Sim, e: &ChronicleEvent) -> Option<(u8, u32)> {
                         && matches!(c.acquired, Acquired::Observer { .. })
                 })
                 .map(|c| (ILLNESS, c.id))
+        }
+        ChronicleKind::Fire | ChronicleKind::Died | ChronicleKind::Influence => {
+            fire::chronicle_link(sim, e)
         }
         _ => None,
     }

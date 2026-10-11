@@ -16,6 +16,7 @@ import { SaveWorld } from '../../tce/wire/save-world.js';
 import { SendAgitator } from '../../tce/wire/send-agitator.js';
 import { SendWave } from '../../tce/wire/send-wave.js';
 import { SetClock } from '../../tce/wire/set-clock.js';
+import { SetFire } from '../../tce/wire/set-fire.js';
 import { SpawnFamily } from '../../tce/wire/spawn-family.js';
 import { TellOfIdeology } from '../../tce/wire/tell-of-ideology.js';
 import { Whisper } from '../../tce/wire/whisper.js';
@@ -39,13 +40,14 @@ export enum CommandBody {
   Bless = 14,
   SendWave = 15,
   Plague = 16,
-  Drought = 17
+  Drought = 17,
+  SetFire = 18
 }
 
 export function unionToCommandBody(
   type: CommandBody,
-  accessor: (obj:Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper|null
-): Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper|null {
+  accessor: (obj:Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SetFire|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SetFire|SpawnFamily|TellOfIdeology|Whisper|null
+): Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SetFire|SpawnFamily|TellOfIdeology|Whisper|null {
   switch(CommandBody[type]) {
     case 'NONE': return null; 
     case 'NewWorld': return accessor(new NewWorld())! as NewWorld;
@@ -65,15 +67,16 @@ export function unionToCommandBody(
     case 'SendWave': return accessor(new SendWave())! as SendWave;
     case 'Plague': return accessor(new Plague())! as Plague;
     case 'Drought': return accessor(new Drought())! as Drought;
+    case 'SetFire': return accessor(new SetFire())! as SetFire;
     default: return null;
   }
 }
 
 export function unionListToCommandBody(
   type: CommandBody, 
-  accessor: (index: number, obj:Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper|null, 
+  accessor: (index: number, obj:Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SetFire|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SetFire|SpawnFamily|TellOfIdeology|Whisper|null, 
   index: number
-): Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper|null {
+): Bless|CancelTask|Drought|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SetFire|SpawnFamily|TellOfIdeology|Whisper|null {
   switch(CommandBody[type]) {
     case 'NONE': return null; 
     case 'NewWorld': return accessor(index, new NewWorld())! as NewWorld;
@@ -93,6 +96,7 @@ export function unionListToCommandBody(
     case 'SendWave': return accessor(index, new SendWave())! as SendWave;
     case 'Plague': return accessor(index, new Plague())! as Plague;
     case 'Drought': return accessor(index, new Drought())! as Drought;
+    case 'SetFire': return accessor(index, new SetFire())! as SetFire;
     default: return null;
   }
 }

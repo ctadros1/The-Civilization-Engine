@@ -63,6 +63,9 @@ function hut(over: Partial<BuildingInfo> = {}): BuildingInfo {
     upkeep: "",
     style: "",
     styleFrom: 0,
+    fire: "none",
+    fireId: 0,
+    fireWords: "",
     ...over,
   };
 }
@@ -230,6 +233,24 @@ describe("buildings on the map", () => {
     expect([look.posts, look.roofAlpha]).toEqual([20, 0]);
     const marks = buildingMarks(ruin);
     expect(marks.some((m) => m.kind === "circle" && m.r > 1)).toBe(false);
+  });
+
+  it("glow while they burn, show charred once burnt out, and say so in the readout", () => {
+    const sound = hut({ stage: 5, roofed: true });
+    const alight = hut({ stage: 5, roofed: true, fire: "alight", fireId: 1, fireWords: "its roof alight since 02:14" });
+    const involved = hut({ stage: 5, roofed: true, fire: "involved", fireId: 1 });
+    const burnt = hut({ stage: 5, roofed: true, fire: "burnt", fireId: 1, fireWords: "burnt out at 02:45 on 3 May of year 2" });
+    expect([alight, involved, burnt].map(buildingKey)).toEqual(["burning", "burning", "burnt"]);
+    const red = (c: number) => (c >> 16) & 0xff;
+    expect(red(buildingLook(involved).roofFill)).toBeGreaterThan(red(buildingLook(sound).roofFill));
+    expect(buildingLook(involved).roofFill).not.toBe(buildingLook(alight).roofFill);
+    // The covering is gone: no roof is drawn, the charred posts show.
+    const look = buildingLook(burnt);
+    expect([look.roofAlpha, look.posts]).toEqual([0, 20]);
+    expect(buildingMarks(burnt).some((m) => m.kind === "circle" && m.r > 1)).toBe(false);
+    expect(buildingWords(alight)).toContain("; its roof alight since 02:14");
+    expect(buildingWords(burnt)).toContain("; burnt out at 02:45 on 3 May of year 2");
+    expect(BUILDING_LEGEND.map((e) => e.key)).toEqual(expect.arrayContaining(["burning", "burnt"]));
   });
 
   it("find a frame building under its gabled roof, not its circle", () => {

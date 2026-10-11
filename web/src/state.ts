@@ -5,6 +5,7 @@ import type { MapStatus } from "./map/view.js";
 import type { ConnectionStatus } from "./net/client.js";
 import type {
   ChronicleEntry,
+  ConflagrationInfo,
   EventItem,
   FirmBrief,
   FirmInfo,
@@ -127,6 +128,10 @@ export interface AppState {
   incidentPage: { kind: number; id: number; info: IncidentInfo | null; error: string | null } | null;
   /** An outbreak's page, when one is open in the panel. */
   outbreakPage: { id: number; info: OutbreakInfo | null; error: string | null } | null;
+  /** A conflagration's page, when one is open in the panel (wire 1.68). */
+  conflagrationPage: { id: number; info: ConflagrationInfo | null; error: string | null } | null;
+  /** The map tool that sets alight the building clicked is armed (M6b slice BC). */
+  placingFire: boolean;
 }
 
 export const MAX_EVENTS = 300;
@@ -177,6 +182,8 @@ export function initialState(): AppState {
     incidentsError: null,
     incidentPage: null,
     outbreakPage: null,
+    conflagrationPage: null,
+    placingFire: false,
   };
 }
 

@@ -98,8 +98,13 @@ open():boolean {
   return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
 }
 
+conflagration():number {
+  const offset = this.bb!.__offset(this.bb_pos, 30);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
 static startIncidentRow(builder:flatbuffers.Builder) {
-  builder.startObject(13);
+  builder.startObject(14);
 }
 
 static addKind(builder:flatbuffers.Builder, kind:number) {
@@ -152,6 +157,10 @@ static addOutbreak(builder:flatbuffers.Builder, outbreak:number) {
 
 static addOpen(builder:flatbuffers.Builder, open:boolean) {
   builder.addFieldInt8(12, +open, +false);
+}
+
+static addConflagration(builder:flatbuffers.Builder, conflagration:number) {
+  builder.addFieldInt32(13, conflagration, 0);
 }
 
 static endIncidentRow(builder:flatbuffers.Builder):flatbuffers.Offset {

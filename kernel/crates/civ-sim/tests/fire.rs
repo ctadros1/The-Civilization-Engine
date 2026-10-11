@@ -398,3 +398,179 @@ fn a_world_saved_mid_fire_burns_on_as_if_never_saved() {
     assert_eq!(conditions(&loaded), conditions(&sim));
     assert_eq!(loaded.people().chronicle, sim.people().chronicle);
 }
+
+#[test]
+fn the_observer_sees_each_fire_its_conflagration_what_held_and_the_chronicle_s_links() {
+    use civ_schema::{flatbuffers, wire};
+    use civ_sim::frames::buildings::buildings_response;
+    use civ_sim::frames::incidents::{self, CONFLAGRATION, FIRE};
+    let building = |sim: &Sim, id: PermanentId| -> (u8, u32, String) {
+        let bytes = buildings_response(sim);
+        let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+        let b = response
+            .body_as_buildings()
+            .and_then(|b| b.buildings())
+            .expect("buildings")
+            .iter()
+            .find(|b| b.id() == id.get())
+            .expect("the hut");
+        (
+            b.fire(),
+            b.fire_id(),
+            b.fire_words().unwrap_or("").to_owned(),
+        )
+    };
+    // Six huts close in wind: the first set alight, the fire spreads.
+    let (mut sim, huts) = block(6, 2, 3, 1.5, 5.5, 0.12);
+    assert_eq!(building(&sim, huts[0]).0, 0, "no fire yet");
+    sim.set_fire(huts[0]).expect("set alight");
+    let (stage, id, words) = building(&sim, huts[0]);
+    assert_eq!((stage, id), (1, 1));
+    assert!(words.contains("set alight by the observer"), "{words}");
+    sim.advance_minutes(3).expect("advances");
+    assert_eq!(building(&sim, huts[0]).0, 2, "fully involved");
+    let bytes = incidents::incidents_response(&sim, None, FIRE, None, 0);
+    let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+    let list = response.body_as_incidents().expect("incidents");
+    let rows: Vec<_> = list.rows().expect("rows").iter().collect();
+    let fires = sim.people().fires.list.len();
+    assert!(fires > 1, "it spread");
+    assert_eq!(rows.len(), fires);
+    assert!(
+        rows.iter()
+            .all(|r| r.kind() == FIRE && r.open() && r.observer() > 0)
+    );
+    let total = list
+        .totals()
+        .expect("totals")
+        .iter()
+        .find(|t| t.kind() == FIRE)
+        .expect("fires counted");
+    assert_eq!(
+        (total.all(), total.observer()),
+        (fires as u32, fires as u32)
+    );
+    assert_eq!(list.conflagrations().expect("conflagrations").len(), 1);
+    // Burnt out, each says so on the map, and its page tells its stages and its cause.
+    sim.advance_minutes(60).expect("advances");
+    let (stage, _, words) = building(&sim, huts[0]);
+    assert_eq!(stage, 3);
+    assert!(words.starts_with("burnt out at "), "{words}");
+    let page = |sim: &Sim, id: u32| -> Vec<u8> {
+        incidents::incident_response(sim, FIRE, id).expect("a page")
+    };
+    let bytes = page(&sim, 1);
+    let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+    let info = response.body_as_incident_info().expect("a fire's page");
+    let steps: Vec<(&str, u8)> = info
+        .steps()
+        .expect("steps")
+        .iter()
+        .map(|s| (s.label().unwrap_or(""), s.state()))
+        .collect();
+    assert_eq!(
+        steps,
+        vec![("Caught", 0), ("Fully involved", 0), ("Burnt out", 0)]
+    );
+    let links: Vec<(u8, u8)> = info
+        .links()
+        .expect("links")
+        .iter()
+        .map(|l| (l.relation(), l.target()))
+        .collect();
+    assert_eq!(
+        links,
+        vec![(0, 0), (1, 8)],
+        "the observer's, part of a conflagration"
+    );
+    assert!(
+        info.row()
+            .and_then(|r| r.who_name())
+            .is_some_and(|n| n.starts_with("The hut of ")),
+        "named by its building"
+    );
+    let bytes = page(&sim, 2);
+    let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+    let caught = response
+        .body_as_incident_info()
+        .and_then(|i| i.links())
+        .expect("links")
+        .get(0);
+    assert_eq!(
+        (caught.relation(), caught.target()),
+        (0, 7),
+        "caught from a fire"
+    );
+    assert!(caught.id() < 2 && caught.words().is_some_and(|w| w.contains(" m away")));
+    // The conflagration's page: its fires in the order they caught, its cause and its weather.
+    let bytes = incidents::conflagration_response(&sim, 1).expect("its page");
+    let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+    let c = response
+        .body_as_conflagration_info()
+        .expect("a conflagration");
+    let row = c.row().expect("its row");
+    let fires = sim.people().fires.list.len();
+    assert_eq!(row.burned() as usize, fires);
+    assert!(row.ended() > row.began());
+    assert_eq!(c.fires().expect("fires").len(), fires);
+    assert!(
+        c.cause()
+            .is_some_and(|w| w.contains("set alight by the observer"))
+    );
+    assert!(
+        c.weather()
+            .is_some_and(|w| w.starts_with("When it first spread"))
+    );
+    assert!(incidents::conflagration_response(&sim, 9).is_none());
+    assert!(incidents::incident_response(&sim, FIRE, 999).is_none());
+    // Every fire entry of the chronicle, and the observer's hand, opens what it tells of.
+    let linked: Vec<_> = sim
+        .people()
+        .chronicle
+        .iter()
+        .filter(|e| {
+            e.kind == ChronicleKind::Fire
+                || (e.kind == ChronicleKind::Influence
+                    && e.number == f64::from(InfluenceKind::Fire.code()))
+        })
+        .map(|e| incidents::chronicle_link(&sim, e))
+        .collect();
+    assert_eq!(
+        linked,
+        vec![
+            Some((FIRE, 1)),
+            Some((CONFLAGRATION, 1)),
+            Some((CONFLAGRATION, 1))
+        ]
+    );
+
+    // A lone hut in still air: its page tells what its heat reached and what held.
+    let (mut sim, huts) = block(7, 1, 2, 4.0, 0.0, 0.12);
+    sim.set_fire(huts[0]).expect("set alight");
+    sim.advance_minutes(40).expect("advances");
+    assert_eq!(sim.people().fires.list.len(), 1, "it stayed alone");
+    let bytes = page(&sim, 1);
+    let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+    let truth: Vec<&str> = response
+        .body_as_incident_info()
+        .and_then(|i| i.truth())
+        .expect("truth")
+        .iter()
+        .collect();
+    let at = truth
+        .iter()
+        .position(|l| *l == "Its heat reached these, and they held:")
+        .expect("what held");
+    assert!(
+        truth[at + 1].starts_with("The hut of ") && truth[at + 1].contains(" its covering needed"),
+        "{truth:?}"
+    );
+    let linked: Vec<_> = sim
+        .people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == ChronicleKind::Fire)
+        .map(|e| incidents::chronicle_link(&sim, e))
+        .collect();
+    assert_eq!(linked, vec![Some((FIRE, 1))]);
+}

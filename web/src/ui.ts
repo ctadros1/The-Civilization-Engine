@@ -127,13 +127,16 @@ export interface Actions {
   focusSettlement(id: number): void;
   /** Open a workshop's page in the workshops panel (null goes back to the list). */
   openFirm(id: number | null): void;
-  /** Shows incidents of one kind in the Incidents panel: 0 every kind, 1 takings, 2 illness. */
+  /** Shows incidents of one kind in the Incidents panel: 0 every kind, 1 takings, 2 illness, 4
+   * fires. */
   setIncidentKind(kind: number): void;
   /** Reads the next page of incidents. */
   moreIncidents(): void;
-  /** Opens an incident's page, or an outbreak's, in the Incidents panel; or goes back. */
+  /** Opens an incident's page, an outbreak's or a conflagration's, in the Incidents panel; or
+   * goes back. */
   openIncident(kind: number, id: number): void;
   openOutbreak(id: number): void;
+  openConflagration(id: number): void;
   closeIncidentPage(): void;
   /** Centres the map on a point, metres (the camera moves only when asked). */
   locate(xM: number, yM: number): void;
@@ -167,6 +170,8 @@ export interface Actions {
   /** Arms or disarms the tool that sends a migration wave of `households` households over `days`
    * days, each carrying `months` months of food, where the map is clicked (M5a slice AN). */
   setPlacingWave(on: boolean, households: number, days: number, months: number): void;
+  /** Arms or disarms the tool that sets alight the building clicked (M6b slice BC). */
+  setPlacingFire(on: boolean): void;
   /** Hold back the rain for `months` months, `depth` standard deviations dry (god tool, M6a
    * slice BA). */
   drought(months: number, depth: number): Promise<void>;
@@ -554,6 +559,8 @@ export function bindUi(store: Store, actions: Actions): void {
   for (const s of waveChoices) {
     s.addEventListener("change", () => armWave(addWave.getAttribute("aria-pressed") === "true"));
   }
+  const setFire = $<HTMLButtonElement>("set-fire");
+  setFire.addEventListener("click", () => actions.setPlacingFire(setFire.getAttribute("aria-pressed") !== "true"));
   const holdRain = $<HTMLButtonElement>("hold-rain");
   holdRain.addEventListener("click", () => {
     const months = Number($<HTMLSelectElement>("drought-months").value) || 12;
@@ -1604,6 +1611,7 @@ export function bindUi(store: Store, actions: Actions): void {
             const { kind, id } = e.link;
             const open = link("Open", () => {
               if (kind === 3) actions.openOutbreak(id);
+              else if (kind === 5) actions.openConflagration(id);
               else actions.openIncident(kind, id);
               $("incidents-panel").scrollIntoView({ block: "nearest" });
             });
@@ -2570,6 +2578,12 @@ export function bindUi(store: Store, actions: Actions): void {
   const SVG_NS = "http://www.w3.org/2000/svg";
   const capitalise = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
   /** One incident as a list item: its three layers, each labelled, and a way to its page. */
+  /** Whom an incident's words begin with, as a link: a person to focus, or a fire's building to
+   * find on the map. */
+  const whoLink = (r: IncidentRow): HTMLElement =>
+    r.kind === 4
+      ? link(r.whoName, () => actions.locate(r.at[0], r.at[1]))
+      : link(r.whoName, () => actions.focusPerson(r.who));
   const incidentItem = (r: IncidentRow): HTMLElement => {
     const mark = r.observer > 0 ? " (the observer's)" : "";
     const open = link("Open", () => actions.openIncident(r.kind, r.id));
@@ -2581,7 +2595,7 @@ export function bindUi(store: Store, actions: Actions): void {
         "div",
         { className: "happened" },
         el("span", { className: "layer", text: "What happened: " }),
-        link(r.whoName, () => actions.focusPerson(r.who)),
+        whoLink(r),
         ` ${r.happened}.${mark} `,
         open,
       ),
@@ -2655,12 +2669,7 @@ export function bindUi(store: Store, actions: Actions): void {
     const i = page.info;
     const nodes: Node[] = [
       back,
-      el(
-        "h3",
-        { className: "incident-title" },
-        link(i.row.whoName, () => actions.focusPerson(i.row.who)),
-        ` ${i.row.happened}.`,
-      ),
+      el("h3", { className: "incident-title" }, whoLink(i.row), ` ${i.row.happened}.`),
       el(
         "ol",
         { className: "incident-steps" },
@@ -2680,7 +2689,11 @@ export function bindUi(store: Store, actions: Actions): void {
               {},
               l.target === "outbreak"
                 ? link(capitalise(l.words), () => actions.openOutbreak(l.id))
-                : capitalise(l.words),
+                : l.target === "fire"
+                  ? link(capitalise(l.words), () => actions.openIncident(4, l.id))
+                  : l.target === "conflagration"
+                    ? link(capitalise(l.words), () => actions.openConflagration(l.id))
+                    : capitalise(l.words),
             ),
           ),
         ),
@@ -2749,6 +2762,32 @@ export function bindUi(store: Store, actions: Actions): void {
     if (page.error) nodes.push(el("p", { className: "note", text: `Not up to date: ${page.error}` }));
     return nodes;
   };
+  const conflagrationPageNodes = (page: NonNullable<AppState["conflagrationPage"]>): Node[] => {
+    const back = link("Back to the incidents", () => actions.closeIncidentPage());
+    back.classList.add("incident-back");
+    if (!page.info) {
+      return [
+        back,
+        page.error
+          ? el("p", { className: "form-error", text: `The fire could not be read: ${page.error}` })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      ];
+    }
+    const c = page.info;
+    const nodes: Node[] = [
+      back,
+      el("h3", { className: "conflagration-title", text: `${c.row.words}.` }),
+      el("p", { className: "conflagration-cause", text: `${c.cause}.` }),
+    ];
+    if (c.weather) nodes.push(el("p", { className: "conflagration-weather", text: `${c.weather}.` }));
+    nodes.push(
+      el("h4", { text: `Its fires, in the order they caught (${c.fires.length})` }),
+      el("ol", { className: "incidents conflagration-fires" }, ...c.fires.map(incidentItem)),
+      layerBlock("layer-truth", "What its heat reached that held (the kernel's truth)", c.held),
+    );
+    if (page.error) nodes.push(el("p", { className: "note", text: `Not up to date: ${page.error}` }));
+    return nodes;
+  };
   const renderIncidents = (state: AppState) => {
     const world = state.snapshot?.world ?? null;
     const key = [
@@ -2759,6 +2798,7 @@ export function bindUi(store: Store, actions: Actions): void {
       state.order,
       state.incidentPage,
       state.outbreakPage,
+      state.conflagrationPage,
     ];
     if (key.length === incidentsRenderKey.length && key.every((k, i) => k === incidentsRenderKey[i])) return;
     incidentsRenderKey = key;
@@ -2768,6 +2808,10 @@ export function bindUi(store: Store, actions: Actions): void {
     }
     if (state.outbreakPage) {
       incidentsBody.replaceChildren(...outbreakPageNodes(state.outbreakPage));
+      return;
+    }
+    if (state.conflagrationPage) {
+      incidentsBody.replaceChildren(...conflagrationPageNodes(state.conflagrationPage));
       return;
     }
     if (state.incidentPage) {
@@ -2804,14 +2848,33 @@ export function bindUi(store: Store, actions: Actions): void {
     const totals = inc.totals.filter((t) => state.incidentKind === 0 || t.kind === state.incidentKind);
     nodes.push(el("ul", { className: "incident-totals" }, ...totals.map((t) => el("li", { text: `${totalsLine(t)}.` }))));
     const o = state.order;
-    if (o && state.incidentKind !== 2) {
+    if (o && (state.incidentKind === 0 || state.incidentKind === 1)) {
       nodes.push(el("p", { className: "order-totals", text: totalsText(o) }));
       // Watchers come to take what a refused finding owed (wire 1.46).
       if (o.encounters.length > 0) {
         nodes.push(el("ul", { className: "encounters" }, ...o.encounters.map((v) => el("li", { text: v }))));
       }
     }
-    if (state.incidentKind !== 1 && inc.outbreaks.length > 0) {
+    if ((state.incidentKind === 0 || state.incidentKind === 4) && inc.conflagrations.length > 0) {
+      nodes.push(
+        el("h4", { text: "Fires that spread" }),
+        el(
+          "ul",
+          { className: "conflagrations" },
+          ...inc.conflagrations.map((c) => {
+            const open = link("Open", () => actions.openConflagration(c.id));
+            open.classList.add("conflagration-open");
+            return el(
+              "li",
+              { className: "conflagration" },
+              `${c.words}${c.observer > 0 ? " (the observer's)" : ""}. `,
+              open,
+            );
+          }),
+        ),
+      );
+    }
+    if ((state.incidentKind === 0 || state.incidentKind === 2) && inc.outbreaks.length > 0) {
       nodes.push(
         el("h4", { text: "Outbreaks" }),
         el(
@@ -3063,6 +3126,11 @@ export function bindUi(store: Store, actions: Actions): void {
     const rain = $<HTMLButtonElement>("hold-rain");
     rain.disabled = !open || !world;
     for (const id of ["drought-months", "drought-depth"]) $<HTMLSelectElement>(id).disabled = rain.disabled;
+    // The fire (M6b slice BC): the building clicked is set alight.
+    const fire = $<HTMLButtonElement>("set-fire");
+    fire.disabled = !open || !world;
+    fire.setAttribute("aria-pressed", String(state.placingFire));
+    fire.classList.toggle("active", state.placingFire);
     renderSpeeds(state);
     renderConnection(state);
     renderBanner(state);

@@ -116,6 +116,11 @@ pub enum Request {
         /// An index into `Welcome.diseases`.
         disease: u32,
     },
+    /// Set a building's covering alight (god tool, M6b slice BC, ADR-0022 §14).
+    SetFire {
+        /// Its permanent id.
+        building: u64,
+    },
     /// Hold back the rain over the settlement for a while (god tool, M6a slice BA, ADR-0021 §8).
     Drought {
         /// How many months it holds, 3 to 24.
@@ -221,6 +226,11 @@ pub enum Request {
         id: u32,
         /// Cases to list: 0 for the default.
         limit: u32,
+    },
+    /// One conflagration's page (wire 1.68).
+    GetConflagration {
+        /// Its number.
+        id: u32,
     },
     /// A lens read per home (wire 1.66): the Water lens's *could reach* and *did come*.
     GetCoverage {
@@ -564,6 +574,14 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         depth: b.depth(),
                     })
                 }
+                wire::CommandBody::SetFire => {
+                    let b = command
+                        .body_as_set_fire()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::SetFire {
+                        building: b.building(),
+                    })
+                }
                 other => Err(format!("unknown command {}", other.0)),
             }
         }
@@ -653,6 +671,12 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         id: b.id(),
                         limit: b.limit(),
                     })
+                }
+                wire::QueryBody::GetConflagration => {
+                    let b = query
+                        .body_as_get_conflagration()
+                        .ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetConflagration { id: b.id() })
                 }
                 wire::QueryBody::GetCoverage => {
                     let b = query
@@ -1297,6 +1321,19 @@ mod tests {
             })
         );
         let mut fbb = FlatBufferBuilder::new();
+        let body = wire::SetFire::create(&mut fbb, &wire::SetFireArgs { building: 77 });
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::SetFire,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::SetFire { building: 77 })
+        );
+        let mut fbb = FlatBufferBuilder::new();
         let body = wire::Bless::create(
             &mut fbb,
             &wire::BlessArgs {
@@ -1419,6 +1456,19 @@ mod tests {
         assert_eq!(
             decode_request(FrameKind::Query, &finish(fbb, root)),
             Ok(Request::GetOutbreak { id: 2, limit: 10 })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::GetConflagration::create(&mut fbb, &wire::GetConflagrationArgs { id: 4 });
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetConflagration,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetConflagration { id: 4 })
         );
         let mut fbb = FlatBufferBuilder::new();
         let body = wire::GetCoverage::create(

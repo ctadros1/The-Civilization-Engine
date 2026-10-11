@@ -10,11 +10,12 @@ export const INCIDENT_KINDS: { code: number; label: string }[] = [
   { code: 0, label: "Every kind" },
   { code: 1, label: "Takings" },
   { code: 2, label: "Illness" },
+  { code: 4, label: "Fires" },
 ];
 
-/** "taking", "illness": the class a row carries. */
+/** "taking", "illness", "fire": the class a row carries. */
 export function kindClass(kind: number): string {
-  return kind === 1 ? "taking" : kind === 2 ? "illness" : "other";
+  return kind === 1 ? "taking" : kind === 2 ? "illness" : kind === 4 ? "fire" : "other";
 }
 
 function count(n: number, one: string, many: string): string {
@@ -24,7 +25,7 @@ function count(n: number, one: string, many: string): string {
 /**
  * A kind's totals in a sentence, counts before anything else (ADR-0015 §8): "Takings: 12 in all;
  * 5 known to someone; 2 before a gathering", "Illness: 9 cases; 3 known to someone now; none named by a
- * law; 9 the observer's".
+ * law; 9 the observer's", "Fires: 7 buildings burned; 7 the observer's".
  */
 export function totalsLine(t: IncidentTotal): string {
   if (t.kind === 1) {
@@ -37,6 +38,12 @@ export function totalsLine(t: IncidentTotal): string {
     const law = t.polity === 0 ? "none named by a law" : `${t.polity} named by a law`;
     // Word of sickness fades as news does, so what is known of past cases is what is known now.
     return `Illness: ${count(t.all, "case", "cases")}; ${t.known} known to someone now; ${law}${observer}`;
+  }
+  if (t.kind === 4) {
+    // Nobody in the world sees or tells of a fire yet (M6b slice BD), so only the truth is counted.
+    if (t.all === 0) return "Fires: none";
+    const observer = t.observer > 0 ? `; ${t.observer} the observer's` : "";
+    return `Fires: ${count(t.all, "building burned", "buildings burned")}${observer}`;
   }
   return `${t.all} in all`;
 }

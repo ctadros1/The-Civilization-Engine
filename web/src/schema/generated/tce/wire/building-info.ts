@@ -327,8 +327,25 @@ styleFrom():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+fire():number {
+  const offset = this.bb!.__offset(this.bb_pos, 94);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : 0;
+}
+
+fireId():number {
+  const offset = this.bb!.__offset(this.bb_pos, 96);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
+fireWords():string|null
+fireWords(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+fireWords(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 98);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startBuildingInfo(builder:flatbuffers.Builder) {
-  builder.startObject(45);
+  builder.startObject(48);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -588,6 +605,18 @@ static addStyle(builder:flatbuffers.Builder, styleOffset:flatbuffers.Offset) {
 
 static addStyleFrom(builder:flatbuffers.Builder, styleFrom:bigint) {
   builder.addFieldInt64(44, styleFrom, BigInt('0'));
+}
+
+static addFire(builder:flatbuffers.Builder, fire:number) {
+  builder.addFieldInt8(45, fire, 0);
+}
+
+static addFireId(builder:flatbuffers.Builder, fireId:number) {
+  builder.addFieldInt32(46, fireId, 0);
+}
+
+static addFireWords(builder:flatbuffers.Builder, fireWordsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(47, fireWordsOffset, 0);
 }
 
 static endBuildingInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

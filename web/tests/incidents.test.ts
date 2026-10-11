@@ -18,6 +18,13 @@ describe("the Incidents panel's words", () => {
     );
     expect(kindClass(1)).toBe("taking");
     expect(kindClass(2)).toBe("illness");
+    // Wire 1.68: fires, counted by the truth alone while nobody in the world tells of one.
+    expect(totalsLine({ kind: 4, all: 0, known: 0, polity: 0, observer: 0 })).toBe("Fires: none");
+    expect(totalsLine({ kind: 4, all: 1, known: 0, polity: 0, observer: 0 })).toBe("Fires: 1 building burned");
+    expect(totalsLine({ kind: 4, all: 7, known: 0, polity: 0, observer: 7 })).toBe(
+      "Fires: 7 buildings burned; 7 the observer's",
+    );
+    expect(kindClass(4)).toBe("fire");
   });
 
   it("tells a step as precisely as it is known, and never invents an hour", () => {

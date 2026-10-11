@@ -665,10 +665,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_COMMAND_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_COMMAND_BODY: u8 = 17;
+pub const ENUM_MAX_COMMAND_BODY: u8 = 18;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 18] = [
+pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 19] = [
   CommandBody::NONE,
   CommandBody::NewWorld,
   CommandBody::SaveWorld,
@@ -687,6 +687,7 @@ pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 18] = [
   CommandBody::SendWave,
   CommandBody::Plague,
   CommandBody::Drought,
+  CommandBody::SetFire,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -712,9 +713,10 @@ impl CommandBody {
   pub const SendWave: Self = Self(15);
   pub const Plague: Self = Self(16);
   pub const Drought: Self = Self(17);
+  pub const SetFire: Self = Self(18);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 17;
+  pub const ENUM_MAX: u8 = 18;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::NewWorld,
@@ -734,6 +736,7 @@ impl CommandBody {
     Self::SendWave,
     Self::Plague,
     Self::Drought,
+    Self::SetFire,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -756,6 +759,7 @@ impl CommandBody {
       Self::SendWave => Some("SendWave"),
       Self::Plague => Some("Plague"),
       Self::Drought => Some("Drought"),
+      Self::SetFire => Some("SetFire"),
       _ => None,
     }
   }
@@ -815,10 +819,10 @@ pub struct CommandBodyUnionTableOffset {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_QUERY_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_QUERY_BODY: u8 = 26;
+pub const ENUM_MAX_QUERY_BODY: u8 = 27;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 27] = [
+pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 28] = [
   QueryBody::NONE,
   QueryBody::GetRaster,
   QueryBody::GetHydrography,
@@ -846,6 +850,7 @@ pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 27] = [
   QueryBody::GetIncident,
   QueryBody::GetOutbreak,
   QueryBody::GetCoverage,
+  QueryBody::GetConflagration,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -880,9 +885,10 @@ impl QueryBody {
   pub const GetIncident: Self = Self(24);
   pub const GetOutbreak: Self = Self(25);
   pub const GetCoverage: Self = Self(26);
+  pub const GetConflagration: Self = Self(27);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 26;
+  pub const ENUM_MAX: u8 = 27;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::GetRaster,
@@ -911,6 +917,7 @@ impl QueryBody {
     Self::GetIncident,
     Self::GetOutbreak,
     Self::GetCoverage,
+    Self::GetConflagration,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -942,6 +949,7 @@ impl QueryBody {
       Self::GetIncident => Some("GetIncident"),
       Self::GetOutbreak => Some("GetOutbreak"),
       Self::GetCoverage => Some("GetCoverage"),
+      Self::GetConflagration => Some("GetConflagration"),
       _ => None,
     }
   }
@@ -1381,10 +1389,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for BookKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RESPONSE_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RESPONSE_BODY: u8 = 27;
+pub const ENUM_MAX_RESPONSE_BODY: u8 = 28;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 28] = [
+pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 29] = [
   ResponseBody::NONE,
   ResponseBody::Ack,
   ResponseBody::RasterTile,
@@ -1413,6 +1421,7 @@ pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 28] = [
   ResponseBody::IncidentInfo,
   ResponseBody::OutbreakInfo,
   ResponseBody::Coverage,
+  ResponseBody::ConflagrationInfo,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1448,9 +1457,10 @@ impl ResponseBody {
   pub const IncidentInfo: Self = Self(25);
   pub const OutbreakInfo: Self = Self(26);
   pub const Coverage: Self = Self(27);
+  pub const ConflagrationInfo: Self = Self(28);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 27;
+  pub const ENUM_MAX: u8 = 28;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::Ack,
@@ -1480,6 +1490,7 @@ impl ResponseBody {
     Self::IncidentInfo,
     Self::OutbreakInfo,
     Self::Coverage,
+    Self::ConflagrationInfo,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1512,6 +1523,7 @@ impl ResponseBody {
       Self::IncidentInfo => Some("IncidentInfo"),
       Self::OutbreakInfo => Some("OutbreakInfo"),
       Self::Coverage => Some("Coverage"),
+      Self::ConflagrationInfo => Some("ConflagrationInfo"),
       _ => None,
     }
   }
@@ -9888,6 +9900,102 @@ impl ::core::fmt::Debug for Drought<'_> {
       ds.finish()
   }
 }
+pub enum SetFireOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SetFire<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for SetFire<'a> {
+  type Inner = SetFire<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> SetFire<'a> {
+  pub const VT_BUILDING: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    SetFire { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SetFireArgs
+  ) -> ::flatbuffers::WIPOffset<SetFire<'bldr>> {
+    let mut builder = SetFireBuilder::new(_fbb);
+    builder.add_building(args.building);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn building(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SetFire::VT_BUILDING, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for SetFire<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("building", Self::VT_BUILDING, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SetFireArgs {
+    pub building: u64,
+}
+impl<'a> Default for SetFireArgs {
+  #[inline]
+  fn default() -> Self {
+    SetFireArgs {
+      building: 0,
+    }
+  }
+}
+
+pub struct SetFireBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SetFireBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_building(&mut self, building: u64) {
+    self.fbb_.push_slot::<u64>(SetFire::VT_BUILDING, building, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SetFireBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SetFireBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<SetFire<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for SetFire<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("SetFire");
+      ds.field("building", &self.building());
+      ds.finish()
+  }
+}
 pub enum CommandOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -10192,6 +10300,21 @@ impl<'a> Command<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_set_fire(&self) -> Option<SetFire<'a>> {
+    if self.body_type() == CommandBody::SetFire {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { SetFire::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Command<'_> {
@@ -10219,6 +10342,7 @@ impl ::flatbuffers::Verifiable for Command<'_> {
           CommandBody::SendWave => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SendWave>>("CommandBody::SendWave", pos),
           CommandBody::Plague => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Plague>>("CommandBody::Plague", pos),
           CommandBody::Drought => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Drought>>("CommandBody::Drought", pos),
+          CommandBody::SetFire => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SetFire>>("CommandBody::SetFire", pos),
           _ => Ok(()),
         }
      })?
@@ -10387,6 +10511,13 @@ impl ::core::fmt::Debug for Command<'_> {
         },
         CommandBody::Drought => {
           if let Some(x) = self.body_as_drought() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::SetFire => {
+          if let Some(x) = self.body_as_set_fire() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -12829,6 +12960,102 @@ impl ::core::fmt::Debug for GetCoverage<'_> {
       ds.finish()
   }
 }
+pub enum GetConflagrationOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetConflagration<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetConflagration<'a> {
+  type Inner = GetConflagration<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetConflagration<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetConflagration { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GetConflagrationArgs
+  ) -> ::flatbuffers::WIPOffset<GetConflagration<'bldr>> {
+    let mut builder = GetConflagrationBuilder::new(_fbb);
+    builder.add_id(args.id);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GetConflagration::VT_ID, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for GetConflagration<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetConflagrationArgs {
+    pub id: u32,
+}
+impl<'a> Default for GetConflagrationArgs {
+  #[inline]
+  fn default() -> Self {
+    GetConflagrationArgs {
+      id: 0,
+    }
+  }
+}
+
+pub struct GetConflagrationBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetConflagrationBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(GetConflagration::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetConflagrationBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetConflagrationBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetConflagration<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetConflagration<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetConflagration");
+      ds.field("id", &self.id());
+      ds.finish()
+  }
+}
 pub enum QueryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -13268,6 +13495,21 @@ impl<'a> Query<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_conflagration(&self) -> Option<GetConflagration<'a>> {
+    if self.body_type() == QueryBody::GetConflagration {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetConflagration::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Query<'_> {
@@ -13304,6 +13546,7 @@ impl ::flatbuffers::Verifiable for Query<'_> {
           QueryBody::GetIncident => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetIncident>>("QueryBody::GetIncident", pos),
           QueryBody::GetOutbreak => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetOutbreak>>("QueryBody::GetOutbreak", pos),
           QueryBody::GetCoverage => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetCoverage>>("QueryBody::GetCoverage", pos),
+          QueryBody::GetConflagration => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetConflagration>>("QueryBody::GetConflagration", pos),
           _ => Ok(()),
         }
      })?
@@ -13535,6 +13778,13 @@ impl ::core::fmt::Debug for Query<'_> {
         },
         QueryBody::GetCoverage => {
           if let Some(x) = self.body_as_get_coverage() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetConflagration => {
+          if let Some(x) = self.body_as_get_conflagration() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -20138,6 +20388,9 @@ impl<'a> BuildingInfo<'a> {
   pub const VT_UPKEEP: ::flatbuffers::VOffsetT = 88;
   pub const VT_STYLE: ::flatbuffers::VOffsetT = 90;
   pub const VT_STYLE_FROM: ::flatbuffers::VOffsetT = 92;
+  pub const VT_FIRE: ::flatbuffers::VOffsetT = 94;
+  pub const VT_FIRE_ID: ::flatbuffers::VOffsetT = 96;
+  pub const VT_FIRE_WORDS: ::flatbuffers::VOffsetT = 98;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -20155,6 +20408,8 @@ impl<'a> BuildingInfo<'a> {
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    if let Some(x) = args.fire_words { builder.add_fire_words(x); }
+    builder.add_fire_id(args.fire_id);
     if let Some(x) = args.style { builder.add_style(x); }
     if let Some(x) = args.upkeep { builder.add_upkeep(x); }
     if let Some(x) = args.groups { builder.add_groups(x); }
@@ -20189,6 +20444,7 @@ impl<'a> BuildingInfo<'a> {
     if let Some(x) = args.centre { builder.add_centre(x); }
     if let Some(x) = args.program { builder.add_program(x); }
     builder.add_loft_bays(args.loft_bays);
+    builder.add_fire(args.fire);
     builder.add_state(args.state);
     builder.add_bays(args.bays);
     builder.add_storeys(args.storeys);
@@ -20513,6 +20769,27 @@ impl<'a> BuildingInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(BuildingInfo::VT_STYLE_FROM, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn fire(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(BuildingInfo::VT_FIRE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn fire_id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(BuildingInfo::VT_FIRE_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn fire_words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_FIRE_WORDS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
@@ -20566,6 +20843,9 @@ impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("upkeep", Self::VT_UPKEEP, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("style", Self::VT_STYLE, false)?
      .visit_field::<u64>("style_from", Self::VT_STYLE_FROM, false)?
+     .visit_field::<u8>("fire", Self::VT_FIRE, false)?
+     .visit_field::<u32>("fire_id", Self::VT_FIRE_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("fire_words", Self::VT_FIRE_WORDS, false)?
      .finish();
     Ok(())
   }
@@ -20616,6 +20896,9 @@ pub struct BuildingInfoArgs<'a> {
     pub upkeep: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub style: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub style_from: u64,
+    pub fire: u8,
+    pub fire_id: u32,
+    pub fire_words: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for BuildingInfoArgs<'a> {
   #[inline]
@@ -20666,6 +20949,9 @@ impl<'a> Default for BuildingInfoArgs<'a> {
       upkeep: None,
       style: None,
       style_from: 0,
+      fire: 0,
+      fire_id: 0,
+      fire_words: None,
     }
   }
 }
@@ -20856,6 +21142,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingInfoBuilder<'a, 'b, A
     self.fbb_.push_slot::<u64>(BuildingInfo::VT_STYLE_FROM, style_from, 0);
   }
   #[inline]
+  pub fn add_fire(&mut self, fire: u8) {
+    self.fbb_.push_slot::<u8>(BuildingInfo::VT_FIRE, fire, 0);
+  }
+  #[inline]
+  pub fn add_fire_id(&mut self, fire_id: u32) {
+    self.fbb_.push_slot::<u32>(BuildingInfo::VT_FIRE_ID, fire_id, 0);
+  }
+  #[inline]
+  pub fn add_fire_words(&mut self, fire_words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_FIRE_WORDS, fire_words);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingInfoBuilder {
@@ -20918,6 +21216,9 @@ impl ::core::fmt::Debug for BuildingInfo<'_> {
       ds.field("upkeep", &self.upkeep());
       ds.field("style", &self.style());
       ds.field("style_from", &self.style_from());
+      ds.field("fire", &self.fire());
+      ds.field("fire_id", &self.fire_id());
+      ds.field("fire_words", &self.fire_words());
       ds.finish()
   }
 }
@@ -30801,6 +31102,7 @@ impl<'a> IncidentRow<'a> {
   pub const VT_OBSERVER: ::flatbuffers::VOffsetT = 24;
   pub const VT_OUTBREAK: ::flatbuffers::VOffsetT = 26;
   pub const VT_OPEN: ::flatbuffers::VOffsetT = 28;
+  pub const VT_CONFLAGRATION: ::flatbuffers::VOffsetT = 30;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -30815,6 +31117,7 @@ impl<'a> IncidentRow<'a> {
     builder.add_who(args.who);
     builder.add_settlement(args.settlement);
     builder.add_minute(args.minute);
+    builder.add_conflagration(args.conflagration);
     builder.add_outbreak(args.outbreak);
     builder.add_observer(args.observer);
     if let Some(x) = args.polity { builder.add_polity(x); }
@@ -30920,6 +31223,13 @@ impl<'a> IncidentRow<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(IncidentRow::VT_OPEN, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn conflagration(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(IncidentRow::VT_CONFLAGRATION, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for IncidentRow<'_> {
@@ -30941,6 +31251,7 @@ impl ::flatbuffers::Verifiable for IncidentRow<'_> {
      .visit_field::<u32>("observer", Self::VT_OBSERVER, false)?
      .visit_field::<u32>("outbreak", Self::VT_OUTBREAK, false)?
      .visit_field::<bool>("open", Self::VT_OPEN, false)?
+     .visit_field::<u32>("conflagration", Self::VT_CONFLAGRATION, false)?
      .finish();
     Ok(())
   }
@@ -30959,6 +31270,7 @@ pub struct IncidentRowArgs<'a> {
     pub observer: u32,
     pub outbreak: u32,
     pub open: bool,
+    pub conflagration: u32,
 }
 impl<'a> Default for IncidentRowArgs<'a> {
   #[inline]
@@ -30977,6 +31289,7 @@ impl<'a> Default for IncidentRowArgs<'a> {
       observer: 0,
       outbreak: 0,
       open: false,
+      conflagration: 0,
     }
   }
 }
@@ -31039,6 +31352,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> IncidentRowBuilder<'a, 'b, A>
     self.fbb_.push_slot::<bool>(IncidentRow::VT_OPEN, open, false);
   }
   #[inline]
+  pub fn add_conflagration(&mut self, conflagration: u32) {
+    self.fbb_.push_slot::<u32>(IncidentRow::VT_CONFLAGRATION, conflagration, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> IncidentRowBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     IncidentRowBuilder {
@@ -31069,6 +31386,7 @@ impl ::core::fmt::Debug for IncidentRow<'_> {
       ds.field("observer", &self.observer());
       ds.field("outbreak", &self.outbreak());
       ds.field("open", &self.open());
+      ds.field("conflagration", &self.conflagration());
       ds.finish()
   }
 }
@@ -31485,6 +31803,238 @@ impl ::core::fmt::Debug for OutbreakRow<'_> {
       ds.finish()
   }
 }
+pub enum ConflagrationRowOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ConflagrationRow<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for ConflagrationRow<'a> {
+  type Inner = ConflagrationRow<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> ConflagrationRow<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_BEGAN: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ENDED: ::flatbuffers::VOffsetT = 10;
+  pub const VT_BURNED: ::flatbuffers::VOffsetT = 12;
+  pub const VT_DIED: ::flatbuffers::VOffsetT = 14;
+  pub const VT_GOODS_KG: ::flatbuffers::VOffsetT = 16;
+  pub const VT_OBSERVER: ::flatbuffers::VOffsetT = 18;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 20;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    ConflagrationRow { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ConflagrationRowArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<ConflagrationRow<'bldr>> {
+    let mut builder = ConflagrationRowBuilder::new(_fbb);
+    builder.add_ended(args.ended);
+    builder.add_began(args.began);
+    builder.add_settlement(args.settlement);
+    if let Some(x) = args.words { builder.add_words(x); }
+    builder.add_observer(args.observer);
+    builder.add_goods_kg(args.goods_kg);
+    builder.add_died(args.died);
+    builder.add_burned(args.burned);
+    builder.add_id(args.id);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ConflagrationRow::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ConflagrationRow::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn began(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(ConflagrationRow::VT_BEGAN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ended(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(ConflagrationRow::VT_ENDED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn burned(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ConflagrationRow::VT_BURNED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn died(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ConflagrationRow::VT_DIED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn goods_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(ConflagrationRow::VT_GOODS_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn observer(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ConflagrationRow::VT_OBSERVER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ConflagrationRow::VT_WORDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for ConflagrationRow<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<i64>("began", Self::VT_BEGAN, false)?
+     .visit_field::<i64>("ended", Self::VT_ENDED, false)?
+     .visit_field::<u32>("burned", Self::VT_BURNED, false)?
+     .visit_field::<u32>("died", Self::VT_DIED, false)?
+     .visit_field::<f32>("goods_kg", Self::VT_GOODS_KG, false)?
+     .visit_field::<u32>("observer", Self::VT_OBSERVER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ConflagrationRowArgs<'a> {
+    pub id: u32,
+    pub settlement: u64,
+    pub began: i64,
+    pub ended: i64,
+    pub burned: u32,
+    pub died: u32,
+    pub goods_kg: f32,
+    pub observer: u32,
+    pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for ConflagrationRowArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ConflagrationRowArgs {
+      id: 0,
+      settlement: 0,
+      began: 0,
+      ended: 0,
+      burned: 0,
+      died: 0,
+      goods_kg: 0.0,
+      observer: 0,
+      words: None,
+    }
+  }
+}
+
+pub struct ConflagrationRowBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ConflagrationRowBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(ConflagrationRow::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(ConflagrationRow::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_began(&mut self, began: i64) {
+    self.fbb_.push_slot::<i64>(ConflagrationRow::VT_BEGAN, began, 0);
+  }
+  #[inline]
+  pub fn add_ended(&mut self, ended: i64) {
+    self.fbb_.push_slot::<i64>(ConflagrationRow::VT_ENDED, ended, 0);
+  }
+  #[inline]
+  pub fn add_burned(&mut self, burned: u32) {
+    self.fbb_.push_slot::<u32>(ConflagrationRow::VT_BURNED, burned, 0);
+  }
+  #[inline]
+  pub fn add_died(&mut self, died: u32) {
+    self.fbb_.push_slot::<u32>(ConflagrationRow::VT_DIED, died, 0);
+  }
+  #[inline]
+  pub fn add_goods_kg(&mut self, goods_kg: f32) {
+    self.fbb_.push_slot::<f32>(ConflagrationRow::VT_GOODS_KG, goods_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_observer(&mut self, observer: u32) {
+    self.fbb_.push_slot::<u32>(ConflagrationRow::VT_OBSERVER, observer, 0);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConflagrationRow::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ConflagrationRowBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ConflagrationRowBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<ConflagrationRow<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for ConflagrationRow<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("ConflagrationRow");
+      ds.field("id", &self.id());
+      ds.field("settlement", &self.settlement());
+      ds.field("began", &self.began());
+      ds.field("ended", &self.ended());
+      ds.field("burned", &self.burned());
+      ds.field("died", &self.died());
+      ds.field("goods_kg", &self.goods_kg());
+      ds.field("observer", &self.observer());
+      ds.field("words", &self.words());
+      ds.finish()
+  }
+}
 pub enum IncidentsOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -31506,6 +32056,7 @@ impl<'a> Incidents<'a> {
   pub const VT_NEXT: ::flatbuffers::VOffsetT = 8;
   pub const VT_TOTALS: ::flatbuffers::VOffsetT = 10;
   pub const VT_OUTBREAKS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_CONFLAGRATIONS: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -31518,6 +32069,7 @@ impl<'a> Incidents<'a> {
   ) -> ::flatbuffers::WIPOffset<Incidents<'bldr>> {
     let mut builder = IncidentsBuilder::new(_fbb);
     builder.add_minute(args.minute);
+    if let Some(x) = args.conflagrations { builder.add_conflagrations(x); }
     if let Some(x) = args.outbreaks { builder.add_outbreaks(x); }
     if let Some(x) = args.totals { builder.add_totals(x); }
     if let Some(x) = args.next { builder.add_next(x); }
@@ -31561,6 +32113,13 @@ impl<'a> Incidents<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OutbreakRow>>>>(Incidents::VT_OUTBREAKS, None)}
   }
+  #[inline]
+  pub fn conflagrations(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConflagrationRow<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConflagrationRow>>>>(Incidents::VT_CONFLAGRATIONS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Incidents<'_> {
@@ -31574,6 +32133,7 @@ impl ::flatbuffers::Verifiable for Incidents<'_> {
      .visit_field::<IncidentKey>("next", Self::VT_NEXT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<IncidentTotal>>>>("totals", Self::VT_TOTALS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<OutbreakRow>>>>("outbreaks", Self::VT_OUTBREAKS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ConflagrationRow>>>>("conflagrations", Self::VT_CONFLAGRATIONS, false)?
      .finish();
     Ok(())
   }
@@ -31584,6 +32144,7 @@ pub struct IncidentsArgs<'a> {
     pub next: Option<&'a IncidentKey>,
     pub totals: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IncidentTotal<'a>>>>>,
     pub outbreaks: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OutbreakRow<'a>>>>>,
+    pub conflagrations: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConflagrationRow<'a>>>>>,
 }
 impl<'a> Default for IncidentsArgs<'a> {
   #[inline]
@@ -31594,6 +32155,7 @@ impl<'a> Default for IncidentsArgs<'a> {
       next: None,
       totals: None,
       outbreaks: None,
+      conflagrations: None,
     }
   }
 }
@@ -31624,6 +32186,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> IncidentsBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Incidents::VT_OUTBREAKS, outbreaks);
   }
   #[inline]
+  pub fn add_conflagrations(&mut self, conflagrations: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ConflagrationRow<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Incidents::VT_CONFLAGRATIONS, conflagrations);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> IncidentsBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     IncidentsBuilder {
@@ -31646,6 +32212,7 @@ impl ::core::fmt::Debug for Incidents<'_> {
       ds.field("next", &self.next());
       ds.field("totals", &self.totals());
       ds.field("outbreaks", &self.outbreaks());
+      ds.field("conflagrations", &self.conflagrations());
       ds.finish()
   }
 }
@@ -32551,6 +33118,187 @@ impl ::core::fmt::Debug for OutbreakInfo<'_> {
       ds.field("sources", &self.sources());
       ds.field("members", &self.members());
       ds.field("members_total", &self.members_total());
+      ds.finish()
+  }
+}
+pub enum ConflagrationInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ConflagrationInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for ConflagrationInfo<'a> {
+  type Inner = ConflagrationInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> ConflagrationInfo<'a> {
+  pub const VT_ROW: ::flatbuffers::VOffsetT = 4;
+  pub const VT_CAUSE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CAUSE_LINK: ::flatbuffers::VOffsetT = 8;
+  pub const VT_WEATHER: ::flatbuffers::VOffsetT = 10;
+  pub const VT_FIRES: ::flatbuffers::VOffsetT = 12;
+  pub const VT_HELD: ::flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    ConflagrationInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ConflagrationInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<ConflagrationInfo<'bldr>> {
+    let mut builder = ConflagrationInfoBuilder::new(_fbb);
+    if let Some(x) = args.held { builder.add_held(x); }
+    if let Some(x) = args.fires { builder.add_fires(x); }
+    if let Some(x) = args.weather { builder.add_weather(x); }
+    if let Some(x) = args.cause_link { builder.add_cause_link(x); }
+    if let Some(x) = args.cause { builder.add_cause(x); }
+    if let Some(x) = args.row { builder.add_row(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn row(&self) -> Option<ConflagrationRow<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<ConflagrationRow>>(ConflagrationInfo::VT_ROW, None)}
+  }
+  #[inline]
+  pub fn cause(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ConflagrationInfo::VT_CAUSE, None)}
+  }
+  #[inline]
+  pub fn cause_link(&self) -> Option<IncidentLink<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<IncidentLink>>(ConflagrationInfo::VT_CAUSE_LINK, None)}
+  }
+  #[inline]
+  pub fn weather(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ConflagrationInfo::VT_WEATHER, None)}
+  }
+  #[inline]
+  pub fn fires(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IncidentRow<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IncidentRow>>>>(ConflagrationInfo::VT_FIRES, None)}
+  }
+  #[inline]
+  pub fn held(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(ConflagrationInfo::VT_HELD, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for ConflagrationInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<ConflagrationRow>>("row", Self::VT_ROW, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("cause", Self::VT_CAUSE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<IncidentLink>>("cause_link", Self::VT_CAUSE_LINK, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("weather", Self::VT_WEATHER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<IncidentRow>>>>("fires", Self::VT_FIRES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("held", Self::VT_HELD, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ConflagrationInfoArgs<'a> {
+    pub row: Option<::flatbuffers::WIPOffset<ConflagrationRow<'a>>>,
+    pub cause: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub cause_link: Option<::flatbuffers::WIPOffset<IncidentLink<'a>>>,
+    pub weather: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub fires: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IncidentRow<'a>>>>>,
+    pub held: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+}
+impl<'a> Default for ConflagrationInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ConflagrationInfoArgs {
+      row: None,
+      cause: None,
+      cause_link: None,
+      weather: None,
+      fires: None,
+      held: None,
+    }
+  }
+}
+
+pub struct ConflagrationInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ConflagrationInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_row(&mut self, row: ::flatbuffers::WIPOffset<ConflagrationRow<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<ConflagrationRow>>(ConflagrationInfo::VT_ROW, row);
+  }
+  #[inline]
+  pub fn add_cause(&mut self, cause: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConflagrationInfo::VT_CAUSE, cause);
+  }
+  #[inline]
+  pub fn add_cause_link(&mut self, cause_link: ::flatbuffers::WIPOffset<IncidentLink<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<IncidentLink>>(ConflagrationInfo::VT_CAUSE_LINK, cause_link);
+  }
+  #[inline]
+  pub fn add_weather(&mut self, weather: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConflagrationInfo::VT_WEATHER, weather);
+  }
+  #[inline]
+  pub fn add_fires(&mut self, fires: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<IncidentRow<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConflagrationInfo::VT_FIRES, fires);
+  }
+  #[inline]
+  pub fn add_held(&mut self, held: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ConflagrationInfo::VT_HELD, held);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ConflagrationInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ConflagrationInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<ConflagrationInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for ConflagrationInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("ConflagrationInfo");
+      ds.field("row", &self.row());
+      ds.field("cause", &self.cause());
+      ds.field("cause_link", &self.cause_link());
+      ds.field("weather", &self.weather());
+      ds.field("fires", &self.fires());
+      ds.field("held", &self.held());
       ds.finish()
   }
 }
@@ -33619,6 +34367,21 @@ impl<'a> Response<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_conflagration_info(&self) -> Option<ConflagrationInfo<'a>> {
+    if self.body_type() == ResponseBody::ConflagrationInfo {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { ConflagrationInfo::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Response<'_> {
@@ -33656,6 +34419,7 @@ impl ::flatbuffers::Verifiable for Response<'_> {
           ResponseBody::IncidentInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<IncidentInfo>>("ResponseBody::IncidentInfo", pos),
           ResponseBody::OutbreakInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<OutbreakInfo>>("ResponseBody::OutbreakInfo", pos),
           ResponseBody::Coverage => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Coverage>>("ResponseBody::Coverage", pos),
+          ResponseBody::ConflagrationInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ConflagrationInfo>>("ResponseBody::ConflagrationInfo", pos),
           _ => Ok(()),
         }
      })?
@@ -33894,6 +34658,13 @@ impl ::core::fmt::Debug for Response<'_> {
         },
         ResponseBody::Coverage => {
           if let Some(x) = self.body_as_coverage() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::ConflagrationInfo => {
+          if let Some(x) = self.body_as_conflagration_info() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

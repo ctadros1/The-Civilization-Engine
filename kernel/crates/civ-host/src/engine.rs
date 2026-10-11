@@ -431,6 +431,7 @@ impl Engine {
             } => self.bless(person, curse, days, share),
             Request::Plague { person, disease } => self.plague(person, disease),
             Request::Drought { months, depth } => self.drought(months, depth),
+            Request::SetFire { building } => self.set_fire(building),
             Request::GetRaster(query) => match &self.world {
                 None => no_world(),
                 Some(w) => match frames::raster_response(
@@ -562,6 +563,16 @@ impl Engine {
                     None => Reply::Error(
                         wire::ErrorCode::NotFound,
                         format!("no outbreak numbered {id}"),
+                    ),
+                },
+            },
+            Request::GetConflagration { id } => match &self.world {
+                None => no_world(),
+                Some(w) => match frames::incidents::conflagration_response(&w.sim, id) {
+                    Some(payload) => Reply::Response(payload),
+                    None => Reply::Error(
+                        wire::ErrorCode::NotFound,
+                        format!("no conflagration numbered {id}"),
                     ),
                 },
             },
@@ -1311,6 +1322,30 @@ impl Engine {
         match world.sim.plague(id, &key) {
             Ok(_) => {
                 let text = format!("{name} has {what}, as if they took it elsewhere");
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
+    /// The observer sets building `building`'s covering alight (M6b slice BC, ADR-0022 §14).
+    fn set_fire(&mut self, building: u64) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        let Some(id) = civ_core::PermanentId::from_raw(building) else {
+            return Reply::Error(wire::ErrorCode::NotFound, "no building has id 0".to_owned());
+        };
+        let name = frames::incidents::building_words(&world.sim, id);
+        match world.sim.set_fire(id) {
+            Ok(_) => {
+                let text = format!("The observer set alight {name}");
                 self.changed = true;
                 self.urgent = true;
                 self.event(wire::EventKind::Info, text.clone());
@@ -2346,6 +2381,93 @@ mod tests {
             lines[0].starts_with("Took cholera today")
                 && lines[0].contains("; brought by the observer, as if they took it elsewhere"),
             "{lines:?}"
+        );
+    }
+
+    #[test]
+    fn the_observer_sets_a_hut_alight_and_its_fire_is_listed_with_its_page() {
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::SetFire { building: 1 })),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Fire");
+        // A finished hut beside the first household's home.
+        let hut = {
+            let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+            let (household, home) = sim
+                .people()
+                .households
+                .iter()
+                .map(|(_, x)| (x.id, x.home))
+                .min_by_key(|x| x.0)
+                .expect("a household");
+            let catalog = &sim.rules().catalog;
+            let def = &catalog.buildings[catalog.building_index("core:building/hut").expect("hut")];
+            let spec = civ_agents::build::design_shape(
+                def,
+                &catalog.goods,
+                civ_agents::build::Shape::Round { radius: 310 },
+                (home.0 + 40.0, home.1),
+                None,
+            )
+            .expect("a hut");
+            // Every stage done: foundation, frame, walls, roof and finish.
+            sim.place_building_for_tests(household, spec, 5)
+                .expect("placed")
+        };
+        let reply = h.ask(Request::SetFire {
+            building: hut.get(),
+        });
+        let Reply::Response(ack) = reply else {
+            panic!("set alight: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(
+            message.starts_with("The observer set alight the hut of "),
+            "{message}"
+        );
+        // Not again while it burns, nor a building that is not there.
+        assert_eq!(
+            error_code(&h.ask(Request::SetFire {
+                building: hut.get()
+            })),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        assert_eq!(
+            error_code(&h.ask(Request::SetFire { building: 0 })),
+            Some(wire::ErrorCode::NotFound)
+        );
+        let Reply::Response(payload) = h.ask(Request::GetIncidents {
+            settlement: 0,
+            kind: 4,
+            before: None,
+            limit: 0,
+        }) else {
+            panic!("the incidents are read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let rows: Vec<(u8, u32, u64)> = response
+            .body_as_incidents()
+            .and_then(|i| i.rows())
+            .expect("rows")
+            .iter()
+            .map(|r| (r.kind(), r.id(), r.who()))
+            .collect();
+        assert_eq!(rows, vec![(4, 1, hut.get())]);
+        let Reply::Response(payload) = h.ask(Request::GetIncident { kind: 4, id: 1 }) else {
+            panic!("its page is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        assert!(response.body_as_incident_info().is_some());
+        assert_eq!(
+            error_code(&h.ask(Request::GetConflagration { id: 1 })),
+            Some(wire::ErrorCode::NotFound)
         );
     }
 

@@ -27,7 +27,18 @@ use crate::Sim;
 /// its stage began plus one, its stage, the minutes of work done on that stage, its firm, its
 /// state, its groups' loss in ten-thousandths and states, and the minutes of upkeep done, summed.
 pub fn buildings_rev(sim: &Sim) -> u64 {
-    sim.land.buildings.iter().fold(0u64, |rev, b| {
+    // A building's fire changes how it stands by the minute while anything burns (wire 1.68).
+    let fires = &sim.people.fires;
+    let burning = if fires.any_burning() {
+        sim.now().minutes().max(0) as u64
+    } else {
+        0
+    };
+    let fire = (fires.list.len() as u64)
+        .wrapping_mul(31)
+        .wrapping_add(fires.list.iter().filter(|f| f.ended.is_some()).count() as u64)
+        .wrapping_add(burning);
+    sim.land.buildings.iter().fold(fire, |rev, b| {
         let condition = b.condition.iter().fold(0u64, |sum, c| {
             sum.wrapping_add((f64::from(c.loss) * 1e4).round().max(0.0) as u64)
                 .wrapping_add(group_state(c.state) as u64)
@@ -397,6 +408,8 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                 .household(b.household)
                 .and_then(|h| h.settlement)
                 .map_or(0, |s| s.get());
+            let (fire, fire_id, fire_words) = super::incidents::building_fire(sim, b);
+            let fire_words = fbb.create_string(&fire_words);
             wire::BuildingInfo::create(
                 &mut fbb,
                 &wire::BuildingInfoArgs {
@@ -446,6 +459,9 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                     upkeep: Some(upkeep_words),
                     style: Some(style),
                     style_from: b.style_from.map_or(0, |f| f.get()),
+                    fire,
+                    fire_id,
+                    fire_words: Some(fire_words),
                 },
             )
         })

@@ -108,6 +108,14 @@ pub enum Request {
         /// The share of their way it moves a draw.
         share: f32,
     },
+    /// Bring a disease to a living person, as if they took it elsewhere (god tool, M6a slice AZ,
+    /// ADR-0021 §8).
+    Plague {
+        /// Permanent id.
+        person: u64,
+        /// An index into `Welcome.diseases`.
+        disease: u32,
+    },
     /// Lay down a deposit (god tool, ADR-0010 §1).
     PlaceDeposit {
         /// Metres from the map's north-west corner.
@@ -501,6 +509,13 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         share: b.share(),
                     })
                 }
+                wire::CommandBody::Plague => {
+                    let b = command.body_as_plague().ok_or_else(|| missing("command"))?;
+                    Ok(Request::Plague {
+                        person: b.person(),
+                        disease: b.disease(),
+                    })
+                }
                 other => Err(format!("unknown command {}", other.0)),
             }
         }
@@ -657,6 +672,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
     let skills = fbb.create_vector(&skills);
     let techniques = civ_sim::frames::knowledge::technique_infos(&mut fbb, &content.catalog);
     let ideologies = civ_sim::frames::word::ideology_infos(&mut fbb, &content.catalog);
+    let diseases = civ_sim::frames::sickness::disease_infos(&mut fbb, &content.catalog);
     let regimes: Vec<_> = content
         .catalog
         .regimes
@@ -747,6 +763,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
             techniques: Some(techniques),
             accelerated_multipliers: Some(accelerated),
             ideologies: Some(ideologies),
+            diseases: Some(diseases),
         },
     );
     finish(fbb, root)
@@ -1143,6 +1160,28 @@ mod tests {
                 households: 12,
                 days: 3,
                 months: 6
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::Plague::create(
+            &mut fbb,
+            &wire::PlagueArgs {
+                person: 9,
+                disease: 1,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::Plague,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::Plague {
+                person: 9,
+                disease: 1
             })
         );
         let mut fbb = FlatBufferBuilder::new();

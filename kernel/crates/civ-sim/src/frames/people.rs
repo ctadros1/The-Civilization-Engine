@@ -1390,6 +1390,12 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.seen_away = Some(fbb.create_string(&seen_away_words(sim, p.id)));
         args.water = Some(fbb.create_string(&super::water::water_words(sim, p.household)));
     }
+    // A person's infections, living or not (wire 1.62).
+    let sickness: Vec<_> = super::sickness::sickness_words(sim, pid)
+        .iter()
+        .map(|w| fbb.create_string(w))
+        .collect();
+    args.sickness = Some(fbb.create_vector(&sickness));
     let body = wire::PersonInfo::create(&mut fbb, &args);
     Ok(response(fbb, wire::ResponseBody::PersonInfo, body))
 }

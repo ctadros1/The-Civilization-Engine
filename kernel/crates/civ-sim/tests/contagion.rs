@@ -199,6 +199,22 @@ fn a_wet_day_washes_a_heap_into_the_well_below_it_and_its_drawers_carry_it_home(
         .find(|m| m.to == Node::Well(well))
         .expect("the well below the heap took some");
     assert_eq!(c.load(Node::Well(well), d), to_well.amount);
+    // The observer is told what fouls its water, in doses and how much water holds one (wire
+    // 1.62); a clean well is told nothing.
+    let words = civ_sim::frames::sickness::fouled_words(&sim, well, 1000.0);
+    assert!(
+        words.starts_with("Its water holds cholera: about ") && words.contains(" L"),
+        "{words}"
+    );
+    assert_eq!(
+        civ_sim::frames::sickness::fouled_words(
+            &sim,
+            PermanentId::from_raw(u64::MAX).expect("an id"),
+            1000.0
+        ),
+        ""
+    );
+    let c = &sim.people().contagion;
     let seeped = (kept - washed) * params.seep_per_day;
     let heap = c.load(Node::Midden(above), d);
     assert!((heap - (kept - washed - seeped)).abs() < 1e-9, "{heap}");
@@ -352,6 +368,13 @@ fn a_household_drinks_what_its_water_holds_and_its_record_names_the_well() {
             Acquired::Water {
                 source: Node::Well(well)
             }
+        );
+        // The inspector names the well it was drawn at (wire 1.62).
+        let words = civ_sim::frames::sickness::sickness_words(&sim, e.person);
+        assert!(
+            words[0].contains("; took it in water drawn at ")
+                && words[0].contains("'s household's well"),
+            "{words:?}"
         );
     }
     // What it used of its water took its share of the load with it.

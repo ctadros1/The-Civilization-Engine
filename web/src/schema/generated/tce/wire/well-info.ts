@@ -96,8 +96,15 @@ words(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+fouled():string|null
+fouled(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+fouled(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 32);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startWellInfo(builder:flatbuffers.Builder) {
-  builder.startObject(14);
+  builder.startObject(15);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -156,12 +163,16 @@ static addWords(builder:flatbuffers.Builder, wordsOffset:flatbuffers.Offset) {
   builder.addFieldOffset(13, wordsOffset, 0);
 }
 
+static addFouled(builder:flatbuffers.Builder, fouledOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(14, fouledOffset, 0);
+}
+
 static endWellInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWellInfo(builder:flatbuffers.Builder, id:bigint, systemOffset:flatbuffers.Offset, x:number, y:number, radiusM:number, state:number, depthM:number, targetM:number, waterM:number, belowM:number, quality:number, loss:number, household:bigint, wordsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createWellInfo(builder:flatbuffers.Builder, id:bigint, systemOffset:flatbuffers.Offset, x:number, y:number, radiusM:number, state:number, depthM:number, targetM:number, waterM:number, belowM:number, quality:number, loss:number, household:bigint, wordsOffset:flatbuffers.Offset, fouledOffset:flatbuffers.Offset):flatbuffers.Offset {
   WellInfo.startWellInfo(builder);
   WellInfo.addId(builder, id);
   WellInfo.addSystem(builder, systemOffset);
@@ -177,6 +188,7 @@ static createWellInfo(builder:flatbuffers.Builder, id:bigint, systemOffset:flatb
   WellInfo.addLoss(builder, loss);
   WellInfo.addHousehold(builder, household);
   WellInfo.addWords(builder, wordsOffset);
+  WellInfo.addFouled(builder, fouledOffset);
   return WellInfo.endWellInfo(builder);
 }
 }

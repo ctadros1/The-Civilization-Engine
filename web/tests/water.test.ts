@@ -31,6 +31,7 @@ function well(over: Partial<WellInfo> = {}): WellInfo {
     loss: 0,
     household: 7,
     words: "Ada's household's timber-lined well, open since year 2: 4.0 m deep",
+    fouled: "",
     ...over,
   };
 }

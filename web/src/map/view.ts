@@ -1142,7 +1142,13 @@ export class MapView {
         words: c.words,
       })),
       // M6a slice AY: wells, where each is and what has become of it; springs and places drawn at.
-      wells: (this.water?.wells ?? []).map((w) => ({ x: w.x, y: w.y, state: w.state, words: w.words })),
+      wells: (this.water?.wells ?? []).map((w) => ({
+        x: w.x,
+        y: w.y,
+        state: w.state,
+        words: w.words,
+        fouled: w.fouled,
+      })),
       springs: this.water?.springs.length ?? 0,
       banks: this.water?.banks.length ?? 0,
       flow: this.water?.flow ?? null,

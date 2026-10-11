@@ -143,6 +143,9 @@ export interface Actions {
   /** Tell a living adult of an ideology (god tool, M4c slice AJ): an index into
    * Welcome.ideologies. */
   tellOfIdeology(person: number, ideology: number): Promise<void>;
+  /** Bring a disease to a living person, as if they took it elsewhere (god tool, M6a slice AZ):
+   * an index into Welcome.diseases. */
+  plague(person: number, disease: number): Promise<void>;
   /** Bless a living person, or with `curse` curse them, for `days` days by `share` (god tool). */
   bless(person: number, curse: boolean, days: number, share: number): Promise<void>;
   /** Arms or disarms the tool that sends an agitator holding ideology `ideology` where the map is
@@ -1135,6 +1138,33 @@ export function bindUi(store: Store, actions: Actions): void {
       observerSelects.push(select);
       box.append(form);
     }
+    // A disease brought to them, as if they took it elsewhere (M6a slice AZ, ADR-0021 §8).
+    const diseases = welcome?.diseases ?? [];
+    if (diseases.length > 0) {
+      const select = el("select");
+      select.id = "plague-disease";
+      diseases.forEach((d, k) => {
+        const option = el("option", { text: d.name });
+        option.value = String(k);
+        option.title = `It passes ${d.routes}`;
+        select.append(option);
+      });
+      const label = el("label", { text: "Bring" });
+      label.htmlFor = select.id;
+      const go = el("button", { text: "Bring it" });
+      go.type = "submit";
+      go.id = "plague-go";
+      go.title =
+        "They have it as if they took it elsewhere; whether it goes further is the disease's and people's (god tool)";
+      const form = el("form", { className: "plague" }, label, select, go);
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        go.disabled = true;
+        void actions.plague(p.id, Number(select.value));
+      });
+      observerSelects.push(select);
+      box.append(form);
+    }
     // A blessing or a curse on their own luck in material things (M4c slice AJ).
     {
       const period = el("select");
@@ -1351,6 +1381,18 @@ export function bindUi(store: Store, actions: Actions): void {
     // Where their household went for water today (wire 1.61, M6a slice AY).
     if (p.alive && p.water) {
       nodes.push(el("p", { className: "water", text: `${p.water}.` }));
+    }
+    // Their infections, as the kernel knows them (wire 1.62, M6a slice AZ): no one in the world
+    // knows where a sickness came from.
+    if (p.sickness.length > 0) {
+      nodes.push(
+        el(
+          "div",
+          { className: "sickness" },
+          el("h4", { text: "Sickness" }),
+          el("ul", {}, ...p.sickness.map((line) => el("li", { text: `${line}.` }))),
+        ),
+      );
     }
     if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p), opinionBlock(p));
     if (p.alive) nodes.push(observerBlock(welcome, p));

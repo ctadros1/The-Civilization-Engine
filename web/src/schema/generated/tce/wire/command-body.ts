@@ -8,6 +8,7 @@ import { IntroduceTechnique } from '../../tce/wire/introduce-technique.js';
 import { LoadWorld } from '../../tce/wire/load-world.js';
 import { NewWorld } from '../../tce/wire/new-world.js';
 import { PlaceDeposit } from '../../tce/wire/place-deposit.js';
+import { Plague } from '../../tce/wire/plague.js';
 import { RecoverWorld } from '../../tce/wire/recover-world.js';
 import { RunUntil } from '../../tce/wire/run-until.js';
 import { SaveWorld } from '../../tce/wire/save-world.js';
@@ -35,13 +36,14 @@ export enum CommandBody {
   TellOfIdeology = 12,
   SendAgitator = 13,
   Bless = 14,
-  SendWave = 15
+  SendWave = 15,
+  Plague = 16
 }
 
 export function unionToCommandBody(
   type: CommandBody,
-  accessor: (obj:Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper|null
-): Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper|null {
+  accessor: (obj:Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper|null
+): Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper|null {
   switch(CommandBody[type]) {
     case 'NONE': return null; 
     case 'NewWorld': return accessor(new NewWorld())! as NewWorld;
@@ -59,15 +61,16 @@ export function unionToCommandBody(
     case 'SendAgitator': return accessor(new SendAgitator())! as SendAgitator;
     case 'Bless': return accessor(new Bless())! as Bless;
     case 'SendWave': return accessor(new SendWave())! as SendWave;
+    case 'Plague': return accessor(new Plague())! as Plague;
     default: return null;
   }
 }
 
 export function unionListToCommandBody(
   type: CommandBody, 
-  accessor: (index: number, obj:Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper|null, 
+  accessor: (index: number, obj:Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper) => Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper|null, 
   index: number
-): Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper|null {
+): Bless|CancelTask|IntroduceTechnique|LoadWorld|NewWorld|PlaceDeposit|Plague|RecoverWorld|RunUntil|SaveWorld|SendAgitator|SendWave|SetClock|SpawnFamily|TellOfIdeology|Whisper|null {
   switch(CommandBody[type]) {
     case 'NONE': return null; 
     case 'NewWorld': return accessor(index, new NewWorld())! as NewWorld;
@@ -85,6 +88,7 @@ export function unionListToCommandBody(
     case 'SendAgitator': return accessor(index, new SendAgitator())! as SendAgitator;
     case 'Bless': return accessor(index, new Bless())! as Bless;
     case 'SendWave': return accessor(index, new SendWave())! as SendWave;
+    case 'Plague': return accessor(index, new Plague())! as Plague;
     default: return null;
   }
 }

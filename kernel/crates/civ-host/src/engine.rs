@@ -429,6 +429,7 @@ impl Engine {
                 days,
                 share,
             } => self.bless(person, curse, days, share),
+            Request::Plague { person, disease } => self.plague(person, disease),
             Request::GetRaster(query) => match &self.world {
                 None => no_world(),
                 Some(w) => match frames::raster_response(
@@ -1228,6 +1229,38 @@ impl Engine {
                 } else {
                     format!("{name} is {what} for {days} days")
                 };
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
+    /// The observer brings disease number `disease` (in `Welcome.diseases`) to `person` (M6a
+    /// slice AZ, ADR-0021 §8).
+    fn plague(&mut self, person: u64, disease: u32) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        let Some(id) = civ_core::PermanentId::from_raw(person) else {
+            return Reply::Error(wire::ErrorCode::NotFound, "nobody has id 0".to_owned());
+        };
+        let Some(def) = world.sim.rules().catalog.diseases.get(disease as usize) else {
+            return Reply::Error(
+                wire::ErrorCode::BadRequest,
+                format!("no disease numbered {disease}"),
+            );
+        };
+        let (key, what) = (def.id.clone(), def.name.to_lowercase());
+        let name = world.sim.people().name_of(id);
+        match world.sim.plague(id, &key) {
+            Ok(_) => {
+                let text = format!("{name} has {what}, as if they took it elsewhere");
                 self.changed = true;
                 self.urgent = true;
                 self.event(wire::EventKind::Info, text.clone());
@@ -2153,6 +2186,83 @@ mod tests {
         let sim = &h.engine.world.as_ref().expect("a world").sim;
         assert_eq!(sim.people().influences.list.len(), 4);
         assert_eq!(sim.people().influences.waves.len(), 1);
+    }
+
+    #[test]
+    fn the_observer_can_bring_a_disease_to_someone_once_and_the_inspector_tells_of_it() {
+        let mut h = Harness::new(None, None);
+        h.create("Sickness");
+        let (person, cholera) = {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            let person = sim
+                .people()
+                .people
+                .iter()
+                .map(|(_, p)| p.id.get())
+                .min()
+                .expect("someone");
+            let cholera = sim
+                .rules()
+                .catalog
+                .disease_index("core:disease/cholera")
+                .expect("cholera in the core content");
+            (person, u32::try_from(cholera).expect("a small index"))
+        };
+        let reply = h.ask(Request::Plague {
+            person,
+            disease: cholera,
+        });
+        let Reply::Response(ack) = reply else {
+            panic!("brought: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(
+            message.ends_with("has cholera, as if they took it elsewhere"),
+            "{message}"
+        );
+        // Someone already infected cannot be given it again; nor can nobody, nor a disease the
+        // content does not have.
+        assert_eq!(
+            error_code(&h.ask(Request::Plague {
+                person,
+                disease: cholera,
+            })),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        assert_eq!(
+            error_code(&h.ask(Request::Plague {
+                person: 0,
+                disease: cholera,
+            })),
+            Some(wire::ErrorCode::NotFound)
+        );
+        assert_eq!(
+            error_code(&h.ask(Request::Plague {
+                person,
+                disease: 999,
+            })),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        let Reply::Response(payload) = h.ask(Request::GetPerson {
+            id: person,
+            decisions: 0,
+        }) else {
+            panic!("the person is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let info = response.body_as_person_info().expect("a person");
+        let lines: Vec<&str> = info.sickness().expect("sickness words").iter().collect();
+        assert_eq!(lines.len(), 1, "{lines:?}");
+        assert!(
+            lines[0].starts_with("Took cholera today")
+                && lines[0].contains("; brought by the observer, as if they took it elsewhere"),
+            "{lines:?}"
+        );
     }
 
     #[test]

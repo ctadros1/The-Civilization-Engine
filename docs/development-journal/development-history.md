@@ -1204,6 +1204,16 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Open:** tending by kin from other households and the carer's exposure; the observer's view (step four).
 
+## 2026-10-11 — M6a slice AZ, step four: the observer's view of sickness
+
+**What changed:** the observer sees sickness and brings it (wire 1.62). The inspector tells each of a person's infections in the kernel's words: where it stands, how and where it was taken, the care given and the outbreak it is part of. A well's readout says what fouls its water, in doses and how much water holds one. The observer's hand lists the content's diseases and brings one to someone, refused while it runs in them, in the kernel's words. This closes slice AZ.
+
+**Findings:** the first end-to-end run drew an infection without illness (cholera's prior is a quarter falling ill), which the spec now accepts, and showed "one of 1 cases", now "the only case so far of an outbreak".
+
+**Evidence:** a host test of the command and its refusals and the inspector's line; contagion tests of a fouled well's words and of the well named by those who drank from it; web unit tests of the decoding and the command; an end-to-end spec; the full suite, clippy, the schema check and the smoke worlds.
+
+**Open:** what people see of sickness and suspect of a source (slice BA); the Incidents panel and a map of outbreaks (slice BB).
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

@@ -6,6 +6,7 @@ import * as flatbuffers from 'flatbuffers';
 
 import { ActivityInfo } from '../../tce/wire/activity-info.js';
 import { CropInfo } from '../../tce/wire/crop-info.js';
+import { DiseaseInfo } from '../../tce/wire/disease-info.js';
 import { GoodInfo } from '../../tce/wire/good-info.js';
 import { IdeologyInfo } from '../../tce/wire/ideology-info.js';
 import { PresetInfo } from '../../tce/wire/preset-info.js';
@@ -219,8 +220,18 @@ ideologiesLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+diseases(index: number, obj?:DiseaseInfo):DiseaseInfo|null {
+  const offset = this.bb!.__offset(this.bb_pos, 46);
+  return offset ? (obj || new DiseaseInfo()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+diseasesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 46);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startWelcome(builder:flatbuffers.Builder) {
-  builder.startObject(21);
+  builder.startObject(22);
 }
 
 static addHost(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset) {
@@ -466,12 +477,28 @@ static startIdeologiesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addDiseases(builder:flatbuffers.Builder, diseasesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(21, diseasesOffset, 0);
+}
+
+static createDiseasesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startDiseasesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endWelcome(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset, versionOffset:flatbuffers.Offset, presetsOffset:flatbuffers.Offset, mapSizesOffset:flatbuffers.Offset, cellSizeM:number, contentFingerprintOffset:flatbuffers.Offset, defaultMapSize:number, speed1x:number, speedMultipliersOffset:flatbuffers.Offset, activitiesOffset:flatbuffers.Offset, reasonsOffset:flatbuffers.Offset, bandSizeMin:number, bandSizeMax:number, bandSizeDefault:number, goodsOffset:flatbuffers.Offset, cropsOffset:flatbuffers.Offset, skillsOffset:flatbuffers.Offset, regimesOffset:flatbuffers.Offset, techniquesOffset:flatbuffers.Offset, acceleratedMultipliersOffset:flatbuffers.Offset, ideologiesOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset, versionOffset:flatbuffers.Offset, presetsOffset:flatbuffers.Offset, mapSizesOffset:flatbuffers.Offset, cellSizeM:number, contentFingerprintOffset:flatbuffers.Offset, defaultMapSize:number, speed1x:number, speedMultipliersOffset:flatbuffers.Offset, activitiesOffset:flatbuffers.Offset, reasonsOffset:flatbuffers.Offset, bandSizeMin:number, bandSizeMax:number, bandSizeDefault:number, goodsOffset:flatbuffers.Offset, cropsOffset:flatbuffers.Offset, skillsOffset:flatbuffers.Offset, regimesOffset:flatbuffers.Offset, techniquesOffset:flatbuffers.Offset, acceleratedMultipliersOffset:flatbuffers.Offset, ideologiesOffset:flatbuffers.Offset, diseasesOffset:flatbuffers.Offset):flatbuffers.Offset {
   Welcome.startWelcome(builder);
   Welcome.addHost(builder, hostOffset);
   Welcome.addVersion(builder, versionOffset);
@@ -494,6 +521,7 @@ static createWelcome(builder:flatbuffers.Builder, hostOffset:flatbuffers.Offset,
   Welcome.addTechniques(builder, techniquesOffset);
   Welcome.addAcceleratedMultipliers(builder, acceleratedMultipliersOffset);
   Welcome.addIdeologies(builder, ideologiesOffset);
+  Welcome.addDiseases(builder, diseasesOffset);
   return Welcome.endWelcome(builder);
 }
 }

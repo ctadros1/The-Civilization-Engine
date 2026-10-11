@@ -814,6 +814,8 @@ const bless = (person: number, curse: boolean, days: number, share: number): Pro
   influence(M.bless(person, curse, days, share), curse ? "Cursed" : "Blessed");
 const tellOfIdeology = (person: number, ideology: number): Promise<void> =>
   influence(M.tellOfIdeology(person, ideology), "Told");
+const plague = (person: number, disease: number): Promise<void> =>
+  influence(M.plague(person, disease), "Brought");
 
 /** Opens workshop `id`'s page in the workshops panel, or goes back to the list. */
 function openFirm(id: number | null): void {
@@ -917,7 +919,7 @@ map.onPointer = (info: PointerInfo | null) => {
   const flowing =
     (info.water === "river" || info.water === "lake") && info.flow !== null ? `, ${flowWords(info.flow)}` : "";
   const source = info.well
-    ? ` · ${info.well.words}`
+    ? ` · ${info.well.words}${info.well.fouled ? ` · ${info.well.fouled}` : ""}`
     : info.spring
       ? ` · ${springWords(info.spring)}`
       : info.bank
@@ -981,6 +983,7 @@ bindUi(store, {
   introduceTechnique,
   whisper,
   tellOfIdeology,
+  plague,
   bless,
   setPlacingAgitator,
   setPlacingWave,
@@ -1308,6 +1311,11 @@ const hooks = {
   tellOfIdeology: (person: number, id: string) => {
     const k = store.state.welcome?.ideologies.findIndex((d) => d.id === id) ?? -1;
     return tellOfIdeology(person, k < 0 ? 0xffff : k);
+  },
+  /** Brings a disease, by content id, to a person (god tool). */
+  plague: (person: number, id: string) => {
+    const k = store.state.welcome?.diseases.findIndex((d) => d.id === id) ?? -1;
+    return plague(person, k < 0 ? 0xffff : k);
   },
   /** Whispers a claim to a person (god tool). */
   whisper: (person: number, claim: number) => whisper(person, claim),

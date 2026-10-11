@@ -133,6 +133,16 @@ export interface Welcome {
   techniques: TechniqueInfo[];
   /** Wire 1.47 (M4c slice AJ): the ideologies, which the observer may tell someone of. */
   ideologies: IdeologyInfo[];
+  /** Wire 1.62 (M6a slice AZ): the diseases, which the observer may bring to someone. */
+  diseases: DiseaseInfo[];
+}
+
+/** A disease content names (wire 1.62): how it passes, in words ("by water and between those
+ * who share a home"). */
+export interface DiseaseInfo {
+  id: string;
+  name: string;
+  routes: string;
 }
 
 /** An ideology content names (wire 1.47). */
@@ -777,6 +787,10 @@ export interface PersonInfo {
    * kernel's words ("Their household went for water 6 times today: 4 times to its own well, twice
    * to the water's edge; each of them uses 20 L a day, and it holds 85 L"). */
   water: string;
+  /** Wire 1.62 (M6a slice AZ, ADR-0021 §5): their infections in the kernel's words, the latest
+   * first, at most five ("Ill with cholera since yesterday, day 2 of 4; took it in water drawn at
+   * Bo's household's well; ..."). The kernel's truth, which no one in the world knows. */
+  sickness: string[];
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -1608,6 +1622,9 @@ export interface WellInfo {
   household: number;
   /** In the kernel's words: "Ada's household's timber-lined well, open since year 2: ...". */
   words: string;
+  /** Wire 1.62 (M6a slice AZ): what fouls its water, in the kernel's words ("Its water holds
+   * cholera: about 120 doses, a dose in every 14 L"); empty when nothing does. */
+  fouled: string;
 }
 
 /** A spring flowing today (wire 1.61): where it rises, what flows to it in a day (m³) and what was
@@ -1811,6 +1828,17 @@ export function tellOfIdeology(person: number, ideology: number): Uint8Array {
   const b = new flatbuffers.Builder(32);
   const body = W.TellOfIdeology.createTellOfIdeology(b, BigInt(person), ideology);
   return command(b, W.CommandBody.TellOfIdeology, body);
+}
+
+/**
+ * The observer brings a disease to someone (god tool, M6a slice AZ, ADR-0021 §8): `disease` is an
+ * index into Welcome.diseases. They have it as if they took it elsewhere; whether it goes further
+ * is the disease's and people's. Refused for someone who already has it.
+ */
+export function plague(person: number, disease: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.Plague.createPlague(b, BigInt(person), disease);
+  return command(b, W.CommandBody.Plague, body);
 }
 
 /**
@@ -2099,6 +2127,12 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
     if (!d) continue;
     ideologies.push({ id: d.id() ?? "", name: d.name() ?? "", legitimacy: d.legitimacy() ?? "" });
   }
+  const diseases: DiseaseInfo[] = [];
+  for (let i = 0; i < w.diseasesLength(); i++) {
+    const d = w.diseases(i);
+    if (!d) continue;
+    diseases.push({ id: d.id() ?? "", name: d.name() ?? "", routes: d.routes() ?? "" });
+  }
   const reasons: Record<number, string> = {};
   for (let i = 0; i < w.reasonsLength(); i++) {
     const r = w.reasons(i);
@@ -2126,6 +2160,7 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
     regimes,
     techniques,
     ideologies,
+    diseases,
   };
 }
 
@@ -2293,6 +2328,7 @@ function water(w: W.Water): WaterInfo {
       loss: v.loss(),
       household: Number(v.household()),
       words: v.words() ?? "",
+      fouled: v.fouled() ?? "",
     });
   }
   const springs: SpringInfo[] = [];
@@ -3384,6 +3420,7 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     errand: p.errand() ?? "",
     seenAway: p.seenAway() ?? "",
     water: p.water() ?? "",
+    sickness: Array.from({ length: p.sicknessLength() }, (_, k) => p.sickness(k) ?? ""),
   };
 }
 

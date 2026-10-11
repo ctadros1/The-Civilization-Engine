@@ -114,6 +114,13 @@ describe("builders", () => {
     expect([t.person(), t.ideology()]).toEqual([42n, 2]);
   });
 
+  it("builds the observer's disease brought to someone", () => {
+    const command = W.Command.getRootAsCommand(bb(M.plague(42, 1)));
+    expect(command.bodyType()).toBe(W.CommandBody.Plague);
+    const body = command.body(new W.Plague()) as W.Plague;
+    expect([body.person(), body.disease()]).toEqual([42n, 1]);
+  });
+
   it("builds the observer's agitator and a blessing or curse", () => {
     const sent = W.Command.getRootAsCommand(bb(M.sendAgitator(120, 340, 1)));
     expect(sent.bodyType()).toBe(W.CommandBody.SendAgitator);
@@ -1031,7 +1038,8 @@ describe("decoders", () => {
     const b = new flatbuffers.Builder(256);
     const system = b.createString("Timber-lined well");
     const words = b.createString("Ada's household's timber-lined well, being dug: 2.0 of 4.5 m");
-    const well = W.WellInfo.createWellInfo(b, 12n, system, 300, 400, 0.75, 0, 2, 4.5, 0, 0, 0, 0, 7n, words);
+    const fouled = b.createString("Its water holds cholera: about 120 doses, a dose in every 14 L");
+    const well = W.WellInfo.createWellInfo(b, 12n, system, 300, 400, 0.75, 0, 2, 4.5, 0, 0, 0, 0, 7n, words, fouled);
     const wells = W.Water.createWellsVector(b, [well]);
     W.Water.startSpringsVector(b, 1);
     W.SpringInfo.createSpringInfo(b, 500, 600, 2.5, 150);
@@ -1061,6 +1069,7 @@ describe("decoders", () => {
           loss: 0,
           household: 7,
           words: "Ada's household's timber-lined well, being dug: 2.0 of 4.5 m",
+          fouled: "Its water holds cholera: about 120 doses, a dose in every 14 L",
         },
       ],
       springs: [{ x: 500, y: 600, flowM3Day: 2.5, drawnL: 150 }],

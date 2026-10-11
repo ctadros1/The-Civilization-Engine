@@ -110,6 +110,15 @@ table IdeologyInfo {
   legitimacy: string (id: 2);
 }
 
+// Wire 1.62 (M6a slice AZ, step four; ADR-0021 §8): a disease the observer may bring to a
+// person: its content id, its name ("Cholera") and the ways it passes, in words ("by water and
+// between those who share a home").
+table DiseaseInfo {
+  id: string (id: 0);
+  name: string (id: 1);
+  routes: string (id: 2);
+}
+
 table TechniqueInfo {
   id: string (id: 0);
   // "Shaping stone".
@@ -179,6 +188,8 @@ table Welcome {
   accelerated_multipliers: [float] (id: 19);
   // Wire 1.47 (M4c slice AJ): the ideologies, which the observer may tell someone of.
   ideologies: [IdeologyInfo] (id: 20);
+  // Wire 1.62 (M6a slice AZ, step four): the diseases, which the observer may bring to someone.
+  diseases: [DiseaseInfo] (id: 21);
 }
 
 // ---- Snapshot: replaceable host and world state --------------------------------------------
@@ -504,7 +515,15 @@ table SendWave {
   months: uint (id: 3);
 }
 
-union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave }
+// Wire 1.62 (M6a slice AZ, step four; ADR-0021 §8): the observer brings a disease (an index into
+// Welcome.diseases) to a living person, as if they took it elsewhere. Refused while it runs in
+// them or one they lived through still protects them.
+table Plague {
+  person: ulong (id: 0);
+  disease: uint (id: 1);
+}
+
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave, Plague }
 
 table Command {
   body: CommandBody (id: 1);
@@ -869,6 +888,11 @@ table PersonInfo {
   // "Their household drew 6 loads today at its own well beside home; each of them uses 20 L a
   // day"; "... has drawn no water yet today ...".
   water: string (id: 56);
+  // Their infections, in words, the latest first (wire 1.62, M6a slice AZ, step four): the
+  // kernel's truth, which no one in the world knows ("Ill with cholera since yesterday, severely,
+  // day 2 of 4; took it in the water their household drew at Bo's well; tended 3 hours today, by
+  // one who knows fluid replacement; one of 14 cases of the outbreak at Ashford").
+  sickness: [string] (id: 57);
 }
 
 // Wire 1.47 (M4c slice AJ): a claim that may be whispered.
@@ -1712,6 +1736,10 @@ table WellInfo {
   // In words: "Ada's household's timber-lined well, open since year 2: 4.1 m deep, 1.8 m of
   // water standing 2.3 m down; rot has taken a tenth of its lining".
   words: string (id: 13);
+  // What fouls its water, in words (wire 1.62, M6a slice AZ, step four): the kernel's truth,
+  // which no one in the world knows ("Its water holds cholera: about 120 doses, a dose in every
+  // 14 L"); empty when nothing does.
+  fouled: string (id: 14);
 }
 
 // A spring today (wire 1.61, M6a slice AY): where it rises, what flows to it in a day, and what

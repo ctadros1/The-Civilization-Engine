@@ -665,10 +665,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_COMMAND_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_COMMAND_BODY: u8 = 15;
+pub const ENUM_MAX_COMMAND_BODY: u8 = 16;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 16] = [
+pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 17] = [
   CommandBody::NONE,
   CommandBody::NewWorld,
   CommandBody::SaveWorld,
@@ -685,6 +685,7 @@ pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 16] = [
   CommandBody::SendAgitator,
   CommandBody::Bless,
   CommandBody::SendWave,
+  CommandBody::Plague,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -708,9 +709,10 @@ impl CommandBody {
   pub const SendAgitator: Self = Self(13);
   pub const Bless: Self = Self(14);
   pub const SendWave: Self = Self(15);
+  pub const Plague: Self = Self(16);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 15;
+  pub const ENUM_MAX: u8 = 16;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::NewWorld,
@@ -728,6 +730,7 @@ impl CommandBody {
     Self::SendAgitator,
     Self::Bless,
     Self::SendWave,
+    Self::Plague,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -748,6 +751,7 @@ impl CommandBody {
       Self::SendAgitator => Some("SendAgitator"),
       Self::Bless => Some("Bless"),
       Self::SendWave => Some("SendWave"),
+      Self::Plague => Some("Plague"),
       _ => None,
     }
   }
@@ -3966,6 +3970,136 @@ impl ::core::fmt::Debug for IdeologyInfo<'_> {
       ds.finish()
   }
 }
+pub enum DiseaseInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct DiseaseInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for DiseaseInfo<'a> {
+  type Inner = DiseaseInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> DiseaseInfo<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_ROUTES: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    DiseaseInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args DiseaseInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<DiseaseInfo<'bldr>> {
+    let mut builder = DiseaseInfoBuilder::new(_fbb);
+    if let Some(x) = args.routes { builder.add_routes(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    if let Some(x) = args.id { builder.add_id(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(DiseaseInfo::VT_ID, None)}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(DiseaseInfo::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn routes(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(DiseaseInfo::VT_ROUTES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for DiseaseInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("id", Self::VT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("routes", Self::VT_ROUTES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct DiseaseInfoArgs<'a> {
+    pub id: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub routes: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for DiseaseInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    DiseaseInfoArgs {
+      id: None,
+      name: None,
+      routes: None,
+    }
+  }
+}
+
+pub struct DiseaseInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DiseaseInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DiseaseInfo::VT_ID, id);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DiseaseInfo::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_routes(&mut self, routes: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DiseaseInfo::VT_ROUTES, routes);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> DiseaseInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    DiseaseInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<DiseaseInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for DiseaseInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("DiseaseInfo");
+      ds.field("id", &self.id());
+      ds.field("name", &self.name());
+      ds.field("routes", &self.routes());
+      ds.finish()
+  }
+}
 pub enum TechniqueInfoOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -4478,6 +4612,7 @@ impl<'a> Welcome<'a> {
   pub const VT_TECHNIQUES: ::flatbuffers::VOffsetT = 40;
   pub const VT_ACCELERATED_MULTIPLIERS: ::flatbuffers::VOffsetT = 42;
   pub const VT_IDEOLOGIES: ::flatbuffers::VOffsetT = 44;
+  pub const VT_DISEASES: ::flatbuffers::VOffsetT = 46;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4489,6 +4624,7 @@ impl<'a> Welcome<'a> {
     args: &'args WelcomeArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Welcome<'bldr>> {
     let mut builder = WelcomeBuilder::new(_fbb);
+    if let Some(x) = args.diseases { builder.add_diseases(x); }
     if let Some(x) = args.ideologies { builder.add_ideologies(x); }
     if let Some(x) = args.accelerated_multipliers { builder.add_accelerated_multipliers(x); }
     if let Some(x) = args.techniques { builder.add_techniques(x); }
@@ -4661,6 +4797,13 @@ impl<'a> Welcome<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IdeologyInfo>>>>(Welcome::VT_IDEOLOGIES, None)}
   }
+  #[inline]
+  pub fn diseases(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<DiseaseInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<DiseaseInfo>>>>(Welcome::VT_DISEASES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Welcome<'_> {
@@ -4690,6 +4833,7 @@ impl ::flatbuffers::Verifiable for Welcome<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TechniqueInfo>>>>("techniques", Self::VT_TECHNIQUES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("accelerated_multipliers", Self::VT_ACCELERATED_MULTIPLIERS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<IdeologyInfo>>>>("ideologies", Self::VT_IDEOLOGIES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<DiseaseInfo>>>>("diseases", Self::VT_DISEASES, false)?
      .finish();
     Ok(())
   }
@@ -4716,6 +4860,7 @@ pub struct WelcomeArgs<'a> {
     pub techniques: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TechniqueInfo<'a>>>>>,
     pub accelerated_multipliers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
     pub ideologies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IdeologyInfo<'a>>>>>,
+    pub diseases: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<DiseaseInfo<'a>>>>>,
 }
 impl<'a> Default for WelcomeArgs<'a> {
   #[inline]
@@ -4742,6 +4887,7 @@ impl<'a> Default for WelcomeArgs<'a> {
       techniques: None,
       accelerated_multipliers: None,
       ideologies: None,
+      diseases: None,
     }
   }
 }
@@ -4836,6 +4982,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WelcomeBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Welcome::VT_IDEOLOGIES, ideologies);
   }
   #[inline]
+  pub fn add_diseases(&mut self, diseases: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<DiseaseInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Welcome::VT_DISEASES, diseases);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WelcomeBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WelcomeBuilder {
@@ -4874,6 +5024,7 @@ impl ::core::fmt::Debug for Welcome<'_> {
       ds.field("techniques", &self.techniques());
       ds.field("accelerated_multipliers", &self.accelerated_multipliers());
       ds.field("ideologies", &self.ideologies());
+      ds.field("diseases", &self.diseases());
       ds.finish()
   }
 }
@@ -9197,6 +9348,119 @@ impl ::core::fmt::Debug for SendWave<'_> {
       ds.finish()
   }
 }
+pub enum PlagueOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Plague<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Plague<'a> {
+  type Inner = Plague<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Plague<'a> {
+  pub const VT_PERSON: ::flatbuffers::VOffsetT = 4;
+  pub const VT_DISEASE: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Plague { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args PlagueArgs
+  ) -> ::flatbuffers::WIPOffset<Plague<'bldr>> {
+    let mut builder = PlagueBuilder::new(_fbb);
+    builder.add_person(args.person);
+    builder.add_disease(args.disease);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Plague::VT_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn disease(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Plague::VT_DISEASE, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Plague<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("person", Self::VT_PERSON, false)?
+     .visit_field::<u32>("disease", Self::VT_DISEASE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct PlagueArgs {
+    pub person: u64,
+    pub disease: u32,
+}
+impl<'a> Default for PlagueArgs {
+  #[inline]
+  fn default() -> Self {
+    PlagueArgs {
+      person: 0,
+      disease: 0,
+    }
+  }
+}
+
+pub struct PlagueBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlagueBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_person(&mut self, person: u64) {
+    self.fbb_.push_slot::<u64>(Plague::VT_PERSON, person, 0);
+  }
+  #[inline]
+  pub fn add_disease(&mut self, disease: u32) {
+    self.fbb_.push_slot::<u32>(Plague::VT_DISEASE, disease, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlagueBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    PlagueBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Plague<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Plague<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Plague");
+      ds.field("person", &self.person());
+      ds.field("disease", &self.disease());
+      ds.finish()
+  }
+}
 pub enum CommandOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -9471,6 +9735,21 @@ impl<'a> Command<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_plague(&self) -> Option<Plague<'a>> {
+    if self.body_type() == CommandBody::Plague {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Plague::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Command<'_> {
@@ -9496,6 +9775,7 @@ impl ::flatbuffers::Verifiable for Command<'_> {
           CommandBody::SendAgitator => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SendAgitator>>("CommandBody::SendAgitator", pos),
           CommandBody::Bless => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Bless>>("CommandBody::Bless", pos),
           CommandBody::SendWave => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SendWave>>("CommandBody::SendWave", pos),
+          CommandBody::Plague => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Plague>>("CommandBody::Plague", pos),
           _ => Ok(()),
         }
      })?
@@ -9650,6 +9930,13 @@ impl ::core::fmt::Debug for Command<'_> {
         },
         CommandBody::SendWave => {
           if let Some(x) = self.body_as_send_wave() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::Plague => {
+          if let Some(x) = self.body_as_plague() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -14698,6 +14985,7 @@ impl<'a> PersonInfo<'a> {
   pub const VT_ERRAND: ::flatbuffers::VOffsetT = 112;
   pub const VT_SEEN_AWAY: ::flatbuffers::VOffsetT = 114;
   pub const VT_WATER: ::flatbuffers::VOffsetT = 116;
+  pub const VT_SICKNESS: ::flatbuffers::VOffsetT = 118;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -14719,6 +15007,7 @@ impl<'a> PersonInfo<'a> {
     builder.add_died_minute(args.died_minute);
     builder.add_born_minute(args.born_minute);
     builder.add_id(args.id);
+    if let Some(x) = args.sickness { builder.add_sickness(x); }
     if let Some(x) = args.water { builder.add_water(x); }
     if let Some(x) = args.seen_away { builder.add_seen_away(x); }
     if let Some(x) = args.errand { builder.add_errand(x); }
@@ -15169,6 +15458,13 @@ impl<'a> PersonInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PersonInfo::VT_WATER, None)}
   }
+  #[inline]
+  pub fn sickness(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PersonInfo::VT_SICKNESS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PersonInfo<'_> {
@@ -15234,6 +15530,7 @@ impl ::flatbuffers::Verifiable for PersonInfo<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("errand", Self::VT_ERRAND, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("seen_away", Self::VT_SEEN_AWAY, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("water", Self::VT_WATER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("sickness", Self::VT_SICKNESS, false)?
      .finish();
     Ok(())
   }
@@ -15296,6 +15593,7 @@ pub struct PersonInfoArgs<'a> {
     pub errand: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub seen_away: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub water: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub sickness: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for PersonInfoArgs<'a> {
   #[inline]
@@ -15358,6 +15656,7 @@ impl<'a> Default for PersonInfoArgs<'a> {
       errand: None,
       seen_away: None,
       water: None,
+      sickness: None,
     }
   }
 }
@@ -15596,6 +15895,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PersonInfoBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_WATER, water);
   }
   #[inline]
+  pub fn add_sickness(&mut self, sickness: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PersonInfo::VT_SICKNESS, sickness);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PersonInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PersonInfoBuilder {
@@ -15670,6 +15973,7 @@ impl ::core::fmt::Debug for PersonInfo<'_> {
       ds.field("errand", &self.errand());
       ds.field("seen_away", &self.seen_away());
       ds.field("water", &self.water());
+      ds.field("sickness", &self.sickness());
       ds.finish()
   }
 }
@@ -25248,6 +25552,7 @@ impl<'a> WellInfo<'a> {
   pub const VT_LOSS: ::flatbuffers::VOffsetT = 26;
   pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 28;
   pub const VT_WORDS: ::flatbuffers::VOffsetT = 30;
+  pub const VT_FOULED: ::flatbuffers::VOffsetT = 32;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -25261,6 +25566,7 @@ impl<'a> WellInfo<'a> {
     let mut builder = WellInfoBuilder::new(_fbb);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    if let Some(x) = args.fouled { builder.add_fouled(x); }
     if let Some(x) = args.words { builder.add_words(x); }
     builder.add_loss(args.loss);
     builder.add_quality(args.quality);
@@ -25375,6 +25681,13 @@ impl<'a> WellInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WellInfo::VT_WORDS, None)}
   }
+  #[inline]
+  pub fn fouled(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WellInfo::VT_FOULED, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WellInfo<'_> {
@@ -25397,6 +25710,7 @@ impl ::flatbuffers::Verifiable for WellInfo<'_> {
      .visit_field::<f32>("loss", Self::VT_LOSS, false)?
      .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("fouled", Self::VT_FOULED, false)?
      .finish();
     Ok(())
   }
@@ -25416,6 +25730,7 @@ pub struct WellInfoArgs<'a> {
     pub loss: f32,
     pub household: u64,
     pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub fouled: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for WellInfoArgs<'a> {
   #[inline]
@@ -25435,6 +25750,7 @@ impl<'a> Default for WellInfoArgs<'a> {
       loss: 0.0,
       household: 0,
       words: None,
+      fouled: None,
     }
   }
 }
@@ -25501,6 +25817,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WellInfoBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WellInfo::VT_WORDS, words);
   }
   #[inline]
+  pub fn add_fouled(&mut self, fouled: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WellInfo::VT_FOULED, fouled);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WellInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WellInfoBuilder {
@@ -25532,6 +25852,7 @@ impl ::core::fmt::Debug for WellInfo<'_> {
       ds.field("loss", &self.loss());
       ds.field("household", &self.household());
       ds.field("words", &self.words());
+      ds.field("fouled", &self.fouled());
       ds.finish()
   }
 }

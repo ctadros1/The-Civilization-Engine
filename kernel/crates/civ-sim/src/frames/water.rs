@@ -147,6 +147,8 @@ pub fn water_response(sim: &Sim) -> Vec<u8> {
         let water = standing(sim, w);
         let text = fbb.create_string(&words(sim, w, water));
         let system = fbb.create_string(def.map_or("", |d| d.name.as_str()));
+        let litres = water.0 * def.map_or(0.0, |d| d.area_m2()) * 1000.0;
+        let fouled = fbb.create_string(&super::sickness::fouled_words(sim, w.id, litres));
         let (x, y) = w.rect.centre_m();
         let state = w.state.code().0;
         wells.push(wire::WellInfo::create(
@@ -166,6 +168,7 @@ pub fn water_response(sim: &Sim) -> Vec<u8> {
                 loss: w.loss,
                 household: w.household.get(),
                 words: Some(text),
+                fouled: Some(fouled),
             },
         ));
     }

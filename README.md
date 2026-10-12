@@ -38,12 +38,9 @@ The web observer currently presents an early farming world. The project's longer
 
 The newest completed milestone demo follows a cholera outbreak through village wells and shows what residents and their polity believed about its source. These are captures from the live observer; the [demo gallery](demos/README.md) collects this run and the earlier milestone demos.
 
-<p align="center">
-  <img src="demos/m6a/m6a-lens.png" alt="M6a live demo: the Water lens showing where households drew water" width="48%">
-  <img src="demos/m6a/m6a-outbreak.png" alt="M6a live demo: outbreak sources, resident suspicion and polity response" width="48%">
-</p>
+<p align="center"><a href="demos/m6a/m6a-overview.mp4"><img src="demos/m6a/m6a-overview-poster.png" alt="M6a live demo: a village by the water, with the first chapter title" width="900"></a></p>
 
-[Watch the M6a demo](demos/m6a/m6a-demo.webm) · [Incidents panel capture](demos/m6a/m6a-incidents.png) · [All demo versions](demos/README.md)
+[Watch the 1080p M6a demo](demos/m6a/m6a-overview.mp4) · [Incidents panel capture](demos/m6a/m6a-incidents.png) · [All demo versions](demos/README.md)
 
 These generated previews illustrate the project's longer-term historical and modern scope. They are concept art, not screenshots of implemented features.
 

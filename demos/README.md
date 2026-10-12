@@ -9,21 +9,24 @@ outcome.
 
 The latest complete milestone demo starts an early-farming village, gives cholera to one person,
 then follows the outbreak through the water system. In this captured run, 65 people took cholera,
-42 cases came through water, 12 became ill and one died. Residents suspected Lena's household well,
-and the gathering voted to close it; five water cases in the recorded route came from that well.
-The observer keeps the modeled route evidence, residents' beliefs and the polity's decision visible
-as separate layers. Outcomes vary between runs.
+55 cases came through water, 17 became ill and three died. The observer traces cases to household
+wells; residents did not identify those wells as a cause, and no law named them. The observer keeps
+modeled routes, residents' knowledge and the polity's response visible as separate layers. Outcomes
+vary between runs.
 
 The captures below are from that live observer run. The complete version history is in the table
 that follows.
 
-![M6a Water lens showing where households drew water](m6a/m6a-lens.png)
-
-![M6a outbreak page showing source evidence and what people suspected](m6a/m6a-outbreak.png)
+<p align="center"><a href="m6a/m6a-overview.mp4"><img src="m6a/m6a-overview-poster.png" alt="Watch the M6a overview: a close view of the village, with chapter captions" width="900"></a></p>
 
 - [Incidents panel](m6a/m6a-incidents.png)
+- [Outbreak evidence and public response](m6a/m6a-outbreak.png)
+- [Water lens close-up](m6a/m6a-lens.png)
+- [1080p overview with title and chapter captions](m6a/m6a-overview.mp4)
+- [Raw 1920×1080 observer capture](m6a/m6a-demo.webm)
 - [Recorded demo narration and observed outcome](m6a/m6a-demo.txt)
 - [M6a demo runner](../web/e2e/m6a-demo.spec.ts)
+- [Video production project and refresh steps](m6a/production/README.md)
 - [Water, sickness and fire technical guide](../docs/development-journal/hazards-and-health.md)
 
 M6b fire behavior is in progress, but its milestone demo is not complete yet. M6a is therefore the
@@ -68,6 +71,5 @@ mkdir -p ../demos/m6a
 TCE_DEMO=1 TCE_DEMO_VIDEO=1 TCE_SHOTS_DIR=../demos/m6a npm run test:e2e -- m6a-demo.spec.ts
 ```
 
-Playwright keeps its video under `web/test-results/`; copy the successful run's `video.webm` into
-`demos/m6a/` if publishing the recording. The test's screenshots and text log are written directly
-to the gallery folder.
+The demo runner writes the raw 1920×1080 observer recording, screenshots and text log directly to
+`demos/m6a/`. Preview and render the title-and-caption version with the [M6a video project](m6a/production/README.md).

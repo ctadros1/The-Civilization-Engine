@@ -1,0 +1,26 @@
+{
+  "name": "tce-m6a-demo-video",
+  "version": "1.0.0",
+  "description": "Title and caption treatment for the M6a live demo",
+  "repository": {},
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@remotion/cli": "4.0.534",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.534"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.7",
+    "@types/web": "0.0.166",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "dev": "remotion studio",
+    "build": "remotion bundle",
+    "render": "remotion render src/index.ts M6aShowcase ../m6a-overview.mp4 --codec=h264 --crf=18",
+    "upgrade": "remotion upgrade",
+    "lint": "tsc"
+  }
+}

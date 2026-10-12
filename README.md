@@ -4,7 +4,7 @@
 <p align="center">People make a living, raise families, trade, learn, build and govern. Their choices shape the settlements and institutions that emerge.</p>
 
 <p align="center">
-  <a href="#the-project">Project</a> · <a href="#current-status">Status</a> · <a href="#technical-highlights">Technical highlights</a> · <a href="#run-it">Run it</a> · <a href="#documentation">Documentation</a>
+  <a href="#the-project">Project</a> · <a href="#current-status">Status</a> · <a href="demos/README.md">Demo gallery</a> · <a href="#technical-highlights">Technical highlights</a> · <a href="#run-it">Run it</a> · <a href="#documentation">Documentation</a>
 </p>
 <p align="center">
   <img src="https://img.shields.io/badge/milestone-M6a%20complete%20%C2%B7%20M6b%20in%20progress-9a6a36?style=flat-square" alt="M6a complete; M6b in progress">
@@ -34,13 +34,16 @@ Its guiding rule is **the engine authors the vocabulary, never the plot**. Conte
 
 The web observer currently presents an early farming world. The project's longer vision reaches modern civilization, but modern industry, cities and the Unreal client are not implemented. Smoke runs and dashboards check selected behaviors and engineering invariants; they do not prove historical realism.
 
-## What the build looks like
+## Latest live demo: M6a water and sickness
 
-This village screenshot predates the newer government and multi-settlement systems. It illustrates the simulation's current visual foundation; the journal and plan describe the broader integrated feature set.
+The newest completed milestone demo follows a cholera outbreak through village wells and shows what residents and their polity believed about its source. These are captures from the live observer; the [demo gallery](demos/README.md) collects this run and the earlier milestone demos.
 
-<p align="center"><img src="assets/m3b/m3b-village.jpg" alt="The web observer showing an early farming village with homes and fields" width="900"></p>
+<p align="center">
+  <img src="demos/m6a/m6a-lens.png" alt="M6a live demo: the Water lens showing where households drew water" width="48%">
+  <img src="demos/m6a/m6a-outbreak.png" alt="M6a live demo: outbreak sources, resident suspicion and polity response" width="48%">
+</p>
 
-[Knowledge panel](assets/m3b/m3b-knowledge.jpg) · [M1 village demo](assets/m1/m1-demo.webm) · [M3a economy screenshots](assets/m3a/)
+[Watch the M6a demo](demos/m6a/m6a-demo.webm) · [Incidents panel capture](demos/m6a/m6a-incidents.png) · [All demo versions](demos/README.md)
 
 These generated previews illustrate the project's longer-term historical and modern scope. They are concept art, not screenshots of implemented features.
 
@@ -71,6 +74,7 @@ On Windows, run `tools\run.ps1` in PowerShell. The observer opens at <http://127
 
 - [Project plan and milestone status](PROJECT_PLAN.md)
 - [Development journal and technical guide](docs/development-journal/README.md)
+- [Demo gallery across milestones](demos/README.md)
 - [Institutions, law and social change](docs/development-journal/institutions-and-order.md)
 - [Settlements, movement and trade](docs/development-journal/settlements-and-exchange.md)
 - [Inter-polity relations and public works](docs/development-journal/relations-and-public-works.md)

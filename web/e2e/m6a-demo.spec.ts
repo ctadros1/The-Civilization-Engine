@@ -68,7 +68,10 @@ test("cholera brought to one person, the water its cases drank, and what people 
     await expect(outbreaks.first()).toBeVisible();
     log(`illness: ${await panel.locator(".incident-totals").innerText()}`);
     for (const o of await outbreaks.allInnerTexts()) log(`outbreak: ${o}`);
-    if (shots) await page.locator("#incidents-panel").screenshot({ path: `${shots}/m6a-incidents.png` });
+    if (shots) {
+      await panel.locator(".incident-totals").scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `${shots}/m6a-incidents.png` });
+    }
 
     // Its page: how it began, its curve, how its cases took it, and each source with the three
     // layers kept apart.
@@ -85,7 +88,10 @@ test("cholera brought to one person, the water its cases drank, and what people 
       log(`  people: ${(await s.locator(".layer-known li").allInnerTexts()).join(" | ")}`);
       log(`  polity: ${(await s.locator(".layer-polity li").allInnerTexts()).join(" | ")}`);
     }
-    if (shots) await page.locator("#incidents-panel").screenshot({ path: `${shots}/m6a-outbreak.png` });
+    if (shots) {
+      await panel.locator(".outbreak-cause").scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `${shots}/m6a-outbreak.png` });
+    }
 
     // The Water lens: where each home's people drew water in the past 30 days.
     await page.getByLabel("Lens").selectOption("came");

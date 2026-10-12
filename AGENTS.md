@@ -133,6 +133,10 @@ requests into it; run them yourself before a change to how people live, farm, bu
   stays behind `src/net/messages.ts`. New panels need empty, loading and error states.
 - **Claims:** do not call something done, fixed or fast without having run it. Keep the
   implemented-versus-planned table in `README.md` honest.
+- **Demo showcase:** `README.md` must feature the newest available lived demo, not an older
+  milestone screenshot. When updating README status or showcase visuals, refresh `demos/README.md`
+  and capture the latest demo under `demos/<milestone>/`; keep older versions listed in the guide.
+  Distinguish runnable demo scripts, committed captures and planned demos.
 - **Git:** small commits with descriptive messages. Never commit `saves/`, `target/`,
   `node_modules/`, `web/dist/` or test output.
 

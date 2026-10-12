@@ -1,0 +1,101 @@
+demo world:
+world 1: 17 wells open after 623 days. NUDGE: the observer brought cholera, on a day the soil could not hold 12.2 mm, to Lena (household 8), whose home's heap lies 7 m from and 0.0 m above well 296, at which 2 households drew in the past 30 days. After 90 days: Cholera at Hazelstead, from 15 November of year 2: 65 took it, 42 in water; 1 of 1 households that drew it at Fenn's household's well had a case (5 cases), 16 of 21 of the rest (60 cases); 12 others fell ill; 0 people suspect the well; laws to close it: Some(Passed)
+kept world 1: its outbreak had 42 cases by water
+saved /var/folders/c3/dtmjzjp11h31lq4q7xw96by00000gn/T/tce-e2e-saves-KntzNO/wellfield-98c2d59e/g0000000001-manual.tcesave
+illness: Illness: 65 cases; 3 known to someone now; 3 named by a law; 65 the observer's.
+outbreak: Cholera at Hazelstead, from 15 November of year 2: 65 took it, 12 fell ill, 1 died; it runs (the observer's). Open
+cause: Began with Lena, brought by the observer, as if they took it elsewhere (one recorded influence).
+routes: How its cases took it: 22 at home, from those who shed it; 5 in water drawn at Fenn's household's well; 4 in water drawn at Hesta's household's well; 4 in water drawn at Nils's household's well; 3 in water drawn at Faye's household's well; 3 in water drawn at Lena's household's well; 3 in water drawn at Quill's household's well; 3 in water drawn at Soren's household's well; 3 in water drawn at Tova's household's well; 3 in water drawn at Yorick's household's well; 2 in water drawn at Esk's household's well; 2 in water drawn at Kesta's household's well; 2 in water drawn at Lark's household's well; 2 in water drawn at Rook's household's well; 2 in water drawn at Ulmer's household's well; 1 brought by the observer; 1 in water drawn at Jory's household's well.
+source: Fenn's household's well: 5 cases took it there
+  kernel: Of 1 household that drew cholera in its water since it began, 1 had a case (5 cases); of 21 households that did not, 16 had a case (60 cases). | Fouled from 23 November of year 2: 253 doses washed from the heap of Wendel's household; 222 doses washed from the heap of Fenn's household; 3 doses washed from the heap of Ulmer's household; less than a dose seeped through the ground from the heap of Fenn's household; less than a dose seeped through the ground from the heap of Wendel's household.
+  people: Nobody suspects it.
+  polity: No law names it.
+source: Hesta's household's well: 4 cases took it there
+  kernel: Of 1 household that drew cholera in its water since it began, 1 had a case (6 cases); of 21 households that did not, 16 had a case (59 cases). | Fouled from 15 December of year 2: 29 doses washed from the heap of Esk's household; 20 doses washed from the heap of Jory's household.
+  people: Nobody suspects it.
+  polity: No law names it.
+source: Nils's household's well: 4 cases took it there
+  kernel: Of 1 household that drew cholera in its water since it began, 1 had a case (5 cases); of 21 households that did not, 16 had a case (60 cases). | Fouled from 18 November of year 2: 59 doses washed from the heap of Fenn's household; 59 doses washed from the heap of Fal's household; 28 doses washed from the heap of Soren's household.
+  people: Nobody suspects it.
+  polity: No law names it.
+source: Lena's household's well: 3 cases took it there
+  kernel: Of 2 households that drew cholera in its water since it began, 2 had a case (9 cases); of 20 households that did not, 15 had a case (56 cases). | Fouled from 18 November of year 2: 117 doses washed from the heap of Wendel's household; 27 doses washed from the heap of Fal's household; 8 doses washed from the heap of Fenn's household; 3 doses washed from the heap of Jory's household; less than a dose washed from the heap of Ulmer's household; less than a dose seeped through the ground from the heap of Fal's household; less than a dose seeped through the ground from the heap of Wendel's household.
+  people: Nobody suspects it.
+  polity: Lena proposed closing it on 12 December of year 2; the gathering closed it on 14 December of year 2: 50 for, 4 against.
+source: Soren's household's well: 3 cases took it there
+  kernel: Of 1 household that drew cholera in its water since it began, 1 had a case (3 cases); of 21 households that did not, 16 had a case (62 cases). | Fouled from 18 November of year 2: 84 doses washed from the heap of Fal's household; 84 doses washed from the heap of Fenn's household; 31 doses washed from the heap of Esk's household.
+  people: Nobody suspects it.
+  polity: No law names it.
+source: Quill's household's well: 3 cases took it there
+  kernel: Of 1 household that drew cholera in its water since it began, 1 had a case (5 cases); of 21 households that did not, 16 had a case (60 cases). | Fouled from 21 December of year 2: 21 doses washed from the heap of Jask's household; 15 doses washed from the heap of Vane's household; 14 doses washed from the heap of Quill's household; 4 doses washed from the heap of Rook's household; 2 doses washed from the heap of Lark's household; 1 dose washed from the heap of Liss's household; less than a dose seeped through the ground from the heap of Vane's household.
+  people: Nobody suspects it.
+  polity: No law names it.
+source: Yorick's household's well: 3 cases took it there
+  kernel: Of 2 households that drew cholera in its water since it began, 2 had a case (5 cases); of 20 households that did not, 15 had a case (60 cases). | Fouled from 18 November of year 2: 59 doses washed from the heap of Fal's household; 45 doses washed from the heap of Fenn's household; 30 doses washed from the heap of Esk's household; 29 doses washed from the heap of Nils's household; 12 doses washed from the heap of Soren's household.
+  people: Nobody suspects it.
+  polity: No law names it.
+source: Tova's household's well: 3 cases took it there
+  kernel: Of 1 household that drew cholera in its water since it began, 1 had a case (4 cases); of 21 households that did not, 16 had a case (61 cases). | Fouled from 15 December of year 2: 33 doses washed from the heap of Esk's household; 28 doses washed from the heap of Jory's household.
+  people: Nobody suspects it.
+  polity: No law names it.
+source: Faye's household's well: 3 cases took it there
+  kernel: Of 1 household that drew cholera in its water since it began, 1 had a case (4 cases); of 21 households that did not, 16 had a case (61 cases). | Fouled from 21 December of year 2: 51 doses washed from the heap of Vane's household; 24 doses washed from the heap of Yorick's household; 1 dose seeped through the ground from the heap of Vane's household.
+  people: Nobody suspects it.
+  polity: No law names it.
+source: Esk's household's well: 2 cases took it there
+  kernel: Of 1 household that drew cholera in its water since it began, 1 had a case (2 cases); of 21 households that did not, 16 had a case (63 cases). | Fouled from 18 November of year 2: 96 doses washed from the heap of Esk's household; 95 doses washed from the heap of Fal's household; 50 doses washed from the heap of Fenn's household; 4 doses washed from the heap of Jory's household; 3 doses washed from the heap of Ulmer's household; 1 dose seeped through the ground from the heap of Esk's household.
+  people: Nobody suspects it.
+  polity: No law names it.
+source: Kesta's household's well: 2 cases took it there
+  kernel: Of 1 household that drew cholera in its water since it began, 1 had a case (6 cases); of 21 households that did not, 16 had a case (59 cases). | Fouled from 15 December of year 2: 42 doses washed from the heap of Yorick's household; 26 doses washed from the heap of Nils's household; 9 doses washed from the heap of Soren's household; less than a dose washed from the heap of Norrin's household.
+  people: Nobody suspects it.
+  polity: No law names it.
+source: Lark's household's well: 2 cases took it there
+  kernel: Of 1 household that drew cholera in its water since it began, 1 had a case (2 cases); of 21 households that did not, 16 had a case (63 cases). | Fouled from 21 December of year 2: 55 doses washed from the heap of Jask's household; 10 doses washed from the heap of Vane's household; 3 doses washed from the heap of Tova's household; 3 doses washed from the heap of Lark's household; less than a dose seeped through the ground from the heap of Jask's household.
+  people: Nobody suspects it.
+  polity: No law names it.
+source: Rook's household's well: 2 cases took it there
+  kernel: Of 1 household that drew cholera in its water since it began, 1 had a case (4 cases); of 21 households that did not, 16 had a case (61 cases). | Fouled from 21 December of year 2: 34 doses washed from the heap of Vane's household; 14 doses washed from the heap of Yorick's household; 9 doses seeped through the ground from the heap of Vane's household; 1 dose washed from the heap of Liss's household.
+  people: Nobody suspects it.
+  polity: No law names it.
+source: Ulmer's household's well: 2 cases took it there
+  kernel: Of 1 household that drew cholera in its water since it began, 1 had a case (2 cases); of 21 households that did not, 16 had a case (63 cases). | Fouled from 23 November of year 2: 264 doses washed from the heap of Wendel's household; 10 doses washed from the heap of Ulmer's household; less than a dose seeped through the ground from the heap of Wendel's household.
+  people: Nobody suspects it.
+  polity: No law names it.
+source: Jory's household's well: 1 case took it there
+  kernel: Of 2 households that drew cholera in its water since it began, 2 had a case (5 cases); of 20 households that did not, 15 had a case (60 cases). | Fouled from 13 December of year 2: 78 doses washed from the heap of Jory's household; 3 doses washed from the heap of Ulmer's household; less than a dose seeped through the ground from the heap of Jory's household.
+  people: Nobody suspects it.
+  polity: No law names it.
+lens: Could reach: of 22 homes, 22 have water within a minute's walk, 0 within 5 minutes, 0 within 15, 0 farther within an hour, 0 none within an hour; for 6 homes, the nearest is another's well / Did come: in the past 30 days, of 22 homes, 16 drew at their own well, 1 at a well by right, 0 at another's well, 0 at a spring, 5 at the water's edge
+chronicle: Year 1 · Aug 15 · 08:38
+Wendel's hoe workshop closed: it could not pay what it owed. Locate
+chronicle: Year 1 · Oct 21 · 12:21
+Una's hoe workshop closed: it could not pay what it owed. Locate
+chronicle: Year 2 · Feb 19 · 00:00
+Aster's sickle workshop closed: it sold nothing for months. Locate
+chronicle: Year 2 · Feb 24 · 00:00
+Una's sickle workshop closed: it sold nothing for months. Locate
+chronicle: Year 2 · Feb 27 · 00:00
+Liss's sickle workshop closed: it sold nothing for months. Locate
+chronicle: Year 2 · Mar 5 · 00:00
+Jessen's hoe workshop closed: it sold nothing for months. Locate
+chronicle: Year 2 · Apr 11 · 00:00
+Halla's hoe workshop closed: it sold nothing for months. Locate
+chronicle: Year 2 · Nov 15 · 00:00
+Cholera came to Hazelstead: Lena took it. Open
+chronicle: Year 2 · Nov 15 · 00:00
+One recorded influence: the observer brought a disease to Lena: cholera, as if they took it elsewhere. Open
+chronicle: Year 2 · Dec 8 · 00:00
+Lena came to suspect the water their household draws at Lena's household's well: of 3 households they know that draw there, 2 had sickness lately, against 1 of 19 that draw elsewhere.
+chronicle: Year 2 · Dec 8 · 00:00
+Dessa came to suspect the water their household draws at Lena's household's well: of 3 households they know that draw there, 2 had sickness lately, against 1 of 19 that draw elsewhere.
+chronicle: Year 2 · Dec 8 · 00:00
+Nessa came to suspect the water their household draws at Lena's household's well: of 3 households they know that draw there, 2 had sickness lately, against 1 of 17 that draw elsewhere.
+chronicle: Year 2 · Dec 9 · 00:00
+Tarran died of cholera, aged 3. Open Locate
+chronicle: Year 2 · Dec 12 · 00:00
+Lena proposed the closing of Lena's household's well: nobody may draw there, because they hold that the water there sickens. Locate
+chronicle: Year 2 · Dec 14 · 00:00
+The gathering at Hazelstead agreed to the closing of Lena's household's well: nobody may draw there: 50 for, 4 against; 60 of 60 adults came. Locate
+chronicle: Year 2 · Dec 23 · 00:00
+Talia came to suspect the water their household draws at Esk's household's well: of 4 households they know that draw there, 2 had sickness lately, against 2 of 16 that draw elsewhere.

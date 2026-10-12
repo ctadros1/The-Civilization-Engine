@@ -1,6 +1,6 @@
 # Architecture and Data Flow
 
-This guide follows the integrated `main` tree as of 2026-10-10. The kernel owns simulation state and decisions. The web observer renders that state and forwards user commands; it does not determine outcomes.
+This guide follows the integrated `main` tree as of 2026-10-11. The kernel owns simulation state and decisions. The web observer renders that state and forwards user commands; it does not determine outcomes.
 
 ## Runtime shape
 

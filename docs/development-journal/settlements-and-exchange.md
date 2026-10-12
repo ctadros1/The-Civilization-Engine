@@ -1,6 +1,6 @@
 # Settlements, Movement and Exchange
 
-This guide describes M5a settlement behavior and the implemented M5b exchange and diffusion systems in the integrated `main` tree as of 2026-10-10. [ADR-0018](../../decisions/0018-settlements-residence-movement.md) governs settlement identity and movement; [ADR-0019](../../decisions/0019-exchange-between-settlements.md) governs exchange. Inter-polity relations and works are documented separately in [Relations and Public Works](relations-and-public-works.md). Run measurements and known limits live in [PROJECT_PLAN.md §9](../../PROJECT_PLAN.md#9-decisions-log).
+This guide describes M5a settlement behavior and the implemented M5b exchange and diffusion systems in the integrated `main` tree as of 2026-10-11. [ADR-0018](../../decisions/0018-settlements-residence-movement.md) governs settlement identity and movement; [ADR-0019](../../decisions/0019-exchange-between-settlements.md) governs exchange. Inter-polity relations and works are documented separately in [Relations and Public Works](relations-and-public-works.md). Run measurements and known limits live in [PROJECT_PLAN.md §9](../../PROJECT_PLAN.md#9-decisions-log).
 
 ## Settlement identity and population accounts
 

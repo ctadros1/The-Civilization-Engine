@@ -1,6 +1,6 @@
 # Simulation Model
 
-This page describes the integrated `main` tree as of 2026-10-10. TCE simulates multiple early farming settlements and their institutions, trade, diffusion and inter-polity works. The broader historical and modern scope is planned, not already simulated.
+This page describes the integrated `main` tree as of 2026-10-11. TCE simulates multiple early farming settlements and their institutions, trade, diffusion, inter-polity works, water and sickness, and early fire behavior. The broader historical and modern scope is not already simulated.
 
 ## Time and simulation work
 
@@ -114,6 +114,14 @@ At a yearly review, a household compares staying with known destinations using i
 Household price reports can lead to buying trips to another settlement, where current seller terms decide the exchange. Households may also fetch goods to resell at home. Reports and trades are local records, not a global market feed; realized prices are not forced to converge. Knowledge travels through work observed, goods handled and people moving, while building taste can respond to buildings seen elsewhere. Per-polity currency and merchant firms that run trade trips are not implemented.
 
 Polities can claim wild places through law, form agreements that require ratification by both local customs, and carry real goods as gifts or recurring transfers. Labels such as *wary* or *tributary* are derived descriptions and do not cause decisions. Household and polity choices can build log crossings from measured use; the observer only presents the resulting state. Enclosures moved to M6. See [settlements and exchange](settlements-and-exchange.md) and [relations and public works](relations-and-public-works.md) for details.
+
+## Water, sickness and fire
+
+Water is a daily moving resource. A shallow aquifer exchanges water with neighboring ground and rivers; springs are derived from the water table; households draw from rivers, springs or wells they have a right to use. A household can weigh, dig, line, deepen, maintain and cover a well. The water ledger records where each draw came from. Disease loads follow separate routes through household waste, runoff, groundwater, reaches, wells and stored water; the infection exposure from a day's drinking and household contact is resolved once per person-day. See [water, sickness and fire](hazards-and-health.md) for state ownership and flow details.
+
+Illness is modeled as an infection record with its own course, source and outcome. Disease definitions are authored content; infection state and outbreaks are kernel facts. People who are sick stay abed, household members can choose to tend them, and a disease death is recorded distinctly. What people know is separate: observations become claims, individuals accumulate suspicion from the sources they know of, and households may avoid a suspected source, cover a well, move, or bring an issue to their polity. Polities can close sources or organize a well through their ordinary deliberation and work pipelines.
+
+Fire likewise begins from causes in the simulation rather than a hazard calendar. Burning buildings progress by minute-level events, heat accumulates on nearby roofs as a function of distance, wind and dryness, materials catch according to exposure, and the loss of building parts and goods is recorded. Fires caught from one another belong to a conflagration. People may see a fire, relay an alarm, carry water, strip a threatened roof or salvage household goods. The observer's fire tool is an explicit influence; it does not decide how the fire spreads or how people respond. Masonry, flooding and later M6 work are not yet implemented. More detail and current evidence are in [water, sickness and fire](hazards-and-health.md), [ADR-0021](../../decisions/0021-water-and-sickness.md), [ADR-0022](../../decisions/0022-fire-floods-and-storms.md) and the [development history](development-history.md).
 
 ## What the model does not claim
 

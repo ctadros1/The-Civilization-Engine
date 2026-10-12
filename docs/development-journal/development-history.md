@@ -1425,6 +1425,21 @@ The full end-to-end run found the knowledge test still counting the founders' te
 
 **Open:** pulling a building down; fire seen and told and fire caution; the fire row, the lens and the calibration sweep.
 
+## 2026-10-11 — M6b slice BD, step five: the dashboard fire row
+
+**What changed:** the dashboard reports household fire escapes per 1,000 household-years and grades
+the aggregate against the 1–100 reference interval from the fire research. It also reports how many
+escapes were put out, how many buildings burned, how many fires spread from a neighbor, deaths and
+observer-set fires (counted separately). With no household-years it is grey; rates outside the
+reference interval are amber.
+
+**Evidence added:** a unit test checks aggregation across worlds and both sides of the reference
+range. The dashboard now has a fire row alongside its other hazard rows. This journal records the
+implementation and test coverage; it does not claim a newly executed dashboard run.
+
+**Open:** the planned calibration sweep, pulling buildings down, fire caution, the Help at a fire
+lens, masonry, floods and the M6b demo.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:

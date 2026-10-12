@@ -1,6 +1,6 @@
 # Relations and Public Works
 
-This guide describes implemented M5c systems in the integrated `main` tree as of 2026-10-10. [ADR-0020](../../decisions/0020-relations-between-polities.md) governs inter-polity relations and agreements; crossing construction extends [ADR-0004](../../decisions/0004-buildings-land-paths.md) and [ADR-0009](../../decisions/0009-building-components.md). The plan's [M5c milestone](../../PROJECT_PLAN.md#7-milestones) and [decision log](../../PROJECT_PLAN.md#9-decisions-log) hold exact slice details, checks and run results.
+This guide describes implemented M5c systems in the integrated `main` tree as of 2026-10-11. [ADR-0020](../../decisions/0020-relations-between-polities.md) governs inter-polity relations and agreements; crossing construction extends [ADR-0004](../../decisions/0004-buildings-land-paths.md) and [ADR-0009](../../decisions/0009-building-components.md). The plan's [M5c milestone](../../PROJECT_PLAN.md#7-milestones) and [decision log](../../PROJECT_PLAN.md#9-decisions-log) hold exact slice details, checks and run results.
 
 ## What a polity knows about another
 

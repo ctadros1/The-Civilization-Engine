@@ -7,7 +7,7 @@
   <a href="#the-project">Project</a> · <a href="#current-status">Status</a> · <a href="#technical-highlights">Technical highlights</a> · <a href="#run-it">Run it</a> · <a href="#documentation">Documentation</a>
 </p>
 <p align="center">
-  <img src="https://img.shields.io/badge/milestone-M5%20complete%20%C2%B7%20M6%20planned-9a6a36?style=flat-square" alt="M5 complete; M6 planned">
+  <img src="https://img.shields.io/badge/milestone-M6a%20complete%20%C2%B7%20M6b%20in%20progress-9a6a36?style=flat-square" alt="M6a complete; M6b in progress">
   <img src="https://img.shields.io/badge/kernel-Rust-315f55?style=flat-square" alt="Simulation kernel: Rust">
   <img src="https://img.shields.io/badge/observer-TypeScript%20%2B%20PixiJS-526c83?style=flat-square" alt="Observer: TypeScript and PixiJS">
 </p>
@@ -28,9 +28,11 @@ Its guiding rule is **the engine authors the vocabulary, never the plot**. Conte
 | M4 · Councils, law, crime and political change | Implemented. The latest fifty-year dashboard still has a failed food-price row in one world; see the project plan for the result and limits. |
 | M5a · Neighboring settlements | Implemented: contact, visits, marriage, migration and coalition founding. The 3,000-person, three-settlement run takes about 19.6 minutes at Max; the ten-minute design budget is not met. |
 | M5b · Trade and diffusion | Implemented: households trade using dated reports, fetch goods to resell, and learn techniques and building styles through contact. The earlier roof-style demo no longer qualifies after corrected river routing separated its villages. |
-| M5c · Inter-polity relations and public works | Implemented: claims, agreements ratified by each settlement's own law, carried payments, and household and village log crossings. A failed ratification appears in a test world, not a lived demo; enclosures moved to M6, where force gives them a purpose. |
+| M5c · Inter-polity relations and public works | Implemented: claims, agreements ratified by each settlement's own law, carried payments, and household and village log crossings. A failed ratification appears in a test world, not a lived demo. |
+| M6a · Water and sickness | Implemented: flowing water, aquifers, springs and household wells; waterborne contamination and disease; illness, care, suspicion, source avoidance and collective responses. The cholera demo traces an outbreak that people do not connect to the wells that carried it. |
+| M6b · Fire, masonry and floods | In progress: buildings burn and spread fire; people notice, raise alarms, carry water, strip threatened roofs and salvage goods. The dashboard reports fire escapes. Masonry, floods, public works and the milestone demo remain ahead. |
 
-The web observer currently presents an early farming world. Cities and modern civilization are long-term scope, not features of the current build or planned v1. Smoke runs and dashboards check selected behaviors and engineering invariants; they do not prove historical realism.
+The web observer currently presents an early farming world. The project's longer vision reaches modern civilization, but modern industry, cities and the Unreal client are not implemented. Smoke runs and dashboards check selected behaviors and engineering invariants; they do not prove historical realism.
 
 ## What the build looks like
 
@@ -50,10 +52,10 @@ These generated previews illustrate the project's longer-term historical and mod
 ## Technical highlights
 
 - **Simulation kernel:** Rust workspace organized around world generation, changing land, people, authored content, simulation composition, hosting and a C interface.
-- **Emergent systems:** event-scheduled daily lives and calendar cadences; goods move through an accounting ledger; building grammars expand saved designs; institutions emerge through proposals, deliberation, law and collective action.
+- **Emergent systems:** event-scheduled daily lives and calendar cadences; goods move through an accounting ledger; building grammars expand saved designs; institutions emerge through proposals, deliberation, law and collective action. Waterborne disease and fire spread through household choices, weather, buildings and local response.
 - **Multiple settlements:** settlement identity and residence histories are explicit. Households learn places by contact and choose whether to visit, move or found elsewhere.
-- **Content and boundaries:** strict TOML packs (content API 68) feed the kernel. The web observer uses a localhost WebSocket and versioned FlatBuffers messages (TCE wire 1.60); it displays kernel state and forwards commands.
-- **Persistence:** checksummed, versioned snapshots (schema 71) with explicit migrations. World generation is reproducible for a seed on one build; simulation replay is not a goal.
+- **Content and boundaries:** strict TOML packs (content API 85) feed the kernel. The web observer uses a localhost WebSocket and versioned FlatBuffers messages (TCE wire 1.68); it displays kernel state and forwards commands.
+- **Persistence:** checksummed, versioned snapshots (schema 92) with explicit migrations. World generation is reproducible for a seed on one build; simulation replay is not a goal.
 
 ## Run it
 
@@ -72,6 +74,7 @@ On Windows, run `tools\run.ps1` in PowerShell. The observer opens at <http://127
 - [Institutions, law and social change](docs/development-journal/institutions-and-order.md)
 - [Settlements, movement and trade](docs/development-journal/settlements-and-exchange.md)
 - [Inter-polity relations and public works](docs/development-journal/relations-and-public-works.md)
+- [Water, sickness and fire systems](docs/development-journal/hazards-and-health.md)
 - [Architecture decision records](decisions/README.md)
 - [Research index](research/README.md)
 - [Content authoring guide](content/README.md)

@@ -65,7 +65,7 @@ fn whose(sim: &Sim, c: &Crossing) -> String {
 }
 
 /// The year of day `day`, the world's first being 1.
-fn year_of(day: i64) -> i64 {
+pub(super) fn year_of(day: i64) -> i64 {
     SimTime::from_minutes(day * 24 * 60).date().year
 }
 

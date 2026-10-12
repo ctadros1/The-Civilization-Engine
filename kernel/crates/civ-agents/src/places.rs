@@ -380,6 +380,10 @@ pub struct MovingParams {
     /// Reviews running a place must win before the household moves there (research 10-01 §2.3:
     /// 1–3), outside an emergency.
     pub reviews: u32,
+    /// For the share of their settlement's households its members know had sickness lately (0–1;
+    /// M6a slice BA, ADR-0021 §7): the sickness it believes here, against places where it knows
+    /// of none.
+    pub w_sickness: f64,
 }
 
 impl MovingParams {
@@ -393,6 +397,7 @@ impl MovingParams {
             w_stake: 3.0,
             cost: 2.0,
             reviews: 2,
+            w_sickness: 3.0,
         }
     }
 }

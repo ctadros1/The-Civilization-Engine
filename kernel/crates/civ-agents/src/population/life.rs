@@ -138,6 +138,8 @@ impl Population {
         self.emptied.clear();
         self.end_pregnancies(ctx, day);
         self.mortality(ctx, day);
+        // Infections run their course, kill or are taken (M6a slice AZ).
+        self.sickness_day(ctx, day);
         self.care_for_households(ctx);
         self.departures(ctx, day);
         self.residence_reviews(ctx, day);
@@ -185,10 +187,8 @@ impl Population {
         if let Some(x) = self.household_mut(id) {
             let members = x.members.len();
             x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
-            x.settle_water(
-                now,
-                members as f64 * params.household.water_l_per_person_day,
-            );
+            let use_l = x.water_use(&params.household);
+            x.settle_water(now, members as f64 * use_l);
             let len = goods.len().max(x.stores.len());
             x.stores.resize(len, 0.0);
         }
@@ -445,6 +445,12 @@ impl Population {
     /// Someone dies: they leave their household (what they carried stays with it), their partner
     /// is widowed, a mother nursing them can conceive again soon, and the chronicle notes it.
     pub(crate) fn die(&mut self, ctx: &mut Ctx, id: PermanentId, cause: Cause) {
+        self.die_named(ctx, id, cause, cause.key().to_owned());
+    }
+
+    /// Someone dies of `cause`, the chronicle keeping `key` for it (a disease's death names the
+    /// disease: "disease:cholera").
+    pub(crate) fn die_named(&mut self, ctx: &mut Ctx, id: PermanentId, cause: Cause, key: String) {
         let now = ctx.now;
         let Some(p) = self.person(id) else {
             return;
@@ -514,7 +520,7 @@ impl Population {
             settlement,
             Some(at),
             age,
-            cause.key().to_owned(),
+            key,
         );
         // What only they knew there is lost with them (ADR-0008 §5).
         self.check_loss(ctx, settlement, &[(id, p.knows)], None);
@@ -1132,6 +1138,16 @@ impl Population {
         for p in ctx.land.plots.iter_mut().filter(|p| p.household == from) {
             p.household = to;
         }
+        // And its wells (M6a slice AY, step three).
+        for w in ctx
+            .land
+            .wells
+            .list
+            .iter_mut()
+            .filter(|w| w.household == from)
+        {
+            w.household = to;
+        }
         for b in ctx
             .land
             .buildings
@@ -1658,6 +1674,8 @@ impl Population {
             stores_at: ctx.now,
             water_l: 0.0,
             water_at: ctx.now,
+            water_use_l: 0.0,
+            water_walk_min: 0.0,
             known: natal.known.clone(),
             sheltered: false,
             keeping: crate::person::Keeping::default(),

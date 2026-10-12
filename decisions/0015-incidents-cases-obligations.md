@@ -3,6 +3,7 @@
 Status: Accepted
 Date: 2026-10-08
 Milestone: M4b
+Amended: 2026-10-10, M6 design: incidents of every kind, episodes and typed links (§8).
 
 ## Context
 
@@ -129,6 +130,46 @@ points:
 - **The chronicle** tells incidents and decisions plainly: who did what to whom, and under which
   law (06-10 §4). Minor takings are summarised; decisions and exiles are told one by one.
 
+### 8. Incidents of every kind, episodes and typed links (M6)
+
+M6 adds illness, fire, high water, storm damage and raids (plan §7). The M6 observer brief
+(`docs/briefs/m6-observer.md`) reads 12-07, 15-01, 15-02, 15-04 and 15-05 for them.
+
+- **Every kind keeps §1's layers.** An incident of any kind is the kernel's truth: what
+  happened, where, to whom, and its losses. What people know is beliefs and claims with their
+  sources (ADR-0016 §3), and what a polity knows and did is its cases, issues and laws. A kind
+  that has no layer yet (no polity hears of fires) shows the layer as empty, never as filled
+  from the truth.
+- **An incident is a chain of stamped steps** (12-07 §1.1): it began, was noticed (by whom), was
+  told (to whom), help came (who, from where, when), useful work began, and it ended, with its
+  losses. Each step is recorded when it happens; a step never reached stays not reached, and one
+  known only to the day keeps a day, never an invented hour. Arrival alone never decides
+  success.
+- **Episodes.** An outbreak, a conflagration, a flood or a siege is an episode record: a kind, a
+  span, a footprint, the shared cause recorded once (a river's peak, a storm's gusts) and an
+  ending. Its incidents are `part_of` it. When an episode of a kind opens and closes is that
+  kind's rule, set by the ADR that brings it (ADR-0021 for outbreaks).
+- **Typed links, recorded when they happen** (15-02 §1.1): `caused_by` (a case to the source or
+  person it was caught from, a fire to its ignition or a burning neighbour, a failure to the
+  storm or flood, anything to the observer's `Influence` that started it), `part_of` (an
+  incident to its episode) and `responded_to` (a proposal to the incidents its sponsor's issue
+  names, from the issue's own record). A link points at a record that exists and is never
+  inferred from time: where only time joins two things, the text says "after" (15-01 §3.5).
+- **Each kind keeps its own store.** Takings stay as §1–§7 built them. One query presents every
+  kind in one shape (a row, its layers, its steps, its links), so one panel can list them.
+- **Aggregates and coverage are derived.** Rates, counts by kind, response times (with "none
+  came" kept as an outcome, 12-07 §1.8) and coverage are computed from the records and the
+  walking ground, rebuilt on load and never saved. Each states its scope, its period, its
+  denominator and how many of its incidents the observer started.
+- **No choice reads an incident, an episode, a link, an aggregate or a coverage figure.** It is
+  tested as labels are: a world lived with every query called daily matches one lived without.
+- **The boundary.** Saves keep incidents, episodes and links, appended with the first kind that
+  needs them (M6a's illness). The snapshot carries only a revision that changes when an incident
+  or episode opens, moves on or ends; rows, pages and episodes are queries paged by a cursor, so
+  an outbreak of hundreds of cases never fills a frame. The chronicle tells an episode when it
+  begins and when it ends, with counts; every death is told and resolves to an incident and a
+  `Cause`; small incidents dealt with at once are summarised, as minor takings are (§7).
+
 ## Consequences
 
 - Theft, reporting, cases and punishments arise from people's choices; crime rates are outputs.
@@ -154,3 +195,5 @@ points:
 - Courts arrive (M7): forums, evidence rules, precedent and appeal.
 - Violence is modelled (injury first; 04-09 §5.5).
 - Several polities exist (M5): exile to a neighbour, jurisdiction over distance.
+- Story patterns beyond episodes are wanted (15-02 §1.4), or `enabled_by` is needed to explain a
+  chain the stored links cannot.

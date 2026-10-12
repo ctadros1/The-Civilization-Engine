@@ -58,6 +58,8 @@ export interface MonthRow {
   soil: string;
   /** Still under way: its figures are so far, against the usual so far. */
   partial: boolean;
+  /** The observer's drought held its weather on some of its days (wire 1.63). */
+  held: boolean;
 }
 
 /** The newest months as table rows, newest first. */
@@ -77,6 +79,7 @@ export function monthRows(report: WeatherReport, shown = MONTHS_SHOWN): MonthRow
         snow: m.snowDays,
         soil: `${Math.round(m.soil * 100)}%`,
         partial,
+        held: m.held,
       };
     });
 }

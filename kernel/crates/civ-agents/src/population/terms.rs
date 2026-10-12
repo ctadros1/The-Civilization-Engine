@@ -598,7 +598,7 @@ impl Population {
     }
 
     /// The name of settlement `s`, or "another settlement".
-    fn settlement_name(&self, ctx: &Ctx, s: PermanentId) -> String {
+    pub(super) fn settlement_name(&self, ctx: &Ctx, s: PermanentId) -> String {
         ctx.land
             .settlements
             .iter()

@@ -40,6 +40,10 @@ fn people_files() -> Vec<(String, String)> {
         "skill",
         "regime",
         "technique",
+        // The well system names the well-digging technique, which nothing else gates.
+        "well",
+        // Cholera names fluid replacement as a treatment, which nothing else gates.
+        "disease",
     ] {
         let mut paths: Vec<_> = std::fs::read_dir(repo_content().join("core").join(dir))
             .expect("real content directory")
@@ -64,7 +68,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 68
+kernel_content_api = 85
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -227,10 +231,18 @@ fn the_repository_content_is_clean() {
         .iter()
         .map(|&(t, _)| c.techniques[t].id.as_str())
         .collect();
-    assert_eq!(founders.len(), 11);
+    assert_eq!(founders.len(), 12);
     assert!(founders.contains(&"core:technique/pottery"));
     assert!(founders.contains(&"core:technique/oven_baking"));
     assert!(founders.contains(&"core:technique/manuring"));
+    assert!(founders.contains(&"core:technique/well_digging"));
+    // The timber-lined well (M6a slice AY, step three): its diggers need well digging.
+    let well = &c.wells[c.well_index("core:well/timber_lined").expect("the well")];
+    assert_eq!(
+        well.technique.map(|t| c.techniques[t].id.as_str()),
+        Some("core:technique/well_digging")
+    );
+    assert!(well.radius_m < well.dig_radius_m);
     for later in ["core:technique/drying", "core:technique/rotary_quern"] {
         assert!(!founders.contains(&later), "{later}");
     }
@@ -304,6 +316,97 @@ fn out_of_range_values_are_rejected() {
     let report = load_fixture(&[("worldgen/river_valley.toml", &body)]);
     assert_eq!(codes(&report), vec!["E3001"]);
     assert!(report.diagnostics[0].message.contains("outlet_edges"));
+}
+
+#[test]
+fn wells_check_their_numbers_and_need_their_lining_inside_their_shaft() {
+    let real_well = real("well/timber_lined.toml");
+    for (body, needle) in [
+        (
+            real_well.replace("max_depth_m = 10.0", "max_depth_m = 200.0"),
+            "max_depth_m",
+        ),
+        (
+            real_well.replace("lift_min_per_m = 0.15", "lift_min_per_m = -1.0"),
+            "lift_min_per_m",
+        ),
+        (
+            real_well.replace("radius_m = 0.6", "radius_m = 0.9"),
+            "the lining is inside",
+        ),
+    ] {
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            ("well/timber_lined.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(
+            report.diagnostics[0].message.contains(needle),
+            "{needle}: {}",
+            report.diagnostics[0].message
+        );
+    }
+}
+
+#[test]
+fn diseases_check_their_numbers_and_routes() {
+    let real_cholera = real("disease/cholera.toml");
+    let fine = load_fixture(&[
+        ("worldgen/river_valley.toml", &real_preset()),
+        ("disease/cholera.toml", &real_cholera),
+    ]);
+    assert!(codes(&fine).is_empty(), "{:?}", codes(&fine));
+    for (body, needle) in [
+        (
+            real_cholera.replace("symptomatic = 0.25", "symptomatic = 1.5"),
+            "symptomatic",
+        ),
+        (
+            real_cholera.replace("routes = [\"water\", \"household\"]", "routes = [\"air\"]"),
+            "unknown route `air`",
+        ),
+        (
+            real_cholera.replace(
+                "immunity_years = [3.0, 10.0]",
+                "immunity_years = [10.0, 3.0]",
+            ),
+            "immunity_years",
+        ),
+        (
+            real_cholera.replace(
+                "severe_by_age = [[0, 0.4], [80, 0.4]]",
+                "severe_by_age = [[80, 0.4], [0, 0.4]]",
+            ),
+            "ages must rise",
+        ),
+        (
+            real_cholera.replace(
+                "incubation_days = [1.5, 1.0]",
+                "incubation_days = [0.0, 1.0]",
+            ),
+            "incubation_days",
+        ),
+        (
+            real_cholera.replace("decay_per_day = 0.13", "decay_per_day = 1.5"),
+            "decay_per_day",
+        ),
+        (
+            real_cholera.replace("shed_ill_per_day = 2000.0", "shed_ill_per_day = -1.0"),
+            "shed_ill_per_day",
+        ),
+    ] {
+        assert_ne!(body, real_cholera, "{needle}: the edit applies");
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            ("disease/cholera.toml", &body),
+        ]);
+        assert_eq!(codes(&report), vec!["E3001"], "{needle}");
+        assert!(
+            report.diagnostics[0].message.contains(needle),
+            "{needle}: {}",
+            report.diagnostics[0].message
+        );
+    }
 }
 
 #[test]
@@ -1190,6 +1293,21 @@ fn profiles_check_their_ranges_and_fields() {
     ]);
     assert_eq!(codes(&report), vec!["E3001"]);
 
+    // How what people shed moves (ADR-0021 §4) stays in range.
+    let land =
+        real("land/temperate_valley.toml").replace("capture_share = 0.1 ", "capture_share = 1.5 ");
+    assert_ne!(land, real("land/temperate_valley.toml"), "the edit applies");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("land/temperate_valley.toml", &land),
+    ]);
+    assert_eq!(codes(&report), vec!["E3001"]);
+    assert!(
+        report.diagnostics[0]
+            .message
+            .contains("`contamination.capture_share`")
+    );
+
     // The month's storm on roofs (ADR-0012 §5) stays in range, and so does the snow they keep.
     let land = real("land/temperate_valley.toml")
         .replace("storm_median_kpa = 0.25", "storm_median_kpa = -1.0");
@@ -1315,6 +1433,11 @@ fn the_fingerprint_covers_every_kind() {
             "learn_rate = 0.12",
         ),
         ("value/autonomy.toml", "sd = 0.8", "sd = 0.9"),
+        (
+            "disease/cholera.toml",
+            "household_hazard = 0.03",
+            "household_hazard = 0.04",
+        ),
     ] {
         let body = real(path).replace(from, to);
         assert_ne!(body, real(path), "{path}: the edit applies");

@@ -353,6 +353,61 @@ select {
   width: auto;
 }
 
+/* The lens's legend (M6a slice BB, step three): what it shows, over what, when and per what. */
+.lens-legend {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  max-width: 24em;
+  font-size: 12px;
+  color: var(--text);
+  background: rgba(21, 25, 29, 0.9);
+  padding: 8px 10px;
+  border-radius: var(--radius);
+}
+
+.lens-legend h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+.lens-legend p {
+  margin: 2px 0;
+}
+
+.lens-legend .lens-line {
+  color: var(--muted);
+}
+
+.lens-classes {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+}
+
+.lens-classes li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lens-classes .swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  box-sizing: border-box;
+}
+
+.lens-classes .swatch.hollow {
+  background: transparent;
+}
+
+.lens-legend .lens-error {
+  color: var(--danger, #e07a5f);
+}
+
 /* Side panels */
 .side {
   display: flex;
@@ -1562,6 +1617,88 @@ button.link:hover {
 .order-panel .case {
   padding-left: 0.6rem;
   border-left: 2px dashed var(--line);
+}
+
+/* Wire 1.64 (M6a slice BB): one Incidents panel for every kind, each incident's layers kept
+   apart, its page with stamped steps and links, and an outbreak's page with its sources. Neutral
+   colours only: direction and size, never desirability. */
+.incidents-panel .incident-kind {
+  margin-left: 0.3rem;
+}
+.incidents-panel .incident-totals,
+.incidents-panel .outbreaks,
+.incidents-panel .conflagrations {
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+}
+.incidents-panel .incidents {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+.incidents-panel .incident {
+  margin-bottom: 0.5rem;
+}
+.incidents-panel .incident-open,
+.incidents-panel .outbreak-open,
+.incidents-panel .conflagration-open {
+  font-size: 0.85em;
+}
+.incidents-panel .incident-steps {
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+}
+.incidents-panel .step-not-reached,
+.incidents-panel .step-not-recorded {
+  color: var(--muted);
+  font-style: italic;
+}
+.incidents-panel .incident-links {
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+  font-size: 0.9em;
+}
+.incidents-panel .incident-layers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.4rem 1rem;
+}
+.incidents-panel .layer-block h4 {
+  margin: 0.3rem 0 0.2rem;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+.incidents-panel .layer-block ul {
+  margin: 0;
+  padding-left: 1rem;
+}
+.incidents-panel .layer-known {
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--line);
+}
+.incidents-panel .layer-polity {
+  padding-left: 0.6rem;
+  border-left: 2px dashed var(--line);
+}
+.incidents-panel .outbreak-source {
+  margin: 0.4rem 0 0.6rem;
+}
+.incidents-panel .source-name {
+  margin: 0.2rem 0;
+  font-weight: 600;
+}
+.incidents-panel .outbreak-curve {
+  display: block;
+  width: 100%;
+  height: 3rem;
+  margin: 0.3rem 0;
+}
+.incidents-panel .outbreak-curve .took {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 0.6;
+}
+.incidents-panel .outbreak-curve .onset {
+  fill: var(--text);
 }
 
 /* Wire 1.58: an agreement between two polities, each side's law history side by side. */

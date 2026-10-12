@@ -27,7 +27,9 @@ pub mod earth;
 pub mod fields;
 pub mod paths;
 pub mod soil;
+pub mod water;
 pub mod weather;
+pub mod wells;
 
 pub use buildings::{
     BuildWork, Building, BuildingState, GroupCondition, GroupState, MATERIAL_SLACK_KG, MendWork,
@@ -39,6 +41,7 @@ pub use fields::{
 };
 pub use paths::{PathParams, Trail, ViewTile, Wear, WearTile};
 pub use soil::{FieldSoil, HarvestRecord, Limit, SoilParams};
+pub use water::{AquiferUnit, ContaminationParams, Water, WaterParams};
 pub use weather::{Climatology, MonthRecord, Unworkable, Weather, WeatherDay, WeatherParams};
 
 use civ_core::time::{DAYS_PER_YEAR, MONTH_STARTS};
@@ -161,6 +164,10 @@ pub struct LandParams {
     pub paths: PathParams,
     /// Where deposits of clay, stone and flint lie, by kind (ADR-0010 §1).
     pub deposits: Vec<deposits::DepositRule>,
+    /// How water moves under the ground and down the rivers (ADR-0021 §1–§2).
+    pub water: WaterParams,
+    /// How what people shed moves through the ground and water (ADR-0021 §4).
+    pub contamination: ContaminationParams,
 }
 
 impl ResourceParams {
@@ -372,6 +379,11 @@ pub struct Land {
     pub ground: earth::GroundDelta,
     /// Crossings over water, in the order begun (M5c slice AW). Saved.
     pub crossings: crossings::Crossings,
+    /// Water under the ground and the rivers' runoff store (M6a slice AY, ADR-0021 §1–§2): the
+    /// heads and the store saved, the aquifer derived.
+    pub water: Water,
+    /// Wells, in the order begun (M6a slice AY, step three; ADR-0021 §3). Saved.
+    pub wells: wells::Wells,
 }
 
 /// Summary of a patch's terrain, for classification.
@@ -580,17 +592,61 @@ impl Land {
             earthworks: Vec::new(),
             ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
             crossings: crossings::Crossings::default(),
+            water: Water::default(),
+            wells: wells::Wells::default(),
         };
-        // Start each stock at its equilibrium for the season a year ago, then grow a year.
+        // Start each stock at its equilibrium for the season a year ago, and the water table
+        // where the mean recharge holds it, then live a year.
         for r in 0..params.resources.len() {
             land.fill_equilibrium(params, r, land.stock_day);
         }
+        land.derive_water(map, params, seed);
+        land.water
+            .settle(&params.water, land.climatology.surplus_mm_per_day);
         land.advance_to_day(params, map, today - 1);
         land
     }
 
     /// What is wrong with saved land state for a map, if anything. A save holding any of these
     /// is refused (ADR-0002).
+    /// Derives the world's aquifer from the map, the patches' habitats and the seed, keeping
+    /// any heads and runoff the water already has (ADR-0021 §2). A world does this when it is
+    /// made and when it is loaded.
+    pub fn derive_water(&mut self, map: &WorldMap, params: &LandParams, seed: u64) {
+        let mut water = Water::derive(map, &self.patches, &params.habitats, &params.water, seed);
+        water.heads = std::mem::take(&mut self.water.heads);
+        water.runoff_mm = self.water.runoff_mm;
+        self.water = water;
+    }
+
+    /// Today's flow in the rivers against their mean (ADR-0021 §1): each reach carries its mean
+    /// discharge times this.
+    pub fn flow_factor(&self, params: &LandParams) -> f64 {
+        self.water
+            .flow_factor(&params.water, self.climatology.surplus_mm_per_day)
+    }
+
+    /// The water table's head under terrain cell `cell` of a map `map_width` cells wide, metres,
+    /// and the rate a well's column of radius `radius_m` there refills toward it a day, over a
+    /// radius of influence `influence_m` (M6a slice AY, ADR-0021 §3).
+    pub fn ground_water(
+        &self,
+        cell: usize,
+        map_width: u32,
+        radius_m: f64,
+        influence_m: f64,
+    ) -> (f64, f64) {
+        let p = self.patches.of_cell(cell, map_width);
+        let head = self
+            .water
+            .heads
+            .get(p)
+            .copied()
+            .unwrap_or(f64::NEG_INFINITY);
+        let t = self.water.aquifer.t.get(p).copied().unwrap_or(0.0);
+        (head, wells::refill_rate(t, radius_m, influence_m))
+    }
+
     /// Places the deposits `params` rules lay down on `map` for world `seed`
     /// ([`deposits::place`]), each with a new permanent id from `ids`, after any it has; returns
     /// how many it placed. A world places them once: a new world as it is made, an older save on
@@ -620,6 +676,8 @@ impl Land {
 
     pub fn problems(&self, map: &WorldMap, habitats: usize, next_id: u64) -> Vec<String> {
         let mut out = self.crossings.problems();
+        out.extend(self.water.problems());
+        out.extend(self.wells.problems(usize::MAX));
         let p = &self.patches;
         let pc = p.patch_cells.max(1);
         if p.patch_cells == 0
@@ -996,6 +1054,7 @@ impl Land {
             let d = self.stock_day + 1;
             let water = self.weather.live(&params.weather, &self.climatology);
             self.water_fields(&params.weather, map, &water, d);
+            self.water.day(&params.water, water.surplus_mm);
             if day_of_year(d) == soil::TURN_DAY {
                 let year = i32::try_from(d.div_euclid(DAYS_PER_YEAR) + 1).unwrap_or(i32::MAX);
                 for f in &mut self.fields {
@@ -1361,6 +1420,8 @@ mod tests {
                 trail_until: 0.15,
             },
             deposits: Vec::new(),
+            water: WaterParams::default(),
+            contamination: ContaminationParams::default(),
         }
     }
 
@@ -1470,6 +1531,29 @@ mod tests {
         let eq = daily / 0.05;
         assert!((f64::from(land.stocks[0][1]) - eq).abs() < 1e-3 * eq);
         assert_eq!(land.stocks[0][0], 0.0, "water grows no plants");
+    }
+
+    #[test]
+    fn a_new_world_has_a_water_table_under_its_ground_and_rivers_that_run() {
+        let p = params();
+        let land = create(&p, 9, 400);
+        assert!(land.climatology.surplus_mm_per_day > 0.0);
+        let aq = &land.water.aquifer;
+        assert_eq!(land.water.heads.len(), land.patches.len());
+        for (i, h) in land.water.heads.iter().enumerate() {
+            assert!(h.is_finite());
+            if let Some((_, z)) = aq.seep[i] {
+                assert!(
+                    *h <= f64::from(z) + 1e-9,
+                    "patch {i}'s head {h} above its ground {z}"
+                );
+            }
+        }
+        // The two western patches hold the river; the eastern ones drain to them.
+        assert!(aq.stage[0].is_some() && aq.stage[1].is_none());
+        let f = land.flow_factor(&p);
+        assert!(f.is_finite() && f > 0.0, "{f}");
+        assert!(land.problems(&map(), p.habitats.len(), 1).is_empty());
     }
 
     #[test]

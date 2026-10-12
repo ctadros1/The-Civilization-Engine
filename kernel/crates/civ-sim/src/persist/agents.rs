@@ -111,8 +111,10 @@ use super::{
     SCHEMA_V41, SCHEMA_V42, SCHEMA_V43, SCHEMA_V44, SCHEMA_V45, SCHEMA_V46, SCHEMA_V47, SCHEMA_V48,
     SCHEMA_V49, SCHEMA_V50, SCHEMA_V51, SCHEMA_V52, SCHEMA_V53, SCHEMA_V54, SCHEMA_V55, SCHEMA_V56,
     SCHEMA_V57, SCHEMA_V58, SCHEMA_V59, SCHEMA_V60, SCHEMA_V61, SCHEMA_V62, SCHEMA_V63, SCHEMA_V64,
-    SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, finish, section,
-    single_chunk, unreadable,
+    SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
+    SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
+    SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
+    SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -179,6 +181,15 @@ pub const SECTION_PLACES: SectionTag = SectionTag::new("places");
 pub const SECTION_RELATIONS: SectionTag = SectionTag::new("relation");
 /// Section: crossings over water (schema 68, M5c slice AW).
 pub const SECTION_CROSSINGS: SectionTag = SectionTag::new("crossing");
+/// Section: wells (schema 74, M6a slice AY, step three).
+pub const SECTION_WELLS: SectionTag = SectionTag::new("wells");
+/// Section: infections (schema 75, M6a slice AZ).
+pub const SECTION_SICKNESS: SectionTag = SectionTag::new("sickness");
+/// Section: what people shed, where it lies and where it went (schema 76, M6a slice AZ, step
+/// two).
+pub const SECTION_CONTAGION: SectionTag = SectionTag::new("pathogen");
+/// Section: fires, conflagrations and the exposure near those burning (schema 88; M6b slice BC).
+pub const SECTION_FIRES: SectionTag = SectionTag::new("fires");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -276,6 +287,10 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             0,
             encode_crossings(&sim.land, &sim.people.fords, rules),
         ),
+        section(SECTION_WELLS, 0, encode_wells(&sim.land, rules)),
+        section(SECTION_SICKNESS, 0, encode_sickness(&sim.people, rules)),
+        section(SECTION_CONTAGION, 0, encode_contagion(&sim.people, rules)),
+        section(SECTION_FIRES, 0, encode_fires(&sim.people)),
     ]
 }
 
@@ -440,6 +455,53 @@ enum Schema {
     V70,
     /// The room to work on a crossing (M5c slice AX).
     V71,
+    /// Water under the ground and the rivers' runoff store (M6a slice AY).
+    V72,
+    /// Sources people choose and the water they use (M6a slice AY, step two).
+    V73,
+    /// Wells (M6a slice AY, step three).
+    V74,
+    /// Infections (M6a slice AZ).
+    V75,
+    /// What people shed, moved through the ground and water (M6a slice AZ, step two).
+    V76,
+    /// Care given the ill (M6a slice AZ, step three).
+    V77,
+    /// Claims that a household had sickness (M6a slice BA): no new state, a claim kind appended.
+    V78,
+    /// Suspicions of a source, and the households seen drawing water (M6a slice BA, step two).
+    V79,
+    /// The chronicle's suspicions (M6a slice BA, step three): no new state, a chronicle kind
+    /// appended.
+    V80,
+    /// Wells' lids and curbs (M6a slice BA, step three).
+    V81,
+    /// The issues of sickness and of a suspected source, and laws closing a source of water
+    /// (M6a slice BA, step four).
+    V82,
+    /// Wells dug together by law, with the hours each household gave, and households' walks to
+    /// water (M6a slice BA, step four).
+    V83,
+    /// The observer's drought, with the months it held marked (M6a slice BA, step five).
+    V84,
+    /// Each infection keeps the household it began in (M6a slice BB).
+    V85,
+    /// Each place a household uses remembers which of the last 64 days its people worked there
+    /// (M6a slice BB, step three: the Water lens).
+    V86,
+    /// The weather keeps a daily wind and the fuel's dryness (M6b slice BC, step one).
+    V87,
+    /// Fires, conflagrations and the exposure near those burning (M6b slice BC, step two).
+    V88,
+    /// Ignitions of the fires people use, and the pending event that weighs one (M6b slice BD).
+    V89,
+    /// Escapes that grow before the covering, and who knew of each fire (M6b slice BD, step two).
+    V90,
+    /// Water carried to a fire: wet roofs, loads thrown and the douse target (M6b slice BD, step
+    /// three).
+    V91,
+    /// Roofs stripped and goods carried out of a fire's way (M6b slice BD, step four).
+    V92,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -525,7 +587,28 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V68 => Schema::V68,
         SCHEMA_V69 => Schema::V69,
         SCHEMA_V70 => Schema::V70,
-        SAVE_SCHEMA_VERSION => Schema::V71,
+        SCHEMA_V71 => Schema::V71,
+        SCHEMA_V72 => Schema::V72,
+        SCHEMA_V73 => Schema::V73,
+        SCHEMA_V74 => Schema::V74,
+        SCHEMA_V75 => Schema::V75,
+        SCHEMA_V76 => Schema::V76,
+        SCHEMA_V77 => Schema::V77,
+        SCHEMA_V78 => Schema::V78,
+        SCHEMA_V79 => Schema::V79,
+        SCHEMA_V80 => Schema::V80,
+        SCHEMA_V81 => Schema::V81,
+        SCHEMA_V82 => Schema::V82,
+        SCHEMA_V83 => Schema::V83,
+        SCHEMA_V84 => Schema::V84,
+        SCHEMA_V85 => Schema::V85,
+        SCHEMA_V86 => Schema::V86,
+        SCHEMA_V87 => Schema::V87,
+        SCHEMA_V88 => Schema::V88,
+        SCHEMA_V89 => Schema::V89,
+        SCHEMA_V90 => Schema::V90,
+        SCHEMA_V91 => Schema::V91,
+        SAVE_SCHEMA_VERSION => Schema::V92,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -533,7 +616,7 @@ pub(super) fn decode<R: Read + Seek>(
         }
     };
     let bytes = single_chunk(reader, SECTION_LAND)?;
-    let mut land = decode_land(&bytes, rules, map, climatology)?;
+    let mut land = decode_land(&bytes, rules, map, climatology, seed)?;
     let bytes = single_chunk(reader, SECTION_SETTLE)?;
     land.settlements = decode_settlements(&bytes)?;
 
@@ -730,6 +813,7 @@ pub(super) fn decode<R: Read + Seek>(
             people.seen_away,
             people.founding_ways,
             people.uses,
+            people.spring_draws,
         ) = (
             d.known,
             d.contacts,
@@ -742,6 +826,7 @@ pub(super) fn decode<R: Read + Seek>(
             d.seen,
             d.ways,
             d.uses,
+            d.draws,
         );
     }
     // What people believe of other polities (schema 63); before, nobody held a view.
@@ -755,6 +840,26 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V68 {
         let bytes = single_chunk(reader, SECTION_CROSSINGS)?;
         (land.crossings, people.fords) = decode_crossings(&bytes, rules, map)?;
+    }
+    // Wells (schema 74); before, none.
+    if schema >= Schema::V74 {
+        let bytes = single_chunk(reader, SECTION_WELLS)?;
+        land.wells = decode_wells(&bytes, rules, map)?;
+    }
+    // Infections (schema 75); before, none.
+    if schema >= Schema::V75 {
+        let bytes = single_chunk(reader, SECTION_SICKNESS)?;
+        people.sickness = decode_sickness(&bytes, rules)?;
+    }
+    // What people shed (schema 76); before, nothing lies anywhere.
+    if schema >= Schema::V76 {
+        let bytes = single_chunk(reader, SECTION_CONTAGION)?;
+        people.contagion = decode_contagion(&bytes, rules)?;
+    }
+    // Fires (schema 88); before, none has burned.
+    if schema >= Schema::V88 {
+        let bytes = single_chunk(reader, SECTION_FIRES)?;
+        people.fires = decode_fires(&bytes, schema)?;
     }
     // Settlements' founding ways (schema 61); before them a founding band's is drawn again from
     // its key, and any other settlement's taken as its households' now.
@@ -976,6 +1081,16 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let claimed = (!claimed.is_empty()).then(|| fbb.create_vector(&claimed));
+            // The sources its laws close (schema 82).
+            let closed: Vec<save::PlaceClaimSave> = p
+                .closed
+                .iter()
+                .map(|&(law, place)| {
+                    let (kind, id) = place.code();
+                    save::PlaceClaimSave::new(law.get(), kind, id)
+                })
+                .collect();
+            let closed = (!closed.is_empty()).then(|| fbb.create_vector(&closed));
             // Where its laws would build crossings (schema 70).
             let sites: Vec<_> = p
                 .sites
@@ -1000,6 +1115,34 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let sites = (!sites.is_empty()).then(|| fbb.create_vector(&sites));
+            // Where its laws would dig wells (schema 83).
+            let wells: Vec<_> = p
+                .wells
+                .iter()
+                .map(|&(law, site)| {
+                    let system = rules
+                        .catalog
+                        .wells
+                        .get(usize::from(site.system))
+                        .map_or("", |d| d.id.as_str());
+                    let system = fbb.create_string(system);
+                    save::PublicWellSave::create(
+                        &mut fbb,
+                        &save::PublicWellSaveArgs {
+                            law: law.get(),
+                            cell: site.cell,
+                            system: Some(system),
+                            x_cm: site.rect.x,
+                            y_cm: site.rect.y,
+                            w_cm: site.rect.w,
+                            h_cm: site.rect.h,
+                            target_m: site.target_m,
+                            labour_h: site.labour_h,
+                        },
+                    )
+                })
+                .collect();
+            let wells = (!wells.is_empty()).then(|| fbb.create_vector(&wells));
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -1039,6 +1182,8 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     seized_by: Some(seized_by),
                     claimed,
                     sites,
+                    closed,
+                    wells,
                 },
             )
         })
@@ -1099,6 +1244,9 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::ClaimedFromUs => 7,
         IssueKind::TermsSought => 8,
         IssueKind::Fords => 9,
+        IssueKind::Sickness => 10,
+        IssueKind::SourceSuspected => 11,
+        IssueKind::WaterFar => 12,
     }
 }
 
@@ -1205,6 +1353,9 @@ fn decode_polities(
                 7 => IssueKind::ClaimedFromUs,
                 8 => IssueKind::TermsSought,
                 9 => IssueKind::Fords,
+                10 => IssueKind::Sickness,
+                11 => IssueKind::SourceSuspected,
+                12 => IssueKind::WaterFar,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -1427,6 +1578,58 @@ fn decode_polities(
                 },
             ));
         }
+        // The sources its laws close (schema 82); before, none.
+        let mut closed = Vec::new();
+        for c in p.closed().iter().flatten() {
+            let (Some(law), Some(place @ civ_agents::uses::Place::Source(_))) = (
+                PermanentId::from_raw(c.law()),
+                civ_agents::uses::Place::from_code(c.kind(), c.place()),
+            ) else {
+                return Err(bad(format!(
+                    "polity {id} closes place {} of kind {} by law {}",
+                    c.place(),
+                    c.kind(),
+                    c.law()
+                )));
+            };
+            if !laws.iter().any(|l| l.id == law) {
+                return Err(bad(format!(
+                    "polity {id} closes a source by a missing law {law}"
+                )));
+            }
+            closed.push((law, place));
+        }
+        // Where its laws would dig wells (schema 83); before, nowhere. One of a well system the
+        // loaded content lacks is dropped: its law can dig nothing.
+        let mut wells = Vec::new();
+        for c in p.wells().iter().flatten() {
+            let law = PermanentId::from_raw(c.law())
+                .filter(|law| laws.iter().any(|l| l.id == *law))
+                .ok_or_else(|| {
+                    bad(format!(
+                        "polity {id} names a well's site by a missing law {}",
+                        c.law()
+                    ))
+                })?;
+            let Some(system) = rules.catalog.well_index(c.system().unwrap_or("")) else {
+                continue;
+            };
+            wells.push((
+                law,
+                civ_agents::polity::WellSite {
+                    cell: c.cell(),
+                    rect: civ_land::RectCm {
+                        x: c.x_cm(),
+                        y: c.y_cm(),
+                        w: c.w_cm(),
+                        h: c.h_cm(),
+                    },
+                    system: system as u16,
+                    target_m: c.target_m(),
+                    labour_h: c.labour_h(),
+                },
+            ));
+        }
         out.push(Polity {
             id,
             settlement,
@@ -1441,6 +1644,8 @@ fn decode_polities(
             reviewed: p.reviewed(),
             claimed,
             sites,
+            closed,
+            wells,
         });
     }
     Ok(out)
@@ -1927,6 +2132,8 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::Technique(t) => (save::TargetKind::Technique, u32::from(t), 0),
         Target::Deposit(d) => (save::TargetKind::Deposit, 0, d.get()),
         Target::Crossing(c) => (save::TargetKind::Crossing, 0, c.get()),
+        Target::Well(w) => (save::TargetKind::Well, 0, w.get()),
+        Target::Douse { building, from } => (save::TargetKind::Douse, from, building.get()),
     }
 }
 
@@ -1962,6 +2169,11 @@ fn target_of(
         ),
         save::TargetKind::Deposit => Target::Deposit(required(id, "a deposit target")?),
         save::TargetKind::Crossing => Target::Crossing(required(id, "a crossing target")?),
+        save::TargetKind::Well => Target::Well(required(id, "a well target")?),
+        save::TargetKind::Douse => Target::Douse {
+            building: required(id, "a roof to throw water on")?,
+            from: index,
+        },
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -2018,6 +2230,14 @@ fn encode_land(land: &Land, rules: &Rules) -> Vec<u8> {
     let flat: Vec<f32> = land.stocks.iter().flatten().copied().collect();
     let stocks = fbb.create_vector(&flat);
     let weather = encode_weather(&mut fbb, &land.weather);
+    let heads = fbb.create_vector(&land.water.heads);
+    let water = save::Groundwater::create(
+        &mut fbb,
+        &save::GroundwaterArgs {
+            heads: Some(heads),
+            runoff_mm: land.water.runoff_mm,
+        },
+    );
     let root = save::Land::create(
         &mut fbb,
         &save::LandArgs {
@@ -2034,6 +2254,7 @@ fn encode_land(land: &Land, rules: &Rules) -> Vec<u8> {
             resource_goods: Some(resource_goods),
             resource_unit_kg: Some(resource_unit_kg),
             weather: Some(weather),
+            water: Some(water),
             ..Default::default()
         },
     );
@@ -2055,6 +2276,10 @@ fn encode_weather<'a>(
             mean_c: t.mean_c,
             min_c: t.min_c,
             max_c: t.max_c,
+            wind_ms: t.wind_ms,
+            wind_from_deg: t.wind_from_deg,
+            gust_ms: t.gust_ms,
+            fuel_moisture: t.fuel_moisture,
         },
     );
     let snow_mm = fbb.create_vector(&w.snow_mm);
@@ -2076,6 +2301,7 @@ fn encode_weather<'a>(
                     frost_days: m.frost_days,
                     snow_days: m.snow_days,
                     soil_sum: m.soil_sum,
+                    held: m.held,
                 },
             )
         })
@@ -2092,6 +2318,10 @@ fn encode_weather<'a>(
             soil_mm: w.soil_mm,
             cover_ease: w.cover_ease,
             months: Some(months),
+            hold_slow: w.hold.map_or(0.0, |h| h.0),
+            hold_until: w.hold.map_or(0, |h| h.1),
+            wind_along: w.wind.0,
+            wind_across: w.wind.1,
         },
     )
 }
@@ -2107,9 +2337,14 @@ fn decode_weather(w: save::Weather<'_>) -> Option<Weather> {
             mean_c: t.mean_c(),
             min_c: t.min_c(),
             max_c: t.max_c(),
+            wind_ms: t.wind_ms(),
+            wind_from_deg: t.wind_from_deg(),
+            gust_ms: t.gust_ms(),
+            fuel_moisture: t.fuel_moisture(),
         },
         anomaly: w.anomaly(),
         slow: w.slow(),
+        wind: (w.wind_along(), w.wind_across()),
         snow_base_m: w.snow_base_m(),
         snow_mm: w.snow_mm().map(|v| v.iter().collect()).unwrap_or_default(),
         soil_mm: w.soil_mm(),
@@ -2130,8 +2365,11 @@ fn decode_weather(w: save::Weather<'_>) -> Option<Weather> {
                 frost_days: m.frost_days(),
                 snow_days: m.snow_days(),
                 soil_sum: m.soil_sum(),
+                held: m.held(),
             })
             .collect(),
+        // The observer's drought (schema 84); none before.
+        hold: (w.hold_until() > 0).then(|| (w.hold_slow(), w.hold_until())),
     })
 }
 
@@ -2140,6 +2378,7 @@ fn decode_land(
     rules: &Rules,
     map: &WorldMap,
     climatology: Climatology,
+    seed: u64,
 ) -> Result<Land, LoadError> {
     let l = flatbuffers::root::<save::Land>(bytes).map_err(|e| unreadable(SECTION_LAND, &e))?;
     let n = l.cols() as usize * l.rows() as usize;
@@ -2183,9 +2422,17 @@ fn decode_land(
     // Before schema 24 there was no weather: it starts from the old year's deviate as its slow
     // anomaly, with the soil at field capacity and no snow (ADR-0012 §6).
     let weather = match l.weather() {
-        Some(w) => decode_weather(w).ok_or_else(|| {
-            LoadError::Malformed("section `land` has weather without a day".to_owned())
-        })?,
+        Some(w) => {
+            let mut weather = decode_weather(w).ok_or_else(|| {
+                LoadError::Malformed("section `land` has weather without a day".to_owned())
+            })?;
+            // Before schema 87 the day had no wind or dryness: they are drawn afresh, from no
+            // anomaly, with nothing else changed (a day's fuel is never dry to nothing).
+            if weather.today.fuel_moisture <= 0.0 {
+                weather.draw_new_fields(&rules.land.weather, &climatology);
+            }
+            weather
+        }
         None => {
             let (low, high) = civ_land::height_range(map);
             Weather::from_old(
@@ -2226,6 +2473,10 @@ fn decode_land(
         ground: civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
         // Read from its own section (schema 68 on).
         crossings: Default::default(),
+        // The heads and the store below (schema 72 on); the aquifer derived.
+        water: Default::default(),
+        // Read from its own section (schema 74 on).
+        wells: Default::default(),
     };
     // A grid of the wrong size is reported by `Land::problems`; only fill stocks on a sound one.
     if land.patches.class.len() == n
@@ -2247,6 +2498,19 @@ fn decode_land(
                     land.stocks.push(vec![0.0; n]);
                     land.fill_equilibrium(&rules.land, r, land.stock_day);
                 }
+            }
+        }
+        // Before schema 72 there was no water under the ground: the heads settle where the
+        // landscape's mean recharge holds them (ADR-0021 §2).
+        land.derive_water(map, &rules.land, seed);
+        match l.water() {
+            Some(w) => {
+                land.water.heads = w.heads().map(|v| v.iter().collect()).unwrap_or_default();
+                land.water.runoff_mm = w.runoff_mm();
+            }
+            None => {
+                let mean = land.climatology.surplus_mm_per_day;
+                land.water.settle(&rules.land.water, mean);
             }
         }
     }
@@ -2857,7 +3121,28 @@ fn carried(
         | Schema::V68
         | Schema::V69
         | Schema::V70
-        | Schema::V71 => {
+        | Schema::V71
+        | Schema::V72
+        | Schema::V73
+        | Schema::V74
+        | Schema::V75
+        | Schema::V76
+        | Schema::V77
+        | Schema::V78
+        | Schema::V79
+        | Schema::V80
+        | Schema::V81
+        | Schema::V82
+        | Schema::V83
+        | Schema::V84
+        | Schema::V85
+        | Schema::V86
+        | Schema::V87
+        | Schema::V88
+        | Schema::V89
+        | Schema::V90
+        | Schema::V91
+        | Schema::V92 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -2925,6 +3210,8 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                     admired: raw(h.admired),
                     midden_kg: h.midden.kg,
                     midden_at: h.midden.at.minutes(),
+                    water_use_l: h.water_use_l,
+                    water_walk_min: h.water_walk_min,
                 },
             )
         })
@@ -3038,7 +3325,28 @@ fn decode_households(
             | Schema::V68
             | Schema::V69
             | Schema::V70
-            | Schema::V71 => {
+            | Schema::V71
+            | Schema::V72
+            | Schema::V73
+            | Schema::V74
+            | Schema::V75
+            | Schema::V76
+            | Schema::V77
+            | Schema::V78
+            | Schema::V79
+            | Schema::V80
+            | Schema::V81
+            | Schema::V82
+            | Schema::V83
+            | Schema::V84
+            | Schema::V85
+            | Schema::V86
+            | Schema::V87
+            | Schema::V88
+            | Schema::V89
+            | Schema::V90
+            | Schema::V91
+            | Schema::V92 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3121,6 +3429,34 @@ fn decode_households(
                 _ => civ_agents::params::Taste::default(),
             },
             admired: id(h.admired()),
+            // Before schema 73 every household used the profile's water a day.
+            water_use_l: {
+                let l = if schema >= Schema::V73 {
+                    h.water_use_l()
+                } else {
+                    0.0
+                };
+                if !(l.is_finite() && l >= 0.0) {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} uses {l} litres of water a day"
+                    )));
+                }
+                l
+            },
+            // Before schema 83 no walk to water was recorded: none until its people fetch again.
+            water_walk_min: {
+                let m = if schema >= Schema::V83 {
+                    h.water_walk_min()
+                } else {
+                    0.0
+                };
+                if !(m.is_finite() && m >= 0.0) {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} walks {m} minutes to water"
+                    )));
+                }
+                m
+            },
             // Before schema 27 no household kept a midden: one is begun as the save is loaded.
             midden: if schema < Schema::V27 {
                 civ_agents::person::Midden::begun(now)
@@ -3710,6 +4046,10 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Coalition => 42,
         ChronicleKind::Agreement => 43,
         ChronicleKind::Crossing => 44,
+        ChronicleKind::Well => 45,
+        ChronicleKind::Outbreak => 46,
+        ChronicleKind::Suspicion => 47,
+        ChronicleKind::Fire => 48,
     }
 }
 
@@ -3759,6 +4099,10 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         42 => Some(ChronicleKind::Coalition),
         43 => Some(ChronicleKind::Agreement),
         44 => Some(ChronicleKind::Crossing),
+        45 => Some(ChronicleKind::Well),
+        46 => Some(ChronicleKind::Outbreak),
+        47 => Some(ChronicleKind::Suspicion),
+        48 => Some(ChronicleKind::Fire),
         _ => None,
     }
 }
@@ -3781,6 +4125,8 @@ fn encode_history(pop: &Population) -> Vec<u8> {
                         Cause::Collapse => save::Cause::Collapse,
                         Cause::Violence => save::Cause::Violence,
                         Cause::Fell => save::Cause::Fell,
+                        Cause::Disease => save::Cause::Disease,
+                        Cause::Burned => save::Cause::Burned,
                     },
                 ),
                 None => (false, 0, save::Cause::Unspecified),
@@ -3897,6 +4243,8 @@ fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
             save::Cause::Collapse => Cause::Collapse,
             save::Cause::Violence => Cause::Violence,
             save::Cause::Fell => Cause::Fell,
+            save::Cause::Disease => Cause::Disease,
+            save::Cause::Burned => Cause::Burned,
             other => {
                 return Err(LoadError::Incompatible(format!(
                     "record {rid} has cause of death {}, which this build does not know",
@@ -5513,7 +5861,15 @@ fn encode_events(sim: &Sim) -> Vec<u8> {
         .pending_events()
         .into_iter()
         .map(|e| {
-            let SimEvent::Agent(AgentEvent::Step { person, version }) = e.event;
+            let (kind, person, version) = match e.event {
+                SimEvent::Agent(AgentEvent::Step { person, version }) => {
+                    (save::EventKind::AgentStep, person.get(), version)
+                }
+                SimEvent::Agent(AgentEvent::Fire) => (save::EventKind::FireStep, 0, 0),
+                SimEvent::Agent(AgentEvent::Ignite { building }) => {
+                    (save::EventKind::Ignite, building.get(), 0)
+                }
+            };
             save::PendingEvent::create(
                 &mut fbb,
                 &save::PendingEventArgs {
@@ -5521,8 +5877,8 @@ fn encode_events(sim: &Sim) -> Vec<u8> {
                     phase: e.phase,
                     tiebreak: e.tiebreak,
                     seq: e.seq,
-                    kind: save::EventKind::AgentStep,
-                    person: person.get(),
+                    kind,
+                    person,
                     version,
                 },
             )
@@ -5547,6 +5903,10 @@ fn decode_events(bytes: &[u8]) -> Result<Vec<PendingEvent<SimEvent>>, LoadError>
             save::EventKind::AgentStep => SimEvent::Agent(AgentEvent::Step {
                 person: required(e.person(), "an event's person")?,
                 version: e.version(),
+            }),
+            save::EventKind::FireStep => SimEvent::Agent(AgentEvent::Fire),
+            save::EventKind::Ignite => SimEvent::Agent(AgentEvent::Ignite {
+                building: required(e.person(), "an ignition's building")?,
             }),
             other => {
                 return Err(LoadError::Incompatible(format!(
@@ -5668,6 +6028,15 @@ fn encode_word(word: &civ_agents::word::Word) -> Vec<u8> {
                 }
                 None => (255, 0, 0),
             };
+            let (place_kind, place, counts) = match c.suspected {
+                Some((p, n)) => {
+                    let (k, id) = p.code();
+                    let counts =
+                        fbb.create_vector(&[n.sick_at, n.at, n.sick_elsewhere, n.elsewhere]);
+                    (k, id, Some(counts))
+                }
+                None => (255, 0, None),
+            };
             save::ClaimSave::create(
                 &mut fbb,
                 &save::ClaimSaveArgs {
@@ -5679,6 +6048,9 @@ fn encode_word(word: &civ_agents::word::Word) -> Vec<u8> {
                     blamed_kind,
                     blamed,
                     issue,
+                    place_kind,
+                    place,
+                    counts,
                 },
             )
         })
@@ -5720,6 +6092,24 @@ fn encode_word(word: &civ_agents::word::Word) -> Vec<u8> {
         })
         .collect();
     let grievances = fbb.create_vector(&grievances);
+    let suspicions: Vec<save::SuspicionSave> = word
+        .suspicions
+        .iter()
+        .map(|s| {
+            let (kind, place) = s.source.code();
+            save::SuspicionSave::new(
+                s.holder.get(),
+                place,
+                s.since,
+                s.counts.sick_at,
+                s.counts.at,
+                s.counts.sick_elsewhere,
+                s.counts.elsewhere,
+                kind,
+            )
+        })
+        .collect();
+    let suspicions = fbb.create_vector(&suspicions);
     let root = save::WordSave::create(
         &mut fbb,
         &save::WordSaveArgs {
@@ -5727,13 +6117,17 @@ fn encode_word(word: &civ_agents::word::Word) -> Vec<u8> {
             heard: Some(heard),
             grievances: Some(grievances),
             next: word.next,
+            suspicions: Some(suspicions),
         },
     );
     finish(fbb, root)
 }
 
 fn decode_word(bytes: &[u8]) -> Result<civ_agents::word::Word, LoadError> {
-    use civ_agents::word::{Blamed, Claim, ClaimKind, Grievance, Grieved, Heard, Word, Wrong};
+    use civ_agents::uses::Place;
+    use civ_agents::word::{
+        Blamed, Claim, ClaimKind, Counts, Grievance, Grieved, Heard, Suspicion, Word, Wrong,
+    };
     let root =
         flatbuffers::root::<save::WordSave>(bytes).map_err(|e| unreadable(SECTION_WORD, &e))?;
     let bad = |what: String| LoadError::Malformed(what);
@@ -5753,6 +6147,25 @@ fn decode_word(bytes: &[u8]) -> Result<civ_agents::word::Word, LoadError> {
                 .ok_or_else(|| bad(format!("claim {} has issue code {}", c.id(), c.issue())))?;
             Some((blamed, issue))
         };
+        let suspected = if c.place_kind() == 255 {
+            None
+        } else {
+            let place = Place::from_code(c.place_kind(), c.place())
+                .ok_or_else(|| bad(format!("claim {} suspects no place known", c.id())))?;
+            let n: Vec<u16> = c.counts().map(|v| v.iter().collect()).unwrap_or_default();
+            let [sick_at, at, sick_elsewhere, elsewhere] = n[..] else {
+                return Err(bad(format!("claim {} has {} counts of 4", c.id(), n.len())));
+            };
+            Some((
+                place,
+                Counts {
+                    sick_at,
+                    at,
+                    sick_elsewhere,
+                    elsewhere,
+                },
+            ))
+        };
         word.claims.push(Claim {
             id: c.id(),
             kind,
@@ -5760,6 +6173,7 @@ fn decode_word(bytes: &[u8]) -> Result<civ_agents::word::Word, LoadError> {
             day: c.day(),
             subject: id(c.subject()),
             grievance,
+            suspected,
         });
     }
     if !word.claims.windows(2).all(|w| w[0].id < w[1].id) {
@@ -5798,6 +6212,27 @@ fn decode_word(bytes: &[u8]) -> Result<civ_agents::word::Word, LoadError> {
             wrong: Wrong::from_code(g.wrong())
                 .ok_or_else(|| bad(format!("a grievance has cause code {}", g.wrong())))?,
         });
+    }
+    for s in root.suspicions().iter().flatten() {
+        word.suspicions.push(Suspicion {
+            holder: required(s.holder(), "a suspicion's holder")?,
+            source: Place::from_code(s.place_kind(), s.place())
+                .ok_or_else(|| bad("a suspicion of no place known".to_owned()))?,
+            since: s.since(),
+            counts: Counts {
+                sick_at: s.sick_at(),
+                at: s.at(),
+                sick_elsewhere: s.sick_elsewhere(),
+                elsewhere: s.elsewhere(),
+            },
+        });
+    }
+    if !word
+        .suspicions
+        .windows(2)
+        .all(|w| (w[0].holder, w[0].source) < (w[1].holder, w[1].source))
+    {
+        return Err(bad("suspicions are out of order".to_owned()));
     }
     Ok(word)
 }
@@ -6798,6 +7233,13 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
                 .map(|o| save::OutsidersSave::new(o.settlement.get(), o.days, o.last))
                 .collect();
             let outsiders = (!outsiders.is_empty()).then(|| fbb.create_vector(&outsiders));
+            // Households seen drawing water there (schema 79).
+            let seen: Vec<save::SeenAtSave> = u
+                .seen
+                .iter()
+                .map(|x| save::SeenAtSave::new(x.household.get(), x.days, x.last))
+                .collect();
+            let seen = (!seen.is_empty()).then(|| fbb.create_vector(&seen));
             let (kind, place) = u.place.code();
             save::PlaceUseSave::create(
                 &mut fbb,
@@ -6809,6 +7251,8 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
                     kcal: u.kcal,
                     day: u.day,
                     outsiders,
+                    seen,
+                    recent: u.recent,
                 },
             )
         })
@@ -6838,6 +7282,11 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
         .map(|w| w.person.map_or(0, PermanentId::get))
         .collect();
     let worked_by = (!worked_by.is_empty()).then(|| fbb.create_vector(&worked_by));
+    let draws = &people.spring_draws;
+    let draw_patches: Vec<u32> = draws.drawn.iter().map(|d| d.0).collect();
+    let draw_litres: Vec<f64> = draws.drawn.iter().map(|d| d.1).collect();
+    let draw_patches = (!draw_patches.is_empty()).then(|| fbb.create_vector(&draw_patches));
+    let draw_litres = (!draw_litres.is_empty()).then(|| fbb.create_vector(&draw_litres));
     let root = save::PlacesSave::create(
         &mut fbb,
         &save::PlacesSaveArgs {
@@ -6857,6 +7306,9 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
             uses,
             worked,
             worked_by,
+            draws_day: draws.day,
+            draw_patches,
+            draw_litres,
         },
     );
     finish(fbb, root)
@@ -6877,6 +7329,7 @@ struct PlacesDecoded {
     seen: BTreeMap<PermanentId, Vec<PermanentId>>,
     ways: BTreeMap<PermanentId, civ_agents::params::Taste>,
     uses: civ_agents::uses::Uses,
+    draws: civ_agents::uses::SpringDraws,
 }
 
 fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError> {
@@ -7156,6 +7609,14 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
                 last: o.last(),
             });
         }
+        let mut seen = Vec::new();
+        for x in u.seen().iter().flatten() {
+            seen.push(civ_agents::uses::SeenAt {
+                household: required(x.household(), "a household seen drawing water")?,
+                days: x.days(),
+                last: x.last(),
+            });
+        }
         uses.households
             .entry(household)
             .or_default()
@@ -7164,7 +7625,10 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
                 days: u.days(),
                 kcal: u.kcal(),
                 outsiders,
+                seen,
                 day: u.day(),
+                // Which days were worked there, exactly (schema 86); before, none known.
+                recent: u.recent(),
             });
     }
     // Who did each piece of work (schema 63); before, nobody known.
@@ -7182,7 +7646,29 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
             person: by.get(k).copied().and_then(PermanentId::from_raw),
         });
     }
+    // What was drawn today at each spring (schema 73); before, nothing.
+    let patches: Vec<u32> = root
+        .draw_patches()
+        .map(|v| v.iter().collect())
+        .unwrap_or_default();
+    let litres: Vec<f64> = root
+        .draw_litres()
+        .map(|v| v.iter().collect())
+        .unwrap_or_default();
+    if patches.len() != litres.len()
+        || patches.windows(2).any(|w| w[0] >= w[1])
+        || litres.iter().any(|l| !(l.is_finite() && *l >= 0.0))
+    {
+        return Err(LoadError::Malformed(
+            "section `places` has malformed draws at springs".to_owned(),
+        ));
+    }
+    let draws = civ_agents::uses::SpringDraws {
+        day: root.draws_day(),
+        drawn: patches.into_iter().zip(litres).collect(),
+    };
     Ok(PlacesDecoded {
+        draws,
         known: out,
         contacts,
         unmatched,
@@ -7763,6 +8249,822 @@ fn decode_crossings(
     Ok((Crossings::with_revision(list, root.revision()), fords))
 }
 
+fn encode_wells(land: &Land, rules: &Rules) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let list: Vec<_> = land
+        .wells
+        .list
+        .iter()
+        .map(|w| {
+            let system = rules
+                .catalog
+                .wells
+                .get(w.system)
+                .map_or("", |d| d.id.as_str());
+            let system = fbb.create_string(system);
+            let (state, state_at) = w.state.code();
+            save::WellSave::create(
+                &mut fbb,
+                &save::WellSaveArgs {
+                    id: w.id.get(),
+                    system: Some(system),
+                    cell: w.cell,
+                    x_cm: w.rect.x,
+                    y_cm: w.rect.y,
+                    w_cm: w.rect.w,
+                    h_cm: w.rect.h,
+                    household: w.household.get(),
+                    ground_m: w.ground_m,
+                    depth_m: w.depth_m,
+                    target_m: w.target_m,
+                    work_h: w.work_h,
+                    skill_h: w.skill_h,
+                    quality: w.quality,
+                    loss: w.loss,
+                    mend_h: w.mend_h,
+                    worth: w.worth,
+                    level_m: w.level_m,
+                    level_at: w.level_at.minutes(),
+                    drawn_l: w.drawn_l,
+                    begun: w.begun.minutes(),
+                    state,
+                    state_at: state_at.minutes(),
+                    crew_day: w.crew.0,
+                    crew: w.crew.1,
+                    cover_h: w.cover_h,
+                    covered: w.covered,
+                    polity: w.polity.map_or(0, PermanentId::get),
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let shares: Vec<save::WellShareSave> = land
+        .wells
+        .shares
+        .iter()
+        .map(|&(well, household, hours)| {
+            save::WellShareSave::new(well.get(), household.get(), hours)
+        })
+        .collect();
+    let shares = (!shares.is_empty()).then(|| fbb.create_vector(&shares));
+    let root = save::WellsSave::create(
+        &mut fbb,
+        &save::WellsSaveArgs {
+            list: Some(list),
+            shares,
+        },
+    );
+    finish(fbb, root)
+}
+
+/// The wells saved in `bytes`. A well of a system the loaded content no longer has is dropped;
+/// one in a cell off the map, or in an unknown state, is malformed.
+fn decode_wells(
+    bytes: &[u8],
+    rules: &Rules,
+    map: &WorldMap,
+) -> Result<civ_land::wells::Wells, LoadError> {
+    use civ_land::wells::{Well, WellState, Wells};
+    let root =
+        flatbuffers::root::<save::WellsSave>(bytes).map_err(|e| unreadable(SECTION_WELLS, &e))?;
+    let cells_on_map = u64::from(map.width) * u64::from(map.height);
+    let mut list = Vec::new();
+    for w in root.list().iter().flatten() {
+        let id = required(w.id(), "a well")?;
+        let bad = |what: &str| LoadError::Malformed(format!("well {id} has {what}"));
+        let Some(system) = rules.catalog.well_index(w.system().unwrap_or("")) else {
+            continue;
+        };
+        if u64::from(w.cell()) >= cells_on_map {
+            return Err(bad("a cell off the map"));
+        }
+        let state = WellState::from_code(w.state(), SimTime::from_minutes(w.state_at()))
+            .ok_or_else(|| bad(&format!("state code {}", w.state())))?;
+        list.push(Well {
+            id,
+            system,
+            cell: w.cell(),
+            rect: RectCm {
+                x: w.x_cm(),
+                y: w.y_cm(),
+                w: w.w_cm(),
+                h: w.h_cm(),
+            },
+            household: required(w.household(), "a well's household")?,
+            polity: PermanentId::from_raw(w.polity()),
+            ground_m: w.ground_m(),
+            depth_m: w.depth_m(),
+            target_m: w.target_m(),
+            work_h: w.work_h(),
+            skill_h: w.skill_h(),
+            quality: w.quality(),
+            loss: w.loss(),
+            mend_h: w.mend_h(),
+            cover_h: w.cover_h(),
+            covered: w.covered(),
+            worth: w.worth(),
+            level_m: w.level_m(),
+            level_at: SimTime::from_minutes(w.level_at()),
+            drawn_l: w.drawn_l(),
+            begun: SimTime::from_minutes(w.begun()),
+            state,
+            crew: (w.crew_day(), w.crew()),
+        });
+    }
+    // The hours households gave to polities' wells (schema 83); a share of a well dropped with
+    // its system goes with it.
+    let mut shares = Vec::new();
+    for s in root.shares().iter().flatten() {
+        let (Some(well), Some(household)) = (
+            PermanentId::from_raw(s.well()),
+            PermanentId::from_raw(s.household()),
+        ) else {
+            return Err(LoadError::Malformed(
+                "a share of a well names nothing".to_owned(),
+            ));
+        };
+        if list.iter().any(|w: &Well| w.id == well) {
+            shares.push((well, household, s.hours()));
+        }
+    }
+    let wells = Wells { list, shares };
+    let problems = wells.problems(rules.catalog.wells.len());
+    if let Some(p) = problems.first() {
+        return Err(LoadError::Malformed(p.clone()));
+    }
+    Ok(wells)
+}
+
+fn encode_sickness(people: &Population, rules: &Rules) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let list: Vec<_> = people
+        .sickness
+        .episodes()
+        .iter()
+        .map(|e| {
+            let disease = fbb.create_string(
+                rules
+                    .catalog
+                    .diseases
+                    .get(usize::from(e.disease))
+                    .map_or("", |d| d.id.as_str()),
+            );
+            let (acquired, source) = e.acquired.code();
+            let (ended, outcome) = e.ended.map_or((-1, 0), |(d, o)| (d, o.code()));
+            save::EpisodeSave::create(
+                &mut fbb,
+                &save::EpisodeSaveArgs {
+                    id: e.id,
+                    person: e.person.get(),
+                    disease: Some(disease),
+                    infected: e.infected,
+                    acquired,
+                    source,
+                    shed_from: e.course.shed_from,
+                    shed_until: e.course.shed_until,
+                    ill_from: e.course.ill_from,
+                    ill_until: e.course.ill_until,
+                    severe: e.course.severe,
+                    immune_until: e.course.immune_until,
+                    ended,
+                    outcome,
+                    care_first: e.care.first.map_or(-1, |(d, _)| d),
+                    care_by: e.care.first.map_or(0, |(_, p)| p.get()),
+                    care_day: e.care.day,
+                    care_hours: e.care.hours,
+                    care_rr: e.care.rr,
+                    care_total_h: e.care.total_h,
+                    outbreak: e.outbreak.unwrap_or(0),
+                    household: e.household.map_or(0, PermanentId::get),
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let outbreaks: Vec<_> = people
+        .sickness
+        .outbreaks()
+        .iter()
+        .map(|o| {
+            let disease = fbb.create_string(
+                rules
+                    .catalog
+                    .diseases
+                    .get(usize::from(o.disease))
+                    .map_or("", |d| d.id.as_str()),
+            );
+            save::OutbreakSave::create(
+                &mut fbb,
+                &save::OutbreakSaveArgs {
+                    id: o.id,
+                    disease: Some(disease),
+                    settlement: o.settlement.map_or(0, |s| s.get()),
+                    began: o.began,
+                    first: o.first,
+                    ended: o.ended.unwrap_or(-1),
+                },
+            )
+        })
+        .collect();
+    let outbreaks = fbb.create_vector(&outbreaks);
+    let root = save::SicknessSave::create(
+        &mut fbb,
+        &save::SicknessSaveArgs {
+            episodes: Some(list),
+            outbreaks: Some(outbreaks),
+        },
+    );
+    finish(fbb, root)
+}
+
+fn encode_fires(people: &Population) -> Vec<u8> {
+    use civ_agents::fire::Kindled;
+    let mut fbb = FlatBufferBuilder::new();
+    let fires = &people.fires;
+    let list: Vec<_> = fires
+        .list
+        .iter()
+        .map(|f| {
+            let deaths: Vec<u64> = f.deaths.iter().map(|d| d.get()).collect();
+            let deaths = fbb.create_vector(&deaths);
+            let (kindled, source, gap_m, wind_ms, toward, moisture) = match f.kindled {
+                Kindled::Observer { influence } => (0, influence, 0.0, 0.0, 0.0, 0.0),
+                Kindled::Neighbour {
+                    fire,
+                    gap_m,
+                    wind_ms,
+                    toward,
+                    moisture,
+                } => (1, fire, gap_m, wind_ms, toward, moisture),
+                Kindled::Ignition { ignition } => (2, ignition, 0.0, 0.0, 0.0, 0.0),
+            };
+            save::FireSave::create(
+                &mut fbb,
+                &save::FireSaveArgs {
+                    id: f.id,
+                    building: f.building.get(),
+                    household: f.household.get(),
+                    settlement: f.settlement.map_or(0, PermanentId::get),
+                    x: f.at.0,
+                    y: f.at.1,
+                    began: f.began.minutes(),
+                    kindled,
+                    source,
+                    gap_m,
+                    wind_ms,
+                    toward,
+                    moisture,
+                    episode: f.episode.unwrap_or(0),
+                    ended: f.ended.map_or(-1, |t| t.minutes()),
+                    goods_kg: f.goods_kg,
+                    deaths: Some(deaths),
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let episodes: Vec<_> = fires
+        .episodes
+        .iter()
+        .map(|e| {
+            save::ConflagrationSave::create(
+                &mut fbb,
+                &save::ConflagrationSaveArgs {
+                    id: e.id,
+                    settlement: e.settlement.map_or(0, PermanentId::get),
+                    first: e.first,
+                    began: e.began.minutes(),
+                    ended: e.ended.map_or(-1, |t| t.minutes()),
+                },
+            )
+        })
+        .collect();
+    let episodes = fbb.create_vector(&episodes);
+    let exposure: Vec<_> = fires
+        .exposure
+        .iter()
+        .map(|&(b, kw)| {
+            save::ExposureSave::create(
+                &mut fbb,
+                &save::ExposureSaveArgs {
+                    building: b.get(),
+                    kw,
+                },
+            )
+        })
+        .collect();
+    let exposure = fbb.create_vector(&exposure);
+    let weighed: Vec<_> = fires
+        .weighed
+        .iter()
+        .map(|w| {
+            save::WeighedSave::create(
+                &mut fbb,
+                &save::WeighedSaveArgs {
+                    fire: w.fire,
+                    building: w.building.get(),
+                    peak_kw: w.peak_kw,
+                    threshold_kw: w.threshold_kw,
+                    caught: w.caught,
+                },
+            )
+        })
+        .collect();
+    let weighed = fbb.create_vector(&weighed);
+    let ignitions: Vec<_> = fires
+        .ignitions
+        .iter()
+        .map(|g| {
+            save::IgnitionSave::create(
+                &mut fbb,
+                &save::IgnitionSaveArgs {
+                    id: g.id,
+                    at: g.at.minutes(),
+                    building: g.building.get(),
+                    household: g.household.get(),
+                    settlement: g.settlement.map_or(0, PermanentId::get),
+                    hearth: g.hearth as u8,
+                    moisture: g.moisture,
+                    put_out_by: g.put_out_by.map_or(0, PermanentId::get),
+                    fire: g.fire.unwrap_or(0),
+                    grows_min: g.grows_min,
+                    ended: g.ended.map_or(0, SimTime::minutes),
+                    ended_set: g.ended.is_some(),
+                },
+            )
+        })
+        .collect();
+    let ignitions = fbb.create_vector(&ignitions);
+    let knew: Vec<_> = fires
+        .knew
+        .iter()
+        .map(|k| {
+            save::KnewSave::create(
+                &mut fbb,
+                &save::KnewSaveArgs {
+                    fire: k.fire,
+                    person: k.person.get(),
+                    at: k.at.minutes(),
+                    how: k.how as u8,
+                    shouted: k.shouted,
+                },
+            )
+        })
+        .collect();
+    let knew = fbb.create_vector(&knew);
+    let wet: Vec<_> = fires
+        .wet
+        .iter()
+        .map(|&(building, litres)| {
+            save::WetSave::create(
+                &mut fbb,
+                &save::WetSaveArgs {
+                    building: building.get(),
+                    litres,
+                },
+            )
+        })
+        .collect();
+    let wet = fbb.create_vector(&wet);
+    let thrown: Vec<_> = fires
+        .thrown
+        .iter()
+        .map(|t| {
+            save::ThrownSave::create(
+                &mut fbb,
+                &save::ThrownSaveArgs {
+                    fire: t.fire,
+                    building: t.building.get(),
+                    person: t.person.get(),
+                    at: t.at.minutes(),
+                    litres: t.litres,
+                    from: t.from,
+                },
+            )
+        })
+        .collect();
+    let thrown = fbb.create_vector(&thrown);
+    let stripped: Vec<_> = fires
+        .stripped
+        .iter()
+        .map(|t| {
+            save::StrippedSave::create(
+                &mut fbb,
+                &save::StrippedSaveArgs {
+                    fire: t.fire,
+                    building: t.building.get(),
+                    person: t.person.get(),
+                    at: t.at.minutes(),
+                    m2: t.m2,
+                },
+            )
+        })
+        .collect();
+    let stripped = fbb.create_vector(&stripped);
+    let salvaged: Vec<_> = fires
+        .salvaged
+        .iter()
+        .map(|t| {
+            save::SalvagedSave::create(
+                &mut fbb,
+                &save::SalvagedSaveArgs {
+                    fire: t.fire,
+                    building: t.building.get(),
+                    person: t.person.get(),
+                    at: t.at.minutes(),
+                    good: t.good,
+                    kg: t.kg,
+                },
+            )
+        })
+        .collect();
+    let salvaged = fbb.create_vector(&salvaged);
+    let root = save::FiresSave::create(
+        &mut fbb,
+        &save::FiresSaveArgs {
+            fires: Some(list),
+            episodes: Some(episodes),
+            exposure: Some(exposure),
+            weighed: Some(weighed),
+            ignitions: Some(ignitions),
+            knew: Some(knew),
+            wet: Some(wet),
+            thrown: Some(thrown),
+            stripped: Some(stripped),
+            salvaged: Some(salvaged),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// Before schema 90 an escape caught or was put out in the minute it happened: each has ended
+/// then, and nobody's knowledge of a fire was kept.
+fn decode_fires(bytes: &[u8], schema: Schema) -> Result<civ_agents::fire::Fires, LoadError> {
+    use civ_agents::fire::{
+        Conflagration, Fire, Fires, Hearth, Ignition, Kindled, Knew, Noticed, Salvaged, Stripped,
+        Thrown, Weighed,
+    };
+    let root =
+        flatbuffers::root::<save::FiresSave>(bytes).map_err(|e| unreadable(SECTION_FIRES, &e))?;
+    let at = |m: i64| (m >= 0).then(|| SimTime::from_minutes(m));
+    let mut out = Fires::default();
+    for f in root.fires().iter().flatten() {
+        let kindled = match f.kindled() {
+            0 => Kindled::Observer {
+                influence: f.source(),
+            },
+            1 => Kindled::Neighbour {
+                fire: f.source(),
+                gap_m: f.gap_m(),
+                wind_ms: f.wind_ms(),
+                toward: f.toward(),
+                moisture: f.moisture(),
+            },
+            2 => Kindled::Ignition {
+                ignition: f.source(),
+            },
+            other => {
+                return Err(LoadError::Malformed(format!(
+                    "fire {} was kindled in an unknown way {other}",
+                    f.id()
+                )));
+            }
+        };
+        out.list.push(Fire {
+            id: f.id(),
+            building: required(f.building(), "a fire's building")?,
+            household: required(f.household(), "a fire's household")?,
+            settlement: PermanentId::from_raw(f.settlement()),
+            at: (f.x(), f.y()),
+            began: SimTime::from_minutes(f.began()),
+            kindled,
+            episode: (f.episode() > 0).then_some(f.episode()),
+            ended: at(f.ended()),
+            goods_kg: f.goods_kg(),
+            deaths: f
+                .deaths()
+                .iter()
+                .flatten()
+                .filter_map(PermanentId::from_raw)
+                .collect(),
+        });
+    }
+    for e in root.episodes().iter().flatten() {
+        out.episodes.push(Conflagration {
+            id: e.id(),
+            settlement: PermanentId::from_raw(e.settlement()),
+            first: e.first(),
+            began: SimTime::from_minutes(e.began()),
+            ended: at(e.ended()),
+        });
+    }
+    for x in root.exposure().iter().flatten() {
+        out.exposure
+            .push((required(x.building(), "an exposed building")?, x.kw()));
+    }
+    for w in root.weighed().iter().flatten() {
+        out.weighed.push(Weighed {
+            fire: w.fire(),
+            building: required(w.building(), "a weighed building")?,
+            peak_kw: w.peak_kw(),
+            threshold_kw: w.threshold_kw(),
+            caught: w.caught(),
+        });
+    }
+    for g in root.ignitions().iter().flatten() {
+        out.ignitions.push(Ignition {
+            id: g.id(),
+            at: SimTime::from_minutes(g.at()),
+            building: required(g.building(), "an ignition's building")?,
+            household: required(g.household(), "an ignition's household")?,
+            settlement: PermanentId::from_raw(g.settlement()),
+            hearth: Hearth::from_code(g.hearth()).ok_or_else(|| {
+                LoadError::Malformed(format!("ignition {} came from an unknown fire", g.id()))
+            })?,
+            moisture: g.moisture(),
+            grows_min: g.grows_min(),
+            ended: if schema >= Schema::V90 {
+                g.ended_set().then(|| SimTime::from_minutes(g.ended()))
+            } else {
+                Some(SimTime::from_minutes(g.at()))
+            },
+            put_out_by: PermanentId::from_raw(g.put_out_by()),
+            fire: (g.fire() > 0).then_some(g.fire()),
+        });
+    }
+    for k in root.knew().iter().flatten() {
+        out.knew.push(Knew {
+            fire: k.fire(),
+            person: required(k.person(), "someone who knew of a fire")?,
+            at: SimTime::from_minutes(k.at()),
+            how: Noticed::from_code(k.how()).ok_or_else(|| {
+                LoadError::Malformed(format!(
+                    "someone knew of fire {} by an unknown way",
+                    k.fire()
+                ))
+            })?,
+            shouted: k.shouted(),
+        });
+    }
+    for w in root.wet().iter().flatten() {
+        out.wet
+            .push((required(w.building(), "a wet roof")?, w.litres()));
+    }
+    for t in root.thrown().iter().flatten() {
+        out.thrown.push(Thrown {
+            fire: t.fire(),
+            building: required(t.building(), "a roof water was thrown on")?,
+            person: required(t.person(), "someone who threw water")?,
+            at: SimTime::from_minutes(t.at()),
+            litres: t.litres(),
+            from: t.from(),
+        });
+    }
+    for t in root.stripped().iter().flatten() {
+        out.stripped.push(Stripped {
+            fire: t.fire(),
+            building: required(t.building(), "a stripped roof")?,
+            person: required(t.person(), "someone who stripped a roof")?,
+            at: SimTime::from_minutes(t.at()),
+            m2: t.m2(),
+        });
+    }
+    for t in root.salvaged().iter().flatten() {
+        out.salvaged.push(Salvaged {
+            fire: t.fire(),
+            building: required(t.building(), "a building goods were carried out of")?,
+            person: required(t.person(), "someone who carried goods out")?,
+            at: SimTime::from_minutes(t.at()),
+            good: t.good(),
+            kg: t.kg(),
+        });
+    }
+    Ok(out)
+}
+
+/// An infection of a disease the loaded content no longer has is let go.
+fn decode_sickness(
+    bytes: &[u8],
+    rules: &Rules,
+) -> Result<civ_agents::sickness::Sickness, LoadError> {
+    use civ_agents::sickness::{Acquired, Care, Course, Episode, Outbreak, Outcome, Sickness};
+    let root = flatbuffers::root::<save::SicknessSave>(bytes)
+        .map_err(|e| unreadable(SECTION_SICKNESS, &e))?;
+    let mut list = Vec::new();
+    for e in root.episodes().iter().flatten() {
+        let Some(disease) = rules
+            .catalog
+            .disease_index(e.disease().unwrap_or_default())
+            .and_then(|i| u16::try_from(i).ok())
+        else {
+            continue;
+        };
+        let acquired = Acquired::from_code(e.acquired(), e.source()).ok_or_else(|| {
+            LoadError::Malformed(format!("episode {} came by an unknown way", e.id()))
+        })?;
+        let ended = if e.ended() < 0 {
+            None
+        } else {
+            let outcome = Outcome::from_code(e.outcome()).ok_or_else(|| {
+                LoadError::Malformed(format!("episode {} ended in an unknown way", e.id()))
+            })?;
+            Some((e.ended(), outcome))
+        };
+        list.push(Episode {
+            id: e.id(),
+            person: required(e.person(), "an episode's person")?,
+            household: PermanentId::from_raw(e.household()),
+            disease,
+            infected: e.infected(),
+            acquired,
+            course: Course {
+                shed_from: e.shed_from(),
+                shed_until: e.shed_until(),
+                ill_from: e.ill_from(),
+                ill_until: e.ill_until(),
+                severe: e.severe(),
+                immune_until: e.immune_until(),
+            },
+            ended,
+            care: Care {
+                first: if e.care_first() < 0 {
+                    None
+                } else {
+                    Some((e.care_first(), required(e.care_by(), "a carer")?))
+                },
+                day: e.care_day(),
+                hours: e.care_hours(),
+                rr: e.care_rr(),
+                total_h: e.care_total_h(),
+            },
+            outbreak: (e.outbreak() > 0).then_some(e.outbreak()),
+        });
+    }
+    // An outbreak of a disease the loaded content no longer has is let go with its cases.
+    let mut outbreaks = Vec::new();
+    for o in root.outbreaks().iter().flatten() {
+        let Some(disease) = rules
+            .catalog
+            .disease_index(o.disease().unwrap_or_default())
+            .and_then(|i| u16::try_from(i).ok())
+        else {
+            continue;
+        };
+        outbreaks.push(Outbreak {
+            id: o.id(),
+            disease,
+            settlement: PermanentId::from_raw(o.settlement()),
+            began: o.began(),
+            first: o.first(),
+            ended: (o.ended() >= 0).then_some(o.ended()),
+        });
+    }
+    Ok(Sickness::with(list, outbreaks))
+}
+
+fn node_save(n: civ_agents::contagion::Node) -> save::NodeSave {
+    let (code, id) = n.code();
+    save::NodeSave::new(code, id)
+}
+
+fn node_load(n: &save::NodeSave) -> Result<civ_agents::contagion::Node, LoadError> {
+    civ_agents::contagion::Node::from_code(n.code(), n.id()).ok_or_else(|| {
+        LoadError::Malformed(format!(
+            "a load lies at an unknown place {}:{}",
+            n.code(),
+            n.id()
+        ))
+    })
+}
+
+fn encode_contagion(people: &Population, rules: &Rules) -> Vec<u8> {
+    let c = &people.contagion;
+    let mut fbb = FlatBufferBuilder::new();
+    let ids: Vec<_> = rules
+        .catalog
+        .diseases
+        .iter()
+        .map(|d| fbb.create_string(&d.id))
+        .collect();
+    let diseases = fbb.create_vector(&ids);
+    let loads: Vec<_> = c
+        .loads
+        .iter()
+        .map(|(&(node, d), &amount)| save::LoadSave::new(&node_save(node), d, amount))
+        .collect();
+    let loads = fbb.create_vector(&loads);
+    let stores: Vec<_> = c
+        .stores
+        .iter()
+        .flat_map(|(&(household, d), s)| {
+            s.iter().map(move |(&source, &amount)| {
+                save::StoredSave::new(household.get(), &node_save(source), d, amount)
+            })
+        })
+        .collect();
+    let stores = fbb.create_vector(&stores);
+    let transit: Vec<_> = c
+        .transit
+        .iter()
+        .map(|t| {
+            save::TransitSave::new(
+                t.arrives,
+                &node_save(t.from),
+                &node_save(t.to),
+                t.disease,
+                t.amount,
+            )
+        })
+        .collect();
+    let transit = fbb.create_vector(&transit);
+    let moves: Vec<_> = c
+        .moves
+        .iter()
+        .map(|m| {
+            save::MoveSave::new(
+                m.day,
+                &node_save(m.from),
+                &node_save(m.to),
+                m.disease,
+                m.how.code(),
+                m.amount,
+            )
+        })
+        .collect();
+    let moves = fbb.create_vector(&moves);
+    let root = save::ContagionSave::create(
+        &mut fbb,
+        &save::ContagionSaveArgs {
+            diseases: Some(diseases),
+            loads: Some(loads),
+            stores: Some(stores),
+            transit: Some(transit),
+            moves: Some(moves),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// Loads of a disease the loaded content no longer has are let go.
+fn decode_contagion(
+    bytes: &[u8],
+    rules: &Rules,
+) -> Result<civ_agents::contagion::Contagion, LoadError> {
+    use civ_agents::contagion::{Contagion, How, Move, Transit};
+    let root = flatbuffers::root::<save::ContagionSave>(bytes)
+        .map_err(|e| unreadable(SECTION_CONTAGION, &e))?;
+    let map: Vec<Option<u16>> = read_strings(root.diseases())
+        .iter()
+        .map(|id| {
+            rules
+                .catalog
+                .disease_index(id)
+                .and_then(|i| u16::try_from(i).ok())
+        })
+        .collect();
+    let disease = |d: u16| map.get(usize::from(d)).copied().flatten();
+    let mut c = Contagion::default();
+    for l in root.loads().iter().flatten() {
+        if let Some(d) = disease(l.disease()) {
+            c.add(node_load(l.at())?, d, l.amount());
+        }
+    }
+    for s in root.stores().iter().flatten() {
+        if let Some(d) = disease(s.disease()) {
+            let household = required(s.household(), "a store's household")?;
+            c.store_add(household, d, node_load(s.source())?, s.amount());
+        }
+    }
+    for t in root.transit().iter().flatten() {
+        if let Some(d) = disease(t.disease()) {
+            c.transit.push(Transit {
+                arrives: t.arrives(),
+                disease: d,
+                from: node_load(t.from())?,
+                to: node_load(t.to())?,
+                amount: t.amount(),
+            });
+        }
+    }
+    for m in root.moves().iter().flatten() {
+        if let Some(d) = disease(m.disease()) {
+            let how = How::from_code(m.how()).ok_or_else(|| {
+                LoadError::Malformed(format!("a load moved in an unknown way {}", m.how()))
+            })?;
+            c.moves.push(Move {
+                day: m.day(),
+                disease: d,
+                how,
+                from: node_load(m.from())?,
+                to: node_load(m.to())?,
+                amount: m.amount(),
+            });
+        }
+    }
+    Ok(c)
+}
+
 fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let list: Vec<_> = inf
@@ -7797,6 +9099,13 @@ fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> 
         .map(|d| fbb.create_string(&d.id))
         .collect();
     let ids = fbb.create_vector(&ids);
+    let diseases: Vec<_> = rules
+        .catalog
+        .diseases
+        .iter()
+        .map(|d| fbb.create_string(&d.id))
+        .collect();
+    let diseases = fbb.create_vector(&diseases);
     let point = |p: (f32, f32)| save::Point::new(p.0, p.1);
     let waves: Vec<_> = inf
         .waves
@@ -7838,6 +9147,7 @@ fn encode_influences(inf: &civ_agents::influence::Influences, rules: &Rules) -> 
             list: Some(list),
             ideologies: Some(ids),
             waves: Some(waves),
+            diseases: Some(diseases),
         },
     );
     finish(fbb, root)
@@ -7862,6 +9172,15 @@ fn decode_influences(
                 .and_then(|i| u32::try_from(i).ok())
         })
         .collect();
+    let diseases: Vec<Option<u32>> = read_strings(root.diseases())
+        .iter()
+        .map(|id| {
+            rules
+                .catalog
+                .disease_index(id)
+                .and_then(|i| u32::try_from(i).ok())
+        })
+        .collect();
     let mut list = Vec::new();
     for i in root.list().iter().flatten() {
         let kind = InfluenceKind::from_code(i.kind()).ok_or_else(|| {
@@ -7871,13 +9190,21 @@ fn decode_influences(
             InfluenceKind::Whisper
             | InfluenceKind::Bless
             | InfluenceKind::Curse
-            | InfluenceKind::Wave => i.subject(),
+            | InfluenceKind::Wave
+            | InfluenceKind::Drought
+            | InfluenceKind::Fire => i.subject(),
             InfluenceKind::Ideology | InfluenceKind::Agitator => {
                 match map.get(i.subject() as usize) {
                     Some(Some(k)) => *k,
                     _ => continue,
                 }
             }
+            // A plague's disease, by its content id at save time: one the loaded content no longer
+            // has is let go, as its infections are.
+            InfluenceKind::Plague => match diseases.get(i.subject() as usize) {
+                Some(Some(k)) => *k,
+                _ => continue,
+            },
         };
         list.push(Influence {
             id: i.id(),

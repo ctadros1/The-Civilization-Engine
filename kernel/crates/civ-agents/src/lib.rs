@@ -30,12 +30,14 @@ pub mod bridge;
 pub mod build;
 pub mod caution;
 pub mod condition;
+pub mod contagion;
 pub mod convergence;
 pub mod crime;
 pub mod decide;
 pub mod demography;
 pub mod faction;
 pub mod farm;
+pub mod fire;
 pub mod firm;
 pub mod fords;
 pub mod found;
@@ -55,9 +57,11 @@ pub mod places;
 pub mod polity;
 pub mod population;
 pub mod reports;
+pub mod sickness;
 pub mod standing;
 pub mod structure;
 pub mod style;
+pub mod suspicion;
 pub mod ties;
 pub mod uses;
 pub mod value;
@@ -72,7 +76,8 @@ pub use found::{
 };
 pub use history::{
     AgreementStep, Cause, ChronicleEvent, ChronicleKind, CoalitionStep, CrossingStep, Moved,
-    Origin, PersonRecord, Reason, Receipt, ResidenceWhy, Scored, Span, Stay, Term, Union,
+    Origin, OutbreakStep, PersonRecord, Reason, Receipt, ResidenceWhy, Scored, Span, Stay, Term,
+    Union, WellStep,
 };
 pub use ledger::Channel;
 pub use needs::Sex;
@@ -80,4 +85,4 @@ pub use params::{ActivityDef, Behavior, Catalog, PeopleParams, RecipeDef, SkillD
 pub use person::{
     Activity, Household, KnownPatch, Load, Person, Repro, Step, Target, Traits, Trip,
 };
-pub use population::{AgentEvent, Approximations, Ctx, Population, TimeUse};
+pub use population::{AgentEvent, Approximations, Ctx, Population, TimeUse, WaterDraws};

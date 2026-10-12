@@ -27,12 +27,13 @@ function month(over: Partial<WeatherMonth> = {}): WeatherMonth {
     frostDays: 0,
     snowDays: 0,
     soil: 0.8,
+    held: false,
     ...over,
   };
 }
 
 function report(months: WeatherMonth[]): WeatherReport {
-  return { rev: 7, heightM: 150, annualMm: 800, today: null, months, month: 0 };
+  return { rev: 7, heightM: 150, annualMm: 800, today: null, months, month: 0, drought: "" };
 }
 
 describe("the weather panel's words", () => {
@@ -57,6 +58,14 @@ describe("the weather panel's words", () => {
     // Ten days of May usually bring 30 mm of its 93.
     expect(rows[0]).toMatchObject({ rain: "10 (30)", rainWord: "", partial: true });
     expect(rows[1]).toMatchObject({ rainWord: "very dry", partial: false, soil: "80%" });
+  });
+
+  it("marks the months the observer's drought held", () => {
+    const rows = monthRows(report([month({ month: 3, held: true }), month({ month: 4 })]));
+    expect(rows.map((r) => [r.month, r.held])).toEqual([
+      ["May 2", false],
+      ["Apr 2", true],
+    ]);
   });
 
   it("sums calendar years from their months, a year not lived whole saying how much was", () => {

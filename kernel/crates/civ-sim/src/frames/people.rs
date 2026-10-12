@@ -596,12 +596,17 @@ pub fn chronicle_response(sim: &Sim, after_seq: u64, limit: u32) -> Vec<u8> {
                 })
                 .collect();
             let spans = fbb.create_vector(&spans);
+            // The incident or outbreak it tells of (wire 1.65).
+            let link = super::incidents::chronicle_link(sim, e);
             wire::ChronicleEntry::create(
                 &mut fbb,
                 &wire::ChronicleEntryArgs {
                     seq: e.seq,
                     minute: e.at.minutes(),
                     spans: Some(spans),
+                    incident_kind: link.map_or(0, |l| l.0),
+                    incident: link.map_or(0, |l| l.1),
+                    at: e.place.map(|(x, y)| wire::Vec2::new(x, y)).as_ref(),
                 },
             )
         })
@@ -687,6 +692,8 @@ pub fn describe_target(
             None => "a field".to_owned(),
         },
         Target::NewField => "new ground".to_owned(),
+        // A roof a fire threatens (M6b slice BD, step three).
+        Target::Douse { building, .. } => super::incidents::building_words(sim, building),
         Target::Household(id) => household_name(sim, id),
         Target::Building(id) => match sim.land.buildings.iter().find(|b| b.id == id) {
             Some(b) => {
@@ -766,6 +773,25 @@ pub fn describe_target(
                 format!("the {name} {} of home", bearing(home, at))
             }
             None => "a crossing".to_owned(),
+        },
+        // A well dug or drawn at (M6a slice AY, step three): "the timber-lined well beside home",
+        // "the timber-lined well south of home".
+        Target::Well(id) => match sim.land.wells.get(id) {
+            Some(w) => {
+                let name = sim
+                    .rules
+                    .catalog
+                    .wells
+                    .get(w.system)
+                    .map_or_else(|| "well".to_owned(), |d| d.name.to_lowercase());
+                let at = w.rect.centre_m();
+                if (at.0 - home.0).hypot(at.1 - home.1) <= 15.0 {
+                    format!("the {name} beside home")
+                } else {
+                    format!("the {name} {} of home", bearing(home, at))
+                }
+            }
+            None => "a well".to_owned(),
         },
     }
 }
@@ -899,6 +925,18 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
                 Target::Household(_) | Target::Deposit(_) => format!("{what} at {place}"),
                 // "building the log footbridge north of home" (M5c slice AW).
                 Target::Crossing(_) => format!("building {place}"),
+                // "digging the timber-lined well beside home", "relining ...", or "fetching
+                // water, the timber-lined well beside home" (M6a slice AY, step three).
+                Target::Well(id)
+                    if def.is_some_and(|d| d.behavior == civ_agents::Behavior::Well) =>
+                {
+                    if sim.land.wells.get(id).is_some_and(|w| w.is_open()) {
+                        format!("relining {place}")
+                    } else {
+                        format!("digging {place}")
+                    }
+                }
+                Target::Well(_) => format!("{what}, {place}"),
                 // Another settlement's hearth (M5a slice AM): "visiting the hearth of Ashford".
                 Target::Hearth(_)
                     if def.is_some_and(|d| d.behavior == civ_agents::Behavior::Visit) =>
@@ -1161,10 +1199,23 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
     let mut fbb = FlatBufferBuilder::new();
     let name = fbb.create_string(&record.given);
     let (died_minute, cause) = match record.died {
-        Some((at, cause)) => (at.minutes(), cause.label()),
-        None => (0, ""),
+        // A disease's death names the disease (M6a slice AZ): the observer's truth.
+        Some((at, civ_agents::Cause::Disease)) => (
+            at.minutes(),
+            pop.sickness
+                .of(pid)
+                .filter(|e| {
+                    e.ended
+                        .is_some_and(|(_, o)| o == civ_agents::sickness::Outcome::Died)
+                })
+                .filter_map(|e| sim.rules.catalog.diseases.get(usize::from(e.disease)))
+                .last()
+                .map_or_else(|| "disease".to_owned(), |d| d.name.to_lowercase()),
+        ),
+        Some((at, cause)) => (at.minutes(), cause.label().to_owned()),
+        None => (0, String::new()),
     };
-    let cause = fbb.create_string(cause);
+    let cause = fbb.create_string(&cause);
     let origin = fbb.create_string(match record.origin {
         Origin::Founder => "one of the founding band",
         Origin::Born => "born here",
@@ -1224,7 +1275,7 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
             (Some(h), Some(stores)) => {
                 let members = h.members.len().max(1);
                 let kcal_day = members as f64 * params.household.daily_kcal_per_person;
-                let litres_day = members as f64 * params.household.water_l_per_person_day;
+                let litres_day = members as f64 * h.water_use(&params.household);
                 let fuel_day = population::fuel_per_day(params, members, now.day_index());
                 (
                     stock_kcal(stores, goods) / kcal_day.max(1.0),
@@ -1344,7 +1395,20 @@ pub fn person_response(sim: &Sim, id: u64, decisions: u32) -> Result<Vec<u8>, Qu
         args.reports = Some(fbb.create_vector(&reports));
         args.errand = Some(fbb.create_string(&super::markets::errand_words(sim, p.household)));
         args.seen_away = Some(fbb.create_string(&seen_away_words(sim, p.id)));
+        args.water = Some(fbb.create_string(&super::water::water_words(sim, p.household)));
     }
+    // A person's infections, living or not (wire 1.62).
+    let sickness: Vec<_> = super::sickness::sickness_words(sim, pid)
+        .iter()
+        .map(|w| fbb.create_string(w))
+        .collect();
+    args.sickness = Some(fbb.create_vector(&sickness));
+    // The sources they hold sicken (wire 1.63).
+    let suspicions: Vec<_> = super::sickness::suspicion_words(sim, pid)
+        .iter()
+        .map(|w| fbb.create_string(w))
+        .collect();
+    args.suspicions = Some(fbb.create_vector(&suspicions));
     let body = wire::PersonInfo::create(&mut fbb, &args);
     Ok(response(fbb, wire::ResponseBody::PersonInfo, body))
 }

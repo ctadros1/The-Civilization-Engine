@@ -710,6 +710,8 @@ fn add_family(
             * params.household.water_l_per_person_day
             * params.household.water_target_days,
         water_at: now,
+        water_use_l: 0.0,
+        water_walk_min: 0.0,
         known: Vec::new(),
         sheltered: false,
         keeping: crate::person::Keeping::default(),
@@ -1633,6 +1635,7 @@ pub(crate) mod tests {
             household: HouseholdParams {
                 water_l_per_person_day: 20.0,
                 carry_water_l: 15.0,
+                water_use_by_walk: Vec::new(),
                 water_target_days: 1.5,
                 food_target_days: 5.0,
                 carry_kg: 20.0,
@@ -1674,6 +1677,7 @@ pub(crate) mod tests {
                 w_dark: 6.0,
                 w_rest: 1.0,
                 w_play: 3.0,
+                w_tend: 6.0,
             },
             band: BandParams {
                 default_size: 40,
@@ -1774,6 +1778,8 @@ pub(crate) mod tests {
             founding: crate::places::FoundingParams::core(),
             reports: crate::reports::ReportParams::core(),
             relations: crate::views::RelationsParams::core(),
+            suspicion: crate::suspicion::SuspicionParams::core(),
+            fire: crate::fire::FireParams::core(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

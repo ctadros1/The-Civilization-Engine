@@ -43,7 +43,7 @@ CI runs the validator. Diagnostics have stable codes:
 | E3002 | Unknown or missing `kind` |
 | E3003 | Not exactly one world-generation preset has `default = true` |
 | E3004 | Not exactly one people profile, or not exactly one land profile |
-| E3005 | A technique gates no work: no recipe, activity or building program names it |
+| E3005 | A technique gates no work: no recipe, activity, building program, bridge or well system names it |
 | E3006 | Techniques' prerequisites form a cycle |
 | E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it (research 07-03 §6's bootstrap test) |
 
@@ -133,6 +133,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | | `day_factor`, `bedtime_after_sunset_hours` | Weight of sleep pressure by day, and when the evening's sleep gate opens. |
 | `social` | `tau_h`, `quality_per_companion`, `household_quality` | Relatedness eases toward the quality of present company. |
 | `household` | `water_l_per_person_day`, `carry_water_l`, `water_target_days` | Water use, what one trip carries, the store people aim for. |
+| | `water_use_by_walk_min` | Optional (content API 70): what a person uses a day by the one-way walk to the water, pairs `[minutes, litres]` with minutes of 0 or more, rising, and litres from 1 to 100, interpolated between and held beyond the ends. A household's use follows the walk to the water it last fetched; left out, every household uses `water_l_per_person_day`. |
 | | `food_target_days`, `carry_kg`, `daily_kcal_per_person` | The food store people aim for, the load one person carries home, average need. |
 | | `harvest_margin_days` | The food a household wants in store beyond the first grain of its next harvest: stores short of that much make wild food worth going out for (`decision.w_lean`). |
 | | `raised_store_factor` | How many times as long goods keep on a raised store's floor as elsewhere under a roof (1 or more). |
@@ -211,6 +212,8 @@ How land is classified and what grows wild. Exactly one profile.
 | `richness_min`, `richness_max`, `richness_feature_m` | Patch-to-patch variation of productivity and its spatial scale. |
 | `[weather]` | How the weather is drawn (ADR-0012 §1; content API 23): one daily series for the whole map, from the world's seed and its landscape, the same at every speed. Monthly values are twelve figures, January first. Rain: `wet_days` (0 to 0.95), the share of days with at least `wet_day_mm` (0.1 to 10) of rain or snow water; `rain_share` (summing to 1), each month's share of the preset's `precipitation_mm_per_yr`; `persistence` (0 to 0.95), how much likelier rain is after a wet day than after a dry one; `gamma_shape` (0.2 to 5), the shape of a wet day's amount above the threshold. Temperature: `mean_c`, each month's mean at `normals_at_m` metres (interpolated between mid-months); `day_sd_c` and `day_persistence` (0 to 0.99), the day's anomaly about it and its lag-one correlation; `day_range_c`, the day's range from lowest to highest; `wet_day_range` (0.1 to 1), a wet day's range against the month's; `wet_day_cooling_c`, how much cooler a wet day is than a dry one, each month's mean kept; `lapse_c_per_km` (0 to 12), the fall with height. The slow anomaly, a monthly AR(1) that carries wet and dry spells across seasons: `slow_months` (1 to 600), its persistence; `slow_amount` (0 to 1) and `slow_wet_days` (0 to 0.5), how it scales wet days' amounts (mean kept) and their share; `slow_warmth_c`, its effect on each month's temperature. Snow: falls below `snow_below_c`, melts `melt_mm_per_c` mm of water a degree-day, and lies in bands of 100 m. Soil water (FAO-56): `soil_water_mm` (10 to 500) held between field capacity and wilting, `easy_water_share` (0.1 to 0.9) drawn unstressed, and `cover_kc` (0.1 to 2), the wild cover's use against the reference evapotranspiration (Hargreaves, from temperature and the people profile's latitude). Workable days (ADR-0012 §5; content API 24): `wet_ground_mm` (0.5 to 100), a day's rain or snow, mm of water, that makes the ground too wet to work that day, and `frozen_below_c` (−10 to 5), the day's mean below which it is frozen; snow lying keeps people off it too. Breaking, preparing and sowing ground wait for a day it can be worked (weeding, reaping and threshing go on), and households plan their spring work on the share of the sowing window's days the landscape usually allows, worked at the people profile's `peak_work_hours_per_day`. Roof loads (ADR-0012 §5; content API 25): `storm_median_kpa` (0 to 50) and `storm_spread` (0 to 3), the month's storm, one draw a month for every roof under the world's weather on one day of the month, log-normal in kilopascals on a roof's plan (its median and the spread of its logarithm); `roof_snow_share` (0 to 2), the share of the snow lying on the ground at a building's height that a roof keeps when pitched at `roof_snow_full_deg` or less, falling in proportion to none at `roof_snow_shed_deg` (0 to 90, above `roof_snow_full_deg`). Snow on a roof presses its water's weight. |
 | `[soil]` | How the soils hold nitrogen (ADR-0012 §3; content API 27), kilograms a hectare of native ground of average richness (a field's ground scales them): `slow_n_kg_ha` (0 to 50,000), organic nitrogen in humus, and `fast_n_kg_ha` (0 to 5,000), in roots, stubble and fresh organic matter; `slow_turnover` (0 to 0.5) and `fast_turnover` (0 to 1, at least `slow_turnover`), the share of each pool that turns to mineral nitrogen in a year; `free_n_kg_ha` (0 to 200), mineral nitrogen the air and free-living microbes add a year; and `uptake_share` (0 to 1), the share of a year's mineral nitrogen a crop can take up. Each field's pools turn once a year, on the first of January: what they release and what the air adds is the year's supply, the rest of last year's being lost, and a harvest is the least of what its season and that supply allow. A field that gave no harvest the year before grew its wild cover, which brings each pool back toward native ground's at the pool's own rate. `regrown_years` (content API 28; 0 to 100, 0 never): whole years broken ground can lie unsown before it has grown over and must be broken again (not cleared again). `manure_fast_share` (content API 29; 0 to 1): the share of dung's nitrogen that enters the fast pool, the rest the slow one, each pool's share of it turning at once so the year's crop draws on `manure_fast_share × fast_turnover + (1 − manure_fast_share) × slow_turnover` of it wherever in the year it is spread. |
+| `[groundwater]` | Water under the ground and the rivers by the day (ADR-0021 §1–§2; content API 69; optional). What the reference soil cannot hold on a day is its surplus: `recharge_share` (0 to 1) of it drains down to a shallow aquifer, the rest runs off at once. The aquifer keeps a head for each habitat patch and exchanges water with the four patches beside it and with the river, lake or sea in a patch; where a head reaches the lowest ground of its patch the water seeps out there. What reaches the water and what runs off pass through one runoff store for the world, which lets go `1 − e^(−1/recession_days)` of what it holds a day (`recession_days` 0.1 to 365); its outflow against the landscape's long-run mean surplus scales every reach's mean discharge. A patch off the water whose head stands at its lowest ground is a spring there once what flows to it from the patches round it reaches `spring_min_m3_day` (0 to 10,000). `[[groundwater.unit]]` (1 to 16, first match wins): a unit of ground under the habitats it names (`habitats`, habitat ids; the last unit names none and lies under the rest), with a `name`, `k_m_day` (`[least, most]` within 1e-9 to 10,000) and `specific_yield` (`[least, most]` within 0.0001 to 0.5), between which each world draws its conductivity (evenly in its logarithm) and specific yield once, and `thickness_m` (0.1 to 500), its saturated thickness. Left out, one unit of alluvial sand (1 to 10 m a day, 0.15 to 0.3, 10 m) lies under everything, half the surplus recharges and the store's recession is three days. |
+| `[contamination]` | How what people shed moves through the ground and water (ADR-0021 §4; content API 73; optional). Each day a heap beside a home loses `wash_per_mm` (0 to 1) of its load for each mm of the day's surplus, at most `wash_max` (0 to 1), to the open wellheads and river banks within `runoff_radius_m` (0 to 1,000) whose ground lies no higher, split by nearness (none there, it soaks away); `seep_per_day` (0 to 1) of it soaks in, and `capture_share` (0 to 1) of that reaches the wells and rivers within `link_radius_m` (0 to 1,000) and no higher, split by nearness, after the ground's travel time `d·n / (K·i)` (research 03-02 §1.6; `K` and `n` its unit's conductivity and specific yield, `i` the slope of the ground, at least `min_gradient`, 0 to 1), less what dies on the way. Each person drinks `drink_l_per_day` (0 to 30) of their household's water: what carries a dose. Left out, the core's values hold (0.01, 0.5, 30 m, 0.02, 30 m, 0.1, 0.005, 3 L); all are tuning values. |
 | `[paths]` | `wear_per_walk`, `wear_half_life_days`: a walk across an 8 m cell wears away this share of what is left unworn, and unused wear halves in this many days. `trail_at`, `trail_until`: a cell becomes trail at the first wear and stays trail until it fades below the second. |
 | `[[habitat]]` | `id`, `name`, `arable`, and optional `min_water_fraction`, `max_median_hand_m`, `max_mean_slope`. The first habitat whose conditions a patch meets is its habitat; the last must have none. Arable ground can carry fields; optional `clear_h_per_ha` is the work to clear it (woodland) before it is first broken. `wetness` (zero or more; 1 is average ground) scales how fast posts set in it rot at their foot (content API 15). |
 | `[[deposit]]` | Where a kind of deposit lies and how large its bodies are, laid down once from the world's seed (ADR-0010 §1; content API 18; optional): `good` it yields; `slope` and `hand_m`, `[least, most]` mean slope (0 to 10) and height above the nearest channel in metres of the ground it lies under; `per_km2` (0 to 1000), bodies expected on each square kilometre of land that qualifies; `radius_m` (0.5 to 1000), `top_m` (0 to 100, the cover over it) and `thickness_m` (0.05 to 100), `[least, most]` metres; `quality` (0 to 1); `exposed_share` (0 to 1), the share of covered bodies that still show; `density_kg_m3` (100 to 10,000), kilograms of the good in a cubic metre of a body; optional `dig_h_per_m3` (0 to 1,000; content API 21), hours a capable adult takes to break a cubic metre of a body out of the ground, or 0 (the default) to dig it as earth at the people profile's `[digging]` rate, its cover always dug as earth; optional `working` (1 to 24 characters; content API 21), what a working of it is called, "pit" by default ("quarry"). |
@@ -350,7 +353,7 @@ decided by people at run time.
 
 | Field | Meaning |
 |---|---|
-| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults), `take` (M4b: going to another household's home to take food from its store, when short; ADR-0015 §2), `watch` (M4b: the watch's rounds at night, for whoever holds the office), `petition` (M4c: going to the hearth on the evening a faction's petition sits, for an adult who has heard of it; ADR-0017 §3), `visit` (M5a: going to the hearth of another settlement the household knows and home the same day; ADR-0018 §2), `fetch` (M5b: going to a seller's door in another settlement by a price report the household holds, to buy at the terms it posts there now, for itself or to sell at home, and home the same day; ADR-0019 §2, §6), `carry` (M5c: taking up goods a payment owes where the paying store set them aside, walking them to the other settlement's hearth and home the same day, for the one who is to carry them; ADR-0020 §7), `bridge` (M5c: walking to the bank where the household is building a crossing, working on it and walking home, only while it is building one, or while their polity is building one under a law they know of). |
+| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults), `take` (M4b: going to another household's home to take food from its store, when short; ADR-0015 §2), `watch` (M4b: the watch's rounds at night, for whoever holds the office), `petition` (M4c: going to the hearth on the evening a faction's petition sits, for an adult who has heard of it; ADR-0017 §3), `visit` (M5a: going to the hearth of another settlement the household knows and home the same day; ADR-0018 §2), `fetch` (M5b: going to a seller's door in another settlement by a price report the household holds, to buy at the terms it posts there now, for itself or to sell at home, and home the same day; ADR-0019 §2, §6), `carry` (M5c: taking up goods a payment owes where the paying store set them aside, walking them to the other settlement's hearth and home the same day, for the one who is to carry them; ADR-0020 §7), `bridge` (M5c: walking to the bank where the household is building a crossing, working on it and walking home, only while it is building one, or while their polity is building one under a law they know of), `well` (M6a: digging and lining the well the household is making beside its home, or relining it, only while one is owed work; ADR-0021 §3), `tend` (M6a: sitting at home with members of the household who are ill there and still owed a day's care, its hours shared among them; ADR-0021 §5). |
 | `resource` | For `gather` only: the land resource gathered (hunting, fishing, collecting firewood and cutting building materials are gathering too). A trip works until its load is full or its time runs out. |
 | `task` | For `farm` only: the field work, one of `prepare`, `sow`, `tend`, `reap`, `thresh`. |
 | `recipe` | For `make` only: the recipe worked, at home. |
@@ -594,8 +597,8 @@ template the content no longer has is refused.
 
 | Field | Meaning |
 |---|---|
-| `does` | What the kernel does under it: `common_store`, a share of each household's threshed grain paid into a store the polity keeps at the hearth, and food from it for a household short of food that asks; `keep_store`, a named adult keeps the common store under their own roof and gives from it at their home (the office's first form, below); `against_taking` (content API 36), whoever the gathering finds took from another household's store gives back what was taken, with what the bundle adds (below); `keep_watch` (content API 37), a named adult keeps watch over the households' stores at night (below); `curfew` (content API 38), nobody may be away from home in the hours it sets, but the watch at its rounds and those at a gathering (below); or `amend_body` (content API 40), the custom itself changes: who belongs to the deciding body, how many must come and how it decides (below). Content API 49 adds `repeal`: a law that ends the one it names, with nothing in its place; passed, it is carried rather than in force, and the law it names is superseded. Content API 59 adds `claim_place`: the polity claims the places its people saw people of another settlement working within the year, unclaimed, each named in the law when it is proposed; its own people's use is unchanged (ADR-0020 §5). Content API 67 adds `build_crossing`: the polity builds a crossing at the site its sponsor names, each household asked an equal share of the work (below). |
-| `answers` | The issues whose presence makes proposing it a move: `food_short` (the settlement's food ran short within the year, or a household's food will not last until its next harvest); `store_unkept` (a common store is in force and holds food, and no one keeps it); `takings` (a household of the settlement found food taken from its store within the year). At least one. Content API 40 adds `overruled`: a gathering the person came to within memory decided against where they stood, or they hold a grievance against the gathering; it opens moves to them alone. Content API 49 adds `founding`: within `founding_days` of the custom being taken from the gathering, while laws the old custom made are unweighed; it opens to every member of the new body an end to each of them. Content API 59 adds `outsiders`: a household of the settlement saw people of another settlement working, within the year, a place its own people work and the polity does not claim. Content API 67 adds `fords`: a household of the settlement wades a stream where a crossing of a system its people know could stand, within the work's walk of the hearth, and none stands. |
+| `does` | What the kernel does under it: `common_store`, a share of each household's threshed grain paid into a store the polity keeps at the hearth, and food from it for a household short of food that asks; `keep_store`, a named adult keeps the common store under their own roof and gives from it at their home (the office's first form, below); `against_taking` (content API 36), whoever the gathering finds took from another household's store gives back what was taken, with what the bundle adds (below); `keep_watch` (content API 37), a named adult keeps watch over the households' stores at night (below); `curfew` (content API 38), nobody may be away from home in the hours it sets, but the watch at its rounds and those at a gathering (below); or `amend_body` (content API 40), the custom itself changes: who belongs to the deciding body, how many must come and how it decides (below). Content API 49 adds `repeal`: a law that ends the one it names, with nothing in its place; passed, it is carried rather than in force, and the law it names is superseded. Content API 59 adds `claim_place`: the polity claims the places its people saw people of another settlement working within the year, unclaimed, each named in the law when it is proposed; its own people's use is unchanged (ADR-0020 §5). Content API 67 adds `build_crossing`: the polity builds a crossing at the site its sponsor names, each household asked an equal share of the work (below). Content API 78 adds `close_source`: nobody may draw at the source of water its sponsor holds sickens, kept by each person's choice (below). Content API 79 adds `dig_well`: the polity digs a well beside the hearth, each household asked an equal share of the work (below). |
+| `answers` | The issues whose presence makes proposing it a move: `food_short` (the settlement's food ran short within the year, or a household's food will not last until its next harvest); `store_unkept` (a common store is in force and holds food, and no one keeps it); `takings` (a household of the settlement found food taken from its store within the year). At least one. Content API 40 adds `overruled`: a gathering the person came to within memory decided against where they stood, or they hold a grievance against the gathering; it opens moves to them alone. Content API 49 adds `founding`: within `founding_days` of the custom being taken from the gathering, while laws the old custom made are unweighed; it opens to every member of the new body an end to each of them. Content API 59 adds `outsiders`: a household of the settlement saw people of another settlement working, within the year, a place its own people work and the polity does not claim. Content API 67 adds `fords`: a household of the settlement wades a stream where a crossing of a system its people know could stand, within the work's walk of the hearth, and none stands. Content API 78 adds `sickness` (someone of a household of the settlement lay sick at home lately, as its members saw) and `source_suspected` (someone holds, from their own tally, that a source of water the polity does not close sickens; it opens moves to them alone). Content API 79 adds `water_far` (a household of the settlement walks far for water, as it last walked it, so far that its people use less water for it, and a well dug together beside the hearth would save the settlement's households more walking over its lining's life than its work). |
 | `levy_shares` | `common_store` only: the shares of threshed grain a sponsor may propose (1 to 8 of them, each above 0 and below 1). A `keep_store` or `keep_watch` template leaves it out. |
 | `relief_days` | `common_store` only: the most food one ask brings, in days of the asking household's need (above 0, at most 365). A `keep_store` template leaves it out. |
 | `hours` | `curfew` only (content API 38): the hours a sponsor may propose, 1 to 8 pairs `[from, to]` of hours of the day (0 to 23, different), the curfew running from the first to the second, past midnight when the second is the smaller. Any other template leaves it out. |
@@ -715,6 +718,125 @@ norms they hold weigh), `revolt_days` (how long the call stands), `hold_days` (h
 officeholder, and more adults than stand with the gathering, must stand with it before it holds)
 and `w_exclusion` (what the new body leaving one out weighs against their standing with it,
 points), design priors (`hold_days` is research 09-11 §2.2's seven days).
+
+Content API 79 (M6a slice BA, step four) brings a well dug together by law. A `policy` may `does
+= "dig_well"`: the polity digs a well beside the hearth, a metre below where its people expect
+water, of the system its people know whose walking saved over its lining's life most exceeds its
+work; once passed it is begun, the polity's, each household is asked an equal share of its work
+(given as each person chooses, weighing the gathering's word), and once it meets water the
+polity's people may draw at it. The issue `water_far` may be answered: a household of the settlement walks far for water, as it
+last walked it (so far that its people use less water for the walk: from the first point of the
+people profile's `water_use_by_walk`), and such a well would save the settlement's households
+more walking over its lining's life than its work. The core adds `core:policy/works_well`.
+
+Content API 78 (M6a slice BA, step four) brings closing a source by law. A `policy` may `does =
+"close_source"`: nobody may draw water at the source its sponsor names, one they hold sickens;
+keeping it is each person's choice, as a curfew's is, and someone with nowhere else they know to
+draw draws there still. The issues `sickness` (someone of a household of the settlement lay sick
+at home lately, as its members saw) and `source_suspected` (someone holds that a source the polity
+does not close sickens; it opens moves to them alone, as `overruled` does) may be answered. The
+people profile's `[suspicion]` gains what a household believes a source's sickness costs it:
+`case_days` (0 to 365: days of work a case among its people costs, abed and tended),
+`case_death_share` (0 to 1: the share of cases it believes die) and `w_death` (0 to 100,000: days
+of work a death is counted as); the core's 8, 0.2 and 1,000 are design priors (research 05-03 §3.2:
+untreated clinical cholera can kill about half, prompt rehydration fewer than one in a hundred,
+neither the share of everyone who takes it). The core adds `core:policy/works_source_closed`.
+
+Content API 77 (M6a slice BA, step three) brings answers to suspicion. A `well` kind gains
+`cover_h` (0 to 1,000: hours to make one a lid and curb, owed by a household that suspects its
+own well) and `covered_runoff` (0 to 1: the share of the runoff an open mouth would take that a
+covered one takes); the core's timber-lined well takes 8 and 0.1, design priors. The people
+profile's `[moving]` gains `w_sickness` (points for the share of the settlement's households a
+household's members know had sickness lately, weighed against staying; the core's 3 is a design
+prior set as `w_grievance`).
+
+Content API 76 (M6a slice BA, step two) brings suspicion of a source. The people profile gains
+a `[suspicion]` table: `min_households` (1 to 1,000: households known to draw at a source, at
+least, before its share counts), `min_sick` (1 to 1,000: of those, households that had sickness
+lately, at least), `ratio` (1 to 100: how many times the share among the rest it must be),
+`draws_min_days` (0 to 365: faded days of drawing from which a household draws at a source),
+`known_min` (0 to 1: a tie's familiarity from which someone knows a household's usual source) and
+`review_days` (1 to 365: days between tallies while someone holds news of sickness or a
+suspicion). The core's 3, 2, 3, 2, 0.3 and 7 are design priors; research 12-02 §4's 8.5-fold
+contrast between water companies orients `ratio`.
+
+Content API 75 (M6a slice BA, step one) brings sickness seen. The people profile's `[word]`
+gains `share_sickness` (0 to 1: the chance someone tells a companion at the hearth of a household's
+sickness they heard of; research 09-16 §2.2's 0.4-0.9 for urgent, personally relevant news, the
+core taking 0.4), `sickness_days` (1 to 365: how long a household's sickness stays news after it
+was first seen) and `sickness_spell_days` (1 to 365: how long after it was first seen someone abed
+there again is new sickness, seen and told afresh); the core's 30 and 14 are design priors.
+
+Content API 74 (M6a slice AZ, step three) brings care. A disease gives `care_h_per_day` (0 to
+24: the hours of a carer's time a day that count as tending someone ill of it) and `care_rr` (0
+to 1: what a severe day with that much care does to the chance of dying that day, as a relative
+risk; research 05-05 §2.2's prior for organized supportive care is 0.95), and may give
+`[[treatment]]` tables, each a `technique` (content id) and an `rr` (0 to 1): when a carer that day
+knew it, the least such `rr` holds instead. A technique named only as a treatment gates no work
+but is allowed (E3005 counts treatments). The people profile's `[decision]` gains `w_tend`
+(points for tending a member of the household severely ill and still owed a day's care, half for
+one ill but not severely). The core adds the activity `core:activity/work_tending_the_sick`
+(behaviour `tend`: at home, its hours shared among the ill there) and the far technique
+`core:technique/fluid_replacement` (found only by tending, at 100,000 hours for half; learnt at
+home), which cholera names as a treatment at 0.05; dysentery has none (05-03 §1.4: rehydration
+chiefly changes cholera survival).
+
+Content API 73 (M6a slice AZ, step two) moves what people shed: a disease gives what one shedding
+person adds to their household's heap a day, in doses (`shed_ill_per_day` while ill and
+`shed_silent_per_day` otherwise, 0 to 1e12; a dose drunk is a hazard of one, research 12-02
+§5.4's exponential with its rate taken into the dose) and the share of a load that dies a day
+outside a person (`decay_per_day`, 0 to 1); a disease that does not pass by water sheds nothing
+into the heap. A land profile may give a `[contamination]` section (above). The core's numbers
+are design priors and tuning values, each marked in its file.
+
+Content API 72 (M6a slice AZ, step one) brings diseases: a new content kind (`kind = "disease"`,
+files under `disease/`), with `routes` (the ways it passes: `water`, `household`), its own clocks
+as `[mean, sd]` days of a lognormal (research 05-03 §7.3): `incubation_days` (infection to
+symptoms), `shed_lead_days` (how long before symptoms shedding starts; 0 with them), `shed_days`
+(how long shedding lasts from its start), `shed_after_days` (how long it goes on after illness
+ends) and `ill_days`; `symptomatic` (the share of infections with symptoms), `severe_by_age`
+(`[[age, share], ...]`, the share of the ill severely so, interpolated), `severe_death_per_day`
+(the chance a day of dying while severely ill: a hazard by stage, never a fate drawn at
+infection, 05-03 §7.6), `immunity_years` (`[least, most]`, drawn evenly) and `household_hazard`
+(what each shedding member puts on each other member of a household a day; exposure by every
+route is summed and drawn once a day, 05-03 §7.2). Nothing about a disease is a rate of cases or
+deaths. The core's `core:disease/cholera` and `core:disease/bacillary_dysentery` take their clocks
+from 05-03 §2.1; their shares, death hazards and household hazards are design priors and tuning
+values, each marked in its file. No world has a disease until the observer brings one (ADR-0021
+§8).
+
+Content API 71 (M6a slice AY, step three) brings wells: a new content kind, well systems (`kind =
+"well"`, files under `well/`), with `technique` and `skill` (as a bridge system's; the skill is
+practised by the work and its lining's quality drawn from it, ADR-0009 §6), `dig_radius_m` (the
+radius dug: the earth taken out of each metre is the circle of it, at the people profile's
+`digging.h_per_m3`), `radius_m` (inside the lining, the water column's; no more than the radius
+dug), `lining_h_per_m` (hours to line a metre), `water_m` (how far below where they expect water
+its diggers mean to go), `max_depth_m` (the deepest they go before giving it up), `influence_m`
+(03-02 §1.4's radius of influence, over which the column refills from the ground), `lift_min_per_m`
+(minutes to haul a load up a metre to the ground), `loss_per_year` (the share of its lining rot
+takes a year on ground of wetness 1; the lining gives way, and the shaft falls in, once rot has
+taken what its quality left) and `crew` (how many may begin a session of work on one in a day).
+The core's `core:well/timber_lined` is dug 1.5 m across and lined 1.2 m inside (research 12-01
+§2.2), its lining at 16 hours a metre, at most 10 m deep (03-02 §2.3), and its work is
+`core:activity/work_on_well` (behaviour `well`; heavy work with an axe, as digging clay is). The
+technique `core:technique/well_digging`, which founders bring (12-01 §3.1: timber-lined wells in
+the early Neolithic), is learned at the age of the well work. A technique a bridge or well system
+names gates work (E3005). What a well yields is never authored: its water is the column standing
+in its shaft, refilled from the water table round it, and what is drawn leaves the water table.
+
+Content API 70 (M6a slice AY, step two) brings water people choose: the `[household]` key
+`water_use_by_walk_min` (above). The core's people use 20 L a day while the walk is a quarter of
+an hour or less each way, falling to 10 L at half an hour (research 12-01 §2.1: up to 20 L at 5-30
+minutes, often under 5 L beyond; its prior for carried water is 10-30 L). Springs are sources:
+people fetch from the nearest that flows and has a load left today when it is nearer than the
+river or lake.
+
+Content API 69 (M6a slice AY, step one) brings water under the ground: the land profile's
+optional `[groundwater]` section and its `[[groundwater.unit]]` tables (above), from which each
+world derives its aquifer, settles its water table where the landscape's mean recharge holds it,
+and lives its heads and its rivers' flow day by day. The core's valley has alluvial sand under
+its water, wet margins and floodplain, silt under the lower-slope woodland and weathered rock
+under the rest, each within research 03-02 §2.2's priors.
 
 Content API 68 (M5c slice AW, step three) brings the room to work on a crossing: the bridge key
 `crew` (1 to 100), at most how many begin a session of work on one crossing in a day; anyone else

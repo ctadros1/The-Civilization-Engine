@@ -303,6 +303,40 @@ describe("people payloads", () => {
     expect(r.person.places).toEqual(lines);
   });
 
+  it("decode a person's infections in the kernel's words and the diseases the observer may bring", () => {
+    const b = new flatbuffers.Builder(256);
+    const lines = [
+      "Ill with cholera since yesterday, day 2 of 4; took it in water drawn at Bo's household's well",
+      "Had bacillary dysentery 40 days ago, ill 6 days, protected no longer; took it from those who shed it at home",
+    ];
+    const sickness = W.PersonInfo.createSicknessVector(
+      b,
+      lines.map((l) => b.createString(l)),
+    );
+    W.PersonInfo.startPersonInfo(b);
+    W.PersonInfo.addId(b, 15n);
+    W.PersonInfo.addSickness(b, sickness);
+    const body = W.PersonInfo.endPersonInfo(b);
+    b.finish(W.Response.createResponse(b, W.ResponseBody.PersonInfo, body));
+    const r = M.decodeResponse(b.asUint8Array());
+    if (r.kind !== "person") throw new Error(r.kind);
+    expect(r.person.sickness).toEqual(lines);
+
+    const w = new flatbuffers.Builder(256);
+    const id = w.createString("core:disease/cholera");
+    const name = w.createString("Cholera");
+    const routes = w.createString("by water and between those who share a home");
+    const cholera = W.DiseaseInfo.createDiseaseInfo(w, id, name, routes);
+    const diseases = W.Welcome.createDiseasesVector(w, [cholera]);
+    W.Welcome.startWelcome(w);
+    W.Welcome.addDiseases(w, diseases);
+    w.finish(W.Welcome.endWelcome(w));
+    const welcome = M.decodeWelcome(w.asUint8Array());
+    expect(welcome.diseases).toEqual([
+      { id: "core:disease/cholera", name: "Cholera", routes: "by water and between those who share a home" },
+    ]);
+  });
+
   it("decode a person's partner and the kernel's sentences about their family", () => {
     const b = new flatbuffers.Builder(256);
     const lines = [
@@ -386,7 +420,11 @@ describe("people payloads", () => {
     const t2 = b.createString("Alderford");
     const s2 = W.Span.createSpan(b, W.SpanKind.Settlement, t2, 3n);
     const spans = W.ChronicleEntry.createSpansVector(b, [s1, s2]);
-    const entry = W.ChronicleEntry.createChronicleEntry(b, 2n, 85_320n, spans);
+    W.ChronicleEntry.startChronicleEntry(b);
+    W.ChronicleEntry.addSeq(b, 2n);
+    W.ChronicleEntry.addMinute(b, 85_320n);
+    W.ChronicleEntry.addSpans(b, spans);
+    const entry = W.ChronicleEntry.endChronicleEntry(b);
     const entries = W.Chronicle.createEntriesVector(b, [entry]);
     const body = W.Chronicle.createChronicle(b, entries, 2n);
     b.finish(W.Response.createResponse(b, W.ResponseBody.Chronicle, body));
@@ -402,6 +440,8 @@ describe("people payloads", () => {
             { kind: "text", text: "They made camp at ", id: 0 },
             { kind: "settlement", text: "Alderford", id: 3 },
           ],
+          link: null,
+          at: null,
         },
       ],
     });

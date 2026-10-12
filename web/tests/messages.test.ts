@@ -114,6 +114,20 @@ describe("builders", () => {
     expect([t.person(), t.ideology()]).toEqual([42n, 2]);
   });
 
+  it("builds the observer's disease brought to someone", () => {
+    const command = W.Command.getRootAsCommand(bb(M.plague(42, 1)));
+    expect(command.bodyType()).toBe(W.CommandBody.Plague);
+    const body = command.body(new W.Plague()) as W.Plague;
+    expect([body.person(), body.disease()]).toEqual([42n, 1]);
+  });
+
+  it("builds the observer's drought", () => {
+    const command = W.Command.getRootAsCommand(bb(M.drought(9, 1.5)));
+    expect(command.bodyType()).toBe(W.CommandBody.Drought);
+    const body = command.body(new W.Drought()) as W.Drought;
+    expect([body.months(), body.depth()]).toEqual([9, 1.5]);
+  });
+
   it("builds the observer's agitator and a blessing or curse", () => {
     const sent = W.Command.getRootAsCommand(bb(M.sendAgitator(120, 340, 1)));
     expect(sent.bodyType()).toBe(W.CommandBody.SendAgitator);
@@ -162,6 +176,7 @@ describe("decoders", () => {
     const season = b.createString("spring");
     // Wire 1.24: today's weather rides on the clock.
     const words = b.createString("6 °C, light rain; snow lying");
+    const windWords = b.createString("a gentle breeze from the west, gusts to 7 m/s; thatch damp");
     W.DayWeather.startDayWeather(b);
     W.DayWeather.addPrecipMm(b, 3.5);
     W.DayWeather.addMeanC(b, 6);
@@ -172,6 +187,13 @@ describe("decoders", () => {
     W.DayWeather.addWords(b, words);
     // Wire 1.25: the snow line.
     W.DayWeather.addSnowLineM(b, 420);
+    // Wire 1.67: the wind and the thatch's dryness.
+    W.DayWeather.addWindMs(b, 4);
+    W.DayWeather.addWindFromDeg(b, 270);
+    W.DayWeather.addGustMs(b, 7);
+    W.DayWeather.addFuelMoisture(b, 0.25);
+    W.DayWeather.addFuelUsual(b, 0.125);
+    W.DayWeather.addWindWords(b, windWords);
     const weather = W.DayWeather.endDayWeather(b);
     W.Clock.startClock(b);
     W.Clock.addMinute(b, 85_320n);
@@ -229,6 +251,12 @@ describe("decoders", () => {
         soil: 0.75,
         words: "6 °C, light rain; snow lying",
         snowLineM: 420,
+        windMs: 4,
+        windFromDeg: 270,
+        gustMs: 7,
+        fuelMoisture: 0.25,
+        fuelUsual: 0.125,
+        windWords: "a gentle breeze from the west, gusts to 7 m/s; thatch damp",
       },
     });
     expect(snapshot.task).toEqual({
@@ -290,6 +318,8 @@ describe("decoders", () => {
       earthworksRev: 0,
       weatherRev: 0,
       crossingsRev: 0,
+      waterRev: 0,
+      incidentsRev: 0,
     });
   });
 
@@ -546,12 +576,26 @@ describe("decoders", () => {
       span(W.SpanKind.Text, " set up ", 0n),
       span(W.SpanKind.Firm, "Wren's sickle workshop", 77n),
     ]);
-    const entry = W.ChronicleEntry.createChronicleEntry(b, 4n, 1440n, spans);
-    const entries = W.Chronicle.createEntriesVector(b, [entry]);
+    W.ChronicleEntry.startChronicleEntry(b);
+    W.ChronicleEntry.addSeq(b, 4n);
+    W.ChronicleEntry.addMinute(b, 1440n);
+    W.ChronicleEntry.addSpans(b, spans);
+    const entry = W.ChronicleEntry.endChronicleEntry(b);
+    // Wire 1.65: an entry that tells of an outbreak links to its page, and says where.
+    const outbreakSpans = W.ChronicleEntry.createSpansVector(b, [span(W.SpanKind.Text, "An outbreak", 0n)]);
+    W.ChronicleEntry.startChronicleEntry(b);
+    W.ChronicleEntry.addSeq(b, 5n);
+    W.ChronicleEntry.addMinute(b, 2880n);
+    W.ChronicleEntry.addSpans(b, outbreakSpans);
+    W.ChronicleEntry.addIncidentKind(b, 3);
+    W.ChronicleEntry.addIncident(b, 2);
+    W.ChronicleEntry.addAt(b, W.Vec2.createVec2(b, 120, 340));
+    const linked = W.ChronicleEntry.endChronicleEntry(b);
+    const entries = W.Chronicle.createEntriesVector(b, [entry, linked]);
     const response = W.Response.createResponse(
       b,
       W.ResponseBody.Chronicle,
-      W.Chronicle.createChronicle(b, entries, 4n),
+      W.Chronicle.createChronicle(b, entries, 5n),
     );
     const body = M.decodeResponse(finish(b, response));
     if (body.kind !== "chronicle") throw new Error("expected the chronicle");
@@ -560,6 +604,8 @@ describe("decoders", () => {
       ["text", 0],
       ["firm", 77],
     ]);
+    expect([body.entries[0]!.link, body.entries[0]!.at]).toEqual([null, null]);
+    expect([body.entries[1]!.link, body.entries[1]!.at]).toEqual([{ kind: 3, id: 2 }, [120, 340]]);
   });
 
   it("builds a buildings query and decodes the buildings", () => {
@@ -575,6 +621,7 @@ describe("decoders", () => {
     const symptoms = b.createString("the thatch leaks");
     const upkeep = b.createString("mending the covering, 40% done");
     const style = b.createString("roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut");
+    const fireWords = b.createString("fully involved since 02:15, set alight by the observer (one recorded influence)");
     const group = W.GroupInfo.createGroupInfo(
       b,
       0x0700,
@@ -623,6 +670,9 @@ describe("decoders", () => {
     W.BuildingInfo.addUpkeep(b, upkeep);
     W.BuildingInfo.addStyle(b, style);
     W.BuildingInfo.addStyleFrom(b, 12n);
+    W.BuildingInfo.addFire(b, 2);
+    W.BuildingInfo.addFireId(b, 3);
+    W.BuildingInfo.addFireWords(b, fireWords);
     const info = W.BuildingInfo.endBuildingInfo(b);
     const list = W.Buildings.createBuildingsVector(b, [info]);
     const buildings = W.Buildings.createBuildings(b, 77n, list);
@@ -691,6 +741,9 @@ describe("decoders", () => {
           upkeep: "mending the covering, 40% done",
           style: "roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut",
           styleFrom: 12,
+          fire: "involved",
+          fireId: 3,
+          fireWords: "fully involved since 02:15, set alight by the observer (one recorded influence)",
         },
       ],
     });
@@ -1026,6 +1079,281 @@ describe("decoders", () => {
     expect(query.bodyType()).toBe(W.QueryBody.GetCrossings);
   });
 
+  it("decodes the wells, springs and places drawn at today, and builds their query", () => {
+    const b = new flatbuffers.Builder(256);
+    const system = b.createString("Timber-lined well");
+    const words = b.createString("Ada's household's timber-lined well, being dug: 2.0 of 4.5 m");
+    const fouled = b.createString("Its water holds cholera: about 120 doses, a dose in every 14 L");
+    const well = W.WellInfo.createWellInfo(b, 12n, system, 300, 400, 0.75, 0, 2, 4.5, 0, 0, 0, 0, 7n, words, fouled);
+    const wells = W.Water.createWellsVector(b, [well]);
+    W.Water.startSpringsVector(b, 1);
+    W.SpringInfo.createSpringInfo(b, 500, 600, 2.5, 150);
+    const springs = b.endVector();
+    W.Water.startBanksVector(b, 1);
+    W.BankDraw.createBankDraw(b, 120, 140, 6);
+    const banks = b.endVector();
+    const water = W.Water.createWater(b, 33n, wells, springs, 0.5, banks);
+    const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Water, water)));
+    expect(body.kind).toBe("water");
+    if (body.kind !== "water") return;
+    expect(body.water).toEqual({
+      rev: 33,
+      wells: [
+        {
+          id: 12,
+          system: "Timber-lined well",
+          x: 300,
+          y: 400,
+          radiusM: 0.75,
+          state: 0,
+          depthM: 2,
+          targetM: 4.5,
+          waterM: 0,
+          belowM: 0,
+          quality: 0,
+          loss: 0,
+          household: 7,
+          words: "Ada's household's timber-lined well, being dug: 2.0 of 4.5 m",
+          fouled: "Its water holds cholera: about 120 doses, a dose in every 14 L",
+        },
+      ],
+      springs: [{ x: 500, y: 600, flowM3Day: 2.5, drawnL: 150 }],
+      flow: 0.5,
+      banks: [{ x: 120, y: 140, trips: 6 }],
+    });
+    const query = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getWater()));
+    expect(query.bodyType()).toBe(W.QueryBody.GetWater);
+  });
+
+  it("decodes incidents of every kind, an incident's page and an outbreak's, and builds their queries", () => {
+    const row = (b: flatbuffers.Builder, kind: number, id: number, observer: number): flatbuffers.Offset => {
+      const who = b.createString("Ada");
+      const happened = b.createString("took cholera on 3 May of year 2; it runs");
+      const known = b.createString("Nobody knows of it");
+      const polity = b.createString("No law names it");
+      W.IncidentRow.startIncidentRow(b);
+      W.IncidentRow.addKind(b, kind);
+      W.IncidentRow.addId(b, id);
+      W.IncidentRow.addMinute(b, 1440n * 400n);
+      W.IncidentRow.addSettlement(b, 5n);
+      W.IncidentRow.addAt(b, W.Vec2.createVec2(b, 120, 340));
+      W.IncidentRow.addWho(b, 42n);
+      W.IncidentRow.addWhoName(b, who);
+      W.IncidentRow.addHappened(b, happened);
+      W.IncidentRow.addKnown(b, known);
+      W.IncidentRow.addPolity(b, polity);
+      W.IncidentRow.addObserver(b, observer);
+      W.IncidentRow.addOutbreak(b, 1);
+      W.IncidentRow.addOpen(b, true);
+      W.IncidentRow.addConflagration(b, kind === 4 ? 2 : 0);
+      return W.IncidentRow.endIncidentRow(b);
+    };
+    const expected = {
+      kind: 2,
+      id: 7,
+      minute: 1440 * 400,
+      settlement: 5,
+      at: [120, 340],
+      who: 42,
+      whoName: "Ada",
+      happened: "took cholera on 3 May of year 2; it runs",
+      known: "Nobody knows of it",
+      polity: "No law names it",
+      observer: 3,
+      outbreak: 1,
+      open: true,
+      conflagration: 0,
+    };
+    // The list, with where the next page goes on from.
+    let b = new flatbuffers.Builder(512);
+    const rows = W.Incidents.createRowsVector(b, [row(b, 2, 7, 3)]);
+    const totals = W.Incidents.createTotalsVector(b, [W.IncidentTotal.createIncidentTotal(b, 2, 9, 3, 0, 9)]);
+    const disease = b.createString("Cholera");
+    const words = b.createString("Cholera at Hazelford, from 3 May of year 2: 9 took it, 4 fell ill, 1 died; it runs");
+    const outbreaks = W.Incidents.createOutbreaksVector(b, [
+      W.OutbreakRow.createOutbreakRow(b, 1, disease, 5n, 1440n * 399n, -1n, 9, 4, 1, 3, words),
+    ]);
+    const fireWords = b.createString("A fire at Hazelford since 02:14 on 3 May of year 2: 4 buildings caught so far; it burns");
+    const conflagrations = W.Incidents.createConflagrationsVector(b, [
+      W.ConflagrationRow.createConflagrationRow(b, 2, 5n, 1440n * 400n + 134n, -1n, 4, 1, 120.5, 6, fireWords),
+    ]);
+    W.Incidents.startIncidents(b);
+    W.Incidents.addMinute(b, 1440n * 401n);
+    W.Incidents.addRows(b, rows);
+    W.Incidents.addNext(b, W.IncidentKey.createIncidentKey(b, 1440n * 400n, 2, 7));
+    W.Incidents.addTotals(b, totals);
+    W.Incidents.addOutbreaks(b, outbreaks);
+    W.Incidents.addConflagrations(b, conflagrations);
+    const list = W.Incidents.endIncidents(b);
+    let body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Incidents, list)));
+    expect(body.kind).toBe("incidents");
+    if (body.kind !== "incidents") return;
+    expect(body.incidents).toEqual({
+      minute: 1440 * 401,
+      rows: [expected],
+      next: { minute: 1440 * 400, kind: 2, id: 7 },
+      totals: [{ kind: 2, all: 9, known: 3, polity: 0, observer: 9 }],
+      outbreaks: [
+        {
+          id: 1,
+          disease: "Cholera",
+          settlement: 5,
+          began: 1440 * 399,
+          ended: -1,
+          took: 9,
+          ill: 4,
+          died: 1,
+          observer: 3,
+          words: "Cholera at Hazelford, from 3 May of year 2: 9 took it, 4 fell ill, 1 died; it runs",
+        },
+      ],
+      conflagrations: [
+        {
+          id: 2,
+          settlement: 5,
+          began: 1440 * 400 + 134,
+          ended: -1,
+          burned: 4,
+          died: 1,
+          goodsKg: 120.5,
+          observer: 6,
+          words: "A fire at Hazelford since 02:14 on 3 May of year 2: 4 buildings caught so far; it burns",
+        },
+      ],
+    });
+    // An incident's page: its steps and links, and its layers kept apart.
+    b = new flatbuffers.Builder(512);
+    const r = row(b, 2, 7, 3);
+    const label = b.createString("Fell ill");
+    const stepWords = b.createString("for 4 days");
+    const label2 = b.createString("Ended");
+    const stepWords2 = b.createString("it runs");
+    const steps = W.IncidentInfo.createStepsVector(b, [
+      W.IncidentStep.createIncidentStep(b, label, 1440n * 402n, 0, true, stepWords),
+      W.IncidentStep.createIncidentStep(b, label2, -1n, 1, false, stepWords2),
+    ]);
+    const linkWords = b.createString("part of the outbreak of cholera at Hazelford");
+    const links = W.IncidentInfo.createLinksVector(b, [W.IncidentLink.createIncidentLink(b, 1, 4, 1n, linkWords)]);
+    const truth = W.IncidentInfo.createTruthVector(b, [b.createString("Ada took cholera")]);
+    const knowledge = W.IncidentInfo.createKnowledgeVector(b, [b.createString("Nobody knows of it")]);
+    const polityLines = W.IncidentInfo.createPolityVector(b, [b.createString("No law names it")]);
+    const info = W.IncidentInfo.createIncidentInfo(b, r, steps, links, truth, knowledge, polityLines);
+    body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.IncidentInfo, info)));
+    expect(body.kind).toBe("incident");
+    if (body.kind !== "incident") return;
+    expect(body.incident).toEqual({
+      row: expected,
+      steps: [
+        { label: "Fell ill", minute: 1440 * 402, state: "reached", byDay: true, words: "for 4 days" },
+        { label: "Ended", minute: -1, state: "not reached", byDay: false, words: "it runs" },
+      ],
+      links: [{ relation: "part_of", target: "outbreak", id: 1, words: "part of the outbreak of cholera at Hazelford" }],
+      truth: ["Ada took cholera"],
+      knowledge: ["Nobody knows of it"],
+      polity: ["No law names it"],
+    });
+    // An outbreak's page: its curve and the water its cases drank.
+    b = new flatbuffers.Builder(512);
+    const disease2 = b.createString("Cholera");
+    const words2 = b.createString("Cholera at Hazelford");
+    const orow = W.OutbreakRow.createOutbreakRow(b, 1, disease2, 5n, 0n, -1n, 3, 2, 0, 3, words2);
+    const cause = b.createString("Began with Ada, brought by the observer");
+    const took = W.OutbreakInfo.createTookVector(b, [1, 0, 2]);
+    const onset = W.OutbreakInfo.createOnsetVector(b, [0, 1, 1]);
+    const routes = W.OutbreakInfo.createRoutesVector(b, [b.createString("2 in water drawn at Bo's household's well")]);
+    const name = b.createString("Bo's household's well");
+    const sTruth = W.OutbreakSource.createTruthVector(b, [b.createString("Of 3 households that drew there")]);
+    const sKnow = W.OutbreakSource.createKnowledgeVector(b, [b.createString("Nobody suspects it")]);
+    const sPol = W.OutbreakSource.createPolityVector(b, [b.createString("No law names it")]);
+    const sources = W.OutbreakInfo.createSourcesVector(b, [W.OutbreakSource.createOutbreakSource(b, name, 2, sTruth, sKnow, sPol)]);
+    const members = W.OutbreakInfo.createMembersVector(b, [row(b, 2, 7, 3)]);
+    W.OutbreakInfo.startOutbreakInfo(b);
+    W.OutbreakInfo.addRow(b, orow);
+    W.OutbreakInfo.addCause(b, cause);
+    W.OutbreakInfo.addStart(b, 0n);
+    W.OutbreakInfo.addTook(b, took);
+    W.OutbreakInfo.addOnset(b, onset);
+    W.OutbreakInfo.addRoutes(b, routes);
+    W.OutbreakInfo.addSources(b, sources);
+    W.OutbreakInfo.addMembers(b, members);
+    W.OutbreakInfo.addMembersTotal(b, 3);
+    const ob = W.OutbreakInfo.endOutbreakInfo(b);
+    body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.OutbreakInfo, ob)));
+    expect(body.kind).toBe("outbreak");
+    if (body.kind !== "outbreak") return;
+    expect(body.outbreak.took).toEqual([1, 0, 2]);
+    expect(body.outbreak.onset).toEqual([0, 1, 1]);
+    expect(body.outbreak.causeLink).toBeNull();
+    expect(body.outbreak.sources).toEqual([
+      {
+        name: "Bo's household's well",
+        cases: 2,
+        truth: ["Of 3 households that drew there"],
+        knowledge: ["Nobody suspects it"],
+        polity: ["No law names it"],
+      },
+    ]);
+    expect(body.outbreak.members).toEqual([expected]);
+    expect(body.outbreak.membersTotal).toBe(3);
+    // The queries.
+    const q = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getIncidents(5, 2, { minute: 1440 * 400, kind: 2, id: 7 }, 25)));
+    expect(q.bodyType()).toBe(W.QueryBody.GetIncidents);
+    const g = q.body(new W.GetIncidents()) as W.GetIncidents;
+    expect([g.settlement(), g.kind(), g.limit()]).toEqual([5n, 2, 25]);
+    expect([g.before()?.minute(), g.before()?.kind(), g.before()?.id()]).toEqual([BigInt(1440 * 400), 2, 7]);
+    const first = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getIncidents(0, 0, null, 0)));
+    expect((first.body(new W.GetIncidents()) as W.GetIncidents).before()).toBeNull();
+    const one = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getIncident(1, 3)));
+    expect(one.bodyType()).toBe(W.QueryBody.GetIncident);
+    const i = one.body(new W.GetIncident()) as W.GetIncident;
+    expect([i.kind(), i.id()]).toEqual([1, 3]);
+    const o = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getOutbreak(2, 10)));
+    expect(o.bodyType()).toBe(W.QueryBody.GetOutbreak);
+    const og = o.body(new W.GetOutbreak()) as W.GetOutbreak;
+    expect([og.id(), og.limit()]).toEqual([2, 10]);
+    // Wire 1.68: a conflagration's page, its query, and the fire tool.
+    b = new flatbuffers.Builder(512);
+    const cWords = b.createString("A fire at Hazelford from 02:14 to 02:50: it burned 2 buildings");
+    const crow = W.ConflagrationRow.createConflagrationRow(b, 2, 5n, 134n, 170n, 2, 0, 0, 6, cWords);
+    const cCause = b.createString("Began at the hut of Ada's household, set alight by the observer");
+    const cLinkWords = b.createString("set alight by the observer (one recorded influence)");
+    const cLink = W.IncidentLink.createIncidentLink(b, 0, 0, 6n, cLinkWords);
+    const cWeather = b.createString("When it first spread: a gentle breeze at 4.0 m/s");
+    const cFires = W.ConflagrationInfo.createFiresVector(b, [row(b, 4, 1, 6), row(b, 4, 2, 6)]);
+    const cHeld = W.ConflagrationInfo.createHeldVector(b, [b.createString("The hut of Bo's household: held")]);
+    W.ConflagrationInfo.startConflagrationInfo(b);
+    W.ConflagrationInfo.addRow(b, crow);
+    W.ConflagrationInfo.addCause(b, cCause);
+    W.ConflagrationInfo.addCauseLink(b, cLink);
+    W.ConflagrationInfo.addWeather(b, cWeather);
+    W.ConflagrationInfo.addFires(b, cFires);
+    W.ConflagrationInfo.addHeld(b, cHeld);
+    const cInfo = W.ConflagrationInfo.endConflagrationInfo(b);
+    body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.ConflagrationInfo, cInfo)));
+    expect(body.kind).toBe("conflagration");
+    if (body.kind !== "conflagration") return;
+    expect(body.conflagration.row.ended).toBe(170);
+    expect(body.conflagration.cause).toBe("Began at the hut of Ada's household, set alight by the observer");
+    expect(body.conflagration.causeLink).toEqual({
+      relation: "caused_by",
+      target: "influence",
+      id: 6,
+      words: "set alight by the observer (one recorded influence)",
+    });
+    expect(body.conflagration.weather).toBe("When it first spread: a gentle breeze at 4.0 m/s");
+    expect(body.conflagration.fires.map((f) => [f.kind, f.id, f.conflagration])).toEqual([
+      [4, 1, 2],
+      [4, 2, 2],
+    ]);
+    expect(body.conflagration.held).toEqual(["The hut of Bo's household: held"]);
+    const cq = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getConflagration(2)));
+    expect(cq.bodyType()).toBe(W.QueryBody.GetConflagration);
+    expect((cq.body(new W.GetConflagration()) as W.GetConflagration).id()).toBe(2);
+    const fire = W.Command.getRootAsCommand(new flatbuffers.ByteBuffer(M.setFire(61)));
+    expect(fire.bodyType()).toBe(W.CommandBody.SetFire);
+    expect((fire.body(new W.SetFire()) as W.SetFire).building()).toBe(61n);
+  });
+
   it("decodes a raster tile response", () => {
     const b = new flatbuffers.Builder(64);
     const data = W.RasterTile.createDataVector(b, new Uint8Array([1, 0, 2, 0]));
@@ -1072,5 +1400,81 @@ describe("decoders", () => {
     const list = W.Events.createEventsVector(e, [event]);
     const events = M.decodeEvents(finish(e, W.Events.createEvents(e, list)));
     expect(events).toEqual([{ id: 7, simMinute: 85_320, unixMs: 1, kind: "saved", text: "Saved" }]);
+  });
+});
+
+describe("the Water lens (wire 1.66)", () => {
+  function source(b: flatbuffers.Builder, name: string, x: number, kind: number, minutes: number, days: number) {
+    const n = b.createString(name);
+    W.CoverageSource.startCoverageSource(b);
+    W.CoverageSource.addName(b, n);
+    W.CoverageSource.addAt(b, W.Vec2.createVec2(b, x, 20));
+    W.CoverageSource.addKind(b, kind);
+    W.CoverageSource.addMinutes(b, minutes);
+    W.CoverageSource.addDays(b, days);
+    return W.CoverageSource.endCoverageSource(b);
+  }
+
+  it("decodes each home's nearest water and where its people drew it, and builds the query", () => {
+    const b = new flatbuffers.Builder(512);
+    const nearest = source(b, "Bo's household's well", 12, 1, 0.4, 0);
+    const edge = source(b, "the water's edge", 40, 5, -1, 0);
+    const drewWell = source(b, "Bo's household's well", 12, 1, 0.4, 28);
+    const drew = W.CoverageHome.createDrewVector(b, [drewWell]);
+    const words = W.CoverageHome.createWordsVector(b, [b.createString("Could reach: …"), b.createString("Did come: …")]);
+    const name = b.createString("Bo's household");
+    W.CoverageHome.startCoverageHome(b);
+    W.CoverageHome.addHousehold(b, 9n);
+    W.CoverageHome.addName(b, name);
+    W.CoverageHome.addAt(b, W.Vec2.createVec2(b, 10, 20));
+    W.CoverageHome.addSettlement(b, 3n);
+    W.CoverageHome.addNearest(b, nearest);
+    W.CoverageHome.addByRight(b, edge);
+    W.CoverageHome.addDrew(b, drew);
+    W.CoverageHome.addWords(b, words);
+    const home = W.CoverageHome.endCoverageHome(b);
+    const homes = W.Coverage.createHomesVector(b, [home]);
+    const summary = W.Coverage.createSummaryVector(b, [b.createString("Could reach: of 1 home"), b.createString("Did come: …")]);
+    const title = b.createString("Water");
+    const scope = b.createString("Ashford: 1 home");
+    const periods = W.Coverage.createPeriodsVector(b, [b.createString("now"), b.createString("the past 30 days")]);
+    const per = b.createString("homes");
+    W.Coverage.startCoverage(b);
+    W.Coverage.addLens(b, 1);
+    W.Coverage.addTitle(b, title);
+    W.Coverage.addScope(b, scope);
+    W.Coverage.addPeriods(b, periods);
+    W.Coverage.addDenominator(b, per);
+    W.Coverage.addHomes(b, homes);
+    W.Coverage.addLimitMin(b, 60);
+    W.Coverage.addDays(b, 30);
+    W.Coverage.addSummary(b, summary);
+    const root = W.Coverage.endCoverage(b);
+    const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Coverage, root)));
+    expect(body.kind).toBe("coverage");
+    if (body.kind !== "coverage") return;
+    const c = body.coverage;
+    expect([c.lens, c.title, c.scope, c.periods, c.denominator, c.limitMin, c.days]).toEqual([
+      1,
+      "Water",
+      "Ashford: 1 home",
+      ["now", "the past 30 days"],
+      "homes",
+      60,
+      30,
+    ]);
+    expect(c.summary).toEqual(["Could reach: of 1 home", "Did come: …"]);
+    const h = c.homes[0]!;
+    expect([h.household, h.name, h.x, h.y, h.settlement]).toEqual([9, "Bo's household", 10, 20, 3]);
+    expect(h.nearest?.kind).toBe(1);
+    expect(h.nearest?.minutes).toBeCloseTo(0.4);
+    // A walk not within the search reads as unknown, never as zero.
+    expect(h.byRight).toEqual({ name: "the water's edge", x: 40, y: 20, kind: 5, minutes: null, days: 0 });
+    expect(h.drew.map((s) => [s.name, s.days])).toEqual([["Bo's household's well", 28]]);
+    expect(h.words).toEqual(["Could reach: …", "Did come: …"]);
+    const q = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getCoverage(3, 1)));
+    expect(q.bodyType()).toBe(W.QueryBody.GetCoverage);
+    const g = q.body(new W.GetCoverage()) as W.GetCoverage;
+    expect([g.settlement(), g.lens()]).toEqual([3n, 1]);
   });
 });

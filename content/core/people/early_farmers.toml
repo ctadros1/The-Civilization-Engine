@@ -65,6 +65,11 @@ household_quality = 0.45
 [household]
 water_l_per_person_day = 20.0    # research 10-01 §2.1
 carry_water_l = 15.0             # 10-25 L per trip
+# What a person uses a day by the one-way walk to the water (content API 70; ADR-0021 §1): the
+# 20 L above while a round trip takes half an hour or less, falling to 10 L at an hour. Research
+# 12-01 §2.1: basic access is usually up to 20 L a person a day at 5-30 minutes, often under
+# 5 L beyond; its prior for carried water is 10-30 L. A tuning curve within that prior.
+water_use_by_walk_min = [[15.0, 20.0], [30.0, 10.0]]
 water_target_days = 1.5
 food_target_days = 5.0
 ready_food_days = 2.0            # bread and porridge in hand: bread keeps a few days (tuning)
@@ -132,6 +137,10 @@ w_effort = 0.8
 w_dark = 6.0
 w_rest = 1.0
 w_play = 3.0
+# Tending a member of the household who is severely ill and still owed a day's care, half as much
+# for one ill but not severely (M6a slice AZ, step three): above ordinary work and company, below
+# food and water short at home (a tuning value; 05-05 §1.1: care is chosen labour).
+w_tend = 6.0
 
 [band]                           # research 05-01 §4.5: bands of 40 in at least six unrelated families
 default_size = 40
@@ -425,6 +434,8 @@ founders = [
   { technique = "core:technique/oven_baking", share = 1.0 },
   # Research 07-04 §4.4: manuring is documented in Neolithic Europe by the sixth millennium BCE.
   { technique = "core:technique/manuring", share = 1.0 },
+  # Research 12-01 §3.1: timber-lined wells are documented in the early Neolithic (ADR-0021 §9).
+  { technique = "core:technique/well_digging", share = 1.0 },
 ]
 # Learners one person teaches at once (research 07-02 §2.3: 1-3 a teacher).
 max_learners = 2
@@ -721,6 +732,16 @@ tell_floor = 0.2
 # A harm that goes on (a store still empty while the household is short) raises its grievance
 # again only after `remind_days`: a reminder, never re-added each day (04-06 §5.3).
 remind_days = 7
+# Sickness seen (M6a slice BA, ADR-0021 §6): a household's members see someone of theirs abed and
+# its close kin learn of a death of it; others hear of it only as word. Someone tells a companion
+# at the hearth of a household's sickness they heard of with `share_sickness` (09-16 §2.2:
+# 0.4-0.9 for urgent, personally relevant news; its low end, for news of another household), and
+# members tell each other at home with `share_home`. It stays news, and counts as lately, for
+# `sickness_days` after it was first seen; someone abed there more than `sickness_spell_days`
+# after it was first seen is new sickness, seen and told afresh. Both design priors.
+share_sickness = 0.4
+sickness_days = 30
+sickness_spell_days = 14
 
 [opinion]                        # where people stand on the questions content names (M4c slice AG, ADR-0016 §4)
 # Each adult holds a position, 0 against to 1 for, on each question a policy template asks. Its
@@ -951,6 +972,11 @@ w_grievance = 3.0
 w_stake = 3.0
 cost = 2.0
 reviews = 2
+# Sickness (M6a slice BA, ADR-0021 §7): `w_sickness` for the share of their settlement's households
+# its members know had sickness lately, its own among them (05-06 §5.1 counts safety among what
+# moves people; no value). A death of sickness at home, or the first of a household to suspect the
+# water it draws, sets it weighing where to live at once. A design prior, set as `w_grievance`.
+w_sickness = 3.0
 
 [founding]                       # founding a settlement of their own (M5a slice AO); design priors
 # At the same review, a household also weighs founding a settlement with others at a site a member
@@ -974,3 +1000,117 @@ walk_hours = 2.0
 candidates = 16
 buffer_months = 2.0
 work_h_per_day = 6.0
+
+[suspicion]                      # suspecting a source of water (M6a slice BA, ADR-0021 §6); design priors
+# Each person tallies their own records (research 12-02 §4, 05-04 §3.2: who draws where is the
+# exposure that tells sources apart; Snow counted houses). The households they know to draw at a
+# source are their own if it draws there, those their household saw drawing there the same day,
+# and the households of those they know at least `known_min` well (a tie's familiarity) whose
+# usual source it is; a household draws at a source it has drawn at for `draws_min_days` days,
+# fading at the places' half-life. Of those at a source, how many had sickness lately (a household's
+# sickness they heard of and still hold as news) is set against the rest they know. They suspect
+# the source when at least `min_households` draw there, at least `min_sick` of them had sickness,
+# and their share is at least `ratio` times the rest's (counted with half a sick household in one
+# more, so that a source everyone draws at is never suspect). Snow's 8.5-fold contrast between two
+# water companies orients `ratio`; it is not a target. Someone tallies on first hearing of a
+# household's sickness, and every `review_days` while they hold news of sickness or a suspicion.
+min_households = 3
+min_sick = 2
+ratio = 3.0
+draws_min_days = 2.0
+known_min = 0.3
+review_days = 7
+# What a household believes the sickness at a source it suspects costs it (content API 78; slice
+# BA, step four), weighed against the walking a closing of that source would ask (ADR-0021 §7, in
+# today's units): its people's tally says how much likelier a household drawing there was to have
+# sickness lately than one drawing elsewhere; a case costs `case_days` days of work (abed and
+# tended), and `case_death_share` of cases are believed to die, each death counted as `w_death`
+# days of work. Design priors: research 05-03 §3.2 has untreated clinical cholera killing up to
+# about half and prompt rehydration fewer than one in a hundred, neither the share of everyone
+# who takes it; what people hold dear weighs on top.
+case_days = 8.0
+case_death_share = 0.2
+w_death = 1000.0
+
+[fire]                           # buildings burning (M6b slice BC, ADR-0022 §4-§5); design priors unless cited
+# A fully involved building puts `flux_kw` on a surface 1 m and 4 m from it, kW/m² (research 12-03
+# §2.2: 36 and 5 in the studied configuration of informal dwellings), falling exponentially between
+# and beyond; a covering alight before then puts `covering_flux_share` of it. Buildings within
+# `reach_m` are weighed. The wind stretches a gap downwind of a burning building to
+# `gap * exp(-wind_stretch_per_ms * wind * cos)`, so firebrands and leaning flames are one route.
+reach_m = 10.0
+flux_kw = [36.0, 5.0]
+covering_flux_share = 0.5
+wind_stretch_per_ms = 0.1
+# A threatened building's exposure moves toward the heat on it over `exposure_minutes`, and its
+# covering catches by a hazard of `catch_per_minute` for each multiple of its threshold the
+# exposure stands above it (12-03 §1.4: accumulated exposure, not distance alone). Exposed fuel
+# holding `extinction_moisture` of its dry mass in water does not catch at all (fire behaviour's
+# moisture of extinction); a good's `catch_kw_m2` is its threshold at `reference_moisture`, drier
+# fuel catching at less and wetter at more, falling to nothing at extinction.
+exposure_minutes = 1.0
+catch_per_minute = 1.0
+extinction_moisture = 0.35
+reference_moisture = 0.12
+# Stages: fully involved `involve_minutes` after the covering catches (12-03 §2.2: a dwelling
+# passed 1,000 °C within about a minute), burnt out `involved_minutes` later; the covering is
+# gone in `covering_minutes`.
+involve_minutes = 1.0
+involved_minutes = 30.0
+covering_minutes = 15.0
+# Char on the exposed faces of timber fully involved: `char_mm_first_hour` in the first hour, as
+# `(t / 60)^char_exponent` (11-08 §2.5: about 0.8 mm/min at first and 0.6 over the hour; a 200 mm
+# member keeps a 128 mm core). A full burn takes `infill_loss` of a wall's infill: wattle burns,
+# daub stays.
+char_mm_first_hour = 36.0
+char_exponent = 0.813
+infill_loss = 0.5
+# Fires start where fire is used (slice BD, ADR-0022 §3; 12-03 §1.1). A household's hearth is lit
+# while any of its people is awake at home and banked, its embers kept, otherwise; each fire it
+# works at home (baking, firing pots) adds its own. Each escapes its keeping at these rates an
+# hour at `reference_moisture`, scaled by dryness as a covering's threshold is. 12-03 §2.5 gives no
+# measured rate for any early household: 1-100 unintended fires per 1,000 household-years is to be
+# explored, 10 an order-of-magnitude anchor from a modern survey. These design priors give about
+# that (see PROJECT_PLAN §9). Someone awake within `beside_m` of the building puts an ignition out
+# at once (§1.2: most are), and only the count records it.
+hearth_lit_per_hour = 2.0e-6
+hearth_banked_per_hour = 1.0e-6
+worked_per_hour = 4.0e-6
+beside_m = 3.0
+# An escape left alone grows inside before it reaches the covering (12-03 §1.2: ignition, then
+# locally controlled or growing, then the building involved). No source gives how long for an
+# early house; a design prior, drawn evenly between the two. Someone coming within `beside_m`
+# while it grows puts it out, as does someone asleep inside who wakes to it in time: each wakes
+# after a draw between `wake_minutes` (12-03 §2.5: 5 to 30 or more minutes for the sleeping).
+grow_minutes = [2.0, 15.0]
+wake_minutes = [5.0, 30.0]
+# Anyone awake within `sight_m` of a burning building sees it, and whoever comes to know of a fire
+# shouts: those within `earshot_m` hear, wake and stop to decide again (ADR-0022 §6). Design
+# priors: a roof alight is seen across a village, a raised voice heard about one plot-row away.
+sight_m = 150.0
+earshot_m = 60.0
+# Water carried to a fire (slice BD, step three; ADR-0022 §6). Of each load thrown on a roof,
+# `water_stays` stays on it (12-03 §1.7's η: the rest runs off or misses), and the water on a roof
+# runs off or dries at `wet_drains_per_minute`. While it stands, the heat on the roof boils it
+# off first (2,257 kJ a litre): a wet covering cannot catch until it is dry. Design priors.
+water_stays = 0.5
+wet_drains_per_minute = 0.03
+# What saving a building from a fire is worth to someone, points, were it sure to catch otherwise:
+# their household's own `w_save`, a close kin's household's that times `kin_share`, anyone else's
+# that times `neighbour_share` (ADR-0022 §6: kin, ties and their own property weigh). Each is
+# weighed by how near the roof's exposure stands to what its covering needs. Design priors: a
+# home is worth more than a day's hunger (`w_hunger` 10), a neighbour's about a field's work.
+w_save = 20.0
+kin_share = 0.5
+neighbour_share = 0.25
+# Stripping a threatened roof (slice BD, step four; ADR-0022 §6): one person tears off
+# `strip_m2_per_minute` of covering a minute, and a roof with no covering left has nothing to
+# catch. It costs the household `strip_cost` of what losing the roof to fire would (the covering
+# is gone either way), so it is worth doing only to a roof nearer catching than that. Their own
+# household's, or another's with leave of one of its people awake beside it. Design priors.
+strip_m2_per_minute = 1.0
+strip_cost = 0.5
+# Carrying goods out (ADR-0022 §5: goods carried out survive): a load of what would burn under a
+# threatened roof of their household's is worth `salvage_share` of saving the roof, scaled by how
+# much of a load is there. A design prior.
+salvage_share = 0.5

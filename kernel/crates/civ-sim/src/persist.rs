@@ -248,6 +248,68 @@ pub const SCHEMA_V69: u32 = 69;
 /// The schema version of M5c slice AW, step three: the crossings polities build, before the room
 /// to work on a crossing was kept (see [`agents`]).
 pub const SCHEMA_V70: u32 = 70;
+/// The schema version of M5c slice AX: the room to work on a crossing, before water under the
+/// ground (see [`agents`]).
+pub const SCHEMA_V71: u32 = 71;
+/// The schema version of M6a slice AY, step one: water under the ground, before sources people
+/// choose (see [`agents`]).
+pub const SCHEMA_V72: u32 = 72;
+/// The schema version of M6a slice AY, step two: sources people choose and the water they use,
+/// before wells (see [`agents`]).
+pub const SCHEMA_V73: u32 = 73;
+/// The schema version of M6a slice AY, step three: wells, before infections (see [`agents`]).
+pub const SCHEMA_V74: u32 = 74;
+/// The schema version of M6a slice AZ, step one: infections, before what people shed moved
+/// through the ground and water (see [`agents`]).
+pub const SCHEMA_V75: u32 = 75;
+/// The schema version of M6a slice AZ, step two: what people shed, before care (see
+/// [`agents`]).
+pub const SCHEMA_V76: u32 = 76;
+/// The schema version of M6a slice AZ, step three: care given the ill, before claims that a
+/// household had sickness (see [`agents`]).
+pub const SCHEMA_V77: u32 = 77;
+/// The schema version of M6a slice BA, step one: claims that a household had sickness, before
+/// suspicions and the households seen drawing water (see [`agents`]).
+pub const SCHEMA_V78: u32 = 78;
+/// The schema version of M6a slice BA, step two: suspicions, before the chronicle told them
+/// (see [`agents`]).
+pub const SCHEMA_V79: u32 = 79;
+/// The schema version of M6a slice BA, step three's first part: the chronicle's suspicions,
+/// before wells had lids (see [`agents`]).
+pub const SCHEMA_V80: u32 = 80;
+/// The schema version of M6a slice BA, step three's second part: wells' lids, before a law could
+/// close a source of water (see [`agents`]).
+pub const SCHEMA_V81: u32 = 81;
+/// The schema version of M6a slice BA, step four's first part: laws closing a source, before
+/// wells dug together and households' walks to water (see [`agents`]).
+pub const SCHEMA_V82: u32 = 82;
+/// The schema version of M6a slice BA, step four's second part: wells dug together, before the
+/// observer's drought (see [`agents`]).
+pub const SCHEMA_V83: u32 = 83;
+/// The schema version of M6a slice BA, step five: the observer's drought, before infections kept
+/// the household they began in (see [`agents`]).
+pub const SCHEMA_V84: u32 = 84;
+/// The schema version of M6a slice BB, step one: infections keep the household they began in,
+/// before places remembered the days worked there exactly (see [`agents`]).
+pub const SCHEMA_V85: u32 = 85;
+/// The schema version of M6a slice BB, step three: places remember the days worked there
+/// exactly, before the weather kept a daily wind and the fuel's dryness (see [`agents`]).
+pub const SCHEMA_V86: u32 = 86;
+/// The schema version of M6b slice BC, step one: the weather's wind and dryness, before fires
+/// (see [`agents`]).
+pub const SCHEMA_V87: u32 = 87;
+/// The schema version of M6b slice BC: a building's fire, before fires from the fires people use
+/// (see [`agents`]).
+pub const SCHEMA_V88: u32 = 88;
+/// The schema version of M6b slice BD, step one: fires from the fires people use, put out at
+/// once or catching, before escapes grew and people noticed (see [`agents`]).
+pub const SCHEMA_V89: u32 = 89;
+/// The schema version of M6b slice BD, step two: escapes that grow and who knew of each fire,
+/// before people carried water to one (see [`agents`]).
+pub const SCHEMA_V90: u32 = 90;
+/// The schema version of M6b slice BD, step three: water carried to a fire, before roofs were
+/// stripped and goods carried out (see [`agents`]).
+pub const SCHEMA_V91: u32 = 91;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

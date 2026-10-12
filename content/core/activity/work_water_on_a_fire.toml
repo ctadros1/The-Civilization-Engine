@@ -1,0 +1,22 @@
+# Carrying water to a roof a fire threatens and throwing it on (M6b slice BD, step three;
+# ADR-0022 §6; research 12-03 §1.7: firefighting is a supply chain, and bucket carriers deliver
+# what they can carry over their round trip). A load is drawn from the household's store at home
+# when it holds one, else at the nearest source, walked to the roof and thrown on it; then the
+# carrier decides again. Heavy work done in haste (a PAR above fetching water; 12-03 gives none).
+# Ages and the walk are tuning values. Its id sorts after every older activity's: activities are
+# kept in id order.
+kind = "activity"
+id = "core:activity/work_water_on_a_fire"
+name = "Carry water to a fire"
+doing = "carrying water to a fire"
+behavior = "douse"
+par = 4.5
+min_age_years = 10.0
+max_age_years = 70.0
+min_minutes = 1                  # throwing it on the roof
+max_minutes = 1
+daylight_only = false
+max_walk_minutes = 30
+technique = ""
+tools = []
+rate = 1.0

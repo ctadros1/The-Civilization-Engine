@@ -676,6 +676,52 @@ fn a_household_drawn_by_kin_elsewhere_moves_there_after_two_reviews() {
 }
 
 #[test]
+fn sickness_a_household_believes_at_home_weighs_toward_every_place_it_knows() {
+    // Its members hold word that three households of their settlement had sickness lately (M6a
+    // slice BA, ADR-0021 §7): every other place it knows is worth `w_sickness` times that share
+    // more, since it knows of none there.
+    use civ_agents::word::{Claim, ClaimKind};
+    let mut sim = world_knowing(3, 50, &[50], true).expect("generates");
+    let a = sim.land().settlements[0].id;
+    let (household, _) = household_of(&sim, a);
+    let worth =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.move_worth_for_tests(ctx, household));
+    let before = worth(&mut sim);
+    assert!(!before.is_empty(), "it knows another place");
+    let here: Vec<_> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(a))
+        .map(|(_, x)| x.id)
+        .collect();
+    let member = sim.people().household(household).expect("lives").members[0];
+    let today = sim.now().day_index();
+    {
+        let pop = sim.people_mut_for_tests();
+        for &h in &here[..3] {
+            let c = pop.word.make(Claim {
+                id: 0,
+                kind: ClaimKind::Sickness,
+                settlement: a,
+                day: today,
+                subject: Some(h),
+                grievance: None,
+                suspected: None,
+            });
+            pop.word.hear(member, c, today, None, None);
+        }
+    }
+    let after = worth(&mut sim);
+    let w = sim.rules().people.moving.w_sickness;
+    let share = 3.0 / here.len() as f64;
+    for ((s, x), (t, y)) in before.iter().zip(&after) {
+        assert_eq!(s, t);
+        assert!((y - x - w * share).abs() < 1e-9, "{x} then {y}");
+    }
+}
+
+#[test]
 fn a_household_out_of_food_goes_where_its_kin_are_and_its_kin_follow() {
     // Just before midnight the whole first settlement is out of food and worn down, and gives up
     // at the first chance. The household with kin in the second goes there, and the households of

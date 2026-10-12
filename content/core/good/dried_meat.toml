@@ -12,3 +12,9 @@ sheltered_half_life_days = 365.0
 eaten = "raw"
 shared = false
 reserve_for = ""
+
+# How it burns (ADR-0022 §5; content API 81).
+# Dried meat under a burning roof is lost (a design prior).
+[fire]
+catch_kw_m2 = 0.0
+burns = 1.0

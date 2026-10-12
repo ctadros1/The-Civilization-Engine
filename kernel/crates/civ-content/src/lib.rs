@@ -32,6 +32,7 @@ mod activity;
 mod bridge;
 mod building;
 mod crop;
+mod disease;
 mod good;
 mod ideology;
 mod land;
@@ -44,12 +45,13 @@ mod regime;
 mod skill;
 mod technique;
 mod value;
+mod well;
 mod worldgen;
 
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 68;
+pub const KERNEL_CONTENT_API: u32 = 85;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -79,7 +81,7 @@ pub enum Severity {
 /// | E3002 | The `kind` is unknown, or missing |
 /// | E3003 | Not exactly one world-generation preset is marked `default = true` |
 /// | E3004 | Not exactly one people profile, or not exactly one land profile |
-/// | E3005 | A technique gates no work: no recipe, activity or building program names it |
+/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge or well system names it, nor any disease as a treatment |
 /// | E3006 | Techniques' prerequisites form a cycle |
 /// | E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it |
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -415,6 +417,8 @@ struct Parsed {
     values: Vec<Def<value::ValueFile>>,
     ideologies: Vec<Def<ideology::IdeologyFile>>,
     bridges: Vec<Def<bridge::BridgeFile>>,
+    wells: Vec<Def<well::WellFile>>,
+    diseases: Vec<Def<disease::DiseaseFile>>,
     /// Files declaring `kind = "people"`, parsed or not (so a broken profile is not also
     /// reported as a missing one).
     people_files: usize,
@@ -1086,6 +1090,46 @@ fn resolve(
         }
     }
     bridges.sort_by(|a, b| a.id.cmp(&b.id));
+    // Well systems (M6a slice AY, step three).
+    let mut wells = Vec::new();
+    for d in &parsed.wells {
+        let technique = if d.file.technique.is_empty() {
+            Some(None)
+        } else {
+            let t = technique_index(&d.file.technique);
+            if t.is_none() {
+                missing(c, parsed, &d.rel, "technique", &d.file.technique);
+            }
+            t.map(Some)
+        };
+        let skill = if d.file.skill.is_empty() {
+            Some(None)
+        } else {
+            let k = skill_index(&d.file.skill);
+            if k.is_none() {
+                missing(c, parsed, &d.rel, "skill", &d.file.skill);
+            }
+            k.map(Some)
+        };
+        if let (Some(t), Some(k)) = (technique, skill) {
+            wells.push(d.file.def(t, k));
+        }
+    }
+    wells.sort_by(|a, b| a.id.cmp(&b.id));
+    // Diseases (M6a slice AZ): their problems are reported as each file is read; a treatment's
+    // technique is found here.
+    let mut diseases = Vec::new();
+    for d in &parsed.diseases {
+        for t in &d.file.treatment {
+            if technique_index(&t.technique).is_none() {
+                missing(c, parsed, &d.rel, "technique", &t.technique);
+            }
+        }
+        if let Some(def) = d.file.def(technique_index) {
+            diseases.push(def);
+        }
+    }
+    diseases.sort_by(|a, b| a.id.cmp(&b.id));
     let catalog = Catalog {
         activities,
         goods,
@@ -1100,6 +1144,8 @@ fn resolve(
         values,
         ideologies,
         bridges,
+        wells,
+        diseases,
     };
     knowledge_problems(c, parsed, &catalog, land.as_ref());
     (people, land, catalog)
@@ -1143,6 +1189,12 @@ fn knowledge_problems(
             .find(|d| d.file.id == id)
             .map_or_else(String::new, |d| d.rel.clone())
     };
+    // Work names techniques by their place among every technique read; when one of them did not
+    // compile (it has said why, or failed with what it needed), those places no longer match the
+    // catalog's, and nothing below could be judged.
+    if catalog.techniques.len() != parsed.techniques.len() {
+        return;
+    }
     // People and saves refer to techniques by a 16-bit index.
     if catalog.techniques.len() > usize::from(u16::MAX) {
         c.push(
@@ -1159,14 +1211,21 @@ fn knowledge_problems(
     for (t, def) in catalog.techniques.iter().enumerate() {
         let gated = catalog.activities.iter().any(|a| a.technique == Some(t))
             || catalog.recipes.iter().any(|r| r.technique == Some(t))
-            || catalog.buildings.iter().any(|b| b.technique == Some(t));
+            || catalog.buildings.iter().any(|b| b.technique == Some(t))
+            || catalog.bridges.iter().any(|b| b.technique == Some(t))
+            || catalog.wells.iter().any(|w| w.technique == Some(t))
+            || parsed
+                .diseases
+                .iter()
+                .flat_map(|d| &d.file.treatment)
+                .any(|x| x.technique == def.id);
         if !gated {
             c.push(
                 "E3005",
                 &rel_of(&def.id),
                 None,
                 format!(
-                    "technique `{}` gates no work: no recipe, activity or building program names it",
+                    "technique `{}` gates no work: no recipe, activity, building program, bridge or well system names it, nor any disease as a treatment",
                     def.id
                 ),
             );
@@ -1296,6 +1355,8 @@ fn parsed_tables(parsed: &Parsed) -> Vec<(&str, &toml::Table)> {
     all.extend(tables(&parsed.values, |f| &f.id));
     all.extend(tables(&parsed.ideologies, |f| &f.id));
     all.extend(tables(&parsed.bridges, |f| &f.id));
+    all.extend(tables(&parsed.wells, |f| &f.id));
+    all.extend(tables(&parsed.diseases, |f| &f.id));
     all
 }
 
@@ -1365,7 +1426,7 @@ fn range_problems(c: &mut Collector, rel: &str, problems: Vec<String>) {
     }
 }
 
-const KINDS: [&str; 17] = [
+const KINDS: [&str; 19] = [
     worldgen::KIND,
     people::KIND,
     land::KIND,
@@ -1383,6 +1444,8 @@ const KINDS: [&str; 17] = [
     value::KIND,
     ideology::KIND,
     bridge::KIND,
+    well::KIND,
+    disease::KIND,
 ];
 
 fn compile_file(
@@ -1554,6 +1617,26 @@ fn compile_file(
             if check_identity(c, pack, rel, &file.id, bridge::ID_KIND, seen_ids) {
                 range_problems(c, rel, file.problems());
                 parsed.bridges.push(def(rel, pack, file, table));
+            }
+        }
+        disease::KIND => {
+            let Some(file) = parse::<disease::DiseaseFile>(c, rel, source) else {
+                return;
+            };
+            debug_assert_eq!(file.kind, disease::KIND, "dispatched on kind");
+            if check_identity(c, pack, rel, &file.id, disease::ID_KIND, seen_ids) {
+                range_problems(c, rel, file.problems());
+                parsed.diseases.push(def(rel, pack, file, table));
+            }
+        }
+        well::KIND => {
+            let Some(file) = parse::<well::WellFile>(c, rel, source) else {
+                return;
+            };
+            debug_assert_eq!(file.kind, well::KIND, "dispatched on kind");
+            if check_identity(c, pack, rel, &file.id, well::ID_KIND, seen_ids) {
+                range_problems(c, rel, file.problems());
+                parsed.wells.push(def(rel, pack, file, table));
             }
         }
         norm::KIND => {

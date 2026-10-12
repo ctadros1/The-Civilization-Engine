@@ -8,6 +8,7 @@ version 1 names them, §3's group kinds and storage, §8's schema 15 and wire 1.
 §1's repertoire and choice, §5's room under a roof. Slice P: §4's condition and upkeep, §5's
 loads and failure (with the storm's day), §6's skill and caution, §8's schemas 17 and 18.
 Amended: 2026-10-10, M5c slice AW: crossings over water (§9).
+Amended: 2026-10-10, M6 design: a well's lining is parts that rot by wetness (ADR-0021 §3).
 
 ## Context
 

@@ -773,6 +773,7 @@ pub fn find_site(
                 .filter(|e| e.kind != civ_land::earth::EarthKind::Platform)
                 .map(|e| e.rect),
         )
+        .chain(land.wells.list.iter().map(|w| w.rect))
         .filter(|r| r.near(&around, FIELD_GAP_CM))
         .collect();
     let near_homes: Vec<(f32, f32)> = homes

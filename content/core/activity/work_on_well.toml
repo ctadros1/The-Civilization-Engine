@@ -1,0 +1,20 @@
+# Work on a well the household is digging or relining beside its home (M6a slice AY, step three;
+# ADR-0021 §3): digging the shaft and lifting out the spoil, splitting and setting the lining.
+# Digging is heavy work, as digging clay is; ages and session lengths are tuning values as for
+# work on a crossing. The work a well takes is its well system's and its depth's. Its id sorts
+# after every older activity's: activities are kept in id order.
+kind = "activity"
+id = "core:activity/work_on_well"
+name = "Work on a well"
+doing = "digging a well"
+behavior = "well"
+par = 5.0
+min_age_years = 14.0
+max_age_years = 65.0
+min_minutes = 60
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 30
+technique = ""
+tools = ["core:good/axe"]
+rate = 1.0

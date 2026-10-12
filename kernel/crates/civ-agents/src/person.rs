@@ -50,7 +50,17 @@ pub enum Target {
     Deposit(PermanentId),
     /// A crossing over water, by permanent id: the one worked on (M5c slice AW).
     Crossing(PermanentId),
+    /// A well, by permanent id: the one dug and lined (M6a slice AY, step three).
+    Well(PermanentId),
+    /// A roof a fire threatens, by its building's permanent id, and where the water thrown on it
+    /// is drawn: the cell of a well or of the water at a bank or spring, or [`FROM_STORE`] for the
+    /// household's store at home (M6b slice BD, step three).
+    Douse { building: PermanentId, from: u32 },
 }
+
+/// Water for a fire drawn from the household's store at home, not a source (see
+/// [`Target::Douse`]).
+pub const FROM_STORE: u32 = u32::MAX;
 
 /// One step of an activity.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -566,11 +576,13 @@ pub enum Flow {
     Received,
     /// Given to another household.
     Given,
+    /// Lost to fire (M6b slice BC; ADR-0022 §5), and later flood or storm.
+    Lost,
 }
 
 impl Flow {
     /// Every kind, in a fixed order.
-    pub const ALL: [Flow; 13] = [
+    pub const ALL: [Flow; 14] = [
         Flow::Brought,
         Flow::Got,
         Flow::Made,
@@ -584,6 +596,7 @@ impl Flow {
         Flow::Departed,
         Flow::Received,
         Flow::Given,
+        Flow::Lost,
     ];
 
     /// Whether goods of this kind of flow enter stores (rather than leave them).
@@ -687,6 +700,13 @@ pub struct Household {
     pub water_l: f64,
     /// When water was last brought up to date.
     pub water_at: SimTime,
+    /// Litres each of its people uses a day, set by the walk to the water they last fetched
+    /// (M6a slice AY, ADR-0021 §1); 0 until then, which uses the profile's
+    /// `water_l_per_person_day`.
+    pub water_use_l: f64,
+    /// Minutes of the walk from home to the water its people last fetched, one way (M6a slice
+    /// BA, step four): how far they walk for water, as they walked it; 0 until they fetch.
+    pub water_walk_min: f32,
     /// Patches they have gathered in, and what they found.
     pub known: Vec<KnownPatch>,
     /// Their stores are under a roof: goods that keep better there spoil at their sheltered rates,
@@ -869,6 +889,15 @@ impl Household {
     pub fn water_at_time(&self, t: SimTime, litres_per_day: f64) -> f64 {
         let days = (t.minutes() - self.water_at.minutes()).max(0) as f64 / 1440.0;
         (self.water_l - days * litres_per_day).max(0.0)
+    }
+
+    /// Litres each of its people uses a day ([`Household::water_use_l`]).
+    pub fn water_use(&self, params: &crate::params::HouseholdParams) -> f64 {
+        if self.water_use_l > 0.0 {
+            self.water_use_l
+        } else {
+            params.water_l_per_person_day
+        }
     }
 
     /// Brings the water store up to `t`.
@@ -1062,6 +1091,8 @@ mod tests {
             stores_at: SimTime::ZERO,
             water_l: 100.0,
             water_at: SimTime::ZERO,
+            water_use_l: 0.0,
+            water_walk_min: 0.0,
             known: Vec::new(),
             sheltered: false,
             keeping: Keeping::default(),
@@ -1087,6 +1118,7 @@ mod tests {
             sheltered_half_life_days: 0.0,
             timber: None,
             store: None,
+            fire: None,
         };
         vec![
             good("meat", GoodUse::Food, 1500.0, 3.0, Eaten::Cooked),

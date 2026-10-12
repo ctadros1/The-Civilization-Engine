@@ -52,6 +52,7 @@
               <button id="state-retry" type="button" hidden>Try again</button>
             </div>
           </div>
+          <div class="lens-legend" id="lens-legend" aria-live="polite" hidden></div>
           <div class="map-hud" id="map-hud" hidden>
             <div class="readout" id="readout" aria-live="off">&nbsp;</div>
             <div class="scalebar" id="scalebar"><div class="bar" id="scalebar-bar"></div><span id="scalebar-text"></span></div>
@@ -89,7 +90,26 @@
                 <option value="6" selected>6 months' food</option>
                 <option value="12">12 months' food</option>
               </select>
+              <button id="hold-rain" type="button" title="Hold back the rain: the weather runs dry for the months chosen, as a dry spell of that depth would, and lets go as any spell does; people meet it as they meet any drought" disabled>Hold back the rain</button>
+              <select id="drought-months" aria-label="Months the rain is held back" title="Months the rain is held back" disabled>
+                <option value="3">for 3 months</option>
+                <option value="6">for 6 months</option>
+                <option value="12" selected>for 12 months</option>
+                <option value="24">for 24 months</option>
+              </select>
+              <select id="drought-depth" aria-label="How dry the months are held" title="How dry, in standard deviations of the slow wet-or-dry spell: in the temperate valley about three-quarters of the usual rain falls at 1.5, about half at 3" disabled>
+                <option value="1">a dry spell (1 sd)</option>
+                <option value="1.5" selected>a drought (1.5 sd)</option>
+                <option value="2">a hard drought (2 sd)</option>
+                <option value="3">a great drought (3 sd)</option>
+              </select>
+              <button id="set-fire" type="button" aria-pressed="false" title="Set a building alight: its covering catches; whether it spreads is the wind's, the dryness's and the gaps'; click the building (Esc cancels)" disabled>Set alight</button>
               <label class="toggle"><input type="checkbox" id="show-rivers" checked /> Rivers</label>
+              <select id="lens" aria-label="Lens" title="A lens on the map, read per home: the water each home could reach, or where its people did come for water">
+                <option value="" selected>No lens</option>
+                <option value="reach">Water: could reach</option>
+                <option value="came">Water: did come</option>
+              </select>
             </div>
           </div>
         </section>
@@ -132,9 +152,9 @@
             <h2 id="government-heading">Government</h2>
             <div class="panel-body" id="government-body"></div>
           </section>
-          <section class="panel order-panel" id="order-panel" aria-labelledby="order-heading">
-            <h2 id="order-heading">Takings</h2>
-            <div class="panel-body" id="order-body"></div>
+          <section class="panel order-panel incidents-panel" id="incidents-panel" aria-labelledby="incidents-heading">
+            <h2 id="incidents-heading">Incidents</h2>
+            <div class="panel-body" id="incidents-body"></div>
           </section>
           <section class="panel" aria-labelledby="world-heading">
             <h2 id="world-heading">World</h2>

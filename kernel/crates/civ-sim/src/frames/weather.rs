@@ -1,7 +1,7 @@
 //! The weather on the wire (wire 1.24, M3c slice U, ADR-0012): today's on the clock, in figures
 //! and words, and the record of every month for the weather panel.
 
-use civ_land::weather::{SNOW_COVER_MM, month_of};
+use civ_land::weather::{SNOW_COVER_MM, WeatherDay, month_of};
 use civ_land::{Weather, WeatherParams};
 use civ_schema::flatbuffers::{FlatBufferBuilder, WIPOffset};
 use civ_schema::wire;
@@ -61,6 +61,77 @@ pub fn weather_words(params: &WeatherParams, w: &Weather) -> String {
     s
 }
 
+/// The sixteen points of the compass, clockwise from north.
+const COMPASS: [&str; 16] = [
+    "north",
+    "north-north-east",
+    "north-east",
+    "east-north-east",
+    "east",
+    "east-south-east",
+    "south-east",
+    "south-south-east",
+    "south",
+    "south-south-west",
+    "south-west",
+    "west-south-west",
+    "west",
+    "west-north-west",
+    "north-west",
+    "north-north-west",
+];
+
+/// The point of the compass nearest `deg` degrees clockwise from north.
+pub fn compass(deg: f64) -> &'static str {
+    let i = ((deg.rem_euclid(360.0) / 22.5).round() as usize) % 16;
+    COMPASS[i]
+}
+
+/// A day's mean wind in words, as people would say it, by the Beaufort scale's bands: "calm",
+/// "a light breeze", "a strong wind", "a gale".
+pub fn wind_strength(ms: f64) -> &'static str {
+    match ms {
+        v if v < 0.5 => "calm",
+        v if v < 1.6 => "light air",
+        v if v < 3.4 => "a light breeze",
+        v if v < 5.5 => "a gentle breeze",
+        v if v < 8.0 => "a moderate wind",
+        v if v < 10.8 => "a fresh wind",
+        v if v < 13.9 => "a strong wind",
+        v if v < 17.2 => "a near gale",
+        v if v < 24.5 => "a gale",
+        _ => "a storm",
+    }
+}
+
+/// How dry exposed thatch is against the landscape's average day, in words.
+pub fn dryness(moisture: f64, usual: f64) -> &'static str {
+    match moisture {
+        m if m >= 0.35 => "thatch wet through",
+        m if m >= usual * 1.25 => "thatch damp",
+        m if m <= usual * 0.5 => "thatch tinder-dry",
+        m if m <= usual * 0.8 => "thatch drier than usual",
+        _ => "thatch as dry as usual",
+    }
+}
+
+/// Today's wind and dryness in words: "a gentle breeze from the west-south-west, gusts to 7 m/s;
+/// thatch drier than usual", "calm; thatch damp" (M6b slice BC).
+pub fn wind_words(t: &WeatherDay, usual: f64) -> String {
+    let speed = f64::from(t.wind_ms);
+    let wind = if speed < 0.5 {
+        "calm".to_owned()
+    } else {
+        format!(
+            "{} from the {}, gusts to {:.0} m/s",
+            wind_strength(speed),
+            compass(f64::from(t.wind_from_deg)),
+            t.gust_ms
+        )
+    };
+    format!("{wind}; {}", dryness(f64::from(t.fuel_moisture), usual))
+}
+
 /// Today's weather on the valley floor, for the clock.
 pub fn day_weather<'a>(
     fbb: &mut FlatBufferBuilder<'a>,
@@ -69,6 +140,8 @@ pub fn day_weather<'a>(
     let params = &sim.rules.land.weather;
     let w = &sim.land.weather;
     let words = fbb.create_string(&weather_words(params, w));
+    let usual = sim.land.climatology.fuel_moisture_mean;
+    let wind = fbb.create_string(&wind_words(&w.today, usual));
     let t = &w.today;
     wire::DayWeather::create(
         fbb,
@@ -81,6 +154,12 @@ pub fn day_weather<'a>(
             soil: (w.soil_mm / params.soil_water_mm.max(1e-9)) as f32,
             words: Some(words),
             snow_line_m: w.snow_line_m() as f32,
+            wind_ms: t.wind_ms,
+            wind_from_deg: t.wind_from_deg,
+            gust_ms: t.gust_ms,
+            fuel_moisture: t.fuel_moisture,
+            fuel_usual: usual as f32,
+            wind_words: Some(wind),
         },
     )
 }
@@ -113,12 +192,21 @@ pub fn weather_response(sim: &Sim) -> Vec<u8> {
                     frost_days: m.frost_days,
                     snow_days: m.snow_days,
                     soil: m.soil() as f32,
+                    held: m.held,
                 },
             )
         })
         .collect();
     let months = fbb.create_vector(&months);
     let today = day_weather(&mut fbb, sim);
+    // The observer's drought while it holds (wire 1.63).
+    let drought = land.weather.hold.map(|(value, until)| {
+        fbb.create_string(&format!(
+            "The observer holds back the rain, {:.1} standard deviations dry, until {}",
+            -value,
+            civ_agents::polity::day_words(civ_core::SimTime::from_minutes(until * 1440))
+        ))
+    });
     let body = wire::WeatherReport::create(
         &mut fbb,
         &wire::WeatherReportArgs {
@@ -128,6 +216,7 @@ pub fn weather_response(sim: &Sim) -> Vec<u8> {
             today: Some(today),
             months: Some(months),
             month: month_of(land.weather.today.day) as u8,
+            drought,
         },
     );
     response(fbb, wire::ResponseBody::WeatherReport, body)
@@ -168,6 +257,16 @@ mod tests {
             roof_snow_share: 0.8,
             roof_snow_full_deg: 30.0,
             roof_snow_shed_deg: 60.0,
+            wind_from_deg: 250.0,
+            wind_mean_ms: 2.0,
+            wind_sd_ms: 2.5,
+            wind_persistence: 0.6,
+            gust_factor: 1.7,
+            storm_veer_deg: 30.0,
+            fuel_dry_moisture: [0.2, 0.08],
+            fuel_days: 1.0,
+            fuel_wetting_per_mm: 0.015,
+            fuel_wet_moisture: 0.6,
         }
     }
 
@@ -180,15 +279,46 @@ mod tests {
                 mean_c: mean,
                 min_c: min,
                 max_c: mean + 5.0,
+                ..civ_land::WeatherDay::default()
             },
             anomaly: 0.0,
             slow: 0.0,
+            wind: (0.0, 0.0),
             snow_base_m: 100.0,
             snow_mm: vec![snow],
             soil_mm,
             cover_ease: 1.0,
             months: Vec::new(),
+            hold: None,
         }
+    }
+
+    #[test]
+    fn the_wind_and_the_thatch_are_told_in_words() {
+        let day = |ms: f32, from: f32, fuel: f32| civ_land::WeatherDay {
+            wind_ms: ms,
+            wind_from_deg: from,
+            gust_ms: ms * 1.7,
+            fuel_moisture: fuel,
+            ..civ_land::WeatherDay::default()
+        };
+        assert_eq!(
+            wind_words(&day(4.0, 250.0, 0.14), 0.15),
+            "a gentle breeze from the west-south-west, gusts to 7 m/s; thatch as dry as usual"
+        );
+        assert_eq!(
+            wind_words(&day(0.2, 90.0, 0.4), 0.15),
+            "calm; thatch wet through"
+        );
+        assert_eq!(
+            wind_words(&day(19.0, 2.0, 0.06), 0.15),
+            "a gale from the north, gusts to 32 m/s; thatch tinder-dry"
+        );
+        assert_eq!(compass(359.0), "north");
+        assert_eq!(compass(135.0), "south-east");
+        assert_eq!(compass(-90.0), "west");
+        assert_eq!(dryness(0.2, 0.15), "thatch damp");
+        assert_eq!(dryness(0.11, 0.15), "thatch drier than usual");
     }
 
     #[test]

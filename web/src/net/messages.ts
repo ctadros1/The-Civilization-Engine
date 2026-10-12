@@ -133,6 +133,16 @@ export interface Welcome {
   techniques: TechniqueInfo[];
   /** Wire 1.47 (M4c slice AJ): the ideologies, which the observer may tell someone of. */
   ideologies: IdeologyInfo[];
+  /** Wire 1.62 (M6a slice AZ): the diseases, which the observer may bring to someone. */
+  diseases: DiseaseInfo[];
+}
+
+/** A disease content names (wire 1.62): how it passes, in words ("by water and between those
+ * who share a home"). */
+export interface DiseaseInfo {
+  id: string;
+  name: string;
+  routes: string;
 }
 
 /** An ideology content names (wire 1.47). */
@@ -203,6 +213,18 @@ export interface DayWeather {
   /** The lowest height at which snow lies, metres; Infinity when it lies nowhere, or from a
    * host before wire 1.25. */
   snowLineM: number;
+  /** The day's mean wind, m/s, the direction it blows from (degrees clockwise from north), and
+   * its strongest gust, m/s (wire 1.67, M6b slice BC); 0 from an older host. */
+  windMs: number;
+  windFromDeg: number;
+  gustMs: number;
+  /** The water exposed thatch holds as a share of its dry mass, and that share on an average
+   * day (wire 1.67). */
+  fuelMoisture: number;
+  fuelUsual: number;
+  /** Rendered by the kernel: "a gentle breeze from the west-south-west, gusts to 7 m/s; thatch
+   * drier than usual"; empty from an older host. */
+  windWords: string;
 }
 
 /** One month's weather on the valley floor, beside what the month usually brings (wire 1.24). */
@@ -224,6 +246,8 @@ export interface WeatherMonth {
   snowDays: number;
   /** The soil water under the wild cover, on average, as a share of what the soil holds. */
   soil: number;
+  /** Whether the observer's drought held the weather on any of its days (wire 1.63). */
+  held: boolean;
 }
 
 /** Every month's weather (wire 1.24). */
@@ -238,6 +262,8 @@ export interface WeatherReport {
   months: WeatherMonth[];
   /** Today's month, 0 for January. */
   month: number;
+  /** The observer's drought while it holds, in words; empty when none holds (wire 1.63). */
+  drought: string;
 }
 
 export interface Task {
@@ -348,6 +374,14 @@ export interface Snapshot {
   /** Wire 1.60: changes whenever a crossing is begun, worked on, opens, rots or gives way (0 =
    * none). Fetch the crossings with GetCrossings. */
   crossingsRev: number;
+  /** Wire 1.61: changes whenever a well is begun, dug deeper, opens, rots, is relined, given up or
+   * falls in, and with each day lived while the world has wells or springs (0 = neither). Fetch
+   * them with GetWater. */
+  waterRev: number;
+  /** Wire 1.64: changes whenever an incident or an outbreak opens, moves on or ends, or what
+   * people know of one or what a polity did about one changes (0 = no incident yet). Fetch them
+   * with GetIncidents. */
+  incidentsRev: number;
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -515,7 +549,16 @@ export interface BuildingInfo {
    * Bo's hut"); and that building (0 for none; it may since be gone). */
   style: string;
   styleFrom: number;
+  /** Wire 1.68 (M6b slice BC): its latest fire, as it stands (none, covering alight, fully
+   * involved, burnt out); that fire's number (0 for none); and in words ("fully involved since
+   * 02:15, caught from the hut of Bo's household…", "burnt out at 02:45 on 3 May of year 2"). */
+  fire: BuildingFire;
+  fireId: number;
+  fireWords: string;
 }
+
+/** How a building stands to its latest fire (wire 1.68). */
+export type BuildingFire = "none" | "alight" | "involved" | "burnt";
 
 export type EventKind =
   | "info"
@@ -627,6 +670,10 @@ export interface ChronicleEntry {
   seq: number;
   minute: number;
   spans: Span[];
+  /** Wire 1.65: the incident or outbreak the entry tells of, for its page (kind 1 a taking, 2 a
+   * case of illness, 3 an outbreak), and where it happened, metres. */
+  link: { kind: number; id: number } | null;
+  at: [number, number] | null;
 }
 
 export interface Term {
@@ -769,6 +816,19 @@ export interface PersonInfo {
    * household's last taste review, in the kernel's words ("At Westford: Cal's hut"); empty when
    * none. */
   seenAway: string;
+  /** Wire 1.61 (M6a slice AY, ADR-0021 §1): where their household went for water today, in the
+   * kernel's words ("Their household went for water 6 times today: 4 times to its own well, twice
+   * to the water's edge; each of them uses 20 L a day, and it holds 85 L"). */
+  water: string;
+  /** Wire 1.62 (M6a slice AZ, ADR-0021 §5): their infections in the kernel's words, the latest
+   * first, at most five ("Ill with cholera since yesterday, day 2 of 4; took it in water drawn at
+   * Bo's household's well; ..."). The kernel's truth, which no one in the world knows. */
+  sickness: string[];
+  /** Wire 1.63 (M6a slice BA): the sources of water they hold sicken, with the counts of their
+   * latest tally ("Holds since 3 May of year 2 that the water at Bo's household's well sickens:
+   * of 5 households they know that draw there, 3 had sickness lately, against 0 of 6 that draw
+   * elsewhere"). What they believe, which may be wrong. */
+  suspicions: string[];
 }
 
 /** A claim the observer may whisper (wire 1.47). */
@@ -1575,6 +1635,107 @@ export interface CrossingsInfo {
   crossings: CrossingInfo[];
 }
 
+/** A well (wire 1.61, M6a slice AY; ADR-0021 §3). */
+export interface WellInfo {
+  id: number;
+  /** Its well system's name: "Timber-lined well". */
+  system: string;
+  /** Its centre and the radius dug, metres. */
+  x: number;
+  y: number;
+  radiusM: number;
+  /** 0 being dug, 1 open, 2 given up, 3 fallen in. */
+  state: number;
+  /** How deep it is dug and lined, and how deep its diggers now mean to take it, metres. */
+  depthM: number;
+  targetM: number;
+  /** While open: the water standing in its shaft and how far below the ground its surface is,
+   * metres (0 otherwise). */
+  waterM: number;
+  belowM: number;
+  /** Its lining's quality (0 until it opens) and the share rot has taken. */
+  quality: number;
+  loss: number;
+  /** The household it is the well of. */
+  household: number;
+  /** In the kernel's words: "Ada's household's timber-lined well, open since year 2: ...". */
+  words: string;
+  /** Wire 1.62 (M6a slice AZ): what fouls its water, in the kernel's words ("Its water holds
+   * cholera: about 120 doses, a dose in every 14 L"); empty when nothing does. */
+  fouled: string;
+}
+
+/** A spring flowing today (wire 1.61): where it rises, what flows to it in a day (m³) and what was
+ * drawn there today (L). */
+export interface SpringInfo {
+  x: number;
+  y: number;
+  flowM3Day: number;
+  drawnL: number;
+}
+
+/** Where people stood at a river's or lake's edge to draw water today, and how many times they
+ * came for it there (wire 1.61). */
+export interface BankDrawInfo {
+  x: number;
+  y: number;
+  trips: number;
+}
+
+export interface WaterInfo {
+  rev: number;
+  wells: WellInfo[];
+  springs: SpringInfo[];
+  /** The rivers' flow today against their mean (1 is the mean). */
+  flow: number;
+  banks: BankDrawInfo[];
+}
+
+/** A source of water as one home stands to it (wire 1.66): `kind` 1 its own well, 2 a well by
+ * right (its polity's or its kin's), 3 another's well, 4 a spring, 5 the water's edge. */
+export interface CoverageSource {
+  name: string;
+  x: number;
+  y: number;
+  kind: number;
+  /** Walking minutes from the home on the walking grid; null when not within the search. */
+  minutes: number | null;
+  /** For *did come*: the days of the period its people drew there. */
+  days: number;
+}
+
+/** One home under a lens (wire 1.66): the water it could reach and where its people did come. */
+export interface CoverageHome {
+  household: number;
+  name: string;
+  x: number;
+  y: number;
+  settlement: number;
+  /** Could reach: the nearest source of any kind; null when none is within the search. */
+  nearest: CoverageSource | null;
+  /** The nearest its people may draw at by right, when that is not the nearest. */
+  byRight: CoverageSource | null;
+  /** Did come: where its people drew water in the period, most days first. */
+  drew: CoverageSource[];
+  words: string[];
+}
+
+/** A lens's homes with its legend's parts (15-01 §3.1): title, scope, period, denominator. */
+export interface CoverageInfo {
+  lens: number;
+  title: string;
+  scope: string;
+  /** Each layer's period: *could reach*'s, then *did come*'s. */
+  periods: string[];
+  denominator: string;
+  homes: CoverageHome[];
+  /** The search's furthest walk, minutes. */
+  limitMin: number;
+  /** The period of *did come*, days. */
+  days: number;
+  summary: string[];
+}
+
 export interface EarthworksInfo {
   rev: number;
   works: EarthworkInfo[];
@@ -1604,10 +1765,178 @@ export type ResponseBody =
   | { kind: "deposits"; deposits: DepositsInfo }
   | { kind: "earthworks"; earthworks: EarthworksInfo }
   | { kind: "crossings"; crossings: CrossingsInfo }
+  | { kind: "water"; water: WaterInfo }
   | { kind: "weather"; weather: WeatherReport }
   | { kind: "standing"; standing: StandingInfo }
   | { kind: "government"; government: GovernmentInfo }
-  | { kind: "order"; order: OrderInfo };
+  | { kind: "order"; order: OrderInfo }
+  | { kind: "incidents"; incidents: IncidentsInfo }
+  | { kind: "incident"; incident: IncidentInfo }
+  | { kind: "outbreak"; outbreak: OutbreakInfo }
+  | { kind: "conflagration"; conflagration: ConflagrationInfo }
+  | { kind: "coverage"; coverage: CoverageInfo };
+
+// ---- Incidents (wire 1.64, M6a slice BB, ADR-0015 §8) --------------------------------------
+
+/** 1 a taking, 2 a case of illness, 4 a building's fire (wire 1.68). */
+export type IncidentKind = 1 | 2 | 4;
+
+/** Where a list of incidents goes on from. */
+export interface IncidentKey {
+  minute: number;
+  kind: number;
+  id: number;
+}
+
+/** One incident of any kind, its three layers in the kernel's words and kept apart. */
+export interface IncidentRow {
+  kind: number;
+  id: number;
+  /** When it began: a taking to the minute, an infection to the day. */
+  minute: number;
+  settlement: number;
+  at: [number, number];
+  /** Whom the words begin with: the one who went to take, or the one who took ill; for a fire,
+   * the building that burned (its id), named "The hut of Wren's household". */
+  who: number;
+  whoName: string;
+  /** What happened, after the name: the kernel's truth, which nobody in the world reads. */
+  happened: string;
+  /** What people know. */
+  known: string;
+  /** What the polity knows and did. */
+  polity: string;
+  /** The observer's influence that started it (0: none). */
+  observer: number;
+  /** The outbreak it is part of (0: none). */
+  outbreak: number;
+  open: boolean;
+  /** Wire 1.68: the conflagration a fire is part of (0: none). */
+  conflagration: number;
+}
+
+/** How many incidents of a kind there are, in the scope asked. */
+export interface IncidentTotal {
+  kind: number;
+  all: number;
+  known: number;
+  polity: number;
+  observer: number;
+}
+
+/** An outbreak: the episode its cases are part of. */
+export interface OutbreakRow {
+  id: number;
+  disease: string;
+  settlement: number;
+  /** Minutes; ended -1 while it runs. */
+  began: number;
+  ended: number;
+  took: number;
+  ill: number;
+  died: number;
+  observer: number;
+  words: string;
+}
+
+/** A conflagration (wire 1.68): fires caught from one another. */
+export interface ConflagrationRow {
+  id: number;
+  settlement: number;
+  /** Minutes; ended -1 while it burns. */
+  began: number;
+  ended: number;
+  burned: number;
+  died: number;
+  goodsKg: number;
+  observer: number;
+  words: string;
+}
+
+export interface IncidentsInfo {
+  minute: number;
+  rows: IncidentRow[];
+  next: IncidentKey | null;
+  totals: IncidentTotal[];
+  outbreaks: OutbreakRow[];
+  /** Wire 1.68: every conflagration in scope, newest first. */
+  conflagrations: ConflagrationRow[];
+}
+
+/** A step in an incident's chain. */
+export interface IncidentStep {
+  label: string;
+  /** -1 when not reached or not recorded. */
+  minute: number;
+  state: "reached" | "not reached" | "not recorded";
+  byDay: boolean;
+  words: string;
+}
+
+export type LinkRelation = "caused_by" | "part_of" | "responded_to";
+export type LinkTarget =
+  | "influence"
+  | "person"
+  | "household"
+  | "source"
+  | "outbreak"
+  | "taking"
+  | "illness"
+  | "fire"
+  | "conflagration"
+  | "building";
+
+/** A typed link, recorded when it happened. */
+export interface IncidentLink {
+  relation: LinkRelation;
+  target: LinkTarget;
+  id: number;
+  words: string;
+}
+
+export interface IncidentInfo {
+  row: IncidentRow;
+  steps: IncidentStep[];
+  links: IncidentLink[];
+  truth: string[];
+  knowledge: string[];
+  polity: string[];
+}
+
+/** A source of water an outbreak's cases drank from, or one people suspect. */
+export interface OutbreakSource {
+  name: string;
+  cases: number;
+  truth: string[];
+  knowledge: string[];
+  polity: string[];
+}
+
+export interface OutbreakInfo {
+  row: OutbreakRow;
+  cause: string;
+  causeLink: IncidentLink | null;
+  /** The first day of the curve, as a minute. */
+  start: number;
+  /** Cases by day from `start`: those who took it, and those who fell ill. */
+  took: number[];
+  onset: number[];
+  routes: string[];
+  sources: OutbreakSource[];
+  members: IncidentRow[];
+  membersTotal: number;
+}
+
+/** A conflagration's page (wire 1.68): how it began, the wind and dryness when it first spread,
+ * its fires in the order they caught, and the buildings its heat reached that held. */
+export interface ConflagrationInfo {
+  row: ConflagrationRow;
+  cause: string;
+  causeLink: IncidentLink | null;
+  weather: string;
+  fires: IncidentRow[];
+  held: string[];
+}
 
 export type ErrorCode =
   | "unknown"
@@ -1752,6 +2081,35 @@ export function tellOfIdeology(person: number, ideology: number): Uint8Array {
 }
 
 /**
+ * The observer brings a disease to someone (god tool, M6a slice AZ, ADR-0021 §8): `disease` is an
+ * index into Welcome.diseases. They have it as if they took it elsewhere; whether it goes further
+ * is the disease's and people's. Refused for someone who already has it.
+ */
+/** Holds back the rain for `months` months, `depth` standard deviations dry (god tool, wire 1.63). */
+export function drought(months: number, depth: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.Drought.createDrought(b, months, depth);
+  return command(b, W.CommandBody.Drought, body);
+}
+
+export function plague(person: number, disease: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.Plague.createPlague(b, BigInt(person), disease);
+  return command(b, W.CommandBody.Plague, body);
+}
+
+/**
+ * The observer sets a building's covering alight (god tool, wire 1.68, ADR-0022 §14): it burns as
+ * any fire does. Refused for a building with no roof, one already burning, or one whose covering
+ * is gone.
+ */
+export function setFire(building: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.SetFire.createSetFire(b, BigInt(building));
+  return command(b, W.CommandBody.SetFire, body);
+}
+
+/**
  * The observer sends an agitator (god tool, M4c slice AJ, ADR-0016 §5): one adult newcomer
  * holding an ideology (an index into Welcome.ideologies) arrives where a family would.
  */
@@ -1893,6 +2251,49 @@ export function getCrossings(): Uint8Array {
   return query(b, W.QueryBody.GetCrossings, W.GetCrossings.endGetCrossings(b));
 }
 
+/** A page of incidents (wire 1.64): `settlement` 0 for every one, `kind` 0 for every kind. */
+export function getIncidents(settlement: number, kind: number, before: IncidentKey | null, limit: number): Uint8Array {
+  const b = new flatbuffers.Builder(64);
+  W.GetIncidents.startGetIncidents(b);
+  W.GetIncidents.addSettlement(b, BigInt(settlement));
+  W.GetIncidents.addKind(b, kind);
+  if (before) {
+    W.GetIncidents.addBefore(b, W.IncidentKey.createIncidentKey(b, BigInt(before.minute), before.kind, before.id));
+  }
+  W.GetIncidents.addLimit(b, limit);
+  return query(b, W.QueryBody.GetIncidents, W.GetIncidents.endGetIncidents(b));
+}
+
+/** One incident's page (wire 1.64). */
+export function getIncident(kind: number, id: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  return query(b, W.QueryBody.GetIncident, W.GetIncident.createGetIncident(b, kind, id));
+}
+
+/** One outbreak's page (wire 1.64): `limit` cases listed, 0 for the default. */
+export function getOutbreak(id: number, limit: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  return query(b, W.QueryBody.GetOutbreak, W.GetOutbreak.createGetOutbreak(b, id, limit));
+}
+
+/** One conflagration's page (wire 1.68). */
+export function getConflagration(id: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  return query(b, W.QueryBody.GetConflagration, W.GetConflagration.createGetConflagration(b, id));
+}
+
+/** A lens over the homes of `settlement` (0: every settlement); lens 1 is water (wire 1.66). */
+export function getCoverage(settlement: number, lens: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  return query(b, W.QueryBody.GetCoverage, W.GetCoverage.createGetCoverage(b, BigInt(settlement), lens));
+}
+
+export function getWater(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetWater.startGetWater(b);
+  return query(b, W.QueryBody.GetWater, W.GetWater.endGetWater(b));
+}
+
 /** The observer lays down a deposit of `good` (a content id) at a point, metres (god tool). */
 export function placeDeposit(x: number, y: number, good: string, radiusM: number, exposed: boolean): Uint8Array {
   const b = new flatbuffers.Builder(64);
@@ -2031,6 +2432,12 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
     if (!d) continue;
     ideologies.push({ id: d.id() ?? "", name: d.name() ?? "", legitimacy: d.legitimacy() ?? "" });
   }
+  const diseases: DiseaseInfo[] = [];
+  for (let i = 0; i < w.diseasesLength(); i++) {
+    const d = w.diseases(i);
+    if (!d) continue;
+    diseases.push({ id: d.id() ?? "", name: d.name() ?? "", routes: d.routes() ?? "" });
+  }
   const reasons: Record<number, string> = {};
   for (let i = 0; i < w.reasonsLength(); i++) {
     const r = w.reasons(i);
@@ -2058,6 +2465,7 @@ export function decodeWelcome(payload: Uint8Array): Welcome {
     regimes,
     techniques,
     ideologies,
+    diseases,
   };
 }
 
@@ -2147,6 +2555,8 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     earthworksRev: Number(s.earthworksRev()),
     weatherRev: Number(s.weatherRev()),
     crossingsRev: Number(s.crossingsRev()),
+    waterRev: Number(s.waterRev()),
+    incidentsRev: Number(s.incidentsRev()),
   };
 }
 
@@ -2202,6 +2612,99 @@ function crossings(w: W.Crossings): CrossingsInfo {
     });
   }
   return { rev: Number(w.rev()), crossings: list };
+}
+
+function coverageSource(v: W.CoverageSource): CoverageSource {
+  const at = v.at();
+  const minutes = v.minutes();
+  return {
+    name: v.name() ?? "",
+    x: at?.x() ?? 0,
+    y: at?.y() ?? 0,
+    kind: v.kind(),
+    minutes: minutes < 0 ? null : minutes,
+    days: v.days(),
+  };
+}
+
+function coverage(c: W.Coverage): CoverageInfo {
+  const homes: CoverageHome[] = [];
+  for (let i = 0; i < c.homesLength(); i++) {
+    const h = c.homes(i);
+    if (!h) continue;
+    const at = h.at();
+    const nearest = h.nearest();
+    const byRight = h.byRight();
+    const drew: CoverageSource[] = [];
+    for (let j = 0; j < h.drewLength(); j++) {
+      const d = h.drew(j);
+      if (d) drew.push(coverageSource(d));
+    }
+    const words: string[] = [];
+    for (let j = 0; j < h.wordsLength(); j++) words.push(h.words(j));
+    homes.push({
+      household: Number(h.household()),
+      name: h.name() ?? "",
+      x: at?.x() ?? 0,
+      y: at?.y() ?? 0,
+      settlement: Number(h.settlement()),
+      nearest: nearest ? coverageSource(nearest) : null,
+      byRight: byRight ? coverageSource(byRight) : null,
+      drew,
+      words,
+    });
+  }
+  const summary: string[] = [];
+  for (let i = 0; i < c.summaryLength(); i++) summary.push(c.summary(i));
+  const periods: string[] = [];
+  for (let i = 0; i < c.periodsLength(); i++) periods.push(c.periods(i));
+  return {
+    lens: c.lens(),
+    title: c.title() ?? "",
+    scope: c.scope() ?? "",
+    periods,
+    denominator: c.denominator() ?? "",
+    homes,
+    limitMin: c.limitMin(),
+    days: c.days(),
+    summary,
+  };
+}
+
+function water(w: W.Water): WaterInfo {
+  const wells: WellInfo[] = [];
+  for (let i = 0; i < w.wellsLength(); i++) {
+    const v = w.wells(i);
+    if (!v) continue;
+    wells.push({
+      id: Number(v.id()),
+      system: v.system() ?? "",
+      x: v.x(),
+      y: v.y(),
+      radiusM: v.radiusM(),
+      state: v.state(),
+      depthM: v.depthM(),
+      targetM: v.targetM(),
+      waterM: v.waterM(),
+      belowM: v.belowM(),
+      quality: v.quality(),
+      loss: v.loss(),
+      household: Number(v.household()),
+      words: v.words() ?? "",
+      fouled: v.fouled() ?? "",
+    });
+  }
+  const springs: SpringInfo[] = [];
+  for (let i = 0; i < w.springsLength(); i++) {
+    const v = w.springs(i);
+    if (v) springs.push({ x: v.x(), y: v.y(), flowM3Day: v.flowM3Day(), drawnL: v.drawnL() });
+  }
+  const banks: BankDrawInfo[] = [];
+  for (let i = 0; i < w.banksLength(); i++) {
+    const v = w.banks(i);
+    if (v) banks.push({ x: v.x(), y: v.y(), trips: v.trips() });
+  }
+  return { rev: Number(w.rev()), wells, springs, flow: w.flow(), banks };
 }
 
 function earthworks(w: W.Earthworks): EarthworksInfo {
@@ -2456,7 +2959,14 @@ function chronicle(c: W.Chronicle): { entries: ChronicleEntry[]; head: number } 
       if (!s) continue;
       spans.push({ kind: SPAN_KINDS[s.kind()] ?? "text", text: s.text() ?? "", id: Number(s.id()) });
     }
-    entries.push({ seq: Number(e.seq()), minute: Number(e.minute()), spans });
+    const at = e.at();
+    entries.push({
+      seq: Number(e.seq()),
+      minute: Number(e.minute()),
+      spans,
+      link: e.incidentKind() !== 0 ? { kind: e.incidentKind(), id: e.incident() } : null,
+      at: at ? [at.x(), at.y()] : null,
+    });
   }
   return { entries, head: Number(c.head()) };
 }
@@ -2519,6 +3029,207 @@ function dayWeather(w: W.DayWeather | null): DayWeather | null {
     soil: w.soil(),
     words: w.words() ?? "",
     snowLineM: w.snowLineM(),
+    windMs: w.windMs(),
+    windFromDeg: w.windFromDeg(),
+    gustMs: w.gustMs(),
+    fuelMoisture: w.fuelMoisture(),
+    fuelUsual: w.fuelUsual(),
+    windWords: w.windWords() ?? "",
+  };
+}
+
+function strings(n: number, at: (i: number) => string | null): string[] {
+  return Array.from({ length: n }, (_, i) => at(i) ?? "");
+}
+
+function incidentRow(r: W.IncidentRow): IncidentRow {
+  const at = r.at();
+  return {
+    kind: r.kind(),
+    id: r.id(),
+    minute: Number(r.minute()),
+    settlement: Number(r.settlement()),
+    at: [at?.x() ?? 0, at?.y() ?? 0],
+    who: Number(r.who()),
+    whoName: r.whoName() ?? "",
+    happened: r.happened() ?? "",
+    known: r.known() ?? "",
+    polity: r.polity() ?? "",
+    observer: r.observer(),
+    outbreak: r.outbreak(),
+    open: r.open(),
+    conflagration: r.conflagration(),
+  };
+}
+
+function conflagrationRow(c: W.ConflagrationRow): ConflagrationRow {
+  return {
+    id: c.id(),
+    settlement: Number(c.settlement()),
+    began: Number(c.began()),
+    ended: Number(c.ended()),
+    burned: c.burned(),
+    died: c.died(),
+    goodsKg: c.goodsKg(),
+    observer: c.observer(),
+    words: c.words() ?? "",
+  };
+}
+
+function outbreakRow(o: W.OutbreakRow): OutbreakRow {
+  return {
+    id: o.id(),
+    disease: o.disease() ?? "",
+    settlement: Number(o.settlement()),
+    began: Number(o.began()),
+    ended: Number(o.ended()),
+    took: o.took(),
+    ill: o.ill(),
+    died: o.died(),
+    observer: o.observer(),
+    words: o.words() ?? "",
+  };
+}
+
+const LINK_RELATIONS: LinkRelation[] = ["caused_by", "part_of", "responded_to"];
+const LINK_TARGETS: LinkTarget[] = [
+  "influence",
+  "person",
+  "household",
+  "source",
+  "outbreak",
+  "taking",
+  "illness",
+  "fire",
+  "conflagration",
+  "building",
+];
+
+function incidentLink(l: W.IncidentLink): IncidentLink {
+  return {
+    relation: LINK_RELATIONS[l.relation()] ?? "caused_by",
+    target: LINK_TARGETS[l.target()] ?? "influence",
+    id: Number(l.id()),
+    words: l.words() ?? "",
+  };
+}
+
+const STEP_STATES: IncidentStep["state"][] = ["reached", "not reached", "not recorded"];
+
+function incidentsInfo(f: W.Incidents): IncidentsInfo {
+  const rows: IncidentRow[] = [];
+  for (let i = 0; i < f.rowsLength(); i++) {
+    const r = f.rows(i);
+    if (r) rows.push(incidentRow(r));
+  }
+  const totals: IncidentTotal[] = [];
+  for (let i = 0; i < f.totalsLength(); i++) {
+    const t = f.totals(i);
+    if (t) totals.push({ kind: t.kind(), all: t.all(), known: t.known(), polity: t.polity(), observer: t.observer() });
+  }
+  const outbreaks: OutbreakRow[] = [];
+  for (let i = 0; i < f.outbreaksLength(); i++) {
+    const o = f.outbreaks(i);
+    if (o) outbreaks.push(outbreakRow(o));
+  }
+  const conflagrations: ConflagrationRow[] = [];
+  for (let i = 0; i < f.conflagrationsLength(); i++) {
+    const c = f.conflagrations(i);
+    if (c) conflagrations.push(conflagrationRow(c));
+  }
+  const n = f.next();
+  return {
+    minute: Number(f.minute()),
+    rows,
+    next: n ? { minute: Number(n.minute()), kind: n.kind(), id: n.id() } : null,
+    totals,
+    outbreaks,
+    conflagrations,
+  };
+}
+
+function incidentInfo(f: W.IncidentInfo): IncidentInfo {
+  const row = f.row();
+  const steps: IncidentStep[] = [];
+  for (let i = 0; i < f.stepsLength(); i++) {
+    const s = f.steps(i);
+    if (!s) continue;
+    steps.push({
+      label: s.label() ?? "",
+      minute: Number(s.minute()),
+      state: STEP_STATES[s.state()] ?? "not recorded",
+      byDay: s.byDay(),
+      words: s.words() ?? "",
+    });
+  }
+  const links: IncidentLink[] = [];
+  for (let i = 0; i < f.linksLength(); i++) {
+    const l = f.links(i);
+    if (l) links.push(incidentLink(l));
+  }
+  return {
+    row: row ? incidentRow(row) : incidentRow(new W.IncidentRow()),
+    steps,
+    links,
+    truth: strings(f.truthLength(), (i) => f.truth(i)),
+    knowledge: strings(f.knowledgeLength(), (i) => f.knowledge(i)),
+    polity: strings(f.polityLength(), (i) => f.polity(i)),
+  };
+}
+
+function outbreakInfo(f: W.OutbreakInfo): OutbreakInfo {
+  const row = f.row();
+  const sources: OutbreakSource[] = [];
+  for (let i = 0; i < f.sourcesLength(); i++) {
+    const s = f.sources(i);
+    if (!s) continue;
+    sources.push({
+      name: s.name() ?? "",
+      cases: s.cases(),
+      truth: strings(s.truthLength(), (k) => s.truth(k)),
+      knowledge: strings(s.knowledgeLength(), (k) => s.knowledge(k)),
+      polity: strings(s.polityLength(), (k) => s.polity(k)),
+    });
+  }
+  const members: IncidentRow[] = [];
+  for (let i = 0; i < f.membersLength(); i++) {
+    const m = f.members(i);
+    if (m) members.push(incidentRow(m));
+  }
+  const link = f.causeLink();
+  return {
+    row: row
+      ? outbreakRow(row)
+      : { id: 0, disease: "", settlement: 0, began: 0, ended: -1, took: 0, ill: 0, died: 0, observer: 0, words: "" },
+    cause: f.cause() ?? "",
+    causeLink: link ? incidentLink(link) : null,
+    start: Number(f.start()),
+    took: Array.from(f.tookArray() ?? []),
+    onset: Array.from(f.onsetArray() ?? []),
+    routes: strings(f.routesLength(), (i) => f.routes(i)),
+    sources,
+    members,
+    membersTotal: f.membersTotal(),
+  };
+}
+
+function conflagrationInfo(f: W.ConflagrationInfo): ConflagrationInfo {
+  const row = f.row();
+  const fires: IncidentRow[] = [];
+  for (let i = 0; i < f.firesLength(); i++) {
+    const x = f.fires(i);
+    if (x) fires.push(incidentRow(x));
+  }
+  const link = f.causeLink();
+  return {
+    row: row
+      ? conflagrationRow(row)
+      : { id: 0, settlement: 0, began: 0, ended: -1, burned: 0, died: 0, goodsKg: 0, observer: 0, words: "" },
+    cause: f.cause() ?? "",
+    causeLink: link ? incidentLink(link) : null,
+    weather: f.weather() ?? "",
+    fires,
+    held: strings(f.heldLength(), (i) => f.held(i)),
   };
 }
 
@@ -2542,6 +3253,7 @@ function weatherReport(r: W.WeatherReport): WeatherReport {
       frostDays: x.frostDays(),
       snowDays: x.snowDays(),
       soil: x.soil(),
+      held: x.held(),
     });
   }
   return {
@@ -2551,6 +3263,7 @@ function weatherReport(r: W.WeatherReport): WeatherReport {
     today: dayWeather(r.today()),
     months,
     month: r.month(),
+    drought: r.drought() ?? "",
   };
 }
 
@@ -2575,6 +3288,9 @@ const BUILDING_STATES: Record<number, BuildingState> = {
   [W.BuildingState.Damaged]: "damaged",
   [W.BuildingState.Ruin]: "ruin",
 };
+
+/** A building's latest fire by its wire code (wire 1.68). */
+const BUILDING_FIRES: BuildingFire[] = ["none", "alight", "involved", "burnt"];
 
 function groups(x: W.BuildingInfo): GroupInfo[] {
   const out: GroupInfo[] = [];
@@ -2657,6 +3373,9 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
       upkeep: x.upkeep() ?? "",
       style: x.style() ?? "",
       styleFrom: Number(x.styleFrom()),
+      fire: BUILDING_FIRES[x.fire()] ?? "none",
+      fireId: x.fireId(),
+      fireWords: x.fireWords() ?? "",
     });
   }
   return { rev: Number(f.rev()), buildings: out };
@@ -3279,6 +3998,9 @@ function personInfo(p: W.PersonInfo): PersonInfo {
     reports,
     errand: p.errand() ?? "",
     seenAway: p.seenAway() ?? "",
+    water: p.water() ?? "",
+    sickness: Array.from({ length: p.sicknessLength() }, (_, k) => p.sickness(k) ?? ""),
+    suspicions: Array.from({ length: p.suspicionsLength() }, (_, k) => p.suspicions(k) ?? ""),
   };
 }
 
@@ -3599,6 +4321,36 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Crossings()) as W.Crossings | null;
       if (!f) break;
       return { kind: "crossings", crossings: crossings(f) };
+    }
+    case W.ResponseBody.Incidents: {
+      const f = r.body(new W.Incidents()) as W.Incidents | null;
+      if (!f) break;
+      return { kind: "incidents", incidents: incidentsInfo(f) };
+    }
+    case W.ResponseBody.IncidentInfo: {
+      const f = r.body(new W.IncidentInfo()) as W.IncidentInfo | null;
+      if (!f) break;
+      return { kind: "incident", incident: incidentInfo(f) };
+    }
+    case W.ResponseBody.OutbreakInfo: {
+      const f = r.body(new W.OutbreakInfo()) as W.OutbreakInfo | null;
+      if (!f) break;
+      return { kind: "outbreak", outbreak: outbreakInfo(f) };
+    }
+    case W.ResponseBody.ConflagrationInfo: {
+      const f = r.body(new W.ConflagrationInfo()) as W.ConflagrationInfo | null;
+      if (!f) break;
+      return { kind: "conflagration", conflagration: conflagrationInfo(f) };
+    }
+    case W.ResponseBody.Coverage: {
+      const f = r.body(new W.Coverage()) as W.Coverage | null;
+      if (!f) break;
+      return { kind: "coverage", coverage: coverage(f) };
+    }
+    case W.ResponseBody.Water: {
+      const f = r.body(new W.Water()) as W.Water | null;
+      if (!f) break;
+      return { kind: "water", water: water(f) };
     }
     case W.ResponseBody.WeatherReport: {
       const f = r.body(new W.WeatherReport()) as W.WeatherReport | null;

@@ -1,0 +1,20 @@
+# Carrying a load of the household's goods out from under a roof of its that a fire threatens
+# (M6b slice BD, step four; ADR-0022 §5: goods carried out survive). A load of what would burn is
+# taken up, carried out of the fire's way and set down; then the carrier decides again. Heavy
+# work in haste (PAR as carrying water). Ages and minutes are tuning values. Its id sorts after
+# every older activity's: activities are kept in id order.
+kind = "activity"
+id = "core:activity/work_with_fire_salvage_goods"
+name = "Carry goods out of a fire's way"
+doing = "carrying goods out of a fire's way"
+behavior = "salvage"
+par = 4.5
+min_age_years = 10.0
+max_age_years = 70.0
+min_minutes = 1                  # taking a load up, and setting it down
+max_minutes = 1
+daylight_only = false
+max_walk_minutes = 30
+technique = ""
+tools = []
+rate = 1.0

@@ -108,6 +108,26 @@ pub enum Request {
         /// The share of their way it moves a draw.
         share: f32,
     },
+    /// Bring a disease to a living person, as if they took it elsewhere (god tool, M6a slice AZ,
+    /// ADR-0021 §8).
+    Plague {
+        /// Permanent id.
+        person: u64,
+        /// An index into `Welcome.diseases`.
+        disease: u32,
+    },
+    /// Set a building's covering alight (god tool, M6b slice BC, ADR-0022 §14).
+    SetFire {
+        /// Its permanent id.
+        building: u64,
+    },
+    /// Hold back the rain over the settlement for a while (god tool, M6a slice BA, ADR-0021 §8).
+    Drought {
+        /// How many months it holds, 3 to 24.
+        months: u32,
+        /// How dry, in standard deviations of the slow wet-or-dry spell, 0 to 3.
+        depth: f32,
+    },
     /// Lay down a deposit (god tool, ADR-0010 §1).
     PlaceDeposit {
         /// Metres from the map's north-west corner.
@@ -180,6 +200,45 @@ pub enum Request {
     GetOrder,
     /// Every crossing over water (wire 1.60).
     GetCrossings,
+    /// The wells, springs and water drawn today (wire 1.61).
+    GetWater,
+    /// A page of incidents of every kind, newest first (wire 1.64, ADR-0015 §8).
+    GetIncidents {
+        /// A settlement's permanent id, or 0 for every settlement.
+        settlement: u64,
+        /// 0 for every kind; 1 takings; 2 cases of illness.
+        kind: u8,
+        /// Where the page goes on from: (minute, kind, number) of the last row before it.
+        before: Option<(i64, u8, u32)>,
+        /// Rows asked: 0 for the default.
+        limit: u32,
+    },
+    /// One incident's page (wire 1.64).
+    GetIncident {
+        /// 1 a taking; 2 a case of illness.
+        kind: u8,
+        /// Its number among incidents of its kind.
+        id: u32,
+    },
+    /// One outbreak's page (wire 1.64).
+    GetOutbreak {
+        /// Its number.
+        id: u32,
+        /// Cases to list: 0 for the default.
+        limit: u32,
+    },
+    /// One conflagration's page (wire 1.68).
+    GetConflagration {
+        /// Its number.
+        id: u32,
+    },
+    /// A lens read per home (wire 1.66): the Water lens's *could reach* and *did come*.
+    GetCoverage {
+        /// The settlement whose homes, 0 for every settlement.
+        settlement: u64,
+        /// 1: water.
+        lens: u8,
+    },
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -499,6 +558,30 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         share: b.share(),
                     })
                 }
+                wire::CommandBody::Plague => {
+                    let b = command.body_as_plague().ok_or_else(|| missing("command"))?;
+                    Ok(Request::Plague {
+                        person: b.person(),
+                        disease: b.disease(),
+                    })
+                }
+                wire::CommandBody::Drought => {
+                    let b = command
+                        .body_as_drought()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::Drought {
+                        months: b.months(),
+                        depth: b.depth(),
+                    })
+                }
+                wire::CommandBody::SetFire => {
+                    let b = command
+                        .body_as_set_fire()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::SetFire {
+                        building: b.building(),
+                    })
+                }
                 other => Err(format!("unknown command {}", other.0)),
             }
         }
@@ -559,6 +642,51 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                 wire::QueryBody::GetGovernment => Ok(Request::GetGovernment),
                 wire::QueryBody::GetOrder => Ok(Request::GetOrder),
                 wire::QueryBody::GetCrossings => Ok(Request::GetCrossings),
+                wire::QueryBody::GetWater => Ok(Request::GetWater),
+                wire::QueryBody::GetIncidents => {
+                    let b = query
+                        .body_as_get_incidents()
+                        .ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetIncidents {
+                        settlement: b.settlement(),
+                        kind: b.kind(),
+                        before: b.before().map(|k| (k.minute(), k.kind(), k.id())),
+                        limit: b.limit(),
+                    })
+                }
+                wire::QueryBody::GetIncident => {
+                    let b = query
+                        .body_as_get_incident()
+                        .ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetIncident {
+                        kind: b.kind(),
+                        id: b.id(),
+                    })
+                }
+                wire::QueryBody::GetOutbreak => {
+                    let b = query
+                        .body_as_get_outbreak()
+                        .ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetOutbreak {
+                        id: b.id(),
+                        limit: b.limit(),
+                    })
+                }
+                wire::QueryBody::GetConflagration => {
+                    let b = query
+                        .body_as_get_conflagration()
+                        .ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetConflagration { id: b.id() })
+                }
+                wire::QueryBody::GetCoverage => {
+                    let b = query
+                        .body_as_get_coverage()
+                        .ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetCoverage {
+                        settlement: b.settlement(),
+                        lens: b.lens(),
+                    })
+                }
                 other => Err(format!("unknown query {}", other.0)),
             }
         }
@@ -654,6 +782,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
     let skills = fbb.create_vector(&skills);
     let techniques = civ_sim::frames::knowledge::technique_infos(&mut fbb, &content.catalog);
     let ideologies = civ_sim::frames::word::ideology_infos(&mut fbb, &content.catalog);
+    let diseases = civ_sim::frames::sickness::disease_infos(&mut fbb, &content.catalog);
     let regimes: Vec<_> = content
         .catalog
         .regimes
@@ -744,6 +873,7 @@ pub fn welcome_payload(content: &ContentRegistry) -> Vec<u8> {
             techniques: Some(techniques),
             accelerated_multipliers: Some(accelerated),
             ideologies: Some(ideologies),
+            diseases: Some(diseases),
         },
     );
     finish(fbb, root)
@@ -797,6 +927,10 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
     let crossings_rev = parts
         .sim
         .map_or(0, civ_sim::frames::crossings::crossings_rev);
+    let water_rev = parts.sim.map_or(0, civ_sim::frames::water::water_rev);
+    let incidents_rev = parts
+        .sim
+        .map_or(0, civ_sim::frames::incidents::incidents_rev);
     let task = parts.task.map(|t| {
         let name = fbb.create_string(&t.name);
         let stage = fbb.create_string(&t.stage);
@@ -850,6 +984,8 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             earthworks_rev,
             weather_rev,
             crossings_rev,
+            water_rev,
+            incidents_rev,
         },
     );
     finish(fbb, root)
@@ -1141,6 +1277,63 @@ mod tests {
             })
         );
         let mut fbb = FlatBufferBuilder::new();
+        let body = wire::Plague::create(
+            &mut fbb,
+            &wire::PlagueArgs {
+                person: 9,
+                disease: 1,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::Plague,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::Plague {
+                person: 9,
+                disease: 1
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::Drought::create(
+            &mut fbb,
+            &wire::DroughtArgs {
+                months: 9,
+                depth: 1.5,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::Drought,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::Drought {
+                months: 9,
+                depth: 1.5
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::SetFire::create(&mut fbb, &wire::SetFireArgs { building: 77 });
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::SetFire,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::SetFire { building: 77 })
+        );
+        let mut fbb = FlatBufferBuilder::new();
         let body = wire::Bless::create(
             &mut fbb,
             &wire::BlessArgs {
@@ -1188,6 +1381,116 @@ mod tests {
         assert_eq!(
             decode_request(FrameKind::Query, &query(wire::QueryBody::GetFirm, Some(42))),
             Ok(Request::GetFirm { id: 42 })
+        );
+    }
+
+    #[test]
+    fn incident_queries_decode_into_requests() {
+        let mut fbb = FlatBufferBuilder::new();
+        let key = wire::IncidentKey::new(14_400, 2, 7);
+        let body = wire::GetIncidents::create(
+            &mut fbb,
+            &wire::GetIncidentsArgs {
+                settlement: 9,
+                kind: 2,
+                before: Some(&key),
+                limit: 25,
+            },
+        );
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetIncidents,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetIncidents {
+                settlement: 9,
+                kind: 2,
+                before: Some((14_400, 2, 7)),
+                limit: 25,
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::GetIncidents::create(&mut fbb, &wire::GetIncidentsArgs::default());
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetIncidents,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetIncidents {
+                settlement: 0,
+                kind: 0,
+                before: None,
+                limit: 0,
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::GetIncident::create(&mut fbb, &wire::GetIncidentArgs { kind: 1, id: 3 });
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetIncident,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetIncident { kind: 1, id: 3 })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::GetOutbreak::create(&mut fbb, &wire::GetOutbreakArgs { id: 2, limit: 10 });
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetOutbreak,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetOutbreak { id: 2, limit: 10 })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::GetConflagration::create(&mut fbb, &wire::GetConflagrationArgs { id: 4 });
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetConflagration,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetConflagration { id: 4 })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::GetCoverage::create(
+            &mut fbb,
+            &wire::GetCoverageArgs {
+                settlement: 7,
+                lens: 1,
+            },
+        );
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetCoverage,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetCoverage {
+                settlement: 7,
+                lens: 1
+            })
         );
     }
 

@@ -880,6 +880,44 @@ impl Sim {
         self.influence(|people, ctx| people.bless(ctx, person, curse, days, share))
     }
 
+    /// The observer brings disease `disease` (its content id) to `person`, as if they took it
+    /// elsewhere (god tool, M6a slice AZ, ADR-0021 §8). Whether it goes further is the disease's
+    /// and people's.
+    pub fn plague(
+        &mut self,
+        person: civ_core::PermanentId,
+        disease: &str,
+    ) -> Result<civ_agents::population::Reached, String> {
+        let index = self
+            .rules
+            .catalog
+            .disease_index(disease)
+            .ok_or_else(|| format!("the content has no disease `{disease}`"))?;
+        self.influence(|people, ctx| people.plague(ctx, person, index))
+    }
+
+    /// The observer holds back the rain for `months` months, the weather's slow anomaly held
+    /// `depth` standard deviations dry (god tool, M6a slice BA, step five; ADR-0021 §8). What
+    /// follows, in the soil, the rivers, the water table, wells, springs and harvests, is the
+    /// world's.
+    pub fn drought(
+        &mut self,
+        months: u32,
+        depth: f64,
+    ) -> Result<civ_agents::population::Reached, String> {
+        self.influence(|people, ctx| people.drought(ctx, months, depth))
+    }
+
+    /// The observer sets building `building`'s covering alight (god tool, M6b slice BC; ADR-0022
+    /// §14). It burns as any fire does: whether it spreads, and what it takes, is the fire's and
+    /// the weather's.
+    pub fn set_fire(
+        &mut self,
+        building: civ_core::PermanentId,
+    ) -> Result<civ_agents::population::Reached, String> {
+        self.influence(|people, ctx| people.set_fire(ctx, building))
+    }
+
     /// Runs god tool `tool` on the people with a context for now, then schedules what it planned.
     fn influence<T>(
         &mut self,

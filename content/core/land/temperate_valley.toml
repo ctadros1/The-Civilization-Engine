@@ -83,6 +83,29 @@ storm_spread = 0.6
 roof_snow_share = 0.8
 roof_snow_full_deg = 30.0
 roof_snow_shed_deg = 60.0
+# The day's wind (ADR-0022 §2; content API 80): its mean a vector whose components along and across
+# the prevailing direction each wander as an AR(1) about their means (research 03-03 §1.4: vector
+# components, a separate gust). The reports give no figures for a valley's wind; these are design
+# priors for an inland basin in the westerlies: a prevailing wind from the west-south-west, a
+# day's mean wind of about 3.5 m/s, gusts 1.7 times it. On the month's storm day the wind is the
+# storm's when its gusts are stronger (its speed from its load, q = rho v^2 / 2), from a direction
+# about the prevailing one.
+wind_from_deg = 250.0
+wind_mean_ms = 2.0
+wind_sd_ms = 2.5
+wind_persistence = 0.6
+gust_factor = 1.7
+storm_veer_deg = 30.0
+# Dryness: the water exposed fuel such as thatch holds, as a share of its dry mass (12-03 §1.5:
+# it follows recent weather). A dry day settles it at the first share at a mean of 0 °C and the
+# second at 25 °C, most of the way within `fuel_days`; rain or snow adds to it at once, up to
+# `fuel_wet_moisture`. Design priors: no report gives thatch's moisture. On this valley's weather a
+# year averages about 0.2 and a summer day's middle about 0.14, and about one day in twenty is too
+# wet to catch at all (the people profile's `fire.extinction_moisture`).
+fuel_dry_moisture = [0.2, 0.08]
+fuel_days = 1.0
+fuel_wetting_per_mm = 0.015
+fuel_wet_moisture = 0.6
 
 # The soil's nitrogen (ADR-0012 §3; content API 27), kilograms a hectare of native ground of
 # average richness (a field's ground scales its stocks). Two pools turn to mineral nitrogen once a
@@ -117,6 +140,56 @@ wear_half_life_days = 120.0
 # trail outlives a season out of use (tuning values).
 trail_at = 0.3
 trail_until = 0.15
+
+# Water under the ground and the rivers by the day (ADR-0021 §1-§2; content API 69). What the
+# reference soil cannot hold on a day is split: a share drains down to a shallow aquifer, the rest
+# runs off at once (research 03-02 §1.1). The aquifer keeps a head per habitat patch, exchanging
+# with its neighbours and with the rivers (03-02 §1.3); where it reaches the lowest ground of a
+# patch it seeps out. What reaches the water and what runs off pass through one runoff store,
+# whose outflow against the landscape's mean scales every reach's mean discharge.
+# How what people shed moves through this ground and water (M6a slice AZ, step two; ADR-0021 §4;
+# research 12-02 §5.2-§5.3, 03-02 §1.6). The research gives the structure (sparse links from a
+# heap to the wells and rivers near it, each with a travel time and a capture share before the
+# separate decay; runoff off the ground to wellheads; concentration as load over litres), not
+# these numbers: all are tuning values, calibrated in the step-two probe (plan §9).
+[contamination]
+wash_per_mm = 0.01               # a day's surplus of 10 mm washes a tenth of a heap off
+wash_max = 0.5                   # at most half in one day
+runoff_radius_m = 30.0           # 12-02 §2.2's 30 m setback, taken as the reach of runoff
+seep_per_day = 0.02              # what soaks into the ground beneath a heap a day
+link_radius_m = 30.0             # 03-02 §1.6's 15-30 m setbacks: how far a link may run
+capture_share = 0.1              # what of the soaked load reaches its receptors before decay
+min_gradient = 0.005             # the water table's least slope (03-02 §1.6's example: 0.01)
+drink_l_per_day = 3.0            # of the household's water each person drinks a day
+
+[groundwater]
+recharge_share = 0.5             # tuning: the research gives no partition for this landscape
+recession_days = 3.0             # the runoff store lets go 28 % of what it holds a day (tuning)
+spring_min_m3_day = 0.5          # a design prior: a spring that waters 25 people at 20 L
+# Units of ground, by the habitats over them; first match wins, the last lies under the rest. A
+# world draws each unit's conductivity (evenly in its logarithm) and specific yield once, within
+# 03-02 §2.2's priors, which it gives as starting envelopes, not measurements: sand under the
+# valley floor, silt on the lower slopes and weathered rock under the uplands (the M6 health
+# brief §1.2).
+[[groundwater.unit]]
+name = "alluvial sand"
+habitats = ["water", "wetland", "floodplain"]
+k_m_day = [0.1, 100.0]           # 03-02 §2.2: sand aquifer
+specific_yield = [0.15, 0.30]    # 03-02 §2.2: sand aquifer
+thickness_m = 10.0               # a design prior: 03-02 §1.4's worked well has 10 m saturated
+
+[[groundwater.unit]]
+name = "silty slope deposits"
+habitats = ["woodland"]
+k_m_day = [0.001, 0.1]           # 03-02 §2.2: silty deposit
+specific_yield = [0.03, 0.15]    # 03-02 §2.2: silty deposit
+thickness_m = 10.0               # a design prior: what has washed down the lower slopes
+
+[[groundwater.unit]]
+name = "weathered rock"
+k_m_day = [0.001, 10.0]          # 03-02 §2.2: weathered or fractured bedrock
+specific_yield = [0.005, 0.05]   # 03-02 §2.2: weathered or fractured bedrock
+thickness_m = 15.0               # a design prior: the weathered zone over sound rock
 
 # Habitats, first match wins (research 03-06 §5.1, 10-01 §5.5).
 [[habitat]]

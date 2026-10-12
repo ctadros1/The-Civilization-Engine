@@ -570,6 +570,81 @@ fn under_a_law_against_taking_cases_are_brought_heard_and_their_findings_owed() 
     let told = |k: civ_agents::ChronicleKind| pop.chronicle.iter().any(|e| e.kind == k);
     assert!(told(civ_agents::ChronicleKind::CaseBrought));
     assert!(told(civ_agents::ChronicleKind::CaseHeard));
+    // The incidents list every taking, and a heard case's page tells its steps through the
+    // gathering's decision (wire 1.64, M6a slice BB).
+    {
+        use civ_schema::{flatbuffers, wire};
+        use civ_sim::frames::incidents::{self, TAKING};
+        let bytes = incidents::incidents_response(&sim, None, TAKING, None, 200);
+        let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+        let list = response.body_as_incidents().expect("incidents");
+        let total = list
+            .totals()
+            .expect("totals")
+            .iter()
+            .find(|t| t.kind() == TAKING)
+            .expect("takings counted");
+        assert_eq!(total.all() as usize, order.incidents.len());
+        assert!(total.polity() as usize >= 1 && total.polity() as usize <= order.cases.len());
+        assert_eq!(
+            list.rows().map(|r| r.len()),
+            Some(order.incidents.len().min(200))
+        );
+        let c = order
+            .cases
+            .iter()
+            .find(|c| c.stage != CaseStage::Open)
+            .expect("a heard case");
+        let bytes = incidents::incident_response(&sim, TAKING, c.incident).expect("a page");
+        let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+        let info = response.body_as_incident_info().expect("a page");
+        let steps: Vec<(&str, u8)> = info
+            .steps()
+            .expect("steps")
+            .iter()
+            .map(|s| (s.label().unwrap_or_default(), s.state()))
+            .collect();
+        assert_eq!(steps[0], ("Went to take", 0));
+        assert_eq!(steps[1], ("Seen", 0));
+        assert_eq!(steps[5], ("Before the gathering", 0));
+        assert_eq!(steps[6], ("Decided", 0));
+        let row = info.row().expect("its row");
+        assert!(
+            row.polity()
+                .is_some_and(|p| p.contains(" brought it before the gathering on the word of ")),
+            "{:?}",
+            row.polity()
+        );
+        assert!(
+            row.happened().is_some_and(|h| h.contains("; seen by ")),
+            "{:?}",
+            row.happened()
+        );
+        // Each taking the chronicle tells links to its incident, where it happened (wire 1.65).
+        let bytes = civ_sim::frames::people::chronicle_response(&sim, 0, 256);
+        let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+        let entries = response
+            .body_as_chronicle()
+            .and_then(|c| c.entries())
+            .expect("entries");
+        let told: Vec<_> = pop
+            .chronicle
+            .iter()
+            .take(256)
+            .filter(|e| e.kind == civ_agents::ChronicleKind::Taking)
+            .collect();
+        assert!(!told.is_empty());
+        for e in told {
+            let entry = entries
+                .iter()
+                .find(|x| x.seq() == e.seq)
+                .expect("the entry");
+            assert_eq!(entry.incident_kind(), TAKING, "{}", e.name);
+            let i = order.incident(entry.incident()).expect("its incident");
+            assert_eq!((i.actor, i.at), (e.people[0], e.at));
+            assert!(entry.at().is_some());
+        }
+    }
     // A loaded world runs by the content's rules: so must this one, to go on alike.
     sim.rules_mut_for_tests()
         .expect("rules not yet shared")
@@ -686,6 +761,83 @@ fn a_watcher_chooses_once_what_to_do_with_a_taking_they_saw() {
         .people
         .crime = content_crime;
     saves_and_goes_on_alike(&mut sim, content(), DAY);
+}
+
+#[test]
+fn one_named_to_the_watch_after_telling_of_a_taking_makes_no_watcher_s_choice_about_it() {
+    // A witness who told those taken from as anyone would, and whom the village named to the
+    // watch afterwards, chooses nothing more about that taking (a further watcher named while
+    // takings went on was found looking away from one they had already told of).
+    use civ_agents::crime::{Belief, Incident, Outcome as Taken, Source};
+    use civ_agents::polity::PolicyKind;
+    let mut sim = world_with(content(), 3);
+    sim.advance_minutes(DAY).expect("advances");
+    let now = sim.now();
+    let homes: Vec<(PermanentId, Vec<PermanentId>, (f32, f32))> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, h)| !h.members.is_empty())
+        .map(|(_, h)| (h.id, h.members.clone(), h.home))
+        .collect();
+    assert!(homes.len() >= 3, "three households");
+    let (taker_hh, taker) = (homes[0].0, homes[0].1[0]);
+    let (target, told, place) = (homes[1].0, homes[1].1[0], homes[1].2);
+    let witness = homes[2].1[0];
+    let id = {
+        let order = &mut sim.people_mut_for_tests().order;
+        let id = order.incidents.last().map_or(1, |i| i.id + 1);
+        order.incidents.push(Incident {
+            id,
+            at: now,
+            actor: taker,
+            actor_household: taker_hh,
+            target,
+            place,
+            outcome: Taken::Taken,
+            goods: Vec::new(),
+            kcal: 0.0,
+            seen_by: vec![witness],
+            noticed: false,
+            food_days: f32::NAN,
+            richer: f32::NAN,
+        });
+        let day = now.day_index();
+        order.learn(Belief {
+            holder: witness,
+            incident: id,
+            taker: Some(taker),
+            source: Source::Saw,
+            from: None,
+            origin: Some(witness),
+            day,
+        });
+        order.learn(Belief {
+            holder: told,
+            incident: id,
+            taker: Some(taker),
+            source: Source::Told,
+            from: Some(witness),
+            origin: Some(witness),
+            day,
+        });
+        id
+    };
+    // Then the village names them to the watch.
+    a_law(&mut sim, PolicyKind::KeepWatch);
+    sim.people_mut_for_tests().polities[0]
+        .laws
+        .iter_mut()
+        .find(|l| l.kind == PolicyKind::KeepWatch)
+        .expect("the law")
+        .holder = Some(witness);
+    sim.advance_minutes(2 * DAY).expect("advances");
+    let order = &sim.people().order;
+    assert!(
+        order.sighting(witness, id).is_none(),
+        "{:?}",
+        order.sighting(witness, id)
+    );
 }
 
 #[test]

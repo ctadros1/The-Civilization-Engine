@@ -213,6 +213,7 @@ mod tests {
             sheltered_half_life_days: 0.0,
             timber: None,
             store: None,
+            fire: None,
         };
         vec![
             good("grain", GoodUse::Food),
@@ -236,6 +237,8 @@ mod tests {
                 stores_at: SimTime::ZERO,
                 water_l: 0.0,
                 water_at: SimTime::ZERO,
+                water_use_l: 0.0,
+                water_walk_min: 0.0,
                 known: Vec::new(),
                 sheltered: false,
                 keeping: crate::person::Keeping::default(),

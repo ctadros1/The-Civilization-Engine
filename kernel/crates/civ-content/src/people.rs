@@ -68,6 +68,243 @@ pub(crate) struct PeopleFile {
     pub reports: ReportsFile,
     /// How views of other polities are held (M5c slice AT; content API 60).
     pub relations: RelationsFile,
+    /// How people tally a source of water (M6a slice BA, step two; content API 76).
+    pub suspicion: SuspicionFile,
+    /// How buildings burn and fire passes between them (M6b slice BC; content API 81).
+    pub fire: FireFile,
+}
+
+/// How buildings burn and fire passes between them (M6b slice BC, ADR-0022 §4-§5; content API
+/// 81), how fires in use escape (slice BD; content API 82), and how an escape grows and people
+/// notice and shout (content API 83). See [`civ_agents::fire::FireParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct FireFile {
+    pub reach_m: f64,
+    pub flux_kw: [f64; 2],
+    pub covering_flux_share: f64,
+    pub wind_stretch_per_ms: f64,
+    pub exposure_minutes: f64,
+    pub catch_per_minute: f64,
+    pub extinction_moisture: f64,
+    pub reference_moisture: f64,
+    pub involve_minutes: f64,
+    pub involved_minutes: f64,
+    pub covering_minutes: f64,
+    pub char_mm_first_hour: f64,
+    pub char_exponent: f64,
+    pub infill_loss: f64,
+    pub hearth_lit_per_hour: f64,
+    pub hearth_banked_per_hour: f64,
+    pub worked_per_hour: f64,
+    pub beside_m: f64,
+    pub grow_minutes: [f64; 2],
+    pub wake_minutes: [f64; 2],
+    pub sight_m: f64,
+    pub earshot_m: f64,
+    pub water_stays: f64,
+    pub wet_drains_per_minute: f64,
+    pub w_save: f64,
+    pub kin_share: f64,
+    pub neighbour_share: f64,
+    pub strip_m2_per_minute: f64,
+    pub strip_cost: f64,
+    pub salvage_share: f64,
+}
+
+impl FireFile {
+    fn params(&self) -> civ_agents::fire::FireParams {
+        civ_agents::fire::FireParams {
+            reach_m: self.reach_m,
+            flux_kw: self.flux_kw,
+            covering_flux_share: self.covering_flux_share,
+            wind_stretch_per_ms: self.wind_stretch_per_ms,
+            exposure_minutes: self.exposure_minutes,
+            catch_per_minute: self.catch_per_minute,
+            extinction_moisture: self.extinction_moisture,
+            reference_moisture: self.reference_moisture,
+            involve_minutes: self.involve_minutes,
+            involved_minutes: self.involved_minutes,
+            covering_minutes: self.covering_minutes,
+            char_mm_first_hour: self.char_mm_first_hour,
+            char_exponent: self.char_exponent,
+            infill_loss: self.infill_loss,
+            hearth_lit_per_hour: self.hearth_lit_per_hour,
+            hearth_banked_per_hour: self.hearth_banked_per_hour,
+            worked_per_hour: self.worked_per_hour,
+            beside_m: self.beside_m,
+            grow_minutes: self.grow_minutes,
+            wake_minutes: self.wake_minutes,
+            sight_m: self.sight_m,
+            earshot_m: self.earshot_m,
+            water_stays: self.water_stays,
+            wet_drains_per_minute: self.wet_drains_per_minute,
+            w_save: self.w_save,
+            kin_share: self.kin_share,
+            neighbour_share: self.neighbour_share,
+            strip_m2_per_minute: self.strip_m2_per_minute,
+            strip_cost: self.strip_cost,
+            salvage_share: self.salvage_share,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("fire.reach_m", self.reach_m, 0.0, 100.0),
+            ("fire.flux_kw[0]", self.flux_kw[0], 0.1, 500.0),
+            ("fire.flux_kw[1]", self.flux_kw[1], 0.1, 500.0),
+            (
+                "fire.covering_flux_share",
+                self.covering_flux_share,
+                0.0,
+                1.0,
+            ),
+            (
+                "fire.wind_stretch_per_ms",
+                self.wind_stretch_per_ms,
+                0.0,
+                1.0,
+            ),
+            ("fire.exposure_minutes", self.exposure_minutes, 0.01, 120.0),
+            ("fire.catch_per_minute", self.catch_per_minute, 0.0, 60.0),
+            (
+                "fire.extinction_moisture",
+                self.extinction_moisture,
+                0.01,
+                3.0,
+            ),
+            ("fire.reference_moisture", self.reference_moisture, 0.0, 3.0),
+            ("fire.involve_minutes", self.involve_minutes, 0.0, 600.0),
+            ("fire.involved_minutes", self.involved_minutes, 1.0, 6000.0),
+            ("fire.covering_minutes", self.covering_minutes, 0.1, 600.0),
+            (
+                "fire.char_mm_first_hour",
+                self.char_mm_first_hour,
+                0.0,
+                200.0,
+            ),
+            ("fire.char_exponent", self.char_exponent, 0.1, 2.0),
+            ("fire.infill_loss", self.infill_loss, 0.0, 1.0),
+            (
+                "fire.hearth_lit_per_hour",
+                self.hearth_lit_per_hour,
+                0.0,
+                0.1,
+            ),
+            (
+                "fire.hearth_banked_per_hour",
+                self.hearth_banked_per_hour,
+                0.0,
+                0.1,
+            ),
+            ("fire.worked_per_hour", self.worked_per_hour, 0.0, 0.1),
+            ("fire.beside_m", self.beside_m, 0.0, 50.0),
+            ("fire.grow_minutes[0]", self.grow_minutes[0], 0.0, 600.0),
+            ("fire.grow_minutes[1]", self.grow_minutes[1], 0.0, 600.0),
+            ("fire.wake_minutes[0]", self.wake_minutes[0], 0.0, 600.0),
+            ("fire.wake_minutes[1]", self.wake_minutes[1], 0.0, 600.0),
+            ("fire.sight_m", self.sight_m, 0.0, 2000.0),
+            ("fire.earshot_m", self.earshot_m, 0.0, 1000.0),
+            ("fire.water_stays", self.water_stays, 0.0, 1.0),
+            (
+                "fire.wet_drains_per_minute",
+                self.wet_drains_per_minute,
+                0.0,
+                1.0,
+            ),
+            ("fire.w_save", self.w_save, 0.0, 1000.0),
+            ("fire.kin_share", self.kin_share, 0.0, 1.0),
+            ("fire.neighbour_share", self.neighbour_share, 0.0, 1.0),
+            (
+                "fire.strip_m2_per_minute",
+                self.strip_m2_per_minute,
+                0.0,
+                100.0,
+            ),
+            ("fire.strip_cost", self.strip_cost, 0.0, 1.0),
+            ("fire.salvage_share", self.salvage_share, 0.0, 10.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        if self.flux_kw[1] >= self.flux_kw[0] {
+            p.push("`fire.flux_kw` must fall from 1 m to 4 m".to_owned());
+        }
+        if self.reference_moisture >= self.extinction_moisture {
+            p.push("`fire.reference_moisture` must be below `fire.extinction_moisture`".to_owned());
+        }
+        for (name, [lo, hi]) in [
+            ("fire.grow_minutes", self.grow_minutes),
+            ("fire.wake_minutes", self.wake_minutes),
+        ] {
+            if lo > hi {
+                p.push(format!("`{name}` must run from the least to the most"));
+            }
+        }
+    }
+}
+
+/// How people tally a source of water (M6a slice BA, ADR-0021 §6; content API 76), and what they
+/// believe its sickness costs (content API 78). See
+/// [`civ_agents::suspicion::SuspicionParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct SuspicionFile {
+    pub min_households: u32,
+    pub min_sick: u32,
+    pub ratio: f64,
+    pub draws_min_days: f64,
+    pub known_min: f64,
+    pub review_days: u32,
+    pub case_days: f64,
+    pub case_death_share: f64,
+    pub w_death: f64,
+}
+
+impl SuspicionFile {
+    fn params(&self) -> civ_agents::suspicion::SuspicionParams {
+        civ_agents::suspicion::SuspicionParams {
+            min_households: self.min_households,
+            min_sick: self.min_sick,
+            ratio: self.ratio,
+            draws_min_days: self.draws_min_days,
+            known_min: self.known_min,
+            review_days: self.review_days,
+            case_days: self.case_days,
+            case_death_share: self.case_death_share,
+            w_death: self.w_death,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("suspicion.min_households", self.min_households, 1, 1000),
+            ("suspicion.min_sick", self.min_sick, 1, 1000),
+            ("suspicion.review_days", self.review_days, 1, 365),
+        ] {
+            if !(lo..=hi).contains(&v) {
+                p.push(format!("`{name}` must be {lo} to {hi} (got {v})"));
+            }
+        }
+        for (name, v, lo, hi) in [
+            ("suspicion.ratio", self.ratio, 1.0, 100.0),
+            ("suspicion.draws_min_days", self.draws_min_days, 0.0, 365.0),
+            ("suspicion.known_min", self.known_min, 0.0, 1.0),
+            ("suspicion.case_days", self.case_days, 0.0, 365.0),
+            (
+                "suspicion.case_death_share",
+                self.case_death_share,
+                0.0,
+                1.0,
+            ),
+            ("suspicion.w_death", self.w_death, 0.0, 100_000.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+    }
 }
 
 /// Factions, their petitions, refusals and revolts (M4c slices AH-AI, ADR-0017 §2-4; content API
@@ -308,6 +545,8 @@ pub(crate) struct MovingFile {
     pub w_stake: f64,
     pub cost: f64,
     pub reviews: u32,
+    /// Content API 77 (M6a slice BA, step three).
+    pub w_sickness: f64,
 }
 
 /// What founding a settlement of its own is worth to a household, and what a coalition must hold
@@ -380,6 +619,10 @@ pub(crate) struct WordFile {
     pub reminder: f64,
     pub tell_floor: f64,
     pub remind_days: u32,
+    /// Content API 75 (M6a slice BA, step one).
+    pub share_sickness: f64,
+    pub sickness_days: u32,
+    pub sickness_spell_days: u32,
 }
 
 impl WordFile {
@@ -395,6 +638,9 @@ impl WordFile {
             reminder: self.reminder,
             tell_floor: self.tell_floor,
             remind_days: self.remind_days,
+            share_sickness: self.share_sickness,
+            sickness_days: self.sickness_days,
+            sickness_spell_days: self.sickness_spell_days,
         }
     }
 
@@ -406,6 +652,7 @@ impl WordFile {
             ("word.full_harm_days", self.full_harm_days, 0.01, 3650.0),
             ("word.reminder", self.reminder, 0.0, 1.0),
             ("word.tell_floor", self.tell_floor, 0.0, 1.0),
+            ("word.share_sickness", self.share_sickness, 0.0, 1.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
@@ -435,6 +682,14 @@ impl WordFile {
                 "`word.max_grievances` must be 1 to 64 (got {})",
                 self.max_grievances
             ));
+        }
+        for (name, v) in [
+            ("word.sickness_days", self.sickness_days),
+            ("word.sickness_spell_days", self.sickness_spell_days),
+        ] {
+            if !(1..=365).contains(&v) {
+                p.push(format!("`{name}` must be 1 to 365 (got {v})"));
+            }
         }
     }
 }
@@ -1125,6 +1380,10 @@ pub(crate) struct Social {
 pub(crate) struct Household {
     pub water_l_per_person_day: f64,
     pub carry_water_l: f64,
+    /// Content API 70: what a person uses a day by the one-way walk to the water, pairs of
+    /// minutes and litres; none for `water_l_per_person_day` whatever the walk.
+    #[serde(default)]
+    pub water_use_by_walk_min: Vec<[f64; 2]>,
     pub water_target_days: f64,
     pub food_target_days: f64,
     pub ready_food_days: f64,
@@ -1170,6 +1429,8 @@ pub(crate) struct Decision {
     pub w_dark: f64,
     pub w_rest: f64,
     pub w_play: f64,
+    /// Content API 74 (M6a slice AZ, step three).
+    pub w_tend: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1369,6 +1630,11 @@ impl PeopleFile {
             household: HouseholdParams {
                 water_l_per_person_day: h.water_l_per_person_day,
                 carry_water_l: h.carry_water_l,
+                water_use_by_walk: h
+                    .water_use_by_walk_min
+                    .iter()
+                    .map(|&[m, l]| (m, l))
+                    .collect(),
                 water_target_days: h.water_target_days,
                 food_target_days: h.food_target_days,
                 ready_food_days: h.ready_food_days,
@@ -1410,6 +1676,7 @@ impl PeopleFile {
                 w_dark: d.w_dark,
                 w_rest: d.w_rest,
                 w_play: d.w_play,
+                w_tend: d.w_tend,
             },
             band: BandParams {
                 default_size: b.default_size,
@@ -1595,6 +1862,7 @@ impl PeopleFile {
                 w_stake: self.moving.w_stake,
                 cost: self.moving.cost,
                 reviews: self.moving.reviews,
+                w_sickness: self.moving.w_sickness,
             },
             founding: civ_agents::places::FoundingParams {
                 cost: self.founding.cost,
@@ -1609,6 +1877,8 @@ impl PeopleFile {
                 max_age_days: self.reports.max_age_days,
                 share_told: self.reports.share_told,
             },
+            suspicion: self.suspicion.params(),
+            fire: self.fire.params(),
             relations: civ_agents::views::RelationsParams {
                 prior: self.relations.prior,
                 half_life_days: self.relations.half_life_days,
@@ -1638,6 +1908,8 @@ impl PeopleFile {
         self.polity.problems(&mut p);
         self.crime.problems(&mut p);
         self.word.problems(&mut p);
+        self.suspicion.problems(&mut p);
+        self.fire.problems(&mut p);
         if !(self.places.sight_m.is_finite() && (0.0..=10_000.0).contains(&self.places.sight_m)) {
             p.push(format!(
                 "`places.sight_m` must be between 0 and 10000 (got {})",
@@ -1682,6 +1954,7 @@ impl PeopleFile {
             ("moving.w_grievance", self.moving.w_grievance),
             ("moving.w_stake", self.moving.w_stake),
             ("moving.cost", self.moving.cost),
+            ("moving.w_sickness", self.moving.w_sickness),
         ] {
             if !(v.is_finite() && (0.0..=100.0).contains(&v)) {
                 p.push(format!("`{key}` must be between 0 and 100 (got {v})"));
@@ -2067,6 +2340,21 @@ impl PeopleFile {
             &mut p,
         );
         positive("household.carry_water_l", h.carry_water_l, &mut p);
+        let mut last = f64::NEG_INFINITY;
+        for &[m, l] in &h.water_use_by_walk_min {
+            if !(m.is_finite() && m >= 0.0 && m > last) {
+                p.push(
+                    "`household.water_use_by_walk_min` needs minutes of 0 or more, rising"
+                        .to_owned(),
+                );
+            }
+            if !(l.is_finite() && (1.0..=100.0).contains(&l)) {
+                p.push(format!(
+                    "`household.water_use_by_walk_min` litres must be between 1 and 100 (got {l})"
+                ));
+            }
+            last = m;
+        }
         positive("household.water_target_days", h.water_target_days, &mut p);
         positive("household.food_target_days", h.food_target_days, &mut p);
         positive("household.ready_food_days", h.ready_food_days, &mut p);
@@ -2202,6 +2490,7 @@ impl PeopleFile {
             ("w_dark", d.w_dark),
             ("w_rest", d.w_rest),
             ("w_play", d.w_play),
+            ("w_tend", d.w_tend),
         ] {
             non_negative(&format!("decision.{name}"), v, &mut p);
         }

@@ -429,6 +429,9 @@ impl Engine {
                 days,
                 share,
             } => self.bless(person, curse, days, share),
+            Request::Plague { person, disease } => self.plague(person, disease),
+            Request::Drought { months, depth } => self.drought(months, depth),
+            Request::SetFire { building } => self.set_fire(building),
             Request::GetRaster(query) => match &self.world {
                 None => no_world(),
                 Some(w) => match frames::raster_response(
@@ -523,6 +526,69 @@ impl Engine {
             Request::GetCrossings => match &self.world {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::crossings::crossings_response(&w.sim)),
+            },
+            Request::GetWater => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::water::water_response(&w.sim)),
+            },
+            Request::GetIncidents {
+                settlement,
+                kind,
+                before,
+                limit,
+            } => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::incidents::incidents_response(
+                    &w.sim,
+                    civ_core::PermanentId::from_raw(settlement),
+                    kind,
+                    before,
+                    limit as usize,
+                )),
+            },
+            Request::GetIncident { kind, id } => match &self.world {
+                None => no_world(),
+                Some(w) => match frames::incidents::incident_response(&w.sim, kind, id) {
+                    Some(payload) => Reply::Response(payload),
+                    None => Reply::Error(
+                        wire::ErrorCode::NotFound,
+                        format!("no incident of kind {kind} numbered {id}"),
+                    ),
+                },
+            },
+            Request::GetOutbreak { id, limit } => match &self.world {
+                None => no_world(),
+                Some(w) => match frames::incidents::outbreak_response(&w.sim, id, limit as usize) {
+                    Some(payload) => Reply::Response(payload),
+                    None => Reply::Error(
+                        wire::ErrorCode::NotFound,
+                        format!("no outbreak numbered {id}"),
+                    ),
+                },
+            },
+            Request::GetConflagration { id } => match &self.world {
+                None => no_world(),
+                Some(w) => match frames::incidents::conflagration_response(&w.sim, id) {
+                    Some(payload) => Reply::Response(payload),
+                    None => Reply::Error(
+                        wire::ErrorCode::NotFound,
+                        format!("no conflagration numbered {id}"),
+                    ),
+                },
+            },
+            Request::GetCoverage { settlement, lens } => match &self.world {
+                None => no_world(),
+                Some(w) => match frames::coverage::coverage_response(
+                    &w.sim,
+                    civ_core::PermanentId::from_raw(settlement),
+                    lens,
+                ) {
+                    Some(payload) => Reply::Response(payload),
+                    None => Reply::Error(
+                        wire::ErrorCode::BadRequest,
+                        format!("no lens numbered {lens}"),
+                    ),
+                },
             },
             Request::GetWeather => match &self.world {
                 None => no_world(),
@@ -1233,6 +1299,93 @@ impl Engine {
         }
     }
 
+    /// The observer brings disease number `disease` (in `Welcome.diseases`) to `person` (M6a
+    /// slice AZ, ADR-0021 §8).
+    fn plague(&mut self, person: u64, disease: u32) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        let Some(id) = civ_core::PermanentId::from_raw(person) else {
+            return Reply::Error(wire::ErrorCode::NotFound, "nobody has id 0".to_owned());
+        };
+        let Some(def) = world.sim.rules().catalog.diseases.get(disease as usize) else {
+            return Reply::Error(
+                wire::ErrorCode::BadRequest,
+                format!("no disease numbered {disease}"),
+            );
+        };
+        let (key, what) = (def.id.clone(), def.name.to_lowercase());
+        let name = world.sim.people().name_of(id);
+        match world.sim.plague(id, &key) {
+            Ok(_) => {
+                let text = format!("{name} has {what}, as if they took it elsewhere");
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
+    /// The observer sets building `building`'s covering alight (M6b slice BC, ADR-0022 §14).
+    fn set_fire(&mut self, building: u64) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        let Some(id) = civ_core::PermanentId::from_raw(building) else {
+            return Reply::Error(wire::ErrorCode::NotFound, "no building has id 0".to_owned());
+        };
+        let name = frames::incidents::building_words(&world.sim, id);
+        match world.sim.set_fire(id) {
+            Ok(_) => {
+                let text = format!("The observer set alight {name}");
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
+    /// The observer holds back the rain over the settlement for `months` months, `depth`
+    /// standard deviations dry (M6a slice BA, ADR-0021 §8).
+    fn drought(&mut self, months: u32, depth: f32) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        match world.sim.drought(months, f64::from(depth)) {
+            Ok(reached) => {
+                let until = world.sim.land().weather.hold.map_or(0, |(_, until)| until);
+                let text = format!(
+                    "The observer {} the rain for {months} months, {depth:.1} standard deviations \
+                     dry, until {}",
+                    if reached.repeat {
+                        "again holds back"
+                    } else {
+                        "holds back"
+                    },
+                    civ_agents::polity::day_words(SimTime::from_minutes(until * 1440))
+                );
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
     fn place_deposit(&mut self, at: (f32, f32), good: &str, radius_m: f32, exposed: bool) -> Reply {
         if let Some(busy) = self.busy() {
             return busy;
@@ -1797,6 +1950,143 @@ mod tests {
     }
 
     #[test]
+    fn the_water_is_read_with_its_wells_in_words_and_a_household_s_draws_in_the_inspector() {
+        use civ_agents::uses::{Place, Worked};
+        use civ_land::fields::RectCm;
+        use civ_land::wells::{Well, WellState};
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetWater)),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Water");
+        let read = |h: &mut Harness| {
+            let Reply::Response(payload) = h.ask(Request::GetWater) else {
+                panic!("the water is read");
+            };
+            payload
+        };
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let water = response.body_as_water().expect("water");
+        assert_eq!(water.wells().map_or(0, |l| l.len()), 0);
+        assert!(water.flow() > 0.0);
+        let before = water.rev();
+        // An open well of the first household, its water standing at the water table, and one
+        // load drawn there and two at a bank today.
+        let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+        let household = sim
+            .people()
+            .households
+            .iter()
+            .map(|(_, x)| x.id)
+            .min()
+            .expect("a household");
+        let (person, settlement) = {
+            let x = sim.people().household(household).expect("the household");
+            (x.members[0], x.settlement.expect("a settlement"))
+        };
+        let system = sim
+            .rules()
+            .catalog
+            .well_index("core:well/timber_lined")
+            .expect("a timber-lined well");
+        let id = sim.allocate_id_for_tests();
+        let (w, now) = (sim.map().width, sim.now());
+        let cell = 40 * w + 40;
+        let (cx, cy) = civ_agents::population::cell_centre(sim.map(), cell as usize);
+        let ground = sim.map().elevation[cell as usize];
+        let head = sim.land().ground_water(cell as usize, w, 0.6, 50.0).0;
+        let depth = (f64::from(ground) - head + 1.0) as f32;
+        sim.land_mut_for_tests().wells.list.push(Well {
+            id,
+            system,
+            cell,
+            rect: RectCm {
+                x: (cx * 100.0) as i32 - 75,
+                y: (cy * 100.0) as i32 - 75,
+                w: 150,
+                h: 150,
+            },
+            household,
+            polity: None,
+            ground_m: ground,
+            depth_m: depth,
+            target_m: depth,
+            work_h: 100.0,
+            skill_h: 100.0,
+            quality: 0.6,
+            loss: 0.1,
+            mend_h: 0.0,
+            cover_h: 0.0,
+            covered: false,
+            worth: 1.0,
+            level_m: head,
+            level_at: now,
+            drawn_l: 0.0,
+            begun: now,
+            state: WellState::Open { since: now },
+            crew: (0, 0),
+        });
+        let bank = cell + 3;
+        for place in [
+            Place::Source(cell),
+            Place::Source(bank),
+            Place::Source(bank),
+        ] {
+            sim.people_mut_for_tests().uses.worked(Worked {
+                place,
+                day: now.day_index(),
+                household,
+                settlement,
+                kcal: 0.0,
+                person: Some(person),
+            });
+        }
+        let rev = frames::water::water_rev(sim);
+        assert_ne!(rev, 0);
+        assert_ne!(rev, before);
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let water = response.body_as_water().expect("water");
+        assert_eq!(water.rev(), rev);
+        let well = water.wells().expect("a list").get(0);
+        assert_eq!((well.id(), well.state()), (id.get(), 1));
+        assert_eq!(well.household(), household.get());
+        assert_eq!(well.system(), Some("Timber-lined well"));
+        assert!((well.water_m() - 1.0).abs() < 1e-3, "{}", well.water_m());
+        let words = well.words().unwrap_or_default();
+        assert!(
+            words.contains("timber-lined well, open since year 1"),
+            "{words}"
+        );
+        assert!(
+            words.contains("1.0 m of water standing") && words.contains("a tenth of its lining"),
+            "{words}"
+        );
+        let banks = water.banks().expect("banks");
+        assert_eq!(banks.len(), 1);
+        assert_eq!(banks.get(0).trips(), 2);
+        // The inspector tells where the household went for water today.
+        let Reply::Response(payload) = h.ask(Request::GetPerson {
+            id: person.get(),
+            decisions: 0,
+        }) else {
+            panic!("the person is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let info = response.body_as_person_info().expect("a person");
+        let words = info.water().unwrap_or_default();
+        assert!(
+            words.starts_with(
+                "Their household went for water 3 times today: twice to the water's edge, \
+                 once to its own well; each of them uses"
+            ),
+            "{words}"
+        );
+    }
+
+    #[test]
     fn the_weather_is_read_month_by_month_and_told_on_the_clock() {
         let mut h = Harness::new(None, None);
         assert_eq!(
@@ -2015,6 +2305,328 @@ mod tests {
         let sim = &h.engine.world.as_ref().expect("a world").sim;
         assert_eq!(sim.people().influences.list.len(), 4);
         assert_eq!(sim.people().influences.waves.len(), 1);
+    }
+
+    #[test]
+    fn the_observer_can_bring_a_disease_to_someone_once_and_the_inspector_tells_of_it() {
+        let mut h = Harness::new(None, None);
+        h.create("Sickness");
+        let (person, cholera) = {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            let person = sim
+                .people()
+                .people
+                .iter()
+                .map(|(_, p)| p.id.get())
+                .min()
+                .expect("someone");
+            let cholera = sim
+                .rules()
+                .catalog
+                .disease_index("core:disease/cholera")
+                .expect("cholera in the core content");
+            (person, u32::try_from(cholera).expect("a small index"))
+        };
+        let reply = h.ask(Request::Plague {
+            person,
+            disease: cholera,
+        });
+        let Reply::Response(ack) = reply else {
+            panic!("brought: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(
+            message.ends_with("has cholera, as if they took it elsewhere"),
+            "{message}"
+        );
+        // Someone already infected cannot be given it again; nor can nobody, nor a disease the
+        // content does not have.
+        assert_eq!(
+            error_code(&h.ask(Request::Plague {
+                person,
+                disease: cholera,
+            })),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        assert_eq!(
+            error_code(&h.ask(Request::Plague {
+                person: 0,
+                disease: cholera,
+            })),
+            Some(wire::ErrorCode::NotFound)
+        );
+        assert_eq!(
+            error_code(&h.ask(Request::Plague {
+                person,
+                disease: 999,
+            })),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        let Reply::Response(payload) = h.ask(Request::GetPerson {
+            id: person,
+            decisions: 0,
+        }) else {
+            panic!("the person is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let info = response.body_as_person_info().expect("a person");
+        let lines: Vec<&str> = info.sickness().expect("sickness words").iter().collect();
+        assert_eq!(lines.len(), 1, "{lines:?}");
+        assert!(
+            lines[0].starts_with("Took cholera today")
+                && lines[0].contains("; brought by the observer, as if they took it elsewhere"),
+            "{lines:?}"
+        );
+    }
+
+    #[test]
+    fn the_observer_sets_a_hut_alight_and_its_fire_is_listed_with_its_page() {
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::SetFire { building: 1 })),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Fire");
+        // A finished hut beside the first household's home.
+        let hut = {
+            let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+            let (household, home) = sim
+                .people()
+                .households
+                .iter()
+                .map(|(_, x)| (x.id, x.home))
+                .min_by_key(|x| x.0)
+                .expect("a household");
+            let catalog = &sim.rules().catalog;
+            let def = &catalog.buildings[catalog.building_index("core:building/hut").expect("hut")];
+            let spec = civ_agents::build::design_shape(
+                def,
+                &catalog.goods,
+                civ_agents::build::Shape::Round { radius: 310 },
+                (home.0 + 40.0, home.1),
+                None,
+            )
+            .expect("a hut");
+            // Every stage done: foundation, frame, walls, roof and finish.
+            sim.place_building_for_tests(household, spec, 5)
+                .expect("placed")
+        };
+        let reply = h.ask(Request::SetFire {
+            building: hut.get(),
+        });
+        let Reply::Response(ack) = reply else {
+            panic!("set alight: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(
+            message.starts_with("The observer set alight the hut of "),
+            "{message}"
+        );
+        // Not again while it burns, nor a building that is not there.
+        assert_eq!(
+            error_code(&h.ask(Request::SetFire {
+                building: hut.get()
+            })),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        assert_eq!(
+            error_code(&h.ask(Request::SetFire { building: 0 })),
+            Some(wire::ErrorCode::NotFound)
+        );
+        let Reply::Response(payload) = h.ask(Request::GetIncidents {
+            settlement: 0,
+            kind: 4,
+            before: None,
+            limit: 0,
+        }) else {
+            panic!("the incidents are read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let rows: Vec<(u8, u32, u64)> = response
+            .body_as_incidents()
+            .and_then(|i| i.rows())
+            .expect("rows")
+            .iter()
+            .map(|r| (r.kind(), r.id(), r.who()))
+            .collect();
+        assert_eq!(rows, vec![(4, 1, hut.get())]);
+        let Reply::Response(payload) = h.ask(Request::GetIncident { kind: 4, id: 1 }) else {
+            panic!("its page is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        assert!(response.body_as_incident_info().is_some());
+        assert_eq!(
+            error_code(&h.ask(Request::GetConflagration { id: 1 })),
+            Some(wire::ErrorCode::NotFound)
+        );
+    }
+
+    #[test]
+    fn the_incidents_list_a_case_the_observer_brought_with_its_page_and_its_outbreak() {
+        let mut h = Harness::new(None, None);
+        let list = Request::GetIncidents {
+            settlement: 0,
+            kind: 0,
+            before: None,
+            limit: 0,
+        };
+        assert_eq!(
+            error_code(&h.ask(list.clone())),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Incidents");
+        let (person, cholera) = {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            let person = sim
+                .people()
+                .people
+                .iter()
+                .map(|(_, p)| p.id.get())
+                .min()
+                .expect("someone");
+            let cholera = sim
+                .rules()
+                .catalog
+                .disease_index("core:disease/cholera")
+                .expect("cholera in the core content");
+            (person, u32::try_from(cholera).expect("a small index"))
+        };
+        let Reply::Response(_) = h.ask(Request::Plague {
+            person,
+            disease: cholera,
+        }) else {
+            panic!("brought");
+        };
+        let Reply::Response(payload) = h.ask(list) else {
+            panic!("the incidents are read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let incidents = response.body_as_incidents().expect("incidents");
+        let rows: Vec<(u8, u32, u64, u32)> = incidents
+            .rows()
+            .expect("rows")
+            .iter()
+            .filter(|r| r.kind() == 2)
+            .map(|r| (r.kind(), r.id(), r.who(), r.outbreak()))
+            .collect();
+        assert_eq!(rows, vec![(2, 1, person, 1)]);
+        let Reply::Response(payload) = h.ask(Request::GetIncident { kind: 2, id: 1 }) else {
+            panic!("its page is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let info = response.body_as_incident_info().expect("a page");
+        assert_eq!(
+            info.steps()
+                .expect("steps")
+                .iter()
+                .next()
+                .and_then(|s| s.label()),
+            Some("Took it")
+        );
+        let Reply::Response(payload) = h.ask(Request::GetOutbreak { id: 1, limit: 0 }) else {
+            panic!("its outbreak is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let outbreak = response.body_as_outbreak_info().expect("an outbreak");
+        assert!(
+            outbreak
+                .cause()
+                .is_some_and(|c| c.contains("brought by the observer")),
+            "{:?}",
+            outbreak.cause()
+        );
+        assert_eq!(
+            error_code(&h.ask(Request::GetIncident { kind: 2, id: 99 })),
+            Some(wire::ErrorCode::NotFound)
+        );
+        assert_eq!(
+            error_code(&h.ask(Request::GetOutbreak { id: 99, limit: 0 })),
+            Some(wire::ErrorCode::NotFound)
+        );
+        // The Water lens reads every home (wire 1.66); a lens there is not is refused.
+        let Reply::Response(payload) = h.ask(Request::GetCoverage {
+            settlement: 0,
+            lens: 1,
+        }) else {
+            panic!("the lens is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let lens = response.body_as_coverage().expect("a lens");
+        assert_eq!((lens.lens(), lens.title()), (1, Some("Water")));
+        assert!(lens.homes().is_some_and(|h| !h.is_empty()));
+        assert_eq!(lens.summary().map(|s| s.len()), Some(2));
+        assert_eq!(
+            error_code(&h.ask(Request::GetCoverage {
+                settlement: 0,
+                lens: 9
+            })),
+            Some(wire::ErrorCode::BadRequest)
+        );
+    }
+
+    #[test]
+    fn the_observer_can_hold_back_the_rain_and_the_weather_panel_tells_of_it() {
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::Drought {
+                months: 6,
+                depth: 1.5,
+            })),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Dry years");
+        let reply = h.ask(Request::Drought {
+            months: 6,
+            depth: 1.5,
+        });
+        let Reply::Response(ack) = reply else {
+            panic!("held: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(
+            message.starts_with(
+                "The observer holds back the rain for 6 months, 1.5 standard deviations dry, until"
+            ),
+            "{message}"
+        );
+        // Out of bounds, in length or depth, is refused.
+        for (months, depth) in [(2, 1.0), (25, 1.0), (6, 0.0), (6, 3.5), (6, f32::NAN)] {
+            assert_eq!(
+                error_code(&h.ask(Request::Drought { months, depth })),
+                Some(wire::ErrorCode::BadRequest),
+                "{months} months, {depth} deep"
+            );
+        }
+        let Reply::Response(payload) = h.ask(Request::GetWeather) else {
+            panic!("the weather is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let report = response.body_as_weather_report().expect("a report");
+        let drought = report.drought().expect("the drought is told");
+        assert!(
+            drought.starts_with("The observer holds back the rain, 1.5 standard deviations dry"),
+            "{drought}"
+        );
+        let months = report.months().expect("months");
+        assert!(
+            !months.is_empty() && months.get(months.len() - 1).held(),
+            "this month is held"
+        );
     }
 
     #[test]

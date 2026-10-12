@@ -66,8 +66,7 @@ fn law_line<'a>(
         })
         .collect();
     let stances = fbb.create_vector(&stances);
-    let what =
-        fbb.create_string(&polity.words_of(law, &rules.catalog.policies, &|id| pop.name_of(id)));
+    let what = fbb.create_string(&super::word::law_text(sim, polity, law));
     let holder_name = law.holder.map(|h| fbb.create_string(&pop.name_of(h)));
     let policy = fbb.create_string(
         rules

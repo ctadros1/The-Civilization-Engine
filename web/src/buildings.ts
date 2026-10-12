@@ -1,6 +1,6 @@
-// How buildings look on the map (M1 slice D; M3b slices O and P): what each stage of a
-// building's construction shows from above, how its condition shows (a leaking roof darkens, a
-// ruin is bare posts), how the readout names it, and which building lies under a point. A hut is round under a cone of thatch; a frame building is a rectangle of bays under a
+// How buildings look on the map (M1 slice D; M3b slices O and P; M6b slice BC): what each stage
+// of a building's construction shows from above, how its condition shows (a leaking roof darkens,
+// a ruin is bare posts, a burning roof glows and a burnt one is charred), how the readout names it, and which building lies under a point. A hut is round under a cone of thatch; a frame building is a rectangle of bays under a
 // gabled roof with its ridge. The shape comes from the kernel, which expands each building's
 // saved design; these are pure functions, so they can be tested without a renderer.
 
@@ -13,6 +13,8 @@ export const BUILDING_LEGEND: { key: string; label: string; fill: number }[] = [
   { key: "walls", label: "walls going up", fill: 0xb89466 },
   { key: "roofed", label: "thatched roof", fill: 0xd6b25e },
   { key: "leaking", label: "leaking roof", fill: 0x7d6a3c },
+  { key: "burning", label: "burning", fill: 0xe0532b },
+  { key: "burnt", label: "burnt out", fill: 0x2e2722 },
   { key: "ruin", label: "ruin", fill: 0x5e564c },
 ];
 
@@ -49,11 +51,13 @@ function bays(n: number): string {
  * slice L: house size by wealth).
  */
 export function buildingWords(b: BuildingInfo): string {
+  // Wire 1.68: its fire first, while it burns or since it burnt out.
+  const fire = b.fireWords ? `; ${b.fireWords}` : "";
   const shows = b.symptoms && b.state !== "ruin" ? `; ${b.symptoms}` : "";
   const upkeep = b.upkeep ? `; ${b.upkeep}` : "";
   const kept = b.stored ? `; ${b.stored}` : "";
   const style = b.style ? `; ${b.style}` : "";
-  return `${shapeWords(b)}: ${b.status}${shows}${upkeep}${kept}${style}`;
+  return `${shapeWords(b)}: ${b.status}${fire}${shows}${upkeep}${kept}${style}`;
 }
 
 /** A building's program and shape: "hut of 30 m², room for 5", or a frame building's bays,
@@ -102,6 +106,8 @@ const LEAKING = 0.05;
 /** Which legend entry a building is drawn as. */
 export function buildingKey(b: BuildingInfo): string {
   if (b.state === "ruin") return "ruin";
+  if (b.fire === "alight" || b.fire === "involved") return "burning";
+  if (b.fire === "burnt") return "burnt";
   if (b.roofed) return b.leak >= LEAKING ? "leaking" : "roofed";
   if (b.stage >= WALLS) return "walls";
   if (b.stage === FRAME) return "frame";
@@ -148,6 +154,30 @@ export function buildingLook(b: BuildingInfo): BuildingLook {
       wallFill: FILLS.ruin!,
       roofAlpha: 0,
       roofFill: FILLS.ruin!,
+    };
+  }
+  if (key === "burning") {
+    // Its covering alight glows over the roof; fully involved, the whole of it burns.
+    return {
+      key,
+      posts: b.posts.length,
+      postFill: FILLS.burnt!,
+      wallAlpha: 0.95,
+      wallFill: FILLS.walls!,
+      roofAlpha: 0.95,
+      roofFill: b.fire === "involved" ? FILLS.burning! : mix(FILLS.roofed!, FILLS.burning!, 0.6),
+    };
+  }
+  if (key === "burnt") {
+    // The covering is gone: charred posts and what is left of the walls show.
+    return {
+      key,
+      posts: b.posts.length,
+      postFill: FILLS.burnt!,
+      wallAlpha: 0.6,
+      wallFill: FILLS.burnt!,
+      roofAlpha: 0,
+      roofFill: FILLS.burnt!,
     };
   }
   const all = b.posts.length;

@@ -13,3 +13,10 @@ sheltered_half_life_days = 4932.0 # under a roof about 5 % a year: 08-02 §7.1 g
 eaten = "never"
 shared = false
 reserve_for = ""
+
+# How it burns (ADR-0022 §5; content API 81).
+# Grain heaped or in sacks chars outside and keeps within: half of it under a fully involved roof is
+# lost (a design prior; ADR-0022 §5 gives grain a part share).
+[fire]
+catch_kw_m2 = 0.0
+burns = 0.5

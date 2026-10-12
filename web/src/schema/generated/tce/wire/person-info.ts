@@ -446,8 +446,39 @@ seenAway(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+water():string|null
+water(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+water(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 116);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+sickness(index: number):string
+sickness(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+sickness(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 118);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+sicknessLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 118);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+suspicions(index: number):string
+suspicions(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+suspicions(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 120);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+suspicionsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 120);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPersonInfo(builder:flatbuffers.Builder) {
-  builder.startObject(56);
+  builder.startObject(59);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -889,6 +920,42 @@ static addErrand(builder:flatbuffers.Builder, errandOffset:flatbuffers.Offset) {
 
 static addSeenAway(builder:flatbuffers.Builder, seenAwayOffset:flatbuffers.Offset) {
   builder.addFieldOffset(55, seenAwayOffset, 0);
+}
+
+static addWater(builder:flatbuffers.Builder, waterOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(56, waterOffset, 0);
+}
+
+static addSickness(builder:flatbuffers.Builder, sicknessOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(57, sicknessOffset, 0);
+}
+
+static createSicknessVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startSicknessVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addSuspicions(builder:flatbuffers.Builder, suspicionsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(58, suspicionsOffset, 0);
+}
+
+static createSuspicionsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startSuspicionsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
 }
 
 static endPersonInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

@@ -142,8 +142,18 @@ crossingsRev():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+waterRev():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 44);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
+incidentsRev():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 46);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startSnapshot(builder:flatbuffers.Builder) {
-  builder.startObject(20);
+  builder.startObject(22);
 }
 
 static addWorld(builder:flatbuffers.Builder, worldOffset:flatbuffers.Offset) {
@@ -248,6 +258,14 @@ static addWeatherRev(builder:flatbuffers.Builder, weatherRev:bigint) {
 
 static addCrossingsRev(builder:flatbuffers.Builder, crossingsRev:bigint) {
   builder.addFieldInt64(19, crossingsRev, BigInt('0'));
+}
+
+static addWaterRev(builder:flatbuffers.Builder, waterRev:bigint) {
+  builder.addFieldInt64(20, waterRev, BigInt('0'));
+}
+
+static addIncidentsRev(builder:flatbuffers.Builder, incidentsRev:bigint) {
+  builder.addFieldInt64(21, incidentsRev, BigInt('0'));
 }
 
 static endSnapshot(builder:flatbuffers.Builder):flatbuffers.Offset {

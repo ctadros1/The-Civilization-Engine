@@ -42,9 +42,30 @@ pub fn blamed_words(sim: &Sim, blamed: Blamed) -> String {
     }
 }
 
+/// Law `law` of polity `polity` in words, as [`civ_agents::polity::Polity::words_of`] says it,
+/// but a closing naming its source as its people know it (M6a slice BA, step four): "the closing
+/// of Wren's household's well: nobody may draw there".
+pub fn law_text(
+    sim: &Sim,
+    polity: &civ_agents::polity::Polity,
+    law: &civ_agents::polity::Law,
+) -> String {
+    if law.kind == civ_agents::polity::PolicyKind::CloseSource
+        && let Some(source) = polity.closure_of(law.id)
+    {
+        return format!(
+            "the closing of {}: nobody may draw there",
+            super::sickness::place_words(sim, source)
+        );
+    }
+    polity.words_of(law, &sim.rules.catalog.policies, &|id| {
+        sim.people.name_of(id)
+    })
+}
+
 /// What a claim says, in words: "a gathering meets on 3 May of year 2 to decide on a common
 /// store, taking a tenth of each harvest"; "Bo holds a grievance against the gathering over food
-/// when their household was short".
+/// when their household was short"; "someone of Bo's household lay sick from 3 May of year 2".
 pub fn claim_words(sim: &Sim, c: &Claim) -> String {
     let pop = &sim.people;
     let name_of = |id: PermanentId| pop.name_of(id);
@@ -59,7 +80,7 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
             match law {
                 Some((p, l)) => format!(
                     "a gathering meets on {day} to decide on {}",
-                    p.words_of(l, &sim.rules.catalog.policies, &name_of)
+                    law_text(sim, p, l)
                 ),
                 None => format!("a gathering meets on {day} to hear a case"),
             }
@@ -122,6 +143,35 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
                     issue.words()
                 ),
                 None => format!("{who} holds a grievance"),
+            }
+        }
+        ClaimKind::Suspicion => {
+            let who = c.subject.map_or_else(|| "someone".to_owned(), name_of);
+            let households = |n: u16| match n {
+                1 => "1 household".to_owned(),
+                n => format!("{n} households"),
+            };
+            match c.suspected {
+                Some((place, n)) => format!(
+                    "{who} holds that the water at {} sickens: of {} they know that draw there, {} \
+                     had sickness lately, against {} of {} that draw elsewhere",
+                    super::sickness::place_words(sim, place),
+                    households(n.at),
+                    n.sick_at,
+                    n.sick_elsewhere,
+                    n.elsewhere
+                ),
+                None => format!("{who} holds that a source of water sickens"),
+            }
+        }
+        ClaimKind::Sickness => {
+            let from = day_words(SimTime::from_minutes(c.day * DAY));
+            match c.subject {
+                Some(h) => format!(
+                    "someone of {} lay sick from {from}",
+                    super::people::household_name(sim, h)
+                ),
+                None => format!("someone lay sick from {from}"),
             }
         }
     }
@@ -476,6 +526,9 @@ pub fn news_lines<'a>(
         .filter(|c| !pop.word.has_heard(p.id, c.id))
         .filter(|c| match c.kind {
             ClaimKind::Grievance => c.subject.is_some_and(|s| s != p.id),
+            // Another household's sickness, or another's suspicion, while it is news (M6a slice BA).
+            ClaimKind::Sickness => c.subject != Some(p.household),
+            ClaimKind::Suspicion => c.subject != Some(p.id),
             _ => c.day >= today,
         })
         .take(MAX_NEWS_SHOWN)
@@ -570,6 +623,8 @@ fn whisper_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
                 .to_owned()
             })
         }),
+        // What people do of sickness they heard of is slice BA's later steps.
+        ClaimKind::Sickness | ClaimKind::Suspicion => None,
         ClaimKind::Grievance => {
             let against = c.grievance.map(|g| g.0);
             let m = pop.factions.membership(p).copied();
@@ -731,6 +786,88 @@ fn wave_words(sim: &Sim, i: &Influence) -> String {
     format!("Came with a wave the observer sent, carrying {months:.0} months' food: {came}; {now}")
 }
 
+/// What a drought in `i` held back (M6a slice BA, step five).
+fn drought_words(i: &Influence) -> String {
+    format!(
+        "Held back the rain for {} months, until {}",
+        i.subject,
+        day_words(SimTime::from_minutes(i.until * DAY))
+    )
+}
+
+/// What the observer's fire in `i` came to (M6b slice BC): the kernel's record of it.
+fn fire_words(sim: &Sim, i: &Influence) -> String {
+    let fires = &sim.people.fires;
+    let Some(f) = fires.get(i.subject) else {
+        return "Set a building alight".to_owned();
+    };
+    let spread = f
+        .episode
+        .and_then(|e| fires.episodes.get(e as usize - 1))
+        .map(|e| {
+            fires
+                .list
+                .iter()
+                .filter(|x| x.episode == Some(e.id))
+                .count()
+        });
+    match (f.ended, spread) {
+        (None, _) => "Set a building alight: it burns".to_owned(),
+        (Some(_), Some(n)) => format!("Set a building alight: the fire spread to {} more", n - 1),
+        (Some(_), None) => "Set a building alight: it burned out alone".to_owned(),
+    }
+}
+
+/// What a plague in `i` brought and what became of it (M6a slice AZ): the observer's own record,
+/// so it tells the truth of their infection.
+fn plague_words(sim: &Sim, i: &Influence) -> String {
+    use civ_agents::sickness::{Acquired, Outcome};
+    let day = |d: i64| day_words(SimTime::from_minutes(d * DAY));
+    let name = sim
+        .rules
+        .catalog
+        .diseases
+        .get(i.subject as usize)
+        .map_or_else(|| "a disease".to_owned(), |d| d.name.to_lowercase());
+    let lead = format!(
+        "Brought {name} {}, as if they took it elsewhere",
+        day_words(i.at)
+    );
+    let Some(e) = sim
+        .people
+        .sickness
+        .episodes()
+        .iter()
+        .find(|e| e.acquired == (Acquired::Observer { influence: i.id }))
+    else {
+        return format!("{lead}.");
+    };
+    let course = if e.symptomatic() {
+        let how = if e.course.severe {
+            "severely ill"
+        } else {
+            "ill"
+        };
+        format!(
+            "{how} from {} to {}",
+            day(e.course.ill_from),
+            day(e.course.ill_until)
+        )
+    } else {
+        "it brought no symptoms".to_owned()
+    };
+    let end = match e.ended {
+        None => "it runs".to_owned(),
+        Some((_, Outcome::Recovered)) => format!(
+            "they recovered, protected until {}",
+            day(e.course.immune_until)
+        ),
+        Some((d, Outcome::Died)) => format!("it killed them {}", day(d)),
+        Some((d, Outcome::Gone)) => format!("they were gone {} while it ran", day(d)),
+    };
+    format!("{lead}: {course}; {end}.")
+}
+
 /// What a blessing or a curse in `i` is and what it turned.
 fn luck_words(sim: &Sim, i: &Influence) -> String {
     let day = |d: i64| day_words(SimTime::from_minutes(d * DAY));
@@ -797,6 +934,9 @@ pub fn influence_lines<'a>(
                 InfluenceKind::Agitator => agitator_words(sim, i, p.id),
                 InfluenceKind::Bless | InfluenceKind::Curse => luck_words(sim, i),
                 InfluenceKind::Wave => wave_words(sim, i),
+                InfluenceKind::Plague => plague_words(sim, i),
+                InfluenceKind::Drought => drought_words(i),
+                InfluenceKind::Fire => fire_words(sim, i),
             };
             let what = fbb.create_string(&words);
             wire::InfluenceLine::create(

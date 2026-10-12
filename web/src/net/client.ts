@@ -316,6 +316,14 @@ export class HostClient {
     return body.crossings;
   }
 
+  /** The wells, the springs flowing today and where people drew at the water's edge today (wire
+   * 1.61). */
+  async water(): Promise<M.WaterInfo> {
+    const body = await this.query(M.getWater());
+    if (body.kind !== "water") throw new HostError("internal", "expected water");
+    return body.water;
+  }
+
   /** Every settlement's standing as last worked out (wire 1.26). */
   async standing(): Promise<M.StandingInfo> {
     const body = await this.query(M.getStanding());
@@ -331,6 +339,41 @@ export class HostClient {
   }
 
   /** Takings: what happened, and what people believe and chose (wire 1.30). */
+  /** A page of incidents of every kind asked, newest first (wire 1.64). */
+  async incidents(settlement: number, kind: number, before: M.IncidentKey | null, limit: number): Promise<M.IncidentsInfo> {
+    const body = await this.query(M.getIncidents(settlement, kind, before, limit));
+    if (body.kind !== "incidents") throw new HostError("internal", "expected incidents");
+    return body.incidents;
+  }
+
+  /** One incident's page: its steps, links and layers (wire 1.64). */
+  async incident(kind: number, id: number): Promise<M.IncidentInfo> {
+    const body = await this.query(M.getIncident(kind, id));
+    if (body.kind !== "incident") throw new HostError("internal", "expected an incident");
+    return body.incident;
+  }
+
+  /** A lens over the homes of `settlement` (0: every settlement); lens 1 is water (wire 1.66). */
+  async coverage(settlement: number, lens: number): Promise<M.CoverageInfo> {
+    const body = await this.query(M.getCoverage(settlement, lens));
+    if (body.kind !== "coverage") throw new HostError("internal", "expected a lens");
+    return body.coverage;
+  }
+
+  /** One outbreak's page: its counts, curve, sources and cases (wire 1.64). */
+  async outbreak(id: number, limit: number): Promise<M.OutbreakInfo> {
+    const body = await this.query(M.getOutbreak(id, limit));
+    if (body.kind !== "outbreak") throw new HostError("internal", "expected an outbreak");
+    return body.outbreak;
+  }
+
+  /** One conflagration's page: its cause, its fires and what held (wire 1.68). */
+  async conflagration(id: number): Promise<M.ConflagrationInfo> {
+    const body = await this.query(M.getConflagration(id));
+    if (body.kind !== "conflagration") throw new HostError("internal", "expected a conflagration");
+    return body.conflagration;
+  }
+
   async order(): Promise<M.OrderInfo> {
     const body = await this.query(M.getOrder());
     if (body.kind !== "order") throw new HostError("internal", "expected order");

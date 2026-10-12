@@ -65,11 +65,27 @@ pub enum Behavior {
     /// Walk to the bank where the household is building a crossing, work on it, and walk home
     /// (M5c slice AW, step two): the activity's numbers, the crossing's labour.
     Bridge,
+    /// Dig and line the well the household is making beside its home (M6a slice AY, step three):
+    /// the activity's numbers, the well system's labour.
+    Well,
+    /// Sit with members of the household who are ill at home, bringing them water and food
+    /// (M6a slice AZ, step three; ADR-0021 §5).
+    Tend,
+    /// Carry water to a roof a fire threatens and throw it on: drawn from the household's store
+    /// at home when it holds one, else the nearest source (M6b slice BD, step three; ADR-0022 §6).
+    Douse,
+    /// Tear the covering from a roof a fire threatens, so that it has nothing to catch: their
+    /// household's own, or another's with leave of one of its people there (M6b slice BD, step
+    /// four; ADR-0022 §6).
+    Strip,
+    /// Carry a load of the household's goods out from under a roof of its that a fire threatens
+    /// (M6b slice BD, step four; ADR-0022 §5: goods carried out survive).
+    Salvage,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 23] = [
+    pub const ALL: [Behavior; 28] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -93,6 +109,11 @@ impl Behavior {
         Behavior::Fetch,
         Behavior::Carry,
         Behavior::Bridge,
+        Behavior::Well,
+        Behavior::Tend,
+        Behavior::Douse,
+        Behavior::Strip,
+        Behavior::Salvage,
     ];
 
     /// The authored name of a behavior.
@@ -121,6 +142,11 @@ impl Behavior {
             Behavior::Fetch => "fetch",
             Behavior::Carry => "carry",
             Behavior::Bridge => "bridge",
+            Behavior::Well => "well",
+            Behavior::Tend => "tend",
+            Behavior::Douse => "douse",
+            Behavior::Strip => "strip",
+            Behavior::Salvage => "salvage",
         }
     }
 
@@ -293,6 +319,19 @@ pub struct GoodDef {
     pub timber: Option<crate::structure::Timber>,
     /// For a store (a pot): the room each one gives.
     pub store: Option<StoreDef>,
+    /// How it burns (M6b slice BC; content API 81): `None` for a good fire does not touch.
+    pub fire: Option<GoodFire>,
+}
+
+/// How a good burns (M6b slice BC; ADR-0022 §4, §5). Design priors: the reports give no
+/// covering's catching heat or share of a store a burning roof takes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GoodFire {
+    /// As a roof's covering: the exposure, kW/m², above which it catches at the fire's
+    /// `reference_moisture`; 0 for one that does not catch from a neighbour's heat.
+    pub catch_kw_m2: f64,
+    /// The share of what lies under a roof that burns when the building is fully involved.
+    pub burns: f64,
 }
 
 impl GoodDef {
@@ -549,6 +588,184 @@ pub struct Catalog {
     /// Bridge systems, in content id order (M5c slice AW). Crossings refer to them by index,
     /// saves by content id.
     pub bridges: Vec<BridgeDef>,
+    /// Well systems, in content id order (M6a slice AY, step three). Wells refer to them by
+    /// index, saves by content id.
+    pub wells: Vec<WellDef>,
+    /// Diseases, in content id order (M6a slice AZ). Episodes refer to them by index, saves by
+    /// content id.
+    pub diseases: Vec<DiseaseDef>,
+}
+
+/// A well system (content kind `well`, M6a slice AY, step three; ADR-0021 §3; research 03-02
+/// §1.4, 12-01 §2.2): the shaft dug and how it is lined, the work a metre of it takes, how
+/// deep its builders will go, and what rots its lining. What a well of it yields is worked out
+/// from its own depth and the ground's water, never authored.
+#[derive(Clone, Debug, PartialEq)]
+pub struct WellDef {
+    pub id: String,
+    pub name: String,
+    /// The technique its diggers need, by index, if any.
+    pub technique: Option<usize>,
+    /// The skill its diggers practise, by index, from which its lining's quality is drawn
+    /// (ADR-0009 §6), if any.
+    pub skill: Option<usize>,
+    /// The radius dug, metres: earth taken out is the circle of it, deep as the shaft.
+    pub dig_radius_m: f64,
+    /// The radius inside the lining, metres: the water column's.
+    pub radius_m: f64,
+    /// Labour to line a metre of shaft, hours (the digging is the people profile's rate).
+    pub lining_h_per_m: f64,
+    /// How far below the water table its diggers expect to go, metres: the column they want.
+    pub water_m: f64,
+    /// The deepest its diggers will go, metres.
+    pub max_depth_m: f64,
+    /// The distance at which drawing from it no longer lowers the water table, metres (the
+    /// radius of influence of 03-02 §1.4's inflow).
+    pub influence_m: f64,
+    /// Minutes to haul a load up a metre from the water to the ground, beyond filling the
+    /// vessels: the lift at the source (ADR-0021 §1).
+    pub lift_min_per_m: f64,
+    /// The share of its lining rot takes in a year, on ground of wetness 1.
+    pub loss_per_year: f64,
+    /// How many may begin a session of work on one in a day: the room in its shaft.
+    pub crew: u32,
+    /// Labour to make one a lid and curb, hours (M6a slice BA).
+    pub cover_h: f64,
+    /// The share of what an open mouth would take of the runoff from the ground round it that a
+    /// covered one takes (ADR-0021 §4: "far less into a covered, curbed well").
+    pub covered_runoff: f64,
+}
+
+impl WellDef {
+    /// Labour to dig and line a metre of shaft at `dig_h_per_m3` hours a cubic metre, hours.
+    pub fn h_per_m(&self, dig_h_per_m3: f64) -> f64 {
+        std::f64::consts::PI * self.dig_radius_m.powi(2) * dig_h_per_m3 + self.lining_h_per_m
+    }
+
+    /// The water column's area, square metres.
+    pub fn area_m2(&self) -> f64 {
+        std::f64::consts::PI * self.radius_m.powi(2)
+    }
+}
+
+impl Catalog {
+    /// The well system with content id `id`, by index.
+    pub fn well_index(&self, id: &str) -> Option<usize> {
+        self.wells.iter().position(|w| w.id == id)
+    }
+}
+
+/// The routes a disease passes by (ADR-0021 §5; research 05-03 §1.2). Codes are part of content:
+/// append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DiseaseRoute {
+    /// Water drunk that carries it (M6a slice AZ, step two).
+    Water,
+    /// Living under one roof with someone shedding it: hands, food and shared vessels.
+    Household,
+}
+
+impl DiseaseRoute {
+    /// Its key in content.
+    pub fn key(self) -> &'static str {
+        match self {
+            DiseaseRoute::Water => "water",
+            DiseaseRoute::Household => "household",
+        }
+    }
+
+    /// The route with a key.
+    pub fn from_key(key: &str) -> Option<DiseaseRoute> {
+        [DiseaseRoute::Water, DiseaseRoute::Household]
+            .into_iter()
+            .find(|r| r.key() == key)
+    }
+}
+
+/// A duration a disease's clock draws, days: lognormal with this arithmetic mean and standard
+/// deviation (research 05-03 §7.3); a standard deviation of 0 is the mean exactly.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Days {
+    pub mean: f64,
+    pub sd: f64,
+}
+
+impl Days {
+    /// The duration for a standard normal draw `z`, days: 05-03 §7.3's lognormal with
+    /// `σ² = ln(1 + s²/m²)` and `μ = ln m − σ²/2`.
+    pub fn at(self, z: f64) -> f64 {
+        if self.mean <= 0.0 {
+            return 0.0;
+        }
+        if self.sd <= 0.0 {
+            return self.mean;
+        }
+        let var = (1.0 + (self.sd / self.mean).powi(2)).ln();
+        (self.mean.ln() - var / 2.0 + var.sqrt() * z).exp()
+    }
+}
+
+/// A disease (content kind `disease`, M6a slice AZ; ADR-0021 §5; research 05-03 §1.1, §2.1,
+/// §3.2, §7.2-§7.6): the routes it passes by, its own clocks (infection to symptoms, to
+/// shedding, how long people are ill and shed), who has symptoms and who is severely ill, the
+/// chance a day of dying while severely ill, and how long an infection protects. Nothing about
+/// it is a rate of cases or deaths: those come from who meets it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DiseaseDef {
+    pub id: String,
+    pub name: String,
+    pub routes: Vec<DiseaseRoute>,
+    /// Infection to symptoms (and to the time shedding is reckoned from), days.
+    pub incubation: Days,
+    /// How many days before symptoms shedding begins (0: with them; never before infection).
+    pub shed_lead_days: f64,
+    /// How long shedding lasts from its start, days; and how long it goes on after illness
+    /// ends (05-03 §2.1: Shigella's up to two weeks).
+    pub shed: Days,
+    pub shed_after: Days,
+    /// The share of infections with symptoms, and how long those are ill, days.
+    pub symptomatic: f64,
+    pub ill: Days,
+    /// Of those with symptoms, the share severely ill, by age `(years, share)`, interpolated.
+    pub severe_by_age: Vec<(f64, f64)>,
+    /// The chance a day of dying while severely ill (05-03 §7.6: a hazard by stage, never a
+    /// fate drawn at infection).
+    pub severe_death_per_day: f64,
+    /// How long an infection protects against another, years: drawn evenly between the two.
+    pub immunity_years: [f64; 2],
+    /// The hazard a day each member shedding it puts on each other member of a household
+    /// (05-03 §7.2: summed over routes, drawn once a day).
+    pub household_hazard: f64,
+    /// What someone sheds of it a day while ill, and while shedding without symptoms, in doses: a
+    /// dose drunk is a hazard of 1 (12-02 §5.4's exponential dose-response with its rate folded
+    /// into the unit).
+    pub shed_ill_per_day: f64,
+    pub shed_silent_per_day: f64,
+    /// The share of it outside a body that dies a day, in heaps, the ground and water.
+    pub decay_per_day: f64,
+    /// The hours of care a day that count as tending someone ill of it, and what a severe day
+    /// with that much care does to the chance of dying that day, as a relative risk (05-05
+    /// §2.2: organized supportive care 0.95, a low-confidence prior).
+    pub care_h_per_day: f64,
+    pub care_rr: f64,
+    /// Techniques a carer may know that bring that relative risk lower still, by index in the
+    /// catalog's techniques: the least of those any carer that day knew holds (05-03 §3.2:
+    /// rehydration brings cholera's fatality "below 1%").
+    pub treatments: Vec<(usize, f64)>,
+}
+
+impl DiseaseDef {
+    /// Whether it passes by `route`.
+    pub fn passes_by(&self, route: DiseaseRoute) -> bool {
+        self.routes.contains(&route)
+    }
+}
+
+impl Catalog {
+    /// The disease with content id `id`, by index.
+    pub fn disease_index(&self, id: &str) -> Option<usize> {
+        self.diseases.iter().position(|d| d.id == id)
+    }
 }
 
 /// A bridge system (content kind `bridge`, M5c slice AW; research 11-07 §2.1): the clear spans
@@ -756,13 +973,22 @@ impl Catalog {
 
     /// The youngest age at which anyone does work that technique `t` gates, years: the age a
     /// child brought up with it learns it (ADR-0008 §4). Building programs are worked by the
-    /// `build` activities.
+    /// `build` activities, well systems by the `well` ones, and a disease's treatments by the
+    /// `tend` ones.
     pub fn work_age(&self, t: usize) -> Option<f64> {
         let builds = self.buildings.iter().any(|b| b.technique == Some(t));
+        let digs = self.wells.iter().any(|w| w.technique == Some(t));
+        let treats = self
+            .diseases
+            .iter()
+            .any(|d| d.treatments.iter().any(|&(x, _)| x == t));
         self.activities
             .iter()
             .filter(|a| {
-                self.technique_of(a) == Some(t) || (builds && a.behavior == Behavior::Build)
+                self.technique_of(a) == Some(t)
+                    || (builds && a.behavior == Behavior::Build)
+                    || (digs && a.behavior == Behavior::Well)
+                    || (treats && a.behavior == Behavior::Tend)
             })
             .map(|a| a.min_age_years)
             .reduce(f64::min)
@@ -864,6 +1090,10 @@ pub struct HouseholdParams {
     pub water_l_per_person_day: f64,
     /// Litres one person carries per trip.
     pub carry_water_l: f64,
+    /// What a person uses a day by the walk to the water (M6a slice AY, ADR-0021 §1): pairs of
+    /// one-way minutes and litres, minutes rising, interpolated between and held beyond the
+    /// ends. Empty: `water_l_per_person_day` whatever the walk.
+    pub water_use_by_walk: Vec<(f64, f64)>,
     /// Days of water a household tries to keep.
     pub water_target_days: f64,
     /// Days of food a household tries to keep.
@@ -906,6 +1136,42 @@ pub struct HouseholdParams {
     /// ...and points toward staying before either; the day's chance is `leave_per_day` times the
     /// logistic of going's points less staying's.
     pub leave_stay: f64,
+}
+
+impl HouseholdParams {
+    /// Litres a person uses a day when the water is `walk_min` minutes' walk away, one way
+    /// (ADR-0021 §1): `water_use_by_walk` interpolated, held beyond its ends.
+    /// The one-way walk to water, minutes, from which a household's walk is far (M6a slice BA,
+    /// step four): where its people begin to use less water for the walk, the first point of
+    /// `water_use_by_walk`. None without the curve: then no walk is far.
+    pub fn far_walk_min(&self) -> Option<f64> {
+        self.water_use_by_walk.first().map(|p| p.0)
+    }
+
+    pub fn water_use_l(&self, walk_min: f64) -> f64 {
+        let curve = &self.water_use_by_walk;
+        let (Some(&first), Some(&last)) = (curve.first(), curve.last()) else {
+            return self.water_l_per_person_day;
+        };
+        if walk_min <= first.0 {
+            return first.1;
+        }
+        if walk_min >= last.0 {
+            return last.1;
+        }
+        for w in curve.windows(2) {
+            let ((m0, l0), (m1, l1)) = (w[0], w[1]);
+            if walk_min <= m1 {
+                let t = if m1 > m0 {
+                    (walk_min - m0) / (m1 - m0)
+                } else {
+                    1.0
+                };
+                return l0 + (l1 - l0) * t;
+            }
+        }
+        last.1
+    }
 }
 
 /// How choices are scored and sampled (research 01-09 §4.3, 04-07 §2.3).
@@ -958,6 +1224,9 @@ pub struct DecisionParams {
     pub w_rest: f64,
     /// Points for children's play.
     pub w_play: f64,
+    /// Points for tending members of the household who are severely ill and still owed a day's
+    /// care; half as much for those ill but not severely (M6a slice AZ, step three).
+    pub w_tend: f64,
 }
 
 /// The first people of a new world (research 05-01 §4.5).
@@ -1459,6 +1728,10 @@ pub struct PeopleParams {
     pub reports: crate::reports::ReportParams,
     /// How views of other polities are held (M5c slice AT, ADR-0020 §3).
     pub relations: crate::views::RelationsParams,
+    /// How people tally a source of water (M6a slice BA, ADR-0021 §6).
+    pub suspicion: crate::suspicion::SuspicionParams,
+    /// How buildings burn and fire passes between them (M6b slice BC, ADR-0022 §4).
+    pub fire: crate::fire::FireParams,
     /// Names.
     pub names: NameParams,
 }
@@ -1563,6 +1836,7 @@ pub fn interpolate(table: &[(f64, f64)], x: f64) -> f64 {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]

@@ -104,9 +104,54 @@ impl Population {
         }
     }
 
+    /// What household `household` keeps under the roof of building `bi` now, kilograms of each
+    /// good by kind of room: its stores settled to now and shared among its roofs as the daily
+    /// check shares them.
+    pub(super) fn kept_by(
+        &mut self,
+        ctx: &Ctx,
+        household: PermanentId,
+        bi: usize,
+    ) -> [Vec<f64>; 3] {
+        let (now, catalog, params) = (ctx.now, ctx.catalog, ctx.params);
+        let goods = &catalog.goods;
+        let hd = self.hh_index.get(&household).copied();
+        if let Some(hd) = hd
+            && let Some(x) = self.households.get_mut(hd)
+        {
+            let members = x.members.len().max(1);
+            x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
+            x.stores.resize(goods.len(), 0.0);
+        }
+        let mut room_all = [0.0; 3];
+        for b in ctx
+            .land
+            .buildings
+            .iter()
+            .filter(|b| b.household == household)
+        {
+            for (a, v) in room_all.iter_mut().zip(room_of(b, catalog)) {
+                if v.is_finite() {
+                    *a += v;
+                }
+            }
+        }
+        let stores = hd
+            .and_then(|hd| self.households.get(hd))
+            .map(|x| x.stores.clone())
+            .unwrap_or_default();
+        let fill = Keeping::fill(&stores, goods, room_all);
+        let room = ctx
+            .land
+            .buildings
+            .get(bi)
+            .map_or([0.0; 3], |b| room_of(b, catalog));
+        kept_in(&fill, room_all, room)
+    }
+
     /// Weighs household `household`'s buildings against what they carry now, with the month's
     /// storm `storm` pascals on their roofs' plan today.
-    fn check_household(&mut self, ctx: &mut Ctx, household: PermanentId, storm: f64) {
+    pub(super) fn check_household(&mut self, ctx: &mut Ctx, household: PermanentId, storm: f64) {
         let (now, catalog, params) = (ctx.now, ctx.catalog, ctx.params);
         let goods = &catalog.goods;
         // Its goods as they lie now, by kind of room, across its roofs.

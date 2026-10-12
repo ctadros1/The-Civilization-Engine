@@ -163,6 +163,19 @@ pub enum Reason {
     Stopped = 138,
     /// Excluded: as many as there is room for have begun work on it today (M5c slice AX).
     Crowded = 139,
+    /// The walking a well the household is making would save its people over the well's life,
+    /// for the work this session puts into it (M6a slice AY, step three).
+    Well = 140,
+    /// Excluded: illness keeps them abed (M6a slice AZ): they sleep, eat and rest at home.
+    Ill = 141,
+    /// Members of the household ill at home and still owed a day's care (M6a slice AZ, step
+    /// three).
+    Tend = 142,
+    /// A fire burns at home (M6b slice BC; ADR-0022 §6): nothing is done there until it is out.
+    HomeAfire = 143,
+    /// A roof a fire threatens, and what saving it is worth to them: their household's, their
+    /// kin's or a neighbour's, by how near it stands to catching (M6b slice BD, step three).
+    FireThreatens = 144,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -174,7 +187,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 73] = [
+    pub const ALL: [Reason; 78] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -248,6 +261,11 @@ impl Reason {
         Reason::Crossing,
         Reason::PublicWork,
         Reason::Crowded,
+        Reason::Well,
+        Reason::Ill,
+        Reason::Tend,
+        Reason::HomeAfire,
+        Reason::FireThreatens,
     ];
 
     /// The reason with this code.
@@ -333,6 +351,11 @@ impl Reason {
             Reason::Crossing => "the walking a crossing would save",
             Reason::PublicWork => "the work the gathering asked of their household",
             Reason::Crowded => "as many as there is room for are already at work on it today",
+            Reason::Well => "the walking a well would save",
+            Reason::Ill => "illness keeps them abed",
+            Reason::Tend => "someone ill at home needs tending",
+            Reason::HomeAfire => "a fire burns at home",
+            Reason::FireThreatens => "a fire threatens a roof",
         }
     }
 }
@@ -408,17 +431,24 @@ pub enum Cause {
     Violence,
     /// In a fall when a crossing gave way under them (M5c slice AW).
     Fell,
+    /// Of a disease (M6a slice AZ, ADR-0021 §5): their episode names it.
+    Disease,
+    /// In a fire, caught asleep in a building when it was fully involved (M6b slice BC; ADR-0022
+    /// §5): the fire's record names them.
+    Burned,
 }
 
 impl Cause {
     /// Every cause.
-    pub const ALL: [Cause; 6] = [
+    pub const ALL: [Cause; 8] = [
         Cause::Unspecified,
         Cause::Starvation,
         Cause::Childbirth,
         Cause::Collapse,
         Cause::Violence,
         Cause::Fell,
+        Cause::Disease,
+        Cause::Burned,
     ];
 
     /// The key a chronicle entry keeps it as.
@@ -430,11 +460,15 @@ impl Cause {
             Cause::Collapse => "collapse",
             Cause::Violence => "violence",
             Cause::Fell => "fell",
+            Cause::Disease => "disease",
+            Cause::Burned => "burned",
         }
     }
 
-    /// The cause with a key.
+    /// The cause with a key; a chronicle entry's may name the disease after a colon
+    /// ("disease:cholera").
     pub fn from_key(key: &str) -> Option<Cause> {
+        let key = key.split(':').next().unwrap_or(key);
         Cause::ALL.into_iter().find(|c| c.key() == key)
     }
 
@@ -447,6 +481,8 @@ impl Cause {
             Cause::Collapse => "a building's collapse",
             Cause::Violence => "a blow struck by another",
             Cause::Fell => "a fall when a crossing gave way",
+            Cause::Disease => "disease",
+            Cause::Burned => "fire",
         }
     }
 }
@@ -717,6 +753,55 @@ pub enum ChronicleKind {
     /// or whoever was on it; `place` its middle; `number` the step ([`CrossingStep`]); `name` the
     /// sentence.
     Crossing,
+    /// A well met water, was given up dry, or fell in (M6a slice AY, step three): `people` who
+    /// finished or found it; `place` the well; `number` the step ([`WellStep`]); `name` the
+    /// sentence.
+    Well,
+    /// An outbreak began or ended (M6a slice AZ, step three; ADR-0015 §8): `people` its first
+    /// case, when it began; `settlement` where; `number` the step ([`OutbreakStep`]); `name` the
+    /// sentence, with its counts when it ended.
+    Outbreak,
+    /// The first of a household came to suspect a source of water it draws at (M6a slice BA,
+    /// ADR-0021 §6-§7): `people` who; `settlement` where; `number` the source's place number;
+    /// `name` the rest of the sentence, with the counts.
+    Suspicion,
+    /// A building burned out, or a fire spread from one building to another or ended (M6b slice
+    /// BC, ADR-0022 §13): `people` the household whose building burned, its eldest first;
+    /// `settlement` where; `place` the building; `number` the step ([`FireStep`]); `name` the
+    /// sentence, with its counts.
+    Fire,
+}
+
+/// What happened in a fire, in a [`ChronicleKind::Fire`] entry. Numeric in saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FireStep {
+    /// A building burned out, its fire having reached no other.
+    Burned = 0,
+    /// A fire reached a second building: a conflagration began.
+    Spread = 1,
+    /// A conflagration's last fire burned out.
+    Ended = 2,
+}
+
+/// What happened to an outbreak, in a [`ChronicleKind::Outbreak`] entry. Numeric in saves:
+/// append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OutbreakStep {
+    Began = 0,
+    Ended = 1,
+}
+
+/// What happened to a well, in a [`ChronicleKind::Well`] entry. Numeric in saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WellStep {
+    /// Its shaft met water and it was lined: it is in use.
+    Opened = 0,
+    /// It was dug as deep as its diggers would go and met no water: it was given up.
+    GivenUp = 1,
+    /// Its lining rotted through and the shaft fell in.
+    FellIn = 2,
+    /// Its household made it a lid and curb (M6a slice BA).
+    Covered = 3,
 }
 
 /// What happened to a crossing, in a [`ChronicleKind::Crossing`] entry. Numeric in saves:
@@ -900,6 +985,10 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 Some(Cause::Collapse) => format!(" died when a building gave way, {age}."),
                 Some(Cause::Violence) => format!(" died of a blow, {age}."),
                 Some(Cause::Fell) => format!(" fell when a crossing gave way, and died, {age}."),
+                Some(Cause::Disease) => match event.name.split_once(':') {
+                    Some((_, what)) if !what.is_empty() => format!(" died of {what}, {age}."),
+                    _ => format!(" died of a disease, {age}."),
+                },
                 _ => format!(" died, {age}."),
             };
             vec![who, Span::Text(how)]
@@ -1229,6 +1318,21 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 ) => "sent ",
                 Some(crate::influence::InfluenceKind::Bless) => "blessed ",
                 Some(crate::influence::InfluenceKind::Curse) => "cursed ",
+                Some(crate::influence::InfluenceKind::Plague) => "brought a disease to ",
+                // The rain held back reaches no one person (M6a slice BA, step five).
+                Some(crate::influence::InfluenceKind::Drought) => {
+                    return vec![Span::Text(format!(
+                        "One recorded influence: the observer held back the rain{}",
+                        event.name
+                    ))];
+                }
+                // A building set alight (M6b slice BC): its words are the entry's.
+                Some(crate::influence::InfluenceKind::Fire) => {
+                    return vec![Span::Text(format!(
+                        "One recorded influence: the observer set alight{}",
+                        event.name
+                    ))];
+                }
                 None => "reached ",
             };
             let lead = format!("One recorded influence: the observer {verb}");
@@ -1259,7 +1363,10 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::CoupFailed
         | ChronicleKind::Encounter
         | ChronicleKind::Agreement
-        | ChronicleKind::Crossing => {
+        | ChronicleKind::Crossing
+        | ChronicleKind::Well
+        | ChronicleKind::Outbreak
+        | ChronicleKind::Fire => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {
@@ -1268,6 +1375,10 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 None => vec![Span::Text(format!("Someone {}", event.name))],
             }
         }
+        ChronicleKind::Suspicion => match person(0) {
+            Some(who) => vec![who, Span::Text(event.name.clone())],
+            None => vec![Span::Text(format!("Someone{}", event.name))],
+        },
         ChronicleKind::Taking => match person(0) {
             Some(who) => vec![who, Span::Text(format!(" {}", event.name))],
             None => vec![Span::Text(format!("Someone {}", event.name))],

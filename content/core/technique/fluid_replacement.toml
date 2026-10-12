@@ -1,0 +1,24 @@
+# Fluid replacement: giving someone ill of a purging disease as much water as they lose, a little
+# salted and with boiled grain, sip by sip through the day (M6a slice AZ, step three; ADR-0021 §5).
+# Research 05-03 §1.4: rehydration chiefly changes cholera survival; 05-05 §2.1: in 1971, 3,703
+# refugee patients had 3.6 % fatality and a demonstration unit's 1,190 had 1 %; §3.2: "a
+# counterfactual society could discover an effective, simple fluid-replacement protocol earlier".
+# Nobody brings it. Tending counts 1 % of its hours toward finding it, but half of those would need
+# 100,000 qualified hours: a far technique that in practice comes from elsewhere, as the
+# observer's introduction (ADR-0008; a tuning value). A carer who knows it practises it as they
+# tend, and one who does not learns it in 20 hours of tending while a member of their household
+# knows it (07-02 §2.3's lower end for a narrow, observable procedure); children learn it at home.
+kind = "technique"
+id = "core:technique/fluid_replacement"
+name = "Fluid replacement"
+can = "give someone ill of a purging disease as much water as they lose, a little salted, sip by sip"
+domain = ""
+requires = []
+tried_in = ["core:activity/work_tending_the_sick"]
+needs = []
+e50_h = 100000.0
+learn_h = 20.0
+upbringing = true
+
+[answers]
+spoilage = []

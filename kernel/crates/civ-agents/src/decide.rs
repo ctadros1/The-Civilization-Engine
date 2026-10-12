@@ -78,9 +78,65 @@ pub struct Facts {
     /// A crossing their household is building, if it is within their reach (M5c slice AW, step
     /// two).
     pub crossing: Option<CrossingFacts>,
+    /// The well their household is digging or relining, if any (M6a slice AY, step three).
+    pub well: Option<WellFacts>,
     /// Whether a blow keeps them from work today (M4c slice AI, step four): they eat, drink, rest,
     /// sleep and keep company, and do no work.
     pub hurt: bool,
+    /// Whether illness keeps them abed today (M6a slice AZ, ADR-0021 §5): they sleep, eat and
+    /// rest at home, and do nothing else.
+    pub ill: bool,
+    /// Whether they know a building of their household burns now, having been in it, woken to it
+    /// or seen it (M6b slices BC and BD, ADR-0022 §6-§7): they do nothing at home until it is out.
+    pub home_afire: bool,
+    /// Roofs a fire they know of threatens, and how they would bring water to each (M6b slice
+    /// BD, step three).
+    pub fire: Option<FireFacts>,
+    /// Members of their household ill at home and still owed care today, if any (M6a slice AZ,
+    /// step three).
+    pub tend: Option<TendFacts>,
+}
+
+/// Members of someone's household ill at home and still owed care today (M6a slice AZ, step
+/// three; ADR-0021 §5): the share of a day's care owed, summed over them (each counts at most
+/// one), the severely ill whole and the others half.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TendFacts {
+    pub owed: f64,
+}
+
+/// A roof a fire someone knows of threatens (M6b slice BD, step three; ADR-0022 §6): what saving
+/// it is worth to them, and how they would bring a load of water to it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FireTarget {
+    pub building: PermanentId,
+    /// Where to stand to throw water on it, metres.
+    pub at: (f32, f32),
+    /// Points: saving it, by whose it is and how near it stands to catching.
+    pub points: f64,
+    /// Where the water is drawn, as [`Target::Douse`]'s `from`, and where to stand to draw it.
+    pub from: u32,
+    pub fill_at: (f32, f32),
+    /// Minutes to draw a load there.
+    pub fill_min: u32,
+    /// Minutes of walking: to the water, then to the roof.
+    pub walk_min: f64,
+    /// Points: stripping its covering, less what that costs its household; none when it is not
+    /// theirs to strip (M6b slice BD, step four).
+    pub strip_points: Option<f64>,
+    /// Points: carrying a load of their household's goods out from under it; none when it is not
+    /// their household's or keeps nothing that burns.
+    pub salvage_points: Option<f64>,
+    /// Where goods carried out are set down, out of the fire's way, metres.
+    pub away: (f32, f32),
+    /// Minutes of walking straight to the roof.
+    pub to_roof_min: f64,
+}
+
+/// The roofs a fire someone knows of threatens (M6b slice BD, step three).
+#[derive(Clone, Debug, PartialEq)]
+pub struct FireFacts {
+    pub targets: Vec<FireTarget>,
 }
 
 /// A crossing someone's household is building, or their polity is and they know the law that
@@ -98,6 +154,23 @@ pub struct CrossingFacts {
     pub saves_per_hour: f64,
     pub duty: f64,
     /// As many as there is room for have begun work on it today (M5c slice AX).
+    pub full: bool,
+}
+
+/// A well someone's household is digging or relining beside its home (M6a slice AY, step three;
+/// ADR-0021 §3): where its work is done, the walk there from home, the hours of a capable adult's
+/// work it still takes, the hours of walking a year each hour of that work saves the household,
+/// and whether as many as its shaft has room for have begun work on it today.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WellFacts {
+    pub well: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub left_h: f64,
+    pub saves_per_hour: f64,
+    /// Points: keeping to the gathering's word on a polity's well, while the household has not
+    /// given the share asked of it (M6a slice BA, step four); 0 for its own.
+    pub duty: f64,
     pub full: bool,
 }
 
@@ -335,6 +408,12 @@ pub struct WaterOption {
     pub walk_min: f64,
     /// Where to stand, metres.
     pub at: (f32, f32),
+    /// The well it is, if it is one (M6a slice AY, step three): its water is drawn from the
+    /// well's column, not the cell's.
+    pub well: Option<PermanentId>,
+    /// Minutes to haul a load up to the ground there, beyond filling the vessels (0 at a bank or
+    /// spring).
+    pub lift_min: f64,
 }
 
 /// What working a recipe would bring the household.
@@ -422,6 +501,79 @@ pub struct Limits {
 /// Daylight left, minutes, below which a household whose water will not last until morning
 /// fetches water before anything else of ordinary weight (a tuning value).
 pub(crate) const LAST_WATER_BEFORE_DARK_MIN: f64 = 180.0;
+
+/// Work at a site the household is making something at, a crossing or a well, as weighed.
+struct Site {
+    at: (f32, f32),
+    walk_min: f64,
+    left_h: f64,
+    saves_per_hour: f64,
+    duty: f64,
+    full: bool,
+}
+
+/// A session of work at `site` for activity `def` (M5c slice AW, M6a slice AY): as long as
+/// daylight allows within the authored range, a shorter session only to finish it; each hour of a
+/// capable adult's work worth the walking it saves the household (`reason`), and, while a share
+/// asked of the household is not given, the duty. Its steps, or why it is left out.
+fn session_at_site(
+    def: &ActivityDef,
+    w: &DecisionParams,
+    f: &Facts,
+    site: &Site,
+    reason: Reason,
+    terms: &mut Vec<Term>,
+) -> Result<Vec<Step>, Reason> {
+    if site.walk_min > f64::from(def.max_walk_minutes) {
+        return Err(Reason::Unreachable);
+    }
+    if site.full {
+        return Err(Reason::Crowded);
+    }
+    let room = if def.daylight_only {
+        f.daylight_left_min - 2.0 * site.walk_min - 20.0
+    } else {
+        f64::from(def.max_minutes)
+    };
+    if room < f64::from(def.min_minutes) {
+        return Err(Reason::NotInDark);
+    }
+    let pace = (f.capacity * def.rate).max(0.05);
+    let left = site.left_h * 60.0 / pace;
+    let minutes = room
+        .min(f64::from(def.max_minutes))
+        .min(left)
+        .max(f64::from(def.min_minutes).min(left))
+        .max(1.0);
+    let hours = minutes / 60.0;
+    term(
+        terms,
+        reason,
+        w.w_walk_hour * hours * pace * site.saves_per_hour,
+    );
+    if site.duty > 0.0 {
+        term(terms, Reason::PublicWork, site.duty);
+    }
+    if site.walk_min > 0.5 {
+        term(
+            terms,
+            Reason::Walking,
+            -w.w_walk_hour * 2.0 * site.walk_min / 60.0,
+        );
+    }
+    term(
+        terms,
+        Reason::Effort,
+        -w.w_effort * (def.par - 1.0).max(0.0) * hours * f.sleep_pressure,
+    );
+    Ok(vec![
+        Step::Walk { to: site.at },
+        Step::Work {
+            minutes: minutes.round().max(1.0) as u32,
+        },
+        Step::Walk { to: f.home },
+    ])
+}
 
 fn term(terms: &mut Vec<Term>, reason: Reason, points: f64) {
     if points != 0.0 && points.is_finite() {
@@ -592,6 +744,16 @@ pub fn candidates(
         if def.behavior == Behavior::Bridge && f.crossing.is_none() {
             continue;
         }
+        // And work on a well to all but those whose household is digging or relining one (M6a
+        // slice AY, step three).
+        if def.behavior == Behavior::Well && f.well.is_none() {
+            continue;
+        }
+        // And tending to all but those with someone ill at home still owed care (M6a slice AZ,
+        // step three).
+        if def.behavior == Behavior::Tend && f.tend.is_none() {
+            continue;
+        }
         if f.age < def.min_age_years {
             excluded.push((id, Reason::TooYoung));
             continue;
@@ -602,6 +764,16 @@ pub fn candidates(
         }
         if def.daylight_only && f.dark {
             excluded.push((id, Reason::NotInDark));
+            continue;
+        }
+        // Illness keeps them abed (M6a slice AZ).
+        if f.ill
+            && !matches!(
+                def.behavior,
+                Behavior::Sleep | Behavior::Eat | Behavior::Rest
+            )
+        {
+            excluded.push((id, Reason::Ill));
             continue;
         }
         // A blow keeps them from work (M4c slice AI, step four).
@@ -685,7 +857,8 @@ pub fn candidates(
                 // In the last of the light it counts as a full shortage; once the light left would
                 // not see a meal and then the trip, the trip comes before anything that can wait
                 // until dark, the strongest hunger included.
-                let trip = 2.0 * water.walk_min + f64::from(def.min_minutes.max(1));
+                let draw = def.min_minutes.max(1) + water.lift_min.round().max(0.0) as u32;
+                let trip = 2.0 * water.walk_min + f64::from(draw);
                 let morning = f.until_sunrise_min + f64::from(limits.meal_min) + trip;
                 let lasts_night = f.water_days * 1440.0 >= morning;
                 if !f.dark && !lasts_night {
@@ -703,13 +876,12 @@ pub fn candidates(
                 );
                 let steps = vec![
                     Step::Walk { to: water.at },
-                    Step::Work {
-                        minutes: def.min_minutes.max(1),
-                    },
+                    Step::Work { minutes: draw },
                     Step::Walk { to: f.home },
                     Step::Deposit,
                 ];
-                out.push(finish(id, Target::Water(water.cell), terms, steps));
+                let target = water.well.map_or(Target::Water(water.cell), Target::Well);
+                out.push(finish(id, target, terms, steps));
             }
             // Digging is gathering at a deposit (M3b slice Q).
             Behavior::Gather | Behavior::Dig => {
@@ -1364,59 +1536,137 @@ pub fn candidates(
                 let Some(c) = f.crossing else {
                     continue;
                 };
-                if c.walk_min > f64::from(def.max_walk_minutes) {
-                    excluded.push((id, Reason::Unreachable));
-                    continue;
-                }
-                if c.full {
-                    excluded.push((id, Reason::Crowded));
-                    continue;
-                }
-                let room = if def.daylight_only {
-                    f.daylight_left_min - 2.0 * c.walk_min - 20.0
-                } else {
-                    f64::from(def.max_minutes)
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: c.saves_per_hour,
+                    duty: c.duty,
+                    full: c.full,
                 };
-                if room < f64::from(def.min_minutes) {
-                    excluded.push((id, Reason::NotInDark));
+                match session_at_site(def, w, f, &site, Reason::Crossing, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Crossing(c.crossing), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
+                }
+            }
+            Behavior::Well => {
+                // Work on the household's well (M6a slice AY, step three), as on its crossing.
+                let Some(c) = f.well else {
                     continue;
+                };
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: c.saves_per_hour,
+                    duty: c.duty,
+                    full: c.full,
+                };
+                match session_at_site(def, w, f, &site, Reason::Well, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Well(c.well), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
                 }
-                let pace = (f.capacity * def.rate).max(0.05);
-                let left = c.left_h * 60.0 / pace;
-                let minutes = room
-                    .min(f64::from(def.max_minutes))
-                    .min(left)
-                    .max(f64::from(def.min_minutes).min(left))
-                    .max(1.0);
-                let hours = minutes / 60.0;
+            }
+            Behavior::Douse => {
+                // A load of water carried to a roof a fire threatens (M6b slice BD, step three;
+                // ADR-0022 §6): drawn at home or at the nearest source, walked to the roof and
+                // thrown on it. Nothing is said of it to one who knows of no fire.
+                let Some(fire) = f.fire.as_ref() else {
+                    continue;
+                };
+                let worth = |t: &FireTarget| t.points - w.w_walk_hour * t.walk_min / 60.0;
+                let Some(t) = fire.targets.iter().max_by(|a, b| {
+                    worth(a)
+                        .total_cmp(&worth(b))
+                        .then_with(|| b.building.cmp(&a.building))
+                }) else {
+                    continue;
+                };
+                term(&mut terms, Reason::FireThreatens, t.points);
                 term(
                     &mut terms,
-                    Reason::Crossing,
-                    w.w_walk_hour * hours * pace * c.saves_per_hour,
-                );
-                if c.duty > 0.0 {
-                    term(&mut terms, Reason::PublicWork, c.duty);
-                }
-                if c.walk_min > 0.5 {
-                    term(
-                        &mut terms,
-                        Reason::Walking,
-                        -w.w_walk_hour * 2.0 * c.walk_min / 60.0,
-                    );
-                }
-                term(
-                    &mut terms,
-                    Reason::Effort,
-                    -w.w_effort * (def.par - 1.0).max(0.0) * hours * f.sleep_pressure,
+                    Reason::Walking,
+                    -w.w_walk_hour * t.walk_min / 60.0,
                 );
                 let steps = vec![
-                    Step::Walk { to: c.at },
+                    Step::Walk { to: t.fill_at },
                     Step::Work {
-                        minutes: minutes.round().max(1.0) as u32,
+                        minutes: t.fill_min.max(1),
                     },
-                    Step::Walk { to: f.home },
+                    Step::Walk { to: t.at },
+                    Step::Work {
+                        minutes: def.min_minutes.max(1),
+                    },
                 ];
-                out.push(finish(id, Target::Crossing(c.crossing), terms, steps));
+                let target = Target::Douse {
+                    building: t.building,
+                    from: t.from,
+                };
+                out.push(finish(id, target, terms, steps));
+            }
+            Behavior::Strip | Behavior::Salvage => {
+                // Tearing a threatened roof's covering off, or carrying the household's goods out
+                // from under it (M6b slice BD, step four; ADR-0022 §6).
+                let Some(fire) = f.fire.as_ref() else {
+                    continue;
+                };
+                let strip = def.behavior == Behavior::Strip;
+                let points_of = |t: &FireTarget| {
+                    if strip {
+                        t.strip_points
+                    } else {
+                        t.salvage_points
+                    }
+                };
+                let worth =
+                    |t: &FireTarget| points_of(t).map(|p| p - w.w_walk_hour * t.to_roof_min / 60.0);
+                let Some((t, _)) = fire
+                    .targets
+                    .iter()
+                    .filter_map(|t| worth(t).map(|v| (t, v)))
+                    .max_by(|a, b| {
+                        a.1.total_cmp(&b.1)
+                            .then_with(|| b.0.building.cmp(&a.0.building))
+                    })
+                else {
+                    continue;
+                };
+                term(
+                    &mut terms,
+                    Reason::FireThreatens,
+                    points_of(t).unwrap_or(0.0),
+                );
+                term(
+                    &mut terms,
+                    Reason::Walking,
+                    -w.w_walk_hour * t.to_roof_min / 60.0,
+                );
+                let work = Step::Work {
+                    minutes: def.min_minutes.max(1),
+                };
+                let steps = if strip {
+                    vec![Step::Walk { to: t.at }, work]
+                } else {
+                    vec![
+                        Step::Walk { to: t.at },
+                        work,
+                        Step::Walk { to: t.away },
+                        work,
+                    ]
+                };
+                out.push(finish(id, Target::Building(t.building), terms, steps));
+            }
+            Behavior::Tend => {
+                // Sitting with the household's sick at home, as long as care is owed them.
+                let Some(t) = f.tend else {
+                    continue;
+                };
+                term(&mut terms, Reason::Tend, w.w_tend * t.owed);
+                let mut steps = walk_home_first(f);
+                steps.push(Step::Work {
+                    minutes: def.min_minutes.max(1),
+                });
+                out.push(finish(id, Target::Home, terms, steps));
             }
             Behavior::Rest => {
                 term(&mut terms, Reason::Rest, w.w_rest);
@@ -1572,6 +1822,17 @@ pub fn candidates(
         .collect();
     out.retain(|c| !slower.contains(&c.scored.def));
     excluded.extend(slower.into_iter().map(|d| (d, Reason::BetterWay)));
+    // Someone who knows their home burns does nothing there until the fire is out (M6b slice
+    // BC; from slice BD, only once they know).
+    if f.home_afire {
+        let home: Vec<u16> = out
+            .iter()
+            .filter(|c| c.scored.target == Target::Home)
+            .map(|c| c.scored.def)
+            .collect();
+        out.retain(|c| c.scored.target != Target::Home);
+        excluded.extend(home.into_iter().map(|d| (d, Reason::HomeAfire)));
+    }
     (out, excluded)
 }
 
@@ -1641,6 +1902,7 @@ mod tests {
             w_dark: 5.0,
             w_rest: 1.0,
             w_play: 2.0,
+            w_tend: 6.0,
         }
     }
 
@@ -1682,6 +1944,10 @@ mod tests {
         Facts {
             petition: None,
             hurt: false,
+            ill: false,
+            home_afire: false,
+            fire: None,
+            tend: None,
             age: 30.0,
             capacity: 1.0,
             hunger: 0.5,
@@ -1710,6 +1976,7 @@ mod tests {
             watch: None,
             carry: None,
             crossing: None,
+            well: None,
         }
     }
 
@@ -2073,6 +2340,8 @@ mod tests {
             cell: 1,
             walk_min: 5.0,
             at: (5.0, 0.0),
+            well: None,
+            lift_min: 0.0,
         };
         let cannot = |_: usize, _: &[usize]| Err((Reason::NoTool, None));
         let shop = Workshop {
@@ -2132,6 +2401,108 @@ mod tests {
         // Water that runs out at first light, before the morning's meal and trip: as short.
         let (eat, water) = totals(30.0, 800.0 / 1440.0);
         assert!(water > eat, "water {water} vs eat {eat}");
+    }
+
+    #[test]
+    fn work_on_a_well_is_weighed_by_the_walking_it_saves_and_its_lift_is_part_of_a_draw() {
+        let mut dig = activity("work_on_well", Behavior::Well, Vec::new(), 1.0);
+        dig.min_minutes = 60;
+        dig.max_minutes = 240;
+        dig.max_walk_minutes = 30;
+        dig.par = 5.0;
+        let mut fetch = activity("fetch_water", Behavior::FetchWater, Vec::new(), 1.0);
+        fetch.min_minutes = 5;
+        fetch.max_walk_minutes = 45;
+        let defs = vec![dig, fetch];
+        let cannot = |_: usize, _: &[usize]| Err((Reason::NoTool, None));
+        let shop = Workshop {
+            free_tools: &[],
+            held_tools: &[],
+            best_make: &cannot,
+            makes_tool: &|_| false,
+            knows: &|_| true,
+        };
+        let well = PermanentId::from_raw(9).expect("an id");
+        let run = |f: &Facts, water: Option<WaterOption>| {
+            candidates(
+                &defs,
+                &weights(),
+                f,
+                &limits(),
+                &|_| None,
+                &|_| Err(Reason::NoPlace),
+                water,
+                &|| None,
+                &|| None,
+                &|| Err(Reason::NoReport),
+                &|| None,
+                Err(Reason::Built),
+                &shop,
+                &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
+                &Vec::new,
+            )
+        };
+        // No well being dug: the work is no part of anyone's choice.
+        let (cands, excluded) = run(&facts(), None);
+        assert!(cands.iter().all(|c| c.scored.def != 0));
+        assert!(excluded.iter().all(|e| e.0 != 0));
+        // A well being dug beside home, with 20 hours left, each hour saving six of walking: a
+        // full session, worth the walking it saves, at the well.
+        let wf = WellFacts {
+            well,
+            at: (3.0, 0.0),
+            walk_min: 0.1,
+            left_h: 20.0,
+            saves_per_hour: 6.0,
+            duty: 0.0,
+            full: false,
+        };
+        let f = Facts {
+            well: Some(wf),
+            dark: false,
+            daylight_left_min: 600.0,
+            ..facts()
+        };
+        let (cands, _) = run(&f, None);
+        let c = cands.iter().find(|c| c.scored.def == 0).expect("weighed");
+        assert_eq!(c.scored.target, Target::Well(well));
+        assert!(matches!(c.steps[1], Step::Work { minutes: 240 }));
+        let saving = c
+            .scored
+            .terms
+            .iter()
+            .find(|t| t.reason == Reason::Well)
+            .expect("the walking saved");
+        assert!((f64::from(saving.points) - weights().w_walk_hour * 4.0 * 6.0).abs() < 1e-3);
+        // As many as its shaft has room for began today: left out, and why.
+        let full = Facts {
+            well: Some(WellFacts { full: true, ..wf }),
+            ..f.clone()
+        };
+        let (cands, excluded) = run(&full, None);
+        assert!(cands.iter().all(|c| c.scored.def != 0));
+        assert!(excluded.contains(&(0, Reason::Crowded)));
+        // Water drawn at a well is aimed at the well, and its lift lengthens the draw.
+        let at_well = WaterOption {
+            cell: 1,
+            walk_min: 0.1,
+            at: (3.0, 0.0),
+            well: Some(well),
+            lift_min: 2.4,
+        };
+        let thirsty = Facts {
+            water_days: 0.0,
+            ..f.clone()
+        };
+        let (cands, _) = run(&thirsty, Some(at_well));
+        let c = cands.iter().find(|c| c.scored.def == 1).expect("fetching");
+        assert_eq!(c.scored.target, Target::Well(well));
+        assert!(
+            matches!(c.steps[1], Step::Work { minutes: 7 }),
+            "{:?}",
+            c.steps
+        );
     }
 
     #[test]

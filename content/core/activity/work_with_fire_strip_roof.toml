@@ -1,0 +1,20 @@
+# Tearing the covering from a roof a fire threatens, so that it has nothing to catch (M6b slice
+# BD, step four; ADR-0022 §6): their household's own roof, or another's with leave of one of its
+# people awake beside it. A session tears off the people profile's `strip_m2_per_minute` a minute;
+# then they decide again. Heavy work (PAR as heavy building work). Ages and the session are
+# tuning values. Its id sorts after every older activity's: activities are kept in id order.
+kind = "activity"
+id = "core:activity/work_with_fire_strip_roof"
+name = "Strip a threatened roof"
+doing = "stripping a threatened roof"
+behavior = "strip"
+par = 5.0
+min_age_years = 14.0
+max_age_years = 65.0
+min_minutes = 5                  # a session of tearing off thatch
+max_minutes = 5
+daylight_only = false
+max_walk_minutes = 30
+technique = ""
+tools = []
+rate = 1.0

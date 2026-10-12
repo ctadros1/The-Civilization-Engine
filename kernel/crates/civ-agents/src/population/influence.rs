@@ -239,6 +239,79 @@ impl Population {
         }
     }
 
+    /// The observer holds back the rain for `months` months (M6a slice BA, step five; ADR-0021
+    /// §8): the weather's slow anomaly is held `depth` standard deviations dry, so wet days are
+    /// fewer and lighter and summers warmer, as in any dry spell of that depth, until it lets go;
+    /// whatever follows (soil, runoff, rivers, the water table, wells and springs, harvests) is
+    /// the world's. A use while one holds refreshes it, to end `months` from now. Refused for
+    /// fewer than 3 or more than 24 months, a depth outside 0 to 3, or a world with no
+    /// settlement.
+    pub fn drought(&mut self, ctx: &mut Ctx, months: u32, depth: f64) -> Result<Reached, String> {
+        if !(3..=24).contains(&months) {
+            return Err(format!(
+                "the rain can be held back for 3 to 24 months, not {months}"
+            ));
+        }
+        if !(depth.is_finite() && depth > 0.0 && depth <= 3.0) {
+            return Err(format!(
+                "a drought is 0 to 3 standard deviations dry, not {depth}"
+            ));
+        }
+        let settlement = ctx
+            .land
+            .settlements
+            .first()
+            .map(|s| s.id)
+            .ok_or_else(|| "there is no settlement here for the rain to fail".to_owned())?;
+        let (now, day) = (ctx.now, ctx.now.day_index());
+        let until = day + (f64::from(months) * DAYS_PER_YEAR as f64 / 12.0).round() as i64;
+        ctx.land.weather.hold_dry(-depth, until);
+        let held = self
+            .influences
+            .list
+            .iter_mut()
+            .rev()
+            .find(|i| i.kind == InfluenceKind::Drought && i.until > day);
+        let (id, repeat) = match held {
+            Some(i) => {
+                i.last = now;
+                i.uses += 1;
+                i.subject = months;
+                i.until = until;
+                (i.id, true)
+            }
+            None => {
+                let id = self
+                    .influences
+                    .add(now, InfluenceKind::Drought, settlement, months);
+                if let Some(i) = self.influences.list.iter_mut().find(|i| i.id == id) {
+                    i.until = until;
+                }
+                (id, false)
+            }
+        };
+        let words = format!(
+            ": for {months} months the weather runs dry, until {}.",
+            crate::polity::day_words(SimTime::from_minutes(until * 1440))
+        );
+        self.chronicle_push(
+            now,
+            ChronicleKind::Influence,
+            Vec::new(),
+            Some(settlement),
+            None,
+            f64::from(InfluenceKind::Drought.code()),
+            words,
+        );
+        Ok(Reached {
+            id,
+            repeat,
+            holds: true,
+            fit: 0.0,
+            chance: 0.0,
+        })
+    }
+
     /// The observer blesses `person`, or with `curse` curses them, for `days` days by `share`
     /// (M4c slice AJ, ADR-0016 §5): their own draws for illness or accident and for finding
     /// things out are moved their way, or against them, as [`Luck`] says. Never a decision's

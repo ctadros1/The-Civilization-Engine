@@ -12,3 +12,9 @@ sheltered_half_life_days = 2400.0 # under a roof the 10 % a year of 08-01 §2.2
 eaten = "raw"
 shared = false
 reserve_for = ""
+
+# How it burns (ADR-0022 §5; content API 81).
+# Provisions under a burning roof are lost (a design prior).
+[fire]
+catch_kw_m2 = 0.0
+burns = 1.0

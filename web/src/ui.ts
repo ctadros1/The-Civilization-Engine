@@ -64,7 +64,8 @@ import {
   stanceText,
   statusText,
 } from "./government.js";
-import { believedText, caseText, choiceText, happenedRest, seenText, totalsText } from "./order.js";
+import { totalsText } from "./order.js";
+import { INCIDENT_KINDS, curveBars, kindClass, stepText, totalsLine } from "./incidents.js";
 import { PATH_LEGEND } from "./paths.js";
 import { neighbourSizes } from "./settlements.js";
 import {
@@ -82,7 +83,9 @@ import type {
   Decision,
   EventItem,
   FirmBrief,
+  IncidentRow,
   MarketInfo,
+  OutbreakInfo,
   PersonInfo,
   SaveEntry,
   ScoredOption,
@@ -124,6 +127,19 @@ export interface Actions {
   focusSettlement(id: number): void;
   /** Open a workshop's page in the workshops panel (null goes back to the list). */
   openFirm(id: number | null): void;
+  /** Shows incidents of one kind in the Incidents panel: 0 every kind, 1 takings, 2 illness, 4
+   * fires. */
+  setIncidentKind(kind: number): void;
+  /** Reads the next page of incidents. */
+  moreIncidents(): void;
+  /** Opens an incident's page, an outbreak's or a conflagration's, in the Incidents panel; or
+   * goes back. */
+  openIncident(kind: number, id: number): void;
+  openOutbreak(id: number): void;
+  openConflagration(id: number): void;
+  closeIncidentPage(): void;
+  /** Centres the map on a point, metres (the camera moves only when asked). */
+  locate(xM: number, yM: number): void;
   /** Run ahead by `minutes` of simulated time. */
   runAhead(minutes: number): Promise<void>;
   /**
@@ -143,6 +159,9 @@ export interface Actions {
   /** Tell a living adult of an ideology (god tool, M4c slice AJ): an index into
    * Welcome.ideologies. */
   tellOfIdeology(person: number, ideology: number): Promise<void>;
+  /** Bring a disease to a living person, as if they took it elsewhere (god tool, M6a slice AZ):
+   * an index into Welcome.diseases. */
+  plague(person: number, disease: number): Promise<void>;
   /** Bless a living person, or with `curse` curse them, for `days` days by `share` (god tool). */
   bless(person: number, curse: boolean, days: number, share: number): Promise<void>;
   /** Arms or disarms the tool that sends an agitator holding ideology `ideology` where the map is
@@ -151,6 +170,11 @@ export interface Actions {
   /** Arms or disarms the tool that sends a migration wave of `households` households over `days`
    * days, each carrying `months` months of food, where the map is clicked (M5a slice AN). */
   setPlacingWave(on: boolean, households: number, days: number, months: number): void;
+  /** Arms or disarms the tool that sets alight the building clicked (M6b slice BC). */
+  setPlacingFire(on: boolean): void;
+  /** Hold back the rain for `months` months, `depth` standard deviations dry (god tool, M6a
+   * slice BA). */
+  drought(months: number, depth: number): Promise<void>;
 }
 
 const MAX_SEED = (1n << 64n) - 1n;
@@ -535,6 +559,14 @@ export function bindUi(store: Store, actions: Actions): void {
   for (const s of waveChoices) {
     s.addEventListener("change", () => armWave(addWave.getAttribute("aria-pressed") === "true"));
   }
+  const setFire = $<HTMLButtonElement>("set-fire");
+  setFire.addEventListener("click", () => actions.setPlacingFire(setFire.getAttribute("aria-pressed") !== "true"));
+  const holdRain = $<HTMLButtonElement>("hold-rain");
+  holdRain.addEventListener("click", () => {
+    const months = Number($<HTMLSelectElement>("drought-months").value) || 12;
+    const depth = Number($<HTMLSelectElement>("drought-depth").value) || 1.5;
+    void actions.drought(months, depth);
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key !== " " || isTyping(event.target)) return;
     if (document.querySelector("dialog[open]")) return;
@@ -1135,6 +1167,33 @@ export function bindUi(store: Store, actions: Actions): void {
       observerSelects.push(select);
       box.append(form);
     }
+    // A disease brought to them, as if they took it elsewhere (M6a slice AZ, ADR-0021 §8).
+    const diseases = welcome?.diseases ?? [];
+    if (diseases.length > 0) {
+      const select = el("select");
+      select.id = "plague-disease";
+      diseases.forEach((d, k) => {
+        const option = el("option", { text: d.name });
+        option.value = String(k);
+        option.title = `It passes ${d.routes}`;
+        select.append(option);
+      });
+      const label = el("label", { text: "Bring" });
+      label.htmlFor = select.id;
+      const go = el("button", { text: "Bring it" });
+      go.type = "submit";
+      go.id = "plague-go";
+      go.title =
+        "They have it as if they took it elsewhere; whether it goes further is the disease's and people's (god tool)";
+      const form = el("form", { className: "plague" }, label, select, go);
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        go.disabled = true;
+        void actions.plague(p.id, Number(select.value));
+      });
+      observerSelects.push(select);
+      box.append(form);
+    }
     // A blessing or a curse on their own luck in material things (M4c slice AJ).
     {
       const period = el("select");
@@ -1348,6 +1407,34 @@ export function bindUi(store: Store, actions: Actions): void {
     if (p.alive && p.seenAway) {
       nodes.push(el("p", { className: "seen-away", text: `Seen elsewhere: ${p.seenAway}.` }));
     }
+    // Where their household went for water today (wire 1.61, M6a slice AY).
+    if (p.alive && p.water) {
+      nodes.push(el("p", { className: "water", text: `${p.water}.` }));
+    }
+    // Their infections, as the kernel knows them (wire 1.62, M6a slice AZ): no one in the world
+    // knows where a sickness came from.
+    if (p.sickness.length > 0) {
+      nodes.push(
+        el(
+          "div",
+          { className: "sickness" },
+          el("h4", { text: "Sickness" }),
+          el("ul", {}, ...p.sickness.map((line) => el("li", { text: `${line}.` }))),
+        ),
+      );
+    }
+    // The water they hold sickens, and why (wire 1.63, M6a slice BA): what they believe from what
+    // they heard, which may be wrong.
+    if (p.alive && p.suspicions.length > 0) {
+      nodes.push(
+        el(
+          "div",
+          { className: "suspicions" },
+          el("h4", { text: "Suspects the water" }),
+          el("ul", {}, ...p.suspicions.map((line) => el("li", { text: `${line}.` }))),
+        ),
+      );
+    }
     if (p.alive) nodes.push(tiesBlock(state, p), wordBlock(p), opinionBlock(p));
     if (p.alive) nodes.push(observerBlock(welcome, p));
     if (p.kin.length > 0 || p.family.length > 0) {
@@ -1517,7 +1604,27 @@ export function bindUi(store: Store, actions: Actions): void {
               text.append(span.text);
             }
           }
-          return el("li", {}, el("span", { className: "when", text: formatSimMinute(e.minute) }), text);
+          // Wire 1.65: the incident or outbreak it tells of opens its page; where it happened
+          // can be looked at. The camera moves only when asked.
+          const tools: (Node | string)[] = [];
+          if (e.link) {
+            const { kind, id } = e.link;
+            const open = link("Open", () => {
+              if (kind === 3) actions.openOutbreak(id);
+              else if (kind === 5) actions.openConflagration(id);
+              else actions.openIncident(kind, id);
+              $("incidents-panel").scrollIntoView({ block: "nearest" });
+            });
+            open.classList.add("chronicle-open");
+            tools.push(" ", open);
+          }
+          if (e.at) {
+            const [x, y] = e.at;
+            const locate = link("Locate", () => actions.locate(x, y));
+            locate.classList.add("chronicle-locate");
+            tools.push(" ", locate);
+          }
+          return el("li", {}, el("span", { className: "when", text: formatSimMinute(e.minute) }), text, ...tools);
         }),
     );
     // A chronicle reads oldest first; follow new entries unless the reader scrolled back.
@@ -2097,6 +2204,9 @@ export function bindUi(store: Store, actions: Actions): void {
     if (w.today) {
       nodes.push(el("p", { className: "weather-today", text: `Today: ${w.today.words}.` }));
     }
+    if (w.drought) {
+      nodes.push(el("p", { className: "weather-drought", text: `${w.drought}.` }));
+    }
     nodes.push(
       el("p", {
         className: "aside",
@@ -2108,12 +2218,13 @@ export function bindUi(store: Store, actions: Actions): void {
       {},
       ...["Month", "Rain mm", "", "Mean °C", "Frost", "Snow", "Soil"].map((h) => el("th", { text: h })),
     );
-    const months = monthRows(w).map((r) =>
+    const monthList = monthRows(w);
+    const months = monthList.map((r) =>
       el(
         "tr",
-        { className: r.partial ? "partial" : "" },
-        ...[r.month, r.rain, r.rainWord, r.temp, String(r.frost), String(r.snow), r.soil].map((v) =>
-          el("td", { text: v }),
+        { className: [r.partial ? "partial" : "", r.held ? "held" : ""].filter(Boolean).join(" ") },
+        ...[r.held ? `${r.month} (held)` : r.month, r.rain, r.rainWord, r.temp, String(r.frost), String(r.snow), r.soil].map(
+          (v) => el("td", { text: v }),
         ),
       ),
     );
@@ -2124,6 +2235,11 @@ export function bindUi(store: Store, actions: Actions): void {
         el("table", { className: "weather-months" }, el("thead", {}, monthHead), el("tbody", {}, ...months)),
       ),
     );
+    if (monthList.some((r) => r.held)) {
+      nodes.push(
+        el("p", { className: "note", text: "(held): the observer's drought held that month's weather on some of its days." }),
+      );
+    }
     const yearHead = el(
       "tr",
       {},
@@ -2456,86 +2572,341 @@ export function bindUi(store: Store, actions: Actions): void {
     governmentBody.replaceChildren(...nodes);
   };
 
-  // ---- Order (takings) ---------------------------------------------------------------------
-  const orderBody = $("order-body");
-  let orderRenderKey: unknown[] = [];
-  const renderOrder = (state: AppState) => {
-    const world = state.snapshot?.world ?? null;
-    const key = [world?.worldId ?? null, state.order, state.orderError];
-    if (key.length === orderRenderKey.length && key.every((k, i) => k === orderRenderKey[i])) return;
-    orderRenderKey = key;
-    if (!world) {
-      orderBody.replaceChildren(el("p", { className: "empty", text: "No world loaded." }));
-      return;
-    }
-    const o = state.order;
-    if (o === null) {
-      orderBody.replaceChildren(
-        state.orderError
-          ? el("p", {
-              className: "form-error",
-              text: `The takings could not be read: ${state.orderError}`,
-            })
+  // ---- Incidents (wire 1.64, M6a slice BB, ADR-0015 §8; the takings' totals from wire 1.30) --
+  const incidentsBody = $("incidents-body");
+  let incidentsRenderKey: unknown[] = [];
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const capitalise = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
+  /** One incident as a list item: its three layers, each labelled, and a way to its page. */
+  /** Whom an incident's words begin with, as a link: a person to focus, or a fire's building to
+   * find on the map. */
+  const whoLink = (r: IncidentRow): HTMLElement =>
+    r.kind === 4
+      ? link(r.whoName, () => actions.locate(r.at[0], r.at[1]))
+      : link(r.whoName, () => actions.focusPerson(r.who));
+  const incidentItem = (r: IncidentRow): HTMLElement => {
+    const mark = r.observer > 0 ? " (the observer's)" : "";
+    const open = link("Open", () => actions.openIncident(r.kind, r.id));
+    open.classList.add("incident-open");
+    return el(
+      "li",
+      { className: `incident ${kindClass(r.kind)}` },
+      el(
+        "div",
+        { className: "happened" },
+        el("span", { className: "layer", text: "What happened: " }),
+        whoLink(r),
+        ` ${r.happened}.${mark} `,
+        open,
+      ),
+      el(
+        "div",
+        { className: "believed" },
+        el("span", { className: "layer", text: "What people know: " }),
+        `${r.known}.`,
+      ),
+      el(
+        "div",
+        { className: "case" },
+        el("span", { className: "layer", text: "What the polity knows and did: " }),
+        `${r.polity}.`,
+      ),
+    );
+  };
+  /** Lines under a heading, kept as one layer. */
+  const layerBlock = (cls: string, heading: string, lines: string[]): HTMLElement =>
+    el(
+      "div",
+      { className: `layer-block ${cls}` },
+      el("h4", { text: heading }),
+      lines.length === 0
+        ? el("p", { className: "empty", text: "Nothing." })
+        : el("ul", {}, ...lines.map((l) => el("li", { text: `${l}.` }))),
+    );
+  /** An outbreak's cases by day: those who fell ill (filled) beside those who took it (outlined). */
+  const curve = (o: OutbreakInfo): Element => {
+    const bars = curveBars(o);
+    const w = Math.max(1, bars.length) * 6;
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", `0 0 ${w} 40`);
+    svg.setAttribute("class", "outbreak-curve");
+    svg.setAttribute("role", "img");
+    const ill = o.onset.reduce((a, b) => a + b, 0);
+    const took = o.took.reduce((a, b) => a + b, 0);
+    svg.setAttribute(
+      "aria-label",
+      `Cases by day over ${bars.length} days: ${took} took it, ${ill} fell ill`,
+    );
+    bars.forEach((b, d) => {
+      const outline = document.createElementNS(SVG_NS, "rect");
+      outline.setAttribute("x", String(d * 6 + 0.5));
+      outline.setAttribute("y", String(40 - b.took * 38));
+      outline.setAttribute("width", "5");
+      outline.setAttribute("height", String(b.took * 38));
+      outline.setAttribute("class", "took");
+      svg.append(outline);
+      const filled = document.createElementNS(SVG_NS, "rect");
+      filled.setAttribute("x", String(d * 6 + 1.5));
+      filled.setAttribute("y", String(40 - b.onset * 38));
+      filled.setAttribute("width", "3");
+      filled.setAttribute("height", String(b.onset * 38));
+      filled.setAttribute("class", "onset");
+      svg.append(filled);
+    });
+    return svg;
+  };
+  const incidentPageNodes = (page: NonNullable<AppState["incidentPage"]>): Node[] => {
+    const back = link("Back to the incidents", () => actions.closeIncidentPage());
+    back.classList.add("incident-back");
+    if (!page.info) {
+      return [
+        back,
+        page.error
+          ? el("p", { className: "form-error", text: `The incident could not be read: ${page.error}` })
           : el("p", { className: "empty", text: "Asking the host…" }),
-      );
-      return;
+      ];
     }
+    const i = page.info;
     const nodes: Node[] = [
-      el("p", {
-        className: "aside",
-        text: "Each taking is shown twice: what happened, which nobody in the world reads, and what the living believe of it and chose. They differ: a taking nobody saw is known only as a loss, and word of a taker travels only along ties.",
-      }),
-      el("p", { className: "order-totals", text: totalsText(o) }),
+      back,
+      el("h3", { className: "incident-title" }, whoLink(i.row), ` ${i.row.happened}.`),
+      el(
+        "ol",
+        { className: "incident-steps" },
+        ...i.steps.map((st) =>
+          el("li", { className: `step step-${st.state.replace(" ", "-")}`, text: stepText(st) }),
+        ),
+      ),
     ];
-    // Watchers come to take what a refused finding owed (wire 1.46).
-    if (o.encounters.length > 0) {
+    if (i.links.length > 0) {
       nodes.push(
-        el("ul", { className: "encounters" }, ...o.encounters.map((v) => el("li", { text: v }))),
+        el(
+          "ul",
+          { className: "incident-links" },
+          ...i.links.map((l) =>
+            el(
+              "li",
+              {},
+              l.target === "outbreak"
+                ? link(capitalise(l.words), () => actions.openOutbreak(l.id))
+                : l.target === "fire"
+                  ? link(capitalise(l.words), () => actions.openIncident(4, l.id))
+                  : l.target === "conflagration"
+                    ? link(capitalise(l.words), () => actions.openConflagration(l.id))
+                    : capitalise(l.words),
+            ),
+          ),
+        ),
       );
     }
-    const known = new Map(o.known.map((k) => [k.incident, k]));
-    if (o.incidents.length > 0) {
-      const list = el("ol", { className: "takings" });
-      for (const i of o.incidents) {
-        const k = known.get(i.id);
-        const choice = choiceText(k);
-        list.append(
+    nodes.push(
+      el(
+        "div",
+        { className: "incident-layers" },
+        layerBlock("layer-truth", "What happened (the kernel's truth, which nobody in the world reads)", i.truth),
+        layerBlock("layer-known", "What people know", i.knowledge),
+        layerBlock("layer-polity", "What the polity knows and did", i.polity),
+      ),
+    );
+    if (page.error) nodes.push(el("p", { className: "note", text: `Not up to date: ${page.error}` }));
+    return nodes;
+  };
+  const outbreakPageNodes = (page: NonNullable<AppState["outbreakPage"]>): Node[] => {
+    const back = link("Back to the incidents", () => actions.closeIncidentPage());
+    back.classList.add("incident-back");
+    if (!page.info) {
+      return [
+        back,
+        page.error
+          ? el("p", { className: "form-error", text: `The outbreak could not be read: ${page.error}` })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      ];
+    }
+    const o = page.info;
+    const nodes: Node[] = [
+      back,
+      el("h3", { className: "outbreak-title", text: `${o.row.words}.` }),
+      el("p", { className: "outbreak-cause", text: `${o.cause}.` }),
+      curve(o),
+      el("p", { className: "aside", text: "Cases by day: outlined, those who took it; filled, those who fell ill." }),
+      el("p", { className: "outbreak-routes", text: `How its cases took it: ${o.routes.join("; ")}.` }),
+    ];
+    if (o.sources.length > 0) {
+      nodes.push(el("h4", { text: "The water its cases drank, and the water people suspect" }));
+      for (const src of o.sources) {
+        nodes.push(
           el(
-            "li",
-            { className: `taking taking-${i.outcome.replace(" ", "-")}` },
+            "div",
+            { className: "outbreak-source" },
+            el("p", { className: "source-name", text: `${src.name}: ${src.cases === 1 ? "1 case" : `${src.cases} cases`} took it there` }),
             el(
               "div",
-              { className: "happened" },
-              el("span", { className: "layer", text: "What happened: " }),
-              link(i.actorName, () => actions.focusPerson(i.actor)),
-              ` ${happenedRest(i)} ${seenText(i)}.${i.watch ? ` ${i.watch}.` : ""}`,
-            ),
-            el(
-              "div",
-              { className: "believed" },
-              el("span", { className: "layer", text: "What people believe: " }),
-              `${believedText(k)}.${choice ? ` ${choice}.` : ""}`,
+              { className: "incident-layers" },
+              layerBlock("layer-truth", "What the kernel recorded", src.truth),
+              layerBlock("layer-known", "What people hold", src.knowledge),
+              layerBlock("layer-polity", "What the polity did", src.polity),
             ),
           ),
         );
-        const brought = caseText(k);
-        if (brought !== "") {
-          list.lastElementChild?.append(
-            el(
-              "div",
-              { className: "case" },
-              el("span", { className: "layer", text: "What the gathering was told: " }),
-              `${brought}.`,
-            ),
-          );
-        }
       }
-      nodes.push(list);
     }
-    if (state.orderError) {
-      nodes.push(el("p", { className: "note", text: `Not up to date: ${state.orderError}` }));
+    nodes.push(
+      el("h4", {
+        text:
+          o.members.length < o.membersTotal
+            ? `Its cases, the newest ${o.members.length} of ${o.membersTotal}`
+            : `Its cases (${o.membersTotal})`,
+      }),
+      el("ol", { className: "incidents" }, ...o.members.map(incidentItem)),
+    );
+    if (page.error) nodes.push(el("p", { className: "note", text: `Not up to date: ${page.error}` }));
+    return nodes;
+  };
+  const conflagrationPageNodes = (page: NonNullable<AppState["conflagrationPage"]>): Node[] => {
+    const back = link("Back to the incidents", () => actions.closeIncidentPage());
+    back.classList.add("incident-back");
+    if (!page.info) {
+      return [
+        back,
+        page.error
+          ? el("p", { className: "form-error", text: `The fire could not be read: ${page.error}` })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      ];
     }
-    orderBody.replaceChildren(...nodes);
+    const c = page.info;
+    const nodes: Node[] = [
+      back,
+      el("h3", { className: "conflagration-title", text: `${c.row.words}.` }),
+      el("p", { className: "conflagration-cause", text: `${c.cause}.` }),
+    ];
+    if (c.weather) nodes.push(el("p", { className: "conflagration-weather", text: `${c.weather}.` }));
+    nodes.push(
+      el("h4", { text: `Its fires, in the order they caught (${c.fires.length})` }),
+      el("ol", { className: "incidents conflagration-fires" }, ...c.fires.map(incidentItem)),
+      layerBlock("layer-truth", "What its heat reached that held (the kernel's truth)", c.held),
+    );
+    if (page.error) nodes.push(el("p", { className: "note", text: `Not up to date: ${page.error}` }));
+    return nodes;
+  };
+  const renderIncidents = (state: AppState) => {
+    const world = state.snapshot?.world ?? null;
+    const key = [
+      world?.worldId ?? null,
+      state.incidents,
+      state.incidentsError,
+      state.incidentKind,
+      state.order,
+      state.incidentPage,
+      state.outbreakPage,
+      state.conflagrationPage,
+    ];
+    if (key.length === incidentsRenderKey.length && key.every((k, i) => k === incidentsRenderKey[i])) return;
+    incidentsRenderKey = key;
+    if (!world) {
+      incidentsBody.replaceChildren(el("p", { className: "empty", text: "No world loaded." }));
+      return;
+    }
+    if (state.outbreakPage) {
+      incidentsBody.replaceChildren(...outbreakPageNodes(state.outbreakPage));
+      return;
+    }
+    if (state.conflagrationPage) {
+      incidentsBody.replaceChildren(...conflagrationPageNodes(state.conflagrationPage));
+      return;
+    }
+    if (state.incidentPage) {
+      incidentsBody.replaceChildren(...incidentPageNodes(state.incidentPage));
+      return;
+    }
+    const kind = el("select", { className: "incident-kind" }) as HTMLSelectElement;
+    kind.setAttribute("aria-label", "Kind of incident");
+    for (const k of INCIDENT_KINDS) {
+      const option = el("option", { text: k.label }) as HTMLOptionElement;
+      option.value = String(k.code);
+      kind.append(option);
+    }
+    kind.value = String(state.incidentKind);
+    kind.addEventListener("change", () => actions.setIncidentKind(Number(kind.value)));
+    const nodes: Node[] = [
+      el(
+        "p",
+        { className: "aside" },
+        "Each incident is shown in three layers, kept apart: what happened, which nobody in the world reads; what people know of it; and what their polity knows and did. A layer with nothing in it says so. ",
+        kind,
+      ),
+    ];
+    const inc = state.incidents;
+    if (inc === null) {
+      nodes.push(
+        state.incidentsError
+          ? el("p", { className: "form-error", text: `The incidents could not be read: ${state.incidentsError}` })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      );
+      incidentsBody.replaceChildren(...nodes);
+      return;
+    }
+    const totals = inc.totals.filter((t) => state.incidentKind === 0 || t.kind === state.incidentKind);
+    nodes.push(el("ul", { className: "incident-totals" }, ...totals.map((t) => el("li", { text: `${totalsLine(t)}.` }))));
+    const o = state.order;
+    if (o && (state.incidentKind === 0 || state.incidentKind === 1)) {
+      nodes.push(el("p", { className: "order-totals", text: totalsText(o) }));
+      // Watchers come to take what a refused finding owed (wire 1.46).
+      if (o.encounters.length > 0) {
+        nodes.push(el("ul", { className: "encounters" }, ...o.encounters.map((v) => el("li", { text: v }))));
+      }
+    }
+    if ((state.incidentKind === 0 || state.incidentKind === 4) && inc.conflagrations.length > 0) {
+      nodes.push(
+        el("h4", { text: "Fires that spread" }),
+        el(
+          "ul",
+          { className: "conflagrations" },
+          ...inc.conflagrations.map((c) => {
+            const open = link("Open", () => actions.openConflagration(c.id));
+            open.classList.add("conflagration-open");
+            return el(
+              "li",
+              { className: "conflagration" },
+              `${c.words}${c.observer > 0 ? " (the observer's)" : ""}. `,
+              open,
+            );
+          }),
+        ),
+      );
+    }
+    if ((state.incidentKind === 0 || state.incidentKind === 2) && inc.outbreaks.length > 0) {
+      nodes.push(
+        el("h4", { text: "Outbreaks" }),
+        el(
+          "ul",
+          { className: "outbreaks" },
+          ...inc.outbreaks.map((ob) => {
+            const open = link("Open", () => actions.openOutbreak(ob.id));
+            open.classList.add("outbreak-open");
+            return el(
+              "li",
+              { className: "outbreak" },
+              `${ob.words}${ob.observer > 0 ? " (the observer's)" : ""}. `,
+              open,
+            );
+          }),
+        ),
+      );
+    }
+    if (inc.rows.length === 0) {
+      nodes.push(el("p", { className: "empty", text: "No incident yet." }));
+    } else {
+      nodes.push(el("ol", { className: "incidents" }, ...inc.rows.map(incidentItem)));
+    }
+    if (inc.next) {
+      const more = link("More", () => actions.moreIncidents());
+      more.classList.add("incidents-more");
+      nodes.push(more);
+    }
+    if (state.incidentsError) {
+      nodes.push(el("p", { className: "note", text: `Not up to date: ${state.incidentsError}` }));
+    }
+    incidentsBody.replaceChildren(...nodes);
   };
 
   // ---- Knowledge ---------------------------------------------------------------------------
@@ -2677,7 +3048,9 @@ export function bindUi(store: Store, actions: Actions): void {
             day: clock.day,
             hour: clock.hour,
             minute: clock.minuteOfHour,
-          })} · ${clock.season}${clock.weather ? ` · ${clock.weather.words}` : ""}`
+          })} · ${clock.season}${clock.weather ? ` · ${clock.weather.words}` : ""}${
+            clock.weather?.windWords ? ` · ${clock.weather.windWords}` : ""
+          }`
         : "",
     );
     const run = $<HTMLButtonElement>("btn-run");
@@ -2749,6 +3122,15 @@ export function bindUi(store: Store, actions: Actions): void {
     for (const id of ["wave-households", "wave-days", "wave-months"]) $<HTMLSelectElement>(id).disabled = wave.disabled;
     wave.setAttribute("aria-pressed", String(state.placingWave));
     wave.classList.toggle("active", state.placingWave);
+    // The drought (M6a slice BA): the rain held back over the valley.
+    const rain = $<HTMLButtonElement>("hold-rain");
+    rain.disabled = !open || !world;
+    for (const id of ["drought-months", "drought-depth"]) $<HTMLSelectElement>(id).disabled = rain.disabled;
+    // The fire (M6b slice BC): the building clicked is set alight.
+    const fire = $<HTMLButtonElement>("set-fire");
+    fire.disabled = !open || !world;
+    fire.setAttribute("aria-pressed", String(state.placingFire));
+    fire.classList.toggle("active", state.placingFire);
     renderSpeeds(state);
     renderConnection(state);
     renderBanner(state);
@@ -2762,7 +3144,7 @@ export function bindUi(store: Store, actions: Actions): void {
     renderKnowledge(state);
     renderStanding(state);
     renderGovernment(state);
-    renderOrder(state);
+    renderIncidents(state);
     renderWorld(state);
     renderEvents(state);
     renderTask(state);

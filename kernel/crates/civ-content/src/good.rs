@@ -1,7 +1,7 @@
 //! Goods (`kind = "good"`): things people carry home and keep, with how they keep. What anyone
 //! gathers, stores or eats is decided by people at run time.
 
-use civ_agents::params::{Eaten, GoodDef, GoodUse, StoreDef, ToolDef};
+use civ_agents::params::{Eaten, GoodDef, GoodFire, GoodUse, StoreDef, ToolDef};
 use civ_agents::structure::Timber;
 use serde::Deserialize;
 
@@ -34,6 +34,22 @@ pub(crate) struct GoodFile {
     pub timber: Option<TimberFile>,
     /// For a store: the room each one gives (content API 20).
     pub store: Option<StoreFile>,
+    /// How it burns (content API 81; M6b slice BC): absent for a good fire does not touch.
+    pub fire: Option<FireFile>,
+}
+
+/// How a good burns (M6b slice BC; ADR-0022 §4, §5).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct FireFile {
+    /// As a roof's covering, the exposure in kW/m² above which it catches at the fire's reference
+    /// dryness (the people profile's `fire.reference_moisture`); 0 for one that does not catch
+    /// from a neighbour's heat.
+    pub catch_kw_m2: f64,
+    /// The share of it under a roof that burns when the building is fully involved; only a good
+    /// that takes room under a roof (a sheltered half-life) is ever there.
+    #[serde(default)]
+    pub burns: f64,
 }
 
 /// What a store holds (M3b slice Q).
@@ -92,12 +108,37 @@ impl GoodFile {
             store: self.store.as_ref().map(|t| StoreDef {
                 keeps_kg: t.keeps_kg,
             }),
+            fire: self.fire.as_ref().map(|f| GoodFire {
+                catch_kw_m2: f.catch_kw_m2,
+                burns: f.burns,
+            }),
         })
     }
 
     /// Range problems, as messages.
     pub fn problems(&self) -> Vec<String> {
         let mut p = Vec::new();
+        if let Some(f) = &self.fire {
+            if !(f.catch_kw_m2.is_finite() && (0.0..=500.0).contains(&f.catch_kw_m2)) {
+                p.push(format!(
+                    "`fire.catch_kw_m2` must be between 0 and 500 (got {})",
+                    f.catch_kw_m2
+                ));
+            }
+            if !(f.burns.is_finite() && (0.0..=1.0).contains(&f.burns)) {
+                p.push(format!(
+                    "`fire.burns` must be between 0 and 1 (got {})",
+                    f.burns
+                ));
+            }
+            if f.burns > 0.0 && self.sheltered_half_life_days <= 0.0 {
+                p.push(
+                    "`fire.burns` is for a good kept under a roof (a sheltered half-life); this \
+                     one lies in the open"
+                        .to_owned(),
+                );
+            }
+        }
         if !(self.half_life_days.is_finite() && self.half_life_days >= 0.0) {
             p.push(format!(
                 "`half_life_days` must be zero (keeps) or more (got {})",

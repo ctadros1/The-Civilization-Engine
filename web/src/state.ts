@@ -5,11 +5,15 @@ import type { MapStatus } from "./map/view.js";
 import type { ConnectionStatus } from "./net/client.js";
 import type {
   ChronicleEntry,
+  ConflagrationInfo,
   EventItem,
   FirmBrief,
   FirmInfo,
   GovernmentInfo,
   OrderInfo,
+  IncidentsInfo,
+  IncidentInfo,
+  OutbreakInfo,
   KnowledgeInfo,
   MarketInfo,
   PersonInfo,
@@ -113,6 +117,21 @@ export interface AppState {
   order: OrderInfo | null;
   /** Why the takings could not be read. */
   orderError: string | null;
+  /** The Incidents panel's kind (0 every kind, 1 takings, 2 illness; wire 1.64). */
+  incidentKind: number;
+  /** The incidents read so far, newest first, with where the next page goes on from (null = not
+   * read yet). */
+  incidents: IncidentsInfo | null;
+  /** Why the incidents could not be read. */
+  incidentsError: string | null;
+  /** An incident's page, when one is open in the panel. */
+  incidentPage: { kind: number; id: number; info: IncidentInfo | null; error: string | null } | null;
+  /** An outbreak's page, when one is open in the panel. */
+  outbreakPage: { id: number; info: OutbreakInfo | null; error: string | null } | null;
+  /** A conflagration's page, when one is open in the panel (wire 1.68). */
+  conflagrationPage: { id: number; info: ConflagrationInfo | null; error: string | null } | null;
+  /** The map tool that sets alight the building clicked is armed (M6b slice BC). */
+  placingFire: boolean;
 }
 
 export const MAX_EVENTS = 300;
@@ -158,6 +177,13 @@ export function initialState(): AppState {
     governmentError: null,
     order: null,
     orderError: null,
+    incidentKind: 0,
+    incidents: null,
+    incidentsError: null,
+    incidentPage: null,
+    outbreakPage: null,
+    conflagrationPage: null,
+    placingFire: false,
   };
 }
 

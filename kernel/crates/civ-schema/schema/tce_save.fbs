@@ -150,6 +150,17 @@ table Land {
   // Schema 24 (M3c slice U, ADR-0012 §1): the weather. Absent in older saves, whose weather
   // starts from `climate_deviate` with the soil at field capacity and no snow.
   weather: Weather (id: 15);
+  // Schema 72 (M6a slice AY, ADR-0021 §2): water under the ground and the rivers' runoff store.
+  // Absent in older saves, whose heads are settled where the landscape's mean recharge holds
+  // them, the store holding what that mean keeps in it.
+  water: Groundwater (id: 16);
+}
+
+// Schema 72: the water table's head in each patch, metres, in the patches' order, and the water
+// in the runoff store after the day's outflow, mm over the map's land.
+table Groundwater {
+  heads: [double] (id: 0);
+  runoff_mm: double (id: 1);
 }
 
 // Schema 24 (ADR-0012 §1): one day's weather at the height the normals are for.
@@ -162,6 +173,13 @@ table WeatherDay {
   mean_c: float (id: 3);
   min_c: float (id: 4);
   max_c: float (id: 5);
+  // Schema 87 (M6b slice BC; ADR-0022 §2): the day's mean wind, m/s, the direction it blows
+  // from (degrees clockwise from north), its strongest gust, m/s, and the water exposed fuel
+  // holds as a share of its dry mass. All 0 before: they are drawn afresh on loading.
+  wind_ms: float (id: 6);
+  wind_from_deg: float (id: 7);
+  gust_ms: float (id: 8);
+  fuel_moisture: float (id: 9);
 }
 
 // Schema 24: one month's weather as it was, at the height the normals are for.
@@ -181,6 +199,9 @@ table WeatherMonth {
   snow_days: ubyte (id: 9);
   // The reference soil's water as a share of what it holds, summed over the days.
   soil_sum: float (id: 10);
+  // Schema 84 (M6a slice BA, step five; ADR-0021 §8): the observer's drought held its weather
+  // on one of its days.
+  held: bool (id: 11);
 }
 
 // Schema 24: the weather's state. Today's weather (the day after the land's last), what
@@ -198,6 +219,14 @@ table Weather {
   soil_mm: double (id: 5);
   cover_ease: double (id: 6);
   months: [WeatherMonth] (id: 7);
+  // Schema 84: the observer's drought, the slow anomaly held at `hold_slow` until day
+  // `hold_until` (not including it); 0 (and absent before) when none holds.
+  hold_slow: double (id: 8);
+  hold_until: long (id: 9);
+  // Schema 87: today's wind along and across the prevailing direction, as anomalies in standard
+  // deviations (0 before).
+  wind_along: double (id: 10);
+  wind_across: double (id: 11);
 }
 
 // Section "settle": settlements.
@@ -229,7 +258,9 @@ table Settlements {
 // weighed in a decision.
 // Schema 14 adds Technique: the technique a session of trying works toward, by index into
 // People.techniques (in a decision receipt, into the content's techniques when it was saved).
-enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14 }
+// Douse (schema 91, M6b slice BD, step three): `index` where the water is drawn (a source's cell,
+// or 4294967295 the household's store), `id` the building it is thrown on.
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16 }
 
 enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
 
@@ -406,6 +437,12 @@ table Household {
   // saves: begun empty when the save is loaded.
   midden_kg: double (id: 14);
   midden_at: long (id: 15);
+  // Schema 73 (M6a slice AY, ADR-0021 §1): litres each of its people uses a day, set by the walk
+  // to the water they last fetched; 0 (and absent in older saves) for the people profile's.
+  water_use_l: double (id: 16);
+  // Schema 83 (M6a slice BA, step four): minutes of the walk from home to the water its people
+  // last fetched, one way; 0 (and absent in older saves) until they fetch again.
+  water_walk_min: float (id: 17);
 }
 
 // Schema 10: one row of a household's posted terms (ADR-0006 §4). Goods are indexed like
@@ -432,7 +469,8 @@ table Households {
 enum Origin : ubyte { Founder = 0, Born = 1, Spawned = 2 }
 
 // Collapse (3): a building gave way around them (slice P's second step, ADR-0009 §5).
-enum Cause : ubyte { Unspecified = 0, Starvation = 1, Childbirth = 2, Collapse = 3, Violence = 4, Fell = 5 }
+// Schema 88 (M6b slice BC): Burned, caught asleep in a building fully involved.
+enum Cause : ubyte { Unspecified = 0, Starvation = 1, Childbirth = 2, Collapse = 3, Violence = 4, Fell = 5, Disease = 6, Burned = 7 }
 
 table PersonRecord {
   id: ulong (id: 0);
@@ -1211,6 +1249,26 @@ table PolitySave {
   // Where its laws to build a crossing would build one (schema 70, M5c slice AW step three);
   // absent before.
   sites: [CrossingSiteSave] (id: 14);
+  // The sources of water its laws to close one name, by law (schema 82, M6a slice BA step four),
+  // each of kind 2; absent before.
+  closed: [PlaceClaimSave] (id: 15);
+  // Where its laws to dig a well together would dig one (schema 83, M6a slice BA step four);
+  // absent before.
+  wells: [PublicWellSave] (id: 16);
+}
+
+// Where a law would dig a well (schema 83): its cell and ground, its well system's content id,
+// the depth it would be dug to and the work it would take.
+table PublicWellSave {
+  law: ulong (id: 0);
+  cell: uint (id: 1);
+  system: string (id: 2);
+  x_cm: int (id: 3);
+  y_cm: int (id: 4);
+  w_cm: int (id: 5);
+  h_cm: int (id: 6);
+  target_m: float (id: 7);
+  labour_h: float (id: 8);
 }
 
 // Where a law would build a crossing (schema 70): the river cell, the bridge system's content id,
@@ -1224,7 +1282,7 @@ table CrossingSiteSave {
 }
 
 // A place a law claims (schema 62): `kind` 0 a patch block by its centre patch, 1 a deposit by
-// its permanent id.
+// its permanent id; or a source of water a law closes (schema 82), kind 2 by its cell.
 struct PlaceClaimSave {
   law: ulong;
   kind: ubyte;
@@ -1451,6 +1509,24 @@ table ClaimSave {
   blamed_kind: ubyte = 255 (id: 5);
   blamed: ulong (id: 6);
   issue: ubyte (id: 7);
+  // A suspicion's source (schema 79, M6a slice BA): its place kind (255 for none) and number, and
+  // the counts it was told with (sick at, at, sick elsewhere, elsewhere).
+  place_kind: ubyte = 255 (id: 8);
+  place: ulong (id: 9);
+  counts: [ushort] (id: 10);
+}
+
+// A source someone suspects (schema 79, M6a slice BA, ADR-0021 §6): held since a day index, by
+// the counts of their latest tally.
+struct SuspicionSave {
+  holder: ulong;
+  place: ulong;
+  since: long;
+  sick_at: ushort;
+  at: ushort;
+  sick_elsewhere: ushort;
+  elsewhere: ushort;
+  place_kind: ubyte;
 }
 
 struct HeardSave {
@@ -1481,6 +1557,7 @@ table WordSave {
   heard: [HeardSave] (id: 1);
   grievances: [GrievanceSave] (id: 2);
   next: uint (id: 3);
+  suspicions: [SuspicionSave] (id: 4);
 }
 
 // Section "opinion" (schema 37, M4c slice AG, ADR-0016 §4): where each adult stands on the
@@ -1690,7 +1767,10 @@ table FactionsSave {
 }
 
 // Section "events": the scheduler's pending events.
-enum EventKind : ubyte { AgentStep = 0 }
+// Schema 88 (M6b slice BC): FireStep, a minute of every fire burning, pending whenever one burns.
+// Schema 89 (M6b slice BD): Ignite, a home's fires in use may escape (`person` holds the
+// building's id).
+enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2 }
 
 table PendingEvent {
   at: long (id: 0);
@@ -1738,6 +1818,9 @@ table InfluencesSave {
   // Schema 54 (M5a slice AN): the migration waves sent (influence kind 5), in the order sent;
   // absent before.
   waves: [WaveSave] (id: 2);
+  // Schema 75 (M6a slice AZ): disease content ids at save time, which a plague's (kind 6)
+  // subject indexes; absent before.
+  diseases: [string] (id: 3);
 }
 
 // Schema 54 (M5a slice AN): a migration wave. `parents` holds two ids for each run of three
@@ -1857,6 +1940,11 @@ table PlacesSave {
   // Schema 63 (M5c slice AT, step two): who did each piece of work in `worked`, in its order (0
   // when not known).
   worked_by: [ulong] (id: 15);
+  // Schema 73 (M6a slice AY, ADR-0021 §1): what has been drawn today at each spring, litres by
+  // its patch in patch order, on `draws_day`.
+  draws_day: long (id: 16);
+  draw_patches: [uint] (id: 17);
+  draw_litres: [double] (id: 18);
 }
 
 // Section "relation" (schema 63, M5c slice AT, ADR-0020 §3): what each person believes of the
@@ -1930,6 +2018,302 @@ table CrossingsSave {
   revision: uint (id: 1);
   // Schema 69: the river cells households' people wade, by household and cell.
   wades: [WadeSave] (id: 2);
+}
+
+// A well (schema 74, M6a slice AY, step three): `system` its well system's content id; its
+// ground in integer centimetres from the map's north-west corner as a plot's; `state` 0 being
+// dug, 1 open since `state_at`, 2 given up at `state_at`, 3 fallen in at `state_at`; the water in
+// its shaft at `level_at`, metres, and what was drawn from it since the day's end, litres; the
+// day its latest work began and how many began a session of it that day.
+table WellSave {
+  id: ulong (id: 0);
+  system: string (id: 1);
+  cell: uint (id: 2);
+  x_cm: int (id: 3);
+  y_cm: int (id: 4);
+  w_cm: int (id: 5);
+  h_cm: int (id: 6);
+  household: ulong (id: 7);
+  ground_m: float (id: 8);
+  depth_m: float (id: 9);
+  target_m: float (id: 10);
+  work_h: float (id: 11);
+  skill_h: float (id: 12);
+  quality: float (id: 13);
+  loss: float (id: 14);
+  mend_h: float (id: 15);
+  worth: float (id: 16);
+  level_m: double (id: 17);
+  level_at: long (id: 18);
+  drawn_l: double (id: 19);
+  begun: long (id: 20);
+  state: ubyte (id: 21);
+  state_at: long (id: 22);
+  crew_day: long (id: 23);
+  crew: ubyte (id: 24);
+  // Its lid and curb (schema 81, M6a slice BA): hours of covering owed, and whether it has one.
+  cover_h: float (id: 25);
+  covered: bool (id: 26);
+  // The polity whose gathering agreed to dig it (schema 83, M6a slice BA step four), 0 for a
+  // household's; a polity's well holds the polity's id as its household.
+  polity: ulong (id: 27);
+}
+
+// Hours a household's people gave to a polity's well (schema 83).
+struct WellShareSave {
+  well: ulong;
+  household: ulong;
+  hours: float;
+}
+
+// Every well, in the order begun (schema 74), and the hours households gave to polities' wells
+// (schema 83), by well and then household.
+table WellsSave {
+  list: [WellSave] (id: 0);
+  shares: [WellShareSave] (id: 1);
+}
+
+// An infection (schema 75, M6a slice AZ; ADR-0021 §5): `disease` its content id; the day it came
+// and how (`acquired` 0 the observer, `source` an influence record's number; 1 a household,
+// `source` its id; from schema 76, 2 water drawn at a well, `source` its id, 3 at a river reach,
+// `source` its index, and 4 or more water from another place, as `NodeSave` code 4 less); its course in days, half-open (`ill_from` equal to `ill_until` when it brought
+// no symptoms); `ended` the day it ended (-1 while it runs) and `outcome` 0 recovered, 1 died,
+// 2 gone (died of something else or left the world).
+table EpisodeSave {
+  id: uint (id: 0);
+  person: ulong (id: 1);
+  disease: string (id: 2);
+  infected: long (id: 3);
+  acquired: ubyte (id: 4);
+  source: ulong (id: 5);
+  shed_from: long (id: 6);
+  shed_until: long (id: 7);
+  ill_from: long (id: 8);
+  ill_until: long (id: 9);
+  severe: bool (id: 10);
+  immune_until: long (id: 11);
+  ended: long = -1 (id: 12);
+  outcome: ubyte (id: 13);
+  // Schema 77 (step three): the care its bearer was given. The first day someone tended them
+  // (-1: nobody yet) and who; the last day they were tended, the hours that day and the least
+  // relative risk of dying a treatment a carer that day knew brings; the hours over the illness.
+  care_first: long = -1 (id: 14);
+  care_by: ulong (id: 15);
+  care_day: long (id: 16);
+  care_hours: float (id: 17);
+  care_rr: float = 1 (id: 18);
+  care_total_h: float (id: 19);
+  // The outbreak it is part of, by number (0: none; schema 77).
+  outbreak: uint (id: 20);
+  // The household they lived in when they took it (0: not recorded; schema 85, M6a slice BB).
+  household: ulong (id: 21);
+}
+
+// An outbreak (schema 77, M6a slice AZ step three; ADR-0015 §8): its number, disease (content
+// id), settlement (0: none), the day its first case took it and that case's episode number, and
+// the day it ended (-1 while open).
+table OutbreakSave {
+  id: uint (id: 0);
+  disease: string (id: 1);
+  settlement: ulong (id: 2);
+  began: long (id: 3);
+  first: uint (id: 4);
+  ended: long = -1 (id: 5);
+}
+
+// Every infection, in the order they came (schema 75), and every outbreak, in the order they
+// began (schema 77).
+table SicknessSave {
+  episodes: [EpisodeSave] (id: 0);
+  outbreaks: [OutbreakSave] (id: 1);
+}
+
+// Section "fires" (schema 88, M6b slice BC; ADR-0022 §13): a building's fire, from its covering
+// catching to its burning out. `kindled` 0: the observer (`source` the influence), 1: a burning
+// neighbour (`source` its fire, with the gap, the wind, the cosine toward this building from it
+// and the fuel's water then); schema 89: 2, a fire in use that escaped (`source` the ignition).
+// `episode` 0: none. `ended` -1 while it burns.
+table FireSave {
+  id: uint (id: 0);
+  building: ulong (id: 1);
+  household: ulong (id: 2);
+  settlement: ulong (id: 3);
+  x: float (id: 4);
+  y: float (id: 5);
+  began: long (id: 6);
+  kindled: ubyte (id: 7);
+  source: uint (id: 8);
+  gap_m: float (id: 9);
+  wind_ms: float (id: 10);
+  toward: float (id: 11);
+  moisture: float (id: 12);
+  episode: uint (id: 13);
+  ended: long = -1 (id: 14);
+  goods_kg: float (id: 15);
+  deaths: [ulong] (id: 16);
+}
+
+// A conflagration: fires that spread from one building to others. `ended` -1 while any burns.
+table ConflagrationSave {
+  id: uint (id: 0);
+  settlement: ulong (id: 1);
+  first: uint (id: 2);
+  began: long (id: 3);
+  ended: long = -1 (id: 4);
+}
+
+// A building's exposure near fires burning now, kW/m².
+table ExposureSave {
+  building: ulong (id: 0);
+  kw: double (id: 1);
+}
+
+// A building the spread weighed, by the first fire of its conflagration or the lone fire.
+table WeighedSave {
+  fire: uint (id: 0);
+  building: ulong (id: 1);
+  peak_kw: float (id: 2);
+  threshold_kw: float (id: 3);
+  caught: bool (id: 4);
+}
+
+// An unintended ignition of a fire in use (schema 89, M6b slice BD; ADR-0022 §3): `hearth` 0 a
+// lit hearth, 1 a banked one, 2 a fire worked at home; `put_out_by` the person who put it out
+// at once (0: nobody), `fire` the building's fire it became (0: none).
+table IgnitionSave {
+  id: uint (id: 0);
+  at: long (id: 1);
+  building: ulong (id: 2);
+  household: ulong (id: 3);
+  settlement: ulong (id: 4);
+  hearth: ubyte (id: 5);
+  moisture: float (id: 6);
+  put_out_by: ulong (id: 7);
+  fire: uint (id: 8);
+  // Schema 90: minutes it grows before the covering, and when it ended (put out, caught or gone
+  // out); `ended_set` false while it grows.
+  grows_min: float (id: 9);
+  ended: long (id: 10);
+  ended_set: bool (id: 11);
+}
+
+// Someone came to know of a fire (schema 90, M6b slice BD, step two; ADR-0022 §6-§7): `how` 0
+// inside, 1 woken by it, 2 saw it, 3 heard the shout.
+table KnewSave {
+  fire: uint (id: 0);
+  person: ulong (id: 1);
+  at: long (id: 2);
+  how: ubyte (id: 3);
+  shouted: bool (id: 4);
+}
+
+table FiresSave {
+  fires: [FireSave] (id: 0);
+  episodes: [ConflagrationSave] (id: 1);
+  exposure: [ExposureSave] (id: 2);
+  weighed: [WeighedSave] (id: 3);
+  // Schema 89.
+  ignitions: [IgnitionSave] (id: 4);
+  // Schema 90.
+  knew: [KnewSave] (id: 5);
+  // Schema 91.
+  wet: [WetSave] (id: 6);
+  thrown: [ThrownSave] (id: 7);
+  // Schema 92.
+  stripped: [StrippedSave] (id: 8);
+  salvaged: [SalvagedSave] (id: 9);
+}
+
+// Covering torn from a roof a fire threatened (schema 92, M6b slice BD, step four).
+table StrippedSave {
+  fire: uint (id: 0);
+  building: ulong (id: 1);
+  person: ulong (id: 2);
+  at: long (id: 3);
+  m2: float (id: 4);
+}
+
+// Goods carried out from under a roof a fire threatened (schema 92): `good` by index in the
+// catalog's goods.
+table SalvagedSave {
+  fire: uint (id: 0);
+  building: ulong (id: 1);
+  person: ulong (id: 2);
+  at: long (id: 3);
+  good: ushort (id: 4);
+  kg: float (id: 5);
+}
+
+// Water standing on a roof near a fire burning now (schema 91, M6b slice BD, step three).
+table WetSave {
+  building: ulong (id: 0);
+  litres: double (id: 1);
+}
+
+// A load of water thrown at a fire (schema 91): `fire` the first of the conflagration (or the lone
+// fire) burning then, `from` where it was drawn (a source's cell, or 4294967295 the store).
+table ThrownSave {
+  fire: uint (id: 0);
+  building: ulong (id: 1);
+  person: ulong (id: 2);
+  at: long (id: 3);
+  litres: float (id: 4);
+  from: uint (id: 5);
+}
+
+// A place a load lies or passes (schema 76, M6a slice AZ, step two; ADR-0021 §4): `code` 0 a
+// person shedding it (`id` theirs), 1 a household's heap (`id` the household), 2 a well (`id`
+// its), 3 a river reach (`id` its index), 4 a household's stored water (`id` the household).
+struct NodeSave {
+  code: ubyte;
+  id: ulong;
+}
+
+// A load of a disease (`disease` its index in `ContagionSave.diseases`) at `at`, doses.
+struct LoadSave {
+  at: NodeSave;
+  disease: ushort;
+  amount: double;
+}
+
+// The part of a household's stored water's load of a disease drawn at `source`, doses.
+struct StoredSave {
+  household: ulong;
+  source: NodeSave;
+  disease: ushort;
+  amount: double;
+}
+
+// A load soaking through the ground from `from` to `to`, arriving on day `arrives`.
+struct TransitSave {
+  arrives: long;
+  from: NodeSave;
+  to: NodeSave;
+  disease: ushort;
+  amount: double;
+}
+
+// One move of a load on `day`: `how` 0 shed, 1 washed off, 2 soaked in, 3 arrived through the
+// ground, 4 drawn with water.
+struct MoveSave {
+  day: long;
+  from: NodeSave;
+  to: NodeSave;
+  disease: ushort;
+  how: ubyte;
+  amount: double;
+}
+
+// What people shed, where it lies and where it went (schema 76): loads by place, stored water's
+// loads by where they were drawn, loads on their way through the ground in the order sent, and
+// the moves of the last 400 days in the order made.
+table ContagionSave {
+  // Disease content ids at save time.
+  diseases: [string] (id: 0);
+  loads: [LoadSave] (id: 1);
+  stores: [StoredSave] (id: 2);
+  transit: [TransitSave] (id: 3);
+  moves: [MoveSave] (id: 4);
 }
 
 table RelationsSave {
@@ -2023,6 +2407,14 @@ struct OutsidersSave {
   last: long;
 }
 
+// Another household seen drawing water at the same source the same day (schema 79): days,
+// fading, and the last day.
+struct SeenAtSave {
+  household: ulong;
+  days: float;
+  last: long;
+}
+
 // What `household` holds of a place its people work (schema 62): `kind` 0 a patch block by its
 // centre patch, 1 a deposit by its permanent id; days worked and food got there, kcal, both
 // fading, reckoned to `day`; those of other settlements seen there, in settlement order.
@@ -2034,6 +2426,9 @@ table PlaceUseSave {
   kcal: float (id: 4);
   day: long (id: 5);
   outsiders: [OutsidersSave] (id: 6);
+  seen: [SeenAtSave] (id: 7);
+  // Which of the last 64 days its people worked there: bit k for day `day - k` (schema 86).
+  recent: ulong (id: 8);
 }
 
 // Work at a place logged and not yet folded in (schema 62).

@@ -14,6 +14,8 @@ import { HostClient, HostError } from "./net/client.js";
 import * as M from "./net/messages.js";
 import { Store, initialState, mergeEvents } from "./state.js";
 import { bindUi } from "./ui.js";
+import { bankWords, flowWords, springWords } from "./water.js";
+import { legend, type LensLayer } from "./coverage.js";
 import { seasonOf } from "./weather.js";
 
 /**
@@ -77,9 +79,12 @@ const client = new HostClient(socketUrl(), {
     void syncStanding();
     void syncGovernment();
     void syncOrder();
+    void syncIncidents();
     void syncDeposits();
     void syncEarthworks();
     void syncCrossings();
+    void syncWater();
+    void syncLens();
     void refreshPerson(false);
   },
   events: (items) => store.update({ events: mergeEvents(store.state.events, items) }),
@@ -291,6 +296,123 @@ async function syncCrossings(): Promise<void> {
     crossingsBusy = false;
   }
   if (ok) void syncCrossings();
+}
+
+/** `world:revision` of the water on the map. */
+let waterKey = "";
+let waterBusy = false;
+
+/** Fetches the wells, springs and places drawn at today when a well changed or a day passed. */
+async function syncWater(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const key = world && s.waterRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.waterRev}` : "";
+  if (key === waterKey || waterBusy) return;
+  if (!key) {
+    waterKey = "";
+    map.setWater(null);
+    return;
+  }
+  waterBusy = true;
+  let ok = false;
+  try {
+    const info = await client.water();
+    waterKey = key;
+    map.setWater(info);
+    ok = true;
+  } catch (e) {
+    console.warn(`tce: the water could not be read: ${String(e)}`);
+  } finally {
+    waterBusy = false;
+  }
+  if (ok) void syncWater();
+}
+
+/** The lens shown on the map (M6a slice BB, step three), and `world:revisions` of the one read. */
+let lensLayer: LensLayer = "";
+let lensKey = "";
+let lensBusy = false;
+let lensInfo: M.CoverageInfo | null = null;
+let lensError = "";
+
+/** Reads the Water lens again while one is shown, when the water changes and each day. */
+async function syncLens(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const key =
+    world && lensLayer ? `${store.state.epoch}:${world.worldId}:${s.waterRev}:${s.weatherRev}` : "";
+  if (key === lensKey || lensBusy) return;
+  if (!key) {
+    lensKey = "";
+    lensInfo = null;
+    lensError = "";
+    map.setLens(null, "");
+    renderLegend();
+    return;
+  }
+  lensBusy = true;
+  let ok = false;
+  try {
+    lensInfo = await client.coverage(0, 1);
+    lensKey = key;
+    lensError = "";
+    ok = true;
+  } catch (e) {
+    lensError = `The lens could not be read: ${String(e)}`;
+  } finally {
+    lensBusy = false;
+  }
+  map.setLens(lensInfo, lensLayer);
+  renderLegend();
+  if (ok) void syncLens();
+}
+
+/** The lens's legend: what it shows, over what, when and per what, its classes and its counts. */
+function renderLegend(): void {
+  const box = byId("lens-legend");
+  box.replaceChildren();
+  box.hidden = !lensLayer;
+  if (!lensLayer) return;
+  if (!lensInfo) {
+    const p = document.createElement("p");
+    p.className = lensError ? "lens-error" : "lens-loading";
+    p.textContent = lensError || "Reading the lens…";
+    box.append(p);
+    return;
+  }
+  const l = legend(lensInfo, lensLayer);
+  const title = document.createElement("h3");
+  title.textContent = l.title;
+  box.append(title);
+  for (const line of l.lines) {
+    const p = document.createElement("p");
+    p.className = "lens-line";
+    p.textContent = line;
+    box.append(p);
+  }
+  const list = document.createElement("ul");
+  list.className = "lens-classes";
+  for (const c of l.classes) {
+    const li = document.createElement("li");
+    const swatch = document.createElement("span");
+    swatch.className = c.hollow ? "swatch hollow" : "swatch";
+    const colour = `#${c.colour.toString(16).padStart(6, "0")}`;
+    if (c.hollow) swatch.style.borderColor = colour;
+    else swatch.style.background = colour;
+    li.append(swatch, document.createTextNode(c.label));
+    list.append(li);
+  }
+  box.append(list);
+  const counts = document.createElement("p");
+  counts.className = "lens-counts";
+  counts.textContent = l.counts;
+  box.append(counts);
+  if (lensInfo.homes.length === 0) {
+    const none = document.createElement("p");
+    none.className = "lens-empty";
+    none.textContent = "No home stands here yet.";
+    box.append(none);
+  }
 }
 
 /** `world:revision` of the paths on the map. */
@@ -782,6 +904,163 @@ const bless = (person: number, curse: boolean, days: number, share: number): Pro
   influence(M.bless(person, curse, days, share), curse ? "Cursed" : "Blessed");
 const tellOfIdeology = (person: number, ideology: number): Promise<void> =>
   influence(M.tellOfIdeology(person, ideology), "Told");
+const plague = (person: number, disease: number): Promise<void> =>
+  influence(M.plague(person, disease), "Brought");
+
+/** Holds back the rain, then asks for the weather again at once: the hold shows before the next
+ * day is lived. */
+async function drought(months: number, depth: number): Promise<void> {
+  await influence(M.drought(months, depth), "The rain is held back");
+  weatherKey = "";
+  void syncWeather();
+}
+
+// ---- Incidents (wire 1.64, M6a slice BB) -----------------------------------------------------
+
+/** `epoch:world:revision:kind` of the incidents shown, and the world they belong to. */
+let incidentsKey = "";
+let incidentsWorld = "";
+let incidentsBusy = false;
+/** Rows a first page asks for: as many as are shown, so new incidents never cut the list short. */
+const INCIDENT_PAGE = 50;
+
+/** Fetches the incidents, and the page open, when an incident or what is known of one changes. */
+async function syncIncidents(): Promise<void> {
+  const s = store.state;
+  const world = s.snapshot?.world;
+  if (!world) return;
+  if (world.worldId !== incidentsWorld) {
+    incidentsWorld = world.worldId;
+    incidentsKey = "";
+    store.update({
+      incidents: null,
+      incidentsError: null,
+      incidentPage: null,
+      outbreakPage: null,
+      conflagrationPage: null,
+    });
+  }
+  const rev = s.snapshot?.incidentsRev ?? 0;
+  const key = `${s.epoch}:${world.worldId}:${rev}:${s.incidentKind}`;
+  if (key === incidentsKey || incidentsBusy) return;
+  incidentsBusy = true;
+  const worldKey = world.worldId;
+  let ok = false;
+  try {
+    const shown = s.incidents?.rows.length ?? 0;
+    const limit = Math.min(200, Math.max(INCIDENT_PAGE, shown));
+    const incidents = await client.incidents(0, s.incidentKind, null, limit);
+    if (incidentsWorld === worldKey) {
+      incidentsKey = key;
+      store.update({ incidents, incidentsError: null });
+      ok = true;
+    }
+  } catch (e) {
+    if (incidentsWorld === worldKey) store.update({ incidentsError: errorText(e) });
+  } finally {
+    incidentsBusy = false;
+  }
+  if (ok) {
+    const page = store.state.incidentPage;
+    if (page) void loadIncident(page.kind, page.id);
+    const outbreak = store.state.outbreakPage;
+    if (outbreak) void loadOutbreak(outbreak.id);
+    const conflagration = store.state.conflagrationPage;
+    if (conflagration) void loadConflagration(conflagration.id);
+    void syncIncidents();
+  }
+}
+
+/** Shows incidents of one kind (0 every kind) in the panel. */
+function setIncidentKind(kind: number): void {
+  if (kind === store.state.incidentKind) return;
+  store.update({ incidentKind: kind, incidents: null, incidentsError: null });
+  incidentsKey = "";
+  void syncIncidents();
+}
+
+/** Reads the next page of incidents and adds it to those shown. */
+async function moreIncidents(): Promise<void> {
+  const shown = store.state.incidents;
+  if (!shown?.next || incidentsBusy) return;
+  incidentsBusy = true;
+  try {
+    const page = await client.incidents(0, store.state.incidentKind, shown.next, INCIDENT_PAGE);
+    if (store.state.incidents === shown) {
+      store.update({ incidents: { ...page, rows: [...shown.rows, ...page.rows] } });
+    }
+  } catch (e) {
+    store.update({ incidentsError: errorText(e) });
+  } finally {
+    incidentsBusy = false;
+  }
+}
+
+async function loadIncident(kind: number, id: number): Promise<void> {
+  try {
+    const info = await client.incident(kind, id);
+    const page = store.state.incidentPage;
+    if (page && page.kind === kind && page.id === id) {
+      store.update({ incidentPage: { kind, id, info, error: null } });
+    }
+  } catch (e) {
+    const page = store.state.incidentPage;
+    if (page && page.kind === kind && page.id === id) {
+      store.update({ incidentPage: { ...page, error: errorText(e) } });
+    }
+  }
+}
+
+async function loadOutbreak(id: number): Promise<void> {
+  try {
+    const info = await client.outbreak(id, 0);
+    if (store.state.outbreakPage?.id === id) {
+      store.update({ outbreakPage: { id, info, error: null } });
+    }
+  } catch (e) {
+    const page = store.state.outbreakPage;
+    if (page?.id === id) store.update({ outbreakPage: { ...page, error: errorText(e) } });
+  }
+}
+
+async function loadConflagration(id: number): Promise<void> {
+  try {
+    const info = await client.conflagration(id);
+    if (store.state.conflagrationPage?.id === id) {
+      store.update({ conflagrationPage: { id, info, error: null } });
+    }
+  } catch (e) {
+    const page = store.state.conflagrationPage;
+    if (page?.id === id) store.update({ conflagrationPage: { ...page, error: errorText(e) } });
+  }
+}
+
+/** Opens an incident's page in the Incidents panel. */
+function openIncident(kind: number, id: number): void {
+  store.update({
+    incidentPage: { kind, id, info: null, error: null },
+    outbreakPage: null,
+    conflagrationPage: null,
+  });
+  void loadIncident(kind, id);
+}
+
+/** Opens an outbreak's page in the Incidents panel. */
+function openOutbreak(id: number): void {
+  store.update({ outbreakPage: { id, info: null, error: null }, incidentPage: null, conflagrationPage: null });
+  void loadOutbreak(id);
+}
+
+/** Opens a conflagration's page in the Incidents panel (wire 1.68). */
+function openConflagration(id: number): void {
+  store.update({ conflagrationPage: { id, info: null, error: null }, incidentPage: null, outbreakPage: null });
+  void loadConflagration(id);
+}
+
+/** Back to the list of incidents. */
+function closeIncidentPage(): void {
+  store.update({ incidentPage: null, outbreakPage: null, conflagrationPage: null });
+}
 
 /** Opens workshop `id`'s page in the workshops panel, or goes back to the list. */
 function openFirm(id: number | null): void {
@@ -882,9 +1161,19 @@ map.onPointer = (info: PointerInfo | null) => {
   const deposit = info.deposit ? ` · ${depositWords(info.deposit, store.state.welcome?.goods ?? [])}` : "";
   const earthwork = info.earthwork ? ` · ${info.earthwork.words}` : "";
   const crossing = info.crossing ? ` · ${info.crossing.words}` : "";
+  const flowing =
+    (info.water === "river" || info.water === "lake") && info.flow !== null ? `, ${flowWords(info.flow)}` : "";
+  const home = info.home ? ` · ${info.home.name}: ${info.home.words.join("; ")}` : "";
+  const source = info.well
+    ? ` · ${info.well.words}${info.well.fouled ? ` · ${info.well.fouled}` : ""}`
+    : info.spring
+      ? ` · ${springWords(info.spring)}`
+      : info.bank
+        ? ` · ${bankWords(info.bank)}`
+        : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${crossing}${path}${field}${building}${earthwork}${deposit}`;
+    `${height} · ${info.water ?? ""}${flowing}${home}${crossing}${source}${path}${field}${building}${earthwork}${deposit}`;
 };
 
 const scaleBar = byId("scalebar-bar");
@@ -906,6 +1195,13 @@ byId("zoom-out").addEventListener("click", () => map.zoomBy(1 / 1.5));
 byId("zoom-fit").addEventListener("click", () => map.fit());
 byId("show-rivers").addEventListener("change", (event) => {
   map.setRiversVisible((event.target as HTMLInputElement).checked);
+});
+byId("lens").addEventListener("change", (event) => {
+  lensLayer = (event.target as HTMLSelectElement).value as LensLayer;
+  // A layer of the lens already read is shown at once; the lens is read again if it is stale.
+  map.setLens(lensInfo, lensLayer);
+  renderLegend();
+  void syncLens();
 });
 
 bindUi(store, {
@@ -930,7 +1226,14 @@ bindUi(store, {
     const s = store.state.snapshot?.settlements.find((x) => x.id === id);
     if (s) lookAt(s.x, s.y, 0.5);
   },
+  locate: (xM, yM) => lookAt(xM, yM, 1),
   openFirm,
+  setIncidentKind,
+  moreIncidents: () => void moreIncidents(),
+  openIncident,
+  openOutbreak,
+  openConflagration,
+  closeIncidentPage,
   runAhead: async (minutes) => {
     const clock = store.state.snapshot?.clock;
     if (clock) await command(M.runUntil(clock.minute + minutes));
@@ -940,9 +1243,12 @@ bindUi(store, {
   introduceTechnique,
   whisper,
   tellOfIdeology,
+  plague,
   bless,
   setPlacingAgitator,
   setPlacingWave,
+  setPlacingFire,
+  drought,
 });
 
 /**
@@ -950,7 +1256,14 @@ bindUi(store, {
  * come together.
  */
 function setPlacing(on: boolean, families = store.state.placeFamilies): void {
-  store.update({ placing: on, placeFamilies: families, placingDeposit: false, placingAgitator: false, placingWave: false });
+  store.update({
+    placing: on,
+    placeFamilies: families,
+    placingDeposit: false,
+    placingAgitator: false,
+    placingWave: false,
+    placingFire: false,
+  });
   map.setPlacing(on);
 }
 
@@ -959,7 +1272,14 @@ function setPlacing(on: boolean, families = store.state.placeFamilies): void {
  * Welcome.ideologies) where the map is clicked (M4c slice AJ).
  */
 function setPlacingAgitator(on: boolean, ideology: number): void {
-  store.update({ placingAgitator: on, agitatorIdeology: ideology, placing: false, placingDeposit: false, placingWave: false });
+  store.update({
+    placingAgitator: on,
+    agitatorIdeology: ideology,
+    placing: false,
+    placingDeposit: false,
+    placingWave: false,
+    placingFire: false,
+  });
   map.setPlacing(on);
 }
 
@@ -976,6 +1296,22 @@ function setPlacingWave(on: boolean, households: number, days: number, months: n
     placing: false,
     placingDeposit: false,
     placingAgitator: false,
+    placingFire: false,
+  });
+  map.setPlacing(on);
+}
+
+/**
+ * Arms or disarms the map tool that sets alight the building clicked (M6b slice BC, ADR-0022
+ * §14): its covering catches, and what follows is the fire's and people's.
+ */
+function setPlacingFire(on: boolean): void {
+  store.update({
+    placingFire: on,
+    placing: false,
+    placingDeposit: false,
+    placingAgitator: false,
+    placingWave: false,
   });
   map.setPlacing(on);
 }
@@ -992,6 +1328,7 @@ function setPlacingDeposit(on: boolean, good: string, exposed: boolean): void {
     placing: false,
     placingAgitator: false,
     placingWave: false,
+    placingFire: false,
   });
   map.setPlacing(on);
 }
@@ -1000,6 +1337,16 @@ function setPlacingDeposit(on: boolean, good: string, exposed: boolean): void {
 const PLACED_DEPOSIT_RADIUS_M = 10;
 
 map.onPlace = (xM, yM) => {
+  if (store.state.placingFire) {
+    setPlacingFire(false);
+    const building = map.buildingUnder(xM, yM);
+    if (!building) {
+      store.update({ notice: { kind: "error", text: "There is no building there to set alight" } });
+      return;
+    }
+    void influence(M.setFire(building.id), "A building was set alight");
+    return;
+  }
   if (store.state.placingWave) {
     const { waveHouseholds, waveDays, waveMonths } = store.state;
     setPlacingWave(false, waveHouseholds, waveDays, waveMonths);
@@ -1050,6 +1397,7 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && store.state.placingAgitator) {
     setPlacingAgitator(false, store.state.agitatorIdeology);
   }
+  if (event.key === "Escape" && store.state.placingFire) setPlacingFire(false);
   if (event.key === "Escape" && store.state.placingWave) {
     const { waveHouseholds, waveDays, waveMonths } = store.state;
     setPlacingWave(false, waveHouseholds, waveDays, waveMonths);
@@ -1092,6 +1440,7 @@ const hooks = {
       depositsRev: s.snapshot?.depositsRev ?? 0,
       earthworksRev: s.snapshot?.earthworksRev ?? 0,
       crossingsRev: s.snapshot?.crossingsRev ?? 0,
+      waterRev: s.snapshot?.waterRev ?? 0,
       weatherRev: s.snapshot?.weatherRev ?? 0,
       weather: s.weather
         ? {
@@ -1129,6 +1478,54 @@ const hooks = {
                 known: l.known,
               })),
             })),
+          }
+        : null,
+      incidentKind: s.incidentKind,
+      incidents: s.incidents
+        ? {
+            next: s.incidents.next,
+            totals: s.incidents.totals,
+            outbreaks: s.incidents.outbreaks,
+            rows: s.incidents.rows.map((r) => ({
+              kind: r.kind,
+              id: r.id,
+              who: r.whoName,
+              happened: r.happened,
+              known: r.known,
+              polity: r.polity,
+              observer: r.observer,
+              outbreak: r.outbreak,
+            })),
+          }
+        : null,
+      incidentPage: s.incidentPage?.info
+        ? {
+            kind: s.incidentPage.kind,
+            id: s.incidentPage.id,
+            steps: s.incidentPage.info.steps,
+            links: s.incidentPage.info.links,
+            truth: s.incidentPage.info.truth,
+            knowledge: s.incidentPage.info.knowledge,
+            polity: s.incidentPage.info.polity,
+          }
+        : null,
+      outbreakPage: s.outbreakPage?.info
+        ? {
+            row: s.outbreakPage.info.row,
+            cause: s.outbreakPage.info.cause,
+            routes: s.outbreakPage.info.routes,
+            sources: s.outbreakPage.info.sources,
+            members: s.outbreakPage.info.members.length,
+            membersTotal: s.outbreakPage.info.membersTotal,
+          }
+        : null,
+      conflagrationPage: s.conflagrationPage?.info
+        ? {
+            row: s.conflagrationPage.info.row,
+            cause: s.conflagrationPage.info.cause,
+            weather: s.conflagrationPage.info.weather,
+            fires: s.conflagrationPage.info.fires.length,
+            held: s.conflagrationPage.info.held,
           }
         : null,
       order: s.order
@@ -1240,6 +1637,7 @@ const hooks = {
             reports: s.selected.info?.reports ?? null,
             errand: s.selected.info?.errand ?? null,
             seenAway: s.selected.info?.seenAway ?? null,
+            water: s.selected.info?.water ?? null,
             error: s.selected.error,
             knows:
               s.selected.info?.knows.map((k) => ({
@@ -1256,6 +1654,8 @@ const hooks = {
     store.state.snapshot?.people.map((p) => ({ id: p.id, sex: p.sex, ageYears: p.ageYears })) ?? [],
   select: (id: number | null) => select(id),
   openFirm: (id: number | null) => openFirm(id),
+  openIncident: (kind: number, id: number) => openIncident(kind, id),
+  openOutbreak: (id: number) => openOutbreak(id),
   /** Introduces a technique, by content id, to a person (god tool). */
   introduceTechnique: (person: number, id: string, awareOnly: boolean) => {
     const technique = store.state.welcome?.techniques.findIndex((t) => t.id === id) ?? -1;
@@ -1266,12 +1666,32 @@ const hooks = {
     const k = store.state.welcome?.ideologies.findIndex((d) => d.id === id) ?? -1;
     return tellOfIdeology(person, k < 0 ? 0xffff : k);
   },
+  /** Brings a disease, by content id, to a person (god tool). */
+  plague: (person: number, id: string) => {
+    const k = store.state.welcome?.diseases.findIndex((d) => d.id === id) ?? -1;
+    return plague(person, k < 0 ? 0xffff : k);
+  },
   /** Whispers a claim to a person (god tool). */
   whisper: (person: number, claim: number) => whisper(person, claim),
   /** Blesses or curses a person (god tool). */
   bless: (person: number, curse: boolean, days: number, share: number) => bless(person, curse, days, share),
   map: () => map.debugState(),
+  /** The lens shown and what it read (M6a slice BB, step three). */
+  lens: () => ({
+    layer: lensLayer,
+    error: lensError,
+    homes: (lensInfo?.homes ?? []).map((h) => ({
+      name: h.name,
+      x: h.x,
+      y: h.y,
+      nearest: h.nearest?.minutes ?? null,
+      drew: h.drew.length,
+    })),
+    summary: lensInfo?.summary ?? [],
+  }),
   pointerAt: (x: number, y: number) => map.pointerInfo(x, y),
+  /** Centres the map on a point, metres, at least `minScale` pixels a metre. */
+  centreOn: (xM: number, yM: number, minScale: number) => map.centreOn(xM, yM, minScale),
   panBy: (dx: number, dy: number) => map.panBy(dx, dy),
   zoomBy: (factor: number) => map.zoomBy(factor),
   fit: () => map.fit(),

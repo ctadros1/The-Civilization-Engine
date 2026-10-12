@@ -87,8 +87,13 @@ soil():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+held():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 30);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+}
+
 static startWeatherMonthInfo(builder:flatbuffers.Builder) {
-  builder.startObject(13);
+  builder.startObject(14);
 }
 
 static addYear(builder:flatbuffers.Builder, year:bigint) {
@@ -143,12 +148,16 @@ static addSoil(builder:flatbuffers.Builder, soil:number) {
   builder.addFieldFloat32(12, soil, 0.0);
 }
 
+static addHeld(builder:flatbuffers.Builder, held:boolean) {
+  builder.addFieldInt8(13, +held, +false);
+}
+
 static endWeatherMonthInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWeatherMonthInfo(builder:flatbuffers.Builder, year:bigint, month:number, days:number, precipMm:number, usualMm:number, wetDays:number, meanC:number, usualC:number, minC:number, maxC:number, frostDays:number, snowDays:number, soil:number):flatbuffers.Offset {
+static createWeatherMonthInfo(builder:flatbuffers.Builder, year:bigint, month:number, days:number, precipMm:number, usualMm:number, wetDays:number, meanC:number, usualC:number, minC:number, maxC:number, frostDays:number, snowDays:number, soil:number, held:boolean):flatbuffers.Offset {
   WeatherMonthInfo.startWeatherMonthInfo(builder);
   WeatherMonthInfo.addYear(builder, year);
   WeatherMonthInfo.addMonth(builder, month);
@@ -163,6 +172,7 @@ static createWeatherMonthInfo(builder:flatbuffers.Builder, year:bigint, month:nu
   WeatherMonthInfo.addFrostDays(builder, frostDays);
   WeatherMonthInfo.addSnowDays(builder, snowDays);
   WeatherMonthInfo.addSoil(builder, soil);
+  WeatherMonthInfo.addHeld(builder, held);
   return WeatherMonthInfo.endWeatherMonthInfo(builder);
 }
 }

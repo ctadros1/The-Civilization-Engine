@@ -2,7 +2,8 @@
 
 use civ_land::deposits::DepositRule;
 use civ_land::{
-    Growth, HabitatRule, LandParams, PathParams, ResourceParams, SoilParams, WeatherParams,
+    AquiferUnit, ContaminationParams, Growth, HabitatRule, LandParams, PathParams, ResourceParams,
+    SoilParams, WaterParams, WeatherParams,
 };
 use serde::Deserialize;
 
@@ -32,6 +33,158 @@ pub(crate) struct LandFile {
     /// Where deposits lie (content API 18); a profile may have none.
     #[serde(default)]
     pub deposit: Vec<DepositFile>,
+    /// How water moves under the ground and down the rivers (ADR-0021 §1–§2; content API 69).
+    /// A profile may leave it out: then one unit of alluvial sand lies under everything.
+    #[serde(default)]
+    pub groundwater: Option<GroundwaterFile>,
+    /// How what people shed moves through the ground and water (ADR-0021 §4; content API 73).
+    /// A profile may leave it out: then the defaults hold.
+    #[serde(default)]
+    pub contamination: Option<ContaminationFile>,
+}
+
+/// The `[contamination]` section of a land profile (ADR-0021 §4; content API 73).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ContaminationFile {
+    pub wash_per_mm: f64,
+    pub wash_max: f64,
+    pub runoff_radius_m: f64,
+    pub seep_per_day: f64,
+    pub link_radius_m: f64,
+    pub capture_share: f64,
+    pub min_gradient: f64,
+    pub drink_l_per_day: f64,
+}
+
+impl ContaminationFile {
+    fn params(&self) -> ContaminationParams {
+        ContaminationParams {
+            wash_per_mm: self.wash_per_mm,
+            wash_max: self.wash_max,
+            runoff_radius_m: self.runoff_radius_m,
+            seep_per_day: self.seep_per_day,
+            link_radius_m: self.link_radius_m,
+            capture_share: self.capture_share,
+            min_gradient: self.min_gradient,
+            drink_l_per_day: self.drink_l_per_day,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, least, most) in [
+            ("wash_per_mm", self.wash_per_mm, 0.0, 1.0),
+            ("wash_max", self.wash_max, 0.0, 1.0),
+            ("runoff_radius_m", self.runoff_radius_m, 0.0, 1000.0),
+            ("seep_per_day", self.seep_per_day, 0.0, 1.0),
+            ("link_radius_m", self.link_radius_m, 0.0, 1000.0),
+            ("capture_share", self.capture_share, 0.0, 1.0),
+            ("min_gradient", self.min_gradient, 0.0, 1.0),
+            ("drink_l_per_day", self.drink_l_per_day, 0.0, 30.0),
+        ] {
+            if !(v.is_finite() && (least..=most).contains(&v)) {
+                p.push(format!(
+                    "`contamination.{name}` must be between {least} and {most} (got {v})"
+                ));
+            }
+        }
+    }
+}
+
+/// The `[groundwater]` section of a land profile (ADR-0021 §1–§2; content API 69).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct GroundwaterFile {
+    pub recharge_share: f64,
+    pub recession_days: f64,
+    pub spring_min_m3_day: f64,
+    pub unit: Vec<AquiferUnitFile>,
+}
+
+/// One unit of ground under the habitats it names (`[[groundwater.unit]]`).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AquiferUnitFile {
+    pub name: String,
+    /// Habitat ids it lies under; none for every habitat no earlier unit names.
+    #[serde(default)]
+    pub habitats: Vec<String>,
+    pub k_m_day: [f64; 2],
+    pub specific_yield: [f64; 2],
+    pub thickness_m: f64,
+}
+
+impl GroundwaterFile {
+    fn params(&self) -> WaterParams {
+        WaterParams {
+            recharge_share: self.recharge_share,
+            recession_days: self.recession_days,
+            spring_min_m3_day: self.spring_min_m3_day,
+            units: self
+                .unit
+                .iter()
+                .map(|u| AquiferUnit {
+                    name: u.name.clone(),
+                    habitats: u.habitats.clone(),
+                    k_m_day: u.k_m_day,
+                    specific_yield: u.specific_yield,
+                    thickness_m: u.thickness_m,
+                })
+                .collect(),
+        }
+    }
+
+    fn problems(&self, habitats: &[Habitat], p: &mut Vec<String>) {
+        for (name, v, least, most) in [
+            ("recharge_share", self.recharge_share, 0.0, 1.0),
+            ("recession_days", self.recession_days, 0.1, 365.0),
+            ("spring_min_m3_day", self.spring_min_m3_day, 0.0, 10_000.0),
+        ] {
+            if !(v.is_finite() && (least..=most).contains(&v)) {
+                p.push(format!(
+                    "`groundwater.{name}` must be between {least} and {most} (got {v})"
+                ));
+            }
+        }
+        if self.unit.is_empty() || self.unit.len() > 16 {
+            p.push("`groundwater` needs 1 to 16 units".to_owned());
+        }
+        if !self.unit.last().is_some_and(|u| u.habitats.is_empty()) {
+            p.push(
+                "the last `groundwater.unit` must name no habitats, to lie under the rest"
+                    .to_owned(),
+            );
+        }
+        for (n, u) in self.unit.iter().enumerate() {
+            let n = n + 1;
+            let range =
+                |name: &str, [lo, hi]: [f64; 2], least: f64, most: f64, p: &mut Vec<String>| {
+                    if !(lo.is_finite() && hi.is_finite() && least <= lo && lo <= hi && hi <= most)
+                    {
+                        p.push(format!(
+                        "groundwater unit {n}'s `{name}` must be [least, most] within {least} to \
+                         {most} (got [{lo}, {hi}])"
+                    ));
+                    }
+                };
+            // 03-02 §2.2's priors run from 1e-7 m/day (clay) to 1,000 (open gravel).
+            range("k_m_day", u.k_m_day, 1e-9, 10_000.0, p);
+            range("specific_yield", u.specific_yield, 1e-4, 0.5, p);
+            if !(u.thickness_m.is_finite() && (0.1..=500.0).contains(&u.thickness_m)) {
+                p.push(format!(
+                    "groundwater unit {n}'s `thickness_m` must be between 0.1 and 500"
+                ));
+            }
+            if u.name.trim().is_empty() {
+                p.push(format!("groundwater unit {n} needs a name"));
+            }
+            for h in &u.habitats {
+                if !habitats.iter().any(|x| &x.id == h) {
+                    p.push(format!("groundwater unit {n} names unknown habitat `{h}`"));
+                }
+            }
+        }
+    }
 }
 
 /// Where one kind of deposit lies and how large its bodies are (ADR-0010 §1; content API 18).
@@ -113,6 +266,18 @@ pub(crate) struct WeatherFile {
     pub roof_snow_share: f64,
     pub roof_snow_full_deg: f64,
     pub roof_snow_shed_deg: f64,
+    /// Content API 80 (M6b slice BC; ADR-0022 §2): the day's wind, a vector about the prevailing
+    /// direction with a gust, and how much water exposed fuel holds.
+    pub wind_from_deg: f64,
+    pub wind_mean_ms: f64,
+    pub wind_sd_ms: f64,
+    pub wind_persistence: f64,
+    pub gust_factor: f64,
+    pub storm_veer_deg: f64,
+    pub fuel_dry_moisture: [f64; 2],
+    pub fuel_days: f64,
+    pub fuel_wetting_per_mm: f64,
+    pub fuel_wet_moisture: f64,
 }
 
 /// How a landscape's soils hold nitrogen (ADR-0012 §3; content API 27). See [`SoilParams`] for
@@ -206,6 +371,16 @@ impl WeatherFile {
             roof_snow_share: self.roof_snow_share,
             roof_snow_full_deg: self.roof_snow_full_deg,
             roof_snow_shed_deg: self.roof_snow_shed_deg,
+            wind_from_deg: self.wind_from_deg,
+            wind_mean_ms: self.wind_mean_ms,
+            wind_sd_ms: self.wind_sd_ms,
+            wind_persistence: self.wind_persistence,
+            gust_factor: self.gust_factor,
+            storm_veer_deg: self.storm_veer_deg,
+            fuel_dry_moisture: self.fuel_dry_moisture,
+            fuel_days: self.fuel_days,
+            fuel_wetting_per_mm: self.fuel_wetting_per_mm,
+            fuel_wet_moisture: self.fuel_wet_moisture,
         }
     }
 
@@ -263,6 +438,28 @@ impl WeatherFile {
         one("roof_snow_share", self.roof_snow_share, 0.0, 2.0, p);
         one("roof_snow_full_deg", self.roof_snow_full_deg, 0.0, 90.0, p);
         one("roof_snow_shed_deg", self.roof_snow_shed_deg, 0.0, 90.0, p);
+        one("wind_from_deg", self.wind_from_deg, 0.0, 360.0, p);
+        one("wind_mean_ms", self.wind_mean_ms, 0.0, 30.0, p);
+        one("wind_sd_ms", self.wind_sd_ms, 0.0, 20.0, p);
+        one("wind_persistence", self.wind_persistence, 0.0, 0.99, p);
+        one("gust_factor", self.gust_factor, 1.0, 5.0, p);
+        one("storm_veer_deg", self.storm_veer_deg, 0.0, 180.0, p);
+        for (i, v) in self.fuel_dry_moisture.iter().enumerate() {
+            one(
+                if i == 0 {
+                    "fuel_dry_moisture[0]"
+                } else {
+                    "fuel_dry_moisture[1]"
+                },
+                *v,
+                0.01,
+                1.0,
+                p,
+            );
+        }
+        one("fuel_days", self.fuel_days, 0.1, 60.0, p);
+        one("fuel_wetting_per_mm", self.fuel_wetting_per_mm, 0.0, 1.0, p);
+        one("fuel_wet_moisture", self.fuel_wet_moisture, 0.01, 3.0, p);
         if self.roof_snow_shed_deg <= self.roof_snow_full_deg {
             p.push(format!(
                 "`weather.roof_snow_shed_deg` must be above `weather.roof_snow_full_deg` (got {} \
@@ -435,6 +632,14 @@ impl LandFile {
                     })
                 })
                 .collect::<Option<Vec<_>>>()?,
+            water: self
+                .groundwater
+                .as_ref()
+                .map_or_else(WaterParams::default, GroundwaterFile::params),
+            contamination: self
+                .contamination
+                .as_ref()
+                .map_or_else(ContaminationParams::default, ContaminationFile::params),
         })
     }
 
@@ -504,6 +709,12 @@ impl LandFile {
         }
         self.weather.problems(&mut p);
         self.soil.problems(&mut p);
+        if let Some(g) = &self.groundwater {
+            g.problems(&self.habitat, &mut p);
+        }
+        if let Some(c) = &self.contamination {
+            c.problems(&mut p);
+        }
         let w = &self.paths;
         if !(w.wear_per_walk > 0.0 && w.wear_per_walk < 1.0) {
             p.push("`paths.wear_per_walk` must be above 0 and below 1".to_owned());

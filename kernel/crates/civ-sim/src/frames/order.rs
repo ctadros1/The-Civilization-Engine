@@ -19,7 +19,7 @@ use crate::Sim;
 pub const MOST_INCIDENTS: usize = 60;
 
 /// "the household of Rilla", for the household `household` as the observer names it now.
-fn household_words(sim: &Sim, household: PermanentId) -> String {
+pub(crate) fn household_words(sim: &Sim, household: PermanentId) -> String {
     let pop = &sim.people;
     let elder = pop.household(household).and_then(|x| {
         let grown = sim.rules.people.family.independent_age;
@@ -39,7 +39,7 @@ fn household_words(sim: &Sim, household: PermanentId) -> String {
 }
 
 /// What was carried off, or how the attempt ended, in words.
-fn what_words(sim: &Sim, i: &Incident) -> String {
+pub(crate) fn what_words(sim: &Sim, i: &Incident) -> String {
     match i.outcome {
         Outcome::Taken => {
             let goods = &sim.rules.catalog.goods;
@@ -80,7 +80,7 @@ fn standing_words(o: &Obligation) -> String {
 
 /// What the household taken from chose, in order: "Rilla demanded the food back; then brought it
 /// before the gathering".
-fn response_words(sim: &Sim, incident: u32) -> String {
+pub(crate) fn response_words(sim: &Sim, incident: u32) -> String {
     let pop = &sim.people;
     let mut parts = Vec::new();
     for r in pop
@@ -105,7 +105,7 @@ fn response_words(sim: &Sim, incident: u32) -> String {
 
 /// Where what is owed for an incident stands: "paid" for a demand alone, or each kind in turn
 /// ("restitution: paid; compensation: owed: 40 % given so far; a fine: refused").
-fn owed_words(sim: &Sim, incident: u32) -> String {
+pub(crate) fn owed_words(sim: &Sim, incident: u32) -> String {
     let owed: Vec<&Obligation> = sim
         .people
         .order
@@ -126,7 +126,7 @@ fn owed_words(sim: &Sim, incident: u32) -> String {
 
 /// What the one who keeps the watch did with a taking they saw, in words: the truth (M4b slice
 /// AC). "Bram, keeping watch, saw it and said nothing for 9 kg of grain."
-fn watch_words(sim: &Sim, i: &Incident) -> String {
+pub(crate) fn watch_words(sim: &Sim, i: &Incident) -> String {
     let pop = &sim.people;
     let Some(s) = pop.order.sightings.iter().find(|s| s.incident == i.id) else {
         return String::new();
@@ -161,7 +161,7 @@ fn watch_words(sim: &Sim, i: &Incident) -> String {
 
 /// The case brought for an incident and how the gathering decided, in words: what the polity
 /// knows.
-fn case_words(sim: &Sim, incident: u32) -> String {
+pub(crate) fn case_words(sim: &Sim, incident: u32) -> String {
     let pop = &sim.people;
     let Some(c) = pop
         .order

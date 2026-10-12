@@ -14,6 +14,14 @@
 //! - **Soil water**: a bucket under the wild cover (the reference) and one under each growing
 //!   crop, drawn down by evapotranspiration from temperature (Hargreaves, FAO-56) and refilled by
 //!   rain and melt; what the soil cannot hold drains away (§1.6's minimal balance).
+//! - **Wind** (M6b slice BC; ADR-0022 §2): the day's mean wind is a vector, its components along
+//!   and across the landscape's prevailing direction each an AR(1) anomaly about their means
+//!   (03-03 §1.4: vector components, with a separate gust). On the month's storm day the wind is
+//!   the storm's when its gusts are stronger, from a direction of its own.
+//! - **Dryness**: how much water exposed fuel such as thatch holds, as a share of its dry mass,
+//!   drifts toward an equilibrium that falls as days warm and rises at once with rain or snow
+//!   (12-03 §1.5: fuel moisture responds to recent weather rather than flipping between wet and
+//!   dry). Its figures are design priors.
 //!
 //! Each day is drawn from `[seed, weather, landscape, day]`: both landscapes of a seed have their
 //! own history, and nothing but the day and yesterday's state decides it, so a day lived by the
@@ -39,6 +47,17 @@ const PURPOSE_CLIMATOLOGY: u64 = 0x636c_696d_6174_6f6c; // "climatol"
 const PURPOSE_START: u64 = 0x7773_7461_7274_3031; // "wstart01"
 /// Purpose tag for a world's storms.
 const PURPOSE_STORM: u64 = 0x7374_6f72_6d73_3031; // "storms01"
+/// Purpose tag for a world's daily wind (M6b slice BC): its own key, so that every rain,
+/// temperature and storm draw stays as it was (ADR-0022 §2).
+const PURPOSE_WIND: u64 = 0x7769_6e64_6461_7931; // "winddy1"
+/// Purpose tag for the direction a month's storm blows from.
+const PURPOSE_STORM_WIND: u64 = 0x7374_6f72_6d77_6431; // "stormwd1"
+/// The density of air, kg/m³: a storm's gust from the load it puts on a roof, `q = ρv²/2`
+/// (research 03-07 §2.2 C).
+pub const AIR_DENSITY: f64 = 1.225;
+/// The day's mean temperature, °C, at which fuel dries to the warm end of
+/// [`WeatherParams::fuel_dry_moisture`]; at 0 °C it dries to the cold end.
+pub const FUEL_WARM_C: f64 = 25.0;
 
 /// Height of a snow band, metres.
 pub const SNOW_BAND_M: f64 = 100.0;
@@ -186,6 +205,28 @@ pub struct WeatherParams {
     /// The pitch from which a roof keeps no snow, degrees: between the two, the share falls
     /// in proportion.
     pub roof_snow_shed_deg: f64,
+    /// The direction the prevailing wind blows from, degrees clockwise from north (M6b slice BC;
+    /// ADR-0022 §2).
+    pub wind_from_deg: f64,
+    /// The mean of the day's wind along the prevailing direction, m/s.
+    pub wind_mean_ms: f64,
+    /// The spread of each of the day's wind components about its mean, m/s.
+    pub wind_sd_ms: f64,
+    /// Lag-one autocorrelation of the day's wind components.
+    pub wind_persistence: f64,
+    /// A day's strongest gust as a multiple of its mean wind.
+    pub gust_factor: f64,
+    /// The spread of the direction a month's storm blows from about the prevailing one, degrees.
+    pub storm_veer_deg: f64,
+    /// The water exposed fuel (thatch, dry wood) settles at on dry days, as a share of its dry
+    /// mass: at a day's mean of 0 °C and of [`FUEL_WARM_C`], linear between and kept within.
+    pub fuel_dry_moisture: [f64; 2],
+    /// Days over which fuel's water drifts most of the way to where a dry day settles it.
+    pub fuel_days: f64,
+    /// Water a millimetre of rain or snow adds to exposed fuel, as a share of its dry mass.
+    pub fuel_wetting_per_mm: f64,
+    /// The most water exposed fuel holds, as a share of its dry mass.
+    pub fuel_wet_moisture: f64,
 }
 
 impl WeatherParams {
@@ -229,6 +270,24 @@ pub struct WeatherDay {
     pub min_c: f32,
     /// Highest temperature, °C.
     pub max_c: f32,
+    /// The day's mean wind, m/s (M6b slice BC; ADR-0022 §2).
+    pub wind_ms: f32,
+    /// The direction it blows from, degrees clockwise from north (the map's top), 0 to 360.
+    pub wind_from_deg: f32,
+    /// Its strongest gust, m/s.
+    pub gust_ms: f32,
+    /// The water exposed fuel holds today, as a share of its dry mass: the drier, the readier
+    /// thatch is to catch.
+    pub fuel_moisture: f32,
+}
+
+impl WeatherDay {
+    /// Where the day's wind blows to, as a unit vector in metres east and south (the map's x and
+    /// y): opposite the direction it blows from.
+    pub fn wind_toward(&self) -> (f64, f64) {
+        let from = f64::from(self.wind_from_deg).to_radians();
+        (-from.sin(), from.cos())
+    }
 }
 
 /// One month's weather at the height the normals are for, as it was.
@@ -256,6 +315,9 @@ pub struct MonthRecord {
     pub snow_days: u8,
     /// The reference soil's water as a share of what it holds, summed over the days.
     pub soil_sum: f32,
+    /// Whether the observer's drought held its weather on any of its days (M6a slice BA, step
+    /// five; ADR-0021 §8: the months it touches are marked, so statistics can leave them out).
+    pub held: bool,
 }
 
 impl MonthRecord {
@@ -372,6 +434,12 @@ pub struct Climatology {
     pub month_precip_mm: [f64; 12],
     /// The long-run mean of the days by month that end with snow lying on the valley floor.
     pub month_snow_days: [f64; 12],
+    /// The long-run mean of what the reference soil cannot hold, mm a day: what the land gives
+    /// its rivers and its ground water (M6a slice AY).
+    pub surplus_mm_per_day: f64,
+    /// The long-run mean of the water exposed fuel holds, as a share of its dry mass (M6b slice
+    /// BC): what an average day's dryness is.
+    pub fuel_moisture_mean: f64,
 }
 
 /// The key of a landscape: its preset's id, hashed (FNV-1a).
@@ -525,6 +593,8 @@ impl Climatology {
             season_need_mm: vec![0.0; crops.len()],
             month_precip_mm: [0.0; 12],
             month_snow_days: [0.0; 12],
+            surplus_mm_per_day: 0.0,
+            fuel_moisture_mean: 0.0,
         };
         c.measure(params, landscape);
         c
@@ -544,6 +614,8 @@ impl Climatology {
         let (mut cover_sum, mut cover_days) = ([0.0; 12], [0.0f64; 12]);
         // Each crop's root-zone water, water needed and water got this season.
         let mut seasons = vec![(0.0, 0.0, 0.0); n];
+        let mut surplus = 0.0;
+        let mut fuel = 0.0;
         let years = CLIMATOLOGY_YEARS as i64;
         for day in 0..(years + 1) * DAYS_PER_YEAR {
             let counted = day >= DAYS_PER_YEAR;
@@ -576,12 +648,16 @@ impl Climatology {
                 }
             }
             if counted {
+                surplus += water.surplus_mm;
+                fuel += f64::from(w.today.fuel_moisture);
                 let m = month_of(day);
                 cover_sum[m] += w.cover_ease;
                 cover_days[m] += 1.0;
             }
         }
         self.stream = world;
+        self.surplus_mm_per_day = surplus / (years * DAYS_PER_YEAR) as f64;
+        self.fuel_moisture_mean = fuel / (years * DAYS_PER_YEAR) as f64;
         for r in w.months.iter().filter(|r| r.year > 1) {
             let m = usize::from(r.month);
             self.month_precip_mm[m] += f64::from(r.precip_mm) / years as f64;
@@ -750,6 +826,9 @@ pub struct DayWater {
     pub et0_mm: Vec<f64>,
     /// The reference soil's water at the start of the day, mm.
     pub soil_before_mm: f64,
+    /// What the reference soil could not hold today, mm: it drains down or runs off (M6a slice
+    /// AY, ADR-0021 §2).
+    pub surplus_mm: f64,
 }
 
 /// A world's weather: today's, what tomorrow depends on, and the record. Saved.
@@ -761,6 +840,9 @@ pub struct Weather {
     pub anomaly: f64,
     /// This month's slow anomaly, in standard deviations.
     pub slow: f64,
+    /// Today's wind along and across the prevailing direction, as anomalies in standard
+    /// deviations (M6b slice BC).
+    pub wind: (f64, f64),
     /// Bottom of the lowest snow band, metres.
     pub snow_base_m: f32,
     /// Snow lying, mm of water, by band of [`SNOW_BAND_M`] from `snow_base_m`.
@@ -771,6 +853,10 @@ pub struct Weather {
     pub cover_ease: f64,
     /// Each month's record, oldest first; the last is the month in progress.
     pub months: Vec<MonthRecord>,
+    /// The observer's drought (M6a slice BA, step five; ADR-0021 §8): the slow anomaly held at
+    /// this value, in standard deviations, until the day given (not including it). Each month's
+    /// draw is made as ever, so the days after it run as they would from where it left them.
+    pub hold: Option<(f64, i64)>,
 }
 
 impl Weather {
@@ -799,14 +885,27 @@ impl Weather {
             today: WeatherDay::default(),
             anomaly,
             slow,
+            wind: (0.0, 0.0),
             snow_base_m: base as f32,
             snow_mm: vec![0.0; bands],
             soil_mm: params.soil_water_mm,
             cover_ease: 1.0,
             months: Vec::new(),
+            hold: None,
         };
         w.draw(params, climate, first);
         w
+    }
+
+    /// The observer holds the slow anomaly at `value` standard deviations from now until day
+    /// `until` (M6a slice BA, step five; ADR-0021 §8): wet days are fewer and lighter, and summers
+    /// warmer, as in any dry spell of the same depth; tomorrow is the first day drawn under it.
+    pub fn hold_dry(&mut self, value: f64, until: i64) {
+        self.hold = Some((value, until));
+        self.slow = value;
+        if let Some(m) = self.months.last_mut() {
+            m.held = true;
+        }
     }
 
     /// A world's weather restored from a save older than weather (ADR-0012 §6): its slow anomaly
@@ -984,6 +1083,12 @@ impl Weather {
             let a = (-1.0 / params.slow_months.max(1e-6)).exp();
             self.slow = a * self.slow + (1.0 - a * a).sqrt() * normal(&mut rng);
         }
+        // The observer's drought, while it holds (the draw above is made all the same).
+        match self.hold {
+            Some((value, until)) if day < until => self.slow = value,
+            Some(_) => self.hold = None,
+            None => {}
+        }
         let q0 = params.wet_days[month];
         let q = (q0 * (1.0 + params.slow_wet_days * self.slow)).clamp(0.02, 0.95);
         let rho = params.persistence;
@@ -1019,6 +1124,7 @@ impl Weather {
             } else {
                 (1.0 - q0 * r_wet) / (1.0 - q0).max(1e-6)
             };
+        let before = self.today;
         self.today = WeatherDay {
             day,
             wet,
@@ -1026,7 +1132,66 @@ impl Weather {
             mean_c: mean as f32,
             min_c: (mean - range / 2.0) as f32,
             max_c: (mean + range / 2.0) as f32,
+            ..WeatherDay::default()
         };
+        let fuel = (before.day == day - 1 && before.fuel_moisture > 0.0)
+            .then_some(f64::from(before.fuel_moisture));
+        self.draw_wind_and_fuel(params, climate, fuel);
+    }
+
+    /// Draws today's wind from its own key and yesterday's wind, and today's fuel moisture from
+    /// `fuel_before` (yesterday's; `None` for a dry day's equilibrium) and today's weather (M6b
+    /// slice BC; ADR-0022 §2).
+    fn draw_wind_and_fuel(
+        &mut self,
+        params: &WeatherParams,
+        climate: &Climatology,
+        fuel_before: Option<f64>,
+    ) {
+        let day = self.today.day;
+        let mut rng = Rng64::from_key(&[climate.stream, PURPOSE_WIND, day as u64]);
+        let phi = params.wind_persistence.clamp(-0.99, 0.99);
+        let k = (1.0 - phi * phi).sqrt();
+        self.wind.0 = phi * self.wind.0 + k * normal(&mut rng);
+        self.wind.1 = phi * self.wind.1 + k * normal(&mut rng);
+        let sd = params.wind_sd_ms.max(0.0);
+        let along = params.wind_mean_ms + sd * self.wind.0;
+        let across = sd * self.wind.1;
+        let gust_factor = params.gust_factor.max(1.0);
+        let mut speed = along.hypot(across);
+        let mut from = params.wind_from_deg + across.atan2(along).to_degrees();
+        // The month's storm, on its day, when its gusts are stronger than the day's.
+        let (month, year) = (month_of(day), year_of(day));
+        let (storm_day, load_pa) = climate.storm(params, year, month);
+        if i64::from(storm_day) == day_of_year(day) - MONTH_STARTS[month] + 1 {
+            let gust = (2.0 * load_pa.max(0.0) / AIR_DENSITY).sqrt();
+            if gust > speed * gust_factor {
+                let index = year.wrapping_mul(12).wrapping_add(month as i64) as u64;
+                let mut rng = Rng64::from_key(&[climate.stream, PURPOSE_STORM_WIND, index]);
+                speed = gust / gust_factor;
+                from = params.wind_from_deg + params.storm_veer_deg * normal(&mut rng);
+            }
+        }
+        self.today.wind_ms = speed as f32;
+        self.today.wind_from_deg = from.rem_euclid(360.0) as f32;
+        self.today.gust_ms = (speed * gust_factor) as f32;
+        // Fuel drifts toward where a dry day of today's warmth settles it, and takes up rain.
+        let [cold, warm] = params.fuel_dry_moisture;
+        let t = (f64::from(self.today.mean_c) / FUEL_WARM_C).clamp(0.0, 1.0);
+        let settle = cold + (warm - cold) * t;
+        let keep = (-1.0 / params.fuel_days.max(1e-6)).exp();
+        let dried = fuel_before.map_or(settle, |m| settle + (m - settle) * keep);
+        let wetted = dried + params.fuel_wetting_per_mm.max(0.0) * f64::from(self.today.precip_mm);
+        self.today.fuel_moisture =
+            wetted.min(params.fuel_wet_moisture.max(settle)).max(0.001) as f32;
+    }
+
+    /// Draws today's wind and fuel moisture afresh, for weather loaded from a save older than
+    /// them (M6b slice BC): the wind from no anomaly, the fuel where a dry day of today's warmth
+    /// settles it. Nothing else changes.
+    pub fn draw_new_fields(&mut self, params: &WeatherParams, climate: &Climatology) {
+        self.wind = (0.0, 0.0);
+        self.draw_wind_and_fuel(params, climate, None);
     }
 
     /// Lives today: snow falls, lies and melts in each band, the reference soil gains and loses
@@ -1042,6 +1207,7 @@ impl Weather {
             input_mm: Vec::with_capacity(bands),
             et0_mm: Vec::with_capacity(bands),
             soil_before_mm: self.soil_mm,
+            surplus_mm: 0.0,
         };
         for b in 0..bands {
             let t = self.mean_c_at(params, self.band_mid_m(b));
@@ -1061,7 +1227,9 @@ impl Weather {
         }
         let r = self.reference_band(params);
         let need = params.cover_kc * water.et0_mm[r];
-        root_zone_day(&mut self.soil_mm, water.input_mm[r], need, params);
+        let used = root_zone_day(&mut self.soil_mm, water.input_mm[r], need, params);
+        water.surplus_mm =
+            (water.soil_before_mm + water.input_mm[r] - used - self.soil_mm).max(0.0);
         let now = ease(self.soil_mm, params.soil_water_mm, params.easy_water_share);
         self.cover_ease += (now - self.cover_ease) / EASE_DAYS;
         self.record(params, r);
@@ -1086,9 +1254,11 @@ impl Weather {
                 ..MonthRecord::default()
             });
         }
+        let held = self.hold.is_some_and(|(_, until)| t.day < until);
         let soil = (self.soil_mm / params.soil_water_mm.max(1e-9)) as f32;
         let snow = f64::from(self.snow_mm[band]) >= SNOW_COVER_MM;
         if let Some(m) = self.months.last_mut() {
+            m.held |= held;
             m.days = m.days.saturating_add(1);
             m.precip_mm += t.precip_mm;
             m.wet_days += u8::from(f64::from(t.precip_mm) >= params.wet_day_mm);
@@ -1110,7 +1280,8 @@ impl Weather {
             .all(|v| v.is_finite())
             && [self.anomaly, self.slow, self.soil_mm, self.cover_ease]
                 .iter()
-                .all(|v| v.is_finite());
+                .all(|v| v.is_finite())
+            && self.hold.is_none_or(|(v, _)| v.is_finite());
         if !finite || t.precip_mm < 0.0 || t.min_c > t.max_c {
             out.push("the weather is not a number or out of order".to_owned());
         }
@@ -1125,6 +1296,17 @@ impl Weather {
         }
         if self.soil_mm < 0.0 || !(0.0..=1.0).contains(&self.cover_ease) {
             out.push("the soil water is out of range".to_owned());
+        }
+        let wind_ok = [t.wind_ms, t.wind_from_deg, t.gust_ms, t.fuel_moisture]
+            .iter()
+            .all(|v| v.is_finite())
+            && self.wind.0.is_finite()
+            && self.wind.1.is_finite()
+            && t.wind_ms >= 0.0
+            && (0.0..360.0).contains(&t.wind_from_deg)
+            && t.fuel_moisture > 0.0;
+        if !wind_ok {
+            out.push("the wind or the fuel's dryness is malformed".to_owned());
         }
         let bad_month = |m: &MonthRecord| {
             m.month > 11
@@ -1186,6 +1368,16 @@ pub(crate) mod tests {
             roof_snow_share: 0.8,
             roof_snow_full_deg: 30.0,
             roof_snow_shed_deg: 60.0,
+            wind_from_deg: 250.0,
+            wind_mean_ms: 2.0,
+            wind_sd_ms: 2.5,
+            wind_persistence: 0.6,
+            gust_factor: 1.7,
+            storm_veer_deg: 30.0,
+            fuel_dry_moisture: [0.2, 0.08],
+            fuel_days: 1.0,
+            fuel_wetting_per_mm: 0.015,
+            fuel_wet_moisture: 0.6,
         }
     }
 
@@ -1235,6 +1427,205 @@ pub(crate) mod tests {
         assert_ne!(live(&other_seed, 3).0.months, wa.months);
         // The climatology is the landscape's, whatever the world.
         assert_eq!(a.crop_mean, other_seed.crop_mean);
+    }
+
+    #[test]
+    fn the_wind_is_drawn_apart_so_rain_and_warmth_are_as_they_were() {
+        // Wind of another kind entirely leaves every other draw as it was (ADR-0022 §2).
+        let c = climate(1, landscape_key("core:worldgen/river_valley"));
+        let p = params();
+        let q = WeatherParams {
+            wind_from_deg: 10.0,
+            wind_mean_ms: 9.0,
+            wind_sd_ms: 0.0,
+            wind_persistence: 0.0,
+            gust_factor: 3.0,
+            ..params()
+        };
+        let mut a = Weather::new(&p, &c, 100.0, 1100.0, 0);
+        let mut b = Weather::new(&q, &c, 100.0, 1100.0, 0);
+        for _ in 0..2 * DAYS_PER_YEAR {
+            a.live(&p, &c);
+            b.live(&q, &c);
+            let (x, y) = (a.today, b.today);
+            assert_eq!(
+                (x.wet, x.precip_mm, x.mean_c, x.min_c, x.max_c),
+                (y.wet, y.precip_mm, y.mean_c, y.min_c, y.max_c)
+            );
+            assert_eq!(a.anomaly, b.anomaly);
+            assert_eq!(a.soil_mm, b.soil_mm);
+        }
+        assert_eq!(a.months, b.months);
+    }
+
+    #[test]
+    fn the_wind_keeps_to_its_prevailing_direction_wanders_by_the_day_and_blows_hard_in_storms() {
+        let c = climate(3, landscape_key("core:worldgen/river_valley"));
+        let p = params();
+        let mut w = Weather::new(&p, &c, 100.0, 1100.0, 0);
+        let (mut east, mut south, mut speed) = (0.0, 0.0, Vec::new());
+        let (mut lag, mut storms) = (Vec::new(), 0);
+        let mut prev: Option<f64> = None;
+        let days = 20 * DAYS_PER_YEAR;
+        for _ in 0..days {
+            w.live(&p, &c);
+            let t = w.today;
+            assert!(t.wind_ms.is_finite() && t.wind_ms >= 0.0);
+            assert!((0.0..360.0).contains(&t.wind_from_deg));
+            assert!((t.gust_ms - t.wind_ms * 1.7).abs() < 1e-3);
+            let (dx, dy) = t.wind_toward();
+            east += dx * f64::from(t.wind_ms);
+            south += dy * f64::from(t.wind_ms);
+            speed.push(f64::from(t.wind_ms));
+            if let Some(a) = prev {
+                lag.push((a, w.wind.0));
+            }
+            prev = Some(w.wind.0);
+            let (storm_day, load) = c.storm(&p, year_of(t.day), month_of(t.day));
+            let dom = day_of_year(t.day) - MONTH_STARTS[month_of(t.day)] + 1;
+            if i64::from(storm_day) == dom {
+                // On its day the storm's gusts are at least its load's.
+                let gust = (2.0 * load / AIR_DENSITY).sqrt();
+                assert!(
+                    f64::from(t.gust_ms) >= gust * 0.999,
+                    "{} < {gust}",
+                    t.gust_ms
+                );
+                storms += 1;
+            }
+        }
+        assert!(storms >= 230, "{storms} storm days in 20 years");
+        // The mean wind blows from the prevailing direction, at about the profile's mean.
+        let from = (-east).atan2(south).to_degrees().rem_euclid(360.0);
+        assert!(
+            (from - 250.0).abs() < 10.0,
+            "the mean wind comes from {from:.0}°"
+        );
+        let n = speed.len() as f64;
+        let mean = speed.iter().sum::<f64>() / n;
+        assert!((3.0..5.0).contains(&mean), "a mean wind of {mean:.2} m/s");
+        // Calm days and gales are both rare.
+        let calm = speed.iter().filter(|&&v| v < 0.5).count() as f64 / n;
+        let gale = speed.iter().filter(|&&v| v > 15.0).count() as f64 / n;
+        assert!(calm < 0.05 && gale < 0.02, "calm {calm:.3}, gale {gale:.3}");
+        // One day's wind follows the last's by the profile's persistence.
+        let m = lag.len() as f64;
+        let (sx, sy) = lag.iter().fold((0.0, 0.0), |(a, b), (x, y)| (a + x, b + y));
+        let (mx, my) = (sx / m, sy / m);
+        let cov = lag.iter().map(|(x, y)| (x - mx) * (y - my)).sum::<f64>() / m;
+        let var = lag.iter().map(|(x, _)| (x - mx).powi(2)).sum::<f64>() / m;
+        let r = cov / var;
+        assert!((r - 0.6).abs() < 0.05, "lag-one correlation {r:.3}");
+    }
+
+    #[test]
+    fn fuel_dries_in_warm_dry_spells_and_wets_at_once_with_rain() {
+        let c = climate(1, landscape_key("core:worldgen/river_valley"));
+        let p = params();
+        let mut w = Weather::new(&p, &c, 100.0, 1100.0, 0);
+        let (mut summer, mut winter) = ((0.0, 0.0), (0.0, 0.0));
+        let mut wet_days = 0;
+        for _ in 0..10 * DAYS_PER_YEAR {
+            let before = w.today.fuel_moisture;
+            w.live(&p, &c);
+            let t = w.today;
+            let m = f64::from(t.fuel_moisture);
+            assert!((0.08 - 1e-6..=0.6 + 1e-6).contains(&m), "fuel moisture {m}");
+            if t.precip_mm >= 2.0 {
+                // A day of rain leaves fuel wetter than the same day dry would, by what the
+                // rain adds, up to the wettest it gets.
+                let mut dry = w.clone();
+                dry.today.precip_mm = 0.0;
+                dry.draw_wind_and_fuel(&p, &c, (before > 0.0).then_some(f64::from(before)));
+                let dried = f64::from(dry.today.fuel_moisture);
+                let took = (p.fuel_wetting_per_mm * f64::from(t.precip_mm))
+                    .min(p.fuel_wet_moisture - dried);
+                assert!(
+                    took > 0.0 && (m - dried - took).abs() < 1e-6,
+                    "{m} against {dried} dry on a day of {} mm",
+                    t.precip_mm
+                );
+                wet_days += 1;
+            }
+            match month_of(t.day) {
+                6 | 7 => summer = (summer.0 + m, summer.1 + 1.0),
+                0 | 1 => winter = (winter.0 + m, winter.1 + 1.0),
+                _ => {}
+            }
+        }
+        assert!(wet_days > 100, "{wet_days} wet days");
+        // Summer's fuel is drier than winter's.
+        let (s, wi) = (summer.0 / summer.1, winter.0 / winter.1);
+        assert!(s < wi - 0.03, "summer {s:.3}, winter {wi:.3}");
+        // The landscape's average lies between them, and a dry warm spell dries below it.
+        let mean = c.fuel_moisture_mean;
+        assert!((0.08..0.6).contains(&mean), "the mean is {mean:.3}");
+        let mut dry = w.clone();
+        dry.today.fuel_moisture = 0.5;
+        dry.today.mean_c = 22.0;
+        dry.today.precip_mm = 0.0;
+        for _ in 0..10 {
+            let fuel = Some(f64::from(dry.today.fuel_moisture));
+            dry.today.day += 1;
+            dry.draw_wind_and_fuel(&p, &c, fuel);
+        }
+        assert!(
+            f64::from(dry.today.fuel_moisture) < mean,
+            "{}",
+            dry.today.fuel_moisture
+        );
+    }
+
+    #[test]
+    fn a_drought_holds_the_slow_spell_dry_marks_its_months_and_lets_go_as_any_spell_does() {
+        let p = params();
+        let c = climate(3, landscape_key("core:worldgen/river_valley"));
+        let (mut free, _) = live(&c, 1);
+        let mut dry = free.clone();
+        let until = DAYS_PER_YEAR + 182;
+        dry.hold_dry(-2.0, until);
+        assert!(
+            dry.months.last().is_some_and(|m| m.held),
+            "the month it began"
+        );
+        let (mut rain_free, mut rain_dry) = (0.0, 0.0);
+        while dry.today.day + 1 < until {
+            free.live(&p, &c);
+            dry.live(&p, &c);
+            assert_eq!(dry.slow, -2.0, "day {}", dry.today.day);
+            rain_free += f64::from(free.today.precip_mm);
+            rain_dry += f64::from(dry.today.precip_mm);
+        }
+        // Fewer and lighter wet days: about two-thirds of the rain, the same draws made.
+        assert!(
+            rain_dry < 0.85 * rain_free,
+            "{rain_dry:.0} mm against {rain_free:.0} mm"
+        );
+        assert!(dry.months[12..].iter().all(|m| m.held));
+        assert!(free.months.iter().all(|m| !m.held));
+        assert!(dry.months[..11].iter().all(|m| !m.held));
+        // The hold lets go on its day, and the spell drifts back as any dry spell would: at the
+        // next month's draw the two differ only by the held value's memory, the same deviate
+        // drawn for both.
+        let before = (free.slow, dry.slow);
+        dry.live(&p, &c);
+        free.live(&p, &c);
+        assert_eq!(dry.hold, None);
+        while day_of_year(free.today.day) != MONTH_STARTS[month_of(free.today.day)] {
+            free.live(&p, &c);
+            dry.live(&p, &c);
+        }
+        let a = (-1.0 / p.slow_months).exp();
+        assert!(
+            ((dry.slow - free.slow) - a * (before.1 - before.0)).abs() < 1e-12,
+            "{} against {}",
+            dry.slow - free.slow,
+            a * (before.1 - before.0)
+        );
+        // The new month's record begins when its first day is lived.
+        dry.live(&p, &c);
+        let last = dry.months.last().expect("a month");
+        assert!(!last.held, "{} {}", last.year, last.month);
     }
 
     #[test]

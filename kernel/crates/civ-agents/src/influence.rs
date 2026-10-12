@@ -27,17 +27,31 @@ pub enum InfluenceKind {
     /// A migration wave (M5a slice AN): the target is its first arrival, the subject the
     /// households it brings; [`Wave`] holds the rest.
     Wave = 5,
+    /// A disease brought to one person, as if they took it elsewhere (M6a slice AZ, ADR-0021
+    /// §8): the subject is the disease's index in the catalog; their episode names this record.
+    Plague = 6,
+    /// The weather held dry over the whole world for a while (M6a slice BA, step five; ADR-0021
+    /// §8): the target is the world's first settlement, the subject the months it was asked for,
+    /// and `until` the first day it no longer holds; the months of the weather's record it
+    /// touched are marked.
+    Drought = 7,
+    /// A building's covering set alight (M6b slice BC, ADR-0022 §14): the target is the
+    /// building, the subject its fire's number.
+    Fire = 8,
 }
 
 impl InfluenceKind {
     /// Every kind, in code order.
-    pub const ALL: [InfluenceKind; 6] = [
+    pub const ALL: [InfluenceKind; 9] = [
         InfluenceKind::Whisper,
         InfluenceKind::Ideology,
         InfluenceKind::Agitator,
         InfluenceKind::Bless,
         InfluenceKind::Curse,
         InfluenceKind::Wave,
+        InfluenceKind::Plague,
+        InfluenceKind::Drought,
+        InfluenceKind::Fire,
     ];
 
     /// Its number in saves.
@@ -63,16 +77,17 @@ pub struct Influence {
     /// How many times it was used.
     pub uses: u32,
     pub kind: InfluenceKind,
-    /// Whom it reached.
+    /// Whom it reached: for a drought, the settlement whose rain it held back.
     pub target: PermanentId,
     /// What it submitted: for a whisper, the claim's number; for an ideology or an agitator, its
-    /// index in the catalog's ideologies; for a blessing or a curse, nothing.
+    /// index in the catalog's ideologies; for a disease, its index in the catalog's diseases; for
+    /// a drought, its months; for a blessing or a curse, nothing.
     pub subject: u32,
     /// For an ideology: the day they took it up, if they did; for an agitator, the day they came.
     pub taken: Option<i64>,
     /// For an ideology: how many times they weighed it.
     pub weighed: u32,
-    /// For a blessing or a curse: the first day it no longer holds.
+    /// For a blessing, a curse or a drought: the first day it no longer holds.
     pub until: i64,
     /// For a blessing or a curse: the share of the way each draw is moved (see [`Luck`]).
     pub share: f32,

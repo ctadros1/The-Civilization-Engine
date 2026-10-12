@@ -169,6 +169,325 @@ pub struct WorldRun {
     /// Each pair of its settlements, by name, with what crossed each way and the contact that
     /// could carry it (M5b slice AR).
     pub neighbours: Vec<(String, String, crate::crossings::PairSeen)>,
+    /// Where it drew its water over the run, its wells at the end and what its people used a day
+    /// (M6a slice AY).
+    pub water: WaterSeen,
+    /// The fires it saw, against the households that kept fires (M6b slice BD).
+    pub fires: FiresSeen,
+    /// Its infections over the run, and how each outbreak's cases sat against its sources (M6a
+    /// slice BB).
+    pub epidemics: EpidemicsSeen,
+}
+
+/// A world's infections over a run, and each outbreak's cases against the source most of its
+/// water cases took it at, judged in the month it ended while the moves it reads are still kept
+/// (M6a slice BB, ADR-0021 §8).
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub struct EpidemicsSeen {
+    /// Infections the observer brought; only the observer brings a disease until imports from
+    /// off the map exist.
+    pub introduced: u32,
+    /// Infections, those who fell ill, those who died of it, and those who took it in water.
+    pub cases: u32,
+    pub ill: u32,
+    pub died: u32,
+    pub water_cases: u32,
+    /// Each outbreak, as judged.
+    pub outbreaks: Vec<OutbreakSeen>,
+}
+
+/// One outbreak's cases against the source most of its water cases took it at.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub struct OutbreakSeen {
+    /// Its number in its world.
+    pub id: u32,
+    /// "Cholera at Hazelford, from 3 May of year 2 to 9 July of year 2".
+    pub name: String,
+    pub cases: u32,
+    pub water_cases: u32,
+    /// The source, those of its cases who took it there, and its households that drew the
+    /// disease there against the rest, each as (households, with a case, cases).
+    pub source: Option<String>,
+    pub took: u32,
+    pub drew: (u32, u32, u32),
+    pub rest: (u32, u32, u32),
+}
+
+/// Water cases an outbreak needs before the epidemics row judges it (tuning).
+pub const EPIDEMIC_MIN_WATER_CASES: u32 = 5;
+/// How many times the share of households with a case among those that drew the disease at the
+/// source must be the rest's for the outbreak to count as clustered on it: a lenient line under
+/// Snow's eight- to ninefold contrast by houses (research 12-02 §4; tuning).
+pub const EPIDEMIC_CLUSTER_RATIO: f64 = 2.0;
+
+impl OutbreakSeen {
+    fn of(id: u32, c: civ_sim::frames::incidents::Clustering) -> OutbreakSeen {
+        let side = |s: civ_sim::frames::incidents::Side| (s.households, s.with_case, s.cases);
+        let mut out = OutbreakSeen {
+            id,
+            name: c.name,
+            cases: c.cases,
+            water_cases: c.water_cases,
+            ..OutbreakSeen::default()
+        };
+        if let Some(s) = c.source {
+            out.source = Some(s.name);
+            out.took = s.took;
+            out.drew = side(s.drew);
+            out.rest = side(s.rest);
+        }
+        out
+    }
+
+    /// The share of households with a case among those that drew it at the source, and among
+    /// the rest; `None` when it has too few water cases, or either side has no households.
+    pub fn attack(&self) -> Option<(f64, f64)> {
+        let rate = |(n, with, _): (u32, u32, u32)| (n > 0).then(|| f64::from(with) / f64::from(n));
+        if self.water_cases < EPIDEMIC_MIN_WATER_CASES {
+            return None;
+        }
+        Some((rate(self.drew)?, rate(self.rest)?))
+    }
+
+    /// Whether its cases clustered on the source, if it can be judged.
+    pub fn clustered(&self) -> Option<bool> {
+        self.attack()
+            .map(|(a, b)| a > 0.0 && a >= EPIDEMIC_CLUSTER_RATIO * b)
+    }
+}
+
+impl EpidemicsSeen {
+    /// Judges each outbreak of `sim`'s that has ended and is not yet judged; called as each
+    /// month begins.
+    pub fn sample(&mut self, sim: &Sim) {
+        let ended: Vec<u32> = sim
+            .people()
+            .sickness
+            .outbreaks()
+            .iter()
+            .filter(|o| o.ended.is_some() && !self.outbreaks.iter().any(|x| x.id == o.id))
+            .map(|o| o.id)
+            .collect();
+        for id in ended {
+            if let Some(c) = civ_sim::frames::incidents::clustering(sim, id) {
+                self.outbreaks.push(OutbreakSeen::of(id, c));
+            }
+        }
+    }
+
+    /// At the run's end: judges every outbreak not yet judged, as it stands, and counts the
+    /// infections.
+    pub fn finish(&mut self, sim: &Sim) {
+        for o in sim.people().sickness.outbreaks() {
+            if !self.outbreaks.iter().any(|x| x.id == o.id)
+                && let Some(c) = civ_sim::frames::incidents::clustering(sim, o.id)
+            {
+                self.outbreaks.push(OutbreakSeen::of(o.id, c));
+            }
+        }
+        self.outbreaks.sort_by_key(|o| o.id);
+        let today = sim.now().day_index();
+        for e in sim.people().sickness.episodes() {
+            self.cases += 1;
+            self.ill += u32::from(e.symptomatic() && e.course.ill_from <= today);
+            self.died += u32::from(matches!(
+                e.ended,
+                Some((_, civ_agents::sickness::Outcome::Died))
+            ));
+            match e.acquired {
+                civ_agents::sickness::Acquired::Observer { .. } => self.introduced += 1,
+                civ_agents::sickness::Acquired::Water { .. } => self.water_cases += 1,
+                civ_agents::sickness::Acquired::Household { .. } => {}
+            }
+        }
+    }
+
+    fn join(&mut self, other: &EpidemicsSeen) {
+        self.introduced += other.introduced;
+        self.cases += other.cases;
+        self.ill += other.ill;
+        self.died += other.died;
+        self.water_cases += other.water_cases;
+        self.outbreaks.extend(other.outbreaks.iter().cloned());
+    }
+}
+
+/// Where a world's people drew their water over a run, its wells at the end, and the litres each
+/// person used a day at the end (M6a slice AY, ADR-0021 §1).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct WaterSeen {
+    /// Loads drawn over the run, by the kind of place, and the litres they came to.
+    pub draws: Draws,
+    /// Its wells at the end: being dug, open, given up dry, fallen in.
+    pub wells: [u32; 4],
+    /// People living at the end, and the litres a day they used, summed over them; the least and
+    /// most any household's people used.
+    pub people: u32,
+    pub use_l: f64,
+    pub least_l: f64,
+    pub most_l: f64,
+}
+
+/// Loads of water drawn, by the kind of place ([`civ_agents::WaterDraws`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct Draws {
+    pub wells: u64,
+    pub short: u64,
+    pub springs: u64,
+    pub banks: u64,
+    pub litres: f64,
+}
+
+/// The fires a world saw (M6b slice BD; research 12-03 §4.4, §5.7).
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub struct FiresSeen {
+    /// Households counted at each year's end, summed.
+    pub household_years: u64,
+    /// Fires in use that escaped.
+    pub escapes: u32,
+    /// Of them, those somebody put out, at once or while they grew.
+    pub put_out: u32,
+    /// Buildings that burned, but for those the observer set alight.
+    pub burned: u32,
+    /// Of them, those a burning neighbour caught.
+    pub spread: u32,
+    /// Fires the observer set.
+    pub set: u32,
+    /// People who died in them.
+    pub deaths: u32,
+}
+
+impl FiresSeen {
+    /// Counts `sim`'s fires since it was made, keeping the household-years already counted.
+    pub fn count(&mut self, sim: &Sim) {
+        let fires = &sim.people().fires;
+        self.escapes = fires.ignitions.len() as u32;
+        self.put_out = fires
+            .ignitions
+            .iter()
+            .filter(|i| i.put_out_by.is_some())
+            .count() as u32;
+        let set = |f: &&civ_agents::fire::Fire| {
+            matches!(f.kindled, civ_agents::fire::Kindled::Observer { .. })
+        };
+        self.set = fires.list.iter().filter(set).count() as u32;
+        self.burned = fires.list.len() as u32 - self.set;
+        self.spread = fires
+            .list
+            .iter()
+            .filter(|f| matches!(f.kindled, civ_agents::fire::Kindled::Neighbour { .. }))
+            .count() as u32;
+        self.deaths = fires.list.iter().map(|f| f.deaths.len() as u32).sum();
+    }
+
+    fn join(&mut self, o: &FiresSeen) {
+        self.household_years += o.household_years;
+        self.escapes += o.escapes;
+        self.put_out += o.put_out;
+        self.burned += o.burned;
+        self.spread += o.spread;
+        self.set += o.set;
+        self.deaths += o.deaths;
+    }
+}
+
+impl WaterSeen {
+    /// What `sim` drew its water from since it was made, and its wells and use now.
+    pub fn of(sim: &Sim) -> WaterSeen {
+        let d = sim.people().water_draws;
+        let mut out = WaterSeen {
+            draws: Draws {
+                wells: d.wells,
+                short: d.short,
+                springs: d.springs,
+                banks: d.banks,
+                litres: d.litres,
+            },
+            least_l: f64::INFINITY,
+            ..WaterSeen::default()
+        };
+        for w in &sim.land().wells.list {
+            out.wells[usize::from(w.state.code().0).min(3)] += 1;
+        }
+        let params = &sim.rules().people.household;
+        for (_, x) in sim.people().households.iter() {
+            if x.members.is_empty() {
+                continue;
+            }
+            let each = x.water_use(params);
+            out.people += x.members.len() as u32;
+            out.use_l += each * x.members.len() as f64;
+            out.least_l = out.least_l.min(each);
+            out.most_l = out.most_l.max(each);
+        }
+        if out.people == 0 {
+            out.least_l = 0.0;
+        }
+        out
+    }
+
+    fn join(&mut self, other: &WaterSeen) {
+        let (a, b) = (&mut self.draws, &other.draws);
+        a.wells += b.wells;
+        a.short += b.short;
+        a.springs += b.springs;
+        a.banks += b.banks;
+        a.litres += b.litres;
+        for (x, y) in self.wells.iter_mut().zip(other.wells) {
+            *x += y;
+        }
+        if other.people > 0 {
+            self.least_l = if self.people > 0 {
+                self.least_l.min(other.least_l)
+            } else {
+                other.least_l
+            };
+            self.most_l = self.most_l.max(other.most_l);
+        }
+        self.people += other.people;
+        self.use_l += other.use_l;
+    }
+
+    /// In words: "1,000 loads, 52% from wells (3% of them short of a load), none at springs, 48%
+    /// at the water's edge; wells at the end: 40 open, 3 being dug, none given up dry or fallen
+    /// in; people used 19.6 L a day on average (households 10-20 L)".
+    fn words(&self) -> String {
+        let d = &self.draws;
+        let loads = d.wells + d.springs + d.banks;
+        let share = |n: u64| {
+            if n == 0 {
+                "none".to_owned()
+            } else {
+                format!("{:.0}%", n as f64 / loads.max(1) as f64 * 100.0)
+            }
+        };
+        let short = if d.wells > 0 {
+            format!(
+                " ({:.0}% of them short of a load)",
+                d.short as f64 / d.wells as f64 * 100.0
+            )
+        } else {
+            String::new()
+        };
+        let [dug, open, dry, fell] = self.wells;
+        let used = if self.people > 0 {
+            format!(
+                "people used {:.1} L a day on average (households {:.0}-{:.0} L)",
+                self.use_l / f64::from(self.people),
+                self.least_l,
+                self.most_l
+            )
+        } else {
+            "nobody left to use any".to_owned()
+        };
+        format!(
+            "{loads} loads, {} from wells{short}, {} at springs, {} at the water's edge; wells at \
+             the end: {open} open, {dug} being dug, {dry} given up dry, {fell} fallen in; {used}",
+            share(d.wells),
+            share(d.springs),
+            share(d.banks)
+        )
+    }
 }
 
 /// People who came to live in one settlement from another, by why: the moves 05-06 §5.4 counts,
@@ -557,6 +876,7 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
         world.failures.extend(run.year_end(sim, y));
         let living = sim.people().living();
         world.people.push(living);
+        world.fires.household_years += sim.people().households.len() as u64;
         most = most.max(living);
         if living < KEEP && world.ended.is_none() {
             world.ended = Some(format!("fell to {living} in year {y}, from {most} at most"));
@@ -607,6 +927,10 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
     }
     world.gini = by_year.into_iter().map(|(y, (g, p))| (y, g, p)).collect();
     world.crime = CrimeSeen::of(&sim.people().order);
+    world.water = WaterSeen::of(sim);
+    world.fires.count(sim);
+    world.epidemics = std::mem::take(&mut run.epidemics);
+    world.epidemics.finish(sim);
     world.settlements = sim
         .land()
         .settlements
@@ -679,12 +1003,9 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
         neighbours(worlds),
         accounting(worlds),
         crime(worlds),
-        Row::new(
-            "Epidemics",
-            "waterborne cases against contaminated sources",
-            "clustered",
-        )
-        .graded(Grade::Gray, "no disease until M6".to_owned()),
+        water(worlds),
+        epidemics(worlds),
+        fires(worlds),
         regimes(worlds),
     ]
 }
@@ -1064,6 +1385,147 @@ fn crime(worlds: &[WorldRun]) -> Row {
             format!("too few attempts to take to judge, {MIN_ATTEMPTS} needed: {words}"),
         ),
     }
+}
+
+/// Where people drew their water, their wells and what they used a day, reported and not graded
+/// (M6a slice AY): what each uses follows the walk on a tuning curve set within research 12-01
+/// §2.1's prior of 10-30 L a day for carried water, so the prior cannot judge it.
+fn water(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Water",
+        "loads of water drawn over the runs by where, wells at the end, and the litres people \
+         used a day, all worlds together",
+        "reported: 10-30 L a person a day where water is carried",
+    )
+    .source("ADR-0021 §1; research 12-01 §2.1");
+    let mut all = WaterSeen {
+        least_l: f64::INFINITY,
+        ..WaterSeen::default()
+    };
+    for w in worlds {
+        all.join(&w.water);
+    }
+    row.graded(Grade::Gray, all.words())
+}
+
+/// Whether waterborne outbreaks cluster on the source their water cases took it at (plan §4.7):
+/// for each outbreak with enough water cases, the share of its households with a case among those
+/// that drew the disease at that source against the rest, by households as Snow's comparison was
+/// (research 12-02 §4, 05-04 §3.2). Grey unless the observer brought a disease, since nothing
+/// else brings one until imports from off the map exist (ADR-0021 §8).
+/// Fires in use that escaped, per 1,000 household-years: research 12-03 §4.4 puts unintended
+/// household fires at 1 to 100 (a modern survey's 10 as the order of magnitude); how many become
+/// building losses, and spread, is reported and left to emerge.
+fn fires(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Fires",
+        "fires in use that escaped, per 1,000 household-years, with how many were put out, \
+         burned a building, spread and killed",
+        "1 to 100 per 1,000 household-years",
+    )
+    .source("research 12-03 §4.4, §5.7; ADR-0022");
+    let mut all = FiresSeen::default();
+    for w in worlds {
+        all.join(&w.fires);
+    }
+    if all.household_years == 0 {
+        return row.graded(Grade::Gray, "no household lived a year".to_owned());
+    }
+    let rate = f64::from(all.escapes) * 1000.0 / all.household_years as f64;
+    let text = format!(
+        "{rate:.1} per 1,000 household-years ({} escapes in {} household-years); {} put out, \
+         {} buildings burned, {} of them caught from a neighbour, {} died; {} set by the observer",
+        all.escapes, all.household_years, all.put_out, all.burned, all.spread, all.deaths, all.set,
+    );
+    let inside = (1.0..=100.0).contains(&rate);
+    row.graded(if inside { Grade::Green } else { Grade::Amber }, text)
+}
+
+fn epidemics(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Epidemics",
+        "for each outbreak with 5 cases by water or more, the share of households with a case \
+         among those that drew the disease at the source most of them took it at, against the \
+         rest",
+        "every outbreak judged: at least twice the rest's share",
+    )
+    .source("tuning; research 12-02 §4, 05-04 §3.2; ADR-0021 §8");
+    let mut all = EpidemicsSeen::default();
+    for w in worlds {
+        all.join(&w.epidemics);
+    }
+    if all.introduced == 0 {
+        return row.graded(
+            Grade::Gray,
+            "no disease was brought into any world: only the observer brings one until imports \
+             from off the map exist (ADR-0021 §8)"
+                .to_owned(),
+        );
+    }
+    let counts = format!(
+        "{} brought by the observer; {} took it, {} by water, {} fell ill, {} died; {}",
+        all.introduced,
+        all.cases,
+        all.water_cases,
+        all.ill,
+        all.died,
+        match all.outbreaks.len() {
+            0 => "no outbreak".to_owned(),
+            1 => "1 outbreak".to_owned(),
+            n => format!("{n} outbreaks"),
+        },
+    );
+    let judged: Vec<&OutbreakSeen> = all
+        .outbreaks
+        .iter()
+        .filter(|o| o.clustered().is_some())
+        .collect();
+    if judged.is_empty() {
+        return row.graded(
+            Grade::Gray,
+            format!(
+                "{counts}; none had {EPIDEMIC_MIN_WATER_CASES} cases by water with households on \
+                 both sides to judge"
+            ),
+        );
+    }
+    let clustered = judged
+        .iter()
+        .filter(|o| o.clustered() == Some(true))
+        .count();
+    let each: Vec<String> = judged
+        .iter()
+        .map(|o| {
+            let (a, b) = o.attack().unwrap_or_default();
+            format!(
+                "{}: {} of {} households that drew it at {} had a case ({:.0}%), {} of {} of \
+                 the rest ({:.0}%)",
+                o.name,
+                o.drew.1,
+                o.drew.0,
+                o.source.as_deref().unwrap_or("its source"),
+                a * 100.0,
+                o.rest.1,
+                o.rest.0,
+                b * 100.0
+            )
+        })
+        .collect();
+    let grade = if clustered == judged.len() {
+        Grade::Green
+    } else if clustered > 0 {
+        Grade::Amber
+    } else {
+        Grade::Red
+    };
+    row.graded(
+        grade,
+        format!(
+            "{counts}; {clustered} of {} judged clustered on their source. {}",
+            judged.len(),
+            each.join("; ")
+        ),
+    )
 }
 
 /// The most a band may have grown by the end of year `y`, as a multiple of its founders.
@@ -1507,6 +1969,200 @@ mod tests {
     }
 
     #[test]
+    fn the_fire_row_judges_escapes_per_thousand_household_years() {
+        let with = |household_years, escapes| {
+            let mut w = world(1, &[40]);
+            w.fires = FiresSeen {
+                household_years,
+                escapes,
+                put_out: escapes / 2,
+                ..FiresSeen::default()
+            };
+            w
+        };
+        assert_eq!(fires(&[world(1, &[40])]).grade, Grade::Gray);
+        // Two worlds' household-years are summed: 10 escapes in 1,000 is the survey's order.
+        let row = fires(&[with(600, 6), with(400, 4)]);
+        assert_eq!(row.grade, Grade::Green, "{}", row.text);
+        assert!(row.text.starts_with("10.0 per 1,000"), "{}", row.text);
+        assert_eq!(fires(&[with(1000, 0)]).grade, Grade::Amber);
+        assert_eq!(fires(&[with(1000, 500)]).grade, Grade::Amber);
+    }
+
+    #[test]
+    fn the_epidemics_row_is_grey_until_a_disease_is_brought_and_judges_each_outbreak_s_source() {
+        let outbreak =
+            |id: u32, water: u32, drew: (u32, u32, u32), rest: (u32, u32, u32)| OutbreakSeen {
+                id,
+                name: format!("Cholera at Ashford, number {id}"),
+                cases: water + 1,
+                water_cases: water,
+                source: Some("Bo's household's well".to_owned()),
+                took: water,
+                drew,
+                rest,
+            };
+        let with = |outbreaks: Vec<OutbreakSeen>| {
+            let mut w = world(1, &[40]);
+            w.epidemics = EpidemicsSeen {
+                introduced: 2,
+                cases: 20,
+                ill: 9,
+                died: 1,
+                water_cases: 12,
+                outbreaks,
+            };
+            w
+        };
+        // Nothing brought: grey, and says why.
+        let row = epidemics(&[world(1, &[40])]);
+        assert_eq!(row.grade, Grade::Gray);
+        assert!(
+            row.text.starts_with("no disease was brought"),
+            "{}",
+            row.text
+        );
+        // Brought, but no outbreak with enough cases by water: grey, with the counts.
+        let row = epidemics(&[with(vec![outbreak(1, 4, (2, 2, 4), (10, 0, 0))])]);
+        assert_eq!(row.grade, Grade::Gray);
+        assert_eq!(
+            row.text,
+            "2 brought by the observer; 20 took it, 12 by water, 9 fell ill, 1 died; 1 outbreak; \
+             none had 5 cases by water with households on both sides to judge"
+        );
+        // Every household drew there: nothing to compare against, so not judged.
+        let row = epidemics(&[with(vec![outbreak(1, 8, (12, 6, 8), (0, 0, 0))])]);
+        assert_eq!(row.grade, Grade::Gray);
+        // Clustered: 6 of 8 that drew there against 1 of 20 of the rest.
+        let clustered = outbreak(1, 8, (8, 6, 8), (20, 1, 1));
+        let row = epidemics(&[with(vec![clustered.clone()])]);
+        assert_eq!(row.grade, Grade::Green, "{}", row.text);
+        assert!(
+            row.text.ends_with(
+                "1 of 1 judged clustered on their source. Cholera at Ashford, number 1: 6 of 8 \
+                 households that drew it at Bo's household's well had a case (75%), 1 of 20 of \
+                 the rest (5%)"
+            ),
+            "{}",
+            row.text
+        );
+        // Not clustered: 2 of 8 against 5 of 20, the same share.
+        let even = outbreak(2, 6, (8, 2, 6), (20, 5, 5));
+        assert_eq!(even.clustered(), Some(false));
+        let row = epidemics(&[with(vec![clustered]), with(vec![even.clone()])]);
+        assert_eq!(row.grade, Grade::Amber, "{}", row.text);
+        assert!(row.text.contains("1 of 2 judged clustered"), "{}", row.text);
+        let row = epidemics(&[with(vec![even])]);
+        assert_eq!(row.grade, Grade::Red, "{}", row.text);
+        // A rest with no case at all: any share among those that drew is clustered.
+        assert_eq!(
+            outbreak(3, 5, (10, 1, 5), (10, 0, 0)).clustered(),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn a_lived_run_counts_what_the_observer_brought_and_judges_its_outbreak() {
+        let root = civ_content::find_content_root(Path::new(env!("CARGO_MANIFEST_DIR")))
+            .expect("content/ is above the crate");
+        let content = civ_content::load(&root).registry.expect("content loads");
+        let mut sim = Sim::create_for_tests(
+            &NewWorld {
+                name: "Epidemics".into(),
+                seed: 2,
+                preset_id: PRESET.to_owned(),
+                size_cells: 512,
+                band_size: 30,
+                neighbours: Vec::new(),
+                neighbours_known: false,
+                regime_id: String::new(),
+            },
+            &content,
+            [3; 16],
+        )
+        .expect("world");
+        sim.set_speed(SPEED_MAX).expect("Max");
+        sim.advance_to_midnight().expect("midnight");
+        let mut run = LongRun::begin(&sim);
+        let someone = sim
+            .people()
+            .households
+            .iter()
+            .find_map(|(_, x)| x.members.first().copied())
+            .expect("someone");
+        sim.plague(someone, "core:disease/cholera")
+            .expect("brought");
+        let start = sim.now().minutes();
+        run.live_to(&mut sim, start + 75 * 1_440).expect("lives");
+        let mut seen = std::mem::take(&mut run.epidemics);
+        seen.finish(&sim);
+        assert_eq!(seen.introduced, 1);
+        assert!(seen.cases >= 1 && seen.cases >= seen.ill && seen.ill >= seen.died);
+        let outbreaks = sim.people().sickness.outbreaks().len();
+        assert_eq!(seen.outbreaks.len(), outbreaks);
+        assert!(
+            seen.outbreaks
+                .iter()
+                .all(|o| o.name.starts_with("Cholera "))
+        );
+        let mut w = world(2, &[30]);
+        w.epidemics = seen;
+        let row = epidemics(&[w]);
+        assert!(
+            row.text.starts_with("1 brought by the observer; "),
+            "{}",
+            row.text
+        );
+    }
+
+    #[test]
+    fn the_water_row_reports_where_water_was_drawn_wells_and_use_over_all_worlds() {
+        let mut a = world(1, &[40]);
+        a.water = WaterSeen {
+            draws: Draws {
+                wells: 50,
+                short: 5,
+                springs: 0,
+                banks: 50,
+                litres: 1_450.0,
+            },
+            wells: [1, 4, 0, 0],
+            people: 10,
+            use_l: 200.0,
+            least_l: 20.0,
+            most_l: 20.0,
+        };
+        let mut b = world(2, &[40]);
+        b.water = WaterSeen {
+            draws: Draws {
+                banks: 100,
+                litres: 1_500.0,
+                ..Draws::default()
+            },
+            wells: [0, 0, 1, 1],
+            people: 10,
+            use_l: 100.0,
+            least_l: 10.0,
+            most_l: 10.0,
+        };
+        // A world with nobody left adds its loads and wells, not its use.
+        let mut c = world(3, &[40, 0]);
+        c.water.draws.springs = 0;
+        let row = water(&[a, b, c]);
+        assert_eq!(row.grade, Grade::Gray);
+        assert_eq!(
+            row.text,
+            "200 loads, 25% from wells (10% of them short of a load), none at springs, 75% at the \
+             water's edge; wells at the end: 4 open, 1 being dug, 1 given up dry, 1 fallen in; \
+             people used 15.0 L a day on average (households 10-20 L)"
+        );
+        assert_eq!(
+            water(&[]).text.split("; ").last(),
+            Some("nobody left to use any")
+        );
+    }
+
+    #[test]
     fn rows_without_enough_to_judge_are_grey_say_why_and_never_pass() {
         let worlds = vec![world(1, &[40]), world(2, &[40])];
         let rows = grade(&worlds, 1);
@@ -1526,6 +2182,7 @@ mod tests {
             "Price convergence",
             "Neighbours",
             "Crime and poverty",
+            "Water",
             "Epidemics",
             "Regimes",
         ] {
@@ -1550,7 +2207,7 @@ mod tests {
         // Only population and the accounts are graded, both worlds keep their bands and no
         // settlement's accounts failed: a pass, but no grey row counts as one.
         assert!(dashboard.passed());
-        assert_eq!(dashboard.summary(), "2 passed, 12 not yet applicable");
+        assert_eq!(dashboard.summary(), "2 passed, 14 not yet applicable");
     }
 
     #[test]

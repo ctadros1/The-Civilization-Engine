@@ -1,6 +1,6 @@
 # Simulation Model
 
-This page describes systems present in the [source baseline](README.md#source-baseline) documented by this journal. The project is still an early farming-village simulation. The broader historical and modern scope is planned, not already simulated.
+This page describes the integrated `main` tree as of 2026-10-10. TCE simulates multiple early farming settlements and their institutions, trade, diffusion and inter-polity works. The broader historical and modern scope is planned, not already simulated.
 
 ## Time and simulation work
 
@@ -53,7 +53,7 @@ The receipt powers the observer's “why” explanation; it is not a separate de
 
 Movement is represented as trips over routes, with start/arrival times, path identity and geometry queried or referenced for presentation. The web map draws people along those trips. This keeps walking and rendering separate from a per-frame position simulation.
 
-Households share stores and labor. People eat, sleep, socialize, gather, hunt, fish, farm, carry, make goods, construct, mend and trade where their age, needs, skills, materials and knowledge permit. A household that cannot sustain itself may leave; departures remove people from the world rather than simulating migration to another settlement.
+Households share stores and labor. People eat, sleep, socialize, gather, hunt, fish, farm, carry, make goods, construct, mend and trade where their age, needs, skills, materials and knowledge permit. A household can stay, move to a place it knows, or form a coalition to found a new settlement. If it leaves the simulated map, the departure is recorded in the off-map account; the engine does not simulate an unlimited outside world.
 
 ## Food production, goods and exchange
 
@@ -83,14 +83,44 @@ Construction consumes materials and labor over time. Components receive an initi
 
 Households also build clay ovens and make storage pots, which keep grain and flour under a roof as a raised floor does. Each household builds to its own taste in roof pitch, wall height to the eaves and overhang, drawn from its band's way of building and held to what each program allows. Once a year its taste moves toward the new buildings its village admires, for their owner's standing in goods and their builders' craft, and its next building records the one it followed. Cob walls wait for a mass-wall grammar.
 
-At the source baseline M3b is implemented in all six slices (M–R), M3c slices S and T are implemented, and slice U is under way. Check the README and plan before claiming the status of a feature.
+M0–M5 are implemented. M2's kernel library and C interface are implemented, but the Unreal client is not. See the README and plan for the current status and known limits.
+
+## Institutions, law and social change
+
+Each settlement owns a polity, constitution, common store and law history. The constitution is a set of values over authored vocabulary: who may participate, what quorum is required and how a proposal is decided. Policy templates provide candidate laws and parameters; they do not prescribe that a law will pass. The current body decides a proposal using its own rule. The observer's derived regime label is never read by simulation choices ([ADR-0013](../../decisions/0013-polity-offices-laws.md)).
+
+Institutional decisions are grounded in household forecasts and social ties. Adults hear of a gathering through word of mouth, decide whether to attend and take a recorded stance. The law history preserves its sponsor, issue and terms, who came, how participants stood, the decision, who knows the law and what was paid or provided. The common store is a ledger holder: levies and relief are transfers with explicit channels, not goods created by a policy.
+
+Ties are sparse, directed and written by recorded acts such as company, help, teaching, exchange and counsel. Evidence fades over time. Standing is derived separately for each audience from the ties that audience holds; a small notable tier is a computation shortcut for institutional deliberation, not an office or source of truth ([ADR-0014](../../decisions/0014-ties-standing-notables.md)).
+
+Order keeps an event separate from what people know and believe about it. A taking can be witnessed, remembered and brought to a case; a case may produce a finding and obligations. Obligations remain due until settled, lapsed or otherwise resolved. Watchers decide whether to keep watch, investigate and collect; people decide whether to comply, resist or strike. Incidents, beliefs, cases, obligations and encounters remain inspectable ([ADR-0015](../../decisions/0015-incidents-cases-obligations.md)).
+
+Claims and grievances have sources and subjects. A grievance records harm, blame, an expectation and a fading activation; a claim is a shared event that only reaches a person who hears it. Opinions move through talk; values and norms influence how people weigh acts; ideologies provide authored explanations and programs that their holders may propose. Factions can organize around grievances, hold a treasury, petition or refuse a levy. Revolts and watch coups are episodes whose sides are people's choices. A successful change creates a new constitution version from the program people backed; it does not fire from a timer ([ADR-0016](../../decisions/0016-grievances-claims-opinions.md), [ADR-0017](../../decisions/0017-factions-episodes-regime-change.md)).
+
+Observer interventions alter what a person has heard or which chance they face, not their decision. Whispers add a true claim to a person's hearing, ideology tools tell people about authored beliefs, and an agitator arrives as a newcomer. Blessing or cursing affects selected keyed draws such as illness or discovery; it does not force votes, ties, detection or punishment. Each intervention and its observed effects can be inspected.
+
+## Multiple settlements and contact
+
+Settlement records are permanent identities, each with its own polity and household population. A new world can start with neighboring founding groups placed together from a shared site pool; the order of groups does not choose the sites. A settlement's hearth and social groups are local. Setup may let founding households know where the other groups began, but no universal regional knowledge is assumed ([ADR-0018](../../decisions/0018-settlements-residence-movement.md)).
+
+Each person has a residence history. Birth, arrival, marriage, departure, exile and founding update it; yearly births minus deaths plus arrivals minus departures are checked against each settlement's resident change. These accounts are derived from history, not saved as a second authority. Departures to places outside the map remain accounted for off-map.
+
+Households learn places by contact: they may begin aware of a neighboring group, see a settlement during a walk, hear of it at a hearth, have kin living there or visit it. Adults can visit a known settlement within a day's walk. Kin, existing ties and an unsuccessful search for a partner at home contribute to the value of a visit. Marriage can connect settlements; a new couple settles where there is more usable land, then more room, not by sex.
+
+At a yearly review, a household compares staying with known destinations using its ties and kin, food it has seen, grievances, expected harvest given up and the effort of starting over. A move must remain the preferred plan across two reviews. A household that gives up in a food shortage goes to kin elsewhere when it can; exile uses the same kin destination rule. A migration-wave command sends 5–50 related households in from the nearest map edge with a chosen amount of food. They become ordinary households once in the world. Coalition founding is also a household project: a viable group gathers kin and trusted households, waits for its plan to persist, then leaves with enough food and seed for its first harvest. See [settlements and exchange](settlements-and-exchange.md) for the full lifecycle and accounting boundaries.
+
+## Inter-settlement exchange and inter-polity works
+
+Household price reports can lead to buying trips to another settlement, where current seller terms decide the exchange. Households may also fetch goods to resell at home. Reports and trades are local records, not a global market feed; realized prices are not forced to converge. Knowledge travels through work observed, goods handled and people moving, while building taste can respond to buildings seen elsewhere. Per-polity currency and merchant firms that run trade trips are not implemented.
+
+Polities can claim wild places through law, form agreements that require ratification by both local customs, and carry real goods as gifts or recurring transfers. Labels such as *wary* or *tributary* are derived descriptions and do not cause decisions. Household and polity choices can build log crossings from measured use; the observer only presents the resulting state. Enclosures moved to M6. See [settlements and exchange](settlements-and-exchange.md) and [relations and public works](relations-and-public-works.md) for details.
 
 ## What the model does not claim
 
-- Modern governments, industrial economies, cities and infrastructure are not implemented in this baseline.
+- Modern governments, industrial economies, large cities and modern infrastructure are not implemented in this baseline.
 - Realistic behavior is an aim checked against selected stylized facts, not a proof that the model reproduces history.
 - Smoke tests cover chosen seeds and rules. Passing them does not establish that all plausible worlds survive or that every parameter is calibrated.
-- Early villages can fail from food shortages. Single-settlement departures are final, and there is no regional migration network.
-- Terrain, land use and ecology are still deliberately coarse. Daily weather is now simulated, as one regional series per world adjusted for height (temperature and snow lying), not drawn separately for each place or field; fields keep their soil's nitrogen (no phosphorus, potassium, texture, depth or erosion yet), and multiple crops, livestock and changing drainage arrive in later work.
+- Cross-settlement visits, marriage, migration, founding, trade, diffusion, agreements, carried payments and log crossings exist. There is no unlimited outside world, war, enclosure, per-polity currency or broader bridge kit. M5a's measured performance budget is not met, and Gate B does not grade cross-settlement moves.
+- Farming centers on emmer and a spring crop cycle. Daily weather and field nitrogen are implemented; crop range and livestock remain narrow. The long-run dashboard has a recorded food-price failure in one M4 run. See §9 for exact runs and limits; a green smoke or dashboard row does not generalize to every seed.
 
 See [Development and Evidence Practice](development-and-evidence.md) for how the project records these boundaries.

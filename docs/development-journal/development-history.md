@@ -794,7 +794,26 @@ On the `main` tree of 2026-10-04 (`fad23fa`), from which this journal was first 
 
 **Evidence:** digest comparisons with the build before (one settlement of 1,000 for 30 days and three of 1,000 for 10, identical); integration tests for the refused petition, faction ties, one coalition a household and coalitions sized to what they hold, each failing without its rule; the host's unit test of where the wave is sent; the whole kernel suite, clippy, the smoke, the web suites and the demo's observer spec.
 
-**Open:** moves in Gate B, which the demo's worlds can now calibrate; scouting and moving in stages; bargaining within a coalition. M5a is complete; M5b, trade and diffusion, is next.
+**Open:** moves in Gate B, which the demo's worlds can now calibrate; scouting and moving in stages; bargaining within a coalition. M5a is complete. M5b has since received its design; implementation remains ahead.
+
+## 2026-10-09 — M5b design: trade and diffusion between settlements
+
+**Starting point:** M5a's five slices are integrated: settlements at setup, performance work, local place knowledge, visits and marriage, migration and coalition founding. Current boundaries are save schema 55, wire 1.53 and content API 55. Trade between settlements and cross-settlement technique/style diffusion are not implemented.
+
+**Goal:** define how households can exchange goods and knowledge across settlements while preserving local knowledge, household choice and existing single-settlement behavior.
+
+**Design:** [ADR-0019](../../decisions/0019-exchange-between-settlements.md) sets the boundary: households can buy elsewhere only through dated reports they received by contact; goods change hands at the seller's door; each trade records the buyer's settlement and is tallied where it settles. The design has four slices:
+
+- **AP, buying by report:** household-held price reports, shared through routine contact and aged over time; a `fetch` activity can target known settlements within a day's walk, subject to travel and daylight. The buyer travels to a seller, whose current terms decide whether the report can be acted on. No global price feed is introduced.
+- **AQ, fetching to resell:** a household weighs buying and reselling against trip costs and the depth of its home market. Asking prices can use replacement cost learned from other settlements. A monthly per-pair convergence record supports a dashboard row. A caravan is a view grouping trips that share route and day, not an autonomous entity.
+- **AR, diffusion through contact:** visits, observed work and goods made with a technique can carry knowledge. Buildings completed recently elsewhere may influence a household's yearly style review, with provenance retained. Household taste remains the chooser; contact does not force adoption.
+- **AS, demonstration:** compare one saved start with cross-settlement purchases enabled and disabled by a host/test harness, three runs each, and report realized prices and the design's diffusion measure. Absence of a trade or style event is reported rather than scripted.
+
+**Decisions and exclusions:** one ADR covers exchange and settlement accounting. The diffusion work extends the knowledge and building decisions in ADR-0008 and ADR-0009. The trade brief's open questions were resolved in plan §9: neighboring settlements are within a day's round trip; purchases settle at the seller rather than creating goods in transit; reports belong to households; the harness switch is memory-only, not content or save state; the food-price row is unchanged; per-polity money waits for minting; government purchases and export restrictions wait for later policy work. Grain is a weak convergence demonstration because its costs share a weather series and cost anchor, so the demo should use goods whose costs differ by place. Style convergence uses the diffusion brief's measure and has no target rate.
+
+**Evidence:** this entry records a design, not implementation results. ADR-0019 and the trade/diffusion briefs are the design sources. Implementation evidence will be added when AP–AS land, with exact tests, run inputs, outcomes and open limits.
+
+**Open:** the first implementation slice is AP. If trade or roof-style adoption has not emerged after a week of tuning, the plan's time box calls for a documented `NUDGE:` rather than scripted trips or copying. M5c relations and public works follow after M5b.
 
 ## 2026-10-09 — M5b slice AP: buying from a neighbour by report
 

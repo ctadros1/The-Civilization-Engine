@@ -1,0 +1,14 @@
+# Burning limestone in a kiln to produce quicklime: calcining stone with intense heat (research
+# 07-05 §2.3, 11-08 §1.1). 120 kg of firewood heats the kiln.
+kind = "recipe"
+id = "core:recipe/burn_lime"
+name = "Burn lime"
+skill = "core:skill/pottery"
+technique = "core:technique/lime_burning"
+unit_h = 0.04
+session_h = 8.0
+max_units = 150.0
+tools = ["core:good/kiln"]
+inputs = [{ good = "core:good/stone", amount = 2.0 }]
+outputs = [{ good = "core:good/quicklime", amount = 1.0 }]
+session_inputs = [{ good = "core:good/firewood", amount = 120.0 }]

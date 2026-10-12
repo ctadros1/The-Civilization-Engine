@@ -8,7 +8,7 @@ use std::f64::consts::TAU;
 use civ_core::time::DAYS_PER_YEAR;
 use civ_grammar::{
     BuildingSpec, FRAME_VERSION, Footprint, HUT_VERSION, PARAMS, ProgramRules, Stage, StageNeeds,
-    TURN, expand, frame_params, hut_params,
+    TURN, expand, frame_materials, frame_params, hut_params,
 };
 use civ_land::{Building, Land, RectCm};
 use civ_world::nav::NavGrid;
@@ -455,7 +455,24 @@ pub fn design_shape(
     at: (f32, f32),
     toward: Option<(f32, f32)>,
 ) -> Option<BuildingSpec> {
-    design_cautious(def, goods, shape, at, toward, 1.0, None)
+    design_cautious(def, goods, shape, at, toward, 1.0, None, None)
+}
+
+/// What the builder considers about fire resistance when designing a frame building (ADR-0022 §7).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct FireDesign {
+    /// Fire caution for thatch covering.
+    pub caution_thatch: f64,
+    /// Fire caution for wattle walls.
+    pub caution_wattle: f64,
+    /// Whether someone in the household knows rubble walling.
+    pub knows_rubble: bool,
+    /// Whether someone in the household knows mud brick.
+    pub knows_mud_brick: bool,
+    /// Whether someone in the household knows firing (kiln firing).
+    pub knows_firing: bool,
+    /// Whether someone in the household knows lime burning.
+    pub knows_lime: bool,
 }
 
 /// [`design_shape`], by builders who make the members that carry a frame building's load
@@ -464,7 +481,9 @@ pub fn design_shape(
 /// (buckling goes as d⁴), each to the nearest centimetre and no more than the program allows.
 /// A hut is built as usual: its rules leave nothing to size. `style`, when given, is the roof
 /// pitch, eaves and overhang it is built to ([`crate::style::commission`], within what the program
-/// allows; a hut's overhang is its rules'), else the program's usual ones.
+/// allows; a hut's overhang is its rules'), else the program's usual ones. When `fire` caution
+/// is elevated, mass walls and tile roofs are chosen where known techniques permit (ADR-0022 §7, §10).
+#[allow(clippy::too_many_arguments)]
 pub fn design_cautious(
     def: &BuildingDef,
     goods: &[GoodDef],
@@ -473,6 +492,7 @@ pub fn design_cautious(
     toward: Option<(f32, f32)>,
     caution: f64,
     style: Option<[i32; 3]>,
+    fire: Option<FireDesign>,
 ) -> Option<BuildingSpec> {
     match (shape, &def.rules) {
         (Shape::Round { radius }, ProgramRules::Hut(_)) => {
@@ -520,6 +540,39 @@ pub fn design_cautious(
             }
             params[fp::POST_CM] = stronger(d.post_cm, 4.0, rules.post_cm.1);
             params[fp::WALL_CM] = d.wall_cm;
+            let mut wall_kind = 0;
+            let mut footing = 0;
+            let mut materials: Vec<String> = def
+                .materials
+                .iter()
+                .map(|&g| goods.get(g).map_or_else(String::new, |g| g.id.clone()))
+                .collect();
+            if let Some(fd) = fire {
+                // If fire caution for thatch is elevated (> 1.0) and firing is known, select tile covering.
+                if fd.caution_thatch > 1.0
+                    && fd.knows_firing
+                    && let Some(tile_good) = goods.iter().find(|g| g.id == "core:good/roof_tile")
+                    && let Some(cov) = materials.get_mut(usize::from(frame_materials::COVERING))
+                {
+                    *cov = tile_good.id.clone();
+                }
+                // If fire caution for wattle/daub is elevated (> 1.0) and a masonry technique is known,
+                // select a mass wall on a stone footing.
+                if fd.caution_wattle > 1.0 {
+                    if fd.knows_firing && fd.knows_lime {
+                        wall_kind = 3; // fired brick
+                        footing = 1;
+                    } else if fd.knows_mud_brick {
+                        wall_kind = 2; // mud brick
+                        footing = 1;
+                    } else if fd.knows_rubble {
+                        wall_kind = 1; // rubble walling
+                        footing = 1;
+                    }
+                }
+            }
+            params[fp::WALL_KIND] = wall_kind;
+            params[fp::FOOTING] = footing;
             // The door's wall faces `toward`: it faces a quarter turn on from the length.
             let facing = toward.map_or(0, |t| direction(at, t));
             let angle = (facing - TURN as i32 / 4).rem_euclid(TURN as i32) as u16;
@@ -535,11 +588,7 @@ pub fn design_cautious(
                 },
                 storeys,
                 params,
-                materials: def
-                    .materials
-                    .iter()
-                    .map(|&g| goods.get(g).map_or_else(String::new, |g| g.id.clone()))
-                    .collect(),
+                materials,
                 style_seed: 0,
             })
         }
@@ -1520,6 +1569,205 @@ pub(crate) mod tests {
         assert_eq!(
             pots_wanted(&[160.0, 0.0], &goods, &all_raised, true, 15.0, 1095.0),
             (0.0, 0.0)
+        );
+    }
+
+    #[test]
+    fn fire_caution_selects_tile_and_mass_wall() {
+        use civ_grammar::FrameRules;
+        let frame_rules = FrameRules {
+            bays: (1, 8),
+            bay_cm: (200, 400),
+            width_cm: (400, 700),
+            storeys: (1, 2),
+            eave_cm: (180, 300),
+            pitch_centideg: (4500, 5500),
+            joist_cm: (8, 25),
+            post_cm: (12, 30),
+            overhang_cm: (20, 120),
+            floor_raise_cm: (0, 0),
+            wall_cm: (10, 25),
+            lofts: true,
+            ground_use: civ_grammar::SpaceUse::Living,
+            upper_use: civ_grammar::SpaceUse::Living,
+            posthole_depth_cm: 60,
+            beam_cm: 15,
+            rafter_cm: 10,
+            rafter_spacing_cm: 50,
+            joist_spacing_cm: 40,
+            decking_cm: 3,
+            thatch_thickness_cm: 20,
+            hearth_cm: 80,
+            door_cm: 90,
+            floor_base_m2: 15.0,
+            floor_m2_per_sleeper: 4.0,
+            work_m2_per_worker: 5.0,
+            store_kg_per_m2: 200.0,
+            loft_kg_per_m2: 100.0,
+            living_kg_per_m2: 50.0,
+            timber_kg_per_m3: 700.0,
+            groundwork_h_per_m2: 0.5,
+            posthole_h: 2.0,
+            post_h: 4.0,
+            beam_h_per_m: 1.0,
+            rafter_h: 1.5,
+            joist_h_per_m: 0.5,
+            wattle_h_per_m2: 1.0,
+            daub_h_per_m3: 5.0,
+            thatch_h_per_m2: 1.5,
+            finish_h_per_m2: 0.5,
+            decking_h_per_m2: 1.0,
+            ladder_h: 3.0,
+            wattle_kg_per_m2: 15.0,
+            thatch_kg_per_m2: 20.0,
+            ladder_kg: 25.0,
+        };
+        let def = BuildingDef {
+            id: "core:building/longhouse".into(),
+            name: "Longhouse".into(),
+            use_: PlotUse::Dwelling,
+            rules: ProgramRules::Frame(frame_rules),
+            materials: vec![0, 0, 1, 0],
+            eave_cm: 200,
+            pitch_centideg: 4500,
+            roof_by_day: 304,
+            technique: None,
+            design: Some(crate::params::FrameDesign {
+                bay_cm: 250,
+                width_cm: 500,
+                post_cm: 15,
+                wall_cm: 15,
+                overhang_cm: 50,
+                floor_raise_cm: 0,
+                joist_cm: 15,
+            }),
+            shapes: Vec::new(),
+            skill: None,
+            upkeep: crate::params::Upkeep::default(),
+        };
+        let good = |id: &str| GoodDef {
+            id: id.into(),
+            name: id.into(),
+            purpose: GoodUse::Material,
+            kcal_per_kg: 0.0,
+            half_life_days: 0.0,
+            sheltered_half_life_days: 0.0,
+            eaten: crate::params::Eaten::Never,
+            shared: false,
+            reserve_for: None,
+            tool: None,
+            timber: None,
+            store: None,
+            fire: None,
+        };
+        let goods = vec![
+            good("core:good/timber"),
+            good("core:good/thatch"),
+            good("core:good/roof_tile"),
+        ];
+        let shape = Shape::Bays {
+            bays: 3,
+            storeys: 1,
+            lofts: 0,
+        };
+
+        // Without fire caution: thatch covering and wattle walls (wall_kind = 0, footing = 0).
+        let normal = design_cautious(&def, &goods, shape, (0.0, 0.0), None, 1.0, None, None)
+            .expect("normal design");
+        assert_eq!(normal.params[frame_params::WALL_KIND], 0);
+        assert_eq!(normal.params[frame_params::FOOTING], 0);
+        assert_eq!(
+            normal.materials[frame_materials::COVERING as usize],
+            "core:good/thatch"
+        );
+
+        // Fire caution for thatch with firing technique known -> tile covering!
+        let fire_tile = FireDesign {
+            caution_thatch: 1.5,
+            knows_firing: true,
+            ..Default::default()
+        };
+        let tiled = design_cautious(
+            &def,
+            &goods,
+            shape,
+            (0.0, 0.0),
+            None,
+            1.0,
+            None,
+            Some(fire_tile),
+        )
+        .expect("tiled design");
+        assert_eq!(
+            tiled.materials[frame_materials::COVERING as usize],
+            "core:good/roof_tile"
+        );
+        assert_eq!(tiled.params[frame_params::WALL_KIND], 0);
+
+        // Fire caution for wattle with rubble technique known -> rubble mass wall (kind 1, footing 1)!
+        let fire_rubble = FireDesign {
+            caution_wattle: 1.5,
+            knows_rubble: true,
+            ..Default::default()
+        };
+        let rubble = design_cautious(
+            &def,
+            &goods,
+            shape,
+            (0.0, 0.0),
+            None,
+            1.0,
+            None,
+            Some(fire_rubble),
+        )
+        .expect("rubble design");
+        assert_eq!(rubble.params[frame_params::WALL_KIND], 1);
+        assert_eq!(rubble.params[frame_params::FOOTING], 1);
+
+        // Fire caution for wattle with mud brick known -> mud brick mass wall (kind 2, footing 1)!
+        let fire_mud = FireDesign {
+            caution_wattle: 1.5,
+            knows_mud_brick: true,
+            ..Default::default()
+        };
+        let mud = design_cautious(
+            &def,
+            &goods,
+            shape,
+            (0.0, 0.0),
+            None,
+            1.0,
+            None,
+            Some(fire_mud),
+        )
+        .expect("mud brick design");
+        assert_eq!(mud.params[frame_params::WALL_KIND], 2);
+        assert_eq!(mud.params[frame_params::FOOTING], 1);
+
+        // Fire caution with firing and lime burning -> fired brick mass wall (kind 3, footing 1) and tile!
+        let fire_brick_tile = FireDesign {
+            caution_thatch: 1.5,
+            caution_wattle: 1.5,
+            knows_firing: true,
+            knows_lime: true,
+            ..Default::default()
+        };
+        let brick_tile = design_cautious(
+            &def,
+            &goods,
+            shape,
+            (0.0, 0.0),
+            None,
+            1.0,
+            None,
+            Some(fire_brick_tile),
+        )
+        .expect("brick tile design");
+        assert_eq!(brick_tile.params[frame_params::WALL_KIND], 3);
+        assert_eq!(brick_tile.params[frame_params::FOOTING], 1);
+        assert_eq!(
+            brick_tile.materials[frame_materials::COVERING as usize],
+            "core:good/roof_tile"
         );
     }
 }

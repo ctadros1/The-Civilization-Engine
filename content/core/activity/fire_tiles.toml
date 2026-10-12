@@ -1,0 +1,17 @@
+# Firing roof tiles in a kiln (research 11-08 §1.1, §2.2).
+kind = "activity"
+id = "core:activity/fire_tiles"
+name = "Fire roof tiles"
+doing = "firing roof tiles"
+behavior = "make"
+recipe = "core:recipe/fire_tiles"
+par = 3.5
+min_age_years = 14.0
+max_age_years = 75.0
+min_minutes = 120
+max_minutes = 480
+daylight_only = false
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

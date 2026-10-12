@@ -1,0 +1,15 @@
+# Firing bricks in a wood-fired kiln: stacking dried bricks, firing for several days and cooling
+# (research 07-05 §2.3, 11-08 §2.2). 100 kg of firewood heats the kiln; about 10 % break in the
+# firing (0.9 sound bricks per unit).
+kind = "recipe"
+id = "core:recipe/fire_bricks"
+name = "Fire bricks"
+skill = "core:skill/pottery"
+technique = "core:technique/firing"
+unit_h = 0.03
+session_h = 8.0
+max_units = 300.0
+tools = ["core:good/kiln"]
+inputs = [{ good = "core:good/clay", amount = 4.0 }]
+outputs = [{ good = "core:good/brick", amount = 0.9 }]
+session_inputs = [{ good = "core:good/firewood", amount = 100.0 }]

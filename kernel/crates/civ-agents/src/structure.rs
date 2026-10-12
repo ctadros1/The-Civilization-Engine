@@ -221,7 +221,11 @@ fn weight_on_posts(e: &Expansion, loads: &Loads) -> (f64, f64) {
             g.material.is_some()
                 && !matches!(
                     g.kind,
-                    GroupKind::Posts | GroupKind::Covering | GroupKind::Infill | GroupKind::Floor
+                    GroupKind::Posts
+                        | GroupKind::Covering
+                        | GroupKind::Infill
+                        | GroupKind::Floor
+                        | GroupKind::MassWall
                 )
         })
         .map(|g| own_weight(g) * f64::from(g.count))
@@ -247,6 +251,47 @@ pub fn margin(g: &Group, c: &GroupCondition, e: &Expansion, loads: &Loads, t: &T
         return Margin::NONE;
     }
     let keep = t.sustained.max(1e-6);
+    if g.kind == GroupKind::MassWall {
+        let total: f64 = e
+            .groups
+            .iter()
+            .filter(|p| p.kind == GroupKind::MassWall)
+            .map(|p| p.area_m2.max(0.0))
+            .sum();
+        if total <= 0.0 {
+            return Margin::NONE;
+        }
+        let share = g.area_m2.max(0.0) / total / f64::from(g.count.max(1));
+        let (held, passing) = weight_on_posts(e, loads);
+        let demand = held * share / keep + passing * share;
+        if demand <= 0.0 {
+            return Margin::NONE;
+        }
+        let h = f64::from(g.length_cm.max(0)) / 100.0;
+        let t_thick = f64::from(g.section_cm[1].max(0)) / 100.0;
+        let l_len = f64::from(g.section_cm[0].max(0)) / 100.0;
+        if t_thick <= 0.0 || l_len <= 0.0 {
+            return Margin::NONE;
+        }
+        let slenderness = h / t_thick;
+        let slenderness_factor = if slenderness <= 6.0 {
+            1.0
+        } else {
+            (1.0 - (slenderness - 6.0) / 12.0).clamp(0.2, 1.0)
+        };
+        let fm_pa = match g.spacing_cm {
+            1 => 1.5e6,
+            2 => 1.0e6,
+            3 => 3.0e6,
+            _ => 1.5e6,
+        };
+        let bearing_area = l_len * t_thick * left;
+        let capacity = q * fm_pa * slenderness_factor * bearing_area;
+        return Margin {
+            strength: capacity / demand,
+            sag: 0.0,
+        };
+    }
     if g.kind == GroupKind::Posts {
         let total: f64 = e
             .groups
@@ -530,5 +575,54 @@ mod tests {
             margin(&e.groups[1], &sound(0.76), &e, &loads, &oak()),
             Margin::NONE
         );
+    }
+
+    #[test]
+    fn mass_walls_fail_by_slenderness_or_loss() {
+        let wall = Group {
+            id: group_id(Level::Ground, None, GroupKind::MassWall, 0),
+            kind: GroupKind::MassWall,
+            stage: Stage::Walls,
+            material: Some(1),
+            count: 1,
+            section_cm: [750, 20],
+            length_cm: 200,
+            spacing_cm: 1,
+            area_m2: 30.0,
+        };
+        let covering = Group {
+            id: group_id(Level::Roof, None, GroupKind::Covering, 0),
+            kind: GroupKind::Covering,
+            stage: Stage::Roof,
+            material: Some(2),
+            count: 1,
+            section_cm: [4, 4],
+            length_cm: 500,
+            spacing_cm: 0,
+            area_m2: 30.0,
+        };
+        let e = expansion_with(vec![wall, covering]);
+        let loads = Loads {
+            covering_pa: 65.0 * G,
+            peak_pa: 1000.0,
+            ..Loads::default()
+        };
+        let m = margin(&e.groups[0], &sound(1.0), &e, &loads, &oak());
+        assert!(
+            m.strength > 10.0,
+            "sound rubble wall carries roof: {}",
+            m.strength
+        );
+        assert_eq!(m.state(), GroupState::Sound);
+
+        let mut worn = sound(1.0);
+        worn.loss = 0.999;
+        let m_worn = margin(&e.groups[0], &worn, &e, &loads, &oak());
+        assert!(
+            m_worn.strength < 1.0,
+            "heavily eroded wall fails: {}",
+            m_worn.strength
+        );
+        assert_eq!(m_worn.state(), GroupState::Failed);
     }
 }

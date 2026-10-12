@@ -1533,11 +1533,21 @@ impl Population {
     /// fire.
     fn burn_out(&mut self, ctx: &mut Ctx, i: usize) {
         let now = ctx.now;
-        let (building, household, episode) = {
+        let (building, household, episode, settlement) = {
             let f = &mut self.fires.list[i];
             f.ended = Some(now);
-            (f.building, f.household, f.episode)
+            (f.building, f.household, f.episode, f.settlement)
         };
+        // The settlement remembers a building lost to fire by covering and wall kind (ADR-0022 §7).
+        if let Some(b) = ctx.land.buildings.iter().find(|b| b.id == building) {
+            let tile = b
+                .spec
+                .materials
+                .get(usize::from(civ_grammar::frame::frame_materials::COVERING))
+                .is_some_and(|m| m.contains("tile"));
+            let wall_kind = b.spec.params[civ_grammar::frame::frame_params::WALL_KIND] as u8;
+            self.remember_fire_loss(settlement, tile, wall_kind, now, &ctx.params.build.caution);
+        }
         // What the fire left is weighed now: charred posts and beams may give way.
         if ctx.land.buildings.iter().any(|b| b.id == building) {
             self.buildings_changed(now, ctx.land, ctx.catalog, ctx.params, household);

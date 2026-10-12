@@ -490,6 +490,9 @@ pub struct Population {
     /// What each settlement has seen of each technique's buildings, in the order first seen
     /// (ADR-0009 §6).
     pub trust: Vec<crate::caution::Trust>,
+    /// What each settlement has seen of buildings lost to fire by covering and wall kind
+    /// (ADR-0022 §7).
+    pub fire_trust: Vec<crate::caution::FireTrust>,
     /// The deposits each settlement knows, in the order they were found (ADR-0010 §1).
     pub deposits_known: Vec<DepositKnown>,
     /// What each person remembers of others (ADR-0014).
@@ -2075,6 +2078,30 @@ impl Population {
                     p as u64,
                 ],
             );
+            let knows_technique = |name: &str| {
+                catalog.technique_index(name).is_some_and(|t| {
+                    hh.members
+                        .iter()
+                        .filter_map(|&m| self.person(m))
+                        .any(|p| p.knows(t))
+                })
+            };
+            let fire_design = build::FireDesign {
+                caution_thatch: self.fire_caution_thatch(
+                    hh.settlement,
+                    ctx.now,
+                    &ctx.params.build.caution,
+                ),
+                caution_wattle: self.fire_caution_wattle(
+                    hh.settlement,
+                    ctx.now,
+                    &ctx.params.build.caution,
+                ),
+                knows_rubble: knows_technique("core:technique/rubble_walling"),
+                knows_mud_brick: knows_technique("core:technique/mud_brick"),
+                knows_firing: knows_technique("core:technique/firing"),
+                knows_lime: knows_technique("core:technique/lime_burning"),
+            };
             let design_at = |at: (f32, f32)| {
                 let reachable = reach.is_none_or(|r| r.seconds_to(cell_of(ctx.map, at)).is_some());
                 reachable
@@ -2087,6 +2114,7 @@ impl Population {
                             toward,
                             caution,
                             Some(style),
+                            Some(fire_design),
                         )
                     })
                     .flatten()

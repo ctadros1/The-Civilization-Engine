@@ -231,11 +231,13 @@ fn the_repository_content_is_clean() {
         .iter()
         .map(|&(t, _)| c.techniques[t].id.as_str())
         .collect();
-    assert_eq!(founders.len(), 12);
+    assert_eq!(founders.len(), 14);
     assert!(founders.contains(&"core:technique/pottery"));
     assert!(founders.contains(&"core:technique/oven_baking"));
     assert!(founders.contains(&"core:technique/manuring"));
     assert!(founders.contains(&"core:technique/well_digging"));
+    assert!(founders.contains(&"core:technique/rubble_walling"));
+    assert!(founders.contains(&"core:technique/mud_brick"));
     // The timber-lined well (M6a slice AY, step three): its diggers need well digging.
     let well = &c.wells[c.well_index("core:well/timber_lined").expect("the well")];
     assert_eq!(

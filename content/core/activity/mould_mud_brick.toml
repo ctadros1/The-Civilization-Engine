@@ -1,0 +1,17 @@
+# Moulding sun-dried mud bricks at home in daylight (research 11-08 §2.2).
+kind = "activity"
+id = "core:activity/mould_mud_brick"
+name = "Mould mud bricks"
+doing = "moulding mud bricks"
+behavior = "make"
+recipe = "core:recipe/mould_mud_brick"
+par = 3.0
+min_age_years = 12.0
+max_age_years = 75.0
+min_minutes = 60
+max_minutes = 300
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

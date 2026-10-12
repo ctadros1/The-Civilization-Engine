@@ -249,9 +249,20 @@ impl Population {
                 continue;
             };
             let wear = condition::wear_state(c, &def.upkeep);
-            let load = timber(g).map_or(GroupState::Sound, |t| {
-                structure::margin(g, c, &e, &loads, &t).state()
-            });
+            let load = if g.kind == GroupKind::MassWall {
+                let dummy = structure::Timber {
+                    bending_pa: 0.0,
+                    compression_pa: 0.0,
+                    stiffness_pa: 0.0,
+                    creep: 0.0,
+                    sustained: 1.0,
+                };
+                structure::margin(g, c, &e, &loads, &dummy).state()
+            } else {
+                timber(g).map_or(GroupState::Sound, |t| {
+                    structure::margin(g, c, &e, &loads, &t).state()
+                })
+            };
             c.state = condition::worse(wear, load);
             if c.state == GroupState::Failed {
                 fell.push(Fell {
@@ -381,7 +392,7 @@ impl Population {
         // Those inside: everyone not on their way somewhere, within the building's reach.
         let gravest = fell.first().map(|f| f.kind);
         let risk = match gravest {
-            Some(GroupKind::Posts) => DIES_IN_RUIN,
+            Some(GroupKind::Posts | GroupKind::MassWall) => DIES_IN_RUIN,
             Some(GroupKind::RoofFrame) => DIES_UNDER_ROOF,
             _ => DIES_UNDER_FLOOR,
         };
@@ -407,6 +418,7 @@ impl Population {
         // The chronicle: what gave way, under what, and why it was weak.
         let what = match gravest {
             Some(GroupKind::Posts) => "fell: its posts gave way",
+            Some(GroupKind::MassWall) => "fell: its walls gave way",
             Some(GroupKind::RoofFrame) => "lost its roof: the rafters broke",
             Some(GroupKind::TieBeams) => "lost its lofts: a tie beam broke",
             Some(GroupKind::LoftJoists) => "lost its loft: the joists broke",
@@ -469,7 +481,7 @@ impl Population {
 /// How grave it is that a group of kind `kind` gave way, the gravest first.
 fn gravity(kind: GroupKind) -> u8 {
     match kind {
-        GroupKind::Posts => 0,
+        GroupKind::Posts | GroupKind::MassWall => 0,
         GroupKind::RoofFrame => 1,
         GroupKind::TieBeams => 2,
         GroupKind::FloorJoists => 3,

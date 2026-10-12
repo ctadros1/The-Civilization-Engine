@@ -27,7 +27,7 @@ use crate::{
 };
 
 /// Version of the frame grammar.
-pub const FRAME_VERSION: u16 = 1;
+pub const FRAME_VERSION: u16 = 2;
 /// Most bays a frame may have.
 pub const MAX_BAYS: i32 = 8;
 /// Most storeys a frame may have (research 11-05 §2.2: one to three in timber; two here).
@@ -287,13 +287,16 @@ struct Layout<'r> {
     /// Floors on joists: a raised floor (with its middle rail) and an upper storey's, with the
     /// height of their surface.
     floors: Vec<(Level, f64, bool)>,
+    wall_kind: i32,
+    footing: i32,
+    tile: bool,
 }
 
 impl<'r> Layout<'r> {
     /// Checks `spec` against `rules` (ADR-0009 §2) and lays it out.
     fn new(spec: &BuildingSpec, rules: &'r FrameRules) -> Result<Layout<'r>, GrammarError> {
         use frame_params as fp;
-        if spec.version != FRAME_VERSION {
+        if spec.version != 1 && spec.version != FRAME_VERSION {
             return Err(GrammarError::UnknownVersion(spec.version));
         }
         let Footprint::Rect {
@@ -368,23 +371,41 @@ impl<'r> Layout<'r> {
         within("overhang", overhang, rules.overhang_cm)?;
         let wall = p[fp::WALL_CM];
         within("wall thickness", wall, rules.wall_cm)?;
-        if p[fp::WALL_KIND] != 0 {
-            return refuse(format!(
-                "wall kind {} is unknown to frame version 1",
-                p[fp::WALL_KIND]
-            ));
-        }
-        if p[fp::FOOTING] != 0 {
-            return refuse(format!(
-                "footing {} is unknown to frame version 1",
-                p[fp::FOOTING]
-            ));
+        let wall_kind = p[fp::WALL_KIND];
+        let footing = p[fp::FOOTING];
+        let tile = spec.materials[usize::from(COVERING)].contains("tile");
+        if spec.version == 1 {
+            if wall_kind != 0 {
+                return refuse(format!(
+                    "wall kind {wall_kind} is unknown to frame version 1"
+                ));
+            }
+            if footing != 0 {
+                return refuse(format!("footing {footing} is unknown to frame version 1"));
+            }
+            if tile {
+                return refuse("tile covering is unknown to frame version 1");
+            }
+        } else {
+            if !(0..=3).contains(&wall_kind) {
+                return refuse(format!(
+                    "wall kind {wall_kind} is unknown to frame version 2"
+                ));
+            }
+            if !(0..=1).contains(&footing) {
+                return refuse(format!("footing {footing} is unknown to frame version 2"));
+            }
+            if wall_kind > 0 && footing != 1 {
+                return refuse(format!(
+                    "mass wall kind {wall_kind} requires a stone footing (footing 1)"
+                ));
+            }
         }
         if p[fp::STYLE..fp::STYLE + fp::STYLE_TRAITS]
             .iter()
             .any(|&t| t != 0)
         {
-            return refuse("frame version 1 has no style traits");
+            return refuse("frame version 1 and 2 have no style traits");
         }
         // A program with no raised floor allows only 0; one whose floor may stand on the ground
         // or be raised allows 0 among the rest.
@@ -500,6 +521,9 @@ impl<'r> Layout<'r> {
             .into_iter()
             .flatten()
             .collect(),
+            wall_kind,
+            footing,
+            tile,
         };
         if raised && layout.wt / 2.0 + layout.ladder_run(r) > o {
             return refuse(format!(
@@ -639,23 +663,57 @@ impl Parts<'_, '_> {
     }
 }
 
-/// Foundation: postholes, and a raised floor's posts down the middle.
+/// Foundation: postholes or stone footings, and a raised floor's posts down the middle.
 fn foundation(p: &mut Parts) {
     let l = p.layout;
     let hole = [l.pd + POSTHOLE_SLACK_CM, l.pd + POSTHOLE_SLACK_CM, l.depth];
-    for k in 0..=l.n {
-        for (side, v) in l.long_walls() {
-            let slot = (Level::Ground, Some(k), PartKind::Posthole, side as usize);
+    if l.footing == 1 {
+        for j in 0..l.n {
+            for (side, v) in l.long_walls() {
+                let slot = (
+                    Level::Ground,
+                    Some(j),
+                    PartKind::StoneFooting,
+                    side as usize,
+                );
+                p.push(
+                    slot,
+                    Stage::Foundation,
+                    (l.u_line(j) + l.b / 2.0, v, -l.depth / 2.0),
+                    [l.b, l.wt, l.depth],
+                    (l.along(), 0),
+                    None,
+                );
+            }
+        }
+        for (side, u) in l.end_walls() {
+            let slot = (Level::Ground, None, PartKind::StoneFooting, side as usize);
             p.push(
                 slot,
                 Stage::Foundation,
-                (l.u_line(k), v, -l.depth / 2.0),
-                hole,
-                (l.along(), 0),
+                (u, 0.0, -l.depth / 2.0),
+                [l.w, l.wt, l.depth],
+                (l.across(), 0),
                 None,
             );
         }
-        if l.raised {
+    } else {
+        for k in 0..=l.n {
+            for (side, v) in l.long_walls() {
+                let slot = (Level::Ground, Some(k), PartKind::Posthole, side as usize);
+                p.push(
+                    slot,
+                    Stage::Foundation,
+                    (l.u_line(k), v, -l.depth / 2.0),
+                    hole,
+                    (l.along(), 0),
+                    None,
+                );
+            }
+        }
+    }
+    if l.raised {
+        for k in 0..=l.n {
             let slot = (Level::Ground, Some(k), PartKind::Posthole, 2);
             p.push(
                 slot,
@@ -681,14 +739,16 @@ fn foundation(p: &mut Parts) {
 fn frame(p: &mut Parts) {
     let l = p.layout;
     for k in 0..=l.n {
-        for (side, v) in l.long_walls() {
-            p.member(
-                (Level::Ground, Some(k), PartKind::Post, side as usize),
-                Stage::Frame,
-                (l.u_line(k), v, (l.z_p - l.depth) / 2.0),
-                [l.pd, l.pd, l.z_p + l.depth],
-                l.along(),
-            );
+        if l.wall_kind == 0 {
+            for (side, v) in l.long_walls() {
+                p.member(
+                    (Level::Ground, Some(k), PartKind::Post, side as usize),
+                    Stage::Frame,
+                    (l.u_line(k), v, (l.z_p - l.depth) / 2.0),
+                    [l.pd, l.pd, l.z_p + l.depth],
+                    l.along(),
+                );
+            }
         }
         p.member(
             (Level::Roof, Some(k), PartKind::TieBeam, 0),
@@ -817,66 +877,116 @@ fn pieces(panel: f64, door_w: f64, door_here: bool) -> Vec<(usize, f64, f64)> {
     }
 }
 
-/// Walls: wattle and daub between the posts, storey by storey, the door's panel split either
-/// side of it; and the gables. The walls' area, square centimetres.
+/// Walls: wattle and daub between the posts, or mass walls of rubble, mud brick or fired brick,
+/// storey by storey, the door's panel split either side of it; and the gables. The walls' area,
+/// square centimetres.
 fn walls(p: &mut Parts) -> f64 {
     let l = p.layout;
     let mut area = 0.0;
-    for t in 0..l.storeys {
-        let level = storey_level(t);
-        let zc = l.z_g + l.h * f64::from(t) + l.h / 2.0;
-        for kind in [PartKind::Wattle, PartKind::Daub] {
-            let (thickness, material) = match kind {
-                PartKind::Wattle => (l.wt / 3.0, Some(WATTLE)),
-                _ => (l.wt, None),
-            };
-            for j in 0..l.n {
-                for (side, v) in l.long_walls() {
-                    let door_here = t == 0 && side == l.door_side && j as i32 == l.door_bay;
-                    for (half, du, pw) in pieces(l.b - l.pd, l.door_w, door_here) {
+    if l.wall_kind == 0 {
+        for t in 0..l.storeys {
+            let level = storey_level(t);
+            let zc = l.z_g + l.h * f64::from(t) + l.h / 2.0;
+            for kind in [PartKind::Wattle, PartKind::Daub] {
+                let (thickness, material) = match kind {
+                    PartKind::Wattle => (l.wt / 3.0, Some(WATTLE)),
+                    _ => (l.wt, None),
+                };
+                for j in 0..l.n {
+                    for (side, v) in l.long_walls() {
+                        let door_here = t == 0 && side == l.door_side && j as i32 == l.door_bay;
+                        for (half, du, pw) in pieces(l.b - l.pd, l.door_w, door_here) {
+                            if kind == PartKind::Wattle {
+                                area += pw * l.h;
+                            }
+                            p.push(
+                                (level, Some(j), kind, side as usize * 2 + half),
+                                Stage::Walls,
+                                (l.u_line(j) + l.b / 2.0 + du, v, zc),
+                                [pw, thickness, l.h],
+                                (l.along(), 0),
+                                material,
+                            );
+                        }
+                    }
+                }
+                for (side, u) in l.end_walls() {
+                    let door_here = t == 0 && side == l.door_side;
+                    for (half, dv, pw) in pieces(l.w - l.pd, l.door_w, door_here) {
                         if kind == PartKind::Wattle {
                             area += pw * l.h;
                         }
                         p.push(
-                            (level, Some(j), kind, side as usize * 2 + half),
+                            (level, None, kind, side as usize * 2 + half),
+                            Stage::Walls,
+                            (u, dv, zc),
+                            [pw, thickness, l.h],
+                            (l.across(), 0),
+                            material,
+                        );
+                    }
+                }
+            }
+        }
+        let gable_h = l.z_a - l.z_p;
+        for (side, u) in l.end_walls() {
+            area += (l.w - l.pd) * gable_h / 2.0;
+            p.push(
+                (Level::Roof, None, PartKind::GableInfill, side as usize),
+                Stage::Walls,
+                (u, 0.0, l.z_p + gable_h / 3.0),
+                [l.w - l.pd, l.wt, gable_h],
+                (l.across(), 0),
+                Some(WATTLE),
+            );
+        }
+    } else {
+        for t in 0..l.storeys {
+            let level = storey_level(t);
+            let zc = l.z_g + l.h * f64::from(t) + l.h / 2.0;
+            for j in 0..l.n {
+                for (side, v) in l.long_walls() {
+                    let door_here = t == 0 && side == l.door_side && j as i32 == l.door_bay;
+                    for (half, du, pw) in pieces(l.b, l.door_w, door_here) {
+                        area += pw * l.h;
+                        p.push(
+                            (level, Some(j), PartKind::MassWall, side as usize * 2 + half),
                             Stage::Walls,
                             (l.u_line(j) + l.b / 2.0 + du, v, zc),
-                            [pw, thickness, l.h],
+                            [pw, l.wt, l.h],
                             (l.along(), 0),
-                            material,
+                            Some(WATTLE),
                         );
                     }
                 }
             }
             for (side, u) in l.end_walls() {
                 let door_here = t == 0 && side == l.door_side;
-                for (half, dv, pw) in pieces(l.w - l.pd, l.door_w, door_here) {
-                    if kind == PartKind::Wattle {
-                        area += pw * l.h;
-                    }
+                for (half, dv, pw) in pieces(l.w, l.door_w, door_here) {
+                    area += pw * l.h;
                     p.push(
-                        (level, None, kind, side as usize * 2 + half),
+                        (level, None, PartKind::MassWall, side as usize * 2 + half),
                         Stage::Walls,
                         (u, dv, zc),
-                        [pw, thickness, l.h],
+                        [pw, l.wt, l.h],
                         (l.across(), 0),
-                        material,
+                        Some(WATTLE),
                     );
                 }
             }
         }
-    }
-    let gable_h = l.z_a - l.z_p;
-    for (side, u) in l.end_walls() {
-        area += (l.w - l.pd) * gable_h / 2.0;
-        p.push(
-            (Level::Roof, None, PartKind::GableInfill, side as usize),
-            Stage::Walls,
-            (u, 0.0, l.z_p + gable_h / 3.0),
-            [l.w - l.pd, l.wt, gable_h],
-            (l.across(), 0),
-            Some(WATTLE),
-        );
+        let gable_h = l.z_a - l.z_p;
+        for (side, u) in l.end_walls() {
+            area += l.w * gable_h / 2.0;
+            p.push(
+                (Level::Roof, None, PartKind::MassWall, side as usize),
+                Stage::Walls,
+                (u, 0.0, l.z_p + gable_h / 3.0),
+                [l.w, l.wt, gable_h],
+                (l.across(), 0),
+                Some(WATTLE),
+            );
+        }
     }
     area
 }
@@ -884,16 +994,17 @@ fn walls(p: &mut Parts) -> f64 {
 /// Roof: the covering, a slope at a time.
 fn roof(p: &mut Parts) {
     let l = p.layout;
+    let (kind, thick) = if l.tile {
+        (PartKind::Tile, 4.0)
+    } else {
+        (PartKind::Thatch, f64::from(l.rules.thatch_thickness_cm))
+    };
     for (sl, sign) in SLOPES {
         p.push(
-            (Level::Roof, None, PartKind::Thatch, sl),
+            (Level::Roof, None, kind, sl),
             Stage::Roof,
             (0.0, sign * (l.w / 2.0 + l.o) / 2.0, (l.z_e + l.z_a) / 2.0),
-            [
-                l.slope,
-                l.l + 2.0 * l.o,
-                f64::from(l.rules.thatch_thickness_cm),
-            ],
+            [l.slope, l.l + 2.0 * l.o, thick],
             (
                 if sign > 0.0 {
                     l.back_across()
@@ -1081,7 +1192,7 @@ fn needs(l: &Layout, wall_area_cm2: f64, ladders: usize) -> Vec<StageNeeds> {
     let n = l.n;
     let storey_m2 = l.l * l.w * M2;
     let bay_m2 = l.b * l.w * M2;
-    let wall_posts = 2 * (n + 1);
+    let wall_posts = if l.wall_kind == 0 { 2 * (n + 1) } else { 0 };
     let floor_posts = if l.raised { n + 1 } else { 0 };
     let rafters = 2 * (n * l.rafters_per_bay + 1);
     let floored_bays = l.decks().len();
@@ -1117,12 +1228,52 @@ fn needs(l: &Layout, wall_area_cm2: f64, ladders: usize) -> Vec<StageNeeds> {
         kg[usize::from(BOARDS)] = boards;
         kg
     };
+
+    let foundation_labour = if l.footing == 1 {
+        let perimeter_m = 2.0 * (l.l + l.w) * 0.01;
+        let trench_vol_m3 = perimeter_m * (l.wt * 0.01) * (l.depth * 0.01);
+        rules.groundwork_h_per_m2 * storey_m2
+            + trench_vol_m3 * (rules.daub_h_per_m3 + 12.0)
+            + rules.posthole_h * floor_posts as f64
+            + rules.post_h * floor_posts as f64
+    } else {
+        rules.groundwork_h_per_m2 * storey_m2
+            + rules.posthole_h * (wall_posts + floor_posts) as f64
+            + rules.post_h * floor_posts as f64
+    };
+
+    let (walls_labour, walls_kg) = if l.wall_kind == 0 {
+        (
+            (rules.wattle_h_per_m2 + rules.daub_h_per_m3 * l.wt * 0.01) * wall_m2,
+            rules.wattle_kg_per_m2 * wall_m2,
+        )
+    } else {
+        let wall_vol_m3 = wall_m2 * (l.wt * 0.01);
+        let (masonry_h_per_m3, masonry_density) = match l.wall_kind {
+            1 => (32.0, 1900.0),
+            2 => (16.0, 1600.0),
+            3 => (20.0, 1800.0),
+            _ => (20.0, 1800.0),
+        };
+        (
+            wall_vol_m3 * masonry_h_per_m3,
+            wall_vol_m3 * masonry_density,
+        )
+    };
+
+    let (roof_labour, roof_kg) = if l.tile {
+        (2.0 * roof_m2, 65.0 * roof_m2)
+    } else {
+        (
+            rules.thatch_h_per_m2 * roof_m2,
+            rules.thatch_kg_per_m2 * roof_m2,
+        )
+    };
+
     vec![
         StageNeeds {
             stage: Stage::Foundation,
-            labour_h: rules.groundwork_h_per_m2 * storey_m2
-                + rules.posthole_h * (wall_posts + floor_posts) as f64
-                + rules.post_h * floor_posts as f64,
+            labour_h: foundation_labour,
             materials_kg: slots(floor_posts_kg, 0.0, 0.0, 0.0),
         },
         StageNeeds {
@@ -1135,13 +1286,13 @@ fn needs(l: &Layout, wall_area_cm2: f64, ladders: usize) -> Vec<StageNeeds> {
         },
         StageNeeds {
             stage: Stage::Walls,
-            labour_h: (rules.wattle_h_per_m2 + rules.daub_h_per_m3 * l.wt * 0.01) * wall_m2,
-            materials_kg: slots(0.0, rules.wattle_kg_per_m2 * wall_m2, 0.0, 0.0),
+            labour_h: walls_labour,
+            materials_kg: slots(0.0, walls_kg, 0.0, 0.0),
         },
         StageNeeds {
             stage: Stage::Roof,
-            labour_h: rules.thatch_h_per_m2 * roof_m2,
-            materials_kg: slots(0.0, 0.0, rules.thatch_kg_per_m2 * roof_m2, 0.0),
+            labour_h: roof_labour,
+            materials_kg: slots(0.0, 0.0, roof_kg, 0.0),
         },
         StageNeeds {
             stage: Stage::Finish,
@@ -1197,23 +1348,42 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
     let raised_m2 = if l.raised { storey_m2 } else { 0.0 };
     let joist_share = l.joists_per_bay as f64 / (l.joists_per_bay + 1) as f64;
     let timber = Some(TIMBER);
+    let storeys_h = l.h * f64::from(l.storeys);
     let mut out = Vec::new();
-    for (side, _) in l.long_walls() {
-        // Each long wall carries its slope of the roof and half of every floor across the width
-        // (a raised floor's middle line takes half of that one).
-        out.push(GroupOf {
-            level: Level::Ground,
-            bay: None,
-            kind: GroupKind::Posts,
-            index: side as u8,
-            stage: Stage::Frame,
-            material: timber,
-            count: n + 1,
-            section: [l.pd, l.pd],
-            length: l.z_p,
-            spacing: l.b,
-            area_m2: roof_plan_side_m2 + (suspended_m2 - raised_m2) / 2.0 + raised_m2 / 4.0,
-        });
+    if l.wall_kind == 0 {
+        for (side, _) in l.long_walls() {
+            // Each long wall carries its slope of the roof and half of every floor across the width
+            // (a raised floor's middle line takes half of that one).
+            out.push(GroupOf {
+                level: Level::Ground,
+                bay: None,
+                kind: GroupKind::Posts,
+                index: side as u8,
+                stage: Stage::Frame,
+                material: timber,
+                count: n + 1,
+                section: [l.pd, l.pd],
+                length: l.z_p,
+                spacing: l.b,
+                area_m2: roof_plan_side_m2 + (suspended_m2 - raised_m2) / 2.0 + raised_m2 / 4.0,
+            });
+        }
+    } else {
+        for (side, _) in l.long_walls() {
+            out.push(GroupOf {
+                level: Level::Ground,
+                bay: None,
+                kind: GroupKind::MassWall,
+                index: side as u8,
+                stage: Stage::Walls,
+                material: Some(WATTLE),
+                count: 1,
+                section: [l.l, l.wt],
+                length: storeys_h,
+                spacing: l.wall_kind as f64,
+                area_m2: roof_plan_side_m2 + (suspended_m2 - raised_m2) / 2.0 + raised_m2 / 4.0,
+            });
+        }
     }
     if l.raised {
         out.push(GroupOf {
@@ -1307,46 +1477,51 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
             stage: Stage::Roof,
             material: Some(COVERING),
             count: 1,
-            section: [f64::from(l.rules.thatch_thickness_cm); 2],
+            section: [if l.tile {
+                4.0
+            } else {
+                f64::from(l.rules.thatch_thickness_cm)
+            }; 2],
             length: l.slope,
             spacing: 0.0,
             area_m2: roof_m2 / 2.0,
         });
     }
-    let storeys_h = l.h * f64::from(l.storeys);
     let gable_h = l.z_a - l.z_p;
     let door_m2 = l.door_w * l.h * M2;
-    for (side, _) in l.long_walls() {
-        let door = if side == l.door_side { door_m2 } else { 0.0 };
-        out.push(GroupOf {
-            level: Level::Ground,
-            bay: None,
-            kind: GroupKind::Infill,
-            index: side as u8,
-            stage: Stage::Walls,
-            material: Some(WATTLE),
-            count: n * l.storeys as usize + usize::from(side == l.door_side),
-            section: [l.wt, l.wt],
-            length: storeys_h,
-            spacing: l.b,
-            area_m2: (l.b - l.pd) * storeys_h * M2 * n as f64 - door,
-        });
-    }
-    for (side, _) in l.end_walls() {
-        let door = if side == l.door_side { door_m2 } else { 0.0 };
-        out.push(GroupOf {
-            level: Level::Ground,
-            bay: None,
-            kind: GroupKind::Infill,
-            index: side as u8,
-            stage: Stage::Walls,
-            material: Some(WATTLE),
-            count: l.storeys as usize + 1 + usize::from(side == l.door_side),
-            section: [l.wt, l.wt],
-            length: storeys_h + gable_h,
-            spacing: 0.0,
-            area_m2: (l.w - l.pd) * (storeys_h + gable_h / 2.0) * M2 - door,
-        });
+    if l.wall_kind == 0 {
+        for (side, _) in l.long_walls() {
+            let door = if side == l.door_side { door_m2 } else { 0.0 };
+            out.push(GroupOf {
+                level: Level::Ground,
+                bay: None,
+                kind: GroupKind::Infill,
+                index: side as u8,
+                stage: Stage::Walls,
+                material: Some(WATTLE),
+                count: n * l.storeys as usize + usize::from(side == l.door_side),
+                section: [l.wt, l.wt],
+                length: storeys_h,
+                spacing: l.b,
+                area_m2: (l.b - l.pd) * storeys_h * M2 * n as f64 - door,
+            });
+        }
+        for (side, _) in l.end_walls() {
+            let door = if side == l.door_side { door_m2 } else { 0.0 };
+            out.push(GroupOf {
+                level: Level::Ground,
+                bay: None,
+                kind: GroupKind::Infill,
+                index: side as u8,
+                stage: Stage::Walls,
+                material: Some(WATTLE),
+                count: l.storeys as usize + 1 + usize::from(side == l.door_side),
+                section: [l.wt, l.wt],
+                length: storeys_h + gable_h,
+                spacing: 0.0,
+                area_m2: (l.w - l.pd) * (storeys_h + gable_h / 2.0) * M2 - door,
+            });
+        }
     }
     if !l.raised {
         out.push(GroupOf {
@@ -1410,7 +1585,7 @@ pub fn expand_frame(spec: &BuildingSpec, rules: &FrameRules) -> Result<Expansion
     let f = facts(&l);
     Ok(Expansion {
         grammar: Grammar::Frame,
-        version: FRAME_VERSION,
+        version: spec.version,
         parts,
         outline: corners(l.l / 2.0 + l.wt / 2.0, l.w / 2.0 + l.wt / 2.0),
         roof_radius_cm: cm((l.l / 2.0 + l.o).hypot(l.w / 2.0 + l.o)),
@@ -1524,7 +1699,7 @@ mod tests {
         params[fp::WALL_CM] = 15;
         BuildingSpec {
             program: "core:building/longhouse".into(),
-            version: FRAME_VERSION,
+            version: 1,
             footprint: Footprint::Rect {
                 x: 100_000,
                 y: 200_000,
@@ -1995,6 +2170,51 @@ mod tests {
         high.params[fp::FLOOR_RAISE_CM] = 120;
         high.params[fp::OVERHANG_CM] = 40;
         assert!(expand_frame(&high, &g).is_err());
+    }
+
+    #[test]
+    fn frame_version_2_mass_walls_and_tile_roof() {
+        let mut s = spec(3, 250, 500);
+        s.version = 2;
+        s.params[fp::WALL_KIND] = 1;
+        s.params[fp::FOOTING] = 1;
+        s.materials[usize::from(COVERING)] = "core:good/roof_tile".into();
+        let r = house();
+        let e = expand_frame(&s, &r).expect("expands v2 mass wall");
+        assert_eq!(e.version, 2);
+
+        let count = |k: PartKind| e.parts.iter().filter(|p| p.kind == k).count();
+        assert!(count(PartKind::StoneFooting) > 0);
+        assert_eq!(count(PartKind::Posthole), 0);
+        assert_eq!(count(PartKind::Post), 0);
+        assert!(count(PartKind::MassWall) > 0);
+        assert_eq!(count(PartKind::Wattle), 0);
+        assert_eq!(count(PartKind::Daub), 0);
+        assert_eq!(count(PartKind::Tile), 2);
+        assert_eq!(count(PartKind::Thatch), 0);
+
+        assert!(e.groups.iter().any(|g| g.kind == GroupKind::MassWall));
+        assert!(!e.groups.iter().any(|g| g.kind == GroupKind::Posts));
+        assert!(!e.groups.iter().any(|g| g.kind == GroupKind::Infill));
+
+        let mw = e
+            .groups
+            .iter()
+            .find(|g| g.kind == GroupKind::MassWall)
+            .expect("mass wall group");
+        assert_eq!(mw.spacing_cm, 1);
+
+        let mut no_footing = s.clone();
+        no_footing.params[fp::FOOTING] = 0;
+        assert!(expand_frame(&no_footing, &r).is_err());
+
+        let mut bad_wall = s.clone();
+        bad_wall.params[fp::WALL_KIND] = 4;
+        assert!(expand_frame(&bad_wall, &r).is_err());
+
+        let mut bad_footing = s.clone();
+        bad_footing.params[fp::FOOTING] = 2;
+        assert!(expand_frame(&bad_footing, &r).is_err());
     }
 
     const GOLDEN_THREE_BAYS: u64 = 0xdb70_dcfc_e516_69b8;

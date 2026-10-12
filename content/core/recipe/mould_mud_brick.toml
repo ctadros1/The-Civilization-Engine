@@ -1,0 +1,15 @@
+# Moulding sun-dried mud bricks (adobe): clay worked with water, shaped in wooden moulds and
+# set out to dry (research 11-08 §2.2: 15-25 person-hours per 1,000 bricks). 10 kg of clay makes
+# two 5 kg bricks.
+kind = "recipe"
+id = "core:recipe/mould_mud_brick"
+name = "Mould mud bricks"
+skill = "core:skill/building"
+technique = "core:technique/mud_brick"
+unit_h = 0.05
+session_h = 0.5
+max_units = 100.0
+tools = []
+inputs = [{ good = "core:good/clay", amount = 5.0 }]
+outputs = [{ good = "core:good/mud_brick", amount = 1.0 }]
+session_inputs = []

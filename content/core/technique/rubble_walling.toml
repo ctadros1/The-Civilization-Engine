@@ -1,0 +1,17 @@
+# Laying fieldstone and rubble in mud or lime mortar on a stone footing (research 07-05 §3.1,
+# 11-04 §2.2, 11-08 §2.1). Founders bring it (07-05 §3.1: stone construction in Neolithic
+# communities).
+kind = "technique"
+id = "core:technique/rubble_walling"
+name = "Rubble walling"
+can = "lay walls of fieldstone and rubble in mortar on a stone footing"
+domain = "core:skill/building"
+requires = [["core:technique/roundhouse", "core:technique/stone_shaping"]]
+tried_in = []
+needs = []
+e50_h = 100000.0
+learn_h = 200.0
+upbringing = true
+
+[answers]
+spoilage = []

@@ -1,0 +1,14 @@
+# Firing roof tiles in a wood-fired kiln: forming thin clay tiles, drying and firing (research
+# 11-08 §1.1, §2.2). 80 kg of firewood heats the kiln; about 10 % break in the firing.
+kind = "recipe"
+id = "core:recipe/fire_tiles"
+name = "Fire roof tiles"
+skill = "core:skill/pottery"
+technique = "core:technique/firing"
+unit_h = 0.03
+session_h = 6.0
+max_units = 250.0
+tools = ["core:good/kiln"]
+inputs = [{ good = "core:good/clay", amount = 3.0 }]
+outputs = [{ good = "core:good/roof_tile", amount = 0.9 }]
+session_inputs = [{ good = "core:good/firewood", amount = 80.0 }]

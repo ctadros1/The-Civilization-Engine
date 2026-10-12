@@ -79,6 +79,59 @@ impl Trust {
     }
 }
 
+/// What settlement `settlement` has seen of buildings lost to fire by covering and wall kind:
+/// losses and building-years of use, each fading by half every half-life, as of `at` (ADR-0022 §7).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FireTrust {
+    /// The settlement.
+    pub settlement: PermanentId,
+    /// Whether the roof covering is tile (true) or thatch (false).
+    pub tile: bool,
+    /// Wall kind: 0 for wattle and daub, 1 for rubble, 2 for mud brick, 3 for fired brick.
+    pub wall_kind: u8,
+    /// Buildings lost to fire.
+    pub losses: f64,
+    /// Years its standing buildings of this covering and wall kind have stood.
+    pub years: f64,
+    /// When both were last brought up to date.
+    pub at: SimTime,
+}
+
+impl FireTrust {
+    /// A record with nothing seen yet as of `at`.
+    pub fn new(settlement: PermanentId, tile: bool, wall_kind: u8, at: SimTime) -> Self {
+        Self {
+            settlement,
+            tile,
+            wall_kind,
+            losses: 0.0,
+            years: 0.0,
+            at,
+        }
+    }
+
+    /// Losses and building-years as they stand at `now`, faded by half every `half_life_years`.
+    pub fn faded(&self, now: SimTime, half_life_years: f64) -> (f64, f64) {
+        let years = (now.minutes() - self.at.minutes()).max(0) as f64 / MINUTES_PER_YEAR as f64;
+        let keep = 0.5f64.powf(years / half_life_years.max(1e-6));
+        (self.losses * keep, self.years * keep)
+    }
+
+    /// Brings both up to `now`.
+    pub fn fade(&mut self, now: SimTime, half_life_years: f64) {
+        (self.losses, self.years) = self.faded(now, half_life_years);
+        self.at = self.at.max(now);
+    }
+
+    /// Fire caution: 1 when nothing has burned, rising toward `p.most` as remembered losses
+    /// approach `p.half_rate` a building-year.
+    pub fn caution(&self, now: SimTime, p: &CautionParams) -> f64 {
+        let (losses, years) = self.faded(now, p.half_life_years);
+        let rate = losses / years.max(LEAST_YEARS);
+        1.0 + (p.most - 1.0).max(0.0) * rate / (rate + p.half_rate.max(1e-12))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,5 +196,18 @@ mod tests {
         t.years = 1.0;
         let c = t.caution(year(0), &p);
         assert!(c < 2.0 && c > 1.99, "{c}");
+    }
+
+    #[test]
+    fn fire_trust_fades_and_measures_caution() {
+        let p = params();
+        let mut ft = FireTrust::new(id(1), false, 0, year(0));
+        assert_eq!(ft.caution(year(0), &p), 1.0);
+        ft.losses = 1.0;
+        ft.years = 100.0;
+        assert!((ft.caution(year(0), &p) - 1.5).abs() < 1e-9);
+        ft.fade(year(8), p.half_life_years);
+        assert!((ft.losses - 0.5).abs() < 1e-9);
+        assert!((ft.years - 50.0).abs() < 1e-9);
     }
 }

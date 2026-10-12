@@ -436,6 +436,10 @@ founders = [
   { technique = "core:technique/manuring", share = 1.0 },
   # Research 12-01 §3.1: timber-lined wells are documented in the early Neolithic (ADR-0021 §9).
   { technique = "core:technique/well_digging", share = 1.0 },
+  # Research 07-05 §3.1: stone construction in Neolithic communities (ADR-0022 §10).
+  { technique = "core:technique/rubble_walling", share = 1.0 },
+  # Research 07-05 §3.1: sun-dried earthen units in early farming communities (ADR-0022 §10).
+  { technique = "core:technique/mud_brick", share = 1.0 },
 ]
 # Learners one person teaches at once (research 07-02 §2.3: 1-3 a teacher).
 max_learners = 2

@@ -1,0 +1,12 @@
+# Ceramic fired brick: moulded clay fired in a kiln (research 07-05 §3.1, 11-08 §2.2). It keeps
+# indefinitely and does not burn.
+kind = "good"
+id = "core:good/brick"
+name = "Brick"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

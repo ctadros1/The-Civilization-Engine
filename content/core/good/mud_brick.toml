@@ -1,0 +1,13 @@
+# Sun-dried earthen brick (adobe): moulded from clay and earth and dried in the sun (research
+# 07-05 §3.1, 11-08 §2.2). Kept outdoors in the wet it weathers and spoils; under a roof it keeps
+# indefinitely.
+kind = "good"
+id = "core:good/mud_brick"
+name = "Mud brick"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 365.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

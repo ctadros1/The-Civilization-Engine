@@ -8,11 +8,10 @@
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { makeWorld, startHost, tempSaves } from "./host.js";
+import { demoPage, makeWorld, startHost, tempSaves } from "./host.js";
 
 test.skip(!process.env.TCE_DEMO, "the M3b demo runs only with TCE_DEMO=1");
 test.setTimeout(120 * 60_000);
-test.use({ viewport: { width: 1440, height: 900 } });
 
 const shots = process.env.TCE_SHOTS_DIR;
 const NAME = "Framing Valley";
@@ -22,9 +21,7 @@ async function zoomTo(page: Page, scale: number): Promise<void> {
   await page.evaluate((s) => window.__TCE__.zoomBy(s / window.__TCE__.map().camera.scale), scale);
 }
 
-test("a craft brought to one founder, what gave way, and homes after an admired one", async ({
-  page,
-}) => {
+test("a craft brought to one founder, what gave way, and homes after an admired one", async ({ browser }) => {
   const saves = tempSaves();
   const seed = process.env.TCE_DEMO_SEED ?? "4";
   const band = process.env.TCE_DEMO_BAND ?? "40";
@@ -37,6 +34,8 @@ test("a craft brought to one founder, what gave way, and homes after an admired 
     ],
     90 * 60_000,
   );
+  const recording = await demoPage(browser, "m3b-demo");
+  const { page } = recording;
   const host = await startHost(saves);
   try {
     page.on("pageerror", (e) => console.log(`page error: ${e.message}`));
@@ -109,7 +108,9 @@ test("a craft brought to one founder, what gave way, and homes after an admired 
       await expect(page.locator("#readout")).toContainText(", after ", { timeout: 15_000 });
     }
     if (shots) await page.screenshot({ path: `${shots}/m3b-village.png` });
+    if (process.env.TCE_DEMO_VIDEO) await page.waitForTimeout(7000);
   } finally {
+    await recording.finish();
     await host.stop();
   }
 });

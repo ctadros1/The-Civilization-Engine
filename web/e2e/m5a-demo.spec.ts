@@ -19,11 +19,10 @@ import path from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { hostBinary, startHost, tempSaves } from "./host.js";
+import { demoPage, hostBinary, startHost, tempSaves } from "./host.js";
 
 test.skip(!process.env.TCE_DEMO, "the M5a demo runs only with TCE_DEMO=1");
 test.setTimeout(2 * 60 * 60_000);
-test.use({ viewport: { width: 1440, height: 900 } });
 
 const shots = process.env.TCE_SHOTS_DIR;
 const WORLD = "Neighbours 1";
@@ -112,10 +111,10 @@ async function inspectFirst(
   return null;
 }
 
-test("three settlements thirty years on, a wave among them, their moves on record", async ({
-  page,
-}) => {
+test("three settlements thirty years on, a wave among them, their moves on record", async ({ browser }) => {
   const kept = keptSaves();
+  const recording = await demoPage(browser, "m5a-demo");
+  const { page } = recording;
   const host = await startHost(kept);
   try {
     page.on("pageerror", (e) => console.log(`page error: ${e.message}`));
@@ -177,7 +176,9 @@ test("three settlements thirty years on, a wave among them, their moves on recor
       seen.wave = "nobody the wave brought lives in year 30";
     }
     console.log(`m5a demo: ${JSON.stringify(seen)}`);
+    if (process.env.TCE_DEMO_VIDEO) await page.waitForTimeout(7000);
   } finally {
+    await recording.finish();
     await host.stop();
   }
 });

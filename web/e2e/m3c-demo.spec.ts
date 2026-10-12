@@ -8,16 +8,15 @@
 
 import { expect, test } from "@playwright/test";
 
-import { makeWorld, startHost, tempSaves } from "./host.js";
+import { demoPage, makeWorld, startHost, tempSaves } from "./host.js";
 
 test.skip(!process.env.TCE_DEMO, "the M3c demo runs only with TCE_DEMO=1");
 test.setTimeout(60 * 60_000);
-test.use({ viewport: { width: 1440, height: 900 } });
 
 const shots = process.env.TCE_SHOTS_DIR;
 const NAME = "Weather Valley";
 
-test("a village through a dry year and a wet one, then a year at Max", async ({ page }) => {
+test("a village through a dry year and a wet one, then a year at Max", async ({ browser }) => {
   const saves = tempSaves();
   const seed = process.env.TCE_DEMO_SEED ?? "2";
   // From 1 March of year 1 to 1 November of year 5: year 4's harvest and year 5's are in.
@@ -30,6 +29,8 @@ test("a village through a dry year and a wet one, then a year at Max", async ({ 
     ],
     45 * 60_000,
   );
+  const recording = await demoPage(browser, "m3c-demo");
+  const { page } = recording;
   const host = await startHost(saves);
   try {
     page.on("pageerror", (e) => console.log(`page error: ${e.message}`));
@@ -103,7 +104,9 @@ test("a village through a dry year and a wet one, then a year at Max", async ({ 
       })}`,
     );
     if (shots) await page.screenshot({ path: `${shots}/m3c-a-year-on.png` });
+    if (process.env.TCE_DEMO_VIDEO) await page.waitForTimeout(7000);
   } finally {
+    await recording.finish();
     await host.stop();
   }
 });

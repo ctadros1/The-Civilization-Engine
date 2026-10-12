@@ -7,12 +7,13 @@
 // numbers it logs are one run's; the decision log compares several runs of each regime.
 
 import { expect, test, type Page } from "@playwright/test";
+import { mkdirSync } from "node:fs";
+import { resolve } from "node:path";
 
 import { makeWorld, startHost, tempSaves } from "./host.js";
 
 test.skip(!process.env.TCE_DEMO, "the M3a demo runs only with TCE_DEMO=1");
 test.setTimeout(120 * 60_000);
-test.use({ viewport: { width: 1440, height: 900 } });
 
 const shots = process.env.TCE_SHOTS_DIR;
 
@@ -26,7 +27,7 @@ async function zoomTo(page: Page, scale: number): Promise<void> {
   await page.evaluate((s) => window.__TCE__.zoomBy(s / window.__TCE__.map().camera.scale), scale);
 }
 
-test("one seed under both regimes, years on", async ({ page }) => {
+test("one seed under both regimes, years on", async ({ browser }) => {
   const saves = tempSaves();
   const seed = process.env.TCE_DEMO_SEED ?? "2";
   const band = process.env.TCE_DEMO_BAND ?? "125";
@@ -36,6 +37,14 @@ test("one seed under both regimes, years on", async ({ page }) => {
     const args = ["--seed", seed, "--band", band, "--families", families, "--days", days];
     makeWorld(saves, [...args, "--regime", regime, "--name", name], 60 * 60_000);
   }
+  const videoDir = process.env.TCE_DEMO_VIDEO ? resolve("test-results", "m3a-raw") : undefined;
+  if (videoDir) mkdirSync(videoDir, { recursive: true });
+  const context = await browser.newContext({
+    viewport: process.env.TCE_DEMO_VIDEO ? { width: 1920, height: 1080 } : { width: 1440, height: 900 },
+    ...(videoDir ? { recordVideo: { dir: videoDir, size: { width: 1920, height: 1080 } } } : {}),
+  });
+  const page = await context.newPage();
+  const video = page.video();
   const host = await startHost(saves);
   try {
     page.on("pageerror", (e) => console.log(`page error: ${e.message}`));
@@ -64,7 +73,7 @@ test("one seed under both regimes, years on", async ({ page }) => {
       await expect(market.locator(".market-head")).toBeVisible();
       await market.locator(".market-head").getByRole("button").click();
       await zoomTo(page, 1.6);
-      await page.waitForTimeout(3000);
+      await page.waitForTimeout(process.env.TCE_DEMO_VIDEO ? 7000 : 3000);
       if (shots) {
         await page.screenshot({ path: `${shots}/m3a-${slug}-village.png` });
         await page.locator("#wealth-body").screenshot({ path: `${shots}/m3a-${slug}-wealth.png` });
@@ -72,6 +81,8 @@ test("one seed under both regimes, years on", async ({ page }) => {
       }
     }
   } finally {
+    await context.close();
+    if (video && shots) await video.saveAs(resolve(shots, "m3a-demo.webm"));
     await host.stop();
   }
 });

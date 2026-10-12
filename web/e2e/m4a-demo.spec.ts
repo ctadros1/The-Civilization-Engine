@@ -10,16 +10,15 @@
 
 import { expect, test } from "@playwright/test";
 
-import { makeWorld, startHost, tempSaves } from "./host.js";
+import { demoPage, makeWorld, startHost, tempSaves } from "./host.js";
 
 test.skip(!process.env.TCE_DEMO, "the M4a demo runs only with TCE_DEMO=1");
 test.setTimeout(60 * 60_000);
-test.use({ viewport: { width: 1440, height: 900 } });
 
 const shots = process.env.TCE_SHOTS_DIR;
 const NAME = "Council Valley";
 
-test("a village's gathering, its laws and its notables, as they were", async ({ page }) => {
+test("a village's gathering, its laws and its notables, as they were", async ({ browser }) => {
   const saves = tempSaves();
   const seed = process.env.TCE_DEMO_SEED ?? "2";
   // From 1 March of year 1 to 1 November of year 5: the lean weeks before the first harvest, the
@@ -33,6 +32,8 @@ test("a village's gathering, its laws and its notables, as they were", async ({ 
     ],
     45 * 60_000,
   );
+  const recording = await demoPage(browser, "m4a-demo");
+  const { page } = recording;
   const host = await startHost(saves);
   try {
     page.on("pageerror", (e) => console.log(`page error: ${e.message}`));
@@ -120,7 +121,9 @@ test("a village's gathering, its laws and its notables, as they were", async ({ 
       await page.locator("#chronicle").screenshot({ path: `${shots}/m4a-demo-chronicle.png` });
       await page.screenshot({ path: `${shots}/m4a-demo-village.png` });
     }
+    if (process.env.TCE_DEMO_VIDEO) await page.waitForTimeout(7000);
   } finally {
+    await recording.finish();
     await host.stop();
   }
 });

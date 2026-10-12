@@ -1,9 +1,8 @@
 # TCE Demo Gallery
 
-This is the guide to the project's demonstrations across milestones. It separates playable
-observer demos and runnable demo scripts from committed screenshots and recordings. A screenshot
-or demo run shows one build and one world; it is not evidence that every world produces the same
-outcome.
+This is the guide to the project's demonstrations across milestones. The watchable videos have
+opening titles and on-screen explanations; their source captures are kept for production history.
+A screenshot or demo run shows one build and one world, not an outcome every world will produce.
 
 ## Newest available demo: M6a, water and sickness
 
@@ -23,7 +22,6 @@ that follows.
 - [Outbreak evidence and public response](m6a/m6a-outbreak.png)
 - [Water lens close-up](m6a/m6a-lens.png)
 - [1080p overview with title and chapter captions](m6a/m6a-overview.mp4)
-- [Raw 1920×1080 observer capture](m6a/m6a-demo.webm)
 - [Recorded demo narration and observed outcome](m6a/m6a-demo.txt)
 - [M6a demo runner](../web/e2e/m6a-demo.spec.ts)
 - [Video production project and refresh steps](m6a/production/README.md)
@@ -36,17 +34,18 @@ newest complete, runnable milestone demonstration in this repository.
 
 | Milestone | Demonstration | What is available here |
 | --- | --- | --- |
-| M0 · Foundations | Create and inspect a generated world; save and recover it | [Demo video](../assets/m0/m0-demo.webm), [recovery video](../assets/m0/m0-recovery.webm), and [screenshots](../assets/m0/) |
-| M1 · A band settles | Follow a village over ten years, then save and reload | [Demo video](../assets/m1/m1-demo.webm), [screenshots](../assets/m1/), and [demo runner](../web/e2e/demo.spec.ts) |
+| M0 · Foundations | Generate a seeded valley and inspect its terrain and river network | [Watch the titled 1080p overview](m0/m0-overview.mp4)<br><a href="m0/m0-overview.mp4"><img src="m0/m0-overview-poster.png" width="280" alt="M0 title card: Make a world"></a><br>[Screenshots](../assets/m0/) |
+| M0 · Save recovery | After an unclean shutdown, the observer offers its last autosave and restores the world | [Watch the titled 1080p explanation](m0/m0-recovery.mp4)<br><a href="m0/m0-recovery.mp4"><img src="m0/m0-recovery-poster.png" width="280" alt="M0 title card: Recover an interrupted world"></a> |
+| M1 · A band settles | Follow a founding band through village growth, then see the save and reload flow | [Watch the titled 1080p overview](m1/m1-overview.mp4)<br><a href="m1/m1-overview.mp4"><img src="m1/m1-overview-poster.png" width="280" alt="M1 title card: A band settles"></a><br>[Screenshots](../assets/m1/) · [Demo runner](../web/e2e/demo.spec.ts) |
 | M2 · Unreal groundwork | Portable kernel and C interface; Unreal client remains future work | [C interface guide](../docs/development-journal/persistence-and-interfaces.md#c-interface) |
-| M3a · Village economy | Economy and household wealth in the observer | [Screenshots](../assets/m3a/), [demo runner](../web/e2e/m3a-demo.spec.ts) |
-| M3b · Knowledge and buildings | Knowledge and a lived village | [Village screenshot](../assets/m3b/m3b-village.jpg), [knowledge panel](../assets/m3b/m3b-knowledge.jpg), [demo runner](../web/e2e/m3b-demo.spec.ts) |
-| M3c · Seasons and time | Dry and wet years, harvest and weather panels | [Demo runner](../web/e2e/m3c-demo.spec.ts) |
-| M4 · Councils, law and crime | Government, law, cases and political histories | [M4 demo runner](../web/e2e/m4-demo.spec.ts), [M4a](../web/e2e/m4a-demo.spec.ts), and [M4b](../web/e2e/m4b-demo.spec.ts) |
-| M5a · Neighboring settlements | Founding groups, migration and movement across settlements | [Demo runner](../web/e2e/m5a-demo.spec.ts) |
+| M3a · Village economy | Compare household fields and village fields in one valley | [Watch the titled 1080p overview](m3a/m3a-overview.mp4)<br><a href="m3a/m3a-overview.mp4"><img src="m3a/m3a-overview-poster.png" width="280" alt="M3a chapter preview: Household fields"></a><br>[Demo captures](m3a/recording/), [demo runner](../web/e2e/m3a-demo.spec.ts) |
+| M3b · Knowledge and buildings | Introduce a craft, inspect its history and see village buildings | [Titled 1080p overview](m3b/m3b-overview.mp4)<br><a href="m3b/m3b-overview.mp4"><img src="m3b/m3b-overview-poster.png" width="280" alt="M3b preview: framing enters the valley"></a><br>[Screenshots and source capture](m3b/recording/), [demo runner](../web/e2e/m3b-demo.spec.ts) |
+| M3c · Seasons and time | Compare seasonal records, markets and accelerated simulation | [Titled 1080p overview](m3c/m3c-overview.mp4)<br><a href="m3c/m3c-overview.mp4"><img src="m3c/m3c-overview-poster.png" width="280" alt="M3c preview: read the weather years"></a><br>[Year-at-Max capture](m3c/recording/m3c-a-year-on.png), [demo runner](../web/e2e/m3c-demo.spec.ts) |
+| M4 · Councils, law and crime | Government, public decisions and the path from incident to case | [M4a government overview](m4a/m4a-overview.mp4)<br><a href="m4a/m4a-overview.mp4"><img src="m4a/m4a-overview-poster.png" width="280" alt="M4a preview: a village gathering takes shape"></a><br>[M4a runner](../web/e2e/m4a-demo.spec.ts)<br>[M4b incidents overview](m4b/m4b-overview.mp4)<br><a href="m4b/m4b-overview.mp4"><img src="m4b/m4b-overview-poster.png" width="280" alt="M4b preview: an incident follows its path to the gathering"></a><br>[M4b runner](../web/e2e/m4b-demo.spec.ts) |
+| M5a · Neighboring settlements | Founding groups, migration and movement across settlements | [Titled 1080p overview](m5a/m5a-overview.mp4)<br><a href="m5a/m5a-overview.mp4"><img src="m5a/m5a-overview-poster.png" width="280" alt="M5a preview: the year-ten migration snapshot"></a><br>[Demo captures](m5a/recording/), [demo runner](../web/e2e/m5a-demo.spec.ts) |
 | M5b · Trade and diffusion | The original connected-village demo no longer qualifies after corrected river routing separated its villages; a replacement lived demo remains open | [Development record](../docs/development-journal/development-history.md#2026-10-10--m5b-slice-as-the-m5b-demo) |
 | M5c · Relations and public works | Agreements and crossings are covered by lived runs and test worlds; no standalone observer recording is committed | [Project plan evidence](../PROJECT_PLAN.md#9-decisions-log) |
-| M6a · Water and sickness | Cholera, water sources, resident knowledge and the Water lens | [Screenshots and run log](m6a/), [demo runner](../web/e2e/m6a-demo.spec.ts) |
+| M6a · Water and sickness | Cholera, water sources, resident knowledge and the Water lens | [Watch the titled 1080p overview](m6a/m6a-overview.mp4) · [screenshots and run log](m6a/) · [demo runner](../web/e2e/m6a-demo.spec.ts) |
 | M6b · Fire, masonry and floods | Fire behavior is in progress; the milestone demonstration is planned | [Current status and evidence](../PROJECT_PLAN.md#7-milestones) |
 | M6c · War and conquest | Planned | [Current status](../PROJECT_PLAN.md#7-milestones) |
 

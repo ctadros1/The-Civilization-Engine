@@ -1,10 +1,11 @@
 // Starts and stops civ-host for end-to-end tests.
 
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { Browser, BrowserContext, Page } from "@playwright/test";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "..", "..");
@@ -43,6 +44,33 @@ export function tempSaves(): string {
   const saves = mkdtempSync(path.join(tmpdir(), "tce-e2e-saves-"));
   ownedSaves.add(saves);
   return saves;
+}
+
+/** Opens an observer page after a demo world is ready, optionally recording a clean 1080p source. */
+export async function demoPage(
+  browser: Browser,
+  name: string,
+): Promise<{ context: BrowserContext; page: Page; finish(): Promise<void> }> {
+  const recording = process.env.TCE_DEMO_VIDEO === "1";
+  const videoDir = recording ? path.resolve("test-results", `${name}-raw`) : undefined;
+  if (videoDir) mkdirSync(videoDir, { recursive: true });
+  const context = await browser.newContext({
+    viewport: recording ? { width: 1920, height: 1080 } : { width: 1440, height: 900 },
+    ...(videoDir ? { recordVideo: { dir: videoDir, size: { width: 1920, height: 1080 } } } : {}),
+  });
+  const page = await context.newPage();
+  const video = page.video();
+  return {
+    context,
+    page,
+    finish: async () => {
+      await context.close();
+      if (video && process.env.TCE_SHOTS_DIR) {
+        mkdirSync(process.env.TCE_SHOTS_DIR, { recursive: true });
+        await video.saveAs(path.resolve(process.env.TCE_SHOTS_DIR, `${name}.webm`));
+      }
+    },
+  };
 }
 
 /**

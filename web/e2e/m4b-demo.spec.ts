@@ -12,19 +12,20 @@
 
 import { expect, test } from "@playwright/test";
 
-import { makeTheftWorld, startHost, tempSaves } from "./host.js";
+import { demoPage, makeTheftWorld, startHost, tempSaves } from "./host.js";
 
 test.skip(!process.env.TCE_DEMO, "the M4b demo runs only with TCE_DEMO=1");
 test.setTimeout(60 * 60_000);
-test.use({ viewport: { width: 1440, height: 900 } });
 
 const shots = process.env.TCE_SHOTS_DIR;
 const NAME = "Lean Valley";
 
-test("a theft from the act to its end: seen, told, brought, decided, owed", async ({ page }) => {
+test("a theft from the act to its end: seen, told, brought, decided, owed", async ({ browser }) => {
   const saves = tempSaves();
   const made = makeTheftWorld(saves, process.env.TCE_DEMO_SEED ?? "4");
   console.log(`demo world: ${made.trim()}`);
+  const recording = await demoPage(browser, "m4b-demo");
+  const { page } = recording;
   const host = await startHost(saves);
   try {
     page.on("pageerror", (e) => console.log(`page error: ${e.message}`));
@@ -108,7 +109,9 @@ test("a theft from the act to its end: seen, told, brought, decided, owed", asyn
         ),
       })}`,
     );
-    if (shots) {
+    // Full panel screenshots can be enormous after opening every case and law history. Video
+    // captures already preserve those states without making the browser capture hang on them.
+    if (shots && !process.env.TCE_DEMO_VIDEO) {
       await page.locator("#order-panel").screenshot({ path: `${shots}/m4b-demo-takings.png` });
       await page
         .locator("#government-panel")
@@ -116,7 +119,9 @@ test("a theft from the act to its end: seen, told, brought, decided, owed", asyn
       await page.locator("#chronicle").screenshot({ path: `${shots}/m4b-demo-chronicle.png` });
       await page.screenshot({ path: `${shots}/m4b-demo-village.png` });
     }
+    if (process.env.TCE_DEMO_VIDEO) await page.waitForTimeout(7000);
   } finally {
+    await recording.finish();
     await host.stop();
   }
 });

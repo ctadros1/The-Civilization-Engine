@@ -714,13 +714,14 @@ fn add_family(
         water_walk_min: 0.0,
         known: Vec::new(),
         sheltered: false,
-        keeping: crate::person::Keeping::default(),
+        keeping: crate::person::Keeping::empty(params.household.raised_store_factor),
         flows,
         offers: Vec::new(),
         // Its band's way of building, or its own when it comes alone (M3b slice R).
         taste: crate::style::founding_taste(&params.style, ctx.seed, band.unwrap_or(hh_id), hh_id),
         admired: None,
         midden: crate::person::Midden::begun(now),
+        flood_memory: crate::person::FloodMemory::default(),
     });
     // One who comes alone has no partner; a family's first two are its couple.
     let couple = (family.len() >= 2).then(|| founding_couple(params, family, now, d));

@@ -47,7 +47,7 @@ pub use weather::{Climatology, MonthRecord, Unworkable, Weather, WeatherDay, Wea
 use civ_core::time::{DAYS_PER_YEAR, MONTH_STARTS};
 use civ_core::{PermanentId, SimTime};
 use civ_world::noise::Noise;
-use civ_world::{WATER_LAND, WorldMap, terrain};
+use civ_world::{ManningParams, WATER_LAND, WorldFloodplain, WorldMap, terrain};
 
 /// Purpose tag for patch richness noise.
 const PURPOSE_RICHNESS: u64 = 0x7269_6368_6e65_7373; // "richness"
@@ -384,6 +384,14 @@ pub struct Land {
     pub water: Water,
     /// Wells, in the order begun (M6a slice AY, step three; ADR-0021 §3). Saved.
     pub wells: wells::Wells,
+    /// River hydraulics and precomputed floodplain storage curves (M6b slice BF). Derived.
+    pub floodplain: WorldFloodplain,
+    /// Today's discharge per reach, m³/s. Derived.
+    pub reach_discharges: Vec<f32>,
+    /// Today's flood depth per map cell, metres. Derived.
+    pub flood_depths: Vec<f32>,
+    /// Revision bumped each day flood depths or reach discharges change.
+    pub flood_revision: u32,
 }
 
 /// Summary of a patch's terrain, for classification.
@@ -502,7 +510,8 @@ impl Land {
     /// revision (M5c slice AW). Routes and travel times worked out on another are not to be
     /// trusted.
     pub fn route_revision(&self) -> u64 {
-        (u64::from(self.crossings.revision()) << 32) | u64::from(self.wear.rev())
+        let base = (u64::from(self.crossings.revision()) << 32) | u64::from(self.wear.rev());
+        base ^ (u64::from(self.flood_revision).wrapping_mul(0x517c_c1b7_2722_0a95))
     }
 
     /// Classifies a map's patches and lives a year of weather and stocks so a new world starts
@@ -594,6 +603,10 @@ impl Land {
             crossings: crossings::Crossings::default(),
             water: Water::default(),
             wells: wells::Wells::default(),
+            floodplain: WorldFloodplain::new(map, &ManningParams::default()),
+            reach_discharges: map.reaches.iter().map(|r| r.discharge_m3s).collect(),
+            flood_depths: vec![0.0; map.cell_count()],
+            flood_revision: 0,
         };
         // Start each stock at its equilibrium for the season a year ago, and the water table
         // where the mean recharge holds it, then live a year.
@@ -604,7 +617,67 @@ impl Land {
         land.water
             .settle(&params.water, land.climatology.surplus_mm_per_day);
         land.advance_to_day(params, map, today - 1);
+        land.reach_discharges = map.reaches.iter().map(|r| r.discharge_m3s).collect();
+        land.flood_depths = vec![0.0; map.cell_count()];
+        land.flood_revision = 0;
         land
+    }
+
+    /// Derives the precomputed floodplain and river hydraulics from `map`.
+    pub fn derive_floodplain(&mut self, map: &WorldMap, params: &LandParams) {
+        self.floodplain = WorldFloodplain::new(map, &ManningParams::default());
+        let flow_factor = self.flow_factor(params);
+        let reaches = map
+            .reaches
+            .iter()
+            .map(|r| (f64::from(r.discharge_m3s) * flow_factor) as f32)
+            .collect();
+        self.update_floods(map, reaches);
+    }
+
+    /// Updates today's reach discharges and flood depths, updating flood tracking on buildings and fields.
+    pub fn update_floods(&mut self, map: &WorldMap, reach_discharges: Vec<f32>) {
+        self.reach_discharges = reach_discharges;
+        self.flood_depths = self
+            .floodplain
+            .flood_depth_raster(map, &self.reach_discharges);
+        self.flood_revision = self.flood_revision.wrapping_add(1);
+
+        let cell_size = f64::from(map.cell_size_m).max(1e-3);
+        let mw = map.width as usize;
+        let mh = map.height as usize;
+
+        for b in &mut self.buildings {
+            let (bx, by) = b.spec.footprint.centre();
+            let cx =
+                ((f64::from(bx) / 100.0 / cell_size).floor() as usize).min(mw.saturating_sub(1));
+            let cy =
+                ((f64::from(by) / 100.0 / cell_size).floor() as usize).min(mh.saturating_sub(1));
+            let idx = cy * mw + cx;
+            let depth_m = self.flood_depths.get(idx).copied().unwrap_or(0.0);
+            if depth_m > 0.0 {
+                let depth_cm = (depth_m * 100.0).round().min(u16::MAX as f32) as u16;
+                b.last_flood_depth_cm = b.last_flood_depth_cm.max(depth_cm);
+                b.days_wet = b.days_wet.saturating_add(1);
+            } else if b.days_wet > 0 {
+                b.days_wet -= 1;
+            }
+        }
+
+        for f in &mut self.fields {
+            let (fx, fy) = f.rect.centre_m();
+            let cx = ((f64::from(fx) / cell_size).floor() as usize).min(mw.saturating_sub(1));
+            let cy = ((f64::from(fy) / cell_size).floor() as usize).min(mh.saturating_sub(1));
+            let idx = cy * mw + cx;
+            let depth_m = self.flood_depths.get(idx).copied().unwrap_or(0.0);
+            if depth_m > 0.0 {
+                let depth_cm = (depth_m * 100.0).round().min(u16::MAX as f32) as u16;
+                f.last_flood_depth_cm = f.last_flood_depth_cm.max(depth_cm);
+                if f.stage == FieldStage::Sown {
+                    f.submerged_days = f.submerged_days.saturating_add(1);
+                }
+            }
+        }
     }
 
     /// What is wrong with saved land state for a map, if anything. A save holding any of these
@@ -1055,6 +1128,13 @@ impl Land {
             let water = self.weather.live(&params.weather, &self.climatology);
             self.water_fields(&params.weather, map, &water, d);
             self.water.day(&params.water, water.surplus_mm);
+            let flow_factor = self.flow_factor(params);
+            let reaches: Vec<f32> = map
+                .reaches
+                .iter()
+                .map(|r| (f64::from(r.discharge_m3s) * flow_factor) as f32)
+                .collect();
+            self.update_floods(map, reaches);
             if day_of_year(d) == soil::TURN_DAY {
                 let year = i32::try_from(d.div_euclid(DAYS_PER_YEAR) + 1).unwrap_or(i32::MAX);
                 for f in &mut self.fields {

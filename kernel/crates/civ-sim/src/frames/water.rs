@@ -23,11 +23,13 @@ use crate::Sim;
 /// spring may rise; 0 when it has neither.
 pub fn water_rev(sim: &Sim) -> u64 {
     let wells = &sim.land.wells.list;
-    if wells.is_empty() && !sim.land.water.aquifer.seep.iter().any(Option::is_some) {
+    let has_flood = sim.land.flood_depths.iter().any(|&d| d > 0.0);
+    if wells.is_empty() && !sim.land.water.aquifer.seep.iter().any(Option::is_some) && !has_flood {
         return 0;
     }
     let mut hasher = DefaultHasher::new();
     sim.now().day_index().hash(&mut hasher);
+    sim.land.flood_revision.hash(&mut hasher);
     for w in wells {
         let (state, at) = w.state.code();
         (
@@ -234,6 +236,15 @@ pub fn water_response(sim: &Sim) -> Vec<u8> {
         })
         .collect();
     let banks = fbb.create_vector(&banks);
+    let flooded: Vec<_> = sim
+        .land
+        .flood_depths
+        .iter()
+        .enumerate()
+        .filter(|&(_, &d)| d > 0.0)
+        .map(|(cell, &d)| wire::FloodCell::new(cell as u32, d))
+        .collect();
+    let flooded = fbb.create_vector(&flooded);
     let body = wire::Water::create(
         &mut fbb,
         &wire::WaterArgs {
@@ -242,6 +253,7 @@ pub fn water_response(sim: &Sim) -> Vec<u8> {
             springs: Some(springs),
             flow: sim.land.flow_factor(&sim.rules.land) as f32,
             banks: Some(banks),
+            flooded: Some(flooded),
         },
     );
     response(fbb, wire::ResponseBody::Water, body)

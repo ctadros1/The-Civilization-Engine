@@ -140,6 +140,12 @@ struct DroughtBuilder;
 struct SetFire;
 struct SetFireBuilder;
 
+struct RaiseRiver;
+struct RaiseRiverBuilder;
+
+struct SendStorm;
+struct SendStormBuilder;
+
 struct Command;
 struct CommandBuilder;
 
@@ -225,6 +231,12 @@ struct GetCoverageBuilder;
 
 struct GetConflagration;
 struct GetConflagrationBuilder;
+
+struct GetFlood;
+struct GetFloodBuilder;
+
+struct GetStorm;
+struct GetStormBuilder;
 
 struct Query;
 struct QueryBuilder;
@@ -426,6 +438,8 @@ struct SpringInfo;
 
 struct BankDraw;
 
+struct FloodCell;
+
 struct Water;
 struct WaterBuilder;
 
@@ -485,6 +499,12 @@ struct OutbreakRowBuilder;
 struct ConflagrationRow;
 struct ConflagrationRowBuilder;
 
+struct FloodRow;
+struct FloodRowBuilder;
+
+struct StormRow;
+struct StormRowBuilder;
+
 struct Incidents;
 struct IncidentsBuilder;
 
@@ -506,6 +526,12 @@ struct OutbreakInfoBuilder;
 struct ConflagrationInfo;
 struct ConflagrationInfoBuilder;
 
+struct FloodInfo;
+struct FloodInfoBuilder;
+
+struct StormInfo;
+struct StormInfoBuilder;
+
 struct CoverageSource;
 struct CoverageSourceBuilder;
 
@@ -526,33 +552,36 @@ enum class RasterLayer : uint8_t {
   Water = 1,
   DrainageArea = 2,
   LakeId = 3,
+  FloodDepth = 4,
   MIN = Elevation,
-  MAX = LakeId
+  MAX = FloodDepth
 };
 
-inline const RasterLayer (&EnumValuesRasterLayer())[4] {
+inline const RasterLayer (&EnumValuesRasterLayer())[5] {
   static const RasterLayer values[] = {
     RasterLayer::Elevation,
     RasterLayer::Water,
     RasterLayer::DrainageArea,
-    RasterLayer::LakeId
+    RasterLayer::LakeId,
+    RasterLayer::FloodDepth
   };
   return values;
 }
 
 inline const char * const *EnumNamesRasterLayer() {
-  static const char * const names[5] = {
+  static const char * const names[6] = {
     "Elevation",
     "Water",
     "DrainageArea",
     "LakeId",
+    "FloodDepth",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameRasterLayer(RasterLayer e) {
-  if (::flatbuffers::IsOutRange(e, RasterLayer::Elevation, RasterLayer::LakeId)) return "";
+  if (::flatbuffers::IsOutRange(e, RasterLayer::Elevation, RasterLayer::FloodDepth)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesRasterLayer()[index];
 }
@@ -799,11 +828,13 @@ enum class CommandBody : uint8_t {
   Plague = 16,
   Drought = 17,
   SetFire = 18,
+  RaiseRiver = 19,
+  SendStorm = 20,
   MIN = NONE,
-  MAX = SetFire
+  MAX = SendStorm
 };
 
-inline const CommandBody (&EnumValuesCommandBody())[19] {
+inline const CommandBody (&EnumValuesCommandBody())[21] {
   static const CommandBody values[] = {
     CommandBody::NONE,
     CommandBody::NewWorld,
@@ -823,13 +854,15 @@ inline const CommandBody (&EnumValuesCommandBody())[19] {
     CommandBody::SendWave,
     CommandBody::Plague,
     CommandBody::Drought,
-    CommandBody::SetFire
+    CommandBody::SetFire,
+    CommandBody::RaiseRiver,
+    CommandBody::SendStorm
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandBody() {
-  static const char * const names[20] = {
+  static const char * const names[22] = {
     "NONE",
     "NewWorld",
     "SaveWorld",
@@ -849,13 +882,15 @@ inline const char * const *EnumNamesCommandBody() {
     "Plague",
     "Drought",
     "SetFire",
+    "RaiseRiver",
+    "SendStorm",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandBody(CommandBody e) {
-  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::SetFire)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::SendStorm)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandBody()[index];
 }
@@ -936,6 +971,14 @@ template<> struct CommandBodyTraits<tce::wire::SetFire> {
   static const CommandBody enum_value = CommandBody::SetFire;
 };
 
+template<> struct CommandBodyTraits<tce::wire::RaiseRiver> {
+  static const CommandBody enum_value = CommandBody::RaiseRiver;
+};
+
+template<> struct CommandBodyTraits<tce::wire::SendStorm> {
+  static const CommandBody enum_value = CommandBody::SendStorm;
+};
+
 template <bool B = false>
 bool VerifyCommandBody(::flatbuffers::VerifierTemplate<B> &verifier, const void *obj, CommandBody type);
 template <bool B = false>
@@ -970,11 +1013,13 @@ enum class QueryBody : uint8_t {
   GetOutbreak = 25,
   GetCoverage = 26,
   GetConflagration = 27,
+  GetFlood = 28,
+  GetStorm = 29,
   MIN = NONE,
-  MAX = GetConflagration
+  MAX = GetStorm
 };
 
-inline const QueryBody (&EnumValuesQueryBody())[28] {
+inline const QueryBody (&EnumValuesQueryBody())[30] {
   static const QueryBody values[] = {
     QueryBody::NONE,
     QueryBody::GetRaster,
@@ -1003,13 +1048,15 @@ inline const QueryBody (&EnumValuesQueryBody())[28] {
     QueryBody::GetIncident,
     QueryBody::GetOutbreak,
     QueryBody::GetCoverage,
-    QueryBody::GetConflagration
+    QueryBody::GetConflagration,
+    QueryBody::GetFlood,
+    QueryBody::GetStorm
   };
   return values;
 }
 
 inline const char * const *EnumNamesQueryBody() {
-  static const char * const names[29] = {
+  static const char * const names[31] = {
     "NONE",
     "GetRaster",
     "GetHydrography",
@@ -1038,13 +1085,15 @@ inline const char * const *EnumNamesQueryBody() {
     "GetOutbreak",
     "GetCoverage",
     "GetConflagration",
+    "GetFlood",
+    "GetStorm",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameQueryBody(QueryBody e) {
-  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetConflagration)) return "";
+  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetStorm)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesQueryBody()[index];
 }
@@ -1159,6 +1208,14 @@ template<> struct QueryBodyTraits<tce::wire::GetCoverage> {
 
 template<> struct QueryBodyTraits<tce::wire::GetConflagration> {
   static const QueryBody enum_value = QueryBody::GetConflagration;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetFlood> {
+  static const QueryBody enum_value = QueryBody::GetFlood;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetStorm> {
+  static const QueryBody enum_value = QueryBody::GetStorm;
 };
 
 template <bool B = false>
@@ -1349,11 +1406,13 @@ enum class ResponseBody : uint8_t {
   OutbreakInfo = 26,
   Coverage = 27,
   ConflagrationInfo = 28,
+  FloodInfo = 29,
+  StormInfo = 30,
   MIN = NONE,
-  MAX = ConflagrationInfo
+  MAX = StormInfo
 };
 
-inline const ResponseBody (&EnumValuesResponseBody())[29] {
+inline const ResponseBody (&EnumValuesResponseBody())[31] {
   static const ResponseBody values[] = {
     ResponseBody::NONE,
     ResponseBody::Ack,
@@ -1383,13 +1442,15 @@ inline const ResponseBody (&EnumValuesResponseBody())[29] {
     ResponseBody::IncidentInfo,
     ResponseBody::OutbreakInfo,
     ResponseBody::Coverage,
-    ResponseBody::ConflagrationInfo
+    ResponseBody::ConflagrationInfo,
+    ResponseBody::FloodInfo,
+    ResponseBody::StormInfo
   };
   return values;
 }
 
 inline const char * const *EnumNamesResponseBody() {
-  static const char * const names[30] = {
+  static const char * const names[32] = {
     "NONE",
     "Ack",
     "RasterTile",
@@ -1419,13 +1480,15 @@ inline const char * const *EnumNamesResponseBody() {
     "OutbreakInfo",
     "Coverage",
     "ConflagrationInfo",
+    "FloodInfo",
+    "StormInfo",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameResponseBody(ResponseBody e) {
-  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::ConflagrationInfo)) return "";
+  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::StormInfo)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesResponseBody()[index];
 }
@@ -1544,6 +1607,14 @@ template<> struct ResponseBodyTraits<tce::wire::Coverage> {
 
 template<> struct ResponseBodyTraits<tce::wire::ConflagrationInfo> {
   static const ResponseBody enum_value = ResponseBody::ConflagrationInfo;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::FloodInfo> {
+  static const ResponseBody enum_value = ResponseBody::FloodInfo;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::StormInfo> {
+  static const ResponseBody enum_value = ResponseBody::StormInfo;
 };
 
 template <bool B = false>
@@ -1911,6 +1982,34 @@ FLATBUFFERS_STRUCT_END(BankDraw, 12);
 
 struct BankDraw::Traits {
   using type = BankDraw;
+};
+
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) FloodCell FLATBUFFERS_FINAL_CLASS {
+ private:
+  uint32_t cell_;
+  float depth_m_;
+
+ public:
+  struct Traits;
+  FloodCell()
+      : cell_(0),
+        depth_m_(0) {
+  }
+  FloodCell(uint32_t _cell, float _depth_m)
+      : cell_(::flatbuffers::EndianScalar(_cell)),
+        depth_m_(::flatbuffers::EndianScalar(_depth_m)) {
+  }
+  uint32_t cell() const {
+    return ::flatbuffers::EndianScalar(cell_);
+  }
+  float depth_m() const {
+    return ::flatbuffers::EndianScalar(depth_m_);
+  }
+};
+FLATBUFFERS_STRUCT_END(FloodCell, 8);
+
+struct FloodCell::Traits {
+  using type = FloodCell;
 };
 
 FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) GroundTileRev FLATBUFFERS_FINAL_CLASS {
@@ -6255,6 +6354,132 @@ struct SetFire::Traits {
   static auto constexpr Create = CreateSetFire;
 };
 
+struct RaiseRiver FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef RaiseRiverBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_REACH = 4,
+    VT_DISCHARGE_M3S = 6,
+    VT_DAYS = 8
+  };
+  uint32_t reach() const {
+    return GetField<uint32_t>(VT_REACH, 0);
+  }
+  float discharge_m3s() const {
+    return GetField<float>(VT_DISCHARGE_M3S, 0.0f);
+  }
+  uint32_t days() const {
+    return GetField<uint32_t>(VT_DAYS, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_REACH, 4) &&
+           VerifyField<float>(verifier, VT_DISCHARGE_M3S, 4) &&
+           VerifyField<uint32_t>(verifier, VT_DAYS, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct RaiseRiverBuilder {
+  typedef RaiseRiver Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_reach(uint32_t reach) {
+    fbb_.AddElement<uint32_t>(RaiseRiver::VT_REACH, reach, 0);
+  }
+  void add_discharge_m3s(float discharge_m3s) {
+    fbb_.AddElement<float>(RaiseRiver::VT_DISCHARGE_M3S, discharge_m3s, 0.0f);
+  }
+  void add_days(uint32_t days) {
+    fbb_.AddElement<uint32_t>(RaiseRiver::VT_DAYS, days, 0);
+  }
+  explicit RaiseRiverBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<RaiseRiver> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<RaiseRiver>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<RaiseRiver> CreateRaiseRiver(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t reach = 0,
+    float discharge_m3s = 0.0f,
+    uint32_t days = 0) {
+  RaiseRiverBuilder builder_(_fbb);
+  builder_.add_days(days);
+  builder_.add_discharge_m3s(discharge_m3s);
+  builder_.add_reach(reach);
+  return builder_.Finish();
+}
+
+struct RaiseRiver::Traits {
+  using type = RaiseRiver;
+  static auto constexpr Create = CreateRaiseRiver;
+};
+
+struct SendStorm FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef SendStormBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_WIND_SPEED_MS = 4,
+    VT_DIRECTION_DEG = 6
+  };
+  float wind_speed_ms() const {
+    return GetField<float>(VT_WIND_SPEED_MS, 0.0f);
+  }
+  float direction_deg() const {
+    return GetField<float>(VT_DIRECTION_DEG, 0.0f);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<float>(verifier, VT_WIND_SPEED_MS, 4) &&
+           VerifyField<float>(verifier, VT_DIRECTION_DEG, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct SendStormBuilder {
+  typedef SendStorm Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_wind_speed_ms(float wind_speed_ms) {
+    fbb_.AddElement<float>(SendStorm::VT_WIND_SPEED_MS, wind_speed_ms, 0.0f);
+  }
+  void add_direction_deg(float direction_deg) {
+    fbb_.AddElement<float>(SendStorm::VT_DIRECTION_DEG, direction_deg, 0.0f);
+  }
+  explicit SendStormBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<SendStorm> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<SendStorm>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<SendStorm> CreateSendStorm(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    float wind_speed_ms = 0.0f,
+    float direction_deg = 0.0f) {
+  SendStormBuilder builder_(_fbb);
+  builder_.add_direction_deg(direction_deg);
+  builder_.add_wind_speed_ms(wind_speed_ms);
+  return builder_.Finish();
+}
+
+struct SendStorm::Traits {
+  using type = SendStorm;
+  static auto constexpr Create = CreateSendStorm;
+};
+
 struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef CommandBuilder Builder;
   struct Traits;
@@ -6322,6 +6547,12 @@ struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::SetFire *body_as_SetFire() const {
     return body_type() == tce::wire::CommandBody::SetFire ? static_cast<const tce::wire::SetFire *>(body()) : nullptr;
+  }
+  const tce::wire::RaiseRiver *body_as_RaiseRiver() const {
+    return body_type() == tce::wire::CommandBody::RaiseRiver ? static_cast<const tce::wire::RaiseRiver *>(body()) : nullptr;
+  }
+  const tce::wire::SendStorm *body_as_SendStorm() const {
+    return body_type() == tce::wire::CommandBody::SendStorm ? static_cast<const tce::wire::SendStorm *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -6403,6 +6634,14 @@ template<> inline const tce::wire::Drought *Command::body_as<tce::wire::Drought>
 
 template<> inline const tce::wire::SetFire *Command::body_as<tce::wire::SetFire>() const {
   return body_as_SetFire();
+}
+
+template<> inline const tce::wire::RaiseRiver *Command::body_as<tce::wire::RaiseRiver>() const {
+  return body_as_RaiseRiver();
+}
+
+template<> inline const tce::wire::SendStorm *Command::body_as<tce::wire::SendStorm>() const {
+  return body_as_SendStorm();
 }
 
 struct CommandBuilder {
@@ -7685,6 +7924,102 @@ struct GetConflagration::Traits {
   static auto constexpr Create = CreateGetConflagration;
 };
 
+struct GetFlood FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetFloodBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4
+  };
+  uint32_t id() const {
+    return GetField<uint32_t>(VT_ID, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetFloodBuilder {
+  typedef GetFlood Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint32_t id) {
+    fbb_.AddElement<uint32_t>(GetFlood::VT_ID, id, 0);
+  }
+  explicit GetFloodBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetFlood> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetFlood>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetFlood> CreateGetFlood(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0) {
+  GetFloodBuilder builder_(_fbb);
+  builder_.add_id(id);
+  return builder_.Finish();
+}
+
+struct GetFlood::Traits {
+  using type = GetFlood;
+  static auto constexpr Create = CreateGetFlood;
+};
+
+struct GetStorm FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetStormBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4
+  };
+  uint32_t id() const {
+    return GetField<uint32_t>(VT_ID, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetStormBuilder {
+  typedef GetStorm Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint32_t id) {
+    fbb_.AddElement<uint32_t>(GetStorm::VT_ID, id, 0);
+  }
+  explicit GetStormBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetStorm> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetStorm>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetStorm> CreateGetStorm(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0) {
+  GetStormBuilder builder_(_fbb);
+  builder_.add_id(id);
+  return builder_.Finish();
+}
+
+struct GetStorm::Traits {
+  using type = GetStorm;
+  static auto constexpr Create = CreateGetStorm;
+};
+
 struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef QueryBuilder Builder;
   struct Traits;
@@ -7779,6 +8114,12 @@ struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::GetConflagration *body_as_GetConflagration() const {
     return body_type() == tce::wire::QueryBody::GetConflagration ? static_cast<const tce::wire::GetConflagration *>(body()) : nullptr;
+  }
+  const tce::wire::GetFlood *body_as_GetFlood() const {
+    return body_type() == tce::wire::QueryBody::GetFlood ? static_cast<const tce::wire::GetFlood *>(body()) : nullptr;
+  }
+  const tce::wire::GetStorm *body_as_GetStorm() const {
+    return body_type() == tce::wire::QueryBody::GetStorm ? static_cast<const tce::wire::GetStorm *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -7896,6 +8237,14 @@ template<> inline const tce::wire::GetCoverage *Query::body_as<tce::wire::GetCov
 
 template<> inline const tce::wire::GetConflagration *Query::body_as<tce::wire::GetConflagration>() const {
   return body_as_GetConflagration();
+}
+
+template<> inline const tce::wire::GetFlood *Query::body_as<tce::wire::GetFlood>() const {
+  return body_as_GetFlood();
+}
+
+template<> inline const tce::wire::GetStorm *Query::body_as<tce::wire::GetStorm>() const {
+  return body_as_GetStorm();
 }
 
 struct QueryBuilder {
@@ -17026,7 +17375,8 @@ struct Water FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_WELLS = 6,
     VT_SPRINGS = 8,
     VT_FLOW = 10,
-    VT_BANKS = 12
+    VT_BANKS = 12,
+    VT_FLOODED = 14
   };
   uint64_t rev() const {
     return GetField<uint64_t>(VT_REV, 0);
@@ -17043,6 +17393,9 @@ struct Water FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<const tce::wire::BankDraw *> *banks() const {
     return GetPointer<const ::flatbuffers::Vector<const tce::wire::BankDraw *> *>(VT_BANKS);
   }
+  const ::flatbuffers::Vector<const tce::wire::FloodCell *> *flooded() const {
+    return GetPointer<const ::flatbuffers::Vector<const tce::wire::FloodCell *> *>(VT_FLOODED);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -17055,6 +17408,8 @@ struct Water FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<float>(verifier, VT_FLOW, 4) &&
            VerifyOffset(verifier, VT_BANKS) &&
            verifier.VerifyVector(banks()) &&
+           VerifyOffset(verifier, VT_FLOODED) &&
+           verifier.VerifyVector(flooded()) &&
            verifier.EndTable();
   }
 };
@@ -17078,6 +17433,9 @@ struct WaterBuilder {
   void add_banks(::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::BankDraw *>> banks) {
     fbb_.AddOffset(Water::VT_BANKS, banks);
   }
+  void add_flooded(::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::FloodCell *>> flooded) {
+    fbb_.AddOffset(Water::VT_FLOODED, flooded);
+  }
   explicit WaterBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -17095,9 +17453,11 @@ inline ::flatbuffers::Offset<Water> CreateWater(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WellInfo>>> wells = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::SpringInfo *>> springs = 0,
     float flow = 0.0f,
-    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::BankDraw *>> banks = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::BankDraw *>> banks = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<const tce::wire::FloodCell *>> flooded = 0) {
   WaterBuilder builder_(_fbb);
   builder_.add_rev(rev);
+  builder_.add_flooded(flooded);
   builder_.add_banks(banks);
   builder_.add_flow(flow);
   builder_.add_springs(springs);
@@ -17116,17 +17476,20 @@ inline ::flatbuffers::Offset<Water> CreateWaterDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::WellInfo>> *wells = nullptr,
     const std::vector<tce::wire::SpringInfo> *springs = nullptr,
     float flow = 0.0f,
-    const std::vector<tce::wire::BankDraw> *banks = nullptr) {
+    const std::vector<tce::wire::BankDraw> *banks = nullptr,
+    const std::vector<tce::wire::FloodCell> *flooded = nullptr) {
   auto wells__ = wells ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::WellInfo>>(*wells) : 0;
   auto springs__ = springs ? _fbb.CreateVectorOfStructs<tce::wire::SpringInfo>(*springs) : 0;
   auto banks__ = banks ? _fbb.CreateVectorOfStructs<tce::wire::BankDraw>(*banks) : 0;
+  auto flooded__ = flooded ? _fbb.CreateVectorOfStructs<tce::wire::FloodCell>(*flooded) : 0;
   return tce::wire::CreateWater(
       _fbb,
       rev,
       wells__,
       springs__,
       flow,
-      banks__);
+      banks__,
+      flooded__);
 }
 
 struct Earthworks FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -19663,7 +20026,9 @@ struct IncidentRow FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_OBSERVER = 24,
     VT_OUTBREAK = 26,
     VT_OPEN = 28,
-    VT_CONFLAGRATION = 30
+    VT_CONFLAGRATION = 30,
+    VT_FLOOD = 32,
+    VT_STORM = 34
   };
   uint8_t kind() const {
     return GetField<uint8_t>(VT_KIND, 0);
@@ -19707,6 +20072,12 @@ struct IncidentRow FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint32_t conflagration() const {
     return GetField<uint32_t>(VT_CONFLAGRATION, 0);
   }
+  uint32_t flood() const {
+    return GetField<uint32_t>(VT_FLOOD, 0);
+  }
+  uint32_t storm() const {
+    return GetField<uint32_t>(VT_STORM, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -19728,6 +20099,8 @@ struct IncidentRow FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint32_t>(verifier, VT_OUTBREAK, 4) &&
            VerifyField<uint8_t>(verifier, VT_OPEN, 1) &&
            VerifyField<uint32_t>(verifier, VT_CONFLAGRATION, 4) &&
+           VerifyField<uint32_t>(verifier, VT_FLOOD, 4) &&
+           VerifyField<uint32_t>(verifier, VT_STORM, 4) &&
            verifier.EndTable();
   }
 };
@@ -19778,6 +20151,12 @@ struct IncidentRowBuilder {
   void add_conflagration(uint32_t conflagration) {
     fbb_.AddElement<uint32_t>(IncidentRow::VT_CONFLAGRATION, conflagration, 0);
   }
+  void add_flood(uint32_t flood) {
+    fbb_.AddElement<uint32_t>(IncidentRow::VT_FLOOD, flood, 0);
+  }
+  void add_storm(uint32_t storm) {
+    fbb_.AddElement<uint32_t>(IncidentRow::VT_STORM, storm, 0);
+  }
   explicit IncidentRowBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -19804,11 +20183,15 @@ inline ::flatbuffers::Offset<IncidentRow> CreateIncidentRow(
     uint32_t observer = 0,
     uint32_t outbreak = 0,
     bool open = false,
-    uint32_t conflagration = 0) {
+    uint32_t conflagration = 0,
+    uint32_t flood = 0,
+    uint32_t storm = 0) {
   IncidentRowBuilder builder_(_fbb);
   builder_.add_who(who);
   builder_.add_settlement(settlement);
   builder_.add_minute(minute);
+  builder_.add_storm(storm);
+  builder_.add_flood(flood);
   builder_.add_conflagration(conflagration);
   builder_.add_outbreak(outbreak);
   builder_.add_observer(observer);
@@ -19843,7 +20226,9 @@ inline ::flatbuffers::Offset<IncidentRow> CreateIncidentRowDirect(
     uint32_t observer = 0,
     uint32_t outbreak = 0,
     bool open = false,
-    uint32_t conflagration = 0) {
+    uint32_t conflagration = 0,
+    uint32_t flood = 0,
+    uint32_t storm = 0) {
   auto who_name__ = who_name ? _fbb.CreateString(who_name) : 0;
   auto happened__ = happened ? _fbb.CreateString(happened) : 0;
   auto known__ = known ? _fbb.CreateString(known) : 0;
@@ -19863,7 +20248,9 @@ inline ::flatbuffers::Offset<IncidentRow> CreateIncidentRowDirect(
       observer,
       outbreak,
       open,
-      conflagration);
+      conflagration,
+      flood,
+      storm);
 }
 
 struct IncidentTotal FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -20276,6 +20663,338 @@ inline ::flatbuffers::Offset<ConflagrationRow> CreateConflagrationRowDirect(
       words__);
 }
 
+struct FloodRow FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef FloodRowBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_REACH = 6,
+    VT_SETTLEMENT = 8,
+    VT_BEGAN = 10,
+    VT_ENDED = 12,
+    VT_PEAK_DISCHARGE_M3S = 14,
+    VT_PEAK_DEPTH_M = 16,
+    VT_BUILDINGS_FLOODED = 18,
+    VT_FIELDS_SUBMERGED = 20,
+    VT_SPOILED_KG = 22,
+    VT_OBSERVER = 24,
+    VT_WORDS = 26
+  };
+  uint32_t id() const {
+    return GetField<uint32_t>(VT_ID, 0);
+  }
+  uint32_t reach() const {
+    return GetField<uint32_t>(VT_REACH, 0);
+  }
+  uint64_t settlement() const {
+    return GetField<uint64_t>(VT_SETTLEMENT, 0);
+  }
+  int64_t began() const {
+    return GetField<int64_t>(VT_BEGAN, 0);
+  }
+  int64_t ended() const {
+    return GetField<int64_t>(VT_ENDED, 0);
+  }
+  float peak_discharge_m3s() const {
+    return GetField<float>(VT_PEAK_DISCHARGE_M3S, 0.0f);
+  }
+  float peak_depth_m() const {
+    return GetField<float>(VT_PEAK_DEPTH_M, 0.0f);
+  }
+  uint32_t buildings_flooded() const {
+    return GetField<uint32_t>(VT_BUILDINGS_FLOODED, 0);
+  }
+  uint32_t fields_submerged() const {
+    return GetField<uint32_t>(VT_FIELDS_SUBMERGED, 0);
+  }
+  float spoiled_kg() const {
+    return GetField<float>(VT_SPOILED_KG, 0.0f);
+  }
+  uint32_t observer() const {
+    return GetField<uint32_t>(VT_OBSERVER, 0);
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           VerifyField<uint32_t>(verifier, VT_REACH, 4) &&
+           VerifyField<uint64_t>(verifier, VT_SETTLEMENT, 8) &&
+           VerifyField<int64_t>(verifier, VT_BEGAN, 8) &&
+           VerifyField<int64_t>(verifier, VT_ENDED, 8) &&
+           VerifyField<float>(verifier, VT_PEAK_DISCHARGE_M3S, 4) &&
+           VerifyField<float>(verifier, VT_PEAK_DEPTH_M, 4) &&
+           VerifyField<uint32_t>(verifier, VT_BUILDINGS_FLOODED, 4) &&
+           VerifyField<uint32_t>(verifier, VT_FIELDS_SUBMERGED, 4) &&
+           VerifyField<float>(verifier, VT_SPOILED_KG, 4) &&
+           VerifyField<uint32_t>(verifier, VT_OBSERVER, 4) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           verifier.EndTable();
+  }
+};
+
+struct FloodRowBuilder {
+  typedef FloodRow Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint32_t id) {
+    fbb_.AddElement<uint32_t>(FloodRow::VT_ID, id, 0);
+  }
+  void add_reach(uint32_t reach) {
+    fbb_.AddElement<uint32_t>(FloodRow::VT_REACH, reach, 0);
+  }
+  void add_settlement(uint64_t settlement) {
+    fbb_.AddElement<uint64_t>(FloodRow::VT_SETTLEMENT, settlement, 0);
+  }
+  void add_began(int64_t began) {
+    fbb_.AddElement<int64_t>(FloodRow::VT_BEGAN, began, 0);
+  }
+  void add_ended(int64_t ended) {
+    fbb_.AddElement<int64_t>(FloodRow::VT_ENDED, ended, 0);
+  }
+  void add_peak_discharge_m3s(float peak_discharge_m3s) {
+    fbb_.AddElement<float>(FloodRow::VT_PEAK_DISCHARGE_M3S, peak_discharge_m3s, 0.0f);
+  }
+  void add_peak_depth_m(float peak_depth_m) {
+    fbb_.AddElement<float>(FloodRow::VT_PEAK_DEPTH_M, peak_depth_m, 0.0f);
+  }
+  void add_buildings_flooded(uint32_t buildings_flooded) {
+    fbb_.AddElement<uint32_t>(FloodRow::VT_BUILDINGS_FLOODED, buildings_flooded, 0);
+  }
+  void add_fields_submerged(uint32_t fields_submerged) {
+    fbb_.AddElement<uint32_t>(FloodRow::VT_FIELDS_SUBMERGED, fields_submerged, 0);
+  }
+  void add_spoiled_kg(float spoiled_kg) {
+    fbb_.AddElement<float>(FloodRow::VT_SPOILED_KG, spoiled_kg, 0.0f);
+  }
+  void add_observer(uint32_t observer) {
+    fbb_.AddElement<uint32_t>(FloodRow::VT_OBSERVER, observer, 0);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(FloodRow::VT_WORDS, words);
+  }
+  explicit FloodRowBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<FloodRow> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<FloodRow>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<FloodRow> CreateFloodRow(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    uint32_t reach = 0,
+    uint64_t settlement = 0,
+    int64_t began = 0,
+    int64_t ended = 0,
+    float peak_discharge_m3s = 0.0f,
+    float peak_depth_m = 0.0f,
+    uint32_t buildings_flooded = 0,
+    uint32_t fields_submerged = 0,
+    float spoiled_kg = 0.0f,
+    uint32_t observer = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+  FloodRowBuilder builder_(_fbb);
+  builder_.add_ended(ended);
+  builder_.add_began(began);
+  builder_.add_settlement(settlement);
+  builder_.add_words(words);
+  builder_.add_observer(observer);
+  builder_.add_spoiled_kg(spoiled_kg);
+  builder_.add_fields_submerged(fields_submerged);
+  builder_.add_buildings_flooded(buildings_flooded);
+  builder_.add_peak_depth_m(peak_depth_m);
+  builder_.add_peak_discharge_m3s(peak_discharge_m3s);
+  builder_.add_reach(reach);
+  builder_.add_id(id);
+  return builder_.Finish();
+}
+
+struct FloodRow::Traits {
+  using type = FloodRow;
+  static auto constexpr Create = CreateFloodRow;
+};
+
+inline ::flatbuffers::Offset<FloodRow> CreateFloodRowDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    uint32_t reach = 0,
+    uint64_t settlement = 0,
+    int64_t began = 0,
+    int64_t ended = 0,
+    float peak_discharge_m3s = 0.0f,
+    float peak_depth_m = 0.0f,
+    uint32_t buildings_flooded = 0,
+    uint32_t fields_submerged = 0,
+    float spoiled_kg = 0.0f,
+    uint32_t observer = 0,
+    const char *words = nullptr) {
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateFloodRow(
+      _fbb,
+      id,
+      reach,
+      settlement,
+      began,
+      ended,
+      peak_discharge_m3s,
+      peak_depth_m,
+      buildings_flooded,
+      fields_submerged,
+      spoiled_kg,
+      observer,
+      words__);
+}
+
+struct StormRow FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef StormRowBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_SETTLEMENT = 6,
+    VT_BEGAN = 8,
+    VT_ENDED = 10,
+    VT_PEAK_WIND_SPEED_MS = 12,
+    VT_BUILDINGS_DAMAGED = 14,
+    VT_OBSERVER = 16,
+    VT_WORDS = 18
+  };
+  uint32_t id() const {
+    return GetField<uint32_t>(VT_ID, 0);
+  }
+  uint64_t settlement() const {
+    return GetField<uint64_t>(VT_SETTLEMENT, 0);
+  }
+  int64_t began() const {
+    return GetField<int64_t>(VT_BEGAN, 0);
+  }
+  int64_t ended() const {
+    return GetField<int64_t>(VT_ENDED, 0);
+  }
+  float peak_wind_speed_ms() const {
+    return GetField<float>(VT_PEAK_WIND_SPEED_MS, 0.0f);
+  }
+  uint32_t buildings_damaged() const {
+    return GetField<uint32_t>(VT_BUILDINGS_DAMAGED, 0);
+  }
+  uint32_t observer() const {
+    return GetField<uint32_t>(VT_OBSERVER, 0);
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           VerifyField<uint64_t>(verifier, VT_SETTLEMENT, 8) &&
+           VerifyField<int64_t>(verifier, VT_BEGAN, 8) &&
+           VerifyField<int64_t>(verifier, VT_ENDED, 8) &&
+           VerifyField<float>(verifier, VT_PEAK_WIND_SPEED_MS, 4) &&
+           VerifyField<uint32_t>(verifier, VT_BUILDINGS_DAMAGED, 4) &&
+           VerifyField<uint32_t>(verifier, VT_OBSERVER, 4) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           verifier.EndTable();
+  }
+};
+
+struct StormRowBuilder {
+  typedef StormRow Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint32_t id) {
+    fbb_.AddElement<uint32_t>(StormRow::VT_ID, id, 0);
+  }
+  void add_settlement(uint64_t settlement) {
+    fbb_.AddElement<uint64_t>(StormRow::VT_SETTLEMENT, settlement, 0);
+  }
+  void add_began(int64_t began) {
+    fbb_.AddElement<int64_t>(StormRow::VT_BEGAN, began, 0);
+  }
+  void add_ended(int64_t ended) {
+    fbb_.AddElement<int64_t>(StormRow::VT_ENDED, ended, 0);
+  }
+  void add_peak_wind_speed_ms(float peak_wind_speed_ms) {
+    fbb_.AddElement<float>(StormRow::VT_PEAK_WIND_SPEED_MS, peak_wind_speed_ms, 0.0f);
+  }
+  void add_buildings_damaged(uint32_t buildings_damaged) {
+    fbb_.AddElement<uint32_t>(StormRow::VT_BUILDINGS_DAMAGED, buildings_damaged, 0);
+  }
+  void add_observer(uint32_t observer) {
+    fbb_.AddElement<uint32_t>(StormRow::VT_OBSERVER, observer, 0);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(StormRow::VT_WORDS, words);
+  }
+  explicit StormRowBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<StormRow> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<StormRow>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<StormRow> CreateStormRow(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    uint64_t settlement = 0,
+    int64_t began = 0,
+    int64_t ended = 0,
+    float peak_wind_speed_ms = 0.0f,
+    uint32_t buildings_damaged = 0,
+    uint32_t observer = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+  StormRowBuilder builder_(_fbb);
+  builder_.add_ended(ended);
+  builder_.add_began(began);
+  builder_.add_settlement(settlement);
+  builder_.add_words(words);
+  builder_.add_observer(observer);
+  builder_.add_buildings_damaged(buildings_damaged);
+  builder_.add_peak_wind_speed_ms(peak_wind_speed_ms);
+  builder_.add_id(id);
+  return builder_.Finish();
+}
+
+struct StormRow::Traits {
+  using type = StormRow;
+  static auto constexpr Create = CreateStormRow;
+};
+
+inline ::flatbuffers::Offset<StormRow> CreateStormRowDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    uint64_t settlement = 0,
+    int64_t began = 0,
+    int64_t ended = 0,
+    float peak_wind_speed_ms = 0.0f,
+    uint32_t buildings_damaged = 0,
+    uint32_t observer = 0,
+    const char *words = nullptr) {
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateStormRow(
+      _fbb,
+      id,
+      settlement,
+      began,
+      ended,
+      peak_wind_speed_ms,
+      buildings_damaged,
+      observer,
+      words__);
+}
+
 struct Incidents FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef IncidentsBuilder Builder;
   struct Traits;
@@ -20285,7 +21004,9 @@ struct Incidents FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_NEXT = 8,
     VT_TOTALS = 10,
     VT_OUTBREAKS = 12,
-    VT_CONFLAGRATIONS = 14
+    VT_CONFLAGRATIONS = 14,
+    VT_FLOODS = 16,
+    VT_STORMS = 18
   };
   int64_t minute() const {
     return GetField<int64_t>(VT_MINUTE, 0);
@@ -20305,6 +21026,12 @@ struct Incidents FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ConflagrationRow>> *conflagrations() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ConflagrationRow>> *>(VT_CONFLAGRATIONS);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::FloodRow>> *floods() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::FloodRow>> *>(VT_FLOODS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StormRow>> *storms() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StormRow>> *>(VT_STORMS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -20322,6 +21049,12 @@ struct Incidents FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_CONFLAGRATIONS) &&
            verifier.VerifyVector(conflagrations()) &&
            verifier.VerifyVectorOfTables(conflagrations()) &&
+           VerifyOffset(verifier, VT_FLOODS) &&
+           verifier.VerifyVector(floods()) &&
+           verifier.VerifyVectorOfTables(floods()) &&
+           VerifyOffset(verifier, VT_STORMS) &&
+           verifier.VerifyVector(storms()) &&
+           verifier.VerifyVectorOfTables(storms()) &&
            verifier.EndTable();
   }
 };
@@ -20348,6 +21081,12 @@ struct IncidentsBuilder {
   void add_conflagrations(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ConflagrationRow>>> conflagrations) {
     fbb_.AddOffset(Incidents::VT_CONFLAGRATIONS, conflagrations);
   }
+  void add_floods(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::FloodRow>>> floods) {
+    fbb_.AddOffset(Incidents::VT_FLOODS, floods);
+  }
+  void add_storms(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StormRow>>> storms) {
+    fbb_.AddOffset(Incidents::VT_STORMS, storms);
+  }
   explicit IncidentsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -20366,9 +21105,13 @@ inline ::flatbuffers::Offset<Incidents> CreateIncidents(
     const tce::wire::IncidentKey *next = nullptr,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentTotal>>> totals = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OutbreakRow>>> outbreaks = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ConflagrationRow>>> conflagrations = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ConflagrationRow>>> conflagrations = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::FloodRow>>> floods = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StormRow>>> storms = 0) {
   IncidentsBuilder builder_(_fbb);
   builder_.add_minute(minute);
+  builder_.add_storms(storms);
+  builder_.add_floods(floods);
   builder_.add_conflagrations(conflagrations);
   builder_.add_outbreaks(outbreaks);
   builder_.add_totals(totals);
@@ -20389,11 +21132,15 @@ inline ::flatbuffers::Offset<Incidents> CreateIncidentsDirect(
     const tce::wire::IncidentKey *next = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::IncidentTotal>> *totals = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::OutbreakRow>> *outbreaks = nullptr,
-    const std::vector<::flatbuffers::Offset<tce::wire::ConflagrationRow>> *conflagrations = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::ConflagrationRow>> *conflagrations = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::FloodRow>> *floods = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::StormRow>> *storms = nullptr) {
   auto rows__ = rows ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::IncidentRow>>(*rows) : 0;
   auto totals__ = totals ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::IncidentTotal>>(*totals) : 0;
   auto outbreaks__ = outbreaks ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::OutbreakRow>>(*outbreaks) : 0;
   auto conflagrations__ = conflagrations ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::ConflagrationRow>>(*conflagrations) : 0;
+  auto floods__ = floods ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::FloodRow>>(*floods) : 0;
+  auto storms__ = storms ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::StormRow>>(*storms) : 0;
   return tce::wire::CreateIncidents(
       _fbb,
       minute,
@@ -20401,7 +21148,9 @@ inline ::flatbuffers::Offset<Incidents> CreateIncidentsDirect(
       next,
       totals__,
       outbreaks__,
-      conflagrations__);
+      conflagrations__,
+      floods__,
+      storms__);
 }
 
 struct IncidentStep FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -21162,6 +21911,262 @@ inline ::flatbuffers::Offset<ConflagrationInfo> CreateConflagrationInfoDirect(
       held__);
 }
 
+struct FloodInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef FloodInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ROW = 4,
+    VT_CAUSE = 6,
+    VT_CAUSE_LINK = 8,
+    VT_WEATHER = 10,
+    VT_INCIDENTS = 12,
+    VT_SUMMARY = 14
+  };
+  const tce::wire::FloodRow *row() const {
+    return GetPointer<const tce::wire::FloodRow *>(VT_ROW);
+  }
+  const ::flatbuffers::String *cause() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_CAUSE);
+  }
+  const tce::wire::IncidentLink *cause_link() const {
+    return GetPointer<const tce::wire::IncidentLink *>(VT_CAUSE_LINK);
+  }
+  const ::flatbuffers::String *weather() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WEATHER);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>> *incidents() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>> *>(VT_INCIDENTS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *summary() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_SUMMARY);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ROW) &&
+           verifier.VerifyTable(row()) &&
+           VerifyOffset(verifier, VT_CAUSE) &&
+           verifier.VerifyString(cause()) &&
+           VerifyOffset(verifier, VT_CAUSE_LINK) &&
+           verifier.VerifyTable(cause_link()) &&
+           VerifyOffset(verifier, VT_WEATHER) &&
+           verifier.VerifyString(weather()) &&
+           VerifyOffset(verifier, VT_INCIDENTS) &&
+           verifier.VerifyVector(incidents()) &&
+           verifier.VerifyVectorOfTables(incidents()) &&
+           VerifyOffset(verifier, VT_SUMMARY) &&
+           verifier.VerifyVector(summary()) &&
+           verifier.VerifyVectorOfStrings(summary()) &&
+           verifier.EndTable();
+  }
+};
+
+struct FloodInfoBuilder {
+  typedef FloodInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_row(::flatbuffers::Offset<tce::wire::FloodRow> row) {
+    fbb_.AddOffset(FloodInfo::VT_ROW, row);
+  }
+  void add_cause(::flatbuffers::Offset<::flatbuffers::String> cause) {
+    fbb_.AddOffset(FloodInfo::VT_CAUSE, cause);
+  }
+  void add_cause_link(::flatbuffers::Offset<tce::wire::IncidentLink> cause_link) {
+    fbb_.AddOffset(FloodInfo::VT_CAUSE_LINK, cause_link);
+  }
+  void add_weather(::flatbuffers::Offset<::flatbuffers::String> weather) {
+    fbb_.AddOffset(FloodInfo::VT_WEATHER, weather);
+  }
+  void add_incidents(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>>> incidents) {
+    fbb_.AddOffset(FloodInfo::VT_INCIDENTS, incidents);
+  }
+  void add_summary(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> summary) {
+    fbb_.AddOffset(FloodInfo::VT_SUMMARY, summary);
+  }
+  explicit FloodInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<FloodInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<FloodInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<FloodInfo> CreateFloodInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<tce::wire::FloodRow> row = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> cause = 0,
+    ::flatbuffers::Offset<tce::wire::IncidentLink> cause_link = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> weather = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>>> incidents = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> summary = 0) {
+  FloodInfoBuilder builder_(_fbb);
+  builder_.add_summary(summary);
+  builder_.add_incidents(incidents);
+  builder_.add_weather(weather);
+  builder_.add_cause_link(cause_link);
+  builder_.add_cause(cause);
+  builder_.add_row(row);
+  return builder_.Finish();
+}
+
+struct FloodInfo::Traits {
+  using type = FloodInfo;
+  static auto constexpr Create = CreateFloodInfo;
+};
+
+inline ::flatbuffers::Offset<FloodInfo> CreateFloodInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<tce::wire::FloodRow> row = 0,
+    const char *cause = nullptr,
+    ::flatbuffers::Offset<tce::wire::IncidentLink> cause_link = 0,
+    const char *weather = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::IncidentRow>> *incidents = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *summary = nullptr) {
+  auto cause__ = cause ? _fbb.CreateString(cause) : 0;
+  auto weather__ = weather ? _fbb.CreateString(weather) : 0;
+  auto incidents__ = incidents ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::IncidentRow>>(*incidents) : 0;
+  auto summary__ = summary ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*summary) : 0;
+  return tce::wire::CreateFloodInfo(
+      _fbb,
+      row,
+      cause__,
+      cause_link,
+      weather__,
+      incidents__,
+      summary__);
+}
+
+struct StormInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef StormInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ROW = 4,
+    VT_CAUSE = 6,
+    VT_CAUSE_LINK = 8,
+    VT_WEATHER = 10,
+    VT_INCIDENTS = 12,
+    VT_SUMMARY = 14
+  };
+  const tce::wire::StormRow *row() const {
+    return GetPointer<const tce::wire::StormRow *>(VT_ROW);
+  }
+  const ::flatbuffers::String *cause() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_CAUSE);
+  }
+  const tce::wire::IncidentLink *cause_link() const {
+    return GetPointer<const tce::wire::IncidentLink *>(VT_CAUSE_LINK);
+  }
+  const ::flatbuffers::String *weather() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WEATHER);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>> *incidents() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>> *>(VT_INCIDENTS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *summary() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_SUMMARY);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ROW) &&
+           verifier.VerifyTable(row()) &&
+           VerifyOffset(verifier, VT_CAUSE) &&
+           verifier.VerifyString(cause()) &&
+           VerifyOffset(verifier, VT_CAUSE_LINK) &&
+           verifier.VerifyTable(cause_link()) &&
+           VerifyOffset(verifier, VT_WEATHER) &&
+           verifier.VerifyString(weather()) &&
+           VerifyOffset(verifier, VT_INCIDENTS) &&
+           verifier.VerifyVector(incidents()) &&
+           verifier.VerifyVectorOfTables(incidents()) &&
+           VerifyOffset(verifier, VT_SUMMARY) &&
+           verifier.VerifyVector(summary()) &&
+           verifier.VerifyVectorOfStrings(summary()) &&
+           verifier.EndTable();
+  }
+};
+
+struct StormInfoBuilder {
+  typedef StormInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_row(::flatbuffers::Offset<tce::wire::StormRow> row) {
+    fbb_.AddOffset(StormInfo::VT_ROW, row);
+  }
+  void add_cause(::flatbuffers::Offset<::flatbuffers::String> cause) {
+    fbb_.AddOffset(StormInfo::VT_CAUSE, cause);
+  }
+  void add_cause_link(::flatbuffers::Offset<tce::wire::IncidentLink> cause_link) {
+    fbb_.AddOffset(StormInfo::VT_CAUSE_LINK, cause_link);
+  }
+  void add_weather(::flatbuffers::Offset<::flatbuffers::String> weather) {
+    fbb_.AddOffset(StormInfo::VT_WEATHER, weather);
+  }
+  void add_incidents(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>>> incidents) {
+    fbb_.AddOffset(StormInfo::VT_INCIDENTS, incidents);
+  }
+  void add_summary(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> summary) {
+    fbb_.AddOffset(StormInfo::VT_SUMMARY, summary);
+  }
+  explicit StormInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<StormInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<StormInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<StormInfo> CreateStormInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<tce::wire::StormRow> row = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> cause = 0,
+    ::flatbuffers::Offset<tce::wire::IncidentLink> cause_link = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> weather = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>>> incidents = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> summary = 0) {
+  StormInfoBuilder builder_(_fbb);
+  builder_.add_summary(summary);
+  builder_.add_incidents(incidents);
+  builder_.add_weather(weather);
+  builder_.add_cause_link(cause_link);
+  builder_.add_cause(cause);
+  builder_.add_row(row);
+  return builder_.Finish();
+}
+
+struct StormInfo::Traits {
+  using type = StormInfo;
+  static auto constexpr Create = CreateStormInfo;
+};
+
+inline ::flatbuffers::Offset<StormInfo> CreateStormInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<tce::wire::StormRow> row = 0,
+    const char *cause = nullptr,
+    ::flatbuffers::Offset<tce::wire::IncidentLink> cause_link = 0,
+    const char *weather = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::IncidentRow>> *incidents = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *summary = nullptr) {
+  auto cause__ = cause ? _fbb.CreateString(cause) : 0;
+  auto weather__ = weather ? _fbb.CreateString(weather) : 0;
+  auto incidents__ = incidents ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::IncidentRow>>(*incidents) : 0;
+  auto summary__ = summary ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*summary) : 0;
+  return tce::wire::CreateStormInfo(
+      _fbb,
+      row,
+      cause__,
+      cause_link,
+      weather__,
+      incidents__,
+      summary__);
+}
+
 struct CoverageSource FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef CoverageSourceBuilder Builder;
   struct Traits;
@@ -21683,6 +22688,12 @@ struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const tce::wire::ConflagrationInfo *body_as_ConflagrationInfo() const {
     return body_type() == tce::wire::ResponseBody::ConflagrationInfo ? static_cast<const tce::wire::ConflagrationInfo *>(body()) : nullptr;
   }
+  const tce::wire::FloodInfo *body_as_FloodInfo() const {
+    return body_type() == tce::wire::ResponseBody::FloodInfo ? static_cast<const tce::wire::FloodInfo *>(body()) : nullptr;
+  }
+  const tce::wire::StormInfo *body_as_StormInfo() const {
+    return body_type() == tce::wire::ResponseBody::StormInfo ? static_cast<const tce::wire::StormInfo *>(body()) : nullptr;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -21803,6 +22814,14 @@ template<> inline const tce::wire::Coverage *Response::body_as<tce::wire::Covera
 
 template<> inline const tce::wire::ConflagrationInfo *Response::body_as<tce::wire::ConflagrationInfo>() const {
   return body_as_ConflagrationInfo();
+}
+
+template<> inline const tce::wire::FloodInfo *Response::body_as<tce::wire::FloodInfo>() const {
+  return body_as_FloodInfo();
+}
+
+template<> inline const tce::wire::StormInfo *Response::body_as<tce::wire::StormInfo>() const {
+  return body_as_StormInfo();
 }
 
 struct ResponseBuilder {
@@ -21989,6 +23008,14 @@ inline bool VerifyCommandBody(::flatbuffers::VerifierTemplate<B> &verifier, cons
       auto ptr = reinterpret_cast<const tce::wire::SetFire *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case CommandBody::RaiseRiver: {
+      auto ptr = reinterpret_cast<const tce::wire::RaiseRiver *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case CommandBody::SendStorm: {
+      auto ptr = reinterpret_cast<const tce::wire::SendStorm *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -22118,6 +23145,14 @@ inline bool VerifyQueryBody(::flatbuffers::VerifierTemplate<B> &verifier, const 
     }
     case QueryBody::GetConflagration: {
       auto ptr = reinterpret_cast<const tce::wire::GetConflagration *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case QueryBody::GetFlood: {
+      auto ptr = reinterpret_cast<const tce::wire::GetFlood *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case QueryBody::GetStorm: {
+      auto ptr = reinterpret_cast<const tce::wire::GetStorm *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
@@ -22253,6 +23288,14 @@ inline bool VerifyResponseBody(::flatbuffers::VerifierTemplate<B> &verifier, con
     }
     case ResponseBody::ConflagrationInfo: {
       auto ptr = reinterpret_cast<const tce::wire::ConflagrationInfo *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::FloodInfo: {
+      auto ptr = reinterpret_cast<const tce::wire::FloodInfo *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::StormInfo: {
+      auto ptr = reinterpret_cast<const tce::wire::StormInfo *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

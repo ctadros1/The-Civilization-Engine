@@ -121,6 +121,17 @@ pub enum Request {
         /// Its permanent id.
         building: u64,
     },
+    /// Raise reach runoff for stated days (god tool, M6b slice BF; ADR-0022 §14).
+    RaiseRiver {
+        reach: u32,
+        discharge_m3s: f32,
+        days: u32,
+    },
+    /// Send a storm today of chosen strength and direction (god tool, M6b slice BF; ADR-0022 §14).
+    SendStorm {
+        wind_speed_ms: f32,
+        direction_deg: f32,
+    },
     /// Hold back the rain over the settlement for a while (god tool, M6a slice BA, ADR-0021 §8).
     Drought {
         /// How many months it holds, 3 to 24.
@@ -239,6 +250,10 @@ pub enum Request {
         /// 1: water.
         lens: u8,
     },
+    /// A flood episode's page (wire 1.69).
+    GetFlood { id: u32 },
+    /// A storm episode's page (wire 1.69).
+    GetStorm { id: u32 },
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -582,6 +597,25 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         building: b.building(),
                     })
                 }
+                wire::CommandBody::RaiseRiver => {
+                    let b = command
+                        .body_as_raise_river()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::RaiseRiver {
+                        reach: b.reach(),
+                        discharge_m3s: b.discharge_m3s(),
+                        days: b.days(),
+                    })
+                }
+                wire::CommandBody::SendStorm => {
+                    let b = command
+                        .body_as_send_storm()
+                        .ok_or_else(|| missing("command"))?;
+                    Ok(Request::SendStorm {
+                        wind_speed_ms: b.wind_speed_ms(),
+                        direction_deg: b.direction_deg(),
+                    })
+                }
                 other => Err(format!("unknown command {}", other.0)),
             }
         }
@@ -686,6 +720,14 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                         settlement: b.settlement(),
                         lens: b.lens(),
                     })
+                }
+                wire::QueryBody::GetFlood => {
+                    let b = query.body_as_get_flood().ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetFlood { id: b.id() })
+                }
+                wire::QueryBody::GetStorm => {
+                    let b = query.body_as_get_storm().ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetStorm { id: b.id() })
                 }
                 other => Err(format!("unknown query {}", other.0)),
             }

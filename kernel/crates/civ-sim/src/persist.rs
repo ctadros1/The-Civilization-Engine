@@ -310,6 +310,9 @@ pub const SCHEMA_V90: u32 = 90;
 /// The schema version of M6b slice BD, step three: water carried to a fire, before roofs were
 /// stripped and goods carried out (see [`agents`]).
 pub const SCHEMA_V91: u32 = 91;
+/// The schema version of M6b slice BD, step four: roofs stripped and goods carried out of a
+/// fire's way, before floods and storms (see [`agents`]).
+pub const SCHEMA_V92: u32 = 92;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

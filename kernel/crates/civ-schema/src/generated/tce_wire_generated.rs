@@ -13,14 +13,15 @@ pub mod wire {
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RASTER_LAYER: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RASTER_LAYER: u8 = 3;
+pub const ENUM_MAX_RASTER_LAYER: u8 = 4;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RASTER_LAYER: [RasterLayer; 4] = [
+pub const ENUM_VALUES_RASTER_LAYER: [RasterLayer; 5] = [
   RasterLayer::Elevation,
   RasterLayer::Water,
   RasterLayer::DrainageArea,
   RasterLayer::LakeId,
+  RasterLayer::FloodDepth,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -32,14 +33,16 @@ impl RasterLayer {
   pub const Water: Self = Self(1);
   pub const DrainageArea: Self = Self(2);
   pub const LakeId: Self = Self(3);
+  pub const FloodDepth: Self = Self(4);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 3;
+  pub const ENUM_MAX: u8 = 4;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Elevation,
     Self::Water,
     Self::DrainageArea,
     Self::LakeId,
+    Self::FloodDepth,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -48,6 +51,7 @@ impl RasterLayer {
       Self::Water => Some("Water"),
       Self::DrainageArea => Some("DrainageArea"),
       Self::LakeId => Some("LakeId"),
+      Self::FloodDepth => Some("FloodDepth"),
       _ => None,
     }
   }
@@ -665,10 +669,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_COMMAND_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_COMMAND_BODY: u8 = 18;
+pub const ENUM_MAX_COMMAND_BODY: u8 = 20;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 19] = [
+pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 21] = [
   CommandBody::NONE,
   CommandBody::NewWorld,
   CommandBody::SaveWorld,
@@ -688,6 +692,8 @@ pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 19] = [
   CommandBody::Plague,
   CommandBody::Drought,
   CommandBody::SetFire,
+  CommandBody::RaiseRiver,
+  CommandBody::SendStorm,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -714,9 +720,11 @@ impl CommandBody {
   pub const Plague: Self = Self(16);
   pub const Drought: Self = Self(17);
   pub const SetFire: Self = Self(18);
+  pub const RaiseRiver: Self = Self(19);
+  pub const SendStorm: Self = Self(20);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 18;
+  pub const ENUM_MAX: u8 = 20;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::NewWorld,
@@ -737,6 +745,8 @@ impl CommandBody {
     Self::Plague,
     Self::Drought,
     Self::SetFire,
+    Self::RaiseRiver,
+    Self::SendStorm,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -760,6 +770,8 @@ impl CommandBody {
       Self::Plague => Some("Plague"),
       Self::Drought => Some("Drought"),
       Self::SetFire => Some("SetFire"),
+      Self::RaiseRiver => Some("RaiseRiver"),
+      Self::SendStorm => Some("SendStorm"),
       _ => None,
     }
   }
@@ -819,10 +831,10 @@ pub struct CommandBodyUnionTableOffset {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_QUERY_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_QUERY_BODY: u8 = 27;
+pub const ENUM_MAX_QUERY_BODY: u8 = 29;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 28] = [
+pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 30] = [
   QueryBody::NONE,
   QueryBody::GetRaster,
   QueryBody::GetHydrography,
@@ -851,6 +863,8 @@ pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 28] = [
   QueryBody::GetOutbreak,
   QueryBody::GetCoverage,
   QueryBody::GetConflagration,
+  QueryBody::GetFlood,
+  QueryBody::GetStorm,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -886,9 +900,11 @@ impl QueryBody {
   pub const GetOutbreak: Self = Self(25);
   pub const GetCoverage: Self = Self(26);
   pub const GetConflagration: Self = Self(27);
+  pub const GetFlood: Self = Self(28);
+  pub const GetStorm: Self = Self(29);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 27;
+  pub const ENUM_MAX: u8 = 29;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::GetRaster,
@@ -918,6 +934,8 @@ impl QueryBody {
     Self::GetOutbreak,
     Self::GetCoverage,
     Self::GetConflagration,
+    Self::GetFlood,
+    Self::GetStorm,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -950,6 +968,8 @@ impl QueryBody {
       Self::GetOutbreak => Some("GetOutbreak"),
       Self::GetCoverage => Some("GetCoverage"),
       Self::GetConflagration => Some("GetConflagration"),
+      Self::GetFlood => Some("GetFlood"),
+      Self::GetStorm => Some("GetStorm"),
       _ => None,
     }
   }
@@ -1389,10 +1409,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for BookKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RESPONSE_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RESPONSE_BODY: u8 = 28;
+pub const ENUM_MAX_RESPONSE_BODY: u8 = 30;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 29] = [
+pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 31] = [
   ResponseBody::NONE,
   ResponseBody::Ack,
   ResponseBody::RasterTile,
@@ -1422,6 +1442,8 @@ pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 29] = [
   ResponseBody::OutbreakInfo,
   ResponseBody::Coverage,
   ResponseBody::ConflagrationInfo,
+  ResponseBody::FloodInfo,
+  ResponseBody::StormInfo,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1458,9 +1480,11 @@ impl ResponseBody {
   pub const OutbreakInfo: Self = Self(26);
   pub const Coverage: Self = Self(27);
   pub const ConflagrationInfo: Self = Self(28);
+  pub const FloodInfo: Self = Self(29);
+  pub const StormInfo: Self = Self(30);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 28;
+  pub const ENUM_MAX: u8 = 30;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::Ack,
@@ -1491,6 +1515,8 @@ impl ResponseBody {
     Self::OutbreakInfo,
     Self::Coverage,
     Self::ConflagrationInfo,
+    Self::FloodInfo,
+    Self::StormInfo,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1524,6 +1550,8 @@ impl ResponseBody {
       Self::OutbreakInfo => Some("OutbreakInfo"),
       Self::Coverage => Some("Coverage"),
       Self::ConflagrationInfo => Some("ConflagrationInfo"),
+      Self::FloodInfo => Some("FloodInfo"),
+      Self::StormInfo => Some("StormInfo"),
       _ => None,
     }
   }
@@ -3100,6 +3128,133 @@ impl<'a> BankDraw {
         &x_le as *const _ as *const u8,
         self.0[8..].as_mut_ptr(),
         ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct FloodCell, aligned to 4
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct FloodCell(pub [u8; 8]);
+impl Default for FloodCell { 
+  fn default() -> Self { 
+    Self([0; 8])
+  }
+}
+impl ::core::fmt::Debug for FloodCell {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("FloodCell")
+      .field("cell", &self.cell())
+      .field("depth_m", &self.depth_m())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for FloodCell {}
+impl<'a> ::flatbuffers::Follow<'a> for FloodCell {
+  type Inner = &'a FloodCell;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a FloodCell>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a FloodCell {
+  type Inner = &'a FloodCell;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<FloodCell>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for FloodCell {
+    type Output = FloodCell;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const FloodCell as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(4)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for FloodCell {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> FloodCell {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    cell: u32,
+    depth_m: f32,
+  ) -> Self {
+    let mut s = Self([0; 8]);
+    s.set_cell(cell);
+    s.set_depth_m(depth_m);
+    s
+  }
+
+  pub fn cell(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_cell(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn depth_m(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_depth_m(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
       );
     }
   }
@@ -9996,6 +10151,249 @@ impl ::core::fmt::Debug for SetFire<'_> {
       ds.finish()
   }
 }
+pub enum RaiseRiverOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RaiseRiver<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RaiseRiver<'a> {
+  type Inner = RaiseRiver<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RaiseRiver<'a> {
+  pub const VT_REACH: ::flatbuffers::VOffsetT = 4;
+  pub const VT_DISCHARGE_M3S: ::flatbuffers::VOffsetT = 6;
+  pub const VT_DAYS: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RaiseRiver { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RaiseRiverArgs
+  ) -> ::flatbuffers::WIPOffset<RaiseRiver<'bldr>> {
+    let mut builder = RaiseRiverBuilder::new(_fbb);
+    builder.add_days(args.days);
+    builder.add_discharge_m3s(args.discharge_m3s);
+    builder.add_reach(args.reach);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn reach(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RaiseRiver::VT_REACH, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn discharge_m3s(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(RaiseRiver::VT_DISCHARGE_M3S, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn days(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RaiseRiver::VT_DAYS, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RaiseRiver<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("reach", Self::VT_REACH, false)?
+     .visit_field::<f32>("discharge_m3s", Self::VT_DISCHARGE_M3S, false)?
+     .visit_field::<u32>("days", Self::VT_DAYS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RaiseRiverArgs {
+    pub reach: u32,
+    pub discharge_m3s: f32,
+    pub days: u32,
+}
+impl<'a> Default for RaiseRiverArgs {
+  #[inline]
+  fn default() -> Self {
+    RaiseRiverArgs {
+      reach: 0,
+      discharge_m3s: 0.0,
+      days: 0,
+    }
+  }
+}
+
+pub struct RaiseRiverBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RaiseRiverBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_reach(&mut self, reach: u32) {
+    self.fbb_.push_slot::<u32>(RaiseRiver::VT_REACH, reach, 0);
+  }
+  #[inline]
+  pub fn add_discharge_m3s(&mut self, discharge_m3s: f32) {
+    self.fbb_.push_slot::<f32>(RaiseRiver::VT_DISCHARGE_M3S, discharge_m3s, 0.0);
+  }
+  #[inline]
+  pub fn add_days(&mut self, days: u32) {
+    self.fbb_.push_slot::<u32>(RaiseRiver::VT_DAYS, days, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RaiseRiverBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RaiseRiverBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RaiseRiver<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RaiseRiver<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RaiseRiver");
+      ds.field("reach", &self.reach());
+      ds.field("discharge_m3s", &self.discharge_m3s());
+      ds.field("days", &self.days());
+      ds.finish()
+  }
+}
+pub enum SendStormOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SendStorm<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for SendStorm<'a> {
+  type Inner = SendStorm<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> SendStorm<'a> {
+  pub const VT_WIND_SPEED_MS: ::flatbuffers::VOffsetT = 4;
+  pub const VT_DIRECTION_DEG: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    SendStorm { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SendStormArgs
+  ) -> ::flatbuffers::WIPOffset<SendStorm<'bldr>> {
+    let mut builder = SendStormBuilder::new(_fbb);
+    builder.add_direction_deg(args.direction_deg);
+    builder.add_wind_speed_ms(args.wind_speed_ms);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn wind_speed_ms(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(SendStorm::VT_WIND_SPEED_MS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn direction_deg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(SendStorm::VT_DIRECTION_DEG, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for SendStorm<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<f32>("wind_speed_ms", Self::VT_WIND_SPEED_MS, false)?
+     .visit_field::<f32>("direction_deg", Self::VT_DIRECTION_DEG, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SendStormArgs {
+    pub wind_speed_ms: f32,
+    pub direction_deg: f32,
+}
+impl<'a> Default for SendStormArgs {
+  #[inline]
+  fn default() -> Self {
+    SendStormArgs {
+      wind_speed_ms: 0.0,
+      direction_deg: 0.0,
+    }
+  }
+}
+
+pub struct SendStormBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SendStormBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_wind_speed_ms(&mut self, wind_speed_ms: f32) {
+    self.fbb_.push_slot::<f32>(SendStorm::VT_WIND_SPEED_MS, wind_speed_ms, 0.0);
+  }
+  #[inline]
+  pub fn add_direction_deg(&mut self, direction_deg: f32) {
+    self.fbb_.push_slot::<f32>(SendStorm::VT_DIRECTION_DEG, direction_deg, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SendStormBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SendStormBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<SendStorm<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for SendStorm<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("SendStorm");
+      ds.field("wind_speed_ms", &self.wind_speed_ms());
+      ds.field("direction_deg", &self.direction_deg());
+      ds.finish()
+  }
+}
 pub enum CommandOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -10315,6 +10713,36 @@ impl<'a> Command<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_raise_river(&self) -> Option<RaiseRiver<'a>> {
+    if self.body_type() == CommandBody::RaiseRiver {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { RaiseRiver::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_send_storm(&self) -> Option<SendStorm<'a>> {
+    if self.body_type() == CommandBody::SendStorm {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { SendStorm::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Command<'_> {
@@ -10343,6 +10771,8 @@ impl ::flatbuffers::Verifiable for Command<'_> {
           CommandBody::Plague => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Plague>>("CommandBody::Plague", pos),
           CommandBody::Drought => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Drought>>("CommandBody::Drought", pos),
           CommandBody::SetFire => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SetFire>>("CommandBody::SetFire", pos),
+          CommandBody::RaiseRiver => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<RaiseRiver>>("CommandBody::RaiseRiver", pos),
+          CommandBody::SendStorm => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SendStorm>>("CommandBody::SendStorm", pos),
           _ => Ok(()),
         }
      })?
@@ -10518,6 +10948,20 @@ impl ::core::fmt::Debug for Command<'_> {
         },
         CommandBody::SetFire => {
           if let Some(x) = self.body_as_set_fire() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::RaiseRiver => {
+          if let Some(x) = self.body_as_raise_river() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::SendStorm => {
+          if let Some(x) = self.body_as_send_storm() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -13056,6 +13500,198 @@ impl ::core::fmt::Debug for GetConflagration<'_> {
       ds.finish()
   }
 }
+pub enum GetFloodOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetFlood<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetFlood<'a> {
+  type Inner = GetFlood<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetFlood<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetFlood { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GetFloodArgs
+  ) -> ::flatbuffers::WIPOffset<GetFlood<'bldr>> {
+    let mut builder = GetFloodBuilder::new(_fbb);
+    builder.add_id(args.id);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GetFlood::VT_ID, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for GetFlood<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetFloodArgs {
+    pub id: u32,
+}
+impl<'a> Default for GetFloodArgs {
+  #[inline]
+  fn default() -> Self {
+    GetFloodArgs {
+      id: 0,
+    }
+  }
+}
+
+pub struct GetFloodBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetFloodBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(GetFlood::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetFloodBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetFloodBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetFlood<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetFlood<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetFlood");
+      ds.field("id", &self.id());
+      ds.finish()
+  }
+}
+pub enum GetStormOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetStorm<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetStorm<'a> {
+  type Inner = GetStorm<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetStorm<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetStorm { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GetStormArgs
+  ) -> ::flatbuffers::WIPOffset<GetStorm<'bldr>> {
+    let mut builder = GetStormBuilder::new(_fbb);
+    builder.add_id(args.id);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GetStorm::VT_ID, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for GetStorm<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetStormArgs {
+    pub id: u32,
+}
+impl<'a> Default for GetStormArgs {
+  #[inline]
+  fn default() -> Self {
+    GetStormArgs {
+      id: 0,
+    }
+  }
+}
+
+pub struct GetStormBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetStormBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(GetStorm::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetStormBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetStormBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetStorm<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetStorm<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetStorm");
+      ds.field("id", &self.id());
+      ds.finish()
+  }
+}
 pub enum QueryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -13510,6 +14146,36 @@ impl<'a> Query<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_flood(&self) -> Option<GetFlood<'a>> {
+    if self.body_type() == QueryBody::GetFlood {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetFlood::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_storm(&self) -> Option<GetStorm<'a>> {
+    if self.body_type() == QueryBody::GetStorm {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetStorm::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Query<'_> {
@@ -13547,6 +14213,8 @@ impl ::flatbuffers::Verifiable for Query<'_> {
           QueryBody::GetOutbreak => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetOutbreak>>("QueryBody::GetOutbreak", pos),
           QueryBody::GetCoverage => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetCoverage>>("QueryBody::GetCoverage", pos),
           QueryBody::GetConflagration => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetConflagration>>("QueryBody::GetConflagration", pos),
+          QueryBody::GetFlood => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetFlood>>("QueryBody::GetFlood", pos),
+          QueryBody::GetStorm => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetStorm>>("QueryBody::GetStorm", pos),
           _ => Ok(()),
         }
      })?
@@ -13785,6 +14453,20 @@ impl ::core::fmt::Debug for Query<'_> {
         },
         QueryBody::GetConflagration => {
           if let Some(x) = self.body_as_get_conflagration() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetFlood => {
+          if let Some(x) = self.body_as_get_flood() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetStorm => {
+          if let Some(x) = self.body_as_get_storm() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -27274,6 +27956,7 @@ impl<'a> Water<'a> {
   pub const VT_SPRINGS: ::flatbuffers::VOffsetT = 8;
   pub const VT_FLOW: ::flatbuffers::VOffsetT = 10;
   pub const VT_BANKS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_FLOODED: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -27286,6 +27969,7 @@ impl<'a> Water<'a> {
   ) -> ::flatbuffers::WIPOffset<Water<'bldr>> {
     let mut builder = WaterBuilder::new(_fbb);
     builder.add_rev(args.rev);
+    if let Some(x) = args.flooded { builder.add_flooded(x); }
     if let Some(x) = args.banks { builder.add_banks(x); }
     builder.add_flow(args.flow);
     if let Some(x) = args.springs { builder.add_springs(x); }
@@ -27329,6 +28013,13 @@ impl<'a> Water<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, BankDraw>>>(Water::VT_BANKS, None)}
   }
+  #[inline]
+  pub fn flooded(&self) -> Option<::flatbuffers::Vector<'a, FloodCell>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, FloodCell>>>(Water::VT_FLOODED, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Water<'_> {
@@ -27342,6 +28033,7 @@ impl ::flatbuffers::Verifiable for Water<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SpringInfo>>>("springs", Self::VT_SPRINGS, false)?
      .visit_field::<f32>("flow", Self::VT_FLOW, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BankDraw>>>("banks", Self::VT_BANKS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, FloodCell>>>("flooded", Self::VT_FLOODED, false)?
      .finish();
     Ok(())
   }
@@ -27352,6 +28044,7 @@ pub struct WaterArgs<'a> {
     pub springs: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SpringInfo>>>,
     pub flow: f32,
     pub banks: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BankDraw>>>,
+    pub flooded: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, FloodCell>>>,
 }
 impl<'a> Default for WaterArgs<'a> {
   #[inline]
@@ -27362,6 +28055,7 @@ impl<'a> Default for WaterArgs<'a> {
       springs: None,
       flow: 0.0,
       banks: None,
+      flooded: None,
     }
   }
 }
@@ -27392,6 +28086,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WaterBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Water::VT_BANKS, banks);
   }
   #[inline]
+  pub fn add_flooded(&mut self, flooded: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , FloodCell>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Water::VT_FLOODED, flooded);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WaterBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WaterBuilder {
@@ -27414,6 +28112,7 @@ impl ::core::fmt::Debug for Water<'_> {
       ds.field("springs", &self.springs());
       ds.field("flow", &self.flow());
       ds.field("banks", &self.banks());
+      ds.field("flooded", &self.flooded());
       ds.finish()
   }
 }
@@ -31103,6 +31802,8 @@ impl<'a> IncidentRow<'a> {
   pub const VT_OUTBREAK: ::flatbuffers::VOffsetT = 26;
   pub const VT_OPEN: ::flatbuffers::VOffsetT = 28;
   pub const VT_CONFLAGRATION: ::flatbuffers::VOffsetT = 30;
+  pub const VT_FLOOD: ::flatbuffers::VOffsetT = 32;
+  pub const VT_STORM: ::flatbuffers::VOffsetT = 34;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -31117,6 +31818,8 @@ impl<'a> IncidentRow<'a> {
     builder.add_who(args.who);
     builder.add_settlement(args.settlement);
     builder.add_minute(args.minute);
+    builder.add_storm(args.storm);
+    builder.add_flood(args.flood);
     builder.add_conflagration(args.conflagration);
     builder.add_outbreak(args.outbreak);
     builder.add_observer(args.observer);
@@ -31230,6 +31933,20 @@ impl<'a> IncidentRow<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(IncidentRow::VT_CONFLAGRATION, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn flood(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(IncidentRow::VT_FLOOD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn storm(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(IncidentRow::VT_STORM, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for IncidentRow<'_> {
@@ -31252,6 +31969,8 @@ impl ::flatbuffers::Verifiable for IncidentRow<'_> {
      .visit_field::<u32>("outbreak", Self::VT_OUTBREAK, false)?
      .visit_field::<bool>("open", Self::VT_OPEN, false)?
      .visit_field::<u32>("conflagration", Self::VT_CONFLAGRATION, false)?
+     .visit_field::<u32>("flood", Self::VT_FLOOD, false)?
+     .visit_field::<u32>("storm", Self::VT_STORM, false)?
      .finish();
     Ok(())
   }
@@ -31271,6 +31990,8 @@ pub struct IncidentRowArgs<'a> {
     pub outbreak: u32,
     pub open: bool,
     pub conflagration: u32,
+    pub flood: u32,
+    pub storm: u32,
 }
 impl<'a> Default for IncidentRowArgs<'a> {
   #[inline]
@@ -31290,6 +32011,8 @@ impl<'a> Default for IncidentRowArgs<'a> {
       outbreak: 0,
       open: false,
       conflagration: 0,
+      flood: 0,
+      storm: 0,
     }
   }
 }
@@ -31356,6 +32079,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> IncidentRowBuilder<'a, 'b, A>
     self.fbb_.push_slot::<u32>(IncidentRow::VT_CONFLAGRATION, conflagration, 0);
   }
   #[inline]
+  pub fn add_flood(&mut self, flood: u32) {
+    self.fbb_.push_slot::<u32>(IncidentRow::VT_FLOOD, flood, 0);
+  }
+  #[inline]
+  pub fn add_storm(&mut self, storm: u32) {
+    self.fbb_.push_slot::<u32>(IncidentRow::VT_STORM, storm, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> IncidentRowBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     IncidentRowBuilder {
@@ -31387,6 +32118,8 @@ impl ::core::fmt::Debug for IncidentRow<'_> {
       ds.field("outbreak", &self.outbreak());
       ds.field("open", &self.open());
       ds.field("conflagration", &self.conflagration());
+      ds.field("flood", &self.flood());
+      ds.field("storm", &self.storm());
       ds.finish()
   }
 }
@@ -32035,6 +32768,504 @@ impl ::core::fmt::Debug for ConflagrationRow<'_> {
       ds.finish()
   }
 }
+pub enum FloodRowOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct FloodRow<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for FloodRow<'a> {
+  type Inner = FloodRow<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> FloodRow<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_REACH: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_BEGAN: ::flatbuffers::VOffsetT = 10;
+  pub const VT_ENDED: ::flatbuffers::VOffsetT = 12;
+  pub const VT_PEAK_DISCHARGE_M3S: ::flatbuffers::VOffsetT = 14;
+  pub const VT_PEAK_DEPTH_M: ::flatbuffers::VOffsetT = 16;
+  pub const VT_BUILDINGS_FLOODED: ::flatbuffers::VOffsetT = 18;
+  pub const VT_FIELDS_SUBMERGED: ::flatbuffers::VOffsetT = 20;
+  pub const VT_SPOILED_KG: ::flatbuffers::VOffsetT = 22;
+  pub const VT_OBSERVER: ::flatbuffers::VOffsetT = 24;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 26;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    FloodRow { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args FloodRowArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<FloodRow<'bldr>> {
+    let mut builder = FloodRowBuilder::new(_fbb);
+    builder.add_ended(args.ended);
+    builder.add_began(args.began);
+    builder.add_settlement(args.settlement);
+    if let Some(x) = args.words { builder.add_words(x); }
+    builder.add_observer(args.observer);
+    builder.add_spoiled_kg(args.spoiled_kg);
+    builder.add_fields_submerged(args.fields_submerged);
+    builder.add_buildings_flooded(args.buildings_flooded);
+    builder.add_peak_depth_m(args.peak_depth_m);
+    builder.add_peak_discharge_m3s(args.peak_discharge_m3s);
+    builder.add_reach(args.reach);
+    builder.add_id(args.id);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(FloodRow::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn reach(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(FloodRow::VT_REACH, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(FloodRow::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn began(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(FloodRow::VT_BEGAN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ended(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(FloodRow::VT_ENDED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn peak_discharge_m3s(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FloodRow::VT_PEAK_DISCHARGE_M3S, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn peak_depth_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FloodRow::VT_PEAK_DEPTH_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn buildings_flooded(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(FloodRow::VT_BUILDINGS_FLOODED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn fields_submerged(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(FloodRow::VT_FIELDS_SUBMERGED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn spoiled_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FloodRow::VT_SPOILED_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn observer(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(FloodRow::VT_OBSERVER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FloodRow::VT_WORDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for FloodRow<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<u32>("reach", Self::VT_REACH, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<i64>("began", Self::VT_BEGAN, false)?
+     .visit_field::<i64>("ended", Self::VT_ENDED, false)?
+     .visit_field::<f32>("peak_discharge_m3s", Self::VT_PEAK_DISCHARGE_M3S, false)?
+     .visit_field::<f32>("peak_depth_m", Self::VT_PEAK_DEPTH_M, false)?
+     .visit_field::<u32>("buildings_flooded", Self::VT_BUILDINGS_FLOODED, false)?
+     .visit_field::<u32>("fields_submerged", Self::VT_FIELDS_SUBMERGED, false)?
+     .visit_field::<f32>("spoiled_kg", Self::VT_SPOILED_KG, false)?
+     .visit_field::<u32>("observer", Self::VT_OBSERVER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct FloodRowArgs<'a> {
+    pub id: u32,
+    pub reach: u32,
+    pub settlement: u64,
+    pub began: i64,
+    pub ended: i64,
+    pub peak_discharge_m3s: f32,
+    pub peak_depth_m: f32,
+    pub buildings_flooded: u32,
+    pub fields_submerged: u32,
+    pub spoiled_kg: f32,
+    pub observer: u32,
+    pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for FloodRowArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    FloodRowArgs {
+      id: 0,
+      reach: 0,
+      settlement: 0,
+      began: 0,
+      ended: 0,
+      peak_discharge_m3s: 0.0,
+      peak_depth_m: 0.0,
+      buildings_flooded: 0,
+      fields_submerged: 0,
+      spoiled_kg: 0.0,
+      observer: 0,
+      words: None,
+    }
+  }
+}
+
+pub struct FloodRowBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloodRowBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(FloodRow::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_reach(&mut self, reach: u32) {
+    self.fbb_.push_slot::<u32>(FloodRow::VT_REACH, reach, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(FloodRow::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_began(&mut self, began: i64) {
+    self.fbb_.push_slot::<i64>(FloodRow::VT_BEGAN, began, 0);
+  }
+  #[inline]
+  pub fn add_ended(&mut self, ended: i64) {
+    self.fbb_.push_slot::<i64>(FloodRow::VT_ENDED, ended, 0);
+  }
+  #[inline]
+  pub fn add_peak_discharge_m3s(&mut self, peak_discharge_m3s: f32) {
+    self.fbb_.push_slot::<f32>(FloodRow::VT_PEAK_DISCHARGE_M3S, peak_discharge_m3s, 0.0);
+  }
+  #[inline]
+  pub fn add_peak_depth_m(&mut self, peak_depth_m: f32) {
+    self.fbb_.push_slot::<f32>(FloodRow::VT_PEAK_DEPTH_M, peak_depth_m, 0.0);
+  }
+  #[inline]
+  pub fn add_buildings_flooded(&mut self, buildings_flooded: u32) {
+    self.fbb_.push_slot::<u32>(FloodRow::VT_BUILDINGS_FLOODED, buildings_flooded, 0);
+  }
+  #[inline]
+  pub fn add_fields_submerged(&mut self, fields_submerged: u32) {
+    self.fbb_.push_slot::<u32>(FloodRow::VT_FIELDS_SUBMERGED, fields_submerged, 0);
+  }
+  #[inline]
+  pub fn add_spoiled_kg(&mut self, spoiled_kg: f32) {
+    self.fbb_.push_slot::<f32>(FloodRow::VT_SPOILED_KG, spoiled_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_observer(&mut self, observer: u32) {
+    self.fbb_.push_slot::<u32>(FloodRow::VT_OBSERVER, observer, 0);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloodRow::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloodRowBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    FloodRowBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<FloodRow<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for FloodRow<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("FloodRow");
+      ds.field("id", &self.id());
+      ds.field("reach", &self.reach());
+      ds.field("settlement", &self.settlement());
+      ds.field("began", &self.began());
+      ds.field("ended", &self.ended());
+      ds.field("peak_discharge_m3s", &self.peak_discharge_m3s());
+      ds.field("peak_depth_m", &self.peak_depth_m());
+      ds.field("buildings_flooded", &self.buildings_flooded());
+      ds.field("fields_submerged", &self.fields_submerged());
+      ds.field("spoiled_kg", &self.spoiled_kg());
+      ds.field("observer", &self.observer());
+      ds.field("words", &self.words());
+      ds.finish()
+  }
+}
+pub enum StormRowOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct StormRow<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for StormRow<'a> {
+  type Inner = StormRow<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> StormRow<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_BEGAN: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ENDED: ::flatbuffers::VOffsetT = 10;
+  pub const VT_PEAK_WIND_SPEED_MS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_BUILDINGS_DAMAGED: ::flatbuffers::VOffsetT = 14;
+  pub const VT_OBSERVER: ::flatbuffers::VOffsetT = 16;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    StormRow { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args StormRowArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<StormRow<'bldr>> {
+    let mut builder = StormRowBuilder::new(_fbb);
+    builder.add_ended(args.ended);
+    builder.add_began(args.began);
+    builder.add_settlement(args.settlement);
+    if let Some(x) = args.words { builder.add_words(x); }
+    builder.add_observer(args.observer);
+    builder.add_buildings_damaged(args.buildings_damaged);
+    builder.add_peak_wind_speed_ms(args.peak_wind_speed_ms);
+    builder.add_id(args.id);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(StormRow::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(StormRow::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn began(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(StormRow::VT_BEGAN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ended(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(StormRow::VT_ENDED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn peak_wind_speed_ms(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(StormRow::VT_PEAK_WIND_SPEED_MS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn buildings_damaged(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(StormRow::VT_BUILDINGS_DAMAGED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn observer(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(StormRow::VT_OBSERVER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(StormRow::VT_WORDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for StormRow<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<i64>("began", Self::VT_BEGAN, false)?
+     .visit_field::<i64>("ended", Self::VT_ENDED, false)?
+     .visit_field::<f32>("peak_wind_speed_ms", Self::VT_PEAK_WIND_SPEED_MS, false)?
+     .visit_field::<u32>("buildings_damaged", Self::VT_BUILDINGS_DAMAGED, false)?
+     .visit_field::<u32>("observer", Self::VT_OBSERVER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct StormRowArgs<'a> {
+    pub id: u32,
+    pub settlement: u64,
+    pub began: i64,
+    pub ended: i64,
+    pub peak_wind_speed_ms: f32,
+    pub buildings_damaged: u32,
+    pub observer: u32,
+    pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for StormRowArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    StormRowArgs {
+      id: 0,
+      settlement: 0,
+      began: 0,
+      ended: 0,
+      peak_wind_speed_ms: 0.0,
+      buildings_damaged: 0,
+      observer: 0,
+      words: None,
+    }
+  }
+}
+
+pub struct StormRowBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> StormRowBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(StormRow::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(StormRow::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_began(&mut self, began: i64) {
+    self.fbb_.push_slot::<i64>(StormRow::VT_BEGAN, began, 0);
+  }
+  #[inline]
+  pub fn add_ended(&mut self, ended: i64) {
+    self.fbb_.push_slot::<i64>(StormRow::VT_ENDED, ended, 0);
+  }
+  #[inline]
+  pub fn add_peak_wind_speed_ms(&mut self, peak_wind_speed_ms: f32) {
+    self.fbb_.push_slot::<f32>(StormRow::VT_PEAK_WIND_SPEED_MS, peak_wind_speed_ms, 0.0);
+  }
+  #[inline]
+  pub fn add_buildings_damaged(&mut self, buildings_damaged: u32) {
+    self.fbb_.push_slot::<u32>(StormRow::VT_BUILDINGS_DAMAGED, buildings_damaged, 0);
+  }
+  #[inline]
+  pub fn add_observer(&mut self, observer: u32) {
+    self.fbb_.push_slot::<u32>(StormRow::VT_OBSERVER, observer, 0);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StormRow::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> StormRowBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    StormRowBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<StormRow<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for StormRow<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("StormRow");
+      ds.field("id", &self.id());
+      ds.field("settlement", &self.settlement());
+      ds.field("began", &self.began());
+      ds.field("ended", &self.ended());
+      ds.field("peak_wind_speed_ms", &self.peak_wind_speed_ms());
+      ds.field("buildings_damaged", &self.buildings_damaged());
+      ds.field("observer", &self.observer());
+      ds.field("words", &self.words());
+      ds.finish()
+  }
+}
 pub enum IncidentsOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -32057,6 +33288,8 @@ impl<'a> Incidents<'a> {
   pub const VT_TOTALS: ::flatbuffers::VOffsetT = 10;
   pub const VT_OUTBREAKS: ::flatbuffers::VOffsetT = 12;
   pub const VT_CONFLAGRATIONS: ::flatbuffers::VOffsetT = 14;
+  pub const VT_FLOODS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_STORMS: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32069,6 +33302,8 @@ impl<'a> Incidents<'a> {
   ) -> ::flatbuffers::WIPOffset<Incidents<'bldr>> {
     let mut builder = IncidentsBuilder::new(_fbb);
     builder.add_minute(args.minute);
+    if let Some(x) = args.storms { builder.add_storms(x); }
+    if let Some(x) = args.floods { builder.add_floods(x); }
     if let Some(x) = args.conflagrations { builder.add_conflagrations(x); }
     if let Some(x) = args.outbreaks { builder.add_outbreaks(x); }
     if let Some(x) = args.totals { builder.add_totals(x); }
@@ -32120,6 +33355,20 @@ impl<'a> Incidents<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConflagrationRow>>>>(Incidents::VT_CONFLAGRATIONS, None)}
   }
+  #[inline]
+  pub fn floods(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FloodRow<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FloodRow>>>>(Incidents::VT_FLOODS, None)}
+  }
+  #[inline]
+  pub fn storms(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StormRow<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StormRow>>>>(Incidents::VT_STORMS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Incidents<'_> {
@@ -32134,6 +33383,8 @@ impl ::flatbuffers::Verifiable for Incidents<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<IncidentTotal>>>>("totals", Self::VT_TOTALS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<OutbreakRow>>>>("outbreaks", Self::VT_OUTBREAKS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ConflagrationRow>>>>("conflagrations", Self::VT_CONFLAGRATIONS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FloodRow>>>>("floods", Self::VT_FLOODS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<StormRow>>>>("storms", Self::VT_STORMS, false)?
      .finish();
     Ok(())
   }
@@ -32145,6 +33396,8 @@ pub struct IncidentsArgs<'a> {
     pub totals: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IncidentTotal<'a>>>>>,
     pub outbreaks: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OutbreakRow<'a>>>>>,
     pub conflagrations: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConflagrationRow<'a>>>>>,
+    pub floods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FloodRow<'a>>>>>,
+    pub storms: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StormRow<'a>>>>>,
 }
 impl<'a> Default for IncidentsArgs<'a> {
   #[inline]
@@ -32156,6 +33409,8 @@ impl<'a> Default for IncidentsArgs<'a> {
       totals: None,
       outbreaks: None,
       conflagrations: None,
+      floods: None,
+      storms: None,
     }
   }
 }
@@ -32190,6 +33445,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> IncidentsBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Incidents::VT_CONFLAGRATIONS, conflagrations);
   }
   #[inline]
+  pub fn add_floods(&mut self, floods: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<FloodRow<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Incidents::VT_FLOODS, floods);
+  }
+  #[inline]
+  pub fn add_storms(&mut self, storms: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<StormRow<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Incidents::VT_STORMS, storms);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> IncidentsBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     IncidentsBuilder {
@@ -32213,6 +33476,8 @@ impl ::core::fmt::Debug for Incidents<'_> {
       ds.field("totals", &self.totals());
       ds.field("outbreaks", &self.outbreaks());
       ds.field("conflagrations", &self.conflagrations());
+      ds.field("floods", &self.floods());
+      ds.field("storms", &self.storms());
       ds.finish()
   }
 }
@@ -33302,6 +34567,368 @@ impl ::core::fmt::Debug for ConflagrationInfo<'_> {
       ds.finish()
   }
 }
+pub enum FloodInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct FloodInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for FloodInfo<'a> {
+  type Inner = FloodInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> FloodInfo<'a> {
+  pub const VT_ROW: ::flatbuffers::VOffsetT = 4;
+  pub const VT_CAUSE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CAUSE_LINK: ::flatbuffers::VOffsetT = 8;
+  pub const VT_WEATHER: ::flatbuffers::VOffsetT = 10;
+  pub const VT_INCIDENTS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_SUMMARY: ::flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    FloodInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args FloodInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<FloodInfo<'bldr>> {
+    let mut builder = FloodInfoBuilder::new(_fbb);
+    if let Some(x) = args.summary { builder.add_summary(x); }
+    if let Some(x) = args.incidents { builder.add_incidents(x); }
+    if let Some(x) = args.weather { builder.add_weather(x); }
+    if let Some(x) = args.cause_link { builder.add_cause_link(x); }
+    if let Some(x) = args.cause { builder.add_cause(x); }
+    if let Some(x) = args.row { builder.add_row(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn row(&self) -> Option<FloodRow<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<FloodRow>>(FloodInfo::VT_ROW, None)}
+  }
+  #[inline]
+  pub fn cause(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FloodInfo::VT_CAUSE, None)}
+  }
+  #[inline]
+  pub fn cause_link(&self) -> Option<IncidentLink<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<IncidentLink>>(FloodInfo::VT_CAUSE_LINK, None)}
+  }
+  #[inline]
+  pub fn weather(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FloodInfo::VT_WEATHER, None)}
+  }
+  #[inline]
+  pub fn incidents(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IncidentRow<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IncidentRow>>>>(FloodInfo::VT_INCIDENTS, None)}
+  }
+  #[inline]
+  pub fn summary(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(FloodInfo::VT_SUMMARY, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for FloodInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<FloodRow>>("row", Self::VT_ROW, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("cause", Self::VT_CAUSE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<IncidentLink>>("cause_link", Self::VT_CAUSE_LINK, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("weather", Self::VT_WEATHER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<IncidentRow>>>>("incidents", Self::VT_INCIDENTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("summary", Self::VT_SUMMARY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct FloodInfoArgs<'a> {
+    pub row: Option<::flatbuffers::WIPOffset<FloodRow<'a>>>,
+    pub cause: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub cause_link: Option<::flatbuffers::WIPOffset<IncidentLink<'a>>>,
+    pub weather: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub incidents: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IncidentRow<'a>>>>>,
+    pub summary: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+}
+impl<'a> Default for FloodInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    FloodInfoArgs {
+      row: None,
+      cause: None,
+      cause_link: None,
+      weather: None,
+      incidents: None,
+      summary: None,
+    }
+  }
+}
+
+pub struct FloodInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloodInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_row(&mut self, row: ::flatbuffers::WIPOffset<FloodRow<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<FloodRow>>(FloodInfo::VT_ROW, row);
+  }
+  #[inline]
+  pub fn add_cause(&mut self, cause: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloodInfo::VT_CAUSE, cause);
+  }
+  #[inline]
+  pub fn add_cause_link(&mut self, cause_link: ::flatbuffers::WIPOffset<IncidentLink<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<IncidentLink>>(FloodInfo::VT_CAUSE_LINK, cause_link);
+  }
+  #[inline]
+  pub fn add_weather(&mut self, weather: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloodInfo::VT_WEATHER, weather);
+  }
+  #[inline]
+  pub fn add_incidents(&mut self, incidents: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<IncidentRow<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloodInfo::VT_INCIDENTS, incidents);
+  }
+  #[inline]
+  pub fn add_summary(&mut self, summary: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloodInfo::VT_SUMMARY, summary);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloodInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    FloodInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<FloodInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for FloodInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("FloodInfo");
+      ds.field("row", &self.row());
+      ds.field("cause", &self.cause());
+      ds.field("cause_link", &self.cause_link());
+      ds.field("weather", &self.weather());
+      ds.field("incidents", &self.incidents());
+      ds.field("summary", &self.summary());
+      ds.finish()
+  }
+}
+pub enum StormInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct StormInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for StormInfo<'a> {
+  type Inner = StormInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> StormInfo<'a> {
+  pub const VT_ROW: ::flatbuffers::VOffsetT = 4;
+  pub const VT_CAUSE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CAUSE_LINK: ::flatbuffers::VOffsetT = 8;
+  pub const VT_WEATHER: ::flatbuffers::VOffsetT = 10;
+  pub const VT_INCIDENTS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_SUMMARY: ::flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    StormInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args StormInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<StormInfo<'bldr>> {
+    let mut builder = StormInfoBuilder::new(_fbb);
+    if let Some(x) = args.summary { builder.add_summary(x); }
+    if let Some(x) = args.incidents { builder.add_incidents(x); }
+    if let Some(x) = args.weather { builder.add_weather(x); }
+    if let Some(x) = args.cause_link { builder.add_cause_link(x); }
+    if let Some(x) = args.cause { builder.add_cause(x); }
+    if let Some(x) = args.row { builder.add_row(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn row(&self) -> Option<StormRow<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<StormRow>>(StormInfo::VT_ROW, None)}
+  }
+  #[inline]
+  pub fn cause(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(StormInfo::VT_CAUSE, None)}
+  }
+  #[inline]
+  pub fn cause_link(&self) -> Option<IncidentLink<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<IncidentLink>>(StormInfo::VT_CAUSE_LINK, None)}
+  }
+  #[inline]
+  pub fn weather(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(StormInfo::VT_WEATHER, None)}
+  }
+  #[inline]
+  pub fn incidents(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IncidentRow<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IncidentRow>>>>(StormInfo::VT_INCIDENTS, None)}
+  }
+  #[inline]
+  pub fn summary(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(StormInfo::VT_SUMMARY, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for StormInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<StormRow>>("row", Self::VT_ROW, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("cause", Self::VT_CAUSE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<IncidentLink>>("cause_link", Self::VT_CAUSE_LINK, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("weather", Self::VT_WEATHER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<IncidentRow>>>>("incidents", Self::VT_INCIDENTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("summary", Self::VT_SUMMARY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct StormInfoArgs<'a> {
+    pub row: Option<::flatbuffers::WIPOffset<StormRow<'a>>>,
+    pub cause: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub cause_link: Option<::flatbuffers::WIPOffset<IncidentLink<'a>>>,
+    pub weather: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub incidents: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IncidentRow<'a>>>>>,
+    pub summary: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+}
+impl<'a> Default for StormInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    StormInfoArgs {
+      row: None,
+      cause: None,
+      cause_link: None,
+      weather: None,
+      incidents: None,
+      summary: None,
+    }
+  }
+}
+
+pub struct StormInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> StormInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_row(&mut self, row: ::flatbuffers::WIPOffset<StormRow<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<StormRow>>(StormInfo::VT_ROW, row);
+  }
+  #[inline]
+  pub fn add_cause(&mut self, cause: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StormInfo::VT_CAUSE, cause);
+  }
+  #[inline]
+  pub fn add_cause_link(&mut self, cause_link: ::flatbuffers::WIPOffset<IncidentLink<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<IncidentLink>>(StormInfo::VT_CAUSE_LINK, cause_link);
+  }
+  #[inline]
+  pub fn add_weather(&mut self, weather: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StormInfo::VT_WEATHER, weather);
+  }
+  #[inline]
+  pub fn add_incidents(&mut self, incidents: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<IncidentRow<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StormInfo::VT_INCIDENTS, incidents);
+  }
+  #[inline]
+  pub fn add_summary(&mut self, summary: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StormInfo::VT_SUMMARY, summary);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> StormInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    StormInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<StormInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for StormInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("StormInfo");
+      ds.field("row", &self.row());
+      ds.field("cause", &self.cause());
+      ds.field("cause_link", &self.cause_link());
+      ds.field("weather", &self.weather());
+      ds.field("incidents", &self.incidents());
+      ds.field("summary", &self.summary());
+      ds.finish()
+  }
+}
 pub enum CoverageSourceOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -34382,6 +36009,36 @@ impl<'a> Response<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_flood_info(&self) -> Option<FloodInfo<'a>> {
+    if self.body_type() == ResponseBody::FloodInfo {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { FloodInfo::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_storm_info(&self) -> Option<StormInfo<'a>> {
+    if self.body_type() == ResponseBody::StormInfo {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { StormInfo::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Response<'_> {
@@ -34420,6 +36077,8 @@ impl ::flatbuffers::Verifiable for Response<'_> {
           ResponseBody::OutbreakInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<OutbreakInfo>>("ResponseBody::OutbreakInfo", pos),
           ResponseBody::Coverage => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Coverage>>("ResponseBody::Coverage", pos),
           ResponseBody::ConflagrationInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ConflagrationInfo>>("ResponseBody::ConflagrationInfo", pos),
+          ResponseBody::FloodInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FloodInfo>>("ResponseBody::FloodInfo", pos),
+          ResponseBody::StormInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<StormInfo>>("ResponseBody::StormInfo", pos),
           _ => Ok(()),
         }
      })?
@@ -34665,6 +36324,20 @@ impl ::core::fmt::Debug for Response<'_> {
         },
         ResponseBody::ConflagrationInfo => {
           if let Some(x) = self.body_as_conflagration_info() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::FloodInfo => {
+          if let Some(x) = self.body_as_flood_info() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::StormInfo => {
+          if let Some(x) = self.body_as_storm_info() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

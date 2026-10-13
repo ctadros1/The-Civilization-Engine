@@ -247,6 +247,7 @@ mod tests {
                 taste: Default::default(),
                 admired: None,
                 midden: Default::default(),
+                flood_memory: Default::default(),
             });
         }
         pop

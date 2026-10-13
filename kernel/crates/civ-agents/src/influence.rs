@@ -38,11 +38,15 @@ pub enum InfluenceKind {
     /// A building's covering set alight (M6b slice BC, ADR-0022 §14): the target is the
     /// building, the subject its fire's number.
     Fire = 8,
+    /// A reach of a river raised to flood stage (M6b slice BF).
+    Flood = 9,
+    /// A storm sent across the world (M6b slice BF).
+    Storm = 10,
 }
 
 impl InfluenceKind {
     /// Every kind, in code order.
-    pub const ALL: [InfluenceKind; 9] = [
+    pub const ALL: [InfluenceKind; 11] = [
         InfluenceKind::Whisper,
         InfluenceKind::Ideology,
         InfluenceKind::Agitator,
@@ -52,6 +56,8 @@ impl InfluenceKind {
         InfluenceKind::Plague,
         InfluenceKind::Drought,
         InfluenceKind::Fire,
+        InfluenceKind::Flood,
+        InfluenceKind::Storm,
     ];
 
     /// Its number in saves.

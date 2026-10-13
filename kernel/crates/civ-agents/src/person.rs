@@ -727,6 +727,43 @@ pub struct Household {
     pub admired: Option<PermanentId>,
     /// Their midden (M3c slice V).
     pub midden: Midden,
+    /// Memory of the deepest floodwaters observed at home and at fields (M6b slice BF).
+    pub flood_memory: FloodMemory,
+}
+
+/// A household's memory of floodwaters at its home and fields (M6b slice BF).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct FloodMemory {
+    /// Deepest floodwater witnessed at home, cm.
+    pub home_depth_cm: u16,
+    /// Deepest floodwater witnessed at its fields, cm.
+    pub field_depth_cm: u16,
+    /// Day when this deepest water was observed.
+    pub day: i64,
+}
+
+impl FloodMemory {
+    /// Remember a flood event at home or fields.
+    pub fn remember(&mut self, home_cm: u16, field_cm: u16, day: i64) {
+        if home_cm > self.home_depth_cm {
+            self.home_depth_cm = home_cm;
+            self.day = day;
+        }
+        if field_cm > self.field_depth_cm {
+            self.field_depth_cm = field_cm;
+            self.day = day;
+        }
+    }
+
+    /// Faded memory over time: memory fades with half-life (e.g. 5 years = 1825 days).
+    pub fn faded_home_depth(&self, current_day: i64, half_life_days: f64) -> f64 {
+        if self.home_depth_cm == 0 || half_life_days <= 0.0 {
+            return 0.0;
+        }
+        let elapsed = (current_day - self.day).max(0) as f64;
+        let factor = (-elapsed * std::f64::consts::LN_2 / half_life_days).exp();
+        (self.home_depth_cm as f64) * factor
+    }
 }
 
 /// A household's midden beside its home: the heap of ash, food waste, sweepings and dung (research
@@ -776,6 +813,15 @@ pub struct Keeping {
 }
 
 impl Keeping {
+    /// Room for nothing yet, keeping on a raised floor `raised_factor` times as long as elsewhere.
+    pub fn empty(raised_factor: f64) -> Keeping {
+        Keeping {
+            raised_kg: 0.0,
+            roofed_kg: 0.0,
+            raised_factor,
+        }
+    }
+
     /// Room for everything: a roof as it was before storage had a capacity (a building whose
     /// program has left the content).
     pub const UNBOUNDED: Keeping = Keeping {
@@ -1101,6 +1147,7 @@ mod tests {
             taste: Default::default(),
             admired: None,
             midden: Midden::default(),
+            flood_memory: FloodMemory::default(),
         }
     }
 

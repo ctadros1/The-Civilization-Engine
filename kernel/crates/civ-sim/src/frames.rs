@@ -177,6 +177,7 @@ pub fn raster_response(
     map: &WorldMap,
     ground: &GroundDelta,
     stats: &MapStats,
+    flood_depths: &[f32],
     query: &RasterQuery,
 ) -> Result<Vec<u8>, QueryError> {
     if query.level > MAX_LEVEL {
@@ -311,6 +312,27 @@ pub fn raster_response(
                 }
             }
             (wire::RasterFormat::U32, 1.0, 0.0)
+        }
+        wire::RasterLayer::FloodDepth => {
+            data.reserve(w as usize * h as usize * 4);
+            for y in 0..h {
+                for x in 0..w {
+                    let (xs, ys) = cells(x, y);
+                    let mut max = 0.0f32;
+                    for yy in ys {
+                        let row = yy * mw;
+                        if row < flood_depths.len() {
+                            let end = (row + xs.end).min(flood_depths.len());
+                            let start = (row + xs.start).min(end);
+                            for &d in &flood_depths[start..end] {
+                                max = max.max(d);
+                            }
+                        }
+                    }
+                    data.extend_from_slice(&max.to_le_bytes());
+                }
+            }
+            (wire::RasterFormat::F32, 1.0, 0.0)
         }
         other => {
             return Err(QueryError(format!(

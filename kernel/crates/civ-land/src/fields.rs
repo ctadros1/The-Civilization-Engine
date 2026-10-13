@@ -301,6 +301,10 @@ pub struct Field {
     pub got_mm: f32,
     /// Its soil's nitrogen and the record of its harvests (ADR-0012 §3).
     pub soil: FieldSoil,
+    /// Peak water depth over the field during the most recent flood, in centimetres.
+    pub last_flood_depth_cm: u16,
+    /// Days the field's standing crop has remained submerged under water.
+    pub submerged_days: u16,
 }
 
 /// What a field's season and soil allow its harvest (ADR-0012 §2-3).
@@ -386,14 +390,16 @@ impl Field {
 
     /// The grain the season lets the crop grow, kilograms, when its water allows a share `water`
     /// of the yield (1 in a year of average water): its area and ground, the timeliness of its
-    /// sowing and its tending.
+    /// sowing, its tending and flood submersion.
     fn season_kg(&self, crop: &CropParams, water: f64) -> f64 {
+        let flood_factor = (1.0 - 0.20 * f64::from(self.submerged_days)).clamp(0.0, 1.0);
         self.area_ha()
             * crop.yield_kg_per_ha
             * f64::from(self.ground)
             * water.max(0.0)
             * crop.timeliness(self.sown_day)
             * self.tending(crop)
+            * flood_factor
     }
 
     /// The share of the ripe crop still standing on `day`.
@@ -577,6 +583,7 @@ impl Field {
                 self.sown_day = day;
                 self.tended_h = 0.0;
                 (self.need_mm, self.got_mm) = (0.0, 0.0);
+                self.submerged_days = 0;
                 FieldStage::Sown
             }
             FieldStage::Sown => {
@@ -624,7 +631,7 @@ impl Field {
             FieldStage::Prepared => !crop.can_prepare(day),
             FieldStage::Sown => {
                 let standing = (day - self.ripe_day(crop)) as f64;
-                standing * crop.standing_loss_per_day >= 1.0
+                standing * crop.standing_loss_per_day >= 1.0 || self.submerged_days >= 5
             }
             FieldStage::Fallow | FieldStage::Reaped => false,
         };
@@ -632,6 +639,7 @@ impl Field {
             self.stage = FieldStage::Fallow;
             self.work_h = 0.0;
             self.tended_h = 0.0;
+            self.submerged_days = 0;
             self.stage_since = now;
         }
         lapsed
@@ -702,6 +710,8 @@ pub(crate) mod tests {
             need_mm: 0.0,
             got_mm: 0.0,
             soil: FieldSoil::default(),
+            last_flood_depth_cm: 0,
+            submerged_days: 0,
         }
     }
 
@@ -1018,5 +1028,36 @@ pub(crate) mod tests {
         };
         assert!(!a.near(&b, 200), "3 m apart");
         assert!(a.near(&b, 400), "within 4 m");
+    }
+
+    #[test]
+    fn submerged_days_reduce_standing_yield_and_lapse_at_five_days() {
+        let c = crop();
+        let mut f = field();
+        f.stage = FieldStage::Sown;
+        f.sown_day = 100;
+        let ripe = f.ripe_day(&c);
+
+        let baseline = f.yield_kg(&c, ripe, 1.0);
+        assert!(baseline > 0.0);
+
+        f.submerged_days = 1;
+        assert!((f.yield_kg(&c, ripe, 1.0) - baseline * 0.8).abs() < 1e-4);
+
+        f.submerged_days = 2;
+        assert!((f.yield_kg(&c, ripe, 1.0) - baseline * 0.6).abs() < 1e-4);
+
+        // At 4 days: 20% remains. Does not lapse yet.
+        f.submerged_days = 4;
+        assert!((f.yield_kg(&c, ripe, 1.0) - baseline * 0.2).abs() < 1e-4);
+        assert!(!f.new_day(&c, ripe, SimTime::ZERO));
+        assert_eq!(f.stage, FieldStage::Sown);
+
+        // At 5 days: yield is 0, and new_day lapses it to fallow.
+        f.submerged_days = 5;
+        assert_eq!(f.yield_kg(&c, ripe, 1.0), 0.0);
+        assert!(f.new_day(&c, ripe, SimTime::ZERO));
+        assert_eq!(f.stage, FieldStage::Fallow);
+        assert_eq!(f.submerged_days, 0);
     }
 }

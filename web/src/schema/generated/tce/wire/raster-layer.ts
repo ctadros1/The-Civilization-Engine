@@ -6,5 +6,6 @@ export enum RasterLayer {
   Elevation = 0,
   Water = 1,
   DrainageArea = 2,
-  LakeId = 3
+  LakeId = 3,
+  FloodDepth = 4
 }

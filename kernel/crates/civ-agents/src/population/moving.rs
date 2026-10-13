@@ -382,12 +382,13 @@ impl Population {
             water_walk_min: 0.0,
             known: Vec::new(),
             sheltered: false,
-            keeping: crate::person::Keeping::default(),
+            keeping: crate::person::Keeping::empty(ctx.params.household.raised_store_factor),
             flows: Flows::default(),
             offers: Vec::new(),
             taste: old.taste,
             admired: old.admired,
             midden: crate::person::Midden::begun(now),
+            flood_memory: crate::person::FloodMemory::default(),
         });
         // Its people and what they know of other places go with it; where they lived is now a
         // place they know.
@@ -537,12 +538,13 @@ impl Population {
             water_walk_min: 0.0,
             known: Vec::new(),
             sheltered: false,
-            keeping: crate::person::Keeping::default(),
+            keeping: crate::person::Keeping::empty(ctx.params.household.raised_store_factor),
             flows: Flows::default(),
             offers: Vec::new(),
             taste,
             admired,
             midden: crate::person::Midden::begun(now),
+            flood_memory: crate::person::FloodMemory::default(),
         });
         let mut person = p.clone();
         person.household = hh;

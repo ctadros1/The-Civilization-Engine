@@ -176,6 +176,8 @@ pub enum Reason {
     /// A roof a fire threatens, and what saving it is worth to them: their household's, their
     /// kin's or a neighbour's, by how near it stands to catching (M6b slice BD, step three).
     FireThreatens = 144,
+    /// Home is flooded (M6b slice BF): nothing is done there until waters recede.
+    HomeFlooded = 145,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -187,7 +189,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 78] = [
+    pub const ALL: [Reason; 79] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -266,6 +268,7 @@ impl Reason {
         Reason::Tend,
         Reason::HomeAfire,
         Reason::FireThreatens,
+        Reason::HomeFlooded,
     ];
 
     /// The reason with this code.
@@ -356,6 +359,7 @@ impl Reason {
             Reason::Tend => "someone ill at home needs tending",
             Reason::HomeAfire => "a fire burns at home",
             Reason::FireThreatens => "a fire threatens a roof",
+            Reason::HomeFlooded => "home is flooded",
         }
     }
 }
@@ -770,6 +774,26 @@ pub enum ChronicleKind {
     /// `settlement` where; `place` the building; `number` the step ([`FireStep`]); `name` the
     /// sentence, with its counts.
     Fire,
+    /// A river spilled its banks and inundated ground (M6b slice BF).
+    Flood,
+    /// High winds tore roofs or coverings (M6b slice BF).
+    StormDamage,
+}
+
+/// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FloodStep {
+    /// River overflowed banks / inundation began.
+    Inundated = 0,
+    /// Floodwaters receded.
+    Receded = 1,
+}
+
+/// What happened in a storm, in a [`ChronicleKind::StormDamage`] entry. Numeric in saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StormStep {
+    /// A roof covering was damaged or torn off by wind.
+    Damaged = 0,
 }
 
 /// What happened in a fire, in a [`ChronicleKind::Fire`] entry. Numeric in saves: append only.
@@ -1333,6 +1357,18 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                         event.name
                     ))];
                 }
+                Some(crate::influence::InfluenceKind::Flood) => {
+                    return vec![Span::Text(format!(
+                        "One recorded influence: the observer raised the river{}",
+                        event.name
+                    ))];
+                }
+                Some(crate::influence::InfluenceKind::Storm) => {
+                    return vec![Span::Text(format!(
+                        "One recorded influence: the observer sent a storm{}",
+                        event.name
+                    ))];
+                }
                 None => "reached ",
             };
             let lead = format!("One recorded influence: the observer {verb}");
@@ -1366,7 +1402,9 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::Crossing
         | ChronicleKind::Well
         | ChronicleKind::Outbreak
-        | ChronicleKind::Fire => {
+        | ChronicleKind::Fire
+        | ChronicleKind::Flood
+        | ChronicleKind::StormDamage => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

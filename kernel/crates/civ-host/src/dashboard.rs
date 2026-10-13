@@ -177,6 +177,8 @@ pub struct WorldRun {
     /// Its infections over the run, and how each outbreak's cases sat against its sources (M6a
     /// slice BB).
     pub epidemics: EpidemicsSeen,
+    /// The floods and storms it saw (M6b slice BF).
+    pub floods: FloodsSeen,
 }
 
 /// A world's infections over a run, and each outbreak's cases against the source most of its
@@ -388,6 +390,78 @@ impl FiresSeen {
         self.spread += o.spread;
         self.set += o.set;
         self.deaths += o.deaths;
+    }
+}
+
+/// The floods and storms a world saw (M6b slice BF).
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+pub struct FloodsSeen {
+    pub flood_episodes: u32,
+    pub high_waters: u32,
+    pub buildings_flooded: u32,
+    pub fields_lost: u32,
+    pub spoiled_kg: f32,
+    pub storm_episodes: u32,
+    pub storm_damages: u32,
+}
+
+impl FloodsSeen {
+    /// Counts `sim`'s floods and storms since it was made.
+    pub fn count(&mut self, sim: &Sim) {
+        let floods = &sim.people().floods;
+        self.flood_episodes = floods.flood_episodes.len() as u32;
+        self.high_waters = floods.high_waters.len() as u32;
+        self.storm_episodes = floods.storm_episodes.len() as u32;
+        self.storm_damages = floods.storm_damages.len() as u32;
+
+        let ep_bld: u32 = floods
+            .flood_episodes
+            .iter()
+            .map(|e| e.total_buildings)
+            .sum();
+        let hw_bld: u32 = floods
+            .high_waters
+            .iter()
+            .map(|hw| hw.buildings_flooded)
+            .sum();
+        let land_bld = sim
+            .land()
+            .buildings
+            .iter()
+            .filter(|b| b.last_flood_depth_cm > 0)
+            .count() as u32;
+        self.buildings_flooded = ep_bld.max(hw_bld).max(land_bld);
+
+        let ep_fields: u32 = floods
+            .flood_episodes
+            .iter()
+            .map(|e| e.total_fields_lost)
+            .sum();
+        let land_fields = sim
+            .land()
+            .fields
+            .iter()
+            .filter(|f| f.submerged_days >= 5)
+            .count() as u32;
+        self.fields_lost = ep_fields.max(land_fields);
+
+        let ep_spoil: f32 = floods
+            .flood_episodes
+            .iter()
+            .map(|e| e.total_spoiled_kg)
+            .sum();
+        let hw_spoil: f32 = floods.high_waters.iter().map(|hw| hw.spoiled_kg).sum();
+        self.spoiled_kg = ep_spoil.max(hw_spoil);
+    }
+
+    fn join(&mut self, o: &FloodsSeen) {
+        self.flood_episodes += o.flood_episodes;
+        self.high_waters += o.high_waters;
+        self.buildings_flooded += o.buildings_flooded;
+        self.fields_lost += o.fields_lost;
+        self.spoiled_kg += o.spoiled_kg;
+        self.storm_episodes += o.storm_episodes;
+        self.storm_damages += o.storm_damages;
     }
 }
 
@@ -929,6 +1003,7 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
     world.crime = CrimeSeen::of(&sim.people().order);
     world.water = WaterSeen::of(sim);
     world.fires.count(sim);
+    world.floods.count(sim);
     world.epidemics = std::mem::take(&mut run.epidemics);
     world.epidemics.finish(sim);
     world.settlements = sim
@@ -1006,6 +1081,7 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
         water(worlds),
         epidemics(worlds),
         fires(worlds),
+        floods(worlds),
         regimes(worlds),
     ]
 }
@@ -1439,6 +1515,32 @@ fn fires(worlds: &[WorldRun]) -> Row {
     );
     let inside = (1.0..=100.0).contains(&rate);
     row.graded(if inside { Grade::Green } else { Grade::Amber }, text)
+}
+
+/// Floods and storms (M6b slice BF): high waters, flood episodes, buildings inundated,
+/// fields lost to submersion, floor stores spoiled, and storm damages. Reported and not graded.
+fn floods(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Floods and storms",
+        "flood and storm episodes, high waters, buildings inundated, fields lost and stores spoiled",
+        "reported",
+    )
+    .source("research 12-05 §2; ADR-0022 §13");
+    let mut all = FloodsSeen::default();
+    for w in worlds {
+        all.join(&w.floods);
+    }
+    let text = format!(
+        "{} flood episodes ({} high waters); {} buildings inundated, {} fields lost, {:.0} kg spoiled; {} storm episodes ({} damages)",
+        all.flood_episodes,
+        all.high_waters,
+        all.buildings_flooded,
+        all.fields_lost,
+        all.spoiled_kg,
+        all.storm_episodes,
+        all.storm_damages,
+    );
+    row.graded(Grade::Gray, text)
 }
 
 fn epidemics(worlds: &[WorldRun]) -> Row {
@@ -2184,6 +2286,7 @@ mod tests {
             "Crime and poverty",
             "Water",
             "Epidemics",
+            "Floods and storms",
             "Regimes",
         ] {
             assert!(grey.contains(&name), "{name} grey: {grey:?}");
@@ -2207,7 +2310,37 @@ mod tests {
         // Only population and the accounts are graded, both worlds keep their bands and no
         // settlement's accounts failed: a pass, but no grey row counts as one.
         assert!(dashboard.passed());
-        assert_eq!(dashboard.summary(), "2 passed, 14 not yet applicable");
+        assert_eq!(dashboard.summary(), "2 passed, 15 not yet applicable");
+    }
+
+    #[test]
+    fn the_floods_row_reports_episodes_high_waters_damages_and_losses() {
+        let mut a = world(1, &[40]);
+        a.floods = FloodsSeen {
+            flood_episodes: 2,
+            high_waters: 5,
+            buildings_flooded: 4,
+            fields_lost: 1,
+            spoiled_kg: 85.5,
+            storm_episodes: 1,
+            storm_damages: 3,
+        };
+        let mut b = world(2, &[40]);
+        b.floods = FloodsSeen {
+            flood_episodes: 1,
+            high_waters: 2,
+            buildings_flooded: 2,
+            fields_lost: 0,
+            spoiled_kg: 14.5,
+            storm_episodes: 2,
+            storm_damages: 4,
+        };
+        let row = floods(&[a, b]);
+        assert_eq!(row.grade, Grade::Gray);
+        assert_eq!(
+            row.text,
+            "3 flood episodes (7 high waters); 6 buildings inundated, 1 fields lost, 100 kg spoiled; 3 storm episodes (7 damages)"
+        );
     }
 
     #[test]

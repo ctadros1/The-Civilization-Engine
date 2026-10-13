@@ -3110,3 +3110,11 @@ One line each. Don't re-litigate without a reason written next to the entry.
   caution leads to choosing mass walls and tile roofs where techniques are known.
   Workspace tests (`simcheck`), clippy, content validation, web tests and all 10 smoke worlds pass.
 
+- **Floods and storms, as built (2026-10-13, M6b slice BF; ADR-0022 §8, §9):**
+  **Hydraulics & floodplain:** Reach hydraulic geometry with width, slope, and Manning roughness $n=0.035$; bankfull discharge $Q_{bf} = 1.5 \times Q_{mean}$ and stage $d_{bf} = (n Q_{bf} / (w S^{0.5}))^{0.6}$. Height Above Nearest Drainage (HAND) precomputed from D8 flow routing into reach compartments. Inundation extent and depth calculated using reach transit time ($L / V_{bf}$) and cumulative elevation-storage curves, ensuring mass conservation and natural overbank stage.
+  **Fords & walkability:** Dynamic daily fordability based on river stage; wading threshold restricts deep cells ($>0.6\text{ m}$) from being walked into.
+  **Impacts:** Water above floor spoils perishable/food floor goods at depth-dependent rates while preserving durables; wetness wears daub and mud brick; submerged crops track flood days; people evacuate flooded homes to dry kin homes or settlement hearth.
+  **Storms & uplift:** Monthly wind gusts draw uplift loads ($q = \frac{1}{2}\rho V^2$); covering uplift capacity calibrated with material-specific thresholds (thatch $600 + 600 \times Q$, tile $1500 + 1000 \times (1 - \text{loss})$); torn coverings record storm damage incidents and episodes without triggering premature structural collapse.
+  **God tools:** `RaiseRiver` and `SendStorm` commands exposed over wire schema (wire 1.69) with observer responses, queries (`GetFlood`, `GetStorm`), and incident feeds. Refusal, never repair in save schema 93.
+  Workspace tests (`simcheck`), clippy (`-D warnings`), formatting, web vitest suites, and all 10 smoke seeds pass cleanly.
+

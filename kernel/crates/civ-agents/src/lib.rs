@@ -39,6 +39,7 @@ pub mod faction;
 pub mod farm;
 pub mod fire;
 pub mod firm;
+pub mod floods;
 pub mod fords;
 pub mod found;
 pub mod history;
@@ -70,19 +71,20 @@ pub mod views;
 pub mod wealth;
 pub mod word;
 
+pub use floods::{FloodEpisode, Floods, HighWater, StormDamage, StormEpisode};
 pub use found::{
     Founded, MAX_FOUNDING_GROUPS, MAX_SPAWN_FAMILIES, Spawned, WAVE_KNOWN_M, found_band,
     found_bands, send_agitator, send_wave, spawn_families, spawn_family,
 };
 pub use history::{
-    AgreementStep, Cause, ChronicleEvent, ChronicleKind, CoalitionStep, CrossingStep, Moved,
-    Origin, OutbreakStep, PersonRecord, Reason, Receipt, ResidenceWhy, Scored, Span, Stay, Term,
-    Union, WellStep,
+    AgreementStep, Cause, ChronicleEvent, ChronicleKind, CoalitionStep, CrossingStep, FloodStep,
+    Moved, Origin, OutbreakStep, PersonRecord, Reason, Receipt, ResidenceWhy, Scored, Span, Stay,
+    StormStep, Term, Union, WellStep,
 };
 pub use ledger::Channel;
 pub use needs::Sex;
 pub use params::{ActivityDef, Behavior, Catalog, PeopleParams, RecipeDef, SkillDef};
 pub use person::{
-    Activity, Household, KnownPatch, Load, Person, Repro, Step, Target, Traits, Trip,
+    Activity, FloodMemory, Household, KnownPatch, Load, Person, Repro, Step, Target, Traits, Trip,
 };
 pub use population::{AgentEvent, Approximations, Ctx, Population, TimeUse, WaterDraws};

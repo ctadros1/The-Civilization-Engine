@@ -1678,12 +1678,13 @@ impl Population {
             water_walk_min: 0.0,
             known: natal.known.clone(),
             sheltered: false,
-            keeping: crate::person::Keeping::default(),
+            keeping: crate::person::Keeping::empty(ctx.params.household.raised_store_factor),
             flows: Flows::default(),
             offers: Vec::new(),
             taste,
             admired,
             midden: crate::person::Midden::begun(ctx.now),
+            flood_memory: crate::person::FloodMemory::default(),
         });
         for who in [woman, man] {
             let Some(from) = self.person(who).map(|p| p.household) else {

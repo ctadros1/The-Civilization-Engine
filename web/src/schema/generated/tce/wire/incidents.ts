@@ -5,10 +5,12 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { ConflagrationRow } from '../../tce/wire/conflagration-row.js';
+import { FloodRow } from '../../tce/wire/flood-row.js';
 import { IncidentKey } from '../../tce/wire/incident-key.js';
 import { IncidentRow } from '../../tce/wire/incident-row.js';
 import { IncidentTotal } from '../../tce/wire/incident-total.js';
 import { OutbreakRow } from '../../tce/wire/outbreak-row.js';
+import { StormRow } from '../../tce/wire/storm-row.js';
 
 
 export class Incidents {
@@ -79,8 +81,28 @@ conflagrationsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+floods(index: number, obj?:FloodRow):FloodRow|null {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? (obj || new FloodRow()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+floodsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+storms(index: number, obj?:StormRow):StormRow|null {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? (obj || new StormRow()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+stormsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 18);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startIncidents(builder:flatbuffers.Builder) {
-  builder.startObject(6);
+  builder.startObject(8);
 }
 
 static addMinute(builder:flatbuffers.Builder, minute:bigint) {
@@ -152,6 +174,38 @@ static createConflagrationsVector(builder:flatbuffers.Builder, data:flatbuffers.
 }
 
 static startConflagrationsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addFloods(builder:flatbuffers.Builder, floodsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(6, floodsOffset, 0);
+}
+
+static createFloodsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startFloodsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addStorms(builder:flatbuffers.Builder, stormsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(7, stormsOffset, 0);
+}
+
+static createStormsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startStormsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 

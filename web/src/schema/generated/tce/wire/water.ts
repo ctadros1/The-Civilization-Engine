@@ -5,6 +5,7 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { BankDraw } from '../../tce/wire/bank-draw.js';
+import { FloodCell } from '../../tce/wire/flood-cell.js';
 import { SpringInfo } from '../../tce/wire/spring-info.js';
 import { WellInfo } from '../../tce/wire/well-info.js';
 
@@ -67,8 +68,18 @@ banksLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+flooded(index: number, obj?:FloodCell):FloodCell|null {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? (obj || new FloodCell()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 8, this.bb!) : null;
+}
+
+floodedLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startWater(builder:flatbuffers.Builder) {
-  builder.startObject(5);
+  builder.startObject(6);
 }
 
 static addRev(builder:flatbuffers.Builder, rev:bigint) {
@@ -111,18 +122,27 @@ static startBanksVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(12, numElems, 4);
 }
 
+static addFlooded(builder:flatbuffers.Builder, floodedOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(5, floodedOffset, 0);
+}
+
+static startFloodedVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(8, numElems, 4);
+}
+
 static endWater(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWater(builder:flatbuffers.Builder, rev:bigint, wellsOffset:flatbuffers.Offset, springsOffset:flatbuffers.Offset, flow:number, banksOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createWater(builder:flatbuffers.Builder, rev:bigint, wellsOffset:flatbuffers.Offset, springsOffset:flatbuffers.Offset, flow:number, banksOffset:flatbuffers.Offset, floodedOffset:flatbuffers.Offset):flatbuffers.Offset {
   Water.startWater(builder);
   Water.addRev(builder, rev);
   Water.addWells(builder, wellsOffset);
   Water.addSprings(builder, springsOffset);
   Water.addFlow(builder, flow);
   Water.addBanks(builder, banksOffset);
+  Water.addFlooded(builder, floodedOffset);
   return Water.endWater(builder);
 }
 }

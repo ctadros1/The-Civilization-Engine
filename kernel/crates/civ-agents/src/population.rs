@@ -48,6 +48,7 @@ mod digging;
 mod faction;
 mod fire;
 mod firm;
+mod floods;
 mod force;
 mod founding;
 mod ideology;
@@ -473,6 +474,8 @@ pub struct Population {
     /// Every fire there has been, the conflagrations they made, and the exposure of buildings
     /// near those burning now (M6b slice BC; ADR-0022 §4, §13). Saved.
     pub fires: crate::fire::Fires,
+    /// Every high-water, flood and storm incident and episode (M6b slice BF). Saved.
+    pub floods: crate::floods::Floods,
     /// River cells by the reach they belong to, for loads washed or drawn there. Derived from the
     /// map when first needed; not saved.
     reach_cells: Option<BTreeMap<u32, u32>>,
@@ -1661,7 +1664,7 @@ impl Population {
         let water = edges.next();
         let banks: Vec<(u32, f32)> = edges.collect();
         let springs = springs_in_reach(ctx.land, &field, water.map_or(f32::INFINITY, |w| w.1));
-        let places = self
+        let places: Vec<Vec<(u32, f32)>> = self
             .places
             .iter()
             .map(|kind| {
@@ -2716,6 +2719,14 @@ impl Population {
             home_afire: self.knows_home_afire(p.id, p.household, now, params),
             fire: fire_facts,
             tend: self.tend_facts(ctx, p.id, &hh),
+            home_flooded: ctx
+                .land
+                .flood_depths
+                .get(cell_of(ctx.map, hh.home))
+                .copied()
+                .unwrap_or(0.0)
+                > 0.0,
+            shelter: hearth,
         };
         let limits = Limits {
             sleep_needed_min: needs::minutes_to_rest(&params.sleep, f64::from(p.sleep_pressure)),
@@ -3721,6 +3732,8 @@ impl Population {
                         water_mm: 0.0,
                         need_mm: 0.0,
                         got_mm: 0.0,
+                        last_flood_depth_cm: 0,
+                        submerged_days: 0,
                         // Native ground's soil (ADR-0012 §3), of the ground the field keeps.
                         soil: FieldSoil::native(
                             &ctx.land_params.soil,
@@ -5696,6 +5709,7 @@ impl Population {
             }
         }
         self.check_buildings(ctx);
+        self.floods_day(ctx);
         // The minutes at which each home's fires in use may escape today (M6b slice BD).
         self.plan_ignitions(ctx, day);
         // And the crossings over water (M5c slice AW): rot and failure, then the households
@@ -5814,7 +5828,7 @@ fn lay_out_places(ctx: &Ctx, range: u32, in_water: bool) -> Places {
             for y in by * side * pc..((by + 1) * side * pc).min(map.height) {
                 for x in bx * side * pc..((bx + 1) * side * pc).min(map.width) {
                     let i = y as usize * map.width as usize + x as usize;
-                    if map.water[i] != civ_world::WATER_LAND || !ctx.nav.walkable(i) {
+                    if map.water[i] != civ_world::WATER_LAND {
                         continue;
                     }
                     let d = x.abs_diff(cx).pow(2) + y.abs_diff(cy).pow(2);

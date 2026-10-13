@@ -1,0 +1,13 @@
+# Fired clay roof tile: thin ceramic units for a durable, noncombustible roof covering (research
+# 11-08 §1.1, §4). At 65 kg/m² it is heavier than thatch, but it keeps indefinitely and cannot
+# catch fire.
+kind = "good"
+id = "core:good/roof_tile"
+name = "Roof tile"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

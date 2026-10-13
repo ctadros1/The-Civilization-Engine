@@ -2420,6 +2420,13 @@ and M6a gives rivers a daily flow.
       foot.
     - Tile's weight on the rafters, and fire caution in the design choice. Cost emerges from
       the chain.
+    - *Implemented (2026-10-12, §9):* 5 goods, 4 techniques, 5 recipes and activities; early farmers
+      bring rubble walling and mud brick; frame grammar version 2 (`FRAME_VERSION = 2`) adds
+      `GroupKind::MassWall`, stone footings and 65 kg/m² tile roofing while version 1 remains
+      frozen with exact golden hashes; slenderness reduction factor and compressive crushing
+      evaluations in structural checks; wetness wears mass walls at foot; fire caution selects
+      mass walls and tile roofs when techniques are known; workspace tests, clippy and 10 smoke
+      worlds pass.
   - **BF**: floods and storms.
     - Stage per reach from the day's flow, and extent through each reach's floodplain storage
       curve.
@@ -3087,3 +3094,27 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Amending the custom, as built (2026-10-08, M4c slice AF, ADR-0013 §2, ADR-0017 §1):** no new ADR: ADR-0013 §2 already lets the custom amend its body and ADR-0017 §1 asks for versions. **The body's fields became amendable values:** membership (every adult; each household's elder, its first member of an age to keep one; or the adults of households holding a field, nobody where the settlement holds the fields), the share who must come, and the rule (more for than against, or two of every three who take a side; a tie fails either way) (research 09-05 §1.4, §3.9). **The template** (`core:policy/amend_custom`, `does = "amend_body"`, content API 40) offers adults, elders or landholders, a quarter or a half, and either rule (tuning values); a sponsor weighs only the bodies one change away from the present custom and that keep them a member (09-05 §2.3: a few alternatives; §3.9: reform changes one gate at a time). **Who may propose:** the move answers a new per-person issue, `overruled`: someone who came within memory (`vote_memory_days`, 365) to a gathering that decided against where they stood, or who holds a grievance against the gathering (slice AE). **The forecast** (09-02 §3.7: institutional change is proposed for an expected benefit; 09-05 §1.2): a household judges a rule by how it would have decided the laws and cases it saw decided, re-deciding each under the new body from the stances recorded there (open acclamation: those who came saw them), at the stake the household had in each, and counting only those the new body admits now. The sponsor weighs it from what they saw; each household's stance at the gathering comes from what its own members saw. **Measured, and changed:** the first build let anyone overruled weigh four amendments of no gain, and at temperature 0.5 the softmax would pick one about three times in five (four moves at −0.5 points against none at 0, worked out, not measured): in the government e2e world a village amended its custom to landholders, 24 to 0, though every household held land and nothing changed. An amendment is now weighed only when it would have served the sponsor's own household (a positive forecast); no other move is filtered so. **Once passed** (decided by the present custom), the body's members alone come to its gatherings, stand and count toward its quorum, propose and are weighed for support; anyone may still hold an office it creates. The amendment law stays in force until a later one supersedes it (status 4, appended); the custom keeps its versions with the amendment that made each; the chronicle tells it as an amendment (a new entry kind, appended), apart from the law's decision; the label reads the share of adults the body admits. **The ten-year smoke passed all 10 worlds, and no village amended its custom**: its gatherings are nearly unanimous at about 50 people (92-100 % came, at most 2 without a quorum in one world), so few are overruled, and for them no single change would have decided otherwise what they saw. This is recorded, not tuned: amendments are vocabulary people use when the record gives them cause. **Boundary:** saves schema 36 (35 still loads: the founding custom is its only version), wire 1.35 (the custom's versions and how many may decide, in the Government panel), content API 40. **Gates:** Gate B and the notables' gate passed on the build before the positive-forecast filter, which only removes moves of no gain. **Not built:** amending who may propose (anyone in the body may), seats filled by a procedure, and unanimity or consensus rules (09-05 §1.4); and the bodies' memberships beyond the three named.
 
 - **The dashboard fire row, as built (2026-10-11, M6b slice BD, ADR-0022 §3):** each lived world's fire escapes are counted against its household-years. The aggregate rate is green within research 12-03 §4.4's 1–100 per 1,000 household-years and amber outside; with no household-years it is grey. The row reports escapes put out, buildings burned, fires caught from neighbors and deaths, with fires the observer set listed separately. A unit test checks aggregation across worlds and the range boundaries. This is a reference check for one authored prior, not a broad calibration result; the planned sweep remains open.
+
+- **Masonry, brick and tile, as built (2026-10-12, M6b slice BE, ADR-0022 §10):**
+  **Content:** five goods (`mud_brick`, `brick`, `roof_tile`, `quicklime`, `kiln`), four techniques
+  (`rubble_walling`, `mud_brick`, `firing`, `lime_burning`), five recipes and activities (`mould_mud_brick`,
+  `build_kiln`, `fire_bricks`, `fire_tiles`, `burn_lime`). `early_farmers` founders bring `rubble_walling` and
+  `mud_brick`; `firing` and `lime_burning` come by finding. Firing recipes model kiln batches with fuel per
+  session and 10 % breakage; mud bricks are moulded and spoil in wet outdoor weather (sheltered half-life 0).
+  **Grammar:** `civ-grammar` version 2 (`FRAME_VERSION = 2`) supports `WALL_KIND` 1..=3 (rubble, mud brick, fired brick)
+  on stone `FOOTING` 1, and tile covering (65 kg/m²). Version 1 grammar remains frozen with exact golden hashes.
+  **Structural mechanics:** `GroupKind::MassWall` (code 10) checked for slenderness ($H/t$) and crushing strength
+  (rubble 1.5 MPa, mud brick 1.0 MPa, fired brick 3.0 MPa); wears at foot from wetness; causes building ruin upon
+  failure.
+  **Fire caution:** settlements remember fire losses by covering and wall kind against building-years; elevated fire
+  caution leads to choosing mass walls and tile roofs where techniques are known.
+  Workspace tests (`simcheck`), clippy, content validation, web tests and all 10 smoke worlds pass.
+
+- **Floods and storms, as built (2026-10-13, M6b slice BF; ADR-0022 §8, §9):**
+  **Hydraulics & floodplain:** Reach hydraulic geometry with width, slope, and Manning roughness $n=0.035$; bankfull discharge $Q_{bf} = 1.5 \times Q_{mean}$ and stage $d_{bf} = (n Q_{bf} / (w S^{0.5}))^{0.6}$. Height Above Nearest Drainage (HAND) precomputed from D8 flow routing into reach compartments. Inundation extent and depth calculated using reach transit time ($L / V_{bf}$) and cumulative elevation-storage curves, ensuring mass conservation and natural overbank stage.
+  **Fords & walkability:** Dynamic daily fordability based on river stage; wading threshold restricts deep cells ($>0.6\text{ m}$) from being walked into.
+  **Impacts:** Water above floor spoils perishable/food floor goods at depth-dependent rates while preserving durables; wetness wears daub and mud brick; submerged crops track flood days; people evacuate flooded homes to dry kin homes or settlement hearth.
+  **Storms & uplift:** Monthly wind gusts draw uplift loads ($q = \frac{1}{2}\rho V^2$); covering uplift capacity calibrated with material-specific thresholds (thatch $600 + 600 \times Q$, tile $1500 + 1000 \times (1 - \text{loss})$); torn coverings record storm damage incidents and episodes without triggering premature structural collapse.
+  **God tools:** `RaiseRiver` and `SendStorm` commands exposed over wire schema (wire 1.69) with observer responses, queries (`GetFlood`, `GetStorm`), and incident feeds. Refusal, never repair in save schema 93.
+  Workspace tests (`simcheck`), clippy (`-D warnings`), formatting, web vitest suites, and all 10 smoke seeds pass cleanly.
+

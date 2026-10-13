@@ -129,6 +129,7 @@ fn words(sim: &Sim, c: &Crossing, margin: Option<f64>) -> String {
             let how = match why {
                 Collapse::OwnWeight => "under its own weight",
                 Collapse::UnderWalker => "under someone stepping onto it",
+                Collapse::Scour => "from flood scour",
             };
             format!("{what}, gave way in year {} {how}", year_of(day))
         }

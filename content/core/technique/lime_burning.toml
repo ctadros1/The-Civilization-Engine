@@ -1,0 +1,16 @@
+# Calcining limestone in a kiln to produce quicklime for mortar and plaster (research 07-05 §2.3,
+# 11-08 §1.1).
+kind = "technique"
+id = "core:technique/lime_burning"
+name = "Burning lime"
+can = "calcine limestone in a kiln to produce quicklime"
+domain = "core:skill/pottery"
+requires = [["core:technique/firing", "core:technique/stone_shaping"]]
+tried_in = ["core:activity/fire_bricks", "core:activity/fire_tiles"]
+needs = ["core:good/stone", "core:good/firewood"]
+e50_h = 100000.0
+learn_h = 300.0
+upbringing = true
+
+[answers]
+spoilage = []

@@ -43,3 +43,6 @@ recordings/
 *.record
 test-results/
 playwright-report/
+
+# Tools binaries
+tools/*.exe

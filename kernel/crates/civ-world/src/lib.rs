@@ -32,6 +32,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 mod flood;
 mod floodplain;
 pub mod grid;
+pub mod hydraulics;
 mod hydro;
 mod lem;
 pub mod nav;
@@ -43,6 +44,7 @@ mod routing;
 pub mod terrain;
 mod validate;
 
+pub use hydraulics::{ManningParams, ReachHydraulics, WorldFloodplain};
 pub use params::TerrainParams;
 pub use validate::validate;
 

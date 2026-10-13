@@ -432,12 +432,22 @@ impl Engine {
             Request::Plague { person, disease } => self.plague(person, disease),
             Request::Drought { months, depth } => self.drought(months, depth),
             Request::SetFire { building } => self.set_fire(building),
+            Request::RaiseRiver {
+                reach,
+                discharge_m3s,
+                days,
+            } => self.raise_river(reach, discharge_m3s, days),
+            Request::SendStorm {
+                wind_speed_ms,
+                direction_deg,
+            } => self.send_storm(wind_speed_ms, direction_deg),
             Request::GetRaster(query) => match &self.world {
                 None => no_world(),
                 Some(w) => match frames::raster_response(
                     w.sim.map(),
                     &w.sim.land().ground,
                     w.sim.stats(),
+                    &w.sim.land().flood_depths,
                     &query,
                 ) {
                     Ok(payload) => Reply::Response(payload),
@@ -573,6 +583,26 @@ impl Engine {
                     None => Reply::Error(
                         wire::ErrorCode::NotFound,
                         format!("no conflagration numbered {id}"),
+                    ),
+                },
+            },
+            Request::GetFlood { id } => match &self.world {
+                None => no_world(),
+                Some(w) => match frames::incidents::flood_response(&w.sim, id) {
+                    Some(payload) => Reply::Response(payload),
+                    None => Reply::Error(
+                        wire::ErrorCode::NotFound,
+                        format!("no flood episode numbered {id}"),
+                    ),
+                },
+            },
+            Request::GetStorm { id } => match &self.world {
+                None => no_world(),
+                Some(w) => match frames::incidents::storm_response(&w.sim, id) {
+                    Some(payload) => Reply::Response(payload),
+                    None => Reply::Error(
+                        wire::ErrorCode::NotFound,
+                        format!("no storm episode numbered {id}"),
                     ),
                 },
             },
@@ -1346,6 +1376,50 @@ impl Engine {
         match world.sim.set_fire(id) {
             Ok(_) => {
                 let text = format!("The observer set alight {name}");
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
+    /// The observer raises reach runoff for stated days (M6b slice BF, ADR-0022 §14).
+    fn raise_river(&mut self, reach: u32, discharge_m3s: f32, days: u32) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        match world.sim.raise_river(reach as usize, discharge_m3s, days) {
+            Ok(_) => {
+                let text = format!(
+                    "The observer raised reach {reach} to {discharge_m3s:.1} m³/s for {days} days"
+                );
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
+    /// The observer sends a storm today of chosen strength and direction (M6b slice BF, ADR-0022 §14).
+    fn send_storm(&mut self, wind_speed_ms: f32, direction_deg: f32) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        match world.sim.send_storm(wind_speed_ms, direction_deg) {
+            Ok(_) => {
+                let text = format!(
+                    "The observer sent a gale of {wind_speed_ms:.1} m/s from {direction_deg:.0}°"
+                );
                 self.changed = true;
                 self.urgent = true;
                 self.event(wire::EventKind::Info, text.clone());

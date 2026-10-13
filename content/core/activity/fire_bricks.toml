@@ -1,0 +1,17 @@
+# Firing bricks in a kiln (research 07-05 §2.3, 11-08 §2.2).
+kind = "activity"
+id = "core:activity/fire_bricks"
+name = "Fire bricks"
+doing = "firing bricks"
+behavior = "make"
+recipe = "core:recipe/fire_bricks"
+par = 3.5
+min_age_years = 14.0
+max_age_years = 75.0
+min_minutes = 120
+max_minutes = 480
+daylight_only = false
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

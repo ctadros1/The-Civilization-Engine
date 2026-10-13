@@ -184,11 +184,11 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 34 land, field, plot, building,
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 35 land, field, plot, building,
     // wear, market, firm, wealth, knowledge, deposits, earth, ties, polity, order, word, opinion,
     // norms, values, creeds, factions, influence, places, relation, crossing, wells, sickness,
-    // pathogen, fires and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 34);
+    // pathogen, fires, floods and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 35);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -1364,6 +1364,7 @@ fn decode_tile(bytes: &[u8]) -> wire::RasterTile<'_> {
 fn raster_tiles_match_the_map() {
     let sim = load_first();
     let (map, stats, ground) = (sim.map(), sim.stats(), &sim.land().ground);
+    let flood_depths = vec![0.0f32; map.cell_count()];
     let query = |layer, level, x0, y0, width, height| RasterQuery {
         layer,
         level,
@@ -1378,6 +1379,7 @@ fn raster_tiles_match_the_map() {
         map,
         ground,
         stats,
+        &flood_depths,
         &query(wire::RasterLayer::Elevation, 0, 10, 20, 100, 50),
     )
     .expect("answers");
@@ -1404,6 +1406,7 @@ fn raster_tiles_match_the_map() {
         map,
         ground,
         stats,
+        &flood_depths,
         &query(wire::RasterLayer::Water, 3, 0, 0, 1000, 1000),
     )
     .expect("answers");
@@ -1413,18 +1416,28 @@ fn raster_tiles_match_the_map() {
     let data = tile.data().expect("data").bytes();
     assert!(data.iter().all(|&c| c <= 3));
 
-    for layer in [wire::RasterLayer::DrainageArea, wire::RasterLayer::LakeId] {
-        let bytes = frames::raster_response(map, ground, stats, &query(layer, 1, 0, 0, 64, 64))
-            .expect("answers");
+    for layer in [
+        wire::RasterLayer::DrainageArea,
+        wire::RasterLayer::LakeId,
+        wire::RasterLayer::FloodDepth,
+    ] {
+        let bytes = frames::raster_response(
+            map,
+            ground,
+            stats,
+            &flood_depths,
+            &query(layer, 1, 0, 0, 64, 64),
+        )
+        .expect("answers");
         let tile = decode_tile(&bytes);
         assert_eq!(tile.data().expect("data").len(), 64 * 64 * 4);
     }
 
     // Out of range and oversized regions are refused.
     let off_map = query(wire::RasterLayer::Elevation, 0, SIDE, 0, 1, 1);
-    assert!(frames::raster_response(map, ground, stats, &off_map).is_err());
+    assert!(frames::raster_response(map, ground, stats, &flood_depths, &off_map).is_err());
     let empty = query(wire::RasterLayer::Elevation, 0, 0, 0, 0, 10);
-    assert!(frames::raster_response(map, ground, stats, &empty).is_err());
+    assert!(frames::raster_response(map, ground, stats, &flood_depths, &empty).is_err());
     let too_coarse = query(
         wire::RasterLayer::Elevation,
         frames::MAX_LEVEL + 1,
@@ -1433,7 +1446,7 @@ fn raster_tiles_match_the_map() {
         1,
         1,
     );
-    assert!(frames::raster_response(map, ground, stats, &too_coarse).is_err());
+    assert!(frames::raster_response(map, ground, stats, &flood_depths, &too_coarse).is_err());
 
     // Elevation is the ground in use: a metre of earth taken from one cell lowers it there, at
     // full resolution and in the mean of a coarser level, and nowhere else.
@@ -1445,6 +1458,7 @@ fn raster_tiles_match_the_map() {
             map,
             ground,
             stats,
+            &flood_depths,
             &query(wire::RasterLayer::Elevation, level, x, y, 1, 1),
         )
         .expect("answers");
@@ -1457,6 +1471,7 @@ fn raster_tiles_match_the_map() {
             map,
             ground,
             stats,
+            &flood_depths,
             &query(wire::RasterLayer::Elevation, 0, 0, 0, 1, 1),
         )
         .expect("answers"),

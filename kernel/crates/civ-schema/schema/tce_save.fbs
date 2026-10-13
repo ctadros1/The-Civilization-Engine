@@ -443,6 +443,10 @@ table Household {
   // Schema 83 (M6a slice BA, step four): minutes of the walk from home to the water its people
   // last fetched, one way; 0 (and absent in older saves) until they fetch again.
   water_walk_min: float (id: 17);
+  // Schema 93 (M6b slice BF, ADR-0022 §13): memory of deepest water at home and fields (cm) and day.
+  flood_home_cm: ushort (id: 18);
+  flood_field_cm: ushort (id: 19);
+  flood_day: long (id: 20);
 }
 
 // Schema 10: one row of a household's posted terms (ADR-0006 §4). Goods are indexed like
@@ -638,6 +642,9 @@ table Field {
   slow_n: float (id: 27);
   supply_n: float (id: 28);
   record: [HarvestRecord] (id: 29);
+  // Schema 93 (M6b slice BF, ADR-0022 §13): flood depth (cm) and days standing under water.
+  last_flood_depth_cm: ushort (id: 30);
+  submerged_days: ushort (id: 31);
 }
 
 table Fields {
@@ -747,6 +754,9 @@ table Building {
   repair: RepairState (id: 12);
   // Schema 22 (M3b slice R): the building its builders' taste followed (0 for none).
   style_from: ulong (id: 13);
+  // Schema 93 (M6b slice BF, ADR-0022 §13): flood depth (cm) and days standing wet.
+  last_flood_depth_cm: ushort (id: 14);
+  days_wet: ushort (id: 15);
 }
 
 table Builds {
@@ -2517,4 +2527,67 @@ table CoalitionSave {
   settlement: ulong (id: 11);
   // The person it is named for (0: none).
   named: ulong (id: 12);
+}
+
+// Section "floods" (schema 93, M6b slice BF; ADR-0022 §13): high waters, flood episodes,
+// storm damages, and storm episodes.
+table HighWaterSave {
+  id: uint (id: 0);
+  reach: ushort (id: 1);
+  settlement: ulong (id: 2);
+  x: float (id: 3);
+  y: float (id: 4);
+  began: long (id: 5);
+  ended: long = -1 (id: 6);
+  peak_discharge: float (id: 7);
+  peak_stage: float (id: 8);
+  episode: uint (id: 9);
+  buildings_flooded: uint (id: 10);
+  fields_flooded: uint (id: 11);
+  spoiled_kg: float (id: 12);
+  scoured_crossings: uint (id: 13);
+}
+
+table FloodEpisodeSave {
+  id: uint (id: 0);
+  settlement: ulong (id: 1);
+  first_reach: ushort (id: 2);
+  began: long (id: 3);
+  ended: long = -1 (id: 4);
+  peak_discharge: float (id: 5);
+  high_waters: [uint] (id: 6);
+  total_spoiled_kg: float (id: 7);
+  total_buildings: uint (id: 8);
+  total_fields_lost: uint (id: 9);
+}
+
+table StormDamageSave {
+  id: uint (id: 0);
+  building: ulong (id: 1);
+  household: ulong (id: 2);
+  settlement: ulong (id: 3);
+  x: float (id: 4);
+  y: float (id: 5);
+  time: long (id: 6);
+  wind_speed_ms: float (id: 7);
+  uplift_pa: float (id: 8);
+  episode: uint (id: 9);
+}
+
+table StormEpisodeSave {
+  id: uint (id: 0);
+  settlement: ulong (id: 1);
+  began: long (id: 2);
+  ended: long = -1 (id: 3);
+  peak_wind_speed_ms: float (id: 4);
+  damages: [uint] (id: 5);
+}
+
+table FloodsSave {
+  high_waters: [HighWaterSave] (id: 0);
+  flood_episodes: [FloodEpisodeSave] (id: 1);
+  storm_damages: [StormDamageSave] (id: 2);
+  storm_episodes: [StormEpisodeSave] (id: 3);
+  flood_revision: uint = 0 (id: 4);
+  reach_discharges: [float] (id: 5);
 }

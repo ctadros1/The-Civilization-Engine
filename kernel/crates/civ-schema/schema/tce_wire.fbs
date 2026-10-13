@@ -13,7 +13,7 @@ namespace tce.wire;
 
 // Elevation is the ground in use: since wire 1.20 (M3b slice Q, ADR-0010 §3), the generated bed
 // plus what earthworks have done to it. Water, drainage and lakes stay as generated.
-enum RasterLayer : ubyte { Elevation = 0, Water = 1, DrainageArea = 2, LakeId = 3 }
+enum RasterLayer : ubyte { Elevation = 0, Water = 1, DrainageArea = 2, LakeId = 3, FloodDepth = 4 }
 
 enum RasterFormat : ubyte { U8 = 0, U16 = 1, U32 = 2, F32 = 3 }
 
@@ -552,7 +552,20 @@ table SetFire {
   building: ulong (id: 0);
 }
 
-union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave, Plague, Drought, SetFire }
+// Wire 1.69 (M6b slice BF; ADR-0022 §14): the observer raises reach runoff for stated days.
+table RaiseRiver {
+  reach: uint (id: 0);
+  discharge_m3s: float (id: 1);
+  days: uint (id: 2);
+}
+
+// Wire 1.69 (M6b slice BF; ADR-0022 §14): the observer sends a storm today of chosen strength and direction.
+table SendStorm {
+  wind_speed_ms: float (id: 0);
+  direction_deg: float (id: 1);
+}
+
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave, Plague, Drought, SetFire, RaiseRiver, SendStorm }
 
 table Command {
   body: CommandBody (id: 1);
@@ -698,7 +711,17 @@ table GetConflagration {
   id: uint (id: 0);
 }
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak, GetCoverage, GetConflagration }
+// Wire 1.69 (M6b slice BF; ADR-0022 §13): one flood episode's page.
+table GetFlood {
+  id: uint (id: 0);
+}
+
+// Wire 1.69 (M6b slice BF; ADR-0022 §13): one storm episode's page.
+table GetStorm {
+  id: uint (id: 0);
+}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak, GetCoverage, GetConflagration, GetFlood, GetStorm }
 
 table Query {
   body: QueryBody (id: 1);
@@ -1856,6 +1879,12 @@ struct BankDraw {
   trips: uint;
 }
 
+// Where a cell is flooded today (wire 1.69, M6b slice BF; ADR-0022 §13).
+struct FloodCell {
+  cell: uint;
+  depth_m: float;
+}
+
 table Water {
   // The snapshot revision this is at.
   rev: ulong (id: 0);
@@ -1865,6 +1894,8 @@ table Water {
   // The rivers' flow today against their mean (1 is the mean).
   flow: float (id: 3);
   banks: [BankDraw] (id: 4);
+  // Flooded cells today with water depth, metres (wire 1.69).
+  flooded: [FloodCell] (id: 5);
 }
 
 // A tile of what earthworks have done to the ground, numbered row by row across the map. Its
@@ -2235,6 +2266,10 @@ table IncidentRow {
   open: bool (id: 12);
   // Wire 1.68: the conflagration a fire is part of, by number (0: none).
   conflagration: uint (id: 13);
+  // Wire 1.69: the flood episode high water is part of, by number (0: none).
+  flood: uint (id: 14);
+  // Wire 1.69: the storm episode damage is part of, by number (0: none).
+  storm: uint (id: 15);
 }
 
 // How many incidents of a kind there are, in the scope asked: all of them (the kernel's truth),
@@ -2286,6 +2321,34 @@ table ConflagrationRow {
   words: string (id: 8);
 }
 
+// A flood episode (wire 1.69, ADR-0022 §13): reaches above bankfull over buildings or fields.
+table FloodRow {
+  id: uint (id: 0);
+  reach: uint (id: 1);
+  settlement: ulong (id: 2);
+  began: long (id: 3);
+  ended: long (id: 4);
+  peak_discharge_m3s: float (id: 5);
+  peak_depth_m: float (id: 6);
+  buildings_flooded: uint (id: 7);
+  fields_submerged: uint (id: 8);
+  spoiled_kg: float (id: 9);
+  observer: uint (id: 10);
+  words: string (id: 11);
+}
+
+// A storm episode (wire 1.69, ADR-0022 §13): windstorm damaging buildings.
+table StormRow {
+  id: uint (id: 0);
+  settlement: ulong (id: 1);
+  began: long (id: 2);
+  ended: long (id: 3);
+  peak_wind_speed_ms: float (id: 4);
+  buildings_damaged: uint (id: 5);
+  observer: uint (id: 6);
+  words: string (id: 7);
+}
+
 table Incidents {
   minute: long (id: 0);
   // Newest first.
@@ -2298,6 +2361,10 @@ table Incidents {
   outbreaks: [OutbreakRow] (id: 4);
   // Wire 1.68: every conflagration in the scope asked, newest first.
   conflagrations: [ConflagrationRow] (id: 5);
+  // Wire 1.69: every flood in the scope asked, newest first.
+  floods: [FloodRow] (id: 6);
+  // Wire 1.69: every storm in the scope asked, newest first.
+  storms: [StormRow] (id: 7);
 }
 
 // A step in an incident's chain (12-07 §1.1): it began, was seen, was told, was answered, ended.
@@ -2390,6 +2457,26 @@ table ConflagrationInfo {
   held: [string] (id: 5);
 }
 
+// A flood episode's page (wire 1.69, ADR-0022 §13): peak discharge, reaches, flooded buildings and fields.
+table FloodInfo {
+  row: FloodRow (id: 0);
+  cause: string (id: 1);
+  cause_link: IncidentLink (id: 2);
+  weather: string (id: 3);
+  incidents: [IncidentRow] (id: 4);
+  summary: [string] (id: 5);
+}
+
+// A storm episode's page (wire 1.69, ADR-0022 §13): wind speed, damaged buildings.
+table StormInfo {
+  row: StormRow (id: 0);
+  cause: string (id: 1);
+  cause_link: IncidentLink (id: 2);
+  weather: string (id: 3);
+  incidents: [IncidentRow] (id: 4);
+  summary: [string] (id: 5);
+}
+
 // A source of water as one home stands to it (wire 1.66).
 table CoverageSource {
   // "Bo's household's well", "a spring", "the water's edge".
@@ -2440,7 +2527,7 @@ table Coverage {
   summary: [string] (id: 8);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo, Coverage, ConflagrationInfo }
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo, Coverage, ConflagrationInfo, FloodInfo, StormInfo }
 
 table Response {
   body: ResponseBody (id: 1);

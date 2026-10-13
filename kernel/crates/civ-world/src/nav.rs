@@ -68,6 +68,8 @@ pub struct NavGrid {
     ground: Vec<f32>,
     /// The revision of the crossings whose decks are laid over it (M5c slice AW); 0 for none.
     revision: u32,
+    /// The revision of the flood depths laid over it (M6b slice BF); 0 for none.
+    flood_revision: u32,
 }
 
 /// Cells the route searches on this thread have expanded, summed: what a benchmark reads to
@@ -387,35 +389,7 @@ impl Open {
 impl NavGrid {
     /// Derives walkability from a map.
     pub fn new(map: &WorldMap, params: NavParams) -> Self {
-        let n = map.cell_count();
-        let mut ground = vec![1.0f32; n];
-        for (i, g) in ground.iter_mut().enumerate() {
-            match map.water[i] {
-                WATER_LAKE | WATER_OCEAN => *g = 0.0,
-                // River cells start impassable; fordable reaches open them below.
-                WATER_RIVER => *g = 0.0,
-                _ => {}
-            }
-        }
-        for reach in &map.reaches {
-            if f64::from(reach.discharge_m3s) <= params.ford_max_discharge_m3s {
-                for &c in &reach.cells {
-                    let c = c as usize;
-                    if map.water[c] == WATER_RIVER {
-                        ground[c] = params.wading_factor as f32;
-                    }
-                }
-            }
-        }
-        NavGrid {
-            id: NEXT_GRID_ID.fetch_add(1, Ordering::Relaxed),
-            width: map.width as usize,
-            height: map.height as usize,
-            cell_m: f64::from(map.cell_size_m),
-            params,
-            ground,
-            revision: 0,
-        }
+        Self::with_decks_and_flood(map, params, &[], 0, None, None, 0)
     }
 
     /// The map's grid with `decks` laid over it (M5c slice AW, ADR-0004 amended): each `(cell,
@@ -428,19 +402,80 @@ impl NavGrid {
         decks: &[(u32, f32)],
         revision: u32,
     ) -> Self {
-        let mut grid = NavGrid::new(map, params);
+        Self::with_decks_and_flood(map, params, decks, revision, None, None, 0)
+    }
+
+    /// The map's grid with `decks` and flood depths laid over it (M6b slice BF).
+    pub fn with_decks_and_flood(
+        map: &WorldMap,
+        params: NavParams,
+        decks: &[(u32, f32)],
+        revision: u32,
+        reach_discharges: Option<&[f32]>,
+        flood_depths: Option<&[f32]>,
+        flood_revision: u32,
+    ) -> Self {
+        let n = map.cell_count();
+        let mut ground = vec![1.0f32; n];
+        for (i, g) in ground.iter_mut().enumerate() {
+            match map.water[i] {
+                WATER_LAKE | WATER_OCEAN => *g = 0.0,
+                // River cells start impassable; fordable reaches open them below.
+                WATER_RIVER => *g = 0.0,
+                _ => {}
+            }
+        }
+        for (reach_idx, reach) in map.reaches.iter().enumerate() {
+            if f64::from(reach.discharge_m3s) <= params.ford_max_discharge_m3s {
+                let discharge = reach_discharges
+                    .and_then(|d| d.get(reach_idx).copied())
+                    .unwrap_or(reach.discharge_m3s);
+                if f64::from(discharge) <= params.ford_max_discharge_m3s {
+                    for &c in &reach.cells {
+                        let c = c as usize;
+                        if map.water[c] == WATER_RIVER {
+                            ground[c] = params.wading_factor as f32;
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(depths) = flood_depths {
+            for (i, &d) in depths.iter().enumerate() {
+                if let Some(g) = ground.get_mut(i) {
+                    if d > 0.5 {
+                        *g = 0.0;
+                    } else if d > 0.0 {
+                        *g = (*g).min(params.wading_factor as f32);
+                    }
+                }
+            }
+        }
         for &(c, factor) in decks {
-            if let Some(g) = grid.ground.get_mut(c as usize) {
+            if let Some(g) = ground.get_mut(c as usize) {
                 *g = g.max(factor);
             }
         }
-        grid.revision = revision;
-        grid
+        NavGrid {
+            id: NEXT_GRID_ID.fetch_add(1, Ordering::Relaxed),
+            width: map.width as usize,
+            height: map.height as usize,
+            cell_m: f64::from(map.cell_size_m),
+            params,
+            ground,
+            revision,
+            flood_revision,
+        }
     }
 
     /// The revision of the crossings whose decks are laid over this grid; 0 for none.
     pub fn revision(&self) -> u32 {
         self.revision
+    }
+
+    /// The revision of the flood depths laid over this grid; 0 for none.
+    pub fn flood_revision(&self) -> u32 {
+        self.flood_revision
     }
 
     /// The parameters this grid was built with.
@@ -1799,5 +1834,50 @@ mod tests {
         assert_eq!(secs[0], 0.0);
         assert_eq!(*secs.last().expect("non-empty"), route.total_seconds());
         assert!(secs.windows(2).all(|w| w[1] >= w[0]));
+    }
+
+    #[test]
+    fn flood_depths_and_swollen_rivers_alter_walkability() {
+        let mut map = flat(10, 10);
+        map.water[15] = WATER_RIVER;
+        map.reaches.push(RiverReach {
+            id: 0,
+            cells: vec![15],
+            downstream: None,
+            terminus: Terminus::Outlet,
+            order: 1,
+            discharge_m3s: 1.0,
+            width_m: 5.0,
+            drainage_area_km2: 10.0,
+        });
+
+        // Normally fordable river reach (discharge 1.0 <= ford_max 2.0).
+        let p = params();
+        let nav = NavGrid::new(&map, p);
+        assert!(nav.walkable(15));
+        assert_eq!(nav.ground(15), p.wading_factor as f32);
+
+        // When reach discharge swells to 10.0 > ford_max 2.0, reach is unwalkable.
+        let nav_swollen = NavGrid::with_decks_and_flood(&map, p, &[], 0, Some(&[10.0]), None, 1);
+        assert!(!nav_swollen.walkable(15));
+        assert_eq!(nav_swollen.ground(15), 0.0);
+        assert_eq!(nav_swollen.flood_revision(), 1);
+
+        // Dry ground cell 20: flooded with 0.3 m is waded; flooded with 0.8 m is impassable.
+        let mut flood_depths = vec![0.0f32; 100];
+        flood_depths[20] = 0.3;
+        flood_depths[21] = 0.8;
+        let nav_flooded =
+            NavGrid::with_decks_and_flood(&map, p, &[], 0, None, Some(&flood_depths), 2);
+        assert!(nav_flooded.walkable(20));
+        assert_eq!(nav_flooded.ground(20), p.wading_factor as f32);
+        assert!(!nav_flooded.walkable(21));
+        assert_eq!(nav_flooded.ground(21), 0.0);
+
+        // A bridge deck across flooded cell 21 makes it walkable at deck factor.
+        let nav_deck =
+            NavGrid::with_decks_and_flood(&map, p, &[(21, 1.0)], 1, None, Some(&flood_depths), 2);
+        assert!(nav_deck.walkable(21));
+        assert_eq!(nav_deck.ground(21), 1.0);
     }
 }

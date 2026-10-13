@@ -1,0 +1,12 @@
+# Calcinated limestone (quicklime): produced by burning stone in a kiln (research 07-05 §2.3,
+# 11-08 §1.1). Used for lime mortar and plaster. It keeps under shelter.
+kind = "good"
+id = "core:good/quicklime"
+name = "Quicklime"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 180.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

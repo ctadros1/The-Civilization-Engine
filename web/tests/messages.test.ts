@@ -1092,7 +1092,10 @@ describe("decoders", () => {
     W.Water.startBanksVector(b, 1);
     W.BankDraw.createBankDraw(b, 120, 140, 6);
     const banks = b.endVector();
-    const water = W.Water.createWater(b, 33n, wells, springs, 0.5, banks);
+    W.Water.startFloodedVector(b, 1);
+    W.FloodCell.createFloodCell(b, 1024, 0.5);
+    const flooded = b.endVector();
+    const water = W.Water.createWater(b, 33n, wells, springs, 0.5, banks, flooded);
     const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Water, water)));
     expect(body.kind).toBe("water");
     if (body.kind !== "water") return;
@@ -1120,6 +1123,7 @@ describe("decoders", () => {
       springs: [{ x: 500, y: 600, flowM3Day: 2.5, drawnL: 150 }],
       flow: 0.5,
       banks: [{ x: 120, y: 140, trips: 6 }],
+      flooded: [{ cell: 1024, depthM: 0.5 }],
     });
     const query = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getWater()));
     expect(query.bodyType()).toBe(W.QueryBody.GetWater);

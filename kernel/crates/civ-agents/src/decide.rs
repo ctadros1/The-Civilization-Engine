@@ -95,6 +95,11 @@ pub struct Facts {
     /// Members of their household ill at home and still owed care today, if any (M6a slice AZ,
     /// step three).
     pub tend: Option<TendFacts>,
+    /// Whether their home is flooded today (M6b slice BF): they leave wet homes for kin or
+    /// hearth until the flood recedes.
+    pub home_flooded: bool,
+    /// An alternative shelter (kin's home or settlement hearth) if their home is flooded.
+    pub shelter: Option<(f32, f32)>,
 }
 
 /// Members of someone's household ill at home and still owed care today (M6a slice AZ, step
@@ -818,11 +823,19 @@ pub fn candidates(
                     limits.sleep_needed_min.clamp(limits.nap.0, limits.nap.1)
                 };
                 term(&mut terms, Reason::Sleep, w.w_sleep * f.sleep_drive);
-                let mut steps = walk_home_first(f);
+                let (target, mut steps) = if f.home_flooded {
+                    if let Some((settlement, hearth)) = f.hearth {
+                        (Target::Hearth(settlement), vec![Step::Walk { to: hearth }])
+                    } else {
+                        (Target::Home, walk_home_first(f))
+                    }
+                } else {
+                    (Target::Home, walk_home_first(f))
+                };
                 steps.push(Step::Work {
                     minutes: minutes.round().max(1.0) as u32,
                 });
-                out.push(finish(id, Target::Home, terms, steps));
+                out.push(finish(id, target, terms, steps));
             }
             Behavior::Eat => {
                 if !f.has_food {
@@ -835,11 +848,19 @@ pub fn candidates(
                     continue;
                 }
                 term(&mut terms, Reason::Hunger, w.w_hunger * f.hunger);
-                let mut steps = walk_home_first(f);
+                let (target, mut steps) = if f.home_flooded {
+                    if let Some((settlement, hearth)) = f.hearth {
+                        (Target::Hearth(settlement), vec![Step::Walk { to: hearth }])
+                    } else {
+                        (Target::Home, walk_home_first(f))
+                    }
+                } else {
+                    (Target::Home, walk_home_first(f))
+                };
                 steps.push(Step::Work {
                     minutes: limits.meal_min.max(1),
                 });
-                out.push(finish(id, Target::Home, terms, steps));
+                out.push(finish(id, target, terms, steps));
             }
             Behavior::FetchWater => {
                 let Some(water) = water else {
@@ -1670,11 +1691,19 @@ pub fn candidates(
             }
             Behavior::Rest => {
                 term(&mut terms, Reason::Rest, w.w_rest);
-                let mut steps = walk_home_first(f);
+                let (target, mut steps) = if f.home_flooded {
+                    if let Some((settlement, hearth)) = f.hearth {
+                        (Target::Hearth(settlement), vec![Step::Walk { to: hearth }])
+                    } else {
+                        (Target::Home, walk_home_first(f))
+                    }
+                } else {
+                    (Target::Home, walk_home_first(f))
+                };
                 steps.push(Step::Work {
                     minutes: def.min_minutes.max(1),
                 });
-                out.push(finish(id, Target::Home, terms, steps));
+                out.push(finish(id, target, terms, steps));
             }
             Behavior::Play => {
                 term(&mut terms, Reason::Play, w.w_play);
@@ -1833,6 +1862,15 @@ pub fn candidates(
         out.retain(|c| c.scored.target != Target::Home);
         excluded.extend(home.into_iter().map(|d| (d, Reason::HomeAfire)));
     }
+    if f.home_flooded {
+        let home: Vec<u16> = out
+            .iter()
+            .filter(|c| c.scored.target == Target::Home)
+            .map(|c| c.scored.def)
+            .collect();
+        out.retain(|c| c.scored.target != Target::Home);
+        excluded.extend(home.into_iter().map(|d| (d, Reason::HomeFlooded)));
+    }
     (out, excluded)
 }
 
@@ -1948,6 +1986,8 @@ mod tests {
             home_afire: false,
             fire: None,
             tend: None,
+            home_flooded: false,
+            shelter: None,
             age: 30.0,
             capacity: 1.0,
             hunger: 0.5,

@@ -191,6 +191,38 @@ impl Population {
         let mut changed = false;
         for (&i, &room) in mine.iter().zip(&rooms) {
             let kept = kept_in(&fill, room_all, room);
+            let b = &ctx.land.buildings[i];
+            let cell = cell_of(ctx.map, build::centre_m(&b.spec));
+            let flood_depth = ctx.land.flood_depths.get(cell).copied().unwrap_or(0.0);
+            if flood_depth > 0.0
+                && let Some(hd) = hd
+                && let Some(x) = self.households.get_mut(hd)
+            {
+                for (g, &kg_floor) in kept[storage::FLOOR].iter().enumerate() {
+                    let def = &goods[g];
+                    if kg_floor > 0.0 && (def.half_life_days > 0.0 || def.kcal_per_kg > 0.0) {
+                        let spoil_rate = (f64::from(flood_depth) * 0.25).clamp(0.02, 0.15);
+                        let lost =
+                            (kg_floor * spoil_rate).min(x.stores.get(g).copied().unwrap_or(0.0));
+                        if lost > 0.0 {
+                            x.stores[g] -= lost;
+                            x.flows.add(crate::person::Flow::Spoiled, g, lost);
+                            if let Some(ep) = self.floods.current_flood_episode_mut() {
+                                ep.total_spoiled_kg += lost as f32;
+                            }
+                            if let Some(hw) = self
+                                .floods
+                                .high_waters
+                                .iter_mut()
+                                .rev()
+                                .find(|h| h.ended.is_none())
+                            {
+                                hw.spoiled_kg += lost as f32;
+                            }
+                        }
+                    }
+                }
+            }
             if let Some((fell, snow)) = self.weigh(ctx, i, &kept, storm) {
                 changed = true;
                 self.give_way(ctx, i, &kept, &fell, storm, snow);
@@ -249,11 +281,79 @@ impl Population {
                 continue;
             };
             let wear = condition::wear_state(c, &def.upkeep);
-            let load = timber(g).map_or(GroupState::Sound, |t| {
-                structure::margin(g, c, &e, &loads, &t).state()
-            });
+            let load = if g.kind == GroupKind::MassWall {
+                let dummy = structure::Timber {
+                    bending_pa: 0.0,
+                    compression_pa: 0.0,
+                    stiffness_pa: 0.0,
+                    creep: 0.0,
+                    sustained: 1.0,
+                };
+                structure::margin(g, c, &e, &loads, &dummy).state()
+            } else if g.kind == GroupKind::Covering {
+                if storm > 0.0 {
+                    let is_tile = g
+                        .material
+                        .and_then(|slot| def.materials.get(usize::from(slot)))
+                        .and_then(|&good| catalog.goods.get(good))
+                        .is_some_and(|good| good.id.contains("tile"));
+                    let capacity = if is_tile {
+                        1500.0 + 1000.0 * (1.0 - f64::from(c.loss))
+                    } else {
+                        600.0 + 600.0 * f64::from(c.quality) * (1.0 - f64::from(c.loss))
+                    };
+                    if storm > capacity {
+                        c.loss = (c.loss + 0.4).min(1.0);
+                        let torn_state = condition::wear_state(c, &def.upkeep);
+                        let wind_speed_ms = (2.0 * storm / 1.225).sqrt() as f32;
+                        let damage_id = (self.floods.storm_damages.len() + 1) as u32;
+                        let ep_id = if let Some(ep) = self.floods.current_storm_episode_mut() {
+                            ep.damages.push(damage_id);
+                            if wind_speed_ms > ep.peak_wind_speed_ms {
+                                ep.peak_wind_speed_ms = wind_speed_ms;
+                            }
+                            ep.id
+                        } else {
+                            let new_id = (self.floods.storm_episodes.len() + 1) as u32;
+                            self.floods
+                                .storm_episodes
+                                .push(crate::floods::StormEpisode {
+                                    id: new_id,
+                                    settlement: self
+                                        .household(b.household)
+                                        .and_then(|x| x.settlement),
+                                    began: ctx.now,
+                                    ended: None,
+                                    peak_wind_speed_ms: wind_speed_ms,
+                                    damages: vec![damage_id],
+                                });
+                            new_id
+                        };
+                        self.floods.storm_damages.push(crate::floods::StormDamage {
+                            id: damage_id,
+                            building: b.id,
+                            household: b.household,
+                            settlement: self.household(b.household).and_then(|x| x.settlement),
+                            at: (x, y),
+                            time: ctx.now,
+                            wind_speed_ms,
+                            uplift_pa: storm as f32,
+                            episode: Some(ep_id),
+                        });
+                        torn_state
+                    } else {
+                        GroupState::Sound
+                    }
+                } else {
+                    GroupState::Sound
+                }
+            } else {
+                timber(g).map_or(GroupState::Sound, |t| {
+                    structure::margin(g, c, &e, &loads, &t).state()
+                })
+            };
             c.state = condition::worse(wear, load);
-            if c.state == GroupState::Failed {
+            if c.state == GroupState::Failed && g.kind != GroupKind::Covering {
                 fell.push(Fell {
                     kind: g.kind,
                     quality: c.quality,
@@ -381,7 +481,7 @@ impl Population {
         // Those inside: everyone not on their way somewhere, within the building's reach.
         let gravest = fell.first().map(|f| f.kind);
         let risk = match gravest {
-            Some(GroupKind::Posts) => DIES_IN_RUIN,
+            Some(GroupKind::Posts | GroupKind::MassWall) => DIES_IN_RUIN,
             Some(GroupKind::RoofFrame) => DIES_UNDER_ROOF,
             _ => DIES_UNDER_FLOOR,
         };
@@ -407,6 +507,7 @@ impl Population {
         // The chronicle: what gave way, under what, and why it was weak.
         let what = match gravest {
             Some(GroupKind::Posts) => "fell: its posts gave way",
+            Some(GroupKind::MassWall) => "fell: its walls gave way",
             Some(GroupKind::RoofFrame) => "lost its roof: the rafters broke",
             Some(GroupKind::TieBeams) => "lost its lofts: a tie beam broke",
             Some(GroupKind::LoftJoists) => "lost its loft: the joists broke",
@@ -469,7 +570,7 @@ impl Population {
 /// How grave it is that a group of kind `kind` gave way, the gravest first.
 fn gravity(kind: GroupKind) -> u8 {
     match kind {
-        GroupKind::Posts => 0,
+        GroupKind::Posts | GroupKind::MassWall => 0,
         GroupKind::RoofFrame => 1,
         GroupKind::TieBeams => 2,
         GroupKind::FloorJoists => 3,

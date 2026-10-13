@@ -569,6 +569,8 @@ impl<'a> FarmView<'a> {
                 need_mm: 0.0,
                 got_mm: 0.0,
                 soil: civ_land::FieldSoil::default(),
+                last_flood_depth_cm: 0,
+                submerged_days: 0,
             };
             let (per_hour, left) = self.worth(&ground, task);
             consider(
@@ -897,6 +899,8 @@ mod tests {
             need_mm: 0.0,
             got_mm: 0.0,
             soil: civ_land::FieldSoil::default(),
+            last_flood_depth_cm: 0,
+            submerged_days: 0,
         }
     }
 

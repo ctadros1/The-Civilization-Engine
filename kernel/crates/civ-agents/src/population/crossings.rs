@@ -159,6 +159,34 @@ impl Population {
             let Some(def) = ctx.catalog.bridges.get(usize::from(c.system)) else {
                 continue;
             };
+            let reach_idx = ctx
+                .map
+                .reaches
+                .iter()
+                .position(|r| c.cells.iter().any(|cell| r.cells.contains(cell)));
+            if let Some(r) = reach_idx {
+                let q = ctx.land.reach_discharges.get(r).copied().unwrap_or(0.0);
+                let q_bf = ctx
+                    .land
+                    .floodplain
+                    .reaches
+                    .get(r)
+                    .map(|rh| rh.bankfull_discharge_m3s)
+                    .unwrap_or(0.0);
+                if q_bf > 0.0 && f64::from(q) / q_bf > def.margin {
+                    self.crossing_gives_way(ctx, i, Collapse::Scour, None);
+                    if let Some(hw) = self
+                        .floods
+                        .high_waters
+                        .iter_mut()
+                        .rev()
+                        .find(|h| h.reach == r as u16 && h.ended.is_none())
+                    {
+                        hw.scoured_crossings += 1;
+                    }
+                    continue;
+                }
+            }
             c.loss = (c.loss + (def.loss_per_year / 365.0) as f32).min(1.0);
             let Some(timber) = ctx.catalog.goods.get(def.good).and_then(|g| g.timber) else {
                 continue;
@@ -1042,6 +1070,7 @@ impl Population {
         let cause = match why {
             Collapse::OwnWeight => "its rotten members could no longer carry their own weight",
             Collapse::UnderWalker => "its rotten members broke under someone stepping onto it",
+            Collapse::Scour => "swollen flood waters scoured away its supports",
         };
         // Whose it was: the village's, or a household's by its elder's name.
         let settlement = match owner {

@@ -8,8 +8,12 @@
 //! conflagration (M6b slice BC, step three; `fire`).
 
 mod fire;
+mod flood;
+mod storm;
 
 pub use fire::{building_fire, building_words, conflagration_response};
+pub use flood::flood_response;
+pub use storm::storm_response;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -43,6 +47,14 @@ pub const OUTBREAK: u8 = 3;
 pub const FIRE: u8 = 4;
 /// A conflagration, as a chronicle entry's link names it (wire 1.68).
 pub const CONFLAGRATION: u8 = 5;
+/// High water at a river reach (wire 1.69, ADR-0022 §13).
+pub const HIGH_WATER: u8 = 6;
+/// A flood episode (wire 1.69, ADR-0022 §13).
+pub const FLOOD: u8 = 7;
+/// Storm damage to a building (wire 1.69, ADR-0022 §13).
+pub const STORM_DAMAGE: u8 = 8;
+/// A storm episode (wire 1.69, ADR-0022 §13).
+pub const STORM: u8 = 9;
 
 /// Rows a page carries when none is asked, and at most.
 const DEFAULT_ROWS: usize = 50;
@@ -76,6 +88,8 @@ struct Row {
     observer: u32,
     outbreak: u32,
     conflagration: u32,
+    flood: u32,
+    storm: u32,
     open: bool,
 }
 
@@ -477,6 +491,8 @@ fn illness_row(f: &Facts, e: &Episode) -> (Row, bool, bool) {
             observer: f.observer_of(e),
             outbreak: e.outbreak.unwrap_or(0),
             conflagration: 0,
+            flood: 0,
+            storm: 0,
             open: e.ended.is_none(),
         },
         knows,
@@ -599,6 +615,8 @@ fn taking_row(sim: &Sim, i: &Incident) -> Row {
         observer: 0,
         outbreak: 0,
         conflagration: 0,
+        flood: 0,
+        storm: 0,
         open: false,
     }
 }
@@ -632,6 +650,8 @@ fn put_row<'a>(
             outbreak: r.outbreak,
             open: r.open,
             conflagration: r.conflagration,
+            flood: r.flood,
+            storm: r.storm,
         },
     )
 }
@@ -651,7 +671,13 @@ pub fn incidents_rev(sim: &Sim) -> u64 {
     let order = &pop.order;
     let sickness = &pop.sickness;
     let fires = &pop.fires;
-    if order.incidents.is_empty() && sickness.episodes().is_empty() && fires.list.is_empty() {
+    let floods = &pop.floods;
+    if order.incidents.is_empty()
+        && sickness.episodes().is_empty()
+        && fires.list.is_empty()
+        && floods.high_waters.is_empty()
+        && floods.storm_damages.is_empty()
+    {
         return 0;
     }
     let mut h = DefaultHasher::new();
@@ -706,6 +732,18 @@ pub fn incidents_rev(sim: &Sim) -> u64 {
     if fires.any_burning() {
         sim.now().minutes().hash(&mut h);
     }
+    (
+        floods.high_waters.len(),
+        floods.flood_episodes.len(),
+        floods
+            .high_waters
+            .iter()
+            .filter(|hw| hw.ended.is_some())
+            .count(),
+        floods.storm_damages.len(),
+        floods.storm_episodes.len(),
+    )
+        .hash(&mut h);
     h.finish().max(1)
 }
 
@@ -733,6 +771,8 @@ pub fn incidents_response(
     totals.insert(TAKING, [0; 4]);
     totals.insert(ILLNESS, [0; 4]);
     totals.insert(FIRE, [0; 4]);
+    totals.insert(HIGH_WATER, [0; 4]);
+    totals.insert(STORM_DAMAGE, [0; 4]);
     for (at, i) in pop.order.incidents.iter().enumerate() {
         if !in_scope(taking_settlement(sim, i)) {
             continue;
@@ -771,6 +811,38 @@ pub fn incidents_response(
             keys.push(((x.began.minutes(), FIRE, x.id), at));
         }
     }
+    for (at, x) in pop.floods.high_waters.iter().enumerate() {
+        if !in_scope(x.settlement) {
+            continue;
+        }
+        let t = totals.entry(HIGH_WATER).or_default();
+        t[0] += 1;
+        t[1] += u32::from(x.buildings_flooded > 0);
+        let obs = x
+            .episode
+            .and_then(|ep| pop.floods.flood_episodes.iter().find(|e| e.id == ep))
+            .map_or(0, |e| flood::observer_of(sim, e));
+        t[3] += u32::from(obs > 0);
+        if kind == 0 || kind == HIGH_WATER {
+            keys.push(((x.began.minutes(), HIGH_WATER, x.id), at));
+        }
+    }
+    for (at, x) in pop.floods.storm_damages.iter().enumerate() {
+        if !in_scope(x.settlement) {
+            continue;
+        }
+        let t = totals.entry(STORM_DAMAGE).or_default();
+        t[0] += 1;
+        t[1] += 1;
+        let obs = x
+            .episode
+            .and_then(|ep| pop.floods.storm_episodes.iter().find(|e| e.id == ep))
+            .map_or(0, |e| storm::observer_of(sim, e));
+        t[3] += u32::from(obs > 0);
+        if kind == 0 || kind == STORM_DAMAGE {
+            keys.push(((x.time.minutes(), STORM_DAMAGE, x.id), at));
+        }
+    }
     keys.sort_unstable_by_key(|k| std::cmp::Reverse(k.0));
     let start = before.map_or(0, |k| keys.partition_point(|&(key, _)| key >= k));
     let end = (start + limit).min(keys.len());
@@ -787,6 +859,8 @@ pub fn incidents_response(
             let row = match k {
                 TAKING => taking_row(sim, &pop.order.incidents[at]),
                 FIRE => fire::fire_row(sim, &pop.fires.list[at]),
+                HIGH_WATER => flood::high_water_row(sim, &pop.floods.high_waters[at]),
+                STORM_DAMAGE => storm::storm_damage_row(sim, &pop.floods.storm_damages[at]),
                 _ => illness_row(&f, &pop.sickness.episodes()[at]).0,
             };
             put_row(&mut fbb, sim, &row)
@@ -827,6 +901,24 @@ pub fn incidents_response(
         .map(|e| fire::conflagration_row(&mut fbb, sim, e))
         .collect();
     let conflagrations = fbb.create_vector(&conflagrations);
+    let floods: Vec<_> = pop
+        .floods
+        .flood_episodes
+        .iter()
+        .rev()
+        .filter(|e| in_scope(e.settlement))
+        .map(|e| flood::flood_row(&mut fbb, sim, e))
+        .collect();
+    let floods = fbb.create_vector(&floods);
+    let storms: Vec<_> = pop
+        .floods
+        .storm_episodes
+        .iter()
+        .rev()
+        .filter(|e| in_scope(e.settlement))
+        .map(|e| storm::storm_row(&mut fbb, sim, e))
+        .collect();
+    let storms = fbb.create_vector(&storms);
     let next = next.map(|(minute, kind, id)| wire::IncidentKey::new(minute, kind, id));
     let body = wire::Incidents::create(
         &mut fbb,
@@ -837,6 +929,8 @@ pub fn incidents_response(
             totals: Some(totals),
             outbreaks: Some(outbreaks),
             conflagrations: Some(conflagrations),
+            floods: Some(floods),
+            storms: Some(storms),
         },
     );
     response(fbb, wire::ResponseBody::Incidents, body)
@@ -944,17 +1038,24 @@ impl Step {
 }
 
 /// A link, before it is put on the wire: its relation, what it points at, and its words.
-struct Link(u8, u8, u64, String);
+pub(crate) struct Link(
+    pub(crate) u8,
+    pub(crate) u8,
+    pub(crate) u64,
+    pub(crate) String,
+);
 
-const CAUSED_BY: u8 = 0;
-const PART_OF: u8 = 1;
-const TO_INFLUENCE: u8 = 0;
-const TO_PERSON: u8 = 1;
-const TO_HOUSEHOLD: u8 = 2;
-const TO_SOURCE: u8 = 3;
-const TO_OUTBREAK: u8 = 4;
-const TO_FIRE: u8 = 7;
-const TO_CONFLAGRATION: u8 = 8;
+pub(crate) const CAUSED_BY: u8 = 0;
+pub(crate) const PART_OF: u8 = 1;
+pub(crate) const TO_INFLUENCE: u8 = 0;
+pub(crate) const TO_PERSON: u8 = 1;
+pub(crate) const TO_HOUSEHOLD: u8 = 2;
+pub(crate) const TO_SOURCE: u8 = 3;
+pub(crate) const TO_OUTBREAK: u8 = 4;
+pub(crate) const TO_FIRE: u8 = 7;
+pub(crate) const TO_CONFLAGRATION: u8 = 8;
+pub(crate) const TO_FLOOD: u8 = 10;
+pub(crate) const TO_STORM: u8 = 11;
 
 /// How a case was caught, as a link to what it was caught from.
 fn caught_link(sim: &Sim, e: &Episode) -> Link {
@@ -1204,6 +1305,12 @@ pub fn incident_response(sim: &Sim, kind: u8, id: u32) -> Option<Vec<u8>> {
         TAKING => taking_page(sim, pop.order.incident(id)?),
         ILLNESS => illness_page(&f, pop.sickness.episodes().iter().find(|e| e.id == id)?),
         FIRE => fire::fire_page(sim, pop.fires.get(id)?),
+        HIGH_WATER => {
+            flood::high_water_page(sim, pop.floods.high_waters.iter().find(|hw| hw.id == id)?)
+        }
+        STORM_DAMAGE => {
+            storm::storm_damage_page(sim, pop.floods.storm_damages.iter().find(|sd| sd.id == id)?)
+        }
         _ => return None,
     };
     let mut fbb = FlatBufferBuilder::new();
@@ -1726,6 +1833,18 @@ pub fn chronicle_link(sim: &Sim, e: &ChronicleEvent) -> Option<(u8, u32)> {
                         && matches!(c.acquired, Acquired::Observer { .. })
                 })
                 .map(|c| (ILLNESS, c.id))
+        }
+        ChronicleKind::Flood => flood::chronicle_link(sim, e),
+        ChronicleKind::StormDamage => storm::chronicle_link(sim, e),
+        ChronicleKind::Influence
+            if e.number.round() as u8 == civ_agents::influence::InfluenceKind::Flood.code() =>
+        {
+            flood::chronicle_link(sim, e)
+        }
+        ChronicleKind::Influence
+            if e.number.round() as u8 == civ_agents::influence::InfluenceKind::Storm.code() =>
+        {
+            storm::chronicle_link(sim, e)
         }
         ChronicleKind::Fire | ChronicleKind::Died | ChronicleKind::Influence => {
             fire::chronicle_link(sim, e)

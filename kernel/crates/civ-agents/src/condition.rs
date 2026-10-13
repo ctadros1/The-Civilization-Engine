@@ -186,7 +186,7 @@ pub fn wear_of(kind: GroupKind, upkeep: &Upkeep) -> Option<Wear> {
     match kind {
         GroupKind::Posts => Some(upkeep.posts),
         GroupKind::Covering => Some(upkeep.covering),
-        GroupKind::Infill => Some(upkeep.infill),
+        GroupKind::Infill | GroupKind::MassWall => Some(upkeep.infill),
         GroupKind::TieBeams
         | GroupKind::LoftJoists
         | GroupKind::FloorJoists
@@ -281,7 +281,7 @@ pub fn wear_month(b: &mut Building, upkeep: &Upkeep, wetness: f64, rain: f64) ->
             continue;
         }
         let factor = match kind {
-            GroupKind::Posts => wetness.max(0.0) * rain,
+            GroupKind::Posts | GroupKind::MassWall => wetness.max(0.0) * rain,
             GroupKind::Covering | GroupKind::Infill => rain,
             _ => leaking,
         };
@@ -317,7 +317,7 @@ pub fn settle_state(b: &mut Building) {
             .iter()
             .any(|c| c.state == GroupState::Failed && GroupKind::of_group(c.group) == Some(k))
     };
-    b.state = if failed(GroupKind::Posts) {
+    b.state = if failed(GroupKind::Posts) || failed(GroupKind::MassWall) {
         BuildingState::Ruin
     } else if b.condition.iter().any(|c| c.state == GroupState::Failed) {
         BuildingState::Damaged
@@ -383,7 +383,7 @@ pub fn repair_of(b: &Building, upkeep: &Upkeep) -> Option<Repair> {
 fn timber(g: &Group) -> bool {
     !matches!(
         g.kind,
-        GroupKind::Covering | GroupKind::Infill | GroupKind::Floor
+        GroupKind::Covering | GroupKind::Infill | GroupKind::Floor | GroupKind::MassWall
     )
 }
 
@@ -510,7 +510,15 @@ pub fn room_left(b: &Building, upkeep: &Upkeep, e: &Expansion, room: [f64; 3]) -
 /// Empty when nothing shows.
 pub fn symptoms(b: &Building, upkeep: &Upkeep) -> String {
     if b.state == BuildingState::Ruin {
-        return "a ruin: its posts gave way".to_owned();
+        let what = if b.condition.iter().any(|c| {
+            c.state == GroupState::Failed
+                && GroupKind::of_group(c.group) == Some(GroupKind::MassWall)
+        }) {
+            "a ruin: its walls gave way"
+        } else {
+            "a ruin: its posts gave way"
+        };
+        return what.to_owned();
     }
     let mut shown: Vec<(f64, &'static str)> = Vec::new();
     for c in &b.condition {
@@ -527,6 +535,7 @@ pub fn symptoms(b: &Building, upkeep: &Upkeep) -> String {
             (GroupKind::LoftJoists, _) if loaded => "the loft sags",
             (GroupKind::RoofFrame, _) if loaded => "the roof sags",
             (GroupKind::Posts, _) if loaded => "the posts lean",
+            (GroupKind::MassWall, _) if loaded => "the walls lean",
             (GroupKind::FloorJoists | GroupKind::RaisedFloor, _) if loaded => "the floor sags",
             (_, _) if loaded => "a beam sags",
             (GroupKind::RaisedFloor | GroupKind::FloorJoists, GroupState::Failed) => {
@@ -537,6 +546,8 @@ pub fn symptoms(b: &Building, upkeep: &Upkeep) -> String {
             (GroupKind::Covering, _) => "the thatch leaks",
             (GroupKind::Posts, GroupState::Failed) => "the posts gave way",
             (GroupKind::Posts, _) => "rot at the posts' foot",
+            (GroupKind::MassWall, GroupState::Failed) => "a wall gave way",
+            (GroupKind::MassWall, _) => "wear at the wall's foot",
             (GroupKind::Infill, GroupState::Failed) => "the walls are open",
             (GroupKind::Infill, _) => "the daub is worn",
             (GroupKind::RoofFrame, GroupState::Failed) => "the roof fell in",

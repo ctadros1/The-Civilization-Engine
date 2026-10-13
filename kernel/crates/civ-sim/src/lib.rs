@@ -918,6 +918,45 @@ impl Sim {
         self.influence(|people, ctx| people.set_fire(ctx, building))
     }
 
+    /// The observer raises river reach `reach` to `discharge_m3s` for `days` days (god tool, M6b
+    /// slice BF; ADR-0022 §13). What follows, in the floodplain, fords, fields and stores, is the
+    /// world's.
+    pub fn raise_river(
+        &mut self,
+        reach: usize,
+        discharge_m3s: f32,
+        days: u32,
+    ) -> Result<civ_agents::population::Reached, String> {
+        if reach >= self.map.reaches.len() {
+            return Err(format!("no river reach {reach} exists"));
+        }
+        if discharge_m3s <= 0.0 {
+            return Err("discharge must be positive".to_owned());
+        }
+        let mut reaches = self.land.reach_discharges.clone();
+        if reaches.len() < self.map.reaches.len() {
+            reaches.resize(self.map.reaches.len(), 0.0);
+        }
+        reaches[reach] = discharge_m3s;
+        self.land.update_floods(&self.map, reaches);
+        refresh_nav(&mut self.nav, &self.map, &self.rules, &self.land);
+
+        self.influence(|people, ctx| people.raise_river(ctx, reach, discharge_m3s, days))
+    }
+
+    /// The observer sends a gale with `wind_speed_ms` and `direction_deg` across the world (god
+    /// tool, M6b slice BF; ADR-0022 §13). Roofs meet dynamic uplift pressure and may tear.
+    pub fn send_storm(
+        &mut self,
+        wind_speed_ms: f32,
+        direction_deg: f32,
+    ) -> Result<civ_agents::population::Reached, String> {
+        if wind_speed_ms <= 0.0 {
+            return Err("wind speed must be positive".to_owned());
+        }
+        self.influence(|people, ctx| people.send_storm(ctx, wind_speed_ms, direction_deg))
+    }
+
     /// Runs god tool `tool` on the people with a context for now, then schedules what it planned.
     fn influence<T>(
         &mut self,
@@ -1487,6 +1526,7 @@ impl Sim {
                         advance.days += 1;
                         // The day that just ended is complete.
                         land.advance_to_day(&rules.land, map, at.day_index() - 1);
+                        refresh_nav(nav, map, rules, land);
                         let mut ctx = Ctx {
                             now: at,
                             seed: meta.seed,
@@ -1568,7 +1608,7 @@ impl Sim {
     }
 }
 
-/// The walking grid of `map` with the open crossings' decks laid over it (M5c slice AW).
+/// The walking grid of `map` with the open crossings' decks and flood depths laid over it (M6b slice BF).
 fn nav_with_decks(map: &WorldMap, rules: &Rules, land: &Land) -> NavGrid {
     let decks = land.crossings.decks(|s| {
         rules
@@ -1577,13 +1617,21 @@ fn nav_with_decks(map: &WorldMap, rules: &Rules, land: &Land) -> NavGrid {
             .get(usize::from(s))
             .map_or(0.0, |d| d.deck_factor as f32)
     });
-    NavGrid::with_decks(map, rules.people.nav, &decks, land.crossings.revision())
+    NavGrid::with_decks_and_flood(
+        map,
+        rules.people.nav,
+        &decks,
+        land.crossings.revision(),
+        Some(&land.reach_discharges),
+        Some(&land.flood_depths),
+        land.flood_revision,
+    )
 }
 
-/// Lays the walking grid again when a crossing has opened or given way since it was laid: no
-/// route is planned across a fallen bridge, nor misses an open one (01-08 §7).
+/// Lays the walking grid again when a crossing has opened or given way, or flood depths have
+/// changed since it was laid (01-08 §7, M6b slice BF).
 fn refresh_nav(nav: &mut Arc<NavGrid>, map: &WorldMap, rules: &Rules, land: &Land) {
-    if land.crossings.revision() != nav.revision() {
+    if land.crossings.revision() != nav.revision() || land.flood_revision != nav.flood_revision() {
         *nav = Arc::new(nav_with_decks(map, rules, land));
     }
 }

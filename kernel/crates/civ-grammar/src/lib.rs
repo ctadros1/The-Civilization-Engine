@@ -279,6 +279,12 @@ pub enum PartKind {
     Ladder,
     /// A post carrying a raised floor (frame).
     FloorPost,
+    /// A stone footing along wall lines (frame version 2).
+    StoneFooting,
+    /// A mass wall of rubble, mud brick or fired brick (frame version 2).
+    MassWall,
+    /// A fired clay roof tile (frame version 2).
+    Tile,
 }
 
 impl PartKind {
@@ -301,6 +307,9 @@ impl PartKind {
             PartKind::GableInfill => 13,
             PartKind::Ladder => 14,
             PartKind::FloorPost => 15,
+            PartKind::StoneFooting => 16,
+            PartKind::MassWall => 17,
+            PartKind::Tile => 18,
         }
     }
 }
@@ -399,6 +408,8 @@ pub enum GroupKind {
     Infill,
     /// A floor on the ground.
     Floor,
+    /// A mass wall of rubble, mud brick or fired brick (frame version 2).
+    MassWall,
 }
 
 impl GroupKind {
@@ -414,6 +425,7 @@ impl GroupKind {
             GroupKind::Covering => 7,
             GroupKind::Infill => 8,
             GroupKind::Floor => 9,
+            GroupKind::MassWall => 10,
         }
     }
 
@@ -429,11 +441,12 @@ impl GroupKind {
             GroupKind::Covering => "covering",
             GroupKind::Infill => "infill",
             GroupKind::Floor => "floor",
+            GroupKind::MassWall => "mass wall",
         }
     }
 
     /// Every kind, in code order.
-    pub const ALL: [GroupKind; 9] = [
+    pub const ALL: [GroupKind; 10] = [
         GroupKind::Posts,
         GroupKind::TieBeams,
         GroupKind::LoftJoists,
@@ -443,6 +456,7 @@ impl GroupKind {
         GroupKind::Covering,
         GroupKind::Infill,
         GroupKind::Floor,
+        GroupKind::MassWall,
     ];
 
     /// The kind with stable code `code`.

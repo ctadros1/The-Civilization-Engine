@@ -24,6 +24,8 @@ pub enum Collapse {
     OwnWeight,
     /// They gave way under someone stepping onto it.
     UnderWalker,
+    /// Swollen flood waters scoured away abutments or piers.
+    Scour,
 }
 
 impl Collapse {
@@ -34,7 +36,7 @@ impl Collapse {
 
     /// The cause with code `code`.
     pub fn from_code(code: u8) -> Option<Collapse> {
-        [Collapse::OwnWeight, Collapse::UnderWalker]
+        [Collapse::OwnWeight, Collapse::UnderWalker, Collapse::Scour]
             .get(usize::from(code))
             .copied()
     }
@@ -224,7 +226,7 @@ mod tests {
         };
         assert!(all.decks(|_| 0.7).is_empty() && all.open_at(11).is_none());
         assert!(all.problems().is_empty());
-        for why in [Collapse::OwnWeight, Collapse::UnderWalker] {
+        for why in [Collapse::OwnWeight, Collapse::UnderWalker, Collapse::Scour] {
             assert_eq!(Collapse::from_code(why.code()), Some(why));
         }
     }

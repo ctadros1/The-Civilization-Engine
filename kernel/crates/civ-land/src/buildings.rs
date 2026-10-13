@@ -133,6 +133,10 @@ pub struct Building {
     /// The building its builders' taste followed when it was begun: the one that had moved
     /// their taste most (M3b slice R). `None` for one begun before any had, or before style.
     pub style_from: Option<PermanentId>,
+    /// Peak water depth inside or at the building during the most recent flood, in centimetres.
+    pub last_flood_depth_cm: u16,
+    /// Days the building's floor or walls have remained wet from flooding.
+    pub days_wet: u16,
 }
 
 /// Upkeep under way on one of a building's groups (ADR-0009 §4): renewing a share of it, with
@@ -171,6 +175,8 @@ impl Building {
             state: BuildingState::Standing,
             repair: None,
             style_from: None,
+            last_flood_depth_cm: 0,
+            days_wet: 0,
         }
     }
 

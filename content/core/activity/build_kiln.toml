@@ -1,0 +1,17 @@
+# Building an updraft kiln at home in daylight (research 07-05 §1.3, 11-08 §2.2).
+kind = "activity"
+id = "core:activity/build_kiln"
+name = "Build a kiln"
+doing = "building a kiln"
+behavior = "make"
+recipe = "core:recipe/build_kiln"
+par = 3.0
+min_age_years = 14.0
+max_age_years = 75.0
+min_minutes = 60
+max_minutes = 300
+daylight_only = true
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

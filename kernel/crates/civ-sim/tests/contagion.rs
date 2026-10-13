@@ -498,9 +498,31 @@ fn the_incidents_list_every_case_and_an_outbreak_s_page_traces_the_well_its_wate
         def.household_hazard = 0.0;
         def.severe_death_per_day = 0.0;
     }
-    // The observer brings cholera to someone of the well's household: the outbreak's first case.
+    // The observer brings cholera to an asymptomatic member of the well's household: the outbreak's first case.
     let (_, members) = household(&sim, h);
-    sim.plague(members[0], CHOLERA).expect("brought");
+    let index_person = members
+        .iter()
+        .copied()
+        .find(|&m| {
+            let p = sim.people().person(m).expect("person");
+            let def = &sim.rules().catalog.diseases[usize::from(d)];
+            let mut rng = civ_agents::sickness::sickness_rng(
+                sim.meta().seed,
+                m,
+                sim.now().day_index(),
+                d,
+                civ_agents::sickness::SickDraw::Course,
+            );
+            let c = civ_agents::sickness::course(
+                def,
+                p.age_years(sim.now()),
+                sim.now().day_index(),
+                &mut rng,
+            );
+            c.ill_from == c.ill_until
+        })
+        .unwrap_or(members[0]);
+    sim.plague(index_person, CHOLERA).expect("brought");
     // Another household's water, drawn at the well, holds a heavy load of it just before
     // midnight; a wet day had washed some into the well from the first household's heap.
     let other = households(&sim)

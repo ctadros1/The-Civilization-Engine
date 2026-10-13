@@ -103,8 +103,18 @@ conflagration():number {
   return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
 }
 
+flood():number {
+  const offset = this.bb!.__offset(this.bb_pos, 32);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
+storm():number {
+  const offset = this.bb!.__offset(this.bb_pos, 34);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
 static startIncidentRow(builder:flatbuffers.Builder) {
-  builder.startObject(14);
+  builder.startObject(16);
 }
 
 static addKind(builder:flatbuffers.Builder, kind:number) {
@@ -161,6 +171,14 @@ static addOpen(builder:flatbuffers.Builder, open:boolean) {
 
 static addConflagration(builder:flatbuffers.Builder, conflagration:number) {
   builder.addFieldInt32(13, conflagration, 0);
+}
+
+static addFlood(builder:flatbuffers.Builder, flood:number) {
+  builder.addFieldInt32(14, flood, 0);
+}
+
+static addStorm(builder:flatbuffers.Builder, storm:number) {
+  builder.addFieldInt32(15, storm, 0);
 }
 
 static endIncidentRow(builder:flatbuffers.Builder):flatbuffers.Offset {

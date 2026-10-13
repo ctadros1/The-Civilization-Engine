@@ -1,0 +1,17 @@
+# Burning limestone in a kiln to produce quicklime (research 07-05 §2.3, 11-08 §1.1).
+kind = "activity"
+id = "core:activity/burn_lime"
+name = "Burn lime"
+doing = "burning lime"
+behavior = "make"
+recipe = "core:recipe/burn_lime"
+par = 3.5
+min_age_years = 14.0
+max_age_years = 75.0
+min_minutes = 120
+max_minutes = 480
+daylight_only = false
+max_walk_minutes = 0
+technique = ""
+tools = []
+rate = 1.0

@@ -937,6 +937,8 @@ pub fn influence_lines<'a>(
                 InfluenceKind::Plague => plague_words(sim, i),
                 InfluenceKind::Drought => drought_words(i),
                 InfluenceKind::Fire => fire_words(sim, i),
+                InfluenceKind::Flood => "the observer raised the river's runoff".to_owned(),
+                InfluenceKind::Storm => "the observer sent a storm".to_owned(),
             };
             let what = fbb.create_string(&words);
             wire::InfluenceLine::create(

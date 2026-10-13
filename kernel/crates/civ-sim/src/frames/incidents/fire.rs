@@ -318,6 +318,8 @@ pub(super) fn fire_row(sim: &Sim, f: &Fire) -> Row {
         observer: observer_of(sim, f),
         outbreak: 0,
         conflagration: f.episode.unwrap_or(0),
+        flood: 0,
+        storm: 0,
         open: f.burning(),
     }
 }

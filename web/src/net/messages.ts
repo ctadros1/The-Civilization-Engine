@@ -1682,6 +1682,11 @@ export interface BankDrawInfo {
   trips: number;
 }
 
+export interface FloodCellInfo {
+  cell: number;
+  depthM: number;
+}
+
 export interface WaterInfo {
   rev: number;
   wells: WellInfo[];
@@ -1689,6 +1694,8 @@ export interface WaterInfo {
   /** The rivers' flow today against their mean (1 is the mean). */
   flow: number;
   banks: BankDrawInfo[];
+  /** Flooded cells today with water depth, metres. */
+  flooded: FloodCellInfo[];
 }
 
 /** A source of water as one home stands to it (wire 1.66): `kind` 1 its own well, 2 a well by
@@ -2704,7 +2711,12 @@ function water(w: W.Water): WaterInfo {
     const v = w.banks(i);
     if (v) banks.push({ x: v.x(), y: v.y(), trips: v.trips() });
   }
-  return { rev: Number(w.rev()), wells, springs, flow: w.flow(), banks };
+  const flooded: FloodCellInfo[] = [];
+  for (let i = 0; i < w.floodedLength(); i++) {
+    const v = w.flooded(i);
+    if (v) flooded.push({ cell: v.cell(), depthM: v.depthM() });
+  }
+  return { rev: Number(w.rev()), wells, springs, flow: w.flow(), banks, flooded };
 }
 
 function earthworks(w: W.Earthworks): EarthworksInfo {

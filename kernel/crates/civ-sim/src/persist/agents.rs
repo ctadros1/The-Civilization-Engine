@@ -114,7 +114,7 @@ use super::{
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
-    SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, finish, section, single_chunk, unreadable,
+    SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -190,6 +190,8 @@ pub const SECTION_SICKNESS: SectionTag = SectionTag::new("sickness");
 pub const SECTION_CONTAGION: SectionTag = SectionTag::new("pathogen");
 /// Section: fires, conflagrations and the exposure near those burning (schema 88; M6b slice BC).
 pub const SECTION_FIRES: SectionTag = SectionTag::new("fires");
+/// Section: high waters, flood episodes, storm damages, and storm episodes (schema 93; M6b slice BF).
+pub const SECTION_FLOODS: SectionTag = SectionTag::new("floods");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -291,6 +293,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         section(SECTION_SICKNESS, 0, encode_sickness(&sim.people, rules)),
         section(SECTION_CONTAGION, 0, encode_contagion(&sim.people, rules)),
         section(SECTION_FIRES, 0, encode_fires(&sim.people)),
+        section(SECTION_FLOODS, 0, encode_floods(&sim.land, &sim.people)),
     ]
 }
 
@@ -502,6 +505,8 @@ enum Schema {
     V91,
     /// Roofs stripped and goods carried out of a fire's way (M6b slice BD, step four).
     V92,
+    /// Flood and storm incidents and episodes, flood memory (M6b slice BF).
+    V93,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -608,7 +613,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V89 => Schema::V89,
         SCHEMA_V90 => Schema::V90,
         SCHEMA_V91 => Schema::V91,
-        SAVE_SCHEMA_VERSION => Schema::V92,
+        SCHEMA_V92 => Schema::V92,
+        SAVE_SCHEMA_VERSION => Schema::V93,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -860,6 +866,21 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V88 {
         let bytes = single_chunk(reader, SECTION_FIRES)?;
         people.fires = decode_fires(&bytes, schema)?;
+    }
+    // Floods (schema 93); before, none has flooded or blown.
+    if schema >= Schema::V93 {
+        let bytes = single_chunk(reader, SECTION_FLOODS)?;
+        let (floods, flood_rev, reaches) = decode_floods(&bytes)?;
+        people.floods = floods;
+        land.flood_revision = flood_rev;
+        if let Some(r) = reaches
+            && r.len() == map.reaches.len()
+        {
+            land.reach_discharges = r;
+        }
+        land.flood_depths = land
+            .floodplain
+            .flood_depth_raster(map, &land.reach_discharges);
     }
     // Settlements' founding ways (schema 61); before them a founding band's is drawn again from
     // its key, and any other settlement's taken as its households' now.
@@ -2477,6 +2498,10 @@ fn decode_land(
         water: Default::default(),
         // Read from its own section (schema 74 on).
         wells: Default::default(),
+        floodplain: civ_world::WorldFloodplain::new(map, &civ_world::ManningParams::default()),
+        reach_discharges: map.reaches.iter().map(|r| r.discharge_m3s).collect(),
+        flood_depths: vec![0.0; map.cell_count()],
+        flood_revision: 0,
     };
     // A grid of the wrong size is reported by `Land::problems`; only fill stocks on a sound one.
     if land.patches.class.len() == n
@@ -2513,6 +2538,7 @@ fn decode_land(
                 land.water.settle(&rules.land.water, mean);
             }
         }
+        land.derive_floodplain(map, &rules.land);
     }
     Ok(land)
 }
@@ -3142,7 +3168,8 @@ fn carried(
         | Schema::V89
         | Schema::V90
         | Schema::V91
-        | Schema::V92 => {
+        | Schema::V92
+        | Schema::V93 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3212,6 +3239,9 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                     midden_at: h.midden.at.minutes(),
                     water_use_l: h.water_use_l,
                     water_walk_min: h.water_walk_min,
+                    flood_home_cm: h.flood_memory.home_depth_cm,
+                    flood_field_cm: h.flood_memory.field_depth_cm,
+                    flood_day: h.flood_memory.day,
                 },
             )
         })
@@ -3346,7 +3376,8 @@ fn decode_households(
             | Schema::V89
             | Schema::V90
             | Schema::V91
-            | Schema::V92 => {
+            | Schema::V92
+            | Schema::V93 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3471,6 +3502,15 @@ fn decode_households(
                     kg,
                     at: time(h.midden_at()),
                 }
+            },
+            flood_memory: if schema >= Schema::V93 {
+                civ_agents::person::FloodMemory {
+                    home_depth_cm: h.flood_home_cm(),
+                    field_depth_cm: h.flood_field_cm(),
+                    day: h.flood_day(),
+                }
+            } else {
+                civ_agents::person::FloodMemory::default()
             },
         });
     }
@@ -4050,6 +4090,8 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Outbreak => 46,
         ChronicleKind::Suspicion => 47,
         ChronicleKind::Fire => 48,
+        ChronicleKind::Flood => 49,
+        ChronicleKind::StormDamage => 50,
     }
 }
 
@@ -4103,6 +4145,8 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         46 => Some(ChronicleKind::Outbreak),
         47 => Some(ChronicleKind::Suspicion),
         48 => Some(ChronicleKind::Fire),
+        49 => Some(ChronicleKind::Flood),
+        50 => Some(ChronicleKind::StormDamage),
         _ => None,
     }
 }
@@ -4609,6 +4653,8 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
                     slow_n: f.soil.slow_n,
                     supply_n: f.soil.supply_n,
                     record: Some(record),
+                    last_flood_depth_cm: f.last_flood_depth_cm,
+                    submerged_days: f.submerged_days,
                 },
             )
         })
@@ -4743,6 +4789,16 @@ fn decode_fields(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<Vec<Fiel
             need_mm: f.need_mm(),
             got_mm: f.got_mm(),
             soil,
+            last_flood_depth_cm: if schema >= Schema::V93 {
+                f.last_flood_depth_cm()
+            } else {
+                0
+            },
+            submerged_days: if schema >= Schema::V93 {
+                f.submerged_days()
+            } else {
+                0
+            },
         });
     }
     Ok(out)
@@ -4900,6 +4956,8 @@ fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
                     skill_h: b.skill_h,
                     repair,
                     style_from: b.style_from.map_or(0, |s| s.get()),
+                    last_flood_depth_cm: b.last_flood_depth_cm,
+                    days_wet: b.days_wet,
                 },
             )
         })
@@ -5039,6 +5097,16 @@ fn decode_buildings(bytes: &[u8], schema: Schema) -> Result<Vec<Building>, LoadE
             },
             // Before schema 22 no building followed another's style.
             style_from: PermanentId::from_raw(b.style_from()),
+            last_flood_depth_cm: if schema >= Schema::V93 {
+                b.last_flood_depth_cm()
+            } else {
+                0
+            },
+            days_wet: if schema >= Schema::V93 {
+                b.days_wet()
+            } else {
+                0
+            },
         });
     }
     Ok(out)
@@ -8843,6 +8911,183 @@ fn decode_fires(bytes: &[u8], schema: Schema) -> Result<civ_agents::fire::Fires,
     Ok(out)
 }
 
+fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
+    let floods = &pop.floods;
+    let mut fbb = FlatBufferBuilder::new();
+    let high_waters: Vec<_> = floods
+        .high_waters
+        .iter()
+        .map(|hw| {
+            save::HighWaterSave::create(
+                &mut fbb,
+                &save::HighWaterSaveArgs {
+                    id: hw.id,
+                    reach: hw.reach,
+                    settlement: raw(hw.settlement),
+                    x: hw.at.0,
+                    y: hw.at.1,
+                    began: hw.began.minutes(),
+                    ended: hw.ended.map_or(-1, |t| t.minutes()),
+                    peak_discharge: hw.peak_discharge,
+                    peak_stage: hw.peak_stage,
+                    episode: hw.episode.unwrap_or(0),
+                    buildings_flooded: hw.buildings_flooded,
+                    fields_flooded: hw.fields_flooded,
+                    spoiled_kg: hw.spoiled_kg,
+                    scoured_crossings: hw.scoured_crossings,
+                },
+            )
+        })
+        .collect();
+    let high_waters = fbb.create_vector(&high_waters);
+    let flood_episodes: Vec<_> = floods
+        .flood_episodes
+        .iter()
+        .map(|ep| {
+            let hw_vec = fbb.create_vector(&ep.high_waters);
+            save::FloodEpisodeSave::create(
+                &mut fbb,
+                &save::FloodEpisodeSaveArgs {
+                    id: ep.id,
+                    settlement: raw(ep.settlement),
+                    first_reach: ep.first_reach,
+                    began: ep.began.minutes(),
+                    ended: ep.ended.map_or(-1, |t| t.minutes()),
+                    peak_discharge: ep.peak_discharge,
+                    high_waters: Some(hw_vec),
+                    total_spoiled_kg: ep.total_spoiled_kg,
+                    total_buildings: ep.total_buildings,
+                    total_fields_lost: ep.total_fields_lost,
+                },
+            )
+        })
+        .collect();
+    let flood_episodes = fbb.create_vector(&flood_episodes);
+    let storm_damages: Vec<_> = floods
+        .storm_damages
+        .iter()
+        .map(|sd| {
+            save::StormDamageSave::create(
+                &mut fbb,
+                &save::StormDamageSaveArgs {
+                    id: sd.id,
+                    building: sd.building.get(),
+                    household: sd.household.get(),
+                    settlement: raw(sd.settlement),
+                    x: sd.at.0,
+                    y: sd.at.1,
+                    time: sd.time.minutes(),
+                    wind_speed_ms: sd.wind_speed_ms,
+                    uplift_pa: sd.uplift_pa,
+                    episode: sd.episode.unwrap_or(0),
+                },
+            )
+        })
+        .collect();
+    let storm_damages = fbb.create_vector(&storm_damages);
+    let storm_episodes: Vec<_> = floods
+        .storm_episodes
+        .iter()
+        .map(|ep| {
+            let damages_vec = fbb.create_vector(&ep.damages);
+            save::StormEpisodeSave::create(
+                &mut fbb,
+                &save::StormEpisodeSaveArgs {
+                    id: ep.id,
+                    settlement: raw(ep.settlement),
+                    began: ep.began.minutes(),
+                    ended: ep.ended.map_or(-1, |t| t.minutes()),
+                    peak_wind_speed_ms: ep.peak_wind_speed_ms,
+                    damages: Some(damages_vec),
+                },
+            )
+        })
+        .collect();
+    let storm_episodes = fbb.create_vector(&storm_episodes);
+    let reach_discharges = fbb.create_vector(&land.reach_discharges);
+    let root = save::FloodsSave::create(
+        &mut fbb,
+        &save::FloodsSaveArgs {
+            high_waters: Some(high_waters),
+            flood_episodes: Some(flood_episodes),
+            storm_damages: Some(storm_damages),
+            storm_episodes: Some(storm_episodes),
+            flood_revision: land.flood_revision,
+            reach_discharges: Some(reach_discharges),
+        },
+    );
+    finish(fbb, root)
+}
+
+fn decode_floods(
+    bytes: &[u8],
+) -> Result<(civ_agents::floods::Floods, u32, Option<Vec<f32>>), LoadError> {
+    use civ_agents::floods::{FloodEpisode, Floods, HighWater, StormDamage, StormEpisode};
+    let root =
+        flatbuffers::root::<save::FloodsSave>(bytes).map_err(|e| unreadable(SECTION_FLOODS, &e))?;
+    let at = |m: i64| (m >= 0).then(|| SimTime::from_minutes(m));
+    let mut out = Floods::default();
+    for hw in root.high_waters().iter().flatten() {
+        out.high_waters.push(HighWater {
+            id: hw.id(),
+            reach: hw.reach(),
+            settlement: PermanentId::from_raw(hw.settlement()),
+            at: (hw.x(), hw.y()),
+            began: SimTime::from_minutes(hw.began()),
+            ended: at(hw.ended()),
+            peak_discharge: hw.peak_discharge(),
+            peak_stage: hw.peak_stage(),
+            episode: (hw.episode() > 0).then_some(hw.episode()),
+            buildings_flooded: hw.buildings_flooded(),
+            fields_flooded: hw.fields_flooded(),
+            spoiled_kg: hw.spoiled_kg(),
+            scoured_crossings: hw.scoured_crossings(),
+        });
+    }
+    for ep in root.flood_episodes().iter().flatten() {
+        out.flood_episodes.push(FloodEpisode {
+            id: ep.id(),
+            settlement: PermanentId::from_raw(ep.settlement()),
+            first_reach: ep.first_reach(),
+            began: SimTime::from_minutes(ep.began()),
+            ended: at(ep.ended()),
+            peak_discharge: ep.peak_discharge(),
+            high_waters: ep.high_waters().iter().flatten().collect(),
+            total_spoiled_kg: ep.total_spoiled_kg(),
+            total_buildings: ep.total_buildings(),
+            total_fields_lost: ep.total_fields_lost(),
+        });
+    }
+    for sd in root.storm_damages().iter().flatten() {
+        out.storm_damages.push(StormDamage {
+            id: sd.id(),
+            building: required(sd.building(), "a storm damage building")?,
+            household: required(sd.household(), "a storm damage household")?,
+            settlement: PermanentId::from_raw(sd.settlement()),
+            at: (sd.x(), sd.y()),
+            time: SimTime::from_minutes(sd.time()),
+            wind_speed_ms: sd.wind_speed_ms(),
+            uplift_pa: sd.uplift_pa(),
+            episode: (sd.episode() > 0).then_some(sd.episode()),
+        });
+    }
+    for ep in root.storm_episodes().iter().flatten() {
+        out.storm_episodes.push(StormEpisode {
+            id: ep.id(),
+            settlement: PermanentId::from_raw(ep.settlement()),
+            began: SimTime::from_minutes(ep.began()),
+            ended: at(ep.ended()),
+            peak_wind_speed_ms: ep.peak_wind_speed_ms(),
+            damages: ep.damages().iter().flatten().collect(),
+        });
+    }
+    let flood_revision = root.flood_revision();
+    let reach_discharges = root
+        .reach_discharges()
+        .map(|v| v.iter().collect::<Vec<f32>>());
+    Ok((out, flood_revision, reach_discharges))
+}
+
 /// An infection of a disease the loaded content no longer has is let go.
 fn decode_sickness(
     bytes: &[u8],
@@ -9192,7 +9437,9 @@ fn decode_influences(
             | InfluenceKind::Curse
             | InfluenceKind::Wave
             | InfluenceKind::Drought
-            | InfluenceKind::Fire => i.subject(),
+            | InfluenceKind::Fire
+            | InfluenceKind::Flood
+            | InfluenceKind::Storm => i.subject(),
             InfluenceKind::Ideology | InfluenceKind::Agitator => {
                 match map.get(i.subject() as usize) {
                     Some(Some(k)) => *k,

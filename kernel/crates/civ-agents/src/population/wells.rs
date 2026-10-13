@@ -604,7 +604,11 @@ impl Population {
         }
         let key = x
             .settlement
-            .filter(|s| self.homes.contains_key(s))
+            .filter(|s| {
+                self.homes
+                    .get(s)
+                    .is_some_and(|f| f.reach.seconds_to(cell_of(ctx.map, x.home)).is_some())
+            })
             .unwrap_or(x.id);
         let Some((cell, water_z)) = self.spring_or_bank_level(ctx, key) else {
             return best;
@@ -1264,7 +1268,11 @@ impl Population {
         let x = self.household(household)?;
         let key = x
             .settlement
-            .filter(|s| self.homes.contains_key(s))
+            .filter(|s| {
+                self.homes
+                    .get(s)
+                    .is_some_and(|f| f.reach.seconds_to(cell_of(ctx.map, x.home)).is_some())
+            })
             .unwrap_or(x.id);
         self.water_source(ctx, self.homes.get(&key), Some((x, short)), None)
     }
@@ -1281,7 +1289,11 @@ impl Population {
         let x = self.household(self.person(person)?.household)?;
         let key = x
             .settlement
-            .filter(|s| self.homes.contains_key(s))
+            .filter(|s| {
+                self.homes
+                    .get(s)
+                    .is_some_and(|f| f.reach.seconds_to(cell_of(ctx.map, x.home)).is_some())
+            })
             .unwrap_or(x.id);
         self.water_source(ctx, self.homes.get(&key), Some((x, short)), Some(person))
     }

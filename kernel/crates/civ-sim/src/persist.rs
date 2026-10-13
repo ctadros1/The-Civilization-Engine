@@ -313,6 +313,8 @@ pub const SCHEMA_V91: u32 = 91;
 /// The schema version of M6b slice BD, step four: roofs stripped and goods carried out of a
 /// fire's way, before floods and storms (see [`agents`]).
 pub const SCHEMA_V92: u32 = 92;
+/// Floods and storms, before fire caution was persisted.
+pub const SCHEMA_V93: u32 = 93;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

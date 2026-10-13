@@ -983,6 +983,16 @@ struct TrustEntry {
   technique: ushort;
 }
 
+// Schema 94: fire losses and building-years by covering and wall kind (ADR-0022 §7).
+struct FireTrustEntry {
+  at: long;
+  settlement: ulong;
+  losses: double;
+  years: double;
+  tile: bool;
+  wall_kind: ubyte;
+}
+
 table Knowledge {
   // Technique content ids at save time; KnowledgeEntry.technique and TrustEntry.technique index
   // this list.
@@ -995,6 +1005,7 @@ table Knowledge {
   // where it is still known that someone left there has kin or a tie in. Written only when an
   // entry has one.
   elsewhere: [ulong] (id: 3);
+  fire_trust: [FireTrustEntry] (id: 4);
 }
 
 // Section "deposits" (schema 19): bodies in the ground (ADR-0010 §1), in the order they were

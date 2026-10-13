@@ -3849,6 +3849,261 @@ impl<'a> TrustEntry {
 
 }
 
+// struct FireTrustEntry, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct FireTrustEntry(pub [u8; 40]);
+impl Default for FireTrustEntry { 
+  fn default() -> Self { 
+    Self([0; 40])
+  }
+}
+impl ::core::fmt::Debug for FireTrustEntry {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("FireTrustEntry")
+      .field("at", &self.at())
+      .field("settlement", &self.settlement())
+      .field("losses", &self.losses())
+      .field("years", &self.years())
+      .field("tile", &self.tile())
+      .field("wall_kind", &self.wall_kind())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for FireTrustEntry {}
+impl<'a> ::flatbuffers::Follow<'a> for FireTrustEntry {
+  type Inner = &'a FireTrustEntry;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a FireTrustEntry>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a FireTrustEntry {
+  type Inner = &'a FireTrustEntry;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<FireTrustEntry>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for FireTrustEntry {
+    type Output = FireTrustEntry;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const FireTrustEntry as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for FireTrustEntry {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> FireTrustEntry {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    at: i64,
+    settlement: u64,
+    losses: f64,
+    years: f64,
+    tile: bool,
+    wall_kind: u8,
+  ) -> Self {
+    let mut s = Self([0; 40]);
+    s.set_at(at);
+    s.set_settlement(settlement);
+    s.set_losses(losses);
+    s.set_years(years);
+    s.set_tile(tile);
+    s.set_wall_kind(wall_kind);
+    s
+  }
+
+  pub fn at(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_at(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn settlement(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_settlement(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn losses(&self) -> f64 {
+    let mut mem = ::core::mem::MaybeUninit::<<f64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_losses(&mut self, x: f64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn years(&self) -> f64 {
+    let mut mem = ::core::mem::MaybeUninit::<<f64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[24..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_years(&mut self, x: f64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[24..].as_mut_ptr(),
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn tile(&self) -> bool {
+    let mut mem = ::core::mem::MaybeUninit::<<bool as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[32..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<bool as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_tile(&mut self, x: bool) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[32..].as_mut_ptr(),
+        ::core::mem::size_of::<<bool as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn wall_kind(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[33..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_wall_kind(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[33..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct DepositBody, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -26732,6 +26987,7 @@ impl<'a> Knowledge<'a> {
   pub const VT_ENTRIES: ::flatbuffers::VOffsetT = 6;
   pub const VT_TRUST: ::flatbuffers::VOffsetT = 8;
   pub const VT_ELSEWHERE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_FIRE_TRUST: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -26743,6 +26999,7 @@ impl<'a> Knowledge<'a> {
     args: &'args KnowledgeArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Knowledge<'bldr>> {
     let mut builder = KnowledgeBuilder::new(_fbb);
+    if let Some(x) = args.fire_trust { builder.add_fire_trust(x); }
     if let Some(x) = args.elsewhere { builder.add_elsewhere(x); }
     if let Some(x) = args.trust { builder.add_trust(x); }
     if let Some(x) = args.entries { builder.add_entries(x); }
@@ -26779,6 +27036,13 @@ impl<'a> Knowledge<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(Knowledge::VT_ELSEWHERE, None)}
   }
+  #[inline]
+  pub fn fire_trust(&self) -> Option<::flatbuffers::Vector<'a, FireTrustEntry>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, FireTrustEntry>>>(Knowledge::VT_FIRE_TRUST, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Knowledge<'_> {
@@ -26791,6 +27055,7 @@ impl ::flatbuffers::Verifiable for Knowledge<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, KnowledgeEntry>>>("entries", Self::VT_ENTRIES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TrustEntry>>>("trust", Self::VT_TRUST, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("elsewhere", Self::VT_ELSEWHERE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, FireTrustEntry>>>("fire_trust", Self::VT_FIRE_TRUST, false)?
      .finish();
     Ok(())
   }
@@ -26800,6 +27065,7 @@ pub struct KnowledgeArgs<'a> {
     pub entries: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, KnowledgeEntry>>>,
     pub trust: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TrustEntry>>>,
     pub elsewhere: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub fire_trust: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, FireTrustEntry>>>,
 }
 impl<'a> Default for KnowledgeArgs<'a> {
   #[inline]
@@ -26809,6 +27075,7 @@ impl<'a> Default for KnowledgeArgs<'a> {
       entries: None,
       trust: None,
       elsewhere: None,
+      fire_trust: None,
     }
   }
 }
@@ -26835,6 +27102,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> KnowledgeBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Knowledge::VT_ELSEWHERE, elsewhere);
   }
   #[inline]
+  pub fn add_fire_trust(&mut self, fire_trust: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , FireTrustEntry>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Knowledge::VT_FIRE_TRUST, fire_trust);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> KnowledgeBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     KnowledgeBuilder {
@@ -26856,6 +27127,7 @@ impl ::core::fmt::Debug for Knowledge<'_> {
       ds.field("entries", &self.entries());
       ds.field("trust", &self.trust());
       ds.field("elsewhere", &self.elsewhere());
+      ds.field("fire_trust", &self.fire_trust());
       ds.finish()
   }
 }

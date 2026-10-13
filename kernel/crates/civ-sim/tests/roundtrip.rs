@@ -142,6 +142,34 @@ fn load_first() -> Sim {
     persist::load(&fixture().first.path, content()).expect("the first save loads")
 }
 
+#[test]
+fn schema_93_loads_with_no_fire_caution_and_resaves_at_94() {
+    let sim = load_first();
+    let mut sections = persist::encode_sections(&sim);
+    let know = sections
+        .iter_mut()
+        .find(|s| s.tag == agents::SECTION_KNOW)
+        .expect("knowledge");
+    let root = flatbuffers::root::<save::Knowledge>(&know.bytes).expect("knowledge root");
+    assert!(root.fire_trust().is_none_or(|v| v.is_empty()));
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V93;
+    let path = republish("schema-93-fire-caution", &info, &sections);
+    let mut loaded = persist::load(&path, content()).expect("schema 93 loads");
+    assert!(loaded.people().fire_trust.is_empty());
+    let saved = persist::save(
+        &mut loaded,
+        &scratch_dir("from-93"),
+        SaveKind::Manual,
+        "migrated",
+    )
+    .expect("resaves");
+    let reader =
+        commons_persist::SnapshotReader::open_file(&saved.path, commons_persist::Limits::default())
+            .expect("opens");
+    assert_eq!(reader.info().schema_version, SAVE_SCHEMA_VERSION);
+}
+
 fn digests(chunks: &[ChunkInfo]) -> Vec<(String, u32, u32, u64, u64)> {
     chunks
         .iter()

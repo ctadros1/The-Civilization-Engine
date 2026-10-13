@@ -31,18 +31,22 @@ fn content() -> &'static ContentRegistry {
     })
 }
 
+fn world_spec(seed: u64) -> NewWorld {
+    NewWorld {
+        name: "Fire".to_owned(),
+        seed,
+        preset_id: "core:worldgen/river_valley".to_owned(),
+        size_cells: 512,
+        band_size: 0,
+        neighbours: Vec::new(),
+        neighbours_known: false,
+        regime_id: String::new(),
+    }
+}
+
 fn world(seed: u64) -> Sim {
     Sim::create(
-        &NewWorld {
-            name: "Fire".to_owned(),
-            seed,
-            preset_id: "core:worldgen/river_valley".to_owned(),
-            size_cells: 512,
-            band_size: 0,
-            neighbours: Vec::new(),
-            neighbours_known: false,
-            regime_id: String::new(),
-        },
+        &world_spec(seed),
         content(),
         &mut |_| {},
         &AtomicBool::new(false),
@@ -398,6 +402,33 @@ fn a_world_saved_mid_fire_burns_on_as_if_never_saved() {
     };
     assert_eq!(conditions(&loaded), conditions(&sim));
     assert_eq!(loaded.people().chronicle, sim.people().chronicle);
+}
+
+#[test]
+fn fire_caution_survives_a_save_after_buildings_burn() {
+    let (mut sim, _, huts) = block_near_home(5, 3.0, 5.5);
+    sim.set_fire(huts[0]).expect("set alight");
+    sim.advance_minutes(120).expect("advances");
+    assert!(sim.people().fire_trust.iter().any(|t| t.losses > 0.0));
+    let before = sim.people().fire_trust.clone();
+    let dir = tempfile::tempdir().expect("tempdir");
+    let saves = SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "fire caution").expect("saves");
+    let mut loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().fire_trust, before);
+    let resaved = persist::save(&mut loaded, &saves, SaveKind::Manual, "fire caution again")
+        .expect("saves again");
+    let digests = |path: &Path| {
+        let reader =
+            commons_persist::SnapshotReader::open_file(path, commons_persist::Limits::default())
+                .expect("opens");
+        reader
+            .chunks()
+            .iter()
+            .map(|c| (c.tag, c.index, c.raw_digest))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(digests(&saved.path), digests(&resaved.path));
 }
 
 #[test]
@@ -914,7 +945,9 @@ fn a_world_saved_with_ignitions_pending_lives_on_as_if_never_saved() {
 /// east of its home and 12 m south, saved and loaded twice so that both worlds are one world
 /// (M6b slice BD, step three).
 fn block_near_home(seed: u64, gap_m: f32, wind_ms: f32) -> (Sim, Sim, Vec<PermanentId>) {
-    let mut sim = world(seed);
+    // Hold scheduling tie-breaks fixed: this is a controlled response fixture, not a sample
+    // of worlds with random identities. Ordinary simulations remain free to vary.
+    let mut sim = Sim::create_for_tests(&world_spec(seed), content(), [7; 16]).expect("generates");
     sim.advance_minutes(6 * 60).expect("advances");
     let (household, home) = first(&sim);
     let step = hut_span_m() + gap_m;

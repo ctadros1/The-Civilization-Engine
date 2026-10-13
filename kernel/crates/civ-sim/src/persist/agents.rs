@@ -70,7 +70,7 @@
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{Read, Seek};
 
-use civ_agents::caution::Trust;
+use civ_agents::caution::{FireTrust, Trust};
 use civ_agents::condition;
 use civ_agents::firm::{BookKind, Books, Entry as BookEntryOf, Exit, Firm, Statement, WageOffer};
 use civ_agents::history::{
@@ -114,7 +114,8 @@ use super::{
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
-    SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, finish, section, single_chunk, unreadable,
+    SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, finish, section, single_chunk,
+    unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -507,6 +508,8 @@ enum Schema {
     V92,
     /// Flood and storm incidents and episodes, flood memory (M6b slice BF).
     V93,
+    /// Fire caution by covering and wall kind (BE persistence repair).
+    V94,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -614,7 +617,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V90 => Schema::V90,
         SCHEMA_V91 => Schema::V91,
         SCHEMA_V92 => Schema::V92,
-        SAVE_SCHEMA_VERSION => Schema::V93,
+        SCHEMA_V93 => Schema::V93,
+        SAVE_SCHEMA_VERSION => Schema::V94,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -721,6 +725,10 @@ pub(super) fn decode<R: Read + Seek>(
         // Before schema 18 no settlement remembered its buildings: it has seen nothing yet.
         if schema >= Schema::V18 {
             people.trust = decode_trust(&bytes, rules)?;
+        }
+        // Older saves did not keep fire caution; begin with no remembered losses.
+        if schema >= Schema::V94 {
+            people.fire_trust = decode_fire_trust(&bytes)?;
         }
         // A technique founders bring that the content has added since the save was made is
         // given as a founder of their age would bring it, like a new skill.
@@ -3169,7 +3177,8 @@ fn carried(
         | Schema::V90
         | Schema::V91
         | Schema::V92
-        | Schema::V93 => {
+        | Schema::V93
+        | Schema::V94 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3377,7 +3386,8 @@ fn decode_households(
             | Schema::V90
             | Schema::V91
             | Schema::V92
-            | Schema::V93 => {
+            | Schema::V93
+            | Schema::V94 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5804,6 +5814,21 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
         })
         .collect();
     let trust = fbb.create_vector(&trust);
+    let fire_trust: Vec<save::FireTrustEntry> = pop
+        .fire_trust
+        .iter()
+        .map(|t| {
+            save::FireTrustEntry::new(
+                t.at.minutes(),
+                t.settlement.get(),
+                t.losses,
+                t.years,
+                t.tile,
+                t.wall_kind,
+            )
+        })
+        .collect();
+    let fire_trust = fbb.create_vector(&fire_trust);
     let root = save::Knowledge::create(
         &mut fbb,
         &save::KnowledgeArgs {
@@ -5811,6 +5836,7 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
             entries: Some(entries),
             trust: Some(trust),
             elsewhere,
+            fire_trust: Some(fire_trust),
         },
     );
     finish(fbb, root)
@@ -5857,6 +5883,40 @@ fn decode_trust(bytes: &[u8], rules: &Rules) -> Result<Vec<Trust>, LoadError> {
             settlement,
             technique,
             failures,
+            years,
+            at: time(t.at()),
+        });
+    }
+    Ok(out)
+}
+
+/// Fire caution (schema 94); malformed or repeated records are refused.
+fn decode_fire_trust(bytes: &[u8]) -> Result<Vec<FireTrust>, LoadError> {
+    let root =
+        flatbuffers::root::<save::Knowledge>(bytes).map_err(|e| unreadable(SECTION_KNOW, &e))?;
+    let mut out: Vec<FireTrust> = Vec::new();
+    for t in root.fire_trust().iter().flatten() {
+        let (losses, years) = (t.losses(), t.years());
+        if !(losses.is_finite() && losses >= 0.0 && years.is_finite() && years >= 0.0)
+            || t.wall_kind() > 3
+        {
+            return Err(LoadError::Malformed(
+                "invalid fire caution record".to_owned(),
+            ));
+        }
+        let settlement = required(t.settlement(), "a fire caution entry")?;
+        if out.iter().any(|x| {
+            x.settlement == settlement && x.tile == t.tile() && x.wall_kind == t.wall_kind()
+        }) {
+            return Err(LoadError::Malformed(
+                "repeated fire caution record".to_owned(),
+            ));
+        }
+        out.push(FireTrust {
+            settlement,
+            tile: t.tile(),
+            wall_kind: t.wall_kind(),
+            losses,
             years,
             at: time(t.at()),
         });

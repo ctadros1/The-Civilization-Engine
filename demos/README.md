@@ -72,3 +72,5 @@ TCE_DEMO=1 TCE_DEMO_VIDEO=1 TCE_SHOTS_DIR=../demos/m6a npm run test:e2e -- m6a-d
 
 The demo runner writes the raw 1920×1080 observer recording, screenshots and text log directly to
 `demos/m6a/`. Preview and render the title-and-caption version with the [M6a video project](m6a/production/README.md).
+
+M6b is in progress: masonry and flood/storm mechanics are implemented, while the fire-to-building-rule demo remains planned. M6a is still the newest completed lived demo.

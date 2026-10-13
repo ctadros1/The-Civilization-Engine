@@ -30,7 +30,7 @@ Its guiding rule is **the engine authors the vocabulary, never the plot**. Conte
 | M5b · Trade and diffusion | Implemented: households trade using dated reports, fetch goods to resell, and learn techniques and building styles through contact. The earlier roof-style demo no longer qualifies after corrected river routing separated its villages. |
 | M5c · Inter-polity relations and public works | Implemented: claims, agreements ratified by each settlement's own law, carried payments, and household and village log crossings. A failed ratification appears in a test world, not a lived demo. |
 | M6a · Water and sickness | Implemented: flowing water, aquifers, springs and household wells; waterborne contamination and disease; illness, care, suspicion, source avoidance and collective responses. The cholera demo traces an outbreak that people do not connect to the wells that carried it. |
-| M6b · Fire, masonry and floods | In progress: buildings burn and spread fire; people notice, raise alarms, carry water, strip threatened roofs and salvage goods. The dashboard reports fire escapes. Masonry, floods, public works and the milestone demo remain ahead. |
+| M6b · Fire, masonry and floods | In progress: buildings burn and spread fire; people notice, raise alarms, carry water, strip threatened roofs and salvage goods. The dashboard has a Fires row for household escapes. Masonry, brick and tile, flood depths and wet-floor damage, evacuation, storm uplift and flood/storm kernel commands are implemented. Fire response and reporting remain partial; banks, ditches, building rules and the milestone demo remain planned. |
 
 The web observer currently presents an early farming world. The project's longer vision reaches modern civilization, but modern industry, cities and the Unreal client are not implemented. Smoke runs and dashboards check selected behaviors and engineering invariants; they do not prove historical realism.
 
@@ -54,8 +54,8 @@ These generated previews illustrate the project's longer-term historical and mod
 - **Simulation kernel:** Rust workspace organized around world generation, changing land, people, authored content, simulation composition, hosting and a C interface.
 - **Emergent systems:** event-scheduled daily lives and calendar cadences; goods move through an accounting ledger; building grammars expand saved designs; institutions emerge through proposals, deliberation, law and collective action. Waterborne disease and fire spread through household choices, weather, buildings and local response.
 - **Multiple settlements:** settlement identity and residence histories are explicit. Households learn places by contact and choose whether to visit, move or found elsewhere.
-- **Content and boundaries:** strict TOML packs (content API 85) feed the kernel. The web observer uses a localhost WebSocket and versioned FlatBuffers messages (TCE wire 1.68); it displays kernel state and forwards commands.
-- **Persistence:** checksummed, versioned snapshots (schema 92) with explicit migrations. World generation is reproducible for a seed on one build; simulation replay is not a goal.
+- **Content and boundaries:** strict TOML packs (content API 85) feed the kernel. The web observer uses a localhost WebSocket and versioned FlatBuffers messages (TCE wire 1.69); it displays kernel state and forwards commands.
+- **Persistence:** checksummed, versioned snapshots (schema 94) with explicit migrations. World generation is reproducible for a seed on one build; simulation replay is not a goal.
 
 ## Run it
 

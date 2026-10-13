@@ -1632,7 +1632,9 @@ fn nav_with_decks(map: &WorldMap, rules: &Rules, land: &Land) -> NavGrid {
 /// changed since it was laid (01-08 §7, M6b slice BF).
 fn refresh_nav(nav: &mut Arc<NavGrid>, map: &WorldMap, rules: &Rules, land: &Land) {
     if land.crossings.revision() != nav.revision() || land.flood_revision != nav.flood_revision() {
-        *nav = Arc::new(nav_with_decks(map, rules, land));
+        let mut refreshed = nav_with_decks(map, rules, land);
+        refreshed.reuse_unchanged_ground(nav);
+        *nav = Arc::new(refreshed);
     }
 }
 

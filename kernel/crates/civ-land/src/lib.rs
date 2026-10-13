@@ -507,11 +507,11 @@ pub fn height_at(map: &WorldMap, x: f32, y: f32) -> f64 {
 
 impl Land {
     /// The ground people plan routes on, as one number: the paths' survey and the crossings'
-    /// revision (M5c slice AW). Routes and travel times worked out on another are not to be
-    /// trusted.
-    pub fn route_revision(&self) -> u64 {
+    /// revision, with the navigation grid's effective walking conditions (M6b slice BF).
+    /// Routes and travel times worked out on another are not to be trusted.
+    pub fn route_revision(&self, travel_revision: u64) -> u64 {
         let base = (u64::from(self.crossings.revision()) << 32) | u64::from(self.wear.rev());
-        base ^ (u64::from(self.flood_revision).wrapping_mul(0x517c_c1b7_2722_0a95))
+        base ^ travel_revision
     }
 
     /// Classifies a map's patches and lives a year of weather and stocks so a new world starts

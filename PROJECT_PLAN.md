@@ -18,8 +18,10 @@ lived demo. **M6a, Water and sickness, is implemented**, including the cholera d
 incident views, and household and polity responses to suspected sources. **M6b, Fire, masonry and
 floods, is in progress:** fire behavior, its observer view, household ignitions, noticing and
 alarms, water carried to threatened roofs, roof stripping and goods salvage are implemented,
-along with the dashboard's fire-rate row. Masonry, floods, banks and ditches, building rules and
-the M6b demo remain planned. M6c, war and conquest, is future work. See §7 for scope and §9 for
+along with the dashboard's Fires row. Masonry, brick and tile, flood depths and wet-floor
+damage, evacuation, storm uplift and flood/storm kernel commands are implemented. BD's remaining
+fire response and reporting, banks and ditches, building rules and the M6b demo remain planned.
+M6c, war and conquest, is future work. See §7 for scope and §9 for
 implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
@@ -2410,6 +2412,13 @@ and M6a gives rivers a daily flow.
       them. Each is recorded and the fire's page tells it (saves 92, content API 85). Measured:
       with water at hand people chose to carry water almost every time; in five worlds no roof
       was stripped and two loads of goods were carried out. Pulling a building down waits.
+    - *Step five implemented (2026-10-11, §9):* the dashboard's Fires row reports escapes per
+      1,000 household-years, put-out escapes, buildings burned, spread and deaths; observer-set
+      fires are separate. The rate sweep remains planned.
+    - *BE persistence repair (2026-10-13):* fire caution by covering and wall kind is now saved
+      in schema 94; saves through 93 begin with no remembered fire losses, since none was stored.
+      Pulling down with a crew and leave, fire seen and told, fuller page/chronicle reporting,
+      the Help at a fire lens and the calibration sweep remain open.
   - **BE**: masonry, brick and tile.
     - Goods (mud brick, brick, roof tile, quicklime), a kiln, and techniques. Founders bring
       rubble walling and mud brick; firing and lime burning come by finding.
@@ -2438,6 +2447,11 @@ and M6a gives rivers a daily flow.
     - High-water and storm-damage incidents with flood and storm episodes.
     - The flood and storm tools, flood water on the map as a raster of depth by day, and the
       dashboard's flood row.
+    - *Partially implemented (2026-10-13, §9):* hydraulic stage and HAND storage curves, daily
+      fordability and wading limits, wet-floor goods loss, crop submergence, evacuation, flood
+      memory, uplift damage, incidents/episodes and flood/storm commands (wire 1.69, saves 93).
+      Crossing scour and the dashboard flood row remain open. Review concerns and coverage
+      limits are recorded in the development journal; these are not a completed BF gate.
   - **BG**: banks and ditches.
     - Earth kinds `bank` and `ditch` as lines of segments.
     - Water behind a bank only over its crest or through a breach. Overtopping and piping.
@@ -3112,9 +3126,17 @@ One line each. Don't re-litigate without a reason written next to the entry.
 
 - **Floods and storms, as built (2026-10-13, M6b slice BF; ADR-0022 §8, §9):**
   **Hydraulics & floodplain:** Reach hydraulic geometry with width, slope, and Manning roughness $n=0.035$; bankfull discharge $Q_{bf} = 1.5 \times Q_{mean}$ and stage $d_{bf} = (n Q_{bf} / (w S^{0.5}))^{0.6}$. Height Above Nearest Drainage (HAND) precomputed from D8 flow routing into reach compartments. Inundation extent and depth calculated using reach transit time ($L / V_{bf}$) and cumulative elevation-storage curves, ensuring mass conservation and natural overbank stage.
-  **Fords & walkability:** Dynamic daily fordability based on river stage; wading threshold restricts deep cells ($>0.6\text{ m}$) from being walked into.
+  **Fords & walkability:** Dynamic daily fordability based on river stage; wading threshold restricts deep cells ($>0.5\text{ m}$) from being walked into.
   **Impacts:** Water above floor spoils perishable/food floor goods at depth-dependent rates while preserving durables; wetness wears daub and mud brick; submerged crops track flood days; people evacuate flooded homes to dry kin homes or settlement hearth.
   **Storms & uplift:** Monthly wind gusts draw uplift loads ($q = \frac{1}{2}\rho V^2$); covering uplift capacity calibrated with material-specific thresholds (thatch $600 + 600 \times Q$, tile $1500 + 1000 \times (1 - \text{loss})$); torn coverings record storm damage incidents and episodes without triggering premature structural collapse.
   **God tools:** `RaiseRiver` and `SendStorm` commands exposed over wire schema (wire 1.69) with observer responses, queries (`GetFlood`, `GetStorm`), and incident feeds. Refusal, never repair in save schema 93.
   Workspace tests (`simcheck`), clippy (`-D warnings`), formatting, web vitest suites, and all 10 smoke seeds pass cleanly.
 
+
+- **BE/BF verification (2026-10-13):** latest main `bb27093`; fire-caution persistence repaired in save schema 94 (wire 1.69, content API 85 unchanged). Saves through 93 contain no fire-caution records and explicitly migrate to empty memory. BF follow-ups are listed in the development journal and authorized for repair before returning to BD. No milestone completion is implied.
+
+- **BF route-cache repair (2026-10-13):** a daily hydraulic revision no longer invalidates travel fields when effective walking costs are identical. Route keys derive from the walking grid and rebuild identically on load; daily source and land facts are still refreshed. The knowledge browser check now expects BE's fourteen founder techniques, keeping firing and lime burning for later learning. Verification results are recorded in the journal.
+
+- **BF delivery repair (2026-10-13):** the coastal smoke failure was captured: members carried water while doing other tasks after a failed return walk discarded its deposit step. Loaded walks now preserve and retry delivery; stranded loads finish delivery before new tasks. A home separated from its hearth by a closed ford plans from its own walking catchment. The levy-grievance fixture supplies reserves so it exercises payment rather than assuming a heavy levy is affordable after any harvest. Production levy rules are unchanged.
+
+- **Fire response fixture (2026-10-13):** a three-world carrying comparison failed under one random identity and passed when the unchanged binary ran again. The paired fire-response fixture now fixes world identity so scheduler tie-breaks remain controlled; all fifteen fire tests pass. Production fire and response parameters are unchanged. Whole-suite validation is recorded in the journal.

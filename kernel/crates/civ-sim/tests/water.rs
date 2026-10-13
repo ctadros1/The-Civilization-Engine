@@ -44,6 +44,85 @@ fn village(seed: u64) -> Sim {
     .expect("generates")
 }
 
+#[test]
+fn a_stranded_load_is_delivered_before_another_task_and_survives_a_save() {
+    use civ_agents::params::Behavior;
+    use civ_agents::person::{Step, Target};
+    use commons_persist::{SaveDir, SaveKind};
+
+    let mut sim = village(2);
+    let now = sim.now();
+    let rest = sim
+        .rules()
+        .catalog
+        .activities
+        .iter()
+        .position(|a| a.behavior == Behavior::Rest)
+        .expect("rest") as u16;
+    let (person, household, due) = sim
+        .people()
+        .people
+        .iter()
+        .map(|(_, p)| (p.id, p.household, p.act.step_ends))
+        .next()
+        .expect("person");
+    let home = sim.people().household(household).expect("household").home;
+    {
+        let hh = sim
+            .people_mut_for_tests()
+            .households
+            .iter_mut()
+            .find(|(_, h)| h.id == household)
+            .map(|(_, h)| h)
+            .expect("household");
+        hh.water_l = 1000.0;
+        hh.water_at = now;
+    }
+    // The state left by a failed delivery: a load remains, but the activity has no deposit.
+    // Keep the existing scheduled completion, then let the ordinary decision machinery resume.
+    {
+        let p = sim
+            .people_mut_for_tests()
+            .people
+            .iter_mut()
+            .find(|(_, p)| p.id == person)
+            .map(|(_, p)| p)
+            .expect("person");
+        p.pos = home;
+        p.trip = None;
+        p.carrying.water_l = 15.0;
+        p.act.def = rest;
+        p.act.target = Target::None;
+        p.act.steps = vec![Step::Work { minutes: 1 }];
+        p.act.step = 0;
+        p.act.started = now;
+        p.act.step_started = now;
+    }
+    let dir = tempfile::tempdir().expect("tempdir");
+    let saves = SaveDir::create(dir.path().join("saves"), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "stranded water").expect("saves");
+    let mut loaded = persist::load(&saved.path, content()).expect("loads");
+    let minutes = (due.minutes() - now.minutes()).max(0) + 5;
+    for s in [&mut sim, &mut loaded] {
+        s.advance_minutes(minutes).expect("advances");
+        assert_eq!(
+            s.people().person(person).expect("person").carrying.water_l,
+            0.0
+        );
+        let hh = s.people().household(household).expect("household");
+        let used =
+            hh.members.len() as f64 * hh.water_use(&s.rules().people.household) * minutes as f64
+                / DAY as f64;
+        assert!(hh.water_l >= 1015.0 - used - 1e-9, "water {}", hh.water_l);
+        assert!(hh.water_l <= 1015.0);
+    }
+    let a = persist::encode_sections(&sim);
+    let b = persist::encode_sections(&loaded);
+    for (x, y) in a.iter().zip(&b) {
+        assert_eq!(x.bytes, y.bytes, "section {}", x.tag);
+    }
+}
+
 /// Lives on to a minute past the next midnight: the heads are lived at midnight, so what a test
 /// sets them to holds until the one after.
 fn to_morning(sim: &mut Sim) {

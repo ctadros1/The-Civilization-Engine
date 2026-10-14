@@ -704,14 +704,17 @@ impl Land {
         (flows, origins)
     }
 
-    /// Updates today's reach discharges and flood depths, updating flood tracking on buildings and fields.
+    /// Updates today's reach discharges and derived depths without advancing exposure time.
     pub fn update_floods(&mut self, map: &WorldMap, reach_discharges: Vec<f32>) {
         self.reach_discharges = reach_discharges;
         self.flood_depths = self
             .floodplain
             .flood_depth_raster(map, &self.reach_discharges);
         self.flood_revision = self.flood_revision.wrapping_add(1);
+    }
 
+    /// Advances wet-building and submerged-crop exposure once per calendar day.
+    fn flood_exposure_day(&mut self, map: &WorldMap) {
         let cell_size = f64::from(map.cell_size_m).max(1e-3);
         let mw = map.width as usize;
         let mh = map.height as usize;
@@ -1203,6 +1206,7 @@ impl Land {
                 .retain(|f| self.weather.today.day < f.until_day);
             let reaches = self.river_flows(map, params, self.weather.today.day);
             self.update_floods(map, reaches);
+            self.flood_exposure_day(map);
             if day_of_year(d) == soil::TURN_DAY {
                 let year = i32::try_from(d.div_euclid(DAYS_PER_YEAR) + 1).unwrap_or(i32::MAX);
                 for f in &mut self.fields {

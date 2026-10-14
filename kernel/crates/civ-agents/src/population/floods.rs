@@ -198,7 +198,11 @@ impl Population {
                 .fields
                 .iter()
                 .filter(|f| f.household == hh.id)
-                .map(|f| f.last_flood_depth_cm)
+                .map(|f| {
+                    let cell = cell_of(ctx.map, f.rect.centre_m());
+                    ctx.land.flood_depths.get(cell).copied().unwrap_or(0.0)
+                })
+                .map(|depth| (depth * 100.0).min(f32::from(u16::MAX)) as u16)
                 .max()
                 .unwrap_or(0);
             if home_cm > 0 || field_cm > 0 {

@@ -448,3 +448,191 @@ fn schema_95_hazards_keep_damage_but_do_not_invent_provenance() {
     let resaved = paired(&mut loaded);
     same(&loaded, &resaved);
 }
+
+#[test]
+fn flood_floor_loss_is_daily_and_extra_structural_checks_do_not_spoil_again() {
+    let mut sim = world();
+    let (owner, building) = weak_covering(&mut sim);
+    for c in &mut sim
+        .land_mut_for_tests()
+        .buildings
+        .iter_mut()
+        .find(|b| b.id == building)
+        .expect("building")
+        .condition
+    {
+        c.quality = 1.0;
+    }
+    let now = sim.now();
+    let grain = content()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.kcal_per_kg > 0.0 && g.sheltered_half_life_days > 0.0)
+        .expect("food");
+    let cell = {
+        let home = sim.people().household(owner).expect("household").home;
+        (home.1 / sim.map().cell_size_m).floor() as usize * sim.map().width as usize
+            + (home.0 / sim.map().cell_size_m).floor() as usize
+    };
+    {
+        let hh = sim
+            .people_mut_for_tests()
+            .households
+            .iter_mut()
+            .find(|(_, h)| h.id == owner)
+            .map(|(_, h)| h)
+            .expect("household");
+        hh.stores.fill(0.0);
+        hh.stores[grain] = 100.0;
+        hh.stores_at = now;
+    }
+    for _ in 0..3 {
+        sim.land_mut_for_tests().flood_depths[cell] = 0.5;
+        sim.with_ctx_for_tests(|p, c| p.storm_for_tests(c, owner, 0.0, 0));
+    }
+    assert_eq!(
+        sim.people().household(owner).expect("household").stores[grain],
+        100.0
+    );
+    sim.with_ctx_for_tests(|p, c| p.flood_loads_day_for_tests(c));
+    let after = sim.people().household(owner).expect("household").stores[grain];
+    assert!((after - 87.5).abs() < 1e-6, "{after}");
+    sim.with_ctx_for_tests(|p, c| p.storm_for_tests(c, owner, 0.0, 0));
+    assert_eq!(
+        sim.people().household(owner).expect("household").stores[grain],
+        after
+    );
+    assert!(
+        sim.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == building)
+            .expect("building")
+            .standing()
+    );
+}
+
+#[test]
+fn repeated_river_commands_do_not_add_wet_days_before_midnight() {
+    let mut sim = world();
+    let (_, building) = weak_covering(&mut sim);
+    let reach = sim
+        .map()
+        .reaches
+        .iter()
+        .position(|r| r.discharge_m3s > 2.0)
+        .expect("river");
+    let before = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == building)
+        .expect("building")
+        .days_wet;
+    for _ in 0..3 {
+        sim.raise_river(reach, 100_000.0, 2).expect("raise");
+        assert_eq!(
+            sim.land()
+                .buildings
+                .iter()
+                .find(|b| b.id == building)
+                .expect("building")
+                .days_wet,
+            before
+        );
+    }
+    let mut loaded = paired(&mut sim);
+    assert_eq!(sim.land().flood_depths, loaded.land().flood_depths);
+    same(&sim, &loaded);
+    sim.advance_minutes(DAY).expect("advance");
+    loaded.advance_minutes(DAY).expect("advance");
+    assert_eq!(
+        sim.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == building)
+            .expect("building")
+            .days_wet,
+        loaded
+            .land()
+            .buildings
+            .iter()
+            .find(|b| b.id == building)
+            .expect("building")
+            .days_wet,
+    );
+    assert!(
+        sim.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == building)
+            .expect("building")
+            .days_wet
+            <= before + 1
+    );
+}
+
+#[test]
+fn water_carried_back_is_delivered_at_the_households_flood_refuge() {
+    let mut sim = world();
+    sim.advance_minutes(1).expect("initial cadence");
+    let (owner, home, refuge, actor) = sim
+        .people()
+        .households
+        .iter()
+        .find_map(|(_, h)| {
+            let refuge = h
+                .settlement
+                .and_then(|id| sim.land().settlements.iter().find(|s| s.id == id))?
+                .hearth_m;
+            let home_cell = civ_agents::population::cell_of(sim.map(), h.home);
+            let refuge_cell = civ_agents::population::cell_of(sim.map(), refuge);
+            (home_cell != refuge_cell).then_some((h.id, h.home, refuge, h.members[0]))
+        })
+        .expect("a home away from its hearth");
+    let home_cell = civ_agents::population::cell_of(sim.map(), home);
+    let refuge_cell = civ_agents::population::cell_of(sim.map(), refuge);
+    sim.land_mut_for_tests().flood_depths[home_cell] = 0.5;
+    sim.land_mut_for_tests().flood_depths[refuge_cell] = 0.0;
+    let now = sim.now();
+    {
+        let hh = sim
+            .people_mut_for_tests()
+            .households
+            .iter_mut()
+            .find(|(_, h)| h.id == owner)
+            .map(|(_, h)| h)
+            .expect("household");
+        hh.water_l = 0.0;
+        hh.water_at = now;
+    }
+    {
+        let p = sim
+            .people_mut_for_tests()
+            .people
+            .iter_mut()
+            .find(|(_, p)| p.id == actor)
+            .map(|(_, p)| p)
+            .expect("actor");
+        p.pos = refuge;
+        p.trip = None;
+        p.asleep = false;
+        p.carrying.water_l = 15.0;
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.reconsider_for_tests(ctx, actor));
+    sim.advance_minutes(2).expect("arrival");
+    let hh = sim.people().household(owner).expect("household");
+    assert!(
+        hh.water_l > 14.0,
+        "water {}, actor {:?}",
+        hh.water_l,
+        sim.people().person(actor).expect("actor").act
+    );
+    assert_eq!(sim.people().person(actor).expect("actor").pos, refuge);
+    assert_eq!(hh.home, home, "refuge never moves the household's home");
+    assert_eq!(
+        sim.people().person(actor).expect("actor").carrying.water_l,
+        0.0
+    );
+}

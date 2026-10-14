@@ -2550,6 +2550,37 @@ impl Population {
             .map(|(_, g)| g)
     }
 
+    /// Where this household receives supplies while sheltering from its wet home.
+    fn supply_at(ctx: &Ctx, hh: &Household) -> (f32, f32) {
+        let wet = ctx
+            .land
+            .flood_depths
+            .get(cell_of(ctx.map, hh.home))
+            .copied()
+            .unwrap_or(0.0)
+            > 0.0;
+        if wet {
+            hh.settlement
+                .and_then(|id| ctx.land.settlements.iter().find(|s| s.id == id))
+                .map_or(hh.home, |s| s.hearth_m)
+        } else {
+            hh.home
+        }
+    }
+
+    /// Reconsiders an interrupted person's ordinary options (tests).
+    #[doc(hidden)]
+    pub fn reconsider_for_tests(&mut self, ctx: &mut Ctx, who: PermanentId) {
+        let h = self
+            .people
+            .iter()
+            .find(|(_, p)| p.id == who)
+            .map(|(h, _)| h);
+        if let Some(h) = h {
+            self.decide(ctx, h, 0);
+        }
+    }
+
     fn decide(&mut self, ctx: &mut Ctx, h: Handle<Person>, depth: u32) {
         let now = ctx.now;
         let params = ctx.params;
@@ -2567,6 +2598,7 @@ impl Population {
         let Some(hh) = self.household(hh_id).cloned() else {
             return;
         };
+        let supply_at = Self::supply_at(ctx, &hh);
         // An interrupted delivery keeps its load. Complete it before starting another task;
         // waiting for a safe route neither deposits remotely nor overwrites carried water.
         if laden {
@@ -2578,7 +2610,7 @@ impl Population {
                 p.act = Activity {
                     def: p.act.def,
                     target: Target::Home,
-                    steps: vec![Step::Walk { to: hh.home }, Step::Deposit],
+                    steps: vec![Step::Walk { to: supply_at }, Step::Deposit],
                     step: 0,
                     started: now,
                     step_started: now,
@@ -2617,10 +2649,10 @@ impl Population {
             && self
                 .homes
                 .get(&field_key)
-                .is_some_and(|f| f.reach.seconds_to(cell_of(ctx.map, hh.home)).is_none())
+                .is_some_and(|f| f.reach.seconds_to(cell_of(ctx.map, supply_at)).is_none())
         {
             field_key = hh_id;
-            self.home_field(ctx, field_key, hh.home);
+            self.home_field(ctx, field_key, supply_at);
         }
         self.refresh_kin();
         let goods = &ctx.catalog.goods;
@@ -2744,7 +2776,7 @@ impl Population {
             fuel_target_days: params.household.fuel_target_days,
             household_fuel_day,
             at_home: (pos.0 - hh.home.0).abs() < 1.0 && (pos.1 - hh.home.1).abs() < 1.0,
-            home: hh.home,
+            home: supply_at,
             hearth: hh.settlement.zip(hearth),
             gathering: self.gathering_facts(ctx, p.id, age, &hh, minute, evening_start),
             petition: self.petition_facts(ctx, p.id, age, &hh, minute, evening_start),
@@ -3943,7 +3975,18 @@ impl Population {
                         p.act.step += 1;
                     }
                 }
-                Step::Walk { to } => {
+                Step::Walk { mut to } => {
+                    // A saved delivery aimed at a home that has since flooded returns to the
+                    // same refuge as meals and sleep. The load is handed over only on arrival.
+                    if (p.carrying.kg > 0.0 || p.carrying.water_l > 0.0)
+                        && let Some(hh) = self.household(p.household)
+                        && to == hh.home
+                    {
+                        to = Self::supply_at(ctx, hh);
+                        if let Some(p) = self.people.get_mut(h) {
+                            p.act.steps[p.act.step as usize] = Step::Walk { to };
+                        }
+                    }
                     // Remove a completed retry wait before retrying the same walk. Repeated
                     // blocked trips keep a bounded activity and the original deposit target.
                     if let Some(p) = self.people.get_mut(h)
@@ -5776,8 +5819,8 @@ impl Population {
                 );
             }
         }
-        self.check_buildings(ctx);
         self.floods_day(ctx);
+        self.check_buildings(ctx);
         // The minutes at which each home's fires in use may escape today (M6b slice BD).
         self.plan_ignitions(ctx, day);
         // And the crossings over water (M5c slice AW): rot and failure, then the households

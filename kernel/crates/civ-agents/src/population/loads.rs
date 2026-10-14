@@ -100,8 +100,14 @@ impl Population {
         owners.dedup();
         let storm = storm_pa(&ctx.land.climatology, &ctx.land_params.weather, ctx.now);
         for household in owners {
-            self.check_household(ctx, household, storm);
+            self.check_household_at(ctx, household, storm, 0, true);
         }
+    }
+
+    /// Performs the daily building check under controlled flood exposure (tests).
+    #[doc(hidden)]
+    pub fn flood_loads_day_for_tests(&mut self, ctx: &mut Ctx) {
+        self.check_buildings(ctx);
     }
 
     /// Rechecks loads under a specified physical storm pulse (tests).
@@ -174,6 +180,17 @@ impl Population {
         storm: f64,
         observer: u32,
     ) {
+        self.check_household_at(ctx, household, storm, observer, false);
+    }
+
+    fn check_household_at(
+        &mut self,
+        ctx: &mut Ctx,
+        household: PermanentId,
+        storm: f64,
+        observer: u32,
+        daily_flood: bool,
+    ) {
         let (now, catalog, params) = (ctx.now, ctx.catalog, ctx.params);
         let goods = &catalog.goods;
         // Its goods as they lie now, by kind of room, across its roofs.
@@ -216,7 +233,8 @@ impl Population {
             let b = &ctx.land.buildings[i];
             let cell = cell_of(ctx.map, build::centre_m(&b.spec));
             let flood_depth = ctx.land.flood_depths.get(cell).copied().unwrap_or(0.0);
-            if flood_depth > 0.0
+            if daily_flood
+                && flood_depth > 0.0
                 && let Some(hd) = hd
                 && let Some(x) = self.households.get_mut(hd)
             {
@@ -229,17 +247,18 @@ impl Population {
                         if lost > 0.0 {
                             x.stores[g] -= lost;
                             x.flows.add(crate::person::Flow::Spoiled, g, lost);
-                            if let Some(ep) = self.floods.current_flood_episode_mut() {
-                                ep.total_spoiled_kg += lost as f32;
-                            }
-                            if let Some(hw) = self
-                                .floods
-                                .high_waters
-                                .iter_mut()
-                                .rev()
-                                .find(|h| h.ended.is_none())
+                            let reach = ctx.land.floodplain.cell_reach.get(cell).copied();
+                            if let Some(hw) =
+                                self.floods.high_waters.iter_mut().find(|h| {
+                                    h.ended.is_none() && reach == Some(u32::from(h.reach))
+                                })
                             {
                                 hw.spoiled_kg += lost as f32;
+                                if let Some(ep) = hw.episode.and_then(|id| {
+                                    self.floods.flood_episodes.iter_mut().find(|e| e.id == id)
+                                }) {
+                                    ep.total_spoiled_kg += lost as f32;
+                                }
                             }
                         }
                     }

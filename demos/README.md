@@ -86,3 +86,6 @@ Voluntary bank work and the M6b lived demonstration remain planned.
 The bank fixture's saved ground also supplies bank and borrow-pit flood storage. Its role
 remains a controlled engineering/snapshot check; it demonstrates neither chosen bank labour
 nor a lived M6b outcome.
+
+The bank panel now reports soil washed into sediment stock when a saved bank has overtopped.
+The ordinary fixture remains a construction example, without a lived flood or public work.

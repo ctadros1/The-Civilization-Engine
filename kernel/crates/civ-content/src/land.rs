@@ -41,6 +41,15 @@ pub(crate) struct LandFile {
     /// A profile may leave it out: then the defaults hold.
     #[serde(default)]
     pub contamination: Option<ContaminationFile>,
+    #[serde(default)]
+    pub banks: Option<BankFile>,
+}
+
+/// Conditional bank damage (content API 87).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct BankFile {
+    pub erosion_per_head_day: f64,
 }
 
 /// The `[contamination]` section of a land profile (ADR-0021 §4; content API 73).
@@ -636,6 +645,14 @@ impl LandFile {
                 .groundwater
                 .as_ref()
                 .map_or_else(WaterParams::default, GroundwaterFile::params),
+            banks: self
+                .banks
+                .as_ref()
+                .map_or_else(civ_land::banks::BankParams::default, |b| {
+                    civ_land::banks::BankParams {
+                        erosion_per_head_day: b.erosion_per_head_day,
+                    }
+                }),
             contamination: self
                 .contamination
                 .as_ref()
@@ -706,6 +723,12 @@ impl LandFile {
         }
         if !(self.richness_feature_m.is_finite() && self.richness_feature_m > 0.0) {
             p.push("`richness_feature_m` must be positive".to_owned());
+        }
+        if let Some(b) = &self.banks
+            && (!b.erosion_per_head_day.is_finite()
+                || !(0.0..=10.0).contains(&b.erosion_per_head_day))
+        {
+            p.push("`banks.erosion_per_head_day` must be between 0 and 10".into());
         }
         self.weather.problems(&mut p);
         self.soil.problems(&mut p);

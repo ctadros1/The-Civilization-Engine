@@ -327,6 +327,8 @@ pub const SCHEMA_V97: u32 = 97;
 pub const SCHEMA_V98: u32 = 98;
 /// Dated fire accounts, before linear bank records.
 pub const SCHEMA_V99: u32 = 99;
+/// Bank geometry before its explicit washed-soil account.
+pub const SCHEMA_V100: u32 = 100;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

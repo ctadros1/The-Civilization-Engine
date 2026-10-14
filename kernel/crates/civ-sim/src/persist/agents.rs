@@ -115,7 +115,7 @@ use super::{
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
-    SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, finish, section, single_chunk, unreadable,
+    SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -518,6 +518,7 @@ enum Schema {
     V98,
     V99,
     V100,
+    V101,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -632,7 +633,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V97 => Schema::V97,
         SCHEMA_V98 => Schema::V98,
         SCHEMA_V99 => Schema::V99,
-        SAVE_SCHEMA_VERSION => Schema::V100,
+        SCHEMA_V100 => Schema::V100,
+        SAVE_SCHEMA_VERSION => Schema::V101,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1905,6 +1907,13 @@ fn encode_earth(land: &Land) -> Vec<u8> {
         })
         .collect();
     let banks = fbb.create_vector(&banks);
+    let sediment: Vec<_> = land
+        .banks
+        .iter()
+        .filter(|b| b.sediment_m3 != 0.0)
+        .map(|b| save::BankSedimentRecord::new(b.work.get(), b.sediment_m3))
+        .collect();
+    let sediment = fbb.create_vector(&sediment);
     let root = save::Earth::create(
         &mut fbb,
         &save::EarthArgs {
@@ -1912,6 +1921,7 @@ fn encode_earth(land: &Land) -> Vec<u8> {
             tiles: Some(tiles),
             links: Some(links),
             banks: Some(banks),
+            bank_sediment: Some(sediment),
         },
     );
     finish(fbb, root)
@@ -1973,8 +1983,32 @@ fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), Loa
                 settlement_m: b.settlement_m(),
                 erosion_m: b.erosion_m(),
                 breached: b.breached(),
+                sediment_m3: 0.0,
             });
         }
+    }
+    // Explicit migration: schemas through 100 retain their ground and have no washed-soil stock.
+    if schema < Schema::V101 && root.bank_sediment().is_some_and(|v| !v.is_empty()) {
+        return Err(LoadError::Malformed(
+            "bank sediment before schema 101".into(),
+        ));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for record in root.bank_sediment().iter().flatten() {
+        let bank = land
+            .banks
+            .iter_mut()
+            .find(|b| b.work.get() == record.work())
+            .ok_or_else(|| LoadError::Malformed("sediment names missing bank".into()))?;
+        if !seen.insert(record.work())
+            || !record.compacted_m3().is_finite()
+            || record.compacted_m3() <= 0.0
+        {
+            return Err(LoadError::Malformed(
+                "invalid or duplicate bank sediment".into(),
+            ));
+        }
+        bank.sediment_m3 = record.compacted_m3();
     }
     // Schema 21: what each pit and heap is linked to.
     for l in root.links().iter().flatten() {
@@ -3383,7 +3417,8 @@ fn carried(
         | Schema::V97
         | Schema::V98
         | Schema::V99
-        | Schema::V100 => {
+        | Schema::V100
+        | Schema::V101 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3598,7 +3633,8 @@ fn decode_households(
             | Schema::V97
             | Schema::V98
             | Schema::V99
-            | Schema::V100 => {
+            | Schema::V100
+            | Schema::V101 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

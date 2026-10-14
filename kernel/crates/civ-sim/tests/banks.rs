@@ -56,6 +56,7 @@ fn fixture() -> Sim {
         settlement_m: 0.1,
         erosion_m: 0.0,
         breached: false,
+        sediment_m3: 0.0,
     };
     let make = |id, kind, rect| Earthwork {
         id,
@@ -105,6 +106,36 @@ fn fixture() -> Sim {
 #[test]
 fn bank_geometry_borrow_earth_and_boundary_round_trip_exactly() {
     let mut sim = fixture();
+    let map = sim.map().clone();
+    let land = sim.land_mut_for_tests();
+    let depths: Vec<_> = (0..map.cell_count())
+        .map(|c| (2.0 - land.floodplain.cell_hand[c] - land.ground.at(c)).max(0.0))
+        .collect();
+    banks::overtop_day(
+        &mut land.banks[0],
+        &land.earthworks[0],
+        &map,
+        &land.floodplain,
+        &depths,
+        banks::BankParams::default(),
+        &mut land.ground,
+    );
+    // Engineered fixture may be high above its drainage datum; force a local overflowing surface.
+    if land.banks[0].sediment_m3 == 0.0 {
+        let depths = vec![1000.0; map.cell_count()];
+        banks::overtop_day(
+            &mut land.banks[0],
+            &land.earthworks[0],
+            &map,
+            &land.floodplain,
+            &depths,
+            banks::BankParams {
+                erosion_per_head_day: 0.0000001,
+            },
+            &mut land.ground,
+        );
+    }
+    assert!(land.banks[0].sediment_m3 > 0.0);
     let d = tempfile::tempdir().expect("dir");
     let saves = SaveDir::create(d.path(), civ_schema::SAVE_EXTENSION).expect("saves");
     let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "bank").expect("save");
@@ -157,7 +188,7 @@ fn bank_geometry_borrow_earth_and_boundary_round_trip_exactly() {
 }
 #[test]
 fn malformed_geometry_duplicate_borrow_and_missing_sources_are_refused() {
-    for variant in 0..7 {
+    for variant in 0..9 {
         let mut sim = fixture();
         let land = sim.land_mut_for_tests();
         match variant {
@@ -169,7 +200,9 @@ fn malformed_geometry_duplicate_borrow_and_missing_sources_are_refused() {
             }
             4 => land.earthworks[0].cut_m3 += 1.0,
             5 => land.earthworks[0].rect.x = -1,
-            _ => land.earthworks[0].rect.w = 1,
+            6 => land.earthworks[0].rect.w = 1,
+            7 => land.banks[0].sediment_m3 = f64::NAN,
+            _ => land.banks[0].sediment_m3 = 10000.0,
         }
         let d = tempfile::tempdir().expect("dir");
         let saves = SaveDir::create(d.path(), civ_schema::SAVE_EXTENSION).expect("saves");
@@ -218,4 +251,141 @@ fn schema_99_migrates_to_no_banks_and_refuses_new_records_in_old_headers() {
             assert!(loaded.expect("99 loads").land().banks.is_empty());
         }
     }
+}
+
+#[test]
+fn schema_100_keeps_banks_without_inventing_sediment_and_refuses_new_stocks() {
+    for with_sediment in [false, true] {
+        let mut sim = fixture();
+        if with_sediment {
+            sim.land_mut_for_tests().banks[0].sediment_m3 = 1.0;
+        }
+        let dir = tempfile::tempdir().expect("dir");
+        let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("saves");
+        let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "old bank").expect("save");
+        let reader = commons_persist::SnapshotReader::open_file(
+            &saved.path,
+            commons_persist::Limits::default(),
+        )
+        .expect("reader");
+        let mut info = reader.info().clone();
+        info.schema_version = persist::SCHEMA_V100;
+        let legacy = commons_persist::publish_file(
+            dir.path(),
+            "legacy.tcesave",
+            &info,
+            &persist::encode_sections(&sim),
+            commons_persist::DEFAULT_ZSTD_LEVEL,
+        )
+        .expect("publish");
+        let loaded = persist::load(&legacy.path, content());
+        if with_sediment {
+            assert!(loaded.is_err());
+        } else {
+            let loaded = loaded.expect("100 loads");
+            assert_eq!(loaded.land().banks, sim.land().banks);
+            assert_eq!(loaded.land().ground, sim.land().ground);
+        }
+    }
+}
+
+#[test]
+fn lived_day_erodes_once_and_repeated_depth_queries_do_not() {
+    let sim = fixture();
+    let map = sim.map().clone();
+    let mut land = sim.land().clone();
+    let mut params = sim.rules().land.clone();
+    params.banks.erosion_per_head_day = 0.00000001;
+    // The saved construction fixture is not beside a river. Give this calendar-only check
+    // an explicit flat compartment connected to reach 0; it is not a generated flood example.
+    let mut reach = land.floodplain.reaches[0].clone();
+    reach.cells = (0..map.cell_count() as u32).collect();
+    reach.hands = vec![0.0; map.cell_count()];
+    reach.cumulative_v_m3 = vec![0.0; map.cell_count()];
+    reach.transit_time_s = 60.0;
+    land.floodplain = civ_world::hydraulics::WorldFloodplain {
+        reaches: vec![reach],
+        cell_reach: vec![0; map.cell_count()],
+        cell_hand: vec![0.0; map.cell_count()],
+    };
+    // Engineering flood: every reach is loaded, avoiding any scripted household response.
+    let until_day = land.weather.today.day + 4;
+    land.river_forcings = map
+        .reaches
+        .iter()
+        .map(|reach| civ_land::RiverForcing {
+            reach: reach.id,
+            discharge_m3s: 1_000_000.0,
+            until_day,
+            influence: 0,
+        })
+        .collect();
+    let flows = land.river_flows(&map, &params, land.weather.today.day);
+    land.update_floods(&map, flows);
+    let day = land.stock_day + 1;
+    land.advance_to_day(&params, &map, day);
+    assert!(
+        land.banks[0].sediment_m3 > 0.0,
+        "the controlled river flood must reach the crest"
+    );
+    assert!(
+        !land.banks[0].breached,
+        "the two-day fixture must leave a residual crest"
+    );
+    let bank = land.banks[0];
+    let ground = land.ground.clone();
+    land.update_floods(&map, land.reach_discharges.clone());
+    land.update_floods(&map, land.reach_discharges.clone());
+    land.advance_to_day(&params, &map, day);
+    assert_eq!(land.banks[0], bank);
+    assert_eq!(land.ground, ground);
+    land.advance_to_day(&params, &map, day + 1);
+    assert!(land.banks[0].sediment_m3 > bank.sediment_m3);
+}
+
+#[test]
+fn a_one_day_flood_charges_its_elapsed_erosion_before_the_forcing_expires() {
+    let sim = fixture();
+    let map = sim.map().clone();
+    let mut land = sim.land().clone();
+    let mut params = sim.rules().land.clone();
+    params.banks.erosion_per_head_day = 0.00000001;
+    // The saved construction fixture is not beside a river. Give this calendar-only check
+    // an explicit flat compartment connected to reach 0; it is not a generated flood example.
+    let mut reach = land.floodplain.reaches[0].clone();
+    reach.cells = (0..map.cell_count() as u32).collect();
+    reach.hands = vec![0.0; map.cell_count()];
+    reach.cumulative_v_m3 = vec![0.0; map.cell_count()];
+    reach.transit_time_s = 60.0;
+    land.floodplain = civ_world::hydraulics::WorldFloodplain {
+        reaches: vec![reach],
+        cell_reach: vec![0; map.cell_count()],
+        cell_hand: vec![0.0; map.cell_count()],
+    };
+
+    let until_day = land.weather.today.day + 1;
+    land.river_forcings = map
+        .reaches
+        .iter()
+        .map(|reach| civ_land::RiverForcing {
+            reach: reach.id,
+            discharge_m3s: 1_000_000.0,
+            until_day,
+            influence: 0,
+        })
+        .collect();
+    let flows = land.river_flows(&map, &params, land.weather.today.day);
+    land.update_floods(&map, flows);
+    let day = land.stock_day + 1;
+    land.advance_to_day(&params, &map, day);
+    assert!(
+        land.banks[0].sediment_m3 > 0.0,
+        "the elapsed loaded day must count"
+    );
+    let bank = land.banks[0];
+    land.advance_to_day(&params, &map, day + 1);
+    assert_eq!(
+        land.banks[0], bank,
+        "the expired override must not charge a further day"
+    );
 }

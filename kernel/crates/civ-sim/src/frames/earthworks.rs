@@ -32,7 +32,13 @@ pub fn earthworks_rev(sim: &Sim) -> u64 {
         let building = building_on(sim, w).map_or(0, |b| b.id.get());
         (w.id.get(), w.done.to_bits(), w.cut_m3.to_bits(), building).hash(&mut hasher);
         if let Some(b) = sim.land.banks.iter().find(|b| b.work == w.id) {
-            (b.settlement_m.to_bits(), b.erosion_m.to_bits(), b.breached).hash(&mut hasher);
+            (
+                b.settlement_m.to_bits(),
+                b.erosion_m.to_bits(),
+                b.sediment_m3.to_bits(),
+                b.breached,
+            )
+                .hash(&mut hasher);
         }
     }
     hasher.finish() | 1
@@ -88,7 +94,7 @@ fn words(sim: &Sim, w: &Earthwork, building: Option<&Building>) -> String {
         }
         EarthKind::Bank => {
             let bank = sim.land.banks.iter().find(|b| b.work == w.id);
-            return bank.map_or_else(|| "bank geometry unavailable".into(), |b| format!("a {:.0} m bank, {:.0}% built, crest {:.2} m above ground{}; earth from borrow pit {}", b.length_m(), w.done * 100.0, (b.built_height_m(w.done) - b.settlement_m - b.erosion_m).max(0.0), if b.breached { ", breached" } else { "" }, b.borrow));
+            return bank.map_or_else(|| "bank geometry unavailable".into(), |b| format!("a {:.0} m bank, {:.0}% built, crest {:.2} m above ground{}; earth from borrow pit {}; {} washed into sediment stock", b.length_m(), w.done * 100.0, (b.built_height_m(w.done) - b.settlement_m - b.erosion_m).max(0.0), if b.breached { ", breached" } else { "" }, b.borrow, volume(b.sediment_m3)));
         }
         EarthKind::Spoil => {
             let (good, working) = dug_for(sim, w);

@@ -1692,3 +1692,73 @@ ten-year smoke exits 0 with all ten worlds passing on 03330b0's physical step: e
 bands and two that died out. No production banks were present. It is not a result on this
 newer storage source or a performance comparison; its CPU-contended run included the brief
 pause documented above.
+
+
+## 2026-10-14 — BG overtopping erosion
+
+Actual above-crest water lowers a bank's crest once per lived day. The core prior is
+0.02 metres/day per overflow-head metre to the power 1.5; research 11-12 §4.2 supports
+conditional deterioration but supplies no universal ancient-bank failure rate. Below-crest
+water and dry days do no work. A exhausted crest breaches and subsequent routing drops
+its barrier. Soil washed off the bank is saved as a compacted-equivalent washed-sediment stock;
+construction still records all soil originally placed, while ground and replay use remaining
+fill. The observer's existing kernel words show the stock. The washed stock stays attached to its bank; no river destination or hydraulic obstruction
+is inferred from it. Sediment deposition/remobilization,
+piping, foundation/material quality, settlement evolution and repair work remain planned.
+This is a coarse crest and volume model, not detailed eroded cross-section geometry.
+
+Schema 101 adds a keyed record on Earth, leaving the fixed bank struct intact. The explicit
+100-and-earlier migration preserves existing damage and ground with no invented sediment.
+Malformed/duplicate/missing-bank stocks and stocks exceeding supplied fill are refused.
+Content API 87 adds strict optional `[banks]`; wire stays 1.72. During the doc update I found
+the README highlights still naming schema 99/wire 1.71 after the physical bank commit; these
+are corrected to current versions. Checks are in progress; no final gate is claimed.
+
+The first malformed-stock check caught an encoder filter that omitted NaN as if it were zero.
+It now omits only exact zero, so malformed quantities reach the strict decoder and are refused.
+The calendar check initially applied a large flow to the construction fixture, whose bank has
+no real river compartment. It now supplies an explicit flat compartment for this isolated
+calendar check. Neither fixture is described as a lived or generated river-flood example.
+
+The first full workspace attempt stopped at the calendar fixture's second-day increase.
+My initial explanation that the crest had exhausted was premature. After adding an explicit
+60-second transit and checking that crest remained, the failure persisted: the fixture's
+forcing expired on that next weather day. Land lives the previous day's weather and draws
+its next day before deriving current flows (the simulation calls it to `at.day_index() - 1`).
+The fixture now keeps its engineering forcing live through both checked days. The physical
+dry/low-water/repeated-overflow/breach test, strict content-prior check and four other bank
+snapshot tests had passed; the complete suite will be rerun after this fixture correction. The initial current browser check passes in
+2.4 minutes, including the release fixture build; no speed comparison is claimed.
+
+The corrected calendar check passes in 5.96 seconds. The following full rerun passes all five
+bank integration tests and the completed earlier binaries, then loses its shell transport
+while diffusion runs. The exec server reports `pong_timeout`; both the workspace and extra
+ten-year processes are gone after reconnect. Frozen source digests match. The cgroup records
+no OOM kill, so no resource cause is asserted. The full suite is restarted alone; the erosion
+source's interrupted ten-year run has no usable result. The rebuilt-host bank browser check
+also passes (22.1 seconds, 25.1 overall), and the release host validates the API-87 content.
+
+A final targeted boundary check exposed a production timing gap in the new erosion code:
+a one-day forcing vanished when tomorrow's flow was derived, before its elapsed-day loading
+was charged. The test fails with zero sediment on the completed loaded day. Bank wear now
+uses the elapsed day's depth raster before weather/forcing rollover; the next flow derivation
+then uses its changed crest and ground. The multi-day fixture starts by deriving its loaded
+depths explicitly. The recovered broad run was stopped at diffusion to check and fix this
+case; it was not a complete passing suite. Final focused and broad checks are restarted.
+
+The final focused bank suite passes all six tests after the elapsed-day fix (14.12 seconds).
+Current formatting and all-target clippy pass, and the release short smoke passes all ten
+worlds. The final serial workspace run is in progress; no new full-suite pass is claimed yet.
+The source stays frozen during it.
+
+**Final gate and handoff:** the complete final serial workspace simcheck suite exits 0,
+including doc tests. Current formatting, all-target clippy and all ten release short-smoke
+worlds pass. Pinned schema freshness, web build/173 unit tests and commons checks pass.
+The final rebuilt-host bank browser check passes in 50.0 seconds (50.9 overall). Frozen
+source digests match. The later ten-year run was interrupted, not passed; the earlier ten-year
+pass remains tied to 03330b0. No simulation job is left running or paused.
+
+The owner requested a stopping point to hand off to Claude after their usage reset. This
+slice and `docs/handoffs/2026-10-14-m6b-claude.md` are the stopping point. BG remains partial;
+no production agent creates a bank, and BH/M6c are future work. The handoff separates tested
+mechanisms, calibration limits and the next integration steps. No merge to main.

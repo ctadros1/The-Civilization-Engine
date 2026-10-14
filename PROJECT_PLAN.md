@@ -21,7 +21,8 @@ alarms, water carried to threatened roofs, roof stripping and goods salvage are 
 along with the dashboard's Fires row. Masonry, brick and tile, flood depths and wet-floor
 damage, evacuation, storm uplift and flood/storm kernel commands are implemented. BD adds crew demolition, dated fire accounts, response explanations, the Help at a fire lens
 and a published ignition sweep; spontaneous crews and broad response calibration remain unclaimed.
-BG begins with saved physical bank segments and conservative river-flood barriers. Voluntary bank
+BG begins with saved physical bank segments, conservative river-flood barriers, borrow storage
+and conditional overtopping erosion with explicit washed soil. Voluntary bank
 work, maintenance, trapped rain, ditches, building rules and the M6b demo remain planned.
 M6c, war and conquest, is future work. See §7 for scope and §9 for
 implementation evidence and known limits.
@@ -2513,8 +2514,10 @@ and M6a gives rivers a daily flow.
       duplicate links and unsupported kinds. Wire 1.72 draws saved centre-lines.
       Controlled engineering fixtures exercise these mechanisms; no adopted law or chosen
       labour is claimed. Flood storage now includes bank-associated changed ground and
-      borrow depressions, even after a breach. Rain ponding, deterioration and upkeep,
-      voluntary public work and irrigation remain the following BG steps.
+      borrow depressions, even after a breach. Actual overtopping now lowers crests with
+      duration and retains removed soil in a washed-sediment stock. Save schema 101 adds
+      that stock; content API 87 adds its strict authored erosion prior. Piping, upkeep,
+      rain ponding, voluntary public work and irrigation remain the following BG steps.
     - Earth kinds `bank` and `ditch` as lines of segments.
     - Water behind a bank only over its crest or through a breach. Overtopping and piping.
     - The issue `flooded`, and the policy `build_bank`, asked in equal shares as a crossing is.
@@ -3247,3 +3250,20 @@ One line each. Don't re-litigate without a reason written next to the entry.
   in the map and contain the complete trapezoid; malformed snapshots are refused. The change
   uses existing saved ground and geometry: save schema 100, content API 86 and wire 1.72 stay.
   Persistent trapped rain, deterioration, voluntary labour and irrigation remain planned.
+
+- **BG overtopping erosion (2026-10-14):** actual overflow head and duration
+  lower the bank crest by an authored prior; there is no annual wear or fixed breach chance.
+  Earth removed from the bank enters a saved compacted-equivalent washed-sediment account,
+  distinct from construction's total placed fill. Ground loses that volume and replays the
+  remaining fill exactly. This is a coarse crest/volume model, not a breach cross-section or
+  sediment-routing model. Piping, material/foundation quality, settlement evolution and chosen
+  upkeep remain planned. Save schema 101 appends a keyed sediment record without changing the
+  fixed bank struct; schemas through 100 retain saved ground/damage with no invented sediment.
+  Content API 87 adds strict optional `[banks]`; wire stays 1.72, with sediment in kernel words.
+
+- **Claude handoff (2026-10-14, owner request):** stop after the tested overtopping slice on
+  `codex/codex-development`, with no merge to main. The handoff is
+  `docs/handoffs/2026-10-14-m6b-claude.md`; BG remains partial and BH/M6c remain planned.
+  Erosion uses elapsed-day depths before forcing rollover, so a one-day flood counts.
+  The final full workspace, short smoke, clippy, schema, web, commons and bank browser gates
+  pass; the interrupted later ten-year run is not reported as a pass.

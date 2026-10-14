@@ -22,6 +22,8 @@ pub struct BankSegment {
     pub settlement_m: f64,
     pub erosion_m: f64,
     pub breached: bool,
+    /// Soil washed off the bank, in compacted-equivalent cubic metres. Saved.
+    pub sediment_m3: f64,
 }
 
 impl BankSegment {
@@ -62,6 +64,7 @@ impl BankSegment {
                 self.compacted_per_bank,
                 self.settlement_m,
                 self.erosion_m,
+                self.sediment_m3,
             ])
             .all(f64::is_finite);
         let length = self.length_m();
@@ -87,6 +90,7 @@ impl BankSegment {
             && self.compacted_per_bank <= 1.0
             && self.settlement_m >= 0.0
             && self.erosion_m >= 0.0
+            && self.sediment_m3 >= 0.0
             && [self.a, self.b]
                 .iter()
                 .all(|p| p[0] >= 0.0 && p[1] >= 0.0 && p[0] <= width && p[1] <= height)
@@ -222,6 +226,89 @@ pub fn ground_changes(
         .collect()
 }
 
+/// An authored overtopping prior, not an annual failure probability.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BankParams {
+    /// Crest metres eroded per day per metre of overflow head to the power 1.5.
+    pub erosion_per_head_day: f64,
+}
+
+impl Default for BankParams {
+    fn default() -> Self {
+        Self {
+            erosion_per_head_day: 0.02,
+        }
+    }
+}
+
+/// Apply one day's actual overtopping. No head, no wear; soil removed from the bank
+/// enters its explicit washed-sediment account rather than disappearing from construction.
+pub fn overtop_day(
+    bank: &mut BankSegment,
+    work: &Earthwork,
+    map: &WorldMap,
+    floodplain: &civ_world::hydraulics::WorldFloodplain,
+    depths: &[f32],
+    params: BankParams,
+    ground: &mut crate::earth::GroundDelta,
+) -> bool {
+    if bank.breached || work.done <= 0.0 || params.erosion_per_head_day <= 0.0 {
+        return false;
+    }
+    let hands = &floodplain.cell_hand;
+    let head = bank
+        .barriers(map, std::slice::from_ref(work), hands)
+        .iter()
+        .map(|edge| {
+            [edge.a, edge.b]
+                .into_iter()
+                .filter_map(|c| {
+                    let d = *depths.get(c as usize)?;
+                    (d > 0.0).then(|| {
+                        f64::from(hands[c as usize])
+                            + f64::from(ground.at(c as usize))
+                            + f64::from(d)
+                            - edge.crest_hand_m
+                    })
+                })
+                .fold(0.0_f64, f64::max)
+        })
+        .fold(0.0_f64, f64::max);
+    if head <= 0.0 {
+        return false;
+    }
+    let height = bank.built_height_m(work.done);
+    let before = (height - bank.erosion_m).max(0.0);
+    let loss =
+        (params.erosion_per_head_day * head.powf(1.5)).min((before - bank.settlement_m).max(0.0));
+    if loss <= 0.0 {
+        return false;
+    }
+    let after = (before - loss).max(0.0);
+    let washed = bank.length_m()
+        * (bank.crest_width_m * loss + bank.side_run * (before.powi(2) - after.powi(2)));
+    let remaining = (f64::from(work.cut_m3) - bank.sediment_m3).max(0.0);
+    let washed = washed.min(remaining);
+    let samples = bank_samples(bank, height, map);
+    let total: f64 = samples.iter().map(|(_, v)| v).sum();
+    if total <= 0.0 {
+        return false;
+    }
+    for ((x, y), volume) in samples {
+        ground.add(
+            (
+                f64::from(x) * f64::from(map.cell_size_m) + 0.5,
+                f64::from(y) * f64::from(map.cell_size_m) + 0.5,
+            ),
+            -volume * washed / total,
+        );
+    }
+    bank.erosion_m += loss;
+    bank.sediment_m3 += washed;
+    bank.breached = after <= bank.settlement_m + 1e-9;
+    true
+}
+
 fn crosses(a: [f64; 2], b: [f64; 2], c: [f64; 2], d: [f64; 2]) -> bool {
     let cross = |x: [f64; 2], y: [f64; 2]| x[0] * y[1] - x[1] * y[0];
     let ab = [b[0] - a[0], b[1] - a[1]];
@@ -303,7 +390,7 @@ pub fn place_from_borrow(
                     f64::from(x) * f64::from(map.cell_size_m) + 0.5,
                     f64::from(y) * f64::from(map.cell_size_m) + 0.5,
                 ),
-                sign * volume * f64::from(state.cut_m3) / total,
+                sign * volume * (f64::from(state.cut_m3) - bank.sediment_m3).max(0.0) / total,
             );
         }
     }
@@ -333,7 +420,7 @@ pub fn replay(
                 f64::from(x) * f64::from(map.cell_size_m) + 0.5,
                 f64::from(y) * f64::from(map.cell_size_m) + 0.5,
             ),
-            volume * f64::from(work.cut_m3) / total,
+            volume * (f64::from(work.cut_m3) - bank.sediment_m3).max(0.0) / total,
         );
     }
 }
@@ -403,6 +490,7 @@ mod tests {
             settlement_m: 0.0,
             erosion_m: 0.0,
             breached: false,
+            sediment_m3: 0.0,
         };
         let work = |n, kind, rect| Earthwork {
             id: id(n),
@@ -476,6 +564,89 @@ mod tests {
             ..bank
         };
         assert_eq!(changes, ground_changes(&[breached], &works, &map, &ground));
+        // Controlled overflow: duration increases damage; neither dry nor sub-crest water wears it.
+        let mut eroding = bank;
+        let floodplain = civ_world::hydraulics::WorldFloodplain {
+            cell_hand: vec![0.0; map.cell_count()],
+            ..Default::default()
+        };
+        let hands = &floodplain.cell_hand;
+        let dry = vec![0.0; map.cell_count()];
+        let prior = BankParams {
+            erosion_per_head_day: 0.02,
+        };
+        assert!(!overtop_day(
+            &mut eroding,
+            &works[0],
+            &map,
+            &floodplain,
+            &dry,
+            prior,
+            &mut ground
+        ));
+        let low: Vec<_> = (0..map.cell_count())
+            .map(|c| (0.5 - ground.at(c)).max(0.0))
+            .collect();
+        assert!(!overtop_day(
+            &mut eroding,
+            &works[0],
+            &map,
+            &floodplain,
+            &low,
+            prior,
+            &mut ground
+        ));
+        let overflow: Vec<_> = (0..map.cell_count())
+            .map(|c| (2.0 - ground.at(c)).max(0.0))
+            .collect();
+        assert!(overtop_day(
+            &mut eroding,
+            &works[0],
+            &map,
+            &floodplain,
+            &overflow,
+            prior,
+            &mut ground
+        ));
+        let first = eroding.erosion_m;
+        let first_soil = eroding.sediment_m3;
+        assert!(first > 0.0 && first_soil > 0.0 && !eroding.breached);
+        assert!((ground.net_m3() + eroding.sediment_m3 + 16.0).abs() < 0.001);
+        let overflow: Vec<_> = (0..map.cell_count())
+            .map(|c| (2.0 - ground.at(c)).max(0.0))
+            .collect();
+        assert!(overtop_day(
+            &mut eroding,
+            &works[0],
+            &map,
+            &floodplain,
+            &overflow,
+            prior,
+            &mut ground
+        ));
+        assert!(eroding.erosion_m > first && eroding.sediment_m3 > first_soil);
+        let mut rebuilt = GroundDelta::new(map.width, map.height, map.cell_size_m);
+        crate::earth::replay(&works[1], &map, &mut rebuilt);
+        replay(&eroding, &works[0], &map, &mut rebuilt);
+        for c in 0..map.cell_count() {
+            assert!((rebuilt.at(c) - ground.at(c)).abs() < 1e-4);
+        }
+        let huge: Vec<_> = (0..map.cell_count())
+            .map(|c| (100.0 - ground.at(c)).max(0.0))
+            .collect();
+        assert!(overtop_day(
+            &mut eroding,
+            &works[0],
+            &map,
+            &floodplain,
+            &huge,
+            prior,
+            &mut ground
+        ));
+        assert!(eroding.breached);
+        assert!(eroding.barriers(&map, &works, hands).is_empty());
+        assert!((ground.net_m3() + eroding.sediment_m3 + 16.0).abs() < 0.001);
+
         let before = ground.clone();
         assert_eq!(
             place_from_borrow(&bank, &mut works, &map, &mut ground, 1.0),

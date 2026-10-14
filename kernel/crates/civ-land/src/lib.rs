@@ -167,6 +167,8 @@ pub struct LandParams {
     pub deposits: Vec<deposits::DepositRule>,
     /// How water moves under the ground and down the rivers (ADR-0021 §1–§2).
     pub water: WaterParams,
+    /// Conditional bank damage under actual hydraulic load.
+    pub banks: banks::BankParams,
     /// How what people shed moves through the ground and water (ADR-0021 §4).
     pub contamination: ContaminationParams,
 }
@@ -934,6 +936,7 @@ impl Land {
             });
             let supplied = work.zip(borrow).is_some_and(|(w, p)| {
                 f64::from(w.cut_m3) <= f64::from(p.cut_m3) * bank.compacted_per_bank + 1e-3
+                    && bank.sediment_m3 <= f64::from(w.cut_m3) + 1e-6
                     && (f64::from(w.cut_m3) - bank.fill_m3() * f64::from(w.done)).abs() < 1e-3
             });
             if !bank.valid(map)
@@ -1253,6 +1256,21 @@ impl Land {
     pub fn advance_to_day(&mut self, params: &LandParams, map: &WorldMap, day: i64) {
         while self.stock_day < day {
             let d = self.stock_day + 1;
+            // These depths describe the day that elapsed. Tomorrow's flow must not erase
+            // an expired one-day loading before its erosion is accounted for.
+            for bank in &mut self.banks {
+                if let Some(work) = self.earthworks.iter().find(|w| w.id == bank.work) {
+                    banks::overtop_day(
+                        bank,
+                        work,
+                        map,
+                        &self.floodplain,
+                        &self.flood_depths,
+                        params.banks,
+                        &mut self.ground,
+                    );
+                }
+            }
             let water = self.weather.live(&params.weather, &self.climatology);
             self.water_fields(&params.weather, map, &water, d);
             self.water.day(&params.water, water.surplus_mm);
@@ -1648,6 +1666,7 @@ mod tests {
             },
             deposits: Vec::new(),
             water: WaterParams::default(),
+            banks: banks::BankParams::default(),
             contamination: ContaminationParams::default(),
         }
     }

@@ -1101,11 +1101,18 @@ struct BankSegmentRecord {
   breached: bool;
 }
 
+// Schema 101: soil washed off a bank, held in its washed-sediment account.
+struct BankSedimentRecord {
+  work: ulong;
+  compacted_m3: double;
+}
+
 table Earth {
   works: [EarthworkRecord] (id: 0);
   tiles: [GroundTile] (id: 1);
   links: [EarthLink] (id: 2);
   banks: [BankSegmentRecord] (id: 3);
+  bank_sediment: [BankSedimentRecord] (id: 4);
 }
 
 // Section "ties" (schema 28): what each person remembers of others (ADR-0014 §1), by holder and

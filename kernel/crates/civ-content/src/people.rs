@@ -97,6 +97,8 @@ pub(crate) struct LeveesFile {
     pub place_h_per_m3: f64,
     pub pit_depth_m: f64,
     pub front_m: f64,
+    pub mend_crest_m: f64,
+    pub mend_piping: f64,
 }
 
 impl LeveesFile {
@@ -117,6 +119,8 @@ impl LeveesFile {
             place_h_per_m3: self.place_h_per_m3,
             pit_depth_m: self.pit_depth_m,
             front_m: self.front_m,
+            mend_crest_m: self.mend_crest_m,
+            mend_piping: self.mend_piping,
         }
     }
 
@@ -147,6 +151,8 @@ impl LeveesFile {
             ("levees.place_h_per_m3", self.place_h_per_m3, 0.1, 100.0),
             ("levees.pit_depth_m", self.pit_depth_m, 0.1, 5.0),
             ("levees.front_m", self.front_m, 0.5, 100.0),
+            ("levees.mend_crest_m", self.mend_crest_m, 0.01, 2.0),
+            ("levees.mend_piping", self.mend_piping, 0.01, 1.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

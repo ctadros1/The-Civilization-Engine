@@ -625,7 +625,9 @@ fn the_observer_sees_each_fire_its_conflagration_what_held_and_the_chronicle_s_l
 /// loaded from that save, each with its homes' fires in use escaping at `per_hour` an hour, lit or
 /// banked (no worked fires).
 fn hearth_worlds(seed: u64, homes: usize, per_hour: f64) -> (Sim, Sim, Vec<PermanentId>) {
-    let mut sim = world(seed);
+    // A fixed world id: which escapes are found at once, found while growing or catch is drawn
+    // from it, and the counts the tests below ask of are of one world, not of any.
+    let mut sim = Sim::create_for_tests(&world_spec(seed), content(), [7; 16]).expect("generates");
     let mut households: Vec<(PermanentId, (f32, f32))> = sim
         .people()
         .households

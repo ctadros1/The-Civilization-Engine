@@ -2541,6 +2541,17 @@ and M6a gives rivers a daily flow.
       that breaks is told once in the chronicle, saying whether water found a way through
       or washed its crest away. The observer's bank words name seepage damage. Save schema
       103, content API 89, wire 1.72 unchanged.
+    - *Banks kept and mended (2026-10-14, §9):* nobody mends a polity's bank unless a law
+      asks. When a bank it built has sunk or worn `levees.mend_crest_m` below its design,
+      taken `levees.mend_piping` of seepage damage or given way, and no law keeps it, the
+      issue `bank_worn` holds. The policy `keep_bank` (content
+      `core:policy/works_wet_bank_kept`) is then weighed by each household's reckoned
+      saving from that bank against its share of the mending. Passed, the bank is looked over
+      when a high water goes down and at each year's start, and its mending is asked in equal
+      shares of building and mending together. People choose to do it: earth dug from the
+      pit and laid on the crest (what water wore off first, then what settled), then seeping
+      bank dug out and tamped again. A breach stays open until all its mending is done.
+      Save schema 104, content API 90, wire 1.72 unchanged.
     - Earth kinds `bank` and `ditch` as lines of segments.
     - Water behind a bank only over its crest or through a breach. Overtopping and piping.
     - The issue `flooded`, and the policy `build_bank`, asked in equal shares as a crossing is.
@@ -3341,6 +3352,38 @@ One line each. Don't re-litigate without a reason written next to the entry.
   foundation, but the land carries no soil texture to condition on, so one rate serves every
   bank. **Left:** that conditioning, paid repair and upkeep by law, banks of more than one
   segment and across fields, trapped rain and irrigation.
+
+- **Banks kept and mended, as built (2026-10-14, M6b slice BG; ADR-0022 §11):** no new ADR.
+  ADR-0022 §11 says "Nobody mends a polity's bank unless a law asks", and research 12-08 §1.4
+  says "Do not assume that a successful construction mobilization persists indefinitely".
+  Keeping a bank is therefore its own law, not a term of the law that built it. **Issue and
+  policy:** `bank_worn` (appended, code 14) holds while a bank the polity built wants mending
+  and no law in force keeps it. A bank wants mending once it has given way, its crest has sunk
+  or worn `mend_crest_m` (0.1 m) below its design, or it has taken `mend_piping` (0.1) of
+  seepage damage; both are design priors. `keep_bank` (appended) is proposed, forecast and
+  decided like a bank built. A household gains what it reckoned, when the bank was proposed,
+  the bank saves it a year, and pays its share of the mending wanted now, spread over
+  `life_years`. This treats a mended bank as good as new, a design prior. **Looking over:** a
+  kept bank is looked over when a high water goes down and at each year's start (research
+  11-12 §5.5: event-driven maintenance plus periodic inspection). If it wants mending and is
+  not already being mended, its hours are added to what is asked of the households. Each
+  household's share is of building and mending together, and the chronicle tells it.
+  **Mending (research 11-12 §4.1: inspect, refill, compact):** `banks::mend` lays compacted
+  earth dug from the bank's own borrow pit on its crest, at the building charges for digging,
+  carrying and placing. It restores what water wore off first, then what settled. Then it digs
+  out and tamps again the bank's damaged share, its seepage damage times its whole fill (a
+  design prior), at digging plus placing hours with no carrying. Mass moves from the pit to the
+  bank; the washed-sediment account is untouched. A breach stays open until all the mending it
+  needs is done. People choose the work as they choose to build; when it is done the
+  chronicle says so, and a later failure is told again. Nothing keeps a bank no law keeps, and
+  a law in force does not make anyone work, so a neglected bank remains a possible result.
+  **Saves 104:** refill per bank, repair hours asked and the mending flag per bank site, and
+  each keeping law's bank. Older headers carrying any of them are refused. **In the test
+  village:** a second, higher bank beside the first outweighed keeping the first while
+  households still remembered their losses. In the test, with those memories cleared, the
+  keeping law was proposed under `bank_worn`, mending was asked, and a worker's hours repaired
+  the seepage damage. **Left:** banks of more than one segment and across fields, trapped
+  rain and irrigation, and conditioning the seepage rate on soil.
 
 - **Claude handoff (2026-10-14, owner request):** stop after the tested overtopping slice on
   `codex/codex-development`, with no merge to main. The handoff is

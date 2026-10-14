@@ -1839,3 +1839,39 @@ finished. The run shared the CPU with builds and probes, so its times are not a 
 
 **Open:** repair and upkeep by law; banks of several segments and across fields; trapped rain;
 irrigation; then BH.
+
+## 2026-10-14 — BG: banks kept and mended
+
+**What changed:** a bank now needs its own law to be kept. Research 12-08 says "Do not assume
+that a successful construction mobilization persists indefinitely". ADR-0022 says nobody mends
+a polity's bank unless a law asks. So when a bank the village built has sunk, worn or seeped
+past a threshold, or given way, the issue `bank_worn` holds, and anyone may propose `keep_bank`.
+Each household weighs what it reckoned the bank saves it against its share of the mending.
+Passed, the bank is looked over after every high water and at each year's start, and its
+mending is asked in equal shares. People choose to do it: earth is dug from the bank's pit and
+laid back on its crest, and seeping bank is dug out and tamped again. A breach stays open until
+the mending is finished. Saves 104, content API 90.
+
+**Finding:** in the test village, a second, higher bank beside the first outweighed keeping
+the first while households still remembered their losses. Building anew can beat mending, and
+the gathering decides which.
+
+**Evidence:** a unit test covers the mending physics: mass moves from pit to bank, wear is made
+up before settling, seepage damage falls with the work done, a breach closes only when all its
+mending is done, and nothing is mended before it is built. The levee test follows a damaged
+bank through the full sequence: no mending without a law; household gains; the proposal under
+`bank_worn`; mending asked once and not again while under way; chosen work; the mended
+chronicle; reloads. A save test covers a mended bank's round trip and its refusal under a
+schema 103 header. Before this commit, the full simcheck workspace suite, all-target clippy,
+formatting, schema freshness, all ten release short-smoke worlds and the web build with its 173
+unit tests pass.
+
+**Also fixed:** the first full-suite run failed `homes_catch_fire_from_their_hearths_at_the_same_
+minutes_whatever_the_speed` once. Twelve runs alone all passed. Its worlds took a random world
+id, and its statistical assertion (some escapes put out at once, some while growing, some
+catching) depends on that draw. Its helper now uses the fixed test world id, as the project's
+other worlds do, and all 32 fire tests pass.
+
+**Open:** banks of several segments and across fields; trapped rain; irrigation; soil-dependent
+seepage; then BH.
+

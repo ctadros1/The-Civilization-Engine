@@ -333,6 +333,8 @@ pub const SCHEMA_V100: u32 = 100;
 pub const SCHEMA_V101: u32 = 101;
 /// Households' flood losses and banks built by law, before bank piping and told failures.
 pub const SCHEMA_V102: u32 = 102;
+/// Bank piping damage and told failures, before mending banks.
+pub const SCHEMA_V103: u32 = 103;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

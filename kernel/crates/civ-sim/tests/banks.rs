@@ -58,6 +58,7 @@ fn fixture() -> Sim {
         breached: false,
         sediment_m3: 0.0,
         piping: 0.0,
+        refill_m3: 0.0,
     };
     let make = |id, kind, rect| Earthwork {
         id,
@@ -328,6 +329,55 @@ fn schema_102_keeps_banks_undamaged_and_refuses_piping_in_old_headers() {
             assert!(loaded.land().banks.iter().all(|b| b.piping == 0.0));
         }
     }
+}
+
+#[test]
+fn a_mended_bank_round_trips_and_schema_103_refuses_its_refill() {
+    let mut sim = fixture();
+    let map = sim.map().clone();
+    let land = sim.land_mut_for_tests();
+    let segment = land.banks[0];
+    banks::place_from_borrow(&segment, &mut land.earthworks, &map, &mut land.ground, 1e9)
+        .expect("finishes");
+    land.banks[0].erosion_m = 0.2;
+    land.banks[0].piping = 0.3;
+    let (fill, rework) = land.banks[0].mend_need(&land.earthworks[0]);
+    assert!(fill > 0.0 && rework > 0.0);
+    banks::mend(
+        &mut land.banks[0],
+        &mut land.earthworks,
+        &map,
+        &mut land.ground,
+        fill / 2.0,
+        rework,
+    )
+    .expect("mends");
+    assert!(land.banks[0].refill_m3 > 0.0 && land.banks[0].piping == 0.0);
+    assert!(
+        sim.land()
+            .problems(sim.map(), sim.rules().land.habitats.len(), u64::MAX)
+            .is_empty()
+    );
+    let dir = tempfile::tempdir().expect("dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("saves");
+    let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "mended").expect("save");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(sim.land().banks, loaded.land().banks);
+    assert_eq!(sim.land().ground, loaded.land().ground);
+    let reader =
+        commons_persist::SnapshotReader::open_file(&saved.path, commons_persist::Limits::default())
+            .expect("reader");
+    let mut info = reader.info().clone();
+    info.schema_version = persist::SCHEMA_V103;
+    let legacy = commons_persist::publish_file(
+        dir.path(),
+        "legacy.tcesave",
+        &info,
+        &persist::encode_sections(&sim),
+        commons_persist::DEFAULT_ZSTD_LEVEL,
+    )
+    .expect("publish");
+    assert!(persist::load(&legacy.path, content()).is_err());
 }
 
 #[test]

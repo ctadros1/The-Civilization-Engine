@@ -38,6 +38,7 @@ pub fn earthworks_rev(sim: &Sim) -> u64 {
                 b.sediment_m3.to_bits(),
                 b.breached,
                 b.piping.to_bits(),
+                b.refill_m3.to_bits(),
             )
                 .hash(&mut hasher);
         }
@@ -95,7 +96,7 @@ fn words(sim: &Sim, w: &Earthwork, building: Option<&Building>) -> String {
         }
         EarthKind::Bank => {
             let bank = sim.land.banks.iter().find(|b| b.work == w.id);
-            return bank.map_or_else(|| "bank geometry unavailable".into(), |b| format!("a {:.0} m bank, {:.0}% built, crest {:.2} m above ground{}; earth from borrow pit {}; {} washed into sediment stock", b.length_m(), w.done * 100.0, (b.built_height_m(w.done) - b.settlement_m - b.erosion_m).max(0.0), if b.breached { ", breached".to_owned() } else if b.piping > 0.0 { format!(", {:.0}% of the way to piping through", b.piping * 100.0) } else { String::new() }, b.borrow, volume(b.sediment_m3)));
+            return bank.map_or_else(|| "bank geometry unavailable".into(), |b| format!("a {:.0} m bank, {:.0}% built, crest {:.2} m above ground{}; earth from borrow pit {}; {} washed into sediment stock", b.length_m(), w.done * 100.0, (b.built_height_m(w.done) - b.settlement_m - b.erosion_m).max(0.0), if b.breached { ", breached".to_owned() } else if b.piping > 0.0 { format!(", {:.0}% of the way to piping through", b.piping * 100.0) } else { String::new() }, b.borrow, volume(b.sediment_m3)) + &if b.refill_m3 > 0.0 { format!("; {} laid back on it in mending", volume(b.refill_m3)) } else { String::new() });
         }
         EarthKind::Spoil => {
             let (good, working) = dug_for(sim, w);

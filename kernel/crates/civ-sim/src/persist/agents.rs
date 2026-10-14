@@ -115,8 +115,8 @@ use super::{
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
-    SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, finish, section,
-    single_chunk, unreadable,
+    SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103, finish,
+    section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -524,6 +524,8 @@ enum Schema {
     V102,
     /// M6b slice BG: bank piping damage and told failures.
     V103,
+    /// M6b slice BG: banks mended (refill, repair hours asked).
+    V104,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -641,7 +643,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V100 => Schema::V100,
         SCHEMA_V101 => Schema::V101,
         SCHEMA_V102 => Schema::V102,
-        SAVE_SCHEMA_VERSION => Schema::V103,
+        SCHEMA_V103 => Schema::V103,
+        SAVE_SCHEMA_VERSION => Schema::V104,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -787,6 +790,17 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V29 {
         let bytes = single_chunk(reader, SECTION_POLITY)?;
         people.polities = decode_polities(&bytes, rules)?;
+        // Explicit migration: schemas through 103 had asked no bank mending.
+        if schema < Schema::V104
+            && people.polities.iter().any(|p| {
+                !p.bank_keeps.is_empty()
+                    || p.banks.iter().any(|(_, s)| s.upkeep_h != 0.0 || s.mending)
+            })
+        {
+            return Err(LoadError::Malformed(
+                "bank mending asked before schema 104".into(),
+            ));
+        }
     }
     // Takings (schema 31); before them nobody had taken anything.
     if schema >= Schema::V31 {
@@ -1357,6 +1371,8 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             pit_w_cm: s.pit.w,
                             pit_h_cm: s.pit.h,
                             labour_h: s.labour_h,
+                            upkeep_h: s.upkeep_h,
+                            mending: s.mending,
                             work: s.work.map_or(0, PermanentId::get),
                         },
                     )
@@ -1365,6 +1381,12 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
             let banks = (!banks.is_empty()).then(|| fbb.create_vector(&banks));
             let banks_failed: Vec<u64> = p.banks_failed.iter().map(|w| w.get()).collect();
             let banks_failed = (!banks_failed.is_empty()).then(|| fbb.create_vector(&banks_failed));
+            let bank_keeps: Vec<_> = p
+                .bank_keeps
+                .iter()
+                .map(|(k, b)| save::BankKeepRecord::new(k.get(), b.get()))
+                .collect();
+            let bank_keeps = (!bank_keeps.is_empty()).then(|| fbb.create_vector(&bank_keeps));
             let bank_saves = bank_share_rows(&mut fbb, &p.bank_saves);
             let bank_given = bank_share_rows(&mut fbb, &p.bank_given);
             let gathering = p.gathering.as_ref().map(|g| {
@@ -1412,6 +1434,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     bank_saves,
                     bank_given,
                     banks_failed,
+                    bank_keeps,
                 },
             )
         })
@@ -1502,6 +1525,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::SourceSuspected => 11,
         IssueKind::WaterFar => 12,
         IssueKind::Flooded => 13,
+        IssueKind::BankWorn => 14,
     }
 }
 
@@ -1612,6 +1636,7 @@ fn decode_polities(
                 11 => IssueKind::SourceSuspected,
                 12 => IssueKind::WaterFar,
                 13 => IssueKind::Flooded,
+                14 => IssueKind::BankWorn,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -1917,6 +1942,8 @@ fn decode_polities(
                     h: c.pit_h_cm(),
                 },
                 labour_h: c.labour_h(),
+                upkeep_h: c.upkeep_h(),
+                mending: c.mending(),
                 work: PermanentId::from_raw(c.work()),
             };
             let finite = [
@@ -1929,10 +1956,11 @@ fn decode_polities(
                 site.side_run,
                 site.compacted_per_bank,
                 site.labour_h,
+                site.upkeep_h,
             ]
             .iter()
             .all(|v| v.is_finite());
-            if !finite || site.labour_h < 0.0 || site.length_m() <= 0.0 {
+            if !finite || site.labour_h < 0.0 || site.upkeep_h < 0.0 || site.length_m() <= 0.0 {
                 return Err(bad(format!("polity {id} has a bank site of no shape")));
             }
             banks.push((law, site));
@@ -1966,6 +1994,17 @@ fn decode_polities(
                 .ok_or_else(|| bad(format!("polity {id} tells a failure of no bank of its own")))?;
             banks_failed.push(w);
         }
+        // Which bank each law keeping one keeps (schema 104); before, none.
+        let mut bank_keeps = Vec::new();
+        for k in p.bank_keeps().iter().flatten() {
+            let law = law_of(k.law(), "a bank's keeping")?;
+            let built = law_of(k.built(), "a kept bank")?;
+            if !banks.iter().any(|b| b.0 == built) || bank_keeps.iter().any(|x: &(_, _)| x.0 == law)
+            {
+                return Err(bad(format!("polity {id} keeps no bank of its own")));
+            }
+            bank_keeps.push((law, built));
+        }
         out.push(Polity {
             id,
             settlement,
@@ -1986,6 +2025,7 @@ fn decode_polities(
             bank_saves,
             bank_given,
             banks_failed,
+            bank_keeps,
         });
     }
     Ok(out)
@@ -2082,6 +2122,13 @@ fn encode_earth(land: &Land) -> Vec<u8> {
         .map(|b| save::BankPipingRecord::new(b.work.get(), b.piping))
         .collect();
     let piping = fbb.create_vector(&piping);
+    let refill: Vec<_> = land
+        .banks
+        .iter()
+        .filter(|b| b.refill_m3 != 0.0)
+        .map(|b| save::BankRefillRecord::new(b.work.get(), b.refill_m3))
+        .collect();
+    let refill = fbb.create_vector(&refill);
     let root = save::Earth::create(
         &mut fbb,
         &save::EarthArgs {
@@ -2091,6 +2138,7 @@ fn encode_earth(land: &Land) -> Vec<u8> {
             banks: Some(banks),
             bank_sediment: Some(sediment),
             bank_piping: Some(piping),
+            bank_refill: Some(refill),
         },
     );
     finish(fbb, root)
@@ -2154,6 +2202,7 @@ fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), Loa
                 breached: b.breached(),
                 sediment_m3: 0.0,
                 piping: 0.0,
+                refill_m3: 0.0,
             });
         }
     }
@@ -2200,6 +2249,27 @@ fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), Loa
             ));
         }
         bank.piping = record.damage();
+    }
+    // Explicit migration: schemas through 103 have mended no bank.
+    if schema < Schema::V104 && root.bank_refill().is_some_and(|v| !v.is_empty()) {
+        return Err(LoadError::Malformed("bank refill before schema 104".into()));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for record in root.bank_refill().iter().flatten() {
+        let bank = land
+            .banks
+            .iter_mut()
+            .find(|b| b.work.get() == record.work())
+            .ok_or_else(|| LoadError::Malformed("refill names missing bank".into()))?;
+        if !seen.insert(record.work())
+            || !record.compacted_m3().is_finite()
+            || record.compacted_m3() <= 0.0
+        {
+            return Err(LoadError::Malformed(
+                "invalid or duplicate bank refill".into(),
+            ));
+        }
+        bank.refill_m3 = record.compacted_m3();
     }
     // Schema 21: what each pit and heap is linked to.
     for l in root.links().iter().flatten() {
@@ -3613,7 +3683,8 @@ fn carried(
         | Schema::V100
         | Schema::V101
         | Schema::V102
-        | Schema::V103 => {
+        | Schema::V103
+        | Schema::V104 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3850,7 +3921,8 @@ fn decode_households(
             | Schema::V100
             | Schema::V101
             | Schema::V102
-            | Schema::V103 => {
+            | Schema::V103
+            | Schema::V104 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

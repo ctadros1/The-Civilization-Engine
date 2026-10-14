@@ -37,6 +37,11 @@ pub struct LeveeParams {
     /// Metres of bank each worker needs to work at once: a narrow front holds few (research
     /// 11-12 §1.2).
     pub front_m: f64,
+    /// A finished bank is mended once its crest has sunk or worn this many metres below its
+    /// design, or water has done this much seepage damage to it (0 to 1), or it has given way
+    /// (research 11-12 §4.1: inspect, refill, compact). Design priors.
+    pub mend_crest_m: f64,
+    pub mend_piping: f64,
 }
 
 impl Default for LeveeParams {
@@ -57,6 +62,8 @@ impl Default for LeveeParams {
             place_h_per_m3: 8.0 / 3.0,
             pit_depth_m: 1.0,
             front_m: 5.0,
+            mend_crest_m: 0.1,
+            mend_piping: 0.1,
         }
     }
 }
@@ -70,6 +77,12 @@ impl LeveeParams {
         let loads = self.loose_per_bank * self.loose_kg_per_m3 / self.carry_kg.max(1e-6);
         let haul_min = loads * (self.load_min + 2.0 * haul_m.max(0.0) / speed_m_per_min.max(1e-6));
         dig_h_per_m3 + haul_min / 60.0 + self.compacted_per_bank * self.place_h_per_m3
+    }
+
+    /// The hours a compacted cubic metre of bank takes to dig out where water has seeped
+    /// through it and spread and tamp again in place: no carrying.
+    pub fn rework_h_per_m3(&self, dig_h_per_m3: f64) -> f64 {
+        dig_h_per_m3 + self.place_h_per_m3
     }
 }
 

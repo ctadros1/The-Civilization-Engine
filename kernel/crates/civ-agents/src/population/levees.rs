@@ -62,6 +62,36 @@ impl PublicBank {
     }
 }
 
+/// A flood bank a polity built that wants mending and that no law of its keeps (M6b slice BG):
+/// the law that built it, where it is, the hours mending it would take now, the years a bank is
+/// reckoned to keep water out, and how many households its mending would be asked of.
+#[derive(Clone, Debug)]
+pub(crate) struct WornBank {
+    pub(crate) built: PermanentId,
+    /// The cell at its middle: the site a move to keep it names.
+    pub(crate) cell_at: u32,
+    pub(crate) mend_h: f64,
+    pub(crate) life: f64,
+    pub(crate) households: usize,
+    /// What each household reckoned, when it was proposed, the bank would save it a year,
+    /// hours, by household id.
+    pub(crate) saves: Vec<(PermanentId, f64)>,
+}
+
+impl WornBank {
+    /// The hours a year it saves household `h`, as that household reckoned it.
+    pub(crate) fn saves_of(&self, h: PermanentId) -> f64 {
+        self.saves
+            .binary_search_by_key(&h, |s| s.0)
+            .map_or(0.0, |i| self.saves[i].1)
+    }
+
+    /// The share of its mending asked of each household, hours.
+    pub(crate) fn share_h(&self) -> f64 {
+        self.mend_h / self.households.max(1) as f64
+    }
+}
+
 /// The cell at the middle of bank site `site`.
 pub(crate) fn bank_cell(map: &WorldMap, site: &BankSite) -> u32 {
     let mid = (
@@ -97,6 +127,7 @@ fn segment_of(site: &BankSite, work: PermanentId, borrow: PermanentId) -> BankSe
         breached: false,
         sediment_m3: 0.0,
         piping: 0.0,
+        refill_m3: 0.0,
     }
 }
 
@@ -335,6 +366,8 @@ impl Population {
                 h: 0,
             },
             labour_h: 0.0,
+            upkeep_h: 0.0,
+            mending: false,
             work: None,
         };
         // Its height: the crest over the lowest ground it crosses.
@@ -458,6 +491,12 @@ impl Population {
         self.begin_public_bank(ctx, pi, law);
     }
 
+    /// Polity `pi` looks over the banks its laws keep, as after a high water: for tests.
+    #[doc(hidden)]
+    pub fn look_over_banks_for_tests(&mut self, ctx: &mut Ctx, pi: usize) {
+        self.look_over_banks(ctx, pi);
+    }
+
     /// The bank person `who` may work on now, as their decision sees it: for tests.
     #[doc(hidden)]
     pub fn levee_facts_for_tests(&self, ctx: &Ctx, who: PermanentId) -> Option<LeveeFacts> {
@@ -503,12 +542,14 @@ impl Population {
     }
 
     /// The bank household `x`'s people may work on, if any (M6b slice BG): one their polity is
-    /// building under a law in force `person` knows of; where its work is done, the walk there,
+    /// building under a law in force `person` knows of, or one it built that a law in force
+    /// `person` knows of keeps and that is being mended; where its work is done, the walk there,
     /// the work left, what each hour of it is worth to the household (the hours a year it
     /// reckoned the bank would save it, for each hour of the bank's work), and, while the
-    /// household has not given the share asked of it, what keeping to the gathering's word is
-    /// worth to `person`, as for a crossing built together. Full when as many work on it now as
-    /// its length gives room for (research 11-12 §1.2: a narrow front holds few).
+    /// household has not given the share asked of it (of building and mending together), what
+    /// keeping to the gathering's word is worth to `person`, as for a crossing built together.
+    /// Full when as many work on it now as its length gives room for (research 11-12 §1.2: a
+    /// narrow front holds few).
     pub(super) fn levee_facts(
         &self,
         ctx: &Ctx,
@@ -522,16 +563,24 @@ impl Population {
         }
         let pi = self.polity_of(x.settlement?)?;
         let polity = &self.polities[pi];
-        let (law, site, work) = polity.banks.iter().find_map(|(l, s)| {
+        let in_force = |id: PermanentId, kind: PolicyKind| {
+            polity.laws.iter().find(|k| {
+                k.id == id && k.status == LawStatus::InForce && k.kind == kind && k.knows(person)
+            })
+        };
+        let (law, site, work, left_h) = polity.banks.iter().find_map(|(l, s)| {
             let w = s.work?;
-            let law = polity.laws.iter().find(|k| {
-                k.id == *l
-                    && k.status == LawStatus::InForce
-                    && k.kind == PolicyKind::BuildBank
-                    && k.knows(person)
-            })?;
+            let law = in_force(*l, PolicyKind::BuildBank)?;
             let e = ctx.land.earthworks.iter().find(|e| e.id == w)?;
-            (e.done < 1.0).then_some((law, *s, e))
+            if e.done < 1.0 {
+                return Some((law, *s, e, s.labour_h * f64::from(1.0 - e.done).max(0.0)));
+            }
+            // Finished: worked on again only while a law keeping it has it mended.
+            let keeper = polity.keeper_of(*l)?;
+            in_force(keeper, PolicyKind::KeepBank)?;
+            let seg = ctx.land.banks.iter().find(|b| b.work == w)?;
+            let left = self.mend_hours(ctx, s, seg, e).0;
+            (s.mending && left > 0.0).then_some((law, *s, e, left))
         })?;
         let households = self
             .households
@@ -539,7 +588,7 @@ impl Population {
             .filter(|(_, y)| y.settlement == x.settlement && !y.members.is_empty())
             .count()
             .max(1);
-        let share = site.labour_h / households as f64;
+        let share = (site.labour_h + site.upkeep_h) / households as f64;
         let mut duty = 0.0;
         if f64::from(polity.bank_given_by(law.id, x.id)) + 1e-6 < share {
             let stance = law
@@ -577,19 +626,168 @@ impl Population {
             bank: work.id,
             at,
             walk_min: f64::from(walk_s) / 60.0,
-            left_h: site.labour_h * f64::from(1.0 - work.done).max(0.0),
+            left_h,
             saves_per_hour: f64::from(polity.bank_saves_of(law.id, x.id)) / site.labour_h.max(1e-6),
             duty,
             full: at_work >= room,
         })
     }
 
+    /// The hours mending bank `seg` of site `site` would take now (M6b slice BG), with what
+    /// each hour does: compacted earth dug from its pit, carried and laid on its crest at a
+    /// grown worker's pace (each charged apart, as building it is), then bank dug out and tamped
+    /// again where water seeped through it. Returns the hours, the hours a compacted cubic metre
+    /// of refill takes, and the hours a compacted cubic metre of rework takes.
+    pub(super) fn mend_hours(
+        &self,
+        ctx: &Ctx,
+        site: &BankSite,
+        seg: &BankSegment,
+        work: &Earthwork,
+    ) -> (f64, f64, f64) {
+        let speed = interpolate(&ctx.params.walk_speed_by_age, 30.0).max(0.05) * 60.0;
+        self.mend_hours_at(ctx, site, seg, work, speed)
+    }
+
+    /// [`Population::mend_hours`] at walking pace `speed`, metres a minute.
+    fn mend_hours_at(
+        &self,
+        ctx: &Ctx,
+        site: &BankSite,
+        seg: &BankSegment,
+        work: &Earthwork,
+        speed: f64,
+    ) -> (f64, f64, f64) {
+        let lp = &ctx.params.levees;
+        let pit = site.pit.centre_m();
+        let mid = [(site.a[0] + site.b[0]) / 2.0, (site.a[1] + site.b[1]) / 2.0];
+        let haul = (f64::from(pit.0) - mid[0]).hypot(f64::from(pit.1) - mid[1]);
+        let fill_h = lp.hours_per_m3(ctx.params.digging.h_per_m3, haul, speed)
+            / seg.compacted_per_bank.max(1e-6);
+        let rework_h = lp.rework_h_per_m3(ctx.params.digging.h_per_m3);
+        let (fill, rework) = seg.mend_need(work);
+        (fill * fill_h + rework * rework_h, fill_h, rework_h)
+    }
+
+    /// Whether finished bank `seg` wants mending (M6b slice BG; research 11-12 §4.1): it has
+    /// given way, or its crest has sunk or worn `levees.mend_crest_m` below its design, or water
+    /// has done `levees.mend_piping` of seepage damage to it.
+    fn wants_mending(ctx: &Ctx, seg: &BankSegment, work: &Earthwork) -> bool {
+        let lp = &ctx.params.levees;
+        work.done >= 1.0
+            && (seg.breached
+                || seg.height_m - seg.crest_m(1.0) >= lp.mend_crest_m
+                || seg.piping >= lp.mend_piping)
+    }
+
+    /// A bank polity `pi` built that wants mending and that no law in force keeps, if any (M6b
+    /// slice BG): what its households would weigh a law keeping it by.
+    pub(super) fn worn_bank(&self, ctx: &Ctx, pi: usize, households: usize) -> Option<WornBank> {
+        let polity = &self.polities[pi];
+        polity.banks.iter().find_map(|(l, s)| {
+            let w = s.work?;
+            if polity.keeper_of(*l).is_some() {
+                return None;
+            }
+            let e = ctx.land.earthworks.iter().find(|e| e.id == w)?;
+            let seg = ctx.land.banks.iter().find(|b| b.work == w)?;
+            if !Self::wants_mending(ctx, seg, e) {
+                return None;
+            }
+            Some(WornBank {
+                built: *l,
+                cell_at: bank_cell(ctx.map, s),
+                mend_h: self.mend_hours(ctx, s, seg, e).0,
+                life: ctx.params.levees.life_years,
+                households: households.max(1),
+                saves: polity
+                    .bank_saves
+                    .iter()
+                    .filter(|s| s.0 == *l)
+                    .map(|s| (s.1, f64::from(s.2)))
+                    .collect(),
+            })
+        })
+    }
+
+    /// Polity `pi`'s banks that laws of its keep are looked over (M6b slice BG; research 11-12
+    /// §5.5: event-driven maintenance plus periodic inspection): each that wants mending and is
+    /// not being mended has the work it wants asked of its households in equal shares, and that
+    /// is told.
+    pub(super) fn look_over_banks(&mut self, ctx: &mut Ctx, pi: usize) {
+        let kept: Vec<PermanentId> = self.polities[pi]
+            .banks
+            .iter()
+            .filter(|(l, s)| s.work.is_some() && self.polities[pi].keeper_of(*l).is_some())
+            .map(|(l, _)| *l)
+            .collect();
+        for built in kept {
+            self.ask_bank_mending(ctx, pi, built);
+        }
+    }
+
+    /// Polity `pi` asks its households to mend the bank law `built` built, if it wants mending
+    /// and is not being mended already (M6b slice BG): the hours it wants are added to what is
+    /// asked of them, each its equal share of building and mending together, and it is told.
+    pub(super) fn ask_bank_mending(&mut self, ctx: &mut Ctx, pi: usize, built: PermanentId) {
+        let Some(site) = self.polities[pi].bank_site_of(built) else {
+            return;
+        };
+        let Some(w) = site.work else {
+            return;
+        };
+        let (Some(e), Some(seg)) = (
+            ctx.land.earthworks.iter().find(|e| e.id == w).copied(),
+            ctx.land.banks.iter().find(|b| b.work == w).copied(),
+        ) else {
+            return;
+        };
+        if site.mending || !Self::wants_mending(ctx, &seg, &e) {
+            return;
+        }
+        let hours = self.mend_hours(ctx, &site, &seg, &e).0;
+        if let Some(s) = self.polities[pi].banks.iter_mut().find(|s| s.0 == built) {
+            s.1.upkeep_h += hours;
+            s.1.mending = true;
+        }
+        let settlement = self.polities[pi].settlement;
+        let place = ctx
+            .land
+            .settlements
+            .iter()
+            .find(|t| t.id == settlement)
+            .map_or_else(|| "the village".to_owned(), |t| t.name.clone());
+        let what = if seg.breached {
+            "broken through"
+        } else if seg.piping >= ctx.params.levees.mend_piping {
+            "seeping"
+        } else {
+            "sunk and worn"
+        };
+        let mid = [(site.a[0] + site.b[0]) / 2.0, (site.a[1] + site.b[1]) / 2.0];
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::Flood,
+            Vec::new(),
+            Some(settlement),
+            Some((mid[0] as f32, mid[1] as f32)),
+            f64::from(crate::history::FloodStep::BankWantsMending as u8),
+            format!(
+                "{place}'s people found the bank they keep against floodwater {what}: mending it \
+                 wants {hours:.0} hours of work, each household asked its share."
+            ),
+        );
+    }
+
     /// `hours` of a capable adult's work by `who` (handle and id) of `household` on bank `bank`
-    /// (M6b slice BG): as much earth as those hours dig from its borrow pit, carry the straight way
-    /// from the pit, which lies beside it, to the bank's middle a basket at a time at their own walking pace, and spread
-    /// and tamp, each charged apart (research 11-12 §1.2), is placed; the hours that placed it
-    /// are the household's given. Earth moves only when the work is done: none is left half-way.
-    /// Once all its earth is in, the bank is finished.
+    /// (M6b slice BG). While it is being built, as much earth as those hours dig from its borrow
+    /// pit, carry the straight way from the pit, which lies beside it, to the bank's middle a
+    /// basket at a time at their own walking pace, and spread and tamp, each charged apart
+    /// (research 11-12 §1.2), is placed; once built and being mended, those hours lay earth from
+    /// the pit back on its crest, then dig out and tamp again where water seeped through it.
+    /// The hours that moved earth are the household's given. Earth moves only when the work is
+    /// done: none is left half-way. Once all its earth is in, the bank is finished; once all its
+    /// mending is done, it is mended.
     pub(super) fn levee_work(
         &mut self,
         ctx: &mut Ctx,
@@ -613,13 +811,72 @@ impl Population {
         else {
             return;
         };
-        let Some(seg) = ctx.land.banks.iter().find(|b| b.work == bank).copied() else {
+        let Some(bi) = ctx.land.banks.iter().position(|b| b.work == bank) else {
+            return;
+        };
+        let Some(work) = ctx.land.earthworks.iter().find(|e| e.id == bank).copied() else {
             return;
         };
         let age = self.people.get(h).map_or(30.0, |p| p.age_years(ctx.now));
         let speed = interpolate(&ctx.params.walk_speed_by_age, age).max(0.05) * 60.0;
-        let pit = site.pit.centre_m();
         let mid = [(site.a[0] + site.b[0]) / 2.0, (site.a[1] + site.b[1]) / 2.0];
+        let settlement = self.polities[pi].settlement;
+        let place = ctx
+            .land
+            .settlements
+            .iter()
+            .find(|t| t.id == settlement)
+            .map_or_else(|| "the village".to_owned(), |t| t.name.clone());
+        if work.done >= 1.0 {
+            if !site.mending {
+                return;
+            }
+            let mut seg = ctx.land.banks[bi];
+            let (_, fill_h, rework_h) = self.mend_hours_at(ctx, &site, &seg, &work, speed);
+            let (fill_want, _) = seg.mend_need(&work);
+            let fill = (hours.max(0.0) / fill_h.max(1e-9)).min(fill_want);
+            let rework = (hours.max(0.0) - fill * fill_h).max(0.0) / rework_h.max(1e-9);
+            let Ok((dug, reworked)) = banks::mend(
+                &mut seg,
+                &mut ctx.land.earthworks,
+                ctx.map,
+                &mut ctx.land.ground,
+                fill,
+                rework,
+            ) else {
+                return;
+            };
+            ctx.land.banks[bi] = seg;
+            let used = dug * seg.compacted_per_bank * fill_h + reworked * rework_h;
+            if used <= 0.0 {
+                return;
+            }
+            self.polities[pi].give_to_bank(law, household, used as f32);
+            if seg.mend_need(&work) != (0.0, 0.0) {
+                return;
+            }
+            if let Some(s) = self.polities[pi].banks.iter_mut().find(|s| s.0 == law) {
+                s.1.mending = false;
+            }
+            self.polities[pi].banks_failed.retain(|&w| w != bank);
+            let sentence = format!(
+                "{place}'s people mended the bank they keep against floodwater, {} tamping the \
+                 last of it.",
+                self.name_of(who)
+            );
+            self.chronicle_push(
+                ctx.now,
+                ChronicleKind::Flood,
+                vec![who],
+                Some(settlement),
+                Some((mid[0] as f32, mid[1] as f32)),
+                f64::from(crate::history::FloodStep::BankMended as u8),
+                sentence,
+            );
+            return;
+        }
+        let seg = ctx.land.banks[bi];
+        let pit = site.pit.centre_m();
         let haul = (f64::from(pit.0) - mid[0]).hypot(f64::from(pit.1) - mid[1]);
         let per_m3 = ctx
             .params
@@ -647,13 +904,6 @@ impl Population {
         if done < 1.0 {
             return;
         }
-        let settlement = self.polities[pi].settlement;
-        let place = ctx
-            .land
-            .settlements
-            .iter()
-            .find(|t| t.id == settlement)
-            .map_or_else(|| "the village".to_owned(), |t| t.name.clone());
         let sentence = format!(
             "{place}'s people finished the bank against floodwater their gathering agreed to \
              build, {:.0} m long and {:.1} m high, {} tamping the last of its earth.",

@@ -74,11 +74,17 @@ pub enum PolicyKind {
     /// 12-08 §1.2: those who gain and those who work may differ). Nobody is made to work, and
     /// nobody keeps it up unless a law asks (ADR-0022 §11).
     BuildBank,
+    /// The polity keeps a flood bank it built (M6b slice BG; ADR-0022 §11: nobody mends a
+    /// polity's bank unless a law asks; research 12-08 §1.4: maintenance needs an organization
+    /// of its own, not the mobilization that built it): the bank is looked over when a high water
+    /// goes down and each year, and whenever it wants mending each household is asked an equal
+    /// share of the work, as for building it. Nobody is made to work.
+    KeepBank,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 13] = [
+    pub const ALL: [PolicyKind; 14] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -92,6 +98,7 @@ impl PolicyKind {
         PolicyKind::CloseSource,
         PolicyKind::DigWell,
         PolicyKind::BuildBank,
+        PolicyKind::KeepBank,
     ];
 
     /// The authored name.
@@ -110,6 +117,7 @@ impl PolicyKind {
             PolicyKind::CloseSource => "close_source",
             PolicyKind::DigWell => "dig_well",
             PolicyKind::BuildBank => "build_bank",
+            PolicyKind::KeepBank => "keep_bank",
         }
     }
 
@@ -171,11 +179,13 @@ pub enum IssueKind {
     /// have kept that water out, its saving over its life above its work (M6b slice BG), as
     /// fords make a crossing an issue.
     Flooded,
+    /// A flood bank the polity built wants mending, and no law of its keeps it (M6b slice BG).
+    BankWorn,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 14] = [
+    pub const ALL: [IssueKind; 15] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -190,6 +200,7 @@ impl IssueKind {
         IssueKind::SourceSuspected,
         IssueKind::WaterFar,
         IssueKind::Flooded,
+        IssueKind::BankWorn,
     ];
 
     /// The authored name.
@@ -209,6 +220,7 @@ impl IssueKind {
             IssueKind::SourceSuspected => "source_suspected",
             IssueKind::WaterFar => "water_far",
             IssueKind::Flooded => "flooded",
+            IssueKind::BankWorn => "bank_worn",
         }
     }
 
@@ -241,6 +253,7 @@ impl IssueKind {
             IssueKind::SourceSuspected => "they hold that the water there sickens",
             IssueKind::WaterFar => "its people walked far for water",
             IssueKind::Flooded => "floodwater had cost its households",
+            IssueKind::BankWorn => "the bank they built against floodwater wanted mending",
         }
     }
 }
@@ -987,6 +1000,11 @@ pub fn law_words(
                 work"
             .to_owned();
     }
+    if def.is_some_and(|d| d.kind == PolicyKind::KeepBank) {
+        return "the keeping of a bank against floodwater, mended whenever it wants it, each \
+                household doing its share of the work"
+            .to_owned();
+    }
     // Without the source at hand (see [`Polity::words_of`]), only what it does.
     if def.is_some_and(|d| d.kind == PolicyKind::CloseSource) {
         return "the closing of a source of water: nobody may draw there".to_owned();
@@ -1063,6 +1081,7 @@ pub fn ending_words(
         Some(PolicyKind::CloseSource) => "the closing of a source of water".to_owned(),
         Some(PolicyKind::DigWell) => "the work on a well".to_owned(),
         Some(PolicyKind::BuildBank) => "the work on a flood bank".to_owned(),
+        Some(PolicyKind::KeepBank) => "the keeping of a flood bank".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -1277,6 +1296,9 @@ pub struct Polity {
     pub bank_given: Vec<(PermanentId, PermanentId, f32)>,
     /// The banks its laws built whose giving way its chronicle has told, by earthwork id.
     pub banks_failed: Vec<PermanentId>,
+    /// Which bank each law keeping one keeps (keep law, the law that built it), in the order made
+    /// (M6b slice BG).
+    pub bank_keeps: Vec<(PermanentId, PermanentId)>,
 }
 
 /// Where a law would build a flood bank (M6b slice BG; ADR-0022 §11): the reach whose water it
@@ -1300,6 +1322,12 @@ pub struct BankSite {
     pub pit: civ_land::fields::RectCm,
     /// The work it takes, hours: digging, carrying and placing.
     pub labour_h: f64,
+    /// The work its mending has asked of its households since it was built, hours: each is asked
+    /// its share of building and mending together.
+    pub upkeep_h: f64,
+    /// Whether its households are asked to mend it now: from when a law keeping it finds it
+    /// wanting until all its mending is done.
+    pub mending: bool,
     /// Its earthwork once begun: the bank's own id (its segment's `work`).
     pub work: Option<PermanentId>,
 }
@@ -1400,6 +1428,7 @@ impl Polity {
             bank_saves: Vec::new(),
             bank_given: Vec::new(),
             banks_failed: Vec::new(),
+            bank_keeps: Vec::new(),
         }
     }
 
@@ -1416,6 +1445,35 @@ impl Polity {
     /// Where law `law` would build a flood bank, if it is one that would (M6b slice BG).
     pub fn bank_site_of(&self, law: PermanentId) -> Option<BankSite> {
         self.banks.iter().find(|b| b.0 == law).map(|b| b.1)
+    }
+
+    /// The bank law `law` keeps, if it is one that keeps one: the law that built it, and its
+    /// site (M6b slice BG).
+    pub fn kept_bank_of(&self, law: PermanentId) -> Option<(PermanentId, BankSite)> {
+        let built = self.bank_keeps.iter().find(|k| k.0 == law)?.1;
+        Some((built, self.bank_site_of(built)?))
+    }
+
+    /// The law in force that keeps the bank law `built` built, if any (M6b slice BG).
+    pub fn keeper_of(&self, built: PermanentId) -> Option<PermanentId> {
+        self.bank_keeps
+            .iter()
+            .filter(|k| k.1 == built)
+            .map(|k| k.0)
+            .find(|&k| {
+                self.laws
+                    .iter()
+                    .any(|l| l.id == k && l.status == LawStatus::InForce)
+            })
+    }
+
+    /// The hours all households have given to law `law`'s bank.
+    pub fn bank_given_all(&self, law: PermanentId) -> f64 {
+        self.bank_given
+            .iter()
+            .filter(|g| g.0 == law)
+            .map(|g| f64::from(g.2))
+            .sum()
     }
 
     /// What household `household` reckoned law `law`'s bank would save it a year, hours.
@@ -1598,6 +1656,17 @@ impl Polity {
                 site.length_m(),
                 site.height_m,
                 site.labour_h
+            );
+        }
+        // Keeping a bank names it (M6b slice BG).
+        if kind == Some(PolicyKind::KeepBank)
+            && let Some((_, site)) = self.kept_bank_of(law.id)
+        {
+            return format!(
+                "the keeping of the bank {:.0} m long against floodwater, looked over after each \
+                 high water and each year and mended whenever it wants it, each household doing \
+                 its share of the work",
+                site.length_m()
             );
         }
         match law

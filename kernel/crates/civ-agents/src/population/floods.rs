@@ -7,6 +7,7 @@ impl Population {
         let (now, day) = (ctx.now, ctx.now.day_index());
 
         // 1. High-water monitoring along river reaches
+        let mut receded = false;
         let (_, origins) = ctx.land.river_flow_state(ctx.map, ctx.land_params, day);
         for (r, sources) in origins.iter().enumerate() {
             let q = ctx.land.reach_discharges.get(r).copied().unwrap_or(0.0);
@@ -110,6 +111,7 @@ impl Population {
                 }
             } else if let Some(idx) = active_idx {
                 // High water receded
+                receded = true;
                 let hw = &mut self.floods.high_waters[idx];
                 hw.ended = Some(now);
                 let at = hw.at;
@@ -254,6 +256,15 @@ impl Population {
                     f64::from(FloodStep::BankGaveWay as u8),
                     sentence,
                 );
+            }
+        }
+
+        // 4. Banks laws keep are looked over when a high water goes down and at each year's
+        // start (M6b slice BG; research 11-12 §5.5: event-driven maintenance plus periodic
+        // inspection).
+        if receded || day.rem_euclid(DAYS_PER_YEAR) == 0 {
+            for pi in 0..self.polities.len() {
+                self.look_over_banks(ctx, pi);
             }
         }
 

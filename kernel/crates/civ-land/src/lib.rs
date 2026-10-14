@@ -935,8 +935,9 @@ impl Land {
                 w.kind == earth::EarthKind::Pit && w.deposit.is_none() && inside(w.rect)
             });
             let supplied = work.zip(borrow).is_some_and(|(w, p)| {
-                f64::from(w.cut_m3) <= f64::from(p.cut_m3) * bank.compacted_per_bank + 1e-3
-                    && bank.sediment_m3 <= f64::from(w.cut_m3) + 1e-6
+                f64::from(w.cut_m3) + bank.refill_m3
+                    <= f64::from(p.cut_m3) * bank.compacted_per_bank + 1e-3
+                    && bank.sediment_m3 <= f64::from(w.cut_m3) + bank.refill_m3 + 1e-6
                     && (f64::from(w.cut_m3) - bank.fill_m3() * f64::from(w.done)).abs() < 1e-3
             });
             if !bank.valid(map)

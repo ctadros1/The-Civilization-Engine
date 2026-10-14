@@ -797,6 +797,11 @@ pub enum FloodStep {
     BankBuilt = 2,
     /// A flood bank a polity built gave way, piped through or washed down (M6b slice BG).
     BankGaveWay = 3,
+    /// A polity's flood bank was found to want mending, and its households were asked their
+    /// shares of the work (M6b slice BG).
+    BankWantsMending = 4,
+    /// A polity's flood bank was mended (M6b slice BG).
+    BankMended = 5,
 }
 
 /// What happened in a storm, in a [`ChronicleKind::StormDamage`] entry. Numeric in saves: append only.

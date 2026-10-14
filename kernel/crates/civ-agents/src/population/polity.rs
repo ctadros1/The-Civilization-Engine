@@ -55,6 +55,8 @@ pub(super) struct Forecasts {
     /// Where the settlement's people could build a flood bank together, if anywhere (M6b slice
     /// BG).
     pub(super) bank: Option<super::levees::PublicBank>,
+    /// A bank the polity built that wants mending and that no law keeps, if any (M6b slice BG).
+    pub(super) worn: Option<super::levees::WornBank>,
 }
 
 /// What closing a source would bring a household (M6a slice BA, step four): the household, the
@@ -163,6 +165,22 @@ impl Forecasts {
             // remembers no such loss gains nothing and pays its share (research 12-08 §1.2).
             Some(PolicyKind::BuildBank) => {
                 let Some(p) = self.bank.as_ref() else {
+                    return 0.0;
+                };
+                let kcal = self
+                    .hour_kcal
+                    .binary_search_by_key(&h, |k| k.0)
+                    .map_or(0.0, |i| self.hour_kcal[i].1);
+                let saved = p.saves_of(h) * kcal;
+                let owed = p.share_h() / p.life.max(1e-9) * kcal;
+                crate::polity::kept_gain(o, saved, pp) - crate::polity::levy_cost(o, owed, pp)
+            }
+            // A bank kept (M6b slice BG), as a bank built: the food a year the losses the
+            // household reckoned the bank keeps out could bring, less what its share of mending
+            // it now, spread over a bank's life, could (design prior: a mended bank is reckoned
+            // as good as new). A household that reckoned it saved nothing pays its share.
+            Some(PolicyKind::KeepBank) => {
+                let Some(p) = self.worn.as_ref().filter(|p| m.site == Some(p.cell_at)) else {
                     return 0.0;
                 };
                 let kcal = self
@@ -592,6 +610,7 @@ impl Population {
         suspected: bool,
         water_far: bool,
         flooded: bool,
+        bank_worn: bool,
     ) -> Vec<IssueKind> {
         let mut out = Vec::new();
         if self.lean_lately(ctx, settlement) || pressed {
@@ -623,6 +642,9 @@ impl Population {
         }
         if flooded {
             out.push(IssueKind::Flooded);
+        }
+        if bank_worn {
+            out.push(IssueKind::BankWorn);
         }
         out
     }
@@ -790,6 +812,7 @@ impl Population {
             })
             .collect();
         let closures = self.closure_forecasts(ctx, pi, households, adults);
+        let worn = self.worn_bank(ctx, pi, households.len());
         Forecasts {
             outlooks,
             belief,
@@ -799,7 +822,7 @@ impl Population {
             watchers,
             claim,
             closures,
-            hour_kcal: if sites.is_empty() && well.is_none() && bank.is_none() {
+            hour_kcal: if sites.is_empty() && well.is_none() && bank.is_none() && worn.is_none() {
                 Vec::new()
             } else {
                 households
@@ -810,6 +833,7 @@ impl Population {
             sites,
             well,
             bank,
+            worn,
         }
     }
 
@@ -1314,6 +1338,7 @@ impl Population {
             !suspecting.is_empty(),
             well.is_some(),
             bank.is_some(),
+            self.worn_bank(ctx, pi, households.len()).is_some(),
         );
         let polity = &self.polities[pi];
         // A watch may have one more while takings continue (M4c slice AI: a watch of several):
@@ -1353,6 +1378,10 @@ impl Population {
                 // Another bank once none is being built (M6b slice BG: `public_bank` holds to
                 // one at a time).
                 if d.kind == PolicyKind::BuildBank {
+                    return true;
+                }
+                // A keeping, of a bank no law in force keeps (M6b slice BG: `worn_bank`).
+                if d.kind == PolicyKind::KeepBank {
                     return true;
                 }
                 (d.kind == PolicyKind::KeepWatch && taken_since)
@@ -1553,6 +1582,9 @@ impl Population {
                                 .or_else(|| {
                                     self.polities[pi]
                                         .bank_site_of(l.id)
+                                        .or_else(|| {
+                                            self.polities[pi].kept_bank_of(l.id).map(|k| k.1)
+                                        })
                                         .map(|s| super::levees::bank_cell(ctx.map, &s))
                                 }),
                         },
@@ -1698,6 +1730,16 @@ impl Population {
                         if let Some(p) = &fc.bank {
                             moves.push(MoveOption {
                                 site: Some(p.cell(ctx.map)),
+                                ..blank
+                            });
+                        }
+                    }
+                    // Keeping a bank the polity built that wants mending (M6b slice BG), named
+                    // by the cell at its middle.
+                    PolicyKind::KeepBank => {
+                        if let Some(p) = &fc.worn {
+                            moves.push(MoveOption {
+                                site: Some(p.cell_at),
                                 ..blank
                             });
                         }
@@ -1874,6 +1916,7 @@ impl Population {
                             || self.polities[pi].well_site_of(l.id).map(|s| s.cell) == m.site
                             || self.polities[pi]
                                 .bank_site_of(l.id)
+                                .or_else(|| self.polities[pi].kept_bank_of(l.id).map(|k| k.1))
                                 .map(|s| super::levees::bank_cell(ctx.map, &s))
                                 == m.site
                     })
@@ -2028,6 +2071,24 @@ impl Population {
                     polity.bank_saves.push((id, h, saves as f32));
                 }
                 polity.bank_saves.sort_unstable_by_key(|s| (s.0, s.1));
+            }
+        }
+        // A keeping names the bank it keeps, one that wants mending and no law keeps (M6b slice
+        // BG).
+        if def.kind == PolicyKind::KeepBank
+            && let Some(cell) = m.site
+        {
+            let settlement = self.polities[pi].settlement;
+            let households = self
+                .households
+                .iter()
+                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                .count();
+            if let Some(p) = self
+                .worn_bank(ctx, pi, households)
+                .filter(|p| p.cell_at == cell)
+            {
+                self.polities[pi].bank_keeps.push((id, p.built));
             }
         }
         // A closing names the source its sponsor suspects (M6a slice BA, step four).
@@ -2259,6 +2320,13 @@ impl Population {
         // A bank passed is begun at once, the polity's (M6b slice BG).
         if outcome == Outcome::Passed && kind == PolicyKind::BuildBank {
             self.begin_public_bank(ctx, pi, law_id);
+        }
+        // A keeping passed looks its bank over at once, and asks its mending (M6b slice BG).
+        if outcome == Outcome::Passed
+            && kind == PolicyKind::KeepBank
+            && let Some((built, _)) = self.polities[pi].kept_bank_of(law_id)
+        {
+            self.ask_bank_mending(ctx, pi, built);
         }
         // A law that replaces one in force supersedes it (M4c slice AH).
         if outcome == Outcome::Passed

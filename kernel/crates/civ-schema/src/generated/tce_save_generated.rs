@@ -6117,6 +6117,133 @@ impl<'a> BankPipingRecord {
 
 }
 
+// struct BankRefillRecord, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct BankRefillRecord(pub [u8; 16]);
+impl Default for BankRefillRecord { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for BankRefillRecord {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("BankRefillRecord")
+      .field("work", &self.work())
+      .field("compacted_m3", &self.compacted_m3())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for BankRefillRecord {}
+impl<'a> ::flatbuffers::Follow<'a> for BankRefillRecord {
+  type Inner = &'a BankRefillRecord;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a BankRefillRecord>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a BankRefillRecord {
+  type Inner = &'a BankRefillRecord;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<BankRefillRecord>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for BankRefillRecord {
+    type Output = BankRefillRecord;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const BankRefillRecord as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for BankRefillRecord {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> BankRefillRecord {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    work: u64,
+    compacted_m3: f64,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_work(work);
+    s.set_compacted_m3(compacted_m3);
+    s
+  }
+
+  pub fn work(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_work(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn compacted_m3(&self) -> f64 {
+    let mut mem = ::core::mem::MaybeUninit::<<f64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_compacted_m3(&mut self, x: f64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct TieRecord, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -7768,6 +7895,133 @@ impl<'a> CustomVersionSave {
       ::core::ptr::copy_nonoverlapping(
         &x_le as *const _ as *const u8,
         self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct BankKeepRecord, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct BankKeepRecord(pub [u8; 16]);
+impl Default for BankKeepRecord { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for BankKeepRecord {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("BankKeepRecord")
+      .field("law", &self.law())
+      .field("built", &self.built())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for BankKeepRecord {}
+impl<'a> ::flatbuffers::Follow<'a> for BankKeepRecord {
+  type Inner = &'a BankKeepRecord;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a BankKeepRecord>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a BankKeepRecord {
+  type Inner = &'a BankKeepRecord;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<BankKeepRecord>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for BankKeepRecord {
+    type Output = BankKeepRecord;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const BankKeepRecord as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for BankKeepRecord {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> BankKeepRecord {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    law: u64,
+    built: u64,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_law(law);
+    s.set_built(built);
+    s
+  }
+
+  pub fn law(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_law(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn built(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_built(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
         ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
       );
     }
@@ -28877,6 +29131,7 @@ impl<'a> Earth<'a> {
   pub const VT_BANKS: ::flatbuffers::VOffsetT = 10;
   pub const VT_BANK_SEDIMENT: ::flatbuffers::VOffsetT = 12;
   pub const VT_BANK_PIPING: ::flatbuffers::VOffsetT = 14;
+  pub const VT_BANK_REFILL: ::flatbuffers::VOffsetT = 16;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -28888,6 +29143,7 @@ impl<'a> Earth<'a> {
     args: &'args EarthArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Earth<'bldr>> {
     let mut builder = EarthBuilder::new(_fbb);
+    if let Some(x) = args.bank_refill { builder.add_bank_refill(x); }
     if let Some(x) = args.bank_piping { builder.add_bank_piping(x); }
     if let Some(x) = args.bank_sediment { builder.add_bank_sediment(x); }
     if let Some(x) = args.banks { builder.add_banks(x); }
@@ -28940,6 +29196,13 @@ impl<'a> Earth<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, BankPipingRecord>>>(Earth::VT_BANK_PIPING, None)}
   }
+  #[inline]
+  pub fn bank_refill(&self) -> Option<::flatbuffers::Vector<'a, BankRefillRecord>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, BankRefillRecord>>>(Earth::VT_BANK_REFILL, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Earth<'_> {
@@ -28954,6 +29217,7 @@ impl ::flatbuffers::Verifiable for Earth<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BankSegmentRecord>>>("banks", Self::VT_BANKS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BankSedimentRecord>>>("bank_sediment", Self::VT_BANK_SEDIMENT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BankPipingRecord>>>("bank_piping", Self::VT_BANK_PIPING, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BankRefillRecord>>>("bank_refill", Self::VT_BANK_REFILL, false)?
      .finish();
     Ok(())
   }
@@ -28965,6 +29229,7 @@ pub struct EarthArgs<'a> {
     pub banks: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BankSegmentRecord>>>,
     pub bank_sediment: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BankSedimentRecord>>>,
     pub bank_piping: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BankPipingRecord>>>,
+    pub bank_refill: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BankRefillRecord>>>,
 }
 impl<'a> Default for EarthArgs<'a> {
   #[inline]
@@ -28976,6 +29241,7 @@ impl<'a> Default for EarthArgs<'a> {
       banks: None,
       bank_sediment: None,
       bank_piping: None,
+      bank_refill: None,
     }
   }
 }
@@ -29010,6 +29276,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EarthBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Earth::VT_BANK_PIPING, bank_piping);
   }
   #[inline]
+  pub fn add_bank_refill(&mut self, bank_refill: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , BankRefillRecord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Earth::VT_BANK_REFILL, bank_refill);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EarthBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     EarthBuilder {
@@ -29033,6 +29303,7 @@ impl ::core::fmt::Debug for Earth<'_> {
       ds.field("banks", &self.banks());
       ds.field("bank_sediment", &self.bank_sediment());
       ds.field("bank_piping", &self.bank_piping());
+      ds.field("bank_refill", &self.bank_refill());
       ds.finish()
   }
 }
@@ -30262,6 +30533,7 @@ impl<'a> PolitySave<'a> {
   pub const VT_BANK_SAVES: ::flatbuffers::VOffsetT = 40;
   pub const VT_BANK_GIVEN: ::flatbuffers::VOffsetT = 42;
   pub const VT_BANKS_FAILED: ::flatbuffers::VOffsetT = 44;
+  pub const VT_BANK_KEEPS: ::flatbuffers::VOffsetT = 46;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -30278,6 +30550,7 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.bank_keeps { builder.add_bank_keeps(x); }
     if let Some(x) = args.banks_failed { builder.add_banks_failed(x); }
     if let Some(x) = args.bank_given { builder.add_bank_given(x); }
     if let Some(x) = args.bank_saves { builder.add_bank_saves(x); }
@@ -30445,6 +30718,13 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(PolitySave::VT_BANKS_FAILED, None)}
   }
+  #[inline]
+  pub fn bank_keeps(&self) -> Option<::flatbuffers::Vector<'a, BankKeepRecord>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, BankKeepRecord>>>(PolitySave::VT_BANK_KEEPS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -30474,6 +30754,7 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>("bank_saves", Self::VT_BANK_SAVES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>("bank_given", Self::VT_BANK_GIVEN, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("banks_failed", Self::VT_BANKS_FAILED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BankKeepRecord>>>("bank_keeps", Self::VT_BANK_KEEPS, false)?
      .finish();
     Ok(())
   }
@@ -30500,6 +30781,7 @@ pub struct PolitySaveArgs<'a> {
     pub bank_saves: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>>>,
     pub bank_given: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>>>,
     pub banks_failed: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub bank_keeps: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BankKeepRecord>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -30526,6 +30808,7 @@ impl<'a> Default for PolitySaveArgs<'a> {
       bank_saves: None,
       bank_given: None,
       banks_failed: None,
+      bank_keeps: None,
     }
   }
 }
@@ -30620,6 +30903,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_BANKS_FAILED, banks_failed);
   }
   #[inline]
+  pub fn add_bank_keeps(&mut self, bank_keeps: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , BankKeepRecord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_BANK_KEEPS, bank_keeps);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -30658,6 +30945,7 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("bank_saves", &self.bank_saves());
       ds.field("bank_given", &self.bank_given());
       ds.field("banks_failed", &self.banks_failed());
+      ds.field("bank_keeps", &self.bank_keeps());
       ds.finish()
   }
 }
@@ -30697,6 +30985,8 @@ impl<'a> BankSiteSave<'a> {
   pub const VT_PIT_H_CM: ::flatbuffers::VOffsetT = 38;
   pub const VT_LABOUR_H: ::flatbuffers::VOffsetT = 40;
   pub const VT_WORK: ::flatbuffers::VOffsetT = 42;
+  pub const VT_UPKEEP_H: ::flatbuffers::VOffsetT = 44;
+  pub const VT_MENDING: ::flatbuffers::VOffsetT = 46;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -30708,6 +30998,7 @@ impl<'a> BankSiteSave<'a> {
     args: &'args BankSiteSaveArgs
   ) -> ::flatbuffers::WIPOffset<BankSiteSave<'bldr>> {
     let mut builder = BankSiteSaveBuilder::new(_fbb);
+    builder.add_upkeep_h(args.upkeep_h);
     builder.add_work(args.work);
     builder.add_labour_h(args.labour_h);
     builder.add_compacted_per_bank(args.compacted_per_bank);
@@ -30728,6 +31019,7 @@ impl<'a> BankSiteSave<'a> {
     builder.add_env_y_cm(args.env_y_cm);
     builder.add_env_x_cm(args.env_x_cm);
     builder.add_reach(args.reach);
+    builder.add_mending(args.mending);
     builder.finish()
   }
 
@@ -30872,6 +31164,20 @@ impl<'a> BankSiteSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(BankSiteSave::VT_WORK, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn upkeep_h(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(BankSiteSave::VT_UPKEEP_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn mending(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(BankSiteSave::VT_MENDING, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BankSiteSave<'_> {
@@ -30900,6 +31206,8 @@ impl ::flatbuffers::Verifiable for BankSiteSave<'_> {
      .visit_field::<i32>("pit_h_cm", Self::VT_PIT_H_CM, false)?
      .visit_field::<f64>("labour_h", Self::VT_LABOUR_H, false)?
      .visit_field::<u64>("work", Self::VT_WORK, false)?
+     .visit_field::<f64>("upkeep_h", Self::VT_UPKEEP_H, false)?
+     .visit_field::<bool>("mending", Self::VT_MENDING, false)?
      .finish();
     Ok(())
   }
@@ -30925,6 +31233,8 @@ pub struct BankSiteSaveArgs {
     pub pit_h_cm: i32,
     pub labour_h: f64,
     pub work: u64,
+    pub upkeep_h: f64,
+    pub mending: bool,
 }
 impl<'a> Default for BankSiteSaveArgs {
   #[inline]
@@ -30950,6 +31260,8 @@ impl<'a> Default for BankSiteSaveArgs {
       pit_h_cm: 0,
       labour_h: 0.0,
       work: 0,
+      upkeep_h: 0.0,
+      mending: false,
     }
   }
 }
@@ -31040,6 +31352,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BankSiteSaveBuilder<'a, 'b, A
     self.fbb_.push_slot::<u64>(BankSiteSave::VT_WORK, work, 0);
   }
   #[inline]
+  pub fn add_upkeep_h(&mut self, upkeep_h: f64) {
+    self.fbb_.push_slot::<f64>(BankSiteSave::VT_UPKEEP_H, upkeep_h, 0.0);
+  }
+  #[inline]
+  pub fn add_mending(&mut self, mending: bool) {
+    self.fbb_.push_slot::<bool>(BankSiteSave::VT_MENDING, mending, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BankSiteSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BankSiteSaveBuilder {
@@ -31077,6 +31397,8 @@ impl ::core::fmt::Debug for BankSiteSave<'_> {
       ds.field("pit_h_cm", &self.pit_h_cm());
       ds.field("labour_h", &self.labour_h());
       ds.field("work", &self.work());
+      ds.field("upkeep_h", &self.upkeep_h());
+      ds.field("mending", &self.mending());
       ds.finish()
   }
 }

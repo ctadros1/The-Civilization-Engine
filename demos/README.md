@@ -82,3 +82,7 @@ The BG `bank_fixture` runner is a controlled geometry/snapshot fixture, not a li
 `cd kernel && cargo run --release -p civ-sim --example bank_fixture -- <save-folder>`.
 Load its save in the observer to inspect the bank centre-line and borrow-earth account.
 Voluntary bank work and the M6b lived demonstration remain planned.
+
+The bank fixture's saved ground also supplies bank and borrow-pit flood storage. Its role
+remains a controlled engineering/snapshot check; it demonstrates neither chosen bank labour
+nor a lived M6b outcome.

@@ -1660,3 +1660,35 @@ check, while the current-host bank browser test proves discoverability and displ
 The extra ten-year run remains in progress: four worlds have passed so far (two surviving
 bands and two that died out). No overall ten-year result or performance comparison is
 claimed. No production agent creates a bank in this physical step.
+
+
+## 2026-10-14 — BG borrow ground in flood storage
+
+**Changed:** connected storage uses the actual cell-average ground under bank envelopes and
+associated borrow pits. A depression holds supplied excess water below its original HAND,
+reducing the water surface elsewhere; placed fill occupies storage. Ground differences are
+scoped to those works and deduplicated. Removing a bank crest keeps the excavated pit and
+placed earth in the hydraulic account. Legacy mining/levelling works outside bank-associated
+areas leave drainage as before. This is instantaneous river-flood storage, not persistent
+trapped rain or a claim of complete water-budget calibration.
+
+A new hydraulic test supplies the same volume to a flat reach with and without excavation,
+checks the lower surface away from the pit, and then removes the crest while retaining the
+pit. Every case conserves that volume. The earth test verifies both positive fill and negative
+excavation differences and their net volume, unchanged by the breach flag. Added malformed
+bank-envelope cases first failed because the bank's linked rectangle could lie outside the
+map or fail to contain its actual trapezoid. The snapshot validator now checks bounds and full
+trapezoid containment; physical placement checks bank geometry, source bounds and envelope
+containment. Neither repairs malformed records. The final focused snapshot suite
+passes all three tests, including seven malformed variants, with exact raw sections and the
+99 migration/refusal; the five hydraulics tests and earth-accounting test also pass.
+
+The change rebuilds derived depths from existing ground and bank records; it changes no saved
+field meaning or boundary field. Versions stay save 100/content API 86/wire 1.72. Current
+all-target clippy, pinned schema freshness, web build/173 unit tests and commons checks pass.
+The complete kernel workspace suite, including doc tests, and all ten release short-smoke
+worlds pass before this commit. Formatting and `git diff --check` also pass. The extra
+ten-year smoke exits 0 with all ten worlds passing on 03330b0's physical step: eight surviving
+bands and two that died out. No production banks were present. It is not a result on this
+newer storage source or a performance comparison; its CPU-contended run included the brief
+pause documented above.

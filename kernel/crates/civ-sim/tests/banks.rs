@@ -157,7 +157,7 @@ fn bank_geometry_borrow_earth_and_boundary_round_trip_exactly() {
 }
 #[test]
 fn malformed_geometry_duplicate_borrow_and_missing_sources_are_refused() {
-    for variant in 0..5 {
+    for variant in 0..7 {
         let mut sim = fixture();
         let land = sim.land_mut_for_tests();
         match variant {
@@ -167,7 +167,9 @@ fn malformed_geometry_duplicate_borrow_and_missing_sources_are_refused() {
             3 => {
                 land.banks.push(land.banks[0]);
             }
-            _ => land.earthworks[0].cut_m3 += 1.0,
+            4 => land.earthworks[0].cut_m3 += 1.0,
+            5 => land.earthworks[0].rect.x = -1,
+            _ => land.earthworks[0].rect.w = 1,
         }
         let d = tempfile::tempdir().expect("dir");
         let saves = SaveDir::create(d.path(), civ_schema::SAVE_EXTENSION).expect("saves");

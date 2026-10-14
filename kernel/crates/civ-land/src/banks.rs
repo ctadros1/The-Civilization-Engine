@@ -92,6 +92,27 @@ impl BankSegment {
                 .all(|p| p[0] >= 0.0 && p[1] >= 0.0 && p[0] <= width && p[1] <= height)
     }
 
+    /// The reserved envelope must contain the bank's full trapezoid, not just its line.
+    pub fn inside_envelope(&self, rect: crate::RectCm) -> bool {
+        let length = self.length_m();
+        let normal = [
+            (self.b[1] - self.a[1]) / length,
+            (self.a[0] - self.b[0]) / length,
+        ];
+        let reach = self.crest_width_m / 2.0 + self.side_run * self.height_m;
+        let x0 = f64::from(rect.x) / 100.0;
+        let y0 = f64::from(rect.y) / 100.0;
+        let x1 = x0 + f64::from(rect.w) / 100.0;
+        let y1 = y0 + f64::from(rect.h) / 100.0;
+        [self.a, self.b].iter().all(|p| {
+            [-1.0, 1.0].iter().all(|sign| {
+                let x = p[0] + sign * normal[0] * reach;
+                let y = p[1] + sign * normal[1] * reach;
+                x >= x0 && x <= x1 && y >= y0 && y <= y1
+            })
+        })
+    }
+
     /// Edges crossed by the segment. The barrier retains its full sub-grid height, unlike
     /// cell-average ground shading. Unbuilt, eroded and breached segments block nothing.
     pub fn barriers(
@@ -150,6 +171,57 @@ impl BankSegment {
     }
 }
 
+/// Ground differences under a bank's reserved envelope and its borrow pit. The geometry
+/// and pit stay in the hydraulic account after a breach; cells shared by envelopes count once.
+pub fn ground_changes(
+    banks: &[BankSegment],
+    works: &[Earthwork],
+    map: &WorldMap,
+    ground: &crate::earth::GroundDelta,
+) -> Vec<(u32, f32)> {
+    let mut cells = std::collections::BTreeSet::new();
+    let cell = f64::from(map.cell_size_m);
+    for bank in banks {
+        if !bank.valid(map) {
+            continue;
+        }
+        for id in [bank.work, bank.borrow] {
+            let Some(work) = works.iter().find(|w| w.id == id) else {
+                continue;
+            };
+            let r = work.rect;
+            let x0 = (f64::from(r.x) / 100.0 / cell)
+                .floor()
+                .max(0.0)
+                .min(f64::from(map.width)) as u32;
+            let y0 = (f64::from(r.y) / 100.0 / cell)
+                .floor()
+                .max(0.0)
+                .min(f64::from(map.height)) as u32;
+            let x1 = ((f64::from(r.x) + f64::from(r.w)) / 100.0 / cell)
+                .ceil()
+                .max(0.0)
+                .min(f64::from(map.width)) as u32;
+            let y1 = ((f64::from(r.y) + f64::from(r.h)) / 100.0 / cell)
+                .ceil()
+                .max(0.0)
+                .min(f64::from(map.height)) as u32;
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    cells.insert(y * map.width + x);
+                }
+            }
+        }
+    }
+    cells
+        .into_iter()
+        .filter_map(|c| {
+            let change = ground.at(c as usize);
+            (change != 0.0).then_some((c, change))
+        })
+        .collect()
+}
+
 fn crosses(a: [f64; 2], b: [f64; 2], c: [f64; 2], d: [f64; 2]) -> bool {
     let cross = |x: [f64; 2], y: [f64; 2]| x[0] * y[1] - x[1] * y[0];
     let ab = [b[0] - a[0], b[1] - a[1]];
@@ -195,7 +267,8 @@ pub fn place_from_borrow(
             <= f64::from(map.width) * f64::from(map.cell_size_m) * 100.0
         && f64::from(source.rect.y) + f64::from(source.rect.h)
             <= f64::from(map.height) * f64::from(map.cell_size_m) * 100.0;
-    if !source_inside
+    if !bank.inside_envelope(before.rect)
+        || !source_inside
         || !source.cut_m3.is_finite()
         || source.cut_m3 < 0.0
         || !before.cut_m3.is_finite()
@@ -385,6 +458,24 @@ mod tests {
         assert!((works[1].cut_m3 - 160.0).abs() < 1e-4);
         // Apparent ground volume shrinks under compaction; dry soil mass is conserved.
         assert!((ground.net_m3() + 16.0).abs() < 0.001);
+        let changes = ground_changes(&[bank], &works, &map, &ground);
+        let area = f64::from(map.cell_size_m).powi(2);
+        assert!(
+            (changes
+                .iter()
+                .map(|(_, h)| f64::from(*h) * area)
+                .sum::<f64>()
+                - ground.net_m3())
+            .abs()
+                < 0.001
+        );
+        assert!(changes.iter().any(|(_, h)| *h < 0.0));
+        assert!(changes.iter().any(|(_, h)| *h > 0.0));
+        let breached = BankSegment {
+            breached: true,
+            ..bank
+        };
+        assert_eq!(changes, ground_changes(&[breached], &works, &map, &ground));
         let before = ground.clone();
         assert_eq!(
             place_from_borrow(&bank, &mut works, &map, &mut ground, 1.0),

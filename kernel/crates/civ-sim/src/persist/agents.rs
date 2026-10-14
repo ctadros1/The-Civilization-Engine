@@ -981,9 +981,14 @@ pub(super) fn decode<R: Read + Seek>(
             .iter()
             .flat_map(|b| b.barriers(map, &land.earthworks, &land.floodplain.cell_hand))
             .collect();
-        land.flood_depths =
-            land.floodplain
-                .flood_depths_with_banks(map, &land.reach_discharges, &barriers);
+        let changes =
+            civ_land::banks::ground_changes(&land.banks, &land.earthworks, map, &land.ground);
+        land.flood_depths = land.floodplain.flood_depths_with_ground(
+            map,
+            &land.reach_discharges,
+            &barriers,
+            &changes,
+        );
     }
     for c in &people.word.claims {
         if c.kind == civ_agents::word::ClaimKind::Fire {

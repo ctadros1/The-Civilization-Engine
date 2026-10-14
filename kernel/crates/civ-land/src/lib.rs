@@ -716,9 +716,13 @@ impl Land {
             .iter()
             .flat_map(|b| b.barriers(map, &self.earthworks, &self.floodplain.cell_hand))
             .collect();
-        self.flood_depths =
-            self.floodplain
-                .flood_depths_with_banks(map, &self.reach_discharges, &barriers);
+        let changes = banks::ground_changes(&self.banks, &self.earthworks, map, &self.ground);
+        self.flood_depths = self.floodplain.flood_depths_with_ground(
+            map,
+            &self.reach_discharges,
+            &barriers,
+            &changes,
+        );
         self.flood_revision = self.flood_revision.wrapping_add(1);
     }
 
@@ -915,8 +919,19 @@ impl Land {
         for bank in &self.banks {
             let work = self.earthworks.iter().find(|w| w.id == bank.work);
             let borrow = self.earthworks.iter().find(|w| w.id == bank.borrow);
-            let linked = work.is_some_and(|w| w.kind == earth::EarthKind::Bank)
-                && borrow.is_some_and(|w| w.kind == earth::EarthKind::Pit && w.deposit.is_none());
+            let inside = |r: RectCm| {
+                r.x >= 0
+                    && r.y >= 0
+                    && r.w > 0
+                    && r.h > 0
+                    && f64::from(r.x) + f64::from(r.w) <= w_cm
+                    && f64::from(r.y) + f64::from(r.h) <= h_cm
+            };
+            let linked = work.is_some_and(|w| {
+                w.kind == earth::EarthKind::Bank && inside(w.rect) && bank.inside_envelope(w.rect)
+            }) && borrow.is_some_and(|w| {
+                w.kind == earth::EarthKind::Pit && w.deposit.is_none() && inside(w.rect)
+            });
             let supplied = work.zip(borrow).is_some_and(|(w, p)| {
                 f64::from(w.cut_m3) <= f64::from(p.cut_m3) * bank.compacted_per_bank + 1e-3
                     && (f64::from(w.cut_m3) - bank.fill_m3() * f64::from(w.done)).abs() < 1e-3

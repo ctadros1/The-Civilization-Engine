@@ -2512,7 +2512,8 @@ and M6a gives rivers a daily flow.
       Save schema 100 migrates 99 with no invented banks and refuses invalid geometry,
       duplicate links and unsupported kinds. Wire 1.72 draws saved centre-lines.
       Controlled engineering fixtures exercise these mechanisms; no adopted law or chosen
-      labour is claimed. Rain ponding, borrow-pit flood storage, deterioration and upkeep,
+      labour is claimed. Flood storage now includes bank-associated changed ground and
+      borrow depressions, even after a breach. Rain ponding, deterioration and upkeep,
       voluntary public work and irrigation remain the following BG steps.
     - Earth kinds `bank` and `ditch` as lines of segments.
     - Water behind a bank only over its crest or through a breach. Overtopping and piping.
@@ -3236,3 +3237,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
   This is a controlled physical/observer step, not completion of BG. Voluntary labour and
   its digging, hauling and compaction budget, failures and upkeep, trapped rain and explicit
   borrow depression storage remain planned; drains and terraces remain deferred.
+
+- **BG borrow-ground storage (2026-10-14):** bank-associated ground differences, including
+  excavated borrow pits and compacted fill, enter their affected reach's connected storage.
+  Cells count once even where reserved envelopes overlap. Removing a crest does not erase
+  excavation. A negative HAND after digging can fill below the original bed datum without
+  losing supplied flood volume. Unbanked, unchanged reaches retain BF's calculation; ordinary
+  legacy mining/levelling works do not silently change drainage. Bank envelopes must remain
+  in the map and contain the complete trapezoid; malformed snapshots are refused. The change
+  uses existing saved ground and geometry: save schema 100, content API 86 and wire 1.72 stay.
+  Persistent trapped rain, deterioration, voluntary labour and irrigation remain planned.

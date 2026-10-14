@@ -310,7 +310,23 @@ impl WorldFloodplain {
         if banks.is_empty() {
             return self.flood_depth_raster(map, reach_discharges);
         }
-        connected_depths(self, map, reach_discharges, banks)
+        connected_depths(self, map, reach_discharges, banks, &[])
+    }
+
+    /// Connected storage after bank construction changes local ground. Differences are
+    /// cell-average metres added to the generated bed, including borrow depressions.
+    /// Breaching removes the crest but retains the excavated pit and placed earth.
+    pub fn flood_depths_with_ground(
+        &self,
+        map: &WorldMap,
+        reach_discharges: &[f32],
+        banks: &[FloodBarrier],
+        ground: &[(u32, f32)],
+    ) -> Vec<f32> {
+        if banks.is_empty() && ground.is_empty() {
+            return self.flood_depth_raster(map, reach_discharges);
+        }
+        connected_depths(self, map, reach_discharges, banks, ground)
     }
 
     /// Computes dense flood depths for all cells in `map`, metres.
@@ -340,12 +356,23 @@ fn connected_depths(
     map: &WorldMap,
     discharges: &[f32],
     banks: &[FloodBarrier],
+    ground: &[(u32, f32)],
 ) -> Vec<f32> {
     use std::cmp::Reverse;
     use std::collections::{BTreeMap, BinaryHeap};
     let n = map.cell_count();
     let mut raster = vec![0.0; n];
     let area = f64::from(map.cell_size_m).powi(2);
+    let mut hands = floodplain.cell_hand.clone();
+    let mut changed_reaches = std::collections::BTreeSet::new();
+    for &(cell, change) in ground {
+        if let Some(hand) = hands.get_mut(cell as usize) {
+            *hand += change;
+            if change != 0.0 {
+                changed_reaches.insert(floodplain.cell_reach[cell as usize]);
+            }
+        }
+    }
     let mut edges = BTreeMap::<(u32, u32), f64>::new();
     for b in banks {
         let key = (b.a.min(b.b), b.a.max(b.b));
@@ -366,10 +393,12 @@ fn connected_depths(
         if volume <= 0.0 {
             continue;
         }
-        if !banks.iter().any(|b| {
-            floodplain.cell_reach.get(b.a as usize) == Some(&rh.reach_id)
-                || floodplain.cell_reach.get(b.b as usize) == Some(&rh.reach_id)
-        }) {
+        if !changed_reaches.contains(&rh.reach_id)
+            && !banks.iter().any(|b| {
+                floodplain.cell_reach.get(b.a as usize) == Some(&rh.reach_id)
+                    || floodplain.cell_reach.get(b.b as usize) == Some(&rh.reach_id)
+            })
+        {
             let stage = rh.flood_stage_m(volume, area);
             for (&c, &hand) in rh.cells.iter().zip(&rh.hands) {
                 raster[c as usize] = (stage - f64::from(hand)).max(0.0) as f32;
@@ -402,9 +431,7 @@ fn connected_depths(
                     continue;
                 }
                 let crest = edges.get(&(c.min(to), c.max(to))).copied().unwrap_or(0.0);
-                let next = stage
-                    .max(crest)
-                    .max(f64::from(floodplain.cell_hand[to as usize]));
+                let next = stage.max(crest).max(f64::from(hands[to as usize]));
                 if next < entry[to as usize] {
                     entry[to as usize] = next;
                     queue.push(Reverse((next.to_bits(), to)));
@@ -437,16 +464,13 @@ fn connected_depths(
             let new = &cells[first..i];
             let fill: f64 = new
                 .iter()
-                .map(|&(_, c)| {
-                    (level - f64::from(floodplain.cell_hand[c as usize])).max(0.0) * area
-                })
+                .map(|&(_, c)| (level - f64::from(hands[c as usize])).max(0.0) * area)
                 .sum();
             if fill > left {
                 let share = left / fill;
                 for &(_, c) in new {
-                    raster[c as usize] = ((level - f64::from(floodplain.cell_hand[c as usize]))
-                        .max(0.0)
-                        * share) as f32;
+                    raster[c as usize] =
+                        ((level - f64::from(hands[c as usize])).max(0.0) * share) as f32;
                 }
                 left = 0.0;
                 break;
@@ -458,8 +482,7 @@ fn connected_depths(
             level += left / (active.len() as f64 * area);
         }
         for c in active {
-            raster[c as usize] =
-                (level - f64::from(floodplain.cell_hand[c as usize])).max(0.0) as f32;
+            raster[c as usize] = (level - f64::from(hands[c as usize])).max(0.0) as f32;
         }
     }
     raster
@@ -565,6 +588,39 @@ mod tests {
             fp.flood_depths_with_banks(&map, &q(400.0), &[]),
             fp.flood_depth_raster(&map, &q(400.0))
         );
+    }
+
+    #[test]
+    fn borrowed_ground_holds_floodwater_and_remains_a_pit_after_a_breach() {
+        let mut map = test_map(6, 4);
+        for y in 0..4 {
+            for x in 1..6 {
+                map.elevation[y * 6 + x] = map.elevation[y * 6];
+            }
+        }
+        let fp = WorldFloodplain::new(&map, &ManningParams::default());
+        let rh = &fp.reaches[0];
+        let q = [(rh.bankfull_discharge_m3s + 400.0 / rh.transit_time_s) as f32];
+        let bank: Vec<_> = (0..4)
+            .map(|y| FloodBarrier {
+                a: y * 6 + 1,
+                b: y * 6 + 2,
+                crest_hand_m: 2.0,
+            })
+            .collect();
+        let bare = fp.flood_depths_with_banks(&map, &q, &bank);
+        let borrowed = fp.flood_depths_with_ground(&map, &q, &bank, &[(1, -1.0)]);
+        assert!(borrowed[1] > bare[1], "the excavated cell holds more water");
+        assert!(
+            borrowed[7] < bare[7],
+            "the same supplied volume has a lower surface elsewhere"
+        );
+        assert_eq!(borrowed[2], 0.0);
+        assert!((borrowed.iter().map(|d| f64::from(*d) * 100.0).sum::<f64>() - 400.0).abs() < 0.01);
+        let breached = fp.flood_depths_with_ground(&map, &q, &[], &[(1, -1.0)]);
+        assert!(breached[2] > 0.0);
+        assert!(breached[1] > breached[2]);
+        assert!((breached.iter().map(|d| f64::from(*d) * 100.0).sum::<f64>() - 400.0).abs() < 0.01);
     }
 
     #[test]

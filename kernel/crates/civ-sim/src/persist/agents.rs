@@ -115,8 +115,8 @@ use super::{
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
-    SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, finish, section, single_chunk,
-    unreadable,
+    SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -522,6 +522,8 @@ enum Schema {
     V101,
     /// M6b slice BG: households' flood losses, banks built by law.
     V102,
+    /// M6b slice BG: bank piping damage and told failures.
+    V103,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -638,7 +640,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V99 => Schema::V99,
         SCHEMA_V100 => Schema::V100,
         SCHEMA_V101 => Schema::V101,
-        SAVE_SCHEMA_VERSION => Schema::V102,
+        SCHEMA_V102 => Schema::V102,
+        SAVE_SCHEMA_VERSION => Schema::V103,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1360,6 +1363,8 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let banks = (!banks.is_empty()).then(|| fbb.create_vector(&banks));
+            let banks_failed: Vec<u64> = p.banks_failed.iter().map(|w| w.get()).collect();
+            let banks_failed = (!banks_failed.is_empty()).then(|| fbb.create_vector(&banks_failed));
             let bank_saves = bank_share_rows(&mut fbb, &p.bank_saves);
             let bank_given = bank_share_rows(&mut fbb, &p.bank_given);
             let gathering = p.gathering.as_ref().map(|g| {
@@ -1406,6 +1411,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     banks,
                     bank_saves,
                     bank_given,
+                    banks_failed,
                 },
             )
         })
@@ -1952,6 +1958,14 @@ fn decode_polities(
         };
         let bank_saves = bank_shares(p.bank_saves(), "a bank's reckoned saving")?;
         let bank_given = bank_shares(p.bank_given(), "hours given to a bank")?;
+        // The failures of its banks its chronicle has told (schema 103); before, none.
+        let mut banks_failed = Vec::new();
+        for raw in p.banks_failed().iter().flatten() {
+            let w = PermanentId::from_raw(raw)
+                .filter(|w| banks.iter().any(|b| b.1.work == Some(*w)))
+                .ok_or_else(|| bad(format!("polity {id} tells a failure of no bank of its own")))?;
+            banks_failed.push(w);
+        }
         out.push(Polity {
             id,
             settlement,
@@ -1971,6 +1985,7 @@ fn decode_polities(
             banks,
             bank_saves,
             bank_given,
+            banks_failed,
         });
     }
     Ok(out)
@@ -2060,6 +2075,13 @@ fn encode_earth(land: &Land) -> Vec<u8> {
         .map(|b| save::BankSedimentRecord::new(b.work.get(), b.sediment_m3))
         .collect();
     let sediment = fbb.create_vector(&sediment);
+    let piping: Vec<_> = land
+        .banks
+        .iter()
+        .filter(|b| b.piping != 0.0)
+        .map(|b| save::BankPipingRecord::new(b.work.get(), b.piping))
+        .collect();
+    let piping = fbb.create_vector(&piping);
     let root = save::Earth::create(
         &mut fbb,
         &save::EarthArgs {
@@ -2068,6 +2090,7 @@ fn encode_earth(land: &Land) -> Vec<u8> {
             links: Some(links),
             banks: Some(banks),
             bank_sediment: Some(sediment),
+            bank_piping: Some(piping),
         },
     );
     finish(fbb, root)
@@ -2130,6 +2153,7 @@ fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), Loa
                 erosion_m: b.erosion_m(),
                 breached: b.breached(),
                 sediment_m3: 0.0,
+                piping: 0.0,
             });
         }
     }
@@ -2155,6 +2179,27 @@ fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), Loa
             ));
         }
         bank.sediment_m3 = record.compacted_m3();
+    }
+    // Explicit migration: schemas through 102 have no seepage damage.
+    if schema < Schema::V103 && root.bank_piping().is_some_and(|v| !v.is_empty()) {
+        return Err(LoadError::Malformed("bank piping before schema 103".into()));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for record in root.bank_piping().iter().flatten() {
+        let bank = land
+            .banks
+            .iter_mut()
+            .find(|b| b.work.get() == record.work())
+            .ok_or_else(|| LoadError::Malformed("piping names missing bank".into()))?;
+        if !seen.insert(record.work())
+            || !record.damage().is_finite()
+            || !(record.damage() > 0.0 && record.damage() <= 1.0)
+        {
+            return Err(LoadError::Malformed(
+                "invalid or duplicate bank piping".into(),
+            ));
+        }
+        bank.piping = record.damage();
     }
     // Schema 21: what each pit and heap is linked to.
     for l in root.links().iter().flatten() {
@@ -3567,7 +3612,8 @@ fn carried(
         | Schema::V99
         | Schema::V100
         | Schema::V101
-        | Schema::V102 => {
+        | Schema::V102
+        | Schema::V103 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3803,7 +3849,8 @@ fn decode_households(
             | Schema::V99
             | Schema::V100
             | Schema::V101
-            | Schema::V102 => {
+            | Schema::V102
+            | Schema::V103 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

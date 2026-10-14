@@ -1275,6 +1275,8 @@ pub struct Polity {
     /// The hours each household has given to a law's bank (law, household, hours), by law then
     /// household (research 09-06: labour asked and labour given kept apart).
     pub bank_given: Vec<(PermanentId, PermanentId, f32)>,
+    /// The banks its laws built whose giving way its chronicle has told, by earthwork id.
+    pub banks_failed: Vec<PermanentId>,
 }
 
 /// Where a law would build a flood bank (M6b slice BG; ADR-0022 §11): the reach whose water it
@@ -1397,6 +1399,7 @@ impl Polity {
             banks: Vec::new(),
             bank_saves: Vec::new(),
             bank_given: Vec::new(),
+            banks_failed: Vec::new(),
         }
     }
 

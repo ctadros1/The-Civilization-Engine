@@ -2528,10 +2528,19 @@ and M6a gives rivers a daily flow.
       the bank would keep dry; one that lost nothing gains nothing and is asked its share.
       Passed, the polity lays out the bank and its borrow pit with no earth in them. People
       work on it as they choose (`work_with_others_on_bank`, behaviour `levee`): each
-      session's hours dig, carry (a basket at a time, the actual way from the pit at their
-      own pace) and place earth, each charged apart, and only the hours that moved earth are
+      session's hours dig, carry (a basket at a time, the straight way from the pit beside it at
+      their own pace) and place earth, each charged apart, and only the hours that moved earth are
       the household's given. A narrow front holds as many as its length gives room for at
       once. Save schema 102, content API 88, wire 1.72 unchanged.
+    - *Banks seep, settle and give way (2026-10-14, §9):* water standing against one side of
+      a bank, below its crest and above the other side's water or ground, adds seepage
+      damage by that head each day (`banks.piping_per_head_day`); at a damage of 1 the bank
+      pipes through and is breached before its crest is reached. Damage persists until
+      repaired (repair is not built yet). Placed fill settles toward `banks.settle_share` of
+      its built height, most of it within `banks.settle_days`. A bank a gathering built
+      that breaks is told once in the chronicle, saying whether water found a way through
+      or washed its crest away. The observer's bank words name seepage damage. Save schema
+      103, content API 89, wire 1.72 unchanged.
     - Earth kinds `bank` and `ditch` as lines of segments.
     - Water behind a bank only over its crest or through a breach. Overtopping and piping.
     - The issue `flooded`, and the policy `build_bank`, asked in equal shares as a crossing is.
@@ -3306,6 +3315,32 @@ One line each. Don't re-litigate without a reason written next to the entry.
   fired under a raised river; release builds could keep a stale site for the day). **Left:**
   banks of more than one segment, banks across fields, piping, settlement, paid repairs and
   upkeep by law, trapped rain and irrigation remain planned.
+
+- **Banks seep, settle and give way, as built (2026-10-14, M6b slice BG; ADR-0022 §11):** no
+  new ADR. Research 11-12 §4.2 separates load from resistance and holds damage across events
+  until repaired; that is the model, with authored priors and no annual failure chance.
+  **Seepage:** each lived day, over a bank's sound barrier edges, the head is the high side's
+  water surface (capped at the crest) less the low side's surface or ground, taken only where
+  the high side is wet. The largest head adds `piping_per_head_day` × head (0.01 a metre-day,
+  a design prior) to the bank's damage, which is capped at 1. At 1 the bank is breached and
+  stops being a barrier. Water over the crest on both sides holds no head; overtopping erosion
+  (unchanged) wears it instead. **Settling:** placed fill sinks toward `settle_share` (0.05)
+  of its built height with a time constant of `settle_days` (365). It only deepens and moves
+  no earth. Research 11-12 names crest settlement among a levee's defects and leaves the
+  settlement allowance out of its volume formula without a figure, so both values are design
+  priors. **Told:** a bank built by
+  law that breaks is told once (`FloodStep::BankGaveWay`) and recorded in the polity's
+  `banks_failed`. **Saves 103:** piping damage per bank (0 < d ≤ 1, no duplicates, naming a
+  bank) and the told failures (naming the polity's own banks). Older headers that carry
+  either are refused, and schema 102 loads with no damage. **Measured:** on the test village
+  (seed 3), the finished 0.41 m bank under the same reach raised in turn by +50, +100 and
+  +200 m³/s for six days each took 0.14% damage, all from the first. The larger floods
+  covered both sides, so there was no head, and +200 wore 2.5 mm off its crest. A bank that
+  low is overtopped before seepage matters; seepage is the failure of a higher bank holding
+  back water. **Not conditional yet:** the research's hazard depends on material and
+  foundation, but the land carries no soil texture to condition on, so one rate serves every
+  bank. **Left:** that conditioning, paid repair and upkeep by law, banks of more than one
+  segment and across fields, trapped rain and irrigation.
 
 - **Claude handoff (2026-10-14, owner request):** stop after the tested overtopping slice on
   `codex/codex-development`, with no merge to main. The handoff is

@@ -96,6 +96,7 @@ fn segment_of(site: &BankSite, work: PermanentId, borrow: PermanentId) -> BankSe
         erosion_m: 0.0,
         breached: false,
         sediment_m3: 0.0,
+        piping: 0.0,
     }
 }
 
@@ -584,8 +585,8 @@ impl Population {
     }
 
     /// `hours` of a capable adult's work by `who` (handle and id) of `household` on bank `bank`
-    /// (M6b slice BG): as much earth as those hours dig from its borrow pit, carry the actual way
-    /// from the pit to the bank's middle a basket at a time at their own walking pace, and spread
+    /// (M6b slice BG): as much earth as those hours dig from its borrow pit, carry the straight way
+    /// from the pit, which lies beside it, to the bank's middle a basket at a time at their own walking pace, and spread
     /// and tamp, each charged apart (research 11-12 §1.2), is placed; the hours that placed it
     /// are the household's given. Earth moves only when the work is done: none is left half-way.
     /// Once all its earth is in, the bank is finished.

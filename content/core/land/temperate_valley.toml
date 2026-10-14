@@ -446,3 +446,13 @@ working = "pit"
 [banks]
 # Design prior, not historical failure frequency (research 11-12 §4.2).
 erosion_per_head_day = 0.02
+# Water held against a bank below its crest seeps through it: each day adds this much damage per
+# metre of head, and at a damage of 1 the bank gives way by piping (research 11-12 §4.2: piping
+# can fail a bank before water reaches its crest; damage persists until repaired). A design
+# prior: a metre held for a hundred days, over however many floods, pipes through.
+piping_per_head_day = 0.01
+# New fill settles as it consolidates: its crest sinks toward `settle_share` of its built height,
+# with a time constant of `settle_days`. Design priors: research 11-12 names crest settlement
+# among a levee's defects but gives no figure.
+settle_share = 0.05
+settle_days = 365.0

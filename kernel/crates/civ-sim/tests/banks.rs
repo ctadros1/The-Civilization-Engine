@@ -57,6 +57,7 @@ fn fixture() -> Sim {
         erosion_m: 0.0,
         breached: false,
         sediment_m3: 0.0,
+        piping: 0.0,
     };
     let make = |id, kind, rect| Earthwork {
         id,
@@ -131,11 +132,13 @@ fn bank_geometry_borrow_earth_and_boundary_round_trip_exactly() {
             &depths,
             banks::BankParams {
                 erosion_per_head_day: 0.0000001,
+                ..banks::BankParams::default()
             },
             &mut land.ground,
         );
     }
     assert!(land.banks[0].sediment_m3 > 0.0);
+    land.banks[0].piping = 0.375;
     let d = tempfile::tempdir().expect("dir");
     let saves = SaveDir::create(d.path(), civ_schema::SAVE_EXTENSION).expect("saves");
     let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "bank").expect("save");
@@ -188,7 +191,7 @@ fn bank_geometry_borrow_earth_and_boundary_round_trip_exactly() {
 }
 #[test]
 fn malformed_geometry_duplicate_borrow_and_missing_sources_are_refused() {
-    for variant in 0..9 {
+    for variant in 0..11 {
         let mut sim = fixture();
         let land = sim.land_mut_for_tests();
         match variant {
@@ -202,6 +205,8 @@ fn malformed_geometry_duplicate_borrow_and_missing_sources_are_refused() {
             5 => land.earthworks[0].rect.x = -1,
             6 => land.earthworks[0].rect.w = 1,
             7 => land.banks[0].sediment_m3 = f64::NAN,
+            8 => land.banks[0].piping = f64::NAN,
+            9 => land.banks[0].piping = 1.5,
             _ => land.banks[0].sediment_m3 = 10000.0,
         }
         let d = tempfile::tempdir().expect("dir");
@@ -285,6 +290,42 @@ fn schema_100_keeps_banks_without_inventing_sediment_and_refuses_new_stocks() {
             let loaded = loaded.expect("100 loads");
             assert_eq!(loaded.land().banks, sim.land().banks);
             assert_eq!(loaded.land().ground, sim.land().ground);
+        }
+    }
+}
+
+#[test]
+fn schema_102_keeps_banks_undamaged_and_refuses_piping_in_old_headers() {
+    for with_piping in [false, true] {
+        let mut sim = fixture();
+        if with_piping {
+            sim.land_mut_for_tests().banks[0].piping = 0.25;
+        }
+        let dir = tempfile::tempdir().expect("dir");
+        let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("saves");
+        let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "old bank").expect("save");
+        let reader = commons_persist::SnapshotReader::open_file(
+            &saved.path,
+            commons_persist::Limits::default(),
+        )
+        .expect("reader");
+        let mut info = reader.info().clone();
+        info.schema_version = persist::SCHEMA_V102;
+        let legacy = commons_persist::publish_file(
+            dir.path(),
+            "legacy.tcesave",
+            &info,
+            &persist::encode_sections(&sim),
+            commons_persist::DEFAULT_ZSTD_LEVEL,
+        )
+        .expect("publish");
+        let loaded = persist::load(&legacy.path, content());
+        if with_piping {
+            assert!(loaded.is_err());
+        } else {
+            let loaded = loaded.expect("102 loads");
+            assert_eq!(loaded.land().banks, sim.land().banks);
+            assert!(loaded.land().banks.iter().all(|b| b.piping == 0.0));
         }
     }
 }

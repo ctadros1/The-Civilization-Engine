@@ -331,6 +331,8 @@ pub const SCHEMA_V99: u32 = 99;
 pub const SCHEMA_V100: u32 = 100;
 /// Washed-soil accounts, before households' flood losses and banks built by law.
 pub const SCHEMA_V101: u32 = 101;
+/// Households' flood losses and banks built by law, before bank piping and told failures.
+pub const SCHEMA_V102: u32 = 102;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

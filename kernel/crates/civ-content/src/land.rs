@@ -50,6 +50,11 @@ pub(crate) struct LandFile {
 #[serde(deny_unknown_fields)]
 pub(crate) struct BankFile {
     pub erosion_per_head_day: f64,
+    /// Seepage damage a day per metre of head (content API 89).
+    pub piping_per_head_day: f64,
+    /// The share of built height new fill settles by, and in how many days (content API 89).
+    pub settle_share: f64,
+    pub settle_days: f64,
 }
 
 /// The `[contamination]` section of a land profile (ADR-0021 §4; content API 73).
@@ -651,6 +656,9 @@ impl LandFile {
                 .map_or_else(civ_land::banks::BankParams::default, |b| {
                     civ_land::banks::BankParams {
                         erosion_per_head_day: b.erosion_per_head_day,
+                        piping_per_head_day: b.piping_per_head_day,
+                        settle_share: b.settle_share,
+                        settle_days: b.settle_days,
                     }
                 }),
             contamination: self
@@ -724,11 +732,27 @@ impl LandFile {
         if !(self.richness_feature_m.is_finite() && self.richness_feature_m > 0.0) {
             p.push("`richness_feature_m` must be positive".to_owned());
         }
-        if let Some(b) = &self.banks
-            && (!b.erosion_per_head_day.is_finite()
-                || !(0.0..=10.0).contains(&b.erosion_per_head_day))
-        {
-            p.push("`banks.erosion_per_head_day` must be between 0 and 10".into());
+        if let Some(b) = &self.banks {
+            for (name, v, lo, hi) in [
+                (
+                    "banks.erosion_per_head_day",
+                    b.erosion_per_head_day,
+                    0.0,
+                    10.0,
+                ),
+                (
+                    "banks.piping_per_head_day",
+                    b.piping_per_head_day,
+                    0.0,
+                    10.0,
+                ),
+                ("banks.settle_share", b.settle_share, 0.0, 0.5),
+                ("banks.settle_days", b.settle_days, 1.0, 36500.0),
+            ] {
+                if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                    p.push(format!("`{name}` must be between {lo} and {hi}"));
+                }
+            }
         }
         self.weather.problems(&mut p);
         self.soil.problems(&mut p);

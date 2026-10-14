@@ -1778,7 +1778,7 @@ the reach's own connected-storage path with every standing bank), at the highest
 surface plus freeboard, with a borrow pit beside it on free ground; a household weighs it by
 its own remembered losses there against its equal share of the work. Passed, the polity lays
 out the bank with no earth in it. People choose to work on it; each session digs, carries a
-basket at a time the real way from the pit at their own pace, and places earth, each charged
+basket at a time the straight way from the pit beside it at their own pace, and places earth, each charged
 apart, through Codex's `place_from_borrow`. Only the hours that moved earth count as given. A
 front holds as many workers at once as its length allows. Saves 102, content API 88.
 
@@ -1803,3 +1803,39 @@ exactly, and that finishing it is told.
 
 **Open:** banks of several segments and across fields; piping, settlement and paid upkeep;
 trapped rain; irrigation; then BH.
+
+## 2026-10-14 — BG: banks seep, settle and give way
+
+**What changed:** Codex's banks already wore down when water ran over them. Now water held
+against one side of a bank, below its crest, seeps through it. Each day adds damage in
+proportion to the difference in level across it, and the damage stays with the bank. At full
+damage, water pipes through and the bank is breached though its crest was never reached
+(research 11-12: piping can fail a bank before water reaches the crest, and damage persists
+until repaired). New fill settles a little over its first year or so. A bank a gathering
+built that breaks is told once in the chronicle, saying how it broke. The observer's bank
+words show how far it is toward piping. Saves 103 carry the damage and the told failures;
+content API 89 carries the three new priors.
+
+**Findings:** the test village's finished bank is 0.41 m high. Raising the reach beside it by
++50 m³/s for six days gave it 0.14% damage. Larger floods covered both sides, so nothing was
+held back and there was nothing to seep: they ran over it, and +200 m³/s wore 2.5 mm off its
+crest. A bank that low fails by overtopping before seepage matters. Seepage is how a higher
+bank fails while holding water back.
+
+**Evidence:** unit tests show that damage grows with head, that there is none without head
+or with level water on both sides, that a bank breaks at full damage and is no longer a
+barrier, and that settling only deepens and stops short of its share. Save tests cover a
+round trip of damage, refusal of NaN or above-one damage, and refusal of damage under schema
+102 headers while undamaged banks still load. The levee test breaks the finished bank and
+checks that it is told exactly once, across a reload. Before this commit, the full simcheck
+workspace suite, all-target clippy, formatting, schema freshness, all ten release short-smoke
+worlds and the web build with its 173 unit tests pass.
+
+**Ten-year smoke of the previous step (8df52c0):** stopped by its 90-minute limit while it
+was still running the river valleys, so this is not a full result. All five ria-coast worlds
+passed. Coasts 1, 2 and 4 kept 52, 45 and 49 people, and the bands of coasts 3 and 5 died out
+in years 4 and 2, as two bands did in Codex's last ten-year run. No river-valley world
+finished. The run shared the CPU with builds and probes, so its times are not a speed result.
+
+**Open:** repair and upkeep by law; banks of several segments and across fields; trapped rain;
+irrigation; then BH.

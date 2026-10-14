@@ -346,5 +346,40 @@ fn a_flood_bank_the_gathering_asks_for_is_laid_out_from_what_floods_cost_and_bui
     });
     assert!(told);
     assert!(land_ok(&sim), "{:?}", land_problems(&sim));
-    reloaded(&mut sim);
+    let mut sim = reloaded(&mut sim);
+    // Water that pipes through it breaks it, and that is told once.
+    let gave_way = |sim: &Sim| {
+        sim.people()
+            .chronicle
+            .iter()
+            .filter(|e| {
+                e.name
+                    .starts_with(&format!("The bank {name}'s people built"))
+            })
+            .count()
+    };
+    assert_eq!(gave_way(&sim), 0);
+    {
+        let land = sim.land_mut_for_tests();
+        let seg = land
+            .banks
+            .iter_mut()
+            .find(|b| b.work == bank)
+            .expect("its segment");
+        seg.piping = 1.0;
+        seg.breached = true;
+    }
+    sim.advance_minutes(DAY).expect("advances");
+    assert_eq!(gave_way(&sim), 1);
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|e| { e.name.contains("gave way: water found a way through it") })
+    );
+    assert_eq!(sim.people().polities[pi].banks_failed, vec![bank]);
+    let mut sim = reloaded(&mut sim);
+    sim.advance_minutes(DAY).expect("advances");
+    assert_eq!(gave_way(&sim), 1);
+    assert!(land_ok(&sim), "{:?}", land_problems(&sim));
 }

@@ -1120,12 +1120,20 @@ struct BankSedimentRecord {
   compacted_m3: double;
 }
 
+// Seepage damage held against a bank so far, 0 to 1 (schema 103, M6b slice BG); a bank with
+// none has no record.
+struct BankPipingRecord {
+  work: ulong;
+  damage: double;
+}
+
 table Earth {
   works: [EarthworkRecord] (id: 0);
   tiles: [GroundTile] (id: 1);
   links: [EarthLink] (id: 2);
   banks: [BankSegmentRecord] (id: 3);
   bank_sediment: [BankSedimentRecord] (id: 4);
+  bank_piping: [BankPipingRecord] (id: 5);
 }
 
 // Section "ties" (schema 28): what each person remembers of others (ADR-0014 §1), by holder and
@@ -1332,6 +1340,9 @@ table PolitySave {
   bank_saves: [BankShareSave] (id: 18);
   // The hours each household has given to a law's bank (schema 102); absent before.
   bank_given: [BankShareSave] (id: 19);
+  // The banks its laws built whose giving way its chronicle has told, by their earthwork id
+  // (schema 103); absent before.
+  banks_failed: [ulong] (id: 20);
 }
 
 // Where a law would build a flood bank (schema 102, M6b slice BG): the reach whose water it keeps

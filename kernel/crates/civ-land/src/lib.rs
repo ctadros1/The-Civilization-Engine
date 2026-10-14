@@ -1269,6 +1269,18 @@ impl Land {
                         params.banks,
                         &mut self.ground,
                     );
+                    // Water held against it seeps through, and its new fill settles (M6b
+                    // slice BG).
+                    banks::pipe_day(
+                        bank,
+                        work,
+                        map,
+                        &self.floodplain,
+                        &self.flood_depths,
+                        params.banks,
+                        &self.ground,
+                    );
+                    banks::settle_day(bank, work, params.banks);
                 }
             }
             let water = self.weather.live(&params.weather, &self.climatology);

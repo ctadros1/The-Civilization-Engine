@@ -24,6 +24,9 @@ pub struct BankSegment {
     pub breached: bool,
     /// Soil washed off the bank, in compacted-equivalent cubic metres. Saved.
     pub sediment_m3: f64,
+    /// Seepage damage held against it so far, 0 to 1: at 1 water has piped through and the
+    /// bank has given way (M6b slice BG; research 11-12 §4.2). It persists until repaired.
+    pub piping: f64,
 }
 
 impl BankSegment {
@@ -65,6 +68,7 @@ impl BankSegment {
                 self.settlement_m,
                 self.erosion_m,
                 self.sediment_m3,
+                self.piping,
             ])
             .all(f64::is_finite);
         let length = self.length_m();
@@ -91,6 +95,7 @@ impl BankSegment {
             && self.settlement_m >= 0.0
             && self.erosion_m >= 0.0
             && self.sediment_m3 >= 0.0
+            && (0.0..=1.0).contains(&self.piping)
             && [self.a, self.b]
                 .iter()
                 .all(|p| p[0] >= 0.0 && p[1] >= 0.0 && p[0] <= width && p[1] <= height)
@@ -272,19 +277,88 @@ pub fn ground_changes(
         .collect()
 }
 
-/// An authored overtopping prior, not an annual failure probability.
+/// Authored damage priors, not annual failure probabilities (research 11-12 §4.2: separate
+/// the load from the resistance; damage persists across events unless repaired).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BankParams {
     /// Crest metres eroded per day per metre of overflow head to the power 1.5.
     pub erosion_per_head_day: f64,
+    /// Seepage damage a day per metre of water held against a bank below its crest: it gives
+    /// way by piping once its damage reaches 1.
+    pub piping_per_head_day: f64,
+    /// The share of its built height placed fill settles by as it consolidates, and the time
+    /// constant of that settling, days: design priors (research 11-12 names crest settlement
+    /// among a levee's defects but gives no figure).
+    pub settle_share: f64,
+    pub settle_days: f64,
 }
 
 impl Default for BankParams {
     fn default() -> Self {
         Self {
             erosion_per_head_day: 0.02,
+            piping_per_head_day: 0.01,
+            settle_share: 0.05,
+            settle_days: 365.0,
         }
     }
+}
+
+/// One day's settling of a bank's placed fill (M6b slice BG): its crest sinks toward
+/// `settle_share` of its built height, most of the way within `settle_days`. Settling only
+/// deepens; fill placed later settles in its turn. Mass is unchanged: the fill only packs down.
+pub fn settle_day(bank: &mut BankSegment, work: &Earthwork, params: BankParams) -> bool {
+    if work.done <= 0.0 || params.settle_share <= 0.0 || params.settle_days <= 0.0 {
+        return false;
+    }
+    let target = params.settle_share * bank.built_height_m(work.done);
+    if target <= bank.settlement_m {
+        return false;
+    }
+    bank.settlement_m += (target - bank.settlement_m) * (1.0 - (-1.0 / params.settle_days).exp());
+    true
+}
+
+/// One day's seepage through a bank (M6b slice BG; research 11-12 §4.2): water standing against
+/// one side of it, below its crest, higher than the other side's water or ground, adds damage by
+/// that head; at a damage of 1 water pipes through and the bank gives way before its crest is
+/// reached. Uses the elapsed day's depths, as overtopping does.
+pub fn pipe_day(
+    bank: &mut BankSegment,
+    work: &Earthwork,
+    map: &WorldMap,
+    floodplain: &civ_world::hydraulics::WorldFloodplain,
+    depths: &[f32],
+    params: BankParams,
+    ground: &crate::earth::GroundDelta,
+) -> bool {
+    if bank.breached || work.done <= 0.0 || params.piping_per_head_day <= 0.0 {
+        return false;
+    }
+    let hands = &floodplain.cell_hand;
+    let surface = |c: u32| -> Option<(f64, bool)> {
+        let d = f64::from(*depths.get(c as usize)?);
+        let ground = f64::from(*hands.get(c as usize)?) + f64::from(ground.at(c as usize));
+        Some((ground + d.max(0.0), d > 0.0))
+    };
+    let head = bank
+        .barriers(map, std::slice::from_ref(work), hands)
+        .iter()
+        .filter_map(|edge| {
+            let (a, b) = (surface(edge.a)?, surface(edge.b)?);
+            let (high, low) = if a.0 >= b.0 { (a, b) } else { (b, a) };
+            high.1
+                .then(|| (high.0.min(edge.crest_hand_m) - low.0).max(0.0))
+        })
+        .fold(0.0_f64, f64::max);
+    if head <= 0.0 {
+        return false;
+    }
+    bank.piping = (bank.piping + params.piping_per_head_day * head).min(1.0);
+    if bank.piping >= 1.0 {
+        bank.breached = true;
+    }
+    true
 }
 
 /// Apply one day's actual overtopping. No head, no wear; soil removed from the bank
@@ -537,6 +611,7 @@ mod tests {
             erosion_m: 0.0,
             breached: false,
             sediment_m3: 0.0,
+            piping: 0.0,
         };
         let work = |n, kind, rect| Earthwork {
             id: id(n),
@@ -620,6 +695,8 @@ mod tests {
         let dry = vec![0.0; map.cell_count()];
         let prior = BankParams {
             erosion_per_head_day: 0.02,
+            piping_per_head_day: 0.0,
+            ..BankParams::default()
         };
         assert!(!overtop_day(
             &mut eroding,
@@ -700,5 +777,85 @@ mod tests {
         );
         assert_eq!(ground, before);
         assert!(place_from_borrow(&bank, &mut works, &map, &mut ground, f64::NAN).is_err());
+
+        // Seepage: water held below the crest on one side adds damage by its head; none without
+        // a head; at a damage of 1 the bank gives way though its crest was never reached.
+        let mut seeping = bank;
+        works[0].done = 1.0;
+        let level = GroundDelta::new(map.width, map.height, map.cell_size_m);
+        let piping = BankParams {
+            piping_per_head_day: 0.25,
+            ..BankParams::default()
+        };
+        assert!(!pipe_day(
+            &mut seeping,
+            &works[0],
+            &map,
+            &floodplain,
+            &dry,
+            piping,
+            &level
+        ));
+        let edges = seeping.barriers(&map, &works[..1], hands);
+        assert!(!edges.is_empty());
+        let mut one_side = vec![0.0_f32; map.cell_count()];
+        for e in &edges {
+            one_side[e.a.min(e.b) as usize] = 0.8;
+        }
+        assert!(pipe_day(
+            &mut seeping,
+            &works[0],
+            &map,
+            &floodplain,
+            &one_side,
+            piping,
+            &level
+        ));
+        let first = seeping.piping;
+        assert!(first > 0.0 && first < 1.0 && !seeping.breached);
+        // The same water on both sides holds no head.
+        let mut level_water = seeping;
+        let both = vec![0.8_f32; map.cell_count()];
+        assert!(!pipe_day(
+            &mut level_water,
+            &works[0],
+            &map,
+            &floodplain,
+            &both,
+            piping,
+            &level
+        ));
+        assert_eq!(level_water.piping, first);
+        for _ in 0..20 {
+            pipe_day(
+                &mut seeping,
+                &works[0],
+                &map,
+                &floodplain,
+                &one_side,
+                piping,
+                &level,
+            );
+        }
+        assert_eq!(seeping.piping, 1.0);
+        assert!(seeping.breached);
+        assert!(seeping.barriers(&map, &works[..1], hands).is_empty());
+
+        // Settling: the crest sinks toward its share of the built height and never rises.
+        let mut settling = bank;
+        let params = BankParams::default();
+        let mut last = 0.0;
+        for _ in 0..(3 * 365) {
+            assert!(settle_day(&mut settling, &works[0], params));
+            assert!(settling.settlement_m > last);
+            last = settling.settlement_m;
+        }
+        let target = params.settle_share * bank.built_height_m(1.0);
+        assert!(last < target && last > 0.9 * target);
+        let unbuilt = Earthwork {
+            done: 0.0,
+            ..works[0]
+        };
+        assert!(!settle_day(&mut settling, &unbuilt, params));
     }
 }

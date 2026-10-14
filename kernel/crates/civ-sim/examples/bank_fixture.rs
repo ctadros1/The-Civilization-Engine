@@ -56,6 +56,7 @@ fn main() -> Result<(), String> {
         erosion_m: 0.0,
         breached: false,
         sediment_m3: 0.0,
+        piping: 0.0,
     };
     let make = |id, kind, rect| Earthwork {
         id,

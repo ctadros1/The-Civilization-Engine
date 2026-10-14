@@ -3,5 +3,5 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 88
+kernel_content_api = 89
 description = "The base vocabulary of The Civilization Engine."

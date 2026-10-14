@@ -795,6 +795,8 @@ pub enum FloodStep {
     Receded = 1,
     /// A flood bank a polity's gathering asked for was finished (M6b slice BG).
     BankBuilt = 2,
+    /// A flood bank a polity built gave way, piped through or washed down (M6b slice BG).
+    BankGaveWay = 3,
 }
 
 /// What happened in a storm, in a [`ChronicleKind::StormDamage`] entry. Numeric in saves: append only.

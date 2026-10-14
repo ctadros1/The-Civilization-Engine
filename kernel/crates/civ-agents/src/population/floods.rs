@@ -213,6 +213,50 @@ impl Population {
             }
         }
 
+        // 3. A bank a gathering built that the water broke is told once (M6b slice BG).
+        for pi in 0..self.polities.len() {
+            let settlement = self.polities[pi].settlement;
+            let works: Vec<PermanentId> = self.polities[pi]
+                .banks
+                .iter()
+                .filter_map(|(_, site)| site.work)
+                .filter(|w| !self.polities[pi].banks_failed.contains(w))
+                .collect();
+            for work in works {
+                let Some(bank) = ctx.land.banks.iter().find(|b| b.work == work && b.breached)
+                else {
+                    continue;
+                };
+                let how = if bank.piping >= 1.0 {
+                    "water found a way through it"
+                } else {
+                    "the water washed its crest away"
+                };
+                let mid = [(bank.a[0] + bank.b[0]) / 2.0, (bank.a[1] + bank.b[1]) / 2.0];
+                let place = ctx
+                    .land
+                    .settlements
+                    .iter()
+                    .find(|t| t.id == settlement)
+                    .map_or_else(|| "the village".to_owned(), |t| t.name.clone());
+                let sentence = format!(
+                    "The bank {place}'s people built against floodwater gave way: {how}, \
+                     {:.0} m of it.",
+                    bank.length_m()
+                );
+                self.polities[pi].banks_failed.push(work);
+                self.chronicle_push(
+                    now,
+                    ChronicleKind::Flood,
+                    Vec::new(),
+                    Some(settlement),
+                    Some((mid[0] as f32, mid[1] as f32)),
+                    f64::from(FloodStep::BankGaveWay as u8),
+                    sentence,
+                );
+            }
+        }
+
         // A storm episode is its calendar day; a second storm day starts a new episode.
         for ep in &mut self.floods.storm_episodes {
             if ep.ended.is_none() && ep.began.day_index() < day {

@@ -5990,6 +5990,133 @@ impl<'a> BankSedimentRecord {
 
 }
 
+// struct BankPipingRecord, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct BankPipingRecord(pub [u8; 16]);
+impl Default for BankPipingRecord { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for BankPipingRecord {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("BankPipingRecord")
+      .field("work", &self.work())
+      .field("damage", &self.damage())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for BankPipingRecord {}
+impl<'a> ::flatbuffers::Follow<'a> for BankPipingRecord {
+  type Inner = &'a BankPipingRecord;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a BankPipingRecord>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a BankPipingRecord {
+  type Inner = &'a BankPipingRecord;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<BankPipingRecord>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for BankPipingRecord {
+    type Output = BankPipingRecord;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const BankPipingRecord as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for BankPipingRecord {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> BankPipingRecord {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    work: u64,
+    damage: f64,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_work(work);
+    s.set_damage(damage);
+    s
+  }
+
+  pub fn work(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_work(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn damage(&self) -> f64 {
+    let mut mem = ::core::mem::MaybeUninit::<<f64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_damage(&mut self, x: f64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct TieRecord, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -28749,6 +28876,7 @@ impl<'a> Earth<'a> {
   pub const VT_LINKS: ::flatbuffers::VOffsetT = 8;
   pub const VT_BANKS: ::flatbuffers::VOffsetT = 10;
   pub const VT_BANK_SEDIMENT: ::flatbuffers::VOffsetT = 12;
+  pub const VT_BANK_PIPING: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -28760,6 +28888,7 @@ impl<'a> Earth<'a> {
     args: &'args EarthArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Earth<'bldr>> {
     let mut builder = EarthBuilder::new(_fbb);
+    if let Some(x) = args.bank_piping { builder.add_bank_piping(x); }
     if let Some(x) = args.bank_sediment { builder.add_bank_sediment(x); }
     if let Some(x) = args.banks { builder.add_banks(x); }
     if let Some(x) = args.links { builder.add_links(x); }
@@ -28804,6 +28933,13 @@ impl<'a> Earth<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, BankSedimentRecord>>>(Earth::VT_BANK_SEDIMENT, None)}
   }
+  #[inline]
+  pub fn bank_piping(&self) -> Option<::flatbuffers::Vector<'a, BankPipingRecord>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, BankPipingRecord>>>(Earth::VT_BANK_PIPING, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Earth<'_> {
@@ -28817,6 +28953,7 @@ impl ::flatbuffers::Verifiable for Earth<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, EarthLink>>>("links", Self::VT_LINKS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BankSegmentRecord>>>("banks", Self::VT_BANKS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BankSedimentRecord>>>("bank_sediment", Self::VT_BANK_SEDIMENT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BankPipingRecord>>>("bank_piping", Self::VT_BANK_PIPING, false)?
      .finish();
     Ok(())
   }
@@ -28827,6 +28964,7 @@ pub struct EarthArgs<'a> {
     pub links: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, EarthLink>>>,
     pub banks: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BankSegmentRecord>>>,
     pub bank_sediment: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BankSedimentRecord>>>,
+    pub bank_piping: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BankPipingRecord>>>,
 }
 impl<'a> Default for EarthArgs<'a> {
   #[inline]
@@ -28837,6 +28975,7 @@ impl<'a> Default for EarthArgs<'a> {
       links: None,
       banks: None,
       bank_sediment: None,
+      bank_piping: None,
     }
   }
 }
@@ -28867,6 +29006,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EarthBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Earth::VT_BANK_SEDIMENT, bank_sediment);
   }
   #[inline]
+  pub fn add_bank_piping(&mut self, bank_piping: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , BankPipingRecord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Earth::VT_BANK_PIPING, bank_piping);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EarthBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     EarthBuilder {
@@ -28889,6 +29032,7 @@ impl ::core::fmt::Debug for Earth<'_> {
       ds.field("links", &self.links());
       ds.field("banks", &self.banks());
       ds.field("bank_sediment", &self.bank_sediment());
+      ds.field("bank_piping", &self.bank_piping());
       ds.finish()
   }
 }
@@ -30117,6 +30261,7 @@ impl<'a> PolitySave<'a> {
   pub const VT_BANKS: ::flatbuffers::VOffsetT = 38;
   pub const VT_BANK_SAVES: ::flatbuffers::VOffsetT = 40;
   pub const VT_BANK_GIVEN: ::flatbuffers::VOffsetT = 42;
+  pub const VT_BANKS_FAILED: ::flatbuffers::VOffsetT = 44;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -30133,6 +30278,7 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.banks_failed { builder.add_banks_failed(x); }
     if let Some(x) = args.bank_given { builder.add_bank_given(x); }
     if let Some(x) = args.bank_saves { builder.add_bank_saves(x); }
     if let Some(x) = args.banks { builder.add_banks(x); }
@@ -30292,6 +30438,13 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>(PolitySave::VT_BANK_GIVEN, None)}
   }
+  #[inline]
+  pub fn banks_failed(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(PolitySave::VT_BANKS_FAILED, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -30320,6 +30473,7 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BankSiteSave>>>>("banks", Self::VT_BANKS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>("bank_saves", Self::VT_BANK_SAVES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>("bank_given", Self::VT_BANK_GIVEN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("banks_failed", Self::VT_BANKS_FAILED, false)?
      .finish();
     Ok(())
   }
@@ -30345,6 +30499,7 @@ pub struct PolitySaveArgs<'a> {
     pub banks: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankSiteSave<'a>>>>>,
     pub bank_saves: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>>>,
     pub bank_given: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>>>,
+    pub banks_failed: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -30370,6 +30525,7 @@ impl<'a> Default for PolitySaveArgs<'a> {
       banks: None,
       bank_saves: None,
       bank_given: None,
+      banks_failed: None,
     }
   }
 }
@@ -30460,6 +30616,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_BANK_GIVEN, bank_given);
   }
   #[inline]
+  pub fn add_banks_failed(&mut self, banks_failed: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_BANKS_FAILED, banks_failed);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -30497,6 +30657,7 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("banks", &self.banks());
       ds.field("bank_saves", &self.bank_saves());
       ds.field("bank_given", &self.bank_given());
+      ds.field("banks_failed", &self.banks_failed());
       ds.finish()
   }
 }

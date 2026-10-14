@@ -197,10 +197,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for Terminus {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_TARGET_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_TARGET_KIND: u8 = 17;
+pub const ENUM_MAX_TARGET_KIND: u8 = 18;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 18] = [
+pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 19] = [
   TargetKind::None,
   TargetKind::Home,
   TargetKind::Hearth,
@@ -219,6 +219,7 @@ pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 18] = [
   TargetKind::Well,
   TargetKind::Douse,
   TargetKind::Bank,
+  TargetKind::Ditch,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -244,9 +245,10 @@ impl TargetKind {
   pub const Well: Self = Self(15);
   pub const Douse: Self = Self(16);
   pub const Bank: Self = Self(17);
+  pub const Ditch: Self = Self(18);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 17;
+  pub const ENUM_MAX: u8 = 18;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::None,
     Self::Home,
@@ -266,6 +268,7 @@ impl TargetKind {
     Self::Well,
     Self::Douse,
     Self::Bank,
+    Self::Ditch,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -288,6 +291,7 @@ impl TargetKind {
       Self::Well => Some("Well"),
       Self::Douse => Some("Douse"),
       Self::Bank => Some("Bank"),
+      Self::Ditch => Some("Ditch"),
       _ => None,
     }
   }
@@ -21993,6 +21997,7 @@ impl<'a> Household<'a> {
   pub const VT_FLOOD_FIELD_CM: ::flatbuffers::VOffsetT = 42;
   pub const VT_FLOOD_DAY: ::flatbuffers::VOffsetT = 44;
   pub const VT_FLOOD_LOSSES: ::flatbuffers::VOffsetT = 46;
+  pub const VT_DITCH_WORTH: ::flatbuffers::VOffsetT = 48;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22015,6 +22020,7 @@ impl<'a> Household<'a> {
     builder.add_food_kcal(args.food_kcal);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    builder.add_ditch_worth(args.ditch_worth);
     if let Some(x) = args.flood_losses { builder.add_flood_losses(x); }
     builder.add_water_walk_min(args.water_walk_min);
     if let Some(x) = args.taste { builder.add_taste(x); }
@@ -22184,6 +22190,13 @@ impl<'a> Household<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FloodLossSave>>>>(Household::VT_FLOOD_LOSSES, None)}
   }
+  #[inline]
+  pub fn ditch_worth(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Household::VT_DITCH_WORTH, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Household<'_> {
@@ -22214,6 +22227,7 @@ impl ::flatbuffers::Verifiable for Household<'_> {
      .visit_field::<u16>("flood_field_cm", Self::VT_FLOOD_FIELD_CM, false)?
      .visit_field::<i64>("flood_day", Self::VT_FLOOD_DAY, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FloodLossSave>>>>("flood_losses", Self::VT_FLOOD_LOSSES, false)?
+     .visit_field::<f32>("ditch_worth", Self::VT_DITCH_WORTH, false)?
      .finish();
     Ok(())
   }
@@ -22241,6 +22255,7 @@ pub struct HouseholdArgs<'a> {
     pub flood_field_cm: u16,
     pub flood_day: i64,
     pub flood_losses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FloodLossSave<'a>>>>>,
+    pub ditch_worth: f32,
 }
 impl<'a> Default for HouseholdArgs<'a> {
   #[inline]
@@ -22268,6 +22283,7 @@ impl<'a> Default for HouseholdArgs<'a> {
       flood_field_cm: 0,
       flood_day: 0,
       flood_losses: None,
+      ditch_worth: 0.0,
     }
   }
 }
@@ -22366,6 +22382,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_FLOOD_LOSSES, flood_losses);
   }
   #[inline]
+  pub fn add_ditch_worth(&mut self, ditch_worth: f32) {
+    self.fbb_.push_slot::<f32>(Household::VT_DITCH_WORTH, ditch_worth, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdBuilder {
@@ -22405,6 +22425,7 @@ impl ::core::fmt::Debug for Household<'_> {
       ds.field("flood_field_cm", &self.flood_field_cm());
       ds.field("flood_day", &self.flood_day());
       ds.field("flood_losses", &self.flood_losses());
+      ds.field("ditch_worth", &self.ditch_worth());
       ds.finish()
   }
 }

@@ -723,6 +723,7 @@ fn add_family(
         midden: crate::person::Midden::begun(now),
         flood_memory: crate::person::FloodMemory::default(),
         flood_losses: Vec::new(),
+        ditch_worth: 0.0,
     });
     // One who comes alone has no partner; a family's first two are its couple.
     let couple = (family.len() >= 2).then(|| founding_couple(params, family, now, d));
@@ -1783,6 +1784,7 @@ pub(crate) mod tests {
             suspicion: crate::suspicion::SuspicionParams::core(),
             fire: crate::fire::FireParams::core(),
             levees: crate::levees::LeveeParams::default(),
+            ditches: crate::irrigation::DitchPlanParams::default(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

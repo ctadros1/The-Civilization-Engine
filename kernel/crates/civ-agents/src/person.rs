@@ -58,6 +58,8 @@ pub enum Target {
     Douse { building: PermanentId, from: u32 },
     /// A flood bank, by its earthwork's permanent id: the one worked on (M6b slice BG).
     Bank(PermanentId),
+    /// An irrigation ditch, by its earthwork's permanent id: the one dug (M6b slice BG).
+    Ditch(PermanentId),
 }
 
 /// Water for a fire drawn from the household's store at home, not a source (see
@@ -735,6 +737,9 @@ pub struct Household {
     /// its buildings and its sown fields lost under water (M6b slice BG), oldest first, kept for
     /// the years its people remember.
     pub flood_losses: Vec<FloodLoss>,
+    /// What each hour of digging its ditch is worth to the household, hours a year of the grain
+    /// the water would bring its field (M6b slice BG): as it reckoned when it chose to dig.
+    pub ditch_worth: f32,
 }
 
 /// One day's loss to a flood at one place of a household's own (M6b slice BG): what it saw the
@@ -1197,6 +1202,7 @@ mod tests {
             midden: Midden::default(),
             flood_memory: FloodMemory::default(),
             flood_losses: Vec::new(),
+            ditch_worth: 0.0,
         }
     }
 

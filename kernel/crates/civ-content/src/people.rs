@@ -75,6 +75,52 @@ pub(crate) struct PeopleFile {
     /// How people lay out and build flood banks, and remember what floods cost them (M6b slice
     /// BG; content API 88).
     pub levees: LeveesFile,
+    /// How a household lays out and digs a ditch to its field (content API 92).
+    pub ditches: DitchesFile,
+}
+
+/// How a household lays out and digs an irrigation ditch to its field (M6b slice BG; content API
+/// 92). See [`civ_agents::irrigation::DitchPlanParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DitchesFile {
+    pub bottom_m: f64,
+    pub depth_m: f64,
+    pub side_run: f64,
+    pub h_per_m3: f64,
+    pub max_length_m: f64,
+    pub life_years: f64,
+    pub short_share: f64,
+}
+
+impl DitchesFile {
+    fn params(&self) -> civ_agents::irrigation::DitchPlanParams {
+        civ_agents::irrigation::DitchPlanParams {
+            bottom_m: self.bottom_m,
+            depth_m: self.depth_m,
+            side_run: self.side_run,
+            h_per_m3: self.h_per_m3,
+            max_length_m: self.max_length_m,
+            life_years: self.life_years,
+            short_share: self.short_share,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("ditches.bottom_m", self.bottom_m, 0.05, 5.0),
+            ("ditches.depth_m", self.depth_m, 0.05, 3.0),
+            ("ditches.side_run", self.side_run, 0.0, 10.0),
+            ("ditches.h_per_m3", self.h_per_m3, 0.1, 100.0),
+            ("ditches.max_length_m", self.max_length_m, 1.0, 5000.0),
+            ("ditches.life_years", self.life_years, 1.0, 500.0),
+            ("ditches.short_share", self.short_share, 0.0, 1.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+    }
 }
 
 /// How people lay out and build flood banks (M6b slice BG, ADR-0022 §11; content API 88). See
@@ -1982,6 +2028,7 @@ impl PeopleFile {
             suspicion: self.suspicion.params(),
             fire: self.fire.params(),
             levees: self.levees.params(),
+            ditches: self.ditches.params(),
             relations: civ_agents::views::RelationsParams {
                 prior: self.relations.prior,
                 half_life_days: self.relations.half_life_days,
@@ -2014,6 +2061,7 @@ impl PeopleFile {
         self.suspicion.problems(&mut p);
         self.fire.problems(&mut p);
         self.levees.problems(&mut p);
+        self.ditches.problems(&mut p);
         if !(self.places.sight_m.is_finite() && (0.0..=10_000.0).contains(&self.places.sight_m)) {
             p.push(format!(
                 "`places.sight_m` must be between 0 and 10000 (got {})",

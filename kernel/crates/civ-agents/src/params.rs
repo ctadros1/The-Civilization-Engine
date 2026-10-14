@@ -87,11 +87,14 @@ pub enum Behavior {
     /// pit, carry it a basket at a time, spread and tamp it, and walk home (M6b slice BG;
     /// ADR-0022 §11): the activity's numbers, the bank's earth.
     Levee,
+    /// Walk to the irrigation ditch the household is digging to its field, dig and form its
+    /// channel, and walk home (M6b slice BG): the activity's numbers, the ditch's earth.
+    Ditch,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 30] = [
+    pub const ALL: [Behavior; 31] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -122,6 +125,7 @@ impl Behavior {
         Behavior::Salvage,
         Behavior::Pull,
         Behavior::Levee,
+        Behavior::Ditch,
     ];
 
     /// The authored name of a behavior.
@@ -157,6 +161,7 @@ impl Behavior {
             Behavior::Salvage => "salvage",
             Behavior::Pull => "pull",
             Behavior::Levee => "levee",
+            Behavior::Ditch => "ditch",
         }
     }
 
@@ -1745,6 +1750,8 @@ pub struct PeopleParams {
     /// How people lay out and build flood banks, and remember what floods cost them (M6b slice
     /// BG, ADR-0022 §11).
     pub levees: crate::levees::LeveeParams,
+    /// How a household lays out and digs an irrigation ditch to its field (M6b slice BG).
+    pub ditches: crate::irrigation::DitchPlanParams,
     /// Names.
     pub names: NameParams,
 }

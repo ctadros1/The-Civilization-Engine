@@ -337,6 +337,8 @@ pub const SCHEMA_V102: u32 = 102;
 pub const SCHEMA_V103: u32 = 103;
 /// Mended banks and keeping laws, before irrigation ditches.
 pub const SCHEMA_V104: u32 = 104;
+/// Irrigation ditches, before households dig them.
+pub const SCHEMA_V105: u32 = 105;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

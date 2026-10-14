@@ -116,7 +116,7 @@ use super::{
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
-    SCHEMA_V104, finish, section, single_chunk, unreadable,
+    SCHEMA_V104, SCHEMA_V105, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -528,6 +528,8 @@ enum Schema {
     V104,
     /// M6b slice BG: irrigation ditches.
     V105,
+    /// M6b slice BG: households dig ditches.
+    V106,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -647,7 +649,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V102 => Schema::V102,
         SCHEMA_V103 => Schema::V103,
         SCHEMA_V104 => Schema::V104,
-        SAVE_SCHEMA_VERSION => Schema::V105,
+        SCHEMA_V105 => Schema::V105,
+        SAVE_SCHEMA_VERSION => Schema::V106,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2728,6 +2731,7 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::Well(w) => (save::TargetKind::Well, 0, w.get()),
         Target::Douse { building, from } => (save::TargetKind::Douse, from, building.get()),
         Target::Bank(b) => (save::TargetKind::Bank, 0, b.get()),
+        Target::Ditch(d) => (save::TargetKind::Ditch, 0, d.get()),
     }
 }
 
@@ -2769,6 +2773,7 @@ fn target_of(
             from: index,
         },
         save::TargetKind::Bank => Target::Bank(required(id, "a bank target")?),
+        save::TargetKind::Ditch => Target::Ditch(required(id, "a ditch target")?),
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -3760,7 +3765,8 @@ fn carried(
         | Schema::V102
         | Schema::V103
         | Schema::V104
-        | Schema::V105 => {
+        | Schema::V105
+        | Schema::V106 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3852,6 +3858,7 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                     flood_field_cm: h.flood_memory.field_depth_cm,
                     flood_day: h.flood_memory.day,
                     flood_losses,
+                    ditch_worth: h.ditch_worth,
                 },
             )
         })
@@ -3999,7 +4006,8 @@ fn decode_households(
             | Schema::V102
             | Schema::V103
             | Schema::V104
-            | Schema::V105 => {
+            | Schema::V105
+            | Schema::V106 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -4158,6 +4166,16 @@ fn decode_households(
                     });
                 }
                 out
+            },
+            // What digging its ditch is worth to it (schema 106); before, nothing.
+            ditch_worth: {
+                let v = h.ditch_worth();
+                if !(v.is_finite() && v >= 0.0) || (schema < Schema::V106 && v != 0.0) {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} reckons its ditch worth {v}"
+                    )));
+                }
+                v
             },
         });
     }
@@ -4739,6 +4757,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Fire => 48,
         ChronicleKind::Flood => 49,
         ChronicleKind::StormDamage => 50,
+        ChronicleKind::Ditch => 51,
     }
 }
 
@@ -4794,6 +4813,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         48 => Some(ChronicleKind::Fire),
         49 => Some(ChronicleKind::Flood),
         50 => Some(ChronicleKind::StormDamage),
+        51 => Some(ChronicleKind::Ditch),
         _ => None,
     }
 }

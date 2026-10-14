@@ -2560,10 +2560,18 @@ and M6a gives rivers a daily flow.
       `ditches.max_share` of what its reach still carries after the ditches above it. Of that,
       `conveyance` reaches the field and the rest recharges the ground water under the ditch;
       the field keeps `application`, and the rest returns to the river below the intake. The
-      taking is debited from its reach and every reach below, once. Nobody digs or opens a
-      ditch yet: households' choices, weeds and silt, clearing and the observer's view come
-      next. Save schema 105, content API 91, wire 1.72 unchanged (a ditch's earthwork is
-      sent as kind 4 with words).
+      taking is debited from its reach and every reach below, once. Save schema 105, content
+      API 91, wire 1.72 unchanged (a ditch's earthwork is sent as kind 4 with words).
+    - *Households dig ditches (2026-10-14, §9):* once a year each household looks over its
+      fields. For one whose last crop got less than `ditches.short_share` of the water it
+      needed, it weighs a ditch: the grain that water would have grown in an average year,
+      at its own hours a kilogram, over `ditches.life_years`, against the digging at the
+      canal-forming rate. The intake can be on any reach within `max_length_m` whose bed
+      would fall the least gradient. The line may cross no other field, plot or well. Its
+      people dig it as they choose (`work_with_spade_on_ditch`, behaviour `ditch`), and its
+      finishing is told. Once dug, the intake is opened at midnight while the crop grows and
+      its root zone is below the easy-water share, and shut otherwise. Save schema 106
+      (`Household.ditch_worth`), content API 92, wire 1.72 unchanged.
     - Earth kinds `bank` and `ditch` as lines of segments.
     - Water behind a bank only over its crest or through a breach. Overtopping and piping.
     - The issue `flooded`, and the policy `build_bank`, asked in equal shares as a crossing is.
@@ -3431,4 +3439,34 @@ One line each. Don't re-litigate without a reason written next to the entry.
   The world saved and loaded exactly and lived on the same. **Left:** households choosing to dig
   and open a ditch, weeds and silt growing, clearing, the observer drawing ditches (the web
   draws kind 4 as a plain earthwork rectangle for now), and trapped rain.
+
+- **Households dig ditches, as built (2026-10-14, M6b slice BG; ADR-0022 §11; the M6 fire
+  brief §1.11):** no new ADR. **Who and when:** a household, alone, on its day of the year
+  (keyed by the world and the household, as crossings are). One ditch at a time, and none to a
+  field that has one. **What it sees:** its own field's last season, the water the crop needed
+  and got, recorded at the field and kept until the next sowing. It does not see the soil or the
+  river's flow. A field whose crop got less than `short_share` (0.9) of its need is weighed.
+  **Forecast:** the grain lost to water is the crop's average yield on that ground times its
+  area times one less the water factor (ADR-0012 §2's response, the same the harvest uses),
+  valued at the household's own hours a kilogram of that grain. Over `life_years` (20) it must
+  exceed the digging: the channel's cut at `h_per_m3` (8 hours, research 11-12 §2.2's 0.8-1.2
+  m³ a worker-day for forming canals). A 100 m ditch of 0.3 by 0.4 m at 1.5:1 is 36 m³, 288
+  hours, within research 11-12 §2.5 A's 33-50 worker-days for 40 m³. **Site:** a point on any
+  reach within `max_length_m` (400 m) of the field's middle. The bed is taken in half the
+  ditch's depth below the river's water there and cut its depth into the field. Its fall must
+  reach the land profile's least gradient, and its line may cross no other field, plot or
+  well. The best net gain wins. **Its earthwork's ground** is a 2 m square at the intake; the
+  line is the segment's, below the grid. Plots laid later are not yet kept off a ditch's line,
+  a stated limit. **Work:** people choose to dig it like a crossing the household builds, by
+  what each hour is worth (`ditch_worth`, reckoned when chosen and saved), with no duty. Hours
+  dig channel at `h_per_m3`, and its finishing is chronicled (`ChronicleKind::Ditch`).
+  **Opening (design prior: no labour):** at midnight, open while the field's crop grows and its
+  root zone holds less than the easy-water share, shut otherwise. Water reaches the field from
+  the next day's step. **Tested:** with its last crop at half its need, a household lays out a
+  ditch within reach and gradient; with its crop fully watered it does not. It lays out no
+  second ditch while digging. Its people see the work and its worth. Eight hours dig a cubic
+  metre, and the rest finishes it and is told. Sown again with a dry root zone, the ditch is
+  opened and waters the field, and the world saves and loads exactly. **Not yet measured:**
+  how often lived households dig in dry years. **Left:** weeds and silt growing and their
+  clearing, the observer drawing ditches' lines, shared ditches, and trapped rain.
 

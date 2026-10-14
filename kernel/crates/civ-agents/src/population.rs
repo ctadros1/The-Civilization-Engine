@@ -45,6 +45,7 @@ mod crime;
 mod crossings;
 mod deposits;
 mod digging;
+mod ditches;
 mod faction;
 mod fire;
 mod firm;
@@ -2789,6 +2790,7 @@ impl Population {
             crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),
             well: self.well_facts(ctx, &hh, p.id, dark),
             levee: self.levee_facts(ctx, &hh, p.id, field_key, dark),
+            ditch: self.ditch_facts(ctx, &hh, field_key, dark),
             hurt: self
                 .order
                 .hurt_until(p.id)
@@ -4275,6 +4277,7 @@ impl Population {
                 | Behavior::Bridge
                 | Behavior::Well
                 | Behavior::Levee
+                | Behavior::Ditch
                 | Behavior::Douse
                 | Behavior::Strip
                 | Behavior::Pull
@@ -4527,6 +4530,15 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.levee_work(ctx, (h, who), household, bank, hours);
+                    }
+                }
+                Some(Behavior::Ditch) => {
+                    if let Target::Ditch(ditch) = p.act.target {
+                        let rate = def.as_ref().map_or(1.0, |d| d.rate);
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let (who, household) = (p.id, p.household);
+                        self.ditch_work(ctx, who, household, ditch, hours);
                     }
                 }
                 Some(Behavior::Hire) => {
@@ -5892,6 +5904,9 @@ impl Population {
             }
         }
         self.well_reviews(ctx, day);
+        // And the ditches (M6b slice BG): the households whose day it is weigh one, and every
+        // ditch's intake is opened or shut for the day.
+        self.ditches_day(ctx, day);
         // A month ended: its asks and prices per pair of settlements are recorded (M5b slice AQ).
         self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.

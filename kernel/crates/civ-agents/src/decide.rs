@@ -82,6 +82,8 @@ pub struct Facts {
     pub well: Option<WellFacts>,
     /// The flood bank their polity is building, if they may work on it (M6b slice BG).
     pub levee: Option<LeveeFacts>,
+    /// The irrigation ditch their household is digging to its field, if any (M6b slice BG).
+    pub ditch: Option<DitchFacts>,
     /// Whether a blow keeps them from work today (M4c slice AI, step four): they eat, drink, rest,
     /// sleep and keep company, and do no work.
     pub hurt: bool,
@@ -205,6 +207,19 @@ pub struct LeveeFacts {
     pub saves_per_hour: f64,
     pub duty: f64,
     pub full: bool,
+}
+
+/// An irrigation ditch someone's household is digging to its field (M6b slice BG): its
+/// earthwork, where its work is done (its middle), the walk there from home, the work it still
+/// takes, and the hours a year the water it would bring the field is worth to the household,
+/// for each hour of its digging.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DitchFacts {
+    pub ditch: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub left_h: f64,
+    pub saves_per_hour: f64,
 }
 
 /// A payment someone is to carry (M5c slice AV, ADR-0020 §7): where the store set it aside, the
@@ -785,6 +800,10 @@ pub fn candidates(
         // And work on a flood bank to all but those whose polity is building one under a law
         // they know of (M6b slice BG).
         if def.behavior == Behavior::Levee && f.levee.is_none() {
+            continue;
+        }
+        // And digging a ditch to all but those whose household is digging one (M6b slice BG).
+        if def.behavior == Behavior::Ditch && f.ditch.is_none() {
             continue;
         }
         // And tending to all but those with someone ill at home still owed care (M6a slice AZ,
@@ -1640,6 +1659,25 @@ pub fn candidates(
                     Err(why) => excluded.push((id, why)),
                 }
             }
+            Behavior::Ditch => {
+                // Digging the household's irrigation ditch (M6b slice BG), as a crossing the
+                // household builds: nobody else asks it of them.
+                let Some(c) = f.ditch else {
+                    continue;
+                };
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: c.saves_per_hour,
+                    duty: 0.0,
+                    full: false,
+                };
+                match session_at_site(def, w, f, &site, Reason::Ditch, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Ditch(c.ditch), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
+                }
+            }
             Behavior::Douse => {
                 // A load of water carried to a roof a fire threatens (M6b slice BD, step three;
                 // ADR-0022 §6): drawn at home or at the nearest source, walked to the roof and
@@ -2077,6 +2115,7 @@ mod tests {
             crossing: None,
             well: None,
             levee: None,
+            ditch: None,
         }
     }
 

@@ -260,7 +260,7 @@ table Settlements {
 // People.techniques (in a decision receipt, into the content's techniques when it was saved).
 // Douse (schema 91, M6b slice BD, step three): `index` where the water is drawn (a source's cell,
 // or 4294967295 the household's store), `id` the building it is thrown on.
-enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16, Bank = 17 }
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16, Bank = 17, Ditch = 18 }
 
 enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
 
@@ -450,6 +450,8 @@ table Household {
   // Schema 102 (M6b slice BG): what floods cost the household itself, as it saw, oldest first;
   // absent before.
   flood_losses: [FloodLossSave] (id: 21);
+  // Schema 106 (M6b slice BG): what each hour of digging its ditch is worth to it; 0 before.
+  ditch_worth: float (id: 22);
 }
 
 // One day's loss to a flood at one place of a household's own (schema 102, M6b slice BG): the

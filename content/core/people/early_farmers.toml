@@ -1160,3 +1160,19 @@ front_m = 5.0
 # compact; §5.5: event-driven maintenance plus periodic inspection). Design priors.
 mend_crest_m = 0.1
 mend_piping = 0.1
+
+[ditches]                        # irrigation ditches a household digs to its own field (M6b slice BG, ADR-0022 §11); design priors unless cited
+# A channel 0.3 m wide at the bottom and 0.4 m deep with sides of 1.5:1 (research 11-12 §2.3: 1.5:1
+# in ordinary earth).
+bottom_m = 0.3
+depth_m = 0.4
+side_run = 1.5
+# Hours to dig and form a cubic metre of channel (research 11-12 §2.2: 0.8-1.2 m³ a worker-day for
+# excavating and accurately forming canals; one cubic metre an eight-hour day).
+h_per_m3 = 8.0
+# The longest ditch a household lays out, metres, and the years it reckons one serves its field.
+max_length_m = 400.0
+life_years = 20.0
+# A household weighs a ditch for a field whose last crop got less than this share of the water it
+# needed, as its people saw the crop thirst.
+short_share = 0.9

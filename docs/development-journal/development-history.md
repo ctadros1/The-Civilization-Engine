@@ -1898,3 +1898,29 @@ the ditch took, less what returned. It saves, loads and lives on exactly, and a 
 header claiming ditches is refused. Before this commit, the full simcheck workspace suite, all-target
 clippy, formatting, schema freshness, all ten release short-smoke worlds and the web build with
 its 173 unit tests pass.
+
+## 2026-10-14 — BG: households dig ditches
+
+**What changed:** once a year each household looks at its fields' last season. Where a crop
+got much less water than it needed, the household weighs a ditch from the river. It counts the
+grain the missing water cost, at what that grain costs it to grow, over twenty years, against
+the hours of digging at a cubic metre a day. If it is worth it, the household lays the ditch
+out from the best intake within 400 m that falls enough. The line avoids other people's fields,
+plots and wells. Its people dig it as they choose, and its finishing goes in the chronicle.
+After that, its intake is opened while the crop grows and runs short of water. Saves 106,
+content API 92.
+
+**Evidence:** a test sets up a field whose last crop got half its water. The household lays
+out a ditch within reach and gradient, and lays out none when the crop got all it needed. Its
+people see the work and what it is worth. Eight hours dig a cubic metre, and finishing it is
+told. Sown again with a dry root zone, the ditch is opened and waters the field, and the world
+saves and loads exactly. The water test now compares a world with the ditch to one without, since
+households open and shut intakes themselves.
+
+**Not yet measured:** how often households in lived worlds dig ditches after dry years. Before this commit, the full simcheck workspace suite,
+all-target clippy, formatting, schema freshness, all ten release short-smoke worlds and the web
+build with its 173 unit tests pass.
+
+**Open:** weeds and silt, and their clearing; drawing ditches on the map; trapped rain; then
+BH.
+

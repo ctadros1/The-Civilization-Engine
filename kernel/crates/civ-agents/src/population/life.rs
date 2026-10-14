@@ -1686,6 +1686,7 @@ impl Population {
             midden: crate::person::Midden::begun(ctx.now),
             flood_memory: crate::person::FloodMemory::default(),
             flood_losses: Vec::new(),
+            ditch_worth: 0.0,
         });
         for who in [woman, man] {
             let Some(from) = self.person(who).map(|p| p.household) else {

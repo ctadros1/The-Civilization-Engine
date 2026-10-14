@@ -26783,6 +26783,10 @@ impl<'a> EarthworkInfo<'a> {
   pub const VT_BUILDING: ::flatbuffers::VOffsetT = 28;
   pub const VT_WORDS: ::flatbuffers::VOffsetT = 30;
   pub const VT_DEPOSIT: ::flatbuffers::VOffsetT = 32;
+  pub const VT_BANK_A: ::flatbuffers::VOffsetT = 34;
+  pub const VT_BANK_B: ::flatbuffers::VOffsetT = 36;
+  pub const VT_BANK_HEIGHT_M: ::flatbuffers::VOffsetT = 38;
+  pub const VT_BANK_BREACHED: ::flatbuffers::VOffsetT = 40;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -26799,6 +26803,9 @@ impl<'a> EarthworkInfo<'a> {
     builder.add_plot(args.plot);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    builder.add_bank_height_m(args.bank_height_m);
+    if let Some(x) = args.bank_b { builder.add_bank_b(x); }
+    if let Some(x) = args.bank_a { builder.add_bank_a(x); }
     if let Some(x) = args.words { builder.add_words(x); }
     builder.add_done(args.done);
     builder.add_cut_m3(args.cut_m3);
@@ -26808,6 +26815,7 @@ impl<'a> EarthworkInfo<'a> {
     builder.add_w(args.w);
     builder.add_y(args.y);
     builder.add_x(args.x);
+    builder.add_bank_breached(args.bank_breached);
     builder.add_kind(args.kind);
     builder.finish()
   }
@@ -26918,6 +26926,34 @@ impl<'a> EarthworkInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(EarthworkInfo::VT_DEPOSIT, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn bank_a(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(EarthworkInfo::VT_BANK_A, None)}
+  }
+  #[inline]
+  pub fn bank_b(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(EarthworkInfo::VT_BANK_B, None)}
+  }
+  #[inline]
+  pub fn bank_height_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EarthworkInfo::VT_BANK_HEIGHT_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn bank_breached(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(EarthworkInfo::VT_BANK_BREACHED, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for EarthworkInfo<'_> {
@@ -26941,6 +26977,10 @@ impl ::flatbuffers::Verifiable for EarthworkInfo<'_> {
      .visit_field::<u64>("building", Self::VT_BUILDING, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
      .visit_field::<u64>("deposit", Self::VT_DEPOSIT, false)?
+     .visit_field::<Vec2>("bank_a", Self::VT_BANK_A, false)?
+     .visit_field::<Vec2>("bank_b", Self::VT_BANK_B, false)?
+     .visit_field::<f32>("bank_height_m", Self::VT_BANK_HEIGHT_M, false)?
+     .visit_field::<bool>("bank_breached", Self::VT_BANK_BREACHED, false)?
      .finish();
     Ok(())
   }
@@ -26961,6 +27001,10 @@ pub struct EarthworkInfoArgs<'a> {
     pub building: u64,
     pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub deposit: u64,
+    pub bank_a: Option<&'a Vec2>,
+    pub bank_b: Option<&'a Vec2>,
+    pub bank_height_m: f32,
+    pub bank_breached: bool,
 }
 impl<'a> Default for EarthworkInfoArgs<'a> {
   #[inline]
@@ -26981,6 +27025,10 @@ impl<'a> Default for EarthworkInfoArgs<'a> {
       building: 0,
       words: None,
       deposit: 0,
+      bank_a: None,
+      bank_b: None,
+      bank_height_m: 0.0,
+      bank_breached: false,
     }
   }
 }
@@ -27051,6 +27099,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EarthworkInfoBuilder<'a, 'b, 
     self.fbb_.push_slot::<u64>(EarthworkInfo::VT_DEPOSIT, deposit, 0);
   }
   #[inline]
+  pub fn add_bank_a(&mut self, bank_a: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(EarthworkInfo::VT_BANK_A, bank_a);
+  }
+  #[inline]
+  pub fn add_bank_b(&mut self, bank_b: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(EarthworkInfo::VT_BANK_B, bank_b);
+  }
+  #[inline]
+  pub fn add_bank_height_m(&mut self, bank_height_m: f32) {
+    self.fbb_.push_slot::<f32>(EarthworkInfo::VT_BANK_HEIGHT_M, bank_height_m, 0.0);
+  }
+  #[inline]
+  pub fn add_bank_breached(&mut self, bank_breached: bool) {
+    self.fbb_.push_slot::<bool>(EarthworkInfo::VT_BANK_BREACHED, bank_breached, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EarthworkInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     EarthworkInfoBuilder {
@@ -27083,6 +27147,10 @@ impl ::core::fmt::Debug for EarthworkInfo<'_> {
       ds.field("building", &self.building());
       ds.field("words", &self.words());
       ds.field("deposit", &self.deposit());
+      ds.field("bank_a", &self.bank_a());
+      ds.field("bank_b", &self.bank_b());
+      ds.field("bank_height_m", &self.bank_height_m());
+      ds.field("bank_breached", &self.bank_breached());
       ds.finish()
   }
 }
@@ -35093,6 +35161,255 @@ impl ::core::fmt::Debug for CoverageSource<'_> {
       ds.finish()
   }
 }
+pub enum FireHelpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct FireHelp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for FireHelp<'a> {
+  type Inner = FireHelp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> FireHelp<'a> {
+  pub const VT_ADULTS_NOW: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NEAREST_WALK_MIN: ::flatbuffers::VOffsetT = 6;
+  pub const VT_UNKNOWN_ROUTES: ::flatbuffers::VOffsetT = 8;
+  pub const VT_WATER_AVAILABLE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_FIRE_EPISODES: ::flatbuffers::VOffsetT = 12;
+  pub const VT_HELPED_EPISODES: ::flatbuffers::VOffsetT = 14;
+  pub const VT_HELPERS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_WATER_L: ::flatbuffers::VOffsetT = 18;
+  pub const VT_FIRST_WORK_MIN: ::flatbuffers::VOffsetT = 20;
+  pub const VT_OBSERVER_EPISODES: ::flatbuffers::VOffsetT = 22;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    FireHelp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args FireHelpArgs
+  ) -> ::flatbuffers::WIPOffset<FireHelp<'bldr>> {
+    let mut builder = FireHelpBuilder::new(_fbb);
+    builder.add_observer_episodes(args.observer_episodes);
+    builder.add_first_work_min(args.first_work_min);
+    builder.add_water_l(args.water_l);
+    builder.add_helpers(args.helpers);
+    builder.add_helped_episodes(args.helped_episodes);
+    builder.add_fire_episodes(args.fire_episodes);
+    builder.add_unknown_routes(args.unknown_routes);
+    builder.add_nearest_walk_min(args.nearest_walk_min);
+    builder.add_adults_now(args.adults_now);
+    builder.add_water_available(args.water_available);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn adults_now(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(FireHelp::VT_ADULTS_NOW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn nearest_walk_min(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FireHelp::VT_NEAREST_WALK_MIN, Some(-1.0)).unwrap()}
+  }
+  #[inline]
+  pub fn unknown_routes(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(FireHelp::VT_UNKNOWN_ROUTES, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn water_available(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(FireHelp::VT_WATER_AVAILABLE, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn fire_episodes(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(FireHelp::VT_FIRE_EPISODES, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn helped_episodes(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(FireHelp::VT_HELPED_EPISODES, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn helpers(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(FireHelp::VT_HELPERS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn water_l(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FireHelp::VT_WATER_L, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn first_work_min(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FireHelp::VT_FIRST_WORK_MIN, Some(-1.0)).unwrap()}
+  }
+  #[inline]
+  pub fn observer_episodes(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(FireHelp::VT_OBSERVER_EPISODES, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for FireHelp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("adults_now", Self::VT_ADULTS_NOW, false)?
+     .visit_field::<f32>("nearest_walk_min", Self::VT_NEAREST_WALK_MIN, false)?
+     .visit_field::<u32>("unknown_routes", Self::VT_UNKNOWN_ROUTES, false)?
+     .visit_field::<bool>("water_available", Self::VT_WATER_AVAILABLE, false)?
+     .visit_field::<u32>("fire_episodes", Self::VT_FIRE_EPISODES, false)?
+     .visit_field::<u32>("helped_episodes", Self::VT_HELPED_EPISODES, false)?
+     .visit_field::<u32>("helpers", Self::VT_HELPERS, false)?
+     .visit_field::<f32>("water_l", Self::VT_WATER_L, false)?
+     .visit_field::<f32>("first_work_min", Self::VT_FIRST_WORK_MIN, false)?
+     .visit_field::<u32>("observer_episodes", Self::VT_OBSERVER_EPISODES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct FireHelpArgs {
+    pub adults_now: u32,
+    pub nearest_walk_min: f32,
+    pub unknown_routes: u32,
+    pub water_available: bool,
+    pub fire_episodes: u32,
+    pub helped_episodes: u32,
+    pub helpers: u32,
+    pub water_l: f32,
+    pub first_work_min: f32,
+    pub observer_episodes: u32,
+}
+impl<'a> Default for FireHelpArgs {
+  #[inline]
+  fn default() -> Self {
+    FireHelpArgs {
+      adults_now: 0,
+      nearest_walk_min: -1.0,
+      unknown_routes: 0,
+      water_available: false,
+      fire_episodes: 0,
+      helped_episodes: 0,
+      helpers: 0,
+      water_l: 0.0,
+      first_work_min: -1.0,
+      observer_episodes: 0,
+    }
+  }
+}
+
+pub struct FireHelpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FireHelpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_adults_now(&mut self, adults_now: u32) {
+    self.fbb_.push_slot::<u32>(FireHelp::VT_ADULTS_NOW, adults_now, 0);
+  }
+  #[inline]
+  pub fn add_nearest_walk_min(&mut self, nearest_walk_min: f32) {
+    self.fbb_.push_slot::<f32>(FireHelp::VT_NEAREST_WALK_MIN, nearest_walk_min, -1.0);
+  }
+  #[inline]
+  pub fn add_unknown_routes(&mut self, unknown_routes: u32) {
+    self.fbb_.push_slot::<u32>(FireHelp::VT_UNKNOWN_ROUTES, unknown_routes, 0);
+  }
+  #[inline]
+  pub fn add_water_available(&mut self, water_available: bool) {
+    self.fbb_.push_slot::<bool>(FireHelp::VT_WATER_AVAILABLE, water_available, false);
+  }
+  #[inline]
+  pub fn add_fire_episodes(&mut self, fire_episodes: u32) {
+    self.fbb_.push_slot::<u32>(FireHelp::VT_FIRE_EPISODES, fire_episodes, 0);
+  }
+  #[inline]
+  pub fn add_helped_episodes(&mut self, helped_episodes: u32) {
+    self.fbb_.push_slot::<u32>(FireHelp::VT_HELPED_EPISODES, helped_episodes, 0);
+  }
+  #[inline]
+  pub fn add_helpers(&mut self, helpers: u32) {
+    self.fbb_.push_slot::<u32>(FireHelp::VT_HELPERS, helpers, 0);
+  }
+  #[inline]
+  pub fn add_water_l(&mut self, water_l: f32) {
+    self.fbb_.push_slot::<f32>(FireHelp::VT_WATER_L, water_l, 0.0);
+  }
+  #[inline]
+  pub fn add_first_work_min(&mut self, first_work_min: f32) {
+    self.fbb_.push_slot::<f32>(FireHelp::VT_FIRST_WORK_MIN, first_work_min, -1.0);
+  }
+  #[inline]
+  pub fn add_observer_episodes(&mut self, observer_episodes: u32) {
+    self.fbb_.push_slot::<u32>(FireHelp::VT_OBSERVER_EPISODES, observer_episodes, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FireHelpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    FireHelpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<FireHelp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for FireHelp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("FireHelp");
+      ds.field("adults_now", &self.adults_now());
+      ds.field("nearest_walk_min", &self.nearest_walk_min());
+      ds.field("unknown_routes", &self.unknown_routes());
+      ds.field("water_available", &self.water_available());
+      ds.field("fire_episodes", &self.fire_episodes());
+      ds.field("helped_episodes", &self.helped_episodes());
+      ds.field("helpers", &self.helpers());
+      ds.field("water_l", &self.water_l());
+      ds.field("first_work_min", &self.first_work_min());
+      ds.field("observer_episodes", &self.observer_episodes());
+      ds.finish()
+  }
+}
 pub enum CoverageHomeOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -35117,6 +35434,7 @@ impl<'a> CoverageHome<'a> {
   pub const VT_BY_RIGHT: ::flatbuffers::VOffsetT = 14;
   pub const VT_DREW: ::flatbuffers::VOffsetT = 16;
   pub const VT_WORDS: ::flatbuffers::VOffsetT = 18;
+  pub const VT_FIRE_HELP: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -35130,6 +35448,7 @@ impl<'a> CoverageHome<'a> {
     let mut builder = CoverageHomeBuilder::new(_fbb);
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
+    if let Some(x) = args.fire_help { builder.add_fire_help(x); }
     if let Some(x) = args.words { builder.add_words(x); }
     if let Some(x) = args.drew { builder.add_drew(x); }
     if let Some(x) = args.by_right { builder.add_by_right(x); }
@@ -35196,6 +35515,13 @@ impl<'a> CoverageHome<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(CoverageHome::VT_WORDS, None)}
   }
+  #[inline]
+  pub fn fire_help(&self) -> Option<FireHelp<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<FireHelp>>(CoverageHome::VT_FIRE_HELP, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for CoverageHome<'_> {
@@ -35212,6 +35538,7 @@ impl ::flatbuffers::Verifiable for CoverageHome<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<CoverageSource>>("by_right", Self::VT_BY_RIGHT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CoverageSource>>>>("drew", Self::VT_DREW, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("words", Self::VT_WORDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<FireHelp>>("fire_help", Self::VT_FIRE_HELP, false)?
      .finish();
     Ok(())
   }
@@ -35225,6 +35552,7 @@ pub struct CoverageHomeArgs<'a> {
     pub by_right: Option<::flatbuffers::WIPOffset<CoverageSource<'a>>>,
     pub drew: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CoverageSource<'a>>>>>,
     pub words: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub fire_help: Option<::flatbuffers::WIPOffset<FireHelp<'a>>>,
 }
 impl<'a> Default for CoverageHomeArgs<'a> {
   #[inline]
@@ -35238,6 +35566,7 @@ impl<'a> Default for CoverageHomeArgs<'a> {
       by_right: None,
       drew: None,
       words: None,
+      fire_help: None,
     }
   }
 }
@@ -35280,6 +35609,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CoverageHomeBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CoverageHome::VT_WORDS, words);
   }
   #[inline]
+  pub fn add_fire_help(&mut self, fire_help: ::flatbuffers::WIPOffset<FireHelp<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<FireHelp>>(CoverageHome::VT_FIRE_HELP, fire_help);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CoverageHomeBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     CoverageHomeBuilder {
@@ -35305,6 +35638,7 @@ impl ::core::fmt::Debug for CoverageHome<'_> {
       ds.field("by_right", &self.by_right());
       ds.field("drew", &self.drew());
       ds.field("words", &self.words());
+      ds.field("fire_help", &self.fire_help());
       ds.finish()
   }
 }

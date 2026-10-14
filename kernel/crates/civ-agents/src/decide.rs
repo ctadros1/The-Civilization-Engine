@@ -110,6 +110,18 @@ pub struct TendFacts {
     pub owed: f64,
 }
 
+/// How a load can be brought to a threatened roof.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FireWater {
+    /// Where the water is drawn, as [`Target::Douse`]'s `from`, and where to stand to draw it.
+    pub from: u32,
+    pub fill_at: (f32, f32),
+    /// Minutes to draw a load there.
+    pub fill_min: u32,
+    /// Minutes of walking: to the water, then to the roof.
+    pub walk_min: f64,
+}
+
 /// A roof a fire someone knows of threatens (M6b slice BD, step three; ADR-0022 §6): what saving
 /// it is worth to them, and how they would bring a load of water to it.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -119,19 +131,17 @@ pub struct FireTarget {
     pub at: (f32, f32),
     /// Points: saving it, by whose it is and how near it stands to catching.
     pub points: f64,
-    /// Where the water is drawn, as [`Target::Douse`]'s `from`, and where to stand to draw it.
-    pub from: u32,
-    pub fill_at: (f32, f32),
-    /// Minutes to draw a load there.
-    pub fill_min: u32,
-    /// Minutes of walking: to the water, then to the roof.
-    pub walk_min: f64,
+    /// A reachable water trip; its absence leaves stripping and salvage available.
+    pub water: Option<FireWater>,
     /// Points: stripping its covering, less what that costs its household; none when it is not
     /// theirs to strip (M6b slice BD, step four).
     pub strip_points: Option<f64>,
     /// Points: carrying a load of their household's goods out from under it; none when it is not
     /// their household's or keeps nothing that burns.
     pub salvage_points: Option<f64>,
+    /// Pulling down the whole building, where a crew can stand outside its roof.
+    pub pull_points: Option<f64>,
+    pub pull_at: (f32, f32),
     /// Where goods carried out are set down, out of the fire's way, metres.
     pub away: (f32, f32),
     /// Minutes of walking straight to the roof.
@@ -1595,24 +1605,31 @@ pub fn candidates(
                 let Some(fire) = f.fire.as_ref() else {
                     continue;
                 };
-                let worth = |t: &FireTarget| t.points - w.w_walk_hour * t.walk_min / 60.0;
-                let Some(t) = fire.targets.iter().max_by(|a, b| {
-                    worth(a)
-                        .total_cmp(&worth(b))
-                        .then_with(|| b.building.cmp(&a.building))
-                }) else {
+                let worth = |(t, water): (&FireTarget, FireWater)| {
+                    t.points - w.w_walk_hour * water.walk_min / 60.0
+                };
+                let Some((t, water)) = fire
+                    .targets
+                    .iter()
+                    .filter_map(|t| t.water.map(|water| (t, water)))
+                    .max_by(|a, b| {
+                        worth(*a)
+                            .total_cmp(&worth(*b))
+                            .then_with(|| b.0.building.cmp(&a.0.building))
+                    })
+                else {
                     continue;
                 };
                 term(&mut terms, Reason::FireThreatens, t.points);
                 term(
                     &mut terms,
                     Reason::Walking,
-                    -w.w_walk_hour * t.walk_min / 60.0,
+                    -w.w_walk_hour * water.walk_min / 60.0,
                 );
                 let steps = vec![
-                    Step::Walk { to: t.fill_at },
+                    Step::Walk { to: water.fill_at },
                     Step::Work {
-                        minutes: t.fill_min.max(1),
+                        minutes: water.fill_min.max(1),
                     },
                     Step::Walk { to: t.at },
                     Step::Work {
@@ -1621,23 +1638,21 @@ pub fn candidates(
                 ];
                 let target = Target::Douse {
                     building: t.building,
-                    from: t.from,
+                    from: water.from,
                 };
                 out.push(finish(id, target, terms, steps));
             }
-            Behavior::Strip | Behavior::Salvage => {
+            Behavior::Strip | Behavior::Salvage | Behavior::Pull => {
                 // Tearing a threatened roof's covering off, or carrying the household's goods out
                 // from under it (M6b slice BD, step four; ADR-0022 §6).
                 let Some(fire) = f.fire.as_ref() else {
                     continue;
                 };
                 let strip = def.behavior == Behavior::Strip;
-                let points_of = |t: &FireTarget| {
-                    if strip {
-                        t.strip_points
-                    } else {
-                        t.salvage_points
-                    }
+                let points_of = |t: &FireTarget| match def.behavior {
+                    Behavior::Strip => t.strip_points,
+                    Behavior::Pull => t.pull_points,
+                    _ => t.salvage_points,
                 };
                 let worth =
                     |t: &FireTarget| points_of(t).map(|p| p - w.w_walk_hour * t.to_roof_min / 60.0);
@@ -1665,7 +1680,9 @@ pub fn candidates(
                 let work = Step::Work {
                     minutes: def.min_minutes.max(1),
                 };
-                let steps = if strip {
+                let steps = if def.behavior == Behavior::Pull {
+                    vec![Step::Walk { to: t.pull_at }, work]
+                } else if strip {
                     vec![Step::Walk { to: t.at }, work]
                 } else {
                     vec![
@@ -2101,6 +2118,73 @@ mod tests {
             &|| Err(Reason::WouldNotTake),
             &Vec::new,
         )
+    }
+
+    #[test]
+    fn no_water_trip_excludes_dousing_without_excluding_stripping_or_salvage() {
+        let defs = [Behavior::Douse, Behavior::Strip, Behavior::Salvage]
+            .into_iter()
+            .map(|b| activity("fire work", b, Vec::new(), 1.0))
+            .collect::<Vec<_>>();
+        let shop = Workshop {
+            free_tools: &[],
+            held_tools: &[],
+            best_make: &|_, _| Err((Reason::NoMaterials, None)),
+            makes_tool: &|_| false,
+            knows: &|_| true,
+        };
+        let target = FireTarget {
+            building: PermanentId::from_raw(7).expect("id"),
+            at: (10.0, 0.0),
+            points: 20.0,
+            water: None,
+            strip_points: Some(10.0),
+            salvage_points: Some(10.0),
+            pull_points: None,
+            pull_at: (0.0, 0.0),
+            away: (25.0, 0.0),
+            to_roof_min: 1.0,
+        };
+        let run = |water| {
+            let f = Facts {
+                fire: Some(FireFacts {
+                    targets: vec![FireTarget { water, ..target }],
+                }),
+                ..facts()
+            };
+            candidates(
+                &defs,
+                &weights(),
+                &f,
+                &limits(),
+                &|_| None,
+                &|_| Ok(field()),
+                None,
+                &|| None,
+                &|| None,
+                &|| Err(Reason::NoReport),
+                &|| None,
+                Err(Reason::Built),
+                &shop,
+                &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
+                &Vec::new,
+            )
+            .0
+            .into_iter()
+            .map(|c| c.scored.def)
+            .collect::<Vec<_>>()
+        };
+        assert_eq!(run(None), vec![1, 2]);
+        assert_eq!(
+            run(Some(FireWater {
+                from: crate::person::FROM_STORE,
+                fill_at: facts().home,
+                fill_min: 1,
+                walk_min: 1.0
+            })),
+            vec![0, 1, 2]
+        );
     }
 
     #[test]

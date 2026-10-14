@@ -1,7 +1,7 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
-Implementation status (2026-10-11): **M0–M3c are implemented**:
+Implementation status (2026-10-14): **M0–M3c are implemented**:
 world and village life, the early economy, knowledge and building, daily weather, soils and
 fertility, and the Detailed/Accelerated time modes. **M2's kernel library and C interface are
 implemented; its Unreal client remains future work.** **M4, Councils, law and crime, is
@@ -18,8 +18,13 @@ lived demo. **M6a, Water and sickness, is implemented**, including the cholera d
 incident views, and household and polity responses to suspected sources. **M6b, Fire, masonry and
 floods, is in progress:** fire behavior, its observer view, household ignitions, noticing and
 alarms, water carried to threatened roofs, roof stripping and goods salvage are implemented,
-along with the dashboard's fire-rate row. Masonry, floods, banks and ditches, building rules and
-the M6b demo remain planned. M6c, war and conquest, is future work. See §7 for scope and §9 for
+along with the dashboard's Fires row. Masonry, brick and tile, flood depths and wet-floor
+damage, evacuation, storm uplift and flood/storm kernel commands are implemented. BD adds crew demolition, dated fire accounts, response explanations, the Help at a fire lens
+and a published ignition sweep; spontaneous crews and broad response calibration remain unclaimed.
+BG begins with saved physical bank segments, conservative river-flood barriers, borrow storage
+and conditional overtopping erosion with explicit washed soil. Voluntary bank
+work, maintenance, trapped rain, ditches, building rules and the M6b demo remain planned.
+M6c, war and conquest, is future work. See §7 for scope and §9 for
 implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
@@ -2409,7 +2414,50 @@ and M6a gives rivers a daily flow.
       goods out from under a threatened roof of its, and its fire, if it comes, does not reach
       them. Each is recorded and the fire's page tells it (saves 92, content API 85). Measured:
       with water at hand people chose to carry water almost every time; in five worlds no roof
-      was stripped and two loads of goods were carried out. Pulling a building down waits.
+      was stripped and two loads of goods were carried out. Crew demolition was added later; see below.
+    - *No-water choice repair (2026-10-14, §9):* stripping and salvage remain available
+      when no known water trip is reachable; only dousing needs that trip. Stored water still
+      supplies a load. Save schema 96, content API 85 and wire 1.69 remain unchanged.
+    - *Step five implemented (2026-10-11, §9):* the dashboard's Fires row reports escapes per
+      1,000 household-years, put-out escapes, buildings burned, spread and deaths; observer-set
+      fires are separate. The later rate sweep is reported below.
+    - *Monthly chronicle implemented (2026-10-14, §9):* on the first day of a month,
+      settlement entries count the previous month's recorded household escapes and outcomes.
+      Observer-set fires have no household escape and are excluded; quiet months add no entry.
+      Save schema 97 explicitly loads schema 96 without inventing earlier summaries.
+    - *Crew demolition implemented (2026-10-14, §9):* an equipped crew works outside an empty
+      threatened roof, with ownership or an owner awake on site throughout. Shared minute work
+      is counted once; finishing loses the parts and leaves a ruin, recorded on the fire page
+      and chronicle. Save schema 98 stores partial work and explicitly migrates 97 with none;
+      content API 86 authors crew size, hours per area and choice cost. Controlled scheduled
+      crews are tested; autonomous crew formation and response calibration are not claimed.
+    - *Named accounts and reporting implemented (2026-10-14, §9):* being inside, waking to or
+      seeing a roof burning creates a dated account naming its building, not a cause. Ordinary
+      household/hearth contact carries it with its source. A generic alarm does not prevent a
+      later direct sighting. Fire task awareness uses recent personal records and connected
+      physical scenes, independently of historical episode grouping or spread diagnostics.
+      Pages date the escape, notice, alarm and recorded water, stripping, salvage and demolition
+      work; physical stages explain what happened. A long response chain shows its first thirty
+      work steps with complete quantity summaries. Save schema 99 migrates 98 without invented
+      named accounts; content API 86 stays, wire 1.70 appends claim kind 7.
+    - *Help at a fire lens implemented (2026-10-14, §9):* one current probe counts healthy
+      awake adults at home whose actual directed walk is at most five minutes, apart from those
+      already doing fire work. Water by right or a stored load is shown separately. Willingness
+      and useful work are not forecast. Thirty-day records show exposed household roofs,
+      unserved episodes, actual helpers, water and earliest work; completed demolition crews
+      count. Observer-set exposures are marked. Wire 1.71 appends FireHelp and CoverageHome
+      field 8; save schema 99 and content API 86 stay unchanged.
+    - *Ignition sweep implemented (2026-10-14, §9):* the runner measures settings 1, 3, 10,
+      30 and 100 on final BD behavior, with daily household exposure and separate notices,
+      containment, losses, water and labor. Five-year seed-2 arms give about 61 household-years
+      each and 0, 1, 1, 2 and 6 escapes; no hazard is tuned from the tiny sample. The report and
+      CSV are in docs/calibration/. The dashboard separates all observer-episode losses from
+      natural losses. Completed mechanics do not imply calibrated spontaneous crew formation
+      or complete personal visibility; these limits remain recorded.
+    - *BE persistence repair (2026-10-13):* fire caution by covering and wall kind is now saved
+      in schema 94; saves through 93 begin with no remembered fire losses, since none was stored.
+      The ignition sweep is reported below. Scene awareness remains a
+      coarse connected-scene model, without terrain occlusion or individual sight bounds.
   - **BE**: masonry, brick and tile.
     - Goods (mud brick, brick, roof tile, quicklime), a kiln, and techniques. Founders bring
       rubble walling and mud brick; firing and lime burning come by finding.
@@ -2438,7 +2486,38 @@ and M6a gives rivers a daily flow.
     - High-water and storm-damage incidents with flood and storm episodes.
     - The flood and storm tools, flood water on the map as a raster of depth by day, and the
       dashboard's flood row.
-  - **BG**: banks and ditches.
+    - *Partially implemented (2026-10-13, §9):* hydraulic stage and HAND storage curves, daily
+      fordability and wading limits, wet-floor goods loss, crop submergence, evacuation, flood
+      memory, uplift damage, incidents/episodes and flood/storm commands (wire 1.69, saves 93).
+      *Command repair (save schema 95):* river overrides persist, expire on their requested day,
+      and route added runoff downstream; the storm tool changes today's wind and direction
+      while leaving the natural weather series unchanged. Invalid tool inputs and malformed
+      saved discharge arrays are refused. Old snapshots have no recoverable runoff request
+      and migrate with no active override.
+      *Attribution and storm repair (save schema 96):* hazards keep actual observer inputs;
+      old records have an explicitly unknown source. Covering groups keep physical storm
+      evaluation markers across saves, and one storm records one incident per building.
+      *Cadence and refuge repair (2026-10-14):* depth refreshes and extra structural checks
+      add no exposure days or repeated spoilage. Loss is attributed to the building's reach.
+      Field memory reads today's water; supplies are planned and received at the chosen refuge.
+      A preliminary ungraded Floods and storms dashboard row reports cumulative counters.
+      Crossing scour, corrected local/exposure counts, observer partitions and flood gates remain
+      open. Review concerns and coverage
+      limits are recorded in the development journal; these are not a completed BF gate.
+  - **BG**: banks and ditches, in progress.
+    - *Physical bank step (2026-10-14, §9):* straight sub-grid segments, a trapezoidal
+      volume and explicit dedicated borrow pit. Compacted fill consumes excavated earth at
+      its stored density ratio. Current construction determines crest height; sound edges
+      exclude river floodwater below the crest, but end runs and overtopping admit it.
+      Excluded water occupies connected storage; a sill's partial filling preserves volume.
+      Save schema 100 migrates 99 with no invented banks and refuses invalid geometry,
+      duplicate links and unsupported kinds. Wire 1.72 draws saved centre-lines.
+      Controlled engineering fixtures exercise these mechanisms; no adopted law or chosen
+      labour is claimed. Flood storage now includes bank-associated changed ground and
+      borrow depressions, even after a breach. Actual overtopping now lowers crests with
+      duration and retains removed soil in a washed-sediment stock. Save schema 101 adds
+      that stock; content API 87 adds its strict authored erosion prior. Piping, upkeep,
+      rain ponding, voluntary public work and irrigation remain the following BG steps.
     - Earth kinds `bank` and `ditch` as lines of segments.
     - Water behind a bank only over its crest or through a breach. Overtopping and piping.
     - The issue `flooded`, and the policy `build_bank`, asked in equal shares as a crossing is.
@@ -3112,9 +3191,79 @@ One line each. Don't re-litigate without a reason written next to the entry.
 
 - **Floods and storms, as built (2026-10-13, M6b slice BF; ADR-0022 §8, §9):**
   **Hydraulics & floodplain:** Reach hydraulic geometry with width, slope, and Manning roughness $n=0.035$; bankfull discharge $Q_{bf} = 1.5 \times Q_{mean}$ and stage $d_{bf} = (n Q_{bf} / (w S^{0.5}))^{0.6}$. Height Above Nearest Drainage (HAND) precomputed from D8 flow routing into reach compartments. Inundation extent and depth calculated using reach transit time ($L / V_{bf}$) and cumulative elevation-storage curves, ensuring mass conservation and natural overbank stage.
-  **Fords & walkability:** Dynamic daily fordability based on river stage; wading threshold restricts deep cells ($>0.6\text{ m}$) from being walked into.
+  **Fords & walkability:** Dynamic daily fordability based on river stage; wading threshold restricts deep cells ($>0.5\text{ m}$) from being walked into.
   **Impacts:** Water above floor spoils perishable/food floor goods at depth-dependent rates while preserving durables; wetness wears daub and mud brick; submerged crops track flood days; people evacuate flooded homes to dry kin homes or settlement hearth.
   **Storms & uplift:** Monthly wind gusts draw uplift loads ($q = \frac{1}{2}\rho V^2$); covering uplift capacity calibrated with material-specific thresholds (thatch $600 + 600 \times Q$, tile $1500 + 1000 \times (1 - \text{loss})$); torn coverings record storm damage incidents and episodes without triggering premature structural collapse.
   **God tools:** `RaiseRiver` and `SendStorm` commands exposed over wire schema (wire 1.69) with observer responses, queries (`GetFlood`, `GetStorm`), and incident feeds. Refusal, never repair in save schema 93.
   Workspace tests (`simcheck`), clippy (`-D warnings`), formatting, web vitest suites, and all 10 smoke seeds pass cleanly.
 
+
+- **BE/BF verification (2026-10-13):** latest main `bb27093`; fire-caution persistence repaired in save schema 94 (wire 1.69, content API 85 unchanged). Saves through 93 contain no fire-caution records and explicitly migrate to empty memory. BF follow-ups are listed in the development journal and authorized for repair before returning to BD. No milestone completion is implied.
+
+- **BF route-cache repair (2026-10-13):** a daily hydraulic revision no longer invalidates travel fields when effective walking costs are identical. Route keys derive from the walking grid and rebuild identically on load; daily source and land facts are still refreshed. The knowledge browser check now expects BE's fourteen founder techniques, keeping firing and lime burning for later learning. Verification results are recorded in the journal.
+
+- **BF delivery repair (2026-10-13):** the coastal smoke failure was captured: members carried water while doing other tasks after a failed return walk discarded its deposit step. Loaded walks now preserve and retry delivery; stranded loads finish delivery before new tasks. A home separated from its hearth by a closed ford plans from its own walking catchment. The levy-grievance fixture supplies reserves so it exercises payment rather than assuming a heavy levy is affordable after any harvest. Production levy rules are unchanged.
+
+- **Fire response fixture (2026-10-13):** a three-world carrying comparison failed under one random identity and passed when the unchanged binary ran again. The paired fire-response fixture now fixes world identity so scheduler tie-breaks remain controlled; all fifteen fire tests pass. Production fire and response parameters are unchanged. Whole-suite validation is recorded in the journal.
+
+- **BF command duration and wind repair (2026-10-13):** save schema 95 appends active runoff overrides (reach, minimum flow, exclusive expiry day, recorded influence). Daily routing passes only the additional flow downstream, including at confluences; the natural downstream discharge already includes its tributaries. A repeated tool use on one reach replaces its active override. This keeps the existing command's “raise to” meaning: it never lowers stronger natural or upstream flow. The tool lasts 1–365 days. A storm command changes today's speed, gust and from-direction, leaving the latent wind anomalies and monthly natural storm series unchanged. Non-finite/non-positive strengths and directions outside [0,360) are refused before mutation. Saved discharges must have the exact reach count, be finite and non-negative; overrides require a valid flood influence, reach, future expiry and unique reach. Saves through 94 contain no recoverable requested flow and migrate with no active override. Content API 85 and wire 1.69 are unchanged. Episode origins, once-per-event storm damage, daily flood accounting, scour and observer controls remain separate follow-ups.
+
+- **BF provenance and storm evaluations (2026-10-13):** save schema 96 appends recorded origins to flood/storm incidents and episodes, and covering-group evaluation markers to land. Actual added runoff carries its influence downstream; a minimum below existing flow adds no water or attribution. Storm pulses carry their recorded input into damage records, while natural damage carries no observer input. The observer no longer infers a cause from whichever earlier intervention it finds. Saves through 95 migrate historical origins as unknown. Their current natural daily storm is treated as already evaluated on installed coverings; no old damage is undone. A current-schema save keeps each group/day/pulse marker exactly, so repair or fire-triggered load checks cannot apply the same uplift again. Several torn groups create one building incident, and shelter is refreshed when only covering changes. Storm episodes close at the end of their calendar day. Invalid numeric records, episode links, origin references and markers are refused. Pages report absent observations and unrecorded weather instead of fabricating sightings or rain. Content API 85 and wire 1.69 are unchanged. Daily flood accounting, local exposure counts, scour, dashboard and observer controls remain open.
+
+- **BF daily exposure and refuge supplies (2026-10-14):** depth refreshes derive today's water without advancing time; building wetness and crop submergence advance once in the land's daily step. Flood floor loss runs only in the daily building check, after high-water records update, and belongs to the building's reach and its episode. Other checks still weigh structural loads without applying another day of flood loss. Household memory reads current field depth, so an old peak no longer refreshes it every day. A wet home's supplies are planned from and delivered at the hearth already chosen for meals and sleep; a saved loaded return to that home redirects there, and deposit occurs only on arrival. The home and ownership stay as recorded. This repairs declared daily cadence and derived routing; save schema 96, content API 85 and wire 1.69 remain unchanged, and previously recorded counters are preserved. Wider exposure accounting, kin refuge selection, scour and observer controls remain open.
+
+- **BD choices without a water route (2026-10-14):** a threatened roof remains a candidate when the person has no known reachable water trip. Only carrying water requires that trip; stripping and salvage keep their own eligibility, costs and walking terms. A controlled facts fixture checks absent and stored water, and a decision fixture checks all three candidate kinds. No content or save meaning changes: schema 96, content API 85, wire 1.69. Crew demolition, fire seen and told, reporting, the Help at a fire lens and the ignition sweep remain open.
+
+- **BD monthly fire reporting (2026-10-14):** an appended FireStep::Month counts the previous calendar month's recorded household escapes by settlement: put out, reached a roof, went out without catching, or still growing. Observer-set fires are excluded; quiet months produce no entry. The aggregate carries no individual fire link. Save schema 97 has an explicit schema-96 path, preserving existing records without invented historical summaries. Content API 85 and wire 1.69 stay unchanged. Full fire pages, named fire accounts, the help lens and calibration remain open.
+
+- **BD crew demolition (2026-10-14):** a physical project belongs to the building; completed fire-response records belong to the fire history. Every credited interval requires the crew, age/health eligibility, axes, an empty building and current leave. Each shared minute is credited once. Save schema 98 appends physical progress and completed records; schemas through 97 migrate with neither. Content API 86 adds `pull_crew`, `pull_h_per_m2` and `pull_cost`; core uses 2, 0.03 hours/m² and 0.8. The controlled scheduler tests exercise real work; they do not establish autonomous crew formation under the default choice weights.
+
+- **M6b dashboard documentation correction (2026-10-14):** BF already supplies an ungraded `Floods and storms` row. Earlier follow-up notes incorrectly called the row absent; its local/exposure counts, observer-origin partitions and grading remain incomplete. The Fires row also needs to keep observer-caused spread and deaths out of natural losses; that reporting repair is being prepared with calibration.
+
+- **No-water fire-choice ten-year follow-up (2026-10-14):** the additional release smoke on `ba5cd14` passes all ten worlds and the matrix survival gate; eight bands survive, coastal seed 5 and valley seed 5 die out as permitted. It validates that source before the crew-demolition change, not later preparations; contended wall times are not a benchmark.
+
+- **BD found-burning accounts and physical scenes (2026-10-14):** direct records create shared immutable dated accounts, carried by actual household/hearth contact, with no asserted cause. Heard alarms remain distinct from direct sightings. Risk facts no longer use historical episode grouping or spread diagnostics to extend awareness: recent personal records anchor a connected physical scene. A historical regrouping test keeps a distant fire unknown. This remains coarse scene awareness, not full individual visibility or terrain occlusion. Save schema 99 adds the claim's fire reference and explicitly reads 98 without backfill; invalid references, dates and mixed claim payloads are refused. Wire 1.70 appends HeardLine kind 7 under ADR-0001; existing fields retain their ids and types. Content API 86 stays unchanged.
+
+- **BD Help at a fire lens (2026-10-14):** potential help is a bounded current directed-walking probe, with route-budget exhaustion reported as inconclusive, never unreachable. Available adults, rights-based water and stored loads do not imply willingness or future work. Actual thirty-day help comes only from water, stripping, salvage and completed demolition records; unserved household-episode exposures remain in the denominator. Observer-set exposures are marked separately. The kernel supplies the facts; the web draws them and switches between fire and water lenses without using stale responses. Wire 1.71 appends typed FireHelp/CoverageHome fields under ADR-0001; snapshots 99 and content API 86 stay unchanged. No large-population query-performance claim is made.
+
+- **BD ignition sensitivity and observer losses (2026-10-14):** final BD behavior is swept at nominal 1, 3, 10, 30 and 100/K household-years by scaling activity hazards, never incident counts. Daily exposure is 61.071 household-years per arm; actual rates are 0, 16.374, 16.374, 32.749 and 98.246/K. The highest arm has six escapes, four put out, three roof fires, one spread, one death, 45 L applied and ten minutes of response work. Two roof fires were noticed and one was not. No stripping, salvage or completed demolition is observed; no core prior is tuned and no complete response fit is claimed. The reproducible runner, CSV and source/version notes are in docs/calibration/fire-ignition-sweep.md. The Fires row now excludes whole observer-set episodes from natural losses and reports their buildings/spread/deaths separately. Save schema 99, content API 86 and wire 1.71 stay unchanged.
+
+- **BG physical bank step (2026-10-14, ADR-0022 §11):** a bank's linear geometry is a sidecar
+  to appended earth kind 3, leaving the existing version-1 platform/pit expansion unchanged.
+  The global save schema is 100; 99 and earlier migrate to no bank segments, while new records
+  under old headers are refused. Dedicated borrow links cannot be shared by two segments.
+  Built height follows trapezoidal area rather than a linear height multiplier. Cell-average
+  earth shading and the sub-grid hydraulic crest remain separate. A minimax connected-storage
+  calculation preserves supplied reach excess volume at barrier sills; unbanked reaches use
+  the existing BF calculation. Content API 86 stays unchanged: no new authored work template
+  is available in this physical step. Wire 1.72 appends centre-line and condition fields.
+  This is a controlled physical/observer step, not completion of BG. Voluntary labour and
+  its digging, hauling and compaction budget, failures and upkeep, trapped rain and explicit
+  borrow depression storage remain planned; drains and terraces remain deferred.
+
+- **BG borrow-ground storage (2026-10-14):** bank-associated ground differences, including
+  excavated borrow pits and compacted fill, enter their affected reach's connected storage.
+  Cells count once even where reserved envelopes overlap. Removing a crest does not erase
+  excavation. A negative HAND after digging can fill below the original bed datum without
+  losing supplied flood volume. Unbanked, unchanged reaches retain BF's calculation; ordinary
+  legacy mining/levelling works do not silently change drainage. Bank envelopes must remain
+  in the map and contain the complete trapezoid; malformed snapshots are refused. The change
+  uses existing saved ground and geometry: save schema 100, content API 86 and wire 1.72 stay.
+  Persistent trapped rain, deterioration, voluntary labour and irrigation remain planned.
+
+- **BG overtopping erosion (2026-10-14):** actual overflow head and duration
+  lower the bank crest by an authored prior; there is no annual wear or fixed breach chance.
+  Earth removed from the bank enters a saved compacted-equivalent washed-sediment account,
+  distinct from construction's total placed fill. Ground loses that volume and replays the
+  remaining fill exactly. This is a coarse crest/volume model, not a breach cross-section or
+  sediment-routing model. Piping, material/foundation quality, settlement evolution and chosen
+  upkeep remain planned. Save schema 101 appends a keyed sediment record without changing the
+  fixed bank struct; schemas through 100 retain saved ground/damage with no invented sediment.
+  Content API 87 adds strict optional `[banks]`; wire stays 1.72, with sediment in kernel words.
+
+- **Claude handoff (2026-10-14, owner request):** stop after the tested overtopping slice on
+  `codex/codex-development`, with no merge to main. The handoff is
+  `docs/handoffs/2026-10-14-m6b-claude.md`; BG remains partial and BH/M6c remain planned.
+  Erosion uses elapsed-day depths before forcing rollover, so a one-day flood counts.
+  The final full workspace, short smoke, clippy, schema, web, commons and bank browser gates
+  pass; the interrupted later ten-year run is not reported as a pass.

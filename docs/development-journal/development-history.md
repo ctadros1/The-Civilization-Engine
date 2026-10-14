@@ -1440,6 +1440,44 @@ implementation and test coverage; it does not claim a newly executed dashboard r
 **Open:** the planned calibration sweep, pulling buildings down, fire caution, the Help at a fire
 lens, masonry, floods and the M6b demo.
 
+## 2026-10-13 — BE/BF verification, fire-caution persistence and route caches
+
+**Scope:** began from `main` at `bb27093` (BE `f0cb1da`, BF `a9c135b`, merged PR #13), on `codex/codex-development`. No milestone is declared complete by this review.
+
+**Confirmed breakage:** BE added authoritative fire-caution memories and reads them when designing buildings, but never encoded or decoded them. Loading therefore forgot losses and building-years. Save schema 94 appends those records to the knowledge section and refuses invalid counts, wall kinds and duplicates. Saves through 93 migrate with no remembered fire losses: they contain no recoverable records. The regression failed against the pre-repair test binary (loading returned empty memory after six losses). It burns buildings, saves, loads, compares the memories and compares every raw section digest after resaving. A schema-93 migration check covers continued compatibility. Content API remains 85; wire remains 1.69.
+
+**Other confirmed breakages:** the knowledge browser check still expected twelve techniques after BE added two founder techniques. It now checks fourteen, including rubble walling and mud brick, and leaves firing and lime burning for later learning; the focused browser check passes. The government browser fixture timed out after 120 seconds of preparing a world. BF advanced the hydraulic revision every day and included it in every route key, invalidating all travel fields even where walkability and costs had not changed. Navigation now derives its route key from effective ground factors and walking parameters, preserving step caches only when every ground factor is identical. Daily source, gathering-place and field facts still refresh. The focused navigation test checks unchanged costs under changed flows/depths, changed costs when fords or land become impassable, and identical keys after rebuilding. The government fixture passes (23.4 seconds on the focused run, versus its prior 120-second timeout); the full browser run also reaches its government page.
+
+**A final kernel fixture failure:** the word-of-mouth test assumed some households could pay a 40% levy after a natural harvest. Two runs produced only correctly recorded inability to pay. The test now supplies prepared reserves while actual harvest and levy machinery runs, and explicitly controls whether a lean-season observation is held. It tests the grievance rule without prescribing a harvest result; production payment and food rules are unchanged. Validation is pending.
+
+**Fire fixture variability:** the full suite later failed the three-world carrying comparison with eighteen huts burning in each arm, while loads were carried and the other fourteen fire tests passed. The unchanged binary passed on retry. The paired response fixture now fixes the world's identity, hence the scheduler's tie-break stream, while retaining ordinary fire and response parameters. All fifteen fire tests and the complete kernel workspace suite pass with that fixture. No production rate or water effect was tuned to obtain the assertion.
+
+**Documentation:** README and plan now distinguish implemented masonry and flood/storm machinery from the remaining work; the dashboard's Fires row is explicitly listed. M6a remains the newest completed lived demo; no M6b capture is claimed.
+
+**BF concerns found, to address next under the owner's expanded instruction:**
+
+- The raised discharge is overwritten at the next daily land step even though a duration is recorded. The storm tool prints its direction but does not change the day's wind used by fires.
+- Flood/storm observer links are inferred from an earlier influence's time rather than recorded causation. High-water incidents receive world-wide damage counts, goods spoilage goes to the most recent open reach rather than the building's reach, and peak stage is not populated. Flood episodes open on high flow without checking exposure.
+- Flood spoilage runs inside structural checks, including checks invoked by fire; extra checks can repeat the daily loss. It needs a once-per-day cadence. The flood save decoder also lacks refusal checks for non-finite discharges and malformed incident/episode links.
+- Crossing scour and the dashboard flood row are absent. Generated flood/storm wire types exist, but the observer has no command encoders or usable tool controls and does not render the decoded flood cells.
+
+These are gaps to fix in vertical slices, not a reason to refactor BE/BF wholesale.
+
+**Water failure captured and repaired:** repeated coastal seed-5 probes found the same founding household dry, with every member carrying 15 L while doing field work or keeping company. A failed walk had replaced the return-and-deposit activity with a wait; later activities retained or overwrote the cargo. Loaded walkers now retry without discarding their deposit target, using bounded waits. A stranded load resumes delivery before another task, while a known burning home keeps them waiting safely. Households cut off from the hearth by a closed ford use their own walking catchment for water and work planning. This preserves water and goods rather than accepting the smoke failure as a transient shortage. The regression passes: an interrupted load is delivered, normal household drinking is accounted for, and continuation across a save keeps every section identical.
+
+**Validation:** generated schemas (flatc 25.12.19), formatting, clippy, web build and all 173 unit tests pass on the verification fixes. The earlier full browser run passed all 24 cases (9 demo-only cases skipped). After the delivery repair, the repeat passed 23 and hit the suite's four-minute timeout in the workshop case after compiling its fixture; the trace stopped at the first page connection. That case passes in 44.1 seconds with the compiled fixture. Thus all 24 cases pass on the current changes across that run and the cached retry, including new/save/load/recovery and both water views; no clean single-run pass is claimed for the repeated suite. Commons checks pass. The word fixture passes with controlled reserves. All ten smoke worlds pass after the delivery repair. The complete kernel workspace suite passes (`cargo test --workspace --profile simcheck`, including doc tests) after the controlled fire fixture repair. The ten-year smoke run was interrupted by an environment restart after coastal seeds 1, 2 and 5 completed and passed (seed 5's band had died out, which its per-world gate permits; the matrix survival gate was not reached). Its other worlds did not finish, so no ten-year matrix pass is claimed. The restarted required ten-seed, thirty-day smoke passes all ten worlds. The final complete workspace run finished after the environment restart; interrupted runs are not counted as passes. Earlier broad runs were interrupted for confirmed repairs, and an earlier complete run failed only the levy fixture; no full pass is inferred from partial runs.
+
+
+## 2026-10-13 — BF repair: runoff duration and today's storm wind
+
+**Found:** the flood command's influence recorded days, but its physical discharge override was discarded at the next daily step. The storm command printed a from-direction without setting the wind that drives spread.
+
+**Changed:** active runoff overrides now store reach, minimum discharge, expiry day and the recorded influence. Today's ordinary routing applies those minima and propagates only the added flow downstream, without counting the natural tributary flow twice. A repeat on a reach replaces its override; a minimum cannot lower a stronger natural or upstream flow. The request lasts 1–365 days and expires at midnight on its exclusive end day. Save schema 95 appends these requests. Saves through 94 migrate without an active request: the influence never stored enough to reconstruct one. The storm tool sets today's wind speed, gust and from-direction while leaving tomorrow's latent wind and the monthly natural storm series unchanged. Strengths must be finite and positive; direction is in [0,360). Saved discharge arrays with missing reaches, non-finite values or negative values are refused; active requests also require valid reaches, flood influences and future expiry.
+
+**Focused evidence:** a raised tributary adds the same extra flow downstream, holds for the requested days, expires and continues across a save with every section identical. A branching network stored out of topological order routes both imposed tributary flows once. A storm's chosen direction is today's; it saves exactly and next day's natural weather equals an unforced world from the same snapshot. Invalid command inputs leave every section unchanged. The malformed-discharge snapshot is refused. The full kernel workspace suite (including doc tests), formatting, all-target clippy, the ten-world release smoke, generated-schema freshness with flatc 25.12.19, web build and all 173 web unit tests pass before this commit.
+
+**Open:** explicit origins on episodes and observer links, one physical uplift evaluation per storm, daily flood loss accounting and local damage counts, crossing scour, the dashboard flood row and observer controls. This repair does not complete BF or M6b.
+
 ## Development pattern that emerged
 
 The project now develops in small, reviewable vertical slices:
@@ -1452,3 +1490,275 @@ The project now develops in small, reviewable vertical slices:
 6. Update the README and technical notes so implemented, partial and planned work remain distinct.
 
 The most important process result is a growing evidence trail: source code, tests, smoke records, decisions and docs point to the same feature boundaries. The journal should continue to record both what improved and what a run exposed as a limitation.
+
+## 2026-10-13 — BF repair: recorded origins and one storm evaluation
+
+**Found:** flood/storm pages linked the first earlier intervention of that kind, even to unrelated later natural hazards. The uplift routine could tear a covering again whenever a fire or changed load invoked structural checks, and it made separate building incidents for separate covering groups.
+
+**Changed:** flood and storm incidents/episodes store recorded provenance, including actual observer inputs propagated with added runoff. A weak minimum that adds no flow adds no attribution. A storm input is passed into its damage evaluation; natural storms carry none. Earlier snapshots' unrecorded origins remain unknown. Separate physical markers identify the covering group, calendar day and storm pulse; load checks consult those markers, not the historical incident list. Save schema 96 keeps them. One building evaluation records one incident when several covering groups tear, and refreshes shelter even when no structural member falls. Storm episodes represent their calendar day. Missing observation and peak-weather records are reported as missing instead of inferred sightings and rain. The decoder refuses invalid numbers, links, origin references and evaluation markers.
+
+**Focused evidence:** nine hazard integration tests pass, including repeated checks before/after save, a multi-covering longhouse with one building incident, a later natural storm without an earlier observer's link, seven deliberately malformed historical/physical cases, and a schema-95 migration that preserves damage while reporting its origin unrecorded. The earlier runoff-duration, direction and malformed-discharge checks continue to pass. Formatting, generated-schema freshness (flatc 25.12.19), all-target clippy, web build and all 173 web unit tests pass. The unchanged third release smoke passes all ten worlds. Earlier smoke runs respectively found seven of eight coastal seed-1 households without firewood and one dry coastal seed-5 household; those failures are not erased by the later pass. A standalone probe captured the latter: all three members were empty-handed at the hearth, while their home stood under 41 cm of water and planning fell back to its unusable walking catchment. Refuge supply routing and the daily flood accounting repair are the next slice. No correction to those paths is claimed here. The complete kernel workspace suite, including doc tests, passes before this commit.
+
+**Open:** flood damage on its daily cadence and above the actual floor, local and cumulative exposure counts, high-water stage/depth, memory that can fade, crossing scour, the dashboard flood row and observer tools/rendering. Fire pages should also keep the wind input that contributed to spread when their remaining reporting work is built; no cross-hazard origin completeness is claimed here.
+
+
+## 2026-10-14 — BF repair: daily flood loss and supplies at a refuge
+
+**Found:** a river command advanced wet-building and submerged-crop counters on every depth refresh. Structural checks, including those called by fire and storms, spoiled floor goods again. Loss was attributed to the latest open reach, and an old field peak refreshed household flood memory each day. A captured coastal seed-5 household had no water: all three members sheltered empty-handed at the hearth while their home stood under 41 cm of water; planning fell back to the flooded home's unusable catchment.
+
+**Changed:** depth refreshes derive water only. Exposure counters advance once in the land's daily step; floor spoilage runs only in the daily building check, after high-water records update. Goods loss belongs to the building's reach and episode. Memory reads today's field water, letting old experience fade. Supplies use the existing hearth refuge while the home is wet, including interrupted loaded returns saved before flooding. They are deposited only after arrival. The household's home and ownership stay unchanged. Save schema 96, content API 85 and wire 1.69 remain unchanged; previously recorded counters are preserved.
+
+**Focused evidence:** all twelve hazard tests and all-target clippy pass on the prepared source. The new checks cover one daily floor loss with no loss on extra checks, repeated river commands with no extra wet days, raw snapshot equality and wet-day continuation, and a carried water load handed over at the refuge while the home stays put. Replaying the captured dry household yields 48.79 L after twelve hours and 18.79 L after twenty-four; it was still dry at six hours while its members worked their fields. The complete kernel workspace suite (including doc tests), formatting, generated-schema freshness (flatc 25.12.19), all-target clippy, the ten-world release smoke, web build and all 173 web unit tests pass. The ten-year release smoke also completes: all ten worlds pass, including the matrix survival gate. Coastal seeds 3 and 5 died out (their per-world gates permit this); the other eight bands survived. The completed log was recovered after the environment restart; a redundant restart was stopped before it completed and is not counted as evidence.
+
+**Open:** local/cumulative affected-asset counts and flood exposure gates, peak stage/depth reporting, kin refuge choice, crossing scour, the dashboard flood row and observer tools/rendering. The earlier coastal firewood failure has not been captured or diagnosed; no correction to it is claimed.
+
+**BD preparation concern:** fire-task facts currently test whether someone knows any active fire, then consider exposed roofs globally. A two-scene fixture confirms that an unknown distant fire's roof is offered. Restricting the facts to known buildings and their nearby hot roofs passes that fixture, but fails the existing response demonstrations (eighteen buildings burned in both water arms; no roof stripped, four salvage loads). Keeping known burnt-out sources while their conflagration continued, changing the stored-water location, and batching sightings before reconsideration did not recover the carrying comparison. Those attempts are not landed. The knowledge work needs to preserve observed danger and usable response; existing assertions are retained. The independently tested no-water choices and monthly reporting remain separate preparations.
+
+
+## 2026-10-14 — BD repair: fire choices without a water trip
+
+**Found:** finding no known water source returned before any threatened roof was considered, suppressing stripping and carrying goods out as well as dousing.
+
+**Changed:** the water trip is optional within each roof's facts. Carrying water considers only roofs with a trip; stripping and salvage retain their existing permissions, costs and walking terms. Stored water still supplies a dousing trip. This changes neither recorded state nor authored primitives: save schema 96, content API 85 and wire 1.69.
+
+**Evidence:** controlled actual facts test an unavailable known walking catchment, then stored water; a decision fixture checks that only dousing disappears without the trip. The complete kernel workspace suite including doc tests, formatting, all-target clippy, pinned generated-schema freshness, the ten-world release smoke, commons checks, web build and all 173 web unit tests pass before commit. The preceding daily/refuge change passed all ten ten-year smoke worlds before this people change; an additional ten-year run on this slice is still underway and is not counted as a pass. This does not claim a physically waterless lived world or complete the response calibration.
+
+**Open:** crew demolition, fire seen and told, remaining page and chronicle reporting, the Help at a fire lens and the ignition sweep. The distant-fire knowledge concern recorded above is still open.
+
+
+## 2026-10-14 — BD reporting: the previous month's household fires
+
+**Changed:** the month's first daily step reports the previous calendar month's recorded household escapes by settlement. It counts escapes, those put out, those that reached a roof, those that went out and those still growing. Observer-set fires have no household escape to count. A quiet month adds no entry, and the aggregate is not linked to a fictitious individual fire. Save schema 97 explicitly reads schema 96 without backfilling summaries; content API 85 and wire 1.69 stay unchanged.
+
+**Focused evidence:** the monthly count and schema-96 migration checks pass on the preparation, including raw section equality and no invented history. All eighteen fire integration tests on that reporting preparation passed. The complete kernel workspace suite including doc tests, formatting, all-target clippy, flatc 25.12.19 schema freshness, commons checks, the ten-world release smoke, web build and all 173 web unit tests pass before commit.
+
+**Knowledge preparation:** limiting hot roofs to an episode the person knows, with a local-scene fallback before the first spread record, passes all nineteen fire tests, including the unknown distant-fire check and the existing response demonstrations. A further direct sight bound fails those demonstrations again (eighteen burned in both water arms; zero strips, four salvage loads). The assertions remain intact. This preparation is separate from this reporting slice and does not complete named accounts or personal perception.
+
+
+## 2026-10-14 — BD response: pulling a building down with a crew
+
+**Changed:** an axe-equipped crew works outside an empty threatened building. It must belong to the actor's household, or one of its owners must remain awake on site. Every interval checks crew size, age, health, tools, occupants and leave; shared work is credited once per minute. Work needed follows roof area. On completion all parts are lost and a ruin remains; the fire page and chronicle record the final crew and total hours. Save schema 98 appends partial physical work and completed records, with an explicit empty migration through 97. Content API 86 authors crew size, hours per area and choice cost; wire 1.69 stays unchanged. The task facts and physical work use the same footprint-distance leave check.
+
+**Focused evidence:** seven preparation tests pass: a lone worker cannot count; a crew's minute is credited once; partial work saves with identical raw sections and completes without double loss; leave must remain; occupants and missing tools prevent work; eight malformed progress records are refused; schema 97 loads without invented projects. Initial workers stood inside a neighboring burning roof and correctly interrupted their work; choosing a place outside every standing roof resolved that fixture. These tests schedule the actual activity rather than directly crediting work. The complete main-worktree kernel suite including doc tests, formatting, all-target clippy, flatc 25.12.19 schema freshness, commons checks, web build and all 173 unit tests pass before commit. The final release smoke also passes all ten worlds after the permission-facts adjustment. The first full run stopped at content fixtures whose pack header still named API 85; updating that fixture to 86 restores the intended diagnostics rather than relaxing the API check. A release smoke passed all ten worlds; a fresh build checks the final permission-facts adjustment. The fire browser and crash-recovery checks passed, while the create/watch/save/load check exhausted its four-minute budget at the Pause click after world creation and exploration; that failure is retained. A second concurrent retry timed out during map zooming; its trace shows basic interactions taking tens of seconds. With the background simulations and preparation builds temporarily paused, the unchanged lifecycle test passes in 59.7 seconds. All paused checks were then resumed. Fire, crash recovery and full lifecycle coverage have each passed across these runs; no clean single-run browser suite is claimed.
+
+**Open:** default choice costs favor stripping, and a controlled crew is not evidence of spontaneous coordination in a lived fire. No autonomous-demolition or calibrated response claim is made. Named accounts, remaining fire reporting, the help lens and the ignition sweep remain open.
+
+
+## 2026-10-14 — Dashboard reporting audit
+
+BF already has a preliminary ungraded **Floods and storms** dashboard row. Earlier follow-up notes called the row absent; that was incorrect. It uses cumulative episode/incident counters and maxima against current land counts, so corrected local/exposure denominators, observer partitions and flood gates remain open. README and plan now distinguish that existing report from those planned repairs.
+
+The Fires row excludes directly observer-set roofs, but currently counts their descendant fires, spread and deaths among natural losses. A small origin-accounting repair is being prepared with the ignition sweep, without changing fire behavior. No corrected dashboard counts are claimed in the crew-demolition slice.
+
+
+## 2026-10-14 — Additional ten-year check of the no-water choices
+
+The additional ten-year release smoke on `ba5cd14` completes with all ten worlds passing, including the matrix survival gate. Eight bands survive; coastal seed 5 and valley seed 5 die out within the per-world gates. This run was started before crew demolition and checks the no-water/daily-refuge source, not the later preparations. It was contended and briefly paused during the browser check, so its wall times are not performance evidence. The earlier journal entry correctly described it as pending when that commit was made.
+
+
+## 2026-10-14 — BD knowledge: found burning, then told by contact
+
+**Changed:** a direct sighting, being inside or waking to a burning roof creates an immutable dated account of its building. Its words assert no cause. Ordinary household and hearth contact carries the account with its source; merely hearing an alarm does not invent a named account, and no longer prevents a later direct sighting. Save schema 99 adds the fire reference, explicitly loading 98 without backfill and refusing missing, wrong or future references, dates and mixed claim payloads. Content API 86 stays; wire 1.70 appends HeardLine kind 7 under ADR-0001.
+
+Task awareness now starts from the person's recent records and a connected physical fire scene. Historical episode grouping and spread diagnostics cannot extend that awareness. The final preparation passes all thirty fire tests, including the existing carrying/stripping demonstrations and a distant-fire fixture that changes episode grouping and clears historical diagnostics without revealing the distant roof. Earlier episode-based and direct-sight-bound attempts are recorded above; this replaces them without relaxing assertions. It remains coarse scene awareness, without individual sight bounds or terrain occlusion.
+
+Fire pages date the escape, first recorded notice and alarm, physical stages, and recorded water, stripping, salvage and demolition work. Descriptions explain the physical action rather than reconstructing a choice score or blame from later losses. A long chain shows the first thirty work records while the summaries retain complete quantities. Named holders and contact-based telling appear in the knowledge layer; recorded roof-catching sightings retain their wording, separate from the absence of a recorded cause account.
+
+**Evidence:** direct observation followed by contact retains the teller and origin without inventing a new sighting; telling saves with every raw section unchanged; malformed references are refused; hearing then approaching produces a direct sighting and named account; schema 98 preserves sightings without inventing named accounts. The thirty-test physical-scene preparation passes in 77.35 seconds. The first main-worktree suite stopped at a schema-identity assertion still pinned to wire 1.69; it now explicitly expects 1.70. The full current kernel workspace suite including doc tests, formatting, all-target clippy, both required commons checks and tests, flatc 25.12.19 schema freshness, web build and all 173 web unit tests pass before commit. The final release smoke passes all ten worlds. The actual fire browser test passes against the new host in 39.7 seconds, exercising the map, chronicle and incident page. Stage dates still use the current content's durations; no historical-duration reconstruction after changing content is claimed.
+
+**Open:** the help lens and ignition sweep are prepared separately. Spontaneous crew formation, individual perception and complete response calibration remain unclaimed.
+
+
+## 2026-10-14 — BD observer: Help at a fire
+
+**Changed:** the kernel's current probe counts healthy awake adults at their homes whose directed walk is within five minutes, excluding existing fire workers. It reports eligible water or a stored load separately and reports exhausted route searches as inconclusive. It makes no worker reservations and forecasts neither willingness nor useful work. Thirty days of records count episode exposures at current household roofs, unserved exposures, actual helpers, applied water and earliest useful work. Completed demolition records contribute their recorded final crews; partial, unrecorded crew contributions are not reconstructed. Exposures with an observer-set fire are marked without assigning all their losses to that input. The web offers current and recorded-help layers, with empty/loading/error states inherited from coverage and guards against stale lens responses.
+
+Wire 1.71 appends FireHelp and CoverageHome field 8; save schema 99 and content API 86 stay unchanged. The query changes no authoritative snapshot section. The current preparation's two kernel tests pass: a one-adult probe and typed payload leave every section unchanged, and an actual scheduled demolition crew changes an unserved exposure into recorded help. Web build, all 173 unit tests, pinned schema freshness and all-target clippy pass on that preparation. The first main integration lacked the new module directory; it was copied into place and the complete main checks restarted. Current main formatting, all-target clippy, pinned schema freshness, commons checks, web build and 173 unit tests pass, as does the ten-world release smoke. The actual current-host browser test passes in 11.7 seconds: typed current-help rows, recorded help, switching back to Water and clearing the lens. The complete current kernel workspace suite, including doc tests, passes before commit.
+
+**Open:** no large-population probe-performance claim is made, and available people are not a volunteer forecast. Crew formation, personal visibility and full response calibration remain separate limitations. The ignition sweep and dashboard origin correction are the next reporting slice.
+
+
+## 2026-10-14 — BD calibration and dashboard origins
+
+The earlier preparation swept 1, 3, 10, 30 and 100 nominal escapes/K household-years by scaling all three activity hazards relative to the core reference. Five-year seed-2 arms each supplied 61.071 actual household-years; they recorded 0, 1, 1, 2 and 6 escapes, respectively. The highest arm put four out, burned three roofs with one spread, killed one person and delivered 45 L. Those were measured on the preparation before the final physical-scene restriction and wire update. They are retained as preparation evidence, not results from the committed behavior. No hazard was tuned from the tiny sample. The final committed-behavior sweep records the same aggregate outcomes, with explicit notice denominators: at 100, two roof fires were noticed (conditional mean 0.50 minutes) and one has no recorded notice. No arm records stripping, salvage or completed demolition, so spontaneous coordination and full response calibration remain unclaimed.
+
+The runnable sweep now records daily living-household exposure, actual escapes, containment, losses, water and labor, plus noticed/unnoticed roof-fire counts so its conditional notice mean is explicit. It reports schema/content/wire versions and the base content fingerprint; it uses no observer inputs and saves no modified-content snapshot. Requested band-size bounds apply only inside the harness, as in bench_village. The current-source sweep completes all five arms; its results are published with the runner in docs/calibration/fire-ignition-sweep.md and CSV. The complete kernel workspace suite including doc tests, formatting, all-target clippy, commons checks, pinned schema freshness, web build/173 unit tests and the ten-world release smoke pass before commit.
+
+The Fires dashboard now classifies natural losses separately from all buildings, spread and deaths in episodes with observer-set fires. Direct inputs remain counted as inputs, and their descendants are reported in separate loss counters. Joining worlds and recounting empty histories preserve that partition. The focused test uses a valid fire/ignition history. This is reporting only; it changes no actor or fire physics. BF's preliminary flood row and its remaining exposure/origin-accounting concerns stay separate.
+
+
+## 2026-10-14 — BG first physical bank step
+
+**Built:** a straight bank segment links an appended bank earthwork to a dedicated borrow pit.
+Its trapezoidal design accounts separately for compacted fill and excavated in-place earth;
+placing earth removes it at the source and adds the compacted volume to the bank. The rising
+crest follows cross-section area, not a linear share of finished height. Fine-sampled fill
+replays from the design and placed volume; authoritative ground tiles remain saved. Bank
+crests cross walking-grid edges at full sub-grid height, independent of averaged ground
+shading. Connected reach storage admits overtopping and end runs and consumes the supplied
+excess volume rather than zeroing protected cells. At a sill, partial basin filling accounts
+for water while the upstream stage remains at that sill. Reaches without a bank retain BF's
+existing storage calculation.
+
+**Snapshots and observer:** save schema 100 appends segment records and explicitly migrates 99
+with none. Invalid numbers, missing sources, duplicate segment/source links, unsupplied fill
+and bank records in older headers are refused. Existing platform/pit expansion stays version
+1. Wire 1.72 appends centre-line, crest height and breach fields; content API 86 remains.
+The map draws the kernel's line and condition. `bank_fixture` is a controlled engineering
+fixture, expressly not a lived demo or evidence of chosen work. The M6a capture remains the
+newest completed milestone demo.
+
+**Verification so far:** the conservative flood test covers protection, overtopping, an open
+end, empty barriers and mass conservation. The soil test covers the trapezoid, compaction,
+capped placement and no repeated fill. Snapshot tests cover exact raw sections, wire facts,
+ground replay, malformed records and the 99 migration/refusal. Focused checks pass. The first
+clippy attempt found the example's wrong hearth field; the web build found a duplicate debug
+field and the old FlatBuffers convenience builder removed by the enlarged table. Those
+fixtures now use the actual field and explicit generated builder. Full current workspace,
+release smoke, web, commons and browser checks are running; no final gate is claimed yet.
+
+**Still planned:** people proposing and choosing bank labour, a digging/hauling/compaction
+budget with tools and narrow fronts, overtopping erosion and piping over time, upkeep,
+trapped rainfall and borrow-pit flood storage, irrigation intakes/ditches/root-zone watering
+and maintenance. The current physical helper consumes an explicitly supplied earth-moving
+quantity, as the existing pit helper does; it creates no labour credit or policy choice.
+It is not called by a production agent yet. No spontaneous public bank or flood-gate result
+is claimed. Flood hydraulics retain reach compartments and do not model cross-reach backwater.
+
+The post-commit current-host fire-help browser check also passed in 9.0 seconds at ab9253c,
+before the bank edits; that is follow-up validation, not a before-commit claim.
+
+The first bank browser run timed out waiting for a Load row. Its trace showed an empty save
+list: the new engineering runner saved directly in the save root, instead of the host's
+per-world directory. The snapshot itself loaded in the runner, but was not discoverable by
+the host. The runner now uses `persist::world_dir_name`, as the existing workshop runner does;
+all-target clippy and the release fixture build pass after that correction. The same browser
+batch's fire-help test passed against wire 1.72. The extra ten-year run was briefly paused
+while checking the initial UI delay, then resumed; CPU contention was not the cause shown
+by the bank trace. Original artifacts are retained outside the repository. The corrected
+bank browser check is running; the full workspace suite is still passing its completed
+binaries, and the ten-year results are pending.
+
+The corrected bank browser test passes in 19.3 seconds (22.9 seconds overall) with the
+unchanged assertions. The host discovers the fixture in its world directory, loads it, and
+shows the saved centre-line, built height and explicit borrow-pit account. The current
+release short smoke passes all ten worlds; web build and 173 unit tests, commons tests and
+clippy, schema freshness and current all-target kernel clippy pass. The full kernel suite
+and extra ten-year run remain in progress. No process remains paused.
+
+For bank kind 3 the earthwork rectangle is its reserved envelope and `cut_m3` is placed
+compacted fill; the borrow pit separately records excavation in place. The bank segment
+supplies its design/crest geometry. Existing platform/pit field meanings stay unchanged.
+The next work template must populate the generic envelope consistently and use the segment
+for linear geometry; construction and ownership choices remain outside the physical helper.
+
+**Final gate before this commit:** the complete current kernel workspace suite exits 0,
+including doc tests. Current formatting, all-target clippy, pinned schema freshness,
+commons checks, web build/173 unit tests and all ten release short-smoke worlds pass.
+The corrected example also compiles under simcheck; its zero unit tests are only a compile
+check, while the current-host bank browser test proves discoverability and displayed facts.
+The extra ten-year run remains in progress: four worlds have passed so far (two surviving
+bands and two that died out). No overall ten-year result or performance comparison is
+claimed. No production agent creates a bank in this physical step.
+
+
+## 2026-10-14 — BG borrow ground in flood storage
+
+**Changed:** connected storage uses the actual cell-average ground under bank envelopes and
+associated borrow pits. A depression holds supplied excess water below its original HAND,
+reducing the water surface elsewhere; placed fill occupies storage. Ground differences are
+scoped to those works and deduplicated. Removing a bank crest keeps the excavated pit and
+placed earth in the hydraulic account. Legacy mining/levelling works outside bank-associated
+areas leave drainage as before. This is instantaneous river-flood storage, not persistent
+trapped rain or a claim of complete water-budget calibration.
+
+A new hydraulic test supplies the same volume to a flat reach with and without excavation,
+checks the lower surface away from the pit, and then removes the crest while retaining the
+pit. Every case conserves that volume. The earth test verifies both positive fill and negative
+excavation differences and their net volume, unchanged by the breach flag. Added malformed
+bank-envelope cases first failed because the bank's linked rectangle could lie outside the
+map or fail to contain its actual trapezoid. The snapshot validator now checks bounds and full
+trapezoid containment; physical placement checks bank geometry, source bounds and envelope
+containment. Neither repairs malformed records. The final focused snapshot suite
+passes all three tests, including seven malformed variants, with exact raw sections and the
+99 migration/refusal; the five hydraulics tests and earth-accounting test also pass.
+
+The change rebuilds derived depths from existing ground and bank records; it changes no saved
+field meaning or boundary field. Versions stay save 100/content API 86/wire 1.72. Current
+all-target clippy, pinned schema freshness, web build/173 unit tests and commons checks pass.
+The complete kernel workspace suite, including doc tests, and all ten release short-smoke
+worlds pass before this commit. Formatting and `git diff --check` also pass. The extra
+ten-year smoke exits 0 with all ten worlds passing on 03330b0's physical step: eight surviving
+bands and two that died out. No production banks were present. It is not a result on this
+newer storage source or a performance comparison; its CPU-contended run included the brief
+pause documented above.
+
+
+## 2026-10-14 — BG overtopping erosion
+
+Actual above-crest water lowers a bank's crest once per lived day. The core prior is
+0.02 metres/day per overflow-head metre to the power 1.5; research 11-12 §4.2 supports
+conditional deterioration but supplies no universal ancient-bank failure rate. Below-crest
+water and dry days do no work. A exhausted crest breaches and subsequent routing drops
+its barrier. Soil washed off the bank is saved as a compacted-equivalent washed-sediment stock;
+construction still records all soil originally placed, while ground and replay use remaining
+fill. The observer's existing kernel words show the stock. The washed stock stays attached to its bank; no river destination or hydraulic obstruction
+is inferred from it. Sediment deposition/remobilization,
+piping, foundation/material quality, settlement evolution and repair work remain planned.
+This is a coarse crest and volume model, not detailed eroded cross-section geometry.
+
+Schema 101 adds a keyed record on Earth, leaving the fixed bank struct intact. The explicit
+100-and-earlier migration preserves existing damage and ground with no invented sediment.
+Malformed/duplicate/missing-bank stocks and stocks exceeding supplied fill are refused.
+Content API 87 adds strict optional `[banks]`; wire stays 1.72. During the doc update I found
+the README highlights still naming schema 99/wire 1.71 after the physical bank commit; these
+are corrected to current versions. Checks are in progress; no final gate is claimed.
+
+The first malformed-stock check caught an encoder filter that omitted NaN as if it were zero.
+It now omits only exact zero, so malformed quantities reach the strict decoder and are refused.
+The calendar check initially applied a large flow to the construction fixture, whose bank has
+no real river compartment. It now supplies an explicit flat compartment for this isolated
+calendar check. Neither fixture is described as a lived or generated river-flood example.
+
+The first full workspace attempt stopped at the calendar fixture's second-day increase.
+My initial explanation that the crest had exhausted was premature. After adding an explicit
+60-second transit and checking that crest remained, the failure persisted: the fixture's
+forcing expired on that next weather day. Land lives the previous day's weather and draws
+its next day before deriving current flows (the simulation calls it to `at.day_index() - 1`).
+The fixture now keeps its engineering forcing live through both checked days. The physical
+dry/low-water/repeated-overflow/breach test, strict content-prior check and four other bank
+snapshot tests had passed; the complete suite will be rerun after this fixture correction. The initial current browser check passes in
+2.4 minutes, including the release fixture build; no speed comparison is claimed.
+
+The corrected calendar check passes in 5.96 seconds. The following full rerun passes all five
+bank integration tests and the completed earlier binaries, then loses its shell transport
+while diffusion runs. The exec server reports `pong_timeout`; both the workspace and extra
+ten-year processes are gone after reconnect. Frozen source digests match. The cgroup records
+no OOM kill, so no resource cause is asserted. The full suite is restarted alone; the erosion
+source's interrupted ten-year run has no usable result. The rebuilt-host bank browser check
+also passes (22.1 seconds, 25.1 overall), and the release host validates the API-87 content.
+
+A final targeted boundary check exposed a production timing gap in the new erosion code:
+a one-day forcing vanished when tomorrow's flow was derived, before its elapsed-day loading
+was charged. The test fails with zero sediment on the completed loaded day. Bank wear now
+uses the elapsed day's depth raster before weather/forcing rollover; the next flow derivation
+then uses its changed crest and ground. The multi-day fixture starts by deriving its loaded
+depths explicitly. The recovered broad run was stopped at diffusion to check and fix this
+case; it was not a complete passing suite. Final focused and broad checks are restarted.
+
+The final focused bank suite passes all six tests after the elapsed-day fix (14.12 seconds).
+Current formatting and all-target clippy pass, and the release short smoke passes all ten
+worlds. The final serial workspace run is in progress; no new full-suite pass is claimed yet.
+The source stays frozen during it.
+
+**Final gate and handoff:** the complete final serial workspace simcheck suite exits 0,
+including doc tests. Current formatting, all-target clippy and all ten release short-smoke
+worlds pass. Pinned schema freshness, web build/173 unit tests and commons checks pass.
+The final rebuilt-host bank browser check passes in 50.0 seconds (50.9 overall). Frozen
+source digests match. The later ten-year run was interrupted, not passed; the earlier ten-year
+pass remains tied to 03330b0. No simulation job is left running or paused.
+
+The owner requested a stopping point to hand off to Claude after their usage reset. This
+slice and `docs/handoffs/2026-10-14-m6b-claude.md` are the stopping point. BG remains partial;
+no production agent creates a bank, and BH/M6c are future work. The handoff separates tested
+mechanisms, calibration limits and the next integration steps. No merge to main.

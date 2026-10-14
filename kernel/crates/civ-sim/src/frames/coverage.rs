@@ -6,6 +6,8 @@
 //! from permission, and a home with no water within the search says so. Derived when asked,
 //! never saved; nothing in the world reads it.
 
+pub mod fire;
+
 use std::collections::BTreeMap;
 
 use civ_agents::person::Household;
@@ -25,6 +27,8 @@ use crate::Sim;
 
 /// The Water lens.
 pub const WATER: u8 = 1;
+/// Nearby adults and water now, beside recorded fire work.
+pub const FIRE_HELP: u8 = 2;
 /// The days *did come* looks back over, today one of them.
 pub const PERIOD_DAYS: i64 = 30;
 /// The walks the search for water tries in turn, seconds: most homes have water within two
@@ -450,10 +454,18 @@ fn put_source<'a>(
 /// A `Response` with lens `lens` over settlement `settlement`'s homes (every settlement for
 /// `None`), or `None` for a lens there is not.
 pub fn coverage_response(sim: &Sim, settlement: Option<PermanentId>, lens: u8) -> Option<Vec<u8>> {
-    if lens != WATER {
+    if !matches!(lens, WATER | FIRE_HELP) {
         return None;
     }
     let homes = water_homes(sim, settlement);
+    let help: BTreeMap<_, _> = if lens == FIRE_HELP {
+        homes
+            .iter()
+            .map(|h| (h.household, fire::help(sim, h)))
+            .collect()
+    } else {
+        BTreeMap::new()
+    };
     let mut fbb = FlatBufferBuilder::new();
     let rows: Vec<_> = homes
         .iter()
@@ -463,7 +475,26 @@ pub fn coverage_response(sim: &Sim, settlement: Option<PermanentId>, lens: u8) -
             let by_right = h.by_right.as_ref().map(|s| put_source(&mut fbb, s));
             let drew: Vec<_> = h.drew.iter().map(|s| put_source(&mut fbb, s)).collect();
             let drew = fbb.create_vector(&drew);
-            let words: Vec<_> = home_words(h).iter().map(|l| fbb.create_string(l)).collect();
+            let measured = help.get(&h.household);
+            let fire_help = measured.map(|p| {
+                wire::FireHelp::create(
+                    &mut fbb,
+                    &wire::FireHelpArgs {
+                        adults_now: p.available,
+                        nearest_walk_min: p.nearest_min.unwrap_or(-1.0),
+                        unknown_routes: p.unknown_routes,
+                        water_available: p.water,
+                        fire_episodes: p.fires,
+                        helped_episodes: p.helped,
+                        helpers: p.people,
+                        water_l: p.litres,
+                        first_work_min: p.first_min.unwrap_or(-1.0),
+                        observer_episodes: p.observer,
+                    },
+                )
+            });
+            let lines = measured.map_or_else(|| home_words(h), fire::words);
+            let words: Vec<_> = lines.iter().map(|l| fbb.create_string(l)).collect();
             let words = fbb.create_vector(&words);
             wire::CoverageHome::create(
                 &mut fbb,
@@ -476,6 +507,7 @@ pub fn coverage_response(sim: &Sim, settlement: Option<PermanentId>, lens: u8) -
                     by_right,
                     drew: Some(drew),
                     words: Some(words),
+                    fire_help,
                 },
             )
         })
@@ -492,19 +524,43 @@ pub fn coverage_response(sim: &Sim, settlement: Option<PermanentId>, lens: u8) -
             format!("{} homes", homes.len())
         }
     );
-    let title = fbb.create_string("Water");
+    let title = fbb.create_string(if lens == WATER {
+        "Water"
+    } else {
+        "Help at a fire"
+    });
     let scope = fbb.create_string(&scope);
     let periods = [
-        "now, on the paths as last surveyed".to_owned(),
+        if lens == WATER {
+            "now, on the paths as last surveyed".to_owned()
+        } else {
+            "one current probe; adults awake at home, within five minutes; no brigade or forecast"
+                .to_owned()
+        },
         format!("the past {PERIOD_DAYS} days, today included"),
     ];
     let periods: Vec<_> = periods.iter().map(|p| fbb.create_string(p)).collect();
     let periods = fbb.create_vector(&periods);
     let denominator = fbb.create_string("homes: households with people, each at its home");
-    let summary: Vec<_> = summary(&homes)
-        .iter()
-        .map(|l| fbb.create_string(l))
-        .collect();
+    let summaries = if lens == WATER {
+        summary(&homes)
+    } else {
+        let adults = help.values().filter(|h| h.available > 0).count();
+        let water = help.values().filter(|h| h.water).count();
+        let episodes: u32 = help.values().map(|h| h.fires).sum();
+        let served: u32 = help.values().map(|h| h.helped).sum();
+        let observer: u32 = help.values().map(|h| h.observer).sum();
+        vec![
+            format!(
+                "Now: of {} homes, {adults} have an adult within the probe and {water} have water by right or a stored load; willingness is not forecast.",
+                homes.len()
+            ),
+            format!(
+                "Did come: {served} of {episodes} episode-household exposures received recorded useful work; unserved exposures remain in the denominator. {observer} exposures include an observer-set fire."
+            ),
+        ]
+    };
+    let summary: Vec<_> = summaries.iter().map(|l| fbb.create_string(l)).collect();
     let summary = fbb.create_vector(&summary);
     let body = wire::Coverage::create(
         &mut fbb,

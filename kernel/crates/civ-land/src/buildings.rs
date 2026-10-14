@@ -137,6 +137,17 @@ pub struct Building {
     pub last_flood_depth_cm: u16,
     /// Days the building's floor or walls have remained wet from flooding.
     pub days_wet: u16,
+    /// Work on emergency demolition; its last minute guards concurrent crew completions.
+    pub demolition: Option<Demolition>,
+}
+
+/// Physical work on a threatened building, separate from its eventual historical record.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Demolition {
+    pub fire: u32,
+    pub needed_h: f32,
+    pub work_h: f32,
+    pub last_minute: i64,
 }
 
 /// Upkeep under way on one of a building's groups (ADR-0009 §4): renewing a share of it, with
@@ -177,6 +188,7 @@ impl Building {
             style_from: None,
             last_flood_depth_cm: 0,
             days_wet: 0,
+            demolition: None,
         }
     }
 

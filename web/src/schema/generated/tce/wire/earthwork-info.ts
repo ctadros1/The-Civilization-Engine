@@ -4,6 +4,9 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { Vec2 } from '../../tce/wire/vec2.js';
+
+
 export class EarthworkInfo {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
@@ -99,8 +102,28 @@ deposit():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+bankA(obj?:Vec2):Vec2|null {
+  const offset = this.bb!.__offset(this.bb_pos, 34);
+  return offset ? (obj || new Vec2()).__init(this.bb_pos + offset, this.bb!) : null;
+}
+
+bankB(obj?:Vec2):Vec2|null {
+  const offset = this.bb!.__offset(this.bb_pos, 36);
+  return offset ? (obj || new Vec2()).__init(this.bb_pos + offset, this.bb!) : null;
+}
+
+bankHeightM():number {
+  const offset = this.bb!.__offset(this.bb_pos, 38);
+  return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
+}
+
+bankBreached():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 40);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+}
+
 static startEarthworkInfo(builder:flatbuffers.Builder) {
-  builder.startObject(15);
+  builder.startObject(19);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -163,28 +186,25 @@ static addDeposit(builder:flatbuffers.Builder, deposit:bigint) {
   builder.addFieldInt64(14, deposit, BigInt('0'));
 }
 
+static addBankA(builder:flatbuffers.Builder, bankAOffset:flatbuffers.Offset) {
+  builder.addFieldStruct(15, bankAOffset, 0);
+}
+
+static addBankB(builder:flatbuffers.Builder, bankBOffset:flatbuffers.Offset) {
+  builder.addFieldStruct(16, bankBOffset, 0);
+}
+
+static addBankHeightM(builder:flatbuffers.Builder, bankHeightM:number) {
+  builder.addFieldFloat32(17, bankHeightM, 0.0);
+}
+
+static addBankBreached(builder:flatbuffers.Builder, bankBreached:boolean) {
+  builder.addFieldInt8(18, +bankBreached, +false);
+}
+
 static endEarthworkInfo(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createEarthworkInfo(builder:flatbuffers.Builder, id:bigint, kind:number, x:number, y:number, w:number, h:number, levelM:number, sideRun:number, cutM3:number, done:number, household:bigint, plot:bigint, building:bigint, wordsOffset:flatbuffers.Offset, deposit:bigint):flatbuffers.Offset {
-  EarthworkInfo.startEarthworkInfo(builder);
-  EarthworkInfo.addId(builder, id);
-  EarthworkInfo.addKind(builder, kind);
-  EarthworkInfo.addX(builder, x);
-  EarthworkInfo.addY(builder, y);
-  EarthworkInfo.addW(builder, w);
-  EarthworkInfo.addH(builder, h);
-  EarthworkInfo.addLevelM(builder, levelM);
-  EarthworkInfo.addSideRun(builder, sideRun);
-  EarthworkInfo.addCutM3(builder, cutM3);
-  EarthworkInfo.addDone(builder, done);
-  EarthworkInfo.addHousehold(builder, household);
-  EarthworkInfo.addPlot(builder, plot);
-  EarthworkInfo.addBuilding(builder, building);
-  EarthworkInfo.addWords(builder, wordsOffset);
-  EarthworkInfo.addDeposit(builder, deposit);
-  return EarthworkInfo.endEarthworkInfo(builder);
-}
 }

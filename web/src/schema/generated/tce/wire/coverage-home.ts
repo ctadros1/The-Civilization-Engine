@@ -5,6 +5,7 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { CoverageSource } from '../../tce/wire/coverage-source.js';
+import { FireHelp } from '../../tce/wire/fire-help.js';
 import { Vec2 } from '../../tce/wire/vec2.js';
 
 
@@ -80,8 +81,13 @@ wordsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+fireHelp(obj?:FireHelp):FireHelp|null {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? (obj || new FireHelp()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
+}
+
 static startCoverageHome(builder:flatbuffers.Builder) {
-  builder.startObject(8);
+  builder.startObject(9);
 }
 
 static addHousehold(builder:flatbuffers.Builder, household:bigint) {
@@ -138,6 +144,10 @@ static createWordsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[])
 
 static startWordsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
+}
+
+static addFireHelp(builder:flatbuffers.Builder, fireHelpOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(8, fireHelpOffset, 0);
 }
 
 static endCoverageHome(builder:flatbuffers.Builder):flatbuffers.Offset {

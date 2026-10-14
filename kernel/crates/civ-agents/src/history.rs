@@ -805,6 +805,10 @@ pub enum FireStep {
     Spread = 1,
     /// A conflagration's last fire burned out.
     Ended = 2,
+    /// The previous calendar month's unintended household-fire escapes and outcomes.
+    Month = 3,
+    /// A crew pulled a threatened building down.
+    Pulled = 4,
 }
 
 /// What happened to an outbreak, in a [`ChronicleKind::Outbreak`] entry. Numeric in saves:

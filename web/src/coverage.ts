@@ -5,13 +5,38 @@
 import type { CoverageHome, CoverageInfo, CoverageSource } from "./net/messages.js";
 
 /** The lens's layers: none, *could reach*, *did come*. */
-export type LensLayer = "" | "reach" | "came";
+export type LensLayer = "" | "reach" | "came" | "help-now" | "help-came";
 
 export const LENS_LAYERS: { value: LensLayer; label: string }[] = [
   { value: "", label: "No lens" },
   { value: "reach", label: "Water: could reach" },
   { value: "came", label: "Water: did come" },
+  { value: "help-now", label: "Help at a fire: now" },
+  { value: "help-came", label: "Help at a fire: did come" },
 ];
+
+/** The kernel lens a layer uses. */
+export function lensId(layer: LensLayer): number { return layer.startsWith("help-") ? 2 : 1; }
+
+const HELP_NOW = [
+  { label: "route search inconclusive", colour: 0x8a8a8a, hollow: true },
+  { label: "no adult in the current probe", colour: 0x92796f, hollow: true },
+  { label: "adults nearby; no water by right or stored load", colour: 0xd6a458, hollow: true },
+  { label: "one adult nearby, with water", colour: 0x659bc9, hollow: false },
+  { label: "several adults nearby, with water", colour: 0x436a96, hollow: false },
+];
+const HELP_CAME = [
+  { label: "no fire exposure in the period", colour: 0x8a8a8a, hollow: true },
+  { label: "no useful work recorded", colour: 0x92796f, hollow: true },
+  { label: "some exposures received work", colour: 0xd6a458, hollow: false },
+  { label: "all exposures received work", colour: 0x659bc9, hollow: false },
+];
+function helpClass(h: CoverageHome, actual: boolean): number {
+  const f = h.fireHelp;
+  if (!f) return 0;
+  if (actual) return f.fireEpisodes === 0 ? 0 : f.helpedEpisodes === 0 ? 1 : f.helpedEpisodes < f.fireEpisodes ? 2 : 3;
+  return f.adultsNow === 0 ? (f.unknownRoutes > 0 ? 0 : 1) : !f.waterAvailable ? 2 : f.adultsNow === 1 ? 3 : 4;
+}
 
 /** *Could reach*'s fixed bands, by walking minutes to the nearest water, nearest first; a home
  * with none within the search is its own class, drawn hollow (never as zero). */
@@ -56,6 +81,16 @@ export type LensMark =
  * of the period's days it was drawn there, and each home by the source drawn at most. */
 export function lensMarks(info: CoverageInfo, layer: LensLayer): LensMark[] {
   const out: LensMark[] = [];
+  if (!layer || info.lens !== lensId(layer)) return out;
+  if (layer.startsWith("help-")) {
+    const actual = layer === "help-came";
+    const classes = actual ? HELP_CAME : HELP_NOW;
+    for (const h of info.homes) {
+      const c = classes[helpClass(h, actual)]!;
+      out.push({ type: "home", x: h.x, y: h.y, colour: c.colour, hollow: c.hollow });
+    }
+    return out;
+  }
   if (layer === "reach") {
     for (const h of info.homes) {
       const n = h.nearest;
@@ -113,6 +148,16 @@ export function legend(
   info: CoverageInfo,
   layer: Exclude<LensLayer, "">,
 ): { title: string; lines: string[]; classes: { label: string; colour: number; hollow: boolean }[]; counts: string } {
+  if (layer.startsWith("help-")) {
+    const actual = layer === "help-came";
+    const index = actual ? 1 : 0;
+    return {
+      title: `${info.title}: ${actual ? "did come" : "now"}`,
+      lines: [`Scope: ${info.scope}`, `Period: ${info.periods[index] ?? ""}`, `Per: ${info.denominator}`],
+      classes: actual ? HELP_CAME : HELP_NOW,
+      counts: info.summary[index] ?? "",
+    };
+  }
   const reach = layer === "reach";
   const classes = reach
     ? [

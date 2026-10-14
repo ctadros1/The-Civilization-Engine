@@ -99,6 +99,7 @@ fn a_whisper_is_heard_as_news_is_and_a_repeat_adds_nothing() {
     let day = sim.now().day_index();
     let pop = sim.people_mut_for_tests();
     let claim = pop.word.make(Claim {
+        fire: None,
         id: 0,
         kind: ClaimKind::Grievance,
         settlement,

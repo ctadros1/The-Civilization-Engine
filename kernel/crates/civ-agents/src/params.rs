@@ -81,11 +81,13 @@ pub enum Behavior {
     /// Carry a load of the household's goods out from under a roof of its that a fire threatens
     /// (M6b slice BD, step four; ADR-0022 §5: goods carried out survive).
     Salvage,
+    /// Pull a threatened building down with its owner's leave and a crew (ADR-0022 §6).
+    Pull,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 28] = [
+    pub const ALL: [Behavior; 29] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -114,6 +116,7 @@ impl Behavior {
         Behavior::Douse,
         Behavior::Strip,
         Behavior::Salvage,
+        Behavior::Pull,
     ];
 
     /// The authored name of a behavior.
@@ -147,6 +150,7 @@ impl Behavior {
             Behavior::Douse => "douse",
             Behavior::Strip => "strip",
             Behavior::Salvage => "salvage",
+            Behavior::Pull => "pull",
         }
     }
 

@@ -313,6 +313,22 @@ pub const SCHEMA_V91: u32 = 91;
 /// The schema version of M6b slice BD, step four: roofs stripped and goods carried out of a
 /// fire's way, before floods and storms (see [`agents`]).
 pub const SCHEMA_V92: u32 = 92;
+/// Floods and storms, before fire caution was persisted.
+pub const SCHEMA_V93: u32 = 93;
+/// Fire caution before active observer runoff was persisted.
+pub const SCHEMA_V94: u32 = 94;
+/// Active observer runoff before hazard provenance and physical storm evaluations.
+pub const SCHEMA_V95: u32 = 95;
+/// Hazard provenance before calendar-month fire summaries.
+pub const SCHEMA_V96: u32 = 96;
+/// Monthly fire summaries before saved demolition work and crew records.
+pub const SCHEMA_V97: u32 = 97;
+/// Demolition before named found-burning accounts.
+pub const SCHEMA_V98: u32 = 98;
+/// Dated fire accounts, before linear bank records.
+pub const SCHEMA_V99: u32 = 99;
+/// Bank geometry before its explicit washed-soil account.
+pub const SCHEMA_V100: u32 = 100;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

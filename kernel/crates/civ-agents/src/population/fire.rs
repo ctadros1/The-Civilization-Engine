@@ -11,12 +11,13 @@
 //! People notice a burning building by being in it or seeing it, and whoever comes to know of a
 //! fire shouts once: those within earshot hear, wake if asleep, and stop what they are doing to
 //! decide again (ADR-0022 §6). Each comes to know only what they saw or heard (§7), and someone
-//! keeps away from home only once they know it burns. Nobody fights a fire yet: those awake in a
+//! keeps away from home only once they know it burns. People carry water, strip threatened roofs
+//! and salvage goods. Those awake in a
 //! burning building get out; those still asleep wake when it is fully involved around them, and
 //! a share of them do not get out.
 
 use super::*;
-use crate::decide::{FireFacts, FireTarget};
+use crate::decide::{FireFacts, FireTarget, FireWater};
 use crate::fire::{
     Conflagration, Fire, FireParams, Hearth, Ignition, Kindled, Knew, Noticed, Outline, Salvaged,
     Stage, Stripped, Thrown, Weighed, charred_loss,
@@ -68,6 +69,40 @@ pub fn outline_of(plots: &FastMap<PermanentId, civ_land::RectCm>, b: &Building) 
     })
 }
 
+/// A place outside the roof to pull from, on the side nearest the worker.
+fn pulling_place(o: &Outline, from: (f32, f32), margin: f64) -> (f32, f32) {
+    let (x, y) = o.centre();
+    let (mut dx, mut dy) = (f64::from(from.0) - x, f64::from(from.1) - y);
+    let distance = dx.hypot(dy);
+    if distance <= 1e-6 {
+        dx = 1.0;
+        dy = 0.0;
+    } else {
+        dx /= distance;
+        dy /= distance;
+    }
+    let radius = match *o {
+        Outline::Round { r, .. } => r,
+        Outline::Box { x0, y0, x1, y1 } => {
+            let tx = if dx.abs() > 1e-6 {
+                (x1 - x0) * 0.5 / dx.abs()
+            } else {
+                f64::INFINITY
+            };
+            let ty = if dy.abs() > 1e-6 {
+                (y1 - y0) * 0.5 / dy.abs()
+            } else {
+                f64::INFINITY
+            };
+            tx.min(ty)
+        }
+    };
+    (
+        (x + dx * (radius + margin)) as f32,
+        (y + dy * (radius + margin)) as f32,
+    )
+}
+
 /// Whether point `p` lies within outline `o`.
 fn within(o: &Outline, p: (f32, f32)) -> bool {
     let (x, y) = (f64::from(p.0), f64::from(p.1));
@@ -116,6 +151,98 @@ fn chars(kind: GroupKind) -> bool {
 }
 
 impl Population {
+    /// A direct observation becomes a dated account; an alarm alone names no building.
+    fn fire_word(&mut self, knew: Knew) {
+        if knew.how == Noticed::Heard {
+            return;
+        }
+        let Some(f) = self.fires.get(knew.fire) else {
+            return;
+        };
+        let (fire, building, household) = (f.id, f.building, f.household);
+        let Some(settlement) = self.household(household).and_then(|h| h.settlement) else {
+            return;
+        };
+        let claim = self
+            .word
+            .claims
+            .iter()
+            .find(|c| c.kind == crate::word::ClaimKind::Fire && c.fire == Some(fire))
+            .map(|c| c.id)
+            .unwrap_or_else(|| {
+                self.word.make(crate::word::Claim {
+                    id: 0,
+                    kind: crate::word::ClaimKind::Fire,
+                    settlement,
+                    day: knew.at.day_index(),
+                    subject: Some(building),
+                    grievance: None,
+                    suspected: None,
+                    fire: Some(fire),
+                })
+            });
+        self.word.hear(
+            knew.person,
+            claim,
+            knew.at.day_index(),
+            None,
+            Some(knew.person),
+        );
+    }
+
+    /// On the month's first day, tell the previous month's household-fire escapes.
+    pub(super) fn fire_month(&mut self, ctx: &Ctx) {
+        let now = ctx.now;
+        if now.date().day != 1 {
+            return;
+        }
+        let previous = now.plus_minutes(-now.minute_of_day() - 1).date();
+        // Escapes are activity-driven records; observer-set fires have no ignition to count.
+        let mut counts = std::collections::BTreeMap::new();
+        for g in &self.fires.ignitions {
+            let date = g.at.date();
+            if date.year != previous.year || date.month != previous.month {
+                continue;
+            }
+            let c = counts.entry(g.settlement).or_insert([0u32; 5]);
+            c[0] += 1;
+            if g.put_out_by.is_some() {
+                c[1] += 1;
+            } else if g.fire.is_some() {
+                c[2] += 1;
+            } else if g.ended.is_some() {
+                c[3] += 1;
+            } else {
+                c[4] += 1;
+            }
+        }
+        for (settlement, [escaped, put_out, caught, went_out, growing]) in counts {
+            let mut words = format!(
+                "Last month's household fires: {escaped} escaped; {put_out} were put out; {caught} reached a roof; {went_out} went out with nothing catching."
+            );
+            if growing > 0 {
+                words.push_str(&format!(
+                    " {growing} still grow inside at this month's beginning."
+                ));
+            }
+            self.chronicle_push(
+                now,
+                ChronicleKind::Fire,
+                Vec::new(),
+                settlement,
+                None,
+                f64::from(FireStep::Month as u8),
+                words,
+            );
+        }
+    }
+
+    /// Runs the calendar-month fire summary over recorded escapes (tests).
+    #[doc(hidden)]
+    pub fn fire_month_for_tests(&mut self, ctx: &Ctx) {
+        self.fire_month(ctx);
+    }
+
     /// Whether person `person` knows that a building of household `household` burns now: they
     /// were in it, woke to it or saw it (ADR-0022 §7; hearing a shout names no building). A fire
     /// burns at most as long as its stages last, so only the newest records are looked at.
@@ -423,7 +550,7 @@ impl Population {
         let p = self.people.get(h)?;
         let (me, age, pos) = (p.id, p.age_years(now), p.pos);
         let fp = &ctx.params.fire;
-        // The conflagrations (or lone fires) burning now, and whether they know of one.
+        // Burning groups identify goods already carried out; they do not supply perception.
         let roots: Vec<u32> = self
             .fires
             .list
@@ -432,36 +559,92 @@ impl Population {
             .map(|f| self.fires.root(f.id))
             .collect();
         let span = (fp.involve_minutes + fp.involved_minutes).ceil() as i64 + 1;
-        let since = roots
+        let since = self
+            .fires
+            .list
             .iter()
-            .filter_map(|&r| self.fires.get(r).map(|f| f.began.minutes()))
+            .filter(|f| f.burning())
+            .map(|f| f.began.minutes())
             .min()
-            .unwrap_or(now.minutes() - span);
-        let knows = self
+            .unwrap_or(now.minutes())
+            - span;
+        let known: std::collections::BTreeSet<u32> = self
             .fires
             .knew
             .iter()
             .rev()
             .take_while(|k| k.at.minutes() >= since)
-            .any(|k| k.person == me && roots.contains(&self.fires.root(k.fire)));
-        if !knows {
+            .filter(|k| k.person == me)
+            .map(|k| k.fire)
+            .collect();
+        if known.is_empty() {
             return None;
         }
         // Where a load of water comes from.
         let carry = ctx.params.household.carry_water_l;
-        let (from, fill_at, fill_min) = if water_l >= carry {
-            (FROM_STORE, hh.home, 1)
+        let water_trip = if water_l >= carry {
+            Some((FROM_STORE, hh.home, 1))
         } else {
             let home = self.homes.get(&field_key);
-            let water = self.water_source(ctx, home, Some((hh, short)), Some(me))?;
-            let from = water
-                .well
-                .and_then(|w| ctx.land.wells.get(w))
-                .map_or(water.cell, |w| w.cell);
-            (from, water.at, 1 + water.lift_min.round().max(0.0) as u32)
+            self.water_source(ctx, home, Some((hh, short)), Some(me))
+                .map(|water| {
+                    let from = water
+                        .well
+                        .and_then(|w| ctx.land.wells.get(w))
+                        .map_or(water.cell, |w| w.cell);
+                    (from, water.at, 1 + water.lift_min.round().max(0.0) as u32)
+                })
         };
         let speed = interpolate(&ctx.params.walk_speed_by_age, age).max(0.05) * 60.0;
         let kin = self.kin_households(hh);
+        let plots = plot_boxes(ctx.land);
+        let observed: Vec<Outline> = self
+            .fires
+            .list
+            .iter()
+            .filter(|f| known.contains(&f.id))
+            .filter_map(|f| ctx.land.buildings.iter().find(|b| b.id == f.building))
+            .filter_map(|b| outline_of(&plots, b))
+            .collect();
+        let burning: Vec<(u32, Outline)> = self
+            .fires
+            .list
+            .iter()
+            .filter(|f| f.burning())
+            .filter_map(|f| {
+                ctx.land
+                    .buildings
+                    .iter()
+                    .find(|b| b.id == f.building)
+                    .and_then(|b| outline_of(&plots, b))
+                    .map(|o| (f.id, o))
+            })
+            .collect();
+        // A connected physical scene, anchored in this person's recent records. Neither
+        // causes, episode membership nor historical spread diagnostics supply knowledge.
+        let mut included = std::collections::BTreeSet::new();
+        let mut known_sources = Vec::new();
+        loop {
+            let before = included.len();
+            for &(id, outline) in &burning {
+                if !included.contains(&id)
+                    && (known.contains(&id)
+                        || observed
+                            .iter()
+                            .chain(&known_sources)
+                            .any(|source| source.gap(&outline) <= fp.reach_m))
+                {
+                    included.insert(id);
+                    known_sources.push(outline);
+                }
+            }
+            if included.len() == before {
+                break;
+            }
+        }
+        if known_sources.is_empty() {
+            return None;
+        }
         let exposed: Vec<(PermanentId, f64)> = self
             .fires
             .exposure
@@ -480,6 +663,16 @@ impl Population {
             else {
                 continue;
             };
+            // Consider the physical scene of a fire they know, not unrelated distant heat.
+            // Historical spread diagnostics never supply a person's task facts.
+            let beside = outline_of(&plots, &b).is_some_and(|o| {
+                known_sources
+                    .iter()
+                    .any(|source| source.gap(&o) <= fp.reach_m)
+            });
+            if !beside {
+                continue;
+            }
             let Some(threshold) = self.catch_threshold(ctx, &b) else {
                 continue;
             };
@@ -507,6 +700,37 @@ impl Population {
                 });
             let strip_points = (leave && near > fp.strip_cost)
                 .then_some(fp.w_save * stake * (near - fp.strip_cost));
+            let outline = outline_of(&plot_boxes(ctx.land), &b);
+            let empty = outline.is_some_and(|o| {
+                !self
+                    .people
+                    .iter()
+                    .any(|(_, q)| within(&o, q.position_at(now.minutes() as f64)))
+            });
+            let pull_def = ctx
+                .catalog
+                .activities
+                .iter()
+                .find(|d| d.behavior == Behavior::Pull);
+            let equipped = pull_def.is_some_and(|d| {
+                let stores = stores_now(hh, now, ctx.params, &ctx.catalog.goods);
+                d.tools
+                    .iter()
+                    .all(|&g| stores.get(g).is_some_and(|&kg| kg > 0.0))
+            });
+            let place = self.pull_place(ctx, &b, pos);
+            let pull_leave = b.household == hh.id
+                || outline.is_some_and(|o| {
+                    self.people.iter().any(|(_, q)| {
+                        q.household == b.household
+                            && !q.asleep
+                            && outside(&o, q.position_at(now.minutes() as f64)) <= fp.reach_m
+                    })
+                });
+            let pull_points =
+                (pull_leave && empty && equipped && place.is_some() && near > fp.pull_cost)
+                    .then_some(fp.w_save * stake * (near - fp.pull_cost));
+            let pull_at = place.unwrap_or(at);
             // Carrying their household's goods out from under it.
             let salvage_points = if b.household == hh.id {
                 let kg = self.burnable_under(ctx, &b, &roots);
@@ -532,12 +756,16 @@ impl Population {
                 building,
                 at,
                 points,
-                from,
-                fill_at,
-                fill_min,
-                walk_min: (walk(pos, fill_at) + walk(fill_at, at)) / speed,
+                water: water_trip.map(|(from, fill_at, fill_min)| FireWater {
+                    from,
+                    fill_at,
+                    fill_min,
+                    walk_min: (walk(pos, fill_at) + walk(fill_at, at)) / speed,
+                }),
                 strip_points,
                 salvage_points,
+                pull_points,
+                pull_at,
                 away,
                 to_roof_min: walk(pos, at) / speed,
             });
@@ -549,6 +777,20 @@ impl Population {
         });
         targets.truncate(3);
         (!targets.is_empty()).then_some(FireFacts { targets })
+    }
+
+    /// Fire options from a specified known travel field (tests).
+    #[doc(hidden)]
+    pub fn fire_facts_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        who: PermanentId,
+        field_key: PermanentId,
+        water_l: f64,
+    ) -> Option<FireFacts> {
+        let h = *self.index.get(&who)?;
+        let hh = self.household(self.people.get(h)?.household)?.clone();
+        self.fire_facts(ctx, h, &hh, water_l, false, field_key)
     }
 
     /// Kilograms of goods that burn its household keeps under building `b`'s roof, less what was
@@ -634,6 +876,230 @@ impl Population {
             at: ctx.now,
             m2: m2.min(area) as f32,
         });
+    }
+
+    /// Choose a working place outside every standing roof, nearest the worker first.
+    fn pull_place(&self, ctx: &Ctx, b: &Building, from: (f32, f32)) -> Option<(f32, f32)> {
+        let plots = plot_boxes(ctx.land);
+        let outline = outline_of(&plots, b)?;
+        let others: Vec<_> = ctx
+            .land
+            .buildings
+            .iter()
+            .filter(|other| other.id != b.id && other.standing())
+            .filter_map(|other| outline_of(&plots, other))
+            .collect();
+        let (x, y) = outline.centre();
+        let margin = ctx.params.fire.beside_m.max(1.0);
+        let mut points = vec![pulling_place(&outline, from, margin)];
+        for (dx, dy) in [
+            (1., 0.),
+            (1., 1.),
+            (0., 1.),
+            (-1., 1.),
+            (-1., 0.),
+            (-1., -1.),
+            (0., -1.),
+            (1., -1.),
+        ] {
+            points.push(pulling_place(
+                &outline,
+                ((x + dx) as f32, (y + dy) as f32),
+                margin,
+            ));
+        }
+        points
+            .into_iter()
+            .filter(|&at| others.iter().all(|o| !within(o, at)))
+            .min_by(|a, b| {
+                let distance = |p: &(f32, f32)| (p.0 - from.0).hypot(p.1 - from.1);
+                distance(a)
+                    .total_cmp(&distance(b))
+                    .then(a.0.total_cmp(&b.0))
+                    .then(a.1.total_cmp(&b.1))
+            })
+    }
+
+    /// A minute of coordinated demolition, paid by actual workers on site.
+    pub(super) fn pull_down(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        building: PermanentId,
+        minutes: u32,
+    ) {
+        let Some(bi) = ctx.land.buildings.iter().position(|b| b.id == building) else {
+            return;
+        };
+        let b = &ctx.land.buildings[bi];
+        if !b.roofed() || self.fires.burning_in(building).is_some() || minutes == 0 {
+            return;
+        }
+        let at = build::centre_m(&b.spec);
+        let Some(fire) = self.fire_against(at) else {
+            return;
+        };
+        let Some(outline) = outline_of(&plot_boxes(ctx.land), b) else {
+            return;
+        };
+        let Some(actor) = self.person(who) else {
+            return;
+        };
+        let leave = actor.household == b.household
+            || self.people.iter().any(|(_, p)| {
+                p.household == b.household
+                    && !p.asleep
+                    && outside(&outline, p.position_at(ctx.now.minutes() as f64))
+                        <= ctx.params.fire.reach_m
+            });
+        if !leave
+            || !self
+                .fires
+                .exposure
+                .iter()
+                .any(|&(id, heat)| id == building && heat > 0.0)
+        {
+            return;
+        }
+        if self
+            .people
+            .iter()
+            .any(|(_, p)| within(&outline, p.position_at(ctx.now.minutes() as f64)))
+        {
+            return;
+        }
+        let now = ctx.now.minutes();
+        if b.demolition.is_some_and(|d| d.last_minute >= now) {
+            return;
+        }
+        let mut crew: Vec<PermanentId> = self
+            .people
+            .iter()
+            .filter_map(|(_, p)| {
+                let def = ctx.catalog.activities.get(usize::from(p.act.def))?;
+                if def.behavior != Behavior::Pull
+                    || p.act.target != Target::Building(building)
+                    || !matches!(
+                        p.act.steps.get(p.act.step as usize),
+                        Some(Step::Work { .. })
+                    )
+                    || p.act.step_started.minutes() > now - i64::from(minutes)
+                    || p.act.step_ends.minutes() < now
+                    || p.asleep
+                    || ctx.now.day_index() <= self.order.hurt_until(p.id).unwrap_or(-1)
+                    || self.sickness.ill(p.id, ctx.now.day_index())
+                    || outside(&outline, p.position_at(now as f64))
+                        > ctx.params.fire.beside_m.max(1.0) + 0.01
+                {
+                    return None;
+                }
+                let age = p.age_years(ctx.now);
+                if age < def.min_age_years || age > def.max_age_years {
+                    return None;
+                }
+                let hh = self.household(p.household)?;
+                let stores = stores_now(hh, ctx.now, ctx.params, &ctx.catalog.goods);
+                def.tools
+                    .iter()
+                    .all(|&g| stores.get(g).is_some_and(|&kg| kg > 0.0))
+                    .then_some(p.id)
+            })
+            .collect();
+        crew.sort_unstable();
+        crew.dedup();
+        if !crew.contains(&who) || crew.len() < usize::from(ctx.params.fire.pull_crew) {
+            return;
+        }
+        let d = ctx.land.buildings[bi]
+            .demolition
+            .get_or_insert(civ_land::buildings::Demolition {
+                fire,
+                needed_h: (outline.area_m2() * ctx.params.fire.pull_h_per_m2) as f32,
+                work_h: 0.0,
+                last_minute: -1,
+            });
+        if d.needed_h <= 0.0 || !d.needed_h.is_finite() {
+            return;
+        }
+        d.last_minute = now;
+        d.work_h += (crew.len() as f64 * f64::from(minutes) / 60.0) as f32;
+        if d.work_h < d.needed_h {
+            return;
+        }
+        let work_h = d.work_h;
+        let household = ctx.land.buildings[bi].household;
+        let b = &mut ctx.land.buildings[bi];
+        for c in &mut b.condition {
+            c.loss = 1.0;
+            c.state = GroupState::Failed;
+        }
+        b.state = civ_land::BuildingState::Ruin;
+        b.repair = None;
+        b.demolition = None;
+        let words = self.building_words(ctx, &ctx.land.buildings[bi]);
+        self.chronicle_push(
+            ctx.now, ChronicleKind::Fire, crew.clone(),
+            self.household(household).and_then(|h| h.settlement), Some(at),
+            f64::from(FireStep::Pulled as u8),
+            format!("A crew of {} pulled down {words} against the fire: {work_h:.2} hours of work; its parts were lost.", crew.len()),
+        );
+        self.fires.pulled.push(crate::fire::Pulled {
+            fire,
+            building,
+            at: ctx.now,
+            people: crew,
+            work_h,
+        });
+        self.buildings_changed(ctx.now, ctx.land, ctx.catalog, ctx.params, household);
+    }
+
+    /// Starts the actual one-minute activity on site for a controlled crew test.
+    #[doc(hidden)]
+    pub fn start_pulling_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        building: PermanentId,
+    ) -> bool {
+        let Some(h) = self.index.get(&who).copied() else {
+            return false;
+        };
+        let Some((def, d)) = ctx
+            .catalog
+            .activities
+            .iter()
+            .enumerate()
+            .find(|(_, d)| d.behavior == Behavior::Pull)
+        else {
+            return false;
+        };
+        let minutes = d.min_minutes.max(1);
+        let Some(b) = ctx.land.buildings.iter().find(|b| b.id == building) else {
+            return false;
+        };
+        let Some(from) = self.people.get(h).map(|p| p.pos) else {
+            return false;
+        };
+        let Some(pos) = self.pull_place(ctx, b, from) else {
+            return false;
+        };
+        let Some(p) = self.people.get_mut(h) else {
+            return false;
+        };
+        p.pos = pos;
+        p.trip = None;
+        p.act = Activity {
+            def: def as u16,
+            target: Target::Building(building),
+            steps: vec![Step::Work { minutes }],
+            step: 0,
+            started: ctx.now,
+            step_started: ctx.now,
+            step_ends: ctx.now,
+            version: p.act.version.wrapping_add(1),
+        };
+        self.start_work(ctx, h, minutes, Some(Behavior::Pull));
+        true
     }
 
     /// Person `who` of `household` takes up a load of its goods from under building
@@ -1067,7 +1533,10 @@ impl Population {
         for k in &self.fires.knew[start..] {
             let root = self.fires.root(k.fire);
             if roots.contains(&root) {
-                knows_fire.insert((k.fire, k.person));
+                // An unnamed alarm is not a sighting; approaching it can add a direct account.
+                if k.how != Noticed::Heard {
+                    knows_fire.insert((k.fire, k.person));
+                }
                 knows_root.insert((root, k.person));
             }
         }
@@ -1102,6 +1571,7 @@ impl Population {
         }
         for (h, knew, new_to_it) in seen {
             self.fires.knew.push(knew);
+            self.fire_word(knew);
             if new_to_it {
                 self.stop_and_think(ctx, h);
             }
@@ -1293,13 +1763,15 @@ impl Population {
                 // Woken by it, they know of it, and shout if it is news to them.
                 let (fire, root) = self.knows_of(id, who);
                 if !fire {
-                    self.fires.knew.push(Knew {
+                    let knew = Knew {
                         fire: id,
                         person: who,
                         at: ctx.now,
                         how: Noticed::Woke,
                         shouted: root,
-                    });
+                    };
+                    self.fires.knew.push(knew);
+                    self.fire_word(knew);
                 }
             }
             // Out, and deciding again; their home is not where they will go.

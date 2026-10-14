@@ -343,9 +343,33 @@ fn a_levy_is_held_against_the_gathering_in_a_lean_year_and_not_in_an_ordinary_on
         sim.people_mut_for_tests().polities[0].laws[0].levy_share = 0.4;
         if lean {
             empty_food(&mut sim);
+            sim.advance_minutes(2 * DAY).expect("the shortage is seen");
+        } else {
+            // This control has no remembered lean season. The test concerns that evidence,
+            // rather than whether a particular weather/harvest run was ordinary.
+            let settlement = sim.people().polities[0].settlement;
+            sim.people_mut_for_tests().chronicle.retain(|e| {
+                e.kind != civ_agents::ChronicleKind::FoodRanShort
+                    || e.settlement != Some(settlement)
+            });
         }
-        // Through the harvest and its threshing.
-        sim.advance_minutes(100 * DAY).expect("advances");
+        // Keep prepared reserves above the half-year subsistence floor, and below a year's
+        // food, while the actual crop is harvested and taxed. A poor/flooded harvest otherwise
+        // leaves every household correctly unable to pay, testing none of the grievance rule.
+        let provisions = sim
+            .rules()
+            .catalog
+            .good_index("core:good/provisions")
+            .expect("provisions");
+        let kcal = sim.rules().catalog.goods[provisions].kcal_per_kg;
+        let need_day = sim.rules().people.household.daily_kcal_per_person;
+        for _ in 0..100 {
+            for (_, h) in sim.people_mut_for_tests().households.iter_mut() {
+                let reserve = 0.6 * 365.0 * h.members.len() as f64 * need_day / kcal;
+                h.stores[provisions] = h.stores[provisions].max(reserve);
+            }
+            sim.advance_minutes(DAY).expect("advances");
+        }
         let pop = sim.people();
         let c = pop.polities[0].laws[0].compliance;
         assert!(c.complied > 0, "the threshers paid: {c:?}");
@@ -367,7 +391,11 @@ fn a_levy_is_held_against_the_gathering_in_a_lean_year_and_not_in_an_ordinary_on
                 "a levy in a lean year left someone short: {c:?}"
             );
         }
-        if !ran_short {
+        if !lean {
+            assert!(
+                !ran_short,
+                "the supplied control has no lean-season evidence"
+            );
             assert!(
                 levied.is_empty(),
                 "an ordinary year's levy is the custom: {levied:?}"

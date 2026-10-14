@@ -349,20 +349,27 @@ pub struct FiresSeen {
     pub escapes: u32,
     /// Of them, those somebody put out, at once or while they grew.
     pub put_out: u32,
-    /// Buildings that burned, but for those the observer set alight.
+    /// Buildings burned by fires without an observer-set fire in their episode.
     pub burned: u32,
     /// Of them, those a burning neighbour caught.
     pub spread: u32,
     /// Fires the observer set.
     pub set: u32,
-    /// People who died in them.
+    /// People who died in natural fires.
     pub deaths: u32,
+    /// Buildings burned in observer-set episodes, including their spread.
+    pub observer_burned: u32,
+    pub observer_spread: u32,
+    pub observer_deaths: u32,
 }
 
 impl FiresSeen {
     /// Counts `sim`'s fires since it was made, keeping the household-years already counted.
     pub fn count(&mut self, sim: &Sim) {
-        let fires = &sim.people().fires;
+        self.count_fires(&sim.people().fires);
+    }
+
+    fn count_fires(&mut self, fires: &civ_agents::fire::Fires) {
         self.escapes = fires.ignitions.len() as u32;
         self.put_out = fires
             .ignitions
@@ -373,13 +380,33 @@ impl FiresSeen {
             matches!(f.kindled, civ_agents::fire::Kindled::Observer { .. })
         };
         self.set = fires.list.iter().filter(set).count() as u32;
-        self.burned = fires.list.len() as u32 - self.set;
-        self.spread = fires
+        let observer_roots: std::collections::BTreeSet<_> = fires
             .list
             .iter()
-            .filter(|f| matches!(f.kindled, civ_agents::fire::Kindled::Neighbour { .. }))
-            .count() as u32;
-        self.deaths = fires.list.iter().map(|f| f.deaths.len() as u32).sum();
+            .filter(set)
+            .map(|f| fires.root(f.id))
+            .collect();
+        self.burned = 0;
+        self.spread = 0;
+        self.deaths = 0;
+        self.observer_burned = 0;
+        self.observer_spread = 0;
+        self.observer_deaths = 0;
+        for f in &fires.list {
+            let spread = u32::from(matches!(
+                f.kindled,
+                civ_agents::fire::Kindled::Neighbour { .. }
+            ));
+            if observer_roots.contains(&fires.root(f.id)) {
+                self.observer_burned += 1;
+                self.observer_spread += spread;
+                self.observer_deaths += f.deaths.len() as u32;
+            } else {
+                self.burned += 1;
+                self.spread += spread;
+                self.deaths += f.deaths.len() as u32;
+            }
+        }
     }
 
     fn join(&mut self, o: &FiresSeen) {
@@ -390,6 +417,9 @@ impl FiresSeen {
         self.spread += o.spread;
         self.set += o.set;
         self.deaths += o.deaths;
+        self.observer_burned += o.observer_burned;
+        self.observer_spread += o.observer_spread;
+        self.observer_deaths += o.observer_deaths;
     }
 }
 
@@ -1510,8 +1540,18 @@ fn fires(worlds: &[WorldRun]) -> Row {
     let rate = f64::from(all.escapes) * 1000.0 / all.household_years as f64;
     let text = format!(
         "{rate:.1} per 1,000 household-years ({} escapes in {} household-years); {} put out, \
-         {} buildings burned, {} of them caught from a neighbour, {} died; {} set by the observer",
-        all.escapes, all.household_years, all.put_out, all.burned, all.spread, all.deaths, all.set,
+         {} buildings burned, {} of them caught from a neighbour, {} died; observer: {} set, \
+         {} buildings burned, {} spread, {} died",
+        all.escapes,
+        all.household_years,
+        all.put_out,
+        all.burned,
+        all.spread,
+        all.deaths,
+        all.set,
+        all.observer_burned,
+        all.observer_spread,
+        all.observer_deaths,
     );
     let inside = (1.0..=100.0).contains(&rate);
     row.graded(if inside { Grade::Green } else { Grade::Amber }, text)
@@ -2068,6 +2108,103 @@ mod tests {
         assert_eq!(two.grade, Grade::Green, "{}", two.text);
         assert!(two.text.contains("by year 20: oligarchy"), "{}", two.text);
         assert_eq!(regimes(&[a]).grade, Grade::Gray, "one world cannot differ");
+    }
+
+    #[test]
+    fn observer_fire_spread_and_deaths_stay_out_of_natural_losses() {
+        use civ_agents::fire::{Conflagration, Fire, Fires, Kindled};
+        use civ_core::{PermanentId, SimTime};
+        let id = |n| PermanentId::from_raw(n).expect("id");
+        let at = SimTime::from_minutes;
+        let mut history = Fires::default();
+        let fire = |number, episode, kindled, death| Fire {
+            id: number,
+            building: id(u64::from(number) + 10),
+            household: id(1),
+            settlement: None,
+            at: (0.0, 0.0),
+            began: at(i64::from(number)),
+            kindled,
+            episode: Some(episode),
+            ended: Some(at(20)),
+            goods_kg: 0.0,
+            deaths: if death {
+                vec![id(u64::from(number) + 20)]
+            } else {
+                Vec::new()
+            },
+        };
+        let neighbour = |from| Kindled::Neighbour {
+            fire: from,
+            gap_m: 1.0,
+            wind_ms: 1.0,
+            toward: 1.0,
+            moisture: 0.1,
+        };
+        history.list = vec![
+            fire(1, 1, Kindled::Observer { influence: 1 }, false),
+            fire(2, 1, neighbour(1), true),
+            fire(3, 2, Kindled::Ignition { ignition: 1 }, false),
+            fire(4, 2, neighbour(3), true),
+        ];
+        history.episodes = vec![
+            Conflagration {
+                id: 1,
+                settlement: None,
+                first: 1,
+                began: at(1),
+                ended: Some(at(20)),
+            },
+            Conflagration {
+                id: 2,
+                settlement: None,
+                first: 3,
+                began: at(3),
+                ended: Some(at(20)),
+            },
+        ];
+        history.ignitions.push(civ_agents::fire::Ignition {
+            id: 1,
+            at: at(2),
+            building: id(13),
+            household: id(1),
+            settlement: None,
+            hearth: civ_agents::fire::Hearth::Banked,
+            moisture: 0.1,
+            grows_min: 1.0,
+            ended: Some(at(3)),
+            put_out_by: None,
+            fire: Some(3),
+        });
+        assert!(history.problems().is_empty(), "{:?}", history.problems());
+        let mut counted = FiresSeen::default();
+        counted.count_fires(&history);
+        assert_eq!((counted.escapes, counted.put_out), (1, 0));
+        assert_eq!((counted.burned, counted.spread, counted.deaths), (2, 1, 1));
+        assert_eq!(
+            (
+                counted.set,
+                counted.observer_burned,
+                counted.observer_spread,
+                counted.observer_deaths
+            ),
+            (1, 2, 1, 1)
+        );
+        let mut joined = FiresSeen::default();
+        joined.join(&counted);
+        joined.join(&counted);
+        assert_eq!((joined.burned, joined.deaths), (4, 2));
+        assert_eq!(
+            (
+                joined.observer_burned,
+                joined.observer_spread,
+                joined.observer_deaths
+            ),
+            (4, 2, 2)
+        );
+        // Recounting replaces every loss counter, rather than adding the history twice.
+        counted.count_fires(&Fires::default());
+        assert_eq!(counted, FiresSeen::default());
     }
 
     #[test]

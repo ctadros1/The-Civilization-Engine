@@ -70,7 +70,7 @@
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::io::{Read, Seek};
 
-use civ_agents::caution::Trust;
+use civ_agents::caution::{FireTrust, Trust};
 use civ_agents::condition;
 use civ_agents::firm::{BookKind, Books, Entry as BookEntryOf, Exit, Firm, Statement, WageOffer};
 use civ_agents::history::{
@@ -114,7 +114,8 @@ use super::{
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
-    SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, finish, section, single_chunk, unreadable,
+    SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
+    SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -507,6 +508,17 @@ enum Schema {
     V92,
     /// Flood and storm incidents and episodes, flood memory (M6b slice BF).
     V93,
+    /// Fire caution by covering and wall kind (BE persistence repair).
+    V94,
+    /// Active observer runoff (BF command repair).
+    V95,
+    /// Hazard provenance and storm pulse evaluations.
+    V96,
+    V97,
+    V98,
+    V99,
+    V100,
+    V101,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -614,7 +626,15 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V90 => Schema::V90,
         SCHEMA_V91 => Schema::V91,
         SCHEMA_V92 => Schema::V92,
-        SAVE_SCHEMA_VERSION => Schema::V93,
+        SCHEMA_V93 => Schema::V93,
+        SCHEMA_V94 => Schema::V94,
+        SCHEMA_V95 => Schema::V95,
+        SCHEMA_V96 => Schema::V96,
+        SCHEMA_V97 => Schema::V97,
+        SCHEMA_V98 => Schema::V98,
+        SCHEMA_V99 => Schema::V99,
+        SCHEMA_V100 => Schema::V100,
+        SAVE_SCHEMA_VERSION => Schema::V101,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -722,6 +742,10 @@ pub(super) fn decode<R: Read + Seek>(
         if schema >= Schema::V18 {
             people.trust = decode_trust(&bytes, rules)?;
         }
+        // Older saves did not keep fire caution; begin with no remembered losses.
+        if schema >= Schema::V94 {
+            people.fire_trust = decode_fire_trust(&bytes)?;
+        }
         // A technique founders bring that the content has added since the save was made is
         // given as a founder of their age would bring it, like a new skill.
         people.give_new_founder_knowledge(
@@ -742,7 +766,7 @@ pub(super) fn decode<R: Read + Seek>(
     // Earthworks (schema 20); before them nobody had changed the ground.
     if schema >= Schema::V20 {
         let bytes = single_chunk(reader, SECTION_EARTH)?;
-        decode_earth(&bytes, &mut land)?;
+        decode_earth(&bytes, &mut land, schema)?;
     }
     // Ties (schema 28); before them nobody remembered anybody. Standing is kept beside them; a
     // save without it works it out afresh (ADR-0014 §3).
@@ -870,17 +894,151 @@ pub(super) fn decode<R: Read + Seek>(
     // Floods (schema 93); before, none has flooded or blown.
     if schema >= Schema::V93 {
         let bytes = single_chunk(reader, SECTION_FLOODS)?;
-        let (floods, flood_rev, reaches) = decode_floods(&bytes)?;
+        let (floods, flood_rev, reaches) = decode_floods(&bytes, schema)?;
         people.floods = floods;
         land.flood_revision = flood_rev;
-        if let Some(r) = reaches
-            && r.len() == map.reaches.len()
-        {
-            land.reach_discharges = r;
+        let r =
+            reaches.ok_or_else(|| LoadError::Malformed("missing river discharges".to_owned()))?;
+        if r.len() != map.reaches.len() || r.iter().any(|q| !q.is_finite() || *q < 0.0) {
+            return Err(LoadError::Malformed(
+                "invalid river discharge array".to_owned(),
+            ));
         }
-        land.flood_depths = land
-            .floodplain
-            .flood_depth_raster(map, &land.reach_discharges);
+        land.reach_discharges = r;
+        if schema >= Schema::V95 {
+            let root = flatbuffers::root::<save::FloodsSave>(&bytes)
+                .map_err(|e| unreadable(SECTION_FLOODS, &e))?;
+            for f in root.river_forcings().iter().flatten() {
+                if f.reach() as usize >= map.reaches.len()
+                    || !f.discharge_m3s().is_finite()
+                    || f.discharge_m3s() <= 0.0
+                    || f.until_day() <= now.day_index()
+                    || !people.influences.list.iter().any(|i| {
+                        i.id == f.influence()
+                            && i.kind == civ_agents::influence::InfluenceKind::Flood
+                    })
+                    || land.river_forcings.iter().any(|old| old.reach == f.reach())
+                {
+                    return Err(LoadError::Malformed("invalid observer runoff".to_owned()));
+                }
+                land.river_forcings.push(civ_land::RiverForcing {
+                    reach: f.reach(),
+                    discharge_m3s: f.discharge_m3s(),
+                    until_day: f.until_day(),
+                    influence: f.influence(),
+                });
+            }
+        }
+        if schema >= Schema::V96 {
+            let root = flatbuffers::root::<save::FloodsSave>(&bytes)
+                .map_err(|e| unreadable(SECTION_FLOODS, &e))?;
+            for c in root.storm_checks().iter().flatten() {
+                let building = required(c.building(), "a storm evaluation")?;
+                if c.day() != now.day_index()
+                    || civ_grammar::GroupKind::of_group(c.group())
+                        != Some(civ_grammar::GroupKind::Covering)
+                    || (c.observer() > 0
+                        && !people.influences.list.iter().any(|i| {
+                            i.id == c.observer()
+                                && i.kind == civ_agents::influence::InfluenceKind::Storm
+                        }))
+                    || land.storm_checks.iter().any(|old| {
+                        old.building == building
+                            && old.group == c.group()
+                            && old.day == c.day()
+                            && old.observer == c.observer()
+                    })
+                {
+                    return Err(LoadError::Malformed("invalid storm evaluation".to_owned()));
+                }
+                land.storm_checks.push(civ_land::StormCheck {
+                    building,
+                    group: c.group(),
+                    day: c.day(),
+                    observer: c.observer(),
+                });
+            }
+        } else {
+            // Old snapshots did not keep physical evaluations. Today's natural pulse has
+            // passed; do not apply it again to the installed coverings on an old load.
+            let day = now.day_index();
+            for b in &land.buildings {
+                for c in &b.condition {
+                    if civ_grammar::GroupKind::of_group(c.group)
+                        == Some(civ_grammar::GroupKind::Covering)
+                    {
+                        land.storm_checks.push(civ_land::StormCheck {
+                            building: b.id,
+                            group: c.group,
+                            day,
+                            observer: 0,
+                        });
+                    }
+                }
+            }
+        }
+        validate_flood_records(&people.floods, &people.influences, map.reaches.len(), now)?;
+        let barriers: Vec<_> = land
+            .banks
+            .iter()
+            .flat_map(|b| b.barriers(map, &land.earthworks, &land.floodplain.cell_hand))
+            .collect();
+        let changes =
+            civ_land::banks::ground_changes(&land.banks, &land.earthworks, map, &land.ground);
+        land.flood_depths = land.floodplain.flood_depths_with_ground(
+            map,
+            &land.reach_discharges,
+            &barriers,
+            &changes,
+        );
+    }
+    for c in &people.word.claims {
+        if c.kind == civ_agents::word::ClaimKind::Fire {
+            let f = c.fire.and_then(|id| people.fires.get(id)).ok_or_else(|| {
+                LoadError::Malformed("fire account names no recorded fire".to_owned())
+            })?;
+            if schema < Schema::V99
+                || c.subject != Some(f.building)
+                || c.day < f.began.day_index()
+                || c.day > now.day_index()
+                || c.grievance.is_some()
+                || c.suspected.is_some()
+            {
+                return Err(LoadError::Malformed(
+                    "invalid found-burning account".to_owned(),
+                ));
+            }
+        } else if c.fire.is_some() {
+            return Err(LoadError::Malformed(
+                "a non-fire claim names a fire".to_owned(),
+            ));
+        }
+    }
+    for p in &people.fires.pulled {
+        let bad = p.work_h <= 0.0
+            || !p.work_h.is_finite()
+            || p.people.len() < 2
+            || p.people.windows(2).any(|w| w[0] >= w[1])
+            || p.at > now
+            || people.fires.get(p.fire).is_none_or(|f| p.at < f.began);
+        if bad {
+            return Err(LoadError::Malformed("invalid demolition record".to_owned()));
+        }
+    }
+    for b in &land.buildings {
+        if let Some(d) = b.demolition {
+            let Some(f) = people.fires.get(d.fire) else {
+                return Err(LoadError::Malformed(
+                    "demolition names an unknown fire".to_owned(),
+                ));
+            };
+            if d.last_minute > now.minutes()
+                || (d.work_h > 0.0 && d.last_minute < 0)
+                || (d.last_minute >= 0 && d.last_minute < f.began.minutes())
+            {
+                return Err(LoadError::Malformed("invalid demolition time".to_owned()));
+            }
+        }
     }
     // Settlements' founding ways (schema 61); before them a founding band's is drawn again from
     // its key, and any other settlement's taken as its households' now.
@@ -1698,6 +1856,7 @@ fn encode_earth(land: &Land) -> Vec<u8> {
                     civ_land::earth::EarthKind::Platform => 0,
                     civ_land::earth::EarthKind::Pit => 1,
                     civ_land::earth::EarthKind::Spoil => 2,
+                    civ_land::earth::EarthKind::Bank => 3,
                 },
             )
         })
@@ -1726,18 +1885,49 @@ fn encode_earth(land: &Land) -> Vec<u8> {
         .map(|w| save::EarthLink::new(w.id.get(), raw(w.deposit), raw(w.heap)))
         .collect();
     let links = fbb.create_vector(&links);
+    let banks: Vec<_> = land
+        .banks
+        .iter()
+        .map(|b| {
+            save::BankSegmentRecord::new(
+                b.work.get(),
+                b.borrow.get(),
+                b.a[0],
+                b.a[1],
+                b.b[0],
+                b.b[1],
+                b.height_m,
+                b.crest_width_m,
+                b.side_run,
+                b.compacted_per_bank,
+                b.settlement_m,
+                b.erosion_m,
+                b.breached,
+            )
+        })
+        .collect();
+    let banks = fbb.create_vector(&banks);
+    let sediment: Vec<_> = land
+        .banks
+        .iter()
+        .filter(|b| b.sediment_m3 != 0.0)
+        .map(|b| save::BankSedimentRecord::new(b.work.get(), b.sediment_m3))
+        .collect();
+    let sediment = fbb.create_vector(&sediment);
     let root = save::Earth::create(
         &mut fbb,
         &save::EarthArgs {
             works: Some(works),
             tiles: Some(tiles),
             links: Some(links),
+            banks: Some(banks),
+            bank_sediment: Some(sediment),
         },
     );
     finish(fbb, root)
 }
 
-fn decode_earth(bytes: &[u8], land: &mut Land) -> Result<(), LoadError> {
+fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), LoadError> {
     let root =
         flatbuffers::root::<save::Earth>(bytes).map_err(|e| unreadable(SECTION_EARTH, &e))?;
     for w in root.works().iter().flatten() {
@@ -1745,6 +1935,7 @@ fn decode_earth(bytes: &[u8], land: &mut Land) -> Result<(), LoadError> {
             0 => civ_land::earth::EarthKind::Platform,
             1 => civ_land::earth::EarthKind::Pit,
             2 => civ_land::earth::EarthKind::Spoil,
+            3 if schema >= Schema::V100 => civ_land::earth::EarthKind::Bank,
             other => {
                 return Err(LoadError::Malformed(format!(
                     "an earthwork has kind {other}"
@@ -1771,6 +1962,53 @@ fn decode_earth(bytes: &[u8], land: &mut Land) -> Result<(), LoadError> {
             version: w.version(),
             begun: time(w.begun()),
         });
+    }
+    if schema < Schema::V100 && root.banks().is_some_and(|b| !b.is_empty()) {
+        return Err(LoadError::Malformed(
+            "linear banks in a save before schema 100".into(),
+        ));
+    }
+    // Explicit migration: older snapshots have no linear banks; none are inferred.
+    if schema >= Schema::V100 {
+        for b in root.banks().iter().flatten() {
+            land.banks.push(civ_land::banks::BankSegment {
+                work: required(b.work(), "a bank segment")?,
+                borrow: required(b.borrow(), "a bank borrow source")?,
+                a: [b.ax(), b.ay()],
+                b: [b.bx(), b.by()],
+                height_m: b.height_m(),
+                crest_width_m: b.crest_width_m(),
+                side_run: b.side_run(),
+                compacted_per_bank: b.compacted_per_bank(),
+                settlement_m: b.settlement_m(),
+                erosion_m: b.erosion_m(),
+                breached: b.breached(),
+                sediment_m3: 0.0,
+            });
+        }
+    }
+    // Explicit migration: schemas through 100 retain their ground and have no washed-soil stock.
+    if schema < Schema::V101 && root.bank_sediment().is_some_and(|v| !v.is_empty()) {
+        return Err(LoadError::Malformed(
+            "bank sediment before schema 101".into(),
+        ));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for record in root.bank_sediment().iter().flatten() {
+        let bank = land
+            .banks
+            .iter_mut()
+            .find(|b| b.work.get() == record.work())
+            .ok_or_else(|| LoadError::Malformed("sediment names missing bank".into()))?;
+        if !seen.insert(record.work())
+            || !record.compacted_m3().is_finite()
+            || record.compacted_m3() <= 0.0
+        {
+            return Err(LoadError::Malformed(
+                "invalid or duplicate bank sediment".into(),
+            ));
+        }
+        bank.sediment_m3 = record.compacted_m3();
     }
     // Schema 21: what each pit and heap is linked to.
     for l in root.links().iter().flatten() {
@@ -2491,6 +2729,7 @@ fn decode_land(
         deposits: Vec::new(),
         // Read from its own section (schema 20 on).
         earthworks: Vec::new(),
+        banks: Vec::new(),
         ground: civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
         // Read from its own section (schema 68 on).
         crossings: Default::default(),
@@ -2502,6 +2741,8 @@ fn decode_land(
         reach_discharges: map.reaches.iter().map(|r| r.discharge_m3s).collect(),
         flood_depths: vec![0.0; map.cell_count()],
         flood_revision: 0,
+        river_forcings: Vec::new(),
+        storm_checks: Vec::new(),
     };
     // A grid of the wrong size is reported by `Land::problems`; only fill stocks on a sound one.
     if land.patches.class.len() == n
@@ -3169,7 +3410,15 @@ fn carried(
         | Schema::V90
         | Schema::V91
         | Schema::V92
-        | Schema::V93 => {
+        | Schema::V93
+        | Schema::V94
+        | Schema::V95
+        | Schema::V96
+        | Schema::V97
+        | Schema::V98
+        | Schema::V99
+        | Schema::V100
+        | Schema::V101 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3377,7 +3626,15 @@ fn decode_households(
             | Schema::V90
             | Schema::V91
             | Schema::V92
-            | Schema::V93 => {
+            | Schema::V93
+            | Schema::V94
+            | Schema::V95
+            | Schema::V96
+            | Schema::V97
+            | Schema::V98
+            | Schema::V99
+            | Schema::V100
+            | Schema::V101 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -4935,6 +5192,17 @@ fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
                     },
                 )
             });
+            let demolition = b.demolition.map(|d| {
+                save::DemolitionSave::create(
+                    &mut fbb,
+                    &save::DemolitionSaveArgs {
+                        fire: d.fire,
+                        needed_h: d.needed_h,
+                        work_h: d.work_h,
+                        last_minute: d.last_minute,
+                    },
+                )
+            });
             save::Building::create(
                 &mut fbb,
                 &save::BuildingArgs {
@@ -4958,6 +5226,7 @@ fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
                     style_from: b.style_from.map_or(0, |s| s.get()),
                     last_flood_depth_cm: b.last_flood_depth_cm,
                     days_wet: b.days_wet,
+                    demolition,
                 },
             )
         })
@@ -5106,6 +5375,31 @@ fn decode_buildings(bytes: &[u8], schema: Schema) -> Result<Vec<Building>, LoadE
                 b.days_wet()
             } else {
                 0
+            },
+            demolition: if schema >= Schema::V98 {
+                match b.demolition() {
+                    Some(d) => {
+                        let needed_h = finite(d.needed_h(), "demolition labour")?;
+                        let work_h = finite(d.work_h(), "demolition progress")?;
+                        if d.fire() == 0
+                            || needed_h <= 0.0
+                            || work_h < 0.0
+                            || work_h >= needed_h
+                            || d.last_minute() < -1
+                        {
+                            return Err(LoadError::Malformed("invalid demolition work".to_owned()));
+                        }
+                        Some(civ_land::buildings::Demolition {
+                            fire: d.fire(),
+                            needed_h,
+                            work_h,
+                            last_minute: d.last_minute(),
+                        })
+                    }
+                    None => None,
+                }
+            } else {
+                None
             },
         });
     }
@@ -5804,6 +6098,21 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
         })
         .collect();
     let trust = fbb.create_vector(&trust);
+    let fire_trust: Vec<save::FireTrustEntry> = pop
+        .fire_trust
+        .iter()
+        .map(|t| {
+            save::FireTrustEntry::new(
+                t.at.minutes(),
+                t.settlement.get(),
+                t.losses,
+                t.years,
+                t.tile,
+                t.wall_kind,
+            )
+        })
+        .collect();
+    let fire_trust = fbb.create_vector(&fire_trust);
     let root = save::Knowledge::create(
         &mut fbb,
         &save::KnowledgeArgs {
@@ -5811,6 +6120,7 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
             entries: Some(entries),
             trust: Some(trust),
             elsewhere,
+            fire_trust: Some(fire_trust),
         },
     );
     finish(fbb, root)
@@ -5857,6 +6167,40 @@ fn decode_trust(bytes: &[u8], rules: &Rules) -> Result<Vec<Trust>, LoadError> {
             settlement,
             technique,
             failures,
+            years,
+            at: time(t.at()),
+        });
+    }
+    Ok(out)
+}
+
+/// Fire caution (schema 94); malformed or repeated records are refused.
+fn decode_fire_trust(bytes: &[u8]) -> Result<Vec<FireTrust>, LoadError> {
+    let root =
+        flatbuffers::root::<save::Knowledge>(bytes).map_err(|e| unreadable(SECTION_KNOW, &e))?;
+    let mut out: Vec<FireTrust> = Vec::new();
+    for t in root.fire_trust().iter().flatten() {
+        let (losses, years) = (t.losses(), t.years());
+        if !(losses.is_finite() && losses >= 0.0 && years.is_finite() && years >= 0.0)
+            || t.wall_kind() > 3
+        {
+            return Err(LoadError::Malformed(
+                "invalid fire caution record".to_owned(),
+            ));
+        }
+        let settlement = required(t.settlement(), "a fire caution entry")?;
+        if out.iter().any(|x| {
+            x.settlement == settlement && x.tile == t.tile() && x.wall_kind == t.wall_kind()
+        }) {
+            return Err(LoadError::Malformed(
+                "repeated fire caution record".to_owned(),
+            ));
+        }
+        out.push(FireTrust {
+            settlement,
+            tile: t.tile(),
+            wall_kind: t.wall_kind(),
+            losses,
             years,
             at: time(t.at()),
         });
@@ -6119,6 +6463,7 @@ fn encode_word(word: &civ_agents::word::Word) -> Vec<u8> {
                     place_kind,
                     place,
                     counts,
+                    fire: c.fire.unwrap_or(0),
                 },
             )
         })
@@ -6242,6 +6587,7 @@ fn decode_word(bytes: &[u8]) -> Result<civ_agents::word::Word, LoadError> {
             subject: id(c.subject()),
             grievance,
             suspected,
+            fire: (c.fire() != 0).then_some(c.fire()),
         });
     }
     if !word.claims.windows(2).all(|w| w[0].id < w[1].id) {
@@ -8748,6 +9094,25 @@ fn encode_fires(people: &Population) -> Vec<u8> {
         })
         .collect();
     let salvaged = fbb.create_vector(&salvaged);
+    let pulled: Vec<_> = fires
+        .pulled
+        .iter()
+        .map(|p| {
+            let people: Vec<u64> = p.people.iter().map(|id| id.get()).collect();
+            let people = fbb.create_vector(&people);
+            save::PulledSave::create(
+                &mut fbb,
+                &save::PulledSaveArgs {
+                    fire: p.fire,
+                    building: p.building.get(),
+                    at: p.at.minutes(),
+                    people: Some(people),
+                    work_h: p.work_h,
+                },
+            )
+        })
+        .collect();
+    let pulled = fbb.create_vector(&pulled);
     let root = save::FiresSave::create(
         &mut fbb,
         &save::FiresSaveArgs {
@@ -8761,6 +9126,7 @@ fn encode_fires(people: &Population) -> Vec<u8> {
             thrown: Some(thrown),
             stripped: Some(stripped),
             salvaged: Some(salvaged),
+            pulled: Some(pulled),
         },
     );
     finish(fbb, root)
@@ -8908,6 +9274,28 @@ fn decode_fires(bytes: &[u8], schema: Schema) -> Result<civ_agents::fire::Fires,
             kg: t.kg(),
         });
     }
+    if schema >= Schema::V98 {
+        for p in root.pulled().iter().flatten() {
+            let people = p
+                .people()
+                .iter()
+                .flatten()
+                .map(|id| {
+                    PermanentId::from_raw(id).ok_or_else(|| {
+                        LoadError::Malformed("zero demolition crew member".to_owned())
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            out.pulled.push(civ_agents::fire::Pulled {
+                fire: p.fire(),
+                building: PermanentId::from_raw(p.building())
+                    .ok_or_else(|| LoadError::Malformed("zero demolished building".to_owned()))?,
+                at: SimTime::from_minutes(p.at()),
+                people,
+                work_h: p.work_h(),
+            });
+        }
+    }
     Ok(out)
 }
 
@@ -8918,9 +9306,12 @@ fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
         .high_waters
         .iter()
         .map(|hw| {
+            let observers = fbb.create_vector(&hw.origin.observers);
             save::HighWaterSave::create(
                 &mut fbb,
                 &save::HighWaterSaveArgs {
+                    origin_known: hw.origin.known,
+                    observers: Some(observers),
                     id: hw.id,
                     reach: hw.reach,
                     settlement: raw(hw.settlement),
@@ -8945,9 +9336,12 @@ fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
         .iter()
         .map(|ep| {
             let hw_vec = fbb.create_vector(&ep.high_waters);
+            let observers = fbb.create_vector(&ep.origin.observers);
             save::FloodEpisodeSave::create(
                 &mut fbb,
                 &save::FloodEpisodeSaveArgs {
+                    origin_known: ep.origin.known,
+                    observers: Some(observers),
                     id: ep.id,
                     settlement: raw(ep.settlement),
                     first_reach: ep.first_reach,
@@ -8967,9 +9361,12 @@ fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
         .storm_damages
         .iter()
         .map(|sd| {
+            let observers = fbb.create_vector(&sd.origin.observers);
             save::StormDamageSave::create(
                 &mut fbb,
                 &save::StormDamageSaveArgs {
+                    origin_known: sd.origin.known,
+                    observers: Some(observers),
                     id: sd.id,
                     building: sd.building.get(),
                     household: sd.household.get(),
@@ -8990,9 +9387,12 @@ fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
         .iter()
         .map(|ep| {
             let damages_vec = fbb.create_vector(&ep.damages);
+            let observers = fbb.create_vector(&ep.origin.observers);
             save::StormEpisodeSave::create(
                 &mut fbb,
                 &save::StormEpisodeSaveArgs {
+                    origin_known: ep.origin.known,
+                    observers: Some(observers),
                     id: ep.id,
                     settlement: raw(ep.settlement),
                     began: ep.began.minutes(),
@@ -9005,6 +9405,18 @@ fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
         .collect();
     let storm_episodes = fbb.create_vector(&storm_episodes);
     let reach_discharges = fbb.create_vector(&land.reach_discharges);
+    let forcings: Vec<_> = land
+        .river_forcings
+        .iter()
+        .map(|f| save::RiverForcingSave::new(f.reach, f.discharge_m3s, f.until_day, f.influence))
+        .collect();
+    let river_forcings = fbb.create_vector(&forcings);
+    let checks: Vec<_> = land
+        .storm_checks
+        .iter()
+        .map(|c| save::StormCheckSave::new(c.building.get(), c.group, c.day, c.observer))
+        .collect();
+    let storm_checks = fbb.create_vector(&checks);
     let root = save::FloodsSave::create(
         &mut fbb,
         &save::FloodsSaveArgs {
@@ -9014,6 +9426,8 @@ fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
             storm_episodes: Some(storm_episodes),
             flood_revision: land.flood_revision,
             reach_discharges: Some(reach_discharges),
+            river_forcings: Some(river_forcings),
+            storm_checks: Some(storm_checks),
         },
     );
     finish(fbb, root)
@@ -9021,6 +9435,7 @@ fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
 
 fn decode_floods(
     bytes: &[u8],
+    schema: Schema,
 ) -> Result<(civ_agents::floods::Floods, u32, Option<Vec<f32>>), LoadError> {
     use civ_agents::floods::{FloodEpisode, Floods, HighWater, StormDamage, StormEpisode};
     let root =
@@ -9028,7 +9443,18 @@ fn decode_floods(
     let at = |m: i64| (m >= 0).then(|| SimTime::from_minutes(m));
     let mut out = Floods::default();
     for hw in root.high_waters().iter().flatten() {
+        if hw.ended() < -1 {
+            return Err(LoadError::Malformed("invalid high water end".to_owned()));
+        }
         out.high_waters.push(HighWater {
+            origin: if schema >= Schema::V96 {
+                civ_agents::floods::Origin {
+                    known: hw.origin_known(),
+                    observers: hw.observers().iter().flatten().collect(),
+                }
+            } else {
+                Default::default()
+            },
             id: hw.id(),
             reach: hw.reach(),
             settlement: PermanentId::from_raw(hw.settlement()),
@@ -9045,7 +9471,18 @@ fn decode_floods(
         });
     }
     for ep in root.flood_episodes().iter().flatten() {
+        if ep.ended() < -1 {
+            return Err(LoadError::Malformed("invalid flood episode end".to_owned()));
+        }
         out.flood_episodes.push(FloodEpisode {
+            origin: if schema >= Schema::V96 {
+                civ_agents::floods::Origin {
+                    known: ep.origin_known(),
+                    observers: ep.observers().iter().flatten().collect(),
+                }
+            } else {
+                Default::default()
+            },
             id: ep.id(),
             settlement: PermanentId::from_raw(ep.settlement()),
             first_reach: ep.first_reach(),
@@ -9060,6 +9497,14 @@ fn decode_floods(
     }
     for sd in root.storm_damages().iter().flatten() {
         out.storm_damages.push(StormDamage {
+            origin: if schema >= Schema::V96 {
+                civ_agents::floods::Origin {
+                    known: sd.origin_known(),
+                    observers: sd.observers().iter().flatten().collect(),
+                }
+            } else {
+                Default::default()
+            },
             id: sd.id(),
             building: required(sd.building(), "a storm damage building")?,
             household: required(sd.household(), "a storm damage household")?,
@@ -9072,7 +9517,18 @@ fn decode_floods(
         });
     }
     for ep in root.storm_episodes().iter().flatten() {
+        if ep.ended() < -1 {
+            return Err(LoadError::Malformed("invalid storm episode end".to_owned()));
+        }
         out.storm_episodes.push(StormEpisode {
+            origin: if schema >= Schema::V96 {
+                civ_agents::floods::Origin {
+                    known: ep.origin_known(),
+                    observers: ep.observers().iter().flatten().collect(),
+                }
+            } else {
+                Default::default()
+            },
             id: ep.id(),
             settlement: PermanentId::from_raw(ep.settlement()),
             began: SimTime::from_minutes(ep.began()),
@@ -9086,6 +9542,100 @@ fn decode_floods(
         .reach_discharges()
         .map(|v| v.iter().collect::<Vec<f32>>());
     Ok((out, flood_revision, reach_discharges))
+}
+
+/// Refuses invalid historical links and numbers without guessing missing causes.
+fn validate_flood_records(
+    f: &civ_agents::floods::Floods,
+    inputs: &civ_agents::influence::Influences,
+    reaches: usize,
+    now: SimTime,
+) -> Result<(), LoadError> {
+    use civ_agents::influence::InfluenceKind;
+    let finite = |v: f32| v.is_finite() && v >= 0.0;
+    let span = |began: SimTime, ended: Option<SimTime>| {
+        began.minutes() >= 0 && began <= now && ended.is_none_or(|end| end >= began && end <= now)
+    };
+    let origin = |o: &civ_agents::floods::Origin, kind: InfluenceKind| {
+        o.observers.windows(2).all(|w| w[0] < w[1])
+            && o.observers
+                .iter()
+                .all(|id| inputs.list.iter().any(|i| i.id == *id && i.kind == kind))
+    };
+    let unique = |ids: &[u32]| {
+        let mut seen = std::collections::BTreeSet::new();
+        ids.iter().all(|id| *id > 0 && seen.insert(*id))
+    };
+    let bad = || LoadError::Malformed("invalid flood or storm incident/episode".to_owned());
+    for (index, h) in f.high_waters.iter().enumerate() {
+        if h.id as usize != index + 1
+            || h.reach as usize >= reaches
+            || !span(h.began, h.ended)
+            || !h.at.0.is_finite()
+            || !h.at.1.is_finite()
+            || !finite(h.peak_discharge)
+            || !finite(h.peak_stage)
+            || !finite(h.spoiled_kg)
+            || !origin(&h.origin, InfluenceKind::Flood)
+            || h.episode.is_some_and(|id| {
+                !f.flood_episodes
+                    .iter()
+                    .any(|e| e.id == id && e.high_waters.contains(&h.id))
+            })
+        {
+            return Err(bad());
+        }
+    }
+    for (index, e) in f.flood_episodes.iter().enumerate() {
+        if e.id as usize != index + 1
+            || e.first_reach as usize >= reaches
+            || !span(e.began, e.ended)
+            || !finite(e.peak_discharge)
+            || !finite(e.total_spoiled_kg)
+            || !origin(&e.origin, InfluenceKind::Flood)
+            || !unique(&e.high_waters)
+            || e.high_waters.iter().any(|id| {
+                !f.high_waters
+                    .iter()
+                    .any(|h| h.id == *id && h.episode == Some(e.id))
+            })
+        {
+            return Err(bad());
+        }
+    }
+    for (index, d) in f.storm_damages.iter().enumerate() {
+        if d.id as usize != index + 1
+            || !span(d.time, None)
+            || !d.at.0.is_finite()
+            || !d.at.1.is_finite()
+            || !finite(d.wind_speed_ms)
+            || !finite(d.uplift_pa)
+            || !origin(&d.origin, InfluenceKind::Storm)
+            || d.episode.is_some_and(|id| {
+                !f.storm_episodes
+                    .iter()
+                    .any(|e| e.id == id && e.damages.contains(&d.id))
+            })
+        {
+            return Err(bad());
+        }
+    }
+    for (index, e) in f.storm_episodes.iter().enumerate() {
+        if e.id as usize != index + 1
+            || !span(e.began, e.ended)
+            || !finite(e.peak_wind_speed_ms)
+            || !origin(&e.origin, InfluenceKind::Storm)
+            || !unique(&e.damages)
+            || e.damages.iter().any(|id| {
+                !f.storm_damages
+                    .iter()
+                    .any(|d| d.id == *id && d.episode == Some(e.id))
+            })
+        {
+            return Err(bad());
+        }
+    }
+    Ok(())
 }
 
 /// An infection of a disease the loaded content no longer has is let go.

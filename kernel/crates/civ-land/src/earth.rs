@@ -31,6 +31,8 @@ pub enum EarthKind {
     Pit,
     /// A heap of what a pit's digging leaves: the cover over the body, and what is unfit.
     Spoil,
+    /// A linear embankment; its hydraulic geometry is stored in a bank segment.
+    Bank,
 }
 
 /// The surface an earthwork leaves, over the area it touches, and the earth it moves.
@@ -417,7 +419,7 @@ pub fn advance(work: &mut Earthwork, map: &WorldMap, ground: &mut GroundDelta, s
             );
         }
         // A pit or a heap is as far as its earth ([`dig`]).
-        EarthKind::Pit | EarthKind::Spoil => return,
+        EarthKind::Pit | EarthKind::Spoil | EarthKind::Bank => return,
     }
     work.done = share;
 }
@@ -489,6 +491,7 @@ pub fn replay(work: &Earthwork, map: &WorldMap, ground: &mut GroundDelta) {
         }
         EarthKind::Pit => spread(&work.rect, -f64::from(work.cut_m3), ground),
         EarthKind::Spoil => spread(&work.rect, f64::from(work.cut_m3), ground),
+        EarthKind::Bank => {}
     }
 }
 

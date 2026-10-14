@@ -701,7 +701,7 @@ table GetOutbreak {
 // layers, *could reach* and *did come*, for the homes of one settlement (0: every settlement).
 table GetCoverage {
   settlement: ulong (id: 0);
-  // 1: water (the only lens yet).
+  // 1: water; 2: help at a fire.
   lens: ubyte (id: 1);
 }
 
@@ -1127,7 +1127,8 @@ table GrievanceLine {
 
 // A claim a person has heard (wire 1.34, ADR-0016 §3).
 table HeardLine {
-  // 0 a gathering called, 1 a grievance told.
+  // 0 gathering, 1 grievance, 2 petition, 3 refusal, 4 revolt, 5 sickness, 6 suspicion.
+  // Wire 1.70: 7 a building found burning; the words assert no cause.
   kind: ubyte (id: 0);
   // What it says, in words rendered by the kernel ("a gathering meets on 3 May of year 2 on a
   // common store, taking a tenth of each harvest"; "Bo holds a grievance against the gathering
@@ -1762,7 +1763,7 @@ table Deposits {
 // deposit's goods, or the spoil heap beside a pit.
 table EarthworkInfo {
   id: ulong (id: 0);
-  // What it is: 0 a platform; wire 1.21: 1 a pit, 2 a spoil heap. Append only.
+  // What it is: 0 a platform; wire 1.21: 1 a pit, 2 a spoil heap; wire 1.72: 3 a bank. Append only.
   kind: ubyte (id: 1);
   // The rectangle it levels, metres from the map's north-west corner.
   x: float (id: 2);
@@ -1784,7 +1785,13 @@ table EarthworkInfo {
   words: string (id: 13);
   // Wire 1.21: for a pit or its heap, the deposit the pit is dug for (0 for none).
   deposit: ulong (id: 14);
+  // Wire 1.72: bank centre-line endpoints in metres, and its current height above ground.
+  bank_a: Vec2 (id: 15);
+  bank_b: Vec2 (id: 16);
+  bank_height_m: float (id: 17);
+  bank_breached: bool (id: 18);
 }
+
 
 // A crossing over water (wire 1.60, M5c slice AW; ADR-0004 §7, ADR-0009 §9): where it stands, by
 // what system, how far along it is, and its condition.
@@ -2491,6 +2498,20 @@ table CoverageSource {
   days: ushort (id: 4);
 }
 
+// Wire 1.71: one read-only current probe and realized help, never a dispatch order.
+table FireHelp {
+  adults_now: uint (id: 0);
+  nearest_walk_min: float = -1 (id: 1);
+  unknown_routes: uint (id: 2);
+  water_available: bool (id: 3);
+  fire_episodes: uint (id: 4);
+  helped_episodes: uint (id: 5);
+  helpers: uint (id: 6);
+  water_l: float (id: 7);
+  first_work_min: float = -1 (id: 8);
+  observer_episodes: uint (id: 9);
+}
+
 // One home and the water it could reach and did come for.
 table CoverageHome {
   household: ulong (id: 0);
@@ -2506,6 +2527,7 @@ table CoverageHome {
   drew: [CoverageSource] (id: 6);
   // Both, in words.
   words: [string] (id: 7);
+  fire_help: FireHelp (id: 8);
 }
 
 // A lens's homes, with what the lens shows and over what (15-01 §3.1: title, scope, period,

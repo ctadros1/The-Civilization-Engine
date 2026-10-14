@@ -757,6 +757,15 @@ table Building {
   // Schema 93 (M6b slice BF, ADR-0022 §13): flood depth (cm) and days standing wet.
   last_flood_depth_cm: ushort (id: 14);
   days_wet: ushort (id: 15);
+  demolition: DemolitionSave (id: 16);
+}
+
+// Schema 98: physical demolition work, not inferred from historical interventions.
+table DemolitionSave {
+  fire: uint (id: 0);
+  needed_h: float (id: 1);
+  work_h: float (id: 2);
+  last_minute: long = -1 (id: 3);
 }
 
 table Builds {
@@ -983,6 +992,16 @@ struct TrustEntry {
   technique: ushort;
 }
 
+// Schema 94: fire losses and building-years by covering and wall kind (ADR-0022 §7).
+struct FireTrustEntry {
+  at: long;
+  settlement: ulong;
+  losses: double;
+  years: double;
+  tile: bool;
+  wall_kind: ubyte;
+}
+
 table Knowledge {
   // Technique content ids at save time; KnowledgeEntry.technique and TrustEntry.technique index
   // this list.
@@ -995,6 +1014,7 @@ table Knowledge {
   // where it is still known that someone left there has kin or a tie in. Written only when an
   // entry has one.
   elsewhere: [ulong] (id: 3);
+  fire_trust: [FireTrustEntry] (id: 4);
 }
 
 // Section "deposits" (schema 19): bodies in the ground (ADR-0010 §1), in the order they were
@@ -1045,7 +1065,7 @@ struct EarthworkRecord {
   h_cm: int;
   side_run_cm: ushort;
   version: ushort;
-  // 0 a platform; schema 21: 1 a pit, 2 its spoil heap. Append only.
+  // 0 a platform; schema 21: 1 a pit, 2 its spoil heap; schema 100: 3 a bank. Append only.
   kind: ubyte;
 }
 
@@ -1063,10 +1083,36 @@ table GroundTile {
   cells: [float] (id: 2);
 }
 
+// Schema 100: linear banks and their explicit borrow source. Field meanings are versioned
+// by the world schema; legacy platform/pit expansion remains version 1.
+struct BankSegmentRecord {
+  work: ulong;
+  borrow: ulong;
+  ax: double;
+  ay: double;
+  bx: double;
+  by: double;
+  height_m: double;
+  crest_width_m: double;
+  side_run: double;
+  compacted_per_bank: double;
+  settlement_m: double;
+  erosion_m: double;
+  breached: bool;
+}
+
+// Schema 101: soil washed off a bank, held in its washed-sediment account.
+struct BankSedimentRecord {
+  work: ulong;
+  compacted_m3: double;
+}
+
 table Earth {
   works: [EarthworkRecord] (id: 0);
   tiles: [GroundTile] (id: 1);
   links: [EarthLink] (id: 2);
+  banks: [BankSegmentRecord] (id: 3);
+  bank_sediment: [BankSedimentRecord] (id: 4);
 }
 
 // Section "ties" (schema 28): what each person remembers of others (ADR-0014 §1), by holder and
@@ -1524,6 +1570,8 @@ table ClaimSave {
   place_kind: ubyte = 255 (id: 8);
   place: ulong (id: 9);
   counts: [ushort] (id: 10);
+  // Schema 99: a found-burning account; 0 for other kinds and earlier saves.
+  fire: uint (id: 11);
 }
 
 // A source someone suspects (schema 79, M6a slice BA, ADR-0021 §6): held since a day index, by
@@ -2232,6 +2280,16 @@ table FiresSave {
   // Schema 92.
   stripped: [StrippedSave] (id: 8);
   salvaged: [SalvagedSave] (id: 9);
+  pulled: [PulledSave] (id: 10);
+}
+
+// Schema 98: completed emergency demolition and its actual crew.
+table PulledSave {
+  fire: uint (id: 0);
+  building: ulong (id: 1);
+  at: long (id: 2);
+  people: [ulong] (id: 3);
+  work_h: float (id: 4);
 }
 
 // Covering torn from a roof a fire threatened (schema 92, M6b slice BD, step four).
@@ -2546,6 +2604,9 @@ table HighWaterSave {
   fields_flooded: uint (id: 11);
   spoiled_kg: float (id: 12);
   scoured_crossings: uint (id: 13);
+  // Schema 96: provenance was not recorded in older snapshots.
+  origin_known: bool (id: 14);
+  observers: [uint] (id: 15);
 }
 
 table FloodEpisodeSave {
@@ -2559,6 +2620,9 @@ table FloodEpisodeSave {
   total_spoiled_kg: float (id: 7);
   total_buildings: uint (id: 8);
   total_fields_lost: uint (id: 9);
+  // Schema 96: provenance was not recorded in older snapshots.
+  origin_known: bool (id: 10);
+  observers: [uint] (id: 11);
 }
 
 table StormDamageSave {
@@ -2572,6 +2636,9 @@ table StormDamageSave {
   wind_speed_ms: float (id: 7);
   uplift_pa: float (id: 8);
   episode: uint (id: 9);
+  // Schema 96: provenance was not recorded in older snapshots.
+  origin_known: bool (id: 10);
+  observers: [uint] (id: 11);
 }
 
 table StormEpisodeSave {
@@ -2581,6 +2648,25 @@ table StormEpisodeSave {
   ended: long = -1 (id: 3);
   peak_wind_speed_ms: float (id: 4);
   damages: [uint] (id: 5);
+  // Schema 96: provenance was not recorded in older snapshots.
+  origin_known: bool (id: 6);
+  observers: [uint] (id: 7);
+}
+
+// Schema 95: active observer runoff; older snapshots cannot recover its requested flow.
+struct RiverForcingSave {
+  reach: uint;
+  discharge_m3s: float;
+  until_day: long;
+  influence: uint;
+}
+
+// Schema 96: physical covering evaluations, independently of incident records.
+struct StormCheckSave {
+  building: ulong;
+  group: uint;
+  day: long;
+  observer: uint;
 }
 
 table FloodsSave {
@@ -2590,4 +2676,6 @@ table FloodsSave {
   storm_episodes: [StormEpisodeSave] (id: 3);
   flood_revision: uint = 0 (id: 4);
   reach_discharges: [float] (id: 5);
+  river_forcings: [RiverForcingSave] (id: 6);
+  storm_checks: [StormCheckSave] (id: 7);
 }

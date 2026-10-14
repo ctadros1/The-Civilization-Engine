@@ -15,6 +15,8 @@
 use std::cell::RefCell;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use civ_core::FastMap;
@@ -70,6 +72,8 @@ pub struct NavGrid {
     revision: u32,
     /// The revision of the flood depths laid over it (M6b slice BF); 0 for none.
     flood_revision: u32,
+    /// Derived from effective walking conditions, stable across flow-only changes and loads.
+    travel_revision: u64,
 }
 
 /// Cells the route searches on this thread have expanded, summed: what a benchmark reads to
@@ -456,6 +460,24 @@ impl NavGrid {
                 *g = g.max(factor);
             }
         }
+        let mut hash = DefaultHasher::new();
+        map.width.hash(&mut hash);
+        map.height.hash(&mut hash);
+        map.cell_size_m.to_bits().hash(&mut hash);
+        for value in [
+            params.top_speed_kmh,
+            params.slope_sensitivity,
+            params.best_slope_offset,
+            params.offtrail_factor,
+            params.wading_factor,
+            params.ford_max_discharge_m3s,
+            params.max_slope,
+        ] {
+            value.to_bits().hash(&mut hash);
+        }
+        for value in &ground {
+            value.to_bits().hash(&mut hash);
+        }
         NavGrid {
             id: NEXT_GRID_ID.fetch_add(1, Ordering::Relaxed),
             width: map.width as usize,
@@ -465,6 +487,25 @@ impl NavGrid {
             ground,
             revision,
             flood_revision,
+            travel_revision: hash.finish(),
+        }
+    }
+
+    /// A key for route caches: actual walking costs, rather than daily hydraulic revisions.
+    pub fn travel_revision(&self) -> u64 {
+        self.travel_revision
+    }
+
+    /// Keeps step-speed caches when a hydraulic refresh leaves every walking cost unchanged.
+    pub fn reuse_unchanged_ground(&mut self, previous: &Self) {
+        if self.travel_revision == previous.travel_revision
+            && self.params == previous.params
+            && self.width == previous.width
+            && self.height == previous.height
+            && self.cell_m == previous.cell_m
+            && self.ground == previous.ground
+        {
+            self.id = previous.id;
         }
     }
 
@@ -1863,6 +1904,15 @@ mod tests {
         assert_eq!(nav_swollen.ground(15), 0.0);
         assert_eq!(nav_swollen.flood_revision(), 1);
 
+        // Flow changed without changing fordability: hydraulic reporting advances, but the
+        // effective walking grid and its route/step caches remain the same.
+        let mut lower = NavGrid::with_decks_and_flood(&map, p, &[], 0, Some(&[1.5]), None, 10);
+        assert_eq!(lower.travel_revision(), nav.travel_revision());
+        lower.reuse_unchanged_ground(&nav);
+        assert_eq!(lower.id, nav.id);
+        assert_eq!(lower.flood_revision(), 10);
+        assert_ne!(nav_swollen.travel_revision(), nav.travel_revision());
+
         // Dry ground cell 20: flooded with 0.3 m is waded; flooded with 0.8 m is impassable.
         let mut flood_depths = vec![0.0f32; 100];
         flood_depths[20] = 0.3;
@@ -1873,6 +1923,18 @@ mod tests {
         assert_eq!(nav_flooded.ground(20), p.wading_factor as f32);
         assert!(!nav_flooded.walkable(21));
         assert_eq!(nav_flooded.ground(21), 0.0);
+
+        let mut similar_depths = flood_depths.clone();
+        similar_depths[20] = 0.4;
+        similar_depths[21] = 1.0;
+        let mut similar =
+            NavGrid::with_decks_and_flood(&map, p, &[], 0, None, Some(&similar_depths), 30);
+        assert_eq!(similar.travel_revision(), nav_flooded.travel_revision());
+        similar.reuse_unchanged_ground(&nav_flooded);
+        assert_eq!(similar.id, nav_flooded.id);
+        let rebuilt = NavGrid::with_decks_and_flood(&map, p, &[], 0, None, Some(&flood_depths), 2);
+        assert_eq!(rebuilt.travel_revision(), nav_flooded.travel_revision());
+        assert_ne!(nav_flooded.travel_revision(), nav.travel_revision());
 
         // A bridge deck across flooded cell 21 makes it walkable at deck factor.
         let nav_deck =

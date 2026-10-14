@@ -1118,3 +1118,8 @@ strip_cost = 0.5
 # threatened roof of their household's is worth `salvage_share` of saving the roof, scaled by how
 # much of a load is there. A design prior.
 salvage_share = 0.5
+# Emergency demolition: a coordinated crew pays for the framing it removes.
+# These are explicit design priors; 12-03 §1.6 supplies no universal task rate.
+pull_crew = 2
+pull_h_per_m2 = 0.03
+pull_cost = 0.8

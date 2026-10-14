@@ -20,6 +20,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod banks;
 pub mod buildings;
 pub mod crossings;
 pub mod deposits;
@@ -166,6 +167,8 @@ pub struct LandParams {
     pub deposits: Vec<deposits::DepositRule>,
     /// How water moves under the ground and down the rivers (ADR-0021 §1–§2).
     pub water: WaterParams,
+    /// Conditional bank damage under actual hydraulic load.
+    pub banks: banks::BankParams,
     /// How what people shed moves through the ground and water (ADR-0021 §4).
     pub contamination: ContaminationParams,
 }
@@ -375,6 +378,8 @@ pub struct Land {
     pub deposits: Vec<deposits::Deposit>,
     /// Earthworks, in the order they were begun (ADR-0010 §2). Saved.
     pub earthworks: Vec<earth::Earthwork>,
+    /// Sub-grid bank crests, linked to their earthwork and borrow pit. Saved.
+    pub banks: Vec<banks::BankSegment>,
     /// What earthworks have done to the ground (ADR-0010 §3). Saved.
     pub ground: earth::GroundDelta,
     /// Crossings over water, in the order begun (M5c slice AW). Saved.
@@ -392,6 +397,10 @@ pub struct Land {
     pub flood_depths: Vec<f32>,
     /// Revision bumped each day flood depths or reach discharges change.
     pub flood_revision: u32,
+    /// Active observer runoff, routed with the day's natural flow. Saved.
+    pub river_forcings: Vec<RiverForcing>,
+    /// Covering groups already evaluated under each storm pulse today. Saved.
+    pub storm_checks: Vec<StormCheck>,
 }
 
 /// Summary of a patch's terrain, for classification.
@@ -507,11 +516,11 @@ pub fn height_at(map: &WorldMap, x: f32, y: f32) -> f64 {
 
 impl Land {
     /// The ground people plan routes on, as one number: the paths' survey and the crossings'
-    /// revision (M5c slice AW). Routes and travel times worked out on another are not to be
-    /// trusted.
-    pub fn route_revision(&self) -> u64 {
+    /// revision, with the navigation grid's effective walking conditions (M6b slice BF).
+    /// Routes and travel times worked out on another are not to be trusted.
+    pub fn route_revision(&self, travel_revision: u64) -> u64 {
         let base = (u64::from(self.crossings.revision()) << 32) | u64::from(self.wear.rev());
-        base ^ (u64::from(self.flood_revision).wrapping_mul(0x517c_c1b7_2722_0a95))
+        base ^ travel_revision
     }
 
     /// Classifies a map's patches and lives a year of weather and stocks so a new world starts
@@ -599,6 +608,7 @@ impl Land {
             wear: Wear::new(map.width, map.height, map.cell_size_m),
             deposits: Vec::new(),
             earthworks: Vec::new(),
+            banks: Vec::new(),
             ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
             crossings: crossings::Crossings::default(),
             water: Water::default(),
@@ -607,6 +617,8 @@ impl Land {
             reach_discharges: map.reaches.iter().map(|r| r.discharge_m3s).collect(),
             flood_depths: vec![0.0; map.cell_count()],
             flood_revision: 0,
+            river_forcings: Vec::new(),
+            storm_checks: Vec::new(),
         };
         // Start each stock at its equilibrium for the season a year ago, and the water table
         // where the mean recharge holds it, then live a year.
@@ -635,14 +647,89 @@ impl Land {
         self.update_floods(map, reaches);
     }
 
-    /// Updates today's reach discharges and flood depths, updating flood tracking on buildings and fields.
+    /// The day's river flow, including active observer runoff. Only added flow is passed
+    /// downstream: natural downstream discharge already contains its tributaries' water.
+    pub fn river_flows(&self, map: &WorldMap, params: &LandParams, day: i64) -> Vec<f32> {
+        self.river_flow_state(map, params, day).0
+    }
+
+    /// Flow and the actual observer inputs routed into each reach; an override below the
+    /// unforced or upstream flow adds neither water nor attribution.
+    pub fn river_flow_state(
+        &self,
+        map: &WorldMap,
+        params: &LandParams,
+        day: i64,
+    ) -> (Vec<f32>, Vec<Vec<u32>>) {
+        let factor = self.flow_factor(params);
+        let mut flows: Vec<f32> = map
+            .reaches
+            .iter()
+            .map(|r| (f64::from(r.discharge_m3s) * factor) as f32)
+            .collect();
+        let mut origins: Vec<Vec<u32>> = vec![Vec::new(); flows.len()];
+        let mut inputs = vec![0usize; flows.len()];
+        for r in &map.reaches {
+            if let Some(d) = r.downstream {
+                inputs[d as usize] += 1;
+            }
+        }
+        let mut ready: std::collections::VecDeque<usize> = inputs
+            .iter()
+            .enumerate()
+            .filter(|(_, n)| **n == 0)
+            .map(|(i, _)| i)
+            .collect();
+        let mut added = vec![0.0f32; flows.len()];
+        while let Some(i) = ready.pop_front() {
+            flows[i] += added[i];
+            let before = flows[i];
+            for f in self
+                .river_forcings
+                .iter()
+                .filter(|f| f.reach as usize == i && day < f.until_day)
+            {
+                if f.discharge_m3s > flows[i] {
+                    flows[i] = f.discharge_m3s;
+                    origins[i].push(f.influence);
+                }
+            }
+            if let Some(d) = map.reaches[i].downstream {
+                let d = d as usize;
+                added[d] += added[i] + flows[i] - before;
+                let incoming = origins[i].clone();
+                origins[d].extend(incoming);
+                origins[d].sort_unstable();
+                origins[d].dedup();
+                inputs[d] -= 1;
+                if inputs[d] == 0 {
+                    ready.push_back(d);
+                }
+            }
+        }
+        (flows, origins)
+    }
+
+    /// Updates today's reach discharges and derived depths without advancing exposure time.
     pub fn update_floods(&mut self, map: &WorldMap, reach_discharges: Vec<f32>) {
         self.reach_discharges = reach_discharges;
-        self.flood_depths = self
-            .floodplain
-            .flood_depth_raster(map, &self.reach_discharges);
+        let barriers: Vec<_> = self
+            .banks
+            .iter()
+            .flat_map(|b| b.barriers(map, &self.earthworks, &self.floodplain.cell_hand))
+            .collect();
+        let changes = banks::ground_changes(&self.banks, &self.earthworks, map, &self.ground);
+        self.flood_depths = self.floodplain.flood_depths_with_ground(
+            map,
+            &self.reach_discharges,
+            &barriers,
+            &changes,
+        );
         self.flood_revision = self.flood_revision.wrapping_add(1);
+    }
 
+    /// Advances wet-building and submerged-crop exposure once per calendar day.
+    fn flood_exposure_day(&mut self, map: &WorldMap) {
         let cell_size = f64::from(map.cell_size_m).max(1e-3);
         let mw = map.width as usize;
         let mh = map.height as usize;
@@ -827,6 +914,50 @@ impl Land {
                     "earthwork {} is of version {}, which this build does not know",
                     e.id, e.version
                 ));
+            }
+        }
+        let mut bank_ids = std::collections::HashSet::new();
+        let mut borrow_ids = std::collections::HashSet::new();
+        for bank in &self.banks {
+            let work = self.earthworks.iter().find(|w| w.id == bank.work);
+            let borrow = self.earthworks.iter().find(|w| w.id == bank.borrow);
+            let inside = |r: RectCm| {
+                r.x >= 0
+                    && r.y >= 0
+                    && r.w > 0
+                    && r.h > 0
+                    && f64::from(r.x) + f64::from(r.w) <= w_cm
+                    && f64::from(r.y) + f64::from(r.h) <= h_cm
+            };
+            let linked = work.is_some_and(|w| {
+                w.kind == earth::EarthKind::Bank && inside(w.rect) && bank.inside_envelope(w.rect)
+            }) && borrow.is_some_and(|w| {
+                w.kind == earth::EarthKind::Pit && w.deposit.is_none() && inside(w.rect)
+            });
+            let supplied = work.zip(borrow).is_some_and(|(w, p)| {
+                f64::from(w.cut_m3) <= f64::from(p.cut_m3) * bank.compacted_per_bank + 1e-3
+                    && bank.sediment_m3 <= f64::from(w.cut_m3) + 1e-6
+                    && (f64::from(w.cut_m3) - bank.fill_m3() * f64::from(w.done)).abs() < 1e-3
+            });
+            if !bank.valid(map)
+                || !bank_ids.insert(bank.work)
+                || !borrow_ids.insert(bank.borrow)
+                || !linked
+                || !supplied
+            {
+                out.push(format!(
+                    "bank {} has invalid geometry, links or earth accounting",
+                    bank.work
+                ));
+            }
+        }
+        for work in self
+            .earthworks
+            .iter()
+            .filter(|w| w.kind == earth::EarthKind::Bank)
+        {
+            if !bank_ids.contains(&work.id) {
+                out.push(format!("bank {} has no linear segment", work.id));
             }
         }
         let mut ids = std::collections::HashSet::new();
@@ -1125,16 +1256,31 @@ impl Land {
     pub fn advance_to_day(&mut self, params: &LandParams, map: &WorldMap, day: i64) {
         while self.stock_day < day {
             let d = self.stock_day + 1;
+            // These depths describe the day that elapsed. Tomorrow's flow must not erase
+            // an expired one-day loading before its erosion is accounted for.
+            for bank in &mut self.banks {
+                if let Some(work) = self.earthworks.iter().find(|w| w.id == bank.work) {
+                    banks::overtop_day(
+                        bank,
+                        work,
+                        map,
+                        &self.floodplain,
+                        &self.flood_depths,
+                        params.banks,
+                        &mut self.ground,
+                    );
+                }
+            }
             let water = self.weather.live(&params.weather, &self.climatology);
             self.water_fields(&params.weather, map, &water, d);
             self.water.day(&params.water, water.surplus_mm);
-            let flow_factor = self.flow_factor(params);
-            let reaches: Vec<f32> = map
-                .reaches
-                .iter()
-                .map(|r| (f64::from(r.discharge_m3s) * flow_factor) as f32)
-                .collect();
+            self.storm_checks
+                .retain(|c| c.day >= self.weather.today.day);
+            self.river_forcings
+                .retain(|f| self.weather.today.day < f.until_day);
+            let reaches = self.river_flows(map, params, self.weather.today.day);
             self.update_floods(map, reaches);
+            self.flood_exposure_day(map);
             if day_of_year(d) == soil::TURN_DAY {
                 let year = i32::try_from(d.div_euclid(DAYS_PER_YEAR) + 1).unwrap_or(i32::MAX);
                 for f in &mut self.fields {
@@ -1395,6 +1541,25 @@ impl Land {
     }
 }
 
+/// A physical storm evaluation, kept apart from historical damage records.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StormCheck {
+    pub building: PermanentId,
+    pub group: u32,
+    pub day: i64,
+    /// Zero for the natural storm; otherwise the observer's recorded pulse.
+    pub observer: u32,
+}
+
+/// An observer's minimum reach flow until midnight at `until_day` (exclusive).
+#[derive(Clone, Debug, PartialEq)]
+pub struct RiverForcing {
+    pub reach: u32,
+    pub discharge_m3s: f32,
+    pub until_day: i64,
+    pub influence: u32,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1501,6 +1666,7 @@ mod tests {
             },
             deposits: Vec::new(),
             water: WaterParams::default(),
+            banks: banks::BankParams::default(),
             contamination: ContaminationParams::default(),
         }
     }
@@ -1554,6 +1720,50 @@ mod tests {
             },
             drainage_area_m2: vec![64.0; n],
         }
+    }
+
+    #[test]
+    fn observer_flow_joins_tributaries_without_counting_natural_flow_twice() {
+        let p = params();
+        let mut map = map();
+        // Intentionally place the downstream reach first; routing must follow the graph.
+        map.reaches = [(None, 30.0), (Some(0), 10.0), (Some(0), 20.0)]
+            .into_iter()
+            .enumerate()
+            .map(|(i, (downstream, q))| civ_world::RiverReach {
+                id: i as u32,
+                cells: vec![0],
+                downstream,
+                terminus: civ_world::Terminus::Outlet,
+                order: 1,
+                discharge_m3s: q,
+                width_m: 3.0,
+                drainage_area_km2: 10.0,
+            })
+            .collect();
+        let mut land = create(&p, 1, 400);
+        let natural = land.river_flows(&map, &p, 400);
+        for (reach, extra) in [(1, 100.0), (2, 50.0)] {
+            land.river_forcings.push(RiverForcing {
+                reach,
+                discharge_m3s: natural[reach as usize] + extra,
+                until_day: 403,
+                influence: reach,
+            });
+        }
+        let raised = land.river_flows(&map, &p, 401);
+        assert!((raised[0] - natural[0] - 150.0).abs() < 0.001);
+        assert!((raised[1] - natural[1] - 100.0).abs() < 0.001);
+        assert!((raised[2] - natural[2] - 50.0).abs() < 0.001);
+        assert_eq!(land.river_flows(&map, &p, 403), natural);
+        land.river_forcings.push(RiverForcing {
+            reach: 0,
+            discharge_m3s: raised[0] - 10.0,
+            until_day: 403,
+            influence: 3,
+        });
+        // An existing upstream rise already exceeds the requested downstream minimum.
+        assert_eq!(land.river_flows(&map, &p, 401), raised);
     }
 
     #[test]

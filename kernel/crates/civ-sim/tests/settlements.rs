@@ -701,6 +701,7 @@ fn sickness_a_household_believes_at_home_weighs_toward_every_place_it_knows() {
         let pop = sim.people_mut_for_tests();
         for &h in &here[..3] {
             let c = pop.word.make(Claim {
+                fire: None,
                 id: 0,
                 kind: ClaimKind::Sickness,
                 settlement: a,

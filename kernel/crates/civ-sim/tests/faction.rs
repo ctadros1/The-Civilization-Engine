@@ -202,6 +202,7 @@ fn aggrieved_at(
             wrong,
         });
         let claim = pop.word.make(Claim {
+            fire: None,
             id: 0,
             kind: ClaimKind::Grievance,
             settlement,

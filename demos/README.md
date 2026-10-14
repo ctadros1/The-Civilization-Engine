@@ -13,6 +13,8 @@ wells; residents did not identify those wells as a cause, and no law named them.
 modeled routes, residents' knowledge and the polity's response visible as separate layers. Outcomes
 vary between runs.
 
+M6b fire response and hazard repairs are in development; no completed M6b lived capture is available yet. The M6a capture remains the newest available milestone demo.
+
 The captures below are from that live observer run. The complete version history is in the table
 that follows.
 
@@ -72,3 +74,18 @@ TCE_DEMO=1 TCE_DEMO_VIDEO=1 TCE_SHOTS_DIR=../demos/m6a npm run test:e2e -- m6a-d
 
 The demo runner writes the raw 1920×1080 observer recording, screenshots and text log directly to
 `demos/m6a/`. Preview and render the title-and-caption version with the [M6a video project](m6a/production/README.md).
+
+M6b is in progress: masonry and flood/storm mechanics are implemented, with controlled crew-demolition, named-account and fire-help checks and the published ignition sensitivity run, while the fire-to-building-rule lived demo remains planned. M6a is still the newest completed lived demo.
+
+
+The BG `bank_fixture` runner is a controlled geometry/snapshot fixture, not a lived M6b demo:
+`cd kernel && cargo run --release -p civ-sim --example bank_fixture -- <save-folder>`.
+Load its save in the observer to inspect the bank centre-line and borrow-earth account.
+Voluntary bank work and the M6b lived demonstration remain planned.
+
+The bank fixture's saved ground also supplies bank and borrow-pit flood storage. Its role
+remains a controlled engineering/snapshot check; it demonstrates neither chosen bank labour
+nor a lived M6b outcome.
+
+The bank panel now reports soil washed into sediment stock when a saved bank has overtopped.
+The ordinary fixture remains a construction example, without a lived flood or public work.

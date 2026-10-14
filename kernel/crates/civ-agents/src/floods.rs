@@ -3,9 +3,38 @@
 
 use civ_core::{PermanentId, SimTime};
 
+/// Recorded hazard provenance. Old snapshots have an unknown source; observations never
+/// reveal this kernel-only attribution to people.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Origin {
+    pub known: bool,
+    /// Every observer input that changed the hazard, in id order.
+    pub observers: Vec<u32>,
+}
+impl Origin {
+    pub fn recorded(mut observers: Vec<u32>) -> Self {
+        observers.sort_unstable();
+        observers.dedup();
+        Self {
+            known: true,
+            observers,
+        }
+    }
+    pub fn join(&mut self, other: &Self) {
+        self.known &= other.known;
+        self.observers.extend_from_slice(&other.observers);
+        self.observers.sort_unstable();
+        self.observers.dedup();
+    }
+    pub fn natural(&self) -> bool {
+        self.known && self.observers.is_empty()
+    }
+}
+
 /// An incident of high water on a river reach (M6b slice BF).
 #[derive(Clone, Debug, PartialEq)]
 pub struct HighWater {
+    pub origin: Origin,
     /// Its id, from 1.
     pub id: u32,
     /// Reach index on the river network.
@@ -37,6 +66,7 @@ pub struct HighWater {
 /// A flood episode: high waters across reaches (M6b slice BF: an episode).
 #[derive(Clone, Debug, PartialEq)]
 pub struct FloodEpisode {
+    pub origin: Origin,
     /// Its id, from 1.
     pub id: u32,
     /// Settlement where it began or primarily impacts.
@@ -62,6 +92,7 @@ pub struct FloodEpisode {
 /// An incident of storm damage to a building (M6b slice BF).
 #[derive(Clone, Debug, PartialEq)]
 pub struct StormDamage {
+    pub origin: Origin,
     /// Its id, from 1.
     pub id: u32,
     /// The building damaged.
@@ -85,6 +116,7 @@ pub struct StormDamage {
 /// A storm episode: windstorm crossing the world (M6b slice BF).
 #[derive(Clone, Debug, PartialEq)]
 pub struct StormEpisode {
+    pub origin: Origin,
     /// Its id, from 1.
     pub id: u32,
     /// Settlement it affects, if any.

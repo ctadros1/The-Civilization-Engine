@@ -535,6 +535,9 @@ struct StormInfoBuilder;
 struct CoverageSource;
 struct CoverageSourceBuilder;
 
+struct FireHelp;
+struct FireHelpBuilder;
+
 struct CoverageHome;
 struct CoverageHomeBuilder;
 
@@ -16582,7 +16585,11 @@ struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_PLOT = 26,
     VT_BUILDING = 28,
     VT_WORDS = 30,
-    VT_DEPOSIT = 32
+    VT_DEPOSIT = 32,
+    VT_BANK_A = 34,
+    VT_BANK_B = 36,
+    VT_BANK_HEIGHT_M = 38,
+    VT_BANK_BREACHED = 40
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -16629,6 +16636,18 @@ struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint64_t deposit() const {
     return GetField<uint64_t>(VT_DEPOSIT, 0);
   }
+  const tce::wire::Vec2 *bank_a() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_BANK_A);
+  }
+  const tce::wire::Vec2 *bank_b() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_BANK_B);
+  }
+  float bank_height_m() const {
+    return GetField<float>(VT_BANK_HEIGHT_M, 0.0f);
+  }
+  bool bank_breached() const {
+    return GetField<uint8_t>(VT_BANK_BREACHED, 0) != 0;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -16648,6 +16667,10 @@ struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_WORDS) &&
            verifier.VerifyString(words()) &&
            VerifyField<uint64_t>(verifier, VT_DEPOSIT, 8) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_BANK_A, 4) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_BANK_B, 4) &&
+           VerifyField<float>(verifier, VT_BANK_HEIGHT_M, 4) &&
+           VerifyField<uint8_t>(verifier, VT_BANK_BREACHED, 1) &&
            verifier.EndTable();
   }
 };
@@ -16701,6 +16724,18 @@ struct EarthworkInfoBuilder {
   void add_deposit(uint64_t deposit) {
     fbb_.AddElement<uint64_t>(EarthworkInfo::VT_DEPOSIT, deposit, 0);
   }
+  void add_bank_a(const tce::wire::Vec2 *bank_a) {
+    fbb_.AddStruct(EarthworkInfo::VT_BANK_A, bank_a);
+  }
+  void add_bank_b(const tce::wire::Vec2 *bank_b) {
+    fbb_.AddStruct(EarthworkInfo::VT_BANK_B, bank_b);
+  }
+  void add_bank_height_m(float bank_height_m) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_BANK_HEIGHT_M, bank_height_m, 0.0f);
+  }
+  void add_bank_breached(bool bank_breached) {
+    fbb_.AddElement<uint8_t>(EarthworkInfo::VT_BANK_BREACHED, static_cast<uint8_t>(bank_breached), 0);
+  }
   explicit EarthworkInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -16728,13 +16763,20 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfo(
     uint64_t plot = 0,
     uint64_t building = 0,
     ::flatbuffers::Offset<::flatbuffers::String> words = 0,
-    uint64_t deposit = 0) {
+    uint64_t deposit = 0,
+    const tce::wire::Vec2 *bank_a = nullptr,
+    const tce::wire::Vec2 *bank_b = nullptr,
+    float bank_height_m = 0.0f,
+    bool bank_breached = false) {
   EarthworkInfoBuilder builder_(_fbb);
   builder_.add_deposit(deposit);
   builder_.add_building(building);
   builder_.add_plot(plot);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_bank_height_m(bank_height_m);
+  builder_.add_bank_b(bank_b);
+  builder_.add_bank_a(bank_a);
   builder_.add_words(words);
   builder_.add_done(done);
   builder_.add_cut_m3(cut_m3);
@@ -16744,6 +16786,7 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfo(
   builder_.add_w(w);
   builder_.add_y(y);
   builder_.add_x(x);
+  builder_.add_bank_breached(bank_breached);
   builder_.add_kind(kind);
   return builder_.Finish();
 }
@@ -16769,7 +16812,11 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfoDirect(
     uint64_t plot = 0,
     uint64_t building = 0,
     const char *words = nullptr,
-    uint64_t deposit = 0) {
+    uint64_t deposit = 0,
+    const tce::wire::Vec2 *bank_a = nullptr,
+    const tce::wire::Vec2 *bank_b = nullptr,
+    float bank_height_m = 0.0f,
+    bool bank_breached = false) {
   auto words__ = words ? _fbb.CreateString(words) : 0;
   return tce::wire::CreateEarthworkInfo(
       _fbb,
@@ -16787,7 +16834,11 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfoDirect(
       plot,
       building,
       words__,
-      deposit);
+      deposit,
+      bank_a,
+      bank_b,
+      bank_height_m,
+      bank_breached);
 }
 
 struct CrossingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -22273,6 +22324,144 @@ inline ::flatbuffers::Offset<CoverageSource> CreateCoverageSourceDirect(
       days);
 }
 
+struct FireHelp FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef FireHelpBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ADULTS_NOW = 4,
+    VT_NEAREST_WALK_MIN = 6,
+    VT_UNKNOWN_ROUTES = 8,
+    VT_WATER_AVAILABLE = 10,
+    VT_FIRE_EPISODES = 12,
+    VT_HELPED_EPISODES = 14,
+    VT_HELPERS = 16,
+    VT_WATER_L = 18,
+    VT_FIRST_WORK_MIN = 20,
+    VT_OBSERVER_EPISODES = 22
+  };
+  uint32_t adults_now() const {
+    return GetField<uint32_t>(VT_ADULTS_NOW, 0);
+  }
+  float nearest_walk_min() const {
+    return GetField<float>(VT_NEAREST_WALK_MIN, -1.0f);
+  }
+  uint32_t unknown_routes() const {
+    return GetField<uint32_t>(VT_UNKNOWN_ROUTES, 0);
+  }
+  bool water_available() const {
+    return GetField<uint8_t>(VT_WATER_AVAILABLE, 0) != 0;
+  }
+  uint32_t fire_episodes() const {
+    return GetField<uint32_t>(VT_FIRE_EPISODES, 0);
+  }
+  uint32_t helped_episodes() const {
+    return GetField<uint32_t>(VT_HELPED_EPISODES, 0);
+  }
+  uint32_t helpers() const {
+    return GetField<uint32_t>(VT_HELPERS, 0);
+  }
+  float water_l() const {
+    return GetField<float>(VT_WATER_L, 0.0f);
+  }
+  float first_work_min() const {
+    return GetField<float>(VT_FIRST_WORK_MIN, -1.0f);
+  }
+  uint32_t observer_episodes() const {
+    return GetField<uint32_t>(VT_OBSERVER_EPISODES, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ADULTS_NOW, 4) &&
+           VerifyField<float>(verifier, VT_NEAREST_WALK_MIN, 4) &&
+           VerifyField<uint32_t>(verifier, VT_UNKNOWN_ROUTES, 4) &&
+           VerifyField<uint8_t>(verifier, VT_WATER_AVAILABLE, 1) &&
+           VerifyField<uint32_t>(verifier, VT_FIRE_EPISODES, 4) &&
+           VerifyField<uint32_t>(verifier, VT_HELPED_EPISODES, 4) &&
+           VerifyField<uint32_t>(verifier, VT_HELPERS, 4) &&
+           VerifyField<float>(verifier, VT_WATER_L, 4) &&
+           VerifyField<float>(verifier, VT_FIRST_WORK_MIN, 4) &&
+           VerifyField<uint32_t>(verifier, VT_OBSERVER_EPISODES, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct FireHelpBuilder {
+  typedef FireHelp Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_adults_now(uint32_t adults_now) {
+    fbb_.AddElement<uint32_t>(FireHelp::VT_ADULTS_NOW, adults_now, 0);
+  }
+  void add_nearest_walk_min(float nearest_walk_min) {
+    fbb_.AddElement<float>(FireHelp::VT_NEAREST_WALK_MIN, nearest_walk_min, -1.0f);
+  }
+  void add_unknown_routes(uint32_t unknown_routes) {
+    fbb_.AddElement<uint32_t>(FireHelp::VT_UNKNOWN_ROUTES, unknown_routes, 0);
+  }
+  void add_water_available(bool water_available) {
+    fbb_.AddElement<uint8_t>(FireHelp::VT_WATER_AVAILABLE, static_cast<uint8_t>(water_available), 0);
+  }
+  void add_fire_episodes(uint32_t fire_episodes) {
+    fbb_.AddElement<uint32_t>(FireHelp::VT_FIRE_EPISODES, fire_episodes, 0);
+  }
+  void add_helped_episodes(uint32_t helped_episodes) {
+    fbb_.AddElement<uint32_t>(FireHelp::VT_HELPED_EPISODES, helped_episodes, 0);
+  }
+  void add_helpers(uint32_t helpers) {
+    fbb_.AddElement<uint32_t>(FireHelp::VT_HELPERS, helpers, 0);
+  }
+  void add_water_l(float water_l) {
+    fbb_.AddElement<float>(FireHelp::VT_WATER_L, water_l, 0.0f);
+  }
+  void add_first_work_min(float first_work_min) {
+    fbb_.AddElement<float>(FireHelp::VT_FIRST_WORK_MIN, first_work_min, -1.0f);
+  }
+  void add_observer_episodes(uint32_t observer_episodes) {
+    fbb_.AddElement<uint32_t>(FireHelp::VT_OBSERVER_EPISODES, observer_episodes, 0);
+  }
+  explicit FireHelpBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<FireHelp> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<FireHelp>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<FireHelp> CreateFireHelp(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t adults_now = 0,
+    float nearest_walk_min = -1.0f,
+    uint32_t unknown_routes = 0,
+    bool water_available = false,
+    uint32_t fire_episodes = 0,
+    uint32_t helped_episodes = 0,
+    uint32_t helpers = 0,
+    float water_l = 0.0f,
+    float first_work_min = -1.0f,
+    uint32_t observer_episodes = 0) {
+  FireHelpBuilder builder_(_fbb);
+  builder_.add_observer_episodes(observer_episodes);
+  builder_.add_first_work_min(first_work_min);
+  builder_.add_water_l(water_l);
+  builder_.add_helpers(helpers);
+  builder_.add_helped_episodes(helped_episodes);
+  builder_.add_fire_episodes(fire_episodes);
+  builder_.add_unknown_routes(unknown_routes);
+  builder_.add_nearest_walk_min(nearest_walk_min);
+  builder_.add_adults_now(adults_now);
+  builder_.add_water_available(water_available);
+  return builder_.Finish();
+}
+
+struct FireHelp::Traits {
+  using type = FireHelp;
+  static auto constexpr Create = CreateFireHelp;
+};
+
 struct CoverageHome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef CoverageHomeBuilder Builder;
   struct Traits;
@@ -22284,7 +22473,8 @@ struct CoverageHome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_NEAREST = 12,
     VT_BY_RIGHT = 14,
     VT_DREW = 16,
-    VT_WORDS = 18
+    VT_WORDS = 18,
+    VT_FIRE_HELP = 20
   };
   uint64_t household() const {
     return GetField<uint64_t>(VT_HOUSEHOLD, 0);
@@ -22310,6 +22500,9 @@ struct CoverageHome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *words() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_WORDS);
   }
+  const tce::wire::FireHelp *fire_help() const {
+    return GetPointer<const tce::wire::FireHelp *>(VT_FIRE_HELP);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -22328,6 +22521,8 @@ struct CoverageHome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_WORDS) &&
            verifier.VerifyVector(words()) &&
            verifier.VerifyVectorOfStrings(words()) &&
+           VerifyOffset(verifier, VT_FIRE_HELP) &&
+           verifier.VerifyTable(fire_help()) &&
            verifier.EndTable();
   }
 };
@@ -22360,6 +22555,9 @@ struct CoverageHomeBuilder {
   void add_words(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> words) {
     fbb_.AddOffset(CoverageHome::VT_WORDS, words);
   }
+  void add_fire_help(::flatbuffers::Offset<tce::wire::FireHelp> fire_help) {
+    fbb_.AddOffset(CoverageHome::VT_FIRE_HELP, fire_help);
+  }
   explicit CoverageHomeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -22380,10 +22578,12 @@ inline ::flatbuffers::Offset<CoverageHome> CreateCoverageHome(
     ::flatbuffers::Offset<tce::wire::CoverageSource> nearest = 0,
     ::flatbuffers::Offset<tce::wire::CoverageSource> by_right = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CoverageSource>>> drew = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> words = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> words = 0,
+    ::flatbuffers::Offset<tce::wire::FireHelp> fire_help = 0) {
   CoverageHomeBuilder builder_(_fbb);
   builder_.add_settlement(settlement);
   builder_.add_household(household);
+  builder_.add_fire_help(fire_help);
   builder_.add_words(words);
   builder_.add_drew(drew);
   builder_.add_by_right(by_right);
@@ -22407,7 +22607,8 @@ inline ::flatbuffers::Offset<CoverageHome> CreateCoverageHomeDirect(
     ::flatbuffers::Offset<tce::wire::CoverageSource> nearest = 0,
     ::flatbuffers::Offset<tce::wire::CoverageSource> by_right = 0,
     const std::vector<::flatbuffers::Offset<tce::wire::CoverageSource>> *drew = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *words = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *words = nullptr,
+    ::flatbuffers::Offset<tce::wire::FireHelp> fire_help = 0) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto drew__ = drew ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::CoverageSource>>(*drew) : 0;
   auto words__ = words ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*words) : 0;
@@ -22420,7 +22621,8 @@ inline ::flatbuffers::Offset<CoverageHome> CreateCoverageHomeDirect(
       nearest,
       by_right,
       drew__,
-      words__);
+      words__,
+      fire_help);
 }
 
 struct Coverage FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

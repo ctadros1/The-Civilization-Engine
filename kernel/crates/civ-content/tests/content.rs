@@ -68,7 +68,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 85
+kernel_content_api = 87
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -1938,4 +1938,23 @@ fn ties_name_the_acts_the_engine_records_and_say_what_each_writes() {
         "act = \"hearth\", familiarity = 1.5",
         "`familiarity` must be between 0 and 1",
     );
+}
+
+#[test]
+fn bank_erosion_priors_refuse_invalid_and_unknown_fields() {
+    let land = real("land/temperate_valley.toml");
+    for replacement in [
+        "erosion_per_head_day = -1.0",
+        "erosion_per_head_day = 11.0",
+        "erosion_per_head_day = nan",
+        "erosion_per_head_day = 0.02\nannual_failure = 0.1",
+    ] {
+        let broken = land.replace("erosion_per_head_day = 0.02", replacement);
+        assert_ne!(land, broken);
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &real_preset()),
+            ("land/temperate_valley.toml", &broken),
+        ]);
+        assert!(!report.diagnostics.is_empty(), "{replacement}");
+    }
 }

@@ -1,0 +1,6 @@
+seed,years,nominal_per_k,household_years,escapes,actual_per_k,put_out,roof_fires,spread,deaths,goods_kg,water_l,strip_records,salvage_records,pulled,response_work_h,noticed_roof_fires,unnoticed_roof_fires,first_notice_mean_min,living
+2,5,1,61.071,0,0.000,0,0,0,0,0.000,0.000,0,0,0,0.000,0,0,,45
+2,5,3,61.071,1,16.374,0,1,0,0,335.981,0.000,0,0,0,0.000,0,1,,47
+2,5,10,61.071,1,16.374,0,1,0,0,333.051,0.000,0,0,0,0.000,0,1,,47
+2,5,30,61.071,2,32.749,1,1,0,0,346.403,0.000,0,0,0,0.000,0,1,,47
+2,5,100,61.071,6,98.246,4,3,1,1,1228.571,45.000,0,0,0,0.167,2,1,0.50,44

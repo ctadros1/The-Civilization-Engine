@@ -142,6 +142,72 @@ fn load_first() -> Sim {
     persist::load(&fixture().first.path, content()).expect("the first save loads")
 }
 
+#[test]
+fn schema_93_loads_with_no_fire_caution_and_resaves_at_current() {
+    let sim = load_first();
+    let mut sections = persist::encode_sections(&sim);
+    let know = sections
+        .iter_mut()
+        .find(|s| s.tag == agents::SECTION_KNOW)
+        .expect("knowledge");
+    let root = flatbuffers::root::<save::Knowledge>(&know.bytes).expect("knowledge root");
+    assert!(root.fire_trust().is_none_or(|v| v.is_empty()));
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V93;
+    let path = republish("schema-93-fire-caution", &info, &sections);
+    let mut loaded = persist::load(&path, content()).expect("schema 93 loads");
+    assert!(loaded.people().fire_trust.is_empty());
+    let saved = persist::save(
+        &mut loaded,
+        &scratch_dir("from-93"),
+        SaveKind::Manual,
+        "migrated",
+    )
+    .expect("resaves");
+    let reader =
+        commons_persist::SnapshotReader::open_file(&saved.path, commons_persist::Limits::default())
+            .expect("opens");
+    assert_eq!(reader.info().schema_version, SAVE_SCHEMA_VERSION);
+}
+
+#[test]
+fn schema_94_keeps_fire_caution_and_has_no_recoverable_runoff_request() {
+    let mut sim = load_first();
+    let settlement = sim.land().settlements[0].id;
+    let at = sim.now();
+    sim.people_mut_for_tests()
+        .fire_trust
+        .push(civ_agents::caution::FireTrust {
+            settlement,
+            tile: true,
+            wall_kind: 1,
+            losses: 2.0,
+            years: 20.0,
+            at,
+        });
+    sim.raise_river(0, 100.0, 3).expect("raise");
+    // Schema 94 stored today's flow and an influence's expiry, but no requested flow.
+    sim.land_mut_for_tests().river_forcings.clear();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V94;
+    let path = republish("schema-94-runoff", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("schema 94 loads");
+    assert!(loaded.land().river_forcings.is_empty());
+    assert_eq!(loaded.land().reach_discharges, sim.land().reach_discharges);
+    assert_eq!(loaded.people().fire_trust, sim.people().fire_trust);
+    let saved = persist::save(
+        &mut loaded,
+        &scratch_dir("from-94"),
+        SaveKind::Manual,
+        "migrated",
+    )
+    .expect("resaves");
+    let reader =
+        commons_persist::SnapshotReader::open_file(&saved.path, commons_persist::Limits::default())
+            .expect("opens");
+    assert_eq!(reader.info().schema_version, SAVE_SCHEMA_VERSION);
+}
+
 fn digests(chunks: &[ChunkInfo]) -> Vec<(String, u32, u32, u64, u64)> {
     chunks
         .iter()

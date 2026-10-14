@@ -46,6 +46,7 @@ export { FactionLine } from './wire/faction-line.js';
 export { FieldInfo } from './wire/field-info.js';
 export { FieldStage } from './wire/field-stage.js';
 export { Fields } from './wire/fields.js';
+export { FireHelp } from './wire/fire-help.js';
 export { FirmBrief } from './wire/firm-brief.js';
 export { FirmInfo } from './wire/firm-info.js';
 export { Firms } from './wire/firms.js';

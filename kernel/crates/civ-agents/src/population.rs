@@ -112,9 +112,6 @@ fn keep_route(
 pub const PURPOSE_DECIDE: u64 = 0x6465_6369_6465_3031; // "decide01"
 /// Most cells one route search may expand.
 const ROUTE_BUDGET: usize = 600_000;
-/// Days a settlement's travel-time field is reused before it is recomputed. It is walked out again
-/// sooner when the paths are surveyed, since walking costs change then.
-const FIELD_REFRESH_DAYS: i64 = 30;
 /// Further stretches of the water's edge a home knows beside the nearest (M6a slice BA, step
 /// four): where its people go along the water when a nearer one is passed over. A few, as a
 /// sponsor weighs a few sites (research 09-05 §3.3); an engineering choice.
@@ -1628,18 +1625,34 @@ impl Population {
     fn home_field(&mut self, ctx: &Ctx, key: PermanentId, origin: (f32, f32)) {
         let cell = cell_of(ctx.map, origin);
         let day = ctx.now.day_index();
-        let rev = ctx.land.route_revision();
+        let rev = ctx.land.route_revision(ctx.nav.travel_revision());
         if let Some(f) = self.homes.get(&key)
             && f.cell == cell
             && f.rev == rev
-            && day - f.day < FIELD_REFRESH_DAYS
+            && f.day == day
         {
             return;
         }
         self.ensure_places(ctx);
-        // Walking times change only with the paths' survey, as the map's ground does not: a
-        // refresh on the same survey from the same cell finds again only the ground that could
-        // be broken, which the fields and buildings since have changed.
+        let places_in = |field: &TravelField| -> Vec<Vec<(u32, f32)>> {
+            self.places
+                .iter()
+                .map(|kind| {
+                    let mut out: Vec<(u32, f32)> = kind
+                        .blocks
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(b, place)| {
+                            let (_, cell) = (*place)?;
+                            field.seconds_to(cell as usize).map(|s| (b as u32, s))
+                        })
+                        .collect();
+                    out.sort_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
+                    out
+                })
+                .collect()
+        };
+        // Reuse walking times while refreshing the day's land and source facts.
         if let Some(f) = self.homes.get_mut(&key)
             && f.cell == cell
             && f.rev == rev
@@ -1652,6 +1665,10 @@ impl Population {
                 &f.reach,
                 ctx.params,
             );
+            f.springs =
+                springs_in_reach(ctx.land, &f.reach, f.water.map_or(f32::INFINITY, |w| w.1));
+            f.places = places_in(&f.reach);
+            f.site_ground = farm::site_ground(ctx.map, &f.breakable, ctx.params);
             f.day = day;
             return;
         }
@@ -1664,23 +1681,7 @@ impl Population {
         let water = edges.next();
         let banks: Vec<(u32, f32)> = edges.collect();
         let springs = springs_in_reach(ctx.land, &field, water.map_or(f32::INFINITY, |w| w.1));
-        let places: Vec<Vec<(u32, f32)>> = self
-            .places
-            .iter()
-            .map(|kind| {
-                let mut out: Vec<(u32, f32)> = kind
-                    .blocks
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(b, place)| {
-                        let (_, cell) = (*place)?;
-                        field.seconds_to(cell as usize).map(|s| (b as u32, s))
-                    })
-                    .collect();
-                out.sort_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)));
-                out
-            })
-            .collect();
+        let places = places_in(&field);
         let breakable = farm::breakable_in_reach(
             ctx.map,
             ctx.nav,
@@ -2549,6 +2550,37 @@ impl Population {
             .map(|(_, g)| g)
     }
 
+    /// Where this household receives supplies while sheltering from its wet home.
+    fn supply_at(ctx: &Ctx, hh: &Household) -> (f32, f32) {
+        let wet = ctx
+            .land
+            .flood_depths
+            .get(cell_of(ctx.map, hh.home))
+            .copied()
+            .unwrap_or(0.0)
+            > 0.0;
+        if wet {
+            hh.settlement
+                .and_then(|id| ctx.land.settlements.iter().find(|s| s.id == id))
+                .map_or(hh.home, |s| s.hearth_m)
+        } else {
+            hh.home
+        }
+    }
+
+    /// Reconsiders an interrupted person's ordinary options (tests).
+    #[doc(hidden)]
+    pub fn reconsider_for_tests(&mut self, ctx: &mut Ctx, who: PermanentId) {
+        let h = self
+            .people
+            .iter()
+            .find(|(_, p)| p.id == who)
+            .map(|(h, _)| h);
+        if let Some(h) = h {
+            self.decide(ctx, h, 0);
+        }
+    }
+
     fn decide(&mut self, ctx: &mut Ctx, h: Handle<Person>, depth: u32) {
         let now = ctx.now;
         let params = ctx.params;
@@ -2556,10 +2588,40 @@ impl Population {
             return;
         };
         settle(p, now, params);
-        let (hh_id, age, pos) = (p.household, p.age_years(now), p.pos);
+        let (hh_id, age, pos, who, laden) = (
+            p.household,
+            p.age_years(now),
+            p.pos,
+            p.id,
+            p.carrying.kg > 0.0 || p.carrying.water_l > 0.0,
+        );
         let Some(hh) = self.household(hh_id).cloned() else {
             return;
         };
+        let supply_at = Self::supply_at(ctx, &hh);
+        // An interrupted delivery keeps its load. Complete it before starting another task;
+        // waiting for a safe route neither deposits remotely nor overwrites carried water.
+        if laden {
+            if self.knows_home_afire(who, hh_id, now, params) {
+                self.wait(ctx, h, WAIT_AFTER_FAILURE_MIN);
+                return;
+            }
+            if let Some(p) = self.people.get_mut(h) {
+                p.act = Activity {
+                    def: p.act.def,
+                    target: Target::Home,
+                    steps: vec![Step::Walk { to: supply_at }, Step::Deposit],
+                    step: 0,
+                    started: now,
+                    step_started: now,
+                    step_ends: now,
+                    version: p.act.version.wrapping_add(1),
+                };
+                p.trip = None;
+            }
+            self.run_steps(ctx, h, depth + 1);
+            return;
+        }
         // The household's view of its options: kept in Accelerated mode, worked out afresh at
         // each decision otherwise (ADR-0011 §4).
         let hh_view = if ctx.approx.household_view {
@@ -2576,11 +2638,22 @@ impl Population {
                 .map(|x| x.hearth_m)
         });
         // One travel field per settlement, from its hearth.
-        let field_key = match (hh.settlement, hearth) {
+        let mut field_key = match (hh.settlement, hearth) {
             (Some(s), Some(_)) => s,
             _ => hh_id,
         };
         self.home_field(ctx, field_key, hearth.unwrap_or(hh.home));
+        // Sharing a hearth's travel field assumes homes remain in its walking catchment.
+        // A closed ford can separate a nearby home: plan from that home's own bank instead.
+        if field_key != hh_id
+            && self
+                .homes
+                .get(&field_key)
+                .is_some_and(|f| f.reach.seconds_to(cell_of(ctx.map, supply_at)).is_none())
+        {
+            field_key = hh_id;
+            self.home_field(ctx, field_key, supply_at);
+        }
         self.refresh_kin();
         let goods = &ctx.catalog.goods;
         let member_count = hh.members.len().max(1);
@@ -2703,7 +2776,7 @@ impl Population {
             fuel_target_days: params.household.fuel_target_days,
             household_fuel_day,
             at_home: (pos.0 - hh.home.0).abs() < 1.0 && (pos.1 - hh.home.1).abs() < 1.0,
-            home: hh.home,
+            home: supply_at,
             hearth: hh.settlement.zip(hearth),
             gathering: self.gathering_facts(ctx, p.id, age, &hh, minute, evening_start),
             petition: self.petition_facts(ctx, p.id, age, &hh, minute, evening_start),
@@ -3588,6 +3661,7 @@ impl Population {
                             | Behavior::Attend
                             | Behavior::Douse
                             | Behavior::Strip
+                            | Behavior::Pull
                             | Behavior::Salvage
                     )
                 });
@@ -3902,9 +3976,47 @@ impl Population {
                         p.act.step += 1;
                     }
                 }
-                Step::Walk { to } => {
+                Step::Walk { mut to } => {
+                    // A saved delivery aimed at a home that has since flooded returns to the
+                    // same refuge as meals and sleep. The load is handed over only on arrival.
+                    if (p.carrying.kg > 0.0 || p.carrying.water_l > 0.0)
+                        && let Some(hh) = self.household(p.household)
+                        && to == hh.home
+                    {
+                        to = Self::supply_at(ctx, hh);
+                        if let Some(p) = self.people.get_mut(h) {
+                            p.act.steps[p.act.step as usize] = Step::Walk { to };
+                        }
+                    }
+                    // Remove a completed retry wait before retrying the same walk. Repeated
+                    // blocked trips keep a bounded activity and the original deposit target.
+                    if let Some(p) = self.people.get_mut(h)
+                        && (p.carrying.kg > 0.0 || p.carrying.water_l > 0.0)
+                        && p.act.step > 0
+                        && matches!(p.act.steps.get(p.act.step as usize - 1), Some(Step::Wait { minutes }) if *minutes == WAIT_AFTER_FAILURE_MIN)
+                    {
+                        p.act.steps.remove(p.act.step as usize - 1);
+                        p.act.step -= 1;
+                    }
                     if !self.start_walk(ctx, h, to) {
-                        self.wait(ctx, h, WAIT_AFTER_FAILURE_MIN);
+                        let laden = self
+                            .people
+                            .get(h)
+                            .is_some_and(|p| p.carrying.kg > 0.0 || p.carrying.water_l > 0.0);
+                        if laden {
+                            if let Some(p) = self.people.get_mut(h) {
+                                p.act.steps.insert(
+                                    p.act.step as usize,
+                                    Step::Wait {
+                                        minutes: WAIT_AFTER_FAILURE_MIN,
+                                    },
+                                );
+                                p.trip = None;
+                            }
+                            self.start_work(ctx, h, WAIT_AFTER_FAILURE_MIN, None);
+                        } else {
+                            self.wait(ctx, h, WAIT_AFTER_FAILURE_MIN);
+                        }
                     }
                     return;
                 }
@@ -3936,7 +4048,7 @@ impl Population {
         let to_cell = cell_of(ctx.map, to);
         let speed = interpolate(&params.walk_speed_by_age, p.age_years(now)).max(0.05);
         let wear = &ctx.land.wear;
-        let revision = ctx.land.route_revision();
+        let revision = ctx.land.route_revision(ctx.nav.travel_revision());
         if revision != self.routes_rev {
             self.routes.clear();
             self.routes_old.clear();
@@ -4159,6 +4271,7 @@ impl Population {
                 | Behavior::Well
                 | Behavior::Douse
                 | Behavior::Strip
+                | Behavior::Pull
                 | Behavior::Salvage,
             ) => (def_par, false, 0.0),
             None => (params.energy.idle_par, false, 0.0),
@@ -4294,6 +4407,14 @@ impl Population {
                             self.drew_at(who, household, cell);
                         }
                         _ => p.carrying.water_l = params.household.carry_water_l as f32,
+                    }
+                }
+                Some(Behavior::Pull) => {
+                    let (who, target) = (p.id, p.act.target);
+                    if let (Target::Building(building), Some(Step::Work { minutes })) =
+                        (target, step)
+                    {
+                        self.pull_down(ctx, who, building, minutes);
                     }
                 }
                 Some(Behavior::Strip) => {
@@ -5708,10 +5829,11 @@ impl Population {
                 );
             }
         }
-        self.check_buildings(ctx);
         self.floods_day(ctx);
+        self.check_buildings(ctx);
         // The minutes at which each home's fires in use may escape today (M6b slice BD).
         self.plan_ignitions(ctx, day);
+        self.fire_month(ctx);
         // And the crossings over water (M5c slice AW): rot and failure, then the households
         // whose day it is weigh building one where their people wade.
         if !ctx.land.crossings.list.is_empty() {

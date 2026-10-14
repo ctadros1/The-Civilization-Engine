@@ -127,6 +127,7 @@ fn someone_suspects_the_well_whose_households_fell_sick_and_word_of_it_goes_roun
         }
         for &h in &at_well[..3] {
             let c = pop.word.make(Claim {
+                fire: None,
                 id: 0,
                 kind: ClaimKind::Sickness,
                 settlement,

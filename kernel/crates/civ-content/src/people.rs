@@ -110,6 +110,9 @@ pub(crate) struct FireFile {
     pub strip_m2_per_minute: f64,
     pub strip_cost: f64,
     pub salvage_share: f64,
+    pub pull_crew: u16,
+    pub pull_h_per_m2: f64,
+    pub pull_cost: f64,
 }
 
 impl FireFile {
@@ -145,10 +148,17 @@ impl FireFile {
             strip_m2_per_minute: self.strip_m2_per_minute,
             strip_cost: self.strip_cost,
             salvage_share: self.salvage_share,
+            pull_crew: self.pull_crew,
+            pull_h_per_m2: self.pull_h_per_m2,
+            pull_cost: self.pull_cost,
         }
     }
 
     fn problems(&self, p: &mut Vec<String>) {
+        if !(2..=32).contains(&self.pull_crew) {
+            p.push("fire.pull_crew must be between 2 and 32".to_owned());
+        }
+
         for (name, v, lo, hi) in [
             ("fire.reach_m", self.reach_m, 0.0, 100.0),
             ("fire.flux_kw[0]", self.flux_kw[0], 0.1, 500.0),
@@ -223,6 +233,8 @@ impl FireFile {
             ),
             ("fire.strip_cost", self.strip_cost, 0.0, 1.0),
             ("fire.salvage_share", self.salvage_share, 0.0, 10.0),
+            ("fire.pull_h_per_m2", self.pull_h_per_m2, 0.001, 100.0),
+            ("fire.pull_cost", self.pull_cost, 0.0, 1.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

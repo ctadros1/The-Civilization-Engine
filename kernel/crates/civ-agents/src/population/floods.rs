@@ -7,8 +7,8 @@ impl Population {
         let (now, day) = (ctx.now, ctx.now.day_index());
 
         // 1. High-water monitoring along river reaches
-        let num_reaches = ctx.map.reaches.len();
-        for r in 0..num_reaches {
+        let (_, origins) = ctx.land.river_flow_state(ctx.map, ctx.land_params, day);
+        for (r, sources) in origins.iter().enumerate() {
             let q = ctx.land.reach_discharges.get(r).copied().unwrap_or(0.0);
             let q_bf = ctx
                 .land
@@ -25,9 +25,11 @@ impl Population {
                 .iter()
                 .position(|hw| hw.reach == r as u16 && hw.ended.is_none());
 
+            let origin = crate::floods::Origin::recorded(sources.clone());
             if is_high {
                 if let Some(idx) = active_idx {
                     let hw = &mut self.floods.high_waters[idx];
+                    hw.origin.join(&origin);
                     if q > hw.peak_discharge {
                         hw.peak_discharge = q;
                     }
@@ -54,6 +56,7 @@ impl Population {
                     // Find or create active flood episode
                     let ep_id = if let Some(ep) = self.floods.current_flood_episode_mut() {
                         ep.high_waters.push(hw_id);
+                        ep.origin.join(&origin);
                         if q > ep.peak_discharge {
                             ep.peak_discharge = q;
                         }
@@ -63,6 +66,7 @@ impl Population {
                         self.floods
                             .flood_episodes
                             .push(crate::floods::FloodEpisode {
+                                origin: origin.clone(),
                                 id: new_id,
                                 settlement,
                                 first_reach: r as u16,
@@ -78,6 +82,7 @@ impl Population {
                     };
 
                     self.floods.high_waters.push(crate::floods::HighWater {
+                        origin,
                         id: hw_id,
                         reach: r as u16,
                         settlement,
@@ -142,6 +147,15 @@ impl Population {
             }
         }
 
+        for hw in &self.floods.high_waters {
+            if hw.ended.is_none()
+                && let Some(id) = hw.episode
+                && let Some(ep) = self.floods.flood_episodes.iter_mut().find(|ep| ep.id == id)
+            {
+                ep.origin.join(&hw.origin);
+            }
+        }
+
         if let Some(ep) = self.floods.current_flood_episode_mut() {
             let flooded_bld = ctx.land.buildings.iter().filter(|b| b.days_wet > 0).count() as u32;
             ep.total_buildings = ep.total_buildings.max(flooded_bld);
@@ -184,7 +198,11 @@ impl Population {
                 .fields
                 .iter()
                 .filter(|f| f.household == hh.id)
-                .map(|f| f.last_flood_depth_cm)
+                .map(|f| {
+                    let cell = cell_of(ctx.map, f.rect.centre_m());
+                    ctx.land.flood_depths.get(cell).copied().unwrap_or(0.0)
+                })
+                .map(|depth| (depth * 100.0).min(f32::from(u16::MAX)) as u16)
                 .max()
                 .unwrap_or(0);
             if home_cm > 0 || field_cm > 0 {
@@ -192,12 +210,11 @@ impl Population {
             }
         }
 
-        // 3. Storm episode close if no storm today
-        let storm = loads::storm_pa(&ctx.land.climatology, &ctx.land_params.weather, now);
-        if storm == 0.0
-            && let Some(ep) = self.floods.current_storm_episode_mut()
-        {
-            ep.ended = Some(now);
+        // A storm episode is its calendar day; a second storm day starts a new episode.
+        for ep in &mut self.floods.storm_episodes {
+            if ep.ended.is_none() && ep.began.day_index() < day {
+                ep.ended = Some(SimTime::from_minutes((ep.began.day_index() + 1) * 1440));
+            }
         }
     }
 
@@ -249,6 +266,19 @@ impl Population {
                 "The observer raised reach {reach} to {discharge_m3s:.1} m³/s for {days} days."
             ),
         );
+        ctx.land
+            .river_forcings
+            .retain(|f| f.reach as usize != reach);
+        ctx.land.river_forcings.push(civ_land::RiverForcing {
+            reach: reach as u32,
+            discharge_m3s,
+            until_day: ctx.now.day_index() + i64::from(days),
+            influence: inf_id,
+        });
+        let flows = ctx
+            .land
+            .river_flows(ctx.map, ctx.land_params, ctx.now.day_index());
+        ctx.land.update_floods(ctx.map, flows);
         self.floods_day(ctx);
         Ok(super::influence::Reached {
             id: inf_id,
@@ -274,6 +304,10 @@ impl Population {
             settlement.unwrap_or_else(|| PermanentId::from_raw(1).expect("id")),
             id,
         );
+        // Today's visible wind changes; the latent wind anomalies and natural storm series do not.
+        ctx.land.weather.today.wind_ms = wind_speed_ms;
+        ctx.land.weather.today.gust_ms = wind_speed_ms;
+        ctx.land.weather.today.wind_from_deg = direction_deg;
         let storm_pa = 0.5 * 1.225 * f64::from(wind_speed_ms).powi(2);
         let mut owners: Vec<PermanentId> = ctx
             .land
@@ -285,7 +319,7 @@ impl Population {
         owners.sort_unstable();
         owners.dedup();
         for household in owners {
-            self.check_household(ctx, household, storm_pa);
+            self.check_household_origin(ctx, household, storm_pa, inf_id);
         }
         self.chronicle_push(
             ctx.now,

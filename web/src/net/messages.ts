@@ -1593,6 +1593,9 @@ export interface EarthworkInfo {
   words: string;
   /** Wire 1.21: for a pit or its heap, the deposit the pit is dug for (0 for none). */
   deposit: number;
+  /** Wire 1.72: the kernel's bank centre-line and current condition. */
+  bank?: { ax: number; ay: number; bx: number; by: number; heightM: number; breached: boolean };
+
 }
 
 /** A crossing over water (wire 1.60, M5c slice AW; ADR-0004 §7, ADR-0009 §9). */
@@ -1711,6 +1714,20 @@ export interface CoverageSource {
   days: number;
 }
 
+/** One kernel probe and realized fire work (wire 1.70). */
+export interface FireHelp {
+  adultsNow: number;
+  nearestWalkMin: number | null;
+  unknownRoutes: number;
+  waterAvailable: boolean;
+  fireEpisodes: number;
+  helpedEpisodes: number;
+  helpers: number;
+  waterL: number;
+  firstWorkMin: number | null;
+  observerEpisodes: number;
+}
+
 /** One home under a lens (wire 1.66): the water it could reach and where its people did come. */
 export interface CoverageHome {
   household: number;
@@ -1725,6 +1742,7 @@ export interface CoverageHome {
   /** Did come: where its people drew water in the period, most days first. */
   drew: CoverageSource[];
   words: string[];
+  fireHelp?: FireHelp;
 }
 
 /** A lens's homes with its legend's parts (15-01 §3.1): title, scope, period, denominator. */
@@ -2659,6 +2677,16 @@ function coverage(c: W.Coverage): CoverageInfo {
       byRight: byRight ? coverageSource(byRight) : null,
       drew,
       words,
+      fireHelp: (() => {
+        const f = h.fireHelp();
+        return f ? {
+          adultsNow: f.adultsNow(), nearestWalkMin: f.nearestWalkMin() < 0 ? null : f.nearestWalkMin(),
+          unknownRoutes: f.unknownRoutes(), waterAvailable: f.waterAvailable(),
+          fireEpisodes: f.fireEpisodes(), helpedEpisodes: f.helpedEpisodes(), helpers: f.helpers(),
+          waterL: f.waterL(), firstWorkMin: f.firstWorkMin() < 0 ? null : f.firstWorkMin(),
+          observerEpisodes: f.observerEpisodes(),
+        } : undefined;
+      })(),
     });
   }
   const summary: string[] = [];
@@ -2740,6 +2768,10 @@ function earthworks(w: W.Earthworks): EarthworksInfo {
       building: Number(e.building()),
       words: e.words() ?? "",
       deposit: Number(e.deposit()),
+      bank: e.bankA() && e.bankB() ? {
+        ax: e.bankA()!.x(), ay: e.bankA()!.y(), bx: e.bankB()!.x(), by: e.bankB()!.y(),
+        heightM: e.bankHeightM(), breached: e.bankBreached(),
+      } : undefined,
     });
   }
   const tiles: { index: number; rev: number }[] = [];

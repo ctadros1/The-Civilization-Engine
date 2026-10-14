@@ -15,7 +15,7 @@ import * as M from "./net/messages.js";
 import { Store, initialState, mergeEvents } from "./state.js";
 import { bindUi } from "./ui.js";
 import { bankWords, flowWords, springWords } from "./water.js";
-import { legend, type LensLayer } from "./coverage.js";
+import { legend, lensId, type LensLayer } from "./coverage.js";
 import { seasonOf } from "./weather.js";
 
 /**
@@ -340,7 +340,7 @@ async function syncLens(): Promise<void> {
   const s = store.state.snapshot;
   const world = s?.world;
   const key =
-    world && lensLayer ? `${store.state.epoch}:${world.worldId}:${s.waterRev}:${s.weatherRev}` : "";
+    world && lensLayer ? `${store.state.epoch}:${world.worldId}:${lensId(lensLayer)}:${s.waterRev}:${s.weatherRev}:${lensId(lensLayer) === 2 ? s.clock?.minute : ""}` : "";
   if (key === lensKey || lensBusy) return;
   if (!key) {
     lensKey = "";
@@ -353,7 +353,14 @@ async function syncLens(): Promise<void> {
   lensBusy = true;
   let ok = false;
   try {
-    lensInfo = await client.coverage(0, 1);
+    const requestedLens = lensId(lensLayer);
+    const requestedEpoch = store.state.epoch;
+    const result = await client.coverage(0, requestedLens);
+    if (!lensLayer || lensId(lensLayer) !== requestedLens || store.state.epoch !== requestedEpoch) {
+      queueMicrotask(() => void syncLens());
+      return;
+    }
+    lensInfo = result;
     lensKey = key;
     lensError = "";
     ok = true;
@@ -1197,7 +1204,13 @@ byId("show-rivers").addEventListener("change", (event) => {
   map.setRiversVisible((event.target as HTMLInputElement).checked);
 });
 byId("lens").addEventListener("change", (event) => {
+  const previousLens = lensLayer ? lensId(lensLayer) : 0;
   lensLayer = (event.target as HTMLSelectElement).value as LensLayer;
+  if (!lensLayer || lensId(lensLayer) !== previousLens) {
+    lensInfo = null;
+    lensKey = "";
+    lensError = "";
+  }
   // A layer of the lens already read is shown at once; the lens is read again if it is stale.
   map.setLens(lensInfo, lensLayer);
   renderLegend();
@@ -1686,6 +1699,7 @@ const hooks = {
       y: h.y,
       nearest: h.nearest?.minutes ?? null,
       drew: h.drew.length,
+      fireHelp: h.fireHelp,
     })),
     summary: lensInfo?.summary ?? [],
   }),

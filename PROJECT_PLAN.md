@@ -2437,9 +2437,16 @@ and M6a gives rivers a daily flow.
       work; physical stages explain what happened. A long response chain shows its first thirty
       work steps with complete quantity summaries. Save schema 99 migrates 98 without invented
       named accounts; content API 86 stays, wire 1.70 appends claim kind 7.
+    - *Help at a fire lens implemented (2026-10-14, §9):* one current probe counts healthy
+      awake adults at home whose actual directed walk is at most five minutes, apart from those
+      already doing fire work. Water by right or a stored load is shown separately. Willingness
+      and useful work are not forecast. Thirty-day records show exposed household roofs,
+      unserved episodes, actual helpers, water and earliest work; completed demolition crews
+      count. Observer-set exposures are marked. Wire 1.71 appends FireHelp and CoverageHome
+      field 8; save schema 99 and content API 86 stay unchanged.
     - *BE persistence repair (2026-10-13):* fire caution by covering and wall kind is now saved
       in schema 94; saves through 93 begin with no remembered fire losses, since none was stored.
-      The Help at a fire lens and calibration sweep remain open. Scene awareness remains a
+      The calibration sweep remains open. Scene awareness remains a
       coarse connected-scene model, without terrain occlusion or individual sight bounds.
   - **BE**: masonry, brick and tile.
     - Goods (mud brick, brick, roof tile, quicklime), a kiln, and techniques. Founders bring
@@ -3193,3 +3200,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **No-water fire-choice ten-year follow-up (2026-10-14):** the additional release smoke on `ba5cd14` passes all ten worlds and the matrix survival gate; eight bands survive, coastal seed 5 and valley seed 5 die out as permitted. It validates that source before the crew-demolition change, not later preparations; contended wall times are not a benchmark.
 
 - **BD found-burning accounts and physical scenes (2026-10-14):** direct records create shared immutable dated accounts, carried by actual household/hearth contact, with no asserted cause. Heard alarms remain distinct from direct sightings. Risk facts no longer use historical episode grouping or spread diagnostics to extend awareness: recent personal records anchor a connected physical scene. A historical regrouping test keeps a distant fire unknown. This remains coarse scene awareness, not full individual visibility or terrain occlusion. Save schema 99 adds the claim's fire reference and explicitly reads 98 without backfill; invalid references, dates and mixed claim payloads are refused. Wire 1.70 appends HeardLine kind 7 under ADR-0001; existing fields retain their ids and types. Content API 86 stays unchanged.
+
+- **BD Help at a fire lens (2026-10-14):** potential help is a bounded current directed-walking probe, with route-budget exhaustion reported as inconclusive, never unreachable. Available adults, rights-based water and stored loads do not imply willingness or future work. Actual thirty-day help comes only from water, stripping, salvage and completed demolition records; unserved household-episode exposures remain in the denominator. Observer-set exposures are marked separately. The kernel supplies the facts; the web draws them and switches between fire and water lenses without using stale responses. Wire 1.71 appends typed FireHelp/CoverageHome fields under ADR-0001; snapshots 99 and content API 86 stay unchanged. No large-population query-performance claim is made.

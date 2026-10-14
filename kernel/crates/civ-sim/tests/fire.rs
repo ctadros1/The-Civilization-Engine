@@ -2031,6 +2031,110 @@ fn schema_98_keeps_sightings_without_inventing_named_accounts() {
 }
 
 #[test]
+fn fire_help_probe_reads_availability_without_changing_any_save_section() {
+    use civ_sim::frames::coverage::{self, Home};
+    let mut sim = world(4);
+    let (household, at) = first(&sim);
+    let now = sim.now();
+    let actor = sim
+        .people()
+        .household(household)
+        .expect("household")
+        .members
+        .iter()
+        .copied()
+        .find(|&id| {
+            sim.people()
+                .person(id)
+                .is_some_and(|p| p.age_years(now) >= 18.0)
+        })
+        .expect("adult");
+    for (_, p) in sim.people_mut_for_tests().people.iter_mut() {
+        p.asleep = p.id != actor;
+        if p.id == actor {
+            p.pos = at;
+            p.trip = None;
+        }
+    }
+    let home = Home {
+        household,
+        settlement: None,
+        at,
+        nearest: None,
+        by_right: None,
+        drew: Vec::new(),
+    };
+    let before = persist::encode_sections(&sim);
+    let available = coverage::fire::help(&sim, &home);
+    assert_eq!(available.available, 1);
+    assert_eq!(available.nearest_min, Some(0.0));
+    assert_eq!(available.helped, 0);
+    let bytes =
+        coverage::coverage_response(&sim, None, coverage::FIRE_HELP).expect("typed response");
+    let response =
+        civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("decode");
+    let info = response.body_as_coverage().expect("coverage");
+    assert!(
+        info.homes()
+            .expect("homes")
+            .iter()
+            .all(|h| h.fire_help().is_some())
+    );
+    let after = persist::encode_sections(&sim);
+    assert_eq!(before.len(), after.len());
+    for (a, b) in before.iter().zip(after) {
+        assert_eq!(a.bytes, b.bytes, "section {}", a.tag);
+    }
+    sim.people_mut_for_tests()
+        .people
+        .iter_mut()
+        .find(|(_, p)| p.id == actor)
+        .expect("actor")
+        .1
+        .asleep = true;
+    assert_eq!(coverage::fire::help(&sim, &home).available, 0);
+}
+
+#[test]
+fn fire_help_keeps_unserved_exposures_and_recorded_crew_work_apart() {
+    use civ_sim::frames::coverage::{self, Home};
+    let (mut sim, _, target, workers) = demolition_site();
+    let household = sim.people().person(workers[0]).expect("worker").household;
+    let at = sim.people().household(household).expect("household").home;
+    let home = Home {
+        household,
+        settlement: None,
+        at,
+        nearest: None,
+        by_right: None,
+        drew: Vec::new(),
+    };
+    let before = coverage::fire::help(&sim, &home);
+    assert!(
+        before.fires > 0,
+        "physically weighed roof stays in the denominator"
+    );
+    assert_eq!(before.helped, 0);
+    assert_eq!(before.observer, 1);
+    for _ in 0..100 {
+        if !sim.people().fires.pulled.is_empty() {
+            break;
+        }
+        for &who in &workers {
+            assert!(sim.with_ctx_for_tests(|p, c| p.start_pulling_for_tests(c, who, target)));
+        }
+        sim.advance_minutes(2).expect("crew work");
+    }
+    assert_eq!(sim.people().fires.pulled.len(), 1);
+    let after = coverage::fire::help(&sim, &home);
+    assert_eq!(after.fires, before.fires);
+    assert_eq!(after.helped, 1);
+    assert_eq!(after.people, workers.len() as u32);
+    assert_eq!(after.litres, 0.0);
+    assert!(after.first_min.is_some());
+}
+
+#[test]
 fn knowing_a_fire_does_not_offer_help_at_an_unknown_distant_fire() {
     let (mut sim, _, buildings) = block_near_home(4, 3.0, 5.5);
     let owner = sim

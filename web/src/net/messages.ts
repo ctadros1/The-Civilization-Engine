@@ -1711,6 +1711,20 @@ export interface CoverageSource {
   days: number;
 }
 
+/** One kernel probe and realized fire work (wire 1.70). */
+export interface FireHelp {
+  adultsNow: number;
+  nearestWalkMin: number | null;
+  unknownRoutes: number;
+  waterAvailable: boolean;
+  fireEpisodes: number;
+  helpedEpisodes: number;
+  helpers: number;
+  waterL: number;
+  firstWorkMin: number | null;
+  observerEpisodes: number;
+}
+
 /** One home under a lens (wire 1.66): the water it could reach and where its people did come. */
 export interface CoverageHome {
   household: number;
@@ -1725,6 +1739,7 @@ export interface CoverageHome {
   /** Did come: where its people drew water in the period, most days first. */
   drew: CoverageSource[];
   words: string[];
+  fireHelp?: FireHelp;
 }
 
 /** A lens's homes with its legend's parts (15-01 §3.1): title, scope, period, denominator. */
@@ -2659,6 +2674,16 @@ function coverage(c: W.Coverage): CoverageInfo {
       byRight: byRight ? coverageSource(byRight) : null,
       drew,
       words,
+      fireHelp: (() => {
+        const f = h.fireHelp();
+        return f ? {
+          adultsNow: f.adultsNow(), nearestWalkMin: f.nearestWalkMin() < 0 ? null : f.nearestWalkMin(),
+          unknownRoutes: f.unknownRoutes(), waterAvailable: f.waterAvailable(),
+          fireEpisodes: f.fireEpisodes(), helpedEpisodes: f.helpedEpisodes(), helpers: f.helpers(),
+          waterL: f.waterL(), firstWorkMin: f.firstWorkMin() < 0 ? null : f.firstWorkMin(),
+          observerEpisodes: f.observerEpisodes(),
+        } : undefined;
+      })(),
     });
   }
   const summary: string[] = [];

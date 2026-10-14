@@ -535,6 +535,9 @@ struct StormInfoBuilder;
 struct CoverageSource;
 struct CoverageSourceBuilder;
 
+struct FireHelp;
+struct FireHelpBuilder;
+
 struct CoverageHome;
 struct CoverageHomeBuilder;
 
@@ -22273,6 +22276,144 @@ inline ::flatbuffers::Offset<CoverageSource> CreateCoverageSourceDirect(
       days);
 }
 
+struct FireHelp FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef FireHelpBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ADULTS_NOW = 4,
+    VT_NEAREST_WALK_MIN = 6,
+    VT_UNKNOWN_ROUTES = 8,
+    VT_WATER_AVAILABLE = 10,
+    VT_FIRE_EPISODES = 12,
+    VT_HELPED_EPISODES = 14,
+    VT_HELPERS = 16,
+    VT_WATER_L = 18,
+    VT_FIRST_WORK_MIN = 20,
+    VT_OBSERVER_EPISODES = 22
+  };
+  uint32_t adults_now() const {
+    return GetField<uint32_t>(VT_ADULTS_NOW, 0);
+  }
+  float nearest_walk_min() const {
+    return GetField<float>(VT_NEAREST_WALK_MIN, -1.0f);
+  }
+  uint32_t unknown_routes() const {
+    return GetField<uint32_t>(VT_UNKNOWN_ROUTES, 0);
+  }
+  bool water_available() const {
+    return GetField<uint8_t>(VT_WATER_AVAILABLE, 0) != 0;
+  }
+  uint32_t fire_episodes() const {
+    return GetField<uint32_t>(VT_FIRE_EPISODES, 0);
+  }
+  uint32_t helped_episodes() const {
+    return GetField<uint32_t>(VT_HELPED_EPISODES, 0);
+  }
+  uint32_t helpers() const {
+    return GetField<uint32_t>(VT_HELPERS, 0);
+  }
+  float water_l() const {
+    return GetField<float>(VT_WATER_L, 0.0f);
+  }
+  float first_work_min() const {
+    return GetField<float>(VT_FIRST_WORK_MIN, -1.0f);
+  }
+  uint32_t observer_episodes() const {
+    return GetField<uint32_t>(VT_OBSERVER_EPISODES, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ADULTS_NOW, 4) &&
+           VerifyField<float>(verifier, VT_NEAREST_WALK_MIN, 4) &&
+           VerifyField<uint32_t>(verifier, VT_UNKNOWN_ROUTES, 4) &&
+           VerifyField<uint8_t>(verifier, VT_WATER_AVAILABLE, 1) &&
+           VerifyField<uint32_t>(verifier, VT_FIRE_EPISODES, 4) &&
+           VerifyField<uint32_t>(verifier, VT_HELPED_EPISODES, 4) &&
+           VerifyField<uint32_t>(verifier, VT_HELPERS, 4) &&
+           VerifyField<float>(verifier, VT_WATER_L, 4) &&
+           VerifyField<float>(verifier, VT_FIRST_WORK_MIN, 4) &&
+           VerifyField<uint32_t>(verifier, VT_OBSERVER_EPISODES, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct FireHelpBuilder {
+  typedef FireHelp Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_adults_now(uint32_t adults_now) {
+    fbb_.AddElement<uint32_t>(FireHelp::VT_ADULTS_NOW, adults_now, 0);
+  }
+  void add_nearest_walk_min(float nearest_walk_min) {
+    fbb_.AddElement<float>(FireHelp::VT_NEAREST_WALK_MIN, nearest_walk_min, -1.0f);
+  }
+  void add_unknown_routes(uint32_t unknown_routes) {
+    fbb_.AddElement<uint32_t>(FireHelp::VT_UNKNOWN_ROUTES, unknown_routes, 0);
+  }
+  void add_water_available(bool water_available) {
+    fbb_.AddElement<uint8_t>(FireHelp::VT_WATER_AVAILABLE, static_cast<uint8_t>(water_available), 0);
+  }
+  void add_fire_episodes(uint32_t fire_episodes) {
+    fbb_.AddElement<uint32_t>(FireHelp::VT_FIRE_EPISODES, fire_episodes, 0);
+  }
+  void add_helped_episodes(uint32_t helped_episodes) {
+    fbb_.AddElement<uint32_t>(FireHelp::VT_HELPED_EPISODES, helped_episodes, 0);
+  }
+  void add_helpers(uint32_t helpers) {
+    fbb_.AddElement<uint32_t>(FireHelp::VT_HELPERS, helpers, 0);
+  }
+  void add_water_l(float water_l) {
+    fbb_.AddElement<float>(FireHelp::VT_WATER_L, water_l, 0.0f);
+  }
+  void add_first_work_min(float first_work_min) {
+    fbb_.AddElement<float>(FireHelp::VT_FIRST_WORK_MIN, first_work_min, -1.0f);
+  }
+  void add_observer_episodes(uint32_t observer_episodes) {
+    fbb_.AddElement<uint32_t>(FireHelp::VT_OBSERVER_EPISODES, observer_episodes, 0);
+  }
+  explicit FireHelpBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<FireHelp> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<FireHelp>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<FireHelp> CreateFireHelp(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t adults_now = 0,
+    float nearest_walk_min = -1.0f,
+    uint32_t unknown_routes = 0,
+    bool water_available = false,
+    uint32_t fire_episodes = 0,
+    uint32_t helped_episodes = 0,
+    uint32_t helpers = 0,
+    float water_l = 0.0f,
+    float first_work_min = -1.0f,
+    uint32_t observer_episodes = 0) {
+  FireHelpBuilder builder_(_fbb);
+  builder_.add_observer_episodes(observer_episodes);
+  builder_.add_first_work_min(first_work_min);
+  builder_.add_water_l(water_l);
+  builder_.add_helpers(helpers);
+  builder_.add_helped_episodes(helped_episodes);
+  builder_.add_fire_episodes(fire_episodes);
+  builder_.add_unknown_routes(unknown_routes);
+  builder_.add_nearest_walk_min(nearest_walk_min);
+  builder_.add_adults_now(adults_now);
+  builder_.add_water_available(water_available);
+  return builder_.Finish();
+}
+
+struct FireHelp::Traits {
+  using type = FireHelp;
+  static auto constexpr Create = CreateFireHelp;
+};
+
 struct CoverageHome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef CoverageHomeBuilder Builder;
   struct Traits;
@@ -22284,7 +22425,8 @@ struct CoverageHome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_NEAREST = 12,
     VT_BY_RIGHT = 14,
     VT_DREW = 16,
-    VT_WORDS = 18
+    VT_WORDS = 18,
+    VT_FIRE_HELP = 20
   };
   uint64_t household() const {
     return GetField<uint64_t>(VT_HOUSEHOLD, 0);
@@ -22310,6 +22452,9 @@ struct CoverageHome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *words() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_WORDS);
   }
+  const tce::wire::FireHelp *fire_help() const {
+    return GetPointer<const tce::wire::FireHelp *>(VT_FIRE_HELP);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -22328,6 +22473,8 @@ struct CoverageHome FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_WORDS) &&
            verifier.VerifyVector(words()) &&
            verifier.VerifyVectorOfStrings(words()) &&
+           VerifyOffset(verifier, VT_FIRE_HELP) &&
+           verifier.VerifyTable(fire_help()) &&
            verifier.EndTable();
   }
 };
@@ -22360,6 +22507,9 @@ struct CoverageHomeBuilder {
   void add_words(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> words) {
     fbb_.AddOffset(CoverageHome::VT_WORDS, words);
   }
+  void add_fire_help(::flatbuffers::Offset<tce::wire::FireHelp> fire_help) {
+    fbb_.AddOffset(CoverageHome::VT_FIRE_HELP, fire_help);
+  }
   explicit CoverageHomeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -22380,10 +22530,12 @@ inline ::flatbuffers::Offset<CoverageHome> CreateCoverageHome(
     ::flatbuffers::Offset<tce::wire::CoverageSource> nearest = 0,
     ::flatbuffers::Offset<tce::wire::CoverageSource> by_right = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CoverageSource>>> drew = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> words = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> words = 0,
+    ::flatbuffers::Offset<tce::wire::FireHelp> fire_help = 0) {
   CoverageHomeBuilder builder_(_fbb);
   builder_.add_settlement(settlement);
   builder_.add_household(household);
+  builder_.add_fire_help(fire_help);
   builder_.add_words(words);
   builder_.add_drew(drew);
   builder_.add_by_right(by_right);
@@ -22407,7 +22559,8 @@ inline ::flatbuffers::Offset<CoverageHome> CreateCoverageHomeDirect(
     ::flatbuffers::Offset<tce::wire::CoverageSource> nearest = 0,
     ::flatbuffers::Offset<tce::wire::CoverageSource> by_right = 0,
     const std::vector<::flatbuffers::Offset<tce::wire::CoverageSource>> *drew = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *words = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *words = nullptr,
+    ::flatbuffers::Offset<tce::wire::FireHelp> fire_help = 0) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto drew__ = drew ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::CoverageSource>>(*drew) : 0;
   auto words__ = words ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*words) : 0;
@@ -22420,7 +22573,8 @@ inline ::flatbuffers::Offset<CoverageHome> CreateCoverageHomeDirect(
       nearest,
       by_right,
       drew__,
-      words__);
+      words__,
+      fire_help);
 }
 
 struct Coverage FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

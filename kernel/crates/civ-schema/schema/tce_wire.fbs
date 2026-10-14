@@ -701,7 +701,7 @@ table GetOutbreak {
 // layers, *could reach* and *did come*, for the homes of one settlement (0: every settlement).
 table GetCoverage {
   settlement: ulong (id: 0);
-  // 1: water (the only lens yet).
+  // 1: water; 2: help at a fire.
   lens: ubyte (id: 1);
 }
 
@@ -2492,6 +2492,20 @@ table CoverageSource {
   days: ushort (id: 4);
 }
 
+// Wire 1.71: one read-only current probe and realized help, never a dispatch order.
+table FireHelp {
+  adults_now: uint (id: 0);
+  nearest_walk_min: float = -1 (id: 1);
+  unknown_routes: uint (id: 2);
+  water_available: bool (id: 3);
+  fire_episodes: uint (id: 4);
+  helped_episodes: uint (id: 5);
+  helpers: uint (id: 6);
+  water_l: float (id: 7);
+  first_work_min: float = -1 (id: 8);
+  observer_episodes: uint (id: 9);
+}
+
 // One home and the water it could reach and did come for.
 table CoverageHome {
   household: ulong (id: 0);
@@ -2507,6 +2521,7 @@ table CoverageHome {
   drew: [CoverageSource] (id: 6);
   // Both, in words.
   words: [string] (id: 7);
+  fire_help: FireHelp (id: 8);
 }
 
 // A lens's homes, with what the lens shows and over what (15-01 §3.1: title, scope, period,

@@ -2557,6 +2557,9 @@ table HighWaterSave {
   fields_flooded: uint (id: 11);
   spoiled_kg: float (id: 12);
   scoured_crossings: uint (id: 13);
+  // Schema 96: provenance was not recorded in older snapshots.
+  origin_known: bool (id: 14);
+  observers: [uint] (id: 15);
 }
 
 table FloodEpisodeSave {
@@ -2570,6 +2573,9 @@ table FloodEpisodeSave {
   total_spoiled_kg: float (id: 7);
   total_buildings: uint (id: 8);
   total_fields_lost: uint (id: 9);
+  // Schema 96: provenance was not recorded in older snapshots.
+  origin_known: bool (id: 10);
+  observers: [uint] (id: 11);
 }
 
 table StormDamageSave {
@@ -2583,6 +2589,9 @@ table StormDamageSave {
   wind_speed_ms: float (id: 7);
   uplift_pa: float (id: 8);
   episode: uint (id: 9);
+  // Schema 96: provenance was not recorded in older snapshots.
+  origin_known: bool (id: 10);
+  observers: [uint] (id: 11);
 }
 
 table StormEpisodeSave {
@@ -2592,6 +2601,9 @@ table StormEpisodeSave {
   ended: long = -1 (id: 3);
   peak_wind_speed_ms: float (id: 4);
   damages: [uint] (id: 5);
+  // Schema 96: provenance was not recorded in older snapshots.
+  origin_known: bool (id: 6);
+  observers: [uint] (id: 7);
 }
 
 // Schema 95: active observer runoff; older snapshots cannot recover its requested flow.
@@ -2602,6 +2614,14 @@ struct RiverForcingSave {
   influence: uint;
 }
 
+// Schema 96: physical covering evaluations, independently of incident records.
+struct StormCheckSave {
+  building: ulong;
+  group: uint;
+  day: long;
+  observer: uint;
+}
+
 table FloodsSave {
   high_waters: [HighWaterSave] (id: 0);
   flood_episodes: [FloodEpisodeSave] (id: 1);
@@ -2610,4 +2630,5 @@ table FloodsSave {
   flood_revision: uint = 0 (id: 4);
   reach_discharges: [float] (id: 5);
   river_forcings: [RiverForcingSave] (id: 6);
+  storm_checks: [StormCheckSave] (id: 7);
 }

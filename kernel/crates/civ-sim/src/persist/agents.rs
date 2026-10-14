@@ -114,8 +114,8 @@ use super::{
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
-    SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, finish, section,
-    single_chunk, unreadable,
+    SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, finish,
+    section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -512,6 +512,8 @@ enum Schema {
     V94,
     /// Active observer runoff (BF command repair).
     V95,
+    /// Hazard provenance and storm pulse evaluations.
+    V96,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -621,7 +623,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V92 => Schema::V92,
         SCHEMA_V93 => Schema::V93,
         SCHEMA_V94 => Schema::V94,
-        SAVE_SCHEMA_VERSION => Schema::V95,
+        SCHEMA_V95 => Schema::V95,
+        SAVE_SCHEMA_VERSION => Schema::V96,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -881,7 +884,7 @@ pub(super) fn decode<R: Read + Seek>(
     // Floods (schema 93); before, none has flooded or blown.
     if schema >= Schema::V93 {
         let bytes = single_chunk(reader, SECTION_FLOODS)?;
-        let (floods, flood_rev, reaches) = decode_floods(&bytes)?;
+        let (floods, flood_rev, reaches) = decode_floods(&bytes, schema)?;
         people.floods = floods;
         land.flood_revision = flood_rev;
         let r =
@@ -916,6 +919,55 @@ pub(super) fn decode<R: Read + Seek>(
                 });
             }
         }
+        if schema >= Schema::V96 {
+            let root = flatbuffers::root::<save::FloodsSave>(&bytes)
+                .map_err(|e| unreadable(SECTION_FLOODS, &e))?;
+            for c in root.storm_checks().iter().flatten() {
+                let building = required(c.building(), "a storm evaluation")?;
+                if c.day() != now.day_index()
+                    || civ_grammar::GroupKind::of_group(c.group())
+                        != Some(civ_grammar::GroupKind::Covering)
+                    || (c.observer() > 0
+                        && !people.influences.list.iter().any(|i| {
+                            i.id == c.observer()
+                                && i.kind == civ_agents::influence::InfluenceKind::Storm
+                        }))
+                    || land.storm_checks.iter().any(|old| {
+                        old.building == building
+                            && old.group == c.group()
+                            && old.day == c.day()
+                            && old.observer == c.observer()
+                    })
+                {
+                    return Err(LoadError::Malformed("invalid storm evaluation".to_owned()));
+                }
+                land.storm_checks.push(civ_land::StormCheck {
+                    building,
+                    group: c.group(),
+                    day: c.day(),
+                    observer: c.observer(),
+                });
+            }
+        } else {
+            // Old snapshots did not keep physical evaluations. Today's natural pulse has
+            // passed; do not apply it again to the installed coverings on an old load.
+            let day = now.day_index();
+            for b in &land.buildings {
+                for c in &b.condition {
+                    if civ_grammar::GroupKind::of_group(c.group)
+                        == Some(civ_grammar::GroupKind::Covering)
+                    {
+                        land.storm_checks.push(civ_land::StormCheck {
+                            building: b.id,
+                            group: c.group,
+                            day,
+                            observer: 0,
+                        });
+                    }
+                }
+            }
+        }
+        validate_flood_records(&people.floods, &people.influences, map.reaches.len(), now)?;
         land.flood_depths = land
             .floodplain
             .flood_depth_raster(map, &land.reach_discharges);
@@ -2541,6 +2593,7 @@ fn decode_land(
         flood_depths: vec![0.0; map.cell_count()],
         flood_revision: 0,
         river_forcings: Vec::new(),
+        storm_checks: Vec::new(),
     };
     // A grid of the wrong size is reported by `Land::problems`; only fill stocks on a sound one.
     if land.patches.class.len() == n
@@ -3210,7 +3263,8 @@ fn carried(
         | Schema::V92
         | Schema::V93
         | Schema::V94
-        | Schema::V95 => {
+        | Schema::V95
+        | Schema::V96 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3420,7 +3474,8 @@ fn decode_households(
             | Schema::V92
             | Schema::V93
             | Schema::V94
-            | Schema::V95 => {
+            | Schema::V95
+            | Schema::V96 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -9011,9 +9066,12 @@ fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
         .high_waters
         .iter()
         .map(|hw| {
+            let observers = fbb.create_vector(&hw.origin.observers);
             save::HighWaterSave::create(
                 &mut fbb,
                 &save::HighWaterSaveArgs {
+                    origin_known: hw.origin.known,
+                    observers: Some(observers),
                     id: hw.id,
                     reach: hw.reach,
                     settlement: raw(hw.settlement),
@@ -9038,9 +9096,12 @@ fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
         .iter()
         .map(|ep| {
             let hw_vec = fbb.create_vector(&ep.high_waters);
+            let observers = fbb.create_vector(&ep.origin.observers);
             save::FloodEpisodeSave::create(
                 &mut fbb,
                 &save::FloodEpisodeSaveArgs {
+                    origin_known: ep.origin.known,
+                    observers: Some(observers),
                     id: ep.id,
                     settlement: raw(ep.settlement),
                     first_reach: ep.first_reach,
@@ -9060,9 +9121,12 @@ fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
         .storm_damages
         .iter()
         .map(|sd| {
+            let observers = fbb.create_vector(&sd.origin.observers);
             save::StormDamageSave::create(
                 &mut fbb,
                 &save::StormDamageSaveArgs {
+                    origin_known: sd.origin.known,
+                    observers: Some(observers),
                     id: sd.id,
                     building: sd.building.get(),
                     household: sd.household.get(),
@@ -9083,9 +9147,12 @@ fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
         .iter()
         .map(|ep| {
             let damages_vec = fbb.create_vector(&ep.damages);
+            let observers = fbb.create_vector(&ep.origin.observers);
             save::StormEpisodeSave::create(
                 &mut fbb,
                 &save::StormEpisodeSaveArgs {
+                    origin_known: ep.origin.known,
+                    observers: Some(observers),
                     id: ep.id,
                     settlement: raw(ep.settlement),
                     began: ep.began.minutes(),
@@ -9104,6 +9171,12 @@ fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
         .map(|f| save::RiverForcingSave::new(f.reach, f.discharge_m3s, f.until_day, f.influence))
         .collect();
     let river_forcings = fbb.create_vector(&forcings);
+    let checks: Vec<_> = land
+        .storm_checks
+        .iter()
+        .map(|c| save::StormCheckSave::new(c.building.get(), c.group, c.day, c.observer))
+        .collect();
+    let storm_checks = fbb.create_vector(&checks);
     let root = save::FloodsSave::create(
         &mut fbb,
         &save::FloodsSaveArgs {
@@ -9114,6 +9187,7 @@ fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
             flood_revision: land.flood_revision,
             reach_discharges: Some(reach_discharges),
             river_forcings: Some(river_forcings),
+            storm_checks: Some(storm_checks),
         },
     );
     finish(fbb, root)
@@ -9121,6 +9195,7 @@ fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
 
 fn decode_floods(
     bytes: &[u8],
+    schema: Schema,
 ) -> Result<(civ_agents::floods::Floods, u32, Option<Vec<f32>>), LoadError> {
     use civ_agents::floods::{FloodEpisode, Floods, HighWater, StormDamage, StormEpisode};
     let root =
@@ -9128,7 +9203,18 @@ fn decode_floods(
     let at = |m: i64| (m >= 0).then(|| SimTime::from_minutes(m));
     let mut out = Floods::default();
     for hw in root.high_waters().iter().flatten() {
+        if hw.ended() < -1 {
+            return Err(LoadError::Malformed("invalid high water end".to_owned()));
+        }
         out.high_waters.push(HighWater {
+            origin: if schema >= Schema::V96 {
+                civ_agents::floods::Origin {
+                    known: hw.origin_known(),
+                    observers: hw.observers().iter().flatten().collect(),
+                }
+            } else {
+                Default::default()
+            },
             id: hw.id(),
             reach: hw.reach(),
             settlement: PermanentId::from_raw(hw.settlement()),
@@ -9145,7 +9231,18 @@ fn decode_floods(
         });
     }
     for ep in root.flood_episodes().iter().flatten() {
+        if ep.ended() < -1 {
+            return Err(LoadError::Malformed("invalid flood episode end".to_owned()));
+        }
         out.flood_episodes.push(FloodEpisode {
+            origin: if schema >= Schema::V96 {
+                civ_agents::floods::Origin {
+                    known: ep.origin_known(),
+                    observers: ep.observers().iter().flatten().collect(),
+                }
+            } else {
+                Default::default()
+            },
             id: ep.id(),
             settlement: PermanentId::from_raw(ep.settlement()),
             first_reach: ep.first_reach(),
@@ -9160,6 +9257,14 @@ fn decode_floods(
     }
     for sd in root.storm_damages().iter().flatten() {
         out.storm_damages.push(StormDamage {
+            origin: if schema >= Schema::V96 {
+                civ_agents::floods::Origin {
+                    known: sd.origin_known(),
+                    observers: sd.observers().iter().flatten().collect(),
+                }
+            } else {
+                Default::default()
+            },
             id: sd.id(),
             building: required(sd.building(), "a storm damage building")?,
             household: required(sd.household(), "a storm damage household")?,
@@ -9172,7 +9277,18 @@ fn decode_floods(
         });
     }
     for ep in root.storm_episodes().iter().flatten() {
+        if ep.ended() < -1 {
+            return Err(LoadError::Malformed("invalid storm episode end".to_owned()));
+        }
         out.storm_episodes.push(StormEpisode {
+            origin: if schema >= Schema::V96 {
+                civ_agents::floods::Origin {
+                    known: ep.origin_known(),
+                    observers: ep.observers().iter().flatten().collect(),
+                }
+            } else {
+                Default::default()
+            },
             id: ep.id(),
             settlement: PermanentId::from_raw(ep.settlement()),
             began: SimTime::from_minutes(ep.began()),
@@ -9186,6 +9302,100 @@ fn decode_floods(
         .reach_discharges()
         .map(|v| v.iter().collect::<Vec<f32>>());
     Ok((out, flood_revision, reach_discharges))
+}
+
+/// Refuses invalid historical links and numbers without guessing missing causes.
+fn validate_flood_records(
+    f: &civ_agents::floods::Floods,
+    inputs: &civ_agents::influence::Influences,
+    reaches: usize,
+    now: SimTime,
+) -> Result<(), LoadError> {
+    use civ_agents::influence::InfluenceKind;
+    let finite = |v: f32| v.is_finite() && v >= 0.0;
+    let span = |began: SimTime, ended: Option<SimTime>| {
+        began.minutes() >= 0 && began <= now && ended.is_none_or(|end| end >= began && end <= now)
+    };
+    let origin = |o: &civ_agents::floods::Origin, kind: InfluenceKind| {
+        o.observers.windows(2).all(|w| w[0] < w[1])
+            && o.observers
+                .iter()
+                .all(|id| inputs.list.iter().any(|i| i.id == *id && i.kind == kind))
+    };
+    let unique = |ids: &[u32]| {
+        let mut seen = std::collections::BTreeSet::new();
+        ids.iter().all(|id| *id > 0 && seen.insert(*id))
+    };
+    let bad = || LoadError::Malformed("invalid flood or storm incident/episode".to_owned());
+    for (index, h) in f.high_waters.iter().enumerate() {
+        if h.id as usize != index + 1
+            || h.reach as usize >= reaches
+            || !span(h.began, h.ended)
+            || !h.at.0.is_finite()
+            || !h.at.1.is_finite()
+            || !finite(h.peak_discharge)
+            || !finite(h.peak_stage)
+            || !finite(h.spoiled_kg)
+            || !origin(&h.origin, InfluenceKind::Flood)
+            || h.episode.is_some_and(|id| {
+                !f.flood_episodes
+                    .iter()
+                    .any(|e| e.id == id && e.high_waters.contains(&h.id))
+            })
+        {
+            return Err(bad());
+        }
+    }
+    for (index, e) in f.flood_episodes.iter().enumerate() {
+        if e.id as usize != index + 1
+            || e.first_reach as usize >= reaches
+            || !span(e.began, e.ended)
+            || !finite(e.peak_discharge)
+            || !finite(e.total_spoiled_kg)
+            || !origin(&e.origin, InfluenceKind::Flood)
+            || !unique(&e.high_waters)
+            || e.high_waters.iter().any(|id| {
+                !f.high_waters
+                    .iter()
+                    .any(|h| h.id == *id && h.episode == Some(e.id))
+            })
+        {
+            return Err(bad());
+        }
+    }
+    for (index, d) in f.storm_damages.iter().enumerate() {
+        if d.id as usize != index + 1
+            || !span(d.time, None)
+            || !d.at.0.is_finite()
+            || !d.at.1.is_finite()
+            || !finite(d.wind_speed_ms)
+            || !finite(d.uplift_pa)
+            || !origin(&d.origin, InfluenceKind::Storm)
+            || d.episode.is_some_and(|id| {
+                !f.storm_episodes
+                    .iter()
+                    .any(|e| e.id == id && e.damages.contains(&d.id))
+            })
+        {
+            return Err(bad());
+        }
+    }
+    for (index, e) in f.storm_episodes.iter().enumerate() {
+        if e.id as usize != index + 1
+            || !span(e.began, e.ended)
+            || !finite(e.peak_wind_speed_ms)
+            || !origin(&e.origin, InfluenceKind::Storm)
+            || !unique(&e.damages)
+            || e.damages.iter().any(|id| {
+                !f.storm_damages
+                    .iter()
+                    .any(|d| d.id == *id && d.episode == Some(e.id))
+            })
+        {
+            return Err(bad());
+        }
+    }
+    Ok(())
 }
 
 /// An infection of a disease the loaded content no longer has is let go.

@@ -2,7 +2,6 @@
 
 use civ_agents::floods::{StormDamage, StormEpisode};
 use civ_agents::history::ChronicleEvent;
-use civ_agents::influence::InfluenceKind;
 use civ_agents::polity::day_words;
 use civ_core::{PermanentId, SimTime};
 use civ_schema::flatbuffers::{FlatBufferBuilder, WIPOffset};
@@ -19,13 +18,8 @@ fn when(t: SimTime) -> String {
     day_words(t)
 }
 
-pub fn observer_of(sim: &Sim, e: &StormEpisode) -> u32 {
-    sim.people
-        .influences
-        .list
-        .iter()
-        .find(|i| i.kind == InfluenceKind::Storm && i.at <= e.began)
-        .map_or(0, |i| i.id)
+pub fn observer_of(_sim: &Sim, e: &StormEpisode) -> u32 {
+    e.origin.observers.first().copied().unwrap_or(0)
 }
 
 pub fn storm_row<'a>(
@@ -74,9 +68,9 @@ pub fn storm_damage_row(sim: &Sim, sd: &StormDamage) -> Row {
             "covering torn under wind speed {:.1} m/s ({:.0} Pa uplift)",
             sd.wind_speed_ms, sd.uplift_pa
         ),
-        known: "Seen by the household".to_owned(),
+        known: "No sightings recorded".to_owned(),
         polity: "No gathering was told of it".to_owned(),
-        observer: 0,
+        observer: sd.origin.observers.first().copied().unwrap_or(0),
         outbreak: 0,
         conflagration: 0,
         flood: 0,
@@ -122,7 +116,11 @@ pub fn storm_response(sim: &Sim, id: u32) -> Option<Vec<u8>> {
     let obs = observer_of(sim, e);
     let (cause, cause_link) = if obs > 0 {
         (
-            "Sent by the observer (one recorded influence)".to_owned(),
+            format!(
+                "Affected by {} recorded observer input(s): {:?}",
+                e.origin.observers.len(),
+                e.origin.observers
+            ),
             Some(Link(
                 CAUSED_BY,
                 TO_INFLUENCE,
@@ -131,7 +129,14 @@ pub fn storm_response(sim: &Sim, id: u32) -> Option<Vec<u8>> {
             )),
         )
     } else {
-        ("Passing atmospheric gale".to_owned(), None)
+        (
+            if e.origin.known {
+                "Natural storm".to_owned()
+            } else {
+                "Origin was not recorded in this snapshot".to_owned()
+            },
+            None,
+        )
     };
     let cause_str = fbb.create_string(&cause);
     let cause_link = cause_link.map(|l| put_link(&mut fbb, &l));

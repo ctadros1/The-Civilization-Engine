@@ -104,6 +104,18 @@ impl Population {
         }
     }
 
+    /// Rechecks loads under a specified physical storm pulse (tests).
+    #[doc(hidden)]
+    pub fn storm_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        household: PermanentId,
+        pressure_pa: f64,
+        observer: u32,
+    ) {
+        self.check_household_origin(ctx, household, pressure_pa, observer);
+    }
+
     /// What household `household` keeps under the roof of building `bi` now, kilograms of each
     /// good by kind of room: its stores settled to now and shared among its roofs as the daily
     /// check shares them.
@@ -152,6 +164,16 @@ impl Population {
     /// Weighs household `household`'s buildings against what they carry now, with the month's
     /// storm `storm` pascals on their roofs' plan today.
     pub(super) fn check_household(&mut self, ctx: &mut Ctx, household: PermanentId, storm: f64) {
+        self.check_household_origin(ctx, household, storm, 0);
+    }
+
+    pub(super) fn check_household_origin(
+        &mut self,
+        ctx: &mut Ctx,
+        household: PermanentId,
+        storm: f64,
+        observer: u32,
+    ) {
         let (now, catalog, params) = (ctx.now, ctx.catalog, ctx.params);
         let goods = &catalog.goods;
         // Its goods as they lie now, by kind of room, across its roofs.
@@ -223,9 +245,11 @@ impl Population {
                     }
                 }
             }
-            if let Some((fell, snow)) = self.weigh(ctx, i, &kept, storm) {
+            if let Some((fell, snow)) = self.weigh(ctx, i, &kept, storm, observer) {
                 changed = true;
-                self.give_way(ctx, i, &kept, &fell, storm, snow);
+                if !fell.is_empty() {
+                    self.give_way(ctx, i, &kept, &fell, storm, snow);
+                }
             }
         }
         if changed {
@@ -243,6 +267,7 @@ impl Population {
         i: usize,
         kept: &[Vec<f64>; 3],
         storm: f64,
+        observer: u32,
     ) -> Option<(Vec<Fell>, f64)> {
         let catalog = ctx.catalog;
         let b = &ctx.land.buildings[i];
@@ -273,6 +298,7 @@ impl Population {
         };
         let b = &mut ctx.land.buildings[i];
         let mut fell: Vec<Fell> = Vec::new();
+        let mut torn = false;
         for c in b.condition.iter_mut() {
             if c.state == GroupState::Failed {
                 continue;
@@ -291,7 +317,23 @@ impl Population {
                 };
                 structure::margin(g, c, &e, &loads, &dummy).state()
             } else if g.kind == GroupKind::Covering {
-                if storm > 0.0 {
+                let day = ctx.now.day_index();
+                let checked = ctx.land.storm_checks.iter().any(|s| {
+                    s.building == b.id
+                        && s.group == c.group
+                        && s.day == day
+                        && s.observer == observer
+                });
+                // The natural storm is evaluated at the daily check; a covering installed later cannot
+                // meet it retrospectively. Repair does not give the same pulse another draw.
+                let after_natural = observer == 0 && c.installed.minutes() > day * 1440;
+                if storm > 0.0 && !checked && !after_natural {
+                    ctx.land.storm_checks.push(civ_land::StormCheck {
+                        building: b.id,
+                        group: c.group,
+                        day,
+                        observer,
+                    });
                     let is_tile = g
                         .material
                         .and_then(|slot| def.materials.get(usize::from(slot)))
@@ -305,41 +347,7 @@ impl Population {
                     if storm > capacity {
                         c.loss = (c.loss + 0.4).min(1.0);
                         let torn_state = condition::wear_state(c, &def.upkeep);
-                        let wind_speed_ms = (2.0 * storm / 1.225).sqrt() as f32;
-                        let damage_id = (self.floods.storm_damages.len() + 1) as u32;
-                        let ep_id = if let Some(ep) = self.floods.current_storm_episode_mut() {
-                            ep.damages.push(damage_id);
-                            if wind_speed_ms > ep.peak_wind_speed_ms {
-                                ep.peak_wind_speed_ms = wind_speed_ms;
-                            }
-                            ep.id
-                        } else {
-                            let new_id = (self.floods.storm_episodes.len() + 1) as u32;
-                            self.floods
-                                .storm_episodes
-                                .push(crate::floods::StormEpisode {
-                                    id: new_id,
-                                    settlement: self
-                                        .household(b.household)
-                                        .and_then(|x| x.settlement),
-                                    began: ctx.now,
-                                    ended: None,
-                                    peak_wind_speed_ms: wind_speed_ms,
-                                    damages: vec![damage_id],
-                                });
-                            new_id
-                        };
-                        self.floods.storm_damages.push(crate::floods::StormDamage {
-                            id: damage_id,
-                            building: b.id,
-                            household: b.household,
-                            settlement: self.household(b.household).and_then(|x| x.settlement),
-                            at: (x, y),
-                            time: ctx.now,
-                            wind_speed_ms,
-                            uplift_pa: storm as f32,
-                            episode: Some(ep_id),
-                        });
+                        torn = true;
                         torn_state
                     } else {
                         GroupState::Sound
@@ -361,7 +369,53 @@ impl Population {
                 });
             }
         }
-        if fell.is_empty() {
+        if torn {
+            let wind_speed_ms = (2.0 * storm / 1.225).sqrt() as f32;
+            let damage_id = (self.floods.storm_damages.len() + 1) as u32;
+            let origin = crate::floods::Origin::recorded(
+                (observer > 0).then_some(observer).into_iter().collect(),
+            );
+            let ep_id = if let Some(ep) = self
+                .floods
+                .storm_episodes
+                .iter_mut()
+                .find(|e| e.ended.is_none() && e.began.day_index() == ctx.now.day_index())
+            {
+                ep.damages.push(damage_id);
+                ep.origin.join(&origin);
+                if wind_speed_ms > ep.peak_wind_speed_ms {
+                    ep.peak_wind_speed_ms = wind_speed_ms;
+                }
+                ep.id
+            } else {
+                let new_id = (self.floods.storm_episodes.len() + 1) as u32;
+                self.floods
+                    .storm_episodes
+                    .push(crate::floods::StormEpisode {
+                        origin: origin.clone(),
+                        id: new_id,
+                        settlement: self.household(b.household).and_then(|x| x.settlement),
+                        began: ctx.now,
+                        ended: None,
+                        peak_wind_speed_ms: wind_speed_ms,
+                        damages: vec![damage_id],
+                    });
+                new_id
+            };
+            self.floods.storm_damages.push(crate::floods::StormDamage {
+                origin,
+                id: damage_id,
+                building: b.id,
+                household: b.household,
+                settlement: self.household(b.household).and_then(|x| x.settlement),
+                at: (x, y),
+                time: ctx.now,
+                wind_speed_ms,
+                uplift_pa: storm as f32,
+                episode: Some(ep_id),
+            });
+        }
+        if fell.is_empty() && !torn {
             return None;
         }
         // A tie beam at the wall heads that breaks brings down the lofts it carries.

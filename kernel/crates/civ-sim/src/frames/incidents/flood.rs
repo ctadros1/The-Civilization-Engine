@@ -2,7 +2,6 @@
 
 use civ_agents::floods::{FloodEpisode, HighWater};
 use civ_agents::history::ChronicleEvent;
-use civ_agents::influence::InfluenceKind;
 use civ_agents::polity::day_words;
 use civ_core::{PermanentId, SimTime};
 use civ_schema::flatbuffers::{FlatBufferBuilder, WIPOffset};
@@ -19,13 +18,8 @@ fn when(t: SimTime) -> String {
     day_words(t)
 }
 
-pub fn observer_of(sim: &Sim, e: &FloodEpisode) -> u32 {
-    sim.people
-        .influences
-        .list
-        .iter()
-        .find(|i| i.kind == InfluenceKind::Flood && i.at <= e.began)
-        .map_or(0, |i| i.id)
+pub fn observer_of(_sim: &Sim, e: &FloodEpisode) -> u32 {
+    e.origin.observers.first().copied().unwrap_or(0)
 }
 
 pub fn flood_row<'a>(
@@ -82,9 +76,9 @@ pub fn high_water_row(_sim: &Sim, hw: &HighWater) -> Row {
             "rose to peak discharge {:.1} m³/s (stage {:.2} m); {} buildings flooded, {:.1} kg goods spoiled",
             hw.peak_discharge, hw.peak_stage, hw.buildings_flooded, hw.spoiled_kg
         ),
-        known: "Observed by the settlement".to_owned(),
+        known: "No sightings recorded".to_owned(),
         polity: "No gathering was told of it".to_owned(),
-        observer: 0,
+        observer: hw.origin.observers.first().copied().unwrap_or(0),
         outbreak: 0,
         conflagration: 0,
         flood: hw.episode.unwrap_or(0),
@@ -126,7 +120,7 @@ pub fn high_water_page(sim: &Sim, hw: &HighWater) -> Page {
             hw.buildings_flooded, hw.spoiled_kg
         ),
     ];
-    let knowledge = vec!["People moved to hearth or kin away from flood waters.".to_owned()];
+    let knowledge = vec!["No sightings or reports are linked to this incident.".to_owned()];
     let polity = vec!["No collective decision recorded.".to_owned()];
     (row, steps, links, [truth, knowledge, polity])
 }
@@ -143,7 +137,11 @@ pub fn flood_response(sim: &Sim, id: u32) -> Option<Vec<u8>> {
     let obs = observer_of(sim, e);
     let (cause, cause_link) = if obs > 0 {
         (
-            "Raised by the observer (one recorded influence)".to_owned(),
+            format!(
+                "Affected by {} recorded observer input(s): {:?}",
+                e.origin.observers.len(),
+                e.origin.observers
+            ),
             Some(Link(
                 CAUSED_BY,
                 TO_INFLUENCE,
@@ -153,13 +151,17 @@ pub fn flood_response(sim: &Sim, id: u32) -> Option<Vec<u8>> {
         )
     } else {
         (
-            "High runoff from seasonal rains and snowmelt".to_owned(),
+            if e.origin.known {
+                "Unforced river runoff".to_owned()
+            } else {
+                "Origin was not recorded in this snapshot".to_owned()
+            },
             None,
         )
     };
     let cause_str = fbb.create_string(&cause);
     let cause_link = cause_link.map(|l| put_link(&mut fbb, &l));
-    let weather = fbb.create_string("heavy rainfall in the catchment");
+    let weather = fbb.create_string("Weather at peak flow was not recorded");
     let incidents: Vec<_> = sim
         .people
         .floods

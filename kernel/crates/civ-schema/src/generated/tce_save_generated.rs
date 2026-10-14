@@ -15124,6 +15124,197 @@ impl<'a> RiverForcingSave {
 
 }
 
+// struct StormCheckSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct StormCheckSave(pub [u8; 32]);
+impl Default for StormCheckSave { 
+  fn default() -> Self { 
+    Self([0; 32])
+  }
+}
+impl ::core::fmt::Debug for StormCheckSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("StormCheckSave")
+      .field("building", &self.building())
+      .field("group", &self.group())
+      .field("day", &self.day())
+      .field("observer", &self.observer())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for StormCheckSave {}
+impl<'a> ::flatbuffers::Follow<'a> for StormCheckSave {
+  type Inner = &'a StormCheckSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a StormCheckSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a StormCheckSave {
+  type Inner = &'a StormCheckSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<StormCheckSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for StormCheckSave {
+    type Output = StormCheckSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const StormCheckSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for StormCheckSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> StormCheckSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    building: u64,
+    group: u32,
+    day: i64,
+    observer: u32,
+  ) -> Self {
+    let mut s = Self([0; 32]);
+    s.set_building(building);
+    s.set_group(group);
+    s.set_day(day);
+    s.set_observer(observer);
+    s
+  }
+
+  pub fn building(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_building(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn group(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_group(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn day(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_day(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn observer(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[24..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_observer(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[24..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 pub enum ParamOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -43049,6 +43240,8 @@ impl<'a> HighWaterSave<'a> {
   pub const VT_FIELDS_FLOODED: ::flatbuffers::VOffsetT = 26;
   pub const VT_SPOILED_KG: ::flatbuffers::VOffsetT = 28;
   pub const VT_SCOURED_CROSSINGS: ::flatbuffers::VOffsetT = 30;
+  pub const VT_ORIGIN_KNOWN: ::flatbuffers::VOffsetT = 32;
+  pub const VT_OBSERVERS: ::flatbuffers::VOffsetT = 34;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -43057,12 +43250,13 @@ impl<'a> HighWaterSave<'a> {
   #[allow(unused_mut)]
   pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
     _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args HighWaterSaveArgs
+    args: &'args HighWaterSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<HighWaterSave<'bldr>> {
     let mut builder = HighWaterSaveBuilder::new(_fbb);
     builder.add_ended(args.ended);
     builder.add_began(args.began);
     builder.add_settlement(args.settlement);
+    if let Some(x) = args.observers { builder.add_observers(x); }
     builder.add_scoured_crossings(args.scoured_crossings);
     builder.add_spoiled_kg(args.spoiled_kg);
     builder.add_fields_flooded(args.fields_flooded);
@@ -43074,6 +43268,7 @@ impl<'a> HighWaterSave<'a> {
     builder.add_x(args.x);
     builder.add_id(args.id);
     builder.add_reach(args.reach);
+    builder.add_origin_known(args.origin_known);
     builder.finish()
   }
 
@@ -43176,6 +43371,20 @@ impl<'a> HighWaterSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(HighWaterSave::VT_SCOURED_CROSSINGS, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn origin_known(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(HighWaterSave::VT_ORIGIN_KNOWN, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn observers(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(HighWaterSave::VT_OBSERVERS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for HighWaterSave<'_> {
@@ -43198,11 +43407,13 @@ impl ::flatbuffers::Verifiable for HighWaterSave<'_> {
      .visit_field::<u32>("fields_flooded", Self::VT_FIELDS_FLOODED, false)?
      .visit_field::<f32>("spoiled_kg", Self::VT_SPOILED_KG, false)?
      .visit_field::<u32>("scoured_crossings", Self::VT_SCOURED_CROSSINGS, false)?
+     .visit_field::<bool>("origin_known", Self::VT_ORIGIN_KNOWN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("observers", Self::VT_OBSERVERS, false)?
      .finish();
     Ok(())
   }
 }
-pub struct HighWaterSaveArgs {
+pub struct HighWaterSaveArgs<'a> {
     pub id: u32,
     pub reach: u16,
     pub settlement: u64,
@@ -43217,8 +43428,10 @@ pub struct HighWaterSaveArgs {
     pub fields_flooded: u32,
     pub spoiled_kg: f32,
     pub scoured_crossings: u32,
+    pub origin_known: bool,
+    pub observers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
 }
-impl<'a> Default for HighWaterSaveArgs {
+impl<'a> Default for HighWaterSaveArgs<'a> {
   #[inline]
   fn default() -> Self {
     HighWaterSaveArgs {
@@ -43236,6 +43449,8 @@ impl<'a> Default for HighWaterSaveArgs {
       fields_flooded: 0,
       spoiled_kg: 0.0,
       scoured_crossings: 0,
+      origin_known: false,
+      observers: None,
     }
   }
 }
@@ -43302,6 +43517,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HighWaterSaveBuilder<'a, 'b, 
     self.fbb_.push_slot::<u32>(HighWaterSave::VT_SCOURED_CROSSINGS, scoured_crossings, 0);
   }
   #[inline]
+  pub fn add_origin_known(&mut self, origin_known: bool) {
+    self.fbb_.push_slot::<bool>(HighWaterSave::VT_ORIGIN_KNOWN, origin_known, false);
+  }
+  #[inline]
+  pub fn add_observers(&mut self, observers: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(HighWaterSave::VT_OBSERVERS, observers);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HighWaterSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HighWaterSaveBuilder {
@@ -43333,6 +43556,8 @@ impl ::core::fmt::Debug for HighWaterSave<'_> {
       ds.field("fields_flooded", &self.fields_flooded());
       ds.field("spoiled_kg", &self.spoiled_kg());
       ds.field("scoured_crossings", &self.scoured_crossings());
+      ds.field("origin_known", &self.origin_known());
+      ds.field("observers", &self.observers());
       ds.finish()
   }
 }
@@ -43362,6 +43587,8 @@ impl<'a> FloodEpisodeSave<'a> {
   pub const VT_TOTAL_SPOILED_KG: ::flatbuffers::VOffsetT = 18;
   pub const VT_TOTAL_BUILDINGS: ::flatbuffers::VOffsetT = 20;
   pub const VT_TOTAL_FIELDS_LOST: ::flatbuffers::VOffsetT = 22;
+  pub const VT_ORIGIN_KNOWN: ::flatbuffers::VOffsetT = 24;
+  pub const VT_OBSERVERS: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -43376,6 +43603,7 @@ impl<'a> FloodEpisodeSave<'a> {
     builder.add_ended(args.ended);
     builder.add_began(args.began);
     builder.add_settlement(args.settlement);
+    if let Some(x) = args.observers { builder.add_observers(x); }
     builder.add_total_fields_lost(args.total_fields_lost);
     builder.add_total_buildings(args.total_buildings);
     builder.add_total_spoiled_kg(args.total_spoiled_kg);
@@ -43383,6 +43611,7 @@ impl<'a> FloodEpisodeSave<'a> {
     builder.add_peak_discharge(args.peak_discharge);
     builder.add_id(args.id);
     builder.add_first_reach(args.first_reach);
+    builder.add_origin_known(args.origin_known);
     builder.finish()
   }
 
@@ -43457,6 +43686,20 @@ impl<'a> FloodEpisodeSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(FloodEpisodeSave::VT_TOTAL_FIELDS_LOST, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn origin_known(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(FloodEpisodeSave::VT_ORIGIN_KNOWN, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn observers(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(FloodEpisodeSave::VT_OBSERVERS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FloodEpisodeSave<'_> {
@@ -43475,6 +43718,8 @@ impl ::flatbuffers::Verifiable for FloodEpisodeSave<'_> {
      .visit_field::<f32>("total_spoiled_kg", Self::VT_TOTAL_SPOILED_KG, false)?
      .visit_field::<u32>("total_buildings", Self::VT_TOTAL_BUILDINGS, false)?
      .visit_field::<u32>("total_fields_lost", Self::VT_TOTAL_FIELDS_LOST, false)?
+     .visit_field::<bool>("origin_known", Self::VT_ORIGIN_KNOWN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("observers", Self::VT_OBSERVERS, false)?
      .finish();
     Ok(())
   }
@@ -43490,6 +43735,8 @@ pub struct FloodEpisodeSaveArgs<'a> {
     pub total_spoiled_kg: f32,
     pub total_buildings: u32,
     pub total_fields_lost: u32,
+    pub origin_known: bool,
+    pub observers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
 }
 impl<'a> Default for FloodEpisodeSaveArgs<'a> {
   #[inline]
@@ -43505,6 +43752,8 @@ impl<'a> Default for FloodEpisodeSaveArgs<'a> {
       total_spoiled_kg: 0.0,
       total_buildings: 0,
       total_fields_lost: 0,
+      origin_known: false,
+      observers: None,
     }
   }
 }
@@ -43555,6 +43804,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloodEpisodeSaveBuilder<'a, '
     self.fbb_.push_slot::<u32>(FloodEpisodeSave::VT_TOTAL_FIELDS_LOST, total_fields_lost, 0);
   }
   #[inline]
+  pub fn add_origin_known(&mut self, origin_known: bool) {
+    self.fbb_.push_slot::<bool>(FloodEpisodeSave::VT_ORIGIN_KNOWN, origin_known, false);
+  }
+  #[inline]
+  pub fn add_observers(&mut self, observers: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloodEpisodeSave::VT_OBSERVERS, observers);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloodEpisodeSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FloodEpisodeSaveBuilder {
@@ -43582,6 +43839,8 @@ impl ::core::fmt::Debug for FloodEpisodeSave<'_> {
       ds.field("total_spoiled_kg", &self.total_spoiled_kg());
       ds.field("total_buildings", &self.total_buildings());
       ds.field("total_fields_lost", &self.total_fields_lost());
+      ds.field("origin_known", &self.origin_known());
+      ds.field("observers", &self.observers());
       ds.finish()
   }
 }
@@ -43611,6 +43870,8 @@ impl<'a> StormDamageSave<'a> {
   pub const VT_WIND_SPEED_MS: ::flatbuffers::VOffsetT = 18;
   pub const VT_UPLIFT_PA: ::flatbuffers::VOffsetT = 20;
   pub const VT_EPISODE: ::flatbuffers::VOffsetT = 22;
+  pub const VT_ORIGIN_KNOWN: ::flatbuffers::VOffsetT = 24;
+  pub const VT_OBSERVERS: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -43619,19 +43880,21 @@ impl<'a> StormDamageSave<'a> {
   #[allow(unused_mut)]
   pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
     _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args StormDamageSaveArgs
+    args: &'args StormDamageSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<StormDamageSave<'bldr>> {
     let mut builder = StormDamageSaveBuilder::new(_fbb);
     builder.add_time(args.time);
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
     builder.add_building(args.building);
+    if let Some(x) = args.observers { builder.add_observers(x); }
     builder.add_episode(args.episode);
     builder.add_uplift_pa(args.uplift_pa);
     builder.add_wind_speed_ms(args.wind_speed_ms);
     builder.add_y(args.y);
     builder.add_x(args.x);
     builder.add_id(args.id);
+    builder.add_origin_known(args.origin_known);
     builder.finish()
   }
 
@@ -43706,6 +43969,20 @@ impl<'a> StormDamageSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(StormDamageSave::VT_EPISODE, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn origin_known(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(StormDamageSave::VT_ORIGIN_KNOWN, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn observers(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(StormDamageSave::VT_OBSERVERS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for StormDamageSave<'_> {
@@ -43724,11 +44001,13 @@ impl ::flatbuffers::Verifiable for StormDamageSave<'_> {
      .visit_field::<f32>("wind_speed_ms", Self::VT_WIND_SPEED_MS, false)?
      .visit_field::<f32>("uplift_pa", Self::VT_UPLIFT_PA, false)?
      .visit_field::<u32>("episode", Self::VT_EPISODE, false)?
+     .visit_field::<bool>("origin_known", Self::VT_ORIGIN_KNOWN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("observers", Self::VT_OBSERVERS, false)?
      .finish();
     Ok(())
   }
 }
-pub struct StormDamageSaveArgs {
+pub struct StormDamageSaveArgs<'a> {
     pub id: u32,
     pub building: u64,
     pub household: u64,
@@ -43739,8 +44018,10 @@ pub struct StormDamageSaveArgs {
     pub wind_speed_ms: f32,
     pub uplift_pa: f32,
     pub episode: u32,
+    pub origin_known: bool,
+    pub observers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
 }
-impl<'a> Default for StormDamageSaveArgs {
+impl<'a> Default for StormDamageSaveArgs<'a> {
   #[inline]
   fn default() -> Self {
     StormDamageSaveArgs {
@@ -43754,6 +44035,8 @@ impl<'a> Default for StormDamageSaveArgs {
       wind_speed_ms: 0.0,
       uplift_pa: 0.0,
       episode: 0,
+      origin_known: false,
+      observers: None,
     }
   }
 }
@@ -43804,6 +44087,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> StormDamageSaveBuilder<'a, 'b
     self.fbb_.push_slot::<u32>(StormDamageSave::VT_EPISODE, episode, 0);
   }
   #[inline]
+  pub fn add_origin_known(&mut self, origin_known: bool) {
+    self.fbb_.push_slot::<bool>(StormDamageSave::VT_ORIGIN_KNOWN, origin_known, false);
+  }
+  #[inline]
+  pub fn add_observers(&mut self, observers: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StormDamageSave::VT_OBSERVERS, observers);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> StormDamageSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     StormDamageSaveBuilder {
@@ -43831,6 +44122,8 @@ impl ::core::fmt::Debug for StormDamageSave<'_> {
       ds.field("wind_speed_ms", &self.wind_speed_ms());
       ds.field("uplift_pa", &self.uplift_pa());
       ds.field("episode", &self.episode());
+      ds.field("origin_known", &self.origin_known());
+      ds.field("observers", &self.observers());
       ds.finish()
   }
 }
@@ -43856,6 +44149,8 @@ impl<'a> StormEpisodeSave<'a> {
   pub const VT_ENDED: ::flatbuffers::VOffsetT = 10;
   pub const VT_PEAK_WIND_SPEED_MS: ::flatbuffers::VOffsetT = 12;
   pub const VT_DAMAGES: ::flatbuffers::VOffsetT = 14;
+  pub const VT_ORIGIN_KNOWN: ::flatbuffers::VOffsetT = 16;
+  pub const VT_OBSERVERS: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -43870,9 +44165,11 @@ impl<'a> StormEpisodeSave<'a> {
     builder.add_ended(args.ended);
     builder.add_began(args.began);
     builder.add_settlement(args.settlement);
+    if let Some(x) = args.observers { builder.add_observers(x); }
     if let Some(x) = args.damages { builder.add_damages(x); }
     builder.add_peak_wind_speed_ms(args.peak_wind_speed_ms);
     builder.add_id(args.id);
+    builder.add_origin_known(args.origin_known);
     builder.finish()
   }
 
@@ -43919,6 +44216,20 @@ impl<'a> StormEpisodeSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(StormEpisodeSave::VT_DAMAGES, None)}
   }
+  #[inline]
+  pub fn origin_known(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(StormEpisodeSave::VT_ORIGIN_KNOWN, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn observers(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(StormEpisodeSave::VT_OBSERVERS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for StormEpisodeSave<'_> {
@@ -43933,6 +44244,8 @@ impl ::flatbuffers::Verifiable for StormEpisodeSave<'_> {
      .visit_field::<i64>("ended", Self::VT_ENDED, false)?
      .visit_field::<f32>("peak_wind_speed_ms", Self::VT_PEAK_WIND_SPEED_MS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("damages", Self::VT_DAMAGES, false)?
+     .visit_field::<bool>("origin_known", Self::VT_ORIGIN_KNOWN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("observers", Self::VT_OBSERVERS, false)?
      .finish();
     Ok(())
   }
@@ -43944,6 +44257,8 @@ pub struct StormEpisodeSaveArgs<'a> {
     pub ended: i64,
     pub peak_wind_speed_ms: f32,
     pub damages: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub origin_known: bool,
+    pub observers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
 }
 impl<'a> Default for StormEpisodeSaveArgs<'a> {
   #[inline]
@@ -43955,6 +44270,8 @@ impl<'a> Default for StormEpisodeSaveArgs<'a> {
       ended: -1,
       peak_wind_speed_ms: 0.0,
       damages: None,
+      origin_known: false,
+      observers: None,
     }
   }
 }
@@ -43989,6 +44306,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> StormEpisodeSaveBuilder<'a, '
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StormEpisodeSave::VT_DAMAGES, damages);
   }
   #[inline]
+  pub fn add_origin_known(&mut self, origin_known: bool) {
+    self.fbb_.push_slot::<bool>(StormEpisodeSave::VT_ORIGIN_KNOWN, origin_known, false);
+  }
+  #[inline]
+  pub fn add_observers(&mut self, observers: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(StormEpisodeSave::VT_OBSERVERS, observers);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> StormEpisodeSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     StormEpisodeSaveBuilder {
@@ -44012,6 +44337,8 @@ impl ::core::fmt::Debug for StormEpisodeSave<'_> {
       ds.field("ended", &self.ended());
       ds.field("peak_wind_speed_ms", &self.peak_wind_speed_ms());
       ds.field("damages", &self.damages());
+      ds.field("origin_known", &self.origin_known());
+      ds.field("observers", &self.observers());
       ds.finish()
   }
 }
@@ -44038,6 +44365,7 @@ impl<'a> FloodsSave<'a> {
   pub const VT_FLOOD_REVISION: ::flatbuffers::VOffsetT = 12;
   pub const VT_REACH_DISCHARGES: ::flatbuffers::VOffsetT = 14;
   pub const VT_RIVER_FORCINGS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_STORM_CHECKS: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -44049,6 +44377,7 @@ impl<'a> FloodsSave<'a> {
     args: &'args FloodsSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<FloodsSave<'bldr>> {
     let mut builder = FloodsSaveBuilder::new(_fbb);
+    if let Some(x) = args.storm_checks { builder.add_storm_checks(x); }
     if let Some(x) = args.river_forcings { builder.add_river_forcings(x); }
     if let Some(x) = args.reach_discharges { builder.add_reach_discharges(x); }
     builder.add_flood_revision(args.flood_revision);
@@ -44109,6 +44438,13 @@ impl<'a> FloodsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, RiverForcingSave>>>(FloodsSave::VT_RIVER_FORCINGS, None)}
   }
+  #[inline]
+  pub fn storm_checks(&self) -> Option<::flatbuffers::Vector<'a, StormCheckSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, StormCheckSave>>>(FloodsSave::VT_STORM_CHECKS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FloodsSave<'_> {
@@ -44124,6 +44460,7 @@ impl ::flatbuffers::Verifiable for FloodsSave<'_> {
      .visit_field::<u32>("flood_revision", Self::VT_FLOOD_REVISION, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("reach_discharges", Self::VT_REACH_DISCHARGES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, RiverForcingSave>>>("river_forcings", Self::VT_RIVER_FORCINGS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, StormCheckSave>>>("storm_checks", Self::VT_STORM_CHECKS, false)?
      .finish();
     Ok(())
   }
@@ -44136,6 +44473,7 @@ pub struct FloodsSaveArgs<'a> {
     pub flood_revision: u32,
     pub reach_discharges: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
     pub river_forcings: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, RiverForcingSave>>>,
+    pub storm_checks: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, StormCheckSave>>>,
 }
 impl<'a> Default for FloodsSaveArgs<'a> {
   #[inline]
@@ -44148,6 +44486,7 @@ impl<'a> Default for FloodsSaveArgs<'a> {
       flood_revision: 0,
       reach_discharges: None,
       river_forcings: None,
+      storm_checks: None,
     }
   }
 }
@@ -44186,6 +44525,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloodsSaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloodsSave::VT_RIVER_FORCINGS, river_forcings);
   }
   #[inline]
+  pub fn add_storm_checks(&mut self, storm_checks: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , StormCheckSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloodsSave::VT_STORM_CHECKS, storm_checks);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloodsSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FloodsSaveBuilder {
@@ -44210,6 +44553,7 @@ impl ::core::fmt::Debug for FloodsSave<'_> {
       ds.field("flood_revision", &self.flood_revision());
       ds.field("reach_discharges", &self.reach_discharges());
       ds.field("river_forcings", &self.river_forcings());
+      ds.field("storm_checks", &self.storm_checks());
       ds.finish()
   }
 }

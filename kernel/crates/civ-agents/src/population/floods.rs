@@ -7,8 +7,8 @@ impl Population {
         let (now, day) = (ctx.now, ctx.now.day_index());
 
         // 1. High-water monitoring along river reaches
-        let num_reaches = ctx.map.reaches.len();
-        for r in 0..num_reaches {
+        let (_, origins) = ctx.land.river_flow_state(ctx.map, ctx.land_params, day);
+        for (r, sources) in origins.iter().enumerate() {
             let q = ctx.land.reach_discharges.get(r).copied().unwrap_or(0.0);
             let q_bf = ctx
                 .land
@@ -25,9 +25,11 @@ impl Population {
                 .iter()
                 .position(|hw| hw.reach == r as u16 && hw.ended.is_none());
 
+            let origin = crate::floods::Origin::recorded(sources.clone());
             if is_high {
                 if let Some(idx) = active_idx {
                     let hw = &mut self.floods.high_waters[idx];
+                    hw.origin.join(&origin);
                     if q > hw.peak_discharge {
                         hw.peak_discharge = q;
                     }
@@ -54,6 +56,7 @@ impl Population {
                     // Find or create active flood episode
                     let ep_id = if let Some(ep) = self.floods.current_flood_episode_mut() {
                         ep.high_waters.push(hw_id);
+                        ep.origin.join(&origin);
                         if q > ep.peak_discharge {
                             ep.peak_discharge = q;
                         }
@@ -63,6 +66,7 @@ impl Population {
                         self.floods
                             .flood_episodes
                             .push(crate::floods::FloodEpisode {
+                                origin: origin.clone(),
                                 id: new_id,
                                 settlement,
                                 first_reach: r as u16,
@@ -78,6 +82,7 @@ impl Population {
                     };
 
                     self.floods.high_waters.push(crate::floods::HighWater {
+                        origin,
                         id: hw_id,
                         reach: r as u16,
                         settlement,
@@ -142,6 +147,15 @@ impl Population {
             }
         }
 
+        for hw in &self.floods.high_waters {
+            if hw.ended.is_none()
+                && let Some(id) = hw.episode
+                && let Some(ep) = self.floods.flood_episodes.iter_mut().find(|ep| ep.id == id)
+            {
+                ep.origin.join(&hw.origin);
+            }
+        }
+
         if let Some(ep) = self.floods.current_flood_episode_mut() {
             let flooded_bld = ctx.land.buildings.iter().filter(|b| b.days_wet > 0).count() as u32;
             ep.total_buildings = ep.total_buildings.max(flooded_bld);
@@ -192,12 +206,11 @@ impl Population {
             }
         }
 
-        // 3. Storm episode close if no storm today
-        let storm = loads::storm_pa(&ctx.land.climatology, &ctx.land_params.weather, now);
-        if storm == 0.0
-            && let Some(ep) = self.floods.current_storm_episode_mut()
-        {
-            ep.ended = Some(now);
+        // A storm episode is its calendar day; a second storm day starts a new episode.
+        for ep in &mut self.floods.storm_episodes {
+            if ep.ended.is_none() && ep.began.day_index() < day {
+                ep.ended = Some(SimTime::from_minutes((ep.began.day_index() + 1) * 1440));
+            }
         }
     }
 
@@ -302,7 +315,7 @@ impl Population {
         owners.sort_unstable();
         owners.dedup();
         for household in owners {
-            self.check_household(ctx, household, storm_pa);
+            self.check_household_origin(ctx, household, storm_pa, inf_id);
         }
         self.chronicle_push(
             ctx.now,

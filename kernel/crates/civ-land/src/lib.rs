@@ -394,6 +394,8 @@ pub struct Land {
     pub flood_revision: u32,
     /// Active observer runoff, routed with the day's natural flow. Saved.
     pub river_forcings: Vec<RiverForcing>,
+    /// Covering groups already evaluated under each storm pulse today. Saved.
+    pub storm_checks: Vec<StormCheck>,
 }
 
 /// Summary of a patch's terrain, for classification.
@@ -610,6 +612,7 @@ impl Land {
             flood_depths: vec![0.0; map.cell_count()],
             flood_revision: 0,
             river_forcings: Vec::new(),
+            storm_checks: Vec::new(),
         };
         // Start each stock at its equilibrium for the season a year ago, and the water table
         // where the mean recharge holds it, then live a year.
@@ -641,12 +644,24 @@ impl Land {
     /// The day's river flow, including active observer runoff. Only added flow is passed
     /// downstream: natural downstream discharge already contains its tributaries' water.
     pub fn river_flows(&self, map: &WorldMap, params: &LandParams, day: i64) -> Vec<f32> {
+        self.river_flow_state(map, params, day).0
+    }
+
+    /// Flow and the actual observer inputs routed into each reach; an override below the
+    /// unforced or upstream flow adds neither water nor attribution.
+    pub fn river_flow_state(
+        &self,
+        map: &WorldMap,
+        params: &LandParams,
+        day: i64,
+    ) -> (Vec<f32>, Vec<Vec<u32>>) {
         let factor = self.flow_factor(params);
         let mut flows: Vec<f32> = map
             .reaches
             .iter()
             .map(|r| (f64::from(r.discharge_m3s) * factor) as f32)
             .collect();
+        let mut origins: Vec<Vec<u32>> = vec![Vec::new(); flows.len()];
         let mut inputs = vec![0usize; flows.len()];
         for r in &map.reaches {
             if let Some(d) = r.downstream {
@@ -668,18 +683,25 @@ impl Land {
                 .iter()
                 .filter(|f| f.reach as usize == i && day < f.until_day)
             {
-                flows[i] = flows[i].max(f.discharge_m3s);
+                if f.discharge_m3s > flows[i] {
+                    flows[i] = f.discharge_m3s;
+                    origins[i].push(f.influence);
+                }
             }
             if let Some(d) = map.reaches[i].downstream {
                 let d = d as usize;
                 added[d] += added[i] + flows[i] - before;
+                let incoming = origins[i].clone();
+                origins[d].extend(incoming);
+                origins[d].sort_unstable();
+                origins[d].dedup();
                 inputs[d] -= 1;
                 if inputs[d] == 0 {
                     ready.push_back(d);
                 }
             }
         }
-        flows
+        (flows, origins)
     }
 
     /// Updates today's reach discharges and flood depths, updating flood tracking on buildings and fields.
@@ -1175,6 +1197,8 @@ impl Land {
             let water = self.weather.live(&params.weather, &self.climatology);
             self.water_fields(&params.weather, map, &water, d);
             self.water.day(&params.water, water.surplus_mm);
+            self.storm_checks
+                .retain(|c| c.day >= self.weather.today.day);
             self.river_forcings
                 .retain(|f| self.weather.today.day < f.until_day);
             let reaches = self.river_flows(map, params, self.weather.today.day);
@@ -1437,6 +1461,16 @@ impl Land {
         }
         total
     }
+}
+
+/// A physical storm evaluation, kept apart from historical damage records.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StormCheck {
+    pub building: PermanentId,
+    pub group: u32,
+    pub day: i64,
+    /// Zero for the natural storm; otherwise the observer's recorded pulse.
+    pub observer: u32,
 }
 
 /// An observer's minimum reach flow until midnight at `until_day` (exclusive).

@@ -317,6 +317,8 @@ pub const SCHEMA_V92: u32 = 92;
 pub const SCHEMA_V93: u32 = 93;
 /// Fire caution before active observer runoff was persisted.
 pub const SCHEMA_V94: u32 = 94;
+/// Active observer runoff before hazard provenance and physical storm evaluations.
+pub const SCHEMA_V95: u32 = 95;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

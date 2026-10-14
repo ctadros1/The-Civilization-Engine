@@ -353,7 +353,7 @@ decided by people at run time.
 
 | Field | Meaning |
 |---|---|
-| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults), `take` (M4b: going to another household's home to take food from its store, when short; ADR-0015 §2), `watch` (M4b: the watch's rounds at night, for whoever holds the office), `petition` (M4c: going to the hearth on the evening a faction's petition sits, for an adult who has heard of it; ADR-0017 §3), `visit` (M5a: going to the hearth of another settlement the household knows and home the same day; ADR-0018 §2), `fetch` (M5b: going to a seller's door in another settlement by a price report the household holds, to buy at the terms it posts there now, for itself or to sell at home, and home the same day; ADR-0019 §2, §6), `carry` (M5c: taking up goods a payment owes where the paying store set them aside, walking them to the other settlement's hearth and home the same day, for the one who is to carry them; ADR-0020 §7), `bridge` (M5c: walking to the bank where the household is building a crossing, working on it and walking home, only while it is building one, or while their polity is building one under a law they know of), `well` (M6a: digging and lining the well the household is making beside its home, or relining it, only while one is owed work; ADR-0021 §3), `tend` (M6a: sitting at home with members of the household who are ill there and still owed a day's care, its hours shared among them; ADR-0021 §5). |
+| `behavior` | One of `sleep`, `eat`, `fetch_water`, `gather`, `socialize`, `rest`, `play`, `farm`, `ask`, `build`, `make` (M3a), `trade` (M3a), `hire` (M3a), `try` (M3b), `dig` (M3b), `attend` (M4a: going to the gathering called at the hearth, while it sits, for the settlement's adults), `take` (M4b: going to another household's home to take food from its store, when short; ADR-0015 §2), `watch` (M4b: the watch's rounds at night, for whoever holds the office), `petition` (M4c: going to the hearth on the evening a faction's petition sits, for an adult who has heard of it; ADR-0017 §3), `visit` (M5a: going to the hearth of another settlement the household knows and home the same day; ADR-0018 §2), `fetch` (M5b: going to a seller's door in another settlement by a price report the household holds, to buy at the terms it posts there now, for itself or to sell at home, and home the same day; ADR-0019 §2, §6), `carry` (M5c: taking up goods a payment owes where the paying store set them aside, walking them to the other settlement's hearth and home the same day, for the one who is to carry them; ADR-0020 §7), `bridge` (M5c: walking to the bank where the household is building a crossing, working on it and walking home, only while it is building one, or while their polity is building one under a law they know of), `well` (M6a: digging and lining the well the household is making beside its home, or relining it, only while one is owed work; ADR-0021 §3), `tend` (M6a: sitting at home with members of the household who are ill there and still owed a day's care, its hours shared among them; ADR-0021 §5), `douse`, `strip`, `salvage` (M6b fire tasks; see the fire primitives below). |
 | `resource` | For `gather` only: the land resource gathered (hunting, fishing, collecting firewood and cutting building materials are gathering too). A trip works until its load is full or its time runs out. |
 | `task` | For `farm` only: the field work, one of `prepare`, `sow`, `tend`, `reap`, `thresh`. |
 | `recipe` | For `make` only: the recipe worked, at home. |
@@ -1141,6 +1141,31 @@ short; for safety and giving back; a common store and its keeper), `order_kept` 
 against taking and a watch) and `own_say` (overruled; for a household's say; no program). Not
 built: giving an ideology up, new ones made by people (06-04 §4.2's recombination), organizations
 that teach one, and the god tool that introduces one (slice AJ).
+
+## M6b fire primitives (kernel content API 85)
+
+The people profile's strict `[fire]` table supplies the physical and decision priors. It does
+not supply fire events or outcomes. Core rates and durations are design priors unless the
+content's comments cite a measurement; the planned ignition sweep remains separate.
+
+| Fields | Meaning |
+| --- | --- |
+| `reach_m`, `flux_kw`, `covering_flux_share`, `wind_stretch_per_ms` | The footprint gap considered for heat, heat at 1 m and 4 m, the covering-stage share, and the wind's effect on effective gap. |
+| `exposure_minutes`, `catch_per_minute`, `extinction_moisture`, `reference_moisture` | Accumulated heat, catching hazard and fuel moisture. |
+| `involve_minutes`, `involved_minutes`, `covering_minutes` | Building-fire stages and covering consumption. |
+| `char_mm_first_hour`, `char_exponent`, `infill_loss` | Loss of timber section and wall infill during burning. |
+| `hearth_lit_per_hour`, `hearth_banked_per_hour`, `worked_per_hour` | Escapes per hour of the fires actually in use, scaled by dryness. |
+| `beside_m`, `grow_minutes`, `wake_minutes`, `sight_m`, `earshot_m` | Finding and controlling an escape, growth and waking intervals, sight and alarms. |
+| `water_stays`, `wet_drains_per_minute` | Delivered water retained on roofs and its subsequent loss; a carrier must obtain and deliver each load. |
+| `w_save`, `kin_share`, `neighbour_share` | The actor's stakes in saving a threatened roof. |
+| `strip_m2_per_minute`, `strip_cost`, `salvage_share` | Covering removed per work-minute, the cost of stripping and the stake in carrying goods out. |
+
+The fire-response activity behaviors are `douse`, `strip` and `salvage`. Their ages, tools,
+effort and session lengths use the ordinary activity fields. Dousing requires a known water
+trip or a stored load; lack of that trip does not suppress stripping or salvage. Stripping
+requires ownership or leave on site; salvage concerns the actor's own household's goods.
+The good's optional strict `[fire]` table defines its burning share and catching threshold;
+its absence does not make an authored material a universal fireproof building.
 
 ## Planned kinds
 

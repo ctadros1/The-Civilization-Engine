@@ -1513,3 +1513,14 @@ The most important process result is a growing evidence trail: source code, test
 **Open:** local/cumulative affected-asset counts and flood exposure gates, peak stage/depth reporting, kin refuge choice, crossing scour, the dashboard flood row and observer tools/rendering. The earlier coastal firewood failure has not been captured or diagnosed; no correction to it is claimed.
 
 **BD preparation concern:** fire-task facts currently test whether someone knows any active fire, then consider exposed roofs globally. A two-scene fixture confirms that an unknown distant fire's roof is offered. Restricting the facts to known buildings and their nearby hot roofs passes that fixture, but fails the existing response demonstrations (eighteen buildings burned in both water arms; no roof stripped, four salvage loads). Keeping known burnt-out sources while their conflagration continued, changing the stored-water location, and batching sightings before reconsideration did not recover the carrying comparison. Those attempts are not landed. The knowledge work needs to preserve observed danger and usable response; existing assertions are retained. The independently tested no-water choices and monthly reporting remain separate preparations.
+
+
+## 2026-10-14 — BD repair: fire choices without a water trip
+
+**Found:** finding no known water source returned before any threatened roof was considered, suppressing stripping and carrying goods out as well as dousing.
+
+**Changed:** the water trip is optional within each roof's facts. Carrying water considers only roofs with a trip; stripping and salvage retain their existing permissions, costs and walking terms. Stored water still supplies a dousing trip. This changes neither recorded state nor authored primitives: save schema 96, content API 85 and wire 1.69.
+
+**Evidence:** controlled actual facts test an unavailable known walking catchment, then stored water; a decision fixture checks that only dousing disappears without the trip. The complete kernel workspace suite including doc tests, formatting, all-target clippy, pinned generated-schema freshness, the ten-world release smoke, commons checks, web build and all 173 web unit tests pass before commit. The preceding daily/refuge change passed all ten ten-year smoke worlds before this people change; an additional ten-year run on this slice is still underway and is not counted as a pass. This does not claim a physically waterless lived world or complete the response calibration.
+
+**Open:** crew demolition, fire seen and told, remaining page and chronicle reporting, the Help at a fire lens and the ignition sweep. The distant-fire knowledge concern recorded above is still open.

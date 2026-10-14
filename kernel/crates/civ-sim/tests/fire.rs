@@ -1155,3 +1155,65 @@ fn a_household_strips_its_threatened_roofs_and_carries_its_goods_out_of_the_way(
     assert!(strips > 0, "nobody stripped a roof");
     assert!(loads > 0, "nobody carried goods out");
 }
+
+#[test]
+fn threatened_roofs_still_offer_stripping_and_salvage_without_a_water_trip() {
+    let (_, mut sim, huts) = block_near_home(4, 3.0, 5.5);
+    let owner = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == huts[0])
+        .expect("building")
+        .household;
+    let who = sim.people().household(owner).expect("household").members[0];
+    let at = build::centre_m(
+        &sim.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == huts[0])
+            .expect("building")
+            .spec,
+    );
+    let p = sim
+        .people_mut_for_tests()
+        .people
+        .iter_mut()
+        .find(|(_, p)| p.id == who)
+        .map(|(_, p)| p)
+        .expect("person");
+    p.pos = at;
+    p.trip = None;
+    p.asleep = false;
+    sim.set_fire(huts[0]).expect("fire");
+    // Inspect a hot threatened roof before the next fire step can make it catch.
+    sim.people_mut_for_tests()
+        .fires
+        .exposure
+        .push((huts[1], 5000.0));
+    let unknown_route = PermanentId::from_raw(u64::MAX).expect("id");
+    let facts = sim
+        .with_ctx_for_tests(|pop, ctx| pop.fire_facts_for_tests(ctx, who, unknown_route, 0.0))
+        .expect("fire options without a known water route");
+    let target = facts
+        .targets
+        .iter()
+        .find(|t| t.building == huts[1])
+        .expect("threatened roof");
+    assert!(target.water.is_none());
+    assert!(target.strip_points.is_some_and(|p| p > 0.0));
+    assert!(target.salvage_points.is_some_and(|p| p > 0.0));
+    let carry = sim.rules().people.household.carry_water_l;
+    let with_water = sim
+        .with_ctx_for_tests(|pop, ctx| pop.fire_facts_for_tests(ctx, who, unknown_route, carry))
+        .expect("water option");
+    assert!(
+        with_water
+            .targets
+            .iter()
+            .find(|t| t.building == huts[1])
+            .expect("roof")
+            .water
+            .is_some()
+    );
+}

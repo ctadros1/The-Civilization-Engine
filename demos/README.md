@@ -13,6 +13,8 @@ wells; residents did not identify those wells as a cause, and no law named them.
 modeled routes, residents' knowledge and the polity's response visible as separate layers. Outcomes
 vary between runs.
 
+M6b fire response and hazard repairs are in development; no completed M6b lived capture is available yet. The M6a capture remains the newest available milestone demo.
+
 The captures below are from that live observer run. The complete version history is in the table
 that follows.
 

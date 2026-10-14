@@ -16,7 +16,7 @@
 //! a share of them do not get out.
 
 use super::*;
-use crate::decide::{FireFacts, FireTarget};
+use crate::decide::{FireFacts, FireTarget, FireWater};
 use crate::fire::{
     Conflagration, Fire, FireParams, Hearth, Ignition, Kindled, Knew, Noticed, Outline, Salvaged,
     Stage, Stripped, Thrown, Weighed, charred_loss,
@@ -449,16 +449,18 @@ impl Population {
         }
         // Where a load of water comes from.
         let carry = ctx.params.household.carry_water_l;
-        let (from, fill_at, fill_min) = if water_l >= carry {
-            (FROM_STORE, hh.home, 1)
+        let water_trip = if water_l >= carry {
+            Some((FROM_STORE, hh.home, 1))
         } else {
             let home = self.homes.get(&field_key);
-            let water = self.water_source(ctx, home, Some((hh, short)), Some(me))?;
-            let from = water
-                .well
-                .and_then(|w| ctx.land.wells.get(w))
-                .map_or(water.cell, |w| w.cell);
-            (from, water.at, 1 + water.lift_min.round().max(0.0) as u32)
+            self.water_source(ctx, home, Some((hh, short)), Some(me))
+                .map(|water| {
+                    let from = water
+                        .well
+                        .and_then(|w| ctx.land.wells.get(w))
+                        .map_or(water.cell, |w| w.cell);
+                    (from, water.at, 1 + water.lift_min.round().max(0.0) as u32)
+                })
         };
         let speed = interpolate(&ctx.params.walk_speed_by_age, age).max(0.05) * 60.0;
         let kin = self.kin_households(hh);
@@ -532,10 +534,12 @@ impl Population {
                 building,
                 at,
                 points,
-                from,
-                fill_at,
-                fill_min,
-                walk_min: (walk(pos, fill_at) + walk(fill_at, at)) / speed,
+                water: water_trip.map(|(from, fill_at, fill_min)| FireWater {
+                    from,
+                    fill_at,
+                    fill_min,
+                    walk_min: (walk(pos, fill_at) + walk(fill_at, at)) / speed,
+                }),
                 strip_points,
                 salvage_points,
                 away,
@@ -549,6 +553,20 @@ impl Population {
         });
         targets.truncate(3);
         (!targets.is_empty()).then_some(FireFacts { targets })
+    }
+
+    /// Fire options from a specified known travel field (tests).
+    #[doc(hidden)]
+    pub fn fire_facts_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        who: PermanentId,
+        field_key: PermanentId,
+        water_l: f64,
+    ) -> Option<FireFacts> {
+        let h = *self.index.get(&who)?;
+        let hh = self.household(self.people.get(h)?.household)?.clone();
+        self.fire_facts(ctx, h, &hh, water_l, false, field_key)
     }
 
     /// Kilograms of goods that burn its household keeps under building `b`'s roof, less what was

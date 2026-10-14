@@ -456,3 +456,19 @@ piping_per_head_day = 0.01
 # among a levee's defects but gives no figure.
 settle_share = 0.05
 settle_days = 365.0
+
+[ditches]
+# An irrigation ditch's Manning's n clean and densely weeded, s/m^(1/3) (research 11-12 §2.3:
+# 0.025 for an average unlined canal, 0.040 badly kept; §4.4: weeds cut its capacity to 62.5 %).
+n_clean = 0.025
+n_weedy = 0.040
+# The share of its reach's flow an intake may take. A design prior.
+max_share = 0.5
+# Of what it takes, the share that reaches the field (the rest seeps into the ground on the way: a
+# design prior for a short earthen ditch), and of that the share the field's root zone keeps (the
+# rest runs back to the river: research 03-02 §2.1, surface application about 60 %).
+conveyance = 0.8
+application = 0.6
+# The least fall of its bed, metres a metre (research 11-12 §2.3: small earthen canals about
+# 0.05-0.2 %).
+min_gradient = 0.0005

@@ -98,6 +98,25 @@ fn words(sim: &Sim, w: &Earthwork, building: Option<&Building>) -> String {
             let bank = sim.land.banks.iter().find(|b| b.work == w.id);
             return bank.map_or_else(|| "bank geometry unavailable".into(), |b| format!("a {:.0} m bank, {:.0}% built, crest {:.2} m above ground{}; earth from borrow pit {}; {} washed into sediment stock", b.length_m(), w.done * 100.0, (b.built_height_m(w.done) - b.settlement_m - b.erosion_m).max(0.0), if b.breached { ", breached".to_owned() } else if b.piping > 0.0 { format!(", {:.0}% of the way to piping through", b.piping * 100.0) } else { String::new() }, b.borrow, volume(b.sediment_m3)) + &if b.refill_m3 > 0.0 { format!("; {} laid back on it in mending", volume(b.refill_m3)) } else { String::new() });
         }
+        EarthKind::Ditch => {
+            let ditch = sim.land.ditches.iter().find(|d| d.work == w.id);
+            return ditch.map_or_else(
+                || "ditch geometry unavailable".into(),
+                |d| {
+                    let whose = eldest_name(sim, w.household)
+                        .map_or_else(|| "an".to_owned(), |name| format!("{name}'s household's"));
+                    format!(
+                        "{whose} irrigation ditch, {:.0} m from the river to its field, {:.0}% dug; \
+                         {}; {} taken from the river, {} kept by the field",
+                        d.length_m(),
+                        f64::from(w.done) * 100.0,
+                        if d.open { "its intake open" } else { "its intake closed" },
+                        volume(d.taken_m3),
+                        volume(d.kept_m3)
+                    )
+                },
+            );
+        }
         EarthKind::Spoil => {
             let (good, working) = dug_for(sim, w);
             return format!(
@@ -129,6 +148,7 @@ fn kind(k: EarthKind) -> u8 {
         EarthKind::Pit => 1,
         EarthKind::Spoil => 2,
         EarthKind::Bank => 3,
+        EarthKind::Ditch => 4,
     }
 }
 

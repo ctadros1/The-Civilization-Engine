@@ -115,8 +115,8 @@ use super::{
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
-    SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103, finish,
-    section, single_chunk, unreadable,
+    SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
+    SCHEMA_V104, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -526,6 +526,8 @@ enum Schema {
     V103,
     /// M6b slice BG: banks mended (refill, repair hours asked).
     V104,
+    /// M6b slice BG: irrigation ditches.
+    V105,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -644,7 +646,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V101 => Schema::V101,
         SCHEMA_V102 => Schema::V102,
         SCHEMA_V103 => Schema::V103,
-        SAVE_SCHEMA_VERSION => Schema::V104,
+        SCHEMA_V104 => Schema::V104,
+        SAVE_SCHEMA_VERSION => Schema::V105,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2058,6 +2061,7 @@ fn encode_earth(land: &Land) -> Vec<u8> {
                     civ_land::earth::EarthKind::Pit => 1,
                     civ_land::earth::EarthKind::Spoil => 2,
                     civ_land::earth::EarthKind::Bank => 3,
+                    civ_land::earth::EarthKind::Ditch => 4,
                 },
             )
         })
@@ -2129,6 +2133,39 @@ fn encode_earth(land: &Land) -> Vec<u8> {
         .map(|b| save::BankRefillRecord::new(b.work.get(), b.refill_m3))
         .collect();
     let refill = fbb.create_vector(&refill);
+    let ditches: Vec<_> = land
+        .ditches
+        .iter()
+        .map(|d| {
+            save::DitchRecord::new(
+                d.work.get(),
+                d.reach,
+                d.field.get(),
+                d.a[0],
+                d.a[1],
+                d.b[0],
+                d.b[1],
+                d.bottom_m,
+                d.depth_m,
+                d.side_run,
+                d.drop_m,
+                d.weeds,
+                d.silt_m,
+                d.open,
+                d.taken_m3,
+                d.kept_m3,
+                d.seeped_m3,
+                d.returned_m3,
+            )
+        })
+        .collect();
+    let ditches = fbb.create_vector(&ditches);
+    let ditch_flows: Vec<_> = land
+        .ditch_flows
+        .iter()
+        .map(|&(r, q)| save::DitchFlowRecord::new(r, q))
+        .collect();
+    let ditch_flows = fbb.create_vector(&ditch_flows);
     let root = save::Earth::create(
         &mut fbb,
         &save::EarthArgs {
@@ -2139,6 +2176,8 @@ fn encode_earth(land: &Land) -> Vec<u8> {
             bank_sediment: Some(sediment),
             bank_piping: Some(piping),
             bank_refill: Some(refill),
+            ditches: Some(ditches),
+            ditch_flows: Some(ditch_flows),
         },
     );
     finish(fbb, root)
@@ -2153,6 +2192,7 @@ fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), Loa
             1 => civ_land::earth::EarthKind::Pit,
             2 => civ_land::earth::EarthKind::Spoil,
             3 if schema >= Schema::V100 => civ_land::earth::EarthKind::Bank,
+            4 if schema >= Schema::V105 => civ_land::earth::EarthKind::Ditch,
             other => {
                 return Err(LoadError::Malformed(format!(
                     "an earthwork has kind {other}"
@@ -2271,6 +2311,39 @@ fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), Loa
         }
         bank.refill_m3 = record.compacted_m3();
     }
+    // Explicit migration: schemas through 104 have no irrigation ditches.
+    if schema < Schema::V105
+        && (root.ditches().is_some_and(|v| !v.is_empty())
+            || root.ditch_flows().is_some_and(|v| !v.is_empty()))
+    {
+        return Err(LoadError::Malformed("ditches before schema 105".into()));
+    }
+    for d in root.ditches().iter().flatten() {
+        land.ditches.push(civ_land::ditches::DitchSegment {
+            work: required(d.work(), "a ditch")?,
+            reach: d.reach(),
+            field: required(d.field(), "a ditch's field")?,
+            a: [d.ax(), d.ay()],
+            b: [d.bx(), d.by()],
+            bottom_m: d.bottom_m(),
+            depth_m: d.depth_m(),
+            side_run: d.side_run(),
+            drop_m: d.drop_m(),
+            weeds: d.weeds(),
+            silt_m: d.silt_m(),
+            open: d.open(),
+            taken_m3: d.taken_m3(),
+            kept_m3: d.kept_m3(),
+            seeped_m3: d.seeped_m3(),
+            returned_m3: d.returned_m3(),
+        });
+    }
+    land.ditch_flows = root
+        .ditch_flows()
+        .iter()
+        .flatten()
+        .map(|f| (f.reach(), f.m3s()))
+        .collect();
     // Schema 21: what each pit and heap is linked to.
     for l in root.links().iter().flatten() {
         let work = land
@@ -2993,6 +3066,8 @@ fn decode_land(
         // Read from its own section (schema 20 on).
         earthworks: Vec::new(),
         banks: Vec::new(),
+        ditches: Vec::new(),
+        ditch_flows: Vec::new(),
         ground: civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
         // Read from its own section (schema 68 on).
         crossings: Default::default(),
@@ -3684,7 +3759,8 @@ fn carried(
         | Schema::V101
         | Schema::V102
         | Schema::V103
-        | Schema::V104 => {
+        | Schema::V104
+        | Schema::V105 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3922,7 +3998,8 @@ fn decode_households(
             | Schema::V101
             | Schema::V102
             | Schema::V103
-            | Schema::V104 => {
+            | Schema::V104
+            | Schema::V105 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

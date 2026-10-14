@@ -43,6 +43,22 @@ pub(crate) struct LandFile {
     pub contamination: Option<ContaminationFile>,
     #[serde(default)]
     pub banks: Option<BankFile>,
+    /// Irrigation ditches' hydraulics (content API 91). A profile may leave it out: then the
+    /// defaults hold.
+    #[serde(default)]
+    pub ditches: Option<DitchFile>,
+}
+
+/// Irrigation ditch hydraulics (content API 91): see [`civ_land::ditches::DitchParams`].
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DitchFile {
+    pub n_clean: f64,
+    pub n_weedy: f64,
+    pub max_share: f64,
+    pub conveyance: f64,
+    pub application: f64,
+    pub min_gradient: f64,
 }
 
 /// Conditional bank damage (content API 87).
@@ -665,6 +681,17 @@ impl LandFile {
                 .contamination
                 .as_ref()
                 .map_or_else(ContaminationParams::default, ContaminationFile::params),
+            ditches: self.ditches.as_ref().map_or_else(
+                civ_land::ditches::DitchParams::default,
+                |d| civ_land::ditches::DitchParams {
+                    n_clean: d.n_clean,
+                    n_weedy: d.n_weedy,
+                    max_share: d.max_share,
+                    conveyance: d.conveyance,
+                    application: d.application,
+                    min_gradient: d.min_gradient,
+                },
+            ),
         })
     }
 
@@ -752,6 +779,23 @@ impl LandFile {
                 if !(v.is_finite() && (lo..=hi).contains(&v)) {
                     p.push(format!("`{name}` must be between {lo} and {hi}"));
                 }
+            }
+        }
+        if let Some(d) = &self.ditches {
+            for (name, v, lo, hi) in [
+                ("ditches.n_clean", d.n_clean, 0.01, 0.2),
+                ("ditches.n_weedy", d.n_weedy, 0.01, 0.2),
+                ("ditches.max_share", d.max_share, 0.0, 1.0),
+                ("ditches.conveyance", d.conveyance, 0.05, 1.0),
+                ("ditches.application", d.application, 0.05, 1.0),
+                ("ditches.min_gradient", d.min_gradient, 0.0, 0.1),
+            ] {
+                if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                    p.push(format!("`{name}` must be between {lo} and {hi}"));
+                }
+            }
+            if d.n_weedy < d.n_clean {
+                p.push("`ditches.n_weedy` must not be below `ditches.n_clean`".to_owned());
             }
         }
         self.weather.problems(&mut p);

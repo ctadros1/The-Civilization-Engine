@@ -2552,6 +2552,18 @@ and M6a gives rivers a daily flow.
       pit and laid on the crest (what water wore off first, then what settled), then seeping
       bank dug out and tamped again. A breach stays open until all its mending is done.
       Save schema 104, content API 90, wire 1.72 unchanged.
+    - *Irrigation ditches, the water's part (2026-10-14, §9):* the earth kind `ditch` is a
+      straight channel below the grid from an intake beside a reach to the field it waters,
+      with a section, a fall, weeds and silt. It carries Manning's flow at its gradient, and
+      nothing below `ditches.min_gradient`. While its intake is open and its field's crop
+      grows, it takes what the root zone lacks to be full, no more than it can carry or
+      `ditches.max_share` of what its reach still carries after the ditches above it. Of that,
+      `conveyance` reaches the field and the rest recharges the ground water under the ditch;
+      the field keeps `application`, and the rest returns to the river below the intake. The
+      taking is debited from its reach and every reach below, once. Nobody digs or opens a
+      ditch yet: households' choices, weeds and silt, clearing and the observer's view come
+      next. Save schema 105, content API 91, wire 1.72 unchanged (a ditch's earthwork is
+      sent as kind 4 with words).
     - Earth kinds `bank` and `ditch` as lines of segments.
     - Water behind a bank only over its crest or through a breach. Overtopping and piping.
     - The issue `flooded`, and the policy `build_bank`, asked in equal shares as a crossing is.
@@ -3391,3 +3403,32 @@ One line each. Don't re-litigate without a reason written next to the entry.
   Erosion uses elapsed-day depths before forcing rollover, so a one-day flood counts.
   The final full workspace, short smoke, clippy, schema, web, commons and bank browser gates
   pass; the interrupted later ten-year run is not reported as a pass.
+
+- **Irrigation ditches, the water's part, as built (2026-10-14, M6b slice BG; ADR-0022 §11):**
+  no new ADR. **Channel (research 11-12 §1.5-§1.6, §2.3):** a ditch is a straight trapezoid
+  below the grid: bottom width, depth, side slope 1.5:1, and its bed's fall from intake to field
+  end. Its cut is L d (b + z d). Its earth lies along its side within the cells it crosses, so
+  the cells' mean ground is unchanged; this sub-grid simplification is stated, not hidden.
+  **Capacity:** Manning's Q = A R^(2/3) S^(1/2) / n running full above its silt. n goes from
+  `n_clean` (0.025) to `n_weedy` (0.040) with its weeds, which reproduces research 11-12
+  §4.4's 62.5 % capacity. It carries nothing below `min_gradient` (0.05 %). **A day's water
+  (research 03-02 §1.5, §2.1):** after the day's rain and the aquifer's step, each open ditch
+  whose earthwork is finished and whose field's crop is growing takes what that field's root
+  zone lacks to be full, divided by conveyance times application. It takes no more than its
+  capacity for a day or `max_share` (0.5, a design prior) of what its reach still carries after
+  the ditches above it. `conveyance` (0.8, a design prior for a short earthen ditch) reaches the
+  field; the rest recharges the aquifer patch under the ditch's middle, and a patch of water
+  alone takes it into its water. The field's root zone keeps `application` (0.6, research 03-02
+  §2.1 for surface application); the rest returns to the reach below the intake. The taking is
+  debited from its reach and every reach below, and the return is credited from the next reach
+  down, as changes to the day's flows that are saved for the day. Natural downstream flow
+  already includes its tributaries, so nothing is summed twice. Each ditch keeps its totals
+  taken, kept, seeped and returned, which must balance. **Saves 105:** ditch records and the
+  day's ditch flows; older headers carrying either are refused. **Tested:** in a lived village,
+  a finished ditch open to the river beside a sown field held more water in that field over ten
+  days than the same ditch shut. Every cubic metre was accounted for. On a dry day the intake
+  reach lost exactly what the ditch took, and every reach below lost that less what returned.
+  The world saved and loaded exactly and lived on the same. **Left:** households choosing to dig
+  and open a ditch, weeds and silt growing, clearing, the observer drawing ditches (the web
+  draws kind 4 as a plain earthwork rectangle for now), and trapped rain.
+

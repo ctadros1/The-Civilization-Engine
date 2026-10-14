@@ -1142,6 +1142,8 @@ table Earth {
   bank_sediment: [BankSedimentRecord] (id: 4);
   bank_piping: [BankPipingRecord] (id: 5);
   bank_refill: [BankRefillRecord] (id: 6);
+  ditches: [DitchRecord] (id: 7);
+  ditch_flows: [DitchFlowRecord] (id: 8);
 }
 
 // Section "ties" (schema 28): what each person remembers of others (ADR-0014 §1), by holder and
@@ -1358,6 +1360,36 @@ table PolitySave {
 // Where a law would build a flood bank (schema 102, M6b slice BG): the reach whose water it keeps
 // out, its crest line in metres from the map's corner, its section, the ground it and its borrow
 // pit take, the work it would take, and its earthwork once begun (0 before).
+// An irrigation ditch (schema 105, M6b slice BG): its earthwork, the reach its intake takes from,
+// the field it waters, its line from intake to field in metres, its section, the fall of its bed,
+// its weeds (0-1) and silt, whether its intake is open, and the water it has moved, m³.
+struct DitchRecord {
+  work: ulong;
+  reach: uint;
+  field: ulong;
+  ax: double;
+  ay: double;
+  bx: double;
+  by: double;
+  bottom_m: double;
+  depth_m: double;
+  side_run: double;
+  drop_m: double;
+  weeds: double;
+  silt_m: double;
+  open: bool;
+  taken_m3: double;
+  kept_m3: double;
+  seeped_m3: double;
+  returned_m3: double;
+}
+
+// Today's change to a reach's flow from the ditches, passed on down the river, m³/s (schema 105).
+struct DitchFlowRecord {
+  reach: uint;
+  m3s: float;
+}
+
 // A law keeping a flood bank and the law that built it (schema 104, M6b slice BG).
 struct BankKeepRecord {
   law: ulong;

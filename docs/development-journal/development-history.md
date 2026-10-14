@@ -1875,3 +1875,26 @@ other worlds do, and all 32 fire tests pass.
 **Open:** banks of several segments and across fields; trapped rain; irrigation; soil-dependent
 seepage; then BH.
 
+## 2026-10-14 — BG: irrigation ditches, the water's part
+
+**What changed:** a ditch is a channel from an intake beside a river to a field. It carries
+Manning's flow at its fall, and weeds and silt slow it. While its intake is open and the field's
+crop grows, it takes what the field's root zone lacks, within what it can carry and half of
+what the river still carries there. A fifth seeps into the ground on the way. The field keeps
+six tenths of what arrives, and the rest runs back to the river below the intake. The river
+loses the taking at the intake and below, and gets the return back further down. Every cubic
+metre is accounted for. Saves 105, content API 91.
+
+**Not yet:** nobody digs or opens a ditch. Households choosing to do so for a dry field,
+weeds and silt growing and being cleared, and the observer drawing ditches come next.
+
+**Evidence:** unit tests check that Manning's capacity matches the formula, that weeds alone
+cut it to 62.5 % (research 11-12 §4.4), and that silt and a flat bed lower it. They also check
+that a day takes what the field lacks within capacity and the river's share, with every loss
+kept, and nothing while the ditch is closed, unfinished or the field is full. An integration
+test opens a finished ditch in a lived village. Its field held more water than the same field
+with the ditch shut, and on a dry day the intake reach and every reach below lost exactly what
+the ditch took, less what returned. It saves, loads and lives on exactly, and a schema 104
+header claiming ditches is refused. Before this commit, the full simcheck workspace suite, all-target
+clippy, formatting, schema freshness, all ten release short-smoke worlds and the web build with
+its 173 unit tests pass.

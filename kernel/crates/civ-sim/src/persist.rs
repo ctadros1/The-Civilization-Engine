@@ -335,6 +335,8 @@ pub const SCHEMA_V101: u32 = 101;
 pub const SCHEMA_V102: u32 = 102;
 /// Bank piping damage and told failures, before mending banks.
 pub const SCHEMA_V103: u32 = 103;
+/// Mended banks and keeping laws, before irrigation ditches.
+pub const SCHEMA_V104: u32 = 104;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

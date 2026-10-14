@@ -24,6 +24,7 @@ pub mod banks;
 pub mod buildings;
 pub mod crossings;
 pub mod deposits;
+pub mod ditches;
 pub mod earth;
 pub mod fields;
 pub mod paths;
@@ -169,6 +170,8 @@ pub struct LandParams {
     pub water: WaterParams,
     /// Conditional bank damage under actual hydraulic load.
     pub banks: banks::BankParams,
+    /// Irrigation ditches' hydraulics (M6b slice BG).
+    pub ditches: ditches::DitchParams,
     /// How what people shed moves through the ground and water (ADR-0021 §4).
     pub contamination: ContaminationParams,
 }
@@ -380,6 +383,11 @@ pub struct Land {
     pub earthworks: Vec<earth::Earthwork>,
     /// Sub-grid bank crests, linked to their earthwork and borrow pit. Saved.
     pub banks: Vec<banks::BankSegment>,
+    /// Irrigation ditches, linked to their earthwork, in the order begun (M6b slice BG). Saved.
+    pub ditches: Vec<ditches::DitchSegment>,
+    /// Today's water the ditches took from their reaches and returned below them, as changes to
+    /// a reach's flow passed on down the river, m³/s (M6b slice BG). Saved.
+    pub ditch_flows: Vec<(u32, f32)>,
     /// What earthworks have done to the ground (ADR-0010 §3). Saved.
     pub ground: earth::GroundDelta,
     /// Crossings over water, in the order begun (M5c slice AW). Saved.
@@ -609,6 +617,8 @@ impl Land {
             deposits: Vec::new(),
             earthworks: Vec::new(),
             banks: Vec::new(),
+            ditches: Vec::new(),
+            ditch_flows: Vec::new(),
             ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
             crossings: crossings::Crossings::default(),
             water: Water::default(),
@@ -705,6 +715,14 @@ impl Land {
                 if inputs[d] == 0 {
                     ready.push_back(d);
                 }
+            }
+        }
+        // What ditches took and gave back, passed on down the river (M6b slice BG).
+        for &(r, q) in &self.ditch_flows {
+            let mut at = Some(r as usize);
+            while let Some(i) = at.filter(|&i| i < flows.len()) {
+                flows[i] = (flows[i] + q).max(0.0);
+                at = map.reaches[i].downstream.map(|d| d as usize);
             }
         }
         (flows, origins)
@@ -960,6 +978,45 @@ impl Land {
             if !bank_ids.contains(&work.id) {
                 out.push(format!("bank {} has no linear segment", work.id));
             }
+        }
+        // Each ditch is whole, takes from a reach of the map, and is the one segment of a ditch
+        // earthwork whose earth is its channel's (M6b slice BG).
+        let mut ditch_ids = std::collections::HashSet::new();
+        for ditch in &self.ditches {
+            let work = self
+                .earthworks
+                .iter()
+                .find(|w| w.id == ditch.work && w.kind == earth::EarthKind::Ditch);
+            let dug = work.is_some_and(|w| {
+                (f64::from(w.cut_m3) - ditch.cut_m3() * f64::from(w.done)).abs()
+                    < 1e-3 * ditch.cut_m3().max(1.0)
+            });
+            if !ditch.valid()
+                || (ditch.reach as usize) >= map.reaches.len()
+                || !ditch_ids.insert(ditch.work)
+                || !dug
+            {
+                out.push(format!(
+                    "ditch {} has invalid geometry, links or earth accounting",
+                    ditch.work
+                ));
+            }
+        }
+        for work in self
+            .earthworks
+            .iter()
+            .filter(|w| w.kind == earth::EarthKind::Ditch)
+        {
+            if !ditch_ids.contains(&work.id) {
+                out.push(format!("ditch {} has no linear segment", work.id));
+            }
+        }
+        if self
+            .ditch_flows
+            .iter()
+            .any(|&(r, q)| (r as usize) >= map.reaches.len() || !q.is_finite())
+        {
+            out.push("a ditch flow names no reach or is not finite".to_owned());
         }
         let mut ids = std::collections::HashSet::new();
         for f in &self.fields {
@@ -1291,6 +1348,7 @@ impl Land {
                 .retain(|c| c.day >= self.weather.today.day);
             self.river_forcings
                 .retain(|f| self.weather.today.day < f.until_day);
+            self.irrigate(params, map, d);
             let reaches = self.river_flows(map, params, self.weather.today.day);
             self.update_floods(map, reaches);
             self.flood_exposure_day(map);
@@ -1380,6 +1438,78 @@ impl Land {
             f.water_mm = zone as f32;
             f.need_mm = (f64::from(f.need_mm) + need) as f32;
             f.got_mm = (f64::from(f.got_mm) + got) as f32;
+        }
+    }
+
+    /// Lives day `day`'s irrigation (M6b slice BG): each open ditch takes, from what its reach
+    /// still carries after the ditches above it, what its field's growing crop's root zone lacks
+    /// to be full, within its capacity and share. The field keeps its share; what seeped on the
+    /// way recharges the ground water under the ditch's middle, and what the field did not keep
+    /// returns to the river below the intake. Today's takings and returns are kept as changes to
+    /// the reaches' flows, passed on down the river.
+    fn irrigate(&mut self, params: &LandParams, map: &WorldMap, day: i64) {
+        self.ditch_flows.clear();
+        if self.ditches.is_empty() {
+            return;
+        }
+        let mut spare = self.river_flows(map, params, self.weather.today.day);
+        let total_mm = params.weather.soil_water_mm;
+        for i in 0..self.ditches.len() {
+            let ditch = self.ditches[i];
+            let Some(work) = self.earthworks.iter().find(|w| w.id == ditch.work).copied() else {
+                continue;
+            };
+            let Some(f) = self.fields.iter_mut().find(|f| f.id == ditch.field) else {
+                continue;
+            };
+            let growing = f.stage == FieldStage::Sown
+                && self
+                    .climatology
+                    .crops
+                    .get(usize::from(f.crop))
+                    .is_some_and(|cw| (0..i64::from(cw.grow_days)).contains(&(day - f.sown_day)));
+            let area = f64::from(f.rect.w) * f64::from(f.rect.h) / 10_000.0;
+            if !growing || area <= 0.0 {
+                continue;
+            }
+            let lacks = (total_mm - f64::from(f.water_mm)).max(0.0) / 1000.0 * area;
+            let r = ditch.reach as usize;
+            let q = spare.get(r).copied().map_or(0.0, f64::from);
+            let got = ditches::ditch_day(&ditch, &work, &params.ditches, lacks, q);
+            if got.taken_m3 <= 0.0 {
+                continue;
+            }
+            f.water_mm = (f64::from(f.water_mm) + got.kept_m3 / area * 1000.0).min(total_mm) as f32;
+            let mid = (
+                ((ditch.a[0] + ditch.b[0]) / 2.0) as f32,
+                ((ditch.a[1] + ditch.b[1]) / 2.0) as f32,
+            );
+            self.water
+                .recharge(self.patches.of_point(mid.0, mid.1), got.seeped_m3);
+            let (take, back) = (
+                (got.taken_m3 / 86_400.0) as f32,
+                (got.returned_m3 / 86_400.0) as f32,
+            );
+            let below = map.reaches.get(r).and_then(|x| x.downstream);
+            let mut at = Some(r);
+            while let Some(x) = at.filter(|&x| x < spare.len()) {
+                spare[x] = (spare[x] - take).max(0.0);
+                at = map.reaches[x].downstream.map(|d| d as usize);
+            }
+            let mut at = below.map(|d| d as usize);
+            while let Some(x) = at.filter(|&x| x < spare.len()) {
+                spare[x] += back;
+                at = map.reaches[x].downstream.map(|d| d as usize);
+            }
+            self.ditch_flows.push((ditch.reach, -take));
+            if let Some(d) = below {
+                self.ditch_flows.push((d, back));
+            }
+            let seg = &mut self.ditches[i];
+            seg.taken_m3 += got.taken_m3;
+            seg.kept_m3 += got.kept_m3;
+            seg.seeped_m3 += got.seeped_m3;
+            seg.returned_m3 += got.returned_m3;
         }
     }
 
@@ -1680,6 +1810,7 @@ mod tests {
             deposits: Vec::new(),
             water: WaterParams::default(),
             banks: banks::BankParams::default(),
+            ditches: ditches::DitchParams::default(),
             contamination: ContaminationParams::default(),
         }
     }

@@ -2418,6 +2418,10 @@ and M6a gives rivers a daily flow.
     - *Step five implemented (2026-10-11, §9):* the dashboard's Fires row reports escapes per
       1,000 household-years, put-out escapes, buildings burned, spread and deaths; observer-set
       fires are separate. The rate sweep remains planned.
+    - *Monthly chronicle implemented (2026-10-14, §9):* on the first day of a month,
+      settlement entries count the previous month's recorded household escapes and outcomes.
+      Observer-set fires have no household escape and are excluded; quiet months add no entry.
+      Save schema 97 explicitly loads schema 96 without inventing earlier summaries.
     - *BE persistence repair (2026-10-13):* fire caution by covering and wall kind is now saved
       in schema 94; saves through 93 begin with no remembered fire losses, since none was stored.
       Pulling down with a crew and leave, fire seen and told, fuller page/chronicle reporting,
@@ -3162,3 +3166,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **BF daily exposure and refuge supplies (2026-10-14):** depth refreshes derive today's water without advancing time; building wetness and crop submergence advance once in the land's daily step. Flood floor loss runs only in the daily building check, after high-water records update, and belongs to the building's reach and its episode. Other checks still weigh structural loads without applying another day of flood loss. Household memory reads current field depth, so an old peak no longer refreshes it every day. A wet home's supplies are planned from and delivered at the hearth already chosen for meals and sleep; a saved loaded return to that home redirects there, and deposit occurs only on arrival. The home and ownership stay as recorded. This repairs declared daily cadence and derived routing; save schema 96, content API 85 and wire 1.69 remain unchanged, and previously recorded counters are preserved. Wider exposure accounting, kin refuge selection, scour and observer controls remain open.
 
 - **BD choices without a water route (2026-10-14):** a threatened roof remains a candidate when the person has no known reachable water trip. Only carrying water requires that trip; stripping and salvage keep their own eligibility, costs and walking terms. A controlled facts fixture checks absent and stored water, and a decision fixture checks all three candidate kinds. No content or save meaning changes: schema 96, content API 85, wire 1.69. Crew demolition, fire seen and told, reporting, the Help at a fire lens and the ignition sweep remain open.
+
+- **BD monthly fire reporting (2026-10-14):** an appended FireStep::Month counts the previous calendar month's recorded household escapes by settlement: put out, reached a roof, went out without catching, or still growing. Observer-set fires are excluded; quiet months produce no entry. The aggregate carries no individual fire link. Save schema 97 has an explicit schema-96 path, preserving existing records without invented historical summaries. Content API 85 and wire 1.69 stay unchanged. Full fire pages, named fire accounts, the help lens and calibration remain open.

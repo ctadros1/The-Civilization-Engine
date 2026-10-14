@@ -5823,6 +5823,7 @@ impl Population {
         self.check_buildings(ctx);
         // The minutes at which each home's fires in use may escape today (M6b slice BD).
         self.plan_ignitions(ctx, day);
+        self.fire_month(ctx);
         // And the crossings over water (M5c slice AW): rot and failure, then the households
         // whose day it is weigh building one where their people wade.
         if !ctx.land.crossings.list.is_empty() {

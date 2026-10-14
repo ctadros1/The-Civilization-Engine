@@ -114,8 +114,8 @@ use super::{
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
-    SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, finish,
-    section, single_chunk, unreadable,
+    SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
+    finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -514,6 +514,7 @@ enum Schema {
     V95,
     /// Hazard provenance and storm pulse evaluations.
     V96,
+    V97,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -624,7 +625,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V93 => Schema::V93,
         SCHEMA_V94 => Schema::V94,
         SCHEMA_V95 => Schema::V95,
-        SAVE_SCHEMA_VERSION => Schema::V96,
+        SCHEMA_V96 => Schema::V96,
+        SAVE_SCHEMA_VERSION => Schema::V97,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -3264,7 +3266,8 @@ fn carried(
         | Schema::V93
         | Schema::V94
         | Schema::V95
-        | Schema::V96 => {
+        | Schema::V96
+        | Schema::V97 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3475,7 +3478,8 @@ fn decode_households(
             | Schema::V93
             | Schema::V94
             | Schema::V95
-            | Schema::V96 => {
+            | Schema::V96
+            | Schema::V97 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

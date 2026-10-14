@@ -11,7 +11,8 @@
 //! People notice a burning building by being in it or seeing it, and whoever comes to know of a
 //! fire shouts once: those within earshot hear, wake if asleep, and stop what they are doing to
 //! decide again (ADR-0022 §6). Each comes to know only what they saw or heard (§7), and someone
-//! keeps away from home only once they know it burns. Nobody fights a fire yet: those awake in a
+//! keeps away from home only once they know it burns. People carry water, strip threatened roofs
+//! and salvage goods. Those awake in a
 //! burning building get out; those still asleep wake when it is fully involved around them, and
 //! a share of them do not get out.
 
@@ -116,6 +117,59 @@ fn chars(kind: GroupKind) -> bool {
 }
 
 impl Population {
+    /// On the month's first day, tell the previous month's household-fire escapes.
+    pub(super) fn fire_month(&mut self, ctx: &Ctx) {
+        let now = ctx.now;
+        if now.date().day != 1 {
+            return;
+        }
+        let previous = now.plus_minutes(-now.minute_of_day() - 1).date();
+        // Escapes are activity-driven records; observer-set fires have no ignition to count.
+        let mut counts = std::collections::BTreeMap::new();
+        for g in &self.fires.ignitions {
+            let date = g.at.date();
+            if date.year != previous.year || date.month != previous.month {
+                continue;
+            }
+            let c = counts.entry(g.settlement).or_insert([0u32; 5]);
+            c[0] += 1;
+            if g.put_out_by.is_some() {
+                c[1] += 1;
+            } else if g.fire.is_some() {
+                c[2] += 1;
+            } else if g.ended.is_some() {
+                c[3] += 1;
+            } else {
+                c[4] += 1;
+            }
+        }
+        for (settlement, [escaped, put_out, caught, went_out, growing]) in counts {
+            let mut words = format!(
+                "Last month's household fires: {escaped} escaped; {put_out} were put out; {caught} reached a roof; {went_out} went out with nothing catching."
+            );
+            if growing > 0 {
+                words.push_str(&format!(
+                    " {growing} still grow inside at this month's beginning."
+                ));
+            }
+            self.chronicle_push(
+                now,
+                ChronicleKind::Fire,
+                Vec::new(),
+                settlement,
+                None,
+                f64::from(FireStep::Month as u8),
+                words,
+            );
+        }
+    }
+
+    /// Runs the calendar-month fire summary over recorded escapes (tests).
+    #[doc(hidden)]
+    pub fn fire_month_for_tests(&mut self, ctx: &Ctx) {
+        self.fire_month(ctx);
+    }
+
     /// Whether person `person` knows that a building of household `household` burns now: they
     /// were in it, woke to it or saw it (ADR-0022 §7; hearing a shout names no building). A fire
     /// burns at most as long as its stages last, so only the newest records are looked at.

@@ -1524,3 +1524,12 @@ The most important process result is a growing evidence trail: source code, test
 **Evidence:** controlled actual facts test an unavailable known walking catchment, then stored water; a decision fixture checks that only dousing disappears without the trip. The complete kernel workspace suite including doc tests, formatting, all-target clippy, pinned generated-schema freshness, the ten-world release smoke, commons checks, web build and all 173 web unit tests pass before commit. The preceding daily/refuge change passed all ten ten-year smoke worlds before this people change; an additional ten-year run on this slice is still underway and is not counted as a pass. This does not claim a physically waterless lived world or complete the response calibration.
 
 **Open:** crew demolition, fire seen and told, remaining page and chronicle reporting, the Help at a fire lens and the ignition sweep. The distant-fire knowledge concern recorded above is still open.
+
+
+## 2026-10-14 — BD reporting: the previous month's household fires
+
+**Changed:** the month's first daily step reports the previous calendar month's recorded household escapes by settlement. It counts escapes, those put out, those that reached a roof, those that went out and those still growing. Observer-set fires have no household escape to count. A quiet month adds no entry, and the aggregate is not linked to a fictitious individual fire. Save schema 97 explicitly reads schema 96 without backfilling summaries; content API 85 and wire 1.69 stay unchanged.
+
+**Focused evidence:** the monthly count and schema-96 migration checks pass on the preparation, including raw section equality and no invented history. All eighteen fire integration tests on that reporting preparation passed. The complete kernel workspace suite including doc tests, formatting, all-target clippy, flatc 25.12.19 schema freshness, commons checks, the ten-world release smoke, web build and all 173 web unit tests pass before commit.
+
+**Knowledge preparation:** limiting hot roofs to an episode the person knows, with a local-scene fallback before the first spread record, passes all nineteen fire tests, including the unknown distant-fire check and the existing response demonstrations. A further direct sight bound fails those demonstrations again (eighteen burned in both water arms; zero strips, four salvage loads). The assertions remain intact. This preparation is separate from this reporting slice and does not complete named accounts or personal perception.

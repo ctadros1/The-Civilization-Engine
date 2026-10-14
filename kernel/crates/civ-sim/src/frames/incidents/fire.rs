@@ -738,13 +738,15 @@ pub(super) fn chronicle_link(sim: &Sim, e: &ChronicleEvent) -> Option<(u8, u32)>
                             && first_at(c) == e.place
                     })
                     .map(|c| (CONFLAGRATION, c.id))
-            } else {
+            } else if step == FireStep::Ended as u8 {
                 fires
                     .episodes
                     .iter()
                     .rev()
                     .find(|c| c.ended == Some(e.at) && first_at(c) == e.place)
                     .map(|c| (CONFLAGRATION, c.id))
+            } else {
+                None
             }
         }
         ChronicleKind::Died if e.name == Cause::Burned.key() => {

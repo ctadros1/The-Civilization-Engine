@@ -1217,3 +1217,108 @@ fn threatened_roofs_still_offer_stripping_and_salvage_without_a_water_trip() {
             .is_some()
     );
 }
+
+#[test]
+fn the_monthly_chronicle_counts_household_escapes_and_excludes_observer_fires() {
+    use civ_agents::fire::{Hearth, Ignition};
+    use civ_agents::history::FireStep;
+    let (mut sim, _, buildings) = block_near_home(4, 3.0, 5.5);
+    assert_eq!(sim.now().date().day, 1);
+    let now = sim.now();
+    let before = sim.people().chronicle.len();
+    sim.with_ctx_for_tests(|p, c| p.fire_month_for_tests(c));
+    assert_eq!(
+        sim.people().chronicle.len(),
+        before,
+        "a quiet month adds no event"
+    );
+    let b = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == buildings[0])
+        .expect("building");
+    let owner = b.household;
+    let settlement = sim.people().household(owner).expect("household").settlement;
+    let who = sim.people().household(owner).expect("household").members[0];
+    let previous = now.plus_minutes(-1440);
+    let escaped = |id, at: civ_core::SimTime, put_out: bool| Ignition {
+        id,
+        at,
+        building: buildings[0],
+        household: owner,
+        settlement,
+        hearth: Hearth::Lit,
+        moisture: 0.05,
+        grows_min: 2.0,
+        ended: Some(at.plus_minutes(2)),
+        put_out_by: put_out.then_some(who),
+        fire: None,
+    };
+    sim.people_mut_for_tests().fires.ignitions = vec![
+        escaped(1, previous.plus_minutes(-32 * 1440), true),
+        escaped(2, previous, true),
+        escaped(3, previous.plus_minutes(10), true),
+        escaped(4, previous.plus_minutes(20), false),
+        escaped(5, now.plus_minutes(-10), true),
+    ];
+    sim.set_fire(buildings[1]).expect("observer fire");
+    sim.with_ctx_for_tests(|p, c| p.fire_month_for_tests(c));
+    let summary: Vec<_> = sim
+        .people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == ChronicleKind::Fire && e.number == f64::from(FireStep::Month as u8))
+        .collect();
+    assert_eq!(summary.len(), 1);
+    assert_eq!(summary[0].settlement, settlement);
+    assert!(
+        summary[0]
+            .name
+            .contains("3 escaped; 2 were put out; 0 reached a roof; 1 went out")
+    );
+    assert!(
+        summary[0].place.is_none(),
+        "an aggregate has no individual fire's location"
+    );
+}
+
+#[test]
+fn schema_96_fire_history_loads_without_inventing_monthly_entries() {
+    let (mut sim, _, buildings) = block_near_home(4, 3.0, 5.5);
+    sim.set_fire(buildings[0]).expect("observer fire");
+    let dir = tempfile::tempdir().expect("dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("saves");
+    let saved =
+        persist::save(&mut sim, &saves, SaveKind::Manual, "legacy fire history").expect("save");
+    let reader =
+        commons_persist::SnapshotReader::open_file(&saved.path, commons_persist::Limits::default())
+            .expect("reader");
+    let mut info = reader.info().clone();
+    info.schema_version = persist::SCHEMA_V96;
+    let sections = persist::encode_sections(&sim);
+    let legacy = commons_persist::publish_file(
+        dir.path(),
+        "legacy.tcesave",
+        &info,
+        &sections,
+        commons_persist::DEFAULT_ZSTD_LEVEL,
+    )
+    .expect("legacy");
+    let mut loaded = persist::load(&legacy.path, content()).expect("loads schema 96");
+    assert_eq!(sim.people().chronicle, loaded.people().chronicle);
+    for (before, after) in sections.iter().zip(persist::encode_sections(&loaded)) {
+        assert_eq!(before.bytes, after.bytes, "section {}", before.tag);
+    }
+    let resaved =
+        persist::save(&mut loaded, &saves, SaveKind::Manual, "current history").expect("resave");
+    let reader = commons_persist::SnapshotReader::open_file(
+        &resaved.path,
+        commons_persist::Limits::default(),
+    )
+    .expect("reader");
+    assert_eq!(
+        reader.info().schema_version,
+        civ_schema::SAVE_SCHEMA_VERSION
+    );
+}

@@ -20,7 +20,9 @@ pub const PURPOSE_WORD_HEARTH: u64 = 0x776f_7264_6865_6172; // "wordhear"
 /// its kind; so that other claims made or let go never move it (ADR-0016 §6).
 fn claim_key(c: &Claim) -> u64 {
     let whose = match c.kind {
-        ClaimKind::Sickness | ClaimKind::Suspicion => c.subject.map_or(0, PermanentId::get),
+        ClaimKind::Sickness | ClaimKind::Suspicion | ClaimKind::Fire => {
+            c.subject.map_or(0, PermanentId::get)
+        }
         _ => c.settlement.get(),
     };
     let source = c.suspected.map_or(0, |(place, _)| {
@@ -36,6 +38,8 @@ fn claim_key(c: &Claim) -> u64 {
 fn hearth_chance(c: &Claim, day: i64, wp: &crate::word::WordParams) -> Option<f64> {
     if call_ahead(c, day) {
         Some(wp.share_urgent)
+    } else if c.kind == ClaimKind::Fire {
+        Some(wp.share_routine)
     } else if c.kind.held_news() {
         Some(wp.share_sickness)
     } else {
@@ -52,6 +56,12 @@ fn call_ahead(c: &Claim, day: i64) -> bool {
 }
 
 impl Population {
+    /// Runs the ordinary household-contact routine in a controlled test context.
+    #[doc(hidden)]
+    pub fn household_word_for_tests(&mut self, ctx: &Ctx) {
+        self.word_day(ctx);
+    }
+
     /// Word that a gathering meets at `settlement` on `meets` (about law `law`, if called on one):
     /// the claim, made if it is new, and each of `first` hears it on `today` at first hand.
     pub(super) fn call_word(
@@ -65,6 +75,7 @@ impl Population {
         let claim = match self.word.gathering(settlement, meets) {
             Some(c) => c,
             None => self.word.make(Claim {
+                fire: None,
                 id: 0,
                 kind: ClaimKind::Gathering,
                 settlement,
@@ -113,6 +124,7 @@ impl Population {
         let claim = match self.word.petition(settlement, day) {
             Some(c) => c,
             None => self.word.make(Claim {
+                fire: None,
                 id: 0,
                 kind: ClaimKind::Petition,
                 settlement,
@@ -145,6 +157,7 @@ impl Population {
         let claim = match self.word.episode(kind, subject) {
             Some(c) => c,
             None => self.word.make(Claim {
+                fire: None,
                 id: 0,
                 kind,
                 settlement,
@@ -679,6 +692,7 @@ impl Population {
                 .map(|c| c.id);
             let claim = claim.unwrap_or_else(|| {
                 self.word.make(Claim {
+                    fire: None,
                     id: 0,
                     kind: ClaimKind::Grievance,
                     settlement,

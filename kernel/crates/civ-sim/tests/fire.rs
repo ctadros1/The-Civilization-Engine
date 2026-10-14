@@ -499,11 +499,25 @@ fn the_observer_sees_each_fire_its_conflagration_what_held_and_the_chronicle_s_l
         .expect("steps")
         .iter()
         .map(|s| (s.label().unwrap_or(""), s.state()))
+        .filter(|(label, _)| matches!(*label, "Caught" | "Fully involved" | "Burnt out"))
         .collect();
     assert_eq!(
         steps,
         vec![("Caught", 0), ("Fully involved", 0), ("Burnt out", 0)]
     );
+    let chain = info.steps().expect("steps");
+    assert!(
+        chain
+            .iter()
+            .filter(|s| s.state() == 0)
+            .all(|s| s.words().is_some_and(|w| !w.is_empty()))
+    );
+    let dated: Vec<_> = chain
+        .iter()
+        .filter(|s| s.state() == 0)
+        .map(|s| s.minute())
+        .collect();
+    assert!(dated.windows(2).all(|pair| pair[0] <= pair[1]));
     let links: Vec<(u8, u8)> = info
         .links()
         .expect("links")
@@ -1283,10 +1297,25 @@ fn the_monthly_chronicle_counts_household_escapes_and_excludes_observer_fires() 
     );
 }
 
+fn legacy_fire_word_state(s: &mut Sim) {
+    let ids: std::collections::BTreeSet<_> = s
+        .people()
+        .word
+        .claims
+        .iter()
+        .filter(|c| c.kind == civ_agents::word::ClaimKind::Fire)
+        .map(|c| c.id)
+        .collect();
+    let word = &mut s.people_mut_for_tests().word;
+    word.claims.retain(|c| !ids.contains(&c.id));
+    word.heard.retain(|h| !ids.contains(&h.claim));
+}
+
 #[test]
 fn schema_96_fire_history_loads_without_inventing_monthly_entries() {
     let (mut sim, _, buildings) = block_near_home(4, 3.0, 5.5);
     sim.set_fire(buildings[0]).expect("observer fire");
+    legacy_fire_word_state(&mut sim);
     let dir = tempfile::tempdir().expect("dir");
     let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("saves");
     let saved =
@@ -1722,6 +1751,7 @@ fn malformed_demolition_progress_is_refused_without_repair() {
 #[test]
 fn schema_97_loads_without_inventing_demolition_projects_or_records() {
     let (mut s, c, _, _) = demolition_site();
+    legacy_fire_word_state(&mut s);
     let sections = persist::encode_sections(&s);
     let dir = tempfile::tempdir().expect("dir");
     let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("saves");
@@ -1751,4 +1781,329 @@ fn schema_97_loads_without_inventing_demolition_projects_or_records() {
     for (a, b) in sections.iter().zip(persist::encode_sections(&loaded)) {
         assert_eq!(a.bytes, b.bytes, "section {}", a.tag);
     }
+}
+
+fn named_fire_site() -> (Sim, PermanentId, PermanentId, PermanentId) {
+    named_fire_with_positions(6.0, None)
+}
+
+fn named_fire_with_positions(
+    witness_dx: f32,
+    peer_dx: Option<f32>,
+) -> (Sim, PermanentId, PermanentId, PermanentId) {
+    let mut s = Sim::create_for_tests(&world_spec(4), content(), [7; 16]).expect("world");
+    s.advance_minutes(6 * 60).expect("settles");
+    let (household, at) = first(&s);
+    let members = s
+        .people()
+        .household(household)
+        .expect("household")
+        .members
+        .clone();
+    let (witness, peer) = (members[0], members[1]);
+    let other = s
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h.id)
+        .find(|&id| id != household)
+        .expect("other");
+    let source = hut(&mut s, other, (at.0 + 10.0, at.1));
+    for (_, p) in s.people_mut_for_tests().people.iter_mut() {
+        p.pos = (at.0 + 3000.0, at.1 + 3000.0);
+        p.trip = None;
+        p.asleep = true;
+        if p.id == witness {
+            p.pos = (at.0 + 10.0 + witness_dx, at.1);
+            p.asleep = false;
+        }
+        if p.id == peer {
+            p.asleep = false;
+            if let Some(dx) = peer_dx {
+                p.pos = (at.0 + 10.0 + dx, at.1);
+            }
+        }
+    }
+    s.set_fire(source).expect("fire");
+    (s, witness, peer, source)
+}
+
+fn fire_contact_at_home(s: &mut Sim, witness: PermanentId, peer: PermanentId) {
+    let hh = s.people().person(witness).expect("witness").household;
+    let home = s.people().household(hh).expect("home").home;
+    for (_, p) in s
+        .people_mut_for_tests()
+        .people
+        .iter_mut()
+        .filter(|(_, p)| p.id == witness || p.id == peer)
+    {
+        p.pos = home;
+        p.trip = None;
+        p.asleep = false;
+    }
+}
+
+#[test]
+fn a_named_found_burning_account_is_seen_then_told_by_household_contact() {
+    use civ_agents::word::ClaimKind;
+    let (mut s, witness, peer, source) = named_fire_site();
+    let claim = *s
+        .people()
+        .word
+        .claims
+        .iter()
+        .find(|c| c.kind == ClaimKind::Fire)
+        .expect("account");
+    assert_eq!(claim.subject, Some(source));
+    let f = s
+        .people()
+        .fires
+        .get(claim.fire.expect("fire reference"))
+        .expect("fire");
+    assert_eq!(f.building, source);
+    assert!(claim.grievance.is_none() && claim.suspected.is_none());
+    assert!(s.people().word.has_heard(witness, claim.id));
+    assert!(!s.people().word.has_heard(peer, claim.id));
+    assert!(!s.people().fires.knew.iter().any(|k| k.person == peer));
+    fire_contact_at_home(&mut s, witness, peer);
+    s.rules_mut_for_tests()
+        .expect("rules")
+        .people
+        .word
+        .share_home = 1.0;
+    s.with_ctx_for_tests(|p, ctx| p.household_word_for_tests(ctx));
+    let heard = s
+        .people()
+        .word
+        .heard_by(peer)
+        .iter()
+        .find(|h| h.claim == claim.id)
+        .expect("told");
+    assert_eq!(heard.from, Some(witness));
+    assert_eq!(heard.origin, Some(witness));
+    assert!(
+        !s.people().fires.knew.iter().any(|k| k.person == peer),
+        "contact is not a claimed sighting"
+    );
+}
+
+#[test]
+fn named_fire_accounts_and_their_telling_save_exactly_and_bad_references_are_refused() {
+    use civ_agents::word::ClaimKind;
+    let (mut s, witness, peer, _) = named_fire_site();
+    fire_contact_at_home(&mut s, witness, peer);
+    s.rules_mut_for_tests()
+        .expect("rules")
+        .people
+        .word
+        .share_home = 1.0;
+    s.with_ctx_for_tests(|p, ctx| p.household_word_for_tests(ctx));
+    let dir = tempfile::tempdir().expect("dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("saves");
+    let saved = persist::save(&mut s, &saves, SaveKind::Manual, "fire account").expect("save");
+    let loaded = persist::load(&saved.path, content()).expect("load");
+    for (a, b) in persist::encode_sections(&s)
+        .iter()
+        .zip(persist::encode_sections(&loaded))
+    {
+        assert_eq!(a.bytes, b.bytes, "section {}", a.tag);
+    }
+    for case in 0..4 {
+        let mut bad = persist::load(&saved.path, content()).expect("baseline");
+        let tomorrow = bad.now().day_index() + 1;
+        let c = bad
+            .people_mut_for_tests()
+            .word
+            .claims
+            .iter_mut()
+            .find(|c| c.kind == ClaimKind::Fire)
+            .expect("claim");
+        match case {
+            0 => c.fire = Some(u32::MAX),
+            1 => c.subject = Some(PermanentId::from_raw(u64::MAX).expect("id")),
+            2 => c.day = tomorrow,
+            _ => c.fire = None,
+        }
+        let bad_save = persist::save(&mut bad, &saves, SaveKind::Manual, "invalid account")
+            .expect("writes test state");
+        assert!(
+            persist::load(&bad_save.path, content()).is_err(),
+            "case {case}"
+        );
+    }
+}
+
+#[test]
+fn hearing_an_alarm_does_not_prevent_later_sighting_and_a_named_account() {
+    use civ_agents::fire::Noticed;
+    use civ_agents::word::ClaimKind;
+    let (mut s, _, peer, source) = named_fire_with_positions(140.0, Some(190.0));
+    let fire = s
+        .people()
+        .fires
+        .list
+        .iter()
+        .find(|f| f.building == source)
+        .expect("fire")
+        .id;
+    assert!(
+        s.people()
+            .fires
+            .knew
+            .iter()
+            .any(|k| k.person == peer && k.fire == fire && k.how == Noticed::Heard)
+    );
+    let claim = s
+        .people()
+        .word
+        .claims
+        .iter()
+        .find(|c| c.kind == ClaimKind::Fire && c.fire == Some(fire))
+        .expect("account")
+        .id;
+    assert!(
+        !s.people().word.has_heard(peer, claim),
+        "alarm does not name the building"
+    );
+    let at = build::centre_m(
+        &s.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == source)
+            .expect("building")
+            .spec,
+    );
+    for (_, p) in s
+        .people_mut_for_tests()
+        .people
+        .iter_mut()
+        .filter(|(_, p)| p.id == peer)
+    {
+        p.pos = (at.0 + 6.0, at.1);
+        p.trip = None;
+        p.asleep = false;
+    }
+    s.advance_minutes(2).expect("sees it");
+    assert!(
+        s.people()
+            .fires
+            .knew
+            .iter()
+            .any(|k| k.person == peer && k.fire == fire && k.how == Noticed::Saw)
+    );
+    assert!(s.people().word.has_heard(peer, claim));
+}
+
+#[test]
+fn schema_98_keeps_sightings_without_inventing_named_accounts() {
+    let (mut s, _, _, _) = named_fire_site();
+    legacy_fire_word_state(&mut s);
+    let dir = tempfile::tempdir().expect("dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("saves");
+    let saved = persist::save(&mut s, &saves, SaveKind::Manual, "old sightings").expect("save");
+    let reader =
+        commons_persist::SnapshotReader::open_file(&saved.path, commons_persist::Limits::default())
+            .expect("reader");
+    let mut info = reader.info().clone();
+    info.schema_version = 98;
+    let sections = persist::encode_sections(&s);
+    let legacy = commons_persist::publish_file(
+        dir.path(),
+        "legacy.tcesave",
+        &info,
+        &sections,
+        commons_persist::DEFAULT_ZSTD_LEVEL,
+    )
+    .expect("legacy");
+    let loaded = persist::load(&legacy.path, content()).expect("loads 98");
+    assert!(!loaded.people().fires.knew.is_empty());
+    assert!(
+        !loaded
+            .people()
+            .word
+            .claims
+            .iter()
+            .any(|c| c.kind == civ_agents::word::ClaimKind::Fire)
+    );
+    for (a, b) in sections.iter().zip(persist::encode_sections(&loaded)) {
+        assert_eq!(a.bytes, b.bytes, "section {}", a.tag);
+    }
+}
+
+#[test]
+fn knowing_a_fire_does_not_offer_help_at_an_unknown_distant_fire() {
+    let (mut sim, _, buildings) = block_near_home(4, 3.0, 5.5);
+    let owner = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == buildings[0])
+        .expect("building")
+        .household;
+    let actor = sim.people().household(owner).expect("household").members[0];
+    let at = build::centre_m(
+        &sim.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == buildings[0])
+            .expect("building")
+            .spec,
+    );
+    {
+        let p = sim
+            .people_mut_for_tests()
+            .people
+            .iter_mut()
+            .find(|(_, p)| p.id == actor)
+            .map(|(_, p)| p)
+            .expect("actor");
+        p.pos = at;
+        p.trip = None;
+        p.asleep = false;
+    }
+    sim.set_fire(buildings[0]).expect("known fire");
+    sim.advance_minutes(2).expect("notices");
+    assert!(sim.people().fires.knew.iter().any(|k| k.person == actor));
+    let distant = hut(&mut sim, owner, (at.0 + 500.0, at.1));
+    let threatened = hut(&mut sim, owner, (at.0 + 510.0, at.1));
+    sim.set_fire(distant).expect("distant fire");
+    let remote_fire = sim.people().fires.list.last().expect("remote fire").id;
+    assert!(
+        !sim.people()
+            .fires
+            .knew
+            .iter()
+            .any(|k| k.person == actor && k.fire == remote_fire)
+    );
+    sim.people_mut_for_tests().fires.exposure = vec![(buildings[1], 5000.0), (threatened, 5000.0)];
+    let facts = sim
+        .with_ctx_for_tests(|pop, ctx| pop.fire_facts_for_tests(ctx, actor, owner, 100.0))
+        .expect("known fire has a threatened roof");
+    assert!(facts.targets.iter().any(|t| t.building == buildings[1]));
+    assert!(!facts.targets.iter().any(|t| t.building == threatened));
+    let expected: Vec<_> = facts.targets.iter().map(|t| t.building).collect();
+    // Historical episode grouping is not a person's perception of another scene.
+    let first_fire = sim.people().fires.list[0].clone();
+    let episode = sim.people().fires.episodes.len() as u32 + 1;
+    sim.people_mut_for_tests()
+        .fires
+        .episodes
+        .push(civ_agents::fire::Conflagration {
+            id: episode,
+            settlement: first_fire.settlement,
+            first: first_fire.id,
+            began: first_fire.began,
+            ended: None,
+        });
+    for f in &mut sim.people_mut_for_tests().fires.list {
+        f.episode = Some(episode);
+    }
+    sim.people_mut_for_tests().fires.weighed.clear();
+    let after = sim
+        .with_ctx_for_tests(|pop, ctx| pop.fire_facts_for_tests(ctx, actor, owner, 100.0))
+        .expect("same physical scene");
+    assert_eq!(
+        after.targets.iter().map(|t| t.building).collect::<Vec<_>>(),
+        expected
+    );
 }

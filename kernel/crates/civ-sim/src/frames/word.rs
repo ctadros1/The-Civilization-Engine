@@ -164,6 +164,19 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
                 None => format!("{who} holds that a source of water sickens"),
             }
         }
+        ClaimKind::Fire => {
+            let on = day_words(SimTime::from_minutes(c.day * DAY));
+            let at = c.fire.and_then(|id| sim.people.fires.get(id)).map_or_else(
+                || "a building".to_owned(),
+                |f| {
+                    format!(
+                        "a building of {}",
+                        super::people::household_name(sim, f.household)
+                    )
+                },
+            );
+            format!("{at} was found burning on {on}; this account names no cause")
+        }
         ClaimKind::Sickness => {
             let from = day_words(SimTime::from_minutes(c.day * DAY));
             match c.subject {
@@ -529,6 +542,7 @@ pub fn news_lines<'a>(
             // Another household's sickness, or another's suspicion, while it is news (M6a slice BA).
             ClaimKind::Sickness => c.subject != Some(p.household),
             ClaimKind::Suspicion => c.subject != Some(p.id),
+            ClaimKind::Fire => true,
             _ => c.day >= today,
         })
         .take(MAX_NEWS_SHOWN)
@@ -624,7 +638,7 @@ fn whisper_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
             })
         }),
         // What people do of sickness they heard of is slice BA's later steps.
-        ClaimKind::Sickness | ClaimKind::Suspicion => None,
+        ClaimKind::Sickness | ClaimKind::Suspicion | ClaimKind::Fire => None,
         ClaimKind::Grievance => {
             let against = c.grievance.map(|g| g.0);
             let m = pop.factions.membership(p).copied();

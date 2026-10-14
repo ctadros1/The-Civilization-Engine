@@ -246,16 +246,18 @@ fn knowledge_lines(sim: &Sim, f: &Fire, summary: &str) -> Vec<String> {
     if at_start.is_empty() {
         if !knew.is_empty() {
             lines.push(
-                "Nobody saw it start: to those who know of it, it was found burning".to_owned(),
+                "No start observation is recorded: to those who know of it, it was found burning"
+                    .to_owned(),
             );
         }
     } else {
-        let what = match f.kindled {
-            Kindled::Neighbour { .. } => "its roof catch from the fire beside it",
-            _ => "its roof catch",
-        };
+        let what = "its roof catch";
         lines.push(format!("{} saw {what}", names_list(&at_start)));
     }
+    lines.push(
+        "No cause account is recorded; observing a roof catch does not identify its cause."
+            .to_owned(),
+    );
     if let Some(last) = knew.iter().rev().find(|k| k.how == Noticed::Heard) {
         let heard = knew.iter().filter(|k| k.how == Noticed::Heard).count();
         lines.push(format!(
@@ -263,6 +265,38 @@ fn knowledge_lines(sim: &Sim, f: &Fire, summary: &str) -> Vec<String> {
             if heard == 1 { "person" } else { "people" },
             clock(last.at)
         ));
+    }
+    let accounts: std::collections::BTreeSet<u32> = sim
+        .people
+        .word
+        .claims
+        .iter()
+        .filter(|c| c.kind == civ_agents::word::ClaimKind::Fire && c.fire == Some(f.id))
+        .map(|c| c.id)
+        .collect();
+    let holders: Vec<_> = sim
+        .people
+        .word
+        .heard
+        .iter()
+        .filter(|h| accounts.contains(&h.claim))
+        .collect();
+    if !holders.is_empty() {
+        let told = holders.iter().filter(|h| h.from.is_some()).count();
+        lines.push(format!("{} people hold a dated found-burning account; {told} received it by contact. It names no cause.", holders.len()));
+        if let Some(h) = holders
+            .iter()
+            .filter(|h| h.from.is_some())
+            .min_by_key(|h| h.first)
+        {
+            lines.push(format!(
+                "First recorded telling: {} heard it from {} on {}.",
+                sim.people.name_of(h.holder),
+                h.from
+                    .map_or_else(|| "someone".to_owned(), |p| sim.people.name_of(p)),
+                day_words(civ_core::SimTime::from_minutes(h.first * 1440))
+            ));
+        }
     }
     lines
 }
@@ -459,6 +493,60 @@ fn thrown_line(sim: &Sim, root: u32) -> Option<String> {
 
 /// A fire's page: its stages, what started it, the conflagration it is part of, and its three
 /// layers.
+fn response_steps(sim: &Sim, f: &Fire) -> Vec<Step> {
+    let fires = &sim.people.fires;
+    let root = fires.root(f.id);
+    let relevant = |fire: u32, building: PermanentId| {
+        fire == root && (building == f.building || (f.id == root && f.episode.is_none()))
+    };
+    let mut steps = Vec::new();
+    for t in &fires.thrown {
+        if relevant(t.fire, t.building) {
+            steps.push(Step::at("Water delivered", t.at.minutes(), format!(
+                "{} threw {:.1} L on {} to wet its covering against the fire; water was obtained before delivery",
+                sim.people.name_of(t.person), t.litres, building_words(sim, t.building))));
+        }
+    }
+    for t in &fires.stripped {
+        if relevant(t.fire, t.building) {
+            steps.push(Step::at("Covering stripped", t.at.minutes(), format!(
+                "{} removed {:.1} m² from {} to remove fuel exposed to the fire; the covering was lost",
+                sim.people.name_of(t.person), t.m2, building_words(sim, t.building))));
+        }
+    }
+    for t in &fires.salvaged {
+        if relevant(t.fire, t.building) {
+            let good = sim
+                .rules
+                .catalog
+                .goods
+                .get(usize::from(t.good))
+                .map_or("goods", |g| g.name.as_str());
+            steps.push(Step::at(
+                "Goods carried out",
+                t.at.minutes(),
+                format!(
+                    "{} moved {:.1} kg of {good} out from {} and away from the fire",
+                    sim.people.name_of(t.person),
+                    t.kg,
+                    building_words(sim, t.building)
+                ),
+            ));
+        }
+    }
+    for t in &fires.pulled {
+        if relevant(t.fire, t.building) {
+            steps.push(Step::at("Building pulled down", t.at.minutes(), format!(
+                "A crew of {} pulled down {} to break the fire's path; {:.2} person-hours, all parts lost",
+                t.people.len(), building_words(sim, t.building), t.work_h)));
+        }
+    }
+    steps.sort_by_key(|s| s.at);
+    // Full quantities remain in the summary; a long bucket chain does not swamp the page.
+    steps.truncate(30);
+    steps
+}
+
 pub(super) fn fire_page(sim: &Sim, f: &Fire) -> Page {
     let fires = &sim.people.fires;
     let p = &sim.rules.people.fire;
@@ -472,14 +560,64 @@ pub(super) fn fire_page(sim: &Sim, f: &Fire) -> Page {
             } else {
                 "nothing that burns lay under its roof".to_owned()
             };
-            Step::at("Fully involved", t.minutes(), goods)
+            Step::at("Fully involved", t.minutes(), format!(
+                "The covering fire developed into the building's full burn after {:.0} minutes; {goods}", p.involve_minutes))
         }
         None => Step::not_reached("Fully involved", "not yet"),
     });
     steps.push(match f.ended {
-        Some(t) => Step::at("Burnt out", t.minutes(), String::new()),
+        Some(t) => Step::at(
+            "Burnt out",
+            t.minutes(),
+            "The building's burning stages finished; consumed parts and goods remain lost"
+                .to_owned(),
+        ),
         None => Step::not_reached("Burnt out", "it burns"),
     });
+    if let Kindled::Ignition { ignition } = f.kindled
+        && let Some(g) = ignition
+            .checked_sub(1)
+            .and_then(|i| fires.ignitions.get(i as usize))
+    {
+        steps.push(Step::at("Household fire escaped", g.at.minutes(), format!(
+            "A fire in use escaped with nobody awake beside it to put it out; it grew for {:.0} minutes before reaching the roof", g.grows_min)));
+    }
+    if let Some(k) = fires
+        .knew
+        .iter()
+        .find(|k| k.fire == f.id && k.how != Noticed::Heard)
+    {
+        steps.push(Step::at(
+            "First recorded notice",
+            k.at.minutes(),
+            format!(
+                "{} {}",
+                sim.people.name_of(k.person),
+                match k.how {
+                    Noticed::Inside => "was awake inside",
+                    Noticed::Woke => "woke to the fire inside",
+                    Noticed::Saw => "saw it burning",
+                    Noticed::Heard => "heard an alarm",
+                }
+            ),
+        ));
+    }
+    if let Some(k) = fires
+        .knew
+        .iter()
+        .find(|k| k.fire == f.id && k.how == Noticed::Heard)
+    {
+        steps.push(Step::at(
+            "Alarm first heard",
+            k.at.minutes(),
+            format!(
+                "{} heard a nearby shout; hearing the alarm alone names no cause",
+                sim.people.name_of(k.person)
+            ),
+        ));
+    }
+    steps.extend(response_steps(sim, f));
+    steps.sort_by_key(|s| s.at.map_or(i64::MAX, |(minute, _)| minute));
     let mut links = vec![cause];
     if let Some(c) = f.episode.and_then(|e| fires.episodes.get(e as usize - 1)) {
         let first = if c.first == f.id {

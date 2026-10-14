@@ -323,6 +323,8 @@ pub const SCHEMA_V95: u32 = 95;
 pub const SCHEMA_V96: u32 = 96;
 /// Monthly fire summaries before saved demolition work and crew records.
 pub const SCHEMA_V97: u32 = 97;
+/// Demolition before named found-burning accounts.
+pub const SCHEMA_V98: u32 = 98;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

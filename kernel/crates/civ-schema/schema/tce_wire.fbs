@@ -1127,7 +1127,8 @@ table GrievanceLine {
 
 // A claim a person has heard (wire 1.34, ADR-0016 §3).
 table HeardLine {
-  // 0 a gathering called, 1 a grievance told.
+  // 0 gathering, 1 grievance, 2 petition, 3 refusal, 4 revolt, 5 sickness, 6 suspicion.
+  // Wire 1.70: 7 a building found burning; the words assert no cause.
   kind: ubyte (id: 0);
   // What it says, in words rendered by the kernel ("a gathering meets on 3 May of year 2 on a
   // common store, taking a tenth of each harvest"; "Bo holds a grievance against the gathering

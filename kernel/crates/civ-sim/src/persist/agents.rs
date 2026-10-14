@@ -115,7 +115,7 @@ use super::{
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
-    SCHEMA_V97, finish, section, single_chunk, unreadable,
+    SCHEMA_V97, SCHEMA_V98, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -516,6 +516,7 @@ enum Schema {
     V96,
     V97,
     V98,
+    V99,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -628,7 +629,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V95 => Schema::V95,
         SCHEMA_V96 => Schema::V96,
         SCHEMA_V97 => Schema::V97,
-        SAVE_SCHEMA_VERSION => Schema::V98,
+        SCHEMA_V98 => Schema::V98,
+        SAVE_SCHEMA_VERSION => Schema::V99,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -975,6 +977,28 @@ pub(super) fn decode<R: Read + Seek>(
         land.flood_depths = land
             .floodplain
             .flood_depth_raster(map, &land.reach_discharges);
+    }
+    for c in &people.word.claims {
+        if c.kind == civ_agents::word::ClaimKind::Fire {
+            let f = c.fire.and_then(|id| people.fires.get(id)).ok_or_else(|| {
+                LoadError::Malformed("fire account names no recorded fire".to_owned())
+            })?;
+            if schema < Schema::V99
+                || c.subject != Some(f.building)
+                || c.day < f.began.day_index()
+                || c.day > now.day_index()
+                || c.grievance.is_some()
+                || c.suspected.is_some()
+            {
+                return Err(LoadError::Malformed(
+                    "invalid found-burning account".to_owned(),
+                ));
+            }
+        } else if c.fire.is_some() {
+            return Err(LoadError::Malformed(
+                "a non-fire claim names a fire".to_owned(),
+            ));
+        }
     }
     for p in &people.fires.pulled {
         let bad = p.work_h <= 0.0
@@ -3296,7 +3320,8 @@ fn carried(
         | Schema::V95
         | Schema::V96
         | Schema::V97
-        | Schema::V98 => {
+        | Schema::V98
+        | Schema::V99 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3509,7 +3534,8 @@ fn decode_households(
             | Schema::V95
             | Schema::V96
             | Schema::V97
-            | Schema::V98 => {
+            | Schema::V98
+            | Schema::V99 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -6338,6 +6364,7 @@ fn encode_word(word: &civ_agents::word::Word) -> Vec<u8> {
                     place_kind,
                     place,
                     counts,
+                    fire: c.fire.unwrap_or(0),
                 },
             )
         })
@@ -6461,6 +6488,7 @@ fn decode_word(bytes: &[u8]) -> Result<civ_agents::word::Word, LoadError> {
             subject: id(c.subject()),
             grievance,
             suspected,
+            fire: (c.fire() != 0).then_some(c.fire()),
         });
     }
     if !word.claims.windows(2).all(|w| w[0].id < w[1].id) {

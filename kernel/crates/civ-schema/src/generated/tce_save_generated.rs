@@ -31360,6 +31360,7 @@ impl<'a> ClaimSave<'a> {
   pub const VT_PLACE_KIND: ::flatbuffers::VOffsetT = 20;
   pub const VT_PLACE: ::flatbuffers::VOffsetT = 22;
   pub const VT_COUNTS: ::flatbuffers::VOffsetT = 24;
+  pub const VT_FIRE: ::flatbuffers::VOffsetT = 26;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -31376,6 +31377,7 @@ impl<'a> ClaimSave<'a> {
     builder.add_subject(args.subject);
     builder.add_day(args.day);
     builder.add_settlement(args.settlement);
+    builder.add_fire(args.fire);
     if let Some(x) = args.counts { builder.add_counts(x); }
     builder.add_id(args.id);
     builder.add_place_kind(args.place_kind);
@@ -31463,6 +31465,13 @@ impl<'a> ClaimSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u16>>>(ClaimSave::VT_COUNTS, None)}
   }
+  #[inline]
+  pub fn fire(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ClaimSave::VT_FIRE, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ClaimSave<'_> {
@@ -31482,6 +31491,7 @@ impl ::flatbuffers::Verifiable for ClaimSave<'_> {
      .visit_field::<u8>("place_kind", Self::VT_PLACE_KIND, false)?
      .visit_field::<u64>("place", Self::VT_PLACE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u16>>>("counts", Self::VT_COUNTS, false)?
+     .visit_field::<u32>("fire", Self::VT_FIRE, false)?
      .finish();
     Ok(())
   }
@@ -31498,6 +31508,7 @@ pub struct ClaimSaveArgs<'a> {
     pub place_kind: u8,
     pub place: u64,
     pub counts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u16>>>,
+    pub fire: u32,
 }
 impl<'a> Default for ClaimSaveArgs<'a> {
   #[inline]
@@ -31514,6 +31525,7 @@ impl<'a> Default for ClaimSaveArgs<'a> {
       place_kind: 255,
       place: 0,
       counts: None,
+      fire: 0,
     }
   }
 }
@@ -31568,6 +31580,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ClaimSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ClaimSave::VT_COUNTS, counts);
   }
   #[inline]
+  pub fn add_fire(&mut self, fire: u32) {
+    self.fbb_.push_slot::<u32>(ClaimSave::VT_FIRE, fire, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ClaimSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ClaimSaveBuilder {
@@ -31596,6 +31612,7 @@ impl ::core::fmt::Debug for ClaimSave<'_> {
       ds.field("place_kind", &self.place_kind());
       ds.field("place", &self.place());
       ds.field("counts", &self.counts());
+      ds.field("fire", &self.fire());
       ds.finish()
   }
 }

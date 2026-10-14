@@ -2428,10 +2428,19 @@ and M6a gives rivers a daily flow.
       and chronicle. Save schema 98 stores partial work and explicitly migrates 97 with none;
       content API 86 authors crew size, hours per area and choice cost. Controlled scheduled
       crews are tested; autonomous crew formation and response calibration are not claimed.
+    - *Named accounts and reporting implemented (2026-10-14, §9):* being inside, waking to or
+      seeing a roof burning creates a dated account naming its building, not a cause. Ordinary
+      household/hearth contact carries it with its source. A generic alarm does not prevent a
+      later direct sighting. Fire task awareness uses recent personal records and connected
+      physical scenes, independently of historical episode grouping or spread diagnostics.
+      Pages date the escape, notice, alarm and recorded water, stripping, salvage and demolition
+      work; physical stages explain what happened. A long response chain shows its first thirty
+      work steps with complete quantity summaries. Save schema 99 migrates 98 without invented
+      named accounts; content API 86 stays, wire 1.70 appends claim kind 7.
     - *BE persistence repair (2026-10-13):* fire caution by covering and wall kind is now saved
       in schema 94; saves through 93 begin with no remembered fire losses, since none was stored.
-      Fire seen and told, fuller page/chronicle reporting,
-      the Help at a fire lens and the calibration sweep remain open.
+      The Help at a fire lens and calibration sweep remain open. Scene awareness remains a
+      coarse connected-scene model, without terrain occlusion or individual sight bounds.
   - **BE**: masonry, brick and tile.
     - Goods (mud brick, brick, roof tile, quicklime), a kiln, and techniques. Founders bring
       rubble walling and mud brick; firing and lime burning come by finding.
@@ -3182,3 +3191,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **M6b dashboard documentation correction (2026-10-14):** BF already supplies an ungraded `Floods and storms` row. Earlier follow-up notes incorrectly called the row absent; its local/exposure counts, observer-origin partitions and grading remain incomplete. The Fires row also needs to keep observer-caused spread and deaths out of natural losses; that reporting repair is being prepared with calibration.
 
 - **No-water fire-choice ten-year follow-up (2026-10-14):** the additional release smoke on `ba5cd14` passes all ten worlds and the matrix survival gate; eight bands survive, coastal seed 5 and valley seed 5 die out as permitted. It validates that source before the crew-demolition change, not later preparations; contended wall times are not a benchmark.
+
+- **BD found-burning accounts and physical scenes (2026-10-14):** direct records create shared immutable dated accounts, carried by actual household/hearth contact, with no asserted cause. Heard alarms remain distinct from direct sightings. Risk facts no longer use historical episode grouping or spread diagnostics to extend awareness: recent personal records anchor a connected physical scene. A historical regrouping test keeps a distant fire unknown. This remains coarse scene awareness, not full individual visibility or terrain occlusion. Save schema 99 adds the claim's fire reference and explicitly reads 98 without backfill; invalid references, dates and mixed claim payloads are refused. Wire 1.70 appends HeardLine kind 7 under ADR-0001; existing fields retain their ids and types. Content API 86 stays unchanged.

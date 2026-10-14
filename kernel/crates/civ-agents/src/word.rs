@@ -34,11 +34,13 @@ pub enum ClaimKind {
     /// Someone holds that a source of water sickens, by the counts of their own tally (M6a slice
     /// BA, step two, ADR-0021 §6).
     Suspicion = 6,
+    /// A building was found burning, with no cause asserted.
+    Fire = 7,
 }
 
 impl ClaimKind {
     /// Every kind, in code order.
-    pub const ALL: [ClaimKind; 7] = [
+    pub const ALL: [ClaimKind; 8] = [
         ClaimKind::Gathering,
         ClaimKind::Grievance,
         ClaimKind::Petition,
@@ -46,12 +48,16 @@ impl ClaimKind {
         ClaimKind::Revolt,
         ClaimKind::Sickness,
         ClaimKind::Suspicion,
+        ClaimKind::Fire,
     ];
 
     /// Whether claims of this kind are news while they are held (a household's sickness, a
     /// suspicion), told at home and at the hearth until let go.
     pub fn held_news(self) -> bool {
-        matches!(self, ClaimKind::Sickness | ClaimKind::Suspicion)
+        matches!(
+            self,
+            ClaimKind::Sickness | ClaimKind::Suspicion | ClaimKind::Fire
+        )
     }
 
     /// Its number in saves.
@@ -106,6 +112,8 @@ pub struct Claim {
     pub grievance: Option<(Blamed, Grieved)>,
     /// For a suspicion: the source and the counts it was told with.
     pub suspected: Option<(Place, Counts)>,
+    /// The recorded fire a found-burning account names; never its cause.
+    pub fire: Option<u32>,
 }
 
 /// That `holder` heard claim `claim` (ADR-0016 §3).
@@ -304,6 +312,7 @@ impl Word {
                 c.day < today
             }
             ClaimKind::Grievance => last + news_days < today,
+            ClaimKind::Fire => c.day + news_days < today,
             ClaimKind::Sickness | ClaimKind::Suspicion => c.day + sickness_days < today,
         };
         let claims = &self.claims;
@@ -621,6 +630,7 @@ mod tests {
     fn hearing_is_once_per_claim_and_retellings_keep_their_origin() {
         let mut w = Word::default();
         let c = w.make(Claim {
+            fire: None,
             id: 0,
             kind: ClaimKind::Gathering,
             settlement: id(1),
@@ -650,6 +660,7 @@ mod tests {
     fn a_household_s_sickness_is_news_for_its_days_and_the_latest_is_found() {
         let mut w = Word::default();
         let sick = |day| Claim {
+            fire: None,
             id: 0,
             kind: ClaimKind::Sickness,
             settlement: id(1),
@@ -675,6 +686,7 @@ mod tests {
     fn what_the_dead_held_goes_with_them() {
         let mut w = Word::default();
         let c = w.make(Claim {
+            fire: None,
             id: 0,
             kind: ClaimKind::Gathering,
             settlement: id(1),

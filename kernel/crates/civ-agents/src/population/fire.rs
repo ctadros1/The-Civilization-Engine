@@ -151,6 +151,45 @@ fn chars(kind: GroupKind) -> bool {
 }
 
 impl Population {
+    /// A direct observation becomes a dated account; an alarm alone names no building.
+    fn fire_word(&mut self, knew: Knew) {
+        if knew.how == Noticed::Heard {
+            return;
+        }
+        let Some(f) = self.fires.get(knew.fire) else {
+            return;
+        };
+        let (fire, building, household) = (f.id, f.building, f.household);
+        let Some(settlement) = self.household(household).and_then(|h| h.settlement) else {
+            return;
+        };
+        let claim = self
+            .word
+            .claims
+            .iter()
+            .find(|c| c.kind == crate::word::ClaimKind::Fire && c.fire == Some(fire))
+            .map(|c| c.id)
+            .unwrap_or_else(|| {
+                self.word.make(crate::word::Claim {
+                    id: 0,
+                    kind: crate::word::ClaimKind::Fire,
+                    settlement,
+                    day: knew.at.day_index(),
+                    subject: Some(building),
+                    grievance: None,
+                    suspected: None,
+                    fire: Some(fire),
+                })
+            });
+        self.word.hear(
+            knew.person,
+            claim,
+            knew.at.day_index(),
+            None,
+            Some(knew.person),
+        );
+    }
+
     /// On the month's first day, tell the previous month's household-fire escapes.
     pub(super) fn fire_month(&mut self, ctx: &Ctx) {
         let now = ctx.now;
@@ -511,7 +550,7 @@ impl Population {
         let p = self.people.get(h)?;
         let (me, age, pos) = (p.id, p.age_years(now), p.pos);
         let fp = &ctx.params.fire;
-        // The conflagrations (or lone fires) burning now, and whether they know of one.
+        // Burning groups identify goods already carried out; they do not supply perception.
         let roots: Vec<u32> = self
             .fires
             .list
@@ -520,19 +559,25 @@ impl Population {
             .map(|f| self.fires.root(f.id))
             .collect();
         let span = (fp.involve_minutes + fp.involved_minutes).ceil() as i64 + 1;
-        let since = roots
+        let since = self
+            .fires
+            .list
             .iter()
-            .filter_map(|&r| self.fires.get(r).map(|f| f.began.minutes()))
+            .filter(|f| f.burning())
+            .map(|f| f.began.minutes())
             .min()
-            .unwrap_or(now.minutes() - span);
-        let knows = self
+            .unwrap_or(now.minutes())
+            - span;
+        let known: std::collections::BTreeSet<u32> = self
             .fires
             .knew
             .iter()
             .rev()
             .take_while(|k| k.at.minutes() >= since)
-            .any(|k| k.person == me && roots.contains(&self.fires.root(k.fire)));
-        if !knows {
+            .filter(|k| k.person == me)
+            .map(|k| k.fire)
+            .collect();
+        if known.is_empty() {
             return None;
         }
         // Where a load of water comes from.
@@ -552,6 +597,54 @@ impl Population {
         };
         let speed = interpolate(&ctx.params.walk_speed_by_age, age).max(0.05) * 60.0;
         let kin = self.kin_households(hh);
+        let plots = plot_boxes(ctx.land);
+        let observed: Vec<Outline> = self
+            .fires
+            .list
+            .iter()
+            .filter(|f| known.contains(&f.id))
+            .filter_map(|f| ctx.land.buildings.iter().find(|b| b.id == f.building))
+            .filter_map(|b| outline_of(&plots, b))
+            .collect();
+        let burning: Vec<(u32, Outline)> = self
+            .fires
+            .list
+            .iter()
+            .filter(|f| f.burning())
+            .filter_map(|f| {
+                ctx.land
+                    .buildings
+                    .iter()
+                    .find(|b| b.id == f.building)
+                    .and_then(|b| outline_of(&plots, b))
+                    .map(|o| (f.id, o))
+            })
+            .collect();
+        // A connected physical scene, anchored in this person's recent records. Neither
+        // causes, episode membership nor historical spread diagnostics supply knowledge.
+        let mut included = std::collections::BTreeSet::new();
+        let mut known_sources = Vec::new();
+        loop {
+            let before = included.len();
+            for &(id, outline) in &burning {
+                if !included.contains(&id)
+                    && (known.contains(&id)
+                        || observed
+                            .iter()
+                            .chain(&known_sources)
+                            .any(|source| source.gap(&outline) <= fp.reach_m))
+                {
+                    included.insert(id);
+                    known_sources.push(outline);
+                }
+            }
+            if included.len() == before {
+                break;
+            }
+        }
+        if known_sources.is_empty() {
+            return None;
+        }
         let exposed: Vec<(PermanentId, f64)> = self
             .fires
             .exposure
@@ -570,6 +663,16 @@ impl Population {
             else {
                 continue;
             };
+            // Consider the physical scene of a fire they know, not unrelated distant heat.
+            // Historical spread diagnostics never supply a person's task facts.
+            let beside = outline_of(&plots, &b).is_some_and(|o| {
+                known_sources
+                    .iter()
+                    .any(|source| source.gap(&o) <= fp.reach_m)
+            });
+            if !beside {
+                continue;
+            }
             let Some(threshold) = self.catch_threshold(ctx, &b) else {
                 continue;
             };
@@ -1430,7 +1533,10 @@ impl Population {
         for k in &self.fires.knew[start..] {
             let root = self.fires.root(k.fire);
             if roots.contains(&root) {
-                knows_fire.insert((k.fire, k.person));
+                // An unnamed alarm is not a sighting; approaching it can add a direct account.
+                if k.how != Noticed::Heard {
+                    knows_fire.insert((k.fire, k.person));
+                }
                 knows_root.insert((root, k.person));
             }
         }
@@ -1465,6 +1571,7 @@ impl Population {
         }
         for (h, knew, new_to_it) in seen {
             self.fires.knew.push(knew);
+            self.fire_word(knew);
             if new_to_it {
                 self.stop_and_think(ctx, h);
             }
@@ -1656,13 +1763,15 @@ impl Population {
                 // Woken by it, they know of it, and shout if it is news to them.
                 let (fire, root) = self.knows_of(id, who);
                 if !fire {
-                    self.fires.knew.push(Knew {
+                    let knew = Knew {
                         fire: id,
                         person: who,
                         at: ctx.now,
                         how: Noticed::Woke,
                         shouted: root,
-                    });
+                    };
+                    self.fires.knew.push(knew);
+                    self.fire_word(knew);
                 }
             }
             // Out, and deciding again; their home is not where they will go.

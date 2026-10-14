@@ -1544,6 +1544,8 @@ table ClaimSave {
   place_kind: ubyte = 255 (id: 8);
   place: ulong (id: 9);
   counts: [ushort] (id: 10);
+  // Schema 99: a found-burning account; 0 for other kinds and earlier saves.
+  fire: uint (id: 11);
 }
 
 // A source someone suspects (schema 79, M6a slice BA, ADR-0021 §6): held since a day index, by

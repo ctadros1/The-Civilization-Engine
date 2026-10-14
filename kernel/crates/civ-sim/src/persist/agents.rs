@@ -114,8 +114,8 @@ use super::{
     SCHEMA_V65, SCHEMA_V66, SCHEMA_V67, SCHEMA_V68, SCHEMA_V69, SCHEMA_V70, SCHEMA_V71, SCHEMA_V72,
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
-    SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, finish, section, single_chunk,
-    unreadable,
+    SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -510,6 +510,8 @@ enum Schema {
     V93,
     /// Fire caution by covering and wall kind (BE persistence repair).
     V94,
+    /// Active observer runoff (BF command repair).
+    V95,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -618,7 +620,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V91 => Schema::V91,
         SCHEMA_V92 => Schema::V92,
         SCHEMA_V93 => Schema::V93,
-        SAVE_SCHEMA_VERSION => Schema::V94,
+        SCHEMA_V94 => Schema::V94,
+        SAVE_SCHEMA_VERSION => Schema::V95,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -881,10 +884,37 @@ pub(super) fn decode<R: Read + Seek>(
         let (floods, flood_rev, reaches) = decode_floods(&bytes)?;
         people.floods = floods;
         land.flood_revision = flood_rev;
-        if let Some(r) = reaches
-            && r.len() == map.reaches.len()
-        {
-            land.reach_discharges = r;
+        let r =
+            reaches.ok_or_else(|| LoadError::Malformed("missing river discharges".to_owned()))?;
+        if r.len() != map.reaches.len() || r.iter().any(|q| !q.is_finite() || *q < 0.0) {
+            return Err(LoadError::Malformed(
+                "invalid river discharge array".to_owned(),
+            ));
+        }
+        land.reach_discharges = r;
+        if schema >= Schema::V95 {
+            let root = flatbuffers::root::<save::FloodsSave>(&bytes)
+                .map_err(|e| unreadable(SECTION_FLOODS, &e))?;
+            for f in root.river_forcings().iter().flatten() {
+                if f.reach() as usize >= map.reaches.len()
+                    || !f.discharge_m3s().is_finite()
+                    || f.discharge_m3s() <= 0.0
+                    || f.until_day() <= now.day_index()
+                    || !people.influences.list.iter().any(|i| {
+                        i.id == f.influence()
+                            && i.kind == civ_agents::influence::InfluenceKind::Flood
+                    })
+                    || land.river_forcings.iter().any(|old| old.reach == f.reach())
+                {
+                    return Err(LoadError::Malformed("invalid observer runoff".to_owned()));
+                }
+                land.river_forcings.push(civ_land::RiverForcing {
+                    reach: f.reach(),
+                    discharge_m3s: f.discharge_m3s(),
+                    until_day: f.until_day(),
+                    influence: f.influence(),
+                });
+            }
         }
         land.flood_depths = land
             .floodplain
@@ -2510,6 +2540,7 @@ fn decode_land(
         reach_discharges: map.reaches.iter().map(|r| r.discharge_m3s).collect(),
         flood_depths: vec![0.0; map.cell_count()],
         flood_revision: 0,
+        river_forcings: Vec::new(),
     };
     // A grid of the wrong size is reported by `Land::problems`; only fill stocks on a sound one.
     if land.patches.class.len() == n
@@ -3178,7 +3209,8 @@ fn carried(
         | Schema::V91
         | Schema::V92
         | Schema::V93
-        | Schema::V94 => {
+        | Schema::V94
+        | Schema::V95 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3387,7 +3419,8 @@ fn decode_households(
             | Schema::V91
             | Schema::V92
             | Schema::V93
-            | Schema::V94 => {
+            | Schema::V94
+            | Schema::V95 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -9065,6 +9098,12 @@ fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
         .collect();
     let storm_episodes = fbb.create_vector(&storm_episodes);
     let reach_discharges = fbb.create_vector(&land.reach_discharges);
+    let forcings: Vec<_> = land
+        .river_forcings
+        .iter()
+        .map(|f| save::RiverForcingSave::new(f.reach, f.discharge_m3s, f.until_day, f.influence))
+        .collect();
+    let river_forcings = fbb.create_vector(&forcings);
     let root = save::FloodsSave::create(
         &mut fbb,
         &save::FloodsSaveArgs {
@@ -9074,6 +9113,7 @@ fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
             storm_episodes: Some(storm_episodes),
             flood_revision: land.flood_revision,
             reach_discharges: Some(reach_discharges),
+            river_forcings: Some(river_forcings),
         },
     );
     finish(fbb, root)

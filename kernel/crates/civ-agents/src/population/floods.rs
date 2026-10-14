@@ -249,6 +249,19 @@ impl Population {
                 "The observer raised reach {reach} to {discharge_m3s:.1} m³/s for {days} days."
             ),
         );
+        ctx.land
+            .river_forcings
+            .retain(|f| f.reach as usize != reach);
+        ctx.land.river_forcings.push(civ_land::RiverForcing {
+            reach: reach as u32,
+            discharge_m3s,
+            until_day: ctx.now.day_index() + i64::from(days),
+            influence: inf_id,
+        });
+        let flows = ctx
+            .land
+            .river_flows(ctx.map, ctx.land_params, ctx.now.day_index());
+        ctx.land.update_floods(ctx.map, flows);
         self.floods_day(ctx);
         Ok(super::influence::Reached {
             id: inf_id,
@@ -274,6 +287,10 @@ impl Population {
             settlement.unwrap_or_else(|| PermanentId::from_raw(1).expect("id")),
             id,
         );
+        // Today's visible wind changes; the latent wind anomalies and natural storm series do not.
+        ctx.land.weather.today.wind_ms = wind_speed_ms;
+        ctx.land.weather.today.gust_ms = wind_speed_ms;
+        ctx.land.weather.today.wind_from_deg = direction_deg;
         let storm_pa = 0.5 * 1.225 * f64::from(wind_speed_ms).powi(2);
         let mut owners: Vec<PermanentId> = ctx
             .land

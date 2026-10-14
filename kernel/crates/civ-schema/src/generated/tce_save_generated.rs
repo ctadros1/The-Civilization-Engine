@@ -14933,6 +14933,197 @@ impl<'a> WorkedSave {
 
 }
 
+// struct RiverForcingSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct RiverForcingSave(pub [u8; 24]);
+impl Default for RiverForcingSave { 
+  fn default() -> Self { 
+    Self([0; 24])
+  }
+}
+impl ::core::fmt::Debug for RiverForcingSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("RiverForcingSave")
+      .field("reach", &self.reach())
+      .field("discharge_m3s", &self.discharge_m3s())
+      .field("until_day", &self.until_day())
+      .field("influence", &self.influence())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for RiverForcingSave {}
+impl<'a> ::flatbuffers::Follow<'a> for RiverForcingSave {
+  type Inner = &'a RiverForcingSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a RiverForcingSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a RiverForcingSave {
+  type Inner = &'a RiverForcingSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<RiverForcingSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for RiverForcingSave {
+    type Output = RiverForcingSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const RiverForcingSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for RiverForcingSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> RiverForcingSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    reach: u32,
+    discharge_m3s: f32,
+    until_day: i64,
+    influence: u32,
+  ) -> Self {
+    let mut s = Self([0; 24]);
+    s.set_reach(reach);
+    s.set_discharge_m3s(discharge_m3s);
+    s.set_until_day(until_day);
+    s.set_influence(influence);
+    s
+  }
+
+  pub fn reach(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_reach(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn discharge_m3s(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_discharge_m3s(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn until_day(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_until_day(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn influence(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_influence(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 pub enum ParamOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -43846,6 +44037,7 @@ impl<'a> FloodsSave<'a> {
   pub const VT_STORM_EPISODES: ::flatbuffers::VOffsetT = 10;
   pub const VT_FLOOD_REVISION: ::flatbuffers::VOffsetT = 12;
   pub const VT_REACH_DISCHARGES: ::flatbuffers::VOffsetT = 14;
+  pub const VT_RIVER_FORCINGS: ::flatbuffers::VOffsetT = 16;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -43857,6 +44049,7 @@ impl<'a> FloodsSave<'a> {
     args: &'args FloodsSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<FloodsSave<'bldr>> {
     let mut builder = FloodsSaveBuilder::new(_fbb);
+    if let Some(x) = args.river_forcings { builder.add_river_forcings(x); }
     if let Some(x) = args.reach_discharges { builder.add_reach_discharges(x); }
     builder.add_flood_revision(args.flood_revision);
     if let Some(x) = args.storm_episodes { builder.add_storm_episodes(x); }
@@ -43909,6 +44102,13 @@ impl<'a> FloodsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(FloodsSave::VT_REACH_DISCHARGES, None)}
   }
+  #[inline]
+  pub fn river_forcings(&self) -> Option<::flatbuffers::Vector<'a, RiverForcingSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, RiverForcingSave>>>(FloodsSave::VT_RIVER_FORCINGS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FloodsSave<'_> {
@@ -43923,6 +44123,7 @@ impl ::flatbuffers::Verifiable for FloodsSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<StormEpisodeSave>>>>("storm_episodes", Self::VT_STORM_EPISODES, false)?
      .visit_field::<u32>("flood_revision", Self::VT_FLOOD_REVISION, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("reach_discharges", Self::VT_REACH_DISCHARGES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, RiverForcingSave>>>("river_forcings", Self::VT_RIVER_FORCINGS, false)?
      .finish();
     Ok(())
   }
@@ -43934,6 +44135,7 @@ pub struct FloodsSaveArgs<'a> {
     pub storm_episodes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StormEpisodeSave<'a>>>>>,
     pub flood_revision: u32,
     pub reach_discharges: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub river_forcings: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, RiverForcingSave>>>,
 }
 impl<'a> Default for FloodsSaveArgs<'a> {
   #[inline]
@@ -43945,6 +44147,7 @@ impl<'a> Default for FloodsSaveArgs<'a> {
       storm_episodes: None,
       flood_revision: 0,
       reach_discharges: None,
+      river_forcings: None,
     }
   }
 }
@@ -43979,6 +44182,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloodsSaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloodsSave::VT_REACH_DISCHARGES, reach_discharges);
   }
   #[inline]
+  pub fn add_river_forcings(&mut self, river_forcings: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , RiverForcingSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloodsSave::VT_RIVER_FORCINGS, river_forcings);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloodsSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FloodsSaveBuilder {
@@ -44002,6 +44209,7 @@ impl ::core::fmt::Debug for FloodsSave<'_> {
       ds.field("storm_episodes", &self.storm_episodes());
       ds.field("flood_revision", &self.flood_revision());
       ds.field("reach_discharges", &self.reach_discharges());
+      ds.field("river_forcings", &self.river_forcings());
       ds.finish()
   }
 }

@@ -2594,6 +2594,14 @@ table StormEpisodeSave {
   damages: [uint] (id: 5);
 }
 
+// Schema 95: active observer runoff; older snapshots cannot recover its requested flow.
+struct RiverForcingSave {
+  reach: uint;
+  discharge_m3s: float;
+  until_day: long;
+  influence: uint;
+}
+
 table FloodsSave {
   high_waters: [HighWaterSave] (id: 0);
   flood_episodes: [FloodEpisodeSave] (id: 1);
@@ -2601,4 +2609,5 @@ table FloodsSave {
   storm_episodes: [StormEpisodeSave] (id: 3);
   flood_revision: uint = 0 (id: 4);
   reach_discharges: [float] (id: 5);
+  river_forcings: [RiverForcingSave] (id: 6);
 }

@@ -2450,6 +2450,11 @@ and M6a gives rivers a daily flow.
     - *Partially implemented (2026-10-13, §9):* hydraulic stage and HAND storage curves, daily
       fordability and wading limits, wet-floor goods loss, crop submergence, evacuation, flood
       memory, uplift damage, incidents/episodes and flood/storm commands (wire 1.69, saves 93).
+      *Command repair (save schema 95):* river overrides persist, expire on their requested day,
+      and route added runoff downstream; the storm tool changes today's wind and direction
+      while leaving the natural weather series unchanged. Invalid tool inputs and malformed
+      saved discharge arrays are refused. Old snapshots have no recoverable runoff request
+      and migrate with no active override.
       Crossing scour and the dashboard flood row remain open. Review concerns and coverage
       limits are recorded in the development journal; these are not a completed BF gate.
   - **BG**: banks and ditches.
@@ -3140,3 +3145,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **BF delivery repair (2026-10-13):** the coastal smoke failure was captured: members carried water while doing other tasks after a failed return walk discarded its deposit step. Loaded walks now preserve and retry delivery; stranded loads finish delivery before new tasks. A home separated from its hearth by a closed ford plans from its own walking catchment. The levy-grievance fixture supplies reserves so it exercises payment rather than assuming a heavy levy is affordable after any harvest. Production levy rules are unchanged.
 
 - **Fire response fixture (2026-10-13):** a three-world carrying comparison failed under one random identity and passed when the unchanged binary ran again. The paired fire-response fixture now fixes world identity so scheduler tie-breaks remain controlled; all fifteen fire tests pass. Production fire and response parameters are unchanged. Whole-suite validation is recorded in the journal.
+
+- **BF command duration and wind repair (2026-10-13):** save schema 95 appends active runoff overrides (reach, minimum flow, exclusive expiry day, recorded influence). Daily routing passes only the additional flow downstream, including at confluences; the natural downstream discharge already includes its tributaries. A repeated tool use on one reach replaces its active override. This keeps the existing command's “raise to” meaning: it never lowers stronger natural or upstream flow. The tool lasts 1–365 days. A storm command changes today's speed, gust and from-direction, leaving the latent wind anomalies and monthly natural storm series unchanged. Non-finite/non-positive strengths and directions outside [0,360) are refused before mutation. Saved discharges must have the exact reach count, be finite and non-negative; overrides require a valid flood influence, reach, future expiry and unique reach. Saves through 94 contain no recoverable requested flow and migrate with no active override. Content API 85 and wire 1.69 are unchanged. Episode origins, once-per-event storm damage, daily flood accounting, scour and observer controls remain separate follow-ups.

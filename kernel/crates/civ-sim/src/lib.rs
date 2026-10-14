@@ -930,18 +930,16 @@ impl Sim {
         if reach >= self.map.reaches.len() {
             return Err(format!("no river reach {reach} exists"));
         }
-        if discharge_m3s <= 0.0 {
-            return Err("discharge must be positive".to_owned());
+        if !discharge_m3s.is_finite() || discharge_m3s <= 0.0 {
+            return Err("discharge must be finite and positive".to_owned());
         }
-        let mut reaches = self.land.reach_discharges.clone();
-        if reaches.len() < self.map.reaches.len() {
-            reaches.resize(self.map.reaches.len(), 0.0);
+        if !(1..=365).contains(&days) {
+            return Err("a river rise lasts 1 to 365 days".to_owned());
         }
-        reaches[reach] = discharge_m3s;
-        self.land.update_floods(&self.map, reaches);
+        let reached =
+            self.influence(|people, ctx| people.raise_river(ctx, reach, discharge_m3s, days))?;
         refresh_nav(&mut self.nav, &self.map, &self.rules, &self.land);
-
-        self.influence(|people, ctx| people.raise_river(ctx, reach, discharge_m3s, days))
+        Ok(reached)
     }
 
     /// The observer sends a gale with `wind_speed_ms` and `direction_deg` across the world (god
@@ -951,8 +949,11 @@ impl Sim {
         wind_speed_ms: f32,
         direction_deg: f32,
     ) -> Result<civ_agents::population::Reached, String> {
-        if wind_speed_ms <= 0.0 {
-            return Err("wind speed must be positive".to_owned());
+        if !wind_speed_ms.is_finite() || wind_speed_ms <= 0.0 {
+            return Err("wind speed must be finite and positive".to_owned());
+        }
+        if !direction_deg.is_finite() || !(0.0..360.0).contains(&direction_deg) {
+            return Err("wind direction must be finite and in 0 to 360 degrees".to_owned());
         }
         self.influence(|people, ctx| people.send_storm(ctx, wind_speed_ms, direction_deg))
     }

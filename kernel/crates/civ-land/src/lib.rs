@@ -392,6 +392,8 @@ pub struct Land {
     pub flood_depths: Vec<f32>,
     /// Revision bumped each day flood depths or reach discharges change.
     pub flood_revision: u32,
+    /// Active observer runoff, routed with the day's natural flow. Saved.
+    pub river_forcings: Vec<RiverForcing>,
 }
 
 /// Summary of a patch's terrain, for classification.
@@ -607,6 +609,7 @@ impl Land {
             reach_discharges: map.reaches.iter().map(|r| r.discharge_m3s).collect(),
             flood_depths: vec![0.0; map.cell_count()],
             flood_revision: 0,
+            river_forcings: Vec::new(),
         };
         // Start each stock at its equilibrium for the season a year ago, and the water table
         // where the mean recharge holds it, then live a year.
@@ -633,6 +636,50 @@ impl Land {
             .map(|r| (f64::from(r.discharge_m3s) * flow_factor) as f32)
             .collect();
         self.update_floods(map, reaches);
+    }
+
+    /// The day's river flow, including active observer runoff. Only added flow is passed
+    /// downstream: natural downstream discharge already contains its tributaries' water.
+    pub fn river_flows(&self, map: &WorldMap, params: &LandParams, day: i64) -> Vec<f32> {
+        let factor = self.flow_factor(params);
+        let mut flows: Vec<f32> = map
+            .reaches
+            .iter()
+            .map(|r| (f64::from(r.discharge_m3s) * factor) as f32)
+            .collect();
+        let mut inputs = vec![0usize; flows.len()];
+        for r in &map.reaches {
+            if let Some(d) = r.downstream {
+                inputs[d as usize] += 1;
+            }
+        }
+        let mut ready: std::collections::VecDeque<usize> = inputs
+            .iter()
+            .enumerate()
+            .filter(|(_, n)| **n == 0)
+            .map(|(i, _)| i)
+            .collect();
+        let mut added = vec![0.0f32; flows.len()];
+        while let Some(i) = ready.pop_front() {
+            flows[i] += added[i];
+            let before = flows[i];
+            for f in self
+                .river_forcings
+                .iter()
+                .filter(|f| f.reach as usize == i && day < f.until_day)
+            {
+                flows[i] = flows[i].max(f.discharge_m3s);
+            }
+            if let Some(d) = map.reaches[i].downstream {
+                let d = d as usize;
+                added[d] += added[i] + flows[i] - before;
+                inputs[d] -= 1;
+                if inputs[d] == 0 {
+                    ready.push_back(d);
+                }
+            }
+        }
+        flows
     }
 
     /// Updates today's reach discharges and flood depths, updating flood tracking on buildings and fields.
@@ -1128,12 +1175,9 @@ impl Land {
             let water = self.weather.live(&params.weather, &self.climatology);
             self.water_fields(&params.weather, map, &water, d);
             self.water.day(&params.water, water.surplus_mm);
-            let flow_factor = self.flow_factor(params);
-            let reaches: Vec<f32> = map
-                .reaches
-                .iter()
-                .map(|r| (f64::from(r.discharge_m3s) * flow_factor) as f32)
-                .collect();
+            self.river_forcings
+                .retain(|f| self.weather.today.day < f.until_day);
+            let reaches = self.river_flows(map, params, self.weather.today.day);
             self.update_floods(map, reaches);
             if day_of_year(d) == soil::TURN_DAY {
                 let year = i32::try_from(d.div_euclid(DAYS_PER_YEAR) + 1).unwrap_or(i32::MAX);
@@ -1395,6 +1439,15 @@ impl Land {
     }
 }
 
+/// An observer's minimum reach flow until midnight at `until_day` (exclusive).
+#[derive(Clone, Debug, PartialEq)]
+pub struct RiverForcing {
+    pub reach: u32,
+    pub discharge_m3s: f32,
+    pub until_day: i64,
+    pub influence: u32,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1554,6 +1607,50 @@ mod tests {
             },
             drainage_area_m2: vec![64.0; n],
         }
+    }
+
+    #[test]
+    fn observer_flow_joins_tributaries_without_counting_natural_flow_twice() {
+        let p = params();
+        let mut map = map();
+        // Intentionally place the downstream reach first; routing must follow the graph.
+        map.reaches = [(None, 30.0), (Some(0), 10.0), (Some(0), 20.0)]
+            .into_iter()
+            .enumerate()
+            .map(|(i, (downstream, q))| civ_world::RiverReach {
+                id: i as u32,
+                cells: vec![0],
+                downstream,
+                terminus: civ_world::Terminus::Outlet,
+                order: 1,
+                discharge_m3s: q,
+                width_m: 3.0,
+                drainage_area_km2: 10.0,
+            })
+            .collect();
+        let mut land = create(&p, 1, 400);
+        let natural = land.river_flows(&map, &p, 400);
+        for (reach, extra) in [(1, 100.0), (2, 50.0)] {
+            land.river_forcings.push(RiverForcing {
+                reach,
+                discharge_m3s: natural[reach as usize] + extra,
+                until_day: 403,
+                influence: reach,
+            });
+        }
+        let raised = land.river_flows(&map, &p, 401);
+        assert!((raised[0] - natural[0] - 150.0).abs() < 0.001);
+        assert!((raised[1] - natural[1] - 100.0).abs() < 0.001);
+        assert!((raised[2] - natural[2] - 50.0).abs() < 0.001);
+        assert_eq!(land.river_flows(&map, &p, 403), natural);
+        land.river_forcings.push(RiverForcing {
+            reach: 0,
+            discharge_m3s: raised[0] - 10.0,
+            until_day: 403,
+            influence: 3,
+        });
+        // An existing upstream rise already exceeds the requested downstream minimum.
+        assert_eq!(land.river_flows(&map, &p, 401), raised);
     }
 
     #[test]

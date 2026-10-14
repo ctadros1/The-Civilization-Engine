@@ -20,6 +20,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod banks;
 pub mod buildings;
 pub mod crossings;
 pub mod deposits;
@@ -375,6 +376,8 @@ pub struct Land {
     pub deposits: Vec<deposits::Deposit>,
     /// Earthworks, in the order they were begun (ADR-0010 §2). Saved.
     pub earthworks: Vec<earth::Earthwork>,
+    /// Sub-grid bank crests, linked to their earthwork and borrow pit. Saved.
+    pub banks: Vec<banks::BankSegment>,
     /// What earthworks have done to the ground (ADR-0010 §3). Saved.
     pub ground: earth::GroundDelta,
     /// Crossings over water, in the order begun (M5c slice AW). Saved.
@@ -603,6 +606,7 @@ impl Land {
             wear: Wear::new(map.width, map.height, map.cell_size_m),
             deposits: Vec::new(),
             earthworks: Vec::new(),
+            banks: Vec::new(),
             ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
             crossings: crossings::Crossings::default(),
             water: Water::default(),
@@ -707,9 +711,14 @@ impl Land {
     /// Updates today's reach discharges and derived depths without advancing exposure time.
     pub fn update_floods(&mut self, map: &WorldMap, reach_discharges: Vec<f32>) {
         self.reach_discharges = reach_discharges;
-        self.flood_depths = self
-            .floodplain
-            .flood_depth_raster(map, &self.reach_discharges);
+        let barriers: Vec<_> = self
+            .banks
+            .iter()
+            .flat_map(|b| b.barriers(map, &self.earthworks, &self.floodplain.cell_hand))
+            .collect();
+        self.flood_depths =
+            self.floodplain
+                .flood_depths_with_banks(map, &self.reach_discharges, &barriers);
         self.flood_revision = self.flood_revision.wrapping_add(1);
     }
 
@@ -899,6 +908,38 @@ impl Land {
                     "earthwork {} is of version {}, which this build does not know",
                     e.id, e.version
                 ));
+            }
+        }
+        let mut bank_ids = std::collections::HashSet::new();
+        let mut borrow_ids = std::collections::HashSet::new();
+        for bank in &self.banks {
+            let work = self.earthworks.iter().find(|w| w.id == bank.work);
+            let borrow = self.earthworks.iter().find(|w| w.id == bank.borrow);
+            let linked = work.is_some_and(|w| w.kind == earth::EarthKind::Bank)
+                && borrow.is_some_and(|w| w.kind == earth::EarthKind::Pit && w.deposit.is_none());
+            let supplied = work.zip(borrow).is_some_and(|(w, p)| {
+                f64::from(w.cut_m3) <= f64::from(p.cut_m3) * bank.compacted_per_bank + 1e-3
+                    && (f64::from(w.cut_m3) - bank.fill_m3() * f64::from(w.done)).abs() < 1e-3
+            });
+            if !bank.valid(map)
+                || !bank_ids.insert(bank.work)
+                || !borrow_ids.insert(bank.borrow)
+                || !linked
+                || !supplied
+            {
+                out.push(format!(
+                    "bank {} has invalid geometry, links or earth accounting",
+                    bank.work
+                ));
+            }
+        }
+        for work in self
+            .earthworks
+            .iter()
+            .filter(|w| w.kind == earth::EarthKind::Bank)
+        {
+            if !bank_ids.contains(&work.id) {
+                out.push(format!("bank {} has no linear segment", work.id));
             }
         }
         let mut ids = std::collections::HashSet::new();

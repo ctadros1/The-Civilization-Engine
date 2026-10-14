@@ -115,7 +115,7 @@ use super::{
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
-    SCHEMA_V97, SCHEMA_V98, finish, section, single_chunk, unreadable,
+    SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -517,6 +517,7 @@ enum Schema {
     V97,
     V98,
     V99,
+    V100,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -630,7 +631,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V96 => Schema::V96,
         SCHEMA_V97 => Schema::V97,
         SCHEMA_V98 => Schema::V98,
-        SAVE_SCHEMA_VERSION => Schema::V99,
+        SCHEMA_V99 => Schema::V99,
+        SAVE_SCHEMA_VERSION => Schema::V100,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -762,7 +764,7 @@ pub(super) fn decode<R: Read + Seek>(
     // Earthworks (schema 20); before them nobody had changed the ground.
     if schema >= Schema::V20 {
         let bytes = single_chunk(reader, SECTION_EARTH)?;
-        decode_earth(&bytes, &mut land)?;
+        decode_earth(&bytes, &mut land, schema)?;
     }
     // Ties (schema 28); before them nobody remembered anybody. Standing is kept beside them; a
     // save without it works it out afresh (ADR-0014 §3).
@@ -974,9 +976,14 @@ pub(super) fn decode<R: Read + Seek>(
             }
         }
         validate_flood_records(&people.floods, &people.influences, map.reaches.len(), now)?;
-        land.flood_depths = land
-            .floodplain
-            .flood_depth_raster(map, &land.reach_discharges);
+        let barriers: Vec<_> = land
+            .banks
+            .iter()
+            .flat_map(|b| b.barriers(map, &land.earthworks, &land.floodplain.cell_hand))
+            .collect();
+        land.flood_depths =
+            land.floodplain
+                .flood_depths_with_banks(map, &land.reach_discharges, &barriers);
     }
     for c in &people.word.claims {
         if c.kind == civ_agents::word::ClaimKind::Fire {
@@ -1842,6 +1849,7 @@ fn encode_earth(land: &Land) -> Vec<u8> {
                     civ_land::earth::EarthKind::Platform => 0,
                     civ_land::earth::EarthKind::Pit => 1,
                     civ_land::earth::EarthKind::Spoil => 2,
+                    civ_land::earth::EarthKind::Bank => 3,
                 },
             )
         })
@@ -1870,18 +1878,41 @@ fn encode_earth(land: &Land) -> Vec<u8> {
         .map(|w| save::EarthLink::new(w.id.get(), raw(w.deposit), raw(w.heap)))
         .collect();
     let links = fbb.create_vector(&links);
+    let banks: Vec<_> = land
+        .banks
+        .iter()
+        .map(|b| {
+            save::BankSegmentRecord::new(
+                b.work.get(),
+                b.borrow.get(),
+                b.a[0],
+                b.a[1],
+                b.b[0],
+                b.b[1],
+                b.height_m,
+                b.crest_width_m,
+                b.side_run,
+                b.compacted_per_bank,
+                b.settlement_m,
+                b.erosion_m,
+                b.breached,
+            )
+        })
+        .collect();
+    let banks = fbb.create_vector(&banks);
     let root = save::Earth::create(
         &mut fbb,
         &save::EarthArgs {
             works: Some(works),
             tiles: Some(tiles),
             links: Some(links),
+            banks: Some(banks),
         },
     );
     finish(fbb, root)
 }
 
-fn decode_earth(bytes: &[u8], land: &mut Land) -> Result<(), LoadError> {
+fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), LoadError> {
     let root =
         flatbuffers::root::<save::Earth>(bytes).map_err(|e| unreadable(SECTION_EARTH, &e))?;
     for w in root.works().iter().flatten() {
@@ -1889,6 +1920,7 @@ fn decode_earth(bytes: &[u8], land: &mut Land) -> Result<(), LoadError> {
             0 => civ_land::earth::EarthKind::Platform,
             1 => civ_land::earth::EarthKind::Pit,
             2 => civ_land::earth::EarthKind::Spoil,
+            3 if schema >= Schema::V100 => civ_land::earth::EarthKind::Bank,
             other => {
                 return Err(LoadError::Malformed(format!(
                     "an earthwork has kind {other}"
@@ -1915,6 +1947,29 @@ fn decode_earth(bytes: &[u8], land: &mut Land) -> Result<(), LoadError> {
             version: w.version(),
             begun: time(w.begun()),
         });
+    }
+    if schema < Schema::V100 && root.banks().is_some_and(|b| !b.is_empty()) {
+        return Err(LoadError::Malformed(
+            "linear banks in a save before schema 100".into(),
+        ));
+    }
+    // Explicit migration: older snapshots have no linear banks; none are inferred.
+    if schema >= Schema::V100 {
+        for b in root.banks().iter().flatten() {
+            land.banks.push(civ_land::banks::BankSegment {
+                work: required(b.work(), "a bank segment")?,
+                borrow: required(b.borrow(), "a bank borrow source")?,
+                a: [b.ax(), b.ay()],
+                b: [b.bx(), b.by()],
+                height_m: b.height_m(),
+                crest_width_m: b.crest_width_m(),
+                side_run: b.side_run(),
+                compacted_per_bank: b.compacted_per_bank(),
+                settlement_m: b.settlement_m(),
+                erosion_m: b.erosion_m(),
+                breached: b.breached(),
+            });
+        }
     }
     // Schema 21: what each pit and heap is linked to.
     for l in root.links().iter().flatten() {
@@ -2635,6 +2690,7 @@ fn decode_land(
         deposits: Vec::new(),
         // Read from its own section (schema 20 on).
         earthworks: Vec::new(),
+        banks: Vec::new(),
         ground: civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
         // Read from its own section (schema 68 on).
         crossings: Default::default(),
@@ -3321,7 +3377,8 @@ fn carried(
         | Schema::V96
         | Schema::V97
         | Schema::V98
-        | Schema::V99 => {
+        | Schema::V99
+        | Schema::V100 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3535,7 +3592,8 @@ fn decode_households(
             | Schema::V96
             | Schema::V97
             | Schema::V98
-            | Schema::V99 => {
+            | Schema::V99
+            | Schema::V100 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

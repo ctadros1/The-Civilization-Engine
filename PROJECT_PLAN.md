@@ -1,7 +1,7 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
-Implementation status (2026-10-11): **M0–M3c are implemented**:
+Implementation status (2026-10-14): **M0–M3c are implemented**:
 world and village life, the early economy, knowledge and building, daily weather, soils and
 fertility, and the Detailed/Accelerated time modes. **M2's kernel library and C interface are
 implemented; its Unreal client remains future work.** **M4, Councils, law and crime, is
@@ -19,8 +19,10 @@ incident views, and household and polity responses to suspected sources. **M6b, 
 floods, is in progress:** fire behavior, its observer view, household ignitions, noticing and
 alarms, water carried to threatened roofs, roof stripping and goods salvage are implemented,
 along with the dashboard's Fires row. Masonry, brick and tile, flood depths and wet-floor
-damage, evacuation, storm uplift and flood/storm kernel commands are implemented. BD's remaining
-fire response and reporting, banks and ditches, building rules and the M6b demo remain planned.
+damage, evacuation, storm uplift and flood/storm kernel commands are implemented. BD adds crew demolition, dated fire accounts, response explanations, the Help at a fire lens
+and a published ignition sweep; spontaneous crews and broad response calibration remain unclaimed.
+BG begins with saved physical bank segments and conservative river-flood barriers. Voluntary bank
+work, maintenance, trapped rain, ditches, building rules and the M6b demo remain planned.
 M6c, war and conquest, is future work. See §7 for scope and §9 for
 implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
@@ -2501,7 +2503,17 @@ and M6a gives rivers a daily flow.
       Crossing scour, corrected local/exposure counts, observer partitions and flood gates remain
       open. Review concerns and coverage
       limits are recorded in the development journal; these are not a completed BF gate.
-  - **BG**: banks and ditches.
+  - **BG**: banks and ditches, in progress.
+    - *Physical bank step (2026-10-14, §9):* straight sub-grid segments, a trapezoidal
+      volume and explicit dedicated borrow pit. Compacted fill consumes excavated earth at
+      its stored density ratio. Current construction determines crest height; sound edges
+      exclude river floodwater below the crest, but end runs and overtopping admit it.
+      Excluded water occupies connected storage; a sill's partial filling preserves volume.
+      Save schema 100 migrates 99 with no invented banks and refuses invalid geometry,
+      duplicate links and unsupported kinds. Wire 1.72 draws saved centre-lines.
+      Controlled engineering fixtures exercise these mechanisms; no adopted law or chosen
+      labour is claimed. Rain ponding, borrow-pit flood storage, deterioration and upkeep,
+      voluntary public work and irrigation remain the following BG steps.
     - Earth kinds `bank` and `ditch` as lines of segments.
     - Water behind a bank only over its crest or through a breach. Overtopping and piping.
     - The issue `flooded`, and the policy `build_bank`, asked in equal shares as a crossing is.
@@ -3211,3 +3223,16 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **BD Help at a fire lens (2026-10-14):** potential help is a bounded current directed-walking probe, with route-budget exhaustion reported as inconclusive, never unreachable. Available adults, rights-based water and stored loads do not imply willingness or future work. Actual thirty-day help comes only from water, stripping, salvage and completed demolition records; unserved household-episode exposures remain in the denominator. Observer-set exposures are marked separately. The kernel supplies the facts; the web draws them and switches between fire and water lenses without using stale responses. Wire 1.71 appends typed FireHelp/CoverageHome fields under ADR-0001; snapshots 99 and content API 86 stay unchanged. No large-population query-performance claim is made.
 
 - **BD ignition sensitivity and observer losses (2026-10-14):** final BD behavior is swept at nominal 1, 3, 10, 30 and 100/K household-years by scaling activity hazards, never incident counts. Daily exposure is 61.071 household-years per arm; actual rates are 0, 16.374, 16.374, 32.749 and 98.246/K. The highest arm has six escapes, four put out, three roof fires, one spread, one death, 45 L applied and ten minutes of response work. Two roof fires were noticed and one was not. No stripping, salvage or completed demolition is observed; no core prior is tuned and no complete response fit is claimed. The reproducible runner, CSV and source/version notes are in docs/calibration/fire-ignition-sweep.md. The Fires row now excludes whole observer-set episodes from natural losses and reports their buildings/spread/deaths separately. Save schema 99, content API 86 and wire 1.71 stay unchanged.
+
+- **BG physical bank step (2026-10-14, ADR-0022 §11):** a bank's linear geometry is a sidecar
+  to appended earth kind 3, leaving the existing version-1 platform/pit expansion unchanged.
+  The global save schema is 100; 99 and earlier migrate to no bank segments, while new records
+  under old headers are refused. Dedicated borrow links cannot be shared by two segments.
+  Built height follows trapezoidal area rather than a linear height multiplier. Cell-average
+  earth shading and the sub-grid hydraulic crest remain separate. A minimax connected-storage
+  calculation preserves supplied reach excess volume at barrier sills; unbanked reaches use
+  the existing BF calculation. Content API 86 stays unchanged: no new authored work template
+  is available in this physical step. Wire 1.72 appends centre-line and condition fields.
+  This is a controlled physical/observer step, not completion of BG. Voluntary labour and
+  its digging, hauling and compaction budget, failures and upkeep, trapped rain and explicit
+  borrow depression storage remain planned; drains and terraces remain deferred.

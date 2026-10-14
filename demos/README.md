@@ -76,3 +76,9 @@ The demo runner writes the raw 1920×1080 observer recording, screenshots and te
 `demos/m6a/`. Preview and render the title-and-caption version with the [M6a video project](m6a/production/README.md).
 
 M6b is in progress: masonry and flood/storm mechanics are implemented, with controlled crew-demolition, named-account and fire-help checks and the published ignition sensitivity run, while the fire-to-building-rule lived demo remains planned. M6a is still the newest completed lived demo.
+
+
+The BG `bank_fixture` runner is a controlled geometry/snapshot fixture, not a lived M6b demo:
+`cd kernel && cargo run --release -p civ-sim --example bank_fixture -- <save-folder>`.
+Load its save in the observer to inspect the bank centre-line and borrow-earth account.
+Voluntary bank work and the M6b lived demonstration remain planned.

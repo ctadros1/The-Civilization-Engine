@@ -31,6 +31,9 @@ pub fn earthworks_rev(sim: &Sim) -> u64 {
     for w in works {
         let building = building_on(sim, w).map_or(0, |b| b.id.get());
         (w.id.get(), w.done.to_bits(), w.cut_m3.to_bits(), building).hash(&mut hasher);
+        if let Some(b) = sim.land.banks.iter().find(|b| b.work == w.id) {
+            (b.settlement_m.to_bits(), b.erosion_m.to_bits(), b.breached).hash(&mut hasher);
+        }
     }
     hasher.finish() | 1
 }
@@ -83,6 +86,10 @@ fn words(sim: &Sim, w: &Earthwork, building: Option<&Building>) -> String {
             let (good, working) = dug_for(sim, w);
             return format!("{whose} {good} {working}, {:.1} m deep", w.depth_m());
         }
+        EarthKind::Bank => {
+            let bank = sim.land.banks.iter().find(|b| b.work == w.id);
+            return bank.map_or_else(|| "bank geometry unavailable".into(), |b| format!("a {:.0} m bank, {:.0}% built, crest {:.2} m above ground{}; earth from borrow pit {}", b.length_m(), w.done * 100.0, (b.built_height_m(w.done) - b.settlement_m - b.erosion_m).max(0.0), if b.breached { ", breached" } else { "" }, b.borrow));
+        }
         EarthKind::Spoil => {
             let (good, working) = dug_for(sim, w);
             return format!(
@@ -113,6 +120,7 @@ fn kind(k: EarthKind) -> u8 {
         EarthKind::Platform => 0,
         EarthKind::Pit => 1,
         EarthKind::Spoil => 2,
+        EarthKind::Bank => 3,
     }
 }
 
@@ -123,6 +131,9 @@ pub fn earthworks_response(sim: &Sim) -> Vec<u8> {
     for w in &sim.land.earthworks {
         let building = building_on(sim, w);
         let text = fbb.create_string(&words(sim, w, building));
+        let bank = sim.land.banks.iter().find(|b| b.work == w.id);
+        let a = bank.map(|b| wire::Vec2::new(b.a[0] as f32, b.a[1] as f32));
+        let b = bank.map(|b| wire::Vec2::new(b.b[0] as f32, b.b[1] as f32));
         list.push(wire::EarthworkInfo::create(
             &mut fbb,
             &wire::EarthworkInfoArgs {
@@ -141,6 +152,12 @@ pub fn earthworks_response(sim: &Sim) -> Vec<u8> {
                 building: building.map_or(0, |b| b.id.get()),
                 words: Some(text),
                 deposit: w.deposit.map_or(0, |d| d.get()),
+                bank_a: a.as_ref(),
+                bank_b: b.as_ref(),
+                bank_height_m: bank.map_or(0.0, |b| {
+                    (b.built_height_m(w.done) - b.settlement_m - b.erosion_m).max(0.0) as f32
+                }),
+                bank_breached: bank.is_some_and(|b| b.breached),
             },
         ));
     }

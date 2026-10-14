@@ -297,6 +297,22 @@ impl WorldFloodplain {
         inundated
     }
 
+    /// Flood storage connected to a reach through ground and optional bank crests. Crests
+    /// are metres above the same drainage datum as HAND, not absolute terrain elevations.
+    /// An edge is crossed only above its crest. End runs remain possible through other edges.
+    /// All excess volume is placed in connected cells; banks never delete floodwater.
+    pub fn flood_depths_with_banks(
+        &self,
+        map: &WorldMap,
+        reach_discharges: &[f32],
+        banks: &[FloodBarrier],
+    ) -> Vec<f32> {
+        if banks.is_empty() {
+            return self.flood_depth_raster(map, reach_discharges);
+        }
+        connected_depths(self, map, reach_discharges, banks)
+    }
+
     /// Computes dense flood depths for all cells in `map`, metres.
     pub fn flood_depth_raster(&self, map: &WorldMap, reach_discharges: &[f32]) -> Vec<f32> {
         let n = map.cell_count();
@@ -308,6 +324,145 @@ impl WorldFloodplain {
         }
         raster
     }
+}
+
+/// A sub-grid bank crossing an edge between neighbouring cells. Below the crest there
+/// is no passage across this edge; a breach is represented by removing the barrier.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FloodBarrier {
+    pub a: u32,
+    pub b: u32,
+    pub crest_hand_m: f64,
+}
+
+fn connected_depths(
+    floodplain: &WorldFloodplain,
+    map: &WorldMap,
+    discharges: &[f32],
+    banks: &[FloodBarrier],
+) -> Vec<f32> {
+    use std::cmp::Reverse;
+    use std::collections::{BTreeMap, BinaryHeap};
+    let n = map.cell_count();
+    let mut raster = vec![0.0; n];
+    let area = f64::from(map.cell_size_m).powi(2);
+    let mut edges = BTreeMap::<(u32, u32), f64>::new();
+    for b in banks {
+        let key = (b.a.min(b.b), b.a.max(b.b));
+        edges
+            .entry(key)
+            .and_modify(|h| *h = h.max(b.crest_hand_m))
+            .or_insert(b.crest_hand_m);
+    }
+    // A minimax path gives the least stage that can connect a cell to its channel.
+    // Four-neighbour paths prevent slipping diagonally between touching bank edges.
+    for rh in &floodplain.reaches {
+        let q = discharges
+            .get(rh.reach_id as usize)
+            .copied()
+            .map(f64::from)
+            .unwrap_or(rh.mean_discharge_m3s);
+        let volume = rh.excess_volume_m3(q);
+        if volume <= 0.0 {
+            continue;
+        }
+        if !banks.iter().any(|b| {
+            floodplain.cell_reach.get(b.a as usize) == Some(&rh.reach_id)
+                || floodplain.cell_reach.get(b.b as usize) == Some(&rh.reach_id)
+        }) {
+            let stage = rh.flood_stage_m(volume, area);
+            for (&c, &hand) in rh.cells.iter().zip(&rh.hands) {
+                raster[c as usize] = (stage - f64::from(hand)).max(0.0) as f32;
+            }
+            continue;
+        }
+        let mut entry = vec![f64::INFINITY; n];
+        let mut queue = BinaryHeap::new();
+        if let Some(reach) = map.reaches.iter().find(|r| r.id == rh.reach_id) {
+            for &c in &reach.cells {
+                entry[c as usize] = 0.0;
+                queue.push(Reverse((0_u64, c)));
+            }
+        }
+        while let Some(Reverse((bits, c))) = queue.pop() {
+            let stage = f64::from_bits(bits);
+            if stage > entry[c as usize] {
+                continue;
+            }
+            let x = c % map.width;
+            let y = c / map.width;
+            let neighbours = [
+                (x > 0).then(|| c - 1),
+                (x + 1 < map.width).then(|| c + 1),
+                (y > 0).then(|| c - map.width),
+                (y + 1 < map.height).then(|| c + map.width),
+            ];
+            for to in neighbours.into_iter().flatten() {
+                if floodplain.cell_reach[to as usize] != rh.reach_id {
+                    continue;
+                }
+                let crest = edges.get(&(c.min(to), c.max(to))).copied().unwrap_or(0.0);
+                let next = stage
+                    .max(crest)
+                    .max(f64::from(floodplain.cell_hand[to as usize]));
+                if next < entry[to as usize] {
+                    entry[to as usize] = next;
+                    queue.push(Reverse((next.to_bits(), to)));
+                }
+            }
+        }
+        // Filling a newly connected basin can consume volume while stage stays at its
+        // sill. At that knot, partial filling avoids manufacturing or discarding water.
+        let mut cells: Vec<_> = rh.cells.iter().map(|&c| (entry[c as usize], c)).collect();
+        cells.retain(|(h, _)| h.is_finite());
+        cells.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+        let mut left = volume;
+        let mut level = 0.0_f64;
+        let mut active = Vec::<u32>::new();
+        let mut i = 0;
+        while i < cells.len() && left > 0.0 {
+            let sill = cells[i].0;
+            let rise = (sill - level).max(0.0) * active.len() as f64 * area;
+            if rise >= left && !active.is_empty() {
+                level += left / (active.len() as f64 * area);
+                left = 0.0;
+                break;
+            }
+            left -= rise;
+            level = sill;
+            let first = i;
+            while i < cells.len() && cells[i].0 == sill {
+                i += 1;
+            }
+            let new = &cells[first..i];
+            let fill: f64 = new
+                .iter()
+                .map(|&(_, c)| {
+                    (level - f64::from(floodplain.cell_hand[c as usize])).max(0.0) * area
+                })
+                .sum();
+            if fill > left {
+                let share = left / fill;
+                for &(_, c) in new {
+                    raster[c as usize] = ((level - f64::from(floodplain.cell_hand[c as usize]))
+                        .max(0.0)
+                        * share) as f32;
+                }
+                left = 0.0;
+                break;
+            }
+            left -= fill;
+            active.extend(new.iter().map(|&(_, c)| c));
+        }
+        if left > 0.0 && !active.is_empty() {
+            level += left / (active.len() as f64 * area);
+        }
+        for c in active {
+            raster[c as usize] =
+                (level - f64::from(floodplain.cell_hand[c as usize])).max(0.0) as f32;
+        }
+    }
+    raster
 }
 
 #[cfg(test)]
@@ -364,6 +519,52 @@ mod tests {
             },
             drainage_area_m2: vec![0.0; n],
         }
+    }
+
+    #[test]
+    fn a_bank_redistributes_water_until_it_overtops_and_can_be_run_around() {
+        let mut map = test_map(6, 4);
+        // Flat floodplain beside a straight channel: no ground sill hides a bank effect.
+        for y in 0..4 {
+            for x in 1..6 {
+                map.elevation[y * 6 + x] = map.elevation[y * 6];
+            }
+        }
+        let fp = WorldFloodplain::new(&map, &ManningParams::default());
+        let rh = &fp.reaches[0];
+        let q = |volume: f64| [(rh.bankfull_discharge_m3s + volume / rh.transit_time_s) as f32];
+        let bank: Vec<_> = (0..4)
+            .map(|y| FloodBarrier {
+                a: y * 6 + 1,
+                b: y * 6 + 2,
+                crest_hand_m: 2.0,
+            })
+            .collect();
+        let depths = fp.flood_depths_with_banks(&map, &q(400.0), &bank);
+        assert!((depths.iter().map(|d| f64::from(*d) * 100.0).sum::<f64>() - 400.0).abs() < 0.01);
+        assert!(depths[1] > 0.9);
+        assert_eq!(depths[2], 0.0);
+        let overtopped = fp.flood_depths_with_banks(&map, &q(2000.0), &bank);
+        assert!(overtopped[2] > 0.0);
+        assert!(
+            (overtopped
+                .iter()
+                .map(|d| f64::from(*d) * 100.0)
+                .sum::<f64>()
+                - 2000.0)
+                .abs()
+                < 0.01
+        );
+        let short = fp.flood_depths_with_banks(&map, &q(400.0), &bank[..3]);
+        assert!(
+            short[2] > 0.0,
+            "an open end admits water behind a sound bank"
+        );
+        assert!((short.iter().map(|d| f64::from(*d) * 100.0).sum::<f64>() - 400.0).abs() < 0.01);
+        assert_eq!(
+            fp.flood_depths_with_banks(&map, &q(400.0), &[]),
+            fp.flood_depth_raster(&map, &q(400.0))
+        );
     }
 
     #[test]

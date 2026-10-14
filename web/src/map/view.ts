@@ -417,6 +417,10 @@ export class MapView {
     g.clear();
     for (const w of this.earthworks) {
       const look = earthworkLook(w);
+      if (w.bank) {
+        g.moveTo(w.bank.ax, w.bank.ay).lineTo(w.bank.bx, w.bank.by).stroke({ width: 1.5, color: look.colour, alpha: w.bank.breached ? 0.3 : 0.9 });
+        continue;
+      }
       g.rect(w.x, w.y, w.w, w.h).fill({ color: look.colour, alpha: look.alpha });
       g.rect(w.x, w.y, w.w, w.h).stroke({ width: 0.3, color: look.colour, alpha: look.outlineAlpha });
     }
@@ -1195,6 +1199,7 @@ export class MapView {
         .map((b) => ({ x: b.x, y: b.y, program: b.program })),
       deposits: this.deposits.length,
       earthworks: this.earthworks.length,
+      bankSegments: this.earthworks.filter((w) => w.bank).map((w) => ({ id: w.id, ...w.bank!, words: w.words })),
       platforms: this.earthworks.map((w) => ({ x: w.x + w.w / 2, y: w.y + w.h / 2, done: w.done })),
       // M5c slice AW: crossings over water, where each lies and how far along it is.
       crossings: this.crossings.map((c) => ({

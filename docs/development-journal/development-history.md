@@ -1585,3 +1585,78 @@ The earlier preparation swept 1, 3, 10, 30 and 100 nominal escapes/K household-y
 The runnable sweep now records daily living-household exposure, actual escapes, containment, losses, water and labor, plus noticed/unnoticed roof-fire counts so its conditional notice mean is explicit. It reports schema/content/wire versions and the base content fingerprint; it uses no observer inputs and saves no modified-content snapshot. Requested band-size bounds apply only inside the harness, as in bench_village. The current-source sweep completes all five arms; its results are published with the runner in docs/calibration/fire-ignition-sweep.md and CSV. The complete kernel workspace suite including doc tests, formatting, all-target clippy, commons checks, pinned schema freshness, web build/173 unit tests and the ten-world release smoke pass before commit.
 
 The Fires dashboard now classifies natural losses separately from all buildings, spread and deaths in episodes with observer-set fires. Direct inputs remain counted as inputs, and their descendants are reported in separate loss counters. Joining worlds and recounting empty histories preserve that partition. The focused test uses a valid fire/ignition history. This is reporting only; it changes no actor or fire physics. BF's preliminary flood row and its remaining exposure/origin-accounting concerns stay separate.
+
+
+## 2026-10-14 — BG first physical bank step
+
+**Built:** a straight bank segment links an appended bank earthwork to a dedicated borrow pit.
+Its trapezoidal design accounts separately for compacted fill and excavated in-place earth;
+placing earth removes it at the source and adds the compacted volume to the bank. The rising
+crest follows cross-section area, not a linear share of finished height. Fine-sampled fill
+replays from the design and placed volume; authoritative ground tiles remain saved. Bank
+crests cross walking-grid edges at full sub-grid height, independent of averaged ground
+shading. Connected reach storage admits overtopping and end runs and consumes the supplied
+excess volume rather than zeroing protected cells. At a sill, partial basin filling accounts
+for water while the upstream stage remains at that sill. Reaches without a bank retain BF's
+existing storage calculation.
+
+**Snapshots and observer:** save schema 100 appends segment records and explicitly migrates 99
+with none. Invalid numbers, missing sources, duplicate segment/source links, unsupplied fill
+and bank records in older headers are refused. Existing platform/pit expansion stays version
+1. Wire 1.72 appends centre-line, crest height and breach fields; content API 86 remains.
+The map draws the kernel's line and condition. `bank_fixture` is a controlled engineering
+fixture, expressly not a lived demo or evidence of chosen work. The M6a capture remains the
+newest completed milestone demo.
+
+**Verification so far:** the conservative flood test covers protection, overtopping, an open
+end, empty barriers and mass conservation. The soil test covers the trapezoid, compaction,
+capped placement and no repeated fill. Snapshot tests cover exact raw sections, wire facts,
+ground replay, malformed records and the 99 migration/refusal. Focused checks pass. The first
+clippy attempt found the example's wrong hearth field; the web build found a duplicate debug
+field and the old FlatBuffers convenience builder removed by the enlarged table. Those
+fixtures now use the actual field and explicit generated builder. Full current workspace,
+release smoke, web, commons and browser checks are running; no final gate is claimed yet.
+
+**Still planned:** people proposing and choosing bank labour, a digging/hauling/compaction
+budget with tools and narrow fronts, overtopping erosion and piping over time, upkeep,
+trapped rainfall and borrow-pit flood storage, irrigation intakes/ditches/root-zone watering
+and maintenance. The current physical helper consumes an explicitly supplied earth-moving
+quantity, as the existing pit helper does; it creates no labour credit or policy choice.
+It is not called by a production agent yet. No spontaneous public bank or flood-gate result
+is claimed. Flood hydraulics retain reach compartments and do not model cross-reach backwater.
+
+The post-commit current-host fire-help browser check also passed in 9.0 seconds at ab9253c,
+before the bank edits; that is follow-up validation, not a before-commit claim.
+
+The first bank browser run timed out waiting for a Load row. Its trace showed an empty save
+list: the new engineering runner saved directly in the save root, instead of the host's
+per-world directory. The snapshot itself loaded in the runner, but was not discoverable by
+the host. The runner now uses `persist::world_dir_name`, as the existing workshop runner does;
+all-target clippy and the release fixture build pass after that correction. The same browser
+batch's fire-help test passed against wire 1.72. The extra ten-year run was briefly paused
+while checking the initial UI delay, then resumed; CPU contention was not the cause shown
+by the bank trace. Original artifacts are retained outside the repository. The corrected
+bank browser check is running; the full workspace suite is still passing its completed
+binaries, and the ten-year results are pending.
+
+The corrected bank browser test passes in 19.3 seconds (22.9 seconds overall) with the
+unchanged assertions. The host discovers the fixture in its world directory, loads it, and
+shows the saved centre-line, built height and explicit borrow-pit account. The current
+release short smoke passes all ten worlds; web build and 173 unit tests, commons tests and
+clippy, schema freshness and current all-target kernel clippy pass. The full kernel suite
+and extra ten-year run remain in progress. No process remains paused.
+
+For bank kind 3 the earthwork rectangle is its reserved envelope and `cut_m3` is placed
+compacted fill; the borrow pit separately records excavation in place. The bank segment
+supplies its design/crest geometry. Existing platform/pit field meanings stay unchanged.
+The next work template must populate the generic envelope consistently and use the segment
+for linear geometry; construction and ownership choices remain outside the physical helper.
+
+**Final gate before this commit:** the complete current kernel workspace suite exits 0,
+including doc tests. Current formatting, all-target clippy, pinned schema freshness,
+commons checks, web build/173 unit tests and all ten release short-smoke worlds pass.
+The corrected example also compiles under simcheck; its zero unit tests are only a compile
+check, while the current-host bank browser test proves discoverability and displayed facts.
+The extra ten-year run remains in progress: four worlds have passed so far (two surviving
+bands and two that died out). No overall ten-year result or performance comparison is
+claimed. No production agent creates a bank in this physical step.

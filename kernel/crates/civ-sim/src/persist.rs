@@ -325,6 +325,8 @@ pub const SCHEMA_V96: u32 = 96;
 pub const SCHEMA_V97: u32 = 97;
 /// Demolition before named found-burning accounts.
 pub const SCHEMA_V98: u32 = 98;
+/// Dated fire accounts, before linear bank records.
+pub const SCHEMA_V99: u32 = 99;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

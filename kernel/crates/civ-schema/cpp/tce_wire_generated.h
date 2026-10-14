@@ -16585,7 +16585,11 @@ struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_PLOT = 26,
     VT_BUILDING = 28,
     VT_WORDS = 30,
-    VT_DEPOSIT = 32
+    VT_DEPOSIT = 32,
+    VT_BANK_A = 34,
+    VT_BANK_B = 36,
+    VT_BANK_HEIGHT_M = 38,
+    VT_BANK_BREACHED = 40
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -16632,6 +16636,18 @@ struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint64_t deposit() const {
     return GetField<uint64_t>(VT_DEPOSIT, 0);
   }
+  const tce::wire::Vec2 *bank_a() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_BANK_A);
+  }
+  const tce::wire::Vec2 *bank_b() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_BANK_B);
+  }
+  float bank_height_m() const {
+    return GetField<float>(VT_BANK_HEIGHT_M, 0.0f);
+  }
+  bool bank_breached() const {
+    return GetField<uint8_t>(VT_BANK_BREACHED, 0) != 0;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -16651,6 +16667,10 @@ struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_WORDS) &&
            verifier.VerifyString(words()) &&
            VerifyField<uint64_t>(verifier, VT_DEPOSIT, 8) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_BANK_A, 4) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_BANK_B, 4) &&
+           VerifyField<float>(verifier, VT_BANK_HEIGHT_M, 4) &&
+           VerifyField<uint8_t>(verifier, VT_BANK_BREACHED, 1) &&
            verifier.EndTable();
   }
 };
@@ -16704,6 +16724,18 @@ struct EarthworkInfoBuilder {
   void add_deposit(uint64_t deposit) {
     fbb_.AddElement<uint64_t>(EarthworkInfo::VT_DEPOSIT, deposit, 0);
   }
+  void add_bank_a(const tce::wire::Vec2 *bank_a) {
+    fbb_.AddStruct(EarthworkInfo::VT_BANK_A, bank_a);
+  }
+  void add_bank_b(const tce::wire::Vec2 *bank_b) {
+    fbb_.AddStruct(EarthworkInfo::VT_BANK_B, bank_b);
+  }
+  void add_bank_height_m(float bank_height_m) {
+    fbb_.AddElement<float>(EarthworkInfo::VT_BANK_HEIGHT_M, bank_height_m, 0.0f);
+  }
+  void add_bank_breached(bool bank_breached) {
+    fbb_.AddElement<uint8_t>(EarthworkInfo::VT_BANK_BREACHED, static_cast<uint8_t>(bank_breached), 0);
+  }
   explicit EarthworkInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -16731,13 +16763,20 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfo(
     uint64_t plot = 0,
     uint64_t building = 0,
     ::flatbuffers::Offset<::flatbuffers::String> words = 0,
-    uint64_t deposit = 0) {
+    uint64_t deposit = 0,
+    const tce::wire::Vec2 *bank_a = nullptr,
+    const tce::wire::Vec2 *bank_b = nullptr,
+    float bank_height_m = 0.0f,
+    bool bank_breached = false) {
   EarthworkInfoBuilder builder_(_fbb);
   builder_.add_deposit(deposit);
   builder_.add_building(building);
   builder_.add_plot(plot);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_bank_height_m(bank_height_m);
+  builder_.add_bank_b(bank_b);
+  builder_.add_bank_a(bank_a);
   builder_.add_words(words);
   builder_.add_done(done);
   builder_.add_cut_m3(cut_m3);
@@ -16747,6 +16786,7 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfo(
   builder_.add_w(w);
   builder_.add_y(y);
   builder_.add_x(x);
+  builder_.add_bank_breached(bank_breached);
   builder_.add_kind(kind);
   return builder_.Finish();
 }
@@ -16772,7 +16812,11 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfoDirect(
     uint64_t plot = 0,
     uint64_t building = 0,
     const char *words = nullptr,
-    uint64_t deposit = 0) {
+    uint64_t deposit = 0,
+    const tce::wire::Vec2 *bank_a = nullptr,
+    const tce::wire::Vec2 *bank_b = nullptr,
+    float bank_height_m = 0.0f,
+    bool bank_breached = false) {
   auto words__ = words ? _fbb.CreateString(words) : 0;
   return tce::wire::CreateEarthworkInfo(
       _fbb,
@@ -16790,7 +16834,11 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfoDirect(
       plot,
       building,
       words__,
-      deposit);
+      deposit,
+      bank_a,
+      bank_b,
+      bank_height_m,
+      bank_breached);
 }
 
 struct CrossingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

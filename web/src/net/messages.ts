@@ -1593,6 +1593,9 @@ export interface EarthworkInfo {
   words: string;
   /** Wire 1.21: for a pit or its heap, the deposit the pit is dug for (0 for none). */
   deposit: number;
+  /** Wire 1.72: the kernel's bank centre-line and current condition. */
+  bank?: { ax: number; ay: number; bx: number; by: number; heightM: number; breached: boolean };
+
 }
 
 /** A crossing over water (wire 1.60, M5c slice AW; ADR-0004 §7, ADR-0009 §9). */
@@ -2765,6 +2768,10 @@ function earthworks(w: W.Earthworks): EarthworksInfo {
       building: Number(e.building()),
       words: e.words() ?? "",
       deposit: Number(e.deposit()),
+      bank: e.bankA() && e.bankB() ? {
+        ax: e.bankA()!.x(), ay: e.bankA()!.y(), bx: e.bankB()!.x(), by: e.bankB()!.y(),
+        heightM: e.bankHeightM(), breached: e.bankBreached(),
+      } : undefined,
     });
   }
   const tiles: { index: number; rev: number }[] = [];

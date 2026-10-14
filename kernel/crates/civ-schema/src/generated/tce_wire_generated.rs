@@ -26783,6 +26783,10 @@ impl<'a> EarthworkInfo<'a> {
   pub const VT_BUILDING: ::flatbuffers::VOffsetT = 28;
   pub const VT_WORDS: ::flatbuffers::VOffsetT = 30;
   pub const VT_DEPOSIT: ::flatbuffers::VOffsetT = 32;
+  pub const VT_BANK_A: ::flatbuffers::VOffsetT = 34;
+  pub const VT_BANK_B: ::flatbuffers::VOffsetT = 36;
+  pub const VT_BANK_HEIGHT_M: ::flatbuffers::VOffsetT = 38;
+  pub const VT_BANK_BREACHED: ::flatbuffers::VOffsetT = 40;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -26799,6 +26803,9 @@ impl<'a> EarthworkInfo<'a> {
     builder.add_plot(args.plot);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    builder.add_bank_height_m(args.bank_height_m);
+    if let Some(x) = args.bank_b { builder.add_bank_b(x); }
+    if let Some(x) = args.bank_a { builder.add_bank_a(x); }
     if let Some(x) = args.words { builder.add_words(x); }
     builder.add_done(args.done);
     builder.add_cut_m3(args.cut_m3);
@@ -26808,6 +26815,7 @@ impl<'a> EarthworkInfo<'a> {
     builder.add_w(args.w);
     builder.add_y(args.y);
     builder.add_x(args.x);
+    builder.add_bank_breached(args.bank_breached);
     builder.add_kind(args.kind);
     builder.finish()
   }
@@ -26918,6 +26926,34 @@ impl<'a> EarthworkInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(EarthworkInfo::VT_DEPOSIT, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn bank_a(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(EarthworkInfo::VT_BANK_A, None)}
+  }
+  #[inline]
+  pub fn bank_b(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(EarthworkInfo::VT_BANK_B, None)}
+  }
+  #[inline]
+  pub fn bank_height_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EarthworkInfo::VT_BANK_HEIGHT_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn bank_breached(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(EarthworkInfo::VT_BANK_BREACHED, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for EarthworkInfo<'_> {
@@ -26941,6 +26977,10 @@ impl ::flatbuffers::Verifiable for EarthworkInfo<'_> {
      .visit_field::<u64>("building", Self::VT_BUILDING, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
      .visit_field::<u64>("deposit", Self::VT_DEPOSIT, false)?
+     .visit_field::<Vec2>("bank_a", Self::VT_BANK_A, false)?
+     .visit_field::<Vec2>("bank_b", Self::VT_BANK_B, false)?
+     .visit_field::<f32>("bank_height_m", Self::VT_BANK_HEIGHT_M, false)?
+     .visit_field::<bool>("bank_breached", Self::VT_BANK_BREACHED, false)?
      .finish();
     Ok(())
   }
@@ -26961,6 +27001,10 @@ pub struct EarthworkInfoArgs<'a> {
     pub building: u64,
     pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub deposit: u64,
+    pub bank_a: Option<&'a Vec2>,
+    pub bank_b: Option<&'a Vec2>,
+    pub bank_height_m: f32,
+    pub bank_breached: bool,
 }
 impl<'a> Default for EarthworkInfoArgs<'a> {
   #[inline]
@@ -26981,6 +27025,10 @@ impl<'a> Default for EarthworkInfoArgs<'a> {
       building: 0,
       words: None,
       deposit: 0,
+      bank_a: None,
+      bank_b: None,
+      bank_height_m: 0.0,
+      bank_breached: false,
     }
   }
 }
@@ -27051,6 +27099,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EarthworkInfoBuilder<'a, 'b, 
     self.fbb_.push_slot::<u64>(EarthworkInfo::VT_DEPOSIT, deposit, 0);
   }
   #[inline]
+  pub fn add_bank_a(&mut self, bank_a: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(EarthworkInfo::VT_BANK_A, bank_a);
+  }
+  #[inline]
+  pub fn add_bank_b(&mut self, bank_b: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(EarthworkInfo::VT_BANK_B, bank_b);
+  }
+  #[inline]
+  pub fn add_bank_height_m(&mut self, bank_height_m: f32) {
+    self.fbb_.push_slot::<f32>(EarthworkInfo::VT_BANK_HEIGHT_M, bank_height_m, 0.0);
+  }
+  #[inline]
+  pub fn add_bank_breached(&mut self, bank_breached: bool) {
+    self.fbb_.push_slot::<bool>(EarthworkInfo::VT_BANK_BREACHED, bank_breached, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EarthworkInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     EarthworkInfoBuilder {
@@ -27083,6 +27147,10 @@ impl ::core::fmt::Debug for EarthworkInfo<'_> {
       ds.field("building", &self.building());
       ds.field("words", &self.words());
       ds.field("deposit", &self.deposit());
+      ds.field("bank_a", &self.bank_a());
+      ds.field("bank_b", &self.bank_b());
+      ds.field("bank_height_m", &self.bank_height_m());
+      ds.field("bank_breached", &self.bank_breached());
       ds.finish()
   }
 }

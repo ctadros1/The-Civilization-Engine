@@ -1763,7 +1763,7 @@ table Deposits {
 // deposit's goods, or the spoil heap beside a pit.
 table EarthworkInfo {
   id: ulong (id: 0);
-  // What it is: 0 a platform; wire 1.21: 1 a pit, 2 a spoil heap. Append only.
+  // What it is: 0 a platform; wire 1.21: 1 a pit, 2 a spoil heap; wire 1.72: 3 a bank. Append only.
   kind: ubyte (id: 1);
   // The rectangle it levels, metres from the map's north-west corner.
   x: float (id: 2);
@@ -1785,7 +1785,13 @@ table EarthworkInfo {
   words: string (id: 13);
   // Wire 1.21: for a pit or its heap, the deposit the pit is dug for (0 for none).
   deposit: ulong (id: 14);
+  // Wire 1.72: bank centre-line endpoints in metres, and its current height above ground.
+  bank_a: Vec2 (id: 15);
+  bank_b: Vec2 (id: 16);
+  bank_height_m: float (id: 17);
+  bank_breached: bool (id: 18);
 }
+
 
 // A crossing over water (wire 1.60, M5c slice AW; ADR-0004 §7, ADR-0009 §9): where it stands, by
 // what system, how far along it is, and its condition.

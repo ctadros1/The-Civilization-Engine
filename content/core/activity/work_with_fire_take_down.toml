@@ -1,0 +1,17 @@
+# A crew pulls down a threatened building: own property, or with leave on site.
+# Work and crew size are authored design priors (12-03 §1.6); no demolition order.
+kind = "activity"
+id = "core:activity/work_with_fire_take_down"
+name = "Pull a threatened building down"
+doing = "pulling a threatened building down"
+behavior = "pull"
+par = 5.0
+min_age_years = 14.0
+max_age_years = 65.0
+min_minutes = 1
+max_minutes = 1
+daylight_only = false
+max_walk_minutes = 30
+technique = ""
+tools = ["core:good/axe"]
+rate = 1.0

@@ -1142,7 +1142,7 @@ against taking and a watch) and `own_say` (overruled; for a household's say; no 
 built: giving an ideology up, new ones made by people (06-04 §4.2's recombination), organizations
 that teach one, and the god tool that introduces one (slice AJ).
 
-## M6b fire primitives (kernel content API 85)
+## M6b fire primitives (kernel content API 86)
 
 The people profile's strict `[fire]` table supplies the physical and decision priors. It does
 not supply fire events or outcomes. Core rates and durations are design priors unless the
@@ -1158,12 +1158,17 @@ content's comments cite a measurement; the planned ignition sweep remains separa
 | `beside_m`, `grow_minutes`, `wake_minutes`, `sight_m`, `earshot_m` | Finding and controlling an escape, growth and waking intervals, sight and alarms. |
 | `water_stays`, `wet_drains_per_minute` | Delivered water retained on roofs and its subsequent loss; a carrier must obtain and deliver each load. |
 | `w_save`, `kin_share`, `neighbour_share` | The actor's stakes in saving a threatened roof. |
+| `pull_crew`, `pull_h_per_m2`, `pull_cost` | Minimum simultaneous crew (2–32), shared hours per m² (0.001–100) and lost-worth choice cost (0–1). Core uses 2, 0.03 and 0.8, design priors. |
 | `strip_m2_per_minute`, `strip_cost`, `salvage_share` | Covering removed per work-minute, the cost of stripping and the stake in carrying goods out. |
 
-The fire-response activity behaviors are `douse`, `strip` and `salvage`. Their ages, tools,
+The fire-response activity behaviors are `douse`, `strip`, `salvage` and `pull`. Their ages, tools,
 effort and session lengths use the ordinary activity fields. Dousing requires a known water
 trip or a stored load; lack of that trip does not suppress stripping or salvage. Stripping
 requires ownership or leave on site; salvage concerns the actor's own household's goods.
+Pulling requires tools, an empty threatened building and ownership or an owner awake on site;
+crew work is shared and loses all parts when finished. Its core activity uses axes, ages 14–65
+and one-minute work intervals. Controlled crews are tested; spontaneous crew formation under
+the default costs remains uncalibrated.
 The good's optional strict `[fire]` table defines its burning share and catching threshold;
 its absence does not make an authored material a universal fireproof building.
 

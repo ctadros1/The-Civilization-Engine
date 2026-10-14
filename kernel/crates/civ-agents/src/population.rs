@@ -3661,6 +3661,7 @@ impl Population {
                             | Behavior::Attend
                             | Behavior::Douse
                             | Behavior::Strip
+                            | Behavior::Pull
                             | Behavior::Salvage
                     )
                 });
@@ -4270,6 +4271,7 @@ impl Population {
                 | Behavior::Well
                 | Behavior::Douse
                 | Behavior::Strip
+                | Behavior::Pull
                 | Behavior::Salvage,
             ) => (def_par, false, 0.0),
             None => (params.energy.idle_par, false, 0.0),
@@ -4405,6 +4407,14 @@ impl Population {
                             self.drew_at(who, household, cell);
                         }
                         _ => p.carrying.water_l = params.household.carry_water_l as f32,
+                    }
+                }
+                Some(Behavior::Pull) => {
+                    let (who, target) = (p.id, p.act.target);
+                    if let (Target::Building(building), Some(Step::Work { minutes })) =
+                        (target, step)
+                    {
+                        self.pull_down(ctx, who, building, minutes);
                     }
                 }
                 Some(Behavior::Strip) => {

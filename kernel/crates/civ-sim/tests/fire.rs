@@ -1322,3 +1322,433 @@ fn schema_96_fire_history_loads_without_inventing_monthly_entries() {
         civ_schema::SAVE_SCHEMA_VERSION
     );
 }
+
+fn demolition_site() -> (Sim, ContentRegistry, PermanentId, Vec<PermanentId>) {
+    let mut c = content().clone();
+    // A controlled exposure lasts while the crew mechanism is exercised.
+    c.people.params.fire.catch_per_minute = 0.0;
+    c.people.params.fire.involved_minutes = 240.0;
+    c.people.params.fire.w_save = 0.0;
+    let mut s = Sim::create_for_tests(&world_spec(4), &c, [7; 16]).expect("world");
+    s.advance_minutes(6 * 60).expect("settles");
+    let (owner, home) = first(&s);
+    let members = s
+        .people()
+        .household(owner)
+        .expect("household")
+        .members
+        .clone();
+    let workers: Vec<_> = members
+        .into_iter()
+        .filter(|&id| {
+            s.people()
+                .person(id)
+                .is_some_and(|p| p.age_years(s.now()) >= 14.0)
+        })
+        .take(2)
+        .collect();
+    assert_eq!(workers.len(), 2);
+    for (_, p) in s
+        .people_mut_for_tests()
+        .people
+        .iter_mut()
+        .filter(|(_, p)| workers.contains(&p.id))
+    {
+        p.pos = home;
+        p.trip = None;
+        p.asleep = false;
+    }
+    let source = hut(&mut s, owner, (home.0 + 15.0, home.1 + 12.0));
+    let target = hut(&mut s, owner, (home.0 + 22.0, home.1 + 12.0));
+    set_day(&mut s, 5.5, 0.12);
+    s.set_fire(source).expect("fire");
+    s.advance_minutes(2).expect("notices");
+    s.people_mut_for_tests().fires.exposure = vec![(target, 5000.0)];
+    (s, c, target, workers)
+}
+
+#[test]
+fn demolition_needs_a_real_crew_and_counts_their_minute_once() {
+    let (mut s, _, target, workers) = demolition_site();
+    assert!(s.with_ctx_for_tests(|p, c| p.start_pulling_for_tests(c, workers[0], target)));
+    s.advance_minutes(2).expect("one worker's step");
+    assert!(
+        s.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == target)
+            .expect("building")
+            .demolition
+            .is_none()
+    );
+    assert!(s.people().fires.pulled.is_empty());
+    for &who in &workers {
+        assert!(s.with_ctx_for_tests(|p, c| p.start_pulling_for_tests(c, who, target)));
+    }
+    s.advance_minutes(2).expect("crew's step");
+    let b = s
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == target)
+        .expect("building");
+    let work = b.demolition.expect("partial work");
+    assert!((work.work_h - 2.0 / 60.0).abs() < 1e-6, "{work:?}");
+    assert!(b.standing());
+    assert!(b.condition.iter().all(|c| c.loss < 1.0));
+    assert!(s.people().fires.pulled.is_empty());
+}
+
+#[test]
+fn partial_demolition_resumes_from_a_save_and_loses_the_buildings_parts() {
+    let (mut s, c, target, workers) = demolition_site();
+    for &who in &workers {
+        assert!(s.with_ctx_for_tests(|p, c| p.start_pulling_for_tests(c, who, target)));
+    }
+    s.advance_minutes(2).expect("partial work");
+    let dir = tempfile::tempdir().expect("dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("saves");
+    let saved =
+        persist::save(&mut s, &saves, SaveKind::Manual, "partial demolition").expect("save");
+    let mut loaded = persist::load(&saved.path, &c).expect("load");
+    for (a, b) in persist::encode_sections(&s)
+        .iter()
+        .zip(persist::encode_sections(&loaded))
+    {
+        assert_eq!(a.bytes, b.bytes, "section {}", a.tag);
+    }
+    for _ in 0..100 {
+        if s.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == target)
+            .expect("building")
+            .demolition
+            .is_none()
+        {
+            break;
+        }
+        for sim in [&mut s, &mut loaded] {
+            for &who in &workers {
+                assert!(sim.with_ctx_for_tests(|p, c| p.start_pulling_for_tests(c, who, target)));
+            }
+            sim.advance_minutes(2).expect("crew's work");
+        }
+    }
+    for sim in [&s, &loaded] {
+        let b = sim
+            .land()
+            .buildings
+            .iter()
+            .find(|b| b.id == target)
+            .expect("building");
+        assert_eq!(b.state, civ_land::BuildingState::Ruin);
+        assert!(
+            b.condition
+                .iter()
+                .all(|c| c.loss == 1.0 && c.state == GroupState::Failed)
+        );
+        assert!(b.demolition.is_none());
+        let records: Vec<_> = sim
+            .people()
+            .fires
+            .pulled
+            .iter()
+            .filter(|p| p.building == target)
+            .collect();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].people, workers);
+        assert!(records[0].work_h > 0.0);
+    }
+    assert_eq!(s.people().fires.pulled, loaded.people().fires.pulled);
+}
+
+#[test]
+fn demolition_of_anothers_building_requires_leave_on_site_throughout() {
+    let (mut s, _, target, workers) = demolition_site();
+    let owner = s
+        .people()
+        .households
+        .iter()
+        .map(|(_, h)| h.id)
+        .find(|&id| id != s.people().person(workers[0]).expect("worker").household)
+        .expect("other household");
+    let owner_members = s.people().household(owner).expect("owner").members.clone();
+    let at = {
+        let b = s
+            .land_mut_for_tests()
+            .buildings
+            .iter_mut()
+            .find(|b| b.id == target)
+            .expect("building");
+        b.household = owner;
+        build::centre_m(&b.spec)
+    };
+    for (_, p) in s
+        .people_mut_for_tests()
+        .people
+        .iter_mut()
+        .filter(|(_, p)| owner_members.contains(&p.id))
+    {
+        p.pos = (at.0 + 1000.0, at.1);
+        p.trip = None;
+        p.asleep = false;
+    }
+    for &who in &workers {
+        assert!(s.with_ctx_for_tests(|p, c| p.start_pulling_for_tests(c, who, target)));
+    }
+    s.advance_minutes(2).expect("without leave");
+    assert!(
+        s.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == target)
+            .expect("building")
+            .demolition
+            .is_none()
+    );
+    let witness = owner_members[0];
+    for (_, p) in s
+        .people_mut_for_tests()
+        .people
+        .iter_mut()
+        .filter(|(_, p)| p.id == witness)
+    {
+        p.pos = (at.0 + 9.0, at.1);
+        p.trip = None;
+        p.asleep = false;
+    }
+    for &who in &workers {
+        assert!(s.with_ctx_for_tests(|p, c| p.start_pulling_for_tests(c, who, target)));
+    }
+    s.advance_minutes(2).expect("with leave");
+    let paid = s
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == target)
+        .expect("building")
+        .demolition
+        .expect("work")
+        .work_h;
+    for (_, p) in s
+        .people_mut_for_tests()
+        .people
+        .iter_mut()
+        .filter(|(_, p)| p.id == witness)
+    {
+        p.pos = (at.0 + 1000.0, at.1);
+        p.trip = None;
+    }
+    for &who in &workers {
+        assert!(s.with_ctx_for_tests(|p, c| p.start_pulling_for_tests(c, who, target)));
+    }
+    s.advance_minutes(2).expect("owner left");
+    assert_eq!(
+        s.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == target)
+            .expect("building")
+            .demolition
+            .expect("held work")
+            .work_h,
+        paid
+    );
+}
+
+#[test]
+fn a_demolition_crew_does_no_work_while_anyone_is_inside() {
+    let (mut s, _, target, workers) = demolition_site();
+    let occupant = s
+        .people()
+        .people
+        .iter()
+        .map(|(_, p)| p.id)
+        .find(|id| !workers.contains(id))
+        .expect("occupant");
+    let at = build::centre_m(
+        &s.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == target)
+            .expect("building")
+            .spec,
+    );
+    for (_, p) in s
+        .people_mut_for_tests()
+        .people
+        .iter_mut()
+        .filter(|(_, p)| p.id == occupant)
+    {
+        p.pos = at;
+        p.trip = None;
+        p.asleep = true;
+    }
+    for &who in &workers {
+        assert!(s.with_ctx_for_tests(|p, c| p.start_pulling_for_tests(c, who, target)));
+    }
+    s.advance_minutes(2).expect("occupied");
+    assert!(
+        s.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == target)
+            .expect("building")
+            .demolition
+            .is_none()
+    );
+    for (_, p) in s
+        .people_mut_for_tests()
+        .people
+        .iter_mut()
+        .filter(|(_, p)| p.id == occupant)
+    {
+        p.pos.0 += 1000.0;
+    }
+    for &who in &workers {
+        assert!(s.with_ctx_for_tests(|p, c| p.start_pulling_for_tests(c, who, target)));
+    }
+    s.advance_minutes(2).expect("empty");
+    assert!(
+        s.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == target)
+            .expect("building")
+            .demolition
+            .is_some()
+    );
+}
+
+#[test]
+fn a_demolition_crew_needs_the_activitys_tools() {
+    let (mut s, _, target, workers) = demolition_site();
+    let owner = s.people().person(workers[0]).expect("worker").household;
+    let axe = s
+        .rules()
+        .catalog
+        .goods
+        .iter()
+        .position(|g| g.id == "core:good/axe")
+        .expect("axe");
+    let hh = s
+        .people_mut_for_tests()
+        .households
+        .iter_mut()
+        .map(|(_, h)| h)
+        .find(|h| h.id == owner)
+        .expect("household");
+    let held = hh.stores[axe];
+    assert!(held > 0.0);
+    hh.stores[axe] = 0.0;
+    for &who in &workers {
+        assert!(s.with_ctx_for_tests(|p, c| p.start_pulling_for_tests(c, who, target)));
+    }
+    s.advance_minutes(2).expect("without tools");
+    assert!(
+        s.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == target)
+            .expect("building")
+            .demolition
+            .is_none()
+    );
+    s.people_mut_for_tests()
+        .households
+        .iter_mut()
+        .map(|(_, h)| h)
+        .find(|h| h.id == owner)
+        .expect("household")
+        .stores[axe] = held;
+    for &who in &workers {
+        assert!(s.with_ctx_for_tests(|p, c| p.start_pulling_for_tests(c, who, target)));
+    }
+    s.advance_minutes(2).expect("with tools");
+    assert!(
+        s.land()
+            .buildings
+            .iter()
+            .find(|b| b.id == target)
+            .expect("building")
+            .demolition
+            .is_some()
+    );
+}
+
+#[test]
+fn malformed_demolition_progress_is_refused_without_repair() {
+    let (mut s, c, target, workers) = demolition_site();
+    for &who in &workers {
+        assert!(s.with_ctx_for_tests(|p, ctx| p.start_pulling_for_tests(ctx, who, target)));
+    }
+    s.advance_minutes(2).expect("partial");
+    let dir = tempfile::tempdir().expect("dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("saves");
+    let baseline = persist::save(&mut s, &saves, SaveKind::Manual, "valid partial").expect("save");
+    for case in 0..8 {
+        let mut bad = persist::load(&baseline.path, &c).expect("baseline");
+        let future = bad.now().minutes() + 1;
+        let d = bad
+            .land_mut_for_tests()
+            .buildings
+            .iter_mut()
+            .find(|b| b.id == target)
+            .expect("building")
+            .demolition
+            .as_mut()
+            .expect("project");
+        match case {
+            0 => d.needed_h = f32::NAN,
+            1 => d.needed_h = 0.0,
+            2 => d.work_h = -1.0,
+            3 => d.work_h = d.needed_h,
+            4 => d.last_minute = -2,
+            5 => d.last_minute = future,
+            6 => d.last_minute = -1,
+            _ => d.fire = u32::MAX,
+        }
+        let snapshot = persist::save(&mut bad, &saves, SaveKind::Manual, "malformed project")
+            .expect("write test state");
+        let error = persist::load(&snapshot.path, &c).expect_err("refuse malformed project");
+        assert!(
+            error.to_string().contains("demolition"),
+            "case {case}: {error}"
+        );
+    }
+}
+
+#[test]
+fn schema_97_loads_without_inventing_demolition_projects_or_records() {
+    let (mut s, c, _, _) = demolition_site();
+    let sections = persist::encode_sections(&s);
+    let dir = tempfile::tempdir().expect("dir");
+    let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("saves");
+    let saved = persist::save(&mut s, &saves, SaveKind::Manual, "before demolition").expect("save");
+    let reader =
+        commons_persist::SnapshotReader::open_file(&saved.path, commons_persist::Limits::default())
+            .expect("reader");
+    let mut info = reader.info().clone();
+    info.schema_version = 97;
+    let legacy = commons_persist::publish_file(
+        dir.path(),
+        "legacy.tcesave",
+        &info,
+        &sections,
+        commons_persist::DEFAULT_ZSTD_LEVEL,
+    )
+    .expect("legacy");
+    let loaded = persist::load(&legacy.path, &c).expect("loads 97");
+    assert!(
+        loaded
+            .land()
+            .buildings
+            .iter()
+            .all(|b| b.demolition.is_none())
+    );
+    assert!(loaded.people().fires.pulled.is_empty());
+    for (a, b) in sections.iter().zip(persist::encode_sections(&loaded)) {
+        assert_eq!(a.bytes, b.bytes, "section {}", a.tag);
+    }
+}

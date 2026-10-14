@@ -139,6 +139,9 @@ pub struct FireTarget {
     /// Points: carrying a load of their household's goods out from under it; none when it is not
     /// their household's or keeps nothing that burns.
     pub salvage_points: Option<f64>,
+    /// Pulling down the whole building, where a crew can stand outside its roof.
+    pub pull_points: Option<f64>,
+    pub pull_at: (f32, f32),
     /// Where goods carried out are set down, out of the fire's way, metres.
     pub away: (f32, f32),
     /// Minutes of walking straight to the roof.
@@ -1639,19 +1642,17 @@ pub fn candidates(
                 };
                 out.push(finish(id, target, terms, steps));
             }
-            Behavior::Strip | Behavior::Salvage => {
+            Behavior::Strip | Behavior::Salvage | Behavior::Pull => {
                 // Tearing a threatened roof's covering off, or carrying the household's goods out
                 // from under it (M6b slice BD, step four; ADR-0022 §6).
                 let Some(fire) = f.fire.as_ref() else {
                     continue;
                 };
                 let strip = def.behavior == Behavior::Strip;
-                let points_of = |t: &FireTarget| {
-                    if strip {
-                        t.strip_points
-                    } else {
-                        t.salvage_points
-                    }
+                let points_of = |t: &FireTarget| match def.behavior {
+                    Behavior::Strip => t.strip_points,
+                    Behavior::Pull => t.pull_points,
+                    _ => t.salvage_points,
                 };
                 let worth =
                     |t: &FireTarget| points_of(t).map(|p| p - w.w_walk_hour * t.to_roof_min / 60.0);
@@ -1679,7 +1680,9 @@ pub fn candidates(
                 let work = Step::Work {
                     minutes: def.min_minutes.max(1),
                 };
-                let steps = if strip {
+                let steps = if def.behavior == Behavior::Pull {
+                    vec![Step::Walk { to: t.pull_at }, work]
+                } else if strip {
                     vec![Step::Walk { to: t.at }, work]
                 } else {
                     vec![
@@ -2137,6 +2140,8 @@ mod tests {
             water: None,
             strip_points: Some(10.0),
             salvage_points: Some(10.0),
+            pull_points: None,
+            pull_at: (0.0, 0.0),
             away: (25.0, 0.0),
             to_roof_min: 1.0,
         };

@@ -115,7 +115,7 @@ use super::{
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
-    finish, section, single_chunk, unreadable,
+    SCHEMA_V97, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -515,6 +515,7 @@ enum Schema {
     /// Hazard provenance and storm pulse evaluations.
     V96,
     V97,
+    V98,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -626,7 +627,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V94 => Schema::V94,
         SCHEMA_V95 => Schema::V95,
         SCHEMA_V96 => Schema::V96,
-        SAVE_SCHEMA_VERSION => Schema::V97,
+        SCHEMA_V97 => Schema::V97,
+        SAVE_SCHEMA_VERSION => Schema::V98,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -973,6 +975,32 @@ pub(super) fn decode<R: Read + Seek>(
         land.flood_depths = land
             .floodplain
             .flood_depth_raster(map, &land.reach_discharges);
+    }
+    for p in &people.fires.pulled {
+        let bad = p.work_h <= 0.0
+            || !p.work_h.is_finite()
+            || p.people.len() < 2
+            || p.people.windows(2).any(|w| w[0] >= w[1])
+            || p.at > now
+            || people.fires.get(p.fire).is_none_or(|f| p.at < f.began);
+        if bad {
+            return Err(LoadError::Malformed("invalid demolition record".to_owned()));
+        }
+    }
+    for b in &land.buildings {
+        if let Some(d) = b.demolition {
+            let Some(f) = people.fires.get(d.fire) else {
+                return Err(LoadError::Malformed(
+                    "demolition names an unknown fire".to_owned(),
+                ));
+            };
+            if d.last_minute > now.minutes()
+                || (d.work_h > 0.0 && d.last_minute < 0)
+                || (d.last_minute >= 0 && d.last_minute < f.began.minutes())
+            {
+                return Err(LoadError::Malformed("invalid demolition time".to_owned()));
+            }
+        }
     }
     // Settlements' founding ways (schema 61); before them a founding band's is drawn again from
     // its key, and any other settlement's taken as its households' now.
@@ -3267,7 +3295,8 @@ fn carried(
         | Schema::V94
         | Schema::V95
         | Schema::V96
-        | Schema::V97 => {
+        | Schema::V97
+        | Schema::V98 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3479,7 +3508,8 @@ fn decode_households(
             | Schema::V94
             | Schema::V95
             | Schema::V96
-            | Schema::V97 => {
+            | Schema::V97
+            | Schema::V98 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5037,6 +5067,17 @@ fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
                     },
                 )
             });
+            let demolition = b.demolition.map(|d| {
+                save::DemolitionSave::create(
+                    &mut fbb,
+                    &save::DemolitionSaveArgs {
+                        fire: d.fire,
+                        needed_h: d.needed_h,
+                        work_h: d.work_h,
+                        last_minute: d.last_minute,
+                    },
+                )
+            });
             save::Building::create(
                 &mut fbb,
                 &save::BuildingArgs {
@@ -5060,6 +5101,7 @@ fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
                     style_from: b.style_from.map_or(0, |s| s.get()),
                     last_flood_depth_cm: b.last_flood_depth_cm,
                     days_wet: b.days_wet,
+                    demolition,
                 },
             )
         })
@@ -5208,6 +5250,31 @@ fn decode_buildings(bytes: &[u8], schema: Schema) -> Result<Vec<Building>, LoadE
                 b.days_wet()
             } else {
                 0
+            },
+            demolition: if schema >= Schema::V98 {
+                match b.demolition() {
+                    Some(d) => {
+                        let needed_h = finite(d.needed_h(), "demolition labour")?;
+                        let work_h = finite(d.work_h(), "demolition progress")?;
+                        if d.fire() == 0
+                            || needed_h <= 0.0
+                            || work_h < 0.0
+                            || work_h >= needed_h
+                            || d.last_minute() < -1
+                        {
+                            return Err(LoadError::Malformed("invalid demolition work".to_owned()));
+                        }
+                        Some(civ_land::buildings::Demolition {
+                            fire: d.fire(),
+                            needed_h,
+                            work_h,
+                            last_minute: d.last_minute(),
+                        })
+                    }
+                    None => None,
+                }
+            } else {
+                None
             },
         });
     }
@@ -8900,6 +8967,25 @@ fn encode_fires(people: &Population) -> Vec<u8> {
         })
         .collect();
     let salvaged = fbb.create_vector(&salvaged);
+    let pulled: Vec<_> = fires
+        .pulled
+        .iter()
+        .map(|p| {
+            let people: Vec<u64> = p.people.iter().map(|id| id.get()).collect();
+            let people = fbb.create_vector(&people);
+            save::PulledSave::create(
+                &mut fbb,
+                &save::PulledSaveArgs {
+                    fire: p.fire,
+                    building: p.building.get(),
+                    at: p.at.minutes(),
+                    people: Some(people),
+                    work_h: p.work_h,
+                },
+            )
+        })
+        .collect();
+    let pulled = fbb.create_vector(&pulled);
     let root = save::FiresSave::create(
         &mut fbb,
         &save::FiresSaveArgs {
@@ -8913,6 +8999,7 @@ fn encode_fires(people: &Population) -> Vec<u8> {
             thrown: Some(thrown),
             stripped: Some(stripped),
             salvaged: Some(salvaged),
+            pulled: Some(pulled),
         },
     );
     finish(fbb, root)
@@ -9059,6 +9146,28 @@ fn decode_fires(bytes: &[u8], schema: Schema) -> Result<civ_agents::fire::Fires,
             good: t.good(),
             kg: t.kg(),
         });
+    }
+    if schema >= Schema::V98 {
+        for p in root.pulled().iter().flatten() {
+            let people = p
+                .people()
+                .iter()
+                .flatten()
+                .map(|id| {
+                    PermanentId::from_raw(id).ok_or_else(|| {
+                        LoadError::Malformed("zero demolition crew member".to_owned())
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            out.pulled.push(civ_agents::fire::Pulled {
+                fire: p.fire(),
+                building: PermanentId::from_raw(p.building())
+                    .ok_or_else(|| LoadError::Malformed("zero demolished building".to_owned()))?,
+                at: SimTime::from_minutes(p.at()),
+                people,
+                work_h: p.work_h(),
+            });
+        }
     }
     Ok(out)
 }

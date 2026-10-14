@@ -24213,6 +24213,7 @@ impl<'a> Building<'a> {
   pub const VT_STYLE_FROM: ::flatbuffers::VOffsetT = 30;
   pub const VT_LAST_FLOOD_DEPTH_CM: ::flatbuffers::VOffsetT = 32;
   pub const VT_DAYS_WET: ::flatbuffers::VOffsetT = 34;
+  pub const VT_DEMOLITION: ::flatbuffers::VOffsetT = 36;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -24231,6 +24232,7 @@ impl<'a> Building<'a> {
     builder.add_plot(args.plot);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    if let Some(x) = args.demolition { builder.add_demolition(x); }
     if let Some(x) = args.repair { builder.add_repair(x); }
     builder.add_skill_h(args.skill_h);
     if let Some(x) = args.condition { builder.add_condition(x); }
@@ -24356,6 +24358,13 @@ impl<'a> Building<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u16>(Building::VT_DAYS_WET, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn demolition(&self) -> Option<DemolitionSave<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<DemolitionSave>>(Building::VT_DEMOLITION, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Building<'_> {
@@ -24380,6 +24389,7 @@ impl ::flatbuffers::Verifiable for Building<'_> {
      .visit_field::<u64>("style_from", Self::VT_STYLE_FROM, false)?
      .visit_field::<u16>("last_flood_depth_cm", Self::VT_LAST_FLOOD_DEPTH_CM, false)?
      .visit_field::<u16>("days_wet", Self::VT_DAYS_WET, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<DemolitionSave>>("demolition", Self::VT_DEMOLITION, false)?
      .finish();
     Ok(())
   }
@@ -24401,6 +24411,7 @@ pub struct BuildingArgs<'a> {
     pub style_from: u64,
     pub last_flood_depth_cm: u16,
     pub days_wet: u16,
+    pub demolition: Option<::flatbuffers::WIPOffset<DemolitionSave<'a>>>,
 }
 impl<'a> Default for BuildingArgs<'a> {
   #[inline]
@@ -24422,6 +24433,7 @@ impl<'a> Default for BuildingArgs<'a> {
       style_from: 0,
       last_flood_depth_cm: 0,
       days_wet: 0,
+      demolition: None,
     }
   }
 }
@@ -24496,6 +24508,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u16>(Building::VT_DAYS_WET, days_wet, 0);
   }
   #[inline]
+  pub fn add_demolition(&mut self, demolition: ::flatbuffers::WIPOffset<DemolitionSave<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<DemolitionSave>>(Building::VT_DEMOLITION, demolition);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingBuilder {
@@ -24529,6 +24545,154 @@ impl ::core::fmt::Debug for Building<'_> {
       ds.field("style_from", &self.style_from());
       ds.field("last_flood_depth_cm", &self.last_flood_depth_cm());
       ds.field("days_wet", &self.days_wet());
+      ds.field("demolition", &self.demolition());
+      ds.finish()
+  }
+}
+pub enum DemolitionSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct DemolitionSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for DemolitionSave<'a> {
+  type Inner = DemolitionSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> DemolitionSave<'a> {
+  pub const VT_FIRE: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NEEDED_H: ::flatbuffers::VOffsetT = 6;
+  pub const VT_WORK_H: ::flatbuffers::VOffsetT = 8;
+  pub const VT_LAST_MINUTE: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    DemolitionSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args DemolitionSaveArgs
+  ) -> ::flatbuffers::WIPOffset<DemolitionSave<'bldr>> {
+    let mut builder = DemolitionSaveBuilder::new(_fbb);
+    builder.add_last_minute(args.last_minute);
+    builder.add_work_h(args.work_h);
+    builder.add_needed_h(args.needed_h);
+    builder.add_fire(args.fire);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn fire(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(DemolitionSave::VT_FIRE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn needed_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(DemolitionSave::VT_NEEDED_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn work_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(DemolitionSave::VT_WORK_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn last_minute(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(DemolitionSave::VT_LAST_MINUTE, Some(-1)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for DemolitionSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("fire", Self::VT_FIRE, false)?
+     .visit_field::<f32>("needed_h", Self::VT_NEEDED_H, false)?
+     .visit_field::<f32>("work_h", Self::VT_WORK_H, false)?
+     .visit_field::<i64>("last_minute", Self::VT_LAST_MINUTE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct DemolitionSaveArgs {
+    pub fire: u32,
+    pub needed_h: f32,
+    pub work_h: f32,
+    pub last_minute: i64,
+}
+impl<'a> Default for DemolitionSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    DemolitionSaveArgs {
+      fire: 0,
+      needed_h: 0.0,
+      work_h: 0.0,
+      last_minute: -1,
+    }
+  }
+}
+
+pub struct DemolitionSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DemolitionSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_fire(&mut self, fire: u32) {
+    self.fbb_.push_slot::<u32>(DemolitionSave::VT_FIRE, fire, 0);
+  }
+  #[inline]
+  pub fn add_needed_h(&mut self, needed_h: f32) {
+    self.fbb_.push_slot::<f32>(DemolitionSave::VT_NEEDED_H, needed_h, 0.0);
+  }
+  #[inline]
+  pub fn add_work_h(&mut self, work_h: f32) {
+    self.fbb_.push_slot::<f32>(DemolitionSave::VT_WORK_H, work_h, 0.0);
+  }
+  #[inline]
+  pub fn add_last_minute(&mut self, last_minute: i64) {
+    self.fbb_.push_slot::<i64>(DemolitionSave::VT_LAST_MINUTE, last_minute, -1);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> DemolitionSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    DemolitionSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<DemolitionSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for DemolitionSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("DemolitionSave");
+      ds.field("fire", &self.fire());
+      ds.field("needed_h", &self.needed_h());
+      ds.field("work_h", &self.work_h());
+      ds.field("last_minute", &self.last_minute());
       ds.finish()
   }
 }
@@ -39530,6 +39694,7 @@ impl<'a> FiresSave<'a> {
   pub const VT_THROWN: ::flatbuffers::VOffsetT = 18;
   pub const VT_STRIPPED: ::flatbuffers::VOffsetT = 20;
   pub const VT_SALVAGED: ::flatbuffers::VOffsetT = 22;
+  pub const VT_PULLED: ::flatbuffers::VOffsetT = 24;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -39541,6 +39706,7 @@ impl<'a> FiresSave<'a> {
     args: &'args FiresSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<FiresSave<'bldr>> {
     let mut builder = FiresSaveBuilder::new(_fbb);
+    if let Some(x) = args.pulled { builder.add_pulled(x); }
     if let Some(x) = args.salvaged { builder.add_salvaged(x); }
     if let Some(x) = args.stripped { builder.add_stripped(x); }
     if let Some(x) = args.thrown { builder.add_thrown(x); }
@@ -39625,6 +39791,13 @@ impl<'a> FiresSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SalvagedSave>>>>(FiresSave::VT_SALVAGED, None)}
   }
+  #[inline]
+  pub fn pulled(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PulledSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PulledSave>>>>(FiresSave::VT_PULLED, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FiresSave<'_> {
@@ -39643,6 +39816,7 @@ impl ::flatbuffers::Verifiable for FiresSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ThrownSave>>>>("thrown", Self::VT_THROWN, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<StrippedSave>>>>("stripped", Self::VT_STRIPPED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<SalvagedSave>>>>("salvaged", Self::VT_SALVAGED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PulledSave>>>>("pulled", Self::VT_PULLED, false)?
      .finish();
     Ok(())
   }
@@ -39658,6 +39832,7 @@ pub struct FiresSaveArgs<'a> {
     pub thrown: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ThrownSave<'a>>>>>,
     pub stripped: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StrippedSave<'a>>>>>,
     pub salvaged: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SalvagedSave<'a>>>>>,
+    pub pulled: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PulledSave<'a>>>>>,
 }
 impl<'a> Default for FiresSaveArgs<'a> {
   #[inline]
@@ -39673,6 +39848,7 @@ impl<'a> Default for FiresSaveArgs<'a> {
       thrown: None,
       stripped: None,
       salvaged: None,
+      pulled: None,
     }
   }
 }
@@ -39723,6 +39899,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FiresSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FiresSave::VT_SALVAGED, salvaged);
   }
   #[inline]
+  pub fn add_pulled(&mut self, pulled: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<PulledSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FiresSave::VT_PULLED, pulled);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FiresSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FiresSaveBuilder {
@@ -39750,6 +39930,171 @@ impl ::core::fmt::Debug for FiresSave<'_> {
       ds.field("thrown", &self.thrown());
       ds.field("stripped", &self.stripped());
       ds.field("salvaged", &self.salvaged());
+      ds.field("pulled", &self.pulled());
+      ds.finish()
+  }
+}
+pub enum PulledSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct PulledSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for PulledSave<'a> {
+  type Inner = PulledSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> PulledSave<'a> {
+  pub const VT_FIRE: ::flatbuffers::VOffsetT = 4;
+  pub const VT_BUILDING: ::flatbuffers::VOffsetT = 6;
+  pub const VT_AT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_PEOPLE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_WORK_H: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    PulledSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args PulledSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<PulledSave<'bldr>> {
+    let mut builder = PulledSaveBuilder::new(_fbb);
+    builder.add_at(args.at);
+    builder.add_building(args.building);
+    builder.add_work_h(args.work_h);
+    if let Some(x) = args.people { builder.add_people(x); }
+    builder.add_fire(args.fire);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn fire(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(PulledSave::VT_FIRE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn building(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PulledSave::VT_BUILDING, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(PulledSave::VT_AT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn people(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(PulledSave::VT_PEOPLE, None)}
+  }
+  #[inline]
+  pub fn work_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(PulledSave::VT_WORK_H, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for PulledSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("fire", Self::VT_FIRE, false)?
+     .visit_field::<u64>("building", Self::VT_BUILDING, false)?
+     .visit_field::<i64>("at", Self::VT_AT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("people", Self::VT_PEOPLE, false)?
+     .visit_field::<f32>("work_h", Self::VT_WORK_H, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct PulledSaveArgs<'a> {
+    pub fire: u32,
+    pub building: u64,
+    pub at: i64,
+    pub people: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub work_h: f32,
+}
+impl<'a> Default for PulledSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    PulledSaveArgs {
+      fire: 0,
+      building: 0,
+      at: 0,
+      people: None,
+      work_h: 0.0,
+    }
+  }
+}
+
+pub struct PulledSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PulledSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_fire(&mut self, fire: u32) {
+    self.fbb_.push_slot::<u32>(PulledSave::VT_FIRE, fire, 0);
+  }
+  #[inline]
+  pub fn add_building(&mut self, building: u64) {
+    self.fbb_.push_slot::<u64>(PulledSave::VT_BUILDING, building, 0);
+  }
+  #[inline]
+  pub fn add_at(&mut self, at: i64) {
+    self.fbb_.push_slot::<i64>(PulledSave::VT_AT, at, 0);
+  }
+  #[inline]
+  pub fn add_people(&mut self, people: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PulledSave::VT_PEOPLE, people);
+  }
+  #[inline]
+  pub fn add_work_h(&mut self, work_h: f32) {
+    self.fbb_.push_slot::<f32>(PulledSave::VT_WORK_H, work_h, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PulledSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    PulledSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<PulledSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for PulledSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("PulledSave");
+      ds.field("fire", &self.fire());
+      ds.field("building", &self.building());
+      ds.field("at", &self.at());
+      ds.field("people", &self.people());
+      ds.field("work_h", &self.work_h());
       ds.finish()
   }
 }

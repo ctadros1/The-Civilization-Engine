@@ -69,6 +69,40 @@ pub fn outline_of(plots: &FastMap<PermanentId, civ_land::RectCm>, b: &Building) 
     })
 }
 
+/// A place outside the roof to pull from, on the side nearest the worker.
+fn pulling_place(o: &Outline, from: (f32, f32), margin: f64) -> (f32, f32) {
+    let (x, y) = o.centre();
+    let (mut dx, mut dy) = (f64::from(from.0) - x, f64::from(from.1) - y);
+    let distance = dx.hypot(dy);
+    if distance <= 1e-6 {
+        dx = 1.0;
+        dy = 0.0;
+    } else {
+        dx /= distance;
+        dy /= distance;
+    }
+    let radius = match *o {
+        Outline::Round { r, .. } => r,
+        Outline::Box { x0, y0, x1, y1 } => {
+            let tx = if dx.abs() > 1e-6 {
+                (x1 - x0) * 0.5 / dx.abs()
+            } else {
+                f64::INFINITY
+            };
+            let ty = if dy.abs() > 1e-6 {
+                (y1 - y0) * 0.5 / dy.abs()
+            } else {
+                f64::INFINITY
+            };
+            tx.min(ty)
+        }
+    };
+    (
+        (x + dx * (radius + margin)) as f32,
+        (y + dy * (radius + margin)) as f32,
+    )
+}
+
 /// Whether point `p` lies within outline `o`.
 fn within(o: &Outline, p: (f32, f32)) -> bool {
     let (x, y) = (f64::from(p.0), f64::from(p.1));
@@ -563,6 +597,37 @@ impl Population {
                 });
             let strip_points = (leave && near > fp.strip_cost)
                 .then_some(fp.w_save * stake * (near - fp.strip_cost));
+            let outline = outline_of(&plot_boxes(ctx.land), &b);
+            let empty = outline.is_some_and(|o| {
+                !self
+                    .people
+                    .iter()
+                    .any(|(_, q)| within(&o, q.position_at(now.minutes() as f64)))
+            });
+            let pull_def = ctx
+                .catalog
+                .activities
+                .iter()
+                .find(|d| d.behavior == Behavior::Pull);
+            let equipped = pull_def.is_some_and(|d| {
+                let stores = stores_now(hh, now, ctx.params, &ctx.catalog.goods);
+                d.tools
+                    .iter()
+                    .all(|&g| stores.get(g).is_some_and(|&kg| kg > 0.0))
+            });
+            let place = self.pull_place(ctx, &b, pos);
+            let pull_leave = b.household == hh.id
+                || outline.is_some_and(|o| {
+                    self.people.iter().any(|(_, q)| {
+                        q.household == b.household
+                            && !q.asleep
+                            && outside(&o, q.position_at(now.minutes() as f64)) <= fp.reach_m
+                    })
+                });
+            let pull_points =
+                (pull_leave && empty && equipped && place.is_some() && near > fp.pull_cost)
+                    .then_some(fp.w_save * stake * (near - fp.pull_cost));
+            let pull_at = place.unwrap_or(at);
             // Carrying their household's goods out from under it.
             let salvage_points = if b.household == hh.id {
                 let kg = self.burnable_under(ctx, &b, &roots);
@@ -596,6 +661,8 @@ impl Population {
                 }),
                 strip_points,
                 salvage_points,
+                pull_points,
+                pull_at,
                 away,
                 to_roof_min: walk(pos, at) / speed,
             });
@@ -706,6 +773,230 @@ impl Population {
             at: ctx.now,
             m2: m2.min(area) as f32,
         });
+    }
+
+    /// Choose a working place outside every standing roof, nearest the worker first.
+    fn pull_place(&self, ctx: &Ctx, b: &Building, from: (f32, f32)) -> Option<(f32, f32)> {
+        let plots = plot_boxes(ctx.land);
+        let outline = outline_of(&plots, b)?;
+        let others: Vec<_> = ctx
+            .land
+            .buildings
+            .iter()
+            .filter(|other| other.id != b.id && other.standing())
+            .filter_map(|other| outline_of(&plots, other))
+            .collect();
+        let (x, y) = outline.centre();
+        let margin = ctx.params.fire.beside_m.max(1.0);
+        let mut points = vec![pulling_place(&outline, from, margin)];
+        for (dx, dy) in [
+            (1., 0.),
+            (1., 1.),
+            (0., 1.),
+            (-1., 1.),
+            (-1., 0.),
+            (-1., -1.),
+            (0., -1.),
+            (1., -1.),
+        ] {
+            points.push(pulling_place(
+                &outline,
+                ((x + dx) as f32, (y + dy) as f32),
+                margin,
+            ));
+        }
+        points
+            .into_iter()
+            .filter(|&at| others.iter().all(|o| !within(o, at)))
+            .min_by(|a, b| {
+                let distance = |p: &(f32, f32)| (p.0 - from.0).hypot(p.1 - from.1);
+                distance(a)
+                    .total_cmp(&distance(b))
+                    .then(a.0.total_cmp(&b.0))
+                    .then(a.1.total_cmp(&b.1))
+            })
+    }
+
+    /// A minute of coordinated demolition, paid by actual workers on site.
+    pub(super) fn pull_down(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        building: PermanentId,
+        minutes: u32,
+    ) {
+        let Some(bi) = ctx.land.buildings.iter().position(|b| b.id == building) else {
+            return;
+        };
+        let b = &ctx.land.buildings[bi];
+        if !b.roofed() || self.fires.burning_in(building).is_some() || minutes == 0 {
+            return;
+        }
+        let at = build::centre_m(&b.spec);
+        let Some(fire) = self.fire_against(at) else {
+            return;
+        };
+        let Some(outline) = outline_of(&plot_boxes(ctx.land), b) else {
+            return;
+        };
+        let Some(actor) = self.person(who) else {
+            return;
+        };
+        let leave = actor.household == b.household
+            || self.people.iter().any(|(_, p)| {
+                p.household == b.household
+                    && !p.asleep
+                    && outside(&outline, p.position_at(ctx.now.minutes() as f64))
+                        <= ctx.params.fire.reach_m
+            });
+        if !leave
+            || !self
+                .fires
+                .exposure
+                .iter()
+                .any(|&(id, heat)| id == building && heat > 0.0)
+        {
+            return;
+        }
+        if self
+            .people
+            .iter()
+            .any(|(_, p)| within(&outline, p.position_at(ctx.now.minutes() as f64)))
+        {
+            return;
+        }
+        let now = ctx.now.minutes();
+        if b.demolition.is_some_and(|d| d.last_minute >= now) {
+            return;
+        }
+        let mut crew: Vec<PermanentId> = self
+            .people
+            .iter()
+            .filter_map(|(_, p)| {
+                let def = ctx.catalog.activities.get(usize::from(p.act.def))?;
+                if def.behavior != Behavior::Pull
+                    || p.act.target != Target::Building(building)
+                    || !matches!(
+                        p.act.steps.get(p.act.step as usize),
+                        Some(Step::Work { .. })
+                    )
+                    || p.act.step_started.minutes() > now - i64::from(minutes)
+                    || p.act.step_ends.minutes() < now
+                    || p.asleep
+                    || ctx.now.day_index() <= self.order.hurt_until(p.id).unwrap_or(-1)
+                    || self.sickness.ill(p.id, ctx.now.day_index())
+                    || outside(&outline, p.position_at(now as f64))
+                        > ctx.params.fire.beside_m.max(1.0) + 0.01
+                {
+                    return None;
+                }
+                let age = p.age_years(ctx.now);
+                if age < def.min_age_years || age > def.max_age_years {
+                    return None;
+                }
+                let hh = self.household(p.household)?;
+                let stores = stores_now(hh, ctx.now, ctx.params, &ctx.catalog.goods);
+                def.tools
+                    .iter()
+                    .all(|&g| stores.get(g).is_some_and(|&kg| kg > 0.0))
+                    .then_some(p.id)
+            })
+            .collect();
+        crew.sort_unstable();
+        crew.dedup();
+        if !crew.contains(&who) || crew.len() < usize::from(ctx.params.fire.pull_crew) {
+            return;
+        }
+        let d = ctx.land.buildings[bi]
+            .demolition
+            .get_or_insert(civ_land::buildings::Demolition {
+                fire,
+                needed_h: (outline.area_m2() * ctx.params.fire.pull_h_per_m2) as f32,
+                work_h: 0.0,
+                last_minute: -1,
+            });
+        if d.needed_h <= 0.0 || !d.needed_h.is_finite() {
+            return;
+        }
+        d.last_minute = now;
+        d.work_h += (crew.len() as f64 * f64::from(minutes) / 60.0) as f32;
+        if d.work_h < d.needed_h {
+            return;
+        }
+        let work_h = d.work_h;
+        let household = ctx.land.buildings[bi].household;
+        let b = &mut ctx.land.buildings[bi];
+        for c in &mut b.condition {
+            c.loss = 1.0;
+            c.state = GroupState::Failed;
+        }
+        b.state = civ_land::BuildingState::Ruin;
+        b.repair = None;
+        b.demolition = None;
+        let words = self.building_words(ctx, &ctx.land.buildings[bi]);
+        self.chronicle_push(
+            ctx.now, ChronicleKind::Fire, crew.clone(),
+            self.household(household).and_then(|h| h.settlement), Some(at),
+            f64::from(FireStep::Pulled as u8),
+            format!("A crew of {} pulled down {words} against the fire: {work_h:.2} hours of work; its parts were lost.", crew.len()),
+        );
+        self.fires.pulled.push(crate::fire::Pulled {
+            fire,
+            building,
+            at: ctx.now,
+            people: crew,
+            work_h,
+        });
+        self.buildings_changed(ctx.now, ctx.land, ctx.catalog, ctx.params, household);
+    }
+
+    /// Starts the actual one-minute activity on site for a controlled crew test.
+    #[doc(hidden)]
+    pub fn start_pulling_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        who: PermanentId,
+        building: PermanentId,
+    ) -> bool {
+        let Some(h) = self.index.get(&who).copied() else {
+            return false;
+        };
+        let Some((def, d)) = ctx
+            .catalog
+            .activities
+            .iter()
+            .enumerate()
+            .find(|(_, d)| d.behavior == Behavior::Pull)
+        else {
+            return false;
+        };
+        let minutes = d.min_minutes.max(1);
+        let Some(b) = ctx.land.buildings.iter().find(|b| b.id == building) else {
+            return false;
+        };
+        let Some(from) = self.people.get(h).map(|p| p.pos) else {
+            return false;
+        };
+        let Some(pos) = self.pull_place(ctx, b, from) else {
+            return false;
+        };
+        let Some(p) = self.people.get_mut(h) else {
+            return false;
+        };
+        p.pos = pos;
+        p.trip = None;
+        p.act = Activity {
+            def: def as u16,
+            target: Target::Building(building),
+            steps: vec![Step::Work { minutes }],
+            step: 0,
+            started: ctx.now,
+            step_started: ctx.now,
+            step_ends: ctx.now,
+            version: p.act.version.wrapping_add(1),
+        };
+        self.start_work(ctx, h, minutes, Some(Behavior::Pull));
+        true
     }
 
     /// Person `who` of `household` takes up a load of its goods from under building

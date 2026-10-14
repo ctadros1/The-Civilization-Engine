@@ -394,6 +394,16 @@ fn water_line(sim: &Sim, root: u32) -> Vec<String> {
             if roofs.len() == 1 { "it" } else { "them" },
         ));
     }
+    for p in fires.pulled.iter().filter(|p| p.fire == root) {
+        let name = building_words(sim, p.building);
+        let people: Vec<String> = p.people.iter().map(|&id| sim.people.name_of(id)).collect();
+        out.push(format!(
+            "{}: {name} was pulled down by {}; {:.2} person-hours of work, its parts lost",
+            when(p.at),
+            names_list(&people),
+            p.work_h,
+        ));
+    }
     let salvaged: Vec<_> = fires.salvaged.iter().filter(|t| t.fire == root).collect();
     if !salvaged.is_empty() {
         let kg: f32 = salvaged.iter().map(|t| t.kg).sum();
@@ -720,7 +730,20 @@ pub(super) fn chronicle_link(sim: &Sim, e: &ChronicleEvent) -> Option<(u8, u32)>
     match e.kind {
         ChronicleKind::Fire => {
             let step = e.number.round() as u8;
-            if step == FireStep::Burned as u8 {
+            if step == FireStep::Pulled as u8 {
+                fires
+                    .pulled
+                    .iter()
+                    .rev()
+                    .find(|p| {
+                        p.at == e.at
+                            && sim.land.buildings.iter().any(|b| {
+                                b.id == p.building
+                                    && Some(civ_agents::build::centre_m(&b.spec)) == e.place
+                            })
+                    })
+                    .map(|p| (FIRE, p.fire))
+            } else if step == FireStep::Burned as u8 {
                 fires
                     .list
                     .iter()

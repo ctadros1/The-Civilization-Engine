@@ -115,6 +115,12 @@ pub struct FireParams {
     /// What the goods a household keeps under a roof are worth to it, as a share of the
     /// building's worth (`w_save`), when a load of them is carried out of a fire's way.
     pub salvage_share: f64,
+    /// People working together at the building before demolition advances (design prior).
+    pub pull_crew: u16,
+    /// Person-hours per square metre of roof to pull down the framing (design prior).
+    pub pull_h_per_m2: f64,
+    /// Losing the building as a share of its worth, against the fire's threat.
+    pub pull_cost: f64,
 }
 
 /// How far a building's fire has gone.
@@ -162,6 +168,9 @@ impl FireParams {
             strip_m2_per_minute: 1.0,
             strip_cost: 0.5,
             salvage_share: 0.5,
+            pull_crew: 2,
+            pull_h_per_m2: 0.03,
+            pull_cost: 0.8,
         }
     }
 
@@ -640,6 +649,18 @@ pub struct Fires {
     pub stripped: Vec<Stripped>,
     /// Every load of goods carried out from under a roof a fire threatened, oldest first.
     pub salvaged: Vec<Salvaged>,
+    /// Buildings pulled down by a crew against a fire.
+    pub pulled: Vec<Pulled>,
+}
+
+/// A crew finished pulling a threatened building down; the parts are lost, not restored.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Pulled {
+    pub fire: u32,
+    pub building: PermanentId,
+    pub at: SimTime,
+    pub people: Vec<PermanentId>,
+    pub work_h: f32,
 }
 
 /// Covering someone tore from a roof a fire threatened (ADR-0022 §6): the kernel's truth. Saved.
@@ -769,6 +790,17 @@ impl Fires {
                     "a load thrown against fire {} held no water",
                     t.fire
                 ));
+            }
+        }
+        for p in &self.pulled {
+            if self.get(p.fire).is_none()
+                || !p.work_h.is_finite()
+                || p.work_h <= 0.0
+                || p.people.len() < 2
+                || p.people.windows(2).any(|w| w[0] >= w[1])
+                || p.at.minutes() < 0
+            {
+                out.push("a demolition record is malformed".to_owned());
             }
         }
         let known = |f: u32| f != 0 && f as usize <= self.list.len();

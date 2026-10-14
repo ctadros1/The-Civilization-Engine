@@ -2411,7 +2411,7 @@ and M6a gives rivers a daily flow.
       goods out from under a threatened roof of its, and its fire, if it comes, does not reach
       them. Each is recorded and the fire's page tells it (saves 92, content API 85). Measured:
       with water at hand people chose to carry water almost every time; in five worlds no roof
-      was stripped and two loads of goods were carried out. Pulling a building down waits.
+      was stripped and two loads of goods were carried out. Crew demolition was added later; see below.
     - *No-water choice repair (2026-10-14, §9):* stripping and salvage remain available
       when no known water trip is reachable; only dousing needs that trip. Stored water still
       supplies a load. Save schema 96, content API 85 and wire 1.69 remain unchanged.
@@ -2422,9 +2422,15 @@ and M6a gives rivers a daily flow.
       settlement entries count the previous month's recorded household escapes and outcomes.
       Observer-set fires have no household escape and are excluded; quiet months add no entry.
       Save schema 97 explicitly loads schema 96 without inventing earlier summaries.
+    - *Crew demolition implemented (2026-10-14, §9):* an equipped crew works outside an empty
+      threatened roof, with ownership or an owner awake on site throughout. Shared minute work
+      is counted once; finishing loses the parts and leaves a ruin, recorded on the fire page
+      and chronicle. Save schema 98 stores partial work and explicitly migrates 97 with none;
+      content API 86 authors crew size, hours per area and choice cost. Controlled scheduled
+      crews are tested; autonomous crew formation and response calibration are not claimed.
     - *BE persistence repair (2026-10-13):* fire caution by covering and wall kind is now saved
       in schema 94; saves through 93 begin with no remembered fire losses, since none was stored.
-      Pulling down with a crew and leave, fire seen and told, fuller page/chronicle reporting,
+      Fire seen and told, fuller page/chronicle reporting,
       the Help at a fire lens and the calibration sweep remain open.
   - **BE**: masonry, brick and tile.
     - Goods (mud brick, brick, roof tile, quicklime), a kiln, and techniques. Founders bring
@@ -2468,7 +2474,9 @@ and M6a gives rivers a daily flow.
       *Cadence and refuge repair (2026-10-14):* depth refreshes and extra structural checks
       add no exposure days or repeated spoilage. Loss is attributed to the building's reach.
       Field memory reads today's water; supplies are planned and received at the chosen refuge.
-      Crossing scour and the dashboard flood row remain open. Review concerns and coverage
+      A preliminary ungraded Floods and storms dashboard row reports cumulative counters.
+      Crossing scour, corrected local/exposure counts, observer partitions and flood gates remain
+      open. Review concerns and coverage
       limits are recorded in the development journal; these are not a completed BF gate.
   - **BG**: banks and ditches.
     - Earth kinds `bank` and `ditch` as lines of segments.
@@ -3168,3 +3176,9 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **BD choices without a water route (2026-10-14):** a threatened roof remains a candidate when the person has no known reachable water trip. Only carrying water requires that trip; stripping and salvage keep their own eligibility, costs and walking terms. A controlled facts fixture checks absent and stored water, and a decision fixture checks all three candidate kinds. No content or save meaning changes: schema 96, content API 85, wire 1.69. Crew demolition, fire seen and told, reporting, the Help at a fire lens and the ignition sweep remain open.
 
 - **BD monthly fire reporting (2026-10-14):** an appended FireStep::Month counts the previous calendar month's recorded household escapes by settlement: put out, reached a roof, went out without catching, or still growing. Observer-set fires are excluded; quiet months produce no entry. The aggregate carries no individual fire link. Save schema 97 has an explicit schema-96 path, preserving existing records without invented historical summaries. Content API 85 and wire 1.69 stay unchanged. Full fire pages, named fire accounts, the help lens and calibration remain open.
+
+- **BD crew demolition (2026-10-14):** a physical project belongs to the building; completed fire-response records belong to the fire history. Every credited interval requires the crew, age/health eligibility, axes, an empty building and current leave. Each shared minute is credited once. Save schema 98 appends physical progress and completed records; schemas through 97 migrate with neither. Content API 86 adds `pull_crew`, `pull_h_per_m2` and `pull_cost`; core uses 2, 0.03 hours/m² and 0.8. The controlled scheduler tests exercise real work; they do not establish autonomous crew formation under the default choice weights.
+
+- **M6b dashboard documentation correction (2026-10-14):** BF already supplies an ungraded `Floods and storms` row. Earlier follow-up notes incorrectly called the row absent; its local/exposure counts, observer-origin partitions and grading remain incomplete. The Fires row also needs to keep observer-caused spread and deaths out of natural losses; that reporting repair is being prepared with calibration.
+
+- **No-water fire-choice ten-year follow-up (2026-10-14):** the additional release smoke on `ba5cd14` passes all ten worlds and the matrix survival gate; eight bands survive, coastal seed 5 and valley seed 5 die out as permitted. It validates that source before the crew-demolition change, not later preparations; contended wall times are not a benchmark.

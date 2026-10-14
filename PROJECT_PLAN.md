@@ -2417,7 +2417,7 @@ and M6a gives rivers a daily flow.
       supplies a load. Save schema 96, content API 85 and wire 1.69 remain unchanged.
     - *Step five implemented (2026-10-11, §9):* the dashboard's Fires row reports escapes per
       1,000 household-years, put-out escapes, buildings burned, spread and deaths; observer-set
-      fires are separate. The rate sweep remains planned.
+      fires are separate. The later rate sweep is reported below.
     - *Monthly chronicle implemented (2026-10-14, §9):* on the first day of a month,
       settlement entries count the previous month's recorded household escapes and outcomes.
       Observer-set fires have no household escape and are excluded; quiet months add no entry.
@@ -2444,9 +2444,16 @@ and M6a gives rivers a daily flow.
       unserved episodes, actual helpers, water and earliest work; completed demolition crews
       count. Observer-set exposures are marked. Wire 1.71 appends FireHelp and CoverageHome
       field 8; save schema 99 and content API 86 stay unchanged.
+    - *Ignition sweep implemented (2026-10-14, §9):* the runner measures settings 1, 3, 10,
+      30 and 100 on final BD behavior, with daily household exposure and separate notices,
+      containment, losses, water and labor. Five-year seed-2 arms give about 61 household-years
+      each and 0, 1, 1, 2 and 6 escapes; no hazard is tuned from the tiny sample. The report and
+      CSV are in docs/calibration/. The dashboard separates all observer-episode losses from
+      natural losses. Completed mechanics do not imply calibrated spontaneous crew formation
+      or complete personal visibility; these limits remain recorded.
     - *BE persistence repair (2026-10-13):* fire caution by covering and wall kind is now saved
       in schema 94; saves through 93 begin with no remembered fire losses, since none was stored.
-      The calibration sweep remains open. Scene awareness remains a
+      The ignition sweep is reported below. Scene awareness remains a
       coarse connected-scene model, without terrain occlusion or individual sight bounds.
   - **BE**: masonry, brick and tile.
     - Goods (mud brick, brick, roof tile, quicklime), a kiln, and techniques. Founders bring
@@ -3202,3 +3209,5 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **BD found-burning accounts and physical scenes (2026-10-14):** direct records create shared immutable dated accounts, carried by actual household/hearth contact, with no asserted cause. Heard alarms remain distinct from direct sightings. Risk facts no longer use historical episode grouping or spread diagnostics to extend awareness: recent personal records anchor a connected physical scene. A historical regrouping test keeps a distant fire unknown. This remains coarse scene awareness, not full individual visibility or terrain occlusion. Save schema 99 adds the claim's fire reference and explicitly reads 98 without backfill; invalid references, dates and mixed claim payloads are refused. Wire 1.70 appends HeardLine kind 7 under ADR-0001; existing fields retain their ids and types. Content API 86 stays unchanged.
 
 - **BD Help at a fire lens (2026-10-14):** potential help is a bounded current directed-walking probe, with route-budget exhaustion reported as inconclusive, never unreachable. Available adults, rights-based water and stored loads do not imply willingness or future work. Actual thirty-day help comes only from water, stripping, salvage and completed demolition records; unserved household-episode exposures remain in the denominator. Observer-set exposures are marked separately. The kernel supplies the facts; the web draws them and switches between fire and water lenses without using stale responses. Wire 1.71 appends typed FireHelp/CoverageHome fields under ADR-0001; snapshots 99 and content API 86 stay unchanged. No large-population query-performance claim is made.
+
+- **BD ignition sensitivity and observer losses (2026-10-14):** final BD behavior is swept at nominal 1, 3, 10, 30 and 100/K household-years by scaling activity hazards, never incident counts. Daily exposure is 61.071 household-years per arm; actual rates are 0, 16.374, 16.374, 32.749 and 98.246/K. The highest arm has six escapes, four put out, three roof fires, one spread, one death, 45 L applied and ten minutes of response work. Two roof fires were noticed and one was not. No stripping, salvage or completed demolition is observed; no core prior is tuned and no complete response fit is claimed. The reproducible runner, CSV and source/version notes are in docs/calibration/fire-ignition-sweep.md. The Fires row now excludes whole observer-set episodes from natural losses and reports their buildings/spread/deaths separately. Save schema 99, content API 86 and wire 1.71 stay unchanged.

@@ -80,6 +80,8 @@ pub struct Facts {
     pub crossing: Option<CrossingFacts>,
     /// The well their household is digging or relining, if any (M6a slice AY, step three).
     pub well: Option<WellFacts>,
+    /// The flood bank their polity is building, if they may work on it (M6b slice BG).
+    pub levee: Option<LeveeFacts>,
     /// Whether a blow keeps them from work today (M4c slice AI, step four): they eat, drink, rest,
     /// sleep and keep company, and do no work.
     pub hurt: bool,
@@ -185,6 +187,22 @@ pub struct WellFacts {
     pub saves_per_hour: f64,
     /// Points: keeping to the gathering's word on a polity's well, while the household has not
     /// given the share asked of it (M6a slice BA, step four); 0 for its own.
+    pub duty: f64,
+    pub full: bool,
+}
+
+/// A flood bank their polity is building under a law they know of (M6b slice BG; ADR-0022 §11):
+/// where its work is done, the walk there from home, the work it still takes, the hours a year
+/// their household reckoned it would save it for each hour of that work, what keeping to the
+/// gathering's word is worth while their household has not given its share, and whether as many
+/// work on it now as its length gives room for.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LeveeFacts {
+    pub bank: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub left_h: f64,
+    pub saves_per_hour: f64,
     pub duty: f64,
     pub full: bool,
 }
@@ -762,6 +780,11 @@ pub fn candidates(
         // And work on a well to all but those whose household is digging or relining one (M6a
         // slice AY, step three).
         if def.behavior == Behavior::Well && f.well.is_none() {
+            continue;
+        }
+        // And work on a flood bank to all but those whose polity is building one under a law
+        // they know of (M6b slice BG).
+        if def.behavior == Behavior::Levee && f.levee.is_none() {
             continue;
         }
         // And tending to all but those with someone ill at home still owed care (M6a slice AZ,
@@ -1598,6 +1621,25 @@ pub fn candidates(
                     Err(why) => excluded.push((id, why)),
                 }
             }
+            Behavior::Levee => {
+                // Work on the polity's flood bank (M6b slice BG), as on a crossing built
+                // together.
+                let Some(c) = f.levee else {
+                    continue;
+                };
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: c.saves_per_hour,
+                    duty: c.duty,
+                    full: c.full,
+                };
+                match session_at_site(def, w, f, &site, Reason::Levee, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Bank(c.bank), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
+                }
+            }
             Behavior::Douse => {
                 // A load of water carried to a roof a fire threatens (M6b slice BD, step three;
                 // ADR-0022 §6): drawn at home or at the nearest source, walked to the roof and
@@ -2034,6 +2076,7 @@ mod tests {
             carry: None,
             crossing: None,
             well: None,
+            levee: None,
         }
     }
 

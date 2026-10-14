@@ -52,6 +52,9 @@ pub(super) struct Forecasts {
     /// Where the settlement's people could dig a well together, if anywhere (M6a slice BA, step
     /// four).
     pub(super) well: Option<super::wells::PublicWell>,
+    /// Where the settlement's people could build a flood bank together, if anywhere (M6b slice
+    /// BG).
+    pub(super) bank: Option<super::levees::PublicBank>,
 }
 
 /// What closing a source would bring a household (M6a slice BA, step four): the household, the
@@ -144,6 +147,22 @@ impl Forecasts {
             // the work, spread over the lining's life, could.
             Some(PolicyKind::DigWell) => {
                 let Some(p) = self.well.as_ref().filter(|p| m.site == Some(p.site.cell)) else {
+                    return 0.0;
+                };
+                let kcal = self
+                    .hour_kcal
+                    .binary_search_by_key(&h, |k| k.0)
+                    .map_or(0.0, |i| self.hour_kcal[i].1);
+                let saved = p.saves_of(h) * kcal;
+                let owed = p.share_h() / p.life.max(1e-9) * kcal;
+                crate::polity::kept_gain(o, saved, pp) - crate::polity::levy_cost(o, owed, pp)
+            }
+            // A flood bank built together (M6b slice BG), as a crossing: the food a year the
+            // losses it remembers at the places the bank would keep dry could bring, less what
+            // its share of the work, spread over the bank's life, could. A household that
+            // remembers no such loss gains nothing and pays its share (research 12-08 §1.2).
+            Some(PolicyKind::BuildBank) => {
+                let Some(p) = self.bank.as_ref() else {
                     return 0.0;
                 };
                 let kcal = self
@@ -572,6 +591,7 @@ impl Population {
         sickness: bool,
         suspected: bool,
         water_far: bool,
+        flooded: bool,
     ) -> Vec<IssueKind> {
         let mut out = Vec::new();
         if self.lean_lately(ctx, settlement) || pressed {
@@ -600,6 +620,9 @@ impl Population {
         }
         if water_far {
             out.push(IssueKind::WaterFar);
+        }
+        if flooded {
+            out.push(IssueKind::Flooded);
         }
         out
     }
@@ -723,10 +746,12 @@ impl Population {
         let settlement = self.polities[pi].settlement;
         let sites = self.public_sites(ctx, settlement, households);
         let well = self.public_well(ctx, settlement, households);
-        self.forecasts_with(ctx, pi, households, adults, sites, well)
+        let bank = self.public_bank(ctx, settlement, households);
+        self.forecasts_with(ctx, pi, households, adults, sites, well, bank)
     }
 
     /// [`Population::forecasts`], with the crossing sites already found.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn forecasts_with(
         &self,
         ctx: &Ctx,
@@ -735,6 +760,7 @@ impl Population {
         adults: &[(PermanentId, PermanentId)],
         sites: Vec<super::crossings::PublicSite>,
         well: Option<super::wells::PublicWell>,
+        bank: Option<super::levees::PublicBank>,
     ) -> Forecasts {
         let outlooks: Vec<(PermanentId, Outlook)> = households
             .iter()
@@ -773,7 +799,7 @@ impl Population {
             watchers,
             claim,
             closures,
-            hour_kcal: if sites.is_empty() && well.is_none() {
+            hour_kcal: if sites.is_empty() && well.is_none() && bank.is_none() {
                 Vec::new()
             } else {
                 households
@@ -783,6 +809,7 @@ impl Population {
             },
             sites,
             well,
+            bank,
         }
     }
 
@@ -1031,7 +1058,7 @@ impl Population {
 
     /// What an hour of household `hh`'s work brings it in food, kcal: of the foods it can get,
     /// the most energy for an hour at its own cost (M3a, ADR-0006).
-    fn hour_kcal(&self, ctx: &Ctx, hh: &Household) -> f64 {
+    pub(super) fn hour_kcal(&self, ctx: &Ctx, hh: &Household) -> f64 {
         self.own_costs_of(ctx, hh)
             .iter()
             .zip(&ctx.catalog.goods)
@@ -1263,6 +1290,17 @@ impl Population {
         let (suspecting, _) = self.suspecting(pi, &adults);
         // Where its people could dig a well together.
         let well = self.public_well(ctx, settlement, &households);
+        // Where they could build a flood bank together, and the households a flood cost within
+        // memory (M6b slice BG).
+        let bank = self.public_bank(ctx, settlement, &households);
+        let flooded_homes: Vec<PermanentId> = households
+            .iter()
+            .copied()
+            .filter(|&h| {
+                self.household(h)
+                    .is_some_and(|x| !x.flood_losses.is_empty())
+            })
+            .collect();
         let issues = self.issues(
             ctx,
             settlement,
@@ -1275,6 +1313,7 @@ impl Population {
             !sick_homes.is_empty(),
             !suspecting.is_empty(),
             well.is_some(),
+            bank.is_some(),
         );
         let polity = &self.polities[pi];
         // A watch may have one more while takings continue (M4c slice AI: a watch of several):
@@ -1309,6 +1348,11 @@ impl Population {
                 // Another closing, of a source none in force closes, and another well once none
                 // is being dug (M6a slice BA).
                 if matches!(d.kind, PolicyKind::CloseSource | PolicyKind::DigWell) {
+                    return true;
+                }
+                // Another bank once none is being built (M6b slice BG: `public_bank` holds to
+                // one at a time).
+                if d.kind == PolicyKind::BuildBank {
                     return true;
                 }
                 (d.kind == PolicyKind::KeepWatch && taken_since)
@@ -1352,7 +1396,7 @@ impl Population {
             params,
         );
         // What each household expects, to forecast what a move would bring it.
-        let fc = self.forecasts_with(ctx, pi, &households, &adults, sites, well);
+        let fc = self.forecasts_with(ctx, pi, &households, &adults, sites, well, bank);
         let outlooks = &fc.outlooks;
         // Who could keep the store: adults whose household is under a roof.
         let roofed: Vec<PermanentId> = adults
@@ -1390,6 +1434,8 @@ impl Population {
                             .chain(&robbed_lately)
                             .chain(&saw_outsiders)
                             .chain(&sick_homes)
+                            // And households a flood cost within memory (M6b slice BG).
+                            .chain(&flooded_homes)
                             .filter_map(|&h| self.elder_of(h, now, params)),
                     )
                     // And whoever holds that a source sickens (M6a slice BA).
@@ -1501,7 +1547,14 @@ impl Population {
                         // A closing names its source, and a well its site (M6a slice BA).
                         site: match self.polities[pi].closure_of(l.id) {
                             Some(crate::uses::Place::Source(cell)) => Some(cell),
-                            _ => self.polities[pi].well_site_of(l.id).map(|s| s.cell),
+                            _ => self.polities[pi]
+                                .well_site_of(l.id)
+                                .map(|s| s.cell)
+                                .or_else(|| {
+                                    self.polities[pi]
+                                        .bank_site_of(l.id)
+                                        .map(|s| super::levees::bank_cell(ctx.map, &s))
+                                }),
                         },
                         own_gain: 0.0,
                         followers_gain: 0.0,
@@ -1635,6 +1688,16 @@ impl Population {
                         if let Some(p) = &fc.well {
                             moves.push(MoveOption {
                                 site: Some(p.site.cell),
+                                ..blank
+                            });
+                        }
+                    }
+                    // A flood bank, where the settlement's people could build one together (M6b
+                    // slice BG), named by the cell at its middle.
+                    PolicyKind::BuildBank => {
+                        if let Some(p) = &fc.bank {
+                            moves.push(MoveOption {
+                                site: Some(p.cell(ctx.map)),
                                 ..blank
                             });
                         }
@@ -1809,6 +1872,10 @@ impl Population {
                             || self.polities[pi].closure_of(l.id)
                                 == m.site.map(crate::uses::Place::Source)
                             || self.polities[pi].well_site_of(l.id).map(|s| s.cell) == m.site
+                            || self.polities[pi]
+                                .bank_site_of(l.id)
+                                .map(|s| super::levees::bank_cell(ctx.map, &s))
+                                == m.site
                     })
                     .filter(|l| {
                         l.decided
@@ -1936,6 +2003,31 @@ impl Population {
                 .filter(|p| p.site.cell == cell)
             {
                 self.polities[pi].wells.push((id, p.site));
+            }
+        }
+        // A bank names its site, as the settlement's people would build it now, and keeps what
+        // each household reckoned it would save it (M6b slice BG).
+        if def.kind == PolicyKind::BuildBank
+            && let Some(cell) = m.site
+        {
+            let settlement = self.polities[pi].settlement;
+            let mut households: Vec<PermanentId> = self
+                .households
+                .iter()
+                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                .map(|(_, x)| x.id)
+                .collect();
+            households.sort_unstable();
+            if let Some(p) = self
+                .public_bank(ctx, settlement, &households)
+                .filter(|p| p.cell(ctx.map) == cell)
+            {
+                let polity = &mut self.polities[pi];
+                polity.banks.push((id, p.site));
+                for &(h, saves) in &p.saves {
+                    polity.bank_saves.push((id, h, saves as f32));
+                }
+                polity.bank_saves.sort_unstable_by_key(|s| (s.0, s.1));
             }
         }
         // A closing names the source its sponsor suspects (M6a slice BA, step four).
@@ -2163,6 +2255,10 @@ impl Population {
         {
             let polity = self.polities[pi].id;
             self.begin_public_well(ctx, polity, site);
+        }
+        // A bank passed is begun at once, the polity's (M6b slice BG).
+        if outcome == Outcome::Passed && kind == PolicyKind::BuildBank {
+            self.begin_public_bank(ctx, pi, law_id);
         }
         // A law that replaces one in force supersedes it (M4c slice AH).
         if outcome == Outcome::Passed

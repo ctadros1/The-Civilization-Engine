@@ -20,11 +20,12 @@ pub(crate) struct PolicyFile {
     pub description: String,
     /// What the kernel does under it: `common_store`, `keep_store`, `against_taking`,
     /// `keep_watch`, `curfew`, `amend_body` or `repeal` (content API 49), `claim_place` (59),
-    /// `agreement` (62) or `build_crossing` (67).
+    /// `agreement` (62), `build_crossing` (67), `close_source` or `dig_well` (M6a), or
+    /// `build_bank` (88).
     pub does: String,
     /// The issues it answers: `food_short`, `store_unkept`, `takings`, `overruled`, `petition`,
     /// `founding` (content API 49), `outsiders` (59), `claimed_from_us`, `terms_sought` (61) or
-    /// `fords` (67).
+    /// `fords` (67), `sickness`, `source_suspected` or `water_far` (M6a), or `flooded` (88).
     pub answers: Vec<String>,
     /// For a common store: the shares of threshed grain a sponsor may propose for the levy.
     #[serde(default)]
@@ -191,7 +192,8 @@ impl PolicyFile {
                 | PolicyKind::Agreement
                 | PolicyKind::BuildCrossing
                 | PolicyKind::CloseSource
-                | PolicyKind::DigWell),
+                | PolicyKind::DigWell
+                | PolicyKind::BuildBank),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -236,7 +238,8 @@ impl PolicyFile {
                 | PolicyKind::Agreement
                 | PolicyKind::BuildCrossing
                 | PolicyKind::CloseSource
-                | PolicyKind::DigWell,
+                | PolicyKind::DigWell
+                | PolicyKind::BuildBank,
             )
             | None => {}
         }

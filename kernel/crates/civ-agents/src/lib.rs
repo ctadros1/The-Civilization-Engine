@@ -47,6 +47,7 @@ pub mod ideology;
 pub mod influence;
 pub mod knowledge;
 pub mod ledger;
+pub mod levees;
 pub mod make;
 pub mod market;
 pub mod needs;
@@ -85,6 +86,7 @@ pub use ledger::Channel;
 pub use needs::Sex;
 pub use params::{ActivityDef, Behavior, Catalog, PeopleParams, RecipeDef, SkillDef};
 pub use person::{
-    Activity, FloodMemory, Household, KnownPatch, Load, Person, Repro, Step, Target, Traits, Trip,
+    Activity, FloodLoss, FloodMemory, Household, KnownPatch, Load, Person, Repro, Step, Target,
+    Traits, Trip,
 };
 pub use population::{AgentEvent, Approximations, Ctx, Population, TimeUse, WaterDraws};

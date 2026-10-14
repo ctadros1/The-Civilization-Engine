@@ -329,6 +329,20 @@ impl WorldFloodplain {
         connected_depths(self, map, reach_discharges, banks, ground)
     }
 
+    /// The least water surface, HAND metres, at which reach `reach_id`'s flood would reach
+    /// each cell of its compartment past `banks` and over ground changed by `ground`
+    /// (infinite outside it). A place is kept dry by a bank while the water stays below this.
+    pub fn entry_stages(
+        &self,
+        map: &WorldMap,
+        reach_id: u32,
+        banks: &[FloodBarrier],
+        ground: &[(u32, f32)],
+    ) -> Vec<f64> {
+        let (hands, _) = adjusted_hands(self, ground);
+        entry_stages_in(self, map, reach_id, &hands, &barrier_edges(banks))
+    }
+
     /// Computes dense flood depths for all cells in `map`, metres.
     pub fn flood_depth_raster(&self, map: &WorldMap, reach_discharges: &[f32]) -> Vec<f32> {
         let n = map.cell_count();
@@ -351,18 +365,11 @@ pub struct FloodBarrier {
     pub crest_hand_m: f64,
 }
 
-fn connected_depths(
+/// The floodplain's HAND with ground changes added, and the reaches those changes touch.
+fn adjusted_hands(
     floodplain: &WorldFloodplain,
-    map: &WorldMap,
-    discharges: &[f32],
-    banks: &[FloodBarrier],
     ground: &[(u32, f32)],
-) -> Vec<f32> {
-    use std::cmp::Reverse;
-    use std::collections::{BTreeMap, BinaryHeap};
-    let n = map.cell_count();
-    let mut raster = vec![0.0; n];
-    let area = f64::from(map.cell_size_m).powi(2);
+) -> (Vec<f32>, std::collections::BTreeSet<u32>) {
     let mut hands = floodplain.cell_hand.clone();
     let mut changed_reaches = std::collections::BTreeSet::new();
     for &(cell, change) in ground {
@@ -373,7 +380,12 @@ fn connected_depths(
             }
         }
     }
-    let mut edges = BTreeMap::<(u32, u32), f64>::new();
+    (hands, changed_reaches)
+}
+
+/// Each blocked edge's highest crest, keyed by its cells in order.
+fn barrier_edges(banks: &[FloodBarrier]) -> std::collections::BTreeMap<(u32, u32), f64> {
+    let mut edges = std::collections::BTreeMap::<(u32, u32), f64>::new();
     for b in banks {
         let key = (b.a.min(b.b), b.a.max(b.b));
         edges
@@ -381,6 +393,69 @@ fn connected_depths(
             .and_modify(|h| *h = h.max(b.crest_hand_m))
             .or_insert(b.crest_hand_m);
     }
+    edges
+}
+
+/// The least stage, HAND metres, at which reach `reach_id`'s water reaches each cell of its
+/// compartment, over ground and crests (a minimax path); infinite outside it.
+/// Four-neighbour paths prevent slipping diagonally between touching bank edges.
+fn entry_stages_in(
+    floodplain: &WorldFloodplain,
+    map: &WorldMap,
+    reach_id: u32,
+    hands: &[f32],
+    edges: &std::collections::BTreeMap<(u32, u32), f64>,
+) -> Vec<f64> {
+    use std::cmp::Reverse;
+    use std::collections::BinaryHeap;
+    let mut entry = vec![f64::INFINITY; map.cell_count()];
+    let mut queue = BinaryHeap::new();
+    if let Some(reach) = map.reaches.iter().find(|r| r.id == reach_id) {
+        for &c in &reach.cells {
+            entry[c as usize] = 0.0;
+            queue.push(Reverse((0_u64, c)));
+        }
+    }
+    while let Some(Reverse((bits, c))) = queue.pop() {
+        let stage = f64::from_bits(bits);
+        if stage > entry[c as usize] {
+            continue;
+        }
+        let x = c % map.width;
+        let y = c / map.width;
+        let neighbours = [
+            (x > 0).then(|| c - 1),
+            (x + 1 < map.width).then(|| c + 1),
+            (y > 0).then(|| c - map.width),
+            (y + 1 < map.height).then(|| c + map.width),
+        ];
+        for to in neighbours.into_iter().flatten() {
+            if floodplain.cell_reach[to as usize] != reach_id {
+                continue;
+            }
+            let crest = edges.get(&(c.min(to), c.max(to))).copied().unwrap_or(0.0);
+            let next = stage.max(crest).max(f64::from(hands[to as usize]));
+            if next < entry[to as usize] {
+                entry[to as usize] = next;
+                queue.push(Reverse((next.to_bits(), to)));
+            }
+        }
+    }
+    entry
+}
+
+fn connected_depths(
+    floodplain: &WorldFloodplain,
+    map: &WorldMap,
+    discharges: &[f32],
+    banks: &[FloodBarrier],
+    ground: &[(u32, f32)],
+) -> Vec<f32> {
+    let n = map.cell_count();
+    let mut raster = vec![0.0; n];
+    let area = f64::from(map.cell_size_m).powi(2);
+    let (hands, changed_reaches) = adjusted_hands(floodplain, ground);
+    let edges = barrier_edges(banks);
     // A minimax path gives the least stage that can connect a cell to its channel.
     // Four-neighbour paths prevent slipping diagonally between touching bank edges.
     for rh in &floodplain.reaches {
@@ -405,39 +480,7 @@ fn connected_depths(
             }
             continue;
         }
-        let mut entry = vec![f64::INFINITY; n];
-        let mut queue = BinaryHeap::new();
-        if let Some(reach) = map.reaches.iter().find(|r| r.id == rh.reach_id) {
-            for &c in &reach.cells {
-                entry[c as usize] = 0.0;
-                queue.push(Reverse((0_u64, c)));
-            }
-        }
-        while let Some(Reverse((bits, c))) = queue.pop() {
-            let stage = f64::from_bits(bits);
-            if stage > entry[c as usize] {
-                continue;
-            }
-            let x = c % map.width;
-            let y = c / map.width;
-            let neighbours = [
-                (x > 0).then(|| c - 1),
-                (x + 1 < map.width).then(|| c + 1),
-                (y > 0).then(|| c - map.width),
-                (y + 1 < map.height).then(|| c + map.width),
-            ];
-            for to in neighbours.into_iter().flatten() {
-                if floodplain.cell_reach[to as usize] != rh.reach_id {
-                    continue;
-                }
-                let crest = edges.get(&(c.min(to), c.max(to))).copied().unwrap_or(0.0);
-                let next = stage.max(crest).max(f64::from(hands[to as usize]));
-                if next < entry[to as usize] {
-                    entry[to as usize] = next;
-                    queue.push(Reverse((next.to_bits(), to)));
-                }
-            }
-        }
+        let entry = entry_stages_in(floodplain, map, rh.reach_id, &hands, &edges);
         // Filling a newly connected basin can consume volume while stage stays at its
         // sill. At that knot, partial filling avoids manufacturing or discarding water.
         let mut cells: Vec<_> = rh.cells.iter().map(|&c| (entry[c as usize], c)).collect();

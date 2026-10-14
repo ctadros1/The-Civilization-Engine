@@ -793,6 +793,21 @@ pub fn describe_target(
             }
             None => "a well".to_owned(),
         },
+        // A flood bank built by law (M6b slice BG): "the flood bank east of home".
+        Target::Bank(id) => match sim.land.banks.iter().find(|b| b.work == id) {
+            Some(b) => {
+                let at = (
+                    ((b.a[0] + b.b[0]) / 2.0) as f32,
+                    ((b.a[1] + b.b[1]) / 2.0) as f32,
+                );
+                if (at.0 - home.0).hypot(at.1 - home.1) <= 15.0 {
+                    "the flood bank beside home".to_owned()
+                } else {
+                    format!("the flood bank {} of home", bearing(home, at))
+                }
+            }
+            None => "a flood bank".to_owned(),
+        },
     }
 }
 
@@ -937,6 +952,8 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
                     }
                 }
                 Target::Well(_) => format!("{what}, {place}"),
+                // "building the flood bank east of home" (M6b slice BG).
+                Target::Bank(_) => format!("building {place}"),
                 // Another settlement's hearth (M5a slice AM): "visiting the hearth of Ashford".
                 Target::Hearth(_)
                     if def.is_some_and(|d| d.behavior == civ_agents::Behavior::Visit) =>

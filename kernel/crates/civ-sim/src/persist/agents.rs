@@ -115,7 +115,8 @@ use super::{
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
-    SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, finish, section, single_chunk, unreadable,
+    SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, finish, section, single_chunk,
+    unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -519,6 +520,8 @@ enum Schema {
     V99,
     V100,
     V101,
+    /// M6b slice BG: households' flood losses, banks built by law.
+    V102,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -634,7 +637,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V98 => Schema::V98,
         SCHEMA_V99 => Schema::V99,
         SCHEMA_V100 => Schema::V100,
-        SAVE_SCHEMA_VERSION => Schema::V101,
+        SCHEMA_V101 => Schema::V101,
+        SAVE_SCHEMA_VERSION => Schema::V102,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1322,6 +1326,42 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let wells = (!wells.is_empty()).then(|| fbb.create_vector(&wells));
+            // Where its laws would build flood banks, what each household reckoned they would
+            // save it, and what each has given (schema 102).
+            let banks: Vec<_> = p
+                .banks
+                .iter()
+                .map(|&(law, s)| {
+                    save::BankSiteSave::create(
+                        &mut fbb,
+                        &save::BankSiteSaveArgs {
+                            law: law.get(),
+                            reach: s.reach,
+                            ax: s.a[0],
+                            ay: s.a[1],
+                            bx: s.b[0],
+                            by: s.b[1],
+                            height_m: s.height_m,
+                            crest_width_m: s.crest_width_m,
+                            side_run: s.side_run,
+                            compacted_per_bank: s.compacted_per_bank,
+                            env_x_cm: s.envelope.x,
+                            env_y_cm: s.envelope.y,
+                            env_w_cm: s.envelope.w,
+                            env_h_cm: s.envelope.h,
+                            pit_x_cm: s.pit.x,
+                            pit_y_cm: s.pit.y,
+                            pit_w_cm: s.pit.w,
+                            pit_h_cm: s.pit.h,
+                            labour_h: s.labour_h,
+                            work: s.work.map_or(0, PermanentId::get),
+                        },
+                    )
+                })
+                .collect();
+            let banks = (!banks.is_empty()).then(|| fbb.create_vector(&banks));
+            let bank_saves = bank_share_rows(&mut fbb, &p.bank_saves);
+            let bank_given = bank_share_rows(&mut fbb, &p.bank_given);
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -1363,6 +1403,9 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     sites,
                     closed,
                     wells,
+                    banks,
+                    bank_saves,
+                    bank_given,
                 },
             )
         })
@@ -1410,6 +1453,32 @@ fn law_status_code(s: civ_agents::polity::LawStatus) -> u8 {
     }
 }
 
+/// A polity's bank shares (law, household, hours) as saved rows (schema 102), absent when none.
+#[allow(clippy::type_complexity)]
+fn bank_share_rows<'a>(
+    fbb: &mut FlatBufferBuilder<'a>,
+    list: &[(PermanentId, PermanentId, f32)],
+) -> Option<
+    flatbuffers::WIPOffset<
+        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<save::BankShareSave<'a>>>,
+    >,
+> {
+    let rows: Vec<_> = list
+        .iter()
+        .map(|&(law, h, hours)| {
+            save::BankShareSave::create(
+                fbb,
+                &save::BankShareSaveArgs {
+                    law: law.get(),
+                    household: h.get(),
+                    hours,
+                },
+            )
+        })
+        .collect();
+    (!rows.is_empty()).then(|| fbb.create_vector(&rows))
+}
+
 fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
     use civ_agents::polity::IssueKind;
     match i {
@@ -1426,6 +1495,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::Sickness => 10,
         IssueKind::SourceSuspected => 11,
         IssueKind::WaterFar => 12,
+        IssueKind::Flooded => 13,
     }
 }
 
@@ -1535,6 +1605,7 @@ fn decode_polities(
                 10 => IssueKind::Sickness,
                 11 => IssueKind::SourceSuspected,
                 12 => IssueKind::WaterFar,
+                13 => IssueKind::Flooded,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -1809,6 +1880,78 @@ fn decode_polities(
                 },
             ));
         }
+        // Where its laws would build flood banks, what each household reckoned and gave (schema
+        // 102); before, none. A site of a missing law, or a share out of order, refuses the save.
+        let law_of = |raw: u64, what: &str| {
+            PermanentId::from_raw(raw)
+                .filter(|law| laws.iter().any(|l| l.id == *law))
+                .ok_or_else(|| bad(format!("polity {id} names {what} by a missing law {raw}")))
+        };
+        let mut banks = Vec::new();
+        for c in p.banks().iter().flatten() {
+            let law = law_of(c.law(), "a bank's site")?;
+            let site = civ_agents::polity::BankSite {
+                reach: c.reach(),
+                a: [c.ax(), c.ay()],
+                b: [c.bx(), c.by()],
+                height_m: c.height_m(),
+                crest_width_m: c.crest_width_m(),
+                side_run: c.side_run(),
+                compacted_per_bank: c.compacted_per_bank(),
+                envelope: civ_land::RectCm {
+                    x: c.env_x_cm(),
+                    y: c.env_y_cm(),
+                    w: c.env_w_cm(),
+                    h: c.env_h_cm(),
+                },
+                pit: civ_land::RectCm {
+                    x: c.pit_x_cm(),
+                    y: c.pit_y_cm(),
+                    w: c.pit_w_cm(),
+                    h: c.pit_h_cm(),
+                },
+                labour_h: c.labour_h(),
+                work: PermanentId::from_raw(c.work()),
+            };
+            let finite = [
+                site.a[0],
+                site.a[1],
+                site.b[0],
+                site.b[1],
+                site.height_m,
+                site.crest_width_m,
+                site.side_run,
+                site.compacted_per_bank,
+                site.labour_h,
+            ]
+            .iter()
+            .all(|v| v.is_finite());
+            if !finite || site.labour_h < 0.0 || site.length_m() <= 0.0 {
+                return Err(bad(format!("polity {id} has a bank site of no shape")));
+            }
+            banks.push((law, site));
+        }
+        let bank_shares = |list: Option<
+            flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<save::BankShareSave<'_>>>,
+        >,
+                           what: &str|
+         -> Result<Vec<(PermanentId, PermanentId, f32)>, LoadError> {
+            let mut out: Vec<(PermanentId, PermanentId, f32)> = Vec::new();
+            for r in list.iter().flatten() {
+                let law = law_of(r.law(), what)?;
+                let h = PermanentId::from_raw(r.household())
+                    .ok_or_else(|| bad(format!("polity {id} names {what} of no household")))?;
+                if !(r.hours().is_finite() && r.hours() >= 0.0)
+                    || out.last().is_some_and(|p| (p.0, p.1) >= (law, h))
+                {
+                    return Err(bad(format!("polity {id} has {what} out of order")));
+                }
+                out.push((law, h, r.hours()));
+            }
+            Ok(out)
+        };
+        let bank_saves = bank_shares(p.bank_saves(), "a bank's reckoned saving")?;
+        let bank_given = bank_shares(p.bank_given(), "hours given to a bank")?;
         out.push(Polity {
             id,
             settlement,
@@ -1825,6 +1968,9 @@ fn decode_polities(
             sites,
             closed,
             wells,
+            banks,
+            bank_saves,
+            bank_given,
         });
     }
     Ok(out)
@@ -2393,6 +2539,7 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::Crossing(c) => (save::TargetKind::Crossing, 0, c.get()),
         Target::Well(w) => (save::TargetKind::Well, 0, w.get()),
         Target::Douse { building, from } => (save::TargetKind::Douse, from, building.get()),
+        Target::Bank(b) => (save::TargetKind::Bank, 0, b.get()),
     }
 }
 
@@ -2433,6 +2580,7 @@ fn target_of(
             building: required(id, "a roof to throw water on")?,
             from: index,
         },
+        save::TargetKind::Bank => Target::Bank(required(id, "a bank target")?),
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -3418,7 +3566,8 @@ fn carried(
         | Schema::V98
         | Schema::V99
         | Schema::V100
-        | Schema::V101 => {
+        | Schema::V101
+        | Schema::V102 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3467,6 +3616,24 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
             let offers: Vec<_> = h.offers.iter().map(|o| encode_offer(&mut fbb, o)).collect();
             let offers = fbb.create_vector(&offers);
             let taste = fbb.create_vector(&h.taste.traits());
+            // What floods cost it (schema 102).
+            let flood_losses: Vec<_> = h
+                .flood_losses
+                .iter()
+                .map(|l| {
+                    save::FloodLossSave::create(
+                        &mut fbb,
+                        &save::FloodLossSaveArgs {
+                            day: l.day,
+                            cell: l.cell,
+                            depth_cm: l.depth_cm,
+                            kcal: l.kcal,
+                            hours: l.hours,
+                        },
+                    )
+                })
+                .collect();
+            let flood_losses = (!flood_losses.is_empty()).then(|| fbb.create_vector(&flood_losses));
             save::Household::create(
                 &mut fbb,
                 &save::HouseholdArgs {
@@ -3491,6 +3658,7 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                     flood_home_cm: h.flood_memory.home_depth_cm,
                     flood_field_cm: h.flood_memory.field_depth_cm,
                     flood_day: h.flood_memory.day,
+                    flood_losses,
                 },
             )
         })
@@ -3634,7 +3802,8 @@ fn decode_households(
             | Schema::V98
             | Schema::V99
             | Schema::V100
-            | Schema::V101 => {
+            | Schema::V101
+            | Schema::V102 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3768,6 +3937,31 @@ fn decode_households(
                 }
             } else {
                 civ_agents::person::FloodMemory::default()
+            },
+            // What floods cost it (schema 102); before, nothing remembered.
+            flood_losses: {
+                let mut out: Vec<civ_agents::FloodLoss> = Vec::new();
+                for l in h.flood_losses().iter().flatten() {
+                    let ok = l.kcal().is_finite()
+                        && l.kcal() >= 0.0
+                        && l.hours().is_finite()
+                        && l.hours() >= 0.0
+                        && out.last().is_none_or(|p| p.day <= l.day());
+                    if !ok {
+                        return Err(LoadError::Malformed(format!(
+                            "household {hh_id} remembers a flood loss out of order or of no \
+                             amount"
+                        )));
+                    }
+                    out.push(civ_agents::FloodLoss {
+                        day: l.day(),
+                        cell: l.cell(),
+                        depth_cm: l.depth_cm(),
+                        kcal: l.kcal(),
+                        hours: l.hours(),
+                    });
+                }
+                out
             },
         });
     }

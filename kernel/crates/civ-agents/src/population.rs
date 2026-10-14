@@ -55,6 +55,7 @@ mod ideology;
 mod influence;
 mod knowledge;
 mod land;
+mod levees;
 mod life;
 mod loads;
 mod market;
@@ -590,8 +591,10 @@ struct HomePlan {
 
 /// Whether what [`site_inputs`] reads may have changed, cheaply: fields, plots and earthworks are
 /// only ever added, and none is moved, so their counts say whether any has been; and the count
-/// of moves of households' homes. While these stand, a site found earlier in the day stands.
-type SiteStamp = (usize, usize, usize, u64);
+/// of moves of households' homes; and the ground the household looks over, which its home's view
+/// can redraw within a day (floodwater changes what ground it can break, M6b slice BF). While
+/// these stand, a site found earlier in the day stands.
+type SiteStamp = (usize, usize, usize, u64, Option<civ_land::RectCm>);
 
 /// What finding new ground for a field reads that can change within a day, as one number: the
 /// fields, plots and earthworks laid out on `ground` (the ground the search looks at,
@@ -1724,6 +1727,7 @@ impl Population {
             land.plots.len(),
             land.earthworks.len(),
             self.homes_moved,
+            ground,
         );
         let kept = self
             .sites
@@ -2784,6 +2788,7 @@ impl Population {
             carry: self.carry_facts(ctx, p.id, field_key, dark),
             crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),
             well: self.well_facts(ctx, &hh, p.id, dark),
+            levee: self.levee_facts(ctx, &hh, p.id, field_key, dark),
             hurt: self
                 .order
                 .hurt_until(p.id)
@@ -4269,6 +4274,7 @@ impl Population {
                 | Behavior::Carry
                 | Behavior::Bridge
                 | Behavior::Well
+                | Behavior::Levee
                 | Behavior::Douse
                 | Behavior::Strip
                 | Behavior::Pull
@@ -4512,6 +4518,15 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.well_work(ctx, (h, who), household, well, hours);
+                    }
+                }
+                Some(Behavior::Levee) => {
+                    if let Target::Bank(bank) = p.act.target {
+                        let rate = def.as_ref().map_or(1.0, |d| d.rate);
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let (who, household) = (p.id, p.household);
+                        self.levee_work(ctx, (h, who), household, bank, hours);
                     }
                 }
                 Some(Behavior::Hire) => {
@@ -5743,10 +5758,36 @@ impl Population {
             self.norm_month(ctx);
         }
         // The season turns for every field: a sowing window passes, a crop left standing is lost.
+        // A sown crop drowned under water is a loss its household saw (M6b slice BG): the seed
+        // it was sown with and the work put into it.
         let day = now.day_index();
+        let mut drowned: Vec<(PermanentId, crate::person::FloodLoss)> = Vec::new();
         for f in &mut ctx.land.fields {
             if let Some(crop) = ctx.catalog.crops.get(usize::from(f.crop)) {
-                f.new_day(crop, day, now);
+                let under = f.stage == FieldStage::Sown && f.submerged_days >= 5;
+                let loss = crate::person::FloodLoss {
+                    day,
+                    cell: cell_of(ctx.map, f.rect.centre_m()) as u32,
+                    depth_cm: f.last_flood_depth_cm,
+                    kcal: (crop.seed_kg_per_ha
+                        * f.area_ha()
+                        * ctx
+                            .catalog
+                            .goods
+                            .get(crop.seed_good)
+                            .map_or(0.0, |g| g.kcal_per_kg)) as f32,
+                    hours: f.work_h + f.tended_h,
+                };
+                if f.new_day(crop, day, now) && under {
+                    drowned.push((f.household, loss));
+                }
+            }
+        }
+        for (h, loss) in drowned {
+            if let Some(&hd) = self.hh_index.get(&h)
+                && let Some(x) = self.households.get_mut(hd)
+            {
+                x.remember_flood_loss(loss);
             }
         }
         // A settlement's harvest is in once none of its fields has a crop growing or unthreshed.

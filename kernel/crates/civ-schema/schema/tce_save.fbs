@@ -260,7 +260,7 @@ table Settlements {
 // People.techniques (in a decision receipt, into the content's techniques when it was saved).
 // Douse (schema 91, M6b slice BD, step three): `index` where the water is drawn (a source's cell,
 // or 4294967295 the household's store), `id` the building it is thrown on.
-enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16 }
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16, Bank = 17 }
 
 enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
 
@@ -447,6 +447,19 @@ table Household {
   flood_home_cm: ushort (id: 18);
   flood_field_cm: ushort (id: 19);
   flood_day: long (id: 20);
+  // Schema 102 (M6b slice BG): what floods cost the household itself, as it saw, oldest first;
+  // absent before.
+  flood_losses: [FloodLossSave] (id: 21);
+}
+
+// One day's loss to a flood at one place of a household's own (schema 102, M6b slice BG): the
+// day, the cell the water stood in, how deep (cm), the food lost (kcal) and the work lost (hours).
+table FloodLossSave {
+  day: long (id: 0);
+  cell: uint (id: 1);
+  depth_cm: ushort (id: 2);
+  kcal: float (id: 3);
+  hours: float (id: 4);
 }
 
 // Schema 10: one row of a household's posted terms (ADR-0006 §4). Goods are indexed like
@@ -1311,6 +1324,47 @@ table PolitySave {
   // Where its laws to dig a well together would dig one (schema 83, M6a slice BA step four);
   // absent before.
   wells: [PublicWellSave] (id: 16);
+  // Where its laws to build a flood bank would build one (schema 102, M6b slice BG); absent
+  // before.
+  banks: [BankSiteSave] (id: 17);
+  // What each household reckoned, when it was proposed, a law's bank would save it a year, hours
+  // (schema 102); absent before.
+  bank_saves: [BankShareSave] (id: 18);
+  // The hours each household has given to a law's bank (schema 102); absent before.
+  bank_given: [BankShareSave] (id: 19);
+}
+
+// Where a law would build a flood bank (schema 102, M6b slice BG): the reach whose water it keeps
+// out, its crest line in metres from the map's corner, its section, the ground it and its borrow
+// pit take, the work it would take, and its earthwork once begun (0 before).
+table BankSiteSave {
+  law: ulong (id: 0);
+  reach: uint (id: 1);
+  ax: double (id: 2);
+  ay: double (id: 3);
+  bx: double (id: 4);
+  by: double (id: 5);
+  height_m: double (id: 6);
+  crest_width_m: double (id: 7);
+  side_run: double (id: 8);
+  compacted_per_bank: double (id: 9);
+  env_x_cm: int (id: 10);
+  env_y_cm: int (id: 11);
+  env_w_cm: int (id: 12);
+  env_h_cm: int (id: 13);
+  pit_x_cm: int (id: 14);
+  pit_y_cm: int (id: 15);
+  pit_w_cm: int (id: 16);
+  pit_h_cm: int (id: 17);
+  labour_h: double (id: 18);
+  work: ulong (id: 19);
+}
+
+// A household's hours against a law's bank (schema 102): reckoned saved a year, or given.
+table BankShareSave {
+  law: ulong (id: 0);
+  household: ulong (id: 1);
+  hours: float (id: 2);
 }
 
 // Where a law would dig a well (schema 83): its cell and ground, its well system's content id,

@@ -248,6 +248,7 @@ mod tests {
                 admired: None,
                 midden: Default::default(),
                 flood_memory: Default::default(),
+                flood_losses: Vec::new(),
             });
         }
         pop

@@ -247,6 +247,15 @@ impl Population {
                         if lost > 0.0 {
                             x.stores[g] -= lost;
                             x.flows.add(crate::person::Flow::Spoiled, g, lost);
+                            // The household sees its own stores spoil where the water stands
+                            // (M6b slice BG).
+                            x.remember_flood_loss(crate::person::FloodLoss {
+                                day: now.day_index(),
+                                cell: cell as u32,
+                                depth_cm: (flood_depth * 100.0).min(f32::from(u16::MAX)) as u16,
+                                kcal: (lost * def.kcal_per_kg) as f32,
+                                hours: 0.0,
+                            });
                             let reach = ctx.land.floodplain.cell_reach.get(cell).copied();
                             if let Some(hw) =
                                 self.floods.high_waters.iter_mut().find(|h| {

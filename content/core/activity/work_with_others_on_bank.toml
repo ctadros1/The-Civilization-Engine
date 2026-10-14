@@ -1,0 +1,22 @@
+# Work on a flood bank the polity's gathering asked to be built (M6b slice BG; ADR-0022 §11):
+# digging earth from its borrow pit, carrying it a basket at a time, and spreading and tamping it on
+# the bank, each charged apart (research 11-12 §1.2). Heavy work, as digging a well is; ages and
+# session lengths are tuning values as for work on a crossing. The work a bank takes is its earth's:
+# see the people profile's `[levees]`. Its id sorts after every older activity's: activities are
+# kept in id order. Like digging clay it asks no tool the content makes (a digging stick and a
+# basket).
+kind = "activity"
+id = "core:activity/work_with_others_on_bank"
+name = "Work on a flood bank"
+doing = "building a flood bank"
+behavior = "levee"
+par = 5.0
+min_age_years = 14.0
+max_age_years = 65.0
+min_minutes = 60
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 30
+technique = ""
+tools = []
+rate = 1.0

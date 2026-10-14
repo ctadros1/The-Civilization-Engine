@@ -83,11 +83,15 @@ pub enum Behavior {
     Salvage,
     /// Pull a threatened building down with its owner's leave and a crew (ADR-0022 §6).
     Pull,
+    /// Walk to a flood bank the polity's gathering asked to be built, dig earth from its borrow
+    /// pit, carry it a basket at a time, spread and tamp it, and walk home (M6b slice BG;
+    /// ADR-0022 §11): the activity's numbers, the bank's earth.
+    Levee,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 29] = [
+    pub const ALL: [Behavior; 30] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -117,6 +121,7 @@ impl Behavior {
         Behavior::Strip,
         Behavior::Salvage,
         Behavior::Pull,
+        Behavior::Levee,
     ];
 
     /// The authored name of a behavior.
@@ -151,6 +156,7 @@ impl Behavior {
             Behavior::Strip => "strip",
             Behavior::Salvage => "salvage",
             Behavior::Pull => "pull",
+            Behavior::Levee => "levee",
         }
     }
 
@@ -1736,6 +1742,9 @@ pub struct PeopleParams {
     pub suspicion: crate::suspicion::SuspicionParams,
     /// How buildings burn and fire passes between them (M6b slice BC, ADR-0022 §4).
     pub fire: crate::fire::FireParams,
+    /// How people lay out and build flood banks, and remember what floods cost them (M6b slice
+    /// BG, ADR-0022 §11).
+    pub levees: crate::levees::LeveeParams,
     /// Names.
     pub names: NameParams,
 }

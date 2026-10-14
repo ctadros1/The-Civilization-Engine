@@ -2517,7 +2517,21 @@ and M6a gives rivers a daily flow.
       borrow depressions, even after a breach. Actual overtopping now lowers crests with
       duration and retains removed soil in a washed-sediment stock. Save schema 101 adds
       that stock; content API 87 adds its strict authored erosion prior. Piping, upkeep,
-      rain ponding, voluntary public work and irrigation remain the following BG steps.
+      rain ponding and irrigation remain the following BG steps.
+    - *Banks built together (2026-10-14, §9):* a household remembers what floods cost it as
+      it saw: its stores spoiled where water stood in its buildings, its sown crops drowned
+      (the seed and the work put in), at the place and depth, for `levees.memory_years`. The
+      issue `flooded` holds when a straight bank beside the river would have kept that water
+      out of those places, its saving over its life above its work; the policy `build_bank`
+      (content `core:policy/works_wet_bank`) is proposed, forecast and decided as a crossing
+      built together. A household gains only from its own remembered losses at the places
+      the bank would keep dry; one that lost nothing gains nothing and is asked its share.
+      Passed, the polity lays out the bank and its borrow pit with no earth in them. People
+      work on it as they choose (`work_with_others_on_bank`, behaviour `levee`): each
+      session's hours dig, carry (a basket at a time, the actual way from the pit at their
+      own pace) and place earth, each charged apart, and only the hours that moved earth are
+      the household's given. A narrow front holds as many as its length gives room for at
+      once. Save schema 102, content API 88, wire 1.72 unchanged.
     - Earth kinds `bank` and `ditch` as lines of segments.
     - Water behind a bank only over its crest or through a breach. Overtopping and piping.
     - The issue `flooded`, and the policy `build_bank`, asked in equal shares as a crossing is.
@@ -3260,6 +3274,38 @@ One line each. Don't re-litigate without a reason written next to the entry.
   upkeep remain planned. Save schema 101 appends a keyed sediment record without changing the
   fixed bank struct; schemas through 100 retain saved ground/damage with no invented sediment.
   Content API 87 adds strict optional `[banks]`; wire stays 1.72, with sediment in kernel words.
+
+- **Banks built together, as built (2026-10-14, M6b slice BG; ADR-0022 §11):** no new ADR.
+  **What people remember:** a household's own flood losses only (research 12-08 §1.3:
+  "requests arise from observed problems"): floor stores spoiled in its buildings, valued at
+  their food, and sown crops drowned (5 days under water), valued at their seed and work, each
+  at its cell and depth, kept `memory_years` (10, a design prior). Nothing global (episode
+  counts, observer origin) enters a forecast; `FloodMemory`'s maxima are not read. **Where a
+  bank goes:** straight segments parallel to the river near each costliest remembered place
+  (up to six), at 7 positions and 8 lengths. Each is laid out at the highest remembered water
+  surface plus `freeboard_m` above the lowest ground it crosses (0.3-3 m), on ground free to
+  dig, with a square borrow pit `pit_depth_m` deep beside it. A place counts as kept dry when
+  the reach's water, as high as remembered there, reaches it only over a crest: the same
+  minimax connected-storage path the flood depths use (extracted, unchanged), with every
+  standing bank. The kept losses, at what an hour of each household's work brings, over
+  `life_years`, must exceed the work. This is an engineering judgement the planner makes, as
+  crossing sites are found by path; people's gains come only from their own losses.
+  **Its work (research 11-12 §1.2, §2.4):** per bank cubic metre, `digging.h_per_m3` to dig,
+  84 basket loads (1.2 loose × 1,400 kg / 20 kg) each `load_min` plus the walk there and back
+  at the worker's own pace, and 0.9 × `place_h_per_m3` to spread and tamp. Earth moves through
+  `place_from_borrow` at the end of each work step, so nothing is left half-carried; no
+  labour or fill comes with adoption. Concurrent workers are capped at length / `front_m`.
+  **Measured:** six lived river-valley villages flooded once at +100 and +400 m³/s after 40
+  days: 0-6 of 6-7 households recorded losses. Most candidate banks crossed fields or plots
+  (1,435 of 1,582 rejected), 147 kept nothing dry, two passed the geometry and neither
+  repaid its work after one remembered flood (best: 7.6 h a year against 384 h). With the
+  same loss remembered five years running (the test's setup), a 40 m, 0.4 m bank is proposed,
+  passes in the test's hands, and in thirty lived days three households give 10.2 of its 384
+  hours by their own choice. **Also fixed:** the field-site cache's stamp now includes the
+  ground a household looks over, which flood water redraws within a day (a debug assertion
+  fired under a raised river; release builds could keep a stale site for the day). **Left:**
+  banks of more than one segment, banks across fields, piping, settlement, paid repairs and
+  upkeep by law, trapped rain and irrigation remain planned.
 
 - **Claude handoff (2026-10-14, owner request):** stop after the tested overtopping slice on
   `codex/codex-development`, with no merge to main. The handoff is

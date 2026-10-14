@@ -1123,3 +1123,34 @@ salvage_share = 0.5
 pull_crew = 2
 pull_h_per_m2 = 0.03
 pull_cost = 0.8
+
+[levees]                         # flood banks built together (M6b slice BG, ADR-0022 §11); design priors unless cited
+# A household remembers what a flood cost it, its stores spoiled where water stood in its
+# buildings and its sown fields lost under water, for `memory_years`; it reckons a bank keeps water
+# out for `life_years`, over which its share of the work is spread. Design priors.
+memory_years = 10.0
+life_years = 20.0
+# A bank is laid out to stand `freeboard_m` above the highest water its people remember at the
+# places it would keep dry (the M6 fire brief §1.10: "crest at the highest water remembered plus
+# freeboard"), never lower than `min_height_m` nor higher than `max_height_m` above its ground.
+freeboard_m = 0.3
+min_height_m = 0.3
+max_height_m = 3.0
+# Its section (research 11-12 §2.5 C: a village levee, crest 1 m, sides 2:1) and its earth
+# (§2.4: compacted 0.90 and loose 1.20 of what lay in the ground; §2.3: 1,300-1,500 kg a loose
+# cubic metre).
+crest_width_m = 1.0
+side_run = 2.0
+compacted_per_bank = 0.9
+loose_per_bank = 1.2
+loose_kg_per_m3 = 1400.0
+# Its work, each part charged apart (§1.2): digging at `digging.h_per_m3`; carrying a basket of
+# `carry_kg` (§2.4: 20, 15-25) from the pit to the bank and back, `load_min` to fill and tip it;
+# spreading and tamping at `place_h_per_m3` a compacted cubic metre (§2.4: 3 m³ an 8-hour day).
+carry_kg = 20.0
+load_min = 0.5
+place_h_per_m3 = 2.667
+# The borrow pit beside it is dug `pit_depth_m` deep, and each worker needs `front_m` of bank to
+# work at once: a narrow front holds few (§1.2). Design priors.
+pit_depth_m = 1.0
+front_m = 5.0

@@ -197,10 +197,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for Terminus {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_TARGET_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_TARGET_KIND: u8 = 16;
+pub const ENUM_MAX_TARGET_KIND: u8 = 17;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 17] = [
+pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 18] = [
   TargetKind::None,
   TargetKind::Home,
   TargetKind::Hearth,
@@ -218,6 +218,7 @@ pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 17] = [
   TargetKind::Crossing,
   TargetKind::Well,
   TargetKind::Douse,
+  TargetKind::Bank,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -242,9 +243,10 @@ impl TargetKind {
   pub const Crossing: Self = Self(14);
   pub const Well: Self = Self(15);
   pub const Douse: Self = Self(16);
+  pub const Bank: Self = Self(17);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 16;
+  pub const ENUM_MAX: u8 = 17;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::None,
     Self::Home,
@@ -263,6 +265,7 @@ impl TargetKind {
     Self::Crossing,
     Self::Well,
     Self::Douse,
+    Self::Bank,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -284,6 +287,7 @@ impl TargetKind {
       Self::Crossing => Some("Crossing"),
       Self::Well => Some("Well"),
       Self::Douse => Some("Douse"),
+      Self::Bank => Some("Bank"),
       _ => None,
     }
   }
@@ -20841,6 +20845,7 @@ impl<'a> Household<'a> {
   pub const VT_FLOOD_HOME_CM: ::flatbuffers::VOffsetT = 40;
   pub const VT_FLOOD_FIELD_CM: ::flatbuffers::VOffsetT = 42;
   pub const VT_FLOOD_DAY: ::flatbuffers::VOffsetT = 44;
+  pub const VT_FLOOD_LOSSES: ::flatbuffers::VOffsetT = 46;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -20863,6 +20868,7 @@ impl<'a> Household<'a> {
     builder.add_food_kcal(args.food_kcal);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.flood_losses { builder.add_flood_losses(x); }
     builder.add_water_walk_min(args.water_walk_min);
     if let Some(x) = args.taste { builder.add_taste(x); }
     if let Some(x) = args.offers { builder.add_offers(x); }
@@ -21024,6 +21030,13 @@ impl<'a> Household<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(Household::VT_FLOOD_DAY, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn flood_losses(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FloodLossSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FloodLossSave>>>>(Household::VT_FLOOD_LOSSES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Household<'_> {
@@ -21053,6 +21066,7 @@ impl ::flatbuffers::Verifiable for Household<'_> {
      .visit_field::<u16>("flood_home_cm", Self::VT_FLOOD_HOME_CM, false)?
      .visit_field::<u16>("flood_field_cm", Self::VT_FLOOD_FIELD_CM, false)?
      .visit_field::<i64>("flood_day", Self::VT_FLOOD_DAY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FloodLossSave>>>>("flood_losses", Self::VT_FLOOD_LOSSES, false)?
      .finish();
     Ok(())
   }
@@ -21079,6 +21093,7 @@ pub struct HouseholdArgs<'a> {
     pub flood_home_cm: u16,
     pub flood_field_cm: u16,
     pub flood_day: i64,
+    pub flood_losses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FloodLossSave<'a>>>>>,
 }
 impl<'a> Default for HouseholdArgs<'a> {
   #[inline]
@@ -21105,6 +21120,7 @@ impl<'a> Default for HouseholdArgs<'a> {
       flood_home_cm: 0,
       flood_field_cm: 0,
       flood_day: 0,
+      flood_losses: None,
     }
   }
 }
@@ -21199,6 +21215,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<i64>(Household::VT_FLOOD_DAY, flood_day, 0);
   }
   #[inline]
+  pub fn add_flood_losses(&mut self, flood_losses: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<FloodLossSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_FLOOD_LOSSES, flood_losses);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdBuilder {
@@ -21237,6 +21257,171 @@ impl ::core::fmt::Debug for Household<'_> {
       ds.field("flood_home_cm", &self.flood_home_cm());
       ds.field("flood_field_cm", &self.flood_field_cm());
       ds.field("flood_day", &self.flood_day());
+      ds.field("flood_losses", &self.flood_losses());
+      ds.finish()
+  }
+}
+pub enum FloodLossSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct FloodLossSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for FloodLossSave<'a> {
+  type Inner = FloodLossSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> FloodLossSave<'a> {
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_CELL: ::flatbuffers::VOffsetT = 6;
+  pub const VT_DEPTH_CM: ::flatbuffers::VOffsetT = 8;
+  pub const VT_KCAL: ::flatbuffers::VOffsetT = 10;
+  pub const VT_HOURS: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    FloodLossSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args FloodLossSaveArgs
+  ) -> ::flatbuffers::WIPOffset<FloodLossSave<'bldr>> {
+    let mut builder = FloodLossSaveBuilder::new(_fbb);
+    builder.add_day(args.day);
+    builder.add_hours(args.hours);
+    builder.add_kcal(args.kcal);
+    builder.add_cell(args.cell);
+    builder.add_depth_cm(args.depth_cm);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(FloodLossSave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn cell(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(FloodLossSave::VT_CELL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn depth_cm(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(FloodLossSave::VT_DEPTH_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn kcal(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FloodLossSave::VT_KCAL, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn hours(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FloodLossSave::VT_HOURS, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for FloodLossSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<u32>("cell", Self::VT_CELL, false)?
+     .visit_field::<u16>("depth_cm", Self::VT_DEPTH_CM, false)?
+     .visit_field::<f32>("kcal", Self::VT_KCAL, false)?
+     .visit_field::<f32>("hours", Self::VT_HOURS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct FloodLossSaveArgs {
+    pub day: i64,
+    pub cell: u32,
+    pub depth_cm: u16,
+    pub kcal: f32,
+    pub hours: f32,
+}
+impl<'a> Default for FloodLossSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    FloodLossSaveArgs {
+      day: 0,
+      cell: 0,
+      depth_cm: 0,
+      kcal: 0.0,
+      hours: 0.0,
+    }
+  }
+}
+
+pub struct FloodLossSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloodLossSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(FloodLossSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_cell(&mut self, cell: u32) {
+    self.fbb_.push_slot::<u32>(FloodLossSave::VT_CELL, cell, 0);
+  }
+  #[inline]
+  pub fn add_depth_cm(&mut self, depth_cm: u16) {
+    self.fbb_.push_slot::<u16>(FloodLossSave::VT_DEPTH_CM, depth_cm, 0);
+  }
+  #[inline]
+  pub fn add_kcal(&mut self, kcal: f32) {
+    self.fbb_.push_slot::<f32>(FloodLossSave::VT_KCAL, kcal, 0.0);
+  }
+  #[inline]
+  pub fn add_hours(&mut self, hours: f32) {
+    self.fbb_.push_slot::<f32>(FloodLossSave::VT_HOURS, hours, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloodLossSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    FloodLossSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<FloodLossSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for FloodLossSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("FloodLossSave");
+      ds.field("day", &self.day());
+      ds.field("cell", &self.cell());
+      ds.field("depth_cm", &self.depth_cm());
+      ds.field("kcal", &self.kcal());
+      ds.field("hours", &self.hours());
       ds.finish()
   }
 }
@@ -29929,6 +30114,9 @@ impl<'a> PolitySave<'a> {
   pub const VT_SITES: ::flatbuffers::VOffsetT = 32;
   pub const VT_CLOSED: ::flatbuffers::VOffsetT = 34;
   pub const VT_WELLS: ::flatbuffers::VOffsetT = 36;
+  pub const VT_BANKS: ::flatbuffers::VOffsetT = 38;
+  pub const VT_BANK_SAVES: ::flatbuffers::VOffsetT = 40;
+  pub const VT_BANK_GIVEN: ::flatbuffers::VOffsetT = 42;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -29945,6 +30133,9 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.bank_given { builder.add_bank_given(x); }
+    if let Some(x) = args.bank_saves { builder.add_bank_saves(x); }
+    if let Some(x) = args.banks { builder.add_banks(x); }
     if let Some(x) = args.wells { builder.add_wells(x); }
     if let Some(x) = args.closed { builder.add_closed(x); }
     if let Some(x) = args.sites { builder.add_sites(x); }
@@ -30080,6 +30271,27 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PublicWellSave>>>>(PolitySave::VT_WELLS, None)}
   }
+  #[inline]
+  pub fn banks(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankSiteSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankSiteSave>>>>(PolitySave::VT_BANKS, None)}
+  }
+  #[inline]
+  pub fn bank_saves(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>(PolitySave::VT_BANK_SAVES, None)}
+  }
+  #[inline]
+  pub fn bank_given(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>(PolitySave::VT_BANK_GIVEN, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -30105,6 +30317,9 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CrossingSiteSave>>>>("sites", Self::VT_SITES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PlaceClaimSave>>>("closed", Self::VT_CLOSED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PublicWellSave>>>>("wells", Self::VT_WELLS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BankSiteSave>>>>("banks", Self::VT_BANKS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>("bank_saves", Self::VT_BANK_SAVES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>("bank_given", Self::VT_BANK_GIVEN, false)?
      .finish();
     Ok(())
   }
@@ -30127,6 +30342,9 @@ pub struct PolitySaveArgs<'a> {
     pub sites: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CrossingSiteSave<'a>>>>>,
     pub closed: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PlaceClaimSave>>>,
     pub wells: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PublicWellSave<'a>>>>>,
+    pub banks: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankSiteSave<'a>>>>>,
+    pub bank_saves: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>>>,
+    pub bank_given: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -30149,6 +30367,9 @@ impl<'a> Default for PolitySaveArgs<'a> {
       sites: None,
       closed: None,
       wells: None,
+      banks: None,
+      bank_saves: None,
+      bank_given: None,
     }
   }
 }
@@ -30227,6 +30448,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_WELLS, wells);
   }
   #[inline]
+  pub fn add_banks(&mut self, banks: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<BankSiteSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_BANKS, banks);
+  }
+  #[inline]
+  pub fn add_bank_saves(&mut self, bank_saves: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<BankShareSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_BANK_SAVES, bank_saves);
+  }
+  #[inline]
+  pub fn add_bank_given(&mut self, bank_given: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<BankShareSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_BANK_GIVEN, bank_given);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -30261,6 +30494,558 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("sites", &self.sites());
       ds.field("closed", &self.closed());
       ds.field("wells", &self.wells());
+      ds.field("banks", &self.banks());
+      ds.field("bank_saves", &self.bank_saves());
+      ds.field("bank_given", &self.bank_given());
+      ds.finish()
+  }
+}
+pub enum BankSiteSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct BankSiteSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for BankSiteSave<'a> {
+  type Inner = BankSiteSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> BankSiteSave<'a> {
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 4;
+  pub const VT_REACH: ::flatbuffers::VOffsetT = 6;
+  pub const VT_AX: ::flatbuffers::VOffsetT = 8;
+  pub const VT_AY: ::flatbuffers::VOffsetT = 10;
+  pub const VT_BX: ::flatbuffers::VOffsetT = 12;
+  pub const VT_BY: ::flatbuffers::VOffsetT = 14;
+  pub const VT_HEIGHT_M: ::flatbuffers::VOffsetT = 16;
+  pub const VT_CREST_WIDTH_M: ::flatbuffers::VOffsetT = 18;
+  pub const VT_SIDE_RUN: ::flatbuffers::VOffsetT = 20;
+  pub const VT_COMPACTED_PER_BANK: ::flatbuffers::VOffsetT = 22;
+  pub const VT_ENV_X_CM: ::flatbuffers::VOffsetT = 24;
+  pub const VT_ENV_Y_CM: ::flatbuffers::VOffsetT = 26;
+  pub const VT_ENV_W_CM: ::flatbuffers::VOffsetT = 28;
+  pub const VT_ENV_H_CM: ::flatbuffers::VOffsetT = 30;
+  pub const VT_PIT_X_CM: ::flatbuffers::VOffsetT = 32;
+  pub const VT_PIT_Y_CM: ::flatbuffers::VOffsetT = 34;
+  pub const VT_PIT_W_CM: ::flatbuffers::VOffsetT = 36;
+  pub const VT_PIT_H_CM: ::flatbuffers::VOffsetT = 38;
+  pub const VT_LABOUR_H: ::flatbuffers::VOffsetT = 40;
+  pub const VT_WORK: ::flatbuffers::VOffsetT = 42;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    BankSiteSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args BankSiteSaveArgs
+  ) -> ::flatbuffers::WIPOffset<BankSiteSave<'bldr>> {
+    let mut builder = BankSiteSaveBuilder::new(_fbb);
+    builder.add_work(args.work);
+    builder.add_labour_h(args.labour_h);
+    builder.add_compacted_per_bank(args.compacted_per_bank);
+    builder.add_side_run(args.side_run);
+    builder.add_crest_width_m(args.crest_width_m);
+    builder.add_height_m(args.height_m);
+    builder.add_by(args.by);
+    builder.add_bx(args.bx);
+    builder.add_ay(args.ay);
+    builder.add_ax(args.ax);
+    builder.add_law(args.law);
+    builder.add_pit_h_cm(args.pit_h_cm);
+    builder.add_pit_w_cm(args.pit_w_cm);
+    builder.add_pit_y_cm(args.pit_y_cm);
+    builder.add_pit_x_cm(args.pit_x_cm);
+    builder.add_env_h_cm(args.env_h_cm);
+    builder.add_env_w_cm(args.env_w_cm);
+    builder.add_env_y_cm(args.env_y_cm);
+    builder.add_env_x_cm(args.env_x_cm);
+    builder.add_reach(args.reach);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(BankSiteSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn reach(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(BankSiteSave::VT_REACH, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ax(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(BankSiteSave::VT_AX, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn ay(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(BankSiteSave::VT_AY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn bx(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(BankSiteSave::VT_BX, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn by(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(BankSiteSave::VT_BY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn height_m(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(BankSiteSave::VT_HEIGHT_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn crest_width_m(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(BankSiteSave::VT_CREST_WIDTH_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn side_run(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(BankSiteSave::VT_SIDE_RUN, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn compacted_per_bank(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(BankSiteSave::VT_COMPACTED_PER_BANK, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn env_x_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(BankSiteSave::VT_ENV_X_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn env_y_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(BankSiteSave::VT_ENV_Y_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn env_w_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(BankSiteSave::VT_ENV_W_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn env_h_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(BankSiteSave::VT_ENV_H_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn pit_x_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(BankSiteSave::VT_PIT_X_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn pit_y_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(BankSiteSave::VT_PIT_Y_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn pit_w_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(BankSiteSave::VT_PIT_W_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn pit_h_cm(&self) -> i32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(BankSiteSave::VT_PIT_H_CM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn labour_h(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(BankSiteSave::VT_LABOUR_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn work(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(BankSiteSave::VT_WORK, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for BankSiteSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<u32>("reach", Self::VT_REACH, false)?
+     .visit_field::<f64>("ax", Self::VT_AX, false)?
+     .visit_field::<f64>("ay", Self::VT_AY, false)?
+     .visit_field::<f64>("bx", Self::VT_BX, false)?
+     .visit_field::<f64>("by", Self::VT_BY, false)?
+     .visit_field::<f64>("height_m", Self::VT_HEIGHT_M, false)?
+     .visit_field::<f64>("crest_width_m", Self::VT_CREST_WIDTH_M, false)?
+     .visit_field::<f64>("side_run", Self::VT_SIDE_RUN, false)?
+     .visit_field::<f64>("compacted_per_bank", Self::VT_COMPACTED_PER_BANK, false)?
+     .visit_field::<i32>("env_x_cm", Self::VT_ENV_X_CM, false)?
+     .visit_field::<i32>("env_y_cm", Self::VT_ENV_Y_CM, false)?
+     .visit_field::<i32>("env_w_cm", Self::VT_ENV_W_CM, false)?
+     .visit_field::<i32>("env_h_cm", Self::VT_ENV_H_CM, false)?
+     .visit_field::<i32>("pit_x_cm", Self::VT_PIT_X_CM, false)?
+     .visit_field::<i32>("pit_y_cm", Self::VT_PIT_Y_CM, false)?
+     .visit_field::<i32>("pit_w_cm", Self::VT_PIT_W_CM, false)?
+     .visit_field::<i32>("pit_h_cm", Self::VT_PIT_H_CM, false)?
+     .visit_field::<f64>("labour_h", Self::VT_LABOUR_H, false)?
+     .visit_field::<u64>("work", Self::VT_WORK, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct BankSiteSaveArgs {
+    pub law: u64,
+    pub reach: u32,
+    pub ax: f64,
+    pub ay: f64,
+    pub bx: f64,
+    pub by: f64,
+    pub height_m: f64,
+    pub crest_width_m: f64,
+    pub side_run: f64,
+    pub compacted_per_bank: f64,
+    pub env_x_cm: i32,
+    pub env_y_cm: i32,
+    pub env_w_cm: i32,
+    pub env_h_cm: i32,
+    pub pit_x_cm: i32,
+    pub pit_y_cm: i32,
+    pub pit_w_cm: i32,
+    pub pit_h_cm: i32,
+    pub labour_h: f64,
+    pub work: u64,
+}
+impl<'a> Default for BankSiteSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    BankSiteSaveArgs {
+      law: 0,
+      reach: 0,
+      ax: 0.0,
+      ay: 0.0,
+      bx: 0.0,
+      by: 0.0,
+      height_m: 0.0,
+      crest_width_m: 0.0,
+      side_run: 0.0,
+      compacted_per_bank: 0.0,
+      env_x_cm: 0,
+      env_y_cm: 0,
+      env_w_cm: 0,
+      env_h_cm: 0,
+      pit_x_cm: 0,
+      pit_y_cm: 0,
+      pit_w_cm: 0,
+      pit_h_cm: 0,
+      labour_h: 0.0,
+      work: 0,
+    }
+  }
+}
+
+pub struct BankSiteSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BankSiteSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(BankSiteSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_reach(&mut self, reach: u32) {
+    self.fbb_.push_slot::<u32>(BankSiteSave::VT_REACH, reach, 0);
+  }
+  #[inline]
+  pub fn add_ax(&mut self, ax: f64) {
+    self.fbb_.push_slot::<f64>(BankSiteSave::VT_AX, ax, 0.0);
+  }
+  #[inline]
+  pub fn add_ay(&mut self, ay: f64) {
+    self.fbb_.push_slot::<f64>(BankSiteSave::VT_AY, ay, 0.0);
+  }
+  #[inline]
+  pub fn add_bx(&mut self, bx: f64) {
+    self.fbb_.push_slot::<f64>(BankSiteSave::VT_BX, bx, 0.0);
+  }
+  #[inline]
+  pub fn add_by(&mut self, by: f64) {
+    self.fbb_.push_slot::<f64>(BankSiteSave::VT_BY, by, 0.0);
+  }
+  #[inline]
+  pub fn add_height_m(&mut self, height_m: f64) {
+    self.fbb_.push_slot::<f64>(BankSiteSave::VT_HEIGHT_M, height_m, 0.0);
+  }
+  #[inline]
+  pub fn add_crest_width_m(&mut self, crest_width_m: f64) {
+    self.fbb_.push_slot::<f64>(BankSiteSave::VT_CREST_WIDTH_M, crest_width_m, 0.0);
+  }
+  #[inline]
+  pub fn add_side_run(&mut self, side_run: f64) {
+    self.fbb_.push_slot::<f64>(BankSiteSave::VT_SIDE_RUN, side_run, 0.0);
+  }
+  #[inline]
+  pub fn add_compacted_per_bank(&mut self, compacted_per_bank: f64) {
+    self.fbb_.push_slot::<f64>(BankSiteSave::VT_COMPACTED_PER_BANK, compacted_per_bank, 0.0);
+  }
+  #[inline]
+  pub fn add_env_x_cm(&mut self, env_x_cm: i32) {
+    self.fbb_.push_slot::<i32>(BankSiteSave::VT_ENV_X_CM, env_x_cm, 0);
+  }
+  #[inline]
+  pub fn add_env_y_cm(&mut self, env_y_cm: i32) {
+    self.fbb_.push_slot::<i32>(BankSiteSave::VT_ENV_Y_CM, env_y_cm, 0);
+  }
+  #[inline]
+  pub fn add_env_w_cm(&mut self, env_w_cm: i32) {
+    self.fbb_.push_slot::<i32>(BankSiteSave::VT_ENV_W_CM, env_w_cm, 0);
+  }
+  #[inline]
+  pub fn add_env_h_cm(&mut self, env_h_cm: i32) {
+    self.fbb_.push_slot::<i32>(BankSiteSave::VT_ENV_H_CM, env_h_cm, 0);
+  }
+  #[inline]
+  pub fn add_pit_x_cm(&mut self, pit_x_cm: i32) {
+    self.fbb_.push_slot::<i32>(BankSiteSave::VT_PIT_X_CM, pit_x_cm, 0);
+  }
+  #[inline]
+  pub fn add_pit_y_cm(&mut self, pit_y_cm: i32) {
+    self.fbb_.push_slot::<i32>(BankSiteSave::VT_PIT_Y_CM, pit_y_cm, 0);
+  }
+  #[inline]
+  pub fn add_pit_w_cm(&mut self, pit_w_cm: i32) {
+    self.fbb_.push_slot::<i32>(BankSiteSave::VT_PIT_W_CM, pit_w_cm, 0);
+  }
+  #[inline]
+  pub fn add_pit_h_cm(&mut self, pit_h_cm: i32) {
+    self.fbb_.push_slot::<i32>(BankSiteSave::VT_PIT_H_CM, pit_h_cm, 0);
+  }
+  #[inline]
+  pub fn add_labour_h(&mut self, labour_h: f64) {
+    self.fbb_.push_slot::<f64>(BankSiteSave::VT_LABOUR_H, labour_h, 0.0);
+  }
+  #[inline]
+  pub fn add_work(&mut self, work: u64) {
+    self.fbb_.push_slot::<u64>(BankSiteSave::VT_WORK, work, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BankSiteSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    BankSiteSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<BankSiteSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for BankSiteSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("BankSiteSave");
+      ds.field("law", &self.law());
+      ds.field("reach", &self.reach());
+      ds.field("ax", &self.ax());
+      ds.field("ay", &self.ay());
+      ds.field("bx", &self.bx());
+      ds.field("by", &self.by());
+      ds.field("height_m", &self.height_m());
+      ds.field("crest_width_m", &self.crest_width_m());
+      ds.field("side_run", &self.side_run());
+      ds.field("compacted_per_bank", &self.compacted_per_bank());
+      ds.field("env_x_cm", &self.env_x_cm());
+      ds.field("env_y_cm", &self.env_y_cm());
+      ds.field("env_w_cm", &self.env_w_cm());
+      ds.field("env_h_cm", &self.env_h_cm());
+      ds.field("pit_x_cm", &self.pit_x_cm());
+      ds.field("pit_y_cm", &self.pit_y_cm());
+      ds.field("pit_w_cm", &self.pit_w_cm());
+      ds.field("pit_h_cm", &self.pit_h_cm());
+      ds.field("labour_h", &self.labour_h());
+      ds.field("work", &self.work());
+      ds.finish()
+  }
+}
+pub enum BankShareSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct BankShareSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for BankShareSave<'a> {
+  type Inner = BankShareSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> BankShareSave<'a> {
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 4;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 6;
+  pub const VT_HOURS: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    BankShareSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args BankShareSaveArgs
+  ) -> ::flatbuffers::WIPOffset<BankShareSave<'bldr>> {
+    let mut builder = BankShareSaveBuilder::new(_fbb);
+    builder.add_household(args.household);
+    builder.add_law(args.law);
+    builder.add_hours(args.hours);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(BankShareSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(BankShareSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn hours(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(BankShareSave::VT_HOURS, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for BankShareSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<f32>("hours", Self::VT_HOURS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct BankShareSaveArgs {
+    pub law: u64,
+    pub household: u64,
+    pub hours: f32,
+}
+impl<'a> Default for BankShareSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    BankShareSaveArgs {
+      law: 0,
+      household: 0,
+      hours: 0.0,
+    }
+  }
+}
+
+pub struct BankShareSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BankShareSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(BankShareSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(BankShareSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_hours(&mut self, hours: f32) {
+    self.fbb_.push_slot::<f32>(BankShareSave::VT_HOURS, hours, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BankShareSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    BankShareSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<BankShareSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for BankShareSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("BankShareSave");
+      ds.field("law", &self.law());
+      ds.field("household", &self.household());
+      ds.field("hours", &self.hours());
       ds.finish()
   }
 }

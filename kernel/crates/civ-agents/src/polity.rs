@@ -68,11 +68,17 @@ pub enum PolicyKind {
     /// crossing built together is (09-06: labour asked and labour given are kept apart); once
     /// open, the polity's people may draw at it. Nobody is made to work.
     DigWell,
+    /// The polity builds a flood bank where it would have kept out the water that cost its
+    /// households (M6b slice BG; ADR-0022 §11): it begins once passed, the polity's, and each
+    /// household is asked an equal share of its work, as a crossing built together is (research
+    /// 12-08 §1.2: those who gain and those who work may differ). Nobody is made to work, and
+    /// nobody keeps it up unless a law asks (ADR-0022 §11).
+    BuildBank,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 12] = [
+    pub const ALL: [PolicyKind; 13] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -85,6 +91,7 @@ impl PolicyKind {
         PolicyKind::BuildCrossing,
         PolicyKind::CloseSource,
         PolicyKind::DigWell,
+        PolicyKind::BuildBank,
     ];
 
     /// The authored name.
@@ -102,6 +109,7 @@ impl PolicyKind {
             PolicyKind::BuildCrossing => "build_crossing",
             PolicyKind::CloseSource => "close_source",
             PolicyKind::DigWell => "dig_well",
+            PolicyKind::BuildBank => "build_bank",
         }
     }
 
@@ -158,11 +166,16 @@ pub enum IssueKind {
     /// the settlement's households more walking over its lining's life than its work (M6a slice
     /// BA, step four), as fords make a crossing an issue.
     WaterFar,
+    /// A flood cost a household of the settlement within its people's memory, as they saw (its
+    /// stores spoiled where water stood, its sown crop drowned), and a bank built together would
+    /// have kept that water out, its saving over its life above its work (M6b slice BG), as
+    /// fords make a crossing an issue.
+    Flooded,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 13] = [
+    pub const ALL: [IssueKind; 14] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -176,6 +189,7 @@ impl IssueKind {
         IssueKind::Sickness,
         IssueKind::SourceSuspected,
         IssueKind::WaterFar,
+        IssueKind::Flooded,
     ];
 
     /// The authored name.
@@ -194,6 +208,7 @@ impl IssueKind {
             IssueKind::Sickness => "sickness",
             IssueKind::SourceSuspected => "source_suspected",
             IssueKind::WaterFar => "water_far",
+            IssueKind::Flooded => "flooded",
         }
     }
 
@@ -225,6 +240,7 @@ impl IssueKind {
             IssueKind::Sickness => "its people had sickness at home lately",
             IssueKind::SourceSuspected => "they hold that the water there sickens",
             IssueKind::WaterFar => "its people walked far for water",
+            IssueKind::Flooded => "floodwater had cost its households",
         }
     }
 }
@@ -965,6 +981,12 @@ pub fn law_words(
         return "a well dug together beside the hearth, each household doing its share of the work"
             .to_owned();
     }
+    // Without the site at hand (see [`Polity::words_of`]), only what it is.
+    if def.is_some_and(|d| d.kind == PolicyKind::BuildBank) {
+        return "a bank against floodwater built together, each household doing its share of the \
+                work"
+            .to_owned();
+    }
     // Without the source at hand (see [`Polity::words_of`]), only what it does.
     if def.is_some_and(|d| d.kind == PolicyKind::CloseSource) {
         return "the closing of a source of water: nobody may draw there".to_owned();
@@ -1040,6 +1062,7 @@ pub fn ending_words(
         Some(PolicyKind::BuildCrossing) => "the work on a crossing".to_owned(),
         Some(PolicyKind::CloseSource) => "the closing of a source of water".to_owned(),
         Some(PolicyKind::DigWell) => "the work on a well".to_owned(),
+        Some(PolicyKind::BuildBank) => "the work on a flood bank".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -1243,6 +1266,47 @@ pub struct Polity {
     /// Where its laws to dig a well together would dig one, each with its law (M6a slice BA,
     /// step four): recorded when the law is proposed.
     pub wells: Vec<(PermanentId, WellSite)>,
+    /// Where each law to build a flood bank would build it, by law (M6b slice BG).
+    pub banks: Vec<(PermanentId, BankSite)>,
+    /// What each household reckoned, when it was proposed, a law's bank would save it a year,
+    /// hours: the losses it remembered at the places the bank would keep dry (law, household,
+    /// hours), by law then household.
+    pub bank_saves: Vec<(PermanentId, PermanentId, f32)>,
+    /// The hours each household has given to a law's bank (law, household, hours), by law then
+    /// household (research 09-06: labour asked and labour given kept apart).
+    pub bank_given: Vec<(PermanentId, PermanentId, f32)>,
+}
+
+/// Where a law would build a flood bank (M6b slice BG; ADR-0022 §11): the reach whose water it
+/// keeps out, its straight crest line from `a` to `b` in metres from the map's corner, its
+/// section, the ground it reserves and its borrow pit's, and the work it would take.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BankSite {
+    /// The river reach whose floodwater it keeps out.
+    pub reach: u32,
+    pub a: [f64; 2],
+    pub b: [f64; 2],
+    /// Its finished height above its ground, metres.
+    pub height_m: f64,
+    pub crest_width_m: f64,
+    pub side_run: f64,
+    /// Compacted volume per cubic metre dug in place.
+    pub compacted_per_bank: f64,
+    /// The ground its trapezoid takes.
+    pub envelope: civ_land::fields::RectCm,
+    /// The pit its earth is dug from.
+    pub pit: civ_land::fields::RectCm,
+    /// The work it takes, hours: digging, carrying and placing.
+    pub labour_h: f64,
+    /// Its earthwork once begun: the bank's own id (its segment's `work`).
+    pub work: Option<PermanentId>,
+}
+
+impl BankSite {
+    /// Its length, metres.
+    pub fn length_m(&self) -> f64 {
+        (self.a[0] - self.b[0]).hypot(self.a[1] - self.b[1])
+    }
 }
 
 /// Where a law would dig a well (M6a slice BA, step four): its cell and ground, its well system
@@ -1330,6 +1394,9 @@ impl Polity {
             sites: Vec::new(),
             closed: Vec::new(),
             wells: Vec::new(),
+            banks: Vec::new(),
+            bank_saves: Vec::new(),
+            bank_given: Vec::new(),
         }
     }
 
@@ -1341,6 +1408,36 @@ impl Polity {
     /// Where law `law` would dig a well, if it is one that would (M6a slice BA).
     pub fn well_site_of(&self, law: PermanentId) -> Option<WellSite> {
         self.wells.iter().find(|w| w.0 == law).map(|w| w.1)
+    }
+
+    /// Where law `law` would build a flood bank, if it is one that would (M6b slice BG).
+    pub fn bank_site_of(&self, law: PermanentId) -> Option<BankSite> {
+        self.banks.iter().find(|b| b.0 == law).map(|b| b.1)
+    }
+
+    /// What household `household` reckoned law `law`'s bank would save it a year, hours.
+    pub fn bank_saves_of(&self, law: PermanentId, household: PermanentId) -> f32 {
+        self.bank_saves
+            .binary_search_by_key(&(law, household), |s| (s.0, s.1))
+            .map_or(0.0, |i| self.bank_saves[i].2)
+    }
+
+    /// The hours household `household` has given to law `law`'s bank.
+    pub fn bank_given_by(&self, law: PermanentId, household: PermanentId) -> f32 {
+        self.bank_given
+            .binary_search_by_key(&(law, household), |s| (s.0, s.1))
+            .map_or(0.0, |i| self.bank_given[i].2)
+    }
+
+    /// Household `household` gives `hours` more to law `law`'s bank.
+    pub fn give_to_bank(&mut self, law: PermanentId, household: PermanentId, hours: f32) {
+        match self
+            .bank_given
+            .binary_search_by_key(&(law, household), |s| (s.0, s.1))
+        {
+            Ok(i) => self.bank_given[i].2 += hours,
+            Err(i) => self.bank_given.insert(i, (law, household, hours)),
+        }
     }
 
     /// The source of water law `law` would close, if it is one that would (M6a slice BA).
@@ -1486,6 +1583,18 @@ impl Polity {
                 "a well {:.1} m deep beside the hearth, each household doing its share of {:.0} \
                  hours of work",
                 site.target_m, site.labour_h
+            );
+        }
+        // A bank says how long and high it would stand and the work it asks (M6b slice BG).
+        if kind == Some(PolicyKind::BuildBank)
+            && let Some(site) = self.bank_site_of(law.id)
+        {
+            return format!(
+                "a bank {:.0} m long and {:.1} m high against floodwater, each household doing \
+                 its share of {:.0} hours of work",
+                site.length_m(),
+                site.height_m,
+                site.labour_h
             );
         }
         match law

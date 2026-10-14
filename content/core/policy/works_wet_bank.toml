@@ -1,0 +1,28 @@
+# A flood bank built together (M6b slice BG; ADR-0022 §11; the M6 fire brief §1.10: "`build_bank`,
+# shaped like `build_crossing`: crest at the highest water remembered plus freeboard, borrow ditch
+# beside it, equal shares"). When a flood cost a household of the settlement within its people's
+# memory (its stores spoiled where water stood in its buildings, its sown crop drowned), and a
+# straight bank beside the river would have kept that water out of those places, saving the
+# settlement's households more over its life than its work (the issue `flooded`), anyone may
+# propose that the polity build it. A household weighs it by what it remembers floods cost it at
+# the places the bank would keep dry, a year, less its share of the work spread over the bank's
+# life, each hour worth the food an hour of its own work brings (research 11-07 §2.3); a household
+# that remembers no such loss gains nothing and is still asked its share (research 12-08 §1.2: those
+# who gain and those who work may differ). Once passed, the polity lays it out with its borrow pit,
+# and each household is asked an equal share of the work: its people give it as they choose, and
+# nothing follows a share not given. Nobody keeps it up unless a law asks (ADR-0022 §11). Whether
+# anyone proposes one, whether it passes, and whether it is finished, is people's choice. Its id
+# sorts after every older template's: hearth talk about a question is keyed by a template's place
+# in id order (a "wet bank": a bank against floodwater).
+kind = "policy"
+id = "core:policy/works_wet_bank"
+name = "Flood bank built together"
+description = "The polity builds a bank against floodwater beside the river, and each household is asked an equal share of the work."
+does = "build_bank"
+answers = ["flooded"]
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement, as for a crossing or a well built together: a share of
+# every household's hours is asked.
+[bears]
+"core:value/autonomy" = -0.5

@@ -96,6 +96,46 @@ impl BankSegment {
                 .all(|p| p[0] >= 0.0 && p[1] >= 0.0 && p[0] <= width && p[1] <= height)
     }
 
+    /// The least axis-aligned rectangle holding the bank's full trapezoid, rounded out to
+    /// whole centimetres: the ground a bank's earthwork reserves.
+    pub fn envelope(&self) -> crate::RectCm {
+        let length = self.length_m();
+        let normal = [
+            (self.b[1] - self.a[1]) / length,
+            (self.a[0] - self.b[0]) / length,
+        ];
+        let reach = self.crest_width_m / 2.0 + self.side_run * self.height_m;
+        let corners: Vec<[f64; 2]> = [self.a, self.b]
+            .iter()
+            .flat_map(|p| {
+                [-1.0, 1.0].map(|sign| {
+                    [
+                        p[0] + sign * normal[0] * reach,
+                        p[1] + sign * normal[1] * reach,
+                    ]
+                })
+            })
+            .collect();
+        let x0 = corners.iter().map(|c| c[0]).fold(f64::INFINITY, f64::min);
+        let y0 = corners.iter().map(|c| c[1]).fold(f64::INFINITY, f64::min);
+        let x1 = corners
+            .iter()
+            .map(|c| c[0])
+            .fold(f64::NEG_INFINITY, f64::max);
+        let y1 = corners
+            .iter()
+            .map(|c| c[1])
+            .fold(f64::NEG_INFINITY, f64::max);
+        let x = (x0 * 100.0).floor() as i32;
+        let y = (y0 * 100.0).floor() as i32;
+        crate::RectCm {
+            x,
+            y,
+            w: ((x1 * 100.0).ceil() as i32 - x).max(1),
+            h: ((y1 * 100.0).ceil() as i32 - y).max(1),
+        }
+    }
+
     /// The reserved envelope must contain the bank's full trapezoid, not just its line.
     pub fn inside_envelope(&self, rect: crate::RectCm) -> bool {
         let length = self.length_m();
@@ -135,6 +175,12 @@ impl BankSegment {
         if self.breached || height <= 0.0 {
             return Vec::new();
         }
+        self.barriers_at(map, hands, height)
+    }
+
+    /// The edges the segment would block if it stood `height` metres above its ground: a
+    /// design's crest before any earth is placed (M6b slice BG: choosing where to build).
+    pub fn barriers_at(&self, map: &WorldMap, hands: &[f32], height: f64) -> Vec<FloodBarrier> {
         let cell = f64::from(map.cell_size_m);
         let min_x = (self.a[0].min(self.b[0]) / cell).floor().max(0.0) as u32;
         let min_y = (self.a[1].min(self.b[1]) / cell).floor().max(0.0) as u32;

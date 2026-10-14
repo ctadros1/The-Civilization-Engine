@@ -389,6 +389,7 @@ impl Population {
             admired: old.admired,
             midden: crate::person::Midden::begun(now),
             flood_memory: crate::person::FloodMemory::default(),
+            flood_losses: Vec::new(),
         });
         // Its people and what they know of other places go with it; where they lived is now a
         // place they know.
@@ -545,6 +546,7 @@ impl Population {
             admired,
             midden: crate::person::Midden::begun(now),
             flood_memory: crate::person::FloodMemory::default(),
+            flood_losses: Vec::new(),
         });
         let mut person = p.clone();
         person.household = hh;

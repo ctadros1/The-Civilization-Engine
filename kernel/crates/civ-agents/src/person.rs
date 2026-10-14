@@ -56,6 +56,8 @@ pub enum Target {
     /// is drawn: the cell of a well or of the water at a bank or spring, or [`FROM_STORE`] for the
     /// household's store at home (M6b slice BD, step three).
     Douse { building: PermanentId, from: u32 },
+    /// A flood bank, by its earthwork's permanent id: the one worked on (M6b slice BG).
+    Bank(PermanentId),
 }
 
 /// Water for a fire drawn from the household's store at home, not a source (see
@@ -729,6 +731,52 @@ pub struct Household {
     pub midden: Midden,
     /// Memory of the deepest floodwaters observed at home and at fields (M6b slice BF).
     pub flood_memory: FloodMemory,
+    /// What floods cost the household itself, as it saw: its stores spoiled where water stood in
+    /// its buildings and its sown fields lost under water (M6b slice BG), oldest first, kept for
+    /// the years its people remember.
+    pub flood_losses: Vec<FloodLoss>,
+}
+
+/// One day's loss to a flood at one place of a household's own (M6b slice BG): what it saw the
+/// water take there. The place and the depth say where a bank would have to keep water out, and
+/// how high; the food and the work lost say what keeping it out would have been worth.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FloodLoss {
+    /// The day.
+    pub day: i64,
+    /// The cell the water stood in: a building's or a field's middle.
+    pub cell: u32,
+    /// How deep the water stood there, cm.
+    pub depth_cm: u16,
+    /// The food lost, kcal: stores spoiled, or the seed a lost crop was sown with.
+    pub kcal: f32,
+    /// The work lost, hours: a lost crop's preparing, sowing and tending.
+    pub hours: f32,
+}
+
+impl Household {
+    /// Remembers a loss to a flood (M6b slice BG): one record a day and place, the deeper water
+    /// and the losses summed.
+    pub fn remember_flood_loss(&mut self, loss: FloodLoss) {
+        if let Some(l) = self
+            .flood_losses
+            .iter_mut()
+            .rev()
+            .take_while(|l| l.day == loss.day)
+            .find(|l| l.cell == loss.cell)
+        {
+            l.depth_cm = l.depth_cm.max(loss.depth_cm);
+            l.kcal += loss.kcal;
+            l.hours += loss.hours;
+            return;
+        }
+        self.flood_losses.push(loss);
+    }
+
+    /// Forgets losses older than `days` before `today`.
+    pub fn forget_flood_losses(&mut self, today: i64, days: i64) {
+        self.flood_losses.retain(|l| today - l.day <= days);
+    }
 }
 
 /// A household's memory of floodwaters at its home and fields (M6b slice BF).
@@ -1148,6 +1196,7 @@ mod tests {
             admired: None,
             midden: Midden::default(),
             flood_memory: FloodMemory::default(),
+            flood_losses: Vec::new(),
         }
     }
 

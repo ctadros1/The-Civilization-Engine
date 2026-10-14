@@ -184,8 +184,11 @@ impl Population {
             hw.fields_flooded = hw.fields_flooded.max(fld_flooded);
         }
 
-        // 2. Household flood memory
+        // 2. Household flood memory. What a flood cost a household is remembered for its
+        // people's years of memory (M6b slice BG).
+        let keep_days = (ctx.params.levees.memory_years * DAYS_PER_YEAR as f64).round() as i64;
         for (_, hh) in self.households.iter_mut() {
+            hh.forget_flood_losses(day, keep_days);
             let home_cell = cell_of(ctx.map, hh.home);
             let home_cm = ctx
                 .land

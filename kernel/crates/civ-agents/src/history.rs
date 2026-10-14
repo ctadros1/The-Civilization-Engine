@@ -178,6 +178,10 @@ pub enum Reason {
     FireThreatens = 144,
     /// Home is flooded (M6b slice BF): nothing is done there until waters recede.
     HomeFlooded = 145,
+    /// What a flood bank the polity is building would have kept out of the household's own
+    /// stores and fields, as its people saw, for the work this session puts into it (M6b slice
+    /// BG).
+    Levee = 146,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -189,7 +193,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 79] = [
+    pub const ALL: [Reason; 80] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -269,6 +273,7 @@ impl Reason {
         Reason::HomeAfire,
         Reason::FireThreatens,
         Reason::HomeFlooded,
+        Reason::Levee,
     ];
 
     /// The reason with this code.
@@ -360,6 +365,7 @@ impl Reason {
             Reason::HomeAfire => "a fire burns at home",
             Reason::FireThreatens => "a fire threatens a roof",
             Reason::HomeFlooded => "home is flooded",
+            Reason::Levee => "what a flood bank would keep out",
         }
     }
 }
@@ -787,6 +793,8 @@ pub enum FloodStep {
     Inundated = 0,
     /// Floodwaters receded.
     Receded = 1,
+    /// A flood bank a polity's gathering asked for was finished (M6b slice BG).
+    BankBuilt = 2,
 }
 
 /// What happened in a storm, in a [`ChronicleKind::StormDamage`] entry. Numeric in saves: append only.

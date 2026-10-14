@@ -1762,3 +1762,44 @@ The owner requested a stopping point to hand off to Claude after their usage res
 slice and `docs/handoffs/2026-10-14-m6b-claude.md` are the stopping point. BG remains partial;
 no production agent creates a bank, and BH/M6c are future work. The handoff separates tested
 mechanisms, calibration limits and the next integration steps. No merge to main.
+
+## 2026-10-14 — BG: flood banks built together
+
+**Picked up from the handoff.** Gemini's BE/BF and Codex's BD/BF/BG work were pulled and
+checked: the full workspace simcheck suite passed (911 tests, 1 ignored), formatting and schema
+freshness held. Codex's handoff named BG's chosen public bank work as the next step; this is it.
+
+**What changed:** households now remember what floods cost them as they saw: floor stores
+spoiled in their buildings (their food) and sown crops drowned after five days under water
+(their seed and work), each at its cell and depth, for ten years. The issue `flooded` and the
+policy `build_bank` follow the crossing and well pattern: a planner finds a straight bank
+beside the river that would have kept the remembered water out of those places (tested on
+the reach's own connected-storage path with every standing bank), at the highest remembered
+surface plus freeboard, with a borrow pit beside it on free ground; a household weighs it by
+its own remembered losses there against its equal share of the work. Passed, the polity lays
+out the bank with no earth in it. People choose to work on it; each session digs, carries a
+basket at a time the real way from the pit at their own pace, and places earth, each charged
+apart, through Codex's `place_from_borrow`. Only the hours that moved earth count as given. A
+front holds as many workers at once as its length allows. Saves 102, content API 88.
+
+**Findings:** in six lived villages flooded once, most banks that would keep a household's
+place dry run across fields or plots and are rejected; others leave a way round their ends;
+the two that passed did not repay their work after one flood remembered over ten years. That
+is the world declining the bank, not a fault. With the same loss remembered five years running,
+a 40 m bank was proposed, and in thirty lived days three households gave 10 of its 384 hours
+by their own choice: slow, but chosen.
+
+**Also found and fixed:** under a raised river a debug assertion fired in the field-site
+cache. Floodwater redraws the ground a household looks over within a day, and the cache's
+stamp did not include that ground. It does now.
+
+**Evidence:** a new test (`tests/levees.rs`) floods a lived village, checks who remembers
+losses, that one flood does not repay a bank, that the bank found keeps only losers' places
+and repays its work, that losers gain and others lose by it, that it is proposed with the
+issue `flooded` and words naming its size and work, that it is laid out empty, that six hours
+of a worker's time place earth dug from the pit (fill equals pit earth times compaction), that
+duty holds until the household's share is given and then stops, that it saves and loads
+exactly, and that finishing it is told.
+
+**Open:** banks of several segments and across fields; piping, settlement and paid upkeep;
+trapped rain; irrigation; then BH.

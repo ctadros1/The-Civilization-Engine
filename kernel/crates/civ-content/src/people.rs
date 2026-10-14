@@ -72,6 +72,90 @@ pub(crate) struct PeopleFile {
     pub suspicion: SuspicionFile,
     /// How buildings burn and fire passes between them (M6b slice BC; content API 81).
     pub fire: FireFile,
+    /// How people lay out and build flood banks, and remember what floods cost them (M6b slice
+    /// BG; content API 88).
+    pub levees: LeveesFile,
+}
+
+/// How people lay out and build flood banks (M6b slice BG, ADR-0022 §11; content API 88). See
+/// [`civ_agents::levees::LeveeParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct LeveesFile {
+    pub memory_years: f64,
+    pub life_years: f64,
+    pub freeboard_m: f64,
+    pub min_height_m: f64,
+    pub max_height_m: f64,
+    pub crest_width_m: f64,
+    pub side_run: f64,
+    pub compacted_per_bank: f64,
+    pub loose_per_bank: f64,
+    pub loose_kg_per_m3: f64,
+    pub carry_kg: f64,
+    pub load_min: f64,
+    pub place_h_per_m3: f64,
+    pub pit_depth_m: f64,
+    pub front_m: f64,
+}
+
+impl LeveesFile {
+    fn params(&self) -> civ_agents::levees::LeveeParams {
+        civ_agents::levees::LeveeParams {
+            memory_years: self.memory_years,
+            life_years: self.life_years,
+            freeboard_m: self.freeboard_m,
+            min_height_m: self.min_height_m,
+            max_height_m: self.max_height_m,
+            crest_width_m: self.crest_width_m,
+            side_run: self.side_run,
+            compacted_per_bank: self.compacted_per_bank,
+            loose_per_bank: self.loose_per_bank,
+            loose_kg_per_m3: self.loose_kg_per_m3,
+            carry_kg: self.carry_kg,
+            load_min: self.load_min,
+            place_h_per_m3: self.place_h_per_m3,
+            pit_depth_m: self.pit_depth_m,
+            front_m: self.front_m,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("levees.memory_years", self.memory_years, 0.1, 200.0),
+            ("levees.life_years", self.life_years, 1.0, 500.0),
+            ("levees.freeboard_m", self.freeboard_m, 0.0, 5.0),
+            ("levees.min_height_m", self.min_height_m, 0.05, 10.0),
+            ("levees.max_height_m", self.max_height_m, 0.05, 20.0),
+            ("levees.crest_width_m", self.crest_width_m, 0.1, 20.0),
+            ("levees.side_run", self.side_run, 0.5, 10.0),
+            (
+                "levees.compacted_per_bank",
+                self.compacted_per_bank,
+                0.5,
+                1.0,
+            ),
+            ("levees.loose_per_bank", self.loose_per_bank, 1.0, 2.0),
+            (
+                "levees.loose_kg_per_m3",
+                self.loose_kg_per_m3,
+                500.0,
+                3000.0,
+            ),
+            ("levees.carry_kg", self.carry_kg, 1.0, 100.0),
+            ("levees.load_min", self.load_min, 0.0, 30.0),
+            ("levees.place_h_per_m3", self.place_h_per_m3, 0.1, 100.0),
+            ("levees.pit_depth_m", self.pit_depth_m, 0.1, 5.0),
+            ("levees.front_m", self.front_m, 0.5, 100.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        if self.max_height_m < self.min_height_m {
+            p.push("`levees.max_height_m` must not be below `levees.min_height_m`".to_owned());
+        }
+    }
 }
 
 /// How buildings burn and fire passes between them (M6b slice BC, ADR-0022 §4-§5; content API
@@ -1891,6 +1975,7 @@ impl PeopleFile {
             },
             suspicion: self.suspicion.params(),
             fire: self.fire.params(),
+            levees: self.levees.params(),
             relations: civ_agents::views::RelationsParams {
                 prior: self.relations.prior,
                 half_life_days: self.relations.half_life_days,
@@ -1922,6 +2007,7 @@ impl PeopleFile {
         self.word.problems(&mut p);
         self.suspicion.problems(&mut p);
         self.fire.problems(&mut p);
+        self.levees.problems(&mut p);
         if !(self.places.sight_m.is_finite() && (0.0..=10_000.0).contains(&self.places.sight_m)) {
             p.push(format!(
                 "`places.sight_m` must be between 0 and 10000 (got {})",

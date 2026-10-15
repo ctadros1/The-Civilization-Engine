@@ -1450,6 +1450,61 @@ pub struct Polity {
     /// What each household reckoned, when it was proposed, a law's palisade would keep it a year,
     /// in hours of its work (law, household, hours), by law then household.
     pub enclosure_saves: Vec<(PermanentId, PermanentId, f32)>,
+    /// The settlements it holds besides its seat (`settlement`), in the order taken (M6c slice
+    /// BM, ADR-0023 §9): their residents are its members too.
+    pub held: Vec<HeldSettlement>,
+    /// Its deciding closed, when another polity took it in (M6c slice BM): its record is kept.
+    pub ended: Option<PolityEnd>,
+}
+
+/// How a polity came to hold a settlement besides its seat (M6c slice BM, ADR-0023 §9). Codes are
+/// part of saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HeldHow {
+    /// Its own gathering annexed it, having held it from outside.
+    Annexed = 0,
+    /// Both gatherings agreed to be one body (the *one body* clause).
+    Merged = 1,
+}
+
+impl HeldHow {
+    /// Its code in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The way with code `code`.
+    pub fn from_code(code: u8) -> Option<HeldHow> {
+        [HeldHow::Annexed, HeldHow::Merged]
+            .get(usize::from(code))
+            .copied()
+    }
+
+    /// In words, after "since": "annexed", "merged".
+    pub fn words(self) -> &'static str {
+        match self {
+            HeldHow::Annexed => "annexed",
+            HeldHow::Merged => "joined by agreement",
+        }
+    }
+}
+
+/// A settlement a polity holds besides its seat: since when, how, and the polity that held it
+/// before.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HeldSettlement {
+    pub settlement: PermanentId,
+    pub since: i64,
+    pub how: HeldHow,
+    pub from: PermanentId,
+}
+
+/// How a polity's deciding closed: the day, the polity that took it in, and how.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PolityEnd {
+    pub day: i64,
+    pub by: PermanentId,
+    pub how: HeldHow,
 }
 
 /// Where a law would raise a palisade (M6c slice BK; ADR-0023 §6): the point its ring is drawn
@@ -1605,7 +1660,25 @@ impl Polity {
             bank_keeps: Vec::new(),
             enclosures: Vec::new(),
             enclosure_saves: Vec::new(),
+            held: Vec::new(),
+            ended: None,
         }
+    }
+
+    /// Whether, still deciding, it holds settlement `s`: its seat or one it took in (M6c slice
+    /// BM). Residence in any is membership (ADR-0023 §9).
+    pub fn holds(&self, s: Option<PermanentId>) -> bool {
+        self.ended.is_none()
+            && s.is_some_and(|s| {
+                s == self.settlement || self.held.iter().any(|h| h.settlement == s)
+            })
+    }
+
+    /// Its settlements, the seat first, then those it took in, in the order taken.
+    pub fn settlements(&self) -> Vec<PermanentId> {
+        std::iter::once(self.settlement)
+            .chain(self.held.iter().map(|h| h.settlement))
+            .collect()
     }
 
     /// Where law `law` would raise a palisade, if it is one that would (M6c slice BK).

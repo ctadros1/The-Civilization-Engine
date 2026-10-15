@@ -819,6 +819,10 @@ pub enum ChronicleKind {
     /// its last posts, `settlement` whose it is, `place` its centre, `number` its length in
     /// metres, and `name` the sentence.
     Enclosure,
+    /// A polity took another in, by annexation or by agreement (M6c slice BM, ADR-0023 §9):
+    /// `settlement` the seat of the one taken in, `place` its hearth, `number` how
+    /// ([`crate::polity::HeldHow`]'s code), and `name` the sentence.
+    PolityJoined,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1470,7 +1474,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::StormDamage
         | ChronicleKind::Ditch
         | ChronicleKind::Raid
-        | ChronicleKind::Enclosure => {
+        | ChronicleKind::Enclosure
+        | ChronicleKind::PolityJoined => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

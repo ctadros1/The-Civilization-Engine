@@ -296,11 +296,10 @@ const OUTSIDERS_DAYS: i64 = 365;
 const PUBLIC_SITES_WEIGHED: usize = 3;
 
 impl Population {
-    /// The index of settlement `settlement`'s polity.
+    /// The index of the polity, still deciding, that holds settlement `settlement`: its seat, or
+    /// one it took in (M6c slice BM).
     pub(crate) fn polity_of(&self, settlement: PermanentId) -> Option<usize> {
-        self.polities
-            .iter()
-            .position(|p| p.settlement == settlement)
+        self.polities.iter().position(|p| p.holds(Some(settlement)))
     }
 
     /// The polities' midnight (ADR-0013): every settlement without a polity gets one under the
@@ -381,7 +380,10 @@ impl Population {
         self.factions_day(ctx);
         for pi in 0..self.polities.len() {
             let p = &self.polities[pi];
-            if day - p.reviewed >= i64::from(ctx.params.polity.review_days.max(1)) {
+            // One taken in decides no more (M6c slice BM).
+            if p.ended.is_none()
+                && day - p.reviewed >= i64::from(ctx.params.polity.review_days.max(1))
+            {
                 self.polities[pi].reviewed = day;
                 self.review(ctx, pi);
                 // Terms with another polity are sought when nothing was put to the gathering
@@ -424,7 +426,7 @@ impl Population {
             let here = self
                 .person(holder)
                 .and_then(|p| self.household(p.household))
-                .is_some_and(|x| x.settlement == Some(settlement));
+                .is_some_and(|x| self.polities[pi].holds(x.settlement));
             if here {
                 return;
             }
@@ -469,8 +471,32 @@ impl Population {
         }
     }
 
+    /// The adults living in any settlement polity `pi` holds, with their households, in id order:
+    /// its members (ADR-0023 §9: membership is residence in any of them).
+    pub(super) fn members_of_polity(
+        &self,
+        pi: usize,
+        now: SimTime,
+        params: &PeopleParams,
+    ) -> Vec<(PermanentId, PermanentId)> {
+        let polity = &self.polities[pi];
+        let mut out: Vec<(PermanentId, PermanentId)> = self
+            .people
+            .iter()
+            .filter(|(_, p)| p.age_years(now) >= params.family.independent_age)
+            .filter(|(_, p)| {
+                self.household(p.household)
+                    .is_some_and(|x| polity.holds(x.settlement))
+            })
+            .map(|(_, p)| (p.id, p.household))
+            .collect();
+        out.sort_unstable();
+        out
+    }
+
     /// The adults living in settlement `settlement`, with their households, in id order: the
-    /// gathering's members (ADR-0013 §1: membership is residence).
+    /// gathering's members where a polity holds one settlement (ADR-0013 §1: membership is
+    /// residence).
     pub(super) fn members_of(
         &self,
         settlement: PermanentId,
@@ -538,9 +564,8 @@ impl Population {
         now: SimTime,
         params: &PeopleParams,
     ) -> Vec<(PermanentId, PermanentId)> {
-        let polity = &self.polities[pi];
-        let adults = self.members_of(polity.settlement, now, params);
-        self.admitted(polity.body.members, &adults, fields, now, params)
+        let adults = self.members_of_polity(pi, now, params);
+        self.admitted(self.polities[pi].body.members, &adults, fields, now, params)
     }
 
     /// Whether adult `person` of household `hh` belongs to polity `pi`'s body (M4c slice AF).
@@ -1154,7 +1179,7 @@ impl Population {
         let mut households: Vec<PermanentId> = self
             .households
             .iter()
-            .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+            .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
             .map(|(_, x)| x.id)
             .collect();
         households.sort_unstable();
@@ -1367,7 +1392,7 @@ impl Population {
         let mut households: Vec<PermanentId> = self
             .households
             .iter()
-            .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+            .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
             .map(|(_, x)| x.id)
             .collect();
         households.sort_unstable();
@@ -2195,7 +2220,7 @@ impl Population {
             let mut households: Vec<PermanentId> = self
                 .households
                 .iter()
-                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
                 .map(|(_, x)| x.id)
                 .collect();
             households.sort_unstable();
@@ -2216,7 +2241,7 @@ impl Population {
             let mut households: Vec<PermanentId> = self
                 .households
                 .iter()
-                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
                 .map(|(_, x)| x.id)
                 .collect();
             households.sort_unstable();
@@ -2236,7 +2261,7 @@ impl Population {
             let mut households: Vec<PermanentId> = self
                 .households
                 .iter()
-                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
                 .map(|(_, x)| x.id)
                 .collect();
             households.sort_unstable();
@@ -2260,7 +2285,7 @@ impl Population {
             let mut households: Vec<PermanentId> = self
                 .households
                 .iter()
-                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
                 .map(|(_, x)| x.id)
                 .collect();
             households.sort_unstable();
@@ -2289,11 +2314,10 @@ impl Population {
         if def.kind == PolicyKind::KeepBank
             && let Some(cell) = m.site
         {
-            let settlement = self.polities[pi].settlement;
             let households = self
                 .households
                 .iter()
-                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
                 .count();
             if let Some(p) = self
                 .worn_bank(ctx, pi, households)
@@ -2313,11 +2337,10 @@ impl Population {
         // A claim names the places the settlement's people saw outsiders at, unclaimed (M5c
         // slice AT): named before it is told, so its words count them.
         if def.kind == PolicyKind::ClaimPlace {
-            let settlement = self.polities[pi].settlement;
             let mut households: Vec<PermanentId> = self
                 .households
                 .iter()
-                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
                 .map(|(_, x)| x.id)
                 .collect();
             households.sort_unstable();
@@ -2648,11 +2671,10 @@ impl Population {
             {
                 continue;
             }
-            let settlement = self.polities[pi].settlement;
             let mut homes: Vec<(PermanentId, Vec<PermanentId>)> = self
                 .households
                 .iter()
-                .filter(|(_, x)| x.settlement == Some(settlement) && x.members.len() > 1)
+                .filter(|(_, x)| self.polities[pi].holds(x.settlement) && x.members.len() > 1)
                 .map(|(_, x)| (x.id, x.members.clone()))
                 .collect();
             homes.sort_unstable_by_key(|h| h.0);

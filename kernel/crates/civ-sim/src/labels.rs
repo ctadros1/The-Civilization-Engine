@@ -246,7 +246,7 @@ pub fn label_of(sim: &crate::Sim, polity: &Polity) -> Label {
         .filter(|(_, p)| p.age_years(now) >= adult)
         .filter(|(_, p)| {
             pop.household(p.household)
-                .is_some_and(|x| x.settlement == Some(polity.settlement))
+                .is_some_and(|x| polity.holds(x.settlement))
         })
         .count() as u32;
     let admitted = pop

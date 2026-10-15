@@ -361,6 +361,8 @@ pub const SCHEMA_V114: u32 = 114;
 pub const SCHEMA_V115: u32 = 115;
 /// Bands that camp by a shut line, before words against raiding in agreements.
 pub const SCHEMA_V116: u32 = 116;
+/// Words against raiding in agreements, before a polity holds several settlements.
+pub const SCHEMA_V117: u32 = 117;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

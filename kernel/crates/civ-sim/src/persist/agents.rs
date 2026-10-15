@@ -117,8 +117,8 @@ use super::{
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
     SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
-    SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, finish, section,
-    single_chunk, unreadable,
+    SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
+    finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -554,6 +554,8 @@ enum Schema {
     V116,
     /// M6c slice BL, step two: words against raiding in agreements (clause kind 3).
     V117,
+    /// M6c slice BM, step one: a polity holds several settlements, and one taken in ends.
+    V118,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -685,7 +687,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V114 => Schema::V114,
         SCHEMA_V115 => Schema::V115,
         SCHEMA_V116 => Schema::V116,
-        SAVE_SCHEMA_VERSION => Schema::V117,
+        SCHEMA_V117 => Schema::V117,
+        SAVE_SCHEMA_VERSION => Schema::V118,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1177,6 +1180,25 @@ pub(super) fn decode<R: Read + Seek>(
         {
             problems.push(format!("settlement {} has two polities", p.settlement));
         }
+        for h in &p.held {
+            if !settlements.contains(&h.settlement) {
+                problems.push(format!(
+                    "polity {} holds missing settlement {}",
+                    p.id, h.settlement
+                ));
+            }
+            let holders = people
+                .polities
+                .iter()
+                .filter(|o| o.holds(Some(h.settlement)))
+                .count();
+            if p.ended.is_none() && holders != 1 {
+                problems.push(format!(
+                    "settlement {} is held by {holders} polities still deciding",
+                    h.settlement
+                ));
+            }
+        }
     }
     for (i, m) in people.markets.iter().enumerate() {
         if !settlements.contains(&m.settlement) {
@@ -1476,6 +1498,23 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 .collect();
             let enclosures = (!enclosures.is_empty()).then(|| fbb.create_vector(&enclosures));
             let enclosure_saves = bank_share_rows(&mut fbb, &p.enclosure_saves);
+            // The settlements it holds besides its seat, and its end (schema 118).
+            let held: Vec<_> = p
+                .held
+                .iter()
+                .map(|h| {
+                    save::HeldSettlementSave::create(
+                        &mut fbb,
+                        &save::HeldSettlementSaveArgs {
+                            settlement: h.settlement.get(),
+                            since: h.since,
+                            how: h.how.code(),
+                            from: h.from.get(),
+                        },
+                    )
+                })
+                .collect();
+            let held = (!held.is_empty()).then(|| fbb.create_vector(&held));
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -1524,6 +1563,10 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     bank_keeps,
                     enclosures,
                     enclosure_saves,
+                    held,
+                    ended_day: p.ended.map_or(-1, |e| e.day),
+                    ended_by: p.ended.map_or(0, |e| e.by.get()),
+                    ended_how: p.ended.map_or(255, |e| e.how.code()),
                 },
             )
         })
@@ -2128,6 +2171,40 @@ fn decode_polities(
             ));
         }
         let enclosure_saves = bank_shares(p.enclosure_saves(), "a palisade's reckoned saving")?;
+        // The settlements it holds besides its seat, and its end (schema 118); before, its seat
+        // alone, still deciding.
+        let mut held = Vec::new();
+        for h in p.held().iter().flatten() {
+            let (Some(settlement), Some(how), Some(from)) = (
+                PermanentId::from_raw(h.settlement()),
+                civ_agents::polity::HeldHow::from_code(h.how()),
+                PermanentId::from_raw(h.from()),
+            ) else {
+                return Err(bad(format!("polity {id} holds a settlement malformed")));
+            };
+            held.push(civ_agents::polity::HeldSettlement {
+                settlement,
+                since: h.since(),
+                how,
+                from,
+            });
+        }
+        let ended = match p.ended_how() {
+            255 => None,
+            code => {
+                let (Some(how), Some(by)) = (
+                    civ_agents::polity::HeldHow::from_code(code),
+                    PermanentId::from_raw(p.ended_by()),
+                ) else {
+                    return Err(bad(format!("polity {id}'s end is malformed")));
+                };
+                Some(civ_agents::polity::PolityEnd {
+                    day: p.ended_day(),
+                    by,
+                    how,
+                })
+            }
+        };
         out.push(Polity {
             id,
             settlement,
@@ -2151,6 +2228,8 @@ fn decode_polities(
             bank_keeps,
             enclosures,
             enclosure_saves,
+            held,
+            ended,
         });
     }
     Ok(out)
@@ -3899,7 +3978,8 @@ fn carried(
         | Schema::V114
         | Schema::V115
         | Schema::V116
-        | Schema::V117 => {
+        | Schema::V117
+        | Schema::V118 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4189,7 +4269,8 @@ fn decode_households(
             | Schema::V114
             | Schema::V115
             | Schema::V116
-            | Schema::V117 => {
+            | Schema::V117
+            | Schema::V118 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5192,6 +5273,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Raid => 52,
         ChronicleKind::Fled => 53,
         ChronicleKind::Enclosure => 54,
+        ChronicleKind::PolityJoined => 55,
     }
 }
 
@@ -5251,6 +5333,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         52 => Some(ChronicleKind::Raid),
         53 => Some(ChronicleKind::Fled),
         54 => Some(ChronicleKind::Enclosure),
+        55 => Some(ChronicleKind::PolityJoined),
         _ => None,
     }
 }

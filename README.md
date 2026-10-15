@@ -56,7 +56,7 @@ These generated previews illustrate the project's longer-term historical and mod
 - **Emergent systems:** event-scheduled daily lives and calendar cadences; goods move through an accounting ledger; building grammars expand saved designs; institutions emerge through proposals, deliberation, law and collective action. Waterborne disease and fire spread through household choices, weather, buildings and local response.
 - **Multiple settlements:** settlement identity and residence histories are explicit. Households learn places by contact and choose whether to visit, move or found elsewhere.
 - **Content and boundaries:** strict TOML packs (content API 103) feed the kernel. The web observer uses a localhost WebSocket and versioned FlatBuffers messages (TCE wire 1.75); it displays kernel state and forwards commands.
-- **Persistence:** checksummed, versioned snapshots (schema 117) with explicit migrations. World generation is reproducible for a seed on one build; simulation replay is not a goal.
+- **Persistence:** checksummed, versioned snapshots (schema 118) with explicit migrations. World generation is reproducible for a seed on one build; simulation replay is not a goal.
 
 ## Run it
 

@@ -571,7 +571,7 @@ impl Population {
         else {
             return false;
         };
-        if self.household(hh).and_then(|x| x.settlement) != Some(settlement)
+        if !self.polities[pi].holds(self.household(hh).and_then(|x| x.settlement))
             || self
                 .order
                 .bands
@@ -594,7 +594,7 @@ impl Population {
         let mut households: Vec<PermanentId> = self
             .households
             .iter()
-            .filter(|(_, x)| x.settlement == Some(settlement) && x.id != hh)
+            .filter(|(_, x)| self.polities[pi].holds(x.settlement) && x.id != hh)
             .map(|(_, x)| x.id)
             .collect();
         households.sort_unstable();

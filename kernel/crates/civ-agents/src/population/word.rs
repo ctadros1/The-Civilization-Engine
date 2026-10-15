@@ -481,11 +481,10 @@ impl Population {
                         && l.holder.is_some()
                 })
                 .map_or((body, None), |l| (Blamed::Office(l.id), l.holder));
-            let settlement = polity.settlement;
             let mut homes: Vec<(PermanentId, f64)> = self
                 .households
                 .iter()
-                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                .filter(|(_, x)| polity.holds(x.settlement) && !x.members.is_empty())
                 .map(|(_, x)| {
                     let need = x.members.len() as f64 * params.household.daily_kcal_per_person;
                     let days = stock_kcal(&stores_now(x, now, params, goods), goods) / need;

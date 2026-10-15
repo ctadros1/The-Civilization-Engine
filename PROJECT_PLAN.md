@@ -2867,6 +2867,20 @@ and M6a gives rivers a daily flow.
   - **BM**: a polity over several settlements, and the M6c demo.
     - Each polity's settlements with since and how; membership by residence in any; the body at
       the seat's hearth.
+    - *As built, step one:* a polity keeps its seat and the settlements it took in, each with the
+      day, how (annexed, or joined by agreement) and the polity that held it before; and, once
+      another polity took it in, the day, that polity and how. Membership is residence in any of
+      its settlements: its body, its households' forecasts and stakes, levies, opinion, petitions
+      and the bands its laws send all count the households of every settlement it holds, while
+      its gathering still sits at the seat's hearth and word of it travels as before, so people of
+      a far village come only if they hear and walk. Public works are still sited at the seat
+      (a simplification). Taking a polity in (the act BM's later steps call) closes the other's
+      deciding: its laws lapse, its gathering is called off, its common store is added to the
+      taker's (one store a polity), every agreement it was party to ends, no polity is founded
+      again for its settlements, and the chronicle tells it (`PolityJoined`). Save schema 118
+      (`PolitySave.held`, `ended_*`). **Not yet built:** the hold, the `annex` law and the
+      *one body* clause that call it; a founding window for the old laws (they lapse instead);
+      secession.
     - A hold from outside; the policy kind `annex`; annexation closing the held polity's
       deciding, with a founding window; the *one body* clause; secession as a revolt scoped to
       one settlement.

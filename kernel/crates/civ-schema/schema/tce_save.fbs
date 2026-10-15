@@ -1392,6 +1392,22 @@ table PolitySave {
   // `bank_saves`); absent before.
   enclosures: [EnclosureSiteSave] (id: 22);
   enclosure_saves: [BankShareSave] (id: 23);
+  // Schema 118 (M6c slice BM): the settlements it holds besides its seat, in the order taken;
+  // and, once another polity took it in, the day, that polity and how (`ended_how` 255 while it
+  // still decides). Absent before: it holds its seat alone and still decides.
+  held: [HeldSettlementSave] (id: 24);
+  ended_day: long = -1 (id: 25);
+  ended_by: ulong (id: 26);
+  ended_how: ubyte = 255 (id: 27);
+}
+
+// A settlement a polity holds besides its seat (schema 118): since the day, how (0 annexed,
+// 1 merged) and the polity that held it before.
+table HeldSettlementSave {
+  settlement: ulong (id: 0);
+  since: long (id: 1);
+  how: ubyte (id: 2);
+  from: ulong (id: 3);
 }
 
 // Where a law would raise a palisade (schema 114, M6c slice BK): the point its ring is drawn

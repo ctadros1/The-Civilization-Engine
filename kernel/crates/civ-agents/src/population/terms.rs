@@ -181,12 +181,12 @@ impl Population {
         out
     }
 
-    /// The households of `settlement` with anyone in them, in id order.
-    fn homes_in(&self, settlement: PermanentId) -> Vec<PermanentId> {
+    /// The households of polity `pi`'s settlements with anyone in them, in id order.
+    fn homes_of(&self, pi: usize) -> Vec<PermanentId> {
         let mut out: Vec<PermanentId> = self
             .households
             .iter()
-            .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+            .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
             .map(|(_, x)| x.id)
             .collect();
         out.sort_unstable();
@@ -241,7 +241,7 @@ impl Population {
         let raids = ctx.params.relations.raids_kept * 365.0 / f64::from(memory);
         let other = &self.polities[oi];
         let ours = self.polities[pi].claims_now();
-        let homes = self.homes_in(self.polities[pi].settlement);
+        let homes = self.homes_of(pi);
         let share = 1.0 / homes.len().max(1) as f64;
         homes
             .into_iter()
@@ -286,7 +286,7 @@ impl Population {
     /// The adults of polity `pi`'s settlement its body admits, with their households.
     fn body_of(&self, ctx: &Ctx, pi: usize) -> Vec<(PermanentId, PermanentId)> {
         let (now, params) = (ctx.now, ctx.params);
-        let adults = self.members_of(self.polities[pi].settlement, now, params);
+        let adults = self.members_of_polity(pi, now, params);
         self.admitted(
             self.polities[pi].body.members,
             &adults,
@@ -429,7 +429,7 @@ impl Population {
         let since = day - i64::from(params.crime.remember_days);
         let members = self.body_of(ctx, pi);
         let mut wants: Vec<(PermanentId, Vec<(PermanentId, bool)>)> = Vec::new();
-        for h in self.homes_in(polity.settlement) {
+        for h in self.homes_of(pi) {
             let mut theirs: Vec<(PermanentId, bool)> = self
                 .claimed_from(ctx, pi, h)
                 .into_iter()

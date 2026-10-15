@@ -398,6 +398,15 @@ fn a_keeper_keeps_the_store_under_a_roof_until_they_are_gone() {
         target: None,
     };
     let p = &mut pop.polities[0];
+    // The world's own store and keeper laws, if its gathering passed any in these 250 days (a
+    // world of random identity sometimes does), give way to the test's.
+    for l in &mut p.laws {
+        if l.status == LawStatus::InForce
+            && matches!(l.kind, PolicyKind::CommonStore | PolicyKind::KeepStore)
+        {
+            l.status = LawStatus::Lapsed;
+        }
+    }
     p.laws.push(law(0, store, None));
     p.laws.push(law(1, keep, Some(keeper)));
     p.stores.resize(grain + 1, 0.0);

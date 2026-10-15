@@ -569,15 +569,14 @@ impl Population {
             _ => return None,
         };
         let def = policies.get(usize::from(law.policy))?;
-        let settlement = polity.settlement;
         let mut households: Vec<PermanentId> = self
             .households
             .iter()
-            .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+            .filter(|(_, x)| polity.holds(x.settlement) && !x.members.is_empty())
             .map(|(_, x)| x.id)
             .collect();
         households.sort_unstable();
-        let adults = self.members_of(settlement, now, params);
+        let adults = self.members_of_polity(pi, now, params);
         let fc = self.forecasts(ctx, pi, &households, &adults);
         let mut theirs: Vec<PermanentId> = self
             .factions
@@ -894,7 +893,7 @@ impl Population {
             .collect();
         households.sort_unstable();
         households.dedup();
-        let adults = self.members_of(polity.settlement, now, params);
+        let adults = self.members_of_polity(pi, now, params);
         let mut best: Option<(f64, Body)> = None;
         for def in ctx
             .catalog

@@ -2148,3 +2148,18 @@ raided them hold each side back.
 **Open:** taking from outside the line and stopping those who leave, sleeping at the camp,
 endurance, assault and climbing; the danger and days away a raid costs in a household's stake;
 a negotiator's estimate of the other's strength; assistance and one body (slice BM).
+
+## 2026-10-15 — BM: a polity over several settlements
+
+**Built so far:**
+- *Step one:* a polity keeps its seat and the settlements it took in, with since, how and from
+  whom. Membership is residence in any of them; the gathering still sits at the seat's hearth.
+  Taking a polity in closes its deciding, lapses its laws, moves its store to the taker and ends
+  its agreements, and the chronicle tells it. Save schema 118.
+
+**Evidence:** `civ-sim/tests/holdings.rs`: one polity takes another in; the other decides no
+more, its adults are the taker's members, its store and agreements follow, no polity is founded
+again for its settlement, and it all saves and loads alike.
+
+**Open:** the hold from outside, the annex law and the one body clause; a founding window for the
+old laws; secession; the observer's polity settlements and siege page; the M6c demo.

@@ -32290,6 +32290,10 @@ impl<'a> PolitySave<'a> {
   pub const VT_BANK_KEEPS: ::flatbuffers::VOffsetT = 46;
   pub const VT_ENCLOSURES: ::flatbuffers::VOffsetT = 48;
   pub const VT_ENCLOSURE_SAVES: ::flatbuffers::VOffsetT = 50;
+  pub const VT_HELD: ::flatbuffers::VOffsetT = 52;
+  pub const VT_ENDED_DAY: ::flatbuffers::VOffsetT = 54;
+  pub const VT_ENDED_BY: ::flatbuffers::VOffsetT = 56;
+  pub const VT_ENDED_HOW: ::flatbuffers::VOffsetT = 58;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32301,11 +32305,14 @@ impl<'a> PolitySave<'a> {
     args: &'args PolitySaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<PolitySave<'bldr>> {
     let mut builder = PolitySaveBuilder::new(_fbb);
+    builder.add_ended_by(args.ended_by);
+    builder.add_ended_day(args.ended_day);
     builder.add_reviewed(args.reviewed);
     builder.add_stores_at(args.stores_at);
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.held { builder.add_held(x); }
     if let Some(x) = args.enclosure_saves { builder.add_enclosure_saves(x); }
     if let Some(x) = args.enclosures { builder.add_enclosures(x); }
     if let Some(x) = args.bank_keeps { builder.add_bank_keeps(x); }
@@ -32323,6 +32330,7 @@ impl<'a> PolitySave<'a> {
     if let Some(x) = args.laws { builder.add_laws(x); }
     if let Some(x) = args.stores { builder.add_stores(x); }
     builder.add_quorum_share(args.quorum_share);
+    builder.add_ended_how(args.ended_how);
     builder.add_pass(args.pass);
     builder.add_members(args.members);
     builder.finish()
@@ -32497,6 +32505,34 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>(PolitySave::VT_ENCLOSURE_SAVES, None)}
   }
+  #[inline]
+  pub fn held(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HeldSettlementSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HeldSettlementSave>>>>(PolitySave::VT_HELD, None)}
+  }
+  #[inline]
+  pub fn ended_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(PolitySave::VT_ENDED_DAY, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn ended_by(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PolitySave::VT_ENDED_BY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ended_how(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(PolitySave::VT_ENDED_HOW, Some(255)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -32529,6 +32565,10 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BankKeepRecord>>>("bank_keeps", Self::VT_BANK_KEEPS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<EnclosureSiteSave>>>>("enclosures", Self::VT_ENCLOSURES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>("enclosure_saves", Self::VT_ENCLOSURE_SAVES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<HeldSettlementSave>>>>("held", Self::VT_HELD, false)?
+     .visit_field::<i64>("ended_day", Self::VT_ENDED_DAY, false)?
+     .visit_field::<u64>("ended_by", Self::VT_ENDED_BY, false)?
+     .visit_field::<u8>("ended_how", Self::VT_ENDED_HOW, false)?
      .finish();
     Ok(())
   }
@@ -32558,6 +32598,10 @@ pub struct PolitySaveArgs<'a> {
     pub bank_keeps: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BankKeepRecord>>>,
     pub enclosures: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EnclosureSiteSave<'a>>>>>,
     pub enclosure_saves: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>>>,
+    pub held: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HeldSettlementSave<'a>>>>>,
+    pub ended_day: i64,
+    pub ended_by: u64,
+    pub ended_how: u8,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -32587,6 +32631,10 @@ impl<'a> Default for PolitySaveArgs<'a> {
       bank_keeps: None,
       enclosures: None,
       enclosure_saves: None,
+      held: None,
+      ended_day: -1,
+      ended_by: 0,
+      ended_how: 255,
     }
   }
 }
@@ -32693,6 +32741,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_ENCLOSURE_SAVES, enclosure_saves);
   }
   #[inline]
+  pub fn add_held(&mut self, held: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<HeldSettlementSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_HELD, held);
+  }
+  #[inline]
+  pub fn add_ended_day(&mut self, ended_day: i64) {
+    self.fbb_.push_slot::<i64>(PolitySave::VT_ENDED_DAY, ended_day, -1);
+  }
+  #[inline]
+  pub fn add_ended_by(&mut self, ended_by: u64) {
+    self.fbb_.push_slot::<u64>(PolitySave::VT_ENDED_BY, ended_by, 0);
+  }
+  #[inline]
+  pub fn add_ended_how(&mut self, ended_how: u8) {
+    self.fbb_.push_slot::<u8>(PolitySave::VT_ENDED_HOW, ended_how, 255);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -32734,6 +32798,157 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("bank_keeps", &self.bank_keeps());
       ds.field("enclosures", &self.enclosures());
       ds.field("enclosure_saves", &self.enclosure_saves());
+      ds.field("held", &self.held());
+      ds.field("ended_day", &self.ended_day());
+      ds.field("ended_by", &self.ended_by());
+      ds.field("ended_how", &self.ended_how());
+      ds.finish()
+  }
+}
+pub enum HeldSettlementSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct HeldSettlementSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for HeldSettlementSave<'a> {
+  type Inner = HeldSettlementSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> HeldSettlementSave<'a> {
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SINCE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_HOW: ::flatbuffers::VOffsetT = 8;
+  pub const VT_FROM: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    HeldSettlementSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args HeldSettlementSaveArgs
+  ) -> ::flatbuffers::WIPOffset<HeldSettlementSave<'bldr>> {
+    let mut builder = HeldSettlementSaveBuilder::new(_fbb);
+    builder.add_from(args.from);
+    builder.add_since(args.since);
+    builder.add_settlement(args.settlement);
+    builder.add_how(args.how);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(HeldSettlementSave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn since(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(HeldSettlementSave::VT_SINCE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn how(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(HeldSettlementSave::VT_HOW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn from(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(HeldSettlementSave::VT_FROM, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for HeldSettlementSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<i64>("since", Self::VT_SINCE, false)?
+     .visit_field::<u8>("how", Self::VT_HOW, false)?
+     .visit_field::<u64>("from", Self::VT_FROM, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct HeldSettlementSaveArgs {
+    pub settlement: u64,
+    pub since: i64,
+    pub how: u8,
+    pub from: u64,
+}
+impl<'a> Default for HeldSettlementSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    HeldSettlementSaveArgs {
+      settlement: 0,
+      since: 0,
+      how: 0,
+      from: 0,
+    }
+  }
+}
+
+pub struct HeldSettlementSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HeldSettlementSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(HeldSettlementSave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_since(&mut self, since: i64) {
+    self.fbb_.push_slot::<i64>(HeldSettlementSave::VT_SINCE, since, 0);
+  }
+  #[inline]
+  pub fn add_how(&mut self, how: u8) {
+    self.fbb_.push_slot::<u8>(HeldSettlementSave::VT_HOW, how, 0);
+  }
+  #[inline]
+  pub fn add_from(&mut self, from: u64) {
+    self.fbb_.push_slot::<u64>(HeldSettlementSave::VT_FROM, from, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HeldSettlementSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    HeldSettlementSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<HeldSettlementSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for HeldSettlementSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("HeldSettlementSave");
+      ds.field("settlement", &self.settlement());
+      ds.field("since", &self.since());
+      ds.field("how", &self.how());
+      ds.field("from", &self.from());
       ds.finish()
   }
 }

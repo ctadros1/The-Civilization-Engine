@@ -423,7 +423,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             .filter(|(_, p)| p.age_years(now) >= adult)
             .filter(|(_, p)| {
                 pop.household(p.household)
-                    .is_some_and(|x| x.settlement == Some(polity.settlement))
+                    .is_some_and(|x| polity.holds(x.settlement))
             })
             .count() as u32;
         let laws: Vec<_> = polity

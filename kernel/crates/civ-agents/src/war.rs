@@ -68,16 +68,21 @@ pub enum BandStage {
     /// Camped by a shut line round the place it went to (M6c slice BL, ADR-0023 §7): those who
     /// came wait outside it, each staying or going home as they choose.
     Camped = 4,
+    /// Holding the settlement it went to (M6c slice BM, ADR-0023 §9): sent by law, it held the
+    /// place at its encounter and its people stay there, sleeping where they keep it, each
+    /// choosing to stay or go home.
+    Holding = 5,
 }
 
 impl BandStage {
     /// Every stage, in code order.
-    pub const ALL: [BandStage; 5] = [
+    pub const ALL: [BandStage; 6] = [
         BandStage::Called,
         BandStage::Out,
         BandStage::Home,
         BandStage::Dispersed,
         BandStage::Camped,
+        BandStage::Holding,
     ];
 
     /// Its number in saves.
@@ -139,6 +144,10 @@ pub struct Band {
     /// when it was called (M6c slice BL): it walks there first, and camps there if the line
     /// bars it.
     pub approach: Option<(f32, f32)>,
+    /// The day its people had held the settlement it went to `bands.hold_days`, if they did (M6c
+    /// slice BM, ADR-0023 §9: ADR-0017 §4's test applied to a band). A hold changes nothing by
+    /// itself.
+    pub held: Option<i64>,
 }
 
 impl Band {
@@ -354,6 +363,12 @@ pub struct BandParams {
     pub camp_minutes: u32,
     pub w_camp_day: f64,
     pub w_camp_tired: f64,
+    /// Holds (M6c slice BM; content API 104): the days a band sent by law must keep a settlement
+    /// it took the field at for the hold to stand; the want of sleep at which one staying there
+    /// lies down where they are; and how long they sleep, minutes.
+    pub hold_days: u32,
+    pub sleep_out_at: f64,
+    pub sleep_out_minutes: u32,
     /// How encounters run.
     pub fight: FightParams,
 }
@@ -393,6 +408,9 @@ impl BandParams {
             camp_minutes: 120,
             w_camp_day: 1.0,
             w_camp_tired: 2.0,
+            hold_days: 7,
+            sleep_out_at: 0.6,
+            sleep_out_minutes: 360,
             fight: FightParams::core(),
         }
     }

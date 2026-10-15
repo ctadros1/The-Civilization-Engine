@@ -4124,7 +4124,15 @@ impl Population {
                     return;
                 }
                 Step::Wait { minutes } => {
-                    self.start_work(ctx, h, minutes, None);
+                    // One with a band holding a settlement waits there asleep (M6c slice BM).
+                    let band = self.people.get(h).is_some_and(|p| {
+                        ctx.catalog
+                            .activities
+                            .get(p.act.def as usize)
+                            .is_some_and(|a| a.behavior == Behavior::Band)
+                    });
+                    let behavior = band.then_some(Behavior::Sleep);
+                    self.start_work(ctx, h, minutes, behavior);
                     return;
                 }
             }

@@ -307,6 +307,7 @@ fn a_band(sim: &mut Sim, a: PermanentId, b: PermanentId, n: usize, muster_hour: 
         taken: Vec::new(),
         taken_kcal: 0.0,
         approach: None,
+        held: None,
     });
     id
 }
@@ -741,7 +742,9 @@ fn a_band_a_law_sends_asks_each_household_and_the_law_lapses_when_it_is_home() {
         (band.id, households_of(&sim, a).len())
     };
     assert!(households >= 2);
-    for _ in 0..(3 * 24) {
+    // A band a law sent that holds the field stays to hold the village (M6c slice BM) until its
+    // people go home.
+    for _ in 0..(14 * 24) {
         sim.advance_minutes(60).expect("advances");
         let over = sim
             .people()

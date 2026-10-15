@@ -2878,9 +2878,29 @@ and M6a gives rivers a daily flow.
       deciding: its laws lapse, its gathering is called off, its common store is added to the
       taker's (one store a polity), every agreement it was party to ends, no polity is founded
       again for its settlements, and the chronicle tells it (`PolityJoined`). Save schema 118
-      (`PolitySave.held`, `ended_*`). **Not yet built:** the hold, the `annex` law and the
-      *one body* clause that call it; a founding window for the old laws (they lapse instead);
-      secession.
+      (`PolitySave.held`, `ended_*`).
+    - *As built, step two:* the hold, the annex law and one body. A band a law sent that holds
+      the field at its encounter stays to hold the settlement (stage `Holding`): each of its
+      people chooses at the end of each stay to stay, for their will and grievance against
+      `bands.w_camp_day` a day beyond the days the law's service owes (`bands.service_days`),
+      lying down where they are for `bands.sleep_out_minutes` once their want of sleep reaches
+      `bands.sleep_out_at`; or to go home. Once a day, if anyone grown of the settlement is
+      about the place, they meet again, with no further taking, and a band that no longer holds
+      the field goes home; a band with fewer than `bands.least` there is let go. Kept
+      `bands.hold_days` (7, ADR-0017 §4's seven days), the settlement is held, and the chronicle
+      tells it; a hold changes nothing by itself. Its polity then has the issue `holding`, which
+      the policy kind `annex` answers (`core:policy/yoke_of_a_held_village`): each household
+      weighs its share of the held polity's store, once, against what it holds dear; passed, the
+      polity takes the held one in (step one's act) and the band goes home. The clause *one body*
+      (code 4) is appended to the packages of peace, weighed as a truce is; once in force, the
+      side whose custom governs takes the other in, as merged. The observer's words tell a band
+      holding a place. Save schema 119 (`BandSave.held`, stage `Holding`, issue `Holding`,
+      clause kind 4), content API 104 (`bands.hold_days`, `sleep_out_at`, `sleep_out_minutes`,
+      the template). A finding: with the camp's weights, the band a law sent against a village
+      in the test world held the field, stayed and slept there, and went home one by one on its
+      fourth day; no hold stood its seven days, so nothing was annexed without a hand-built
+      hold. **Not yet built:** a founding window for the old laws (they lapse instead); eating at
+      the hold (they live on what they carry and on reserves); secession.
     - A hold from outside; the policy kind `annex`; annexation closing the held polity's
       deciding, with a founding window; the *one body* clause; secession as a revolt scoped to
       one settlement.

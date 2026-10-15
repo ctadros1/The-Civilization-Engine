@@ -134,6 +134,18 @@ pub fn band_lines(sim: &Sim) -> Vec<(u32, Vec<u64>, String)> {
                     going.len().saturating_sub(1),
                     place(b.settlement)
                 ),
+                // Holding a settlement (M6c slice BM).
+                BandStage::Holding => format!(
+                    "{} and {} of {} hold the place{to}{law}, keeping it{held}",
+                    pop.name_of(b.organizer),
+                    going.len().saturating_sub(1),
+                    place(b.settlement),
+                    held = if b.held.is_some() {
+                        " as long as a hold needs"
+                    } else {
+                        ""
+                    }
+                ),
                 _ => format!(
                     "{} leads {} of {} to {what} from {whose}{to}{law}",
                     pop.name_of(b.organizer),

@@ -118,7 +118,7 @@ use super::{
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
     SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
-    finish, section, single_chunk, unreadable,
+    SCHEMA_V118, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -556,6 +556,8 @@ enum Schema {
     V117,
     /// M6c slice BM, step one: a polity holds several settlements, and one taken in ends.
     V118,
+    /// M6c slice BM, step two: bands holding a settlement, the annex law and the holding issue.
+    V119,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -688,7 +690,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V115 => Schema::V115,
         SCHEMA_V116 => Schema::V116,
         SCHEMA_V117 => Schema::V117,
-        SAVE_SCHEMA_VERSION => Schema::V118,
+        SCHEMA_V118 => Schema::V118,
+        SAVE_SCHEMA_VERSION => Schema::V119,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1661,6 +1664,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::Burned => 15,
         IssueKind::GaveWay => 16,
         IssueKind::Raided => 17,
+        IssueKind::Holding => 18,
     }
 }
 
@@ -1775,6 +1779,7 @@ fn decode_polities(
                 15 => IssueKind::Burned,
                 16 => IssueKind::GaveWay,
                 17 => IssueKind::Raided,
+                18 => IssueKind::Holding,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -3979,7 +3984,8 @@ fn carried(
         | Schema::V115
         | Schema::V116
         | Schema::V117
-        | Schema::V118 => {
+        | Schema::V118
+        | Schema::V119 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4270,7 +4276,8 @@ fn decode_households(
             | Schema::V115
             | Schema::V116
             | Schema::V117
-            | Schema::V118 => {
+            | Schema::V118
+            | Schema::V119 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -4748,6 +4755,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
                     incident: b.incident.unwrap_or(0),
                     law: b.law.map_or(0, PermanentId::get),
                     approach: b.approach.map(point).as_ref(),
+                    held: b.held.unwrap_or(-1),
                     taken: Some(taken),
                     taken_kcal: b.taken_kcal,
                 },
@@ -5086,6 +5094,7 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
             taken,
             taken_kcal: b.taken_kcal(),
             approach: b.approach().map(|p| (p.x(), p.y())),
+            held: (b.held() >= 0).then_some(b.held()),
         });
     }
     for c in root.clashes().iter().flatten() {
@@ -9314,8 +9323,9 @@ fn decode_relations(bytes: &[u8], rules: &Rules) -> Result<Relations, LoadError>
         let mut clauses = Vec::with_capacity(kinds.len());
         let mut clause_map = Vec::with_capacity(kinds.len());
         for (k, (&kind, &side)) in kinds.iter().zip(&sides).enumerate() {
-            // Leave and words against raiding (kind 3, schema 117) name no good.
-            let good = if kind == 0 || kind == 3 {
+            // Leave, words against raiding (kind 3, schema 117) and one body (kind 4, schema
+            // 119) name no good.
+            let good = if kind == 0 || kind == 3 || kind == 4 {
                 Some(0)
             } else {
                 good_of(saved_goods[k], &|| format!("agreement {id}'s clause {k}"))?

@@ -1,0 +1,25 @@
+# Taking a held village in (M6c slice BM, ADR-0023 §9; research 13-03 §1.1-1.2: annexation is a
+# change in enforceable relationships, not an automatic transfer of obedience). A band this
+# polity's law sent has held another settlement's hearth and store for `bands.hold_days` with
+# nobody of it standing against it; a hold changes nothing by itself. Whether to take the
+# settlement in is this gathering's own decision, by its custom, every stance kept. Passed, the
+# held polity's deciding closes and its record names this polity; its laws lapse; its common store
+# is this polity's; and its residents are this polity's members, each of whom still chooses
+# whether to pay a levy, come to a gathering, petition or refuse, as before. Each household
+# weighs its share of the held store against what it holds dear; nothing here weighs toward it.
+# Its id sorts after every older template's: hearth talk about a question is keyed by a template's
+# place in id order, so an id sorting earlier would shift theirs.
+kind = "policy"
+id = "core:policy/yoke_of_a_held_village"
+name = "Take a held village in"
+description = "The polity takes in the settlement a band of its law holds: that settlement's gathering decides no more, and its people are this polity's members."
+does = "annex"
+answers = ["holding"]
+question = "whether to take in the village our band holds"
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 0.3      # the people who raided or stood against them are now members
+"core:value/autonomy" = -0.5     # another village is ruled from this hearth, against its will
+"core:value/reciprocity" = -0.3  # what was taken by force is kept

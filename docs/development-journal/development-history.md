@@ -2157,9 +2157,20 @@ a negotiator's estimate of the other's strength; assistance and one body (slice 
   Taking a polity in closes its deciding, lapses its laws, moves its store to the taker and ends
   its agreements, and the chronicle tells it. Save schema 118.
 
+- *Step two:* a band a law sent that holds the field stays to hold the settlement, sleeping
+  there, its people going home one by one as at a camp, though not before the law's service
+  days; anyone of the village about the place meets it again once a day. Kept seven days, the
+  settlement is held; its polity may then pass an `annex` law to take it in. The clause *one body*
+  joins the packages of peace and, in force, merges the two. Save schema 119, content API 104.
+
 **Evidence:** `civ-sim/tests/holdings.rs`: one polity takes another in; the other decides no
 more, its adults are the taker's members, its store and agreements follow, no polity is founded
-again for its settlement, and it all saves and loads alike.
+again for its settlement, and it all saves and loads alike. A band a law sent takes the field,
+stays and sleeps at the place, and goes home after the law's service days; a hold kept its days
+raises the issue, and the annex law takes the village in; an agreement of one body merges two
+polities.
 
-**Open:** the hold from outside, the annex law and the one body clause; a founding window for the
-old laws; secession; the observer's polity settlements and siege page; the M6c demo.
+**Finding:** no hold stood its seven days in the test world: holders went home on the fourth.
+
+**Open:** a founding window for the old laws; eating at the hold; secession; the observer's
+polity settlements and siege page; the M6c demo.

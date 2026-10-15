@@ -736,6 +736,7 @@ fn a_band_against_the_line(
         taken: Vec::new(),
         taken_kcal: 0.0,
         approach: Some(approach),
+        held: None,
     });
     let day = now.day_index();
     let claim = pop.word.make(Claim {

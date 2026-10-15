@@ -30,6 +30,9 @@ pub enum Clause {
     /// them as a case before its own gathering (M6c slice BL, ADR-0023 §8): no raids, and takings
     /// heard. Both sides' together are a truce.
     NoRaids { from: u8 },
+    /// The two polities become one body under side `custom_of`'s custom (M6c slice BM, ADR-0023
+    /// §9): once in force, that side takes the other in, its settlements, store and people.
+    OneBody { custom_of: u8 },
 }
 
 impl Clause {
@@ -40,6 +43,7 @@ impl Clause {
             Clause::Gift { from, .. } => (1, from),
             Clause::Transfer { from, .. } => (2, from),
             Clause::NoRaids { from } => (3, from),
+            Clause::OneBody { custom_of } => (4, custom_of),
         }
     }
 
@@ -47,7 +51,7 @@ impl Clause {
     /// leave and no raids, and for a gift's days).
     pub fn amount(self) -> (u16, u32, u32) {
         match self {
-            Clause::Leave { .. } | Clause::NoRaids { .. } => (0, 0, 0),
+            Clause::Leave { .. } | Clause::NoRaids { .. } | Clause::OneBody { .. } => (0, 0, 0),
             Clause::Gift { good, kg, .. } => (good, kg, 0),
             Clause::Transfer {
                 good,
@@ -78,6 +82,7 @@ impl Clause {
                 every_days: days,
             }),
             3 => Some(Clause::NoRaids { from: side }),
+            4 => Some(Clause::OneBody { custom_of: side }),
             _ => None,
         }
     }
@@ -88,7 +93,8 @@ impl Clause {
             Clause::Leave { from }
             | Clause::Gift { from, .. }
             | Clause::Transfer { from, .. }
-            | Clause::NoRaids { from } => from,
+            | Clause::NoRaids { from }
+            | Clause::OneBody { custom_of: from } => from,
         }
     }
 
@@ -100,7 +106,7 @@ impl Clause {
     /// Whether it binds a side's people against raiding: the clauses of peace, as against those
     /// of leave.
     pub fn peace(self) -> bool {
-        matches!(self, Clause::NoRaids { .. })
+        matches!(self, Clause::NoRaids { .. } | Clause::OneBody { .. })
     }
 }
 
@@ -374,6 +380,12 @@ impl Agreement {
                     side(from),
                     side(1 - from)
                 ),
+                Clause::OneBody { custom_of } => format!(
+                    "{} and {} one body under {}'s custom",
+                    side(custom_of),
+                    side(1 - custom_of),
+                    side(custom_of)
+                ),
             })
             .collect();
         let term = match self.term_days {
@@ -581,6 +593,12 @@ mod tests {
             "no raids by Oakholt's people on Ashford's, and no raids by Ashford's people on \
              Oakholt's, for a year"
         );
+        a.clauses = vec![Clause::OneBody { custom_of: 1 }];
+        assert_eq!(
+            a.words(&name, &good),
+            "Ashford and Oakholt one body under Ashford's custom, for a year"
+        );
+        assert!(a.peace());
         a.clauses.clear();
         assert_eq!(a.words(&name, &good), "no terms");
     }
@@ -603,6 +621,7 @@ mod tests {
             },
             Clause::NoRaids { from: 0 },
             Clause::NoRaids { from: 1 },
+            Clause::OneBody { custom_of: 1 },
         ] {
             let ((k, s), (g, kg, d)) = (c.code(), c.amount());
             assert_eq!(Clause::from_code(k, s, g, kg, d), Some(c));

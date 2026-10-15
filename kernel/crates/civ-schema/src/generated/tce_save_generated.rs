@@ -34998,6 +34998,7 @@ impl<'a> BandSave<'a> {
   pub const VT_INCIDENT: ::flatbuffers::VOffsetT = 40;
   pub const VT_LAW: ::flatbuffers::VOffsetT = 42;
   pub const VT_APPROACH: ::flatbuffers::VOffsetT = 44;
+  pub const VT_HELD: ::flatbuffers::VOffsetT = 46;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -35009,6 +35010,7 @@ impl<'a> BandSave<'a> {
     args: &'args BandSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<BandSave<'bldr>> {
     let mut builder = BandSaveBuilder::new(_fbb);
+    builder.add_held(args.held);
     builder.add_law(args.law);
     builder.add_since(args.since);
     builder.add_muster(args.muster);
@@ -35181,6 +35183,13 @@ impl<'a> BandSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<Point>(BandSave::VT_APPROACH, None)}
   }
+  #[inline]
+  pub fn held(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(BandSave::VT_HELD, Some(-1)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BandSave<'_> {
@@ -35210,6 +35219,7 @@ impl ::flatbuffers::Verifiable for BandSave<'_> {
      .visit_field::<u32>("incident", Self::VT_INCIDENT, false)?
      .visit_field::<u64>("law", Self::VT_LAW, false)?
      .visit_field::<Point>("approach", Self::VT_APPROACH, false)?
+     .visit_field::<i64>("held", Self::VT_HELD, false)?
      .finish();
     Ok(())
   }
@@ -35236,6 +35246,7 @@ pub struct BandSaveArgs<'a> {
     pub incident: u32,
     pub law: u64,
     pub approach: Option<&'a Point>,
+    pub held: i64,
 }
 impl<'a> Default for BandSaveArgs<'a> {
   #[inline]
@@ -35262,6 +35273,7 @@ impl<'a> Default for BandSaveArgs<'a> {
       incident: 0,
       law: 0,
       approach: None,
+      held: -1,
     }
   }
 }
@@ -35356,6 +35368,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BandSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<&Point>(BandSave::VT_APPROACH, approach);
   }
   #[inline]
+  pub fn add_held(&mut self, held: i64) {
+    self.fbb_.push_slot::<i64>(BandSave::VT_HELD, held, -1);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BandSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BandSaveBuilder {
@@ -35394,6 +35410,7 @@ impl ::core::fmt::Debug for BandSave<'_> {
       ds.field("incident", &self.incident());
       ds.field("law", &self.law());
       ds.field("approach", &self.approach());
+      ds.field("held", &self.held());
       ds.finish()
   }
 }

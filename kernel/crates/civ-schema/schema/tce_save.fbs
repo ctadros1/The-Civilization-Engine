@@ -1737,6 +1737,9 @@ table BandSave {
   // Schema 116 (M6c slice BL): where it comes up to the line round the place it goes to, if it
   // does.
   approach: Point (id: 20);
+  // Schema 119 (M6c slice BM): the day its people had held the settlement it went to the
+  // content's days, or -1; absent before, none.
+  held: long = -1 (id: 21);
 }
 
 // Someone in an encounter a band met: `side` 0 the band, 1 against it; `holds` 0 hands, 1 an axe,

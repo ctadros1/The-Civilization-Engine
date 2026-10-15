@@ -1279,6 +1279,14 @@ will_neighbour = 2.0
 camp_minutes = 120
 w_camp_day = 1.0
 w_camp_tired = 2.0
+# Holds (M6c slice BM, ADR-0023 §9): a band sent by law that held the place at its encounter stays
+# to hold the settlement; it holds once its people have kept it `hold_days` (ADR-0017 §4's seven
+# days, as a revolt holds). Whoever stays lies down where they are once their want of sleep
+# reaches `sleep_out_at`, for `sleep_out_minutes`, and the days a law's service owes
+# (`service_days`) count nothing against staying. Design priors.
+hold_days = 7
+sleep_out_at = 0.6
+sleep_out_minutes = 360
 
 [bands.fight]                    # how an encounter runs (ADR-0023 §4; research 13-07 §1.5-1.7, §2.3)
 # The longest an encounter runs, minutes (13-07 §2.3: steps of 10-60 s; the kernel's minute is

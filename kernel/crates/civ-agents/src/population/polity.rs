@@ -67,6 +67,9 @@ pub(super) struct Forecasts {
     /// A load of food someone hopes to carry home from a band, kcal (M6c slice BJ): a load
     /// of the densest food at `bands.food_prior` of it.
     band_load: f64,
+    /// Each household's share of the store of the polity a band of its law holds, kcal, as its
+    /// people know it there (M6c slice BM): what taking it in would bring each once.
+    annex_share: f64,
 }
 
 /// What closing a source would bring a household (M6a slice BA, step four): the household, the
@@ -260,6 +263,9 @@ impl Forecasts {
             // the line keeps from people of other settlements while its home is inside, less what
             // its share of the work, spread over the posts' life, and its people's walk round to
             // a gate could bring. A home outside the line pays its share without its cover.
+            // Taking a held settlement in (M6c slice BM): each household's share of the held
+            // polity's store, once, as a gift to the store is weighed.
+            Some(PolicyKind::Annex) => crate::polity::kept_gain(o, self.annex_share, pp),
             Some(PolicyKind::Enclose) => {
                 let Some(p) = self.enclosure.as_ref() else {
                     return 0.0;
@@ -972,6 +978,20 @@ impl Population {
                     .fold(0.0, f64::max);
                 ctx.params.household.carry_kg * density * ctx.params.bands.food_prior
             },
+            annex_share: self.held_by(pi).and_then(|(_, qi)| qi).map_or(0.0, |qi| {
+                let kcal: f64 = self.polities[qi]
+                    .stores
+                    .iter()
+                    .zip(&ctx.catalog.goods)
+                    .map(|(kg, g)| kg * g.kcal_per_kg)
+                    .sum();
+                let theirs = self
+                    .households
+                    .iter()
+                    .filter(|(_, x)| self.polities[qi].holds(x.settlement) && !x.members.is_empty())
+                    .count();
+                kcal / (households.len() + theirs).max(1) as f64
+            }),
         }
     }
 
@@ -1468,7 +1488,7 @@ impl Population {
         // BH).
         let burned_homes = self.burned_homes(&households);
         let gave_way_homes = self.gave_way_homes(&households);
-        let issues = self.issues(
+        let mut issues = self.issues(
             ctx,
             settlement,
             !pressed.is_empty(),
@@ -1488,6 +1508,10 @@ impl Population {
                 .iter()
                 .any(|&h| self.raided_within(h, day - i64::from(params.crime.remember_days))),
         );
+        // A band its law sent holds another settlement (M6c slice BM).
+        if self.held_by(pi).is_some() {
+            issues.push(IssueKind::Holding);
+        }
         let polity = &self.polities[pi];
         // A watch may have one more while takings continue (M4c slice AI: a watch of several):
         // food taken from a household here since the newest watcher was named.
@@ -1823,6 +1847,15 @@ impl Population {
                         {
                             moves.push(MoveOption {
                                 nominee: Some(d),
+                                target: Some(at),
+                                ..blank
+                            });
+                        }
+                    }
+                    // The settlement a band its law sent holds (M6c slice BM).
+                    PolicyKind::Annex => {
+                        if let Some((at, _)) = self.held_by(pi) {
+                            moves.push(MoveOption {
                                 target: Some(at),
                                 ..blank
                             });
@@ -2558,6 +2591,17 @@ impl Population {
         // A palisade passed is laid out at once, the polity's (M6c slice BK).
         if outcome == Outcome::Passed && kind == PolicyKind::Enclose {
             self.begin_public_enclosure(ctx, pi, law_id);
+        }
+        // A settlement held is taken in at once (M6c slice BM).
+        if outcome == Outcome::Passed
+            && kind == PolicyKind::Annex
+            && let Some(at) = self.polities[pi]
+                .laws
+                .iter()
+                .find(|l| l.id == law_id)
+                .and_then(|l| l.target)
+        {
+            self.annex_passed(ctx, pi, law_id, at);
         }
         // A keeping passed looks its bank over at once, and asks its mending (M6b slice BG).
         if outcome == Outcome::Passed

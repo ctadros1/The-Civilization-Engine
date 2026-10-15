@@ -70,12 +70,17 @@ impl Population {
         }
         // A camp everyone left (M6c slice BL).
         for bi in 0..self.order.bands.len() {
-            if self.order.bands[bi].stage == BandStage::Camped && self.band_all_home(bi) {
+            if matches!(
+                self.order.bands[bi].stage,
+                BandStage::Camped | BandStage::Holding
+            ) && self.band_all_home(bi)
+            {
                 let b = &mut self.order.bands[bi];
                 b.stage = BandStage::Home;
                 b.since = minute;
             }
         }
+        self.holds_day(ctx);
         self.bands_by_law(ctx);
         self.raid_reports(ctx);
         if bp.review_days == 0 {
@@ -509,6 +514,7 @@ impl Population {
             taken: Vec::new(),
             taken_kcal: 0.0,
             approach,
+            held: None,
         });
     }
 
@@ -693,6 +699,7 @@ impl Population {
             taken: Vec::new(),
             taken_kcal: 0.0,
             approach,
+            held: None,
         });
         true
     }
@@ -888,6 +895,11 @@ impl Population {
             self.camp_check(ctx, h, bi);
             return;
         }
+        // A stay holding a settlement ends: they stay, sleep there, or go home (M6c slice BM).
+        if self.order.bands[bi].stage == BandStage::Holding && step >= STEP_THERE && step < last {
+            self.hold_check(ctx, h, bi);
+            return;
+        }
         let first_out = !self.order.bands.iter().any(|b| b.stage == BandStage::Out);
         let mut set_off = false;
         let goes_on = {
@@ -985,6 +997,21 @@ impl Population {
         let sight = ctx.params.crime.sight_m as f32;
         let adult = ctx.params.crime.guardian_age;
         let t = now.minutes() as f64;
+        // A band holding a settlement is stood against by any of its grown people about the
+        // place, at most once a day (M6c slice BM): they meet again.
+        for bi in 0..self.order.bands.len() {
+            let b = &self.order.bands[bi];
+            if b.stage != BandStage::Holding {
+                continue;
+            }
+            let last = b
+                .clash
+                .and_then(|c| self.order.clashes.iter().find(|x| x.id == c))
+                .map_or(b.since, |c| c.at);
+            if now.minutes() - last >= MINUTES_PER_DAY && self.anyone_about(ctx, bi) {
+                self.clash(ctx, bi);
+            }
+        }
         let out: Vec<usize> = (0..self.order.bands.len())
             .filter(|&i| {
                 matches!(
@@ -1126,8 +1153,138 @@ impl Population {
         }
     }
 
+    /// `h`, holding a settlement with band `bi`, chooses at the end of a stay (M6c slice BM,
+    /// ADR-0023 §9): to stay, for their will and grievance against `bands.w_camp_day` a day held
+    /// beyond the days a law's service owes (`bands.service_days`), lying down where they are for
+    /// `sleep_out_minutes` once their want of sleep reaches `sleep_out_at`; or to go home. A keyed
+    /// draw spreads the days, as at a camp.
+    fn hold_check(&mut self, ctx: &mut Ctx, h: Handle<Person>, bi: usize) {
+        let bp = &ctx.params.bands;
+        let Some(p) = self.people.get(h) else {
+            return;
+        };
+        let (who, step, sleep) = (p.id, p.act.step, f64::from(p.sleep_pressure));
+        let (target, since) = (self.order.bands[bi].target, self.order.bands[bi].since);
+        let days = (ctx.now.minutes() - since) as f64 / MINUTES_PER_DAY as f64;
+        let u = Rng64::from_key(&[ctx.seed, PURPOSE_CAMP, who.get(), ctx.now.minutes() as u64])
+            .next_f64();
+        let stay = bp.will_band
+            + bp.w_grievance * self.keenness(ctx, who, Blamed::Household(target))
+            - bp.w_camp_day * (days + u - bp.service_days).max(0.0);
+        if stay > 0.0
+            && let Some(p) = self.people.get_mut(h)
+        {
+            let at = step as usize + 1;
+            let next = if sleep >= bp.sleep_out_at {
+                crate::person::Step::Wait {
+                    minutes: bp.sleep_out_minutes.max(1),
+                }
+            } else {
+                crate::person::Step::Work {
+                    minutes: bp.camp_minutes.max(1),
+                }
+            };
+            p.act.steps.insert(at, next);
+        }
+    }
+
+    /// Band `bi`'s people who are at the place it holds: arrived, not gone home, living.
+    fn holding_there(&self, bi: usize) -> Vec<PermanentId> {
+        let b = &self.order.bands[bi];
+        b.arrived
+            .iter()
+            .copied()
+            .filter(|m| !b.home.contains(m) && self.person(*m).is_some())
+            .collect()
+    }
+
+    /// Whether anyone grown of the settlement band `bi` holds is about the place it holds, awake
+    /// and not out: someone who would stand against it.
+    fn anyone_about(&self, ctx: &Ctx, bi: usize) -> bool {
+        let b = &self.order.bands[bi];
+        let Some(at) = self.household(b.target).and_then(|x| x.settlement) else {
+            return false;
+        };
+        let (now, cp) = (ctx.now, &ctx.params.crime);
+        let t = now.minutes() as f64;
+        self.people.iter().any(|(_, q)| {
+            !q.asleep
+                && q.trip.is_none()
+                && !b.joined(q.id)
+                && q.age_years(now) >= cp.guardian_age
+                && self.household(q.household).and_then(|x| x.settlement) == Some(at)
+                && {
+                    let pos = q.position_at(t);
+                    ((pos.0 - b.place.0).powi(2) + (pos.1 - b.place.1).powi(2)).sqrt()
+                        <= cp.sight_m as f32
+                }
+        })
+    }
+
+    /// Each band holding a settlement, at the day's look (M6c slice BM, ADR-0023 §9): it is let
+    /// go once fewer than `bands.least` of its people are there (those about the place meet it
+    /// again at a look, [`Population::band_look`], and a band that no longer holds the field
+    /// goes home); one that has kept the place `bands.hold_days` holds the settlement, and the
+    /// chronicle tells it. A hold changes nothing by itself.
+    pub(super) fn holds_day(&mut self, ctx: &mut Ctx) {
+        let (now, day) = (ctx.now, ctx.now.day_index());
+        let (least, hold_days) = (
+            ctx.params.bands.least.max(1) as usize,
+            i64::from(ctx.params.bands.hold_days),
+        );
+        for bi in 0..self.order.bands.len() {
+            if self.order.bands[bi].stage != BandStage::Holding {
+                continue;
+            }
+            let there = self.holding_there(bi);
+            if there.len() < least {
+                for m in there {
+                    self.leave_now(ctx, m);
+                }
+                continue;
+            }
+            let b = &self.order.bands[bi];
+            let since = b.since.div_euclid(MINUTES_PER_DAY);
+            if b.held.is_none() && day - since >= hold_days {
+                self.order.bands[bi].held = Some(day);
+                let b = self.order.bands[bi].clone();
+                let at = self.household(b.target).and_then(|x| x.settlement);
+                let (theirs, ours) = (
+                    at.map_or_else(String::new, |s| self.settlement_name(ctx, s)),
+                    self.settlement_name(ctx, b.settlement),
+                );
+                let who = self.name_of(b.organizer);
+                let place = at.and_then(|s| {
+                    ctx.land
+                        .settlements
+                        .iter()
+                        .find(|x| x.id == s)
+                        .map(|x| x.hearth_m)
+                });
+                let words = format!(
+                    "The band {who} led from {ours} has held {theirs} for {hold_days} days, \
+                     keeping its hearth and its store with nobody standing against it."
+                );
+                self.chronicle_push(
+                    now,
+                    ChronicleKind::Raid,
+                    vec![b.organizer],
+                    at,
+                    place,
+                    0.0,
+                    words,
+                );
+            }
+        }
+    }
+
+    /// For tests: the bands' day of holds.
+    pub fn holds_day_for_tests(&mut self, ctx: &mut Ctx) {
+        self.holds_day(ctx);
+    }
+
     /// `who`, at the place a band went, leaves at once: the stay ends the next minute.
-    fn leave_now(&mut self, ctx: &mut Ctx, who: PermanentId) {
+    pub(super) fn leave_now(&mut self, ctx: &mut Ctx, who: PermanentId) {
         let Some(&h) = self.index.get(&who) else {
             return;
         };
@@ -1295,7 +1452,9 @@ impl Population {
         // What the band carries off if it holds the place: a load each of those standing, the
         // densest food first, the household's seed left.
         let mut taken: Vec<(usize, f64)> = Vec::new();
-        if ended.band_holds() {
+        // A band already holding the place keeps what it took the first time (M6c slice BM).
+        let holding = b.stage == BandStage::Holding;
+        if ended.band_holds() && !holding {
             let standing: Vec<PermanentId> = fighters
                 .iter()
                 .filter(|f| f.side == Side::Band && f.gave_way.is_none() && !f.killed)
@@ -1463,6 +1622,15 @@ impl Population {
         // Those of the band who gave way go home at once, and all of it when it gave way or
         // parted (ADR-0023 §4).
         let all_go = matches!(ended, Ended::BandGaveWay | Ended::Parted);
+        // A band a law sent that held the place stays to hold the settlement (M6c slice BM,
+        // ADR-0023 §9); one holding it that no longer holds the field has lost it.
+        if b.law.is_some() && their_settlement.is_some() {
+            let x = &mut self.order.bands[bi];
+            if ended.band_holds() && x.stage == BandStage::Out {
+                x.stage = BandStage::Holding;
+                x.since = now.minutes();
+            }
+        }
         let leaving: Vec<PermanentId> = fighters
             .iter()
             .filter(|f| f.side == Side::Band && !f.killed && (all_go || f.gave_way.is_some()))

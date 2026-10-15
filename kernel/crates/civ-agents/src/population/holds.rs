@@ -102,6 +102,95 @@ impl Population {
         );
     }
 
+    /// The settlement a band polity `pi`'s law sent holds and has held `bands.hold_days`, if any
+    /// (M6c slice BM), with the polity still deciding that holds it, if any: one `pi` does not
+    /// hold already. The first such band in the order called.
+    pub(super) fn held_by(&self, pi: usize) -> Option<(PermanentId, Option<usize>)> {
+        let laws = &self.polities[pi].laws;
+        self.order.bands.iter().find_map(|b| {
+            if b.stage != crate::war::BandStage::Holding || b.held.is_none() {
+                return None;
+            }
+            let law = b.law?;
+            laws.iter().find(|l| l.id == law)?;
+            let at = self.household(b.target)?.settlement?;
+            if self.polities[pi].holds(Some(at)) {
+                return None;
+            }
+            Some((at, self.polity_of(at)))
+        })
+    }
+
+    /// Law `law` of polity `pi`, to take in settlement `at`, passed (M6c slice BM): `pi` takes in
+    /// the polity holding `at`, or `at` alone where none does; the bands holding it go home; the
+    /// law has run its course.
+    pub(super) fn annex_passed(
+        &mut self,
+        ctx: &mut Ctx,
+        pi: usize,
+        law: PermanentId,
+        at: PermanentId,
+    ) {
+        if self.polities[pi].holds(Some(at)) {
+            return;
+        }
+        match self.polity_of(at) {
+            Some(qi) => self.take_in(ctx, pi, qi, HeldHow::Annexed),
+            None => {
+                let day = ctx.now.day_index();
+                let from = self.polities[pi].id;
+                self.polities[pi].held.push(HeldSettlement {
+                    settlement: at,
+                    since: day,
+                    how: HeldHow::Annexed,
+                    from,
+                });
+            }
+        }
+        let holders: Vec<usize> = (0..self.order.bands.len())
+            .filter(|&bi| {
+                let b = &self.order.bands[bi];
+                b.stage == crate::war::BandStage::Holding
+                    && self.household(b.target).and_then(|x| x.settlement) == Some(at)
+            })
+            .collect();
+        for bi in holders {
+            let b = &self.order.bands[bi];
+            let there: Vec<PermanentId> = b
+                .arrived
+                .iter()
+                .copied()
+                .filter(|m| !b.home.contains(m))
+                .collect();
+            for m in there {
+                self.leave_now(ctx, m);
+            }
+            // It is on its way home, as any band is once it has met what it met.
+            let b = &mut self.order.bands[bi];
+            b.stage = crate::war::BandStage::Out;
+            b.since = ctx.now.minutes();
+        }
+        if let Some(l) = self.polities[pi].law_mut(law) {
+            l.status = LawStatus::Lapsed;
+        }
+    }
+
+    /// For tests: law `law` of polity `pi`, to take in settlement `at`, passed.
+    pub fn annex_passed_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        pi: usize,
+        law: PermanentId,
+        at: PermanentId,
+    ) {
+        self.annex_passed(ctx, pi, law, at);
+    }
+
+    /// For tests: the settlement a band of polity `pi`'s law holds, if any.
+    pub fn held_by_for_tests(&self, pi: usize) -> Option<PermanentId> {
+        self.held_by(pi).map(|h| h.0)
+    }
+
     /// For tests: polity `pi` takes polity `qi` in, `how`.
     pub fn take_in_for_tests(&mut self, ctx: &Ctx, pi: usize, qi: usize, how: HeldHow) {
         self.take_in(ctx, pi, qi, how);

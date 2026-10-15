@@ -99,11 +99,16 @@ pub enum PolicyKind {
     /// household is asked an equal share of its work, as a crossing built together is; homes
     /// outside the line pay without its cover. Nobody is made to work.
     Enclose,
+    /// The polity takes in the settlement a band its law sent holds (M6c slice BM; ADR-0023
+    /// §9): the held polity's deciding closes, its laws lapse, its store becomes this polity's
+    /// and its residents become this polity's members. Passed, it is done at once and has run its
+    /// course.
+    Annex,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 18] = [
+    pub const ALL: [PolicyKind; 19] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -122,6 +127,7 @@ impl PolicyKind {
         PolicyKind::SendBand,
         PolicyKind::AgainstRaiding,
         PolicyKind::Enclose,
+        PolicyKind::Annex,
     ];
 
     /// The authored name.
@@ -145,6 +151,7 @@ impl PolicyKind {
             PolicyKind::SendBand => "send_band",
             PolicyKind::AgainstRaiding => "against_raiding",
             PolicyKind::Enclose => "enclose",
+            PolicyKind::Annex => "annex",
         }
     }
 
@@ -217,11 +224,13 @@ pub enum IssueKind {
     /// A household of the settlement knows people of another settlement took from its store
     /// within its people's memory (M6c slice BI; ADR-0023 §2).
     Raided,
+    /// A band the polity's law sent holds another settlement (M6c slice BM; ADR-0023 §9).
+    Holding,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 18] = [
+    pub const ALL: [IssueKind; 19] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -240,6 +249,7 @@ impl IssueKind {
         IssueKind::Burned,
         IssueKind::GaveWay,
         IssueKind::Raided,
+        IssueKind::Holding,
     ];
 
     /// The authored name.
@@ -263,6 +273,7 @@ impl IssueKind {
             IssueKind::Burned => "burned",
             IssueKind::GaveWay => "gave_way",
             IssueKind::Raided => "raided",
+            IssueKind::Holding => "holding",
         }
     }
 
@@ -299,6 +310,7 @@ impl IssueKind {
             IssueKind::Burned => "fire had taken buildings they knew",
             IssueKind::GaveWay => "buildings they knew had given way",
             IssueKind::Raided => "people of another settlement took from households' stores",
+            IssueKind::Holding => "a band of theirs held another settlement",
         }
     }
 }
@@ -1115,6 +1127,9 @@ pub fn law_words(
                 work"
             .to_owned();
     }
+    if def.is_some_and(|d| d.kind == PolicyKind::Annex) {
+        return "taking in the settlement a band of theirs holds".to_owned();
+    }
     // Without the site at hand (see [`Polity::words_of`]), only what it is.
     if def.is_some_and(|d| d.kind == PolicyKind::Enclose) {
         return "a palisade round the hearth, each household doing its share of the work"
@@ -1228,6 +1243,7 @@ pub fn ending_words(
         Some(PolicyKind::SendBand) => "the band sent by law".to_owned(),
         Some(PolicyKind::AgainstRaiding) => "the law against raiding".to_owned(),
         Some(PolicyKind::Enclose) => "the work on a palisade".to_owned(),
+        Some(PolicyKind::Annex) => "the taking in of a held settlement".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }

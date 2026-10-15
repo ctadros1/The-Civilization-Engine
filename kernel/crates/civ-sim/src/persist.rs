@@ -363,6 +363,8 @@ pub const SCHEMA_V115: u32 = 115;
 pub const SCHEMA_V116: u32 = 116;
 /// Words against raiding in agreements, before a polity holds several settlements.
 pub const SCHEMA_V117: u32 = 117;
+/// A polity over several settlements, before bands holding a settlement and the annex law.
+pub const SCHEMA_V118: u32 = 118;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

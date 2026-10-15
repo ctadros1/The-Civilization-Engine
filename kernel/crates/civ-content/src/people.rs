@@ -206,6 +206,10 @@ pub(crate) struct BandsFile {
     pub camp_minutes: u32,
     pub w_camp_day: f64,
     pub w_camp_tired: f64,
+    /// Content API 104 (M6c slice BM).
+    pub hold_days: u32,
+    pub sleep_out_at: f64,
+    pub sleep_out_minutes: u32,
     pub fight: FightFile,
 }
 
@@ -262,6 +266,9 @@ impl BandsFile {
             camp_minutes: self.camp_minutes,
             w_camp_day: self.w_camp_day,
             w_camp_tired: self.w_camp_tired,
+            hold_days: self.hold_days,
+            sleep_out_at: self.sleep_out_at,
+            sleep_out_minutes: self.sleep_out_minutes,
             fight: civ_agents::war::FightParams {
                 max_minutes: f.max_minutes,
                 frontage_home: f.frontage_home,
@@ -339,6 +346,15 @@ impl BandsFile {
         }
         if self.camp_minutes == 0 || self.camp_minutes > 1440 {
             p.push("`bands.camp_minutes` must be 1-1440".to_owned());
+        }
+        if !(1..=365).contains(&self.hold_days) {
+            p.push("`bands.hold_days` must be 1-365".to_owned());
+        }
+        if !(self.sleep_out_at.is_finite() && (0.0..=1.0).contains(&self.sleep_out_at)) {
+            p.push("`bands.sleep_out_at` must be between 0 and 1".to_owned());
+        }
+        if self.sleep_out_minutes == 0 || self.sleep_out_minutes > 1440 {
+            p.push("`bands.sleep_out_minutes` must be 1-1440".to_owned());
         }
         for (name, v) in [
             ("bands.w_camp_day", self.w_camp_day),

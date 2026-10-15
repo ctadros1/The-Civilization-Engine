@@ -81,16 +81,18 @@ impl Stakes {
         };
         // Words against raiding (M6c slice BL): the other's keeps what its people took, its own
         // gives up what its members took.
-        if clauses.contains(&Clause::NoRaids { from: 1 - side }) {
+        // One body (M6c slice BM) ends raiding between them both ways, as a truce does.
+        let one = clauses.iter().any(|c| matches!(c, Clause::OneBody { .. }));
+        if one || clauses.contains(&Clause::NoRaids { from: 1 - side }) {
             recover += self.raided_by;
         }
-        if clauses.contains(&Clause::NoRaids { from: side }) {
+        if one || clauses.contains(&Clause::NoRaids { from: side }) {
             owe += self.raided;
         }
         let (mut got, mut gave) = (0.0, 0.0);
         for c in clauses {
             match *c {
-                Clause::Leave { .. } | Clause::NoRaids { .. } => {}
+                Clause::Leave { .. } | Clause::NoRaids { .. } | Clause::OneBody { .. } => {}
                 Clause::Gift { from, good, kg } => {
                     let k = f64::from(kg) * kcal(good) * self.share;
                     if from == side {
@@ -674,7 +676,13 @@ impl Population {
     fn peace_packages(&self, ctx: &Ctx, pi: usize, qi: usize) -> Vec<Package> {
         let rp = &ctx.params.relations;
         let word = Clause::NoRaids { from: 1 };
-        let mut sets: Vec<Vec<Clause>> = vec![vec![word], vec![Clause::NoRaids { from: 0 }, word]];
+        let mut sets: Vec<Vec<Clause>> = vec![
+            vec![word],
+            vec![Clause::NoRaids { from: 0 }, word],
+            // One body under either's custom (M6c slice BM, ADR-0023 §9).
+            vec![Clause::OneBody { custom_of: 0 }],
+            vec![Clause::OneBody { custom_of: 1 }],
+        ];
         if let (Some((good, _)), true) = (self.store_good(ctx, pi), self.keeps_store(ctx, qi)) {
             for &kg in &rp.transfers_kg {
                 sets.push(vec![
@@ -954,6 +962,23 @@ impl Population {
                          having heard that the other's gathering passed it: {words}."
                     );
                     self.chronicle_agreement(ctx, id, AgreementStep::InForce, sentence);
+                    // One body: the side whose custom governs takes the other in (M6c slice BM).
+                    let one = self.agreements.list[i]
+                        .clauses
+                        .iter()
+                        .find_map(|c| match *c {
+                            Clause::OneBody { custom_of } => Some(custom_of),
+                            _ => None,
+                        });
+                    if let Some(s) = one {
+                        let ids = self.agreements.list[i].polities;
+                        let at = |p: PermanentId| self.polities.iter().position(|x| x.id == p);
+                        if let (Some(keep), Some(join)) =
+                            (at(ids[usize::from(s)]), at(ids[1 - usize::from(s)]))
+                        {
+                            self.take_in(ctx, keep, join, crate::polity::HeldHow::Merged);
+                        }
+                    }
                 } else if day - p0.max(p1) > answer
                     && let Some(s) = a.heard.iter().position(Option::is_none)
                 {
@@ -1165,6 +1190,11 @@ mod tests {
             &pp,
         );
         assert!(truce.0 > 0.0 && truce.0 < theirs.0, "{truce:?}");
+        // One body ends raiding both ways, as a truce does, whichever custom governs.
+        for custom_of in [0, 1] {
+            let one = s.forecast(&[Clause::OneBody { custom_of }], 0, &kcal, &pp);
+            assert_eq!(one, truce, "{one:?}");
+        }
         // Tribute for peace weighs against it each year.
         let tribute = Clause::Transfer {
             from: 0,

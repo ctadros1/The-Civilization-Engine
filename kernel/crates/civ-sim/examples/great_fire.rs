@@ -25,14 +25,16 @@ use civ_core::PermanentId;
 use civ_sim::{NewWorld, SPEED_MAX, Sim, persist};
 use commons_persist::{SaveDir, SaveKind};
 
-/// Days the band lives before a fire is set, if none of its own was great.
-const SETTLE_DAYS: i64 = 540;
+/// Days the band lives before a fire is set, if none of its own was great: into its second
+/// summer, when dry days come.
+const SETTLE_DAYS: i64 = 450;
 /// Days lived after the fire.
-const AFTER_DAYS: i64 = 540;
+const AFTER_DAYS: i64 = 365;
 /// Buildings a fire must take to be called great.
 const GREAT: usize = 4;
-/// Fuel at least this dry, as a share of its dry mass, counts as a dry day.
-const DRY: f32 = 0.11;
+/// Fuel at least this dry, as a share of its dry mass, counts as a dry day (the land profile:
+/// on this valley's weather a summer day's middle is about 0.14).
+const DRY: f32 = 0.13;
 /// A wind at least this strong, m/s, counts as windy.
 const WINDY: f32 = 4.0;
 /// Days waited at most for a dry, windy day.
@@ -191,6 +193,11 @@ fn followed(sim: &Sim, fire_day: i64) -> String {
     )
 }
 
+/// The people living.
+fn living(sim: &Sim) -> usize {
+    sim.people().people.iter().count()
+}
+
 fn one(content: &civ_content::ContentRegistry, seed: u64) -> Result<(Sim, String, usize), String> {
     let mut sim = Sim::create(
         &NewWorld {
@@ -265,6 +272,7 @@ fn one(content: &civ_content::ContentRegistry, seed: u64) -> Result<(Sim, String
             )
         }
     };
+    let people_then = living(&sim);
     // The fire's course: three days.
     sim.advance_minutes(3 * DAY).map_err(|e| e.to_string())?;
     let biggest = fires_by_size(&sim, fire_day).first().map_or(0, |f| f.2);
@@ -279,8 +287,17 @@ fn one(content: &civ_content::ContentRegistry, seed: u64) -> Result<(Sim, String
     let after_fire = format!("it took {biggest} buildings and {deaths} lives");
     sim.advance_minutes(AFTER_DAYS * DAY)
         .map_err(|e| e.to_string())?;
+    let (people_now, households_now) = (
+        living(&sim),
+        sim.people()
+            .households
+            .iter()
+            .filter(|(_, x)| !x.members.is_empty())
+            .count(),
+    );
     let line = format!(
-        "{how}; {after_fire}. After {AFTER_DAYS} days: {}",
+        "{how}; {after_fire}. After {AFTER_DAYS} days ({people_then} people at the fire, \
+         {people_now} in {households_now} households now): {}",
         followed(&sim, fire_day)
     );
     Ok((sim, line, biggest))

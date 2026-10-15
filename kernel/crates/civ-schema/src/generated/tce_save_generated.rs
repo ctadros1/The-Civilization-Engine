@@ -33270,6 +33270,7 @@ impl<'a> IncidentSave<'a> {
   pub const VT_NOTICED: ::flatbuffers::VOffsetT = 24;
   pub const VT_FOOD_DAYS: ::flatbuffers::VOffsetT = 26;
   pub const VT_RICHER: ::flatbuffers::VOffsetT = 28;
+  pub const VT_ACROSS: ::flatbuffers::VOffsetT = 30;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -33281,6 +33282,7 @@ impl<'a> IncidentSave<'a> {
     args: &'args IncidentSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<IncidentSave<'bldr>> {
     let mut builder = IncidentSaveBuilder::new(_fbb);
+    builder.add_across(args.across);
     builder.add_target(args.target);
     builder.add_actor_household(args.actor_household);
     builder.add_actor(args.actor);
@@ -33389,6 +33391,13 @@ impl<'a> IncidentSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(IncidentSave::VT_RICHER, Some(f32::NAN)).unwrap()}
   }
+  #[inline]
+  pub fn across(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(IncidentSave::VT_ACROSS, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for IncidentSave<'_> {
@@ -33410,6 +33419,7 @@ impl ::flatbuffers::Verifiable for IncidentSave<'_> {
      .visit_field::<bool>("noticed", Self::VT_NOTICED, false)?
      .visit_field::<f32>("food_days", Self::VT_FOOD_DAYS, false)?
      .visit_field::<f32>("richer", Self::VT_RICHER, false)?
+     .visit_field::<u64>("across", Self::VT_ACROSS, false)?
      .finish();
     Ok(())
   }
@@ -33428,6 +33438,7 @@ pub struct IncidentSaveArgs<'a> {
     pub noticed: bool,
     pub food_days: f32,
     pub richer: f32,
+    pub across: u64,
 }
 impl<'a> Default for IncidentSaveArgs<'a> {
   #[inline]
@@ -33446,6 +33457,7 @@ impl<'a> Default for IncidentSaveArgs<'a> {
       noticed: false,
       food_days: f32::NAN,
       richer: f32::NAN,
+      across: 0,
     }
   }
 }
@@ -33508,6 +33520,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> IncidentSaveBuilder<'a, 'b, A
     self.fbb_.push_slot::<f32>(IncidentSave::VT_RICHER, richer, f32::NAN);
   }
   #[inline]
+  pub fn add_across(&mut self, across: u64) {
+    self.fbb_.push_slot::<u64>(IncidentSave::VT_ACROSS, across, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> IncidentSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     IncidentSaveBuilder {
@@ -33538,6 +33554,7 @@ impl ::core::fmt::Debug for IncidentSave<'_> {
       ds.field("noticed", &self.noticed());
       ds.field("food_days", &self.food_days());
       ds.field("richer", &self.richer());
+      ds.field("across", &self.across());
       ds.finish()
   }
 }

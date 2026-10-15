@@ -279,6 +279,9 @@ impl Population {
                 * params.household.daily_kcal_per_person
         };
         let debtor_need = need_of(accused_hh);
+        // One of another settlement the gathering may find against, but cannot send from a
+        // valley they do not live in, and its finding binds nobody there (M6c slice BI).
+        let outsider = self.household(accused_hh).and_then(|x| x.settlement) != Some(settlement);
         let paid: f64 = self
             .order
             .obligations
@@ -372,7 +375,7 @@ impl Population {
                     exile: false,
                     ..sanction
                 };
-                let sent = if sanction.exile {
+                let sent = if sanction.exile && !outsider {
                     format!(" {accused_name} is sent from the valley.")
                 } else {
                     String::new()
@@ -415,7 +418,7 @@ impl Population {
             &c,
             stage,
             restitution + compensation + fine,
-            decided == Decided::Passed && sanction.exile,
+            decided == Decided::Passed && sanction.exile && !outsider,
         );
         if decided != Decided::Passed {
             return;
@@ -450,7 +453,7 @@ impl Population {
         // Exile: those who found against them see them go (09-07 §1.1: enforcement needs an
         // actual coalition; here, the gathering that found). They leave the valley, recorded as
         // a migration (ADR-0015 §5); their household stays, and owes what was imposed.
-        if sanction.exile {
+        if sanction.exile && !outsider {
             self.exile(ctx, c.accused);
             self.order.cases[k].exiled = true;
         }

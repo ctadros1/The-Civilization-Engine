@@ -801,6 +801,7 @@ fn one_named_to_the_watch_after_telling_of_a_taking_makes_no_watcher_s_choice_ab
             noticed: false,
             food_days: f32::NAN,
             richer: f32::NAN,
+            across: None,
         });
         let day = now.day_index();
         order.learn(Belief {
@@ -1171,6 +1172,7 @@ fn a_refused_finding(sim: &mut Sim) -> (PermanentId, PermanentId, u32) {
         noticed: true,
         food_days: f32::NAN,
         richer: f32::NAN,
+        across: None,
     });
     let case = order.cases.len() as u32 + 1;
     order.cases.push(Case {

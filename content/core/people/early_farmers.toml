@@ -910,6 +910,11 @@ prior = 1.0
 half_life_days = 1826.0
 seen_trespass = 1.0
 heard_trespass = 0.5
+# The same for takings across the boundary (M6c slice BI, ADR-0023 §2): seeing people of another
+# settlement take from a store of one's own, or knowing who of them took from one's household,
+# adds `seen_taking`; being told of it adds `heard_taking`. Design priors, as for trespass.
+seen_taking = 1.0
+heard_taking = 0.5
 # Word of a claim on a place crosses only with travellers (ADR-0020 §2): someone who knows a claim
 # their polity's law makes tells a companion from elsewhere at the hearth with `share_claims`, and
 # so does someone whose household heard of another polity's claim (research 09-16 §2.2: 0.05-0.25

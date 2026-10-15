@@ -514,6 +514,16 @@ fn taking_happened(sim: &Sim, i: &Incident) -> String {
             "went to take from {target} on {when} and fled with nothing when a sleeper woke"
         ),
     };
+    // One from another settlement is told as of it (M6c slice BI).
+    if let Some(from) = i.across {
+        let name = sim
+            .land
+            .settlements
+            .iter()
+            .find(|x| x.id == from)
+            .map_or("another settlement", |x| x.name.as_str());
+        s = format!("of {name} {s}");
+    }
     let seen: Vec<String> = i.seen_by.iter().map(|&w| pop.name_of(w)).collect();
     if seen.is_empty() {
         s.push_str("; nobody saw it");

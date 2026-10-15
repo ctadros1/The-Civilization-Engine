@@ -116,7 +116,8 @@ use super::{
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
-    SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, finish, section, single_chunk, unreadable,
+    SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, finish, section, single_chunk,
+    unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -534,6 +535,8 @@ enum Schema {
     V107,
     /// M6b slice BH: households remember buildings that gave way.
     V108,
+    /// M6c slice BI: an incident names the taker's settlement when it is another.
+    V109,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -656,7 +659,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V105 => Schema::V105,
         SCHEMA_V106 => Schema::V106,
         SCHEMA_V107 => Schema::V107,
-        SAVE_SCHEMA_VERSION => Schema::V108,
+        SCHEMA_V108 => Schema::V108,
+        SAVE_SCHEMA_VERSION => Schema::V109,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1540,6 +1544,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::BankWorn => 14,
         IssueKind::Burned => 15,
         IssueKind::GaveWay => 16,
+        IssueKind::Raided => 17,
     }
 }
 
@@ -1653,6 +1658,7 @@ fn decode_polities(
                 14 => IssueKind::BankWorn,
                 15 => IssueKind::Burned,
                 16 => IssueKind::GaveWay,
+                17 => IssueKind::Raided,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -3778,7 +3784,8 @@ fn carried(
         | Schema::V105
         | Schema::V106
         | Schema::V107
-        | Schema::V108 => {
+        | Schema::V108
+        | Schema::V109 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4059,7 +4066,8 @@ fn decode_households(
             | Schema::V105
             | Schema::V106
             | Schema::V107
-            | Schema::V108 => {
+            | Schema::V108
+            | Schema::V109 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -4331,6 +4339,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
                     noticed: i.noticed,
                     food_days: i.food_days,
                     richer: i.richer,
+                    across: i.across.map_or(0, |s| s.get()),
                 },
             )
         })
@@ -4561,6 +4570,7 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
             noticed: i.noticed(),
             food_days: i.food_days(),
             richer: i.richer(),
+            across: id_of(i.across()),
         });
     }
     for b in root.beliefs().iter().flatten() {

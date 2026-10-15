@@ -64,6 +64,7 @@ mod moving;
 mod norm;
 mod opinion;
 mod payments;
+pub use crime::TakeProbe;
 pub use payments::Burden;
 mod places;
 mod polity;

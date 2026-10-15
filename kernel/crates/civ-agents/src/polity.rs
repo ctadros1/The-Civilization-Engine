@@ -194,11 +194,14 @@ pub enum IssueKind {
     /// A building of the settlement gave way within its people's memory, as they heard told
     /// (M6b slice BH; ADR-0022 §12).
     GaveWay,
+    /// A household of the settlement knows people of another settlement took from its store
+    /// within its people's memory (M6c slice BI; ADR-0023 §2).
+    Raided,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 17] = [
+    pub const ALL: [IssueKind; 18] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -216,6 +219,7 @@ impl IssueKind {
         IssueKind::BankWorn,
         IssueKind::Burned,
         IssueKind::GaveWay,
+        IssueKind::Raided,
     ];
 
     /// The authored name.
@@ -238,6 +242,7 @@ impl IssueKind {
             IssueKind::BankWorn => "bank_worn",
             IssueKind::Burned => "burned",
             IssueKind::GaveWay => "gave_way",
+            IssueKind::Raided => "raided",
         }
     }
 
@@ -273,6 +278,7 @@ impl IssueKind {
             IssueKind::BankWorn => "the bank they built against floodwater wanted mending",
             IssueKind::Burned => "fire had taken buildings they knew",
             IssueKind::GaveWay => "buildings they knew had given way",
+            IssueKind::Raided => "people of another settlement took from households' stores",
         }
     }
 }
@@ -2399,6 +2405,20 @@ pub(crate) mod tests {
             ..Default::default()
         };
         assert!(gain(&none, &bundle).abs() < 1e-12);
+        // What takers of another settlement took no finding at home recovers, and what one's
+        // own took elsewhere no gathering at home hears (M6c slice BI).
+        let raided = crate::crime::TakingsKnown {
+            outside_kcal: robbed.lost_kcal,
+            outside: robbed.lost,
+            ..robbed
+        };
+        assert!(gain(&raided, &bundle).abs() < 1e-12);
+        let raider = crate::crime::TakingsKnown {
+            took_outside_kcal: took.took_kcal,
+            took_outside: took.took,
+            ..took
+        };
+        assert!(gain(&raider, &bundle).abs() < 1e-12);
     }
 
     #[test]

@@ -314,6 +314,9 @@ pub struct Incident {
     /// days of their need, ties counting half: about one half if takers came from any household
     /// alike, more if from the poorer. NaN without a settlement or another household in it.
     pub richer: f32,
+    /// The taker's settlement, when it is not the one the store was in (M6c slice BI, ADR-0023
+    /// §2); none within a settlement and in older saves.
+    pub across: Option<PermanentId>,
 }
 
 /// How someone came to believe what they believe of an incident. Codes are part of saves: append
@@ -399,6 +402,14 @@ pub struct TakingsKnown {
     pub took: u32,
     /// The mean chance its grown members believe a taker runs of being seen.
     pub risk: f64,
+    /// Of `lost_kcal` and `lost`, what takers of another settlement took (M6c slice BI): a law
+    /// against taking at home recovers none of it, since its findings bind nobody there.
+    pub outside_kcal: f64,
+    pub outside: u32,
+    /// Of `took_kcal` and `took`, what its members took from stores of another settlement,
+    /// which no gathering of its own hears.
+    pub took_outside_kcal: f64,
+    pub took_outside: u32,
 }
 
 impl TakingsKnown {
@@ -428,9 +439,11 @@ impl TakingsKnown {
             0.0
         };
         let fine = f64::from(sanction.fine_days) * need_day + exile;
-        let recover = self.lost_kcal + f64::from(self.lost) * comp;
-        let owe =
-            self.risk.clamp(0.0, 1.0) * (self.took_kcal + f64::from(self.took) * (comp + fine));
+        let lost = (self.lost_kcal - self.outside_kcal).max(0.0);
+        let recover = lost + f64::from(self.lost.saturating_sub(self.outside)) * comp;
+        let took = (self.took_kcal - self.took_outside_kcal).max(0.0);
+        let owe = self.risk.clamp(0.0, 1.0)
+            * (took + f64::from(self.took.saturating_sub(self.took_outside)) * (comp + fine));
         (recover, owe)
     }
 }
@@ -1167,6 +1180,7 @@ mod tests {
             took_kcal: 50.0,
             took: 1,
             risk: 0.5,
+            ..Default::default()
         };
         let (recover, owe) = k.watched(0.5);
         assert!((recover - 200.0).abs() < 1e-9, "losses whoever took them");

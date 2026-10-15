@@ -2661,6 +2661,22 @@ and M6a gives rivers a daily flow.
     - A demand for restitution across the boundary as a visit; a case heard against an outsider
       binds nobody there.
     - A world where nobody has seen a home elsewhere gives the same digests as before.
+    - *Takings across the boundary, as built (2026-10-15, §9):* a household short of food weighs
+      the stores of households of another settlement whose homes a member has seen (walked
+      within sight of, gone to, or lived in; founding groups who only knew where each other
+      camped do not count), as it weighs its neighbours', within the 20 minutes a taker walks
+      (`take_food`'s `max_walk_minutes`). The incident names the taker's settlement, and the
+      chronicle and the incident page tell them as of it. A witness names the taker only if
+      they are of the taker's settlement or have a tie to them; a stranger from elsewhere they
+      cannot name. Knowing who of another settlement took from a store of one's own writes
+      *harms us* toward their polity (`seen_taking` when seen, `heard_taking` when told), and
+      the household holds the issue `raided` while it remembers it (`crime.remember_days`); a
+      watch answers it. A law against taking recovers nothing from takers of another
+      settlement and charges nothing for what one's own took elsewhere. A gathering may hear a
+      case against an outsider and find against them, but cannot send them from a valley they
+      do not live in, and its finding adds no weight to their paying. A demand across the
+      boundary is made and answered as within a settlement: walking it there waits. Save
+      schema 109 (`IncidentSave.across`), content API 95, wire 1.73 unchanged.
   - **BJ**: bands and encounters.
     - The wooden spear (wood shaping), held as goods.
     - Band purposes as content; an organizer weighs calling one; joining by choice; muster as who

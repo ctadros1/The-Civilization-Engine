@@ -343,6 +343,8 @@ pub const SCHEMA_V105: u32 = 105;
 pub const SCHEMA_V106: u32 = 106;
 /// Households remember fires, before they remember buildings that gave way.
 pub const SCHEMA_V107: u32 = 107;
+/// Households remember buildings that gave way, before takings cross the boundary.
+pub const SCHEMA_V108: u32 = 108;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

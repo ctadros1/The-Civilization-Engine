@@ -631,6 +631,7 @@ impl Population {
         bank_worn: bool,
         burned: bool,
         gave_way: bool,
+        raided: bool,
     ) -> Vec<IssueKind> {
         let mut out = Vec::new();
         if self.lean_lately(ctx, settlement) || pressed {
@@ -671,6 +672,9 @@ impl Population {
         }
         if gave_way {
             out.push(IssueKind::GaveWay);
+        }
+        if raided {
+            out.push(IssueKind::Raided);
         }
         out
     }
@@ -1373,6 +1377,9 @@ impl Population {
             self.worn_bank(ctx, pi, households.len()).is_some(),
             !burned_homes.is_empty(),
             !gave_way_homes.is_empty(),
+            households
+                .iter()
+                .any(|&h| self.raided_within(h, day - i64::from(params.crime.remember_days))),
         );
         let polity = &self.polities[pi];
         // A watch may have one more while takings continue (M4c slice AI: a watch of several):

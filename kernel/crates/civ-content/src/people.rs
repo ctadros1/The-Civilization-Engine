@@ -764,6 +764,9 @@ pub(crate) struct RelationsFile {
     pub half_life_days: f64,
     pub seen_trespass: f64,
     pub heard_trespass: f64,
+    /// Content API 95 (M6c slice BI): the same for takings from a store of one's settlement.
+    pub seen_taking: f64,
+    pub heard_taking: f64,
     /// Content API 61 (M5c slice AU): word of claims at the hearth, and what a claimed place is
     /// worth to a household that heard of the claim.
     pub share_claims: f64,
@@ -2069,6 +2072,8 @@ impl PeopleFile {
                 half_life_days: self.relations.half_life_days,
                 seen_trespass: self.relations.seen_trespass,
                 heard_trespass: self.relations.heard_trespass,
+                seen_taking: self.relations.seen_taking,
+                heard_taking: self.relations.heard_taking,
                 share_claims: self.relations.share_claims,
                 claimed_worth: self.relations.claimed_worth,
                 packages: self.relations.packages,
@@ -2195,6 +2200,8 @@ impl PeopleFile {
         for (name, x) in [
             ("seen_trespass", v.seen_trespass),
             ("heard_trespass", v.heard_trespass),
+            ("seen_taking", v.seen_taking),
+            ("heard_taking", v.heard_taking),
         ] {
             if !(x.is_finite() && (0.0..=100.0).contains(&x)) {
                 p.push(format!(

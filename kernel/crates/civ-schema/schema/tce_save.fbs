@@ -1527,6 +1527,9 @@ table IncidentSave {
   // as in older saves.
   food_days: float = nan (id: 11);
   richer: float = nan (id: 12);
+  // The taker's settlement when it is not the store's (schema 109, M6c slice BI); 0 within a
+  // settlement and in older saves.
+  across: ulong (id: 13);
 }
 
 // `taker`, `from` and `origin` are 0 when unknown or none. `source`: 0 saw it, 1 told, 2 found the

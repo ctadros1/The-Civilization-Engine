@@ -145,6 +145,22 @@ export function makeCholeraWorld(saves: string, seed = "1"): string {
   return done.stdout;
 }
 
+/** Makes the M6b demo world with civ-sim's `great_fire` example in `saves`; returns what it printed. */
+export function makeGreatFireWorld(saves: string, seed = "1"): string {
+  const done = spawnSync(
+    "cargo",
+    [
+      ...["run", "--release", "--quiet", "-p", "civ-sim", "--example", "great_fire"],
+      ...["--", saves, seed],
+    ],
+    { cwd: path.join(repo, "kernel"), encoding: "utf8", timeout: 7_200_000 },
+  );
+  if (done.status !== 0) {
+    throw new Error(`great_fire failed (${done.status}):\n${done.stdout}\n${done.stderr}`);
+  }
+  return done.stdout;
+}
+
 export interface Host {
   url: string;
   process: ChildProcess;

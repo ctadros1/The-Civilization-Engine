@@ -380,8 +380,18 @@ fn one_who_tends_beside_a_household_that_knows_fluid_replacement_learns_it() {
     to_day(&mut sim, ill_from);
     sim.advance_minutes(8 * 60).expect("lives");
     let household = sim.people().person(learner).expect("alive").household;
-    // Twenty hours of tending, in sessions: they know it at the end and not before.
-    for session in 0..20 {
+    // Twenty hours of tending, in sessions: they know it at the end and not before. Whatever
+    // they tended in the hours before counts toward it.
+    let before = sim
+        .people()
+        .person(learner)
+        .expect("alive")
+        .knows
+        .iter()
+        .find(|k| usize::from(k.technique) == fluids)
+        .map_or(0.0, |k| f64::from(k.hours));
+    let sessions = (20.0 - before).ceil().max(1.0) as u32;
+    for session in 0..sessions {
         assert!(
             !sim.people().person(learner).expect("alive").knows(fluids),
             "known after {session} hours"

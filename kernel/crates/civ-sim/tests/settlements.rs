@@ -330,13 +330,30 @@ fn a_walk_in_sight_of_another_settlement_makes_it_known_and_word_of_it_goes_roun
     use civ_agents::places::PlaceHow;
     // World 9: its two camps are on one bank of the trunk river, which nobody can wade.
     let mut sim = world(9, 50, &[30]).expect("generates");
-    // Bring the second camp's hearth to 900 m east of the first's, so that some of the first's
-    // walks pass within sight of it and others do not.
+    // Bring the second camp's hearth to 900 m east of the first's, so that the first's walks
+    // pass within sight of it. Once someone has seen it, it is taken out of anyone's sight (test
+    // scaffolding: where every household's walks pass it, as with hunting trips since slice BJ,
+    // all would see it and nobody would need telling), so that word of it can only go round.
     let first = sim.land().settlements[0].clone();
     let near = (first.hearth_m.0 + 900.0, first.hearth_m.1);
     sim.land_mut_for_tests().settlements[1].hearth_m = near;
     let other = sim.land().settlements[1].id;
-    sim.advance_minutes(40 * 24 * 60).expect("lives");
+    let mut moved = false;
+    for _ in 0..(40 * 24) {
+        sim.advance_minutes(60).expect("lives");
+        let seen_yet = sim
+            .people()
+            .known_places
+            .known
+            .values()
+            .flatten()
+            .any(|k| k.settlement == other && k.how == PlaceHow::Seen);
+        if seen_yet && !moved {
+            let (w, h) = sim.map().extent_m();
+            sim.land_mut_for_tests().settlements[1].hearth_m = (w as f32 * 2.0, h as f32 * 2.0);
+            moved = true;
+        }
+    }
     let pop = sim.people();
     let ours: Vec<_> = pop
         .households
@@ -356,7 +373,7 @@ fn a_walk_in_sight_of_another_settlement_makes_it_known_and_word_of_it_goes_roun
     };
     let (seen, told) = (how(PlaceHow::Seen), how(PlaceHow::Told));
     assert!(seen > 0, "nobody walked within sight of it");
-    assert!(told > 0, "nobody was told of it ({seen} saw it)");
+    assert!(told > 0, "nobody was told of it ({seen} of {} saw it)", ours.len());
     for &h in &ours {
         for k in pop.known_places.of(h) {
             if k.how == PlaceHow::Told {

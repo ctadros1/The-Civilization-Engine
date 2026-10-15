@@ -801,7 +801,13 @@ fn an_ask_anchors_on_what_replacing_the_good_from_elsewhere_would_cost() {
     let (seller, offer) = households_of(&worlds[0], a)
         .into_iter()
         .find_map(|h| {
-            let o = *worlds[0].people().household(h)?.offers.first()?;
+            // A good it has plenty of, so it still offers it at its next review.
+            let o = *worlds[0]
+                .people()
+                .household(h)?
+                .offers
+                .iter()
+                .find(|o| o.units >= 5.0)?;
             Some((h, o))
         })
         .expect("a household of the first settlement offers something");
@@ -840,7 +846,11 @@ fn an_ask_anchors_on_what_replacing_the_good_from_elsewhere_would_cost() {
     }
     let (believed, unaware) = (ask(&worlds[0]), ask(&worlds[1]));
     let (Some(believed), Some(unaware)) = (believed, unaware) else {
-        panic!("the good is still offered in both: {believed:?}, {unaware:?}");
+        panic!(
+            "the good is still offered in both: {believed:?}, {unaware:?}; first offered {:?}, now {:?}",
+            offer,
+            worlds[1].people().household(seller).map(|h| h.offers.clone())
+        );
     };
     assert!(
         believed < unaware * 0.99,

@@ -82,6 +82,8 @@ fn a_household_short_of_a_tool_buys_one_from_a_neighbour_that_can_spare_it() {
         seller,
         &[
             ("core:good/sickle", 14.0),
+            // Spears enough for its hunters, so it is not short of one (M6c slice BJ).
+            ("core:good/spear", 4.0),
             ("core:good/grain", 0.0),
             ("core:good/provisions", 40.0),
         ],

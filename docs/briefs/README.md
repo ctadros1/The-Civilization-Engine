@@ -22,8 +22,12 @@ plan wins. Check a brief's citations against the reports before relying on one.
 | [m6-fire.md](m6-fire.md) | M6b | Ignition and spread between buildings, fighting fires, floods and storms on what people built, rebuilding and building codes |
 | [m6-war.md](m6-war.md) | M6c | Raids and war as choices, fighting and its losses, sieges, surrender and annexation, the fortification kit |
 | [m6-observer.md](m6-observer.md) | M6 | Incidents in layers, episodes and typed links, aggregates, coverage lenses, hazard god tools, the chronicle by episode |
+| [m7-elections.md](m7-elections.md) | M7 | Offices with terms and selection methods, councils with seats by amendment, elections as chosen steps, coalitions, parties as a label, the republic label |
+| [m7-capture.md](m7-capture.md) | M7 | Duties and embargoes as laws, guilds as factions of a shared stake, privileges, corruption and patronage as specific choices, capture as amendments |
+| [m7-courts.md](m7-courts.md) | M7 | Forums named by law, procedure, precedent as the saved case, limits and judicial review, carrying out rulings |
+| [m7-money.md](m7-money.md) | M7 | Credit in goods, pledges and defaults, keepers and store lending, money's worth to its holder, metal, minting and debasement |
 
 The M4 briefs were written on 2026-10-07 for the M4 design (plan §9, "M4a design"); the M5
 briefs on 2026-10-09 for the M5 design (plan §9, "M5 design"); the M6 briefs on 2026-10-10 for
-the M6 design (plan §9, "M6 design"). The M5 briefs' bridges (in the settlements brief) are
+the M6 design (plan §9, "M6 design"); the M7 briefs on 2026-10-15 for the M7 design. The M5 briefs' bridges (in the settlements brief) are
 designed with M5c's works.

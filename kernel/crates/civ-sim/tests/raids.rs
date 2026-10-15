@@ -295,6 +295,7 @@ fn a_band(sim: &mut Sim, a: PermanentId, b: PermanentId, n: usize, muster_hour: 
         called: now.minutes(),
         muster: (now.day_index() + 1) * DAY + muster_hour * 60,
         members: adults,
+        asked: Vec::new(),
         mustered: Vec::new(),
         arrived: Vec::new(),
         home: Vec::new(),
@@ -424,4 +425,164 @@ fn a_band_out_saves_and_loads_and_goes_on_alike() {
     sim.advance_minutes(DAY).expect("advances");
     loaded.advance_minutes(DAY).expect("advances");
     same(&sim, &loaded);
+}
+
+#[test]
+fn who_stayed_home_loses_regard_those_about_see_the_band_and_all_there_know_of_the_raid() {
+    // Step two (ADR-0023 §3, §8, §10): when the band sets off, each who went thinks less of one
+    // asked who said no; anyone of another settlement awake within sight of it walking hears that
+    // a band was seen; everyone in the encounter hears of the raid, which names it; and a save
+    // keeps both claims.
+    use civ_agents::war::BandStage;
+    use civ_agents::word::ClaimKind;
+    let mut sim = two_villages(3, 30);
+    sim.advance_minutes(DAY).expect("advances");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let id = a_band(&mut sim, a, b, 5, 10);
+    let now = sim.now();
+    let adult = sim.rules().people.bands.min_age;
+    let tp = sim.rules().people.ties.clone();
+    let word = civ_agents::ties::Domain::Word.index();
+    let (members, shirker) = {
+        let pop = sim.people_mut_for_tests();
+        let band = pop.order.bands.iter().find(|x| x.id == id).expect("band");
+        let members = band.members.clone();
+        let mut others: Vec<PermanentId> = pop
+            .people
+            .iter()
+            .filter(|(_, p)| p.age_years(now) >= adult && p.age_years(now) <= 50.0)
+            .filter(|(_, p)| pop.household(p.household).and_then(|x| x.settlement) == Some(a))
+            .map(|(_, p)| p.id)
+            .filter(|p| !members.contains(p))
+            .collect();
+        others.sort_unstable();
+        let shirker = others[0];
+        pop.order
+            .bands
+            .iter_mut()
+            .find(|x| x.id == id)
+            .expect("band")
+            .asked = vec![shirker];
+        (members, shirker)
+    };
+    let bad_before: Vec<f64> = members
+        .iter()
+        .map(|&m| {
+            sim.people()
+                .ties
+                .tie(m, shirker, now.day_index(), &tp)
+                .map_or(tp.prior, |t| f64::from(t.bad[word]))
+        })
+        .collect();
+    let mut out_seen = false;
+    for _ in 0..(3 * 24 * 4) {
+        sim.advance_minutes(15).expect("advances");
+        let band = sim
+            .people()
+            .order
+            .bands
+            .iter()
+            .find(|x| x.id == id)
+            .expect("band");
+        if band.stage == BandStage::Out && !out_seen {
+            out_seen = true;
+            let day = sim.now().day_index();
+            assert!(!band.mustered.is_empty());
+            for (k, m) in members.iter().enumerate() {
+                if !band.mustered.contains(m) {
+                    continue;
+                }
+                let bad = sim
+                    .people()
+                    .ties
+                    .tie(*m, shirker, day, &tp)
+                    .map(|t| f64::from(t.bad[word]))
+                    .expect("they hold a view of the one who stayed home");
+                assert!(
+                    bad > bad_before[k] + 0.3,
+                    "staying home weighs against them: {} then {bad}",
+                    bad_before[k]
+                );
+            }
+        }
+        if band.stage.over() {
+            break;
+        }
+    }
+    assert!(out_seen, "the band set off");
+    let pop = sim.people();
+    let band = pop.order.bands.iter().find(|x| x.id == id).expect("band");
+    assert_eq!(band.stage, BandStage::Home);
+    // Seen walking, by people of the other settlement only.
+    let seen = pop
+        .word
+        .claims
+        .iter()
+        .find(|c| c.kind == ClaimKind::BandSeen && c.event == Some(id))
+        .expect("someone about saw the band");
+    assert_eq!(seen.settlement, a, "a sighting is of the band's people");
+    let seers: Vec<PermanentId> = pop
+        .word
+        .heard
+        .iter()
+        .filter(|h| h.claim == seen.id && h.from.is_none())
+        .map(|h| h.holder)
+        .collect();
+    assert!(!seers.is_empty());
+    for s in &seers {
+        let home = pop
+            .person(*s)
+            .and_then(|p| pop.household(p.household))
+            .and_then(|x| x.settlement);
+        assert_ne!(home, Some(a), "its own people do not report it as seen");
+    }
+    // The raid names the encounter, and everyone in it who lived heard of it there.
+    let clash = band.clash.expect("it met what it met");
+    let raid = pop
+        .word
+        .claims
+        .iter()
+        .find(|c| c.kind == ClaimKind::Raid && c.event == Some(clash))
+        .expect("the raid is told");
+    assert_eq!(raid.settlement, b);
+    assert_eq!(raid.subject, Some(band.target));
+    let x = pop
+        .order
+        .clashes
+        .iter()
+        .find(|x| x.id == clash)
+        .expect("encounter");
+    for f in x.fighters.iter().filter(|f| !f.killed) {
+        if pop.person(f.person).is_some() {
+            assert!(
+                pop.word
+                    .heard_by(f.person)
+                    .iter()
+                    .any(|h| h.claim == raid.id),
+                "{:?} was there",
+                f.person
+            );
+        }
+    }
+    let words = civ_sim::frames::word::claim_words(&sim, raid);
+    assert!(words.contains("came in a band to"), "{words}");
+    let words = civ_sim::frames::word::claim_words(&sim, seen);
+    assert!(words.contains("was seen walking"), "{words}");
+    // A save keeps both.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "raid").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    let before: Vec<_> = sim.people().word.claims.clone();
+    assert_eq!(loaded.people().word.claims, before);
+    let b2 = loaded
+        .people()
+        .order
+        .bands
+        .iter()
+        .find(|x| x.id == id)
+        .expect("band");
+    assert_eq!(b2.asked, vec![shirker]);
 }

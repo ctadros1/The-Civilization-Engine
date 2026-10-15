@@ -177,6 +177,76 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
             );
             format!("{at} was found burning on {on}; this account names no cause")
         }
+        ClaimKind::Raid => {
+            let on = day_words(SimTime::from_minutes(c.day * DAY));
+            let of = c.subject.map_or_else(
+                || "a household".to_owned(),
+                |h| super::people::household_name(sim, h),
+            );
+            let clash = c
+                .event
+                .and_then(|id| pop.order.clashes.iter().find(|x| x.id == id));
+            let band = clash.and_then(|x| pop.order.bands.iter().find(|b| b.id == x.band));
+            match (clash, band) {
+                (Some(x), Some(b)) => {
+                    let came = x
+                        .fighters
+                        .iter()
+                        .filter(|f| f.side == civ_agents::war::Side::Band)
+                        .count();
+                    let struck = x.blows.len();
+                    let died = x.blows.iter().filter(|s| s.harm.killed).count();
+                    let mut said = format!(
+                        "{came} of {} came in a band to {of} on {on}",
+                        place_name(sim, b.settlement)
+                    );
+                    if struck > 0 {
+                        said.push_str(&format!(
+                            "; {struck} {} struck",
+                            if struck == 1 {
+                                "blow was"
+                            } else {
+                                "blows were"
+                            }
+                        ));
+                    }
+                    if died > 0 {
+                        said.push_str(&format!(
+                            ", and {died} died of {}",
+                            if struck == 1 { "it" } else { "them" }
+                        ));
+                    }
+                    if b.taken_kcal > 0.0 {
+                        let kg: f32 = b.taken.iter().map(|t| t.1).sum();
+                        said.push_str(&format!("; they took {kg:.0} kg"));
+                    } else {
+                        said.push_str("; they took nothing");
+                    }
+                    said
+                }
+                _ => format!("people of another settlement came in a band to {of} on {on}"),
+            }
+        }
+        ClaimKind::BandSeen => {
+            let on = day_words(SimTime::from_minutes(c.day * DAY));
+            match c
+                .event
+                .and_then(|id| pop.order.bands.iter().find(|b| b.id == id))
+            {
+                Some(b) => {
+                    let toward = pop
+                        .household(b.target)
+                        .and_then(|x| x.settlement)
+                        .map_or_else(String::new, |s| format!(", toward {}", place_name(sim, s)));
+                    format!(
+                        "a band of {} of {} was seen walking on {on}{toward}",
+                        b.mustered.len(),
+                        place_name(sim, b.settlement)
+                    )
+                }
+                None => format!("a band was seen walking on {on}"),
+            }
+        }
         ClaimKind::Sickness => {
             let from = day_words(SimTime::from_minutes(c.day * DAY));
             match c.subject {
@@ -188,6 +258,15 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
             }
         }
     }
+}
+
+/// A settlement's name, or "another settlement".
+fn place_name(sim: &Sim, id: PermanentId) -> String {
+    sim.land
+        .settlements
+        .iter()
+        .find(|s| s.id == id)
+        .map_or_else(|| "another settlement".to_owned(), |s| s.name.clone())
 }
 
 /// The grievances `p` holds, the most keenly felt now first.
@@ -542,7 +621,7 @@ pub fn news_lines<'a>(
             // Another household's sickness, or another's suspicion, while it is news (M6a slice BA).
             ClaimKind::Sickness => c.subject != Some(p.household),
             ClaimKind::Suspicion => c.subject != Some(p.id),
-            ClaimKind::Fire => true,
+            ClaimKind::Fire | ClaimKind::Raid | ClaimKind::BandSeen => true,
             _ => c.day >= today,
         })
         .take(MAX_NEWS_SHOWN)
@@ -638,7 +717,11 @@ fn whisper_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
             })
         }),
         // What people do of sickness they heard of is slice BA's later steps.
-        ClaimKind::Sickness | ClaimKind::Suspicion | ClaimKind::Fire => None,
+        ClaimKind::Sickness
+        | ClaimKind::Suspicion
+        | ClaimKind::Fire
+        | ClaimKind::Raid
+        | ClaimKind::BandSeen => None,
         ClaimKind::Grievance => {
             let against = c.grievance.map(|g| g.0);
             let m = pop.factions.membership(p).copied();

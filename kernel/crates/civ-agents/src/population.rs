@@ -172,6 +172,9 @@ pub enum AgentEvent {
         /// The home.
         building: PermanentId,
     },
+    /// Those about look at the bands walking (M6c slice BJ, ADR-0023 §8): one is pending
+    /// whenever a band is out.
+    BandLook,
 }
 
 /// The approximations the kernel makes as it advances (ADR-0011 §4), each on or off on its own.
@@ -1496,6 +1499,7 @@ impl Population {
             }
             AgentEvent::Fire => self.fire_minute(ctx),
             AgentEvent::Ignite { building } => self.ignite(ctx, building),
+            AgentEvent::BandLook => self.band_look(ctx),
         }
     }
 
@@ -4251,10 +4255,6 @@ impl Population {
         minutes: u32,
         behavior: Option<Behavior>,
     ) {
-        // At the muster, or arrived where the band went (M6c slice BJ).
-        if behavior == Some(Behavior::Band) {
-            self.band_work(ctx, h);
-        }
         let now = ctx.now;
         let params = ctx.params;
         let present = match (behavior, self.people.get(h)) {
@@ -4364,6 +4364,11 @@ impl Population {
         p.act.step_ends = now.plus_minutes(i64::from(minutes.max(1)));
         let (id, version, ends) = (p.id, p.act.version, p.act.step_ends);
         ctx.schedule_step(ends, id, version);
+        // At the muster, or arrived where the band went (M6c slice BJ): last, so that an
+        // encounter may cut short the stay just scheduled.
+        if behavior == Some(Behavior::Band) {
+            self.band_work(ctx, h);
+        }
     }
 
     fn end_step(&mut self, ctx: &mut Ctx, h: Handle<Person>) {

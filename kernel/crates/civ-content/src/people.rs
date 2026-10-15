@@ -107,6 +107,10 @@ pub(crate) struct BandsFile {
     pub muster_hour: u32,
     pub w_promise: f64,
     pub stay_minutes: u32,
+    /// Content API 97 (M6c slice BJ, step two).
+    pub look_minutes: u32,
+    pub shirk_promised: f64,
+    pub shirk_asked: f64,
     pub will_band: f64,
     pub will_home: f64,
     pub will_neighbour: f64,
@@ -154,6 +158,9 @@ impl BandsFile {
             muster_hour: self.muster_hour,
             w_promise: self.w_promise,
             stay_minutes: self.stay_minutes,
+            look_minutes: self.look_minutes,
+            shirk_promised: self.shirk_promised,
+            shirk_asked: self.shirk_asked,
             will_band: self.will_band,
             will_home: self.will_home,
             will_neighbour: self.will_neighbour,
@@ -189,6 +196,8 @@ impl BandsFile {
             ("bands.w_follow", self.w_follow, 0.0, 100.0),
             ("bands.join_regard", self.join_regard, 0.0, 1.0),
             ("bands.w_promise", self.w_promise, 0.0, 1000.0),
+            ("bands.shirk_promised", self.shirk_promised, 0.0, 100.0),
+            ("bands.shirk_asked", self.shirk_asked, 0.0, 100.0),
             ("bands.will_band", self.will_band, 0.0, 100.0),
             ("bands.will_home", self.will_home, 0.0, 100.0),
             ("bands.will_neighbour", self.will_neighbour, 0.0, 100.0),
@@ -223,6 +232,9 @@ impl BandsFile {
         }
         if self.least == 0 {
             p.push("`bands.least` must be at least 1".to_owned());
+        }
+        if self.look_minutes == 0 || self.look_minutes > 1440 {
+            p.push("`bands.look_minutes` must be 1-1440".to_owned());
         }
         if f.max_minutes == 0 || f.frontage_home == 0 || f.seen_minutes == 0 {
             p.push(
@@ -883,6 +895,8 @@ pub(crate) struct MovingFile {
     pub reviews: u32,
     /// Content API 77 (M6a slice BA, step three).
     pub w_sickness: f64,
+    /// Content API 97 (M6c slice BJ, step two).
+    pub w_raids: f64,
 }
 
 /// What founding a settlement of its own is worth to a household, and what a coalition must hold
@@ -2202,6 +2216,7 @@ impl PeopleFile {
                 cost: self.moving.cost,
                 reviews: self.moving.reviews,
                 w_sickness: self.moving.w_sickness,
+                w_raids: self.moving.w_raids,
             },
             founding: civ_agents::places::FoundingParams {
                 cost: self.founding.cost,
@@ -2304,6 +2319,7 @@ impl PeopleFile {
             ("moving.w_stake", self.moving.w_stake),
             ("moving.cost", self.moving.cost),
             ("moving.w_sickness", self.moving.w_sickness),
+            ("moving.w_raids", self.moving.w_raids),
         ] {
             if !(v.is_finite() && (0.0..=100.0).contains(&v)) {
                 p.push(format!("`{key}` must be between 0 and 100 (got {v})"));

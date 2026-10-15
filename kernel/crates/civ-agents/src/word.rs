@@ -36,11 +36,16 @@ pub enum ClaimKind {
     Suspicion = 6,
     /// A building was found burning, with no cause asserted.
     Fire = 7,
+    /// People of another settlement came in a band to a household (M6c slice BJ, ADR-0023 §8):
+    /// who, what was taken, who was struck, as the encounter's record has it.
+    Raid = 8,
+    /// A band was seen walking (ADR-0023 §8): where, how many, which way.
+    BandSeen = 9,
 }
 
 impl ClaimKind {
     /// Every kind, in code order.
-    pub const ALL: [ClaimKind; 8] = [
+    pub const ALL: [ClaimKind; 10] = [
         ClaimKind::Gathering,
         ClaimKind::Grievance,
         ClaimKind::Petition,
@@ -49,6 +54,8 @@ impl ClaimKind {
         ClaimKind::Sickness,
         ClaimKind::Suspicion,
         ClaimKind::Fire,
+        ClaimKind::Raid,
+        ClaimKind::BandSeen,
     ];
 
     /// Whether claims of this kind are news while they are held (a household's sickness, a
@@ -56,7 +63,11 @@ impl ClaimKind {
     pub fn held_news(self) -> bool {
         matches!(
             self,
-            ClaimKind::Sickness | ClaimKind::Suspicion | ClaimKind::Fire
+            ClaimKind::Sickness
+                | ClaimKind::Suspicion
+                | ClaimKind::Fire
+                | ClaimKind::Raid
+                | ClaimKind::BandSeen
         )
     }
 
@@ -114,6 +125,8 @@ pub struct Claim {
     pub suspected: Option<(Place, Counts)>,
     /// The recorded fire a found-burning account names; never its cause.
     pub fire: Option<u32>,
+    /// The recorded encounter a raid names, or the band a sighting names (M6c slice BJ).
+    pub event: Option<u32>,
 }
 
 /// That `holder` heard claim `claim` (ADR-0016 §3).
@@ -312,7 +325,7 @@ impl Word {
                 c.day < today
             }
             ClaimKind::Grievance => last + news_days < today,
-            ClaimKind::Fire => c.day + news_days < today,
+            ClaimKind::Fire | ClaimKind::Raid | ClaimKind::BandSeen => c.day + news_days < today,
             ClaimKind::Sickness | ClaimKind::Suspicion => c.day + sickness_days < today,
         };
         let claims = &self.claims;
@@ -631,6 +644,7 @@ mod tests {
         let mut w = Word::default();
         let c = w.make(Claim {
             fire: None,
+            event: None,
             id: 0,
             kind: ClaimKind::Gathering,
             settlement: id(1),
@@ -661,6 +675,7 @@ mod tests {
         let mut w = Word::default();
         let sick = |day| Claim {
             fire: None,
+            event: None,
             id: 0,
             kind: ClaimKind::Sickness,
             settlement: id(1),
@@ -687,6 +702,7 @@ mod tests {
         let mut w = Word::default();
         let c = w.make(Claim {
             fire: None,
+            event: None,
             id: 0,
             kind: ClaimKind::Gathering,
             settlement: id(1),

@@ -120,6 +120,7 @@ impl Population {
                     }
                     let claim = self.word.make(Claim {
                         fire: None,
+                        event: None,
                         id: 0,
                         kind: ClaimKind::Suspicion,
                         settlement,

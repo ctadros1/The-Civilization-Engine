@@ -608,6 +608,8 @@ pub struct Between {
     pub taken_in: u32,
     /// Sent away by a finding: forced, so not counted with the others.
     pub exiled: u32,
+    /// With their household, from raids on its home (M6c slice BJ): forced, so not counted.
+    pub fled: u32,
 }
 
 impl Between {
@@ -629,6 +631,7 @@ impl Between {
                     ResidenceWhy::Married => out.married += 1,
                     ResidenceWhy::TakenIn => out.taken_in += 1,
                     ResidenceWhy::Exiled => out.exiled += 1,
+                    ResidenceWhy::Fled => out.fled += 1,
                     _ => {}
                 }
             }
@@ -1218,8 +1221,9 @@ fn moves(worlds: &[WorldRun]) -> Row {
             let b = &w.between;
             format!(
                 "world {}: {rate:.1} ({} with their households, {} founding, {} on marrying, {} \
-                 taken in; {} exiled not counted); turnover {turnover:.1}, net {net:+.1}",
-                w.seed, b.moved, b.founded, b.married, b.taken_in, b.exiled
+                 taken in; {} fled and {} exiled not counted); turnover {turnover:.1}, net \
+                 {net:+.1}",
+                w.seed, b.moved, b.founded, b.married, b.taken_in, b.fled, b.exiled
             )
         })
         .collect();
@@ -2543,6 +2547,7 @@ mod tests {
             married: 6,
             taken_in: 2,
             exiled: 40,
+            fled: 0,
         };
         assert_eq!(moves(&[w.clone()]).grade, Grade::Gray, "one settlement");
         w.settlements = vec![("A".to_owned(), 50), ("B".to_owned(), 50)];

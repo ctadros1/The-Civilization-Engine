@@ -347,6 +347,8 @@ pub const SCHEMA_V107: u32 = 107;
 pub const SCHEMA_V108: u32 = 108;
 /// Takings cross the boundary, before bands.
 pub const SCHEMA_V109: u32 = 109;
+/// Bands and encounters, before claims of raids and bands seen.
+pub const SCHEMA_V110: u32 = 110;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

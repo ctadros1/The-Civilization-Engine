@@ -116,8 +116,8 @@ use super::{
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
-    SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, finish, section,
-    single_chunk, unreadable,
+    SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
+    finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -539,6 +539,8 @@ enum Schema {
     V109,
     /// M6c slice BJ: bands and the encounters they met.
     V110,
+    /// M6c slice BJ, step two: raids and bands seen as claims, who was asked to a band.
+    V111,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -663,7 +665,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V107 => Schema::V107,
         SCHEMA_V108 => Schema::V108,
         SCHEMA_V109 => Schema::V109,
-        SAVE_SCHEMA_VERSION => Schema::V110,
+        SCHEMA_V110 => Schema::V110,
+        SAVE_SCHEMA_VERSION => Schema::V111,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1052,6 +1055,28 @@ pub(super) fn decode<R: Read + Seek>(
             return Err(LoadError::Malformed(
                 "a non-fire claim names a fire".to_owned(),
             ));
+        }
+        // A raid names a recorded encounter, a band seen a recorded band (schema 111).
+        let named = match c.kind {
+            civ_agents::word::ClaimKind::Raid => Some(
+                c.event
+                    .is_some_and(|id| people.order.clashes.iter().any(|x| x.id == id)),
+            ),
+            civ_agents::word::ClaimKind::BandSeen => Some(
+                c.event
+                    .is_some_and(|id| people.order.bands.iter().any(|x| x.id == id)),
+            ),
+            _ => None,
+        };
+        match named {
+            Some(true) if schema >= Schema::V111 => {}
+            None if c.event.is_none() => {}
+            _ => {
+                return Err(LoadError::Malformed(format!(
+                    "claim {} names no recorded encounter or band",
+                    c.id
+                )));
+            }
         }
     }
     for p in &people.fires.pulled {
@@ -3789,7 +3814,8 @@ fn carried(
         | Schema::V107
         | Schema::V108
         | Schema::V109
-        | Schema::V110 => {
+        | Schema::V110
+        | Schema::V111 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4072,7 +4098,8 @@ fn decode_households(
             | Schema::V107
             | Schema::V108
             | Schema::V109
-            | Schema::V110 => {
+            | Schema::V110
+            | Schema::V111 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -4518,6 +4545,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
         .iter()
         .map(|b| {
             let members = ids(&mut fbb, &b.members);
+            let asked = ids(&mut fbb, &b.asked);
             let mustered = ids(&mut fbb, &b.mustered);
             let arrived = ids(&mut fbb, &b.arrived);
             let home = ids(&mut fbb, &b.home);
@@ -4539,6 +4567,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
                     called: b.called,
                     muster: b.muster,
                     members: Some(members),
+                    asked: Some(asked),
                     mustered: Some(mustered),
                     arrived: Some(arrived),
                     home: Some(home),
@@ -4870,6 +4899,7 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
             called: b.called(),
             muster: b.muster(),
             members: list(b.members()),
+            asked: list(b.asked()),
             mustered: list(b.mustered()),
             arrived: list(b.arrived()),
             home: list(b.home()),
@@ -5064,6 +5094,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::StormDamage => 50,
         ChronicleKind::Ditch => 51,
         ChronicleKind::Raid => 52,
+        ChronicleKind::Fled => 53,
     }
 }
 
@@ -5121,6 +5152,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         50 => Some(ChronicleKind::StormDamage),
         51 => Some(ChronicleKind::Ditch),
         52 => Some(ChronicleKind::Raid),
+        53 => Some(ChronicleKind::Fled),
         _ => None,
     }
 }
@@ -6998,6 +7030,7 @@ fn encode_events(sim: &Sim) -> Vec<u8> {
                 SimEvent::Agent(AgentEvent::Ignite { building }) => {
                     (save::EventKind::Ignite, building.get(), 0)
                 }
+                SimEvent::Agent(AgentEvent::BandLook) => (save::EventKind::BandLook, 0, 0),
             };
             save::PendingEvent::create(
                 &mut fbb,
@@ -7037,6 +7070,7 @@ fn decode_events(bytes: &[u8]) -> Result<Vec<PendingEvent<SimEvent>>, LoadError>
             save::EventKind::Ignite => SimEvent::Agent(AgentEvent::Ignite {
                 building: required(e.person(), "an ignition's building")?,
             }),
+            save::EventKind::BandLook => SimEvent::Agent(AgentEvent::BandLook),
             other => {
                 return Err(LoadError::Incompatible(format!(
                     "a pending event is of kind {}, which this build does not know",
@@ -7181,6 +7215,7 @@ fn encode_word(word: &civ_agents::word::Word) -> Vec<u8> {
                     place,
                     counts,
                     fire: c.fire.unwrap_or(0),
+                    event: c.event.unwrap_or(0),
                 },
             )
         })
@@ -7305,6 +7340,7 @@ fn decode_word(bytes: &[u8]) -> Result<civ_agents::word::Word, LoadError> {
             grievance,
             suspected,
             fire: (c.fire() != 0).then_some(c.fire()),
+            event: (c.event() != 0).then_some(c.event()),
         });
     }
     if !word.claims.windows(2).all(|w| w[0].id < w[1].id) {

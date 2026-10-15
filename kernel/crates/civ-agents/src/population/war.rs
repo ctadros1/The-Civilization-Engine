@@ -9,7 +9,7 @@ use crate::crime::{Belief, Incident, KnownAmount, Outcome, Source};
 use crate::decide::BandFacts;
 use crate::ties::Act;
 use crate::war::{Band, BandPurpose, BandStage, Clash, Ended, Fighter, Holding, Side, fight};
-use crate::word::Blamed;
+use crate::word::{Blamed, Claim, ClaimKind};
 
 /// Purpose tag for a person's reluctance to call a band (keyed per person and day).
 pub const PURPOSE_CALL: u64 = 0x6361_6c6c_6261_6e64; // "callband"
@@ -297,6 +297,7 @@ impl Population {
         told.truncate(bp.told_most as usize);
         let id = self.order.bands.last().map_or(1, |b| b.id + 1);
         let mut members = vec![organizer];
+        let mut asked = Vec::new();
         for &(_, q) in &told {
             if self
                 .order
@@ -311,8 +312,11 @@ impl Population {
             let u = Rng64::from_key(&[ctx.seed, PURPOSE_JOIN, q.get(), u64::from(id)]).next_f64();
             if worth > lo + (hi - lo) * u {
                 members.push(q);
+            } else {
+                asked.push(q);
             }
         }
+        asked.sort_unstable();
         if members.len() < bp.least.max(1) as usize {
             return;
         }
@@ -327,6 +331,7 @@ impl Population {
             called: now.minutes(),
             muster,
             members,
+            asked,
             mustered: Vec::new(),
             arrived: Vec::new(),
             home: Vec::new(),
@@ -431,6 +436,8 @@ impl Population {
         else {
             return;
         };
+        let first_out = !self.order.bands.iter().any(|b| b.stage == BandStage::Out);
+        let mut set_off = false;
         let goes_on = {
             let b = &mut self.order.bands[bi];
             match step {
@@ -438,6 +445,7 @@ impl Population {
                     if b.stage == BandStage::Called && minute + 1 >= b.muster {
                         b.since = minute;
                         b.stage = if b.mustered.len() >= least {
+                            set_off = true;
                             BandStage::Out
                         } else {
                             BandStage::Dispersed
@@ -454,6 +462,15 @@ impl Population {
                 _ => true,
             }
         };
+        if set_off {
+            self.shirked(ctx, bi);
+            // Those about look at a band walking while one is out.
+            if first_out {
+                let look = i64::from(ctx.params.bands.look_minutes.max(1));
+                ctx.schedule
+                    .push((ctx.now.plus_minutes(look), AgentEvent::BandLook));
+            }
+        }
         if !goes_on {
             // Not among those who went: home from the hearth.
             if let Some(p) = self.people.get_mut(h) {
@@ -485,6 +502,121 @@ impl Population {
         b.mustered
             .iter()
             .all(|&m| b.home.contains(&m) || self.person(m).is_none())
+    }
+
+    /// Band `bi` has set off (ADR-0023 §3: shirking costs regard): each who went thinks less of
+    /// each who said they would come and did not, and a little less of each asked who said no.
+    fn shirked(&mut self, ctx: &Ctx, bi: usize) {
+        let bp = &ctx.params.bands;
+        let b = &self.order.bands[bi];
+        let went = b.mustered.clone();
+        let mut stayed: Vec<(PermanentId, f64)> = b
+            .members
+            .iter()
+            .filter(|m| b.mustered.binary_search(m).is_err())
+            .map(|&m| (m, bp.shirk_promised))
+            .collect();
+        stayed.extend(b.asked.iter().map(|&m| (m, bp.shirk_asked)));
+        stayed.retain(|&(m, units)| units > 0.0 && self.person(m).is_some());
+        for &g in &went {
+            for &(m, units) in &stayed {
+                self.note_tie(ctx, g, m, Act::StayedHome, units, 0.0);
+            }
+        }
+    }
+
+    /// Those about look at each band walking (ADR-0023 §8): anyone awake and grown, not of the
+    /// band's settlement, within sight of one of it going hears that a band was seen, the claim
+    /// made the first time; another look follows while any band is out.
+    pub(super) fn band_look(&mut self, ctx: &mut Ctx) {
+        let (now, day) = (ctx.now, ctx.now.day_index());
+        let sight = ctx.params.crime.sight_m as f32;
+        let adult = ctx.params.crime.guardian_age;
+        let t = now.minutes() as f64;
+        let out: Vec<usize> = (0..self.order.bands.len())
+            .filter(|&i| self.order.bands[i].stage == BandStage::Out)
+            .collect();
+        if out.is_empty() {
+            return;
+        }
+        for bi in out {
+            let b = &self.order.bands[bi];
+            let going: Vec<(f32, f32)> = b
+                .mustered
+                .iter()
+                .filter(|m| !b.home.contains(m))
+                .filter_map(|&m| self.person(m))
+                .filter(|p| self.with_band(ctx, p))
+                .map(|p| p.position_at(t))
+                .collect();
+            if going.is_empty() {
+                continue;
+            }
+            let (id, settlement) = (b.id, b.settlement);
+            let mut seers: Vec<PermanentId> = Vec::new();
+            for (_, q) in self.people.iter() {
+                if q.asleep || q.age_years(now) < adult || b.mustered.binary_search(&q.id).is_ok() {
+                    continue;
+                }
+                if self.household(q.household).and_then(|x| x.settlement) == Some(settlement) {
+                    continue;
+                }
+                let pos = q.position_at(t);
+                if going
+                    .iter()
+                    .any(|g| (g.0 - pos.0).hypot(g.1 - pos.1) <= sight)
+                {
+                    seers.push(q.id);
+                }
+            }
+            if seers.is_empty() {
+                continue;
+            }
+            let claim = self
+                .word
+                .claims
+                .iter()
+                .find(|c| c.kind == ClaimKind::BandSeen && c.event == Some(id))
+                .map(|c| c.id)
+                .unwrap_or_else(|| {
+                    self.word.make(Claim {
+                        id: 0,
+                        kind: ClaimKind::BandSeen,
+                        settlement,
+                        day,
+                        subject: None,
+                        grievance: None,
+                        suspected: None,
+                        fire: None,
+                        event: Some(id),
+                    })
+                });
+            for q in seers {
+                self.word.hear(q, claim, day, None, Some(q));
+            }
+        }
+        if self.order.bands.iter().any(|b| b.stage == BandStage::Out) {
+            let look = i64::from(ctx.params.bands.look_minutes.max(1));
+            ctx.schedule
+                .push((now.plus_minutes(look), AgentEvent::BandLook));
+        }
+    }
+
+    /// `who`, at the place a band went, leaves at once: the stay ends the next minute.
+    fn leave_now(&mut self, ctx: &mut Ctx, who: PermanentId) {
+        let Some(&h) = self.index.get(&who) else {
+            return;
+        };
+        let Some(p) = self.people.get_mut(h) else {
+            return;
+        };
+        if p.act.step != STEP_THERE {
+            return;
+        }
+        p.act.step_ends = ctx.now.plus_minutes(1);
+        p.act.version = p.act.version.wrapping_add(1);
+        let (id, version, ends) = (p.id, p.act.version, p.act.step_ends);
+        ctx.schedule_step(ends, id, version);
     }
 
     /// Whether `p` is on the band activity.
@@ -759,6 +891,36 @@ impl Population {
         }
         for s in &blows {
             self.note_tie(ctx, s.harm.to, s.harm.by, Act::Struck, 1.0, 0.0);
+        }
+        // Everyone there knows of the raid (ADR-0023 §8), and the household weighs where to live
+        // at once (§10).
+        if let Some(at) = their_settlement {
+            let claim = self.word.make(Claim {
+                id: 0,
+                kind: ClaimKind::Raid,
+                settlement: at,
+                day,
+                subject: Some(b.target),
+                grievance: None,
+                suspected: None,
+                fire: None,
+                event: Some(clash_id),
+            });
+            for f in fighters.iter().filter(|f| !f.killed) {
+                self.word.hear(f.person, claim, day, None, Some(f.person));
+            }
+            self.review_due.insert(b.target);
+        }
+        // Those of the band who gave way go home at once, and all of it when it gave way or
+        // parted (ADR-0023 §4).
+        let all_go = matches!(ended, Ended::BandGaveWay | Ended::Parted);
+        let leaving: Vec<PermanentId> = fighters
+            .iter()
+            .filter(|f| f.side == Side::Band && !f.killed && (all_go || f.gave_way.is_some()))
+            .map(|f| f.person)
+            .collect();
+        for m in leaving {
+            self.leave_now(ctx, m);
         }
         let mut people = vec![b.organizer];
         people.extend(elder);

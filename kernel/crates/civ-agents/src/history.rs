@@ -569,11 +569,13 @@ pub enum ResidenceWhy {
     LeftMap,
     /// Their household went with others to found it (M5a slice AO).
     Founded,
+    /// Their household moved there from raids on its home (M6c slice BJ, ADR-0023 §10).
+    Fled,
 }
 
 impl ResidenceWhy {
     /// Every reason, in code order.
-    pub const ALL: [ResidenceWhy; 9] = [
+    pub const ALL: [ResidenceWhy; 10] = [
         ResidenceWhy::Born,
         ResidenceWhy::Founder,
         ResidenceWhy::Arrived,
@@ -583,6 +585,7 @@ impl ResidenceWhy {
         ResidenceWhy::Exiled,
         ResidenceWhy::LeftMap,
         ResidenceWhy::Founded,
+        ResidenceWhy::Fled,
     ];
 
     /// Its code in saves.
@@ -607,6 +610,7 @@ impl ResidenceWhy {
             ResidenceWhy::Exiled => "sent away by a finding",
             ResidenceWhy::LeftMap => "left with their household",
             ResidenceWhy::Founded => "went with others to found it",
+            ResidenceWhy::Fled => "fled raids with their household",
         }
     }
 }
@@ -804,6 +808,8 @@ pub enum ChronicleKind {
     /// BJ, ADR-0023 §4): `people` is the one who called it, then the household's elder; `place`
     /// the household's home; `number` the food taken, kcal; `name` the sentence.
     Raid,
+    /// A household moved away from raids on its home (M6c slice BJ, ADR-0023 §10): as `Moved`.
+    Fled,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1132,16 +1138,25 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 )],
             }
         }
-        ChronicleKind::Moved => {
+        ChronicleKind::Moved | ChronicleKind::Fled => {
+            let fled = event.kind == ChronicleKind::Fled;
             let Some(eldest) = person(0) else {
-                return vec![Span::Text("A household moved away.".to_owned())];
+                return vec![Span::Text(
+                    if fled {
+                        "A household fled raids."
+                    } else {
+                        "A household moved away."
+                    }
+                    .to_owned(),
+                )];
             };
             let n = event.number.round() as i64;
+            let verb = if fled { "fled raids to" } else { "moved to" };
             let mut spans = vec![Span::Text("The household of ".to_owned()), eldest];
             spans.push(Span::Text(if n > 1 {
-                format!(" ({n} people) moved to ")
+                format!(" ({n} people) {verb} ")
             } else {
-                " moved to ".to_owned()
+                format!(" {verb} ")
             }));
             spans.push(settlement(event));
             spans.push(Span::Text(".".to_owned()));

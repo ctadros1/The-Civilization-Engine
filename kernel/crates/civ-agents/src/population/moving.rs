@@ -93,7 +93,14 @@ impl Population {
         };
         if reviews >= ctx.params.moving.reviews.max(1) {
             self.leanings.remove(&household);
-            self.relocate(ctx, household, to);
+            // A move the raids heard of alone made worth it is flight (ADR-0023 §10).
+            let pull = self.raid_pull(ctx, household, to);
+            let why = if pull > 0.0 && best_move - pull <= 0.0 {
+                ResidenceWhy::Fled
+            } else {
+                ResidenceWhy::Moved
+            };
+            self.relocate_as(ctx, household, to, why);
         } else {
             self.leanings.insert(
                 household,
@@ -151,12 +158,47 @@ impl Population {
                 + mp.w_fed * fed
                 + mp.w_grievance * grievance
                 + mp.w_sickness * sickness
+                + self.raid_pull(ctx, household, s.id)
                 - mp.w_stake * stake
                 - mp.cost
                 - ctx.params.decision.w_walk_hour * walk_h;
             out.push((s.id, worth));
         }
         out
+    }
+
+    /// The raids `household`'s members heard of on settlement `at` (M6c slice BJ, ADR-0023
+    /// §10): each a raid claim still news, counted once however many of them heard it.
+    pub(super) fn raids_believed(&self, household: PermanentId, at: PermanentId) -> usize {
+        let Some(x) = self.household(household) else {
+            return 0;
+        };
+        let mut raids: Vec<u32> = x
+            .members
+            .iter()
+            .flat_map(|&m| self.word.heard_by(m))
+            .filter(|h| {
+                self.word
+                    .claim(h.claim)
+                    .is_some_and(|c| c.kind == crate::word::ClaimKind::Raid && c.settlement == at)
+            })
+            .map(|h| h.claim)
+            .collect();
+        raids.sort_unstable();
+        raids.dedup();
+        raids.len()
+    }
+
+    /// What going from `household`'s home to `to` is worth for the raids its members heard of
+    /// at each, points: `w_raids` for those at home against those there, each counted
+    /// `n / (1 + n)`.
+    fn raid_pull(&self, ctx: &Ctx, household: PermanentId, to: PermanentId) -> f64 {
+        let Some(home) = self.household(household).and_then(|x| x.settlement) else {
+            return 0.0;
+        };
+        let sat = |n: usize| n as f64 / (1.0 + n as f64);
+        ctx.params.moving.w_raids
+            * (sat(self.raids_believed(household, home)) - sat(self.raids_believed(household, to)))
     }
 
     /// Where a household out of food that gives up goes (ADR-0018 §3, §5): the known settlement
@@ -430,9 +472,11 @@ impl Population {
         // What only they knew is lost where they lived, and what they know comes with them
         // (M5b slice AR).
         self.knowledge_crossed(ctx, &old.members, Some(left), Some(to), Some(from), true);
-        if why != ResidenceWhy::Moved {
-            return;
-        }
+        let kind = match why {
+            ResidenceWhy::Moved => ChronicleKind::Moved,
+            ResidenceWhy::Fled => ChronicleKind::Fled,
+            _ => return,
+        };
         let name = ctx
             .land
             .settlements
@@ -441,7 +485,7 @@ impl Population {
             .map_or_else(String::new, |s| s.name.clone());
         self.chronicle_push(
             now,
-            ChronicleKind::Moved,
+            kind,
             old.members.clone(),
             Some(to),
             Some(home),

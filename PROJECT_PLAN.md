@@ -2713,10 +2713,26 @@ and M6a gives rivers a daily flow.
       tie act, deaths are `Violence`, hurts keep people from work, and the chronicle tells it
       (`Raid`). They stay `stay_minutes` and walk home. A wooden spear (wood shaping, 3 hours from
       1.5 kg of timber) is a hunting tool: hunting with one brings back 1.3 times the game. Save
-      schema 110 (`Order.bands`, `Order.clashes`), content API 96, wire 1.73 unchanged. **Not yet
-      built:** laws of band and service, the claim kinds *band seen* and *raid*, flight and the
-      residence reason *fled*, regard lost by those who stayed home, food carried out, those who
-      gave way going home at once, and the band on the observer's map.
+      schema 110 (`Order.bands`, `Order.clashes`), content API 96, wire 1.73 unchanged.
+    - *Bands and encounters, step two, as built (2026-10-15, §9):* when a band sets off, each
+      who went writes the tie act `stayed_home` toward each who said they would come and did not
+      (`bands.shirk_promised` units) and toward each asked who said no (`shirk_asked`; the band
+      keeps who was asked). While any band is out, every `bands.look_minutes` anyone grown and
+      awake of another settlement within the watch's sight of one of it walking hears the claim
+      *band seen* (its band: how many, from where, toward where). Everyone in an encounter who
+      lives hears the claim *raid* (its encounter: who came, the blows, deaths, what was taken),
+      and both are told at home and at the hearth as news, like a fire. Those of the band who
+      gave way leave at once, and all of it when it gave way or the sides parted. The household
+      raided weighs where to live at once, and so does any household when one of its members
+      first hears of a raid on their own settlement (ADR-0023 §10); moving weighs `moving.w_raids`
+      for the raids heard of at home, counted n / (1 + n), less those heard of at the place
+      weighed, and a move the raids alone tipped is recorded as *fled* (a residence reason and a
+      chronicle entry; the dashboard counts it with the exiles, apart from peaceful moves). ADR-0018
+      §5's rule of two reviews running stands, so one raid alone moves nobody. Save schema 111
+      (`ClaimSave.event`, `BandSave.asked`, a pending `BandLook`), content API 97, wire 1.73
+      unchanged (claims reach the inspector in words). **Not yet built:** laws of band and service
+      (`send_band`, `against_raiding`, service owed), food carried out (waits for camps, slice BL),
+      and the band on the observer's map.
   - **BK**: enclosures.
     - A line of sectors around the store, the hearth or homes within a reach: ditch and bank
       from slice BG's lines, palisade parts that rot, gates.
@@ -3780,3 +3796,14 @@ One line each. Don't re-litigate without a reason written next to the entry.
   the takers' settlement, a witness names only takers they know, *harms us* is written, the issue
   `raided` is held and a watch answers it, and a law against taking recovers nothing from
   outsiders. Nothing was tuned.
+- **Bands and encounters, built in two steps (2026-10-15, M6c slice BJ):** no new ADR
+  (ADR-0023 §3-4, §8, §10). Step one: a band is called by anyone at their review or the midnight
+  after their household learns people of another settlement took from it; it goes only where its
+  people have seen homes, within `bands.max_walk_minutes`; joining is each person's choice; the
+  muster is who comes; the encounter is `war::fight`'s per-minute exchange over a frontage with
+  no battle score, and the taking is an ordinary incident across the boundary. Step two: shirking
+  costs regard (the tie act `stayed_home`), bands walking are seen (claim *band seen*), raids are
+  told (claim *raid*), those who gave way leave at once, and raids heard of weigh in where a
+  household lives, with *fled* recorded when they alone tipped a move. Every weight is a design
+  prior named in the content; nothing was tuned. What is not built yet is listed in §7 under the
+  slice.

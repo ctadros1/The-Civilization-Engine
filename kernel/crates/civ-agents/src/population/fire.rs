@@ -179,6 +179,7 @@ impl Population {
                     grievance: None,
                     suspected: None,
                     fire: Some(fire),
+                    event: None,
                 })
             });
         self.word.hear(

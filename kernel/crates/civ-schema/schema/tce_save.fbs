@@ -1691,6 +1691,8 @@ table BandSave {
   clash: uint (id: 14);
   taken: [TakenGood] (id: 15);
   taken_kcal: float (id: 16);
+  // Schema 111 (step two): who were asked and said no, in id order; none in earlier saves.
+  asked: [ulong] (id: 17);
 }
 
 // Someone in an encounter a band met: `side` 0 the band, 1 against it; `holds` 0 hands, 1 an axe,
@@ -1784,6 +1786,8 @@ table ClaimSave {
   counts: [ushort] (id: 10);
   // Schema 99: a found-burning account; 0 for other kinds and earlier saves.
   fire: uint (id: 11);
+  // Schema 111: the encounter a raid names, or the band a sighting names; 0 for other kinds.
+  event: uint (id: 12);
 }
 
 // A source someone suspects (schema 79, M6a slice BA, ADR-0021 §6): held since a day index, by
@@ -2040,7 +2044,7 @@ table FactionsSave {
 // Schema 88 (M6b slice BC): FireStep, a minute of every fire burning, pending whenever one burns.
 // Schema 89 (M6b slice BD): Ignite, a home's fires in use may escape (`person` holds the
 // building's id).
-enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2 }
+enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3 }
 
 table PendingEvent {
   at: long (id: 0);

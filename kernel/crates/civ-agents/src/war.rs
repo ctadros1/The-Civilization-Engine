@@ -112,6 +112,8 @@ pub struct Band {
     pub muster: i64,
     /// Who joined, in the order they chose to.
     pub members: Vec<PermanentId>,
+    /// Who were asked and chose not to, in id order (M6c slice BJ, step two).
+    pub asked: Vec<PermanentId>,
     /// Who were at the hearth at the muster, in id order.
     pub mustered: Vec<PermanentId>,
     /// Who of those came to the target, in the order they came.
@@ -317,6 +319,12 @@ pub struct BandParams {
     pub w_promise: f64,
     /// Minutes it stays at the place it went to.
     pub stay_minutes: u32,
+    /// Minutes between looks by those about at a band walking (a band seen, ADR-0023 §8).
+    pub look_minutes: u32,
+    /// Units of the act `stayed_home` written by each who went toward one who said they would
+    /// come and did not, and toward one who was asked and said no.
+    pub shirk_promised: f64,
+    pub shirk_asked: f64,
     /// Will to stay (points): of one who went with the band; of one standing at their own home;
     /// of a neighbour, at full regard for the household come to.
     pub will_band: f64,
@@ -349,6 +357,9 @@ impl BandParams {
             muster_hour: 7,
             w_promise: 20.0,
             stay_minutes: 30,
+            look_minutes: 10,
+            shirk_promised: 2.0,
+            shirk_asked: 1.0,
             will_band: 2.0,
             will_home: 3.0,
             will_neighbour: 2.0,

@@ -519,6 +519,9 @@ acts = [
   # M4c slice AI, step four (content API 51): being struck weighs against the one who struck, as
   # heavily as their taking from one's own household.
   { act = "struck", familiarity = 0.0, warmth = 0.0, domain = "provision", good = 0.0, bad = 3.0 },
+  # M6c slice BJ, step two (content API 97): one who stayed home when a band went is a little less
+  # to be counted on, a sixth of a refused restitution for each unit (`bands.shirk_*`).
+  { act = "stayed_home", familiarity = 0.0, warmth = 0.0, domain = "word", good = 0.0, bad = 0.5 },
 ]
 
 [standing]                       # standing and notables (ADR-0014 §3-4); tuning values
@@ -986,6 +989,11 @@ reviews = 2
 # moves people; no value). A death of sickness at home, or the first of a household to suspect the
 # water it draws, sets it weighing where to live at once. A design prior, set as `w_grievance`.
 w_sickness = 3.0
+# Raids (M6c slice BJ, step two, ADR-0023 §10): `w_raids` for the raids its members heard of on
+# their settlement, counted n / (1 + n), less those heard of on the place weighed. Word of a raid
+# on their own settlement sets a household weighing where to live at once; a move the raids alone
+# tipped is recorded as fled. A design prior, set as `w_sickness` (05-06 §5.1: safety).
+w_raids = 3.0
 
 [founding]                       # founding a settlement of their own (M5a slice AO); design priors
 # At the same review, a household also weighs founding a settlement with others at a site a member
@@ -1228,6 +1236,15 @@ muster_hour = 7
 w_promise = 20.0
 # Minutes a band stays where it went.
 stay_minutes = 30
+# Content API 97 (step two). Every `look_minutes` while a band is out, anyone grown and awake of
+# another settlement within the watch's sight of one of it going hears that a band was seen
+# (ADR-0023 §8). When it sets off, each who went writes the act `stayed_home` (`[ties]`) toward
+# each who said they would come and did not, `shirk_promised` units, and toward each asked who
+# said no, `shirk_asked` (ADR-0023 §3: "shirking costs regard", a little; design priors, to be
+# measured before they are tuned).
+look_minutes = 10
+shirk_promised = 2.0
+shirk_asked = 1.0
 # Will to stay in an encounter, points: of one who went with the band; of one standing at their
 # own home; of a neighbour, at full regard for the household come to.
 will_band = 2.0

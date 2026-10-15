@@ -20,16 +20,19 @@ pub const PURPOSE_WORD_HEARTH: u64 = 0x776f_7264_6865_6172; // "wordhear"
 /// its kind; so that other claims made or let go never move it (ADR-0016 §6).
 fn claim_key(c: &Claim) -> u64 {
     let whose = match c.kind {
-        ClaimKind::Sickness | ClaimKind::Suspicion | ClaimKind::Fire => {
-            c.subject.map_or(0, PermanentId::get)
-        }
+        ClaimKind::Sickness
+        | ClaimKind::Suspicion
+        | ClaimKind::Fire
+        | ClaimKind::Raid
+        | ClaimKind::BandSeen => c.subject.map_or(0, PermanentId::get),
         _ => c.settlement.get(),
     };
+    let event = c.event.map_or(0, |e| u64::from(e).rotate_left(8));
     let source = c.suspected.map_or(0, |(place, _)| {
         let (kind, id) = place.code();
         id.rotate_left(20) ^ u64::from(kind)
     });
-    whose ^ source ^ (c.day as u64).rotate_left(40) ^ (u64::from(c.kind.code()) << 56)
+    whose ^ source ^ event ^ (c.day as u64).rotate_left(40) ^ (u64::from(c.kind.code()) << 56)
 }
 
 /// Whether claim `c` is told as news on `day`, and how likely a companion at the hearth is to tell
@@ -38,7 +41,10 @@ fn claim_key(c: &Claim) -> u64 {
 fn hearth_chance(c: &Claim, day: i64, wp: &crate::word::WordParams) -> Option<f64> {
     if call_ahead(c, day) {
         Some(wp.share_urgent)
-    } else if c.kind == ClaimKind::Fire {
+    } else if matches!(
+        c.kind,
+        ClaimKind::Fire | ClaimKind::Raid | ClaimKind::BandSeen
+    ) {
         Some(wp.share_routine)
     } else if c.kind.held_news() {
         Some(wp.share_sickness)
@@ -76,6 +82,7 @@ impl Population {
             Some(c) => c,
             None => self.word.make(Claim {
                 fire: None,
+                event: None,
                 id: 0,
                 kind: ClaimKind::Gathering,
                 settlement,
@@ -125,6 +132,7 @@ impl Population {
             Some(c) => c,
             None => self.word.make(Claim {
                 fire: None,
+                event: None,
                 id: 0,
                 kind: ClaimKind::Petition,
                 settlement,
@@ -158,6 +166,7 @@ impl Population {
             Some(c) => c,
             None => self.word.make(Claim {
                 fire: None,
+                event: None,
                 id: 0,
                 kind,
                 settlement,
@@ -277,7 +286,33 @@ impl Population {
             }
         }
         for (listener, claim, teller, origin) in told {
-            self.word.hear(listener, claim, day, Some(teller), origin);
+            self.hear_told(listener, claim, day, teller, origin);
+        }
+    }
+
+    /// `listener` hears claim `claim` from `teller` on `day`; word of a raid on their own
+    /// settlement sets their household weighing where to live at once (ADR-0023 §10).
+    fn hear_told(
+        &mut self,
+        listener: PermanentId,
+        claim: u32,
+        day: i64,
+        teller: PermanentId,
+        origin: Option<PermanentId>,
+    ) {
+        if !self.word.hear(listener, claim, day, Some(teller), origin) {
+            return;
+        }
+        let raid = self
+            .word
+            .claim(claim)
+            .filter(|c| c.kind == ClaimKind::Raid)
+            .map(|c| c.settlement);
+        if let Some(at) = raid
+            && let Some(hh) = self.person(listener).map(|p| p.household)
+            && self.household(hh).and_then(|x| x.settlement) == Some(at)
+        {
+            self.review_due.insert(hh);
         }
     }
 
@@ -314,7 +349,7 @@ impl Population {
             }
         }
         for (listener, claim, teller, origin) in told {
-            self.word.hear(listener, claim, day, Some(teller), origin);
+            self.hear_told(listener, claim, day, teller, origin);
         }
         // And of the grievances each holds keenly.
         self.tell_grievances(ctx, a, b);
@@ -693,6 +728,7 @@ impl Population {
             let claim = claim.unwrap_or_else(|| {
                 self.word.make(Claim {
                     fire: None,
+                    event: None,
                     id: 0,
                     kind: ClaimKind::Grievance,
                     settlement,

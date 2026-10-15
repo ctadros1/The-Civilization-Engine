@@ -1417,13 +1417,14 @@ impl ::flatbuffers::SimpleToVerifyInSlice for TradeChannel {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_EVENT_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_EVENT_KIND: u8 = 2;
+pub const ENUM_MAX_EVENT_KIND: u8 = 3;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_EVENT_KIND: [EventKind; 3] = [
+pub const ENUM_VALUES_EVENT_KIND: [EventKind; 4] = [
   EventKind::AgentStep,
   EventKind::FireStep,
   EventKind::Ignite,
+  EventKind::BandLook,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1434,13 +1435,15 @@ impl EventKind {
   pub const AgentStep: Self = Self(0);
   pub const FireStep: Self = Self(1);
   pub const Ignite: Self = Self(2);
+  pub const BandLook: Self = Self(3);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 2;
+  pub const ENUM_MAX: u8 = 3;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::AgentStep,
     Self::FireStep,
     Self::Ignite,
+    Self::BandLook,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1448,6 +1451,7 @@ impl EventKind {
       Self::AgentStep => Some("AgentStep"),
       Self::FireStep => Some("FireStep"),
       Self::Ignite => Some("Ignite"),
+      Self::BandLook => Some("BandLook"),
       _ => None,
     }
   }
@@ -34501,6 +34505,7 @@ impl<'a> BandSave<'a> {
   pub const VT_CLASH: ::flatbuffers::VOffsetT = 32;
   pub const VT_TAKEN: ::flatbuffers::VOffsetT = 34;
   pub const VT_TAKEN_KCAL: ::flatbuffers::VOffsetT = 36;
+  pub const VT_ASKED: ::flatbuffers::VOffsetT = 38;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -34518,6 +34523,7 @@ impl<'a> BandSave<'a> {
     builder.add_target(args.target);
     builder.add_settlement(args.settlement);
     builder.add_organizer(args.organizer);
+    if let Some(x) = args.asked { builder.add_asked(x); }
     builder.add_taken_kcal(args.taken_kcal);
     if let Some(x) = args.taken { builder.add_taken(x); }
     builder.add_clash(args.clash);
@@ -34652,6 +34658,13 @@ impl<'a> BandSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(BandSave::VT_TAKEN_KCAL, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn asked(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(BandSave::VT_ASKED, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BandSave<'_> {
@@ -34677,6 +34690,7 @@ impl ::flatbuffers::Verifiable for BandSave<'_> {
      .visit_field::<u32>("clash", Self::VT_CLASH, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TakenGood>>>("taken", Self::VT_TAKEN, false)?
      .visit_field::<f32>("taken_kcal", Self::VT_TAKEN_KCAL, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("asked", Self::VT_ASKED, false)?
      .finish();
     Ok(())
   }
@@ -34699,6 +34713,7 @@ pub struct BandSaveArgs<'a> {
     pub clash: u32,
     pub taken: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TakenGood>>>,
     pub taken_kcal: f32,
+    pub asked: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
 }
 impl<'a> Default for BandSaveArgs<'a> {
   #[inline]
@@ -34721,6 +34736,7 @@ impl<'a> Default for BandSaveArgs<'a> {
       clash: 0,
       taken: None,
       taken_kcal: 0.0,
+      asked: None,
     }
   }
 }
@@ -34799,6 +34815,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BandSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(BandSave::VT_TAKEN_KCAL, taken_kcal, 0.0);
   }
   #[inline]
+  pub fn add_asked(&mut self, asked: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BandSave::VT_ASKED, asked);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BandSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BandSaveBuilder {
@@ -34833,6 +34853,7 @@ impl ::core::fmt::Debug for BandSave<'_> {
       ds.field("clash", &self.clash());
       ds.field("taken", &self.taken());
       ds.field("taken_kcal", &self.taken_kcal());
+      ds.field("asked", &self.asked());
       ds.finish()
   }
 }
@@ -35645,6 +35666,7 @@ impl<'a> ClaimSave<'a> {
   pub const VT_PLACE: ::flatbuffers::VOffsetT = 22;
   pub const VT_COUNTS: ::flatbuffers::VOffsetT = 24;
   pub const VT_FIRE: ::flatbuffers::VOffsetT = 26;
+  pub const VT_EVENT: ::flatbuffers::VOffsetT = 28;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -35661,6 +35683,7 @@ impl<'a> ClaimSave<'a> {
     builder.add_subject(args.subject);
     builder.add_day(args.day);
     builder.add_settlement(args.settlement);
+    builder.add_event(args.event);
     builder.add_fire(args.fire);
     if let Some(x) = args.counts { builder.add_counts(x); }
     builder.add_id(args.id);
@@ -35756,6 +35779,13 @@ impl<'a> ClaimSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(ClaimSave::VT_FIRE, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn event(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ClaimSave::VT_EVENT, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ClaimSave<'_> {
@@ -35776,6 +35806,7 @@ impl ::flatbuffers::Verifiable for ClaimSave<'_> {
      .visit_field::<u64>("place", Self::VT_PLACE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u16>>>("counts", Self::VT_COUNTS, false)?
      .visit_field::<u32>("fire", Self::VT_FIRE, false)?
+     .visit_field::<u32>("event", Self::VT_EVENT, false)?
      .finish();
     Ok(())
   }
@@ -35793,6 +35824,7 @@ pub struct ClaimSaveArgs<'a> {
     pub place: u64,
     pub counts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u16>>>,
     pub fire: u32,
+    pub event: u32,
 }
 impl<'a> Default for ClaimSaveArgs<'a> {
   #[inline]
@@ -35810,6 +35842,7 @@ impl<'a> Default for ClaimSaveArgs<'a> {
       place: 0,
       counts: None,
       fire: 0,
+      event: 0,
     }
   }
 }
@@ -35868,6 +35901,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ClaimSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u32>(ClaimSave::VT_FIRE, fire, 0);
   }
   #[inline]
+  pub fn add_event(&mut self, event: u32) {
+    self.fbb_.push_slot::<u32>(ClaimSave::VT_EVENT, event, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ClaimSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ClaimSaveBuilder {
@@ -35897,6 +35934,7 @@ impl ::core::fmt::Debug for ClaimSave<'_> {
       ds.field("place", &self.place());
       ds.field("counts", &self.counts());
       ds.field("fire", &self.fire());
+      ds.field("event", &self.event());
       ds.finish()
   }
 }

@@ -1,7 +1,7 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
-Implementation status (2026-10-14): **M0–M3c are implemented**:
+Implementation status (2026-10-15): **M0–M3c are implemented**:
 world and village life, the early economy, knowledge and building, daily weather, soils and
 fertility, and the Detailed/Accelerated time modes. **M2's kernel library and C interface are
 implemented; its Unreal client remains future work.** **M4, Councils, law and crime, is
@@ -16,15 +16,14 @@ and village log crossings. The earlier roof-style demo no longer qualifies after
 routing separated its villages. A failed agreement ratification is covered by a test world, not a
 lived demo. **M6a, Water and sickness, is implemented**, including the cholera demo, water and
 incident views, and household and polity responses to suspected sources. **M6b, Fire, masonry and
-floods, is in progress:** fire behavior, its observer view, household ignitions, noticing and
-alarms, water carried to threatened roofs, roof stripping and goods salvage are implemented,
-along with the dashboard's Fires row. Masonry, brick and tile, flood depths and wet-floor
-damage, evacuation, storm uplift and flood/storm kernel commands are implemented. BD adds crew demolition, dated fire accounts, response explanations, the Help at a fire lens
-and a published ignition sweep; spontaneous crews and broad response calibration remain unclaimed.
-BG begins with saved physical bank segments, conservative river-flood barriers, borrow storage
-and conditional overtopping erosion with explicit washed soil. Voluntary bank
-work, maintenance, trapped rain, ditches, building rules and the M6b demo remain planned.
-M6c, war and conquest, is future work. See §7 for scope and §9 for
+floods, is implemented:** buildings burn and spread fire by exposure; people notice, raise
+alarms, carry water, strip roofs, salvage goods and pull buildings down; masonry, brick and tile;
+floods and storms by routing and the weather; flood banks and irrigation ditches dug by choice
+and kept by law; building rules proposed after fires and failures, binding new work; and the
+great fire demo. Trapped rain, shared ditches, multi-segment banks, crossing scour and flood
+gates are left open. **M6c, War and conquest, is designed**
+([ADR-0023](decisions/0023-force-between-polities.md), slices BI–BM) and not yet built.
+See §7 for scope and §9 for
 implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
@@ -2636,8 +2635,65 @@ and M6a gives rivers a daily flow.
   raised, supplied and moved, fighting and its losses); the fortification kit carried from M5;
   sieges; conquest and annexation, vassalage, secession, merger and federation.
 - *Demo:* M6's third part: a siege ends in annexation.
-- *Design:* when M6b is done, from `docs/briefs/m6-war.md` and the observer brief, with one ADR
-  expected.
+- *Design (2026-10-15):* one ADR,
+  [ADR-0023](decisions/0023-force-between-polities.md). It amends ADR-0013 §1 and ADR-0018 §1 (a
+  polity over several settlements), ADR-0018 §2 (camping, presence apart from residence),
+  ADR-0020 §4 and §6 (takings across the boundary, blaming a body that sent a band, appended
+  clauses), ADR-0009 and ADR-0010 (enclosures on the walking grid). It covers:
+  - no war calendar and no war state: "at war" is a label;
+  - takings across the boundary, at homes people have seen;
+  - bands called by anyone or by law, joined by choice, supplied by what members carry;
+  - encounters with two sides, by the minute, bounded by frontage, with no battle score;
+  - service owed by law;
+  - enclosures raised by law, with gates kept open or shut;
+  - sieges as camped bands, ended by mechanism;
+  - terms after force, with strength believed, not read;
+  - holds from outside, annexation, merger and secession.
+
+  It draws on the war brief (`docs/briefs/m6-war.md`) and the observer brief, with 13-07 and
+  13-05 checked where the design rests on them. The brief's open questions are answered in §9.
+  Five slices:
+  - **BI**: takings across the boundary.
+    - A probe first: how often a hungry household would rank a store elsewhere above any at
+      home, and how many homes elsewhere households have seen.
+    - `Take`'s targets add homes of another settlement a member has seen, within walking reach.
+    - Attribution by what witnesses know; the view act *harms us*; the issue `raided`.
+    - A demand for restitution across the boundary as a visit; a case heard against an outsider
+      binds nobody there.
+    - A world where nobody has seen a home elsewhere gives the same digests as before.
+  - **BJ**: bands and encounters.
+    - The wooden spear (wood shaping), held as goods.
+    - Band purposes as content; an organizer weighs calling one; joining by choice; muster as who
+      comes; stages; food carried; the walk at the slowest member's pace; spoils on a ledger
+      channel, leaving seed.
+    - Encounters with two sides: per-minute choices, frontage, `blow()` per pair, will to stay,
+      pursuit, those not fighting flee or stay. Lanchester checks as tests.
+    - Grievances, views, the claim kinds *band seen* and *raid*, the residence reason *fled* and
+      the event review.
+    - The policy kinds `send_band` and `against_raiding`, and service owed as an obligation.
+  - **BK**: enclosures.
+    - A line of sectors around the store, the hearth or homes within a reach: ditch and bank
+      from slice BG's lines, palisade parts that rot, gates.
+    - Laid on the walking grid; gates open or shut by their keeper; climbing slow and seen.
+    - The policy kind `enclose`, weighed by takings and raids believed and expected; work owed or
+      in equal shares; upkeep as work orders.
+  - **BL**: sieges and terms after force.
+    - Camps; a band stays by a shut line, takes what lies outside and stops those it sees leave.
+    - Endurance from stores and water as a derived measure; entry by a gate opened, a gap, a
+      climb or an assault at a gate's width.
+    - The clauses compensation, takings heard, no raids, truce, assistance, tribute for peace and
+      one body; a negotiator's estimate of strength from sightings.
+  - **BM**: a polity over several settlements, and the M6c demo.
+    - Each polity's settlements with since and how; membership by residence in any; the body at
+      the seat's hearth.
+    - A hold from outside; the policy kind `annex`; annexation closing the held polity's
+      deciding, with a founding window; the *one body* clause; secession as a revolt scoped to
+      one settlement.
+    - The observer: bands on the map, encounters in plain verbs, lines and gates, a siege page,
+      each polity's settlements.
+    - The demo: a siege, and what each gathering made of it. After a week with none, nudge a
+      prior (a raider's valuation of a store they saw, or how long members stay before their
+      harvest), never an event, and log a `NUDGE:`.
 
 **M7: Politics deepens.**
 - *Contents:*
@@ -3619,3 +3675,46 @@ One line each. Don't re-litigate without a reason written next to the entry.
   established:** whether a rule ever comes to bind in a lived world, and whether its builders keep
   it. M6b closes with BF's open items (crossing scour, flood gates) and BG's trapped rain, shared
   ditches and multi-segment banks recorded as left, not done.
+- **M6c design (2026-10-15, plan §7):** from the war brief and the observer brief
+  (`docs/briefs/m6-war.md`, `m6-observer.md`), with 13-07 §1.2 (Lanchester laws as benchmarks
+  that should not "determine battle termination"), §1.5 (E = min(N_available, K_usable), both
+  sides "from the same pre-step state"), §1.6 (no casualty breakpoint), §1.7 (withdrawal, rout and
+  surrender apart; pursuit needs reach), §2.3 (10–60 s steps; a 2–10 minute window of seen losses)
+  and §5, and 13-05 §1.2–1.3 (joining a raid as each person's utility; the bargaining range)
+  checked where the design rests on them. **One ADR,**
+  [ADR-0023](decisions/0023-force-between-polities.md) (force between polities), amending
+  ADR-0013 §1 and ADR-0018 §1 (a polity over several settlements, with since and how), ADR-0018 §2
+  (camping), ADR-0020 §4 and §6 (takings across the boundary; a body that sent a band is blamed;
+  appended clauses), ADR-0009 and ADR-0010 (enclosures on the walking grid). **Five slices**
+  (§7): BI (takings across the boundary), BJ (bands and encounters), BK (enclosures), BL (sieges
+  and terms after force), BM (a polity over several settlements, and the demo). **In that order**
+  because takings give raids and enclosures a reason before war does (the plan's fortification
+  kit, "takings between villages that give them a purpose before war does"); a band must exist
+  before a line is worth raising against it; a siege needs a band and a shut line; and a change
+  of sovereignty needs a hold or terms. The brief's suggested order put enclosures with takings;
+  they come third here because a line raised only against takings is a fence, which households
+  can already weigh. **The brief's open questions, answered.** (1) Anyone may call a raid
+  (13-05 §1.2); a law may too. Without unauthorized raids a treaty cannot be undermined by its
+  own side. (2) Annexation changes membership: a polity keeps a list of settlements, which is
+  why this milestone needs its ADR. (3) A body of several settlements gathers at its seat's
+  hearth, so distance shows as absence (13-04 §1.7); a custom amendment can move the seat. (4)
+  Per-minute choices and blows replace plan §5.5's Lanchester-style model, which stays as tests
+  (a gate-limited exchange keeps the linear law). (5) Captives wait for M7: custody needs
+  household membership the kernel lacks; a strike on someone not fighting is recorded as the
+  striker's choice. (6) A wooden spear now, made with wood shaping; bows, shields and armour
+  later, each with its materials and skills (07-10 §3.1). (7) Fighting skill comes only by
+  fighting until someone has a reason to ask for drill. (8) Threat is only a forecast term: a
+  household weighing tribute for peace reads the raids and bands it heard of; a leader's demand
+  travelling as a claim waits. (9) Raiders leave seed, as `take_goods` does; a switch is measured
+  later with 13-09 §4's raid before planting against one after harvest. (10) The demo may nudge a
+  raider's valuation of a store they saw, or how long members stay before their harvest calls
+  them home, never an event; `NUDGE:` logged. (11) The *one body* clause (merger) and
+  *assistance* (a league) are enough for M6's merger and federation; a competence matrix waits
+  for M7. (12) Both: an actual raid prompts ADR-0018 §5's event review, and the yearly review
+  weighs raids heard of, with safety among the terms. **The observer brief's question (10):** the
+  siege page shows each side's food at current use, what still comes in and the band's
+  endurance, never a progress bar. **Plot guards:** no date, era, size, rate or count makes a raid
+  likelier; no issue weighs toward a band; the demo names an outcome (annexation) that 13-08
+  §1.8 lists as one of seven endings, so the demo shows the siege and whatever ending the world
+  reaches, and annexation only if a gathering chooses it. **Measured first (BI):** the funnel
+  from targets elsewhere ranked to laws passed, before anything is tuned (the brief's §3).

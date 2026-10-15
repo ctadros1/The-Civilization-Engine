@@ -29,6 +29,7 @@ the milestone is too big and gets split.
 | [0020](0020-relations-between-polities.md) | Relations between polities: agreements ratified by each custom, views held by people | Accepted | M5c |
 | [0021](0021-water-and-sickness.md) | Water and sickness: sources people choose, loads that are conserved, infections no choice reads | Accepted | M6a |
 | [0022](0022-fire-floods-and-storms.md) | Fire, floods and storms: hazards from what people do and what the weather brings, damage on parts, rules people propose | Accepted | M6b |
+| [0023](0023-force-between-polities.md) | Force between polities: takings across the boundary, bands, encounters, enclosures, and a polity over several settlements | Accepted | M6c |
 
 ## Template
 

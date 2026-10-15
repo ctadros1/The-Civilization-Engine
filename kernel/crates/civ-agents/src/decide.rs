@@ -84,6 +84,8 @@ pub struct Facts {
     pub levee: Option<LeveeFacts>,
     /// The irrigation ditch their household is digging to its field, if any (M6b slice BG).
     pub ditch: Option<DitchFacts>,
+    /// A band they joined that musters within the day, if any (M6c slice BJ).
+    pub band: Option<BandFacts>,
     /// Whether a blow keeps them from work today (M4c slice AI, step four): they eat, drink, rest,
     /// sleep and keep company, and do no work.
     pub hurt: bool,
@@ -220,6 +222,19 @@ pub struct DitchFacts {
     pub walk_min: f64,
     pub left_h: f64,
     pub saves_per_hour: f64,
+}
+
+/// A band someone joined that musters within the day (M6c slice BJ, ADR-0023 §3): what going is
+/// worth to one who said they would, its hearth, how long to wait there for the muster, where it
+/// goes and how long it stays.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BandFacts {
+    pub band: u32,
+    pub points: f64,
+    pub hearth: (f32, f32),
+    pub wait_min: f64,
+    pub target: (f32, f32),
+    pub stay_min: u32,
 }
 
 /// A payment someone is to carry (M5c slice AV, ADR-0020 §7): where the store set it aside, the
@@ -1678,6 +1693,31 @@ pub fn candidates(
                     Err(why) => excluded.push((id, why)),
                 }
             }
+            Behavior::Band => {
+                // A band they said they would go with (M6c slice BJ, ADR-0023 §3): to the hearth
+                // for the muster, the walk there at the band's hour, the stay, and home.
+                let Some(b) = f.band else {
+                    excluded.push((id, Reason::NoBand));
+                    continue;
+                };
+                let Some((settlement, _)) = f.hearth else {
+                    excluded.push((id, Reason::NoBand));
+                    continue;
+                };
+                term(&mut terms, Reason::Band, b.points);
+                let steps = vec![
+                    Step::Walk { to: b.hearth },
+                    Step::Work {
+                        minutes: b.wait_min.round().max(1.0) as u32,
+                    },
+                    Step::Walk { to: b.target },
+                    Step::Work {
+                        minutes: b.stay_min.max(1),
+                    },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Hearth(settlement), terms, steps));
+            }
             Behavior::Douse => {
                 // A load of water carried to a roof a fire threatens (M6b slice BD, step three;
                 // ADR-0022 §6): drawn at home or at the nearest source, walked to the roof and
@@ -2116,6 +2156,7 @@ mod tests {
             well: None,
             levee: None,
             ditch: None,
+            band: None,
         }
     }
 

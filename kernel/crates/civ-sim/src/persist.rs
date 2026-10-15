@@ -345,6 +345,8 @@ pub const SCHEMA_V106: u32 = 106;
 pub const SCHEMA_V107: u32 = 107;
 /// Households remember buildings that gave way, before takings cross the boundary.
 pub const SCHEMA_V108: u32 = 108;
+/// Takings cross the boundary, before bands.
+pub const SCHEMA_V109: u32 = 109;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

@@ -116,8 +116,8 @@ use super::{
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
-    SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, finish, section, single_chunk,
-    unreadable,
+    SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -537,6 +537,8 @@ enum Schema {
     V108,
     /// M6c slice BI: an incident names the taker's settlement when it is another.
     V109,
+    /// M6c slice BJ: bands and the encounters they met.
+    V110,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -660,7 +662,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V106 => Schema::V106,
         SCHEMA_V107 => Schema::V107,
         SCHEMA_V108 => Schema::V108,
-        SAVE_SCHEMA_VERSION => Schema::V109,
+        SCHEMA_V109 => Schema::V109,
+        SAVE_SCHEMA_VERSION => Schema::V110,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -3785,7 +3788,8 @@ fn carried(
         | Schema::V106
         | Schema::V107
         | Schema::V108
-        | Schema::V109 => {
+        | Schema::V109
+        | Schema::V110 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4067,7 +4071,8 @@ fn decode_households(
             | Schema::V106
             | Schema::V107
             | Schema::V108
-            | Schema::V109 => {
+            | Schema::V109
+            | Schema::V110 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -4503,6 +4508,102 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let encounters = fbb.create_vector(&encounters);
+    // Bands and the encounters they met (schema 110).
+    let ids = |fbb: &mut flatbuffers::FlatBufferBuilder<'static>, v: &[PermanentId]| {
+        let raw: Vec<u64> = v.iter().map(|p| p.get()).collect();
+        fbb.create_vector(&raw)
+    };
+    let bands: Vec<_> = order
+        .bands
+        .iter()
+        .map(|b| {
+            let members = ids(&mut fbb, &b.members);
+            let mustered = ids(&mut fbb, &b.mustered);
+            let arrived = ids(&mut fbb, &b.arrived);
+            let home = ids(&mut fbb, &b.home);
+            let taken: Vec<save::TakenGood> = b
+                .taken
+                .iter()
+                .map(|&(g, amount)| save::TakenGood::new(g, amount))
+                .collect();
+            let taken = fbb.create_vector(&taken);
+            save::BandSave::create(
+                &mut fbb,
+                &save::BandSaveArgs {
+                    id: b.id,
+                    organizer: b.organizer.get(),
+                    settlement: b.settlement.get(),
+                    purpose: b.purpose.code(),
+                    target: b.target.get(),
+                    place: Some(&point(b.place)),
+                    called: b.called,
+                    muster: b.muster,
+                    members: Some(members),
+                    mustered: Some(mustered),
+                    arrived: Some(arrived),
+                    home: Some(home),
+                    stage: b.stage.code(),
+                    since: b.since,
+                    clash: b.clash.unwrap_or(0),
+                    taken: Some(taken),
+                    taken_kcal: b.taken_kcal,
+                },
+            )
+        })
+        .collect();
+    let bands = fbb.create_vector(&bands);
+    let clashes: Vec<_> = order
+        .clashes
+        .iter()
+        .map(|c| {
+            let fighters: Vec<save::FighterSave> = c
+                .fighters
+                .iter()
+                .map(|f| {
+                    save::FighterSave::new(
+                        f.person.get(),
+                        f.side.code(),
+                        f.holds.code(),
+                        f.will,
+                        f.regard_leader,
+                        f.gave_way.map_or(-1, i32::from),
+                        f.hurt_days,
+                        f.killed,
+                    )
+                })
+                .collect();
+            let fighters = fbb.create_vector(&fighters);
+            let blows: Vec<save::StruckSave> = c
+                .blows
+                .iter()
+                .map(|s| {
+                    save::StruckSave::new(
+                        s.minute,
+                        s.harm.by.get(),
+                        s.harm.to.get(),
+                        s.harm.days,
+                        s.harm.killed,
+                    )
+                })
+                .collect();
+            let blows = fbb.create_vector(&blows);
+            save::ClashSave::create(
+                &mut fbb,
+                &save::ClashSaveArgs {
+                    id: c.id,
+                    at: c.at,
+                    place: Some(&point(c.place)),
+                    band: c.band,
+                    fighters: Some(fighters),
+                    blows: Some(blows),
+                    frontage: c.frontage,
+                    minutes: c.minutes,
+                    ended: c.ended.code(),
+                },
+            )
+        })
+        .collect();
+    let clashes = fbb.create_vector(&clashes);
     let amounts: Vec<save::AmountSave> = order
         .amounts
         .iter()
@@ -4523,6 +4624,8 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
             cases: Some(cases),
             sightings: Some(sightings),
             encounters: Some(encounters),
+            bands: Some(bands),
+            clashes: Some(clashes),
         },
     );
     finish(fbb, root)
@@ -4744,6 +4847,82 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
             harms,
         });
     }
+    for b in root.bands().iter().flatten() {
+        let id = b.id();
+        let list = |v: Option<flatbuffers::Vector<'_, u64>>| -> Vec<PermanentId> {
+            v.map(|v| v.iter().filter_map(id_of).collect())
+                .unwrap_or_default()
+        };
+        let mut taken = Vec::new();
+        for g in b.taken().iter().flatten() {
+            if let Some(good) = saved_good(&goods, u32::from(g.good()), || format!("band {id}"))? {
+                taken.push((good, g.amount()));
+            }
+        }
+        order.bands.push(civ_agents::war::Band {
+            id,
+            organizer: required(b.organizer(), "a band's organizer")?,
+            settlement: required(b.settlement(), "a band's settlement")?,
+            purpose: civ_agents::war::BandPurpose::from_code(b.purpose())
+                .ok_or_else(|| bad(format!("band {id} has purpose code {}", b.purpose())))?,
+            target: required(b.target(), "a band's target")?,
+            place: b.place().map_or((0.0, 0.0), |p| (p.x(), p.y())),
+            called: b.called(),
+            muster: b.muster(),
+            members: list(b.members()),
+            mustered: list(b.mustered()),
+            arrived: list(b.arrived()),
+            home: list(b.home()),
+            stage: civ_agents::war::BandStage::from_code(b.stage())
+                .ok_or_else(|| bad(format!("band {id} has stage code {}", b.stage())))?,
+            since: b.since(),
+            clash: (b.clash() != 0).then_some(b.clash()),
+            taken,
+            taken_kcal: b.taken_kcal(),
+        });
+    }
+    for c in root.clashes().iter().flatten() {
+        let id = c.id();
+        let mut fighters = Vec::new();
+        for f in c.fighters().iter().flatten() {
+            fighters.push(civ_agents::war::Fighter {
+                person: required(f.person(), "one in an encounter")?,
+                side: civ_agents::war::Side::from_code(f.side())
+                    .ok_or_else(|| bad(format!("encounter {id} has side code {}", f.side())))?,
+                holds: civ_agents::war::Holding::from_code(f.holds())
+                    .ok_or_else(|| bad(format!("encounter {id} has holding code {}", f.holds())))?,
+                will: f.will(),
+                regard_leader: f.regard_leader(),
+                gave_way: u16::try_from(f.gave_way()).ok(),
+                hurt_days: f.hurt_days(),
+                killed: f.killed(),
+            });
+        }
+        let mut blows = Vec::new();
+        for s in c.blows().iter().flatten() {
+            blows.push(civ_agents::war::Struck {
+                minute: s.minute(),
+                harm: civ_agents::crime::Harm {
+                    by: required(s.by(), "one who struck")?,
+                    to: required(s.to(), "one struck")?,
+                    days: s.days(),
+                    killed: s.killed(),
+                },
+            });
+        }
+        order.clashes.push(civ_agents::war::Clash {
+            id,
+            at: c.at(),
+            place: c.place().map_or((0.0, 0.0), |p| (p.x(), p.y())),
+            band: c.band(),
+            fighters,
+            blows,
+            frontage: c.frontage(),
+            minutes: c.minutes(),
+            ended: civ_agents::war::Ended::from_code(c.ended())
+                .ok_or_else(|| bad(format!("encounter {id} has ending code {}", c.ended())))?,
+        });
+    }
     let problems = order_problems(&order);
     if !problems.is_empty() {
         return Err(LoadError::Invalid(problems));
@@ -4884,6 +5063,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Flood => 49,
         ChronicleKind::StormDamage => 50,
         ChronicleKind::Ditch => 51,
+        ChronicleKind::Raid => 52,
     }
 }
 
@@ -4940,6 +5120,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         49 => Some(ChronicleKind::Flood),
         50 => Some(ChronicleKind::StormDamage),
         51 => Some(ChronicleKind::Ditch),
+        52 => Some(ChronicleKind::Raid),
         _ => None,
     }
 }

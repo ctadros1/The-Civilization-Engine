@@ -90,11 +90,14 @@ pub enum Behavior {
     /// Walk to the irrigation ditch the household is digging to its field, dig and form its
     /// channel, and walk home (M6b slice BG): the activity's numbers, the ditch's earth.
     Ditch,
+    /// Go with a band they joined: to the hearth for the muster, there, and home (M6c slice
+    /// BJ, ADR-0023 §3).
+    Band,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 31] = [
+    pub const ALL: [Behavior; 32] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -126,6 +129,7 @@ impl Behavior {
         Behavior::Pull,
         Behavior::Levee,
         Behavior::Ditch,
+        Behavior::Band,
     ];
 
     /// The authored name of a behavior.
@@ -162,6 +166,7 @@ impl Behavior {
             Behavior::Pull => "pull",
             Behavior::Levee => "levee",
             Behavior::Ditch => "ditch",
+            Behavior::Band => "band",
         }
     }
 
@@ -1754,6 +1759,8 @@ pub struct PeopleParams {
     pub ditches: crate::irrigation::DitchPlanParams,
     /// How people weigh a rule for building (M6b slice BH).
     pub rules: crate::rules::RuleParams,
+    /// Who calls a band, who joins it and how encounters run (M6c slice BJ).
+    pub bands: crate::war::BandParams,
     /// Names.
     pub names: NameParams,
 }

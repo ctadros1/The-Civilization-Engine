@@ -1190,3 +1190,70 @@ memory_years = 10.0
 # years over which it weighs that against what its next building would cost more under the rule.
 avoided_share = 0.5
 horizon_years = 20.0
+
+[bands]                          # who calls a band, who joins it and how it runs (M6c slice BJ, ADR-0023 §3-4); design priors unless cited
+# Days between someone's reviews of calling a band, as for any choice they reconsider monthly
+# (research 13-05 §2.4 tests 7-30 days); someone whose household came to know that people of
+# another settlement took from it weighs it the next midnight. 0 calls none.
+review_days = 30
+# Ages that call, join and go (the same as hunting).
+min_age = 15.0
+max_age = 60.0
+# The longest walk a band goes, minutes one way (two hours: a raid and the walk home in a day).
+max_walk_minutes = 120.0
+# The share of a load someone hopes to find in a store of a settlement whose food they never saw.
+food_prior = 0.5
+# Points for each day of their household's food a load would bring home; for each unit of
+# grievance against the household it goes to; against, for each defender they believe would
+# stand there, shared among those who go; and against, for their objection to taking (0-1).
+w_spoils = 0.5
+w_grievance = 2.0
+w_danger = 1.5
+w_objection = 4.0
+# Points for regard for the organizer, and for regard for those who have joined (research 13-05
+# §1.2: status and reciprocity; 13-06 §1.2: trust in the organizer).
+w_regard = 2.0
+w_follow = 1.0
+# The range a person's reluctance to call a band, and to join one, is drawn in.
+call_threshold = [1.0, 4.0]
+join_threshold = [0.5, 3.0]
+# The least regard an organizer holds for someone to tell them, and the most they tell.
+join_regard = 0.3
+told_most = 12
+# The fewest at the muster for a band to set off, the organizer counting.
+least = 2
+# The hour it musters the day after it is called, and what going is worth to one who said they
+# would (enough to set aside most of a morning's work).
+muster_hour = 7
+w_promise = 20.0
+# Minutes a band stays where it went.
+stay_minutes = 30
+# Will to stay in an encounter, points: of one who went with the band; of one standing at their
+# own home; of a neighbour, at full regard for the household come to.
+will_band = 2.0
+will_home = 3.0
+will_neighbour = 2.0
+
+[bands.fight]                    # how an encounter runs (ADR-0023 §4; research 13-07 §1.5-1.7, §2.3)
+# The longest an encounter runs, minutes (13-07 §2.3: steps of 10-60 s; the kernel's minute is
+# the top of that range).
+max_minutes = 60
+# Pairs that can fight at once at a household's home, its door and yard (13-07 §1.5:
+# E = min(N_available, K_usable)).
+frontage_home = 3
+# The chance a paired fighter lands a blow in a minute, by what they hold.
+land_hands = 0.03
+land_axe = 0.06
+land_spear = 0.08
+# Days a landed blow keeps someone from work, and the share that kill: the watch's blows'
+# priors (M4c slice AI; no report gives a rate for a blow among villagers).
+hurt_days = [3, 21]
+kill_share = 0.02
+# Will lost for each blow one's own side took in the last `seen_minutes` (13-07 §2.3 tests 2-10),
+# by the share of one's own side who have given way, and for each day of one's own hurt; will kept
+# for regard for the one who leads one's side while they stand (13-07 §1.8).
+will_seen = 0.5
+seen_minutes = 5
+will_gave = 2.0
+will_hurt = 0.2
+will_leader = 1.0

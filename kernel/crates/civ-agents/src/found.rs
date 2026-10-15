@@ -1788,6 +1788,7 @@ pub(crate) mod tests {
             levees: crate::levees::LeveeParams::default(),
             ditches: crate::irrigation::DitchPlanParams::default(),
             rules: crate::rules::RuleParams::default(),
+            bands: crate::war::BandParams::core(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

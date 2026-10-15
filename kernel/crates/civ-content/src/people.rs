@@ -79,6 +79,160 @@ pub(crate) struct PeopleFile {
     pub ditches: DitchesFile,
     /// How people weigh a rule for building (M6b slice BH; content API 93).
     pub rules: RulesFile,
+    /// Who calls a band, who joins it and how encounters run (M6c slice BJ; content API 96).
+    pub bands: BandsFile,
+}
+
+/// Who calls a band, who joins it and how it runs (M6c slice BJ; content API 96). See
+/// [`civ_agents::war::BandParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct BandsFile {
+    pub review_days: u32,
+    pub min_age: f64,
+    pub max_age: f64,
+    pub max_walk_minutes: f64,
+    pub food_prior: f64,
+    pub w_spoils: f64,
+    pub w_grievance: f64,
+    pub w_danger: f64,
+    pub w_objection: f64,
+    pub w_regard: f64,
+    pub w_follow: f64,
+    pub call_threshold: [f64; 2],
+    pub join_threshold: [f64; 2],
+    pub join_regard: f64,
+    pub told_most: u32,
+    pub least: u32,
+    pub muster_hour: u32,
+    pub w_promise: f64,
+    pub stay_minutes: u32,
+    pub will_band: f64,
+    pub will_home: f64,
+    pub will_neighbour: f64,
+    pub fight: FightFile,
+}
+
+/// How an encounter runs (M6c slice BJ; content API 96). See [`civ_agents::war::FightParams`].
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct FightFile {
+    pub max_minutes: u16,
+    pub frontage_home: u32,
+    pub land_hands: f64,
+    pub land_axe: f64,
+    pub land_spear: f64,
+    pub hurt_days: [u16; 2],
+    pub kill_share: f64,
+    pub will_seen: f64,
+    pub seen_minutes: u16,
+    pub will_gave: f64,
+    pub will_hurt: f64,
+    pub will_leader: f64,
+}
+
+impl BandsFile {
+    fn params(&self) -> civ_agents::war::BandParams {
+        let f = &self.fight;
+        civ_agents::war::BandParams {
+            review_days: self.review_days,
+            min_age: self.min_age,
+            max_age: self.max_age,
+            max_walk_minutes: self.max_walk_minutes,
+            food_prior: self.food_prior,
+            w_spoils: self.w_spoils,
+            w_grievance: self.w_grievance,
+            w_danger: self.w_danger,
+            w_objection: self.w_objection,
+            w_regard: self.w_regard,
+            w_follow: self.w_follow,
+            call_threshold: self.call_threshold,
+            join_threshold: self.join_threshold,
+            join_regard: self.join_regard,
+            told_most: self.told_most,
+            least: self.least,
+            muster_hour: self.muster_hour,
+            w_promise: self.w_promise,
+            stay_minutes: self.stay_minutes,
+            will_band: self.will_band,
+            will_home: self.will_home,
+            will_neighbour: self.will_neighbour,
+            fight: civ_agents::war::FightParams {
+                max_minutes: f.max_minutes,
+                frontage_home: f.frontage_home,
+                land_hands: f.land_hands,
+                land_axe: f.land_axe,
+                land_spear: f.land_spear,
+                hurt_days: f.hurt_days,
+                kill_share: f.kill_share,
+                will_seen: f.will_seen,
+                seen_minutes: f.seen_minutes,
+                will_gave: f.will_gave,
+                will_hurt: f.will_hurt,
+                will_leader: f.will_leader,
+            },
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        let f = &self.fight;
+        for (name, v, lo, hi) in [
+            ("bands.min_age", self.min_age, 0.0, 130.0),
+            ("bands.max_age", self.max_age, 0.0, 130.0),
+            ("bands.max_walk_minutes", self.max_walk_minutes, 1.0, 1440.0),
+            ("bands.food_prior", self.food_prior, 0.0, 1.0),
+            ("bands.w_spoils", self.w_spoils, 0.0, 100.0),
+            ("bands.w_grievance", self.w_grievance, 0.0, 100.0),
+            ("bands.w_danger", self.w_danger, 0.0, 100.0),
+            ("bands.w_objection", self.w_objection, 0.0, 100.0),
+            ("bands.w_regard", self.w_regard, 0.0, 100.0),
+            ("bands.w_follow", self.w_follow, 0.0, 100.0),
+            ("bands.join_regard", self.join_regard, 0.0, 1.0),
+            ("bands.w_promise", self.w_promise, 0.0, 1000.0),
+            ("bands.will_band", self.will_band, 0.0, 100.0),
+            ("bands.will_home", self.will_home, 0.0, 100.0),
+            ("bands.will_neighbour", self.will_neighbour, 0.0, 100.0),
+            ("bands.fight.land_hands", f.land_hands, 0.0, 1.0),
+            ("bands.fight.land_axe", f.land_axe, 0.0, 1.0),
+            ("bands.fight.land_spear", f.land_spear, 0.0, 1.0),
+            ("bands.fight.kill_share", f.kill_share, 0.0, 1.0),
+            ("bands.fight.will_seen", f.will_seen, 0.0, 100.0),
+            ("bands.fight.will_gave", f.will_gave, 0.0, 100.0),
+            ("bands.fight.will_hurt", f.will_hurt, 0.0, 100.0),
+            ("bands.fight.will_leader", f.will_leader, 0.0, 100.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        if self.min_age > self.max_age {
+            p.push("`bands.min_age` must not be above `bands.max_age`".to_owned());
+        }
+        for (name, [lo, hi]) in [
+            ("bands.call_threshold", self.call_threshold),
+            ("bands.join_threshold", self.join_threshold),
+        ] {
+            if !(lo.is_finite() && hi.is_finite() && lo <= hi) {
+                p.push(format!(
+                    "`{name}` must be two finite numbers, low then high"
+                ));
+            }
+        }
+        if self.muster_hour > 23 {
+            p.push("`bands.muster_hour` must be an hour of the day, 0-23".to_owned());
+        }
+        if self.least == 0 {
+            p.push("`bands.least` must be at least 1".to_owned());
+        }
+        if f.max_minutes == 0 || f.frontage_home == 0 || f.seen_minutes == 0 {
+            p.push(
+                "`bands.fight` minutes, frontage and seen minutes must be at least 1".to_owned(),
+            );
+        }
+        if f.hurt_days[0] > f.hurt_days[1] {
+            p.push("`bands.fight.hurt_days` must be low then high".to_owned());
+        }
+    }
 }
 
 /// How people weigh a rule for building (M6b slice BH; content API 93). See
@@ -2067,6 +2221,7 @@ impl PeopleFile {
             levees: self.levees.params(),
             ditches: self.ditches.params(),
             rules: self.rules.params(),
+            bands: self.bands.params(),
             relations: civ_agents::views::RelationsParams {
                 prior: self.relations.prior,
                 half_life_days: self.relations.half_life_days,
@@ -2103,6 +2258,7 @@ impl PeopleFile {
         self.levees.problems(&mut p);
         self.ditches.problems(&mut p);
         self.rules.problems(&mut p);
+        self.bands.problems(&mut p);
         if !(self.places.sight_m.is_finite() && (0.0..=10_000.0).contains(&self.places.sight_m)) {
             p.push(format!(
                 "`places.sight_m` must be between 0 and 10000 (got {})",

@@ -1,0 +1,14 @@
+# Cutting a straight pole, shaping its point and hardening it in the fire: about 3 hours from
+# 1.5 kg of wood (a tuning value; the research gives none).
+kind = "recipe"
+id = "core:recipe/make_spear"
+name = "Make a spear"
+skill = "core:skill/woodworking"
+technique = "core:technique/wood_shaping"
+unit_h = 3.0
+session_h = 0.0
+max_units = 1.0
+tools = []
+inputs = [{ good = "core:good/timber", amount = 1.5 }]
+outputs = [{ good = "core:good/spear", amount = 1.0 }]
+session_inputs = []

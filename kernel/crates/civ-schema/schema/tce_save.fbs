@@ -1670,6 +1670,65 @@ struct HarmSave {
   killed: bool;
 }
 
+// A band (schema 110, M6c slice BJ, ADR-0023 §3). `purpose`: 0 take, 1 take back. `stage`: 0
+// called, 1 out, 2 home, 3 dispersed. `clash` is 0 when it met none. Minutes are from the calendar
+// origin; `taken` indexes `Order.goods`.
+table BandSave {
+  id: uint (id: 0);
+  organizer: ulong (id: 1);
+  settlement: ulong (id: 2);
+  purpose: ubyte (id: 3);
+  target: ulong (id: 4);
+  place: Point (id: 5);
+  called: long (id: 6);
+  muster: long (id: 7);
+  members: [ulong] (id: 8);
+  mustered: [ulong] (id: 9);
+  arrived: [ulong] (id: 10);
+  home: [ulong] (id: 11);
+  stage: ubyte (id: 12);
+  since: long (id: 13);
+  clash: uint (id: 14);
+  taken: [TakenGood] (id: 15);
+  taken_kcal: float (id: 16);
+}
+
+// Someone in an encounter a band met: `side` 0 the band, 1 against it; `holds` 0 hands, 1 an axe,
+// 2 a spear; `gave_way` the minute they gave way, or -1.
+struct FighterSave {
+  person: ulong;
+  side: ubyte;
+  holds: ubyte;
+  will: float;
+  regard_leader: float;
+  gave_way: int;
+  hurt_days: ushort;
+  killed: bool;
+}
+
+// A blow in an encounter a band met, with the minute it fell.
+struct StruckSave {
+  minute: ushort;
+  by: ulong;
+  to: ulong;
+  days: ushort;
+  killed: bool;
+}
+
+// An encounter a band met (schema 110). `ended`: 0 nobody stood, 1 those against it gave way, 2 the
+// band gave way, 3 each went its way.
+table ClashSave {
+  id: uint (id: 0);
+  at: long (id: 1);
+  place: Point (id: 2);
+  band: uint (id: 3);
+  fighters: [FighterSave] (id: 4);
+  blows: [StruckSave] (id: 5);
+  frontage: uint (id: 6);
+  minutes: ushort (id: 7);
+  ended: ubyte (id: 8);
+}
+
 table EncounterSave {
   id: uint (id: 0);
   day: long (id: 1);
@@ -1698,6 +1757,9 @@ table Order {
   sightings: [SightingSave] (id: 9);
   // Watchers come to households to take what a refused finding owed (schema 47); absent before.
   encounters: [EncounterSave] (id: 10);
+  // Bands called and the encounters they met (schema 110, M6c slice BJ); absent before.
+  bands: [BandSave] (id: 11);
+  clashes: [ClashSave] (id: 12);
 }
 
 // Section "word" (schema 35, M4c slice AE, ADR-0016): shared claims, who heard them, and the

@@ -264,3 +264,164 @@ fn knowing_who_of_another_village_took_holds_its_polity_harms_ours_and_raises_ra
     assert_eq!(i.across, Some(a));
     assert!(loaded.people().raided_within_for_tests(held, day - 365));
 }
+
+/// A band of `n` adults of settlement `a`, called by the first, to the first household of `b`,
+/// mustering at `muster_hour` the next day: set down as if called (the calling is a choice weighed
+/// elsewhere; this shows what follows from it).
+fn a_band(sim: &mut Sim, a: PermanentId, b: PermanentId, n: usize, muster_hour: i64) -> u32 {
+    use civ_agents::war::{Band, BandPurpose, BandStage};
+    let now = sim.now();
+    let adult = sim.rules().people.bands.min_age;
+    let theirs = households_of(sim, b)[0];
+    let pop = sim.people_mut_for_tests();
+    let place = pop.household(theirs).expect("household").home;
+    let mut adults: Vec<PermanentId> = pop
+        .people
+        .iter()
+        .filter(|(_, p)| p.age_years(now) >= adult && p.age_years(now) <= 50.0)
+        .filter(|(_, p)| pop.household(p.household).and_then(|x| x.settlement) == Some(a))
+        .map(|(_, p)| p.id)
+        .collect();
+    adults.sort_unstable();
+    adults.truncate(n);
+    let id = pop.order.bands.last().map_or(1, |x| x.id + 1);
+    pop.order.bands.push(Band {
+        id,
+        organizer: adults[0],
+        settlement: a,
+        purpose: BandPurpose::Take,
+        target: theirs,
+        place,
+        called: now.minutes(),
+        muster: (now.day_index() + 1) * DAY + muster_hour * 60,
+        members: adults,
+        mustered: Vec::new(),
+        arrived: Vec::new(),
+        home: Vec::new(),
+        stage: BandStage::Called,
+        since: now.minutes(),
+        clash: None,
+        taken: Vec::new(),
+        taken_kcal: 0.0,
+    });
+    id
+}
+
+#[test]
+fn a_band_musters_walks_to_the_household_meets_whoever_stands_and_comes_home() {
+    use civ_agents::war::BandStage;
+    let mut sim = two_villages(3, 30);
+    sim.advance_minutes(DAY).expect("advances");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let id = a_band(&mut sim, a, b, 5, 10);
+    for _ in 0..(3 * 24) {
+        sim.advance_minutes(60).expect("advances");
+        let band = sim
+            .people()
+            .order
+            .bands
+            .iter()
+            .find(|x| x.id == id)
+            .expect("band");
+        if band.stage.over() {
+            break;
+        }
+    }
+    let pop = sim.people();
+    let band = pop.order.bands.iter().find(|x| x.id == id).expect("band");
+    assert!(
+        band.stage == BandStage::Home,
+        "the band went and came home: {:?}, {} of {} came to the muster",
+        band.stage,
+        band.mustered.len(),
+        band.members.len()
+    );
+    assert!(band.mustered.len() >= 2, "muster is who comes");
+    assert!(band.mustered.iter().all(|m| band.members.contains(m)));
+    let clash = pop
+        .order
+        .clashes
+        .iter()
+        .find(|c| Some(c.id) == band.clash)
+        .expect("it met what it met");
+    // Everyone of the band in it came at the muster and arrived; at most two blows a pair a
+    // minute; an incident across the boundary records it.
+    for f in clash
+        .fighters
+        .iter()
+        .filter(|f| f.side == civ_agents::war::Side::Band)
+    {
+        assert!(band.arrived.contains(&f.person));
+    }
+    assert!(clash.blows.len() <= 2 * clash.frontage as usize * usize::from(clash.minutes.max(1)));
+    let incident = pop
+        .order
+        .incidents
+        .iter()
+        .rev()
+        .find(|i| i.target == band.target)
+        .expect("the taking or the try is an incident");
+    assert_eq!(incident.across, Some(a));
+    assert!(
+        pop.chronicle
+            .iter()
+            .any(|e| e.kind == civ_agents::history::ChronicleKind::Raid)
+    );
+    // What the band took is what the incident records.
+    assert!((incident.kcal - band.taken_kcal).abs() < 1.0);
+    if let Some(e) = pop
+        .chronicle
+        .iter()
+        .rev()
+        .find(|e| e.kind == civ_agents::history::ChronicleKind::Raid)
+    {
+        eprintln!(
+            "{} of {} came to the muster, {} arrived; {} minutes, {:?}: {}",
+            band.mustered.len(),
+            band.members.len(),
+            band.arrived.len(),
+            clash.minutes,
+            clash.ended,
+            e.name
+        );
+    }
+}
+
+#[test]
+fn a_band_out_saves_and_loads_and_goes_on_alike() {
+    use civ_agents::war::BandStage;
+    let mut sim = two_villages(3, 30);
+    sim.advance_minutes(DAY).expect("advances");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let id = a_band(&mut sim, a, b, 5, 10);
+    for _ in 0..48 {
+        sim.advance_minutes(30).expect("advances");
+        let stage = sim
+            .people()
+            .order
+            .bands
+            .iter()
+            .find(|x| x.id == id)
+            .map(|x| x.stage);
+        if stage != Some(BandStage::Called) {
+            break;
+        }
+    }
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "band").expect("saves");
+    let mut loaded = persist::load(&saved.path, content()).expect("loads");
+    let same = |x: &Sim, y: &Sim| {
+        let (x, y) = (persist::encode_sections(x), persist::encode_sections(y));
+        assert_eq!(x.len(), y.len());
+        for (p, q) in x.iter().zip(&y) {
+            assert!(p.bytes == q.bytes, "section `{}` differs", p.tag);
+        }
+    };
+    same(&sim, &loaded);
+    sim.advance_minutes(DAY).expect("advances");
+    loaded.advance_minutes(DAY).expect("advances");
+    same(&sim, &loaded);
+}

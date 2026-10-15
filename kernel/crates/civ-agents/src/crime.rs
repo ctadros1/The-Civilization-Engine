@@ -647,6 +647,10 @@ pub struct Order {
     /// Watchers come to households to take what a refused finding owed, in order (M4c slice AI,
     /// step four).
     pub encounters: Vec<Encounter>,
+    /// Bands called, in the order called (M6c slice BJ, ADR-0023 §3).
+    pub bands: Vec<crate::war::Band>,
+    /// Encounters bands met, in order (M6c slice BJ, ADR-0023 §4).
+    pub clashes: Vec<crate::war::Clash>,
     /// Asks refused because the giver believed the asker took (a counter, not saved).
     pub refusals: u64,
 }
@@ -732,9 +736,17 @@ impl Encounter {
 impl Order {
     /// The day through which `person` is kept from work by blows they took, if any.
     pub fn hurt_until(&self, person: PermanentId) -> Option<i64> {
-        self.encounters
+        let watch = self
+            .encounters
             .iter()
-            .flat_map(|e| e.harms.iter().map(move |h| (e.day, h)))
+            .flat_map(|e| e.harms.iter().map(move |h| (e.day, h)));
+        let bands = self.clashes.iter().flat_map(|c| {
+            c.blows
+                .iter()
+                .map(move |s| (c.at.div_euclid(civ_core::time::MINUTES_PER_DAY), &s.harm))
+        });
+        watch
+            .chain(bands)
             .filter(|(_, h)| h.to == person && !h.killed)
             .map(|(day, h)| day + i64::from(h.days))
             .max()

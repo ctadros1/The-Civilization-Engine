@@ -64,6 +64,7 @@ mod moving;
 mod norm;
 mod opinion;
 mod payments;
+mod war;
 pub use crime::TakeProbe;
 pub use payments::Burden;
 mod places;
@@ -2774,6 +2775,11 @@ impl Population {
             farm::days_to_harvest(c, self.fields_of(ctx.land, hh_id), now.day_index())
                 + params.household.harvest_margin_days
         });
+        // A band they joined that musters within the day (M6c slice BJ).
+        let band_facts = match self.people.get(h).map(|p| (p.id, p.pos)) {
+            Some((who, pos)) => self.band_facts(ctx, who, pos),
+            None => None,
+        };
         // Roofs a fire they know of threatens (M6b slice BD, step three).
         let fire_facts = self.fire_facts(
             ctx,
@@ -2850,6 +2856,7 @@ impl Population {
             well: self.well_facts(ctx, &hh, p.id, dark),
             levee: self.levee_facts(ctx, &hh, p.id, field_key, dark),
             ditch: self.ditch_facts(ctx, &hh, field_key, dark),
+            band: band_facts,
             hurt: self
                 .order
                 .hurt_until(p.id)
@@ -4244,6 +4251,10 @@ impl Population {
         minutes: u32,
         behavior: Option<Behavior>,
     ) {
+        // At the muster, or arrived where the band went (M6c slice BJ).
+        if behavior == Some(Behavior::Band) {
+            self.band_work(ctx, h);
+        }
         let now = ctx.now;
         let params = ctx.params;
         let present = match (behavior, self.people.get(h)) {
@@ -4340,7 +4351,8 @@ impl Population {
                 | Behavior::Douse
                 | Behavior::Strip
                 | Behavior::Pull
-                | Behavior::Salvage,
+                | Behavior::Salvage
+                | Behavior::Band,
             ) => (def_par, false, 0.0),
             None => (params.energy.idle_par, false, 0.0),
         };
@@ -4355,6 +4367,16 @@ impl Population {
     }
 
     fn end_step(&mut self, ctx: &mut Ctx, h: Handle<Person>) {
+        // The muster, and coming home, for those with a band (M6c slice BJ).
+        let band = self.people.get(h).is_some_and(|p| {
+            ctx.catalog
+                .activities
+                .get(p.act.def as usize)
+                .is_some_and(|a| a.behavior == Behavior::Band)
+        });
+        if band {
+            self.band_step_ended(ctx, h);
+        }
         let now = ctx.now;
         let params = ctx.params;
         let Some(p) = self.people.get_mut(h) else {
@@ -5907,6 +5929,7 @@ impl Population {
         // Takings found, word of them gone round, and what households taken from choose and are
         // owed (ADR-0015).
         self.crime_day(ctx);
+        self.band_day(ctx);
         // The yearly land review (ADR-0007 §2): fields given out by need, or ground nobody holds
         // any more taken up.
         if day.rem_euclid(365) == i64::from(ctx.regime.review_day) {

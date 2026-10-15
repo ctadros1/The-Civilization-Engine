@@ -185,6 +185,10 @@ pub enum Reason {
     /// The water an irrigation ditch the household is digging would bring its field, for the
     /// work this session puts into it (M6b slice BG).
     Ditch = 147,
+    /// Going with a band they said they would go with (M6c slice BJ, ADR-0023 §3).
+    Band = 148,
+    /// No band they joined musters today.
+    NoBand = 149,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -196,7 +200,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 81] = [
+    pub const ALL: [Reason; 83] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -278,6 +282,8 @@ impl Reason {
         Reason::HomeFlooded,
         Reason::Levee,
         Reason::Ditch,
+        Reason::Band,
+        Reason::NoBand,
     ];
 
     /// The reason with this code.
@@ -371,6 +377,8 @@ impl Reason {
             Reason::HomeFlooded => "home is flooded",
             Reason::Levee => "what a flood bank would keep out",
             Reason::Ditch => "the water a ditch would bring the field",
+            Reason::Band => "the band they said they would go with",
+            Reason::NoBand => "no band they joined musters today",
         }
     }
 }
@@ -792,6 +800,10 @@ pub enum ChronicleKind {
     /// A household finished digging an irrigation ditch to its field (M6b slice BG): `people` is
     /// who dug its last, `place` its middle, and `name` the sentence.
     Ditch,
+    /// A band met those of another settlement who stood against it, or found nobody (M6c slice
+    /// BJ, ADR-0023 §4): `people` is the one who called it, then the household's elder; `place`
+    /// the household's home; `number` the food taken, kcal; `name` the sentence.
+    Raid,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1432,7 +1444,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::Fire
         | ChronicleKind::Flood
         | ChronicleKind::StormDamage
-        | ChronicleKind::Ditch => {
+        | ChronicleKind::Ditch
+        | ChronicleKind::Raid => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

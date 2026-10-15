@@ -2687,6 +2687,36 @@ and M6a gives rivers a daily flow.
     - Grievances, views, the claim kinds *band seen* and *raid*, the residence reason *fled* and
       the event review.
     - The policy kinds `send_band` and `against_raiding`, and service owed as an obligation.
+    - *Bands and encounters, step one, as built (2026-10-15, §9):* each adult reviews calling
+      a band every `bands.review_days` (on a day set by who they are), and the midnight after
+      their household comes to know people of another settlement took from it. The band goes to
+      take back from the household they know took, or else to take from the nearest home of a
+      settlement their people have seen, within `bands.max_walk_minutes`. Calling is worth their
+      household's load in days of its food, as they hope to find it (`food_prior` where they
+      never saw that village's food), and their grievance against the household, less the danger
+      of the defenders they know of (shared with a companion), the walk and their objection to
+      taking; a keyed reluctance in `call_threshold` must be passed. They tell up to `told_most`
+      adults they regard, each of whom weighs joining as calling with the danger shared among
+      those who joined, their regard for the organizer and for those already going. A band of
+      `least` or more musters the next day at `muster_hour`: those who joined choose the band
+      activity (worth `w_promise`), walk to the hearth, and whoever is there at the hour goes.
+      They walk to the household at their own pace, and when every one who went has arrived the
+      encounter runs (`war::fight`): the household's adults at home and neighbours awake within
+      sight who choose to stand (by regard for the household) against the band, pairs up to
+      `frontage_home`, blows landing at a chance set by what each holds (a spear, an axe, bare
+      hands; a household's spears and axes go to its people in order), each blow `hurt_days`
+      and `kill_share` as the watch's; each minute each still standing stays or gives way by the
+      blows their side took in the last `seen_minutes`, the share of their side gone, their own
+      hurts and their regard for a leader who stands. If the band holds the place, each standing
+      member carries off a load, the seed left. The taking or the try is an incident across the
+      boundary, seen by those who stood, who name those of the band they know; every blow is a
+      tie act, deaths are `Violence`, hurts keep people from work, and the chronicle tells it
+      (`Raid`). They stay `stay_minutes` and walk home. A wooden spear (wood shaping, 3 hours from
+      1.5 kg of timber) is a hunting tool: hunting with one brings back 1.3 times the game. Save
+      schema 110 (`Order.bands`, `Order.clashes`), content API 96, wire 1.73 unchanged. **Not yet
+      built:** laws of band and service, the claim kinds *band seen* and *raid*, flight and the
+      residence reason *fled*, regard lost by those who stayed home, food carried out, those who
+      gave way going home at once, and the band on the observer's map.
   - **BK**: enclosures.
     - A line of sectors around the store, the hearth or homes within a reach: ditch and bank
       from slice BG's lines, palisade parts that rot, gates.

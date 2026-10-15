@@ -71,6 +71,7 @@ pub mod uses;
 pub mod value;
 pub mod values;
 pub mod views;
+pub mod war;
 pub mod wealth;
 pub mod word;
 

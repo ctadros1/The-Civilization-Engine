@@ -2938,6 +2938,27 @@ and M6a gives rivers a daily flow.
   protectionist tariffs; a court strikes down a curfew.
 - *Proves:* the deep political layer on top of the M4 primitives.
 - *Defers:* planning institutions, transport.
+- *Split (2026-10-15, §9 "M7 design"):* four parts, each with its own part of the demo, as
+  M5 and M6 were split.
+  - **M7a, councils and elections** ([ADR-0024](decisions/0024-seats-offices-and-elections.md)):
+    - **BN**: office tenure and the four ways to fill an office (named, elected, lot,
+      appointed); the exact counting module (plurality, block vote, single vote) with its tests.
+    - **BO**: seated bodies reached by amendment; elections as dated records (called, told,
+      candidacy, polling, count, certification, installation), standing and polling as choices.
+    - **BP**: campaigns as hours and claims; voters' utility from positions, record, group,
+      regard and standing; faction slates; the label reads "Republic".
+    - **BQ**: electoral alliances, franchise amendments, seats by settlement; the observer's
+      election pages; measured runs.
+  - **M7b, courts and precedent** (ADR when reached): a forum named by law, precedent as the
+    saved case, limits adopted by amendment and judicial review, rulings carried out; the
+    demo's struck-down curfew (slices BR–BU, from `docs/briefs/m7-courts.md`).
+  - **M7c, trade laws, guilds and capture** (ADR when reached): duties and embargoes as laws,
+    organizations by shared stake, privileges and the barred, corruption and patronage as
+    specific choices; the demo's captured assembly (slices BV–BZ, from
+    `docs/briefs/m7-capture.md`).
+  - **M7d, credit and money** (ADR when reached): loans in goods, pledges and default, keepers
+    and store lending, money's worth to its holder, then metal, minting and debasement (slices
+    CA–CE, from `docs/briefs/m7-money.md`).
 
 **M8: The growing city (v1).**
 - *Contents:*
@@ -3992,3 +4013,29 @@ One line each. Don't re-litigate without a reason written next to the entry.
   sought peace. The seeker's side now puts
   the terms to its gathering when it is free, as the other side already did, within
   `relations.answer_days`. The existing agreement tests pass unchanged.
+- **M7 design (2026-10-15, plan §7):** from four briefs (`docs/briefs/m7-elections.md`,
+  `m7-capture.md`, `m7-courts.md`, `m7-money.md`), which read 09-02, 09-04, 09-05, 09-06,
+  09-07, 09-08, 09-09, 09-10, 09-15, 08-04 to 08-08, 08-12, 08-13, 08-17 and 08-20. **M7 is split
+  in four** (§7), as M5 and M6 were, because its contents are four kinds of work: M7a councils
+  and elections, M7b courts and precedent, M7c trade laws, guilds and capture, M7d credit and
+  money. **In that order** because the demo's captured "assembly" is a seated body (M7a) whose
+  seats and votes M7c's merchants work on; courts (M7b) reuse M7a's seats and methods for
+  forums, and come before capture so that a captured assembly's laws can be reviewed; money
+  comes last because coin needs metal and a polity that spends, neither of which exists, and
+  because the money brief finds that credit in goods comes before coin (08-06, executive
+  recommendation; 08-07 §4), against plan §5.3's ladder, which M7d's ADR will settle. **One ADR
+  now,** [ADR-0024](decisions/0024-seats-offices-and-elections.md) (seats, offices and
+  elections); M7b, M7c and M7d are designed when reached, one ADR each expected. **The elections
+  brief's open questions, answered:** (1) one body: a seated body is a `Membership` of the one
+  deciding body, so ADR-0013 §1 stands; (2) open stances by default, secret as a body value;
+  (3) the council forecast's prior (the n eligible the sponsor knows who stand highest in
+  counsel) is accepted and named as a design prior; (4) a seated body amends itself by its own
+  rule, and the electorate's ratification waits; (5) households weigh the evenings a council
+  saves them; (6) no party record, a label only; (7) terms of 6, 12 or 36 months in content,
+  12 the default template; (8) seats may be apportioned by settlement; (9) strategic voting is
+  off; (10) compliance keeps its present terms, no per-authority legitimacy; (11) offices stay
+  unpaid in M7a, and patronage's selective benefits come with M7c; (12) any demo nudge is a
+  prior, time-boxed and logged as `NUDGE:`, never an event. **Plot guards:** no population,
+  date or era makes a council likelier; the smoke's finding that villages of about 50 never
+  amend may stand as a result. The demo names two outcomes (a captured assembly's tariff, a
+  struck-down curfew); each part's demo shows what its world reached, nudging only priors.

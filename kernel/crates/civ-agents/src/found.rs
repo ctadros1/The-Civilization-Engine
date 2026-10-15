@@ -725,6 +725,7 @@ fn add_family(
         flood_losses: Vec::new(),
         ditch_worth: 0.0,
         fire_losses: Vec::new(),
+        gave_way: Vec::new(),
     });
     // One who comes alone has no partner; a family's first two are its couple.
     let couple = (family.len() >= 2).then(|| founding_couple(params, family, now, d));

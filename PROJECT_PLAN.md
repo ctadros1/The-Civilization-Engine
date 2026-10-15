@@ -2599,6 +2599,20 @@ and M6a gives rivers a daily flow.
       rule's reach is counted kept, broken knowingly or broken unaware. A tile roof begun under
       the rule says so in the observer's building words. Save schema 107
       (`Household.fire_losses`), content API 93, wire 1.73 unchanged.
+    - *Walls of stone or brick, and buildings kept apart (2026-10-15, §9):* every household
+      of a settlement hears when one of its buildings gives way and remembers it, with its
+      walls and what putting it right would take; the issue `gave_way` holds while any does.
+      Two more templates: `core:policy/works_wrought_walls` (new walls of rubble, mud brick or
+      fired brick; proposed by someone who knows rubble walling; it answers both `burned` and
+      `gave_way`, since people blame the walls whatever brought a building down) and
+      `core:policy/works_wrought_spacing` (a new building 3 m from every other; no technique
+      needed; it answers `burned`). Each is weighed as the roofs rule is, by the losses of the
+      kind it forbids; walls cost what building the next home's walls of stone or brick would
+      add, and a gap costs nothing a household reckons. Builders who keep a walls rule build mass
+      walls where they know how and their program has walls to choose (a hut does not, and
+      breaks it); a gap rule, a plot that far from every standing building. A building begun
+      under a rule it keeps says so. Save schema 108 (`Household.gave_way`), content API 94,
+      wire 1.73 unchanged.
     - The issues `burned` and `gave_way`.
     - The policy `building_rule`, with three content templates: roofs that do not burn near
       another building, walls of named kinds, and a least gap. Each binds buildings begun from
@@ -3534,4 +3548,34 @@ One line each. Don't re-litigate without a reason written next to the entry.
   tile, and someone did once the settlement knew firing, against the issue `burned`; in force
   and known, a household that kept it laid out a home that was tiled or 4 m from every other
   building; the world saved and loaded exactly. **Not yet:** walls of named kinds, a least gap,
-  the issue `gave_way`, and how often lived worlds come to such a rule.
+  the issue `gave_way`, and how often lived worlds come to such a rule. **Verified after
+  commit:** the full simcheck suite (69 binaries) and all ten release short-smoke worlds pass.
+
+- **Walls of stone or brick, and buildings kept apart, as built (2026-10-15, M6b slice BH;
+  ADR-0022 §12):** no new ADR. **Memory:** when a building gives way, every household of its
+  settlement hears it told (as the chronicle tells it) and remembers it for
+  `rules.memory_years`: day, building, its own or not, its wall kind and what putting it right
+  would take (`Household.gave_way`, save schema 108). **Issue:** `gave_way` while any household
+  remembers one. **Templates** (content API 94): `walls_of_kinds` names allowed wall kinds
+  (`wattle`, `rubble`, `mud_brick`, `fired_brick`), a technique in 11-09 §5.2's sense;
+  `least_gap` names a distance, a separation. Content authors `works_wrought_walls` (rubble, mud
+  brick or fired brick; needs rubble walling, which founders bring) and `works_wrought_spacing`
+  (3 m, from 12-03 §2.2's 2.14-3.14 m thresholds; needs nothing). The walls template answers
+  both `burned` and `gave_way` by authoring judgement: a remedy follows the cause people
+  attribute, not the kernel's (11-09 §1.4), so a hut brought down by rot may move a village to
+  ask for stone walls. **Forecast:** as for roofs, a household's believed rate is the losses of
+  the kind the rule forbids that it remembers (for walls, every fire and every building that
+  gave way whose walls the rule forbids; for a gap, burnt thatch) over the settlement's standing
+  buildings and the memory's years, times rebuilding its own forbidden buildings (and its next
+  home if about to build), times `rules.avoided_share`. A walls rule costs what its newest frame
+  home's walls of the best allowed kind it can build would add; a gap rule costs nothing it
+  reckons (the walk to a farther plot is not counted, a simplification). **Keeping:** a keeper of
+  a walls rule designs mass walls where it knows a masonry technique and its program is a frame;
+  a hut cannot, so it builds as it would and breaks the rule. A keeper of a gap rule takes a plot
+  that far from every standing building. A walls or gap rule binds every building begun; a roof
+  rule only one within its reach. **Tested:** a hut made to fail under its own weight was heard
+  of by every household of the settlement, its owner's marked its own and its walls wattle; the
+  walls rule was proposed against `gave_way` while nothing had burned and the gap rule was not;
+  once a hut burned the gap rule was proposed against `burned`; in force, a hut counted as
+  breaking the walls rule and a hut 6 m from its neighbours as keeping the gap rule; the world
+  saved and loaded exactly. **Not yet:** how often lived worlds come to these rules (the demo).

@@ -630,6 +630,7 @@ impl Population {
         flooded: bool,
         bank_worn: bool,
         burned: bool,
+        gave_way: bool,
     ) -> Vec<IssueKind> {
         let mut out = Vec::new();
         if self.lean_lately(ctx, settlement) || pressed {
@@ -667,6 +668,9 @@ impl Population {
         }
         if burned {
             out.push(IssueKind::Burned);
+        }
+        if gave_way {
+            out.push(IssueKind::GaveWay);
         }
         out
     }
@@ -1352,6 +1356,7 @@ impl Population {
         // And households that lost a building to fire or saw one burn within memory (M6b slice
         // BH).
         let burned_homes = self.burned_homes(&households);
+        let gave_way_homes = self.gave_way_homes(&households);
         let issues = self.issues(
             ctx,
             settlement,
@@ -1367,6 +1372,7 @@ impl Population {
             bank.is_some(),
             self.worn_bank(ctx, pi, households.len()).is_some(),
             !burned_homes.is_empty(),
+            !gave_way_homes.is_empty(),
         );
         let polity = &self.polities[pi];
         // A watch may have one more while takings continue (M4c slice AI: a watch of several):
@@ -1495,6 +1501,7 @@ impl Population {
                             // those that knew a fire (M6b slice BH).
                             .chain(&flooded_homes)
                             .chain(&burned_homes)
+                            .chain(&gave_way_homes)
                             .filter_map(|&h| self.elder_of(h, now, params)),
                     )
                     // And whoever holds that a source sickens (M6a slice BA).

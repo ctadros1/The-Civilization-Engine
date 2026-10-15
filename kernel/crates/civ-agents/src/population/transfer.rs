@@ -251,6 +251,7 @@ mod tests {
                 flood_losses: Vec::new(),
                 ditch_worth: 0.0,
                 fire_losses: Vec::new(),
+                gave_way: Vec::new(),
             });
         }
         pop

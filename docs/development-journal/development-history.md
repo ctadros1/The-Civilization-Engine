@@ -1968,3 +1968,23 @@ fires tile; once the settlement knows firing, someone does, against `burned`. In
 a household that keeps it lays out a home that is tiled or 4 m apart, and the world saves and
 loads exactly. A content test checks the rule's validation. The ten-year smoke of the ditch
 commit passed in all four worlds: households laid out 11 to 21 ditches and dug 3 to 12 each.
+
+## 2026-10-15 — BH: walls of stone or brick, and buildings kept apart
+
+**What changed:** when a building gives way, every household of its settlement hears of it and
+remembers it, with its walls, for ten years; while any does, the issue `gave_way` is before the
+gathering. Two more rules for building are content. New walls must be of rubble, mud brick or
+fired brick: someone who knows rubble walling may propose it, against fire or a building that
+gave way, since people blame the walls whatever truly brought it down. New buildings must stand
+3 m from every other: anyone may propose it after a fire. Each is weighed by the losses of the
+kind it forbids against what keeping it would add to a household's next home. A builder who keeps
+the walls rule builds mass walls where they know how; a hut cannot, and breaks it. A builder who
+keeps the gap rule takes a plot apart. Save schema 108, content API 94.
+
+**Evidence:** a test makes a hut fail under its own weight: every household of the settlement
+remembers it, the owner's as its own, its walls wattle. The walls rule is proposed against
+`gave_way` and the gap rule is not until a hut burns, when it is proposed against `burned`. In
+force, a hut counts as breaking the walls rule and a hut 6 m apart as keeping the gap rule; the
+world saves and loads exactly. A content test checks both templates' validation. BH1's commit
+passed the full simcheck suite (69 binaries) and all ten release short-smoke worlds after it was
+pushed.

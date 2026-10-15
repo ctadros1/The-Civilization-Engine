@@ -21999,6 +21999,7 @@ impl<'a> Household<'a> {
   pub const VT_FLOOD_LOSSES: ::flatbuffers::VOffsetT = 46;
   pub const VT_DITCH_WORTH: ::flatbuffers::VOffsetT = 48;
   pub const VT_FIRE_LOSSES: ::flatbuffers::VOffsetT = 50;
+  pub const VT_GAVE_WAY: ::flatbuffers::VOffsetT = 52;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22021,6 +22022,7 @@ impl<'a> Household<'a> {
     builder.add_food_kcal(args.food_kcal);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.gave_way { builder.add_gave_way(x); }
     if let Some(x) = args.fire_losses { builder.add_fire_losses(x); }
     builder.add_ditch_worth(args.ditch_worth);
     if let Some(x) = args.flood_losses { builder.add_flood_losses(x); }
@@ -22206,6 +22208,13 @@ impl<'a> Household<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FireLossSave>>>>(Household::VT_FIRE_LOSSES, None)}
   }
+  #[inline]
+  pub fn gave_way(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GaveWaySave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GaveWaySave>>>>(Household::VT_GAVE_WAY, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Household<'_> {
@@ -22238,6 +22247,7 @@ impl ::flatbuffers::Verifiable for Household<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FloodLossSave>>>>("flood_losses", Self::VT_FLOOD_LOSSES, false)?
      .visit_field::<f32>("ditch_worth", Self::VT_DITCH_WORTH, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FireLossSave>>>>("fire_losses", Self::VT_FIRE_LOSSES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GaveWaySave>>>>("gave_way", Self::VT_GAVE_WAY, false)?
      .finish();
     Ok(())
   }
@@ -22267,6 +22277,7 @@ pub struct HouseholdArgs<'a> {
     pub flood_losses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FloodLossSave<'a>>>>>,
     pub ditch_worth: f32,
     pub fire_losses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FireLossSave<'a>>>>>,
+    pub gave_way: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GaveWaySave<'a>>>>>,
 }
 impl<'a> Default for HouseholdArgs<'a> {
   #[inline]
@@ -22296,6 +22307,7 @@ impl<'a> Default for HouseholdArgs<'a> {
       flood_losses: None,
       ditch_worth: 0.0,
       fire_losses: None,
+      gave_way: None,
     }
   }
 }
@@ -22402,6 +22414,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_FIRE_LOSSES, fire_losses);
   }
   #[inline]
+  pub fn add_gave_way(&mut self, gave_way: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<GaveWaySave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_GAVE_WAY, gave_way);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdBuilder {
@@ -22443,6 +22459,171 @@ impl ::core::fmt::Debug for Household<'_> {
       ds.field("flood_losses", &self.flood_losses());
       ds.field("ditch_worth", &self.ditch_worth());
       ds.field("fire_losses", &self.fire_losses());
+      ds.field("gave_way", &self.gave_way());
+      ds.finish()
+  }
+}
+pub enum GaveWaySaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GaveWaySave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GaveWaySave<'a> {
+  type Inner = GaveWaySave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GaveWaySave<'a> {
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_BUILDING: ::flatbuffers::VOffsetT = 6;
+  pub const VT_OWN: ::flatbuffers::VOffsetT = 8;
+  pub const VT_WALL_KIND: ::flatbuffers::VOffsetT = 10;
+  pub const VT_HOURS: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GaveWaySave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GaveWaySaveArgs
+  ) -> ::flatbuffers::WIPOffset<GaveWaySave<'bldr>> {
+    let mut builder = GaveWaySaveBuilder::new(_fbb);
+    builder.add_building(args.building);
+    builder.add_day(args.day);
+    builder.add_hours(args.hours);
+    builder.add_wall_kind(args.wall_kind);
+    builder.add_own(args.own);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(GaveWaySave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn building(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(GaveWaySave::VT_BUILDING, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn own(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(GaveWaySave::VT_OWN, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn wall_kind(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(GaveWaySave::VT_WALL_KIND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn hours(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(GaveWaySave::VT_HOURS, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for GaveWaySave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<u64>("building", Self::VT_BUILDING, false)?
+     .visit_field::<bool>("own", Self::VT_OWN, false)?
+     .visit_field::<u8>("wall_kind", Self::VT_WALL_KIND, false)?
+     .visit_field::<f32>("hours", Self::VT_HOURS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GaveWaySaveArgs {
+    pub day: i64,
+    pub building: u64,
+    pub own: bool,
+    pub wall_kind: u8,
+    pub hours: f32,
+}
+impl<'a> Default for GaveWaySaveArgs {
+  #[inline]
+  fn default() -> Self {
+    GaveWaySaveArgs {
+      day: 0,
+      building: 0,
+      own: false,
+      wall_kind: 0,
+      hours: 0.0,
+    }
+  }
+}
+
+pub struct GaveWaySaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GaveWaySaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(GaveWaySave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_building(&mut self, building: u64) {
+    self.fbb_.push_slot::<u64>(GaveWaySave::VT_BUILDING, building, 0);
+  }
+  #[inline]
+  pub fn add_own(&mut self, own: bool) {
+    self.fbb_.push_slot::<bool>(GaveWaySave::VT_OWN, own, false);
+  }
+  #[inline]
+  pub fn add_wall_kind(&mut self, wall_kind: u8) {
+    self.fbb_.push_slot::<u8>(GaveWaySave::VT_WALL_KIND, wall_kind, 0);
+  }
+  #[inline]
+  pub fn add_hours(&mut self, hours: f32) {
+    self.fbb_.push_slot::<f32>(GaveWaySave::VT_HOURS, hours, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GaveWaySaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GaveWaySaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GaveWaySave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GaveWaySave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GaveWaySave");
+      ds.field("day", &self.day());
+      ds.field("building", &self.building());
+      ds.field("own", &self.own());
+      ds.field("wall_kind", &self.wall_kind());
+      ds.field("hours", &self.hours());
       ds.finish()
   }
 }

@@ -35,6 +35,17 @@ pub fn roof_unburnt(spec: &civ_grammar::BuildingSpec) -> bool {
         .is_some_and(|m| m.contains("tile"))
 }
 
+/// The kind of the walls of building `spec` of a program with rules `rules` (ADR-0022 §10): a
+/// frame building's as designed, 0 (wattle and daub) for a hut's.
+pub fn wall_kind(spec: &civ_grammar::BuildingSpec, rules: &civ_grammar::ProgramRules) -> u8 {
+    match rules {
+        civ_grammar::ProgramRules::Frame(_) => {
+            spec.params[civ_grammar::frame::frame_params::WALL_KIND].clamp(0, 7) as u8
+        }
+        _ => 0,
+    }
+}
+
 /// The least distance between two plots' rectangles, metres.
 pub fn gap_m(a: &civ_land::RectCm, b: &civ_land::RectCm) -> f64 {
     let dx = (a.x - (b.x + b.w)).max(b.x - (a.x + a.w)).max(0);

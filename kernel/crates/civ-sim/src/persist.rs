@@ -341,6 +341,8 @@ pub const SCHEMA_V104: u32 = 104;
 pub const SCHEMA_V105: u32 = 105;
 /// Households dig ditches, before they remember fires.
 pub const SCHEMA_V106: u32 = 106;
+/// Households remember fires, before they remember buildings that gave way.
+pub const SCHEMA_V107: u32 = 107;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

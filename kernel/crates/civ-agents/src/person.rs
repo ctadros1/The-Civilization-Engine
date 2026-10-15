@@ -743,6 +743,25 @@ pub struct Household {
     /// Buildings the household lost to fire or its people saw burn (M6b slice BH), oldest first,
     /// kept for the years its people remember.
     pub fire_losses: Vec<FireLoss>,
+    /// Buildings of its settlement its people heard gave way (M6b slice BH), oldest first, kept
+    /// for the years its people remember.
+    pub gave_way: Vec<GaveWay>,
+}
+
+/// A building of a household's settlement that gave way, as its people heard it told (M6b slice
+/// BH; ADR-0022 §12): its walls, and the work putting it right would take.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GaveWay {
+    /// The day it gave way.
+    pub day: i64,
+    /// The building.
+    pub building: PermanentId,
+    /// Whether it was the household's own.
+    pub own: bool,
+    /// The kind of its walls (0 wattle and daub, 1 rubble, 2 mud brick, 3 fired brick).
+    pub wall_kind: u8,
+    /// The work putting it right would take, hours.
+    pub hours: f32,
 }
 
 /// A building a household lost to fire, or that its people saw burn (M6b slice BH; ADR-0022
@@ -818,9 +837,25 @@ impl Household {
         self.fire_losses.push(loss);
     }
 
-    /// Forgets fire losses older than `days` before `today`.
+    /// Forgets fire losses, and buildings heard to have given way, older than `days` before
+    /// `today`.
     pub fn forget_fire_losses(&mut self, today: i64, days: i64) {
         self.fire_losses.retain(|l| today - l.day <= days);
+        self.gave_way.retain(|l| today - l.day <= days);
+    }
+
+    /// Remembers a building that gave way (M6b slice BH): one record a building and day.
+    pub fn remember_gave_way(&mut self, seen: GaveWay) {
+        if let Some(l) = self
+            .gave_way
+            .iter_mut()
+            .find(|l| l.day == seen.day && l.building == seen.building)
+        {
+            l.own |= seen.own;
+            l.hours = l.hours.max(seen.hours);
+            return;
+        }
+        self.gave_way.push(seen);
     }
 }
 
@@ -1244,6 +1279,7 @@ mod tests {
             flood_losses: Vec::new(),
             ditch_worth: 0.0,
             fire_losses: Vec::new(),
+            gave_way: Vec::new(),
         }
     }
 

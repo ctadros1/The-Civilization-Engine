@@ -2000,9 +2000,10 @@ impl Population {
         }
     }
 
-    /// The work putting building `b` right after a fire would take, hours, as anyone could see
-    /// it: building it again if it fell, else mending every part it lost (M6b slice BH).
-    fn fire_cost_h(ctx: &Ctx, b: &Building) -> f64 {
+    /// The work putting building `b` right after a fire or a failure would take, hours, as
+    /// anyone could see it: building it again if it fell, else mending every part it lost (M6b
+    /// slice BH).
+    pub(super) fn fire_cost_h(ctx: &Ctx, b: &Building) -> f64 {
         let Some(def) = ctx
             .catalog
             .building_index(&b.spec.program)

@@ -637,6 +637,24 @@ impl Population {
         // The settlement remembers it against the technique (ADR-0009 §6).
         let caution = &ctx.params.build.caution;
         self.remember_failure(settlement, technique, dead.len(), now, caution);
+        // And each household of it hears it told and remembers it (M6b slice BH).
+        if let Some(b) = ctx.land.buildings.get(i) {
+            let seen = crate::person::GaveWay {
+                day: now.day_index(),
+                building: id,
+                own: false,
+                wall_kind: crate::rules::wall_kind(&b.spec, &def.rules),
+                hours: Self::fire_cost_h(ctx, b) as f32,
+            };
+            for (_, x) in self.households.iter_mut() {
+                if settlement.is_some() && x.settlement == settlement {
+                    x.remember_gave_way(crate::person::GaveWay {
+                        own: x.id == household,
+                        ..seen
+                    });
+                }
+            }
+        }
         for who in dead {
             self.die(ctx, who, Cause::Collapse);
         }

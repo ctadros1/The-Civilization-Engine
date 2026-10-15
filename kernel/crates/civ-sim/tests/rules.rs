@@ -79,36 +79,7 @@ fn a_fire_remembered_opens_a_rule_that_only_one_who_fires_tile_proposes_and_new_
     sim.advance_minutes(DAY).expect("advances");
     // Four households' huts in a row, a metre and a half apart roof to roof, east of the first
     // household's home; the second is set alight and burns out.
-    let catalog = &content().catalog;
-    let hut_def = &catalog.buildings[catalog.building_index("core:building/hut").expect("hut")];
-    let design = |at: (f32, f32)| {
-        civ_agents::build::design_shape(
-            hut_def,
-            &catalog.goods,
-            civ_agents::build::Shape::Round { radius: 310 },
-            at,
-            None,
-        )
-        .expect("a hut")
-    };
-    let span = civ_agents::build::plot_rect(&design((0.0, 0.0)), hut_def).w as f32 / 100.0;
-    let mut owners: Vec<PermanentId> = sim
-        .people()
-        .households
-        .iter()
-        .filter(|(_, h)| !h.members.is_empty())
-        .map(|(_, h)| h.id)
-        .collect();
-    owners.sort_unstable();
-    let start = sim.people().household(owners[0]).expect("a household").home;
-    let mut homes: Vec<(PermanentId, PermanentId)> = Vec::new();
-    for (k, &h) in owners.iter().take(4).enumerate() {
-        let at = (start.0 + 20.0 + k as f32 * (span + 1.5), start.1);
-        let id = sim
-            .place_building_for_tests(h, design(at), civ_grammar::Stage::ALL.len() as u8)
-            .expect("placed");
-        homes.push((id, h));
-    }
+    let homes = huts_in_a_row(&mut sim, 4, 1.5);
     let (target, owner) = homes[1];
     let settlement = sim
         .people()
@@ -164,6 +135,15 @@ fn a_fire_remembered_opens_a_rule_that_only_one_who_fires_tile_proposes_and_new_
         .catalog
         .technique_index("core:technique/firing")
         .expect("firing");
+    let roofs = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.id == "core:policy/works_wrought_roofs")
+        .expect("the roofs rule") as u16;
+    // The rule for roofs, put before the gathering, if anyone puts it there within a month of
+    // reviews (any other proposal is turned down, so each review is open to it again).
     let review = |sim: &mut Sim| -> Option<civ_agents::polity::Law> {
         // Each sponsor's draw is of the day: try on successive days.
         for _ in 0..30 {
@@ -179,7 +159,7 @@ fn a_fire_remembered_opens_a_rule_that_only_one_who_fires_tile_proposes_and_new_
             }
             sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
             if let Some(l) = sim.people().polities[pi].agenda().cloned()
-                && l.kind == PolicyKind::BuildingRule
+                && l.policy == roofs
             {
                 return Some(l);
             }
@@ -187,7 +167,10 @@ fn a_fire_remembered_opens_a_rule_that_only_one_who_fires_tile_proposes_and_new_
         None
     };
     if !sim.people().people.iter().any(|(_, p)| p.knows(firing)) {
-        assert!(review(&mut sim).is_none(), "nobody fires tile: no rule");
+        assert!(
+            review(&mut sim).is_none(),
+            "nobody fires tile: no roofs rule"
+        );
     }
     // Once the people of the settlement know how, one of them proposes it.
     let people: Vec<PermanentId> = sim
@@ -235,7 +218,8 @@ fn a_fire_remembered_opens_a_rule_that_only_one_who_fires_tile_proposes_and_new_
         .iter()
         .map(|h| h.1)
         .find(|&h| {
-            sim.with_ctx_for_tests(|pop, ctx| pop.roof_rule_kept_for_tests(ctx, h))
+            sim.with_ctx_for_tests(|pop, ctx| pop.rules_kept_for_tests(ctx, h))
+                .roof_within
                 .is_some()
         })
         .expect("someone keeps it");
@@ -275,5 +259,205 @@ fn a_fire_remembered_opens_a_rule_that_only_one_who_fires_tile_proposes_and_new_
             .household(owner)
             .expect("the household")
             .fire_losses
+    );
+}
+
+/// `n` households' finished huts in a row, `gap_m` apart roof to roof, 20 m east of the first
+/// household's home: each hut and its household.
+fn huts_in_a_row(sim: &mut Sim, n: usize, gap_m: f32) -> Vec<(PermanentId, PermanentId)> {
+    let catalog = &content().catalog;
+    let hut_def = &catalog.buildings[catalog.building_index("core:building/hut").expect("hut")];
+    let design = |at: (f32, f32)| {
+        civ_agents::build::design_shape(
+            hut_def,
+            &catalog.goods,
+            civ_agents::build::Shape::Round { radius: 310 },
+            at,
+            None,
+        )
+        .expect("a hut")
+    };
+    let span = civ_agents::build::plot_rect(&design((0.0, 0.0)), hut_def).w as f32 / 100.0;
+    let mut owners: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, h)| !h.members.is_empty())
+        .map(|(_, h)| h.id)
+        .collect();
+    owners.sort_unstable();
+    let start = sim.people().household(owners[0]).expect("a household").home;
+    owners
+        .iter()
+        .take(n)
+        .enumerate()
+        .map(|(k, &h)| {
+            let at = (start.0 + 20.0 + k as f32 * (span + gap_m), start.1);
+            let id = sim
+                .place_building_for_tests(h, design(at), civ_grammar::Stage::ALL.len() as u8)
+                .expect("placed");
+            (id, h)
+        })
+        .collect()
+}
+
+/// The template with content id `id`, by index.
+fn policy(id: &str) -> u16 {
+    content()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.id == id)
+        .expect("the template") as u16
+}
+
+/// Polity `pi` of settlement `settlement` reviews on each of up to 30 days until someone puts
+/// template `k` before its gathering; any other proposal is turned down, so each review is open
+/// to it again.
+fn proposed(
+    sim: &mut Sim,
+    pi: usize,
+    settlement: PermanentId,
+    k: u16,
+) -> Option<civ_agents::polity::Law> {
+    for _ in 0..30 {
+        sim.advance_minutes(DAY).expect("advances");
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        if let Some(l) = sim.people().polities[pi].agenda().cloned()
+            && l.policy == k
+        {
+            return Some(l);
+        }
+    }
+    None
+}
+
+/// Puts law `law` of polity `pi` in force today, known to everyone.
+fn in_force(sim: &mut Sim, pi: usize, law: PermanentId) {
+    let now = sim.now();
+    {
+        let l = sim.people_mut_for_tests().polities[pi]
+            .law_mut(law)
+            .expect("the law");
+        l.status = LawStatus::InForce;
+        l.decided = Some(now);
+    }
+    let everyone: Vec<PermanentId> = sim.people().people.iter().map(|(_, p)| p.id).collect();
+    for p in everyone {
+        sim.people_mut_for_tests().polities[pi]
+            .law_mut(law)
+            .expect("the law")
+            .learn(p, 0);
+    }
+}
+
+#[test]
+fn a_building_heard_to_give_way_opens_a_walls_rule_and_a_fire_a_gap_rule_both_kept_or_broken() {
+    let mut sim = village(5);
+    sim.advance_minutes(DAY).expect("advances");
+    let homes = huts_in_a_row(&mut sim, 3, 6.0);
+    let (weak, owner) = homes[0];
+    let settlement = sim
+        .people()
+        .household(owner)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    // Its first hut is so poorly made that its own weight brings it down.
+    for b in sim.land_mut_for_tests().buildings.iter_mut() {
+        if b.id == weak {
+            for c in &mut b.condition {
+                c.quality = 0.01;
+            }
+        }
+    }
+    sim.advance_minutes(DAY).expect("advances");
+    let heard: Vec<(PermanentId, civ_agents::person::GaveWay)> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement))
+        .flat_map(|(_, x)| x.gave_way.iter().map(move |g| (x.id, *g)))
+        .collect();
+    assert!(!heard.is_empty(), "it gave way and was heard of");
+    for (h, g) in &heard {
+        assert_eq!(g.building, weak);
+        assert_eq!(g.own, *h == owner);
+        assert_eq!(g.wall_kind, 0, "a hut's walls are wattle and daub");
+    }
+    // The walls rule needs rubble walling, which the founders bring: proposed against it.
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.settlement == settlement)
+        .expect("a polity");
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let walls = proposed(
+        &mut sim,
+        pi,
+        settlement,
+        policy("core:policy/works_wrought_walls"),
+    )
+    .expect("a walls rule proposed");
+    assert_eq!(walls.issue, IssueKind::GaveWay);
+    assert_eq!(
+        civ_sim::frames::word::law_text(&sim, &sim.people().polities[pi], &walls),
+        "a rule for building: new walls must be of rubble, mud brick or fired brick, of what is \
+         begun from its day"
+    );
+    // Nothing burned: nobody proposes the gap rule, which answers fire alone.
+    let gap = policy("core:policy/works_wrought_spacing");
+    assert!(proposed(&mut sim, pi, settlement, gap).is_none());
+    // A fire later, and someone does.
+    sim.set_fire(homes[2].0).expect("set alight");
+    for _ in 0..3 {
+        sim.advance_minutes(DAY).expect("advances");
+    }
+    let spacing = proposed(&mut sim, pi, settlement, gap).expect("a gap rule proposed");
+    assert_eq!(spacing.issue, IssueKind::Burned);
+    // Both in force: a hut breaks the walls rule, its walls being wattle; one 6 m from every
+    // other keeps the gap rule.
+    in_force(&mut sim, pi, walls.id);
+    in_force(&mut sim, pi, spacing.id);
+    let kept = sim.with_ctx_for_tests(|pop, ctx| pop.rules_kept_for_tests(ctx, owner));
+    let near = homes[1];
+    sim.with_ctx_for_tests(|pop, ctx| pop.count_rule_keeping_for_tests(ctx, near.1, near.0));
+    let laws = &sim.people().polities[pi].laws;
+    let c = |id: PermanentId| {
+        laws.iter()
+            .find(|l| l.id == id)
+            .expect("the law")
+            .compliance
+    };
+    let (cw, cg) = (c(walls.id), c(spacing.id));
+    assert_eq!(cw.complied, 0, "{cw:?}");
+    assert_eq!(cw.broken + cw.broken_unaware, 1, "{cw:?}");
+    // The second hut stands 6 m from its neighbours: apart, as the gap asks.
+    assert_eq!(
+        (cg.complied, cg.broken, cg.broken_unaware),
+        (1, 0, 0),
+        "{cg:?}"
+    );
+    assert!(kept.gap.is_none_or(|g| g == 3.0), "{kept:?}");
+    let reloaded = reloaded(&mut sim);
+    assert_eq!(
+        reloaded
+            .people()
+            .household(owner)
+            .expect("the household")
+            .gave_way,
+        sim.people()
+            .household(owner)
+            .expect("the household")
+            .gave_way
     );
 }

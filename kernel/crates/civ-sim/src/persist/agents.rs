@@ -116,7 +116,7 @@ use super::{
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
-    SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, finish, section, single_chunk, unreadable,
+    SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -532,6 +532,8 @@ enum Schema {
     V106,
     /// M6b slice BH: households remember fires.
     V107,
+    /// M6b slice BH: households remember buildings that gave way.
+    V108,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -653,7 +655,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V104 => Schema::V104,
         SCHEMA_V105 => Schema::V105,
         SCHEMA_V106 => Schema::V106,
-        SAVE_SCHEMA_VERSION => Schema::V107,
+        SCHEMA_V107 => Schema::V107,
+        SAVE_SCHEMA_VERSION => Schema::V108,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1536,6 +1539,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::Flooded => 13,
         IssueKind::BankWorn => 14,
         IssueKind::Burned => 15,
+        IssueKind::GaveWay => 16,
     }
 }
 
@@ -1648,6 +1652,7 @@ fn decode_polities(
                 13 => IssueKind::Flooded,
                 14 => IssueKind::BankWorn,
                 15 => IssueKind::Burned,
+                16 => IssueKind::GaveWay,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -3772,7 +3777,8 @@ fn carried(
         | Schema::V104
         | Schema::V105
         | Schema::V106
-        | Schema::V107 => {
+        | Schema::V107
+        | Schema::V108 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3857,6 +3863,24 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                 })
                 .collect();
             let fire_losses = (!fire_losses.is_empty()).then(|| fbb.create_vector(&fire_losses));
+            // What it heard gave way (schema 108).
+            let gave_way: Vec<_> = h
+                .gave_way
+                .iter()
+                .map(|l| {
+                    save::GaveWaySave::create(
+                        &mut fbb,
+                        &save::GaveWaySaveArgs {
+                            day: l.day,
+                            building: l.building.get(),
+                            own: l.own,
+                            wall_kind: l.wall_kind,
+                            hours: l.hours,
+                        },
+                    )
+                })
+                .collect();
+            let gave_way = (!gave_way.is_empty()).then(|| fbb.create_vector(&gave_way));
             save::Household::create(
                 &mut fbb,
                 &save::HouseholdArgs {
@@ -3884,6 +3908,7 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                     flood_losses,
                     ditch_worth: h.ditch_worth,
                     fire_losses,
+                    gave_way,
                 },
             )
         })
@@ -4033,7 +4058,8 @@ fn decode_households(
             | Schema::V104
             | Schema::V105
             | Schema::V106
-            | Schema::V107 => {
+            | Schema::V107
+            | Schema::V108 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -4229,6 +4255,39 @@ fn decode_households(
                         building,
                         own: l.own(),
                         burnable: l.burnable(),
+                        hours: l.hours(),
+                    });
+                }
+                out
+            },
+            // What it heard gave way (schema 108); before, nothing remembered.
+            gave_way: {
+                let mut out: Vec<civ_agents::person::GaveWay> = Vec::new();
+                let heard = h.gave_way();
+                if schema < Schema::V108 && heard.is_some() {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} remembers buildings that gave way in a save before \
+                         schema 108"
+                    )));
+                }
+                for l in heard.iter().flatten() {
+                    let building = PermanentId::from_raw(l.building());
+                    let ok = l.hours().is_finite()
+                        && l.hours() >= 0.0
+                        && l.wall_kind() <= 3
+                        && building.is_some()
+                        && out.last().is_none_or(|p| p.day <= l.day());
+                    let (Some(building), true) = (building, ok) else {
+                        return Err(LoadError::Malformed(format!(
+                            "household {hh_id} remembers a building that gave way out of order, \
+                             of no building, wall kind or amount"
+                        )));
+                    };
+                    out.push(civ_agents::person::GaveWay {
+                        day: l.day(),
+                        building,
+                        own: l.own(),
+                        wall_kind: l.wall_kind(),
                         hours: l.hours(),
                     });
                 }

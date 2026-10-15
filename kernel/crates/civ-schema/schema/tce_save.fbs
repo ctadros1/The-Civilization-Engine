@@ -455,6 +455,20 @@ table Household {
   // Schema 107 (M6b slice BH): buildings it lost to fire or its people saw burn, oldest first;
   // absent before.
   fire_losses: [FireLossSave] (id: 23);
+  // Schema 108 (M6b slice BH): buildings of its settlement it heard gave way, oldest first;
+  // absent before.
+  gave_way: [GaveWaySave] (id: 24);
+}
+
+// A building a household heard gave way (schema 108, M6b slice BH): the day, the building,
+// whether it was the household's own, the kind of its walls, and the work putting it right
+// would take (hours).
+table GaveWaySave {
+  day: long (id: 0);
+  building: ulong (id: 1);
+  own: bool (id: 2);
+  wall_kind: ubyte (id: 3);
+  hours: float (id: 4);
 }
 
 // A building a household lost to fire or saw burn (schema 107, M6b slice BH): the day the fire

@@ -2060,10 +2060,10 @@ impl Population {
         };
         let goods = &catalog.goods;
         let reach = self.homes.get(&field_key).map(|f| &f.reach);
-        // A rule for building its builders keep (M6b slice BH), and the plots of the buildings
-        // that stand, which a roof that burns keeps the rule's distance from.
-        let roof_rule = self.roof_rule_kept(ctx, hh);
-        let rule_rects: Vec<civ_land::RectCm> = if roof_rule.is_some() {
+        // The rules for building its builders keep (M6b slice BH), and the plots of the buildings
+        // that stand, which a new one keeps its distance from.
+        let kept_rules = self.rules_kept(ctx, hh);
+        let rule_rects: Vec<civ_land::RectCm> = if kept_rules.any() {
             ctx.land
                 .buildings
                 .iter()
@@ -2112,22 +2112,29 @@ impl Population {
                         .any(|p| p.knows(t))
                 })
             };
-            // A rule in force that its builders keep (M6b slice BH): a roof that does not burn
-            // where they can make one, else a plot apart from others.
-            let keeps_roofs = roof_rule.filter(|_| obey_rules);
+            // The rules in force that its builders keep (M6b slice BH): a roof that does not burn
+            // where they can make one, else a plot apart from others; walls of a kind a rule
+            // allows where they can build them; a plot the least gap from every other.
+            let rules = if obey_rules {
+                kept_rules
+            } else {
+                Default::default()
+            };
             let caution_thatch =
                 self.fire_caution_thatch(hh.settlement, ctx.now, &ctx.params.build.caution);
+            let caution_wattle =
+                self.fire_caution_wattle(hh.settlement, ctx.now, &ctx.params.build.caution);
             let fire_design = build::FireDesign {
-                caution_thatch: if keeps_roofs.is_some() {
+                caution_thatch: if rules.roof_within.is_some() {
                     caution_thatch.max(2.0)
                 } else {
                     caution_thatch
                 },
-                caution_wattle: self.fire_caution_wattle(
-                    hh.settlement,
-                    ctx.now,
-                    &ctx.params.build.caution,
-                ),
+                caution_wattle: if rules.walls.is_some() {
+                    caution_wattle.max(2.0)
+                } else {
+                    caution_wattle
+                },
                 knows_rubble: knows_technique("core:technique/rubble_walling"),
                 knows_mud_brick: knows_technique("core:technique/mud_brick"),
                 knows_firing: knows_technique("core:technique/firing"),
@@ -2149,15 +2156,21 @@ impl Population {
                         )
                     })
                     .flatten()
-                    // A roof that burns is not put within the rule's reach of another building.
+                    // A roof that burns is not put within a roof rule's reach of another building,
+                    // walls are of a kind the rules allow, and a plot keeps the least gap.
                     .filter(|spec| {
-                        keeps_roofs.is_none_or(|within| {
-                            crate::rules::roof_unburnt(spec)
-                                || !rule_rects.iter().any(|r| {
-                                    crate::rules::gap_m(&build::plot_rect(spec, program), r)
-                                        < within
-                                })
-                        })
+                        let nearest = || {
+                            let rect = build::plot_rect(spec, program);
+                            rule_rects
+                                .iter()
+                                .map(|r| crate::rules::gap_m(&rect, r))
+                                .fold(f64::INFINITY, f64::min)
+                        };
+                        rules.roof_within.is_none_or(|within| {
+                            crate::rules::roof_unburnt(spec) || nearest() >= within
+                        }) && rules.walls.is_none_or(|kinds| {
+                            kinds & (1 << crate::rules::wall_kind(spec, &program.rules)) != 0
+                        }) && rules.gap.is_none_or(|gap| nearest() >= gap)
                     })
             };
             // Ground that drops too far across a plot is levelled, and ground too steep to level
@@ -2186,8 +2199,8 @@ impl Population {
                     firm: Option<PermanentId>,
                     max_m: f64| {
             site_kept(choice, toward, firm, max_m, true).or_else(|| {
-                roof_rule
-                    .is_some()
+                kept_rules
+                    .any()
                     .then(|| site_kept(choice, toward, firm, max_m, false))
                     .flatten()
             })

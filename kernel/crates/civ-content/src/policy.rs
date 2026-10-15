@@ -4,7 +4,7 @@
 //! carries no weight toward being chosen.
 
 use civ_agents::polity::{
-    Body, IssueKind, Membership, PassRule, PolicyDef, PolicyKind, RuleDef, RuleTemplate,
+    Body, IssueKind, Membership, PassRule, PolicyDef, PolicyKind, RuleDef, RuleTemplate, WALL_KINDS,
 };
 use serde::Deserialize;
 
@@ -70,11 +70,20 @@ pub(crate) struct PolicyFile {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct RuleFile {
-    /// `roofs_unburnt`: a new roof within `within_m` of another building must not burn.
+    /// `roofs_unburnt`: a new roof within `within_m` of another building must not burn;
+    /// `walls_of_kinds`: new walls must be of one of `walls` (content API 94); `least_gap`: a
+    /// new building must stand `gap_m` from every other (94).
     pub template: String,
     /// For `roofs_unburnt`: how near another building a roof is bound, metres.
     #[serde(default)]
     pub within_m: f64,
+    /// For `walls_of_kinds`: the wall kinds allowed, of `wattle`, `rubble`, `mud_brick` and
+    /// `fired_brick`.
+    #[serde(default)]
+    pub walls: Vec<String>,
+    /// For `least_gap`: the least gap between a new building's plot and every other's, metres.
+    #[serde(default)]
+    pub gap_m: f64,
     /// The technique a sponsor must know to put it forward (research 11-09 §1.4).
     #[serde(default)]
     pub needs: Option<String>,
@@ -86,6 +95,17 @@ impl RuleFile {
         match self.template.as_str() {
             "roofs_unburnt" => Some(RuleTemplate::RoofsUnburnt {
                 within_m: self.within_m as f32,
+            }),
+            "walls_of_kinds" => Some(RuleTemplate::WallsOfKinds {
+                kinds: self.walls.iter().fold(0u8, |m, w| {
+                    WALL_KINDS
+                        .iter()
+                        .position(|k| k == w)
+                        .map_or(m, |k| m | (1 << k))
+                }),
+            }),
+            "least_gap" => Some(RuleTemplate::LeastGap {
+                gap_m: self.gap_m as f32,
             }),
             _ => None,
         }
@@ -370,7 +390,8 @@ impl PolicyFile {
             }
             (Some(PolicyKind::BuildingRule), Some(r)) => match r.template() {
                 None => p.push(format!(
-                    "`rule.template` is `{}`; templates are `roofs_unburnt`",
+                    "`rule.template` is `{}`; templates are `roofs_unburnt`, `walls_of_kinds` \
+                     and `least_gap`",
                     r.template
                 )),
                 // Research 12-03 §2.2: radiation from a burning dwelling falls from about 36
@@ -380,6 +401,29 @@ impl PolicyFile {
                         p.push(format!(
                             "`rule.within_m` must be above 0 and at most 50 (got {})",
                             r.within_m
+                        ));
+                    }
+                }
+                Some(RuleTemplate::WallsOfKinds { .. }) => {
+                    if r.walls.is_empty() {
+                        p.push("`rule.walls` must name at least one wall kind".to_owned());
+                    }
+                    for w in &r.walls {
+                        if !WALL_KINDS.contains(&w.as_str()) {
+                            p.push(format!(
+                                "`rule.walls` names `{w}`; wall kinds are `{}`",
+                                WALL_KINDS.join("`, `")
+                            ));
+                        }
+                    }
+                }
+                // Research 12-03 §2.2: separation thresholds of about 2.14 and 3.14 m for its
+                // configurations; a gap is authored within a street's width.
+                Some(RuleTemplate::LeastGap { .. }) => {
+                    if !(r.gap_m.is_finite() && r.gap_m > 0.0 && r.gap_m <= 50.0) {
+                        p.push(format!(
+                            "`rule.gap_m` must be above 0 and at most 50 (got {})",
+                            r.gap_m
                         ));
                     }
                 }
@@ -425,6 +469,8 @@ mod tests {
         let rule = |template: &str, within_m: f64| RuleFile {
             template: template.to_owned(),
             within_m,
+            walls: Vec::new(),
+            gap_m: 0.0,
             needs: Some("core:technique/firing".to_owned()),
         };
         let roofs_with = |r: Option<RuleFile>| PolicyFile {
@@ -472,6 +518,35 @@ mod tests {
                 .iter()
                 .any(|p| p.contains("only a `building_rule`"))
         );
+        // Walls of named kinds, and a least gap (content API 94).
+        let other = |template: &str, walls: &[&str], gap_m: f64| {
+            roofs_with(Some(RuleFile {
+                template: template.to_owned(),
+                within_m: 0.0,
+                walls: walls.iter().map(|w| (*w).to_owned()).collect(),
+                gap_m,
+                needs: None,
+            }))
+        };
+        let walls = other("walls_of_kinds", &["rubble", "mud_brick"], 0.0);
+        assert!(walls.problems().is_empty(), "{:?}", walls.problems());
+        assert_eq!(
+            walls.def(&no_values, &firing).rule.map(|r| r.template),
+            Some(RuleTemplate::WallsOfKinds { kinds: 0b0110 })
+        );
+        assert!(
+            !other("walls_of_kinds", &["straw"], 0.0)
+                .problems()
+                .is_empty()
+        );
+        assert!(!other("walls_of_kinds", &[], 0.0).problems().is_empty());
+        let gap = other("least_gap", &[], 3.0);
+        assert!(gap.problems().is_empty(), "{:?}", gap.problems());
+        assert_eq!(
+            gap.def(&no_values, &firing).rule.map(|r| r.template),
+            Some(RuleTemplate::LeastGap { gap_m: 3.0 })
+        );
+        assert!(!other("least_gap", &[], 0.0).problems().is_empty());
     }
 
     #[test]

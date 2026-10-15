@@ -125,44 +125,78 @@ pub fn style_words(sim: &Sim, b: &Building, def: Option<&BuildingDef>) -> String
         }
         words.push(after);
     }
-    // The rule for building it was begun under, derived from its start and the law's history
-    // (M6b slice BH; ADR-0022 §12): only a roof that keeps it says so.
-    if civ_agents::rules::roof_unburnt(&b.spec)
-        && let Some(words_of) = rule_built_under(sim, b)
-    {
-        words.push(words_of);
-    }
+    // The rules for building it was begun under and keeps, derived from its start and the
+    // laws' history (M6b slice BH; ADR-0022 §12).
+    words.extend(rules_kept_by(sim, b, def));
     words.join(", ")
 }
 
-/// The rule for building in force where building `b` stands when it was begun that its roof
-/// keeps, in words: "its roof kept Ada's rule that a new roof within 4 m of another building
-/// must not burn". None when none was in force then.
-fn rule_built_under(sim: &Sim, b: &Building) -> Option<String> {
-    let settlement = sim.people.household(b.household)?.settlement?;
-    let polity = sim
+/// The rules for building in force where building `b` stands when it was begun that it keeps,
+/// in words: "its roof kept Ada's rule that a new roof within 4 m of another building must not
+/// burn". A roof rule speaks only where the roof does not burn, a walls rule where the walls are
+/// of a kind it allows, and a gap rule where the building stands its gap from every other.
+fn rules_kept_by(sim: &Sim, b: &Building, def: &BuildingDef) -> Vec<String> {
+    use civ_agents::polity::{PolicyKind, RuleTemplate};
+    let Some(settlement) = sim.people.household(b.household).and_then(|x| x.settlement) else {
+        return Vec::new();
+    };
+    let Some(polity) = sim
         .people
         .polities
         .iter()
-        .find(|p| p.settlement == settlement)?;
+        .find(|p| p.settlement == settlement)
+    else {
+        return Vec::new();
+    };
     let policies = &sim.rules.catalog.policies;
-    let law = polity
-        .in_force(policies, civ_agents::polity::PolicyKind::BuildingRule)
+    let rect = sim
+        .land
+        .plots
+        .iter()
+        .find(|p| p.id == b.plot)
+        .map(|p| p.rect);
+    let plots = |o: &Building| {
+        sim.land
+            .plots
+            .iter()
+            .find(|p| p.id == o.plot)
+            .map(|p| p.rect)
+    };
+    let apart = |m: f32| {
+        rect.is_some_and(|r| {
+            !civ_agents::rules::near_another(
+                &r,
+                f64::from(m),
+                &sim.land.buildings,
+                Some(b.id),
+                &plots,
+            )
+        })
+    };
+    polity
+        .in_force(policies, PolicyKind::BuildingRule)
         .filter(|l| l.decided.is_some_and(|t| t <= b.started))
-        .find(|l| {
-            policies.get(usize::from(l.policy)).is_some_and(|d| {
-                matches!(
-                    d.rule.as_ref().map(|r| r.template),
-                    Some(civ_agents::polity::RuleTemplate::RoofsUnburnt { .. })
+        .filter_map(|l| {
+            let rule = policies.get(usize::from(l.policy))?.rule.as_ref()?;
+            let (what, kept) = match rule.template {
+                RuleTemplate::RoofsUnburnt { .. } => {
+                    ("its roof kept", civ_agents::rules::roof_unburnt(&b.spec))
+                }
+                RuleTemplate::WallsOfKinds { kinds } => (
+                    "its walls kept",
+                    kinds & (1 << civ_agents::rules::wall_kind(&b.spec, &def.rules)) != 0,
+                ),
+                RuleTemplate::LeastGap { gap_m } => ("it stands apart, keeping", apart(gap_m)),
+            };
+            kept.then(|| {
+                format!(
+                    "{what} {}'s rule that {}",
+                    sim.people.name_of(l.sponsor),
+                    rule.template.words()
                 )
             })
-        })?;
-    let rule = policies.get(usize::from(law.policy))?.rule.as_ref()?;
-    Some(format!(
-        "its roof kept {}'s rule that {}",
-        sim.people.name_of(law.sponsor),
-        rule.template.words()
-    ))
+        })
+        .collect()
 }
 
 fn percent(x: f64) -> String {

@@ -191,11 +191,14 @@ pub enum IssueKind {
     /// A household of the settlement lost a building to fire, or its people saw one burn, within
     /// their memory (M6b slice BH; ADR-0022 §12).
     Burned,
+    /// A building of the settlement gave way within its people's memory, as they heard told
+    /// (M6b slice BH; ADR-0022 §12).
+    GaveWay,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 16] = [
+    pub const ALL: [IssueKind; 17] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -212,6 +215,7 @@ impl IssueKind {
         IssueKind::Flooded,
         IssueKind::BankWorn,
         IssueKind::Burned,
+        IssueKind::GaveWay,
     ];
 
     /// The authored name.
@@ -233,6 +237,7 @@ impl IssueKind {
             IssueKind::Flooded => "flooded",
             IssueKind::BankWorn => "bank_worn",
             IssueKind::Burned => "burned",
+            IssueKind::GaveWay => "gave_way",
         }
     }
 
@@ -267,6 +272,7 @@ impl IssueKind {
             IssueKind::Flooded => "floodwater had cost its households",
             IssueKind::BankWorn => "the bank they built against floodwater wanted mending",
             IssueKind::Burned => "fire had taken buildings they knew",
+            IssueKind::GaveWay => "buildings they knew had given way",
         }
     }
 }
@@ -390,13 +396,24 @@ pub enum RuleTemplate {
     /// A building whose plot lies within `within_m` metres of another building's must have a
     /// roof that does not burn (a property: 11-09 §5.2), as fired tile is.
     RoofsUnburnt { within_m: f32 },
+    /// A building's walls must be of one of the kinds named, a bit for each wall kind (0 wattle
+    /// and daub, 1 rubble, 2 mud brick, 3 fired brick: ADR-0022 §10): a technique (11-09 §5.2).
+    WallsOfKinds { kinds: u8 },
+    /// A building's plot must keep at least `gap_m` metres from every other's (separation:
+    /// 11-09 §5.2).
+    LeastGap { gap_m: f32 },
 }
+
+/// The names of the wall kinds, by kind code (ADR-0022 §10).
+pub const WALL_KINDS: [&str; 4] = ["wattle", "rubble", "mud_brick", "fired_brick"];
 
 impl RuleTemplate {
     /// The authored name.
     pub fn name(self) -> &'static str {
         match self {
             RuleTemplate::RoofsUnburnt { .. } => "roofs_unburnt",
+            RuleTemplate::WallsOfKinds { .. } => "walls_of_kinds",
+            RuleTemplate::LeastGap { .. } => "least_gap",
         }
     }
 
@@ -405,6 +422,23 @@ impl RuleTemplate {
         match self {
             RuleTemplate::RoofsUnburnt { within_m } => {
                 format!("a new roof within {within_m:.0} m of another building must not burn")
+            }
+            RuleTemplate::WallsOfKinds { kinds } => {
+                let names: Vec<&str> = ["wattle and daub", "rubble", "mud brick", "fired brick"]
+                    .into_iter()
+                    .enumerate()
+                    .filter(|(k, _)| kinds & (1 << k) != 0)
+                    .map(|(_, n)| n)
+                    .collect();
+                let list = match names.as_slice() {
+                    [] => "nothing".to_owned(),
+                    [one] => (*one).to_owned(),
+                    [rest @ .., last] => format!("{} or {last}", rest.join(", ")),
+                };
+                format!("new walls must be of {list}")
+            }
+            RuleTemplate::LeastGap { gap_m } => {
+                format!("a new building must stand {gap_m:.0} m from every other")
             }
         }
     }

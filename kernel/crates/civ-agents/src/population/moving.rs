@@ -392,6 +392,7 @@ impl Population {
             flood_losses: Vec::new(),
             ditch_worth: 0.0,
             fire_losses: Vec::new(),
+            gave_way: Vec::new(),
         });
         // Its people and what they know of other places go with it; where they lived is now a
         // place they know.
@@ -551,6 +552,7 @@ impl Population {
             flood_losses: Vec::new(),
             ditch_worth: 0.0,
             fire_losses: Vec::new(),
+            gave_way: Vec::new(),
         });
         let mut person = p.clone();
         person.household = hh;

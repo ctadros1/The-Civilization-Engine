@@ -24,10 +24,16 @@ fn building_on<'a>(sim: &'a Sim, w: &Earthwork) -> Option<&'a Building> {
 /// none.
 pub fn earthworks_rev(sim: &Sim) -> u64 {
     let works = &sim.land.earthworks;
-    if works.is_empty() {
+    let enclosures = &sim.land.enclosures;
+    if works.is_empty() && enclosures.list.is_empty() {
         return 0;
     }
     let mut hasher = DefaultHasher::new();
+    // Enclosures (M6c slice BK): their lines, gates and work.
+    enclosures.revision().hash(&mut hasher);
+    for e in &enclosures.list {
+        (e.id.get(), e.work_h.to_bits(), e.sectors.len()).hash(&mut hasher);
+    }
     for w in works {
         let building = building_on(sim, w).map_or(0, |b| b.id.get());
         (w.id.get(), w.done.to_bits(), w.cut_m3.to_bits(), building).hash(&mut hasher);
@@ -192,8 +198,62 @@ pub fn earthworks_response(sim: &Sim) -> Vec<u8> {
                 ditch_a: da.as_ref(),
                 ditch_b: db.as_ref(),
                 ditch_open: ditch.is_some_and(|d| d.open),
+                ..Default::default()
             },
         ));
+    }
+    // Each enclosure's sectors (wire 1.75, M6c slice BK).
+    for e in &sim.land.enclosures.list {
+        let standing = e.standing();
+        let whose = sim
+            .land
+            .settlements
+            .iter()
+            .find(|s| s.id == e.settlement)
+            .map_or_else(|| "a settlement".to_owned(), |s| s.name.clone());
+        for (i, s) in e.sectors.iter().enumerate() {
+            let state = if i >= standing {
+                0
+            } else if s.gap() {
+                2
+            } else {
+                1
+            };
+            let gate = s.gate.map_or(0, |g| if g.open { 1 } else { 2 });
+            let what = match (state, gate) {
+                (0, 0) => "to be built".to_owned(),
+                (0, _) => "a gate, to be built".to_owned(),
+                (2, _) => "rotted through: a gap".to_owned(),
+                (_, 1) => "a gate, open".to_owned(),
+                (_, 2) => "a gate, shut".to_owned(),
+                _ => "standing".to_owned(),
+            };
+            let text = fbb.create_string(&format!(
+                "a stretch of the palisade round {whose}, {:.0} m: {what}",
+                s.length_m()
+            ));
+            let a = wire::Vec2::new(s.a.0, s.a.1);
+            let b = wire::Vec2::new(s.b.0, s.b.1);
+            list.push(wire::EarthworkInfo::create(
+                &mut fbb,
+                &wire::EarthworkInfoArgs {
+                    id: e.id.get(),
+                    kind: 5,
+                    x: s.a.0.min(s.b.0),
+                    y: s.a.1.min(s.b.1),
+                    w: (s.a.0 - s.b.0).abs(),
+                    h: (s.a.1 - s.b.1).abs(),
+                    done: if i < standing { 1.0 } else { 0.0 },
+                    words: Some(text),
+                    sector_a: Some(&a),
+                    sector_b: Some(&b),
+                    sector_index: i as u32,
+                    sector_state: state,
+                    sector_gate: gate,
+                    ..Default::default()
+                },
+            ));
+        }
     }
     let list = fbb.create_vector(&list);
     let tiles: Vec<wire::GroundTileRev> = sim

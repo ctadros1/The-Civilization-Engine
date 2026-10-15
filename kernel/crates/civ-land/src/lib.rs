@@ -26,6 +26,7 @@ pub mod crossings;
 pub mod deposits;
 pub mod ditches;
 pub mod earth;
+pub mod enclosures;
 pub mod fields;
 pub mod paths;
 pub mod soil;
@@ -392,6 +393,8 @@ pub struct Land {
     pub ground: earth::GroundDelta,
     /// Crossings over water, in the order begun (M5c slice AW). Saved.
     pub crossings: crossings::Crossings,
+    /// Enclosures, in the order begun (M6c slice BK, ADR-0023 §6). Saved.
+    pub enclosures: enclosures::Enclosures,
     /// Water under the ground and the rivers' runoff store (M6a slice AY, ADR-0021 §1–§2): the
     /// heads and the store saved, the aquifer derived.
     pub water: Water,
@@ -621,6 +624,7 @@ impl Land {
             ditch_flows: Vec::new(),
             ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
             crossings: crossings::Crossings::default(),
+            enclosures: enclosures::Enclosures::default(),
             water: Water::default(),
             wells: wells::Wells::default(),
             floodplain: WorldFloodplain::new(map, &ManningParams::default()),

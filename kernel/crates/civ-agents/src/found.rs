@@ -1602,6 +1602,7 @@ pub(crate) mod tests {
                 wading_factor: 0.25,
                 ford_max_discharge_m3s: 3.0,
                 max_slope: 1.0,
+                climb_factor: 0.05,
             },
             walk_speed_by_age: vec![(0.0, 1.0)],
             capacity_by_age: vec![(0.0, 1.0)],

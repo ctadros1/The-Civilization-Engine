@@ -2067,3 +2067,21 @@ suite, clippy and all ten smoke worlds before it was pushed.
 
 **Open:** blame of the body that sent a band, food carried out (slice BL's camps), enclosures
 (BK), sieges and terms (BL), and a polity over several settlements with the M6c demo (BM).
+
+## 2026-10-15 — BK: enclosures
+
+**Built so far:**
+- *Step one:* an enclosure's record and its place on the walking grid. A ring round a hearth is
+  cut into sectors (at most a set length each, their cells joined edge to edge), some of them
+  gates. Work done on the line stands its sectors in order, so a half-done line bars half its
+  length. A standing sector is climbed at a twentieth of walking speed; an open gate is the
+  ground, a shut one the wall, and a sector rotted through is a gap. Changes bump a revision
+  the walking grid and planned routes are kept against. Save schema 113, content API 99, wire
+  1.75 (each sector as an earthwork entry the map draws as a line).
+
+**Evidence:** `civ-sim/tests/enclosures.rs` lays a ring round a village's hearth and checks the
+way out with the line unbuilt, whole with its gate open, shut, and rotted through, the
+observer's sector entries, and a save and load that goes on alike.
+
+**Open:** the `enclose` law and the work on it (step two); a gate's keeper, climbing seen, rot
+and upkeep (step three).

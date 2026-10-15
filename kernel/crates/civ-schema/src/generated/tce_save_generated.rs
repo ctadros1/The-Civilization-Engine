@@ -41257,6 +41257,521 @@ impl ::core::fmt::Debug for CrossingSave<'_> {
       ds.finish()
   }
 }
+pub enum EnclosureSectorSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct EnclosureSectorSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for EnclosureSectorSave<'a> {
+  type Inner = EnclosureSectorSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> EnclosureSectorSave<'a> {
+  pub const VT_AX: ::flatbuffers::VOffsetT = 4;
+  pub const VT_AY: ::flatbuffers::VOffsetT = 6;
+  pub const VT_BX: ::flatbuffers::VOffsetT = 8;
+  pub const VT_BY: ::flatbuffers::VOffsetT = 10;
+  pub const VT_CELLS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_LABOUR_H: ::flatbuffers::VOffsetT = 14;
+  pub const VT_GATE: ::flatbuffers::VOffsetT = 16;
+  pub const VT_LOSS: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    EnclosureSectorSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args EnclosureSectorSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<EnclosureSectorSave<'bldr>> {
+    let mut builder = EnclosureSectorSaveBuilder::new(_fbb);
+    builder.add_loss(args.loss);
+    builder.add_labour_h(args.labour_h);
+    if let Some(x) = args.cells { builder.add_cells(x); }
+    builder.add_by(args.by);
+    builder.add_bx(args.bx);
+    builder.add_ay(args.ay);
+    builder.add_ax(args.ax);
+    builder.add_gate(args.gate);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn ax(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EnclosureSectorSave::VT_AX, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn ay(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EnclosureSectorSave::VT_AY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn bx(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EnclosureSectorSave::VT_BX, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn by(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EnclosureSectorSave::VT_BY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn cells(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(EnclosureSectorSave::VT_CELLS, None)}
+  }
+  #[inline]
+  pub fn labour_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EnclosureSectorSave::VT_LABOUR_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn gate(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(EnclosureSectorSave::VT_GATE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn loss(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EnclosureSectorSave::VT_LOSS, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for EnclosureSectorSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<f32>("ax", Self::VT_AX, false)?
+     .visit_field::<f32>("ay", Self::VT_AY, false)?
+     .visit_field::<f32>("bx", Self::VT_BX, false)?
+     .visit_field::<f32>("by", Self::VT_BY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("cells", Self::VT_CELLS, false)?
+     .visit_field::<f32>("labour_h", Self::VT_LABOUR_H, false)?
+     .visit_field::<u8>("gate", Self::VT_GATE, false)?
+     .visit_field::<f32>("loss", Self::VT_LOSS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct EnclosureSectorSaveArgs<'a> {
+    pub ax: f32,
+    pub ay: f32,
+    pub bx: f32,
+    pub by: f32,
+    pub cells: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub labour_h: f32,
+    pub gate: u8,
+    pub loss: f32,
+}
+impl<'a> Default for EnclosureSectorSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    EnclosureSectorSaveArgs {
+      ax: 0.0,
+      ay: 0.0,
+      bx: 0.0,
+      by: 0.0,
+      cells: None,
+      labour_h: 0.0,
+      gate: 0,
+      loss: 0.0,
+    }
+  }
+}
+
+pub struct EnclosureSectorSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EnclosureSectorSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_ax(&mut self, ax: f32) {
+    self.fbb_.push_slot::<f32>(EnclosureSectorSave::VT_AX, ax, 0.0);
+  }
+  #[inline]
+  pub fn add_ay(&mut self, ay: f32) {
+    self.fbb_.push_slot::<f32>(EnclosureSectorSave::VT_AY, ay, 0.0);
+  }
+  #[inline]
+  pub fn add_bx(&mut self, bx: f32) {
+    self.fbb_.push_slot::<f32>(EnclosureSectorSave::VT_BX, bx, 0.0);
+  }
+  #[inline]
+  pub fn add_by(&mut self, by: f32) {
+    self.fbb_.push_slot::<f32>(EnclosureSectorSave::VT_BY, by, 0.0);
+  }
+  #[inline]
+  pub fn add_cells(&mut self, cells: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(EnclosureSectorSave::VT_CELLS, cells);
+  }
+  #[inline]
+  pub fn add_labour_h(&mut self, labour_h: f32) {
+    self.fbb_.push_slot::<f32>(EnclosureSectorSave::VT_LABOUR_H, labour_h, 0.0);
+  }
+  #[inline]
+  pub fn add_gate(&mut self, gate: u8) {
+    self.fbb_.push_slot::<u8>(EnclosureSectorSave::VT_GATE, gate, 0);
+  }
+  #[inline]
+  pub fn add_loss(&mut self, loss: f32) {
+    self.fbb_.push_slot::<f32>(EnclosureSectorSave::VT_LOSS, loss, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EnclosureSectorSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    EnclosureSectorSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<EnclosureSectorSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for EnclosureSectorSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("EnclosureSectorSave");
+      ds.field("ax", &self.ax());
+      ds.field("ay", &self.ay());
+      ds.field("bx", &self.bx());
+      ds.field("by", &self.by());
+      ds.field("cells", &self.cells());
+      ds.field("labour_h", &self.labour_h());
+      ds.field("gate", &self.gate());
+      ds.field("loss", &self.loss());
+      ds.finish()
+  }
+}
+pub enum EnclosureSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct EnclosureSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for EnclosureSave<'a> {
+  type Inner = EnclosureSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> EnclosureSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_OWNER: ::flatbuffers::VOffsetT = 6;
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 8;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 10;
+  pub const VT_CENTRE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_RADIUS_M: ::flatbuffers::VOffsetT = 14;
+  pub const VT_SECTORS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_WORK_H: ::flatbuffers::VOffsetT = 18;
+  pub const VT_SHARES: ::flatbuffers::VOffsetT = 20;
+  pub const VT_CREW_DAY: ::flatbuffers::VOffsetT = 22;
+  pub const VT_CREW: ::flatbuffers::VOffsetT = 24;
+  pub const VT_BEGUN: ::flatbuffers::VOffsetT = 26;
+  pub const VT_FINISHED: ::flatbuffers::VOffsetT = 28;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    EnclosureSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args EnclosureSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<EnclosureSave<'bldr>> {
+    let mut builder = EnclosureSaveBuilder::new(_fbb);
+    builder.add_finished(args.finished);
+    builder.add_begun(args.begun);
+    builder.add_crew_day(args.crew_day);
+    builder.add_settlement(args.settlement);
+    builder.add_law(args.law);
+    builder.add_owner(args.owner);
+    builder.add_id(args.id);
+    if let Some(x) = args.shares { builder.add_shares(x); }
+    builder.add_work_h(args.work_h);
+    if let Some(x) = args.sectors { builder.add_sectors(x); }
+    builder.add_radius_m(args.radius_m);
+    if let Some(x) = args.centre { builder.add_centre(x); }
+    builder.add_crew(args.crew);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(EnclosureSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn owner(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(EnclosureSave::VT_OWNER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(EnclosureSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(EnclosureSave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn centre(&self) -> Option<&'a Point> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Point>(EnclosureSave::VT_CENTRE, None)}
+  }
+  #[inline]
+  pub fn radius_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EnclosureSave::VT_RADIUS_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn sectors(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EnclosureSectorSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EnclosureSectorSave>>>>(EnclosureSave::VT_SECTORS, None)}
+  }
+  #[inline]
+  pub fn work_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EnclosureSave::VT_WORK_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn shares(&self) -> Option<::flatbuffers::Vector<'a, CrossingShareSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, CrossingShareSave>>>(EnclosureSave::VT_SHARES, None)}
+  }
+  #[inline]
+  pub fn crew_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(EnclosureSave::VT_CREW_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn crew(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(EnclosureSave::VT_CREW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn begun(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(EnclosureSave::VT_BEGUN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn finished(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(EnclosureSave::VT_FINISHED, Some(-1)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for EnclosureSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("owner", Self::VT_OWNER, false)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<Point>("centre", Self::VT_CENTRE, false)?
+     .visit_field::<f32>("radius_m", Self::VT_RADIUS_M, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<EnclosureSectorSave>>>>("sectors", Self::VT_SECTORS, false)?
+     .visit_field::<f32>("work_h", Self::VT_WORK_H, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CrossingShareSave>>>("shares", Self::VT_SHARES, false)?
+     .visit_field::<i64>("crew_day", Self::VT_CREW_DAY, false)?
+     .visit_field::<u8>("crew", Self::VT_CREW, false)?
+     .visit_field::<i64>("begun", Self::VT_BEGUN, false)?
+     .visit_field::<i64>("finished", Self::VT_FINISHED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct EnclosureSaveArgs<'a> {
+    pub id: u64,
+    pub owner: u64,
+    pub law: u64,
+    pub settlement: u64,
+    pub centre: Option<&'a Point>,
+    pub radius_m: f32,
+    pub sectors: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EnclosureSectorSave<'a>>>>>,
+    pub work_h: f32,
+    pub shares: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CrossingShareSave>>>,
+    pub crew_day: i64,
+    pub crew: u8,
+    pub begun: i64,
+    pub finished: i64,
+}
+impl<'a> Default for EnclosureSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    EnclosureSaveArgs {
+      id: 0,
+      owner: 0,
+      law: 0,
+      settlement: 0,
+      centre: None,
+      radius_m: 0.0,
+      sectors: None,
+      work_h: 0.0,
+      shares: None,
+      crew_day: 0,
+      crew: 0,
+      begun: 0,
+      finished: -1,
+    }
+  }
+}
+
+pub struct EnclosureSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EnclosureSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(EnclosureSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_owner(&mut self, owner: u64) {
+    self.fbb_.push_slot::<u64>(EnclosureSave::VT_OWNER, owner, 0);
+  }
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(EnclosureSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(EnclosureSave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_centre(&mut self, centre: &Point) {
+    self.fbb_.push_slot_always::<&Point>(EnclosureSave::VT_CENTRE, centre);
+  }
+  #[inline]
+  pub fn add_radius_m(&mut self, radius_m: f32) {
+    self.fbb_.push_slot::<f32>(EnclosureSave::VT_RADIUS_M, radius_m, 0.0);
+  }
+  #[inline]
+  pub fn add_sectors(&mut self, sectors: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<EnclosureSectorSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(EnclosureSave::VT_SECTORS, sectors);
+  }
+  #[inline]
+  pub fn add_work_h(&mut self, work_h: f32) {
+    self.fbb_.push_slot::<f32>(EnclosureSave::VT_WORK_H, work_h, 0.0);
+  }
+  #[inline]
+  pub fn add_shares(&mut self, shares: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , CrossingShareSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(EnclosureSave::VT_SHARES, shares);
+  }
+  #[inline]
+  pub fn add_crew_day(&mut self, crew_day: i64) {
+    self.fbb_.push_slot::<i64>(EnclosureSave::VT_CREW_DAY, crew_day, 0);
+  }
+  #[inline]
+  pub fn add_crew(&mut self, crew: u8) {
+    self.fbb_.push_slot::<u8>(EnclosureSave::VT_CREW, crew, 0);
+  }
+  #[inline]
+  pub fn add_begun(&mut self, begun: i64) {
+    self.fbb_.push_slot::<i64>(EnclosureSave::VT_BEGUN, begun, 0);
+  }
+  #[inline]
+  pub fn add_finished(&mut self, finished: i64) {
+    self.fbb_.push_slot::<i64>(EnclosureSave::VT_FINISHED, finished, -1);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EnclosureSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    EnclosureSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<EnclosureSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for EnclosureSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("EnclosureSave");
+      ds.field("id", &self.id());
+      ds.field("owner", &self.owner());
+      ds.field("law", &self.law());
+      ds.field("settlement", &self.settlement());
+      ds.field("centre", &self.centre());
+      ds.field("radius_m", &self.radius_m());
+      ds.field("sectors", &self.sectors());
+      ds.field("work_h", &self.work_h());
+      ds.field("shares", &self.shares());
+      ds.field("crew_day", &self.crew_day());
+      ds.field("crew", &self.crew());
+      ds.field("begun", &self.begun());
+      ds.field("finished", &self.finished());
+      ds.finish()
+  }
+}
 pub enum CrossingsSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -41276,6 +41791,8 @@ impl<'a> CrossingsSave<'a> {
   pub const VT_LIST: ::flatbuffers::VOffsetT = 4;
   pub const VT_REVISION: ::flatbuffers::VOffsetT = 6;
   pub const VT_WADES: ::flatbuffers::VOffsetT = 8;
+  pub const VT_ENCLOSURES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_ENCLOSURES_REVISION: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -41287,6 +41804,8 @@ impl<'a> CrossingsSave<'a> {
     args: &'args CrossingsSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<CrossingsSave<'bldr>> {
     let mut builder = CrossingsSaveBuilder::new(_fbb);
+    builder.add_enclosures_revision(args.enclosures_revision);
+    if let Some(x) = args.enclosures { builder.add_enclosures(x); }
     if let Some(x) = args.wades { builder.add_wades(x); }
     builder.add_revision(args.revision);
     if let Some(x) = args.list { builder.add_list(x); }
@@ -41315,6 +41834,20 @@ impl<'a> CrossingsSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, WadeSave>>>(CrossingsSave::VT_WADES, None)}
   }
+  #[inline]
+  pub fn enclosures(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EnclosureSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EnclosureSave>>>>(CrossingsSave::VT_ENCLOSURES, None)}
+  }
+  #[inline]
+  pub fn enclosures_revision(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CrossingsSave::VT_ENCLOSURES_REVISION, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for CrossingsSave<'_> {
@@ -41326,6 +41859,8 @@ impl ::flatbuffers::Verifiable for CrossingsSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CrossingSave>>>>("list", Self::VT_LIST, false)?
      .visit_field::<u32>("revision", Self::VT_REVISION, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, WadeSave>>>("wades", Self::VT_WADES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<EnclosureSave>>>>("enclosures", Self::VT_ENCLOSURES, false)?
+     .visit_field::<u32>("enclosures_revision", Self::VT_ENCLOSURES_REVISION, false)?
      .finish();
     Ok(())
   }
@@ -41334,6 +41869,8 @@ pub struct CrossingsSaveArgs<'a> {
     pub list: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CrossingSave<'a>>>>>,
     pub revision: u32,
     pub wades: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, WadeSave>>>,
+    pub enclosures: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EnclosureSave<'a>>>>>,
+    pub enclosures_revision: u32,
 }
 impl<'a> Default for CrossingsSaveArgs<'a> {
   #[inline]
@@ -41342,6 +41879,8 @@ impl<'a> Default for CrossingsSaveArgs<'a> {
       list: None,
       revision: 0,
       wades: None,
+      enclosures: None,
+      enclosures_revision: 0,
     }
   }
 }
@@ -41364,6 +41903,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CrossingsSaveBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CrossingsSave::VT_WADES, wades);
   }
   #[inline]
+  pub fn add_enclosures(&mut self, enclosures: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<EnclosureSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CrossingsSave::VT_ENCLOSURES, enclosures);
+  }
+  #[inline]
+  pub fn add_enclosures_revision(&mut self, enclosures_revision: u32) {
+    self.fbb_.push_slot::<u32>(CrossingsSave::VT_ENCLOSURES_REVISION, enclosures_revision, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CrossingsSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     CrossingsSaveBuilder {
@@ -41384,6 +41931,8 @@ impl ::core::fmt::Debug for CrossingsSave<'_> {
       ds.field("list", &self.list());
       ds.field("revision", &self.revision());
       ds.field("wades", &self.wades());
+      ds.field("enclosures", &self.enclosures());
+      ds.field("enclosures_revision", &self.enclosures_revision());
       ds.finish()
   }
 }

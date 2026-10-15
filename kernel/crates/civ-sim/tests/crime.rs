@@ -732,24 +732,47 @@ fn a_watcher_chooses_once_what_to_do_with_a_taking_they_saw() {
         }
         assert_eq!(s.kept == Kept::Paid, s.kcal > 0.0, "{s:?}");
     }
-    // The watch counts the cases it brought.
-    let brought = order
+    // The watch counts the cases it brought: each the officer brought of a taking they saw, on
+    // whichever watch law they held then, except one their own household had brought already as
+    // the household taken from (which world this is depends on the run's identity).
+    let officer_household = pop
+        .people
+        .iter()
+        .find(|(_, p)| p.id == officer)
+        .map(|(_, p)| p.household);
+    let mut brought = 0u32;
+    let mut own = 0u32;
+    for s in order
         .sightings
         .iter()
-        .filter(|s| matches!(s.kept, Kept::Reported | Kept::Refused))
-        .filter(|s| {
-            order
-                .cases
-                .iter()
-                .any(|c| c.incident == s.incident && c.by == officer)
-        })
-        .count() as u32;
-    let law = pop.polities[0]
+        .filter(|s| s.officer == officer && matches!(s.kept, Kept::Reported | Kept::Refused))
+    {
+        if let Some(c) = order
+            .cases
+            .iter()
+            .find(|c| c.incident == s.incident && c.by == officer)
+        {
+            brought += 1;
+            if Some(c.accuser) == officer_household {
+                own += 1;
+            }
+        }
+    }
+    assert!(
+        pop.polities[0].laws.iter().any(|l| l.id == watch),
+        "the watch"
+    );
+    let counted: u32 = pop.polities[0]
         .laws
         .iter()
-        .find(|l| l.id == watch)
-        .expect("the watch");
-    assert_eq!(law.watch.cases, brought);
+        .filter(|l| l.kind == PolicyKind::KeepWatch && l.holder == Some(officer))
+        .map(|l| l.watch.cases)
+        .sum();
+    assert!(
+        brought - own <= counted && counted <= brought,
+        "the watch counted {counted} of {brought} cases its officer brought ({own} for their own \
+         household)"
+    );
     let goods = &sim.rules().catalog.goods;
     let gaps = population::unaccounted(
         goods.len(),

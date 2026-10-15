@@ -351,6 +351,8 @@ pub const SCHEMA_V109: u32 = 109;
 pub const SCHEMA_V110: u32 = 110;
 /// Claims of raids and bands seen, before bands and raiding by law.
 pub const SCHEMA_V111: u32 = 111;
+/// Bands and raiding by law, before enclosures.
+pub const SCHEMA_V112: u32 = 112;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

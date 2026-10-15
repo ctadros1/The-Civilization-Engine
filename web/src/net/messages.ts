@@ -1612,7 +1612,10 @@ export interface EarthworkInfo {
   bank?: { ax: number; ay: number; bx: number; by: number; heightM: number; breached: boolean };
   /** Wire 1.73: an irrigation ditch's line from its intake to its field, and whether it is open. */
   ditch?: { ax: number; ay: number; bx: number; by: number; open: boolean };
-
+  /** Wire 1.75 (kind 5, M6c slice BK): a stretch of an enclosure's palisade — its ends, its place
+   * round the line, its state (0 to be built, 1 standing, 2 rotted through) and its gate (0 none,
+   * 1 open, 2 shut). */
+  sector?: { ax: number; ay: number; bx: number; by: number; index: number; state: number; gate: number };
 }
 
 /** A crossing over water (wire 1.60, M5c slice AW; ADR-0004 §7, ADR-0009 §9). */
@@ -2814,6 +2817,10 @@ function earthworks(w: W.Earthworks): EarthworksInfo {
       ditch: e.ditchA() && e.ditchB() ? {
         ax: e.ditchA()!.x(), ay: e.ditchA()!.y(), bx: e.ditchB()!.x(), by: e.ditchB()!.y(),
         open: e.ditchOpen(),
+      } : undefined,
+      sector: e.sectorA() && e.sectorB() ? {
+        ax: e.sectorA()!.x(), ay: e.sectorA()!.y(), bx: e.sectorB()!.x(), by: e.sectorB()!.y(),
+        index: e.sectorIndex(), state: e.sectorState(), gate: e.sectorGate(),
       } : undefined,
     });
   }

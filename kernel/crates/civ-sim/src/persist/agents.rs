@@ -117,7 +117,7 @@ use super::{
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
     SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
-    SCHEMA_V111, finish, section, single_chunk, unreadable,
+    SCHEMA_V111, SCHEMA_V112, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -543,6 +543,8 @@ enum Schema {
     V111,
     /// M6c slice BJ, step three: bands sent and raiding forbidden by law.
     V112,
+    /// M6c slice BK: enclosures.
+    V113,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -669,7 +671,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V109 => Schema::V109,
         SCHEMA_V110 => Schema::V110,
         SCHEMA_V111 => Schema::V111,
-        SAVE_SCHEMA_VERSION => Schema::V112,
+        SCHEMA_V112 => Schema::V112,
+        SAVE_SCHEMA_VERSION => Schema::V113,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -915,7 +918,7 @@ pub(super) fn decode<R: Read + Seek>(
     // none.
     if schema >= Schema::V68 {
         let bytes = single_chunk(reader, SECTION_CROSSINGS)?;
-        (land.crossings, people.fords) = decode_crossings(&bytes, rules, map)?;
+        (land.crossings, people.fords, land.enclosures) = decode_crossings(&bytes, rules, map)?;
     }
     // Wells (schema 74); before, none.
     if schema >= Schema::V74 {
@@ -3125,6 +3128,7 @@ fn decode_land(
         ground: civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
         // Read from its own section (schema 68 on).
         crossings: Default::default(),
+        enclosures: Default::default(),
         // The heads and the store below (schema 72 on); the aquifer derived.
         water: Default::default(),
         // Read from its own section (schema 74 on).
@@ -3821,7 +3825,8 @@ fn carried(
         | Schema::V109
         | Schema::V110
         | Schema::V111
-        | Schema::V112 => {
+        | Schema::V112
+        | Schema::V113 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4106,7 +4111,8 @@ fn decode_households(
             | Schema::V109
             | Schema::V110
             | Schema::V111
-            | Schema::V112 => {
+            | Schema::V112
+            | Schema::V113 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -9322,12 +9328,67 @@ fn encode_crossings(land: &Land, fords: &civ_agents::fords::Fords, rules: &Rules
         })
         .collect();
     let wades = (!wades.is_empty()).then(|| fbb.create_vector(&wades));
+    let enclosures: Vec<_> = land
+        .enclosures
+        .list
+        .iter()
+        .map(|e| {
+            let sectors: Vec<_> = e
+                .sectors
+                .iter()
+                .map(|s| {
+                    let cells = fbb.create_vector(&s.cells);
+                    save::EnclosureSectorSave::create(
+                        &mut fbb,
+                        &save::EnclosureSectorSaveArgs {
+                            ax: s.a.0,
+                            ay: s.a.1,
+                            bx: s.b.0,
+                            by: s.b.1,
+                            cells: Some(cells),
+                            labour_h: s.labour_h,
+                            gate: s.gate.map_or(0, |g| if g.open { 1 } else { 2 }),
+                            loss: s.loss,
+                        },
+                    )
+                })
+                .collect();
+            let sectors = fbb.create_vector(&sectors);
+            let shares: Vec<save::CrossingShareSave> = e
+                .shares
+                .iter()
+                .map(|&(h, hours)| save::CrossingShareSave::new(h.get(), hours))
+                .collect();
+            let shares = (!shares.is_empty()).then(|| fbb.create_vector(&shares));
+            save::EnclosureSave::create(
+                &mut fbb,
+                &save::EnclosureSaveArgs {
+                    id: e.id.get(),
+                    owner: e.owner.get(),
+                    law: e.law.get(),
+                    settlement: e.settlement.get(),
+                    centre: Some(&point(e.centre)),
+                    radius_m: e.radius_m,
+                    sectors: Some(sectors),
+                    work_h: e.work_h,
+                    shares,
+                    crew_day: e.crew.0,
+                    crew: e.crew.1,
+                    begun: e.begun.minutes(),
+                    finished: e.finished.unwrap_or(-1),
+                },
+            )
+        })
+        .collect();
+    let enclosures = (!enclosures.is_empty()).then(|| fbb.create_vector(&enclosures));
     let root = save::CrossingsSave::create(
         &mut fbb,
         &save::CrossingsSaveArgs {
             list: Some(list),
             revision: land.crossings.revision(),
             wades,
+            enclosures,
+            enclosures_revision: land.enclosures.revision(),
         },
     );
     finish(fbb, root)
@@ -9336,11 +9397,19 @@ fn encode_crossings(land: &Land, fords: &civ_agents::fords::Fords, rules: &Rules
 /// The crossings saved in `bytes`, and the streams households wade. A crossing of a bridge
 /// system the loaded content no longer has is dropped; one spanning cells off the map is
 /// malformed, as is a wade of a cell off the map.
+#[allow(clippy::type_complexity)]
 fn decode_crossings(
     bytes: &[u8],
     rules: &Rules,
     map: &WorldMap,
-) -> Result<(civ_land::crossings::Crossings, civ_agents::fords::Fords), LoadError> {
+) -> Result<
+    (
+        civ_land::crossings::Crossings,
+        civ_agents::fords::Fords,
+        civ_land::enclosures::Enclosures,
+    ),
+    LoadError,
+> {
     use civ_land::crossings::{Collapse, Crossing, CrossingOwner, CrossingState, Crossings};
     let root = flatbuffers::root::<save::CrossingsSave>(bytes)
         .map_err(|e| unreadable(SECTION_CROSSINGS, &e))?;
@@ -9424,7 +9493,63 @@ fn decode_crossings(
                 day: w.day(),
             });
     }
-    Ok((Crossings::with_revision(list, root.revision()), fords))
+    // Enclosures (schema 113); before, none.
+    let mut enclosures = Vec::new();
+    for e in root.enclosures().iter().flatten() {
+        use civ_land::enclosures::{Enclosure, Gate, Sector};
+        let id = required(e.id(), "an enclosure")?;
+        let bad = |what: &str| LoadError::Malformed(format!("enclosure {id} has {what}"));
+        let mut sectors = Vec::new();
+        for s in e.sectors().iter().flatten() {
+            let cells: Vec<u32> = s.cells().map(|v| v.iter().collect()).unwrap_or_default();
+            if cells.iter().any(|&x| u64::from(x) >= cells_on_map) {
+                return Err(bad("a sector off the map"));
+            }
+            let gate = match s.gate() {
+                0 => None,
+                1 => Some(Gate { open: true }),
+                2 => Some(Gate { open: false }),
+                g => return Err(bad(&format!("gate code {g}"))),
+            };
+            sectors.push(Sector {
+                a: (s.ax(), s.ay()),
+                b: (s.bx(), s.by()),
+                cells,
+                labour_h: s.labour_h(),
+                gate,
+                loss: s.loss(),
+            });
+        }
+        let mut shares = Vec::new();
+        for s in e.shares().iter().flatten() {
+            shares.push((required(s.household(), "a share's household")?, s.hours()));
+        }
+        enclosures.push(Enclosure {
+            id,
+            owner: required(e.owner(), "an enclosure's polity")?,
+            law: required(e.law(), "an enclosure's law")?,
+            settlement: required(e.settlement(), "an enclosure's settlement")?,
+            centre: e.centre().map_or((0.0, 0.0), |p| (p.x(), p.y())),
+            radius_m: e.radius_m(),
+            sectors,
+            work_h: e.work_h(),
+            shares,
+            crew: (e.crew_day(), e.crew()),
+            begun: SimTime::from_minutes(e.begun()),
+            finished: (e.finished() >= 0).then_some(e.finished()),
+        });
+    }
+    let enclosures =
+        civ_land::enclosures::Enclosures::with_revision(enclosures, root.enclosures_revision());
+    let problems = enclosures.problems();
+    if let Some(p) = problems.first() {
+        return Err(LoadError::Malformed(p.clone()));
+    }
+    Ok((
+        Crossings::with_revision(list, root.revision()),
+        fords,
+        enclosures,
+    ))
 }
 
 fn encode_wells(land: &Land, rules: &Rules) -> Vec<u8> {

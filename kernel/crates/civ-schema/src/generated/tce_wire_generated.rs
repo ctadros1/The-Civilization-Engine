@@ -26988,6 +26988,11 @@ impl<'a> EarthworkInfo<'a> {
   pub const VT_DITCH_A: ::flatbuffers::VOffsetT = 42;
   pub const VT_DITCH_B: ::flatbuffers::VOffsetT = 44;
   pub const VT_DITCH_OPEN: ::flatbuffers::VOffsetT = 46;
+  pub const VT_SECTOR_A: ::flatbuffers::VOffsetT = 48;
+  pub const VT_SECTOR_B: ::flatbuffers::VOffsetT = 50;
+  pub const VT_SECTOR_INDEX: ::flatbuffers::VOffsetT = 52;
+  pub const VT_SECTOR_STATE: ::flatbuffers::VOffsetT = 54;
+  pub const VT_SECTOR_GATE: ::flatbuffers::VOffsetT = 56;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -27004,6 +27009,9 @@ impl<'a> EarthworkInfo<'a> {
     builder.add_plot(args.plot);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    builder.add_sector_index(args.sector_index);
+    if let Some(x) = args.sector_b { builder.add_sector_b(x); }
+    if let Some(x) = args.sector_a { builder.add_sector_a(x); }
     if let Some(x) = args.ditch_b { builder.add_ditch_b(x); }
     if let Some(x) = args.ditch_a { builder.add_ditch_a(x); }
     builder.add_bank_height_m(args.bank_height_m);
@@ -27018,6 +27026,8 @@ impl<'a> EarthworkInfo<'a> {
     builder.add_w(args.w);
     builder.add_y(args.y);
     builder.add_x(args.x);
+    builder.add_sector_gate(args.sector_gate);
+    builder.add_sector_state(args.sector_state);
     builder.add_ditch_open(args.ditch_open);
     builder.add_bank_breached(args.bank_breached);
     builder.add_kind(args.kind);
@@ -27179,6 +27189,41 @@ impl<'a> EarthworkInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(EarthworkInfo::VT_DITCH_OPEN, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn sector_a(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(EarthworkInfo::VT_SECTOR_A, None)}
+  }
+  #[inline]
+  pub fn sector_b(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(EarthworkInfo::VT_SECTOR_B, None)}
+  }
+  #[inline]
+  pub fn sector_index(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(EarthworkInfo::VT_SECTOR_INDEX, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn sector_state(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(EarthworkInfo::VT_SECTOR_STATE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn sector_gate(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(EarthworkInfo::VT_SECTOR_GATE, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for EarthworkInfo<'_> {
@@ -27209,6 +27254,11 @@ impl ::flatbuffers::Verifiable for EarthworkInfo<'_> {
      .visit_field::<Vec2>("ditch_a", Self::VT_DITCH_A, false)?
      .visit_field::<Vec2>("ditch_b", Self::VT_DITCH_B, false)?
      .visit_field::<bool>("ditch_open", Self::VT_DITCH_OPEN, false)?
+     .visit_field::<Vec2>("sector_a", Self::VT_SECTOR_A, false)?
+     .visit_field::<Vec2>("sector_b", Self::VT_SECTOR_B, false)?
+     .visit_field::<u32>("sector_index", Self::VT_SECTOR_INDEX, false)?
+     .visit_field::<u8>("sector_state", Self::VT_SECTOR_STATE, false)?
+     .visit_field::<u8>("sector_gate", Self::VT_SECTOR_GATE, false)?
      .finish();
     Ok(())
   }
@@ -27236,6 +27286,11 @@ pub struct EarthworkInfoArgs<'a> {
     pub ditch_a: Option<&'a Vec2>,
     pub ditch_b: Option<&'a Vec2>,
     pub ditch_open: bool,
+    pub sector_a: Option<&'a Vec2>,
+    pub sector_b: Option<&'a Vec2>,
+    pub sector_index: u32,
+    pub sector_state: u8,
+    pub sector_gate: u8,
 }
 impl<'a> Default for EarthworkInfoArgs<'a> {
   #[inline]
@@ -27263,6 +27318,11 @@ impl<'a> Default for EarthworkInfoArgs<'a> {
       ditch_a: None,
       ditch_b: None,
       ditch_open: false,
+      sector_a: None,
+      sector_b: None,
+      sector_index: 0,
+      sector_state: 0,
+      sector_gate: 0,
     }
   }
 }
@@ -27361,6 +27421,26 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EarthworkInfoBuilder<'a, 'b, 
     self.fbb_.push_slot::<bool>(EarthworkInfo::VT_DITCH_OPEN, ditch_open, false);
   }
   #[inline]
+  pub fn add_sector_a(&mut self, sector_a: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(EarthworkInfo::VT_SECTOR_A, sector_a);
+  }
+  #[inline]
+  pub fn add_sector_b(&mut self, sector_b: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(EarthworkInfo::VT_SECTOR_B, sector_b);
+  }
+  #[inline]
+  pub fn add_sector_index(&mut self, sector_index: u32) {
+    self.fbb_.push_slot::<u32>(EarthworkInfo::VT_SECTOR_INDEX, sector_index, 0);
+  }
+  #[inline]
+  pub fn add_sector_state(&mut self, sector_state: u8) {
+    self.fbb_.push_slot::<u8>(EarthworkInfo::VT_SECTOR_STATE, sector_state, 0);
+  }
+  #[inline]
+  pub fn add_sector_gate(&mut self, sector_gate: u8) {
+    self.fbb_.push_slot::<u8>(EarthworkInfo::VT_SECTOR_GATE, sector_gate, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EarthworkInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     EarthworkInfoBuilder {
@@ -27400,6 +27480,11 @@ impl ::core::fmt::Debug for EarthworkInfo<'_> {
       ds.field("ditch_a", &self.ditch_a());
       ds.field("ditch_b", &self.ditch_b());
       ds.field("ditch_open", &self.ditch_open());
+      ds.field("sector_a", &self.sector_a());
+      ds.field("sector_b", &self.sector_b());
+      ds.field("sector_index", &self.sector_index());
+      ds.field("sector_state", &self.sector_state());
+      ds.field("sector_gate", &self.sector_gate());
       ds.finish()
   }
 }

@@ -1696,6 +1696,8 @@ pub(crate) struct Walking {
     pub wading_factor: f64,
     pub ford_max_discharge_m3s: f64,
     pub max_slope: f64,
+    /// Content API 99 (M6c slice BK).
+    pub climb_factor: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1955,6 +1957,7 @@ impl PeopleFile {
                 wading_factor: w.wading_factor,
                 ford_max_discharge_m3s: w.ford_max_discharge_m3s,
                 max_slope: w.max_slope,
+                climb_factor: w.climb_factor,
             },
             walk_speed_by_age: pairs(&self.walk_speed_by_age),
             capacity_by_age: pairs(&self.capacity_by_age),
@@ -2635,6 +2638,7 @@ impl PeopleFile {
         non_negative("walking.slope_sensitivity", w.slope_sensitivity, &mut p);
         unit("walking.offtrail_factor", w.offtrail_factor, &mut p);
         unit("walking.wading_factor", w.wading_factor, &mut p);
+        unit("walking.climb_factor", w.climb_factor, &mut p);
         non_negative(
             "walking.ford_max_discharge_m3s",
             w.ford_max_discharge_m3s,

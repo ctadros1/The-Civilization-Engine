@@ -21,6 +21,10 @@ offtrail_factor = 0.6            # unworn ground; a worn trail restores full spe
 wading_factor = 0.25             # speed while wading a fordable river
 ford_max_discharge_m3s = 3.0     # mean discharge a river can be waded at
 max_slope = 1.0                  # 45 degrees
+# Climbing over a standing enclosure's palisade (M6c slice BK, content API 99; ADR-0023 §6): the
+# speed across its cells relative to the ground. A design prior: a 3-4 m palisade climbed with
+# hands and a leg up takes minutes where walking past takes seconds; no study gives a rate.
+climb_factor = 0.05
 
 [energy]                         # FAO/WHO/UNU Schofield equations (research 05-02 §2.1)
 bmr_band_starts = [0.0, 3.0, 10.0, 18.0, 30.0, 60.0]

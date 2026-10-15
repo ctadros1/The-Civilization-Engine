@@ -1618,7 +1618,10 @@ fn nav_with_decks(map: &WorldMap, rules: &Rules, land: &Land) -> NavGrid {
             .get(usize::from(s))
             .map_or(0.0, |d| d.deck_factor as f32)
     });
-    NavGrid::with_decks_and_flood(
+    let barriers = land
+        .enclosures
+        .barriers(rules.people.nav.climb_factor as f32);
+    NavGrid::with_barriers(
         map,
         rules.people.nav,
         &decks,
@@ -1626,13 +1629,18 @@ fn nav_with_decks(map: &WorldMap, rules: &Rules, land: &Land) -> NavGrid {
         Some(&land.reach_discharges),
         Some(&land.flood_depths),
         land.flood_revision,
+        &barriers,
+        land.enclosures.revision(),
     )
 }
 
-/// Lays the walking grid again when a crossing has opened or given way, or flood depths have
-/// changed since it was laid (01-08 §7, M6b slice BF).
+/// Lays the walking grid again when a crossing has opened or given way, flood depths have
+/// changed, or an enclosure's sector or gate has (01-08 §7, M6b slice BF, M6c slice BK).
 fn refresh_nav(nav: &mut Arc<NavGrid>, map: &WorldMap, rules: &Rules, land: &Land) {
-    if land.crossings.revision() != nav.revision() || land.flood_revision != nav.flood_revision() {
+    if land.crossings.revision() != nav.revision()
+        || land.flood_revision != nav.flood_revision()
+        || land.enclosures.revision() != nav.barrier_revision()
+    {
         let mut refreshed = nav_with_decks(map, rules, land);
         refreshed.reuse_unchanged_ground(nav);
         *nav = Arc::new(refreshed);

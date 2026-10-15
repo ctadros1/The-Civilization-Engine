@@ -16730,7 +16730,12 @@ struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_BANK_BREACHED = 40,
     VT_DITCH_A = 42,
     VT_DITCH_B = 44,
-    VT_DITCH_OPEN = 46
+    VT_DITCH_OPEN = 46,
+    VT_SECTOR_A = 48,
+    VT_SECTOR_B = 50,
+    VT_SECTOR_INDEX = 52,
+    VT_SECTOR_STATE = 54,
+    VT_SECTOR_GATE = 56
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -16798,6 +16803,21 @@ struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   bool ditch_open() const {
     return GetField<uint8_t>(VT_DITCH_OPEN, 0) != 0;
   }
+  const tce::wire::Vec2 *sector_a() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_SECTOR_A);
+  }
+  const tce::wire::Vec2 *sector_b() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_SECTOR_B);
+  }
+  uint32_t sector_index() const {
+    return GetField<uint32_t>(VT_SECTOR_INDEX, 0);
+  }
+  uint8_t sector_state() const {
+    return GetField<uint8_t>(VT_SECTOR_STATE, 0);
+  }
+  uint8_t sector_gate() const {
+    return GetField<uint8_t>(VT_SECTOR_GATE, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -16824,6 +16844,11 @@ struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<tce::wire::Vec2>(verifier, VT_DITCH_A, 4) &&
            VerifyField<tce::wire::Vec2>(verifier, VT_DITCH_B, 4) &&
            VerifyField<uint8_t>(verifier, VT_DITCH_OPEN, 1) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_SECTOR_A, 4) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_SECTOR_B, 4) &&
+           VerifyField<uint32_t>(verifier, VT_SECTOR_INDEX, 4) &&
+           VerifyField<uint8_t>(verifier, VT_SECTOR_STATE, 1) &&
+           VerifyField<uint8_t>(verifier, VT_SECTOR_GATE, 1) &&
            verifier.EndTable();
   }
 };
@@ -16898,6 +16923,21 @@ struct EarthworkInfoBuilder {
   void add_ditch_open(bool ditch_open) {
     fbb_.AddElement<uint8_t>(EarthworkInfo::VT_DITCH_OPEN, static_cast<uint8_t>(ditch_open), 0);
   }
+  void add_sector_a(const tce::wire::Vec2 *sector_a) {
+    fbb_.AddStruct(EarthworkInfo::VT_SECTOR_A, sector_a);
+  }
+  void add_sector_b(const tce::wire::Vec2 *sector_b) {
+    fbb_.AddStruct(EarthworkInfo::VT_SECTOR_B, sector_b);
+  }
+  void add_sector_index(uint32_t sector_index) {
+    fbb_.AddElement<uint32_t>(EarthworkInfo::VT_SECTOR_INDEX, sector_index, 0);
+  }
+  void add_sector_state(uint8_t sector_state) {
+    fbb_.AddElement<uint8_t>(EarthworkInfo::VT_SECTOR_STATE, sector_state, 0);
+  }
+  void add_sector_gate(uint8_t sector_gate) {
+    fbb_.AddElement<uint8_t>(EarthworkInfo::VT_SECTOR_GATE, sector_gate, 0);
+  }
   explicit EarthworkInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -16932,13 +16972,21 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfo(
     bool bank_breached = false,
     const tce::wire::Vec2 *ditch_a = nullptr,
     const tce::wire::Vec2 *ditch_b = nullptr,
-    bool ditch_open = false) {
+    bool ditch_open = false,
+    const tce::wire::Vec2 *sector_a = nullptr,
+    const tce::wire::Vec2 *sector_b = nullptr,
+    uint32_t sector_index = 0,
+    uint8_t sector_state = 0,
+    uint8_t sector_gate = 0) {
   EarthworkInfoBuilder builder_(_fbb);
   builder_.add_deposit(deposit);
   builder_.add_building(building);
   builder_.add_plot(plot);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_sector_index(sector_index);
+  builder_.add_sector_b(sector_b);
+  builder_.add_sector_a(sector_a);
   builder_.add_ditch_b(ditch_b);
   builder_.add_ditch_a(ditch_a);
   builder_.add_bank_height_m(bank_height_m);
@@ -16953,6 +17001,8 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfo(
   builder_.add_w(w);
   builder_.add_y(y);
   builder_.add_x(x);
+  builder_.add_sector_gate(sector_gate);
+  builder_.add_sector_state(sector_state);
   builder_.add_ditch_open(ditch_open);
   builder_.add_bank_breached(bank_breached);
   builder_.add_kind(kind);
@@ -16987,7 +17037,12 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfoDirect(
     bool bank_breached = false,
     const tce::wire::Vec2 *ditch_a = nullptr,
     const tce::wire::Vec2 *ditch_b = nullptr,
-    bool ditch_open = false) {
+    bool ditch_open = false,
+    const tce::wire::Vec2 *sector_a = nullptr,
+    const tce::wire::Vec2 *sector_b = nullptr,
+    uint32_t sector_index = 0,
+    uint8_t sector_state = 0,
+    uint8_t sector_gate = 0) {
   auto words__ = words ? _fbb.CreateString(words) : 0;
   return tce::wire::CreateEarthworkInfo(
       _fbb,
@@ -17012,7 +17067,12 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfoDirect(
       bank_breached,
       ditch_a,
       ditch_b,
-      ditch_open);
+      ditch_open,
+      sector_a,
+      sector_b,
+      sector_index,
+      sector_state,
+      sector_gate);
 }
 
 struct CrossingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

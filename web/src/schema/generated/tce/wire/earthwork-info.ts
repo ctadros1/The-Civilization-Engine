@@ -137,8 +137,33 @@ ditchOpen():boolean {
   return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
 }
 
+sectorA(obj?:Vec2):Vec2|null {
+  const offset = this.bb!.__offset(this.bb_pos, 48);
+  return offset ? (obj || new Vec2()).__init(this.bb_pos + offset, this.bb!) : null;
+}
+
+sectorB(obj?:Vec2):Vec2|null {
+  const offset = this.bb!.__offset(this.bb_pos, 50);
+  return offset ? (obj || new Vec2()).__init(this.bb_pos + offset, this.bb!) : null;
+}
+
+sectorIndex():number {
+  const offset = this.bb!.__offset(this.bb_pos, 52);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
+sectorState():number {
+  const offset = this.bb!.__offset(this.bb_pos, 54);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : 0;
+}
+
+sectorGate():number {
+  const offset = this.bb!.__offset(this.bb_pos, 56);
+  return offset ? this.bb!.readUint8(this.bb_pos + offset) : 0;
+}
+
 static startEarthworkInfo(builder:flatbuffers.Builder) {
-  builder.startObject(22);
+  builder.startObject(27);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -227,6 +252,26 @@ static addDitchB(builder:flatbuffers.Builder, ditchBOffset:flatbuffers.Offset) {
 
 static addDitchOpen(builder:flatbuffers.Builder, ditchOpen:boolean) {
   builder.addFieldInt8(21, +ditchOpen, +false);
+}
+
+static addSectorA(builder:flatbuffers.Builder, sectorAOffset:flatbuffers.Offset) {
+  builder.addFieldStruct(22, sectorAOffset, 0);
+}
+
+static addSectorB(builder:flatbuffers.Builder, sectorBOffset:flatbuffers.Offset) {
+  builder.addFieldStruct(23, sectorBOffset, 0);
+}
+
+static addSectorIndex(builder:flatbuffers.Builder, sectorIndex:number) {
+  builder.addFieldInt32(24, sectorIndex, 0);
+}
+
+static addSectorState(builder:flatbuffers.Builder, sectorState:number) {
+  builder.addFieldInt8(25, sectorState, 0);
+}
+
+static addSectorGate(builder:flatbuffers.Builder, sectorGate:number) {
+  builder.addFieldInt8(26, sectorGate, 0);
 }
 
 static endEarthworkInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

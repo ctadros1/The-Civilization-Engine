@@ -27,7 +27,7 @@ import { buildingAt, buildingMarks, type Mark } from "../buildings.js";
 import { homeAt, lensMarks, type LensLayer } from "../coverage.js";
 import { crossingAt, crossingEnds, crossingLook } from "../crossings.js";
 import { depositAt, depositLook } from "../deposits.js";
-import { DITCH_COLOUR, changedTiles, detailTilesOver, earthworkAt, earthworkLook } from "../earthworks.js";
+import { DITCH_COLOUR, PALISADE_COLOUR, changedTiles, detailTilesOver, earthworkAt, earthworkLook, sectorLook } from "../earthworks.js";
 import { fieldAt, fieldLook } from "../fields.js";
 import type { HostClient } from "../net/client.js";
 import { TRAIL_COLOUR, pathAt, smoothed, trailLook, wornPixels } from "../paths.js";
@@ -438,6 +438,12 @@ export class MapView {
       if (w.ditch) {
         const shown = w.ditch.open ? 0.9 : 0.25 + 0.35 * Math.min(1, Math.max(0, w.done));
         g.moveTo(w.ditch.ax, w.ditch.ay).lineTo(w.ditch.bx, w.ditch.by).stroke({ width: 1, color: DITCH_COLOUR, alpha: shown });
+        continue;
+      }
+      // A stretch of an enclosure's palisade (wire 1.75): its line, by its state and gate.
+      if (w.sector) {
+        const s = sectorLook(w.sector);
+        g.moveTo(w.sector.ax, w.sector.ay).lineTo(w.sector.bx, w.sector.by).stroke({ width: s.width, color: PALISADE_COLOUR, alpha: s.alpha });
         continue;
       }
       g.rect(w.x, w.y, w.w, w.h).fill({ color: look.colour, alpha: look.alpha });

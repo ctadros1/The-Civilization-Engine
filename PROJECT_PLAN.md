@@ -2765,6 +2765,25 @@ and M6a gives rivers a daily flow.
     - Laid on the walking grid; gates open or shut by their keeper; climbing slow and seen.
     - The policy kind `enclose`, weighed by takings and raids believed and expected; work owed or
       in equal shares; upkeep as work orders.
+    - *As built, step one:* the record and the walking grid. An enclosure is a ring round a
+      point, cut into sectors of at most a given length (each with the cells under it, joined
+      edge to edge so nobody steps through it corner-wise), one or more of them gates, open or
+      shut. Work is done on the line as a whole and the sectors stand in order round it as it
+      is done, so a line half done bars half its length and nothing else (research 11-11 §1.3).
+      A standing sector that has not rotted through, and is not an open gate, is crossed only by
+      climbing, at `walking.climb_factor` (0.05) of the ground's speed: the walking grid takes
+      the least of the ground and the barrier on each of its cells, and every change to what
+      bars walking bumps the enclosures' revision, against which the grid and every planned
+      route are kept, as for crossings. Save schema 113 (`CrossingsSave.enclosures` and
+      `enclosures_revision`), content API 99, wire 1.75 (an earthwork entry of kind 5 for each
+      sector: its ends, its place round the line, its state and its gate, and a sentence); the
+      map draws each sector as a line, thick while it stands, thinner for an open gate, faint
+      where it is still to be built or has rotted into a gap. A test lays a ring round a
+      village's hearth with its gate facing away from a place outside: unbuilt, it changes
+      nothing; whole with its gate open, the way out goes round by the gate; shut, every way out
+      is a climb and slower still; rotted through, it is as if it were not there; and it saves
+      and loads with the world. **Not yet built:** anything that raises one (the `enclose` law,
+      step two), a gate's keeper, a climb being seen, and rot (step three).
   - **BL**: sieges and terms after force.
     - Camps; a band stays by a shut line, takes what lies outside and stops those it sees leave.
     - Endurance from stores and water as a derived measure; entry by a gate opened, a gap, a

@@ -1,0 +1,30 @@
+# A law against raiding (M6c slice BJ, step three; ADR-0023 §5): a raid by the polity's own people
+# on another settlement is a wrong its own gathering hears. Whoever it finds led one gives back
+# what was taken to the household raided, and the law's bundle besides, as a law against taking
+# has it (research 09-07 §6.2: a sanction is a bundle; days are days of the leader's household's
+# food). A household weighs it by the raids on it it believes its own people's raids bring, and
+# against what its own members took from other settlements. Without such a law raids stay
+# possible (ADR-0023 §3: a treaty can be undermined by its own side's raiders). Whether anyone
+# proposes it, with which bundle, and whether the gathering passes it is people's choice; nothing
+# here weighs toward it.
+kind = "policy"
+id = "core:policy/against_raiding"
+name = "Law against raiding"
+description = "Whoever is found to have led a band that took from a household of another settlement gives back what was taken, and may owe more besides."
+does = "against_raiding"
+answers = ["raided"]
+# The question people take positions on (content API 41, M4c slice AG).
+question = "whether the gathering should hear raids our people make"
+
+# How a law of this kind bears on what people hold dear (content API 43): an authoring judgement.
+[bears]
+"core:value/security" = 0.5
+"core:value/reciprocity" = 1.0   # what was taken is given back
+
+[[bundles]]
+compensation_days = 0.0   # restitution only
+fine_days = 0.0
+
+[[bundles]]
+compensation_days = 3.0   # and three days' food to the household raided
+fine_days = 0.0

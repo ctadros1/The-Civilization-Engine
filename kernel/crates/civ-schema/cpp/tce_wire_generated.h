@@ -77,6 +77,9 @@ struct PersonBriefBuilder;
 struct SettlementBrief;
 struct SettlementBriefBuilder;
 
+struct BandBrief;
+struct BandBriefBuilder;
+
 struct Snapshot;
 struct SnapshotBuilder;
 
@@ -4704,6 +4707,126 @@ inline ::flatbuffers::Offset<SettlementBrief> CreateSettlementBriefDirect(
       style__);
 }
 
+struct BandBrief FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef BandBriefBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_FROM = 6,
+    VT_STAGE = 8,
+    VT_MEMBERS = 10,
+    VT_TARGET = 12,
+    VT_WORDS = 14
+  };
+  uint32_t id() const {
+    return GetField<uint32_t>(VT_ID, 0);
+  }
+  uint64_t from() const {
+    return GetField<uint64_t>(VT_FROM, 0);
+  }
+  uint8_t stage() const {
+    return GetField<uint8_t>(VT_STAGE, 0);
+  }
+  const ::flatbuffers::Vector<uint64_t> *members() const {
+    return GetPointer<const ::flatbuffers::Vector<uint64_t> *>(VT_MEMBERS);
+  }
+  const tce::wire::Vec2 *target() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_TARGET);
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           VerifyField<uint64_t>(verifier, VT_FROM, 8) &&
+           VerifyField<uint8_t>(verifier, VT_STAGE, 1) &&
+           VerifyOffset(verifier, VT_MEMBERS) &&
+           verifier.VerifyVector(members()) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_TARGET, 4) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           verifier.EndTable();
+  }
+};
+
+struct BandBriefBuilder {
+  typedef BandBrief Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint32_t id) {
+    fbb_.AddElement<uint32_t>(BandBrief::VT_ID, id, 0);
+  }
+  void add_from(uint64_t from) {
+    fbb_.AddElement<uint64_t>(BandBrief::VT_FROM, from, 0);
+  }
+  void add_stage(uint8_t stage) {
+    fbb_.AddElement<uint8_t>(BandBrief::VT_STAGE, stage, 0);
+  }
+  void add_members(::flatbuffers::Offset<::flatbuffers::Vector<uint64_t>> members) {
+    fbb_.AddOffset(BandBrief::VT_MEMBERS, members);
+  }
+  void add_target(const tce::wire::Vec2 *target) {
+    fbb_.AddStruct(BandBrief::VT_TARGET, target);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(BandBrief::VT_WORDS, words);
+  }
+  explicit BandBriefBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<BandBrief> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<BandBrief>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<BandBrief> CreateBandBrief(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    uint64_t from = 0,
+    uint8_t stage = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint64_t>> members = 0,
+    const tce::wire::Vec2 *target = nullptr,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+  BandBriefBuilder builder_(_fbb);
+  builder_.add_from(from);
+  builder_.add_words(words);
+  builder_.add_target(target);
+  builder_.add_members(members);
+  builder_.add_id(id);
+  builder_.add_stage(stage);
+  return builder_.Finish();
+}
+
+struct BandBrief::Traits {
+  using type = BandBrief;
+  static auto constexpr Create = CreateBandBrief;
+};
+
+inline ::flatbuffers::Offset<BandBrief> CreateBandBriefDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    uint64_t from = 0,
+    uint8_t stage = 0,
+    const std::vector<uint64_t> *members = nullptr,
+    const tce::wire::Vec2 *target = nullptr,
+    const char *words = nullptr) {
+  auto members__ = members ? _fbb.CreateVector<uint64_t>(*members) : 0;
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateBandBrief(
+      _fbb,
+      id,
+      from,
+      stage,
+      members__,
+      target,
+      words__);
+}
+
 struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef SnapshotBuilder Builder;
   struct Traits;
@@ -4729,7 +4852,8 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_WEATHER_REV = 40,
     VT_CROSSINGS_REV = 42,
     VT_WATER_REV = 44,
-    VT_INCIDENTS_REV = 46
+    VT_INCIDENTS_REV = 46,
+    VT_BANDS = 48
   };
   const tce::wire::WorldInfo *world() const {
     return GetPointer<const tce::wire::WorldInfo *>(VT_WORLD);
@@ -4797,6 +4921,9 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint64_t incidents_rev() const {
     return GetField<uint64_t>(VT_INCIDENTS_REV, 0);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::BandBrief>> *bands() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::BandBrief>> *>(VT_BANDS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -4831,6 +4958,9 @@ struct Snapshot FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint64_t>(verifier, VT_CROSSINGS_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_WATER_REV, 8) &&
            VerifyField<uint64_t>(verifier, VT_INCIDENTS_REV, 8) &&
+           VerifyOffset(verifier, VT_BANDS) &&
+           verifier.VerifyVector(bands()) &&
+           verifier.VerifyVectorOfTables(bands()) &&
            verifier.EndTable();
   }
 };
@@ -4905,6 +5035,9 @@ struct SnapshotBuilder {
   void add_incidents_rev(uint64_t incidents_rev) {
     fbb_.AddElement<uint64_t>(Snapshot::VT_INCIDENTS_REV, incidents_rev, 0);
   }
+  void add_bands(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::BandBrief>>> bands) {
+    fbb_.AddOffset(Snapshot::VT_BANDS, bands);
+  }
   explicit SnapshotBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -4939,7 +5072,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshot(
     uint64_t weather_rev = 0,
     uint64_t crossings_rev = 0,
     uint64_t water_rev = 0,
-    uint64_t incidents_rev = 0) {
+    uint64_t incidents_rev = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::BandBrief>>> bands = 0) {
   SnapshotBuilder builder_(_fbb);
   builder_.add_incidents_rev(incidents_rev);
   builder_.add_water_rev(water_rev);
@@ -4956,6 +5090,7 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshot(
   builder_.add_fields_rev(fields_rev);
   builder_.add_chronicle_head(chronicle_head);
   builder_.add_last_autosave_unix_ms(last_autosave_unix_ms);
+  builder_.add_bands(bands);
   builder_.add_settlements(settlements);
   builder_.add_people(people);
   builder_.add_last_error(last_error);
@@ -4994,10 +5129,12 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
     uint64_t weather_rev = 0,
     uint64_t crossings_rev = 0,
     uint64_t water_rev = 0,
-    uint64_t incidents_rev = 0) {
+    uint64_t incidents_rev = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::BandBrief>> *bands = nullptr) {
   auto last_error__ = last_error ? _fbb.CreateString(last_error) : 0;
   auto people__ = people ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PersonBrief>>(*people) : 0;
   auto settlements__ = settlements ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SettlementBrief>>(*settlements) : 0;
+  auto bands__ = bands ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::BandBrief>>(*bands) : 0;
   return tce::wire::CreateSnapshot(
       _fbb,
       world,
@@ -5021,7 +5158,8 @@ inline ::flatbuffers::Offset<Snapshot> CreateSnapshotDirect(
       weather_rev,
       crossings_rev,
       water_rev,
-      incidents_rev);
+      incidents_rev,
+      bands__);
 }
 
 struct Event FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

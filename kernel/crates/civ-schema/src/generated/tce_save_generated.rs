@@ -31230,6 +31230,7 @@ impl<'a> LawSave<'a> {
   pub const VT_REFUSED_KG: ::flatbuffers::VOffsetT = 94;
   pub const VT_AGREEMENT: ::flatbuffers::VOffsetT = 96;
   pub const VT_STANCE_VIEWS: ::flatbuffers::VOffsetT = 98;
+  pub const VT_TARGET: ::flatbuffers::VOffsetT = 100;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -31241,6 +31242,7 @@ impl<'a> LawSave<'a> {
     args: &'args LawSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<LawSave<'bldr>> {
     let mut builder = LawSaveBuilder::new(_fbb);
+    builder.add_target(args.target);
     builder.add_agreement(args.agreement);
     builder.add_refused_kg(args.refused_kg);
     builder.add_ends(args.ends);
@@ -31629,6 +31631,13 @@ impl<'a> LawSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(LawSave::VT_STANCE_VIEWS, None)}
   }
+  #[inline]
+  pub fn target(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LawSave::VT_TARGET, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for LawSave<'_> {
@@ -31685,6 +31694,7 @@ impl ::flatbuffers::Verifiable for LawSave<'_> {
      .visit_field::<f64>("refused_kg", Self::VT_REFUSED_KG, false)?
      .visit_field::<u64>("agreement", Self::VT_AGREEMENT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("stance_views", Self::VT_STANCE_VIEWS, false)?
+     .visit_field::<u64>("target", Self::VT_TARGET, false)?
      .finish();
     Ok(())
   }
@@ -31738,6 +31748,7 @@ pub struct LawSaveArgs<'a> {
     pub refused_kg: f64,
     pub agreement: u64,
     pub stance_views: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub target: u64,
 }
 impl<'a> Default for LawSaveArgs<'a> {
   #[inline]
@@ -31791,6 +31802,7 @@ impl<'a> Default for LawSaveArgs<'a> {
       refused_kg: 0.0,
       agreement: 0,
       stance_views: None,
+      target: 0,
     }
   }
 }
@@ -31993,6 +32005,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LawSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(LawSave::VT_STANCE_VIEWS, stance_views);
   }
   #[inline]
+  pub fn add_target(&mut self, target: u64) {
+    self.fbb_.push_slot::<u64>(LawSave::VT_TARGET, target, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LawSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LawSaveBuilder {
@@ -32058,6 +32074,7 @@ impl ::core::fmt::Debug for LawSave<'_> {
       ds.field("refused_kg", &self.refused_kg());
       ds.field("agreement", &self.agreement());
       ds.field("stance_views", &self.stance_views());
+      ds.field("target", &self.target());
       ds.finish()
   }
 }
@@ -34506,6 +34523,8 @@ impl<'a> BandSave<'a> {
   pub const VT_TAKEN: ::flatbuffers::VOffsetT = 34;
   pub const VT_TAKEN_KCAL: ::flatbuffers::VOffsetT = 36;
   pub const VT_ASKED: ::flatbuffers::VOffsetT = 38;
+  pub const VT_INCIDENT: ::flatbuffers::VOffsetT = 40;
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 42;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -34517,12 +34536,14 @@ impl<'a> BandSave<'a> {
     args: &'args BandSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<BandSave<'bldr>> {
     let mut builder = BandSaveBuilder::new(_fbb);
+    builder.add_law(args.law);
     builder.add_since(args.since);
     builder.add_muster(args.muster);
     builder.add_called(args.called);
     builder.add_target(args.target);
     builder.add_settlement(args.settlement);
     builder.add_organizer(args.organizer);
+    builder.add_incident(args.incident);
     if let Some(x) = args.asked { builder.add_asked(x); }
     builder.add_taken_kcal(args.taken_kcal);
     if let Some(x) = args.taken { builder.add_taken(x); }
@@ -34665,6 +34686,20 @@ impl<'a> BandSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(BandSave::VT_ASKED, None)}
   }
+  #[inline]
+  pub fn incident(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(BandSave::VT_INCIDENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(BandSave::VT_LAW, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BandSave<'_> {
@@ -34691,6 +34726,8 @@ impl ::flatbuffers::Verifiable for BandSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TakenGood>>>("taken", Self::VT_TAKEN, false)?
      .visit_field::<f32>("taken_kcal", Self::VT_TAKEN_KCAL, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("asked", Self::VT_ASKED, false)?
+     .visit_field::<u32>("incident", Self::VT_INCIDENT, false)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
      .finish();
     Ok(())
   }
@@ -34714,6 +34751,8 @@ pub struct BandSaveArgs<'a> {
     pub taken: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TakenGood>>>,
     pub taken_kcal: f32,
     pub asked: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub incident: u32,
+    pub law: u64,
 }
 impl<'a> Default for BandSaveArgs<'a> {
   #[inline]
@@ -34737,6 +34776,8 @@ impl<'a> Default for BandSaveArgs<'a> {
       taken: None,
       taken_kcal: 0.0,
       asked: None,
+      incident: 0,
+      law: 0,
     }
   }
 }
@@ -34819,6 +34860,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BandSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BandSave::VT_ASKED, asked);
   }
   #[inline]
+  pub fn add_incident(&mut self, incident: u32) {
+    self.fbb_.push_slot::<u32>(BandSave::VT_INCIDENT, incident, 0);
+  }
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(BandSave::VT_LAW, law, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BandSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BandSaveBuilder {
@@ -34854,6 +34903,8 @@ impl ::core::fmt::Debug for BandSave<'_> {
       ds.field("taken", &self.taken());
       ds.field("taken_kcal", &self.taken_kcal());
       ds.field("asked", &self.asked());
+      ds.field("incident", &self.incident());
+      ds.field("law", &self.law());
       ds.finish()
   }
 }

@@ -155,6 +155,7 @@ fn neighbours(claims: &[usize], workers: [&[usize]; 2]) -> Neighbours {
             body: None,
             ends: None,
             agreement: None,
+            target: None,
         });
         polity.claimed.push((laws[s], places[s]));
         for &h in &homes[1 - s] {
@@ -685,6 +686,7 @@ fn keep_store(sim: &mut Sim, polity: PermanentId, keeper: Option<PermanentId>, k
         body: None,
         ends: None,
         agreement: None,
+        target: None,
     };
     let p = pop
         .polities
@@ -757,6 +759,7 @@ fn in_force(
             body: None,
             ends: None,
             agreement: Some(id),
+            target: None,
         });
     }
     pop.agreements.list.push(civ_agents::agreements::Agreement {

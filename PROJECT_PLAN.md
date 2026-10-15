@@ -2730,9 +2730,35 @@ and M6a gives rivers a daily flow.
       chronicle entry; the dashboard counts it with the exiles, apart from peaceful moves). ADR-0018
       §5's rule of two reviews running stands, so one raid alone moves nobody. Save schema 111
       (`ClaimSave.event`, `BandSave.asked`, a pending `BandLook`), content API 97, wire 1.73
-      unchanged (claims reach the inspector in words). **Not yet built:** laws of band and service
-      (`send_band`, `against_raiding`, service owed), food carried out (waits for camps, slice BL),
-      and the band on the observer's map.
+      unchanged (claims reach the inspector in words).
+    - *Bands and encounters, step three, as built (2026-10-15, §9):* two policy kinds, both
+      answering `raided`. **`send_band`** is proposed by one whose household knows which
+      settlement's people raided it (a raid on it they heard of, or a taking whose taker one of
+      them named), naming themselves to lead it against that settlement; a household forecasts
+      what it lost to outsiders, to take back, and a load if it has someone grown to send, against
+      `bands.service_days` of its food for the one it sends. Passed, the band is called the next
+      midnight: the leader's prospect is limited to that settlement, and each other household
+      sends its most willing grown member or keeps its share back exactly as a levy is kept back
+      (the norm that the gathering binds, where they stood, regard for the sponsor, against the
+      service days as a levy's cost; keeping back and not knowing are counted in the law's
+      compliance). The band goes once; when it is home, or could not be called, the law lapses.
+      **`against_raiding`** carries bundles as a law against taking: anyone who knows it weighs
+      `bands.w_law` against calling or joining a band, and the midnight after a raid that took
+      something, each grown person of the raiders' settlement who heard of it, knows the law and
+      did not go weighs bringing it before their own gathering for the household raided (the
+      reporting points a household taken from weighs, with their regard for the leader); the
+      first who chooses to brings the case, heard where the raiders live against the one who led
+      it. A household forecasts it as `bands.retaliation_share` of what outsiders took from it,
+      which it believes its own people's raids bring, against what its own members took from
+      other settlements. Service owed is recorded on the band (who went, who was asked and kept
+      back) and in the law's compliance, not as an ADR-0015 obligation: obligations are reckoned
+      in food, and a person's going is not. Save schema 112 (`LawSave.target`, `BandSave.incident`
+      and `law`), content API 98. A finding: in the two-village test worlds a band's walk costs
+      about 7 points against 1-3 for its spoils, so nobody goes for a load alone; the gathering's
+      law is what sends people. The observer (wire 1.74) gets each band not yet home in the
+      snapshot: who goes, where to, and a sentence; the map draws a line from each who goes to the
+      home it goes to, and the settlements list says it. **Not yet built:** blame of the body
+      that sent a band, and food carried out (waits for camps, slice BL).
   - **BK**: enclosures.
     - A line of sectors around the store, the hearth or homes within a reach: ditch and bank
       from slice BG's lines, palisade parts that rot, gates.
@@ -3804,6 +3830,9 @@ One line each. Don't re-litigate without a reason written next to the entry.
   no battle score, and the taking is an ordinary incident across the boundary. Step two: shirking
   costs regard (the tie act `stayed_home`), bands walking are seen (claim *band seen*), raids are
   told (claim *raid*), those who gave way leave at once, and raids heard of weigh in where a
-  household lives, with *fled* recorded when they alone tipped a move. Every weight is a design
-  prior named in the content; nothing was tuned. What is not built yet is listed in §7 under the
-  slice.
+  household lives, with *fled* recorded when they alone tipped a move. Step three: the laws
+  `send_band` (a band led by the one it names, each household owing one person or keeping its
+  share back as a levy) and `against_raiding` (a raid heard before the raiders' own gathering).
+  Service is recorded on the band and the law's compliance rather than as an ADR-0015
+  obligation, which is reckoned in food. Every weight is a design prior named in the content;
+  nothing was tuned. What is not built yet is listed in §7 under the slice.

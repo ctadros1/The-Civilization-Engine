@@ -117,7 +117,7 @@ use super::{
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
     SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
-    finish, section, single_chunk, unreadable,
+    SCHEMA_V111, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -541,6 +541,8 @@ enum Schema {
     V110,
     /// M6c slice BJ, step two: raids and bands seen as claims, who was asked to a band.
     V111,
+    /// M6c slice BJ, step three: bands sent and raiding forbidden by law.
+    V112,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -666,7 +668,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V108 => Schema::V108,
         SCHEMA_V109 => Schema::V109,
         SCHEMA_V110 => Schema::V110,
-        SAVE_SCHEMA_VERSION => Schema::V111,
+        SCHEMA_V111 => Schema::V111,
+        SAVE_SCHEMA_VERSION => Schema::V112,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1261,6 +1264,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             broken_unaware: c.broken_unaware,
                             ends: l.ends.map_or(0, PermanentId::get),
                             agreement: l.agreement.map_or(0, PermanentId::get),
+                            target: l.target.map_or(0, PermanentId::get),
                             status: law_status_code(l.status),
                             sponsor: l.sponsor.get(),
                             proposed: l.proposed.minutes(),
@@ -1750,6 +1754,7 @@ fn decode_polities(
                 status,
                 ends: PermanentId::from_raw(l.ends()),
                 agreement: PermanentId::from_raw(l.agreement()),
+                target: PermanentId::from_raw(l.target()),
                 sponsor: required(l.sponsor(), "a law's sponsor")?,
                 proposed: time(l.proposed()),
                 issue,
@@ -3815,7 +3820,8 @@ fn carried(
         | Schema::V108
         | Schema::V109
         | Schema::V110
-        | Schema::V111 => {
+        | Schema::V111
+        | Schema::V112 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4099,7 +4105,8 @@ fn decode_households(
             | Schema::V108
             | Schema::V109
             | Schema::V110
-            | Schema::V111 => {
+            | Schema::V111
+            | Schema::V112 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -4574,6 +4581,8 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
                     stage: b.stage.code(),
                     since: b.since,
                     clash: b.clash.unwrap_or(0),
+                    incident: b.incident.unwrap_or(0),
+                    law: b.law.map_or(0, PermanentId::get),
                     taken: Some(taken),
                     taken_kcal: b.taken_kcal,
                 },
@@ -4907,6 +4916,8 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
                 .ok_or_else(|| bad(format!("band {id} has stage code {}", b.stage())))?,
             since: b.since(),
             clash: (b.clash() != 0).then_some(b.clash()),
+            incident: (b.incident() != 0).then_some(b.incident()),
+            law: PermanentId::from_raw(b.law()),
             taken,
             taken_kcal: b.taken_kcal(),
         });

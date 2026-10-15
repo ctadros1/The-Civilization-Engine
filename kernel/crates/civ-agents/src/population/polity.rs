@@ -61,6 +61,9 @@ pub(super) struct Forecasts {
     /// and then household id: the food a year the fire loss it believes averted could bring, and
     /// the food a year what its next building would cost more could, kcal.
     rules: super::rules::RuleForecasts,
+    /// A load of food someone hopes to carry home from a band, kcal (M6c slice BJ): a load
+    /// of the densest food at `bands.food_prior` of it.
+    band_load: f64,
 }
 
 /// What closing a source would bring a household (M6a slice BA, step four): the household, the
@@ -222,6 +225,33 @@ impl Forecasts {
                     return 0.0;
                 };
                 crate::polity::kept_gain(o, averted, pp) - crate::polity::levy_cost(o, owed, pp)
+            }
+            // A band sent by law (M6c slice BJ): what the household lost to outsiders, to take
+            // back, and a load if it has someone grown to send, less the days of its food the
+            // one it sends is away and at risk (`bands.service_days`).
+            Some(PolicyKind::SendBand) => {
+                let k = known();
+                let sends = self.grown.get(&h).copied().unwrap_or(0) > 0;
+                let load = if sends { self.band_load } else { 0.0 };
+                let away = if sends {
+                    params.bands.service_days * o.year_need / 365.0
+                } else {
+                    0.0
+                };
+                crate::polity::against_gain(o, k.outside_kcal + load, away, pp)
+            }
+            // A law against raiding (M6c slice BJ): the raids on it the household believes its
+            // own people's raids bring (`bands.retaliation_share` of what outsiders took from
+            // it), less what its own members took from other settlements, which it would answer
+            // for.
+            Some(PolicyKind::AgainstRaiding) => {
+                let k = known();
+                crate::polity::against_gain(
+                    o,
+                    params.bands.retaliation_share * k.outside_kcal,
+                    k.took_outside_kcal,
+                    pp,
+                )
             }
             // An amendment's gain is judged from decisions seen, and an end to a law from that
             // law, kept (M4c slices AF, AI): neither forecasts anything of its own.
@@ -866,6 +896,16 @@ impl Population {
             bank,
             worn,
             rules,
+            band_load: {
+                let density = ctx
+                    .catalog
+                    .goods
+                    .iter()
+                    .filter(|g| g.purpose == GoodUse::Food && !g.kept_back())
+                    .map(|g| g.kcal_per_kg)
+                    .fold(0.0, f64::max);
+                ctx.params.household.carry_kg * density * ctx.params.bands.food_prior
+            },
         }
     }
 
@@ -1089,6 +1129,7 @@ impl Population {
             body: None,
             ends: None,
             site: Some(cell),
+            target: None,
             own_gain: 0.0,
             followers_gain: 0.0,
             support: 0.5,
@@ -1617,6 +1658,7 @@ impl Population {
                         hours: l.hours,
                         body: None,
                         ends: None,
+                        target: l.target,
                         // A closing names its source, and a well its site (M6a slice BA).
                         site: match self.polities[pi].closure_of(l.id) {
                             Some(crate::uses::Place::Source(cell)) => Some(cell),
@@ -1679,6 +1721,7 @@ impl Population {
                     body: None,
                     ends: None,
                     site: None,
+                    target: None,
                     own_gain: 0.0,
                     followers_gain: 0.0,
                     support: 0.5,
@@ -1692,9 +1735,21 @@ impl Population {
                             });
                         }
                     }
-                    PolicyKind::AgainstTaking => {
+                    PolicyKind::AgainstTaking | PolicyKind::AgainstRaiding => {
                         for &sanction in &def.bundles {
                             moves.push(MoveOption { sanction, ..blank });
+                        }
+                    }
+                    // A band against the settlement whose people raided their household lately,
+                    // as its members know it, led by the one who proposes it (M6c slice BJ).
+                    PolicyKind::SendBand => {
+                        let since = day - i64::from(params.crime.remember_days);
+                        if let Some(at) = self.raiders_known(own, since) {
+                            moves.push(MoveOption {
+                                nominee: Some(d),
+                                target: Some(at),
+                                ..blank
+                            });
                         }
                     }
                     PolicyKind::Curfew => {
@@ -1739,6 +1794,7 @@ impl Population {
                         for &(_, cell) in mine.iter().take(PUBLIC_SITES_WEIGHED) {
                             moves.push(MoveOption {
                                 site: Some(cell),
+                                target: None,
                                 ..blank
                             });
                         }
@@ -1753,6 +1809,7 @@ impl Population {
                             {
                                 moves.push(MoveOption {
                                     site: Some(cell),
+                                    target: None,
                                     ..blank
                                 });
                             }
@@ -1764,6 +1821,7 @@ impl Population {
                         if let Some(p) = &fc.well {
                             moves.push(MoveOption {
                                 site: Some(p.site.cell),
+                                target: None,
                                 ..blank
                             });
                         }
@@ -1774,6 +1832,7 @@ impl Population {
                         if let Some(p) = &fc.bank {
                             moves.push(MoveOption {
                                 site: Some(p.cell(ctx.map)),
+                                target: None,
                                 ..blank
                             });
                         }
@@ -1784,6 +1843,7 @@ impl Population {
                         if let Some(p) = &fc.worn {
                             moves.push(MoveOption {
                                 site: Some(p.cell_at),
+                                target: None,
                                 ..blank
                             });
                         }
@@ -1892,6 +1952,7 @@ impl Population {
                                 body: Some(b),
                                 ends: None,
                                 site: None,
+                                target: None,
                                 own_gain: 0.0,
                                 followers_gain: 0.0,
                                 support: 0.5,
@@ -2062,6 +2123,7 @@ impl Population {
             body: m.body,
             ends: m.ends,
             agreement: None,
+            target: m.target,
         };
         // A crossing names its site, as the settlement's people would build it now (M5c slice
         // AW, step three).

@@ -300,6 +300,19 @@ export interface PersonBrief {
   asleep: boolean;
 }
 
+/** Wire 1.74 (M6c slice BJ): a band not yet home or dispersed: who of it are going, the home it
+ * goes to, metres, and in words. */
+export interface BandBrief {
+  id: number;
+  from: number;
+  /** False while it is called and not yet out. */
+  out: boolean;
+  members: number[];
+  x: number;
+  y: number;
+  words: string;
+}
+
 export interface SettlementBrief {
   id: number;
   name: string;
@@ -382,6 +395,8 @@ export interface Snapshot {
    * people know of one or what a polity did about one changes (0 = no incident yet). Fetch them
    * with GetIncidents. */
   incidentsRev: number;
+  /** Wire 1.74: the bands not yet home or dispersed (none from older hosts). */
+  bands: BandBrief[];
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -2584,7 +2599,29 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     crossingsRev: Number(s.crossingsRev()),
     waterRev: Number(s.waterRev()),
     incidentsRev: Number(s.incidentsRev()),
+    bands: bandBriefs(s),
   };
+}
+
+function bandBriefs(s: W.Snapshot): BandBrief[] {
+  const out: BandBrief[] = [];
+  for (let i = 0; i < s.bandsLength(); i++) {
+    const b = s.bands(i);
+    if (!b) continue;
+    const target = b.target();
+    const members: number[] = [];
+    for (let k = 0; k < b.membersLength(); k++) members.push(Number(b.members(k)));
+    out.push({
+      id: b.id(),
+      from: Number(b.from()),
+      out: b.stage() !== 0,
+      members,
+      x: target?.x() ?? 0,
+      y: target?.y() ?? 0,
+      words: b.words() ?? "",
+    });
+  }
+  return out;
 }
 
 function deposits(w: W.Deposits): DepositsInfo {

@@ -1245,6 +1245,17 @@ stay_minutes = 30
 look_minutes = 10
 shirk_promised = 2.0
 shirk_asked = 1.0
+# Content API 98 (step three: laws, ADR-0023 §5). One who knows a law against raiding in force
+# where they live weighs `w_law` points against calling or joining a band. A band sent by law asks
+# each household for one of its grown people: it sends the one most willing, or keeps its share
+# back as a levy is kept back (`[polity]`'s compliance: the norm that the gathering binds, where
+# they stood, their regard for the sponsor), weighing the one it sends as `service_days` days of
+# its food away and at risk; the gathering's forecast reckons it the same. A household believes
+# `retaliation_share` of what outsiders took from it was brought on it by its own people's raids
+# (13-05 §1.2: raids beget raids; no figure). All design priors.
+w_law = 3.0
+service_days = 2.0
+retaliation_share = 0.5
 # Will to stay in an encounter, points: of one who went with the band; of one standing at their
 # own home; of a neighbour, at full regard for the household come to.
 will_band = 2.0

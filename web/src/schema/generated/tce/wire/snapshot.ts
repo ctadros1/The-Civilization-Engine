@@ -4,6 +4,7 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { BandBrief } from '../../tce/wire/band-brief.js';
 import { Clock } from '../../tce/wire/clock.js';
 import { PersonBrief } from '../../tce/wire/person-brief.js';
 import { Recovery } from '../../tce/wire/recovery.js';
@@ -152,8 +153,18 @@ incidentsRev():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+bands(index: number, obj?:BandBrief):BandBrief|null {
+  const offset = this.bb!.__offset(this.bb_pos, 48);
+  return offset ? (obj || new BandBrief()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+bandsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 48);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startSnapshot(builder:flatbuffers.Builder) {
-  builder.startObject(22);
+  builder.startObject(23);
 }
 
 static addWorld(builder:flatbuffers.Builder, worldOffset:flatbuffers.Offset) {
@@ -266,6 +277,22 @@ static addWaterRev(builder:flatbuffers.Builder, waterRev:bigint) {
 
 static addIncidentsRev(builder:flatbuffers.Builder, incidentsRev:bigint) {
   builder.addFieldInt64(21, incidentsRev, BigInt('0'));
+}
+
+static addBands(builder:flatbuffers.Builder, bandsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(22, bandsOffset, 0);
+}
+
+static createBandsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startBandsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
 }
 
 static endSnapshot(builder:flatbuffers.Builder):flatbuffers.Offset {

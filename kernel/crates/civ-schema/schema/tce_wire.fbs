@@ -339,6 +339,18 @@ table SettlementBrief {
   style: string (id: 13);
 }
 
+// Wire 1.74 (M6c slice BJ, ADR-0023 §11): a band not yet home or dispersed: the settlement it is
+// of, its stage (0 called, 1 out), who of it are going (before the muster those who said they
+// would, after it those who came and are not yet home), the home it goes to, and in words.
+table BandBrief {
+  id: uint (id: 0);
+  from: ulong (id: 1);
+  stage: ubyte (id: 2);
+  members: [ulong] (id: 3);
+  target: Vec2 (id: 4);
+  words: string (id: 5);
+}
+
 table Snapshot {
   world: WorldInfo (id: 0);
   clock: Clock (id: 1);
@@ -397,6 +409,8 @@ table Snapshot {
   // moves on or ends, or what people know of one or what a polity did about one changes (0 = no
   // incident yet). Fetch them with GetIncidents when it differs from the revision last fetched.
   incidents_rev: ulong (id: 21);
+  // Wire 1.74 (M6c slice BJ): the bands not yet home or dispersed.
+  bands: [BandBrief] (id: 22);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------

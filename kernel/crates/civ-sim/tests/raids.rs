@@ -302,6 +302,8 @@ fn a_band(sim: &mut Sim, a: PermanentId, b: PermanentId, n: usize, muster_hour: 
         stage: BandStage::Called,
         since: now.minutes(),
         clash: None,
+        incident: None,
+        law: None,
         taken: Vec::new(),
         taken_kcal: 0.0,
     });
@@ -315,8 +317,21 @@ fn a_band_musters_walks_to_the_household_meets_whoever_stands_and_comes_home() {
     sim.advance_minutes(DAY).expect("advances");
     let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
     let id = a_band(&mut sim, a, b, 5, 10);
+    // The observer sees it called (wire 1.74), and who said they would go.
+    let lines = civ_sim::frames::people::band_lines(&sim);
+    let (_, going, words) = lines.iter().find(|l| l.0 == id).expect("it is shown");
+    assert_eq!(going.len(), 5);
+    assert!(words.contains("has called 5 of"), "{words}");
+    let mut seen_out = false;
     for _ in 0..(3 * 24) {
         sim.advance_minutes(60).expect("advances");
+        if let Some((_, _, w)) = civ_sim::frames::people::band_lines(&sim)
+            .into_iter()
+            .find(|l| l.0 == id)
+            && w.contains(" leads ")
+        {
+            seen_out = true;
+        }
         let band = sim
             .people()
             .order
@@ -328,6 +343,13 @@ fn a_band_musters_walks_to_the_household_meets_whoever_stands_and_comes_home() {
             break;
         }
     }
+    assert!(seen_out, "the observer saw it out");
+    assert!(
+        civ_sim::frames::people::band_lines(&sim)
+            .iter()
+            .all(|l| l.0 != id),
+        "a band home is no longer shown"
+    );
     let pop = sim.people();
     let band = pop.order.bands.iter().find(|x| x.id == id).expect("band");
     assert!(
@@ -585,4 +607,243 @@ fn who_stayed_home_loses_regard_those_about_see_the_band_and_all_there_know_of_t
         .find(|x| x.id == id)
         .expect("band");
     assert_eq!(b2.asked, vec![shirker]);
+}
+
+/// Puts a law of `kind` in force in settlement `s`'s polity, known to all its adults, naming
+/// `holder` and against `target`: its id.
+fn a_raid_law(
+    sim: &mut Sim,
+    s: PermanentId,
+    kind: civ_agents::polity::PolicyKind,
+    holder: Option<PermanentId>,
+    target: Option<PermanentId>,
+) -> PermanentId {
+    use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome as Decided};
+    let policies = &sim.rules().catalog.policies;
+    let policy = policies
+        .iter()
+        .position(|d| d.kind == kind)
+        .expect("the content has the policy");
+    let sanction = policies[policy].bundles.last().copied().unwrap_or_default();
+    let id = sim.allocate_id_for_tests();
+    let (now, grown) = (sim.now(), sim.rules().people.family.independent_age);
+    let pop = sim.people_mut_for_tests();
+    let pi = pop
+        .polities
+        .iter()
+        .position(|p| p.settlement == s)
+        .expect("its polity");
+    let mut adults: Vec<PermanentId> = pop
+        .households
+        .iter()
+        .filter(|(_, h)| h.settlement == Some(s))
+        .flat_map(|(_, h)| h.members.clone())
+        .filter(|&m| pop.person(m).is_some_and(|p| p.age_years(now) >= grown))
+        .collect();
+    adults.sort_unstable();
+    let mut law = Law {
+        id,
+        policy: policy as u16,
+        kind,
+        levy_share: 0.0,
+        holder,
+        relief_days: 0.0,
+        sanction,
+        hours: (0, 0),
+        status: LawStatus::InForce,
+        sponsor: adults[0],
+        proposed: now,
+        issue: IssueKind::Raided,
+        meets_day: now.day_index(),
+        decided: Some(now),
+        outcome: Some(Decided::Passed),
+        eligible: adults.len() as u32,
+        stances: Vec::new(),
+        known: Vec::new(),
+        compliance: Default::default(),
+        watch: Default::default(),
+        body: None,
+        ends: None,
+        agreement: None,
+        target,
+    };
+    for &a in &adults {
+        law.learn(a, now.day_index());
+    }
+    pop.polities[pi].laws.push(law);
+    id
+}
+
+#[test]
+fn a_band_a_law_sends_asks_each_household_and_the_law_lapses_when_it_is_home() {
+    // Step three (ADR-0023 §5): the midnight after a law to send a band is in force, it is
+    // called, led by the one the law names, against a household of the settlement it names that
+    // the leader's people have seen; each other household sends its most willing grown member or
+    // keeps its share back; once the band is home the law has run its course.
+    use civ_agents::polity::{LawStatus, PolicyKind};
+    use civ_agents::war::BandStage;
+    let mut sim = two_villages(12, 30);
+    sim.advance_minutes(DAY).expect("advances");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let now = sim.now();
+    let adult = sim.rules().people.bands.min_age;
+    let leader = {
+        let pop = sim.people();
+        let mut grown: Vec<PermanentId> = pop
+            .people
+            .iter()
+            .filter(|(_, p)| p.age_years(now) >= adult && p.age_years(now) <= 50.0)
+            .filter(|(_, p)| pop.household(p.household).and_then(|x| x.settlement) == Some(a))
+            .map(|(_, p)| p.id)
+            .collect();
+        grown.sort_unstable();
+        grown[0]
+    };
+    {
+        let day = now.day_index();
+        let pop = sim.people_mut_for_tests();
+        let hh = pop.person(leader).expect("lives").household;
+        pop.known_places.learn(hh, b, day, PlaceHow::Seen, None);
+    }
+    let law = a_raid_law(&mut sim, a, PolicyKind::SendBand, Some(leader), Some(b));
+    let to_midnight = DAY - sim.now().minutes().rem_euclid(DAY) + 1;
+    sim.advance_minutes(to_midnight).expect("advances");
+    let (id, households) = {
+        let pop = sim.people();
+        let band = pop
+            .order
+            .bands
+            .iter()
+            .find(|x| x.law == Some(law))
+            .expect("the law called a band");
+        assert_eq!(band.organizer, leader);
+        assert_eq!(
+            pop.household(band.target).and_then(|x| x.settlement),
+            Some(b),
+            "against the settlement the law names"
+        );
+        // One from each household at most, asked or gone.
+        let mut seen: Vec<PermanentId> = band
+            .members
+            .iter()
+            .chain(&band.asked)
+            .filter_map(|&m| pop.person(m).map(|p| p.household))
+            .collect();
+        let n = seen.len();
+        seen.sort_unstable();
+        seen.dedup();
+        assert_eq!(
+            seen.len(),
+            n,
+            "each household sends one or keeps its share back"
+        );
+        (band.id, households_of(&sim, a).len())
+    };
+    assert!(households >= 2);
+    for _ in 0..(3 * 24) {
+        sim.advance_minutes(60).expect("advances");
+        let over = sim
+            .people()
+            .order
+            .bands
+            .iter()
+            .find(|x| x.id == id)
+            .is_some_and(|x| x.stage.over());
+        if over {
+            break;
+        }
+    }
+    sim.advance_minutes(DAY).expect("advances");
+    let pop = sim.people();
+    let band = pop.order.bands.iter().find(|x| x.id == id).expect("band");
+    assert!(band.stage.over(), "{:?}", band.stage);
+    assert_ne!(band.stage, BandStage::Called);
+    let l = pop
+        .polities
+        .iter()
+        .flat_map(|p| &p.laws)
+        .find(|l| l.id == law)
+        .expect("the law");
+    assert_eq!(l.status, LawStatus::Lapsed, "the law has run its course");
+    assert_eq!(
+        pop.order
+            .bands
+            .iter()
+            .filter(|x| x.law == Some(law))
+            .count(),
+        1,
+        "it sends one band"
+    );
+}
+
+#[test]
+fn under_a_law_against_raiding_a_raid_comes_before_the_raiders_own_gathering() {
+    // Step three (ADR-0023 §5): where a law against raiding is in force and known, one who heard
+    // of a raid their own people made, and did not go, may bring it before their own gathering
+    // for the household raided; the case is heard where the raiders live, against the one who
+    // led it.
+    use civ_agents::polity::PolicyKind;
+    let mut sim = two_villages(3, 30);
+    sim.advance_minutes(DAY).expect("advances");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let law = a_raid_law(&mut sim, a, PolicyKind::AgainstRaiding, None, None);
+    let id = a_band(&mut sim, a, b, 5, 10);
+    let mut clash_day = None;
+    for _ in 0..(3 * 24 * 4) {
+        sim.advance_minutes(15).expect("advances");
+        let band = sim
+            .people()
+            .order
+            .bands
+            .iter()
+            .find(|x| x.id == id)
+            .expect("band")
+            .clone();
+        if let (None, Some(c)) = (clash_day, band.clash) {
+            // Everyone at home hears of it at once, so that someone who did not go knows.
+            let day = sim.now().day_index();
+            clash_day = Some(day);
+            let pop = sim.people_mut_for_tests();
+            let claim = pop
+                .word
+                .claims
+                .iter()
+                .find(|x| x.kind == civ_agents::word::ClaimKind::Raid && x.event == Some(c))
+                .map(|x| x.id)
+                .expect("the raid is told");
+            let at_home: Vec<PermanentId> = pop
+                .people
+                .iter()
+                .filter(|(_, p)| pop.household(p.household).and_then(|x| x.settlement) == Some(a))
+                .map(|(_, p)| p.id)
+                .collect();
+            for p in at_home {
+                pop.word.hear(p, claim, day, None, None);
+            }
+        }
+        if clash_day.is_some_and(|d| sim.now().day_index() > d + 1) {
+            break;
+        }
+    }
+    let pop = sim.people();
+    let band = pop.order.bands.iter().find(|x| x.id == id).expect("band");
+    assert!(
+        band.taken_kcal > 0.0,
+        "the band took something to answer for"
+    );
+    let incident = band.incident.expect("the raid is an incident");
+    let case = pop
+        .order
+        .cases
+        .iter()
+        .find(|c| c.incident == incident)
+        .expect("someone brought the raid before their own gathering");
+    assert_eq!(case.settlement, a, "heard where the raiders live");
+    assert_eq!(case.law, law);
+    assert_eq!(case.accused, band.organizer);
+    assert_eq!(case.accuser, band.target);
+    assert!(
+        !band.mustered.contains(&case.by),
+        "brought by one who did not go"
+    );
 }

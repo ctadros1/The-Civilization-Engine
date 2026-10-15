@@ -256,20 +256,21 @@ impl PolicyFile {
                 | PolicyKind::DigWell
                 | PolicyKind::BuildBank
                 | PolicyKind::KeepBank
-                | PolicyKind::BuildingRule),
+                | PolicyKind::BuildingRule
+                | PolicyKind::SendBand),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
                     k.name()
                 ));
             }
-            Some(PolicyKind::AgainstTaking) => {
+            Some(k @ (PolicyKind::AgainstTaking | PolicyKind::AgainstRaiding)) => {
                 if !self.levy_shares.is_empty() || self.relief_days != 0.0 {
-                    p.push(
-                        "an `against_taking` policy levies nothing: leave out `levy_shares` and \
-                         `relief_days`"
-                            .to_owned(),
-                    );
+                    p.push(format!(
+                        "an `{}` policy levies nothing: leave out `levy_shares` and \
+                         `relief_days`",
+                        k.name()
+                    ));
                 }
                 // Research 09-05 §2.3: a sponsor weighs a few levels; one is allowed.
                 if !(1..=8).contains(&self.bundles.len()) {
@@ -304,7 +305,8 @@ impl PolicyFile {
                 | PolicyKind::DigWell
                 | PolicyKind::BuildBank
                 | PolicyKind::KeepBank
-                | PolicyKind::BuildingRule,
+                | PolicyKind::BuildingRule
+                | PolicyKind::SendBand,
             )
             | None => {}
         }
@@ -379,10 +381,12 @@ impl PolicyFile {
         } else if !self.hours.is_empty() {
             p.push("only a `curfew` policy has `hours`".to_owned());
         }
-        if PolicyKind::from_name(&self.does) != Some(PolicyKind::AgainstTaking)
-            && !self.bundles.is_empty()
+        if !matches!(
+            PolicyKind::from_name(&self.does),
+            Some(PolicyKind::AgainstTaking | PolicyKind::AgainstRaiding)
+        ) && !self.bundles.is_empty()
         {
-            p.push("only an `against_taking` policy has `bundles`".to_owned());
+            p.push("only an `against_taking` or `against_raiding` policy has `bundles`".to_owned());
         }
         match (PolicyKind::from_name(&self.does), &self.rule) {
             (Some(PolicyKind::BuildingRule), None) => {

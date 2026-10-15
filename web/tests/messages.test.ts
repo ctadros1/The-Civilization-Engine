@@ -320,7 +320,37 @@ describe("decoders", () => {
       crossingsRev: 0,
       waterRev: 0,
       incidentsRev: 0,
+      bands: [],
     });
+  });
+
+  it("decodes a band out, who goes with it and where (wire 1.74)", () => {
+    const b = new flatbuffers.Builder(256);
+    const members = W.BandBrief.createMembersVector(b, [11n, 12n]);
+    const words = b.createString("Ada leads 2 of Oakdale to take food from Bo's household at Thornmere");
+    W.BandBrief.startBandBrief(b);
+    W.BandBrief.addId(b, 3);
+    W.BandBrief.addFrom(b, 7n);
+    W.BandBrief.addStage(b, 1);
+    W.BandBrief.addMembers(b, members);
+    W.BandBrief.addTarget(b, W.Vec2.createVec2(b, 120.5, 40));
+    W.BandBrief.addWords(b, words);
+    const brief = W.BandBrief.endBandBrief(b);
+    const list = W.Snapshot.createBandsVector(b, [brief]);
+    W.Snapshot.startSnapshot(b);
+    W.Snapshot.addBands(b, list);
+    const snapshot = M.decodeSnapshot(finish(b, W.Snapshot.endSnapshot(b)));
+    expect(snapshot.bands).toEqual([
+      {
+        id: 3,
+        from: 7,
+        out: true,
+        members: [11, 12],
+        x: 120.5,
+        y: 40,
+        words: "Ada leads 2 of Oakdale to take food from Bo's household at Thornmere",
+      },
+    ]);
   });
 
   it("builds a paths query and decodes the worn ground and trails", () => {

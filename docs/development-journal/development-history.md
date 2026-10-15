@@ -2007,3 +2007,63 @@ fire-free run of the same world shows too.
 
 **Evidence:** the demo spec passed end to end (12.5 minutes); its log and three pictures are in
 `demos/m6b/`. BH2 passed the full simcheck suite (69 binaries) after it was pushed.
+
+## 2026-10-15 — M6c design: force between polities
+
+**Decision:** ADR-0023 decides war as what people do, never a state: no war calendar, takings
+across the boundary at homes people have seen, bands called by anyone or by law and joined by
+choice, two-sided encounters by the minute over a frontage with no battle score, service law,
+enclosures, sieges, clauses of terms, and a polity over several settlements. Five slices, BI to
+BM; the demo is a siege and what each gathering made of it.
+
+## 2026-10-15 — BI: takings across the boundary
+
+**What happened:** a probe came first (civ-sim's `take_probe`): in four worlds of three villages
+of 100 lived three years, households short of food had seen homes elsewhere in up to half their
+probes, but not one store elsewhere lay within the 20 minutes a taker walks (median 52-82
+minutes). Takings were widened anyway, for villages that come to stand close: a household may
+take from a home of another settlement its people have seen; the incident names the takers'
+settlement; a witness names only takers they know; *harms us* is written of the takers' polity;
+the issue `raided` is held and a watch answers it; a law against taking at home recovers nothing
+from outsiders. Save schema 109, content API 95.
+
+**Found:** villages kilometres apart do not take from each other one household at a time,
+however hungry. Anything that crosses between them must be a band that sets out to.
+
+## 2026-10-15 — BJ: bands and encounters
+
+**What happened, in three steps and the observer's view:**
+
+- *Step one:* a band is called by an adult at their monthly review or the midnight after their
+  household learns people of another settlement took from it, to take back from that household
+  or to take from the nearest seen home within a band's walk; those told choose to join; the
+  muster is who comes; the encounter (`war::fight`) pairs fighters up to a frontage, blows land
+  by what each holds (a wooden spear, an axe, hands), and each minute each stays or gives way by
+  what they saw, their hurts and their regard for a leader who stands. What the band takes is an
+  incident across the boundary, the seed left. Save schema 110, content API 96.
+- *Step two:* shirking costs regard (tie act `stayed_home`); people of other settlements within
+  sight of a band walking hear *band seen*; everyone in an encounter hears *raid*; those who gave
+  way leave at once; word of a raid on one's own settlement prompts a residence review, raids
+  heard of weigh in where a household lives, and a move they alone tipped is recorded as *fled*.
+  Save schema 111, content API 97.
+- *Step three:* the laws `send_band` (a band led by the one it names against the settlement
+  whose people raided us; each household sends one or keeps its share back exactly as a levy is
+  kept back) and `against_raiding` (a raid one's own people made, heard before one's own
+  gathering for the household raided). Save schema 112, content API 98.
+- *Observer:* the snapshot carries the bands not yet home (wire 1.74); the map draws a line from
+  each who goes to the home it goes to, and the settlements list says it in words.
+
+**Found:** in the two-village test worlds a band's round-trip walk costs about 7 points against
+1-3 for a load of spoils, so nobody goes for food alone; it is the gathering's law (with the
+norm that it binds) that sends people. In one world the villages lay across a river nobody could
+wade, out of every band's reach. Service is recorded on the band and the law's compliance, not as
+an ADR-0015 obligation, because obligations are reckoned in food.
+
+**Evidence:** `civ-sim/tests/raids.rs` covers a band mustering, walking, meeting whoever stands
+and coming home; save and load mid-band; shirking, sightings and the raid claim; a band sent by
+law asking each household and the law lapsing; and a raid brought before the raiders' own
+gathering. `settlements.rs` checks the raid pull on moving. Each step passed the full simcheck
+suite, clippy and all ten smoke worlds before it was pushed.
+
+**Open:** blame of the body that sent a band, food carried out (slice BL's camps), enclosures
+(BK), sieges and terms (BL), and a polity over several settlements with the M6c demo (BM).

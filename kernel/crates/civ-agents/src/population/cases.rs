@@ -70,11 +70,28 @@ impl Population {
         kcal: f64,
         law: PermanentId,
     ) {
-        let (now, params) = (ctx.now, ctx.params);
-        let day = now.day_index();
         let Some(settlement) = self.household(household).and_then(|x| x.settlement) else {
             return;
         };
+        self.bring_case_at(ctx, incident, household, by, accused, kcal, law, settlement);
+    }
+
+    /// As [`Population::bring_case`], before the gathering of settlement `settlement`, which may
+    /// be another than the household's (a raid its own people made, M6c slice BJ).
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn bring_case_at(
+        &mut self,
+        ctx: &Ctx,
+        incident: u32,
+        household: PermanentId,
+        by: PermanentId,
+        accused: PermanentId,
+        kcal: f64,
+        law: PermanentId,
+        settlement: PermanentId,
+    ) {
+        let (now, params) = (ctx.now, ctx.params);
+        let day = now.day_index();
         let Some(pi) = self.polity_of(settlement) else {
             return;
         };

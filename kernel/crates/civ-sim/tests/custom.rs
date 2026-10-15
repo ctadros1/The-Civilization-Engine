@@ -120,6 +120,7 @@ fn law(sim: &Sim, id: u64, policy: u16, sponsor: PermanentId) -> Law {
         body: None,
         ends: None,
         agreement: None,
+        target: None,
     }
 }
 

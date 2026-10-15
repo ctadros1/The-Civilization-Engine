@@ -1318,6 +1318,8 @@ table LawSave {
   // What views of the other polity added to each stance on an agreement, points, in `stances`
   // order (schema 66, M5c slice AU step three); absent when none did, and before.
   stance_views: [float] (id: 47);
+  // For a band sent by law, the settlement it goes against, 0 for none (schema 112, M6c slice BJ).
+  target: ulong (id: 48);
 }
 
 // `law` 0: called on cases only (M4b slice AB).
@@ -1693,6 +1695,10 @@ table BandSave {
   taken_kcal: float (id: 16);
   // Schema 111 (step two): who were asked and said no, in id order; none in earlier saves.
   asked: [ulong] (id: 17);
+  // Schema 112 (step three): the incident it was recorded as, and the law that sent it; 0 for
+  // none.
+  incident: uint (id: 18);
+  law: ulong (id: 19);
 }
 
 // Someone in an encounter a band met: `side` 0 the band, 1 against it; `holds` 0 hands, 1 an axe,

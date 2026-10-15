@@ -65,7 +65,7 @@ const client = new HostClient(socketUrl(), {
   snapshot: (snapshot, epoch) => {
     store.update({ snapshot, epoch });
     syncMap();
-    map.setPeople(snapshot.people, snapshot.settlements, snapshot.clock);
+    map.setPeople(snapshot.people, snapshot.settlements, snapshot.clock, snapshot.bands);
     map.setSeason(seasonOf(snapshot.clock));
     void syncChronicle();
     void syncFields();

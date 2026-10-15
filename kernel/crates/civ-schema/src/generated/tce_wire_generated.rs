@@ -7303,6 +7303,187 @@ impl ::core::fmt::Debug for SettlementBrief<'_> {
       ds.finish()
   }
 }
+pub enum BandBriefOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct BandBrief<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for BandBrief<'a> {
+  type Inner = BandBrief<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> BandBrief<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_FROM: ::flatbuffers::VOffsetT = 6;
+  pub const VT_STAGE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_MEMBERS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_TARGET: ::flatbuffers::VOffsetT = 12;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    BandBrief { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args BandBriefArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<BandBrief<'bldr>> {
+    let mut builder = BandBriefBuilder::new(_fbb);
+    builder.add_from(args.from);
+    if let Some(x) = args.words { builder.add_words(x); }
+    if let Some(x) = args.target { builder.add_target(x); }
+    if let Some(x) = args.members { builder.add_members(x); }
+    builder.add_id(args.id);
+    builder.add_stage(args.stage);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(BandBrief::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn from(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(BandBrief::VT_FROM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn stage(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(BandBrief::VT_STAGE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn members(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(BandBrief::VT_MEMBERS, None)}
+  }
+  #[inline]
+  pub fn target(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(BandBrief::VT_TARGET, None)}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BandBrief::VT_WORDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for BandBrief<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("from", Self::VT_FROM, false)?
+     .visit_field::<u8>("stage", Self::VT_STAGE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("members", Self::VT_MEMBERS, false)?
+     .visit_field::<Vec2>("target", Self::VT_TARGET, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct BandBriefArgs<'a> {
+    pub id: u32,
+    pub from: u64,
+    pub stage: u8,
+    pub members: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+    pub target: Option<&'a Vec2>,
+    pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for BandBriefArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    BandBriefArgs {
+      id: 0,
+      from: 0,
+      stage: 0,
+      members: None,
+      target: None,
+      words: None,
+    }
+  }
+}
+
+pub struct BandBriefBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BandBriefBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(BandBrief::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_from(&mut self, from: u64) {
+    self.fbb_.push_slot::<u64>(BandBrief::VT_FROM, from, 0);
+  }
+  #[inline]
+  pub fn add_stage(&mut self, stage: u8) {
+    self.fbb_.push_slot::<u8>(BandBrief::VT_STAGE, stage, 0);
+  }
+  #[inline]
+  pub fn add_members(&mut self, members: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BandBrief::VT_MEMBERS, members);
+  }
+  #[inline]
+  pub fn add_target(&mut self, target: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(BandBrief::VT_TARGET, target);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BandBrief::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BandBriefBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    BandBriefBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<BandBrief<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for BandBrief<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("BandBrief");
+      ds.field("id", &self.id());
+      ds.field("from", &self.from());
+      ds.field("stage", &self.stage());
+      ds.field("members", &self.members());
+      ds.field("target", &self.target());
+      ds.field("words", &self.words());
+      ds.finish()
+  }
+}
 pub enum SnapshotOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -7341,6 +7522,7 @@ impl<'a> Snapshot<'a> {
   pub const VT_CROSSINGS_REV: ::flatbuffers::VOffsetT = 42;
   pub const VT_WATER_REV: ::flatbuffers::VOffsetT = 44;
   pub const VT_INCIDENTS_REV: ::flatbuffers::VOffsetT = 46;
+  pub const VT_BANDS: ::flatbuffers::VOffsetT = 48;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7367,6 +7549,7 @@ impl<'a> Snapshot<'a> {
     builder.add_fields_rev(args.fields_rev);
     builder.add_chronicle_head(args.chronicle_head);
     builder.add_last_autosave_unix_ms(args.last_autosave_unix_ms);
+    if let Some(x) = args.bands { builder.add_bands(x); }
     if let Some(x) = args.settlements { builder.add_settlements(x); }
     if let Some(x) = args.people { builder.add_people(x); }
     if let Some(x) = args.last_error { builder.add_last_error(x); }
@@ -7532,6 +7715,13 @@ impl<'a> Snapshot<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Snapshot::VT_INCIDENTS_REV, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn bands(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BandBrief<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BandBrief>>>>(Snapshot::VT_BANDS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Snapshot<'_> {
@@ -7562,6 +7752,7 @@ impl ::flatbuffers::Verifiable for Snapshot<'_> {
      .visit_field::<u64>("crossings_rev", Self::VT_CROSSINGS_REV, false)?
      .visit_field::<u64>("water_rev", Self::VT_WATER_REV, false)?
      .visit_field::<u64>("incidents_rev", Self::VT_INCIDENTS_REV, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BandBrief>>>>("bands", Self::VT_BANDS, false)?
      .finish();
     Ok(())
   }
@@ -7589,6 +7780,7 @@ pub struct SnapshotArgs<'a> {
     pub crossings_rev: u64,
     pub water_rev: u64,
     pub incidents_rev: u64,
+    pub bands: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BandBrief<'a>>>>>,
 }
 impl<'a> Default for SnapshotArgs<'a> {
   #[inline]
@@ -7616,6 +7808,7 @@ impl<'a> Default for SnapshotArgs<'a> {
       crossings_rev: 0,
       water_rev: 0,
       incidents_rev: 0,
+      bands: None,
     }
   }
 }
@@ -7714,6 +7907,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SnapshotBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Snapshot::VT_INCIDENTS_REV, incidents_rev, 0);
   }
   #[inline]
+  pub fn add_bands(&mut self, bands: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<BandBrief<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Snapshot::VT_BANDS, bands);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SnapshotBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SnapshotBuilder {
@@ -7753,6 +7950,7 @@ impl ::core::fmt::Debug for Snapshot<'_> {
       ds.field("crossings_rev", &self.crossings_rev());
       ds.field("water_rev", &self.water_rev());
       ds.field("incidents_rev", &self.incidents_rev());
+      ds.field("bands", &self.bands());
       ds.finish()
   }
 }

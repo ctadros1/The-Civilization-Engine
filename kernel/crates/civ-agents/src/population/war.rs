@@ -5,8 +5,9 @@
 
 use super::*;
 use crate::Cause;
-use crate::crime::{Belief, Incident, KnownAmount, Outcome, Source};
+use crate::crime::{Belief, Incident, KnownAmount, Outcome, Source, logistic, report_points};
 use crate::decide::BandFacts;
+use crate::polity::{LawStatus, PolicyKind};
 use crate::ties::Act;
 use crate::war::{Band, BandPurpose, BandStage, Clash, Ended, Fighter, Holding, Side, fight};
 use crate::word::{Blamed, Claim, ClaimKind};
@@ -15,6 +16,10 @@ use crate::word::{Blamed, Claim, ClaimKind};
 pub const PURPOSE_CALL: u64 = 0x6361_6c6c_6261_6e64; // "callband"
 /// Purpose tag for a person's reluctance to join one (keyed per person and band).
 pub const PURPOSE_JOIN: u64 = 0x6a6f_696e_6261_6e64; // "joinband"
+/// Purpose tag for a household's choice of whom it sends with a band a law sent.
+pub const PURPOSE_SERVE: u64 = 0x7365_7276_6562_616e; // "servebnd"
+/// Purpose tag for someone's choice to bring a raid before their own gathering.
+pub const PURPOSE_RAID_CASE: u64 = 0x7261_6964_6361_7365; // "raidcase"
 /// Purpose tag for an encounter's blows.
 pub const PURPOSE_CLASH: u64 = 0x636c_6173_6862_6c77; // "clashblw"
 
@@ -62,6 +67,8 @@ impl Population {
                 _ => {}
             }
         }
+        self.bands_by_law(ctx);
+        self.raid_reports(ctx);
         if bp.review_days == 0 {
             return;
         }
@@ -94,7 +101,7 @@ impl Population {
             {
                 continue;
             }
-            let Some(pros) = self.prospect(ctx, p, hh) else {
+            let Some(pros) = self.prospect(ctx, p, hh, None) else {
                 continue;
             };
             let worth = self.call_worth(ctx, p, hh, &pros);
@@ -107,10 +114,65 @@ impl Population {
         }
     }
 
+    /// The settlement whose people raided household `household` most lately since day `since`, as
+    /// its members know it (M6c slice BJ): a raid on their settlement they heard of that came to
+    /// the household, or a taking from it whose taker one of them named.
+    pub(super) fn raiders_known(&self, household: PermanentId, since: i64) -> Option<PermanentId> {
+        let x = self.household(household)?;
+        let mut best: Option<(i64, PermanentId)> = None;
+        let mut note = |day: i64, s: PermanentId| {
+            if day >= since && best.is_none_or(|b| (day, s) > b) {
+                best = Some((day, s));
+            }
+        };
+        for &m in &x.members {
+            for h in self.word.heard_by(m) {
+                let Some(c) = self
+                    .word
+                    .claim(h.claim)
+                    .filter(|c| c.kind == ClaimKind::Raid && c.subject == Some(household))
+                else {
+                    continue;
+                };
+                let band = c
+                    .event
+                    .and_then(|id| self.order.clashes.iter().find(|k| k.id == id))
+                    .and_then(|k| self.order.bands.iter().find(|b| b.id == k.band));
+                if let Some(b) = band {
+                    note(c.day, b.settlement);
+                }
+            }
+        }
+        let start = self.order.amounts.partition_point(|a| a.day < since);
+        for a in &self.order.amounts[start..] {
+            if !a.lost || a.household != household {
+                continue;
+            }
+            let Some(across) = self.order.incident(a.incident).and_then(|i| i.across) else {
+                continue;
+            };
+            let named = x.members.iter().any(|&m| {
+                self.order
+                    .belief(m, a.incident)
+                    .is_some_and(|b| b.taker.is_some())
+            });
+            if named {
+                note(a.day, across);
+            }
+        }
+        best.map(|b| b.1)
+    }
+
     /// The band `organizer` of household `hh` would call, if any: to take back from a household
     /// of another settlement they know took from theirs, or else to take from the nearest home of
     /// a settlement their people have seen, within a band's walk of their hearth.
-    fn prospect(&mut self, ctx: &Ctx, organizer: PermanentId, hh: PermanentId) -> Option<Prospect> {
+    fn prospect(
+        &mut self,
+        ctx: &Ctx,
+        organizer: PermanentId,
+        hh: PermanentId,
+        only: Option<PermanentId>,
+    ) -> Option<Prospect> {
         let (now, day, params) = (ctx.now, ctx.now.day_index(), ctx.params);
         let bp = &params.bands;
         let settlement = self.household(hh)?.settlement?;
@@ -154,9 +216,15 @@ impl Population {
                     .belief(m, a.incident)
                     .is_some_and(|b| b.taker.is_some())
             });
-            let Some(home) = self.household(i.actor_household).map(|t| t.home) else {
+            let Some((home, at)) = self
+                .household(i.actor_household)
+                .map(|t| (t.home, t.settlement))
+            else {
                 continue;
             };
+            if only.is_some_and(|o| at != Some(o)) {
+                continue;
+            }
             if let (true, Some(w)) = (known, walk(home))
                 && w <= bp.max_walk_minutes
             {
@@ -170,6 +238,9 @@ impl Population {
                 let mut best: Option<(f64, PermanentId, (f32, f32))> = None;
                 for (_, y) in self.households.iter() {
                     if y.members.is_empty() || y.settlement.is_none_or(|s| !seen.contains(&s)) {
+                        continue;
+                    }
+                    if only.is_some_and(|o| y.settlement != Some(o)) {
                         continue;
                     }
                     if let Some(w) = walk(y.home).filter(|&w| w <= bp.max_walk_minutes)
@@ -226,6 +297,22 @@ impl Population {
             - bp.w_danger * pros.defenders / 2.0
             - params.decision.w_walk_hour * 2.0 * pros.walk_min / 60.0
             - bp.w_objection * objection
+            - self.law_against_raiding(ctx, p).map_or(0.0, |_| bp.w_law)
+    }
+
+    /// The law against raiding in force where `p` lives, if they know of it (ADR-0023 §3: "any
+    /// law against raiding they know"): its id and bundle.
+    fn law_against_raiding(
+        &self,
+        ctx: &Ctx,
+        p: PermanentId,
+    ) -> Option<(PermanentId, crate::polity::Sanction)> {
+        let settlement = self.household(self.person(p)?.household)?.settlement?;
+        let polity = &self.polities[self.polity_of(settlement)?];
+        polity
+            .in_force(&ctx.catalog.policies, PolicyKind::AgainstRaiding)
+            .find(|l| l.knows(p))
+            .map(|l| (l.id, l.sanction))
     }
 
     /// What joining `organizer`'s band is worth to `q` (ADR-0023 §3): as calling it, with the
@@ -260,6 +347,7 @@ impl Population {
             - bp.w_danger * pros.defenders / (joined.len() as f64 + 1.0)
             - params.decision.w_walk_hour * 2.0 * pros.walk_min / 60.0
             - bp.w_objection * objection
+            - self.law_against_raiding(ctx, q).map_or(0.0, |_| bp.w_law)
     }
 
     /// `organizer` calls a band (ADR-0023 §3): they tell the adults of their settlement they
@@ -338,9 +426,276 @@ impl Population {
             stage: BandStage::Called,
             since: now.minutes(),
             clash: None,
+            incident: None,
+            law: None,
             taken: Vec::new(),
             taken_kcal: 0.0,
         });
+    }
+
+    /// Each band a law sent (ADR-0023 §5): one not yet called is called the midnight after the
+    /// law is in force, its leader the one the law names, against the settlement it names; each
+    /// household of the settlement chooses one of its grown people to go, the one most willing,
+    /// or keeps its share back. Once the band is home, or it never set off, the law has run its
+    /// course and lapses.
+    fn bands_by_law(&mut self, ctx: &mut Ctx) {
+        let policies = &ctx.catalog.policies;
+        let mut due: Vec<(usize, PermanentId, PermanentId, PermanentId)> = Vec::new();
+        for (pi, polity) in self.polities.iter().enumerate() {
+            for l in polity.in_force(policies, PolicyKind::SendBand) {
+                if let (Some(leader), Some(target)) = (l.holder, l.target) {
+                    due.push((pi, l.id, leader, target));
+                }
+            }
+        }
+        for (pi, law, leader, target) in due {
+            let band = self.order.bands.iter().find(|b| b.law == Some(law));
+            match band {
+                Some(b) if !b.stage.over() => {}
+                Some(_) => self.lapse_band_law(pi, law),
+                None => {
+                    if !self.call_band_by_law(ctx, pi, law, leader, target) {
+                        self.lapse_band_law(pi, law);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Law `law` of polity `pi`, which sent a band, has run its course.
+    fn lapse_band_law(&mut self, pi: usize, law: PermanentId) {
+        if let Some(l) = self.polities[pi].law_mut(law) {
+            l.status = LawStatus::Lapsed;
+        }
+    }
+
+    /// Calls the band law `law` of polity `pi` sends, led by `leader` against `target`: whether
+    /// one was called.
+    fn call_band_by_law(
+        &mut self,
+        ctx: &mut Ctx,
+        pi: usize,
+        law: PermanentId,
+        leader: PermanentId,
+        target: PermanentId,
+    ) -> bool {
+        let (now, day, params) = (ctx.now, ctx.now.day_index(), ctx.params);
+        let bp = &params.bands;
+        let settlement = self.polities[pi].settlement;
+        let Some(hh) = self
+            .person(leader)
+            .filter(|p| {
+                let age = p.age_years(now);
+                age >= bp.min_age && age <= bp.max_age
+            })
+            .map(|p| p.household)
+        else {
+            return false;
+        };
+        if self.household(hh).and_then(|x| x.settlement) != Some(settlement)
+            || self
+                .order
+                .bands
+                .iter()
+                .any(|b| !b.stage.over() && b.joined(leader))
+        {
+            return false;
+        }
+        let Some(pros) = self.prospect(ctx, leader, hh, Some(target)) else {
+            return false;
+        };
+        let id = self.order.bands.last().map_or(1, |b| b.id + 1);
+        let busy: Vec<PermanentId> = self
+            .order
+            .bands
+            .iter()
+            .filter(|b| !b.stage.over())
+            .flat_map(|b| b.members.iter().copied())
+            .collect();
+        let mut households: Vec<PermanentId> = self
+            .households
+            .iter()
+            .filter(|(_, x)| x.settlement == Some(settlement) && x.id != hh)
+            .map(|(_, x)| x.id)
+            .collect();
+        households.sort_unstable();
+        let mut members = vec![leader];
+        let mut asked = Vec::new();
+        for h in households {
+            let grown: Vec<PermanentId> = self
+                .household(h)
+                .map(|x| x.members.clone())
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|m| !busy.contains(m))
+                .filter(|&m| {
+                    self.person(m).is_some_and(|p| {
+                        let age = p.age_years(now);
+                        age >= bp.min_age && age <= bp.max_age
+                    })
+                })
+                .collect();
+            // The household sends the one most willing, or keeps its share back as a levy is
+            // kept back (ADR-0023 §5): the custom that the gathering binds, where they stood on
+            // the law and their regard for its sponsor, against the days of the household's
+            // food the one it sends is away and at risk.
+            let best = grown
+                .iter()
+                .map(|&m| (self.join_worth(ctx, m, leader, &pros, &members), m))
+                .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
+            let Some((_, m)) = best else {
+                continue;
+            };
+            let Some(l) = self.polities[pi].law_mut(law) else {
+                return false;
+            };
+            if !l.knows(m) {
+                l.compliance.unaware += 1;
+                asked.push(m);
+                continue;
+            }
+            let stance = l
+                .stances
+                .iter()
+                .find(|r| r.person == m)
+                .map_or(0.0, |r| r.stance.sign());
+            let sponsor = l.sponsor;
+            let Some(outlook) = self.outlook(ctx, h) else {
+                continue;
+            };
+            let pp = &params.polity;
+            let regard = self.ties.regard(m, sponsor, day, &params.ties);
+            let cost = pp.w_gain
+                * crate::polity::levy_cost(
+                    &outlook,
+                    bp.service_days * outlook.year_need / 365.0,
+                    pp,
+                );
+            self.ensure_norm_state(ctx, m);
+            let norm = self.norm_points(ctx, m);
+            let chance = crate::polity::comply_chance(crate::polity::comply_points(
+                norm, stance, regard, cost, pp,
+            ));
+            let u = Rng64::from_key(&[ctx.seed, PURPOSE_SERVE, m.get(), u64::from(id)]).next_f64();
+            if u < chance {
+                members.push(m);
+            } else {
+                if let Some(l) = self.polities[pi].law_mut(law) {
+                    l.compliance.evaded += 1;
+                }
+                asked.push(m);
+            }
+        }
+        asked.sort_unstable();
+        if members.len() < bp.least.max(1) as usize {
+            return false;
+        }
+        let muster = (day + 1) * MINUTES_PER_DAY + i64::from(bp.muster_hour) * 60;
+        self.order.bands.push(Band {
+            id,
+            organizer: leader,
+            settlement,
+            purpose: pros.purpose,
+            target: pros.target,
+            place: pros.place,
+            called: now.minutes(),
+            muster,
+            members,
+            asked,
+            mustered: Vec::new(),
+            arrived: Vec::new(),
+            home: Vec::new(),
+            stage: BandStage::Called,
+            since: now.minutes(),
+            clash: None,
+            incident: None,
+            law: Some(law),
+            taken: Vec::new(),
+            taken_kcal: 0.0,
+        });
+        true
+    }
+
+    /// A raid its own people made yesterday, where a law against raiding is in force (ADR-0023
+    /// §5): each grown person of the band's settlement who heard of it, knows the law and did not
+    /// go weighs bringing it before the gathering for the household raided, as one taken from
+    /// would (research 09-07 §4.1), their regard for the one who led it against them; the first
+    /// who chooses to brings it.
+    fn raid_reports(&mut self, ctx: &mut Ctx) {
+        let (day, params) = (ctx.now.day_index(), ctx.params);
+        let cp = &params.crime;
+        let due: Vec<(usize, u32)> = self
+            .order
+            .bands
+            .iter()
+            .enumerate()
+            .filter_map(|(bi, b)| {
+                let c = self.order.clashes.iter().find(|c| Some(c.id) == b.clash)?;
+                (c.at.div_euclid(MINUTES_PER_DAY) == day - 1 && b.taken_kcal > 0.0)
+                    .then_some((bi, c.id))
+            })
+            .collect();
+        for (bi, clash) in due {
+            let b = self.order.bands[bi].clone();
+            let Some(incident) = b.incident else {
+                continue;
+            };
+            if self.order.cases.iter().any(|c| c.incident == incident) {
+                continue;
+            }
+            let Some(claim) = self
+                .word
+                .claims
+                .iter()
+                .find(|c| c.kind == ClaimKind::Raid && c.event == Some(clash))
+                .map(|c| c.id)
+            else {
+                continue;
+            };
+            let need = self
+                .household(b.target)
+                .map_or(1, |x| x.members.len().max(1)) as f64
+                * params.household.daily_kcal_per_person;
+            let mut hearers: Vec<PermanentId> = self
+                .people
+                .iter()
+                .filter(|(_, p)| p.age_years(ctx.now) >= params.family.independent_age)
+                .filter(|(_, p)| {
+                    self.household(p.household).and_then(|x| x.settlement) == Some(b.settlement)
+                })
+                .map(|(_, p)| p.id)
+                .filter(|p| b.mustered.binary_search(p).is_err())
+                .filter(|&p| self.word.has_heard(p, claim))
+                .collect();
+            hearers.sort_unstable();
+            for by in hearers {
+                let Some((law, sanction)) = self.law_against_raiding(ctx, by) else {
+                    continue;
+                };
+                let regard = self.ties.regard(by, b.organizer, day, &params.ties);
+                let points = report_points(
+                    1,
+                    f64::from(b.taken_kcal) / need,
+                    f64::from(sanction.compensation_days),
+                    regard,
+                    cp,
+                );
+                let key = [ctx.seed, PURPOSE_RAID_CASE, by.get(), u64::from(incident)];
+                if Rng64::from_key(&key).next_f64() < logistic(points) {
+                    self.bring_case_at(
+                        ctx,
+                        incident,
+                        b.target,
+                        by,
+                        b.organizer,
+                        f64::from(b.taken_kcal),
+                        law,
+                        b.settlement,
+                    );
+                    break;
+                }
+            }
+        }
     }
 
     /// The band `person` joined that musters within the day, as a choice for them (ADR-0023 §3):
@@ -828,6 +1183,7 @@ impl Population {
             .collect();
         if let Some(actor_household) = organizer_hh {
             let id = self.order.incidents.last().map_or(1, |i| i.id + 1);
+            self.order.bands[bi].incident = Some(id);
             self.order.incidents.push(Incident {
                 id,
                 at: now,

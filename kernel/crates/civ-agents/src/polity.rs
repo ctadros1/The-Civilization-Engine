@@ -85,11 +85,20 @@ pub enum PolicyKind {
     /// 11-09 §1.7: never rebuild the whole village when a law passes). Keeping it is each
     /// builder's choice, as a curfew's is, with no sanction in M6b.
     BuildingRule,
+    /// The polity sends a band against the settlement whose people raided its households (M6c
+    /// slice BJ, step three; ADR-0023 §5): the one it names leads it, and each household owes
+    /// one of its grown people to go, whom it chooses, or keeps its share back as a levy is kept
+    /// back. The band goes once; when it is home, or never set off, the law has run its course.
+    SendBand,
+    /// A raid by the polity's own people on another settlement is a wrong its gathering hears
+    /// (M6c slice BJ, step three; ADR-0023 §5): whoever it finds led one gives back what was
+    /// taken, and the law's bundle besides, to the household raided.
+    AgainstRaiding,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 15] = [
+    pub const ALL: [PolicyKind; 17] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -105,6 +114,8 @@ impl PolicyKind {
         PolicyKind::BuildBank,
         PolicyKind::KeepBank,
         PolicyKind::BuildingRule,
+        PolicyKind::SendBand,
+        PolicyKind::AgainstRaiding,
     ];
 
     /// The authored name.
@@ -125,6 +136,8 @@ impl PolicyKind {
             PolicyKind::BuildBank => "build_bank",
             PolicyKind::KeepBank => "keep_bank",
             PolicyKind::BuildingRule => "building_rule",
+            PolicyKind::SendBand => "send_band",
+            PolicyKind::AgainstRaiding => "against_raiding",
         }
     }
 
@@ -946,6 +959,8 @@ pub struct Law {
     pub ends: Option<PermanentId>,
     /// For the polity's side of an agreement: which (M5c slice AU).
     pub agreement: Option<PermanentId>,
+    /// For a band sent by law: the settlement it goes against (M6c slice BJ).
+    pub target: Option<PermanentId>,
 }
 
 impl Law {
@@ -1116,6 +1131,21 @@ pub fn law_words(
             law.sanction.words()
         );
     }
+    if def.is_some_and(|d| d.kind == PolicyKind::AgainstRaiding) {
+        return format!(
+            "a law against raiding: whoever is found to have led a band that took from a \
+             household of another settlement gives back what was taken{}",
+            law.sanction.words()
+        );
+    }
+    // Without the settlement at hand (see [`Polity::words_of`]), only who leads it.
+    if def.is_some_and(|d| d.kind == PolicyKind::SendBand) {
+        let who = law.holder.map_or_else(|| "someone".to_owned(), name_of);
+        return format!(
+            "a band led by {who} against the settlement whose people raided us, each household \
+             owing one of its grown people to go"
+        );
+    }
     // An office's holder named in place of the one in it (M4c slice AH).
     let instead = if law.ends.is_some() {
         " in place of the one holding it"
@@ -1183,6 +1213,8 @@ pub fn ending_words(
         Some(PolicyKind::BuildBank) => "the work on a flood bank".to_owned(),
         Some(PolicyKind::KeepBank) => "the keeping of a flood bank".to_owned(),
         Some(PolicyKind::BuildingRule) => "the rule for building".to_owned(),
+        Some(PolicyKind::SendBand) => "the band sent by law".to_owned(),
+        Some(PolicyKind::AgainstRaiding) => "the law against raiding".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -1965,6 +1997,8 @@ pub struct MoveOption {
     pub ends: Option<PermanentId>,
     /// The river cell it would span, for a crossing (M5c slice AW).
     pub site: Option<u32>,
+    /// The settlement it goes against, for a band sent by law (M6c slice BJ).
+    pub target: Option<PermanentId>,
     /// The forecast for the person's own household ([`store_gain`]).
     pub own_gain: f64,
     /// The forecast for the households of those who regard them, weighted by that regard.
@@ -2176,6 +2210,7 @@ pub(crate) mod tests {
             body: None,
             ends: None,
             agreement: None,
+            target: None,
         };
         assert!(law.learn(pid(9), 3));
         assert!(law.learn(pid(4), 5));
@@ -2231,6 +2266,7 @@ pub(crate) mod tests {
             body: None,
             ends: None,
             agreement: None,
+            target: None,
         };
         let name_of = |_: PermanentId| "Ada".to_owned();
         assert_eq!(
@@ -2338,6 +2374,7 @@ pub(crate) mod tests {
             body: None,
             ends: None,
             agreement: None,
+            target: None,
         });
         assert_eq!(polity.watcher().map(|w| w.0), Some(pid(9)));
         assert!(polity.keeper().is_none(), "a watch keeps no store");
@@ -2502,6 +2539,7 @@ pub(crate) mod tests {
             body: Some(elders),
             ends: None,
             agreement: None,
+            target: None,
         };
         let policies = [PolicyDef {
             id: "core:policy/amend_custom".to_owned(),
@@ -2556,6 +2594,7 @@ pub(crate) mod tests {
             body: None,
             ends: None,
             site: None,
+            target: None,
             own_gain: 0.3,
             followers_gain: 0.2,
             support: 0.8,

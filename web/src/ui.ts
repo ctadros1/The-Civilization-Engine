@@ -1477,9 +1477,11 @@ export function bindUi(store: Store, actions: Actions): void {
     renderedSelection = undefined;
     const people = state.snapshot?.people ?? [];
     const settlements = state.snapshot?.settlements ?? [];
+    const bands = state.snapshot?.bands ?? [];
     const key = JSON.stringify([
       world?.worldId ?? null,
       people.length,
+      bands.map((b) => [b.id, b.words]),
       settlements.map((s) => [
         s.id,
         s.population,
@@ -1536,6 +1538,10 @@ export function bindUi(store: Store, actions: Actions): void {
         ...s.coalitions.map((c) => el("span", { className: "since coalition", text: `${c}.` })),
         // Its way of building on the three clocks (wire 1.56, M5b slice AR).
         s.style ? el("span", { className: "since style", text: `Building: ${s.style}.` }) : "",
+        // Its bands not yet home (wire 1.74, M6c slice BJ).
+        ...bands
+          .filter((b) => b.from === s.id)
+          .map((b) => el("span", { className: "since band", text: `${b.words}.` })),
       ),
     );
     nodes.push(

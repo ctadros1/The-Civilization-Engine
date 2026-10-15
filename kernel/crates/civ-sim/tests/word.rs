@@ -114,6 +114,7 @@ fn a_store(sim: &mut Sim, known: &[PermanentId]) -> PermanentId {
         body: None,
         ends: None,
         agreement: None,
+        target: None,
     });
     assert!(p.stores.iter().all(|kg| *kg == 0.0), "its store is empty");
     id

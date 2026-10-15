@@ -123,8 +123,11 @@ pub struct Band {
     /// Where it is, and the minute it got there.
     pub stage: BandStage,
     pub since: i64,
-    /// The encounter it met, if it met one.
+    /// The encounter it met, if it met one, and the incident it was recorded as.
     pub clash: Option<u32>,
+    pub incident: Option<u32>,
+    /// The law that sent it, if a law did (M6c slice BJ, step three).
+    pub law: Option<PermanentId>,
     /// What it took, `(good, amount)`, and its food energy, kcal.
     pub taken: Vec<(u16, f32)>,
     pub taken_kcal: f32,
@@ -325,6 +328,13 @@ pub struct BandParams {
     /// come and did not, and toward one who was asked and said no.
     pub shirk_promised: f64,
     pub shirk_asked: f64,
+    /// Laws (M6c slice BJ, step three): points against calling or joining a band for one who
+    /// knows a law against raiding in force; days of a household's food the one it sends with a
+    /// band a law sent is reckoned away and at risk, which it weighs as a levy; and the share of
+    /// what outsiders took from a household it believes its own people's raids bring on it.
+    pub w_law: f64,
+    pub service_days: f64,
+    pub retaliation_share: f64,
     /// Will to stay (points): of one who went with the band; of one standing at their own home;
     /// of a neighbour, at full regard for the household come to.
     pub will_band: f64,
@@ -360,6 +370,9 @@ impl BandParams {
             look_minutes: 10,
             shirk_promised: 2.0,
             shirk_asked: 1.0,
+            w_law: 3.0,
+            service_days: 2.0,
+            retaliation_share: 0.5,
             will_band: 2.0,
             will_home: 3.0,
             will_neighbour: 2.0,

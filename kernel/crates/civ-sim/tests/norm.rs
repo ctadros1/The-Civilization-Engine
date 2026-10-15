@@ -107,6 +107,7 @@ fn a_store_in_force(sim: &mut Sim) {
         watch: Default::default(),
         ends: None,
         agreement: None,
+        target: None,
         body: None,
     });
 }

@@ -704,6 +704,7 @@ impl Population {
             body: None,
             ends: None,
             site: None,
+            target: None,
             own_gain: 0.0,
             followers_gain: 0.0,
             support: 0.5,

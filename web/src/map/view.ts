@@ -49,6 +49,7 @@ import {
   type GoodInfo,
   type Hydrography,
   type PathsInfo,
+  type BandBrief,
   type PersonBrief,
   type SettlementBrief,
   type SpringInfo,
@@ -208,6 +209,9 @@ function drawMark(g: Graphics, m: Mark): void {
   if (m.stroke) g.stroke(m.stroke);
 }
 
+/** The colour bands are drawn in (wire 1.74). */
+const BAND_COLOUR = 0xd9534f;
+
 export class MapView {
   private app: Application | null = null;
   private readonly world = new Container();
@@ -258,6 +262,7 @@ export class MapView {
   private readonly settlementLayer = new Container();
   private readonly peopleLayer = new Graphics();
   private people: PersonBrief[] = [];
+  private bands: BandBrief[] = [];
   private settlements: SettlementBrief[] = [];
   private settlementsKey = "";
   private clock: Clock | null = null;
@@ -341,6 +346,7 @@ export class MapView {
     this.info = null;
     this.inFlight = 0;
     this.people = [];
+    this.bands = [];
     this.settlements = [];
     this.settlementsKey = "";
     for (const child of this.settlementLayer.removeChildren()) child.destroy();
@@ -370,8 +376,14 @@ export class MapView {
   }
 
   /** The people, settlements and clock of the latest snapshot. */
-  setPeople(people: PersonBrief[], settlements: SettlementBrief[], clock: Clock | null): void {
+  setPeople(
+    people: PersonBrief[],
+    settlements: SettlementBrief[],
+    clock: Clock | null,
+    bands: BandBrief[] = [],
+  ): void {
     this.people = people;
+    this.bands = bands;
     this.clock = clock;
     this.clockAt = performance.now();
     pruneTrips(people, this.trips);
@@ -677,6 +689,22 @@ export class MapView {
     const pxM = 1 / this.scale;
     const positions = this.drawnPositions();
     let selectedAt: [number, number, number] | null = null;
+    // Each band out (wire 1.74): a line from each who goes with it to the home it goes to, and a
+    // ring there; a band still to muster is drawn faint.
+    if (this.bands.length > 0) {
+      const at = new Map<number, number>();
+      for (const [i, p] of this.people.entries()) at.set(p.id, i);
+      for (const b of this.bands) {
+        const alpha = b.out ? 0.7 : 0.25;
+        for (const m of b.members) {
+          const i = at.get(m);
+          if (i === undefined) continue;
+          const [x, y] = positions[i]!;
+          g.moveTo(x, y).lineTo(b.x, b.y).stroke({ width: pxM, color: BAND_COLOUR, alpha });
+        }
+        g.circle(b.x, b.y, 6 * pxM).stroke({ width: 2 * pxM, color: BAND_COLOUR, alpha });
+      }
+    }
     for (const [i, p] of this.people.entries()) {
       const [x, y] = positions[i]!;
       const r = (p.ageYears < 3 ? 0.55 : p.ageYears < 12 ? 0.72 : 1) * PERSON_PX * pxM;

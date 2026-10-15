@@ -157,6 +157,7 @@ fn aggrieved_at(
             body: None,
             ends: None,
             agreement: None,
+            target: None,
         };
         let laws = &mut pop.polities[0].laws;
         if !laws
@@ -366,6 +367,7 @@ fn a_faction_petitions_the_gathering_and_those_who_heard_choose_whether_to_come(
         body: None,
         ends: None,
         agreement: None,
+        target: None,
     });
     for (_, x) in pop.households.iter_mut() {
         x.stores.resize(grain + 1, 0.0);
@@ -568,6 +570,7 @@ fn where_no_petition_can_be_called_a_faction_keeps_back_the_levy_together() {
         body: None,
         ends: None,
         agreement: None,
+        target: None,
     });
     // Nobody here holds that what the gathering decides binds, nor believes others abide by it.
     for s in &mut pop.norms.states {
@@ -761,6 +764,7 @@ fn revolt_called(seed: u64) -> (Sim, civ_agents::faction::Revolt, Body) {
         body: None,
         ends: None,
         agreement: None,
+        target: None,
     });
     assert!(
         !pop.polities[0]
@@ -969,6 +973,7 @@ fn a_body_that_took_the_deciding_weighs_ending_the_laws_the_old_custom_made() {
         body: None,
         ends: None,
         agreement: None,
+        target: None,
     };
     let (levy, home) = (
         PermanentId::from_raw(next).expect("non-zero"),
@@ -1090,6 +1095,7 @@ fn where_the_watch_is_several_one_of_them_may_take_the_deciding_for_it() {
             body: None,
             ends: None,
             agreement: None,
+            target: None,
         });
     }
     for s in &mut pop.norms.states {

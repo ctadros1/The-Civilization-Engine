@@ -265,6 +265,7 @@ fn how_far_talk_moved_someone_weighs_in_their_stance_and_the_record_says_so() {
         body: None,
         ends: None,
         agreement: None,
+        target: None,
     });
     p.gathering = Some(Gathering {
         law: Some(id),

@@ -18,6 +18,8 @@ export function earthworkAt(works: EarthworkInfo[], xM: number, yM: number): Ear
 export const EARTH_COLOUR = 0x9c7a52;
 /** A pit's open ground, darker and deeper. */
 export const PIT_COLOUR = 0x4e3b28;
+/** An irrigation ditch's water, drawn as its line (wire 1.73). */
+export const DITCH_COLOUR = 0x3f7fbf;
 /** A spoil heap's loose earth, paler. */
 export const SPOIL_COLOUR = 0xc2a57c;
 

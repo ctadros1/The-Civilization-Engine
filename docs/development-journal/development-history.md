@@ -1924,3 +1924,22 @@ build with its 173 unit tests pass.
 **Open:** weeds and silt, and their clearing; drawing ditches on the map; trapped rain; then
 BH.
 
+
+## 2026-10-15 — BG: the observer draws ditches
+
+**What changed:** wire 1.73 gives an earthwork of kind 4 its ditch's line and whether its
+intake is open. The map draws a ditch as a blue line from the river to its field, solid while
+the intake is open and faint while it is shut or still being dug. Its words say whose it is,
+how long, how far dug, and the water taken and kept. The short smoke's earthworks note now
+counts ditches laid out and dug and the water they moved.
+
+**Decided:** weeds and silt stay as fields of a ditch but do not grow yet. A household's ditch
+carries about 0.16 m³/s clean, and the driest hectare wants about 0.005 m³/s. Fully weeded and
+half silted it still carries four times that, so neither would bind, and clearing them would
+be work nobody needs. They come back with shared ditches feeding many fields.
+
+**Evidence:** the kernel ditch test reads the earthworks response and finds the ditch's line,
+its open intake and its words. A web unit test decodes a kind 4 earthwork with its line, and
+the banks and earthworks end-to-end specs pass on wire 1.73. Before this commit, the full
+simcheck workspace suite, all-target clippy, formatting, schema freshness and the web build
+with its 174 unit tests pass.

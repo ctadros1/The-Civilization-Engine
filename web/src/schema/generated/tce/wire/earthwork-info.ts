@@ -122,8 +122,23 @@ bankBreached():boolean {
   return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
 }
 
+ditchA(obj?:Vec2):Vec2|null {
+  const offset = this.bb!.__offset(this.bb_pos, 42);
+  return offset ? (obj || new Vec2()).__init(this.bb_pos + offset, this.bb!) : null;
+}
+
+ditchB(obj?:Vec2):Vec2|null {
+  const offset = this.bb!.__offset(this.bb_pos, 44);
+  return offset ? (obj || new Vec2()).__init(this.bb_pos + offset, this.bb!) : null;
+}
+
+ditchOpen():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 46);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+}
+
 static startEarthworkInfo(builder:flatbuffers.Builder) {
-  builder.startObject(19);
+  builder.startObject(22);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -200,6 +215,18 @@ static addBankHeightM(builder:flatbuffers.Builder, bankHeightM:number) {
 
 static addBankBreached(builder:flatbuffers.Builder, bankBreached:boolean) {
   builder.addFieldInt8(18, +bankBreached, +false);
+}
+
+static addDitchA(builder:flatbuffers.Builder, ditchAOffset:flatbuffers.Offset) {
+  builder.addFieldStruct(19, ditchAOffset, 0);
+}
+
+static addDitchB(builder:flatbuffers.Builder, ditchBOffset:flatbuffers.Offset) {
+  builder.addFieldStruct(20, ditchBOffset, 0);
+}
+
+static addDitchOpen(builder:flatbuffers.Builder, ditchOpen:boolean) {
+  builder.addFieldInt8(21, +ditchOpen, +false);
 }
 
 static endEarthworkInfo(builder:flatbuffers.Builder):flatbuffers.Offset {

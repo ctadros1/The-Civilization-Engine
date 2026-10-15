@@ -2571,13 +2571,15 @@ and M6a gives rivers a daily flow.
       people dig it as they choose (`work_with_spade_on_ditch`, behaviour `ditch`), and its
       finishing is told. Once dug, the intake is opened at midnight while the crop grows and
       its root zone is below the easy-water share, and shut otherwise. Save schema 106
-      (`Household.ditch_worth`), content API 92, wire 1.72 unchanged.
+      (`Household.ditch_worth`), content API 92. Wire 1.73 sends a ditch's line and whether
+      its intake is open, and the observer draws it as a blue line, solid while open.
     - Earth kinds `bank` and `ditch` as lines of segments.
     - Water behind a bank only over its crest or through a breach. Overtopping and piping.
     - The issue `flooded`, and the policy `build_bank`, asked in equal shares as a crossing is.
     - Irrigation ditches from an intake at a gradient: in a dry spell, a field is watered
       through ADR-0012 §2's water response, at 03-02's efficiency. Sediment and weeds want
-      clearing.
+      clearing (deferred until ditches are shared: a household's ditch carries far more than
+      its field needs, §9).
     - Drains and terraces wait.
   - **BH**: building rules and the M6b demo.
     - The issues `burned` and `gave_way`.
@@ -3467,6 +3469,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
   second ditch while digging. Its people see the work and its worth. Eight hours dig a cubic
   metre, and the rest finishes it and is told. Sown again with a dry root zone, the ditch is
   opened and waters the field, and the world saves and loads exactly. **Not yet measured:**
-  how often lived households dig in dry years. **Left:** weeds and silt growing and their
-  clearing, the observer drawing ditches' lines, shared ditches, and trapped rain.
+  how often lived households dig in dry years. **Deferred: weeds and silt growing and their
+  clearing.** A household's ditch carries about 0.16 m³/s clean, and the driest hectare wants
+  about 0.005 m³/s (417 m³ a day). Fully weeded and half silted it still carries about
+  0.023 m³/s, four times that, so neither binds and their clearing would be work nobody needs.
+  They come back with shared ditches feeding many fields. **Left:** shared ditches and trapped
+  rain. **Observer (wire 1.73):** an earthwork of kind 4
+  carries its ditch's line and whether its intake is open. The map draws it as a blue line,
+  solid while open and faint while shut or being dug, and its words say whose it is, how long,
+  how far dug, and the water taken and kept.
 

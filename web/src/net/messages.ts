@@ -1595,6 +1595,8 @@ export interface EarthworkInfo {
   deposit: number;
   /** Wire 1.72: the kernel's bank centre-line and current condition. */
   bank?: { ax: number; ay: number; bx: number; by: number; heightM: number; breached: boolean };
+  /** Wire 1.73: an irrigation ditch's line from its intake to its field, and whether it is open. */
+  ditch?: { ax: number; ay: number; bx: number; by: number; open: boolean };
 
 }
 
@@ -2771,6 +2773,10 @@ function earthworks(w: W.Earthworks): EarthworksInfo {
       bank: e.bankA() && e.bankB() ? {
         ax: e.bankA()!.x(), ay: e.bankA()!.y(), bx: e.bankB()!.x(), by: e.bankB()!.y(),
         heightM: e.bankHeightM(), breached: e.bankBreached(),
+      } : undefined,
+      ditch: e.ditchA() && e.ditchB() ? {
+        ax: e.ditchA()!.x(), ay: e.ditchA()!.y(), bx: e.ditchB()!.x(), by: e.ditchB()!.y(),
+        open: e.ditchOpen(),
       } : undefined,
     });
   }

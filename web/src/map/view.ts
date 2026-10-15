@@ -27,7 +27,7 @@ import { buildingAt, buildingMarks, type Mark } from "../buildings.js";
 import { homeAt, lensMarks, type LensLayer } from "../coverage.js";
 import { crossingAt, crossingEnds, crossingLook } from "../crossings.js";
 import { depositAt, depositLook } from "../deposits.js";
-import { changedTiles, detailTilesOver, earthworkAt, earthworkLook } from "../earthworks.js";
+import { DITCH_COLOUR, changedTiles, detailTilesOver, earthworkAt, earthworkLook } from "../earthworks.js";
 import { fieldAt, fieldLook } from "../fields.js";
 import type { HostClient } from "../net/client.js";
 import { TRAIL_COLOUR, pathAt, smoothed, trailLook, wornPixels } from "../paths.js";
@@ -419,6 +419,13 @@ export class MapView {
       const look = earthworkLook(w);
       if (w.bank) {
         g.moveTo(w.bank.ax, w.bank.ay).lineTo(w.bank.bx, w.bank.by).stroke({ width: 1.5, color: look.colour, alpha: w.bank.breached ? 0.3 : 0.9 });
+        continue;
+      }
+      // An irrigation ditch (wire 1.73): its line, solid while its intake is open, faint while
+      // it is shut or still being dug.
+      if (w.ditch) {
+        const shown = w.ditch.open ? 0.9 : 0.25 + 0.35 * Math.min(1, Math.max(0, w.done));
+        g.moveTo(w.ditch.ax, w.ditch.ay).lineTo(w.ditch.bx, w.ditch.by).stroke({ width: 1, color: DITCH_COLOUR, alpha: shown });
         continue;
       }
       g.rect(w.x, w.y, w.w, w.h).fill({ color: look.colour, alpha: look.alpha });

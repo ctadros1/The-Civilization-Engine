@@ -1763,7 +1763,8 @@ table Deposits {
 // deposit's goods, or the spoil heap beside a pit.
 table EarthworkInfo {
   id: ulong (id: 0);
-  // What it is: 0 a platform; wire 1.21: 1 a pit, 2 a spoil heap; wire 1.72: 3 a bank. Append only.
+  // What it is: 0 a platform; wire 1.21: 1 a pit, 2 a spoil heap; wire 1.72: 3 a bank; wire 1.73: 4
+  // an irrigation ditch. Append only.
   kind: ubyte (id: 1);
   // The rectangle it levels, metres from the map's north-west corner.
   x: float (id: 2);
@@ -1790,6 +1791,11 @@ table EarthworkInfo {
   bank_b: Vec2 (id: 16);
   bank_height_m: float (id: 17);
   bank_breached: bool (id: 18);
+  // Wire 1.73: an irrigation ditch's line from its intake to its field, metres, and whether its
+  // intake is open.
+  ditch_a: Vec2 (id: 19);
+  ditch_b: Vec2 (id: 20);
+  ditch_open: bool (id: 21);
 }
 
 

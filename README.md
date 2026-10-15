@@ -54,7 +54,7 @@ These generated previews illustrate the project's longer-term historical and mod
 - **Simulation kernel:** Rust workspace organized around world generation, changing land, people, authored content, simulation composition, hosting and a C interface.
 - **Emergent systems:** event-scheduled daily lives and calendar cadences; goods move through an accounting ledger; building grammars expand saved designs; institutions emerge through proposals, deliberation, law and collective action. Waterborne disease and fire spread through household choices, weather, buildings and local response.
 - **Multiple settlements:** settlement identity and residence histories are explicit. Households learn places by contact and choose whether to visit, move or found elsewhere.
-- **Content and boundaries:** strict TOML packs (content API 92) feed the kernel. The web observer uses a localhost WebSocket and versioned FlatBuffers messages (TCE wire 1.72); it displays kernel state and forwards commands.
+- **Content and boundaries:** strict TOML packs (content API 92) feed the kernel. The web observer uses a localhost WebSocket and versioned FlatBuffers messages (TCE wire 1.73); it displays kernel state and forwards commands.
 - **Persistence:** checksummed, versioned snapshots (schema 106) with explicit migrations. World generation is reproducible for a seed on one build; simulation replay is not a goal.
 
 ## Run it

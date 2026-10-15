@@ -972,6 +972,37 @@ describe("decoders", () => {
     ]);
   });
 
+  it("decodes an irrigation ditch's line and whether its intake is open (wire 1.73)", () => {
+    const b = new flatbuffers.Builder(256);
+    const words = b.createString("Ada's household's irrigation ditch");
+    W.EarthworkInfo.startEarthworkInfo(b);
+    W.EarthworkInfo.addId(b, 61n);
+    W.EarthworkInfo.addKind(b, 4);
+    W.EarthworkInfo.addX(b, 10);
+    W.EarthworkInfo.addY(b, 20);
+    W.EarthworkInfo.addW(b, 2);
+    W.EarthworkInfo.addH(b, 2);
+    W.EarthworkInfo.addCutM3(b, 36);
+    W.EarthworkInfo.addDone(b, 1);
+    W.EarthworkInfo.addHousehold(b, 7n);
+    W.EarthworkInfo.addWords(b, words);
+    W.EarthworkInfo.addDitchA(b, W.Vec2.createVec2(b, 11, 21));
+    W.EarthworkInfo.addDitchB(b, W.Vec2.createVec2(b, 111, 71));
+    W.EarthworkInfo.addDitchOpen(b, true);
+    const info = W.EarthworkInfo.endEarthworkInfo(b);
+    const works = W.Earthworks.createWorksVector(b, [info]);
+    W.Earthworks.startTilesVector(b, 0);
+    const tiles = b.endVector();
+    const earthworks = W.Earthworks.createEarthworks(b, 3n, works, 64, 16, tiles);
+    const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Earthworks, earthworks)));
+    expect(body.kind).toBe("earthworks");
+    if (body.kind !== "earthworks") return;
+    const w = body.earthworks.works[0];
+    expect(w?.kind).toBe(4);
+    expect(w?.bank).toBeUndefined();
+    expect(w?.ditch).toEqual({ ax: 11, ay: 21, bx: 111, by: 71, open: true });
+  });
+
   it("decodes the earthworks with the ground tiles they changed, and builds their query", () => {
     const b = new flatbuffers.Builder(256);
     const words = b.createString("the plot of Ada's hut, being levelled: 40% of 6.4 m³ cut and filled");

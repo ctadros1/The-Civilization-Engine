@@ -26787,6 +26787,9 @@ impl<'a> EarthworkInfo<'a> {
   pub const VT_BANK_B: ::flatbuffers::VOffsetT = 36;
   pub const VT_BANK_HEIGHT_M: ::flatbuffers::VOffsetT = 38;
   pub const VT_BANK_BREACHED: ::flatbuffers::VOffsetT = 40;
+  pub const VT_DITCH_A: ::flatbuffers::VOffsetT = 42;
+  pub const VT_DITCH_B: ::flatbuffers::VOffsetT = 44;
+  pub const VT_DITCH_OPEN: ::flatbuffers::VOffsetT = 46;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -26803,6 +26806,8 @@ impl<'a> EarthworkInfo<'a> {
     builder.add_plot(args.plot);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    if let Some(x) = args.ditch_b { builder.add_ditch_b(x); }
+    if let Some(x) = args.ditch_a { builder.add_ditch_a(x); }
     builder.add_bank_height_m(args.bank_height_m);
     if let Some(x) = args.bank_b { builder.add_bank_b(x); }
     if let Some(x) = args.bank_a { builder.add_bank_a(x); }
@@ -26815,6 +26820,7 @@ impl<'a> EarthworkInfo<'a> {
     builder.add_w(args.w);
     builder.add_y(args.y);
     builder.add_x(args.x);
+    builder.add_ditch_open(args.ditch_open);
     builder.add_bank_breached(args.bank_breached);
     builder.add_kind(args.kind);
     builder.finish()
@@ -26954,6 +26960,27 @@ impl<'a> EarthworkInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(EarthworkInfo::VT_BANK_BREACHED, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn ditch_a(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(EarthworkInfo::VT_DITCH_A, None)}
+  }
+  #[inline]
+  pub fn ditch_b(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(EarthworkInfo::VT_DITCH_B, None)}
+  }
+  #[inline]
+  pub fn ditch_open(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(EarthworkInfo::VT_DITCH_OPEN, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for EarthworkInfo<'_> {
@@ -26981,6 +27008,9 @@ impl ::flatbuffers::Verifiable for EarthworkInfo<'_> {
      .visit_field::<Vec2>("bank_b", Self::VT_BANK_B, false)?
      .visit_field::<f32>("bank_height_m", Self::VT_BANK_HEIGHT_M, false)?
      .visit_field::<bool>("bank_breached", Self::VT_BANK_BREACHED, false)?
+     .visit_field::<Vec2>("ditch_a", Self::VT_DITCH_A, false)?
+     .visit_field::<Vec2>("ditch_b", Self::VT_DITCH_B, false)?
+     .visit_field::<bool>("ditch_open", Self::VT_DITCH_OPEN, false)?
      .finish();
     Ok(())
   }
@@ -27005,6 +27035,9 @@ pub struct EarthworkInfoArgs<'a> {
     pub bank_b: Option<&'a Vec2>,
     pub bank_height_m: f32,
     pub bank_breached: bool,
+    pub ditch_a: Option<&'a Vec2>,
+    pub ditch_b: Option<&'a Vec2>,
+    pub ditch_open: bool,
 }
 impl<'a> Default for EarthworkInfoArgs<'a> {
   #[inline]
@@ -27029,6 +27062,9 @@ impl<'a> Default for EarthworkInfoArgs<'a> {
       bank_b: None,
       bank_height_m: 0.0,
       bank_breached: false,
+      ditch_a: None,
+      ditch_b: None,
+      ditch_open: false,
     }
   }
 }
@@ -27115,6 +27151,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EarthworkInfoBuilder<'a, 'b, 
     self.fbb_.push_slot::<bool>(EarthworkInfo::VT_BANK_BREACHED, bank_breached, false);
   }
   #[inline]
+  pub fn add_ditch_a(&mut self, ditch_a: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(EarthworkInfo::VT_DITCH_A, ditch_a);
+  }
+  #[inline]
+  pub fn add_ditch_b(&mut self, ditch_b: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(EarthworkInfo::VT_DITCH_B, ditch_b);
+  }
+  #[inline]
+  pub fn add_ditch_open(&mut self, ditch_open: bool) {
+    self.fbb_.push_slot::<bool>(EarthworkInfo::VT_DITCH_OPEN, ditch_open, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EarthworkInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     EarthworkInfoBuilder {
@@ -27151,6 +27199,9 @@ impl ::core::fmt::Debug for EarthworkInfo<'_> {
       ds.field("bank_b", &self.bank_b());
       ds.field("bank_height_m", &self.bank_height_m());
       ds.field("bank_breached", &self.bank_breached());
+      ds.field("ditch_a", &self.ditch_a());
+      ds.field("ditch_b", &self.ditch_b());
+      ds.field("ditch_open", &self.ditch_open());
       ds.finish()
   }
 }

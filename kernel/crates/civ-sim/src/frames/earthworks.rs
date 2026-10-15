@@ -162,6 +162,9 @@ pub fn earthworks_response(sim: &Sim) -> Vec<u8> {
         let bank = sim.land.banks.iter().find(|b| b.work == w.id);
         let a = bank.map(|b| wire::Vec2::new(b.a[0] as f32, b.a[1] as f32));
         let b = bank.map(|b| wire::Vec2::new(b.b[0] as f32, b.b[1] as f32));
+        let ditch = sim.land.ditches.iter().find(|d| d.work == w.id);
+        let da = ditch.map(|d| wire::Vec2::new(d.a[0] as f32, d.a[1] as f32));
+        let db = ditch.map(|d| wire::Vec2::new(d.b[0] as f32, d.b[1] as f32));
         list.push(wire::EarthworkInfo::create(
             &mut fbb,
             &wire::EarthworkInfoArgs {
@@ -186,6 +189,9 @@ pub fn earthworks_response(sim: &Sim) -> Vec<u8> {
                     (b.built_height_m(w.done) - b.settlement_m - b.erosion_m).max(0.0) as f32
                 }),
                 bank_breached: bank.is_some_and(|b| b.breached),
+                ditch_a: da.as_ref(),
+                ditch_b: db.as_ref(),
+                ditch_open: ditch.is_some_and(|d| d.open),
             },
         ));
     }

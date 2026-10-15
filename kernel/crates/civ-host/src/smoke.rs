@@ -1424,6 +1424,22 @@ fn earthworks(sim: &Sim) -> Option<String> {
         let noun = plural(daub, "daub pit", "daub pits");
         parts.push(format!("{daub} {noun}, {daubed:.0} m³"));
     }
+    // Irrigation ditches (M6b slice BG): laid out, dug, and the water they moved.
+    let ditches = &sim.land().ditches;
+    if !ditches.is_empty() {
+        let dug = works
+            .iter()
+            .filter(|w| w.kind == EarthKind::Ditch && w.done >= 1.0)
+            .count();
+        let taken: f64 = ditches.iter().map(|d| d.taken_m3).sum();
+        let kept: f64 = ditches.iter().map(|d| d.kept_m3).sum();
+        let noun = plural(ditches.len(), "ditch", "ditches");
+        parts.push(format!(
+            "{} {noun} laid out, {dug} dug, {taken:.0} m³ taken from the river and {kept:.0} m³ \
+             kept by fields",
+            ditches.len()
+        ));
+    }
     (!parts.is_empty()).then(|| parts.join("; "))
 }
 

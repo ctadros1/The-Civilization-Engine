@@ -16589,7 +16589,10 @@ struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_BANK_A = 34,
     VT_BANK_B = 36,
     VT_BANK_HEIGHT_M = 38,
-    VT_BANK_BREACHED = 40
+    VT_BANK_BREACHED = 40,
+    VT_DITCH_A = 42,
+    VT_DITCH_B = 44,
+    VT_DITCH_OPEN = 46
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -16648,6 +16651,15 @@ struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   bool bank_breached() const {
     return GetField<uint8_t>(VT_BANK_BREACHED, 0) != 0;
   }
+  const tce::wire::Vec2 *ditch_a() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_DITCH_A);
+  }
+  const tce::wire::Vec2 *ditch_b() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_DITCH_B);
+  }
+  bool ditch_open() const {
+    return GetField<uint8_t>(VT_DITCH_OPEN, 0) != 0;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -16671,6 +16683,9 @@ struct EarthworkInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<tce::wire::Vec2>(verifier, VT_BANK_B, 4) &&
            VerifyField<float>(verifier, VT_BANK_HEIGHT_M, 4) &&
            VerifyField<uint8_t>(verifier, VT_BANK_BREACHED, 1) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_DITCH_A, 4) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_DITCH_B, 4) &&
+           VerifyField<uint8_t>(verifier, VT_DITCH_OPEN, 1) &&
            verifier.EndTable();
   }
 };
@@ -16736,6 +16751,15 @@ struct EarthworkInfoBuilder {
   void add_bank_breached(bool bank_breached) {
     fbb_.AddElement<uint8_t>(EarthworkInfo::VT_BANK_BREACHED, static_cast<uint8_t>(bank_breached), 0);
   }
+  void add_ditch_a(const tce::wire::Vec2 *ditch_a) {
+    fbb_.AddStruct(EarthworkInfo::VT_DITCH_A, ditch_a);
+  }
+  void add_ditch_b(const tce::wire::Vec2 *ditch_b) {
+    fbb_.AddStruct(EarthworkInfo::VT_DITCH_B, ditch_b);
+  }
+  void add_ditch_open(bool ditch_open) {
+    fbb_.AddElement<uint8_t>(EarthworkInfo::VT_DITCH_OPEN, static_cast<uint8_t>(ditch_open), 0);
+  }
   explicit EarthworkInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -16767,13 +16791,18 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfo(
     const tce::wire::Vec2 *bank_a = nullptr,
     const tce::wire::Vec2 *bank_b = nullptr,
     float bank_height_m = 0.0f,
-    bool bank_breached = false) {
+    bool bank_breached = false,
+    const tce::wire::Vec2 *ditch_a = nullptr,
+    const tce::wire::Vec2 *ditch_b = nullptr,
+    bool ditch_open = false) {
   EarthworkInfoBuilder builder_(_fbb);
   builder_.add_deposit(deposit);
   builder_.add_building(building);
   builder_.add_plot(plot);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_ditch_b(ditch_b);
+  builder_.add_ditch_a(ditch_a);
   builder_.add_bank_height_m(bank_height_m);
   builder_.add_bank_b(bank_b);
   builder_.add_bank_a(bank_a);
@@ -16786,6 +16815,7 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfo(
   builder_.add_w(w);
   builder_.add_y(y);
   builder_.add_x(x);
+  builder_.add_ditch_open(ditch_open);
   builder_.add_bank_breached(bank_breached);
   builder_.add_kind(kind);
   return builder_.Finish();
@@ -16816,7 +16846,10 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfoDirect(
     const tce::wire::Vec2 *bank_a = nullptr,
     const tce::wire::Vec2 *bank_b = nullptr,
     float bank_height_m = 0.0f,
-    bool bank_breached = false) {
+    bool bank_breached = false,
+    const tce::wire::Vec2 *ditch_a = nullptr,
+    const tce::wire::Vec2 *ditch_b = nullptr,
+    bool ditch_open = false) {
   auto words__ = words ? _fbb.CreateString(words) : 0;
   return tce::wire::CreateEarthworkInfo(
       _fbb,
@@ -16838,7 +16871,10 @@ inline ::flatbuffers::Offset<EarthworkInfo> CreateEarthworkInfoDirect(
       bank_a,
       bank_b,
       bank_height_m,
-      bank_breached);
+      bank_breached,
+      ditch_a,
+      ditch_b,
+      ditch_open);
 }
 
 struct CrossingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

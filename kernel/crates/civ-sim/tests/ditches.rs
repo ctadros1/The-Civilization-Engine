@@ -355,6 +355,22 @@ fn a_household_whose_crop_thirsted_digs_a_ditch_to_its_field_and_opens_it_in_a_d
     sim.advance_minutes(2 * DAY).expect("advances");
     let d = sim.land().ditches[0];
     assert!(d.taken_m3 > 0.0 && d.kept_m3 > 0.0, "{d:?}");
+    // The observer is sent its line, and whether its intake is open (wire 1.73).
+    let bytes = civ_sim::frames::earthworks::earthworks_response(&sim);
+    let response =
+        civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&bytes).expect("wire");
+    let sent = response
+        .body_as_earthworks()
+        .expect("earthworks")
+        .works()
+        .expect("works")
+        .iter()
+        .find(|w| w.kind() == 4)
+        .expect("the ditch");
+    assert_eq!(sent.ditch_a().expect("a").x(), d.a[0] as f32);
+    assert_eq!(sent.ditch_b().expect("b").y(), d.b[1] as f32);
+    assert_eq!(sent.ditch_open(), d.open);
+    assert!(sent.words().expect("words").contains("irrigation ditch"));
     // It saves and loads exactly.
     let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("dir");
     let saves = SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("saves");

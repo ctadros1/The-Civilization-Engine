@@ -1687,6 +1687,7 @@ impl Population {
             flood_memory: crate::person::FloodMemory::default(),
             flood_losses: Vec::new(),
             ditch_worth: 0.0,
+            fire_losses: Vec::new(),
         });
         for who in [woman, man] {
             let Some(from) = self.person(who).map(|p| p.household) else {

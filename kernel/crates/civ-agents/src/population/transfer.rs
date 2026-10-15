@@ -250,6 +250,7 @@ mod tests {
                 flood_memory: Default::default(),
                 flood_losses: Vec::new(),
                 ditch_worth: 0.0,
+                fire_losses: Vec::new(),
             });
         }
         pop

@@ -3,7 +3,9 @@
 //! anyone proposes it, and whether it passes, is decided by people at run time; a template
 //! carries no weight toward being chosen.
 
-use civ_agents::polity::{Body, IssueKind, Membership, PassRule, PolicyDef, PolicyKind};
+use civ_agents::polity::{
+    Body, IssueKind, Membership, PassRule, PolicyDef, PolicyKind, RuleDef, RuleTemplate,
+};
 use serde::Deserialize;
 
 /// The `kind` value of a policy template.
@@ -21,11 +23,12 @@ pub(crate) struct PolicyFile {
     /// What the kernel does under it: `common_store`, `keep_store`, `against_taking`,
     /// `keep_watch`, `curfew`, `amend_body` or `repeal` (content API 49), `claim_place` (59),
     /// `agreement` (62), `build_crossing` (67), `close_source` or `dig_well` (M6a), or
-    /// `build_bank` (88) or `keep_bank` (90).
+    /// `build_bank` (88) or `keep_bank` (90), or `building_rule` (93).
     pub does: String,
     /// The issues it answers: `food_short`, `store_unkept`, `takings`, `overruled`, `petition`,
     /// `founding` (content API 49), `outsiders` (59), `claimed_from_us`, `terms_sought` (61) or
-    /// `fords` (67), `sickness`, `source_suspected` or `water_far` (M6a), `flooded` (88) or `bank_worn` (90).
+    /// `fords` (67), `sickness`, `source_suspected` or `water_far` (M6a), `flooded` (88),
+    /// `bank_worn` (90) or `burned` (93).
     pub answers: Vec<String>,
     /// For a common store: the shares of threshed grain a sponsor may propose for the levy.
     #[serde(default)]
@@ -58,8 +61,36 @@ pub(crate) struct PolicyFile {
     /// (against it) .. 1 (for it). Left out, it bears on none.
     #[serde(default)]
     pub bears: std::collections::BTreeMap<String, f64>,
+    /// For a rule for building (content API 93, M6b slice BH): what it requires.
+    #[serde(default)]
+    pub rule: Option<RuleFile>,
 }
 
+/// What a rule for building requires (M6b slice BH; ADR-0022 §12).
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RuleFile {
+    /// `roofs_unburnt`: a new roof within `within_m` of another building must not burn.
+    pub template: String,
+    /// For `roofs_unburnt`: how near another building a roof is bound, metres.
+    #[serde(default)]
+    pub within_m: f64,
+    /// The technique a sponsor must know to put it forward (research 11-09 §1.4).
+    #[serde(default)]
+    pub needs: Option<String>,
+}
+
+impl RuleFile {
+    /// Its template, if the name is one.
+    fn template(&self) -> Option<RuleTemplate> {
+        match self.template.as_str() {
+            "roofs_unburnt" => Some(RuleTemplate::RoofsUnburnt {
+                within_m: self.within_m as f32,
+            }),
+            _ => None,
+        }
+    }
+}
 /// One sanction bundle of a law against taking: what it adds to giving back what was taken, in
 /// days of the taker's household's food.
 #[derive(Clone, Debug, Deserialize)]
@@ -75,7 +106,11 @@ pub(crate) struct BundleFile {
 impl PolicyFile {
     /// The compiled template (call after [`PolicyFile::problems`] found none, and with every
     /// value `bears` names defined: `value_index` finds it).
-    pub fn def(&self, value_index: &dyn Fn(&str) -> Option<usize>) -> PolicyDef {
+    pub fn def(
+        &self,
+        value_index: &dyn Fn(&str) -> Option<usize>,
+        technique_index: &dyn Fn(&str) -> Option<usize>,
+    ) -> PolicyDef {
         let mut bears: Vec<(u16, f32)> = self
             .bears
             .iter()
@@ -109,6 +144,12 @@ impl PolicyFile {
             bodies: self.bodies(),
             question: self.question.clone(),
             bears,
+            rule: self.rule.as_ref().and_then(|r| {
+                Some(RuleDef {
+                    template: r.template()?,
+                    needs: r.needs.as_deref().and_then(technique_index),
+                })
+            }),
         }
     }
 
@@ -194,7 +235,8 @@ impl PolicyFile {
                 | PolicyKind::CloseSource
                 | PolicyKind::DigWell
                 | PolicyKind::BuildBank
-                | PolicyKind::KeepBank),
+                | PolicyKind::KeepBank
+                | PolicyKind::BuildingRule),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -241,7 +283,8 @@ impl PolicyFile {
                 | PolicyKind::CloseSource
                 | PolicyKind::DigWell
                 | PolicyKind::BuildBank
-                | PolicyKind::KeepBank,
+                | PolicyKind::KeepBank
+                | PolicyKind::BuildingRule,
             )
             | None => {}
         }
@@ -321,6 +364,29 @@ impl PolicyFile {
         {
             p.push("only an `against_taking` policy has `bundles`".to_owned());
         }
+        match (PolicyKind::from_name(&self.does), &self.rule) {
+            (Some(PolicyKind::BuildingRule), None) => {
+                p.push("a `building_rule` policy needs a `[rule]`".to_owned());
+            }
+            (Some(PolicyKind::BuildingRule), Some(r)) => match r.template() {
+                None => p.push(format!(
+                    "`rule.template` is `{}`; templates are `roofs_unburnt`",
+                    r.template
+                )),
+                // Research 12-03 §2.2: radiation from a burning dwelling falls from about 36
+                // kW/m² at 1 m to 5 at 4 m; a rule's reach is authored within a street's width.
+                Some(RuleTemplate::RoofsUnburnt { .. }) => {
+                    if !(r.within_m.is_finite() && r.within_m > 0.0 && r.within_m <= 50.0) {
+                        p.push(format!(
+                            "`rule.within_m` must be above 0 and at most 50 (got {})",
+                            r.within_m
+                        ));
+                    }
+                }
+            },
+            (_, Some(_)) => p.push("only a `building_rule` policy has a `[rule]`".to_owned()),
+            (_, None) => {}
+        }
         p
     }
 }
@@ -346,6 +412,7 @@ mod tests {
             pass: Vec::new(),
             question: None,
             bears: Default::default(),
+            rule: None,
         }
     }
 
@@ -354,10 +421,64 @@ mod tests {
     }
 
     #[test]
+    fn a_building_rule_needs_its_rule_and_nothing_else_has_one() {
+        let rule = |template: &str, within_m: f64| RuleFile {
+            template: template.to_owned(),
+            within_m,
+            needs: Some("core:technique/firing".to_owned()),
+        };
+        let roofs_with = |r: Option<RuleFile>| PolicyFile {
+            does: "building_rule".to_owned(),
+            answers: vec!["burned".to_owned()],
+            levy_shares: Vec::new(),
+            relief_days: 0.0,
+            rule: r,
+            ..file()
+        };
+        let roofs = roofs_with(Some(rule("roofs_unburnt", 4.0)));
+        assert!(roofs.problems().is_empty(), "{:?}", roofs.problems());
+        let firing = |id: &str| (id == "core:technique/firing").then_some(3);
+        let d = roofs.def(&no_values, &firing);
+        assert_eq!(d.kind, PolicyKind::BuildingRule);
+        assert_eq!(
+            d.rule,
+            Some(RuleDef {
+                template: RuleTemplate::RoofsUnburnt { within_m: 4.0 },
+                needs: Some(3),
+            })
+        );
+        let missing = roofs_with(None);
+        assert!(
+            missing
+                .problems()
+                .iter()
+                .any(|p| p.contains("needs a `[rule]`"))
+        );
+        for bad in [
+            rule("walls", 4.0),
+            rule("roofs_unburnt", 0.0),
+            rule("roofs_unburnt", 99.0),
+        ] {
+            let f = roofs_with(Some(bad));
+            assert!(!f.problems().is_empty());
+        }
+        let stray = PolicyFile {
+            rule: Some(rule("roofs_unburnt", 4.0)),
+            ..file()
+        };
+        assert!(
+            stray
+                .problems()
+                .iter()
+                .any(|p| p.contains("only a `building_rule`"))
+        );
+    }
+
+    #[test]
     fn a_template_compiles_with_its_levels_in_order() {
         let f = file();
         assert!(f.problems().is_empty(), "{:?}", f.problems());
-        let d = f.def(&no_values);
+        let d = f.def(&no_values, &no_values);
         assert_eq!(d.kind, PolicyKind::CommonStore);
         assert_eq!(d.answers, vec![IssueKind::FoodShort]);
         assert_eq!(d.levy_shares, vec![0.05, 0.1, 0.2]);
@@ -386,7 +507,7 @@ mod tests {
         f.levy_shares.clear();
         f.relief_days = 0.0;
         assert!(f.problems().is_empty(), "{:?}", f.problems());
-        assert_eq!(f.def(&no_values).kind, PolicyKind::KeepStore);
+        assert_eq!(f.def(&no_values, &no_values).kind, PolicyKind::KeepStore);
         // So does a watch.
         f.does = "keep_watch".to_owned();
         f.answers = vec!["takings".to_owned()];
@@ -424,7 +545,7 @@ mod tests {
             },
         ];
         assert!(f.problems().is_empty(), "{:?}", f.problems());
-        let d = f.def(&no_values);
+        let d = f.def(&no_values, &no_values);
         assert_eq!(d.kind, PolicyKind::AgainstTaking);
         assert_eq!(d.answers, vec![IssueKind::Takings]);
         assert_eq!(d.bundles[1].compensation_days, 3.0);
@@ -457,7 +578,7 @@ mod tests {
         );
         f.hours = vec![[21, 5]];
         assert!(f.problems().is_empty(), "{:?}", f.problems());
-        let d = f.def(&no_values);
+        let d = f.def(&no_values, &no_values);
         assert_eq!(d.kind, PolicyKind::Curfew);
         assert_eq!(d.hours, vec![(21, 5)]);
         f.hours = vec![[24, 5], [6, 6]];
@@ -479,7 +600,7 @@ mod tests {
         f.quorum_shares = vec![0.25, 0.5];
         f.pass = vec!["more_for".to_owned()];
         assert!(f.problems().is_empty(), "{:?}", f.problems());
-        let d = f.def(&no_values);
+        let d = f.def(&no_values, &no_values);
         assert_eq!(d.kind, PolicyKind::AmendBody);
         assert_eq!(d.answers, vec![IssueKind::Overruled]);
         assert_eq!(d.bodies.len(), 4);

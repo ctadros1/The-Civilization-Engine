@@ -2581,7 +2581,24 @@ and M6a gives rivers a daily flow.
       clearing (deferred until ditches are shared: a household's ditch carries far more than
       its field needs, §9).
     - Drains and terraces wait.
-  - **BH**: building rules and the M6b demo.
+  - **BH**: building rules and the M6b demo, in progress.
+    - *Roofs that do not burn (2026-10-15, §9):* a household remembers, for
+      `rules.memory_years`, each building it lost to fire and each one its people were in or saw
+      burn (not those they only heard shouted of), with what putting it right would take. The
+      issue `burned` holds while any household remembers one. The policy kind `building_rule`
+      takes its template from content: `core:policy/works_wrought_roofs` asks that a new roof
+      within 4 m of another building must not burn, and only someone who knows firing may
+      propose it. A household weighs it by the fire loss it believes averted (the burnt roofs
+      it remembers among the settlement's buildings, a year, times rebuilding its own thatched
+      buildings and, if it is about to build, its next home, times `rules.avoided_share`)
+      against what tiling its next home would cost more, spread over `rules.horizon_years`.
+      In force, it binds buildings begun from its day. A household whose eldest knows it and
+      chooses to keep it, weighed as a curfew's keeping is, chooses a tile roof where it can
+      make one, else a plot at least the rule's distance from every other building; with no
+      such plot it builds as it would and breaks the rule. Each building begun within the
+      rule's reach is counted kept, broken knowingly or broken unaware. A tile roof begun under
+      the rule says so in the observer's building words. Save schema 107
+      (`Household.fire_losses`), content API 93, wire 1.73 unchanged.
     - The issues `burned` and `gave_way`.
     - The policy `building_rule`, with three content templates: roofs that do not burn near
       another building, walls of named kinds, and a least gap. Each binds buildings begun from
@@ -3469,7 +3486,11 @@ One line each. Don't re-litigate without a reason written next to the entry.
   second ditch while digging. Its people see the work and its worth. Eight hours dig a cubic
   metre, and the rest finishes it and is told. Sown again with a dry root zone, the ditch is
   opened and waters the field, and the world saves and loads exactly. **Not yet measured:**
-  how often lived households dig in dry years. **Deferred: weeds and silt growing and their
+  how often lived households dig in dry years. **Measured (2026-10-15):** in the ten-year
+  smoke (two presets, two seeds) households laid out 11 to 21 ditches a world and dug 3 to 12
+  of them; dug ditches took 12,000 to 36,000 m³ from the rivers, of which fields kept 48 %.
+  All four worlds passed. Most laid-out ditches stay undug: a household weighs one again each
+  year and digs it only as it chooses. **Deferred: weeds and silt growing and their
   clearing.** A household's ditch carries about 0.16 m³/s clean, and the driest hectare wants
   about 0.005 m³/s (417 m³ a day). Fully weeded and half silted it still carries about
   0.023 m³/s, four times that, so neither binds and their clearing would be work nobody needs.
@@ -3479,3 +3500,38 @@ One line each. Don't re-litigate without a reason written next to the entry.
   solid while open and faint while shut or being dug, and its words say whose it is, how long,
   how far dug, and the water taken and kept.
 
+- **Roofs that do not burn, as built (2026-10-15, M6b slice BH; ADR-0022 §12):** no new ADR.
+  **Memory:** at a fire's end, the household whose building it was and the household of everyone
+  who was in it or saw it burn remember it (`Household.fire_losses`: day, building, own or seen,
+  whether its roof burns, and the hours putting it right would take: building it again if it
+  fell, else mending each part it lost), for `rules.memory_years` (10; research 11-09 §2.3's
+  2-20 years). Someone who only heard the shout remembers nothing. **Issue:** `burned` holds while
+  any household of the settlement remembers a fire, and its households' elders are among those
+  who weigh moves. **Template:** the policy kind `building_rule` is appended; its template is
+  content (`[rule]`: `template`, `within_m`, `needs`), so the kernel holds the predicate and the
+  content the numbers. `roofs_unburnt` names a property, not a technique (11-09 §5.2): a roof
+  that does not burn, which today only fired tile is. 4 m follows 12-03 §2.2's radiation falling
+  to 5 kW/m² at 4 m. **Sponsor:** only someone who knows the technique the template names
+  (`firing`) is offered the move (11-09 §1.4). **Forecast:** the burnt roofs a household
+  remembers, over the settlement's standing buildings and the memory's years, is its believed
+  rate; times rebuilding its own buildings that burn (and its next home, if it has no roof
+  enough or its home has given way), times `rules.avoided_share` (0.5, a design prior), is what
+  it believes averted a year. Against it, a household about to build pays what tiling its newest
+  home would add (work, carrying and its own cost of the materials) over `rules.horizon_years`
+  (20); a hut, or a household that cannot make tile, keeps the rule by building apart and reckons
+  that free. A household below its subsistence values a little more food at nothing, as for any
+  law, so those who lost their stores with their homes are not the rule's keenest supporters.
+  **Binding and keeping:** in force, it binds buildings begun from the day it passed; old roofs
+  stay (11-09 §1.7). A household's eldest who knows it keeps it by the curfew's weighing (norm,
+  stance, regard for the sponsor), with no sanction: a tile roof where its people fire tile and
+  the program is a frame, else a plot at least the rule's distance from every standing building,
+  else it builds as it would. Each building begun within reach counts as kept, broken or broken
+  unaware. **Provenance:** a tile roof begun while the rule was in force names it, derived from
+  its start and the law's history (a rule since ended no longer shows: the law keeps no end
+  date). **Tested:** in a lived village a row of huts 1.5 m apart, one set alight; the fire took
+  the row, every household that saw it remembered each hut, with the owner's marked its own;
+  households above subsistence forecast a gain; nobody proposed the rule while nobody fired
+  tile, and someone did once the settlement knew firing, against the issue `burned`; in force
+  and known, a household that kept it laid out a home that was tiled or 4 m from every other
+  building; the world saved and loaded exactly. **Not yet:** walls of named kinds, a least gap,
+  the issue `gave_way`, and how often lived worlds come to such a rule.

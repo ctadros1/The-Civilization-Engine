@@ -77,6 +77,40 @@ pub(crate) struct PeopleFile {
     pub levees: LeveesFile,
     /// How a household lays out and digs a ditch to its field (content API 92).
     pub ditches: DitchesFile,
+    /// How people weigh a rule for building (M6b slice BH; content API 93).
+    pub rules: RulesFile,
+}
+
+/// How people weigh a rule for building (M6b slice BH; content API 93). See
+/// [`civ_agents::rules::RuleParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RulesFile {
+    pub memory_years: f64,
+    pub avoided_share: f64,
+    pub horizon_years: f64,
+}
+
+impl RulesFile {
+    fn params(&self) -> civ_agents::rules::RuleParams {
+        civ_agents::rules::RuleParams {
+            memory_years: self.memory_years,
+            avoided_share: self.avoided_share,
+            horizon_years: self.horizon_years,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("rules.memory_years", self.memory_years, 0.1, 100.0),
+            ("rules.avoided_share", self.avoided_share, 0.0, 1.0),
+            ("rules.horizon_years", self.horizon_years, 1.0, 500.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+    }
 }
 
 /// How a household lays out and digs an irrigation ditch to its field (M6b slice BG; content API
@@ -2029,6 +2063,7 @@ impl PeopleFile {
             fire: self.fire.params(),
             levees: self.levees.params(),
             ditches: self.ditches.params(),
+            rules: self.rules.params(),
             relations: civ_agents::views::RelationsParams {
                 prior: self.relations.prior,
                 half_life_days: self.relations.half_life_days,
@@ -2062,6 +2097,7 @@ impl PeopleFile {
         self.fire.problems(&mut p);
         self.levees.problems(&mut p);
         self.ditches.problems(&mut p);
+        self.rules.problems(&mut p);
         if !(self.places.sight_m.is_finite() && (0.0..=10_000.0).contains(&self.places.sight_m)) {
             p.push(format!(
                 "`places.sight_m` must be between 0 and 10000 (got {})",

@@ -1943,3 +1943,28 @@ its open intake and its words. A web unit test decodes a kind 4 earthwork with i
 the banks and earthworks end-to-end specs pass on wire 1.73. Before this commit, the full
 simcheck workspace suite, all-target clippy, formatting, schema freshness and the web build
 with its 174 unit tests pass.
+
+## 2026-10-15 — BH: roofs that do not burn
+
+**What changed:** a household now remembers each building it lost to fire and each one its
+people were in or saw burn, for ten years, with the work putting it right would take. While any
+household remembers one, the issue `burned` is before the gathering. The first rule for building
+is content: a new roof within 4 m of another building must not burn. Only someone who knows how
+to fire tile may propose it. A household weighs it by the fire loss it believes averted against
+what tiling its next home would cost, and a household that builds nothing soon pays nothing yet.
+In force, it binds only what is begun from its day. A builder who keeps it chooses tile where
+they can make it, else a plot 4 m from every other building; with neither, they build as they
+would and break it. Each building begun within reach is counted kept or broken. A tile roof
+begun under the rule names it. Save schema 107, content API 93.
+
+**Found:** a household that lost its stores with its home falls below its subsistence, where
+the forecast values a little more food at nothing, so it does not back the rule. That is the
+existing utility every law uses; the rule's support comes from neighbours who saw the fire and
+still hold food.
+
+**Evidence:** a test burns one of four huts 1.5 m apart; the fire took the row, and every
+household that saw it remembers each hut, its own marked. Nobody proposes the rule while nobody
+fires tile; once the settlement knows firing, someone does, against `burned`. In force and known,
+a household that keeps it lays out a home that is tiled or 4 m apart, and the world saves and
+loads exactly. A content test checks the rule's validation. The ten-year smoke of the ditch
+commit passed in all four worlds: households laid out 11 to 21 ditches and dug 3 to 12 each.

@@ -116,7 +116,7 @@ use super::{
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
-    SCHEMA_V104, SCHEMA_V105, finish, section, single_chunk, unreadable,
+    SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -530,6 +530,8 @@ enum Schema {
     V105,
     /// M6b slice BG: households dig ditches.
     V106,
+    /// M6b slice BH: households remember fires.
+    V107,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -650,7 +652,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V103 => Schema::V103,
         SCHEMA_V104 => Schema::V104,
         SCHEMA_V105 => Schema::V105,
-        SAVE_SCHEMA_VERSION => Schema::V106,
+        SCHEMA_V106 => Schema::V106,
+        SAVE_SCHEMA_VERSION => Schema::V107,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1532,6 +1535,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::WaterFar => 12,
         IssueKind::Flooded => 13,
         IssueKind::BankWorn => 14,
+        IssueKind::Burned => 15,
     }
 }
 
@@ -1643,6 +1647,7 @@ fn decode_polities(
                 12 => IssueKind::WaterFar,
                 13 => IssueKind::Flooded,
                 14 => IssueKind::BankWorn,
+                15 => IssueKind::Burned,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -3766,7 +3771,8 @@ fn carried(
         | Schema::V103
         | Schema::V104
         | Schema::V105
-        | Schema::V106 => {
+        | Schema::V106
+        | Schema::V107 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3833,6 +3839,24 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                 })
                 .collect();
             let flood_losses = (!flood_losses.is_empty()).then(|| fbb.create_vector(&flood_losses));
+            // What fire took that it knew of (schema 107).
+            let fire_losses: Vec<_> = h
+                .fire_losses
+                .iter()
+                .map(|l| {
+                    save::FireLossSave::create(
+                        &mut fbb,
+                        &save::FireLossSaveArgs {
+                            day: l.day,
+                            building: l.building.get(),
+                            own: l.own,
+                            burnable: l.burnable,
+                            hours: l.hours,
+                        },
+                    )
+                })
+                .collect();
+            let fire_losses = (!fire_losses.is_empty()).then(|| fbb.create_vector(&fire_losses));
             save::Household::create(
                 &mut fbb,
                 &save::HouseholdArgs {
@@ -3859,6 +3883,7 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                     flood_day: h.flood_memory.day,
                     flood_losses,
                     ditch_worth: h.ditch_worth,
+                    fire_losses,
                 },
             )
         })
@@ -4007,7 +4032,8 @@ fn decode_households(
             | Schema::V103
             | Schema::V104
             | Schema::V105
-            | Schema::V106 => {
+            | Schema::V106
+            | Schema::V107 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -4176,6 +4202,37 @@ fn decode_households(
                     )));
                 }
                 v
+            },
+            // What fire took that it knew of (schema 107); before, nothing remembered.
+            fire_losses: {
+                let mut out: Vec<civ_agents::person::FireLoss> = Vec::new();
+                let losses = h.fire_losses();
+                if schema < Schema::V107 && losses.is_some() {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} remembers fires in a save before schema 107"
+                    )));
+                }
+                for l in losses.iter().flatten() {
+                    let building = PermanentId::from_raw(l.building());
+                    let ok = l.hours().is_finite()
+                        && l.hours() >= 0.0
+                        && building.is_some()
+                        && out.last().is_none_or(|p| p.day <= l.day());
+                    let (Some(building), true) = (building, ok) else {
+                        return Err(LoadError::Malformed(format!(
+                            "household {hh_id} remembers a fire out of order, of no building \
+                             or of no amount"
+                        )));
+                    };
+                    out.push(civ_agents::person::FireLoss {
+                        day: l.day(),
+                        building,
+                        own: l.own(),
+                        burnable: l.burnable(),
+                        hours: l.hours(),
+                    });
+                }
+                out
             },
         });
     }

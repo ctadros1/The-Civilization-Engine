@@ -339,6 +339,8 @@ pub const SCHEMA_V103: u32 = 103;
 pub const SCHEMA_V104: u32 = 104;
 /// Irrigation ditches, before households dig them.
 pub const SCHEMA_V105: u32 = 105;
+/// Households dig ditches, before they remember fires.
+pub const SCHEMA_V106: u32 = 106;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

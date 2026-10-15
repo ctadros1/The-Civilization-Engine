@@ -1176,3 +1176,12 @@ life_years = 20.0
 # A household weighs a ditch for a field whose last crop got less than this share of the water it
 # needed, as its people saw the crop thirst.
 short_share = 0.9
+
+[rules]                          # how people weigh a rule for building (M6b slice BH, ADR-0022 §12); design priors unless cited
+# Years a household remembers a building it lost to fire or saw burn (research 11-09 §2.3: a
+# personal disaster memory of 2-20 years, an exploratory range).
+memory_years = 10.0
+# The share of what fire would take from its buildings a household believes a rule averts, and the
+# years over which it weighs that against what its next building would cost more under the rule.
+avoided_share = 0.5
+horizon_years = 20.0

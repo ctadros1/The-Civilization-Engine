@@ -57,6 +57,10 @@ pub(super) struct Forecasts {
     pub(super) bank: Option<super::levees::PublicBank>,
     /// A bank the polity built that wants mending and that no law keeps, if any (M6b slice BG).
     pub(super) worn: Option<super::levees::WornBank>,
+    /// What each rule for building would bring each household (M6b slice BH), by template index
+    /// and then household id: the food a year the fire loss it believes averted could bring, and
+    /// the food a year what its next building would cost more could, kcal.
+    rules: super::rules::RuleForecasts,
 }
 
 /// What closing a source would bring a household (M6a slice BA, step four): the household, the
@@ -204,6 +208,20 @@ impl Forecasts {
                     return 0.0;
                 };
                 crate::polity::kept_gain(o, avoided, pp) - crate::polity::levy_cost(o, walked, pp)
+            }
+            // A rule for building (M6b slice BH): the fire loss the household believes it
+            // averts, less what its next building would cost more under it.
+            Some(PolicyKind::BuildingRule) => {
+                let Some((averted, owed)) = self
+                    .rules
+                    .iter()
+                    .find(|r| r.0 == m.policy)
+                    .and_then(|r| r.1.iter().find(|x| x.0 == h))
+                    .map(|x| (x.1, x.2))
+                else {
+                    return 0.0;
+                };
+                crate::polity::kept_gain(o, averted, pp) - crate::polity::levy_cost(o, owed, pp)
             }
             // An amendment's gain is judged from decisions seen, and an end to a law from that
             // law, kept (M4c slices AF, AI): neither forecasts anything of its own.
@@ -611,6 +629,7 @@ impl Population {
         water_far: bool,
         flooded: bool,
         bank_worn: bool,
+        burned: bool,
     ) -> Vec<IssueKind> {
         let mut out = Vec::new();
         if self.lean_lately(ctx, settlement) || pressed {
@@ -645,6 +664,9 @@ impl Population {
         }
         if bank_worn {
             out.push(IssueKind::BankWorn);
+        }
+        if burned {
+            out.push(IssueKind::Burned);
         }
         out
     }
@@ -813,6 +835,7 @@ impl Population {
             .collect();
         let closures = self.closure_forecasts(ctx, pi, households, adults);
         let worn = self.worn_bank(ctx, pi, households.len());
+        let rules = self.rule_forecasts(ctx, pi, households);
         Forecasts {
             outlooks,
             belief,
@@ -834,6 +857,7 @@ impl Population {
             well,
             bank,
             worn,
+            rules,
         }
     }
 
@@ -1325,6 +1349,9 @@ impl Population {
                     .is_some_and(|x| !x.flood_losses.is_empty())
             })
             .collect();
+        // And households that lost a building to fire or saw one burn within memory (M6b slice
+        // BH).
+        let burned_homes = self.burned_homes(&households);
         let issues = self.issues(
             ctx,
             settlement,
@@ -1339,6 +1366,7 @@ impl Population {
             well.is_some(),
             bank.is_some(),
             self.worn_bank(ctx, pi, households.len()).is_some(),
+            !burned_homes.is_empty(),
         );
         let polity = &self.polities[pi];
         // A watch may have one more while takings continue (M4c slice AI: a watch of several):
@@ -1463,8 +1491,10 @@ impl Population {
                             .chain(&robbed_lately)
                             .chain(&saw_outsiders)
                             .chain(&sick_homes)
-                            // And households a flood cost within memory (M6b slice BG).
+                            // And households a flood cost within memory (M6b slice BG), and
+                            // those that knew a fire (M6b slice BH).
                             .chain(&flooded_homes)
+                            .chain(&burned_homes)
                             .filter_map(|&h| self.elder_of(h, now, params)),
                     )
                     // And whoever holds that a source sickens (M6a slice BA).
@@ -1742,6 +1772,18 @@ impl Population {
                                 site: Some(p.cell_at),
                                 ..blank
                             });
+                        }
+                    }
+                    // A rule for building, put forward only by someone who knows the technique
+                    // it needs (M6b slice BH; research 11-09 §1.4: remedies come from known
+                    // techniques).
+                    PolicyKind::BuildingRule => {
+                        let knows = def.rule.as_ref().is_some_and(|r| {
+                            r.needs
+                                .is_none_or(|t| self.person(d).is_some_and(|p| p.knows(t)))
+                        });
+                        if knows {
+                            moves.push(blank);
                         }
                     }
                     // Seeking terms with another polity is weighed apart, after these (M5c

@@ -1752,6 +1752,8 @@ pub struct PeopleParams {
     pub levees: crate::levees::LeveeParams,
     /// How a household lays out and digs an irrigation ditch to its field (M6b slice BG).
     pub ditches: crate::irrigation::DitchPlanParams,
+    /// How people weigh a rule for building (M6b slice BH).
+    pub rules: crate::rules::RuleParams,
     /// Names.
     pub names: NameParams,
 }

@@ -51,7 +51,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 92;
+pub const KERNEL_CONTENT_API: u32 = 93;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1020,11 +1020,17 @@ fn resolve(
                 missing(c, parsed, &d.rel, "bears", id);
             }
         }
+        // The technique a rule's sponsor must know (M6b slice BH).
+        if let Some(t) = d.file.rule.as_ref().and_then(|r| r.needs.as_deref())
+            && technique_index(t).is_none()
+        {
+            missing(c, parsed, &d.rel, "rule.needs", t);
+        }
     }
     let mut policies: Vec<_> = parsed
         .policies
         .iter()
-        .map(|d| d.file.def(&value_index))
+        .map(|d| d.file.def(&value_index, &technique_index))
         .collect();
     policies.sort_by(|a, b| a.id.cmp(&b.id));
     let policy_index = |id: &str| policies.iter().position(|p| p.id == id);

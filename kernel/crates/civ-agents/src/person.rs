@@ -740,6 +740,26 @@ pub struct Household {
     /// What each hour of digging its ditch is worth to the household, hours a year of the grain
     /// the water would bring its field (M6b slice BG): as it reckoned when it chose to dig.
     pub ditch_worth: f32,
+    /// Buildings the household lost to fire or its people saw burn (M6b slice BH), oldest first,
+    /// kept for the years its people remember.
+    pub fire_losses: Vec<FireLoss>,
+}
+
+/// A building a household lost to fire, or that its people saw burn (M6b slice BH; ADR-0022
+/// §12): what they saw it cost, as the work putting it right would take.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FireLoss {
+    /// The day the fire burnt out.
+    pub day: i64,
+    /// The building.
+    pub building: PermanentId,
+    /// Whether it was the household's own.
+    pub own: bool,
+    /// Whether its roof was of a kind that burns.
+    pub burnable: bool,
+    /// The work putting it right would take, hours: building it again if it fell, else mending
+    /// what the fire took.
+    pub hours: f32,
 }
 
 /// One day's loss to a flood at one place of a household's own (M6b slice BG): what it saw the
@@ -781,6 +801,26 @@ impl Household {
     /// Forgets losses older than `days` before `today`.
     pub fn forget_flood_losses(&mut self, today: i64, days: i64) {
         self.flood_losses.retain(|l| today - l.day <= days);
+    }
+
+    /// Remembers a building lost to fire or seen burn (M6b slice BH): one record a building and
+    /// day, its own loss kept over one only seen.
+    pub fn remember_fire_loss(&mut self, loss: FireLoss) {
+        if let Some(l) = self
+            .fire_losses
+            .iter_mut()
+            .find(|l| l.day == loss.day && l.building == loss.building)
+        {
+            l.own |= loss.own;
+            l.hours = l.hours.max(loss.hours);
+            return;
+        }
+        self.fire_losses.push(loss);
+    }
+
+    /// Forgets fire losses older than `days` before `today`.
+    pub fn forget_fire_losses(&mut self, today: i64, days: i64) {
+        self.fire_losses.retain(|l| today - l.day <= days);
     }
 }
 
@@ -1203,6 +1243,7 @@ mod tests {
             flood_memory: FloodMemory::default(),
             flood_losses: Vec::new(),
             ditch_worth: 0.0,
+            fire_losses: Vec::new(),
         }
     }
 

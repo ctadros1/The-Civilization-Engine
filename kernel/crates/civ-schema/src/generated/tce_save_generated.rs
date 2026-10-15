@@ -21998,6 +21998,7 @@ impl<'a> Household<'a> {
   pub const VT_FLOOD_DAY: ::flatbuffers::VOffsetT = 44;
   pub const VT_FLOOD_LOSSES: ::flatbuffers::VOffsetT = 46;
   pub const VT_DITCH_WORTH: ::flatbuffers::VOffsetT = 48;
+  pub const VT_FIRE_LOSSES: ::flatbuffers::VOffsetT = 50;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -22020,6 +22021,7 @@ impl<'a> Household<'a> {
     builder.add_food_kcal(args.food_kcal);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.fire_losses { builder.add_fire_losses(x); }
     builder.add_ditch_worth(args.ditch_worth);
     if let Some(x) = args.flood_losses { builder.add_flood_losses(x); }
     builder.add_water_walk_min(args.water_walk_min);
@@ -22197,6 +22199,13 @@ impl<'a> Household<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(Household::VT_DITCH_WORTH, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn fire_losses(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FireLossSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FireLossSave>>>>(Household::VT_FIRE_LOSSES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Household<'_> {
@@ -22228,6 +22237,7 @@ impl ::flatbuffers::Verifiable for Household<'_> {
      .visit_field::<i64>("flood_day", Self::VT_FLOOD_DAY, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FloodLossSave>>>>("flood_losses", Self::VT_FLOOD_LOSSES, false)?
      .visit_field::<f32>("ditch_worth", Self::VT_DITCH_WORTH, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FireLossSave>>>>("fire_losses", Self::VT_FIRE_LOSSES, false)?
      .finish();
     Ok(())
   }
@@ -22256,6 +22266,7 @@ pub struct HouseholdArgs<'a> {
     pub flood_day: i64,
     pub flood_losses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FloodLossSave<'a>>>>>,
     pub ditch_worth: f32,
+    pub fire_losses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FireLossSave<'a>>>>>,
 }
 impl<'a> Default for HouseholdArgs<'a> {
   #[inline]
@@ -22284,6 +22295,7 @@ impl<'a> Default for HouseholdArgs<'a> {
       flood_day: 0,
       flood_losses: None,
       ditch_worth: 0.0,
+      fire_losses: None,
     }
   }
 }
@@ -22386,6 +22398,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HouseholdBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(Household::VT_DITCH_WORTH, ditch_worth, 0.0);
   }
   #[inline]
+  pub fn add_fire_losses(&mut self, fire_losses: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<FireLossSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Household::VT_FIRE_LOSSES, fire_losses);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HouseholdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HouseholdBuilder {
@@ -22426,6 +22442,171 @@ impl ::core::fmt::Debug for Household<'_> {
       ds.field("flood_day", &self.flood_day());
       ds.field("flood_losses", &self.flood_losses());
       ds.field("ditch_worth", &self.ditch_worth());
+      ds.field("fire_losses", &self.fire_losses());
+      ds.finish()
+  }
+}
+pub enum FireLossSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct FireLossSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for FireLossSave<'a> {
+  type Inner = FireLossSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> FireLossSave<'a> {
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 4;
+  pub const VT_BUILDING: ::flatbuffers::VOffsetT = 6;
+  pub const VT_OWN: ::flatbuffers::VOffsetT = 8;
+  pub const VT_BURNABLE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_HOURS: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    FireLossSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args FireLossSaveArgs
+  ) -> ::flatbuffers::WIPOffset<FireLossSave<'bldr>> {
+    let mut builder = FireLossSaveBuilder::new(_fbb);
+    builder.add_building(args.building);
+    builder.add_day(args.day);
+    builder.add_hours(args.hours);
+    builder.add_burnable(args.burnable);
+    builder.add_own(args.own);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(FireLossSave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn building(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(FireLossSave::VT_BUILDING, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn own(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(FireLossSave::VT_OWN, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn burnable(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(FireLossSave::VT_BURNABLE, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn hours(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FireLossSave::VT_HOURS, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for FireLossSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<u64>("building", Self::VT_BUILDING, false)?
+     .visit_field::<bool>("own", Self::VT_OWN, false)?
+     .visit_field::<bool>("burnable", Self::VT_BURNABLE, false)?
+     .visit_field::<f32>("hours", Self::VT_HOURS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct FireLossSaveArgs {
+    pub day: i64,
+    pub building: u64,
+    pub own: bool,
+    pub burnable: bool,
+    pub hours: f32,
+}
+impl<'a> Default for FireLossSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    FireLossSaveArgs {
+      day: 0,
+      building: 0,
+      own: false,
+      burnable: false,
+      hours: 0.0,
+    }
+  }
+}
+
+pub struct FireLossSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FireLossSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(FireLossSave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_building(&mut self, building: u64) {
+    self.fbb_.push_slot::<u64>(FireLossSave::VT_BUILDING, building, 0);
+  }
+  #[inline]
+  pub fn add_own(&mut self, own: bool) {
+    self.fbb_.push_slot::<bool>(FireLossSave::VT_OWN, own, false);
+  }
+  #[inline]
+  pub fn add_burnable(&mut self, burnable: bool) {
+    self.fbb_.push_slot::<bool>(FireLossSave::VT_BURNABLE, burnable, false);
+  }
+  #[inline]
+  pub fn add_hours(&mut self, hours: f32) {
+    self.fbb_.push_slot::<f32>(FireLossSave::VT_HOURS, hours, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FireLossSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    FireLossSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<FireLossSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for FireLossSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("FireLossSave");
+      ds.field("day", &self.day());
+      ds.field("building", &self.building());
+      ds.field("own", &self.own());
+      ds.field("burnable", &self.burnable());
+      ds.field("hours", &self.hours());
       ds.finish()
   }
 }

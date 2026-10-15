@@ -69,6 +69,7 @@ mod places;
 mod polity;
 mod relations;
 mod residence;
+mod rules;
 mod sickness;
 mod suspicion;
 mod terms;
@@ -2059,12 +2060,28 @@ impl Population {
         };
         let goods = &catalog.goods;
         let reach = self.homes.get(&field_key).map(|f| &f.reach);
+        // A rule for building its builders keep (M6b slice BH), and the plots of the buildings
+        // that stand, which a roof that burns keeps the rule's distance from.
+        let roof_rule = self.roof_rule_kept(ctx, hh);
+        let rule_rects: Vec<civ_land::RectCm> = if roof_rule.is_some() {
+            ctx.land
+                .buildings
+                .iter()
+                .filter(|b| b.standing())
+                .filter_map(|b| ctx.land.plots.iter().find(|p| p.id == b.plot))
+                .map(|p| p.rect)
+                .collect()
+        } else {
+            Vec::new()
+        };
         // Where `choice` would stand, its door toward `toward`, if there is clear ground for it
-        // within `max_m` of its home.
-        let site = |(p, shape): (usize, build::Shape),
-                    toward: Option<(f32, f32)>,
-                    firm: Option<PermanentId>,
-                    max_m: f64| {
+        // within `max_m` of its home: keeping the rule its builders keep, if there is ground for
+        // that, else as they would without it.
+        let site_kept = |(p, shape): (usize, build::Shape),
+                         toward: Option<(f32, f32)>,
+                         firm: Option<PermanentId>,
+                         max_m: f64,
+                         obey_rules: bool| {
             let program = &catalog.buildings[p];
             // Members as strong as what the settlement has seen of the technique calls for.
             let caution = self.caution(
@@ -2095,12 +2112,17 @@ impl Population {
                         .any(|p| p.knows(t))
                 })
             };
+            // A rule in force that its builders keep (M6b slice BH): a roof that does not burn
+            // where they can make one, else a plot apart from others.
+            let keeps_roofs = roof_rule.filter(|_| obey_rules);
+            let caution_thatch =
+                self.fire_caution_thatch(hh.settlement, ctx.now, &ctx.params.build.caution);
             let fire_design = build::FireDesign {
-                caution_thatch: self.fire_caution_thatch(
-                    hh.settlement,
-                    ctx.now,
-                    &ctx.params.build.caution,
-                ),
+                caution_thatch: if keeps_roofs.is_some() {
+                    caution_thatch.max(2.0)
+                } else {
+                    caution_thatch
+                },
                 caution_wattle: self.fire_caution_wattle(
                     hh.settlement,
                     ctx.now,
@@ -2127,6 +2149,16 @@ impl Population {
                         )
                     })
                     .flatten()
+                    // A roof that burns is not put within the rule's reach of another building.
+                    .filter(|spec| {
+                        keeps_roofs.is_none_or(|within| {
+                            crate::rules::roof_unburnt(spec)
+                                || !rule_rects.iter().any(|r| {
+                                    crate::rules::gap_m(&build::plot_rect(spec, program), r)
+                                        < within
+                                })
+                        })
+                    })
             };
             // Ground that drops too far across a plot is levelled, and ground too steep to level
             // by hand, or that would be levelled beside water, is not built on; level ground is
@@ -2148,6 +2180,17 @@ impl Population {
             )?;
             let stages = build::stage_needs(&spec, program)?;
             Some(NewHome { spec, stages, firm })
+        };
+        let site = |choice: (usize, build::Shape),
+                    toward: Option<(f32, f32)>,
+                    firm: Option<PermanentId>,
+                    max_m: f64| {
+            site_kept(choice, toward, firm, max_m, true).or_else(|| {
+                roof_rule
+                    .is_some()
+                    .then(|| site_kept(choice, toward, firm, max_m, false))
+                    .flatten()
+            })
         };
         // A first home before anything, farther afield if there is no clear ground near; then a
         // store, while goods are lost for want of room, and a workshop for each firm that has more
@@ -2465,6 +2508,8 @@ impl Population {
             first.labour_h += levelling;
         }
         self.stage_needs.insert(id, stages);
+        // Whether it keeps the rules for building in force that bind it (M6b slice BH).
+        self.count_rule_keeping(ctx, household, id);
         let at = build::centre_m(&site.spec);
         if !housed
             && let Some(&hd) = self.hh_index.get(&household)

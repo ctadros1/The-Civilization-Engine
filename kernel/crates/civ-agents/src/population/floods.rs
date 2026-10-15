@@ -189,8 +189,11 @@ impl Population {
         // 2. Household flood memory. What a flood cost a household is remembered for its
         // people's years of memory (M6b slice BG).
         let keep_days = (ctx.params.levees.memory_years * DAYS_PER_YEAR as f64).round() as i64;
+        // And what fire took that it knew of, for its own years (M6b slice BH).
+        let fire_days = (ctx.params.rules.memory_years * DAYS_PER_YEAR as f64).round() as i64;
         for (_, hh) in self.households.iter_mut() {
             hh.forget_flood_losses(day, keep_days);
+            hh.forget_fire_losses(day, fire_days);
             let home_cell = cell_of(ctx.map, hh.home);
             let home_cm = ctx
                 .land

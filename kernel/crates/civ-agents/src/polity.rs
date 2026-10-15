@@ -80,11 +80,16 @@ pub enum PolicyKind {
     /// goes down and each year, and whenever it wants mending each household is asked an equal
     /// share of the work, as for building it. Nobody is made to work.
     KeepBank,
+    /// A rule for building (M6b slice BH; ADR-0022 §12): what its template requires of buildings
+    /// begun from the day it is in force ([`RuleDef`]). Old buildings stand as they are (research
+    /// 11-09 §1.7: never rebuild the whole village when a law passes). Keeping it is each
+    /// builder's choice, as a curfew's is, with no sanction in M6b.
+    BuildingRule,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 14] = [
+    pub const ALL: [PolicyKind; 15] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -99,6 +104,7 @@ impl PolicyKind {
         PolicyKind::DigWell,
         PolicyKind::BuildBank,
         PolicyKind::KeepBank,
+        PolicyKind::BuildingRule,
     ];
 
     /// The authored name.
@@ -118,6 +124,7 @@ impl PolicyKind {
             PolicyKind::DigWell => "dig_well",
             PolicyKind::BuildBank => "build_bank",
             PolicyKind::KeepBank => "keep_bank",
+            PolicyKind::BuildingRule => "building_rule",
         }
     }
 
@@ -181,11 +188,14 @@ pub enum IssueKind {
     Flooded,
     /// A flood bank the polity built wants mending, and no law of its keeps it (M6b slice BG).
     BankWorn,
+    /// A household of the settlement lost a building to fire, or its people saw one burn, within
+    /// their memory (M6b slice BH; ADR-0022 §12).
+    Burned,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 15] = [
+    pub const ALL: [IssueKind; 16] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -201,6 +211,7 @@ impl IssueKind {
         IssueKind::WaterFar,
         IssueKind::Flooded,
         IssueKind::BankWorn,
+        IssueKind::Burned,
     ];
 
     /// The authored name.
@@ -221,6 +232,7 @@ impl IssueKind {
             IssueKind::WaterFar => "water_far",
             IssueKind::Flooded => "flooded",
             IssueKind::BankWorn => "bank_worn",
+            IssueKind::Burned => "burned",
         }
     }
 
@@ -254,6 +266,7 @@ impl IssueKind {
             IssueKind::WaterFar => "its people walked far for water",
             IssueKind::Flooded => "floodwater had cost its households",
             IssueKind::BankWorn => "the bank they built against floodwater wanted mending",
+            IssueKind::Burned => "fire had taken buildings they knew",
         }
     }
 }
@@ -355,6 +368,46 @@ pub struct PolicyDef {
     /// How a law of it bears on each value content names: (index in the catalog's values, −1
     /// against to 1 for), in value order (M4c slice AG, step three).
     pub bears: Vec<(u16, f32)>,
+    /// For a rule for building: what it requires (M6b slice BH).
+    pub rule: Option<RuleDef>,
+}
+
+/// What a rule for building requires of a building begun while it is in force (M6b slice BH;
+/// ADR-0022 §12). Each template names either a property or a technique (research 11-09 §5.2),
+/// and applies only where its predicate holds (11-09 §1.7).
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuleDef {
+    /// What it requires.
+    pub template: RuleTemplate,
+    /// The technique a sponsor must know to put it forward (11-09 §1.4: remedies come from known
+    /// techniques), by index in the catalog's techniques.
+    pub needs: Option<usize>,
+}
+
+/// A rule's template (M6b slice BH): codes are part of content, append only.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum RuleTemplate {
+    /// A building whose plot lies within `within_m` metres of another building's must have a
+    /// roof that does not burn (a property: 11-09 §5.2), as fired tile is.
+    RoofsUnburnt { within_m: f32 },
+}
+
+impl RuleTemplate {
+    /// The authored name.
+    pub fn name(self) -> &'static str {
+        match self {
+            RuleTemplate::RoofsUnburnt { .. } => "roofs_unburnt",
+        }
+    }
+
+    /// What it requires, in words: "a new roof within 4 m of another building must not burn".
+    pub fn words(self) -> String {
+        match self {
+            RuleTemplate::RoofsUnburnt { within_m } => {
+                format!("a new roof within {within_m:.0} m of another building must not burn")
+            }
+        }
+    }
 }
 
 /// Hours of the day a curfew runs, `(from, to)`: from the start of hour `from` to the start of
@@ -1005,6 +1058,13 @@ pub fn law_words(
                 household doing its share of the work"
             .to_owned();
     }
+    // A rule for building (M6b slice BH): what it requires of what is begun under it.
+    if let Some(r) = def.and_then(|d| d.rule.as_ref()) {
+        return format!(
+            "a rule for building: {}, of what is begun from its day",
+            r.template.words()
+        );
+    }
     // Without the source at hand (see [`Polity::words_of`]), only what it does.
     if def.is_some_and(|d| d.kind == PolicyKind::CloseSource) {
         return "the closing of a source of water: nobody may draw there".to_owned();
@@ -1082,6 +1142,7 @@ pub fn ending_words(
         Some(PolicyKind::DigWell) => "the work on a well".to_owned(),
         Some(PolicyKind::BuildBank) => "the work on a flood bank".to_owned(),
         Some(PolicyKind::KeepBank) => "the keeping of a flood bank".to_owned(),
+        Some(PolicyKind::BuildingRule) => "the rule for building".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -2098,6 +2159,7 @@ pub(crate) mod tests {
             bodies: Vec::new(),
             question: None,
             bears: Vec::new(),
+            rule: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -2204,6 +2266,7 @@ pub(crate) mod tests {
             bodies: Vec::new(),
             question: None,
             bears: Vec::new(),
+            rule: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -2399,6 +2462,7 @@ pub(crate) mod tests {
             bodies: vec![elders],
             question: None,
             bears: Vec::new(),
+            rule: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

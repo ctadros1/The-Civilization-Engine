@@ -2000,6 +2000,70 @@ impl Population {
         }
     }
 
+    /// The work putting building `b` right after a fire would take, hours, as anyone could see
+    /// it: building it again if it fell, else mending every part it lost (M6b slice BH).
+    fn fire_cost_h(ctx: &Ctx, b: &Building) -> f64 {
+        let Some(def) = ctx
+            .catalog
+            .building_index(&b.spec.program)
+            .and_then(|i| ctx.catalog.buildings.get(i))
+        else {
+            return 0.0;
+        };
+        if b.state == civ_land::BuildingState::Ruin {
+            return crate::build::building_hours(&b.spec, def, ctx.params.household.carry_kg)
+                .unwrap_or(0.0);
+        }
+        let Ok(e) = civ_grammar::expand(&b.spec, &def.rules) else {
+            return 0.0;
+        };
+        b.condition
+            .iter()
+            .filter(|g| g.loss > 0.0)
+            .filter_map(|g| crate::condition::mend_needs(&e, g.group, f64::from(g.loss)))
+            .map(|n| n.labour_h)
+            .sum()
+    }
+
+    /// Fire `i` has burnt out: the household whose building it was, and the household of everyone
+    /// who was in it or saw it burn, remember it (M6b slice BH; ADR-0022 §12: attribution comes
+    /// from what people saw). Those who only heard the shout remember nothing of it.
+    fn households_remember_fire(&mut self, ctx: &Ctx, i: usize) {
+        let (fire, building, owner) = {
+            let f = &self.fires.list[i];
+            (f.id, f.building, f.household)
+        };
+        let Some(b) = ctx.land.buildings.iter().find(|b| b.id == building) else {
+            return;
+        };
+        let hours = Self::fire_cost_h(ctx, b) as f32;
+        let burnable = !crate::rules::roof_unburnt(&b.spec);
+        let mut saw: Vec<PermanentId> = self
+            .fires
+            .knew
+            .iter()
+            .filter(|k| k.fire == fire && k.how != Noticed::Heard)
+            .filter_map(|k| self.person(k.person).map(|p| p.household))
+            .collect();
+        saw.push(owner);
+        saw.sort_unstable();
+        saw.dedup();
+        let day = ctx.now.day_index();
+        for h in saw {
+            if let Some(&hd) = self.hh_index.get(&h)
+                && let Some(x) = self.households.get_mut(hd)
+            {
+                x.remember_fire_loss(crate::person::FireLoss {
+                    day,
+                    building,
+                    own: h == owner,
+                    burnable,
+                    hours,
+                });
+            }
+        }
+    }
+
     /// Fire `i` has burnt out: it ends, its household's buildings are weighed against what they
     /// carry now, and the chronicle tells of it, or of its conflagration when that was its last
     /// fire.
@@ -2020,6 +2084,8 @@ impl Population {
             let wall_kind = b.spec.params[civ_grammar::frame::frame_params::WALL_KIND] as u8;
             self.remember_fire_loss(settlement, tile, wall_kind, now, &ctx.params.build.caution);
         }
+        // Its household and everyone who saw it burn remember it (M6b slice BH).
+        self.households_remember_fire(ctx, i);
         // What the fire left is weighed now: charred posts and beams may give way.
         if ctx.land.buildings.iter().any(|b| b.id == building) {
             self.buildings_changed(now, ctx.land, ctx.catalog, ctx.params, household);

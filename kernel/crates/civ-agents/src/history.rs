@@ -189,6 +189,9 @@ pub enum Reason {
     Band = 148,
     /// No band they joined musters today.
     NoBand = 149,
+    /// What a palisade the polity is raising would keep from people of other settlements, for
+    /// the work this session puts into it (M6c slice BK).
+    Palisade = 150,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -200,7 +203,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 83] = [
+    pub const ALL: [Reason; 84] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -284,6 +287,7 @@ impl Reason {
         Reason::Ditch,
         Reason::Band,
         Reason::NoBand,
+        Reason::Palisade,
     ];
 
     /// The reason with this code.
@@ -379,6 +383,7 @@ impl Reason {
             Reason::Ditch => "the water a ditch would bring the field",
             Reason::Band => "the band they said they would go with",
             Reason::NoBand => "no band they joined musters today",
+            Reason::Palisade => "what a palisade would keep from outsiders",
         }
     }
 }
@@ -810,6 +815,10 @@ pub enum ChronicleKind {
     Raid,
     /// A household moved away from raids on its home (M6c slice BJ, ADR-0023 §10): as `Moved`.
     Fled,
+    /// A palisade a polity raised stood whole (M6c slice BK, ADR-0023 §6): `people` is who set
+    /// its last posts, `settlement` whose it is, `place` its centre, `number` its length in
+    /// metres, and `name` the sentence.
+    Enclosure,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1460,7 +1469,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::Flood
         | ChronicleKind::StormDamage
         | ChronicleKind::Ditch
-        | ChronicleKind::Raid => {
+        | ChronicleKind::Raid
+        | ChronicleKind::Enclosure => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

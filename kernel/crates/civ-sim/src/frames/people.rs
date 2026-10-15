@@ -911,6 +911,17 @@ pub fn describe_target(
             }
             None => "a ditch".to_owned(),
         },
+        // A palisade raised by law (M6c slice BK): "the palisade round Ashford".
+        Target::Enclosure(id) => match sim.land.enclosures.position(id) {
+            Some(i) => {
+                let e = &sim.land.enclosures.list[i];
+                match sim.land.settlements.iter().find(|s| s.id == e.settlement) {
+                    Some(s) => format!("the palisade round {}", s.name),
+                    None => "a palisade".to_owned(),
+                }
+            }
+            None => "a palisade".to_owned(),
+        },
     }
 }
 
@@ -1059,6 +1070,8 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
                 Target::Bank(_) => format!("building {place}"),
                 // "digging the ditch south of home" (M6b slice BG).
                 Target::Ditch(_) => format!("digging {place}"),
+                // "setting posts on the palisade round Ashford" (M6c slice BK).
+                Target::Enclosure(_) => format!("setting posts on {place}"),
                 // Another settlement's hearth (M5a slice AM): "visiting the hearth of Ashford".
                 Target::Hearth(_)
                     if def.is_some_and(|d| d.behavior == civ_agents::Behavior::Visit) =>

@@ -46,6 +46,7 @@ mod crossings;
 mod deposits;
 mod digging;
 mod ditches;
+mod enclosures;
 mod faction;
 mod fire;
 mod firm;
@@ -360,7 +361,7 @@ impl ViewCells {
 /// Minutes people spent, by what they did: the length of each step as it finished (counters, not
 /// saved; for the consistency test, ADR-0011 §5). Every minute of a life falls in some step, so
 /// they add up to the person-minutes lived.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct TimeUse {
     /// Minutes of work, rest, sleep and the rest, by behaviour in [`Behavior::ALL`] order.
     pub work: [f64; Behavior::ALL.len()],
@@ -368,6 +369,16 @@ pub struct TimeUse {
     pub walking: f64,
     /// Minutes waiting, where a step could not begin.
     pub waiting: f64,
+}
+
+impl Default for TimeUse {
+    fn default() -> Self {
+        TimeUse {
+            work: [0.0; Behavior::ALL.len()],
+            walking: 0.0,
+            waiting: 0.0,
+        }
+    }
 }
 
 /// Loads of water drawn, by the kind of place they were drawn at, and the litres they came to
@@ -2859,6 +2870,7 @@ impl Population {
             crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),
             well: self.well_facts(ctx, &hh, p.id, dark),
             levee: self.levee_facts(ctx, &hh, p.id, field_key, dark),
+            enclosure: self.enclosure_facts(ctx, &hh, p.id, field_key, dark),
             ditch: self.ditch_facts(ctx, &hh, field_key, dark),
             band: band_facts,
             hurt: self
@@ -4347,6 +4359,7 @@ impl Population {
                 | Behavior::Bridge
                 | Behavior::Well
                 | Behavior::Levee
+                | Behavior::Palisade
                 | Behavior::Ditch
                 | Behavior::Douse
                 | Behavior::Strip
@@ -4616,6 +4629,15 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.levee_work(ctx, (h, who), household, bank, hours);
+                    }
+                }
+                Some(Behavior::Palisade) => {
+                    if let Target::Enclosure(enclosure) = p.act.target {
+                        let rate = def.as_ref().map_or(1.0, |d| d.rate);
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let (who, household) = (p.id, p.household);
+                        self.enclosure_work(ctx, who, household, enclosure, hours);
                     }
                 }
                 Some(Behavior::Ditch) => {

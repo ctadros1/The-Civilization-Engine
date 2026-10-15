@@ -260,7 +260,7 @@ table Settlements {
 // People.techniques (in a decision receipt, into the content's techniques when it was saved).
 // Douse (schema 91, M6b slice BD, step three): `index` where the water is drawn (a source's cell,
 // or 4294967295 the household's store), `id` the building it is thrown on.
-enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16, Bank = 17, Ditch = 18 }
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16, Bank = 17, Ditch = 18, Enclosure = 19 }
 
 enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
 
@@ -1387,6 +1387,25 @@ table PolitySave {
   banks_failed: [ulong] (id: 20);
   // Schema 104: which bank each law keeping one keeps, in the order made.
   bank_keeps: [BankKeepRecord] (id: 21);
+  // Schema 114 (M6c slice BK): where its laws to raise a palisade would raise one, and what each
+  // household reckoned, when it was proposed, the palisade would keep it a year, hours (as
+  // `bank_saves`); absent before.
+  enclosures: [EnclosureSiteSave] (id: 22);
+  enclosure_saves: [BankShareSave] (id: 23);
+}
+
+// Where a law would raise a palisade (schema 114, M6c slice BK): the point its ring is drawn
+// round, metres, its radius, its gates, the homes it took in, the work it would take, and its
+// enclosure once begun (0 before).
+table EnclosureSiteSave {
+  law: ulong (id: 0);
+  x: float (id: 1);
+  y: float (id: 2);
+  radius_m: float (id: 3);
+  gates: ubyte (id: 4);
+  inside: ushort (id: 5);
+  labour_h: float (id: 6);
+  work: ulong (id: 7);
 }
 
 // Where a law would build a flood bank (schema 102, M6b slice BG): the reach whose water it keeps

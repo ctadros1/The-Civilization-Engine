@@ -117,7 +117,7 @@ use super::{
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
     SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
-    SCHEMA_V111, SCHEMA_V112, finish, section, single_chunk, unreadable,
+    SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -545,6 +545,8 @@ enum Schema {
     V112,
     /// M6c slice BK: enclosures.
     V113,
+    /// M6c slice BK, step two: palisades raised by law.
+    V114,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -672,7 +674,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V110 => Schema::V110,
         SCHEMA_V111 => Schema::V111,
         SCHEMA_V112 => Schema::V112,
-        SAVE_SCHEMA_VERSION => Schema::V113,
+        SCHEMA_V113 => Schema::V113,
+        SAVE_SCHEMA_VERSION => Schema::V114,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1440,6 +1443,29 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
             let bank_keeps = (!bank_keeps.is_empty()).then(|| fbb.create_vector(&bank_keeps));
             let bank_saves = bank_share_rows(&mut fbb, &p.bank_saves);
             let bank_given = bank_share_rows(&mut fbb, &p.bank_given);
+            // Where its laws would raise palisades, and what each household reckoned they
+            // would keep it (schema 114).
+            let enclosures: Vec<_> = p
+                .enclosures
+                .iter()
+                .map(|&(law, s)| {
+                    save::EnclosureSiteSave::create(
+                        &mut fbb,
+                        &save::EnclosureSiteSaveArgs {
+                            law: law.get(),
+                            x: s.centre.0,
+                            y: s.centre.1,
+                            radius_m: s.radius_m,
+                            gates: s.gates,
+                            inside: s.inside,
+                            labour_h: s.labour_h,
+                            work: s.work.map_or(0, PermanentId::get),
+                        },
+                    )
+                })
+                .collect();
+            let enclosures = (!enclosures.is_empty()).then(|| fbb.create_vector(&enclosures));
+            let enclosure_saves = bank_share_rows(&mut fbb, &p.enclosure_saves);
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -1486,6 +1512,8 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     bank_given,
                     banks_failed,
                     bank_keeps,
+                    enclosures,
+                    enclosure_saves,
                 },
             )
         })
@@ -2063,6 +2091,33 @@ fn decode_polities(
             }
             bank_keeps.push((law, built));
         }
+        // Where its laws would raise palisades (schema 114); before, nowhere.
+        let mut enclosures = Vec::new();
+        for e in p.enclosures().iter().flatten() {
+            let law = law_of(e.law(), "a palisade")?;
+            let ok = e.x().is_finite()
+                && e.y().is_finite()
+                && e.radius_m().is_finite()
+                && e.radius_m() > 0.0
+                && e.gates() >= 1
+                && e.labour_h().is_finite()
+                && e.labour_h() > 0.0;
+            if !ok || enclosures.iter().any(|x: &(PermanentId, _)| x.0 == law) {
+                return Err(bad(format!("polity {id} has a palisade's site malformed")));
+            }
+            enclosures.push((
+                law,
+                civ_agents::polity::EnclosureSite {
+                    centre: (e.x(), e.y()),
+                    radius_m: e.radius_m(),
+                    gates: e.gates(),
+                    inside: e.inside(),
+                    labour_h: e.labour_h(),
+                    work: PermanentId::from_raw(e.work()),
+                },
+            ));
+        }
+        let enclosure_saves = bank_shares(p.enclosure_saves(), "a palisade's reckoned saving")?;
         out.push(Polity {
             id,
             settlement,
@@ -2084,6 +2139,8 @@ fn decode_polities(
             bank_given,
             banks_failed,
             bank_keeps,
+            enclosures,
+            enclosure_saves,
         });
     }
     Ok(out)
@@ -2784,6 +2841,7 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::Douse { building, from } => (save::TargetKind::Douse, from, building.get()),
         Target::Bank(b) => (save::TargetKind::Bank, 0, b.get()),
         Target::Ditch(d) => (save::TargetKind::Ditch, 0, d.get()),
+        Target::Enclosure(e) => (save::TargetKind::Enclosure, 0, e.get()),
     }
 }
 
@@ -2826,6 +2884,7 @@ fn target_of(
         },
         save::TargetKind::Bank => Target::Bank(required(id, "a bank target")?),
         save::TargetKind::Ditch => Target::Ditch(required(id, "a ditch target")?),
+        save::TargetKind::Enclosure => Target::Enclosure(required(id, "a palisade target")?),
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -3826,7 +3885,8 @@ fn carried(
         | Schema::V110
         | Schema::V111
         | Schema::V112
-        | Schema::V113 => {
+        | Schema::V113
+        | Schema::V114 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4112,7 +4172,8 @@ fn decode_households(
             | Schema::V110
             | Schema::V111
             | Schema::V112
-            | Schema::V113 => {
+            | Schema::V113
+            | Schema::V114 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5112,6 +5173,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Ditch => 51,
         ChronicleKind::Raid => 52,
         ChronicleKind::Fled => 53,
+        ChronicleKind::Enclosure => 54,
     }
 }
 
@@ -5170,6 +5232,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         51 => Some(ChronicleKind::Ditch),
         52 => Some(ChronicleKind::Raid),
         53 => Some(ChronicleKind::Fled),
+        54 => Some(ChronicleKind::Enclosure),
         _ => None,
     }
 }

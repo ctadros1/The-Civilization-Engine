@@ -1289,3 +1289,26 @@ seen_minutes = 5
 will_gave = 2.0
 will_hurt = 0.2
 will_leader = 1.0
+
+[enclosures]                     # a palisade round the hearth raised by law (M6c slice BK, ADR-0023 §6); design priors unless cited
+# A line is cut into sectors of at most `sector_m` (research 11-11 §2.2: a simulation sector of
+# 10-25 m), with `gates` gates spread round it. A metre of palisade takes `palisade_h_per_m` hours
+# to fell, trim and carry its posts and to trench and set them (11-11 §2.3: about five 20 cm posts
+# a metre; no labour total is given, so a design prior).
+sector_m = 20.0
+gates = 2
+palisade_h_per_m = 6.0
+# The line takes in the homes within `reach_m` of the hearth, running `margin_m` outside the
+# farthest of them, never closer than `min_radius_m`.
+reach_m = 120.0
+margin_m = 6.0
+min_radius_m = 15.0
+# A household reckons its posts stand `life_years` (11-11 §2.2: 5, 15 and 30 years as scenarios),
+# over which its share of the work is spread; that a line keeps out `cover` of what people of other
+# settlements took from it while its home is inside; that its people pass through the line
+# `crossings_a_day` times a day, each going round to a gate. One worker has room along each
+# `front_m` of line still to be built.
+life_years = 15.0
+cover = 0.5
+crossings_a_day = 4.0
+front_m = 4.0

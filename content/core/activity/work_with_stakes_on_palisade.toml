@@ -1,0 +1,21 @@
+# Work on a palisade the polity's gathering asked to be raised (M6c slice BK, step two; ADR-0023
+# §6): felling, trimming and carrying posts, trenching and setting them, a stretch at a time (research
+# 11-11 §2.3: about five 20 cm posts a metre; the work a metre takes is the people profile's
+# `enclosures.palisade_h_per_m`). Heavy work, as building a flood bank is; ages and session lengths
+# are tuning values as for work on a bank. Its id sorts after every older activity's: activities are
+# kept in id order. It asks no tool the content makes (a stone axe and a digging stick are in hand).
+kind = "activity"
+id = "core:activity/work_with_stakes_on_palisade"
+name = "Work on a palisade"
+doing = "setting palisade posts"
+behavior = "palisade"
+par = 5.0
+min_age_years = 14.0
+max_age_years = 65.0
+min_minutes = 60
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 30
+technique = ""
+tools = []
+rate = 1.0

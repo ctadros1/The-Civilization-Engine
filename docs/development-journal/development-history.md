@@ -2079,9 +2079,20 @@ suite, clippy and all ten smoke worlds before it was pushed.
   the walking grid and planned routes are kept against. Save schema 113, content API 99, wire
   1.75 (each sector as an earthwork entry the map draws as a line).
 
+- *Step two:* the law `enclose`. A household raided by people of another settlement weighs a
+  palisade round the hearth: half of what it believes outsiders took, if its home is inside,
+  against its share of the work over the posts' fifteen years and the walk round to a gate. Passed,
+  the line is laid out and each household asked an equal share; people choose the work by what it
+  keeps them and the gathering's word, and each stretch stands as its posts are set. Save schema
+  114, content API 100.
+
+**Found:** in a village still building its homes and breaking its fields, nobody leaves that work
+for the palisade in its first days: the gathering's word is worth 1-2 points against 3-5.
+
 **Evidence:** `civ-sim/tests/enclosures.rs` lays a ring round a village's hearth and checks the
 way out with the line unbuilt, whole with its gate open, shut, and rotted through, the
-observer's sector entries, and a save and load that goes on alike.
+observer's sector entries, and a save and load that goes on alike; and in two villages, one raided
+weighs a palisade, proposes and passes it, and works it stretch by stretch to the chronicle.
+`decide.rs` checks the work is weighed by what it keeps and the gathering's word.
 
-**Open:** the `enclose` law and the work on it (step two); a gate's keeper, climbing seen, rot
-and upkeep (step three).
+**Open:** a gate's keeper, climbing seen, rot and upkeep (step three).

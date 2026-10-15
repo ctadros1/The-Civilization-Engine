@@ -60,6 +60,8 @@ pub enum Target {
     Bank(PermanentId),
     /// An irrigation ditch, by its earthwork's permanent id: the one dug (M6b slice BG).
     Ditch(PermanentId),
+    /// A palisade, by its enclosure's permanent id: the one raised (M6c slice BK).
+    Enclosure(PermanentId),
 }
 
 /// Water for a fire drawn from the household's store at home, not a source (see

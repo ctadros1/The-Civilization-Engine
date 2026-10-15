@@ -57,6 +57,9 @@ pub(super) struct Forecasts {
     pub(super) bank: Option<super::levees::PublicBank>,
     /// A bank the polity built that wants mending and that no law keeps, if any (M6b slice BG).
     pub(super) worn: Option<super::levees::WornBank>,
+    /// The palisade the settlement's people could raise round their hearth together, if any
+    /// (M6c slice BK).
+    pub(super) enclosure: Option<super::enclosures::PublicEnclosure>,
     /// What each rule for building would bring each household (M6b slice BH), by template index
     /// and then household id: the food a year the fire loss it believes averted could bring, and
     /// the food a year what its next building would cost more could, kcal.
@@ -252,6 +255,22 @@ impl Forecasts {
                     k.took_outside_kcal,
                     pp,
                 )
+            }
+            // A palisade raised together (M6c slice BK): the food a year the household believes
+            // the line keeps from people of other settlements while its home is inside, less what
+            // its share of the work, spread over the posts' life, and its people's walk round to
+            // a gate could bring. A home outside the line pays its share without its cover.
+            Some(PolicyKind::Enclose) => {
+                let Some(p) = self.enclosure.as_ref() else {
+                    return 0.0;
+                };
+                let kcal = self
+                    .hour_kcal
+                    .binary_search_by_key(&h, |k| k.0)
+                    .map_or(0.0, |i| self.hour_kcal[i].1);
+                let (kept, detour) = p.keeps_of(h);
+                let owed = (p.share_h() / p.life.max(1e-9) + detour) * kcal;
+                crate::polity::kept_gain(o, kept, pp) - crate::polity::levy_cost(o, owed, pp)
             }
             // An amendment's gain is judged from decisions seen, and an end to a law from that
             // law, kept (M4c slices AF, AI): neither forecasts anything of its own.
@@ -829,7 +848,28 @@ impl Population {
         let sites = self.public_sites(ctx, settlement, households);
         let well = self.public_well(ctx, settlement, households);
         let bank = self.public_bank(ctx, settlement, households);
-        self.forecasts_with(ctx, pi, households, adults, sites, well, bank)
+        let mut fc = self.forecasts_with(ctx, pi, households, adults, sites, well, bank);
+        self.with_enclosure(ctx, &mut fc, settlement, households);
+        fc
+    }
+
+    /// Adds to forecasts `fc` the palisade settlement `settlement`'s people could raise round
+    /// their hearth (M6c slice BK), with what an hour of each household's work brings it if it
+    /// was not reckoned already.
+    fn with_enclosure(
+        &self,
+        ctx: &Ctx,
+        fc: &mut Forecasts,
+        settlement: PermanentId,
+        households: &[PermanentId],
+    ) {
+        fc.enclosure = self.public_enclosure(ctx, settlement, households);
+        if fc.enclosure.is_some() && fc.hour_kcal.is_empty() {
+            fc.hour_kcal = households
+                .iter()
+                .filter_map(|&h| Some((h, self.hour_kcal(ctx, self.household(h)?))))
+                .collect();
+        }
     }
 
     /// [`Population::forecasts`], with the crossing sites already found.
@@ -895,6 +935,7 @@ impl Population {
             well,
             bank,
             worn,
+            enclosure: None,
             rules,
             band_load: {
                 let density = ctx
@@ -1466,6 +1507,10 @@ impl Population {
                 if d.kind == PolicyKind::KeepBank {
                     return true;
                 }
+                // A palisade, while the settlement has none (M6c slice BK: `public_enclosure`).
+                if d.kind == PolicyKind::Enclose {
+                    return true;
+                }
                 (d.kind == PolicyKind::KeepWatch && taken_since)
                     // Another claim, for places the claims in force do not name (M5c slice AT).
                     || (d.kind == PolicyKind::ClaimPlace && !saw_outsiders.is_empty())
@@ -1507,7 +1552,8 @@ impl Population {
             params,
         );
         // What each household expects, to forecast what a move would bring it.
-        let fc = self.forecasts_with(ctx, pi, &households, &adults, sites, well, bank);
+        let mut fc = self.forecasts_with(ctx, pi, &households, &adults, sites, well, bank);
+        self.with_enclosure(ctx, &mut fc, settlement, &households);
         let outlooks = &fc.outlooks;
         // Who could keep the store: adults whose household is under a roof.
         let roofed: Vec<PermanentId> = adults
@@ -1832,6 +1878,16 @@ impl Population {
                         if let Some(p) = &fc.bank {
                             moves.push(MoveOption {
                                 site: Some(p.cell(ctx.map)),
+                                target: None,
+                                ..blank
+                            });
+                        }
+                    }
+                    // A palisade round the hearth (M6c slice BK), named by the hearth's cell.
+                    PolicyKind::Enclose => {
+                        if let Some(p) = &fc.enclosure {
+                            moves.push(MoveOption {
+                                site: Some(cell_of(ctx.map, p.site.centre) as u32),
                                 target: None,
                                 ..blank
                             });
@@ -2191,6 +2247,38 @@ impl Population {
                 polity.bank_saves.sort_unstable_by_key(|s| (s.0, s.1));
             }
         }
+        // A palisade names its line, as the settlement's people would raise it now, and keeps
+        // the hours a year each household reckoned it would keep it: the food it believes kept,
+        // at what an hour of its work brings it, less its walk round to a gate (M6c slice BK).
+        if def.kind == PolicyKind::Enclose && m.site.is_some() {
+            let settlement = self.polities[pi].settlement;
+            let mut households: Vec<PermanentId> = self
+                .households
+                .iter()
+                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                .map(|(_, x)| x.id)
+                .collect();
+            households.sort_unstable();
+            if let Some(p) = self.public_enclosure(ctx, settlement, &households) {
+                let saves: Vec<(PermanentId, f32)> = p
+                    .keeps
+                    .iter()
+                    .map(|&(h, kept, detour)| {
+                        let kcal = self
+                            .household(h)
+                            .map_or(0.0, |x| self.hour_kcal(ctx, x))
+                            .max(1e-9);
+                        (h, (kept / kcal - detour).max(0.0) as f32)
+                    })
+                    .collect();
+                let polity = &mut self.polities[pi];
+                polity.enclosures.push((id, p.site));
+                for (h, s) in saves {
+                    polity.enclosure_saves.push((id, h, s));
+                }
+                polity.enclosure_saves.sort_unstable_by_key(|s| (s.0, s.1));
+            }
+        }
         // A keeping names the bank it keeps, one that wants mending and no law keeps (M6b slice
         // BG).
         if def.kind == PolicyKind::KeepBank
@@ -2438,6 +2526,10 @@ impl Population {
         // A bank passed is begun at once, the polity's (M6b slice BG).
         if outcome == Outcome::Passed && kind == PolicyKind::BuildBank {
             self.begin_public_bank(ctx, pi, law_id);
+        }
+        // A palisade passed is laid out at once, the polity's (M6c slice BK).
+        if outcome == Outcome::Passed && kind == PolicyKind::Enclose {
+            self.begin_public_enclosure(ctx, pi, law_id);
         }
         // A keeping passed looks its bank over at once, and asks its mending (M6b slice BG).
         if outcome == Outcome::Passed

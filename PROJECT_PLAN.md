@@ -2782,8 +2782,27 @@ and M6a gives rivers a daily flow.
       village's hearth with its gate facing away from a place outside: unbuilt, it changes
       nothing; whole with its gate open, the way out goes round by the gate; shut, every way out
       is a climb and slower still; rotted through, it is as if it were not there; and it saves
-      and loads with the world. **Not yet built:** anything that raises one (the `enclose` law,
-      step two), a gate's keeper, a climb being seen, and rot (step three).
+      and loads with the world.
+    - *As built, step two:* the law and the work. The policy kind `enclose` answers `raided`.
+      The line it would raise takes in the homes within `enclosures.reach_m` (120 m) of the
+      hearth, running `margin_m` outside the farthest, with `gates` (2) gates and
+      `palisade_h_per_m` (6) hours of work a metre (research 11-11 gives about five posts a
+      metre and no labour total: a design prior). A household weighs what it believes the line
+      keeps out of its home, `cover` (0.5) of what people of other settlements took from it in
+      the last year as its members know, against its share of the work spread over the posts'
+      `life_years` (15, the middle of 11-11's scenarios) and its people's walk round to a gate;
+      a home outside the line pays its share without cover. Proposed, the law records its line
+      and the hours a year each household reckoned it would keep it; passed, the line is laid
+      out round the hearth, the polity's, and each household is asked an equal share. Its
+      people choose the work (`palisade`, an activity) by what it keeps them and the gathering's
+      word while their share is owed, at the first stretch still to stand they can walk to,
+      with room for one along each `front_m` (4 m) of line still to stand; each stretch stands
+      once its posts' work is done, and the last is told in the chronicle. Save schema 114
+      (`PolitySave.enclosures`, `enclosure_saves`; target kind `Enclosure`), content API 100. A
+      finding: in a village still building its homes and breaking its fields, the gathering's
+      word (about 1-2 points) does not draw anyone from that work (3-5 points) in its first
+      days. **Not yet built:** a gate's keeper, a climb being seen, rot and upkeep (step three);
+      ditch-and-bank lines and work owed in days.
   - **BL**: sieges and terms after force.
     - Camps; a band stays by a shut line, takes what lies outside and stops those it sees leave.
     - Endurance from stores and water as a derived measure; entry by a gate opened, a gap, a

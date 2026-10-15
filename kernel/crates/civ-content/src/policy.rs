@@ -257,7 +257,8 @@ impl PolicyFile {
                 | PolicyKind::BuildBank
                 | PolicyKind::KeepBank
                 | PolicyKind::BuildingRule
-                | PolicyKind::SendBand),
+                | PolicyKind::SendBand
+                | PolicyKind::Enclose),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -306,7 +307,8 @@ impl PolicyFile {
                 | PolicyKind::BuildBank
                 | PolicyKind::KeepBank
                 | PolicyKind::BuildingRule
-                | PolicyKind::SendBand,
+                | PolicyKind::SendBand
+                | PolicyKind::Enclose,
             )
             | None => {}
         }

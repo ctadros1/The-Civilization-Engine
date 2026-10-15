@@ -197,10 +197,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for Terminus {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_TARGET_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_TARGET_KIND: u8 = 18;
+pub const ENUM_MAX_TARGET_KIND: u8 = 19;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 19] = [
+pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 20] = [
   TargetKind::None,
   TargetKind::Home,
   TargetKind::Hearth,
@@ -220,6 +220,7 @@ pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 19] = [
   TargetKind::Douse,
   TargetKind::Bank,
   TargetKind::Ditch,
+  TargetKind::Enclosure,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -246,9 +247,10 @@ impl TargetKind {
   pub const Douse: Self = Self(16);
   pub const Bank: Self = Self(17);
   pub const Ditch: Self = Self(18);
+  pub const Enclosure: Self = Self(19);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 18;
+  pub const ENUM_MAX: u8 = 19;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::None,
     Self::Home,
@@ -269,6 +271,7 @@ impl TargetKind {
     Self::Douse,
     Self::Bank,
     Self::Ditch,
+    Self::Enclosure,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -292,6 +295,7 @@ impl TargetKind {
       Self::Douse => Some("Douse"),
       Self::Bank => Some("Bank"),
       Self::Ditch => Some("Ditch"),
+      Self::Enclosure => Some("Enclosure"),
       _ => None,
     }
   }
@@ -32280,6 +32284,8 @@ impl<'a> PolitySave<'a> {
   pub const VT_BANK_GIVEN: ::flatbuffers::VOffsetT = 42;
   pub const VT_BANKS_FAILED: ::flatbuffers::VOffsetT = 44;
   pub const VT_BANK_KEEPS: ::flatbuffers::VOffsetT = 46;
+  pub const VT_ENCLOSURES: ::flatbuffers::VOffsetT = 48;
+  pub const VT_ENCLOSURE_SAVES: ::flatbuffers::VOffsetT = 50;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32296,6 +32302,8 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.enclosure_saves { builder.add_enclosure_saves(x); }
+    if let Some(x) = args.enclosures { builder.add_enclosures(x); }
     if let Some(x) = args.bank_keeps { builder.add_bank_keeps(x); }
     if let Some(x) = args.banks_failed { builder.add_banks_failed(x); }
     if let Some(x) = args.bank_given { builder.add_bank_given(x); }
@@ -32471,6 +32479,20 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, BankKeepRecord>>>(PolitySave::VT_BANK_KEEPS, None)}
   }
+  #[inline]
+  pub fn enclosures(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EnclosureSiteSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EnclosureSiteSave>>>>(PolitySave::VT_ENCLOSURES, None)}
+  }
+  #[inline]
+  pub fn enclosure_saves(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>(PolitySave::VT_ENCLOSURE_SAVES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -32501,6 +32523,8 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>("bank_given", Self::VT_BANK_GIVEN, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("banks_failed", Self::VT_BANKS_FAILED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BankKeepRecord>>>("bank_keeps", Self::VT_BANK_KEEPS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<EnclosureSiteSave>>>>("enclosures", Self::VT_ENCLOSURES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>("enclosure_saves", Self::VT_ENCLOSURE_SAVES, false)?
      .finish();
     Ok(())
   }
@@ -32528,6 +32552,8 @@ pub struct PolitySaveArgs<'a> {
     pub bank_given: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>>>,
     pub banks_failed: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
     pub bank_keeps: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BankKeepRecord>>>,
+    pub enclosures: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<EnclosureSiteSave<'a>>>>>,
+    pub enclosure_saves: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -32555,6 +32581,8 @@ impl<'a> Default for PolitySaveArgs<'a> {
       bank_given: None,
       banks_failed: None,
       bank_keeps: None,
+      enclosures: None,
+      enclosure_saves: None,
     }
   }
 }
@@ -32653,6 +32681,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_BANK_KEEPS, bank_keeps);
   }
   #[inline]
+  pub fn add_enclosures(&mut self, enclosures: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<EnclosureSiteSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_ENCLOSURES, enclosures);
+  }
+  #[inline]
+  pub fn add_enclosure_saves(&mut self, enclosure_saves: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<BankShareSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_ENCLOSURE_SAVES, enclosure_saves);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -32692,6 +32728,223 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("bank_given", &self.bank_given());
       ds.field("banks_failed", &self.banks_failed());
       ds.field("bank_keeps", &self.bank_keeps());
+      ds.field("enclosures", &self.enclosures());
+      ds.field("enclosure_saves", &self.enclosure_saves());
+      ds.finish()
+  }
+}
+pub enum EnclosureSiteSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct EnclosureSiteSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for EnclosureSiteSave<'a> {
+  type Inner = EnclosureSiteSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> EnclosureSiteSave<'a> {
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 4;
+  pub const VT_X: ::flatbuffers::VOffsetT = 6;
+  pub const VT_Y: ::flatbuffers::VOffsetT = 8;
+  pub const VT_RADIUS_M: ::flatbuffers::VOffsetT = 10;
+  pub const VT_GATES: ::flatbuffers::VOffsetT = 12;
+  pub const VT_INSIDE: ::flatbuffers::VOffsetT = 14;
+  pub const VT_LABOUR_H: ::flatbuffers::VOffsetT = 16;
+  pub const VT_WORK: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    EnclosureSiteSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args EnclosureSiteSaveArgs
+  ) -> ::flatbuffers::WIPOffset<EnclosureSiteSave<'bldr>> {
+    let mut builder = EnclosureSiteSaveBuilder::new(_fbb);
+    builder.add_work(args.work);
+    builder.add_law(args.law);
+    builder.add_labour_h(args.labour_h);
+    builder.add_radius_m(args.radius_m);
+    builder.add_y(args.y);
+    builder.add_x(args.x);
+    builder.add_inside(args.inside);
+    builder.add_gates(args.gates);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(EnclosureSiteSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn x(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EnclosureSiteSave::VT_X, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn y(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EnclosureSiteSave::VT_Y, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn radius_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EnclosureSiteSave::VT_RADIUS_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn gates(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(EnclosureSiteSave::VT_GATES, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn inside(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(EnclosureSiteSave::VT_INSIDE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn labour_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EnclosureSiteSave::VT_LABOUR_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn work(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(EnclosureSiteSave::VT_WORK, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for EnclosureSiteSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<f32>("x", Self::VT_X, false)?
+     .visit_field::<f32>("y", Self::VT_Y, false)?
+     .visit_field::<f32>("radius_m", Self::VT_RADIUS_M, false)?
+     .visit_field::<u8>("gates", Self::VT_GATES, false)?
+     .visit_field::<u16>("inside", Self::VT_INSIDE, false)?
+     .visit_field::<f32>("labour_h", Self::VT_LABOUR_H, false)?
+     .visit_field::<u64>("work", Self::VT_WORK, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct EnclosureSiteSaveArgs {
+    pub law: u64,
+    pub x: f32,
+    pub y: f32,
+    pub radius_m: f32,
+    pub gates: u8,
+    pub inside: u16,
+    pub labour_h: f32,
+    pub work: u64,
+}
+impl<'a> Default for EnclosureSiteSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    EnclosureSiteSaveArgs {
+      law: 0,
+      x: 0.0,
+      y: 0.0,
+      radius_m: 0.0,
+      gates: 0,
+      inside: 0,
+      labour_h: 0.0,
+      work: 0,
+    }
+  }
+}
+
+pub struct EnclosureSiteSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EnclosureSiteSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(EnclosureSiteSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_x(&mut self, x: f32) {
+    self.fbb_.push_slot::<f32>(EnclosureSiteSave::VT_X, x, 0.0);
+  }
+  #[inline]
+  pub fn add_y(&mut self, y: f32) {
+    self.fbb_.push_slot::<f32>(EnclosureSiteSave::VT_Y, y, 0.0);
+  }
+  #[inline]
+  pub fn add_radius_m(&mut self, radius_m: f32) {
+    self.fbb_.push_slot::<f32>(EnclosureSiteSave::VT_RADIUS_M, radius_m, 0.0);
+  }
+  #[inline]
+  pub fn add_gates(&mut self, gates: u8) {
+    self.fbb_.push_slot::<u8>(EnclosureSiteSave::VT_GATES, gates, 0);
+  }
+  #[inline]
+  pub fn add_inside(&mut self, inside: u16) {
+    self.fbb_.push_slot::<u16>(EnclosureSiteSave::VT_INSIDE, inside, 0);
+  }
+  #[inline]
+  pub fn add_labour_h(&mut self, labour_h: f32) {
+    self.fbb_.push_slot::<f32>(EnclosureSiteSave::VT_LABOUR_H, labour_h, 0.0);
+  }
+  #[inline]
+  pub fn add_work(&mut self, work: u64) {
+    self.fbb_.push_slot::<u64>(EnclosureSiteSave::VT_WORK, work, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EnclosureSiteSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    EnclosureSiteSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<EnclosureSiteSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for EnclosureSiteSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("EnclosureSiteSave");
+      ds.field("law", &self.law());
+      ds.field("x", &self.x());
+      ds.field("y", &self.y());
+      ds.field("radius_m", &self.radius_m());
+      ds.field("gates", &self.gates());
+      ds.field("inside", &self.inside());
+      ds.field("labour_h", &self.labour_h());
+      ds.field("work", &self.work());
       ds.finish()
   }
 }

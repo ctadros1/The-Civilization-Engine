@@ -35,6 +35,7 @@ pub mod convergence;
 pub mod crime;
 pub mod decide;
 pub mod demography;
+pub mod enclose;
 pub mod faction;
 pub mod farm;
 pub mod fire;

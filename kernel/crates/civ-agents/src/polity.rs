@@ -94,11 +94,16 @@ pub enum PolicyKind {
     /// (M6c slice BJ, step three; ADR-0023 §5): whoever it finds led one gives back what was
     /// taken, and the law's bundle besides, to the household raided.
     AgainstRaiding,
+    /// The polity raises a palisade round its hearth, taking in the homes within a reach (M6c
+    /// slice BK, step two; ADR-0023 §6): it is begun once passed, the polity's, and each
+    /// household is asked an equal share of its work, as a crossing built together is; homes
+    /// outside the line pay without its cover. Nobody is made to work.
+    Enclose,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 17] = [
+    pub const ALL: [PolicyKind; 18] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -116,6 +121,7 @@ impl PolicyKind {
         PolicyKind::BuildingRule,
         PolicyKind::SendBand,
         PolicyKind::AgainstRaiding,
+        PolicyKind::Enclose,
     ];
 
     /// The authored name.
@@ -138,6 +144,7 @@ impl PolicyKind {
             PolicyKind::BuildingRule => "building_rule",
             PolicyKind::SendBand => "send_band",
             PolicyKind::AgainstRaiding => "against_raiding",
+            PolicyKind::Enclose => "enclose",
         }
     }
 
@@ -1108,6 +1115,11 @@ pub fn law_words(
                 work"
             .to_owned();
     }
+    // Without the site at hand (see [`Polity::words_of`]), only what it is.
+    if def.is_some_and(|d| d.kind == PolicyKind::Enclose) {
+        return "a palisade round the hearth, each household doing its share of the work"
+            .to_owned();
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::KeepBank) {
         return "the keeping of a bank against floodwater, mended whenever it wants it, each \
                 household doing its share of the work"
@@ -1215,6 +1227,7 @@ pub fn ending_words(
         Some(PolicyKind::BuildingRule) => "the rule for building".to_owned(),
         Some(PolicyKind::SendBand) => "the band sent by law".to_owned(),
         Some(PolicyKind::AgainstRaiding) => "the law against raiding".to_owned(),
+        Some(PolicyKind::Enclose) => "the work on a palisade".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -1432,6 +1445,34 @@ pub struct Polity {
     /// Which bank each law keeping one keeps (keep law, the law that built it), in the order made
     /// (M6b slice BG).
     pub bank_keeps: Vec<(PermanentId, PermanentId)>,
+    /// Where each law to raise a palisade would raise it, by law (M6c slice BK).
+    pub enclosures: Vec<(PermanentId, EnclosureSite)>,
+    /// What each household reckoned, when it was proposed, a law's palisade would keep it a year,
+    /// in hours of its work (law, household, hours), by law then household.
+    pub enclosure_saves: Vec<(PermanentId, PermanentId, f32)>,
+}
+
+/// Where a law would raise a palisade (M6c slice BK; ADR-0023 §6): the point its ring is drawn
+/// round (the hearth), its radius, its gates, how many homes it takes in, the work it would take,
+/// and the enclosure once begun.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EnclosureSite {
+    pub centre: (f32, f32),
+    pub radius_m: f32,
+    pub gates: u8,
+    /// Homes inside it when it was proposed.
+    pub inside: u16,
+    /// The work it takes, hours.
+    pub labour_h: f32,
+    /// Its enclosure once begun.
+    pub work: Option<PermanentId>,
+}
+
+impl EnclosureSite {
+    /// The length of its line, metres.
+    pub fn length_m(&self) -> f64 {
+        std::f64::consts::TAU * f64::from(self.radius_m)
+    }
 }
 
 /// Where a law would build a flood bank (M6b slice BG; ADR-0022 §11): the reach whose water it
@@ -1562,7 +1603,22 @@ impl Polity {
             bank_given: Vec::new(),
             banks_failed: Vec::new(),
             bank_keeps: Vec::new(),
+            enclosures: Vec::new(),
+            enclosure_saves: Vec::new(),
         }
+    }
+
+    /// Where law `law` would raise a palisade, if it is one that would (M6c slice BK).
+    pub fn enclosure_site_of(&self, law: PermanentId) -> Option<EnclosureSite> {
+        self.enclosures.iter().find(|e| e.0 == law).map(|e| e.1)
+    }
+
+    /// The hours a year household `household` reckoned law `law`'s palisade would keep it, when
+    /// the law was proposed (M6c slice BK).
+    pub fn enclosure_saves_of(&self, law: PermanentId, household: PermanentId) -> f32 {
+        self.enclosure_saves
+            .binary_search_by_key(&(law, household), |s| (s.0, s.1))
+            .map_or(0.0, |i| self.enclosure_saves[i].2)
     }
 
     /// Where law `law` would build a crossing, if it is one that would (M5c slice AW).
@@ -1788,6 +1844,22 @@ impl Polity {
                  its share of {:.0} hours of work",
                 site.length_m(),
                 site.height_m,
+                site.labour_h
+            );
+        }
+        // A palisade says how long a line it would raise, the homes it takes in and the work it
+        // asks (M6c slice BK).
+        if kind == Some(PolicyKind::Enclose)
+            && let Some(site) = self.enclosure_site_of(law.id)
+        {
+            return format!(
+                "a palisade {:.0} m round the hearth with {} gate{}, taking in {} home{}, each \
+                 household doing its share of {:.0} hours of work",
+                site.length_m(),
+                site.gates,
+                if site.gates == 1 { "" } else { "s" },
+                site.inside,
+                if site.inside == 1 { "" } else { "s" },
                 site.labour_h
             );
         }

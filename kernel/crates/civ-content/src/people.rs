@@ -81,6 +81,76 @@ pub(crate) struct PeopleFile {
     pub rules: RulesFile,
     /// Who calls a band, who joins it and how encounters run (M6c slice BJ; content API 96).
     pub bands: BandsFile,
+    /// How people lay out and weigh an enclosure (M6c slice BK; content API 100).
+    pub enclosures: EnclosuresFile,
+}
+
+/// How people lay out and weigh an enclosure (M6c slice BK; content API 100). See
+/// [`civ_agents::enclose::EnclosureParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct EnclosuresFile {
+    pub sector_m: f64,
+    pub gates: u32,
+    pub palisade_h_per_m: f64,
+    pub reach_m: f64,
+    pub margin_m: f64,
+    pub min_radius_m: f64,
+    pub life_years: f64,
+    pub cover: f64,
+    pub front_m: f64,
+    pub crossings_a_day: f64,
+}
+
+impl EnclosuresFile {
+    fn params(&self) -> civ_agents::enclose::EnclosureParams {
+        civ_agents::enclose::EnclosureParams {
+            sector_m: self.sector_m,
+            gates: self.gates,
+            palisade_h_per_m: self.palisade_h_per_m,
+            reach_m: self.reach_m,
+            margin_m: self.margin_m,
+            min_radius_m: self.min_radius_m,
+            life_years: self.life_years,
+            cover: self.cover,
+            front_m: self.front_m,
+            crossings_a_day: self.crossings_a_day,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("enclosures.sector_m", self.sector_m, 5.0, 50.0),
+            (
+                "enclosures.palisade_h_per_m",
+                self.palisade_h_per_m,
+                0.1,
+                200.0,
+            ),
+            ("enclosures.reach_m", self.reach_m, 1.0, 2000.0),
+            ("enclosures.margin_m", self.margin_m, 0.0, 100.0),
+            ("enclosures.min_radius_m", self.min_radius_m, 3.0, 2000.0),
+            ("enclosures.life_years", self.life_years, 1.0, 500.0),
+            ("enclosures.cover", self.cover, 0.0, 1.0),
+            ("enclosures.front_m", self.front_m, 0.5, 100.0),
+            (
+                "enclosures.crossings_a_day",
+                self.crossings_a_day,
+                0.0,
+                100.0,
+            ),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        if !(1..=12).contains(&self.gates) {
+            p.push(format!(
+                "`enclosures.gates` must be between 1 and 12 (got {})",
+                self.gates
+            ));
+        }
+    }
 }
 
 /// Who calls a band, who joins it and how it runs (M6c slice BJ; content API 96). See
@@ -2250,6 +2320,7 @@ impl PeopleFile {
             ditches: self.ditches.params(),
             rules: self.rules.params(),
             bands: self.bands.params(),
+            enclosures: self.enclosures.params(),
             relations: civ_agents::views::RelationsParams {
                 prior: self.relations.prior,
                 half_life_days: self.relations.half_life_days,
@@ -2287,6 +2358,7 @@ impl PeopleFile {
         self.ditches.problems(&mut p);
         self.rules.problems(&mut p);
         self.bands.problems(&mut p);
+        self.enclosures.problems(&mut p);
         if !(self.places.sight_m.is_finite() && (0.0..=10_000.0).contains(&self.places.sight_m)) {
             p.push(format!(
                 "`places.sight_m` must be between 0 and 10000 (got {})",

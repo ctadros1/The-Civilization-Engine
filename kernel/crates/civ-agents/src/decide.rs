@@ -84,6 +84,8 @@ pub struct Facts {
     pub levee: Option<LeveeFacts>,
     /// The irrigation ditch their household is digging to its field, if any (M6b slice BG).
     pub ditch: Option<DitchFacts>,
+    /// The palisade their polity is raising, if they may work on it (M6c slice BK).
+    pub enclosure: Option<EnclosureFacts>,
     /// A band they joined that musters within the day, if any (M6c slice BJ).
     pub band: Option<BandFacts>,
     /// Whether a blow keeps them from work today (M4c slice AI, step four): they eat, drink, rest,
@@ -203,6 +205,23 @@ pub struct WellFacts {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LeveeFacts {
     pub bank: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub left_h: f64,
+    pub saves_per_hour: f64,
+    pub duty: f64,
+    pub full: bool,
+}
+
+/// A palisade their polity is raising round its hearth under a law they know of (M6c slice BK;
+/// ADR-0023 §6), as a flood bank built together: where its work is done, the walk there from
+/// home, the work it still takes, the hours a year their household reckoned it would keep it for
+/// each hour of that work, what keeping to the gathering's word is worth while their household
+/// has not given its share, and whether as many work on it now as the line still to stand gives
+/// room for.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EnclosureFacts {
+    pub enclosure: PermanentId,
     pub at: (f32, f32),
     pub walk_min: f64,
     pub left_h: f64,
@@ -815,6 +834,11 @@ pub fn candidates(
         // And work on a flood bank to all but those whose polity is building one under a law
         // they know of (M6b slice BG).
         if def.behavior == Behavior::Levee && f.levee.is_none() {
+            continue;
+        }
+        // And work on a palisade to all but those whose polity is raising one under a law they
+        // know of (M6c slice BK).
+        if def.behavior == Behavior::Palisade && f.enclosure.is_none() {
             continue;
         }
         // And digging a ditch to all but those whose household is digging one (M6b slice BG).
@@ -1674,6 +1698,25 @@ pub fn candidates(
                     Err(why) => excluded.push((id, why)),
                 }
             }
+            Behavior::Palisade => {
+                // Work on the polity's palisade (M6c slice BK), as on a flood bank built
+                // together.
+                let Some(c) = f.enclosure else {
+                    continue;
+                };
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: c.saves_per_hour,
+                    duty: c.duty,
+                    full: c.full,
+                };
+                match session_at_site(def, w, f, &site, Reason::Palisade, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Enclosure(c.enclosure), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
+                }
+            }
             Behavior::Ditch => {
                 // Digging the household's irrigation ditch (M6b slice BG), as a crossing the
                 // household builds: nobody else asks it of them.
@@ -2155,6 +2198,7 @@ mod tests {
             crossing: None,
             well: None,
             levee: None,
+            enclosure: None,
             ditch: None,
             band: None,
         }
@@ -2750,6 +2794,79 @@ mod tests {
             "{:?}",
             c.steps
         );
+    }
+
+    #[test]
+    fn work_on_a_palisade_is_weighed_by_what_it_keeps_and_the_gatherings_word() {
+        let mut set = activity("work_on_palisade", Behavior::Palisade, Vec::new(), 1.0);
+        set.min_minutes = 60;
+        set.max_minutes = 240;
+        set.max_walk_minutes = 30;
+        set.par = 5.0;
+        let defs = vec![set];
+        let cannot = |_: usize, _: &[usize]| Err((Reason::NoTool, None));
+        let shop = Workshop {
+            free_tools: &[],
+            held_tools: &[],
+            best_make: &cannot,
+            makes_tool: &|_| false,
+            knows: &|_| true,
+        };
+        let run = |f: &Facts| {
+            candidates(
+                &defs,
+                &weights(),
+                f,
+                &limits(),
+                &|_| None,
+                &|_| Err(Reason::NoPlace),
+                None,
+                &|| None,
+                &|| None,
+                &|| Err(Reason::NoReport),
+                &|| None,
+                Err(Reason::Built),
+                &shop,
+                &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
+                &Vec::new,
+            )
+        };
+        // No palisade being raised: the work is no part of anyone's choice.
+        let (cands, excluded) = run(&facts());
+        assert!(cands.is_empty() && excluded.is_empty());
+        // One being raised, its next stretch a short walk away, each hour keeping a twentieth of
+        // an hour a year, and the gathering's word owed: a full session at the line.
+        let line = PermanentId::from_raw(11).expect("an id");
+        let ef = EnclosureFacts {
+            enclosure: line,
+            at: (30.0, 0.0),
+            walk_min: 0.5,
+            left_h: 800.0,
+            saves_per_hour: 0.05,
+            duty: 1.5,
+            full: false,
+        };
+        let f = Facts {
+            enclosure: Some(ef),
+            dark: false,
+            daylight_left_min: 600.0,
+            ..facts()
+        };
+        let (cands, _) = run(&f);
+        let c = cands.first().expect("weighed");
+        assert_eq!(c.scored.target, Target::Enclosure(line));
+        assert!(matches!(c.steps[1], Step::Work { minutes: 240 }));
+        let has = |r: Reason| c.scored.terms.iter().any(|t| t.reason == r);
+        assert!(has(Reason::Palisade) && has(Reason::PublicWork));
+        // As many at work as the line still to stand has room for: left out, and why.
+        let full = Facts {
+            enclosure: Some(EnclosureFacts { full: true, ..ef }),
+            ..f.clone()
+        };
+        let (cands, excluded) = run(&full);
+        assert!(cands.is_empty());
+        assert!(excluded.contains(&(0, Reason::Crowded)));
     }
 
     #[test]

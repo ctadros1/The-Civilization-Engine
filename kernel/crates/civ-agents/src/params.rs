@@ -93,11 +93,14 @@ pub enum Behavior {
     /// Go with a band they joined: to the hearth for the muster, there, and home (M6c slice
     /// BJ, ADR-0023 §3).
     Band,
+    /// Set posts on a palisade their polity is raising under a law they know of: walk to the
+    /// first stretch still to stand, work, and walk home (M6c slice BK).
+    Palisade,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 32] = [
+    pub const ALL: [Behavior; 33] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -130,6 +133,7 @@ impl Behavior {
         Behavior::Levee,
         Behavior::Ditch,
         Behavior::Band,
+        Behavior::Palisade,
     ];
 
     /// The authored name of a behavior.
@@ -167,6 +171,7 @@ impl Behavior {
             Behavior::Levee => "levee",
             Behavior::Ditch => "ditch",
             Behavior::Band => "band",
+            Behavior::Palisade => "palisade",
         }
     }
 
@@ -1761,6 +1766,8 @@ pub struct PeopleParams {
     pub rules: crate::rules::RuleParams,
     /// Who calls a band, who joins it and how encounters run (M6c slice BJ).
     pub bands: crate::war::BandParams,
+    /// How people lay out and weigh an enclosure (M6c slice BK; content API 100).
+    pub enclosures: crate::enclose::EnclosureParams,
     /// Names.
     pub names: NameParams,
 }

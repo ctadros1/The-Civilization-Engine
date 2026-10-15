@@ -1988,3 +1988,22 @@ force, a hut counts as breaking the walls rule and a hut 6 m apart as keeping th
 world saves and loads exactly. A content test checks both templates' validation. BH1's commit
 passed the full simcheck suite (69 binaries) and all ten release short-smoke worlds after it was
 pushed.
+
+## 2026-10-15 — The M6b demo: a fire, and the rules it moved people to
+
+**What happened:** river valley seed 1, a band of 100, lived 450 days with no fire of its own
+escaping, so the observer set one (logged as `NUDGE`s): the thatched hut with the most others
+within 4 m, at noon of the first dry, windy day. It took that hut and the two beside it, and no
+lives. Within two weeks the gathering passed two rules for building, walls of stone or brick
+(42 for, 3 against) and buildings kept apart (49 for, 2 against). Nobody knew firing, so nobody
+proposed tile roofs. In the year after, the burnt huts were mended in place and nobody began a
+new building, so neither rule bound anything.
+
+**Found:** a rule binding only new work does nothing in a village that mends rather than builds;
+research 11-09 §1.7's other activation modes (major alteration, inspection) would reach the old
+stock and are not built. A village of scattered huts burns three, not twenty; a great fire waits
+on denser building. The village shrank over the year as households left the valley, which a
+fire-free run of the same world shows too.
+
+**Evidence:** the demo spec passed end to end (12.5 minutes); its log and three pictures are in
+`demos/m6b/`. BH2 passed the full simcheck suite (69 binaries) after it was pushed.

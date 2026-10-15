@@ -2581,7 +2581,7 @@ and M6a gives rivers a daily flow.
       clearing (deferred until ditches are shared: a household's ditch carries far more than
       its field needs, §9).
     - Drains and terraces wait.
-  - **BH**: building rules and the M6b demo, in progress.
+  - **BH**: building rules and the M6b demo, done.
     - *Roofs that do not burn (2026-10-15, §9):* a household remembers, for
       `rules.memory_years`, each building it lost to fire and each one its people were in or saw
       burn (not those they only heard shouted of), with what putting it right would take. The
@@ -2622,6 +2622,14 @@ and M6a gives rivers a daily flow.
     - A building's provenance names the rule it was built under.
     - The demo: a great fire, the fire tool's if no lived world shows one in a time-boxed
       week (`NUDGE`s logged), and what followed.
+    - *The M6b demo, as built (2026-10-15, §9):* civ-sim's `great_fire` example, run by
+      `web/e2e/m6b-demo.spec.ts` with `TCE_DEMO=1`, pictures in `demos/m6b/`. River valley seed
+      1, a band of 100: no fire of its own in 450 days, so the observer set alight the thatched
+      hut with the most others within 4 m, at noon of the first dry, windy day (`NUDGE`s). It
+      took 3 buildings and no lives. Within two weeks the gathering passed walls of stone or
+      brick and buildings kept apart; nobody fired tile, so nobody proposed tile roofs. In the
+      year after, the burnt huts were mended in place and nobody began a new building, so
+      neither rule bound anything.
 
 **M6c: War and conquest.**
 - *Contents:* takings and raids between villages; operational war (who fights and why, a band
@@ -3579,3 +3587,35 @@ One line each. Don't re-litigate without a reason written next to the entry.
   once a hut burned the gap rule was proposed against `burned`; in force, a hut counted as
   breaking the walls rule and a hut 6 m from its neighbours as keeping the gap rule; the world
   saved and loaded exactly. **Not yet:** how often lived worlds come to these rules (the demo).
+
+- **The M6b demo, as built (2026-10-15, M6b slice BH; plan §7's M6 demo, second part):** no new
+  ADR. **The world** (civ-sim's `great_fire` example, run by `web/e2e/m6b-demo.spec.ts` with
+  `TCE_DEMO=1`; `demos/m6b/m6b-demo.txt` and three pictures): river valley seed 1 at 768 cells, a
+  band of 100, lived 450 days at Max, into its second summer. **No lived great fire:** in 450 days
+  no fire of the village's own escaped (the ignition sweep, §9, found escapes rare at this size),
+  so, the time box spent, the observer set one. **`NUDGE`s, logged:** where (the observer's sight
+  of the truth: the thatched building with the most others within 4 m of its plot, here 3) and
+  when (noon of the first day whose fuel held 0.13 of its dry mass or less and whose wind blew at
+  4 m/s or more; the first try waited from autumn for 0.11, which this valley rarely reaches, and
+  never found it). Up to four worlds are made and the first whose fire took four buildings is
+  kept; none did, so the last is kept. **What happened** (four worlds, all alike in the fire and
+  its politics): on 30 May of year 2, in 6.7 m/s of wind with fuel at 0.12, the fire spread from
+  Kesta's household's hut to the two beside it and took 3 buildings, 120 kg of goods and no lives.
+  Every household that remained remembered it. A week later Lena, who knew rubble walling,
+  proposed that new walls be of rubble, mud brick or fired brick, against the fire; the gathering
+  agreed, 42 for and 3 against. A week after that Talia proposed that a new building stand 3 m
+  from every other; agreed, 49 for and 2 against. Most stances read "it makes little difference
+  to their household": the forecasts were small, and people voted by their values (the rules bear
+  on security) and their regard for the sponsor. Nobody knew firing, so nobody proposed tile roofs.
+  **What followed:** the three burnt huts were mended in place, standing and roofed a year on; and
+  nobody began a new building in that year, so neither rule bound anything: 0 kept, 0 broken.
+  Over the year the village shrank (107 people to 32-72 in the four worlds) as households left
+  the valley; a fire-free run of the same world loses its band the same way in its third year
+  (founding failure, recorded since M3c), so this is not the fire's. **Found:** (1) a rule that
+  binds only new work does nothing while a village mends rather than builds: research 11-09 §1.7's
+  other activation modes (major alteration, periodic inspection) are what would reach the old
+  stock, and none is built; (2) a village of scattered huts burns three, not twenty: whether a
+  great fire is possible waits on denser building (towns, M7), not on spread tuned up. **Not
+  established:** whether a rule ever comes to bind in a lived world, and whether its builders keep
+  it. M6b closes with BF's open items (crossing scour, flood gates) and BG's trapped rain, shared
+  ditches and multi-segment banks recorded as left, not done.

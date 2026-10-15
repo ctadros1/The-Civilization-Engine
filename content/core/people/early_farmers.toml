@@ -1266,6 +1266,15 @@ will_band = 2.0
 will_home = 3.0
 will_neighbour = 2.0
 
+# Content API 102 (slice BL): a band that comes up to a shut line round the place it went camps
+# outside it (ADR-0023 §7). Every `camp_minutes` each who camps chooses to stay or go home: they
+# stay for what made them go (their will and grievance) against `w_camp_day` points for each day
+# camped and `w_camp_tired` at a full day's want of sleep (design priors: members go home one by
+# one, never all at once on a date).
+camp_minutes = 120
+w_camp_day = 1.0
+w_camp_tired = 2.0
+
 [bands.fight]                    # how an encounter runs (ADR-0023 §4; research 13-07 §1.5-1.7, §2.3)
 # The longest an encounter runs, minutes (13-07 §2.3: steps of 10-60 s; the kernel's minute is
 # the top of that range).

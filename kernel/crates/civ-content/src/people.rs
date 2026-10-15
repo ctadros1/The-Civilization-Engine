@@ -202,6 +202,10 @@ pub(crate) struct BandsFile {
     pub will_band: f64,
     pub will_home: f64,
     pub will_neighbour: f64,
+    /// Content API 102 (M6c slice BL).
+    pub camp_minutes: u32,
+    pub w_camp_day: f64,
+    pub w_camp_tired: f64,
     pub fight: FightFile,
 }
 
@@ -255,6 +259,9 @@ impl BandsFile {
             will_band: self.will_band,
             will_home: self.will_home,
             will_neighbour: self.will_neighbour,
+            camp_minutes: self.camp_minutes,
+            w_camp_day: self.w_camp_day,
+            w_camp_tired: self.w_camp_tired,
             fight: civ_agents::war::FightParams {
                 max_minutes: f.max_minutes,
                 frontage_home: f.frontage_home,
@@ -329,6 +336,17 @@ impl BandsFile {
         }
         if self.look_minutes == 0 || self.look_minutes > 1440 {
             p.push("`bands.look_minutes` must be 1-1440".to_owned());
+        }
+        if self.camp_minutes == 0 || self.camp_minutes > 1440 {
+            p.push("`bands.camp_minutes` must be 1-1440".to_owned());
+        }
+        for (name, v) in [
+            ("bands.w_camp_day", self.w_camp_day),
+            ("bands.w_camp_tired", self.w_camp_tired),
+        ] {
+            if !(v.is_finite() && (0.0..=100.0).contains(&v)) {
+                p.push(format!("`{name}` must be between 0 and 100 (got {v})"));
+            }
         }
         if f.max_minutes == 0 || f.frontage_home == 0 || f.seen_minutes == 0 {
             p.push(

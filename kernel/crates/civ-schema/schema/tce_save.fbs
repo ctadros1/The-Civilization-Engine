@@ -1718,6 +1718,9 @@ table BandSave {
   // none.
   incident: uint (id: 18);
   law: ulong (id: 19);
+  // Schema 116 (M6c slice BL): where it comes up to the line round the place it goes to, if it
+  // does.
+  approach: Point (id: 20);
 }
 
 // Someone in an encounter a band met: `side` 0 the band, 1 against it; `holds` 0 hands, 1 an axe,

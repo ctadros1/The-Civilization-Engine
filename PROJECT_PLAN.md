@@ -2818,6 +2818,19 @@ and M6a gives rivers a daily flow.
       owed in days; a law that keeps a line some other law raised.
   - **BL**: sieges and terms after force.
     - Camps; a band stays by a shut line, takes what lies outside and stops those it sees leave.
+    - *As built, step one:* camps. A band called against a household whose home lies inside a
+      line walks first to the line, outside it on the side toward its own hearth. Anyone of the
+      village who heard it was seen coming shuts the gate nearest their home at once, keeps it
+      shut at first light while the band is coming or camped, and at dusk. If the line bars the
+      band when it is all there (whole, no stretch rotted through, every gate shut), it camps:
+      every `bands.camp_minutes` (120) each who came chooses to stay or go home, staying for their
+      will and grievance against `w_camp_day` (1) points a day camped and `w_camp_tired` (2) at a
+      full day's want of sleep, with a keyed draw; so they go home one by one, never all at once.
+      If at a look the line no longer bars them (a gate open, a gap), they go in and meet whoever
+      stands. Save schema 116 (`BandSave.approach`; stage `Camped`), content API 102. **Not yet
+      built:** taking what lies outside the line and stopping those who leave; members sleeping and
+      eating at the camp (they go home when tired, which the stay weighs); endurance as a measure;
+      assault at a gate's width and climbing in.
     - Endurance from stores and water as a derived measure; entry by a gate opened, a gap, a
       climb or an assault at a gate's width.
     - The clauses compensation, takings heard, no raids, truce, assistance, tribute for peace and

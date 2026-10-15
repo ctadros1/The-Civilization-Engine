@@ -126,6 +126,14 @@ pub fn band_lines(sim: &Sim) -> Vec<(u32, Vec<u64>, String)> {
                     place(b.settlement),
                     b.muster.rem_euclid(24 * 60) / 60
                 ),
+                // Camped by a shut line (M6c slice BL).
+                BandStage::Camped => format!(
+                    "{} and {} of {} are camped outside the palisade{to}, come {what} from \
+                     {whose}{law}",
+                    pop.name_of(b.organizer),
+                    going.len().saturating_sub(1),
+                    place(b.settlement)
+                ),
                 _ => format!(
                     "{} leads {} of {} to {what} from {whose}{to}{law}",
                     pop.name_of(b.organizer),

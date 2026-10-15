@@ -34782,6 +34782,7 @@ impl<'a> BandSave<'a> {
   pub const VT_ASKED: ::flatbuffers::VOffsetT = 38;
   pub const VT_INCIDENT: ::flatbuffers::VOffsetT = 40;
   pub const VT_LAW: ::flatbuffers::VOffsetT = 42;
+  pub const VT_APPROACH: ::flatbuffers::VOffsetT = 44;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -34800,6 +34801,7 @@ impl<'a> BandSave<'a> {
     builder.add_target(args.target);
     builder.add_settlement(args.settlement);
     builder.add_organizer(args.organizer);
+    if let Some(x) = args.approach { builder.add_approach(x); }
     builder.add_incident(args.incident);
     if let Some(x) = args.asked { builder.add_asked(x); }
     builder.add_taken_kcal(args.taken_kcal);
@@ -34957,6 +34959,13 @@ impl<'a> BandSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(BandSave::VT_LAW, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn approach(&self) -> Option<&'a Point> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Point>(BandSave::VT_APPROACH, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BandSave<'_> {
@@ -34985,6 +34994,7 @@ impl ::flatbuffers::Verifiable for BandSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("asked", Self::VT_ASKED, false)?
      .visit_field::<u32>("incident", Self::VT_INCIDENT, false)?
      .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<Point>("approach", Self::VT_APPROACH, false)?
      .finish();
     Ok(())
   }
@@ -35010,6 +35020,7 @@ pub struct BandSaveArgs<'a> {
     pub asked: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
     pub incident: u32,
     pub law: u64,
+    pub approach: Option<&'a Point>,
 }
 impl<'a> Default for BandSaveArgs<'a> {
   #[inline]
@@ -35035,6 +35046,7 @@ impl<'a> Default for BandSaveArgs<'a> {
       asked: None,
       incident: 0,
       law: 0,
+      approach: None,
     }
   }
 }
@@ -35125,6 +35137,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BandSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(BandSave::VT_LAW, law, 0);
   }
   #[inline]
+  pub fn add_approach(&mut self, approach: &Point) {
+    self.fbb_.push_slot_always::<&Point>(BandSave::VT_APPROACH, approach);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BandSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BandSaveBuilder {
@@ -35162,6 +35178,7 @@ impl ::core::fmt::Debug for BandSave<'_> {
       ds.field("asked", &self.asked());
       ds.field("incident", &self.incident());
       ds.field("law", &self.law());
+      ds.field("approach", &self.approach());
       ds.finish()
   }
 }

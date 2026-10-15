@@ -445,7 +445,101 @@ impl Population {
                             .is_some_and(|b| b.taker.is_some())
                     })
             });
-        taken || x.settlement.is_some_and(|s| self.raids_believed(h, s) > 0)
+        taken || x.settlement.is_some_and(|s| self.raids_believed(h, s) > 0) || self.fears_band(h)
+    }
+
+    /// Whether household `h`'s members heard of a band, not yet home, coming to a household of
+    /// its own settlement (M6c slice BL): a band seen.
+    pub(super) fn fears_band(&self, h: PermanentId) -> bool {
+        let Some(x) = self.household(h) else {
+            return false;
+        };
+        let Some(own) = x.settlement else {
+            return false;
+        };
+        x.members
+            .iter()
+            .flat_map(|&m| self.word.heard_by(m))
+            .any(|heard| {
+                self.word
+                    .claim(heard.claim)
+                    .filter(|c| c.kind == crate::word::ClaimKind::BandSeen)
+                    .and_then(|c| c.event)
+                    .and_then(|id| self.order.bands.iter().find(|b| b.id == id))
+                    .is_some_and(|b| {
+                        !b.stage.over()
+                            && self.household(b.target).and_then(|t| t.settlement) == Some(own)
+                    })
+            })
+    }
+
+    /// Where a band of settlement `from` going to household `target` comes up to the line round
+    /// it, if its home lies inside one (M6c slice BL): outside the line on the side toward `from`'s
+    /// hearth, ten metres beyond it.
+    pub(super) fn approach_to(
+        &self,
+        ctx: &Ctx,
+        target: PermanentId,
+        from: PermanentId,
+    ) -> Option<(f32, f32)> {
+        let home = self.household(target)?.home;
+        let e = ctx
+            .land
+            .enclosures
+            .list
+            .iter()
+            .find(|e| e.inside(home) && e.standing() > 0)?;
+        let hearth = ctx.land.settlements.iter().find(|s| s.id == from)?.hearth_m;
+        let (dx, dy) = (hearth.0 - e.centre.0, hearth.1 - e.centre.1);
+        let len = dx.hypot(dy);
+        let (ux, uy) = if len > 1e-3 {
+            (dx / len, dy / len)
+        } else {
+            (1.0, 0.0)
+        };
+        let r = e.radius_m + 10.0;
+        Some((e.centre.0 + ux * r, e.centre.1 + uy * r))
+    }
+
+    /// Gates shut at once by those who heard of a band coming (M6c slice BL, ADR-0023 §6: "or
+    /// when a band is seen"): each open gate that stands whose nearest household fears it.
+    pub(super) fn alarm_gates(&mut self, ctx: &mut Ctx) {
+        let mut changed = false;
+        for i in 0..ctx.land.enclosures.list.len() {
+            let e = &ctx.land.enclosures.list[i];
+            let settlement = e.settlement;
+            let gates: Vec<(usize, (f32, f32))> = e
+                .sectors
+                .iter()
+                .enumerate()
+                .take(e.standing())
+                .filter(|(_, s)| s.gate.is_some_and(|g| g.open))
+                .map(|(k, s)| (k, ((s.a.0 + s.b.0) / 2.0, (s.a.1 + s.b.1) / 2.0)))
+                .collect();
+            for (k, at) in gates {
+                let fears = self
+                    .gate_keeper(settlement, at)
+                    .is_some_and(|h| self.fears_band(h));
+                if fears && let Some(g) = &mut ctx.land.enclosures.list[i].sectors[k].gate {
+                    g.open = false;
+                    changed = true;
+                }
+            }
+        }
+        if changed {
+            ctx.land.enclosures.changed();
+        }
+    }
+
+    /// The household of settlement `settlement` whose home is nearest point `at`, the gate's
+    /// keeper (ADR-0023 §6: otherwise the nearest household).
+    fn gate_keeper(&self, settlement: PermanentId, at: (f32, f32)) -> Option<PermanentId> {
+        self.households
+            .iter()
+            .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+            .map(|(_, x)| ((x.home.0 - at.0).hypot(x.home.1 - at.1), x.id))
+            .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)))
+            .map(|k| k.1)
     }
 
     /// The keeping of every palisade's gates (M6c slice BK, step three; ADR-0023 §6): at first
@@ -471,18 +565,15 @@ impl Population {
                 .map(|(k, s)| (k, ((s.a.0 + s.b.0) / 2.0, (s.a.1 + s.b.1) / 2.0)))
                 .collect();
             for (k, at) in gates {
-                let shut = dusk && {
-                    let keeper = self
-                        .households
-                        .iter()
-                        .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
-                        .map(|(_, x)| {
-                            let d = (x.home.0 - at.0).hypot(x.home.1 - at.1);
-                            (d, x.id)
-                        })
-                        .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
-                    keeper.is_some_and(|(_, h)| self.fears_outsiders(ctx, h))
-                };
+                // At dusk shut for fear of outsiders; at first light kept shut only while a band
+                // is known to be coming or camped (M6c slice BL).
+                let shut = self.gate_keeper(settlement, at).is_some_and(|h| {
+                    if dusk {
+                        self.fears_outsiders(ctx, h)
+                    } else {
+                        self.fears_band(h)
+                    }
+                });
                 if let Some(g) = &mut ctx.land.enclosures.list[i].sectors[k].gate
                     && g.open == shut
                 {

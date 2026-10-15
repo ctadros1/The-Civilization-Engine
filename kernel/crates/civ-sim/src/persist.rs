@@ -357,6 +357,8 @@ pub const SCHEMA_V112: u32 = 112;
 pub const SCHEMA_V113: u32 = 113;
 /// Palisades raised by law, before gates kept and posts rotting.
 pub const SCHEMA_V114: u32 = 114;
+/// Gates kept and posts rotting, before bands camp by a shut line.
+pub const SCHEMA_V115: u32 = 115;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

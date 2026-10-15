@@ -2104,3 +2104,19 @@ shuts the gates at dusk when every household fears outsiders, opens them at firs
 them through a scheduled dusk and a save, and rots a stretch into a gap that work mends.
 
 **Open:** a climb being seen, a keeper by the watch, ditch-and-bank lines, sieges (BL).
+
+## 2026-10-15 — BL: camps by a shut line
+
+**Built so far:**
+- *Step one:* a band called against a home inside a palisade walks to the line first. Those who
+  heard it was seen coming shut their gates; if the line bars it when all are there, it camps
+  outside. Every two hours each who came weighs staying against the days camped and their want of
+  sleep, so the band goes home one by one; a gate left open or a stretch rotted through lets it in
+  to meet whoever stands. Save schema 116, content API 102.
+
+**Evidence:** `civ-sim/tests/enclosures.rs`: a band comes up to a shut line, camps outside it
+(saved and loaded alike), and goes in when a stretch rots through; in a second world the line
+stays shut and the band goes home in several steps with nobody struck.
+
+**Open:** taking from outside the line and stopping those who leave, sleeping at the camp,
+endurance, assault and climbing; terms after force (step two).

@@ -670,3 +670,225 @@ fn saves_and_goes_on_alike(sim: &mut Sim, minutes: i64) {
     loaded.advance_minutes(minutes).expect("advances");
     same(sim, &loaded);
 }
+
+/// A band of `n` grown people of settlement `a` called against household `target` (of `b`, its
+/// home inside palisade `line`), coming up to the line on the side toward `a`'s hearth and
+/// mustering at seven the next morning; and every household of `b` hears it was seen coming, so
+/// that its gates are kept shut.
+fn a_band_against_the_line(
+    sim: &mut Sim,
+    a: PermanentId,
+    b: PermanentId,
+    target: PermanentId,
+    line: PermanentId,
+    n: usize,
+) -> u32 {
+    use civ_agents::war::{Band, BandPurpose, BandStage};
+    use civ_agents::word::{Claim, ClaimKind};
+    let now = sim.now();
+    let adult = sim.rules().people.bands.min_age;
+    let hearth_a = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == a)
+        .expect("settlement")
+        .hearth_m;
+    let e = {
+        let land = sim.land();
+        land.enclosures.list[land.enclosures.position(line).expect("the line")].clone()
+    };
+    let (dx, dy) = (hearth_a.0 - e.centre.0, hearth_a.1 - e.centre.1);
+    let len = dx.hypot(dy);
+    let r = e.radius_m + 10.0;
+    let approach = (e.centre.0 + dx / len * r, e.centre.1 + dy / len * r);
+    let pop = sim.people_mut_for_tests();
+    let place = pop.household(target).expect("household").home;
+    let mut adults: Vec<PermanentId> = pop
+        .people
+        .iter()
+        .filter(|(_, p)| p.age_years(now) >= adult && p.age_years(now) <= 50.0)
+        .filter(|(_, p)| pop.household(p.household).and_then(|x| x.settlement) == Some(a))
+        .map(|(_, p)| p.id)
+        .collect();
+    adults.sort_unstable();
+    adults.truncate(n);
+    let id = pop.order.bands.last().map_or(1, |x| x.id + 1);
+    pop.order.bands.push(Band {
+        id,
+        organizer: adults[0],
+        settlement: a,
+        purpose: BandPurpose::Take,
+        target,
+        place,
+        called: now.minutes(),
+        muster: (now.day_index() + 1) * DAY + 7 * 60,
+        members: adults,
+        asked: Vec::new(),
+        mustered: Vec::new(),
+        arrived: Vec::new(),
+        home: Vec::new(),
+        stage: BandStage::Called,
+        since: now.minutes(),
+        clash: None,
+        incident: None,
+        law: None,
+        taken: Vec::new(),
+        taken_kcal: 0.0,
+        approach: Some(approach),
+    });
+    let day = now.day_index();
+    let claim = pop.word.make(Claim {
+        id: 0,
+        kind: ClaimKind::BandSeen,
+        settlement: a,
+        day,
+        subject: None,
+        grievance: None,
+        suspected: None,
+        fire: None,
+        event: Some(id),
+    });
+    let hearers: Vec<PermanentId> = pop
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(b))
+        .flat_map(|(_, x)| x.members.clone())
+        .collect();
+    for p in hearers {
+        pop.word.hear(p, claim, day, None, Some(p));
+    }
+    id
+}
+
+/// A household of settlement `s` whose home lies inside palisade `line`.
+fn inside(sim: &Sim, s: PermanentId, line: PermanentId) -> PermanentId {
+    let land = sim.land();
+    let e = &land.enclosures.list[land.enclosures.position(line).expect("the line")];
+    households_of(sim, s)
+        .into_iter()
+        .find(|&h| e.inside(sim.people().household(h).expect("household").home))
+        .expect("a home inside the line")
+}
+
+/// Advances `sim` until band `id`'s stage is `stage`, at most `minutes`; whether it got there.
+fn until_stage(sim: &mut Sim, id: u32, stage: civ_agents::war::BandStage, minutes: i64) -> bool {
+    let mut left = minutes;
+    while left > 0 {
+        if sim
+            .people()
+            .order
+            .bands
+            .iter()
+            .any(|b| b.id == id && b.stage == stage)
+        {
+            return true;
+        }
+        sim.advance_minutes(10).expect("lives");
+        left -= 10;
+    }
+    false
+}
+
+fn band(sim: &Sim, id: u32) -> civ_agents::war::Band {
+    sim.people()
+        .order
+        .bands
+        .iter()
+        .find(|b| b.id == id)
+        .expect("the band")
+        .clone()
+}
+
+#[test]
+fn a_band_that_comes_up_to_a_shut_line_camps_outside_it_and_goes_in_by_a_gap() {
+    use civ_agents::war::BandStage;
+    let mut sim = two_villages(3);
+    sim.advance_minutes(DAY).expect("lives");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let law = sim.allocate_id_for_tests();
+    let line = raise_whole(&mut sim, b, law);
+    let target = inside(&sim, b, line);
+    let id = a_band_against_the_line(&mut sim, a, b, target, line, 4);
+    // Seen coming, the gates are shut by those who fear it; it comes up to the line and camps
+    // outside it, nobody struck.
+    assert!(until_stage(&mut sim, id, BandStage::Camped, 2 * DAY));
+    assert!(
+        sim.land().enclosures.list[0]
+            .sectors
+            .iter()
+            .filter_map(|s| s.gate)
+            .all(|g| !g.open),
+        "every gate shut"
+    );
+    let camp = band(&sim, id);
+    assert!(camp.clash.is_none());
+    let approach = camp.approach.expect("an approach");
+    for &m in camp.arrived.iter().filter(|m| !camp.home.contains(m)) {
+        let p = sim.people().person(m).expect("alive").pos;
+        assert!(
+            (p.0 - approach.0).hypot(p.1 - approach.1) < 30.0,
+            "{m:?} at {p:?}, the camp at {approach:?}"
+        );
+    }
+    saves_and_goes_on_alike(&mut sim, 60);
+    // A stretch of the line rots through: at the next look, they go in and meet whoever stands.
+    {
+        let land = sim.land_mut_for_tests();
+        let i = land.enclosures.position(line).expect("the line");
+        let k = land.enclosures.list[i]
+            .sectors
+            .iter()
+            .position(|s| s.gate.is_none())
+            .expect("a wall");
+        land.enclosures.list[i].sectors[k].loss = 1.0;
+        land.enclosures.changed();
+    }
+    sim.lay_decks_for_tests();
+    let camp_minutes = i64::from(sim.rules().people.bands.camp_minutes);
+    let mut met = false;
+    for _ in 0..(camp_minutes / 10 + 2) {
+        sim.advance_minutes(10).expect("lives");
+        if band(&sim, id).clash.is_some() {
+            met = true;
+            break;
+        }
+    }
+    assert!(met, "through the gap: {:?}", band(&sim, id).stage);
+}
+
+#[test]
+fn a_band_camped_by_a_line_that_stays_shut_goes_home_one_by_one() {
+    use civ_agents::war::BandStage;
+    let mut sim = two_villages(3);
+    sim.advance_minutes(DAY).expect("lives");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let law = sim.allocate_id_for_tests();
+    let line = raise_whole(&mut sim, b, law);
+    let target = inside(&sim, b, line);
+    let id = a_band_against_the_line(&mut sim, a, b, target, line, 4);
+    assert!(until_stage(&mut sim, id, BandStage::Camped, 2 * DAY));
+    let came = band(&sim, id).arrived.len();
+    assert!(came >= 2);
+    // Each chooses when to go; the line never opens: they go home over the following hours and
+    // days, not all at once, and nobody is struck.
+    let mut seen = Vec::new();
+    for _ in 0..(4 * DAY / 30) {
+        sim.advance_minutes(30).expect("lives");
+        let x = band(&sim, id);
+        let left = x.arrived.iter().filter(|m| x.home.contains(m)).count();
+        if seen.last() != Some(&left) {
+            seen.push(left);
+        }
+        if x.stage.over() {
+            break;
+        }
+    }
+    let x = band(&sim, id);
+    assert!(x.stage.over(), "{:?} after four days", x.stage);
+    assert!(x.clash.is_none(), "the line kept them out");
+    assert!(
+        seen.len() >= 3,
+        "they went home in more than one step: {seen:?}"
+    );
+}

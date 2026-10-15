@@ -20,6 +20,8 @@ pub const PURPOSE_JOIN: u64 = 0x6a6f_696e_6261_6e64; // "joinband"
 pub const PURPOSE_SERVE: u64 = 0x7365_7276_6562_616e; // "servebnd"
 /// Purpose tag for someone's choice to bring a raid before their own gathering.
 pub const PURPOSE_RAID_CASE: u64 = 0x7261_6964_6361_7365; // "raidcase"
+/// Purpose tag for each who camps choosing to stay (M6c slice BL).
+pub const PURPOSE_CAMP: u64 = 0x6361_6d70_7374_6179; // "campstay"
 /// Purpose tag for an encounter's blows.
 pub const PURPOSE_CLASH: u64 = 0x636c_6173_6862_6c77; // "clashblw"
 
@@ -29,7 +31,6 @@ const AT_HOME_M: f32 = 2.0;
 /// stay there, and home.
 const STEP_MUSTER: u8 = 1;
 const STEP_THERE: u8 = 3;
-const STEP_HOME: u8 = 4;
 
 /// What someone believes a band would meet and bring home (ADR-0023 §3).
 #[derive(Clone, Copy, Debug)]
@@ -65,6 +66,14 @@ impl Population {
                     b.since = minute;
                 }
                 _ => {}
+            }
+        }
+        // A camp everyone left (M6c slice BL).
+        for bi in 0..self.order.bands.len() {
+            if self.order.bands[bi].stage == BandStage::Camped && self.band_all_home(bi) {
+                let b = &mut self.order.bands[bi];
+                b.stage = BandStage::Home;
+                b.since = minute;
             }
         }
         self.bands_by_law(ctx);
@@ -409,6 +418,7 @@ impl Population {
             return;
         }
         let muster = (day + 1) * MINUTES_PER_DAY + i64::from(bp.muster_hour) * 60;
+        let approach = self.approach_to(ctx, pros.target, settlement);
         self.order.bands.push(Band {
             id,
             organizer,
@@ -430,6 +440,7 @@ impl Population {
             law: None,
             taken: Vec::new(),
             taken_kcal: 0.0,
+            approach,
         });
     }
 
@@ -591,6 +602,7 @@ impl Population {
             return false;
         }
         let muster = (day + 1) * MINUTES_PER_DAY + i64::from(bp.muster_hour) * 60;
+        let approach = self.approach_to(ctx, pros.target, settlement);
         self.order.bands.push(Band {
             id,
             organizer: leader,
@@ -612,6 +624,7 @@ impl Population {
             law: Some(law),
             taken: Vec::new(),
             taken_kcal: 0.0,
+            approach,
         });
         true
     }
@@ -715,7 +728,9 @@ impl Population {
                 && minute < b.muster
                 && b.muster - minute <= MINUTES_PER_DAY
         })?;
-        let (id, settlement, muster, place) = (b.id, b.settlement, b.muster, b.place);
+        // To the line round the place first, where there is one (M6c slice BL).
+        let (id, settlement, muster, place) =
+            (b.id, b.settlement, b.muster, b.approach.unwrap_or(b.place));
         let hearth = ctx
             .land
             .settlements
@@ -767,7 +782,15 @@ impl Population {
                 }
                 let pending = b.clash.is_none();
                 if pending && self.band_all_there(ctx, bi) {
-                    self.clash(ctx, bi);
+                    // Come up to a line round the place that bars them: they camp outside it
+                    // (M6c slice BL, ADR-0023 §7); else on to the encounter.
+                    if self.line_bars(ctx, bi) {
+                        let b = &mut self.order.bands[bi];
+                        b.stage = BandStage::Camped;
+                        b.since = ctx.now.minutes();
+                    } else {
+                        self.clash(ctx, bi);
+                    }
                 }
             }
             _ => {}
@@ -783,6 +806,7 @@ impl Population {
             return;
         };
         let (who, step) = (p.id, p.act.step);
+        let last = p.act.steps.len().saturating_sub(1) as u8;
         let Some(bi) = self
             .order
             .bands
@@ -791,6 +815,11 @@ impl Population {
         else {
             return;
         };
+        // A stay at a camp ends: they choose to stay longer or go home (M6c slice BL).
+        if self.order.bands[bi].stage == BandStage::Camped && step >= STEP_THERE && step < last {
+            self.camp_check(ctx, h, bi);
+            return;
+        }
         let first_out = !self.order.bands.iter().any(|b| b.stage == BandStage::Out);
         let mut set_off = false;
         let goes_on = {
@@ -808,7 +837,7 @@ impl Population {
                     }
                     b.stage == BandStage::Out && b.mustered.binary_search(&who).is_ok()
                 }
-                STEP_HOME => {
+                s if s == last => {
                     if !b.home.contains(&who) {
                         b.home.push(who);
                     }
@@ -833,7 +862,7 @@ impl Population {
                 p.act.steps.truncate(next);
             }
         }
-        if step == STEP_HOME && self.band_all_home(bi) {
+        if step == last && self.band_all_home(bi) {
             let b = &mut self.order.bands[bi];
             b.stage = BandStage::Home;
             b.since = minute;
@@ -889,7 +918,12 @@ impl Population {
         let adult = ctx.params.crime.guardian_age;
         let t = now.minutes() as f64;
         let out: Vec<usize> = (0..self.order.bands.len())
-            .filter(|&i| self.order.bands[i].stage == BandStage::Out)
+            .filter(|&i| {
+                matches!(
+                    self.order.bands[i].stage,
+                    BandStage::Out | BandStage::Camped
+                )
+            })
             .collect();
         if out.is_empty() {
             return;
@@ -950,10 +984,77 @@ impl Population {
                 self.word.hear(q, claim, day, None, Some(q));
             }
         }
-        if self.order.bands.iter().any(|b| b.stage == BandStage::Out) {
+        // Gates are shut by those who heard of a band coming (M6c slice BL).
+        self.alarm_gates(ctx);
+        if self
+            .order
+            .bands
+            .iter()
+            .any(|b| matches!(b.stage, BandStage::Out | BandStage::Camped))
+        {
             let look = i64::from(ctx.params.bands.look_minutes.max(1));
             ctx.schedule
                 .push((now.plus_minutes(look), AgentEvent::BandLook));
+        }
+    }
+
+    /// Whether the line round the place band `bi` went to bars it now (M6c slice BL): the band
+    /// came up to one, the line stands whole, no stretch of it has rotted through, and every gate
+    /// is shut.
+    fn line_bars(&self, ctx: &Ctx, bi: usize) -> bool {
+        let b = &self.order.bands[bi];
+        if b.approach.is_none() {
+            return false;
+        }
+        let Some(home) = self.household(b.target).map(|x| x.home) else {
+            return false;
+        };
+        ctx.land.enclosures.list.iter().any(|e| {
+            e.inside(home)
+                && e.whole()
+                && e.sectors.iter().all(|s| !s.gap())
+                && e.sectors.iter().all(|s| s.gate.is_none_or(|g| !g.open))
+        })
+    }
+
+    /// A stay at band `bi`'s camp by `h` ends (M6c slice BL, ADR-0023 §7). If the line no
+    /// longer bars them (a gate opened, a stretch rotted through), the band goes in and meets
+    /// whoever stands. Otherwise each chooses to stay or go home: they stay for what made them
+    /// go (their will and grievance against the household) against `bands.w_camp_day` points for
+    /// each day camped and `bands.w_camp_tired` at a full day's want of sleep, with a keyed draw
+    /// of a day's worth; staying, they wait `bands.camp_minutes` more.
+    fn camp_check(&mut self, ctx: &mut Ctx, h: Handle<Person>, bi: usize) {
+        if !self.line_bars(ctx, bi) {
+            let b = &mut self.order.bands[bi];
+            b.stage = BandStage::Out;
+            if b.clash.is_none() {
+                self.clash(ctx, bi);
+            }
+            return;
+        }
+        let bp = &ctx.params.bands;
+        let Some(p) = self.people.get(h) else {
+            return;
+        };
+        let (who, step, sleep) = (p.id, p.act.step, f64::from(p.sleep_pressure));
+        let (target, since) = (self.order.bands[bi].target, self.order.bands[bi].since);
+        let days = (ctx.now.minutes() - since) as f64 / MINUTES_PER_DAY as f64;
+        let u = Rng64::from_key(&[ctx.seed, PURPOSE_CAMP, who.get(), ctx.now.minutes() as u64])
+            .next_f64();
+        let stay = bp.will_band
+            + bp.w_grievance * self.keenness(ctx, who, Blamed::Household(target))
+            - bp.w_camp_day * (days + u)
+            - bp.w_camp_tired * sleep.clamp(0.0, 1.0);
+        if stay > 0.0
+            && let Some(p) = self.people.get_mut(h)
+        {
+            let at = step as usize + 1;
+            p.act.steps.insert(
+                at,
+                crate::person::Step::Work {
+                    minutes: bp.camp_minutes.max(1),
+                },
+            );
         }
     }
 
@@ -965,7 +1066,7 @@ impl Population {
         let Some(p) = self.people.get_mut(h) else {
             return;
         };
-        if p.act.step != STEP_THERE {
+        if p.act.step < STEP_THERE || p.act.step as usize + 1 >= p.act.steps.len() {
             return;
         }
         p.act.step_ends = ctx.now.plus_minutes(1);
@@ -1026,6 +1127,10 @@ impl Population {
         let mut fighters: Vec<Fighter> = Vec::new();
         let mut by_household: BTreeMap<PermanentId, Vec<PermanentId>> = BTreeMap::new();
         for &m in &b.arrived {
+            // Those who went home from a camp are not there (M6c slice BL).
+            if b.home.contains(&m) {
+                continue;
+            }
             if let Some(p) = self.person(m)
                 && self.order.hurt_until(m).is_none_or(|d| d < day)
             {

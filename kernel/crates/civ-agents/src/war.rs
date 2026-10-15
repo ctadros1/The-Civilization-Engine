@@ -65,15 +65,19 @@ pub enum BandStage {
     Home = 2,
     /// Dispersed before setting off: too few came to the muster.
     Dispersed = 3,
+    /// Camped by a shut line round the place it went to (M6c slice BL, ADR-0023 §7): those who
+    /// came wait outside it, each staying or going home as they choose.
+    Camped = 4,
 }
 
 impl BandStage {
     /// Every stage, in code order.
-    pub const ALL: [BandStage; 4] = [
+    pub const ALL: [BandStage; 5] = [
         BandStage::Called,
         BandStage::Out,
         BandStage::Home,
         BandStage::Dispersed,
+        BandStage::Camped,
     ];
 
     /// Its number in saves.
@@ -131,6 +135,10 @@ pub struct Band {
     /// What it took, `(good, amount)`, and its food energy, kcal.
     pub taken: Vec<(u16, f32)>,
     pub taken_kcal: f32,
+    /// Where it comes up to the line round the place it goes to, if that place lay inside one
+    /// when it was called (M6c slice BL): it walks there first, and camps there if the line
+    /// bars it.
+    pub approach: Option<(f32, f32)>,
 }
 
 impl Band {
@@ -340,6 +348,12 @@ pub struct BandParams {
     pub will_band: f64,
     pub will_home: f64,
     pub will_neighbour: f64,
+    /// Camps (M6c slice BL; content API 102): the minutes between each who camps choosing to
+    /// stay or go home, and what staying costs them: points a day camped, and points at a full
+    /// day's want of sleep.
+    pub camp_minutes: u32,
+    pub w_camp_day: f64,
+    pub w_camp_tired: f64,
     /// How encounters run.
     pub fight: FightParams,
 }
@@ -376,6 +390,9 @@ impl BandParams {
             will_band: 2.0,
             will_home: 3.0,
             will_neighbour: 2.0,
+            camp_minutes: 120,
+            w_camp_day: 1.0,
+            w_camp_tired: 2.0,
             fight: FightParams::core(),
         }
     }

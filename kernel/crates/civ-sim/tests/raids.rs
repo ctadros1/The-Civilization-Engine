@@ -306,6 +306,7 @@ fn a_band(sim: &mut Sim, a: PermanentId, b: PermanentId, n: usize, muster_hour: 
         law: None,
         taken: Vec::new(),
         taken_kcal: 0.0,
+        approach: None,
     });
     id
 }

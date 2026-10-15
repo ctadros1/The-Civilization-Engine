@@ -177,12 +177,38 @@ fn followed(sim: &Sim, fire_day: i64) -> String {
                 .is_some_and(|d| civ_agents::rules::wall_kind(&b.spec, &d.rules) > 0)
         })
         .count();
+    // The buildings the fire took, as they stand now: mended in place, or not.
+    let burned: Vec<String> = pop
+        .fires
+        .list
+        .iter()
+        .filter(|f| f.began.day_index() >= fire_day)
+        .map(|f| {
+            sim.land()
+                .buildings
+                .iter()
+                .find(|b| b.id == f.building)
+                .map_or_else(
+                    || format!("{} gone", f.building.get()),
+                    |b| {
+                        format!(
+                            "{} {:?}{}",
+                            b.id.get(),
+                            b.state,
+                            if b.roofed() { ", roofed" } else { ", unroofed" }
+                        )
+                    },
+                )
+        })
+        .collect();
     let firing = catalog.technique_index("core:technique/firing");
     let fire_tile = firing.map_or(0, |t| pop.people.iter().filter(|(_, p)| p.knows(t)).count());
     format!(
-        "{remember} of {} households remember a fire; {fire_tile} people know firing; {} \
+        "the buildings it took now: {}; {remember} of {} households remember a fire; {fire_tile} \
+         people know firing; {} \
          buildings begun since the fire, {tiled} with tile roofs and {walled} with walls of stone \
          or brick; rules for building: {}",
+        burned.join(", "),
         households.len(),
         begun.len(),
         if rules.is_empty() {

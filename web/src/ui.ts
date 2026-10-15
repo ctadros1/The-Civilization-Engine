@@ -2382,10 +2382,44 @@ export function bindUi(store: Store, actions: Actions): void {
     if (g.polities.length === 0) {
       nodes.push(el("p", { className: "empty", text: "No settlement has a polity yet: each is founded at the first midnight." }));
     }
+    // Sieges (wire 1.76, ADR-0023 §7): each side's food at current use, never a measure of
+    // progress.
+    if (g.sieges.length > 0) {
+      nodes.push(
+        el(
+          "div",
+          { className: "sieges" },
+          el("h3", { text: "Sieges" }),
+          el("p", {
+            className: "aside",
+            text: "Each side's food at what its people eat now, worked out afterwards; nothing in the world reads it, and nothing here counts toward an end.",
+          }),
+          ...g.sieges.map((x) =>
+            el(
+              "div",
+              { className: `siege ${x.stage}` },
+              el("strong", { text: x.words }),
+              el("p", { className: "inside", text: `Inside: ${x.inside}.` }),
+              el("p", { className: "comes-in", text: `By the line: ${x.comesIn}.` }),
+              el("p", { className: "band-food", text: `The band: ${x.bandFood}.` }),
+            ),
+          ),
+        ),
+      );
+    }
     for (const p of g.polities) {
-      const block = el("div", { className: "polity" });
+      const block = el("div", { className: p.ended ? "polity ended" : "polity" });
+      block.append(el("h3", { text: p.name || "A settlement" }));
+      // How its deciding closed, and the settlements it holds (wire 1.76, ADR-0023 §9).
+      if (p.ended) {
+        block.append(el("p", { className: "ended-note", text: `Decides no more: ${p.ended}.` }));
+      }
+      if (p.settlements.length > 1) {
+        block.append(
+          el("ul", { className: "settlements" }, ...p.settlements.map((v) => el("li", { text: v }))),
+        );
+      }
       block.append(
-        el("h3", { text: p.name || "A settlement" }),
         el("p", { className: "custom", text: p.custom }),
         el("p", {
           className: "since",

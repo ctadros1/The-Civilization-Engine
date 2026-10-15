@@ -163,6 +163,7 @@ export { SettlementKnowledge } from './wire/settlement-knowledge.js';
 export { SettlementStanding } from './wire/settlement-standing.js';
 export { SettlementWealth } from './wire/settlement-wealth.js';
 export { Sex } from './wire/sex.js';
+export { SiegeLine } from './wire/siege-line.js';
 export { SkillInfo } from './wire/skill-info.js';
 export { SkillLine } from './wire/skill-line.js';
 export { Snapshot } from './wire/snapshot.js';

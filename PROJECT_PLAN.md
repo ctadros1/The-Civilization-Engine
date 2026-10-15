@@ -2901,6 +2901,22 @@ and M6a gives rivers a daily flow.
       fourth day; no hold stood its seven days, so nothing was annexed without a hand-built
       hold. **Not yet built:** a founding window for the old laws (they lapse instead); eating at
       the hold (they live on what they carry and on reserves); secession.
+    - *As built, step three:* secession and the siege page. A revolt called at a settlement its
+      polity took in, rather than at the seat, counts as officeholders only the store's keeper
+      and the watch who live there (ADR-0023 §9: the store kept there and the watch there); held,
+      the settlement is a polity of its own, founded with the revolt's body as a daughter is
+      founded with its parent's, its founding custom marked taken by those who stood with the
+      organizer; it starts with no store and no laws (the common store stays where it was kept),
+      the polity it left keeps its seat, custom and agreements, and the chronicle tells it
+      (`Seceded`, code 56). A polity taken in keeps its closed record, so a seat may be named by a
+      closed record and a deciding one at once; the load check and the smoke's polity check now
+      count polities still deciding. The observer (wire 1.76): each polity's settlements with how
+      and when, how a closed one's deciding ended, and in the Government panel a siege page, a
+      line for each band camped by a line or holding a place: the band in words, the food inside
+      (the place's households' stores, and the common store if it is kept there) in days at what
+      its people eat, water and fields by the line (open wells inside it, fields outside it), and
+      the band's own food (what those there carry, what it took, what their households at home
+      hold), worked out when asked and never saved; no progress, no timer. No save schema change.
     - A hold from outside; the policy kind `annex`; annexation closing the held polity's
       deciding, with a founding window; the *one body* clause; secession as a revolt scoped to
       one settlement.

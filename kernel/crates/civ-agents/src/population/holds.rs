@@ -8,7 +8,7 @@
 
 use super::*;
 use crate::agreements::AgreementState;
-use crate::polity::{HeldHow, HeldSettlement, LawStatus, PolityEnd};
+use crate::polity::{Body, HeldHow, HeldSettlement, LawStatus, Polity, PolityEnd};
 
 impl Population {
     /// Polity `pi` takes polity `qi` in, `how` (ADR-0023 §9): `qi`'s settlements become `pi`'s,
@@ -173,6 +173,77 @@ impl Population {
         if let Some(l) = self.polities[pi].law_mut(law) {
             l.status = LawStatus::Lapsed;
         }
+    }
+
+    /// A revolt called by `by` held at settlement `at`, which polity `pi` took in (ADR-0023 §9:
+    /// secession is a revolt scoped to one settlement): `at` is a polity of its own from now on,
+    /// founded with the revolt's body `body` as a daughter's is founded with its parent's, its
+    /// founding custom taken by those who stood with `by`. It starts with no store and no laws:
+    /// the common store stays where it was kept, `pi`'s. Agreements `pi` made stay `pi`'s. The
+    /// chronicle tells it.
+    pub(super) fn secede(
+        &mut self,
+        ctx: &mut Ctx,
+        pi: usize,
+        at: PermanentId,
+        body: Body,
+        by: PermanentId,
+    ) {
+        let Some(hi) = self.polities[pi]
+            .held
+            .iter()
+            .position(|h| h.settlement == at)
+        else {
+            return;
+        };
+        if self.polities[pi].ended.is_some() {
+            return;
+        }
+        self.polities[pi].held.remove(hi);
+        let now = ctx.now;
+        let mut polity = Polity::found(ctx.ids.allocate(), at, now, &ctx.params.polity);
+        polity.body = body;
+        for v in &mut polity.versions {
+            v.body = body;
+            v.seized_by = Some(by);
+        }
+        self.polities.push(polity);
+        let name = self.settlement_name(ctx, at);
+        let theirs = self.settlement_name(ctx, self.polities[pi].settlement);
+        let place = ctx
+            .land
+            .settlements
+            .iter()
+            .find(|s| s.id == at)
+            .map(|s| s.hearth_m);
+        let words = format!(
+            "At {name}, those who stood with {} broke from {theirs}'s polity: from now on {name} \
+             decides for itself, {}.",
+            self.name_of(by),
+            body.clause()
+        );
+        self.chronicle_push(
+            now,
+            ChronicleKind::Seceded,
+            vec![by],
+            Some(at),
+            place,
+            0.0,
+            words,
+        );
+    }
+
+    /// For tests: a revolt called by `by` held at settlement `at` of polity `pi`, with body
+    /// `body`.
+    pub fn secede_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        pi: usize,
+        at: PermanentId,
+        body: Body,
+        by: PermanentId,
+    ) {
+        self.secede(ctx, pi, at, body, by);
     }
 
     /// For tests: law `law` of polity `pi`, to take in settlement `at`, passed.

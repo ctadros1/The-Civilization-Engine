@@ -157,6 +157,28 @@ fn a_polity_taken_in_decides_no_more_and_its_people_are_the_takers_members() {
         "the taking in is chronicled"
     );
     assert!(pop.problems(u64::MAX, usize::MAX).is_empty());
+    // The Government panel tells each polity's settlements and how a deciding closed (wire 1.76).
+    let payload = civ_sim::frames::government::government_response(&sim);
+    let info = civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&payload)
+        .expect("a response")
+        .body_as_government()
+        .expect("the government");
+    let lines = info.polities().expect("polities");
+    let ours: Vec<&str> = lines
+        .get(pi)
+        .settlements()
+        .expect("settlements")
+        .iter()
+        .collect();
+    assert_eq!(ours.len(), 2);
+    assert!(ours[0].contains("its seat"), "{ours:?}");
+    assert!(
+        ours[1].contains("taken in on") && ours[1].contains("by annexation"),
+        "{ours:?}"
+    );
+    assert_eq!(lines.get(pi).ended(), Some(""));
+    let closed = lines.get(qi).ended().expect("ended");
+    assert!(closed.starts_with("taken in by"), "{closed}");
 
     // Days on, no polity is founded for the settlement taken in, and only the taker reviews.
     let laws_before = sim.people().polities[qi].laws.len();
@@ -459,4 +481,89 @@ fn an_agreement_of_one_body_in_force_makes_one_polity_of_two() {
     );
     assert!(pop.problems(u64::MAX, usize::MAX).is_empty());
     saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+#[test]
+fn a_revolt_held_at_a_village_taken_in_makes_it_a_polity_of_its_own() {
+    use civ_agents::faction::{Revolt, RevoltEnd};
+    let mut sim = two_villages(4, 30);
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let (pi, qi) = (seated(&sim, a), seated(&sim, b));
+    sim.with_ctx_for_tests(|pop, ctx| pop.take_in_for_tests(ctx, pi, qi, HeldHow::Annexed));
+    let pop = sim.people();
+    let organizer = pop
+        .people
+        .iter()
+        .find_map(|(_, p)| (pop.household(p.household)?.settlement == Some(b)).then_some(p.id))
+        .expect("someone lives at the village taken in");
+    let mut body = pop.polities[pi].body;
+    body.quorum_share = 0.75;
+    let (revolt, faction) = (sim.allocate_id_for_tests(), sim.allocate_id_for_tests());
+    let now = sim.now();
+    let ri = {
+        let pop = sim.people_mut_for_tests();
+        let against = civ_agents::word::Blamed::Body(pop.polities[pi].id);
+        pop.factions.list.push(civ_agents::faction::Faction::found(
+            faction, b, against, organizer, now,
+        ));
+        pop.factions.revolts.push(Revolt {
+            id: revolt,
+            faction,
+            settlement: b,
+            organizer,
+            called: now,
+            until: now.day_index() + 30,
+            body,
+            sides: Vec::new(),
+            held_since: Some(now.day_index()),
+            ended: None,
+        });
+        pop.factions.revolts.len() - 1
+    };
+    let taker_body = sim.people().polities[pi].body;
+    sim.with_ctx_for_tests(|pop, ctx| pop.end_revolt_for_tests(ctx, ri, RevoltEnd::Held));
+
+    let pop = sim.people();
+    // The village is a polity of its own, under the revolt's body, its custom taken by those
+    // who stood with the organizer; the taker keeps its seat and its own custom.
+    assert_eq!(pop.polities.len(), 3);
+    let ni = pop
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(b)))
+        .expect("a polity decides for it");
+    assert_ne!(ni, qi, "a new polity, not the one taken in brought back");
+    let n = &pop.polities[ni];
+    assert!(n.ended.is_none() && n.holds(Some(b)));
+    assert_eq!(n.body, body);
+    assert_eq!(n.versions[0].seized_by, Some(organizer));
+    assert!(n.stores.iter().all(|&kg| kg == 0.0) && n.laws.is_empty());
+    let p = &pop.polities[pi];
+    assert!(p.holds(Some(a)) && !p.holds(Some(b)));
+    assert!(p.held.is_empty());
+    assert_eq!(p.body, taker_body, "the taker's custom is not taken");
+    assert!(
+        pop.polities[qi].ended.is_some(),
+        "the old record stays closed"
+    );
+    assert!(
+        pop.chronicle
+            .iter()
+            .any(|e| e.kind == ChronicleKind::Seceded && e.settlement == Some(b)),
+        "the secession is chronicled"
+    );
+    assert!(pop.problems(u64::MAX, usize::MAX).is_empty());
+
+    // The village's adults are its members, not the taker's; days on, it still decides, and
+    // all of it saves and loads.
+    let (fields, params) = (sim.land().fields.clone(), sim.rules().people.clone());
+    let theirs = pop.body_members(&fields, ni, now, &params);
+    assert!(!theirs.is_empty());
+    let taker = pop.body_members(&fields, pi, now, &params);
+    assert!(theirs.iter().all(|m| !taker.contains(m)));
+    sim.advance_minutes(3 * DAY).expect("advances");
+    let pop = sim.people();
+    assert!(pop.polities[ni].holds(Some(b)) && !pop.polities[pi].holds(Some(b)));
+    assert!(pop.problems(u64::MAX, usize::MAX).is_empty());
+    saves_and_goes_on_alike(&mut sim, 2 * DAY);
 }

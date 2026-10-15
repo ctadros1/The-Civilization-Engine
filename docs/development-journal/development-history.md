@@ -2172,5 +2172,19 @@ polities.
 
 **Finding:** no hold stood its seven days in the test world: holders went home on the fourth.
 
-**Open:** a founding window for the old laws; eating at the hold; secession; the observer's
-polity settlements and siege page; the M6c demo.
+- *Step three:* a revolt that holds at a settlement taken in, rather than at the seat, makes
+  it a polity of its own again, founded with the revolt's body; only the officeholders living
+  there count. A closed record and a deciding polity may share a seat, so the load check and the
+  smoke count only polities still deciding. The observer (wire 1.76) shows each polity's
+  settlements, how a closed one ended, and a siege page: each band camped by a line or holding a
+  place, the food inside and the band's own food in days at current use, and water and fields
+  by the line, worked out when asked and never saved. A gathering no longer sends a band against
+  a settlement its own polity holds (found by the demo run: after the annexation, the taker's
+  law sent its band against its new members).
+
+**Evidence (step three):** `holdings.rs`: a revolt held at a village taken in founds a new
+polity under its body, the taker keeps its seat and custom, the village's adults are the new
+polity's members, and it saves and loads alike; the Government panel's words for settlements
+and a closed polity. `enclosures.rs`: the siege page for a band camped by a shut line.
+
+**Open:** a founding window for the old laws; eating at the hold; the M6c demo.

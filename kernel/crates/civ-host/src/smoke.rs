@@ -616,7 +616,8 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
     result.notes.extend(takings(sim));
 }
 
-/// What a polity's history must hold to (ADR-0013): one polity a settlement; every law decided by
+/// What a polity's history must hold to (ADR-0013): one polity still deciding holds each
+/// settlement (a polity taken in keeps its record, closed; M6c slice BM); every law decided by
 /// the rule of the custom's version in force when it was decided (M4c slice AF), over the stances
 /// recorded, no more present than eligible; a law in force passed (an amendment later replaced
 /// stands superseded); at most one law before the gathering, and a gathering only for it.
@@ -625,7 +626,7 @@ fn polity_problems(sim: &Sim) -> Vec<String> {
     let mut out = Vec::new();
     let pop = sim.people();
     for s in &sim.land().settlements {
-        let n = pop.polities.iter().filter(|p| p.settlement == s.id).count();
+        let n = pop.polities.iter().filter(|p| p.holds(Some(s.id))).count();
         if n != 1 {
             out.push(format!("{} has {n} polities", s.name));
         }

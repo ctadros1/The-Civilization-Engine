@@ -1137,6 +1137,32 @@ export interface PolityLine {
    * its own people's side, worked out afterwards and read by nothing in the world.
    */
   relations: RelationLine[];
+  /**
+   * Wire 1.76 (M6c slice BM, ADR-0023 §9): its settlements with how and when, its seat first, in
+   * the kernel's words; and how its deciding closed ("taken in by Oakholt's polity on …"), or
+   * empty while it still decides.
+   */
+  settlements: string[];
+  ended: string;
+}
+
+/**
+ * A siege (wire 1.76, ADR-0023 §7): a band camped by a shut line or holding a settlement, with
+ * each side's food at current use and what comes and goes by the line, in the kernel's words.
+ * Worked out afterwards and read by nothing in the world; never a measure of progress.
+ */
+export interface SiegeLine {
+  band: number;
+  from: number;
+  at: number;
+  /** "camped" or "holding". */
+  stage: "camped" | "holding";
+  words: string;
+  inside: string;
+  insideDays: number;
+  comesIn: string;
+  bandFood: string;
+  bandDays: number;
 }
 
 /** One polity's standing toward another (wire 1.57): a label and the reasons, in the kernel's words. */
@@ -1171,6 +1197,8 @@ export interface AgreementLine {
 export interface GovernmentInfo {
   minute: number;
   polities: PolityLine[];
+  /** Wire 1.76: every band camped by a shut line or holding a settlement. */
+  sieges: SiegeLine[];
 }
 
 /** How an attempt to take ended (wire 1.30). */
@@ -4237,9 +4265,28 @@ function governmentInfo(w: W.Government): GovernmentInfo {
           }),
         };
       }),
+      settlements: Array.from({ length: p.settlementsLength() }, (_, k) => p.settlements(k) ?? ""),
+      ended: p.ended() ?? "",
     });
   }
-  return { minute: Number(w.minute()), polities };
+  const sieges: SiegeLine[] = [];
+  for (let k = 0; k < w.siegesLength(); k++) {
+    const x = w.sieges(k);
+    if (!x) continue;
+    sieges.push({
+      band: x.band(),
+      from: Number(x.from()),
+      at: Number(x.at()),
+      stage: x.stage() === 5 ? "holding" : "camped",
+      words: x.words() ?? "",
+      inside: x.inside() ?? "",
+      insideDays: x.insideDays(),
+      comesIn: x.comesIn() ?? "",
+      bandFood: x.bandFood() ?? "",
+      bandDays: x.bandDays(),
+    });
+  }
+  return { minute: Number(w.minute()), polities, sieges };
 }
 
 const TAKING_OUTCOMES: TakingOutcome[] = ["taken", "turned back", "fled"];

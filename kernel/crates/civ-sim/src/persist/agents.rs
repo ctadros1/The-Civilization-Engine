@@ -1177,9 +1177,12 @@ pub(super) fn decode<R: Read + Seek>(
                 p.id, p.settlement
             ));
         }
-        if people.polities[..i]
-            .iter()
-            .any(|o| o.settlement == p.settlement)
+        // A polity taken in keeps its record, closed, and its settlement may be seat again of
+        // one that broke away later (M6c slice BM): two still deciding is what is wrong.
+        if p.ended.is_none()
+            && people.polities[..i]
+                .iter()
+                .any(|o| o.holds(Some(p.settlement)))
         {
             problems.push(format!("settlement {} has two polities", p.settlement));
         }
@@ -5283,6 +5286,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Fled => 53,
         ChronicleKind::Enclosure => 54,
         ChronicleKind::PolityJoined => 55,
+        ChronicleKind::Seceded => 56,
     }
 }
 
@@ -5343,6 +5347,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         53 => Some(ChronicleKind::Fled),
         54 => Some(ChronicleKind::Enclosure),
         55 => Some(ChronicleKind::PolityJoined),
+        56 => Some(ChronicleKind::Seceded),
         _ => None,
     }
 }

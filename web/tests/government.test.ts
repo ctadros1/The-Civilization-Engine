@@ -233,6 +233,11 @@ describe("the government on the wire", () => {
       agreements,
     );
     const relations = W.PolityLine.createRelationsVector(b, [relation]);
+    const settlements = W.PolityLine.createSettlementsVector(b, [
+      b.createString("Stonewick, its seat, since 1 March of year 1"),
+      b.createString("Ashford, taken in on 9 June of year 3 from Ashford's polity, by annexation"),
+    ]);
+    const ended = b.createString("");
     const name = b.createString("Stonewick");
     const custom = b.createString("The adults who come to the hearth decide by acclamation.");
     const store = b.createString("grain 26 kg");
@@ -264,9 +269,29 @@ describe("the government on the wire", () => {
       revolts,
       coups,
       relations,
+      settlements,
+      ended,
     );
     const polities = W.Government.createPolitiesVector(b, [polity]);
-    const government = W.Government.createGovernment(b, BigInt(103 * DAY), polities);
+    const siege = W.SiegeLine.createSiegeLine(
+      b,
+      7,
+      12n,
+      40n,
+      4,
+      b.createString("Ada leads 9 of Stonewick to take food from Bo's household at Ashford"),
+      b.createString("its 11 households hold about 38 days of food for 41 people at what they eat"),
+      38,
+      b.createString(
+        "no open well inside the line: every walk to water goes out through a gate; 18 of its 23 fields lie outside it",
+      ),
+      b.createString(
+        "9 there carry about 2 days of food; their households at home hold about 50 days for their 30 people",
+      ),
+      2,
+    );
+    const sieges = W.Government.createSiegesVector(b, [siege]);
+    const government = W.Government.createGovernment(b, BigInt(103 * DAY), polities, sieges);
     const response = W.Response.createResponse(b, W.ResponseBody.Government, government);
     b.finish(response);
     const body = M.decodeResponse(b.asUint8Array());
@@ -316,6 +341,25 @@ describe("the government on the wire", () => {
             ],
           },
         ],
+      },
+    ]);
+    expect(p.settlements).toHaveLength(2);
+    expect(p.settlements[1]).toContain("by annexation");
+    expect(p.ended).toBe("");
+    expect(body.government.sieges).toEqual([
+      {
+        band: 7,
+        from: 12,
+        at: 40,
+        stage: "camped",
+        words: "Ada leads 9 of Stonewick to take food from Bo's household at Ashford",
+        inside: "its 11 households hold about 38 days of food for 41 people at what they eat",
+        insideDays: 38,
+        comesIn:
+          "no open well inside the line: every walk to water goes out through a gate; 18 of its 23 fields lie outside it",
+        bandFood:
+          "9 there carry about 2 days of food; their households at home hold about 50 days for their 30 people",
+        bandDays: 2,
       },
     ]);
     expect(p.customHistory).toHaveLength(2);

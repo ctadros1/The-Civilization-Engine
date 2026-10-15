@@ -30388,6 +30388,8 @@ impl<'a> PolityLine<'a> {
   pub const VT_REVOLTS: ::flatbuffers::VOffsetT = 50;
   pub const VT_COUPS: ::flatbuffers::VOffsetT = 52;
   pub const VT_RELATIONS: ::flatbuffers::VOffsetT = 54;
+  pub const VT_SETTLEMENTS: ::flatbuffers::VOffsetT = 56;
+  pub const VT_ENDED: ::flatbuffers::VOffsetT = 58;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -30404,6 +30406,8 @@ impl<'a> PolityLine<'a> {
     builder.add_founded_minute(args.founded_minute);
     builder.add_settlement(args.settlement);
     builder.add_polity(args.polity);
+    if let Some(x) = args.ended { builder.add_ended(x); }
+    if let Some(x) = args.settlements { builder.add_settlements(x); }
     if let Some(x) = args.relations { builder.add_relations(x); }
     if let Some(x) = args.coups { builder.add_coups(x); }
     if let Some(x) = args.revolts { builder.add_revolts(x); }
@@ -30611,6 +30615,20 @@ impl<'a> PolityLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RelationLine>>>>(PolityLine::VT_RELATIONS, None)}
   }
+  #[inline]
+  pub fn settlements(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(PolityLine::VT_SETTLEMENTS, None)}
+  }
+  #[inline]
+  pub fn ended(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PolityLine::VT_ENDED, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolityLine<'_> {
@@ -30645,6 +30663,8 @@ impl ::flatbuffers::Verifiable for PolityLine<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("revolts", Self::VT_REVOLTS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("coups", Self::VT_COUPS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RelationLine>>>>("relations", Self::VT_RELATIONS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("settlements", Self::VT_SETTLEMENTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("ended", Self::VT_ENDED, false)?
      .finish();
     Ok(())
   }
@@ -30676,6 +30696,8 @@ pub struct PolityLineArgs<'a> {
     pub revolts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub coups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub relations: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RelationLine<'a>>>>>,
+    pub settlements: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub ended: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for PolityLineArgs<'a> {
   #[inline]
@@ -30707,6 +30729,8 @@ impl<'a> Default for PolityLineArgs<'a> {
       revolts: None,
       coups: None,
       relations: None,
+      settlements: None,
+      ended: None,
     }
   }
 }
@@ -30821,6 +30845,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolityLineBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_RELATIONS, relations);
   }
   #[inline]
+  pub fn add_settlements(&mut self, settlements: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_SETTLEMENTS, settlements);
+  }
+  #[inline]
+  pub fn add_ended(&mut self, ended: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_ENDED, ended);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolityLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolityLineBuilder {
@@ -30864,6 +30896,8 @@ impl ::core::fmt::Debug for PolityLine<'_> {
       ds.field("revolts", &self.revolts());
       ds.field("coups", &self.coups());
       ds.field("relations", &self.relations());
+      ds.field("settlements", &self.settlements());
+      ds.field("ended", &self.ended());
       ds.finish()
   }
 }
@@ -31212,6 +31246,255 @@ impl ::core::fmt::Debug for AgreementLine<'_> {
       ds.finish()
   }
 }
+pub enum SiegeLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SiegeLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for SiegeLine<'a> {
+  type Inner = SiegeLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> SiegeLine<'a> {
+  pub const VT_BAND: ::flatbuffers::VOffsetT = 4;
+  pub const VT_FROM: ::flatbuffers::VOffsetT = 6;
+  pub const VT_AT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_STAGE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_INSIDE: ::flatbuffers::VOffsetT = 14;
+  pub const VT_INSIDE_DAYS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_COMES_IN: ::flatbuffers::VOffsetT = 18;
+  pub const VT_BAND_FOOD: ::flatbuffers::VOffsetT = 20;
+  pub const VT_BAND_DAYS: ::flatbuffers::VOffsetT = 22;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    SiegeLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SiegeLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<SiegeLine<'bldr>> {
+    let mut builder = SiegeLineBuilder::new(_fbb);
+    builder.add_at(args.at);
+    builder.add_from(args.from);
+    builder.add_band_days(args.band_days);
+    if let Some(x) = args.band_food { builder.add_band_food(x); }
+    if let Some(x) = args.comes_in { builder.add_comes_in(x); }
+    builder.add_inside_days(args.inside_days);
+    if let Some(x) = args.inside { builder.add_inside(x); }
+    if let Some(x) = args.words { builder.add_words(x); }
+    builder.add_band(args.band);
+    builder.add_stage(args.stage);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn band(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SiegeLine::VT_BAND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn from(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SiegeLine::VT_FROM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn at(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SiegeLine::VT_AT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn stage(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(SiegeLine::VT_STAGE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(SiegeLine::VT_WORDS, None)}
+  }
+  #[inline]
+  pub fn inside(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(SiegeLine::VT_INSIDE, None)}
+  }
+  #[inline]
+  pub fn inside_days(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(SiegeLine::VT_INSIDE_DAYS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn comes_in(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(SiegeLine::VT_COMES_IN, None)}
+  }
+  #[inline]
+  pub fn band_food(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(SiegeLine::VT_BAND_FOOD, None)}
+  }
+  #[inline]
+  pub fn band_days(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(SiegeLine::VT_BAND_DAYS, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for SiegeLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("band", Self::VT_BAND, false)?
+     .visit_field::<u64>("from", Self::VT_FROM, false)?
+     .visit_field::<u64>("at", Self::VT_AT, false)?
+     .visit_field::<u8>("stage", Self::VT_STAGE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("inside", Self::VT_INSIDE, false)?
+     .visit_field::<f32>("inside_days", Self::VT_INSIDE_DAYS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("comes_in", Self::VT_COMES_IN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("band_food", Self::VT_BAND_FOOD, false)?
+     .visit_field::<f32>("band_days", Self::VT_BAND_DAYS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SiegeLineArgs<'a> {
+    pub band: u32,
+    pub from: u64,
+    pub at: u64,
+    pub stage: u8,
+    pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub inside: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub inside_days: f32,
+    pub comes_in: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub band_food: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub band_days: f32,
+}
+impl<'a> Default for SiegeLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SiegeLineArgs {
+      band: 0,
+      from: 0,
+      at: 0,
+      stage: 0,
+      words: None,
+      inside: None,
+      inside_days: 0.0,
+      comes_in: None,
+      band_food: None,
+      band_days: 0.0,
+    }
+  }
+}
+
+pub struct SiegeLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SiegeLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_band(&mut self, band: u32) {
+    self.fbb_.push_slot::<u32>(SiegeLine::VT_BAND, band, 0);
+  }
+  #[inline]
+  pub fn add_from(&mut self, from: u64) {
+    self.fbb_.push_slot::<u64>(SiegeLine::VT_FROM, from, 0);
+  }
+  #[inline]
+  pub fn add_at(&mut self, at: u64) {
+    self.fbb_.push_slot::<u64>(SiegeLine::VT_AT, at, 0);
+  }
+  #[inline]
+  pub fn add_stage(&mut self, stage: u8) {
+    self.fbb_.push_slot::<u8>(SiegeLine::VT_STAGE, stage, 0);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SiegeLine::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn add_inside(&mut self, inside: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SiegeLine::VT_INSIDE, inside);
+  }
+  #[inline]
+  pub fn add_inside_days(&mut self, inside_days: f32) {
+    self.fbb_.push_slot::<f32>(SiegeLine::VT_INSIDE_DAYS, inside_days, 0.0);
+  }
+  #[inline]
+  pub fn add_comes_in(&mut self, comes_in: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SiegeLine::VT_COMES_IN, comes_in);
+  }
+  #[inline]
+  pub fn add_band_food(&mut self, band_food: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SiegeLine::VT_BAND_FOOD, band_food);
+  }
+  #[inline]
+  pub fn add_band_days(&mut self, band_days: f32) {
+    self.fbb_.push_slot::<f32>(SiegeLine::VT_BAND_DAYS, band_days, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SiegeLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SiegeLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<SiegeLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for SiegeLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("SiegeLine");
+      ds.field("band", &self.band());
+      ds.field("from", &self.from());
+      ds.field("at", &self.at());
+      ds.field("stage", &self.stage());
+      ds.field("words", &self.words());
+      ds.field("inside", &self.inside());
+      ds.field("inside_days", &self.inside_days());
+      ds.field("comes_in", &self.comes_in());
+      ds.field("band_food", &self.band_food());
+      ds.field("band_days", &self.band_days());
+      ds.finish()
+  }
+}
 pub enum GovernmentOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -31230,6 +31513,7 @@ impl<'a> ::flatbuffers::Follow<'a> for Government<'a> {
 impl<'a> Government<'a> {
   pub const VT_MINUTE: ::flatbuffers::VOffsetT = 4;
   pub const VT_POLITIES: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SIEGES: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -31242,6 +31526,7 @@ impl<'a> Government<'a> {
   ) -> ::flatbuffers::WIPOffset<Government<'bldr>> {
     let mut builder = GovernmentBuilder::new(_fbb);
     builder.add_minute(args.minute);
+    if let Some(x) = args.sieges { builder.add_sieges(x); }
     if let Some(x) = args.polities { builder.add_polities(x); }
     builder.finish()
   }
@@ -31261,6 +31546,13 @@ impl<'a> Government<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PolityLine>>>>(Government::VT_POLITIES, None)}
   }
+  #[inline]
+  pub fn sieges(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SiegeLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SiegeLine>>>>(Government::VT_SIEGES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Government<'_> {
@@ -31271,6 +31563,7 @@ impl ::flatbuffers::Verifiable for Government<'_> {
     v.visit_table(pos)?
      .visit_field::<i64>("minute", Self::VT_MINUTE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PolityLine>>>>("polities", Self::VT_POLITIES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<SiegeLine>>>>("sieges", Self::VT_SIEGES, false)?
      .finish();
     Ok(())
   }
@@ -31278,6 +31571,7 @@ impl ::flatbuffers::Verifiable for Government<'_> {
 pub struct GovernmentArgs<'a> {
     pub minute: i64,
     pub polities: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PolityLine<'a>>>>>,
+    pub sieges: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SiegeLine<'a>>>>>,
 }
 impl<'a> Default for GovernmentArgs<'a> {
   #[inline]
@@ -31285,6 +31579,7 @@ impl<'a> Default for GovernmentArgs<'a> {
     GovernmentArgs {
       minute: 0,
       polities: None,
+      sieges: None,
     }
   }
 }
@@ -31301,6 +31596,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GovernmentBuilder<'a, 'b, A> 
   #[inline]
   pub fn add_polities(&mut self, polities: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<PolityLine<'b >>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Government::VT_POLITIES, polities);
+  }
+  #[inline]
+  pub fn add_sieges(&mut self, sieges: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<SiegeLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Government::VT_SIEGES, sieges);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GovernmentBuilder<'a, 'b, A> {
@@ -31322,6 +31621,7 @@ impl ::core::fmt::Debug for Government<'_> {
     let mut ds = f.debug_struct("Government");
       ds.field("minute", &self.minute());
       ds.field("polities", &self.polities());
+      ds.field("sieges", &self.sieges());
       ds.finish()
   }
 }

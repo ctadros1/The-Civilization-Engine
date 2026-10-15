@@ -478,6 +478,9 @@ struct RelationLineBuilder;
 struct AgreementLine;
 struct AgreementLineBuilder;
 
+struct SiegeLine;
+struct SiegeLineBuilder;
+
 struct Government;
 struct GovernmentBuilder;
 
@@ -19021,7 +19024,9 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_REFUSALS = 48,
     VT_REVOLTS = 50,
     VT_COUPS = 52,
-    VT_RELATIONS = 54
+    VT_RELATIONS = 54,
+    VT_SETTLEMENTS = 56,
+    VT_ENDED = 58
   };
   uint64_t polity() const {
     return GetField<uint64_t>(VT_POLITY, 0);
@@ -19101,6 +19106,12 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RelationLine>> *relations() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RelationLine>> *>(VT_RELATIONS);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *settlements() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_SETTLEMENTS);
+  }
+  const ::flatbuffers::String *ended() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_ENDED);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -19158,6 +19169,11 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_RELATIONS) &&
            verifier.VerifyVector(relations()) &&
            verifier.VerifyVectorOfTables(relations()) &&
+           VerifyOffset(verifier, VT_SETTLEMENTS) &&
+           verifier.VerifyVector(settlements()) &&
+           verifier.VerifyVectorOfStrings(settlements()) &&
+           VerifyOffset(verifier, VT_ENDED) &&
+           verifier.VerifyString(ended()) &&
            verifier.EndTable();
   }
 };
@@ -19244,6 +19260,12 @@ struct PolityLineBuilder {
   void add_relations(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RelationLine>>> relations) {
     fbb_.AddOffset(PolityLine::VT_RELATIONS, relations);
   }
+  void add_settlements(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> settlements) {
+    fbb_.AddOffset(PolityLine::VT_SETTLEMENTS, settlements);
+  }
+  void add_ended(::flatbuffers::Offset<::flatbuffers::String> ended) {
+    fbb_.AddOffset(PolityLine::VT_ENDED, ended);
+  }
   explicit PolityLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -19282,13 +19304,17 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLine(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> refusals = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> revolts = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coups = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RelationLine>>> relations = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RelationLine>>> relations = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> settlements = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> ended = 0) {
   PolityLineBuilder builder_(_fbb);
   builder_.add_gathering_minute(gathering_minute);
   builder_.add_gathering_law(gathering_law);
   builder_.add_founded_minute(founded_minute);
   builder_.add_settlement(settlement);
   builder_.add_polity(polity);
+  builder_.add_ended(ended);
+  builder_.add_settlements(settlements);
   builder_.add_relations(relations);
   builder_.add_coups(coups);
   builder_.add_revolts(revolts);
@@ -19345,7 +19371,9 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *refusals = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *revolts = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *coups = nullptr,
-    const std::vector<::flatbuffers::Offset<tce::wire::RelationLine>> *relations = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::RelationLine>> *relations = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *settlements = nullptr,
+    const char *ended = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto custom__ = custom ? _fbb.CreateString(custom) : 0;
   auto store__ = store ? _fbb.CreateString(store) : 0;
@@ -19362,6 +19390,8 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
   auto revolts__ = revolts ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*revolts) : 0;
   auto coups__ = coups ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*coups) : 0;
   auto relations__ = relations ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::RelationLine>>(*relations) : 0;
+  auto settlements__ = settlements ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*settlements) : 0;
+  auto ended__ = ended ? _fbb.CreateString(ended) : 0;
   return tce::wire::CreatePolityLine(
       _fbb,
       polity,
@@ -19389,7 +19419,9 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
       refusals__,
       revolts__,
       coups__,
-      relations__);
+      relations__,
+      settlements__,
+      ended__);
 }
 
 struct RelationLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -19633,18 +19665,194 @@ inline ::flatbuffers::Offset<AgreementLine> CreateAgreementLineDirect(
       payments__);
 }
 
+struct SiegeLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef SiegeLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_BAND = 4,
+    VT_FROM = 6,
+    VT_AT = 8,
+    VT_STAGE = 10,
+    VT_WORDS = 12,
+    VT_INSIDE = 14,
+    VT_INSIDE_DAYS = 16,
+    VT_COMES_IN = 18,
+    VT_BAND_FOOD = 20,
+    VT_BAND_DAYS = 22
+  };
+  uint32_t band() const {
+    return GetField<uint32_t>(VT_BAND, 0);
+  }
+  uint64_t from() const {
+    return GetField<uint64_t>(VT_FROM, 0);
+  }
+  uint64_t at() const {
+    return GetField<uint64_t>(VT_AT, 0);
+  }
+  uint8_t stage() const {
+    return GetField<uint8_t>(VT_STAGE, 0);
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  const ::flatbuffers::String *inside() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_INSIDE);
+  }
+  float inside_days() const {
+    return GetField<float>(VT_INSIDE_DAYS, 0.0f);
+  }
+  const ::flatbuffers::String *comes_in() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_COMES_IN);
+  }
+  const ::flatbuffers::String *band_food() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_BAND_FOOD);
+  }
+  float band_days() const {
+    return GetField<float>(VT_BAND_DAYS, 0.0f);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_BAND, 4) &&
+           VerifyField<uint64_t>(verifier, VT_FROM, 8) &&
+           VerifyField<uint64_t>(verifier, VT_AT, 8) &&
+           VerifyField<uint8_t>(verifier, VT_STAGE, 1) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           VerifyOffset(verifier, VT_INSIDE) &&
+           verifier.VerifyString(inside()) &&
+           VerifyField<float>(verifier, VT_INSIDE_DAYS, 4) &&
+           VerifyOffset(verifier, VT_COMES_IN) &&
+           verifier.VerifyString(comes_in()) &&
+           VerifyOffset(verifier, VT_BAND_FOOD) &&
+           verifier.VerifyString(band_food()) &&
+           VerifyField<float>(verifier, VT_BAND_DAYS, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct SiegeLineBuilder {
+  typedef SiegeLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_band(uint32_t band) {
+    fbb_.AddElement<uint32_t>(SiegeLine::VT_BAND, band, 0);
+  }
+  void add_from(uint64_t from) {
+    fbb_.AddElement<uint64_t>(SiegeLine::VT_FROM, from, 0);
+  }
+  void add_at(uint64_t at) {
+    fbb_.AddElement<uint64_t>(SiegeLine::VT_AT, at, 0);
+  }
+  void add_stage(uint8_t stage) {
+    fbb_.AddElement<uint8_t>(SiegeLine::VT_STAGE, stage, 0);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(SiegeLine::VT_WORDS, words);
+  }
+  void add_inside(::flatbuffers::Offset<::flatbuffers::String> inside) {
+    fbb_.AddOffset(SiegeLine::VT_INSIDE, inside);
+  }
+  void add_inside_days(float inside_days) {
+    fbb_.AddElement<float>(SiegeLine::VT_INSIDE_DAYS, inside_days, 0.0f);
+  }
+  void add_comes_in(::flatbuffers::Offset<::flatbuffers::String> comes_in) {
+    fbb_.AddOffset(SiegeLine::VT_COMES_IN, comes_in);
+  }
+  void add_band_food(::flatbuffers::Offset<::flatbuffers::String> band_food) {
+    fbb_.AddOffset(SiegeLine::VT_BAND_FOOD, band_food);
+  }
+  void add_band_days(float band_days) {
+    fbb_.AddElement<float>(SiegeLine::VT_BAND_DAYS, band_days, 0.0f);
+  }
+  explicit SiegeLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<SiegeLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<SiegeLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<SiegeLine> CreateSiegeLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t band = 0,
+    uint64_t from = 0,
+    uint64_t at = 0,
+    uint8_t stage = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> inside = 0,
+    float inside_days = 0.0f,
+    ::flatbuffers::Offset<::flatbuffers::String> comes_in = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> band_food = 0,
+    float band_days = 0.0f) {
+  SiegeLineBuilder builder_(_fbb);
+  builder_.add_at(at);
+  builder_.add_from(from);
+  builder_.add_band_days(band_days);
+  builder_.add_band_food(band_food);
+  builder_.add_comes_in(comes_in);
+  builder_.add_inside_days(inside_days);
+  builder_.add_inside(inside);
+  builder_.add_words(words);
+  builder_.add_band(band);
+  builder_.add_stage(stage);
+  return builder_.Finish();
+}
+
+struct SiegeLine::Traits {
+  using type = SiegeLine;
+  static auto constexpr Create = CreateSiegeLine;
+};
+
+inline ::flatbuffers::Offset<SiegeLine> CreateSiegeLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t band = 0,
+    uint64_t from = 0,
+    uint64_t at = 0,
+    uint8_t stage = 0,
+    const char *words = nullptr,
+    const char *inside = nullptr,
+    float inside_days = 0.0f,
+    const char *comes_in = nullptr,
+    const char *band_food = nullptr,
+    float band_days = 0.0f) {
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  auto inside__ = inside ? _fbb.CreateString(inside) : 0;
+  auto comes_in__ = comes_in ? _fbb.CreateString(comes_in) : 0;
+  auto band_food__ = band_food ? _fbb.CreateString(band_food) : 0;
+  return tce::wire::CreateSiegeLine(
+      _fbb,
+      band,
+      from,
+      at,
+      stage,
+      words__,
+      inside__,
+      inside_days,
+      comes_in__,
+      band_food__,
+      band_days);
+}
+
 struct Government FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef GovernmentBuilder Builder;
   struct Traits;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_MINUTE = 4,
-    VT_POLITIES = 6
+    VT_POLITIES = 6,
+    VT_SIEGES = 8
   };
   int64_t minute() const {
     return GetField<int64_t>(VT_MINUTE, 0);
   }
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PolityLine>> *polities() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PolityLine>> *>(VT_POLITIES);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SiegeLine>> *sieges() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SiegeLine>> *>(VT_SIEGES);
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -19653,6 +19861,9 @@ struct Government FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_POLITIES) &&
            verifier.VerifyVector(polities()) &&
            verifier.VerifyVectorOfTables(polities()) &&
+           VerifyOffset(verifier, VT_SIEGES) &&
+           verifier.VerifyVector(sieges()) &&
+           verifier.VerifyVectorOfTables(sieges()) &&
            verifier.EndTable();
   }
 };
@@ -19666,6 +19877,9 @@ struct GovernmentBuilder {
   }
   void add_polities(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PolityLine>>> polities) {
     fbb_.AddOffset(Government::VT_POLITIES, polities);
+  }
+  void add_sieges(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SiegeLine>>> sieges) {
+    fbb_.AddOffset(Government::VT_SIEGES, sieges);
   }
   explicit GovernmentBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -19681,9 +19895,11 @@ struct GovernmentBuilder {
 inline ::flatbuffers::Offset<Government> CreateGovernment(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     int64_t minute = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PolityLine>>> polities = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::PolityLine>>> polities = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::SiegeLine>>> sieges = 0) {
   GovernmentBuilder builder_(_fbb);
   builder_.add_minute(minute);
+  builder_.add_sieges(sieges);
   builder_.add_polities(polities);
   return builder_.Finish();
 }
@@ -19696,12 +19912,15 @@ struct Government::Traits {
 inline ::flatbuffers::Offset<Government> CreateGovernmentDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     int64_t minute = 0,
-    const std::vector<::flatbuffers::Offset<tce::wire::PolityLine>> *polities = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::PolityLine>> *polities = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::SiegeLine>> *sieges = nullptr) {
   auto polities__ = polities ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::PolityLine>>(*polities) : 0;
+  auto sieges__ = sieges ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::SiegeLine>>(*sieges) : 0;
   return tce::wire::CreateGovernment(
       _fbb,
       minute,
-      polities__);
+      polities__,
+      sieges__);
 }
 
 struct IncidentLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

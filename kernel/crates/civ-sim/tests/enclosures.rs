@@ -871,6 +871,41 @@ fn a_band_camped_by_a_line_that_stays_shut_goes_home_one_by_one() {
     assert!(until_stage(&mut sim, id, BandStage::Camped, 2 * DAY));
     let came = band(&sim, id).arrived.len();
     assert!(came >= 2);
+    // The Government panel's siege page (wire 1.76) shows each side's food at current use and
+    // what goes out by the line, never a measure of progress.
+    let payload = civ_sim::frames::government::government_response(&sim);
+    let info = civ_schema::flatbuffers::root::<civ_schema::wire::Response>(&payload)
+        .expect("a response")
+        .body_as_government()
+        .expect("the government");
+    let sieges = info.sieges().expect("sieges");
+    assert_eq!(sieges.len(), 1);
+    let siege = sieges.get(0);
+    assert_eq!(
+        (siege.band(), siege.from(), siege.at()),
+        (id, a.get(), b.get())
+    );
+    assert_eq!(siege.stage(), 4);
+    let inside = siege.inside().expect("inside");
+    assert!(inside.contains("days of food"), "{inside}");
+    assert!(siege.inside_days() >= 0.0);
+    let comes_in = siege.comes_in().expect("comes in");
+    assert!(comes_in.contains("inside the line"), "{comes_in}");
+    assert!(comes_in.contains("fields lie outside"), "{comes_in}");
+    let band_food = siege.band_food().expect("band food");
+    assert!(band_food.contains("there carry"), "{band_food}");
+    let seats: Vec<Vec<&str>> = info
+        .polities()
+        .expect("polities")
+        .iter()
+        .map(|p| p.settlements().expect("settlements").iter().collect())
+        .collect();
+    assert!(
+        seats
+            .iter()
+            .all(|s| s.len() == 1 && s[0].contains("its seat")),
+        "{seats:?}"
+    );
     // Each chooses when to go; the line never opens: they go home over the following hours and
     // days, not all at once, and nobody is struck.
     let mut seen = Vec::new();

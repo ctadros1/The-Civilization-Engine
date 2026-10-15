@@ -1135,7 +1135,9 @@ impl Population {
             }
             sides.sort_by_key(|s| s.0);
             // Its officeholders: the store's keeper and the watch (09-11 §1.5: administration
-            // and coercion).
+            // and coercion). At a settlement the polity took in, those of them who live there
+            // (ADR-0023 §9: the store kept there and the watch there).
+            let seat = self.polities[pi].settlement == settlement;
             let holders: Vec<PermanentId> = self.polities[pi]
                 .laws
                 .iter()
@@ -1144,6 +1146,12 @@ impl Population {
                         && matches!(l.kind, PolicyKind::KeepStore | PolicyKind::KeepWatch)
                 })
                 .filter_map(|l| l.holder)
+                .filter(|&h| {
+                    seat || self
+                        .person(h)
+                        .and_then(|p| self.household(p.household))
+                        .is_some_and(|x| x.settlement == Some(settlement))
+                })
                 .collect();
             let r = &mut self.factions.revolts[ri];
             r.sides = sides;
@@ -1161,9 +1169,11 @@ impl Population {
     }
 
     /// Revolt `ri` at polity `pi` ends as `end`: held, its body decides from now on, a version
-    /// of the custom taken, not amended (ADR-0017 §1), any amendment in force superseded; or it
-    /// came to nothing. The chronicle says which.
-    fn end_revolt(&mut self, ctx: &Ctx, ri: usize, pi: usize, end: RevoltEnd) {
+    /// of the custom taken, not amended (ADR-0017 §1), any amendment in force superseded; held
+    /// at a settlement `pi` took in rather than at its seat, that settlement is a polity of its
+    /// own under that body (ADR-0023 §9: secession); or it came to nothing. The chronicle says
+    /// which.
+    fn end_revolt(&mut self, ctx: &mut Ctx, ri: usize, pi: usize, end: RevoltEnd) {
         let now = ctx.now;
         let r = &mut self.factions.revolts[ri];
         r.ended = Some((end, now));
@@ -1171,6 +1181,9 @@ impl Population {
         let (place, name) = self.settlement_place(ctx, settlement);
         let who = self.name_of(organizer);
         match end {
+            RevoltEnd::Held if settlement != self.polities[pi].settlement => {
+                self.secede(ctx, pi, settlement, body, organizer);
+            }
             RevoltEnd::Held => {
                 let words = format!(
                     "At {name}, those who stood with {who} took the deciding from the gathering, \
@@ -1194,6 +1207,13 @@ impl Population {
                     words,
                 );
             }
+        }
+    }
+
+    /// For tests: revolt `ri` ends as `end`, at the polity holding its settlement.
+    pub fn end_revolt_for_tests(&mut self, ctx: &mut Ctx, ri: usize, end: RevoltEnd) {
+        if let Some(pi) = self.polity_of(self.factions.revolts[ri].settlement) {
+            self.end_revolt(ctx, ri, pi, end);
         }
     }
 

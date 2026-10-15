@@ -1482,6 +1482,8 @@ const hooks = {
               relations: p.relations,
               petitions: p.petitions,
               refusals: p.refusals,
+              settlements: p.settlements,
+              ended: p.ended,
               laws: p.laws.map((l) => ({
                 what: l.what,
                 status: l.status,
@@ -1491,6 +1493,7 @@ const hooks = {
                 known: l.known,
               })),
             })),
+            sieges: s.government.sieges,
           }
         : null,
       incidentKind: s.incidentKind,

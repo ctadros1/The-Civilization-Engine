@@ -2153,6 +2153,13 @@ table PolityLine {
   // Wire 1.57 (M5c slice AT, ADR-0020 §1): how it stands toward each other lived-in polity, from
   // its own people's side, worked out afterwards and read by nothing in the world.
   relations: [RelationLine] (id: 25);
+  // Wire 1.76 (M6c slice BM, ADR-0023 §9): its settlements with how and when, its seat first, in
+  // words rendered by the kernel ("Oakholt, its seat, since 3 May of year 1"; "Ashford, taken in
+  // on 9 June of year 12 from the polity seated there, by annexation"); and, for a polity whose
+  // deciding closed, how ("taken in by Oakholt's polity on 9 June of year 12, by annexation"), or
+  // empty while it still decides.
+  settlements: [string] (id: 26);
+  ended: string (id: 27);
 }
 
 // One polity's standing toward another (wire 1.57): the other polity and its settlement's name, a
@@ -2184,9 +2191,38 @@ table AgreementLine {
   payments: [string] (id: 5);
 }
 
+// A siege (wire 1.76, ADR-0023 §7 and §11): a band camped by a shut line, or holding the
+// settlement it went to, and each side's food at current use, worked out afterwards and read by
+// nothing in the world. Never a progress measure: the kernel keeps no siege record and no timer.
+table SiegeLine {
+  // The band, the settlement it is of, and the settlement it camps by or holds.
+  band: uint (id: 0);
+  from: ulong (id: 1);
+  at: ulong (id: 2);
+  // 4 camped, 5 holding (the band's stage).
+  stage: ubyte (id: 3);
+  // The band in words, as the map's band brief has it.
+  words: string (id: 4);
+  // Inside: the food of the households of the place it camps by or holds, and the common store
+  // of the polity deciding for it, in days at what their people eat ("its 12 households hold
+  // about 38 days of food for 41 people, and the common store 6 days more"), and the days.
+  inside: string (id: 5);
+  inside_days: float (id: 6);
+  // What still comes in or goes out: water and fields by the line ("no open well inside the
+  // line: every walk to water goes out through a gate; 18 of its 23 fields lie outside it").
+  comes_in: string (id: 7);
+  // The band's own food: what those there carry and what it took, in days for those there, and
+  // what their households at home hold ("14 there carry about 2 days of food and took 3 days'
+  // more; their households at home hold about 50 days").
+  band_food: string (id: 8);
+  band_days: float (id: 9);
+}
+
 table Government {
   minute: long (id: 0);
   polities: [PolityLine] (id: 1);
+  // Wire 1.76 (M6c slice BM): every band camped by a shut line or holding a settlement.
+  sieges: [SiegeLine] (id: 2);
 }
 
 // What happened (the truth layer, ADR-0015 §1): one attempt to take from a household's store.

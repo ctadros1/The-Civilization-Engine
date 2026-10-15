@@ -110,6 +110,7 @@ fn site(sim: &mut Sim, radius_m: f32) -> (Enclosure, u32, u32) {
         crew: (0, 0),
         begun: sim.now(),
         finished: None,
+        upkeep_h: 0.0,
     };
     (enclosure, home, outside)
 }
@@ -471,6 +472,179 @@ fn a_village_raided_weighs_a_palisade_raises_it_by_law_and_its_stretches_stand_a
             .is_none(),
         "a settlement with a line weighs no second"
     );
+    // Raised, it is kept by the law that raised it: a stretch rotted past the mending share is
+    // worked on again, the most rotted first, until its posts are new.
+    let mend = sim.rules().people.enclosures.mend_loss as f32;
+    let k = e(&sim)
+        .sectors
+        .iter()
+        .position(|s| s.gate.is_none())
+        .expect("a wall");
+    {
+        let land = sim.land_mut_for_tests();
+        let i = land.enclosures.position(id).expect("its line");
+        land.enclosures.list[i].sectors[k].loss = mend + 0.2;
+    }
+    let facts = sim
+        .with_ctx_for_tests(|pop, ctx| pop.enclosure_facts_for_tests(ctx, worker))
+        .expect("mending to do");
+    let want = e(&sim).sectors[k].labour_h * (mend + 0.2);
+    assert!((facts.left_h - f64::from(want)).abs() < 1e-2, "{facts:?}");
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.enclosure_work_for_tests(ctx, worker, id, f64::from(want) + 1.0)
+    });
+    assert_eq!(e(&sim).sectors[k].loss, 0.0);
+    assert!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.enclosure_facts_for_tests(ctx, worker))
+            .is_none()
+    );
+}
+
+/// Advances `sim` to the next `minute` of the day.
+fn until(sim: &mut Sim, minute: i64) {
+    let now = sim.now().minute_of_day();
+    let ahead = (minute - now).rem_euclid(DAY);
+    sim.advance_minutes(if ahead == 0 { DAY } else { ahead })
+        .expect("lives");
+}
+
+/// A whole palisade round settlement `s`'s hearth, owned by its polity under law `law`, put in
+/// the world in place of any there.
+fn raise_whole(sim: &mut Sim, s: PermanentId, law: PermanentId) -> PermanentId {
+    let polity = sim
+        .people()
+        .polities
+        .iter()
+        .find(|p| p.settlement == s)
+        .expect("a polity")
+        .id;
+    let hearth = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|x| x.id == s)
+        .expect("settlement")
+        .hearth_m;
+    let ep = sim.rules().people.enclosures.clone();
+    let sectors = ring(
+        hearth,
+        80.0,
+        ep.sector_m as f32,
+        ep.gates as usize,
+        0.0,
+        ep.palisade_h_per_m as f32,
+        sim.map().cell_size_m,
+        sim.map().width,
+        sim.map().height,
+    );
+    let id = sim.allocate_id_for_tests();
+    let mut e = Enclosure {
+        id,
+        owner: polity,
+        law,
+        settlement: s,
+        centre: hearth,
+        radius_m: 80.0,
+        sectors,
+        work_h: 0.0,
+        shares: Vec::new(),
+        crew: (0, 0),
+        begun: sim.now(),
+        finished: Some(sim.now().day_index()),
+        upkeep_h: 0.0,
+    };
+    e.work_h = e.labour_h();
+    lay(sim, &e);
+    id
+}
+
+#[test]
+fn gates_shut_at_dusk_for_those_who_fear_outsiders_and_posts_rot_into_gaps_mended_by_work() {
+    let mut sim = two_villages(3);
+    sim.advance_minutes(DAY).expect("lives");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let (theirs, ours) = (households_of(&sim, a), households_of(&sim, b));
+    let law = sim.allocate_id_for_tests();
+    let id = raise_whole(&mut sim, b, law);
+    let e = |sim: &Sim| {
+        let land = sim.land();
+        land.enclosures.list[land.enclosures.position(id).expect("its line")].clone()
+    };
+    let open = |sim: &Sim| {
+        e(sim)
+            .sectors
+            .iter()
+            .filter_map(|s| s.gate)
+            .filter(|g| g.open)
+            .count()
+    };
+    let gates = e(&sim).sectors.iter().filter(|s| s.gate.is_some()).count();
+    assert!(gates >= 1 && open(&sim) == gates);
+    // At dusk, nobody fearing outsiders: the gates stay open.
+    until(&mut sim, 21 * 60);
+    sim.with_ctx_for_tests(|pop, ctx| pop.keep_gates_for_tests(ctx));
+    assert_eq!(open(&sim), gates);
+    // Every household of the village raided by people of the other, and knowing by whom: at dusk
+    // the household nearest each gate shuts it, and walking is laid again.
+    for &h in &ours {
+        raided(&mut sim, theirs[0], a, h, 5_000.0);
+    }
+    for &h in &ours {
+        assert!(sim.with_ctx_for_tests(|pop, ctx| pop.fears_outsiders_for_tests(ctx, h)));
+    }
+    let before = sim.land().enclosures.revision();
+    sim.with_ctx_for_tests(|pop, ctx| pop.keep_gates_for_tests(ctx));
+    assert_eq!(open(&sim), 0, "all shut for the night");
+    assert_ne!(sim.land().enclosures.revision(), before);
+    let shut_bars = barred(&sim).len();
+    // At first light they are opened again.
+    until(&mut sim, 10 * 60);
+    assert_eq!(open(&sim), gates, "the day's first light opened them");
+    assert!(barred(&sim).len() < shut_bars);
+    // Through the next dusk, kept by the scheduled keeping as the day turns.
+    until(&mut sim, 22 * 60);
+    assert_eq!(open(&sim), 0, "shut again at dusk");
+    saves_and_goes_on_alike(&mut sim, 12 * 60);
+    // Posts rot by the month, a stretch past the mending share asked mending, one rotted through
+    // a gap that bars nothing.
+    let mend = sim.rules().people.enclosures.mend_loss as f32;
+    let k = e(&sim)
+        .sectors
+        .iter()
+        .position(|s| s.gate.is_none())
+        .expect("a wall");
+    {
+        let land = sim.land_mut_for_tests();
+        let i = land.enclosures.position(id).expect("its line");
+        for s in &mut land.enclosures.list[i].sectors {
+            s.loss = mend - 0.001;
+        }
+        land.enclosures.list[i].sectors[k].loss = 0.999;
+    }
+    let before = sim.land().enclosures.revision();
+    sim.with_ctx_for_tests(|pop, ctx| pop.wear_enclosures_for_tests(ctx));
+    let now = e(&sim);
+    assert!(now.sectors[k].gap(), "rotted through");
+    assert!(now.sectors.iter().all(|s| s.loss >= mend));
+    assert!(now.upkeep_h > 0.0 && now.mend_h(mend) > 0.0);
+    assert_ne!(sim.land().enclosures.revision(), before);
+    let bars_k = now.sectors[k].cells.clone();
+    assert!(barred(&sim).iter().all(|c| !bars_k.contains(c) || {
+        // A cell another standing stretch shares still bars.
+        now.sectors
+            .iter()
+            .enumerate()
+            .any(|(j, s)| j != k && now.bars(j) && s.cells.contains(c))
+    }));
+    // Mending the gap first closes it.
+    let worker = sim.people().household(ours[0]).expect("household").members[0];
+    let before = sim.land().enclosures.revision();
+    let need = f64::from(now.sectors[k].labour_h);
+    sim.with_ctx_for_tests(|pop, ctx| pop.enclosure_work_for_tests(ctx, worker, id, need));
+    assert!(!e(&sim).sectors[k].gap());
+    assert_ne!(sim.land().enclosures.revision(), before);
+    assert!(e(&sim).worked_by(ours[0]) > 0.0);
+    assert!(sim.land().enclosures.problems().is_empty());
 }
 
 /// Saves `sim`, loads it, and checks every section of the loaded world is the same, and that the

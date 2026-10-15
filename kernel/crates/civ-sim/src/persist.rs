@@ -355,6 +355,8 @@ pub const SCHEMA_V111: u32 = 111;
 pub const SCHEMA_V112: u32 = 112;
 /// Enclosures on the walking grid, before palisades raised by law.
 pub const SCHEMA_V113: u32 = 113;
+/// Palisades raised by law, before gates kept and posts rotting.
+pub const SCHEMA_V114: u32 = 114;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

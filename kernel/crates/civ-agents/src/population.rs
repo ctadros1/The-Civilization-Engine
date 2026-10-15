@@ -176,6 +176,9 @@ pub enum AgentEvent {
     /// Those about look at the bands walking (M6c slice BJ, ADR-0023 §8): one is pending
     /// whenever a band is out.
     BandLook,
+    /// Gates are kept (M6c slice BK, step three): at first light each is opened, and at dusk the
+    /// household nearest each chooses whether to shut it for the night.
+    Gates,
 }
 
 /// The approximations the kernel makes as it advances (ADR-0011 §4), each on or off on its own.
@@ -1511,6 +1514,7 @@ impl Population {
             AgentEvent::Fire => self.fire_minute(ctx),
             AgentEvent::Ignite { building } => self.ignite(ctx, building),
             AgentEvent::BandLook => self.band_look(ctx),
+            AgentEvent::Gates => self.keep_gates(ctx),
         }
     }
 
@@ -5856,6 +5860,8 @@ impl Population {
 
     pub fn on_day(&mut self, ctx: &mut Ctx) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        // Gates are opened at first light and kept at dusk (M6c slice BK).
+        self.schedule_gates(ctx);
         // Households see their options afresh each day (ADR-0011 §4), and a leisure block that
         // runs past midnight ends in a decision made afresh: nobody decides between midnight's
         // day of work and the day's first event, so a save there loses nothing.
@@ -5970,6 +5976,8 @@ impl Population {
         // weather just lived goes into the chronicle (ADR-0012).
         if now.date().day == 1 {
             self.wear_buildings(ctx);
+            // A month's rot at the foot of every palisade's posts (M6c slice BK).
+            self.wear_enclosures(ctx);
             // Each household's midden grows with its members and wastes (M3c slice V).
             for (_, h) in self.households.iter_mut() {
                 let members = h.members.len();

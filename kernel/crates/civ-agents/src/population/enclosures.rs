@@ -174,6 +174,7 @@ impl Population {
             crew: (0, 0),
             begun: ctx.now,
             finished: None,
+            upkeep_h: 0.0,
         });
         if let Some(s) = self.polities[pi].enclosures.iter_mut().find(|s| s.0 == law) {
             s.1.work = Some(id);
@@ -208,12 +209,12 @@ impl Population {
         let settlement = x.settlement?;
         let pi = self.polity_of(settlement)?;
         let polity = &self.polities[pi];
-        let e = ctx
-            .land
-            .enclosures
-            .list
-            .iter()
-            .find(|e| e.settlement == settlement && e.owner == polity.id && !e.whole())?;
+        let mend_loss = ctx.params.enclosures.mend_loss as f32;
+        let e = ctx.land.enclosures.list.iter().find(|e| {
+            e.settlement == settlement
+                && e.owner == polity.id
+                && (!e.whole() || e.mend_h(mend_loss) > 0.0)
+        })?;
         let law = polity.laws.iter().find(|l| {
             l.id == e.law
                 && l.status == LawStatus::InForce
@@ -221,11 +222,26 @@ impl Population {
                 && l.knows(person)
         })?;
         let labour = f64::from(e.labour_h());
-        let left_h = (labour - f64::from(e.work_h)).max(0.0);
-        // The first stretch still to stand that they can walk to (one across water is worked
-        // from the nearest the work can be reached; its posts are set in order all the same).
+        let whole = e.whole();
+        // Being raised: the work left. Raised: the mending its rotted stretches want (step
+        // three; ADR-0023 §6: upkeep as work orders, kept by the law that raised it).
+        let left_h = if whole {
+            f64::from(e.mend_h(mend_loss))
+        } else {
+            (labour - f64::from(e.work_h)).max(0.0)
+        };
+        // The first stretch still to stand that they can walk to, or, raised, the stretches that
+        // want mending, the most rotted first (one across water is worked from the nearest the
+        // work can be reached; its posts are set in order all the same).
         let reach = &self.homes.get(&field_key)?.reach;
-        let (at, walk_s) = e.sectors.iter().skip(e.standing()).find_map(|s| {
+        let order: Vec<&civ_land::enclosures::Sector> = if whole {
+            let mut v: Vec<_> = e.sectors.iter().filter(|s| s.loss >= mend_loss).collect();
+            v.sort_by(|a, b| b.loss.total_cmp(&a.loss));
+            v
+        } else {
+            e.sectors.iter().skip(e.standing()).collect()
+        };
+        let (at, walk_s) = order.into_iter().find_map(|s| {
             let at = ((s.a.0 + s.b.0) / 2.0, (s.a.1 + s.b.1) / 2.0);
             Some((at, reach.seconds_to(cell_of(ctx.map, at))?))
         })?;
@@ -235,7 +251,7 @@ impl Population {
             .filter(|(_, y)| y.settlement == Some(settlement) && !y.members.is_empty())
             .count()
             .max(1);
-        let share = labour / households as f64;
+        let share = (labour + f64::from(e.upkeep_h)) / households as f64;
         let mut duty = 0.0;
         if f64::from(e.worked_by(x.id)) + 1e-6 < share {
             let stance = law
@@ -253,8 +269,15 @@ impl Population {
         let unbuilt_m: f64 = e
             .sectors
             .iter()
-            .skip(e.standing())
-            .map(|s| f64::from(s.length_m()))
+            .enumerate()
+            .filter(|(i, s)| {
+                if whole {
+                    s.loss >= mend_loss
+                } else {
+                    *i >= e.standing()
+                }
+            })
+            .map(|(_, s)| f64::from(s.length_m()))
             .sum();
         let room = (unbuilt_m / ctx.params.enclosures.front_m.max(1e-6))
             .floor()
@@ -299,15 +322,22 @@ impl Population {
         enclosure: PermanentId,
         hours: f64,
     ) {
-        let Some(i) = ctx
-            .land
-            .enclosures
-            .position(enclosure)
-            .filter(|&i| !ctx.land.enclosures.list[i].whole())
-        else {
+        let Some(i) = ctx.land.enclosures.position(enclosure) else {
             return;
         };
+        let mend_loss = ctx.params.enclosures.mend_loss as f32;
         let e = &mut ctx.land.enclosures.list[i];
+        // Raised: the hours go to mending its most rotted stretch (step three).
+        if e.whole() {
+            let (used, closed) = e.mend(hours as f32, mend_loss);
+            if used > 0.0 {
+                e.add_share(household, used);
+            }
+            if closed {
+                ctx.land.enclosures.changed();
+            }
+            return;
+        }
         let before = e.standing();
         let left = (e.labour_h() - e.work_h).max(0.0);
         let done = (hours as f32).min(left);
@@ -367,6 +397,164 @@ impl Population {
             return;
         };
         self.enclosure_work(ctx, who, household, enclosure, hours);
+    }
+
+    /// Schedules today's keeping of gates (M6c slice BK, step three), at first light and at
+    /// dusk, while any stretch that stands is a gate.
+    pub(super) fn schedule_gates(&mut self, ctx: &mut Ctx) {
+        let any = ctx.land.enclosures.list.iter().any(|e| {
+            e.sectors
+                .iter()
+                .take(e.standing())
+                .any(|s| s.gate.is_some())
+        });
+        if !any {
+            return;
+        }
+        let doy = civ_land::day_of_year(ctx.now.day_index());
+        let (rise, set) = crate::needs::daylight(ctx.params.latitude_deg, doy);
+        let start = ctx.now.plus_minutes(-ctx.now.minute_of_day());
+        ctx.schedule
+            .push((start.plus_minutes(rise.max(1)), AgentEvent::Gates));
+        ctx.schedule
+            .push((start.plus_minutes(set.max(rise + 1)), AgentEvent::Gates));
+    }
+
+    /// Whether household `h` believes people of other settlements took from it or raided its
+    /// settlement within the last `enclosures.alarm_days`: a taking its members know who did, by
+    /// someone of another settlement, or a raid on its settlement heard of and still news.
+    pub(super) fn fears_outsiders(&self, ctx: &Ctx, h: PermanentId) -> bool {
+        let Some(x) = self.household(h) else {
+            return false;
+        };
+        let since = ctx.now.day_index() - i64::from(ctx.params.enclosures.alarm_days);
+        let taken = self
+            .order
+            .amounts
+            .iter()
+            .rev()
+            .take_while(|a| a.day >= since)
+            .filter(|a| a.household == h && a.lost)
+            .any(|a| {
+                self.order
+                    .incident(a.incident)
+                    .is_some_and(|i| i.across.is_some())
+                    && x.members.iter().any(|&m| {
+                        self.order
+                            .belief(m, a.incident)
+                            .is_some_and(|b| b.taker.is_some())
+                    })
+            });
+        taken || x.settlement.is_some_and(|s| self.raids_believed(h, s) > 0)
+    }
+
+    /// The keeping of every palisade's gates (M6c slice BK, step three; ADR-0023 §6): at first
+    /// light each gate that stands is opened; at dusk the household whose home is nearest each
+    /// shuts it for the night if it believes people of other settlements took from it or raided
+    /// its settlement lately. Walking is laid again wherever a gate changed.
+    pub(super) fn keep_gates(&mut self, ctx: &mut Ctx) {
+        let doy = civ_land::day_of_year(ctx.now.day_index());
+        let (rise, set) = crate::needs::daylight(ctx.params.latitude_deg, doy);
+        let minute = ctx.now.minute_of_day();
+        let dusk = minute >= (rise + set) / 2;
+        let mut changed = false;
+        for i in 0..ctx.land.enclosures.list.len() {
+            let e = &ctx.land.enclosures.list[i];
+            let standing = e.standing();
+            let settlement = e.settlement;
+            let gates: Vec<(usize, (f32, f32))> = e
+                .sectors
+                .iter()
+                .enumerate()
+                .take(standing)
+                .filter(|(_, s)| s.gate.is_some())
+                .map(|(k, s)| (k, ((s.a.0 + s.b.0) / 2.0, (s.a.1 + s.b.1) / 2.0)))
+                .collect();
+            for (k, at) in gates {
+                let shut = dusk && {
+                    let keeper = self
+                        .households
+                        .iter()
+                        .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                        .map(|(_, x)| {
+                            let d = (x.home.0 - at.0).hypot(x.home.1 - at.1);
+                            (d, x.id)
+                        })
+                        .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+                    keeper.is_some_and(|(_, h)| self.fears_outsiders(ctx, h))
+                };
+                if let Some(g) = &mut ctx.land.enclosures.list[i].sectors[k].gate
+                    && g.open == shut
+                {
+                    g.open = !shut;
+                    changed = true;
+                }
+            }
+        }
+        if changed {
+            ctx.land.enclosures.changed();
+        }
+    }
+
+    /// A month's rot at the foot of every palisade's posts (M6c slice BK, step three): each
+    /// standing stretch loses `enclosures.rot_per_year` of a year's share of its posts' section,
+    /// as wet as its ground and as the month just lived was against its usual. A stretch that
+    /// crosses `enclosures.mend_loss` has its mending asked of the line's households; one rotted
+    /// through is a gap, and walking is laid again.
+    pub(super) fn wear_enclosures(&mut self, ctx: &mut Ctx) {
+        if ctx.land.enclosures.list.is_empty() {
+            return;
+        }
+        let ep = &ctx.params.enclosures;
+        let rain = ctx
+            .land
+            .weather
+            .last_month_wetness(&ctx.land.climatology)
+            .unwrap_or(1.0);
+        let per_month = (ep.rot_per_year / 12.0 * rain) as f32;
+        let mend_loss = ep.mend_loss as f32;
+        let mut gapped_any = false;
+        for i in 0..ctx.land.enclosures.list.len() {
+            let wet: Vec<f32> = ctx.land.enclosures.list[i]
+                .sectors
+                .iter()
+                .map(|s| {
+                    let mid = ((s.a.0 + s.b.0) / 2.0, (s.a.1 + s.b.1) / 2.0);
+                    let cell = cell_of(ctx.map, mid);
+                    let patches = &ctx.land.patches;
+                    patches
+                        .class
+                        .get(patches.of_cell(cell, ctx.map.width))
+                        .and_then(|&c| ctx.land_params.habitats.get(usize::from(c)))
+                        .map_or(1.0, |h| h.wetness) as f32
+                })
+                .collect();
+            let e = &mut ctx.land.enclosures.list[i];
+            let (asked, gapped) = e.rot_month(per_month, mend_loss, |k| wet[k]);
+            e.upkeep_h += asked;
+            gapped_any |= gapped;
+        }
+        if gapped_any {
+            ctx.land.enclosures.changed();
+        }
+    }
+
+    /// Whether household `h` fears people of other settlements now: for tests.
+    #[doc(hidden)]
+    pub fn fears_outsiders_for_tests(&self, ctx: &Ctx, h: PermanentId) -> bool {
+        self.fears_outsiders(ctx, h)
+    }
+
+    /// A month's rot on every palisade, as on the first of a month: for tests.
+    #[doc(hidden)]
+    pub fn wear_enclosures_for_tests(&mut self, ctx: &mut Ctx) {
+        self.wear_enclosures(ctx);
+    }
+
+    /// The keeping of gates now, as at first light or dusk: for tests.
+    #[doc(hidden)]
+    pub fn keep_gates_for_tests(&mut self, ctx: &mut Ctx) {
+        self.keep_gates(ctx);
     }
 
     /// Where settlement `settlement`'s people could raise a palisade together now, and what each

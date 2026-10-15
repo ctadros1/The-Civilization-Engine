@@ -2069,7 +2069,7 @@ table FactionsSave {
 // Schema 88 (M6b slice BC): FireStep, a minute of every fire burning, pending whenever one burns.
 // Schema 89 (M6b slice BD): Ignite, a home's fires in use may escape (`person` holds the
 // building's id).
-enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3 }
+enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3, Gates = 4 }
 
 table PendingEvent {
   at: long (id: 0);
@@ -2341,6 +2341,8 @@ table EnclosureSave {
   crew: ubyte (id: 10);
   begun: long (id: 11);
   finished: long = -1 (id: 12);
+  // Schema 115: the hours of mending its households have been asked since it was raised.
+  upkeep_h: float (id: 13);
 }
 
 // Every crossing, in the order begun, and the revision of their states (schema 68).

@@ -66,6 +66,9 @@ pub struct Enclosure {
     pub begun: SimTime,
     /// The day its last sector stood, if it has.
     pub finished: Option<i64>,
+    /// The hours of mending its households have been asked since it was raised: each stretch's
+    /// posts reset when they had rotted a set share through (M6c slice BK, step three).
+    pub upkeep_h: f32,
 }
 
 impl Enclosure {
@@ -114,6 +117,66 @@ impl Enclosure {
             Ok(i) => self.shares[i].1 += hours,
             Err(i) => self.shares.insert(i, (household, hours)),
         }
+    }
+
+    /// The hours of mending it wants now: each standing stretch whose posts have rotted
+    /// `mend_loss` or more through, at that share of its work.
+    pub fn mend_h(&self, mend_loss: f32) -> f32 {
+        self.sectors
+            .iter()
+            .take(self.standing())
+            .filter(|s| s.loss >= mend_loss)
+            .map(|s| s.labour_h * s.loss)
+            .sum()
+    }
+
+    /// A month's rot at the foot of each standing stretch's posts, `per_month` of them through
+    /// each month at a wetness of one, at the wetness `wet(i)` of stretch `i`'s ground. Returns
+    /// the hours of mending newly wanted (stretches that crossed `mend_loss` this month) and
+    /// whether any stretch rotted through into a gap.
+    pub fn rot_month(
+        &mut self,
+        per_month: f32,
+        mend_loss: f32,
+        wet: impl Fn(usize) -> f32,
+    ) -> (f32, bool) {
+        let standing = self.standing();
+        let (mut asked, mut gapped) = (0.0, false);
+        for (i, s) in self.sectors.iter_mut().enumerate().take(standing) {
+            let before = s.loss;
+            s.loss = (s.loss + per_month * wet(i).max(0.0)).min(1.0);
+            if before < mend_loss && s.loss >= mend_loss {
+                asked += s.labour_h * s.loss;
+            }
+            if before < 1.0 && s.loss >= 1.0 {
+                gapped = true;
+            }
+        }
+        (asked, gapped)
+    }
+
+    /// `hours` of mending on its most rotted standing stretch that wants it: its posts reset as
+    /// far as those hours go (all of its rot once a whole stretch's share of the work is done).
+    /// Returns the hours used and whether a gap was closed.
+    pub fn mend(&mut self, hours: f32, mend_loss: f32) -> (f32, bool) {
+        let standing = self.standing();
+        let Some(s) = self
+            .sectors
+            .iter_mut()
+            .take(standing)
+            .filter(|s| s.loss >= mend_loss)
+            .max_by(|a, b| a.loss.total_cmp(&b.loss))
+        else {
+            return (0.0, false);
+        };
+        let was_gap = s.gap();
+        let need = s.labour_h * s.loss;
+        let used = hours.min(need).max(0.0);
+        s.loss = (s.loss - used / s.labour_h.max(1e-6)).max(0.0);
+        if s.loss < 1e-4 {
+            s.loss = 0.0;
+        }
+        (used, was_gap && !s.gap())
     }
 
     /// Whether point `p` lies inside its line (the circle it is drawn round).
@@ -189,6 +252,9 @@ impl Enclosures {
                     out.push(format!("enclosure {} has a malformed sector", e.id));
                     break;
                 }
+            }
+            if !(e.upkeep_h.is_finite() && e.upkeep_h >= 0.0) {
+                out.push(format!("enclosure {} has its upkeep malformed", e.id));
             }
             if !e.shares.windows(2).all(|w| w[0].0 < w[1].0) {
                 out.push(format!("enclosure {} has its shares out of order", e.id));
@@ -268,6 +334,7 @@ mod tests {
             crew: (0, 0),
             begun: SimTime::from_minutes(0),
             finished: None,
+            upkeep_h: 0.0,
         }
     }
 
@@ -318,5 +385,38 @@ mod tests {
         assert!(all.problems().is_empty(), "{:?}", all.problems());
         all.changed();
         assert_eq!(all.revision(), 1);
+    }
+
+    #[test]
+    fn posts_rot_by_the_wetness_of_their_ground_are_asked_mending_and_mend() {
+        let mut e = enclosure(ring(
+            (500.0, 500.0),
+            60.0,
+            20.0,
+            2,
+            0.0,
+            2.0,
+            10.0,
+            100,
+            100,
+        ));
+        e.work_h = e.sectors[0].labour_h + e.sectors[1].labour_h;
+        assert_eq!(e.standing(), 2);
+        // Only what stands rots, the wetter ground faster.
+        let (asked, gapped) = e.rot_month(0.3, 0.5, |i| if i == 0 { 2.0 } else { 1.0 });
+        assert!(!gapped && asked > 0.0);
+        assert!((e.sectors[0].loss - 0.6).abs() < 1e-6 && (e.sectors[1].loss - 0.3).abs() < 1e-6);
+        assert_eq!(e.sectors[2].loss, 0.0);
+        assert!((asked - e.sectors[0].labour_h * 0.6).abs() < 1e-3);
+        assert!((e.mend_h(0.5) - asked).abs() < 1e-3);
+        // Rotted through: a gap, barring nothing.
+        let (_, gapped) = e.rot_month(0.3, 0.5, |_| 2.0);
+        assert!(gapped && e.sectors[0].gap() && !e.bars(0));
+        // Mending the worst first closes the gap.
+        let need = e.sectors[0].labour_h;
+        let (used, closed) = e.mend(need * 2.0, 0.5);
+        assert!((used - need).abs() < 1e-3 && closed);
+        assert_eq!(e.sectors[0].loss, 0.0);
+        assert!(e.bars(1) || e.sectors[1].gate.is_some());
     }
 }

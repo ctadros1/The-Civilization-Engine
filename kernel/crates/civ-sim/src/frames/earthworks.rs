@@ -33,6 +33,10 @@ pub fn earthworks_rev(sim: &Sim) -> u64 {
     enclosures.revision().hash(&mut hasher);
     for e in &enclosures.list {
         (e.id.get(), e.work_h.to_bits(), e.sectors.len()).hash(&mut hasher);
+        // Rot at the posts' foot, month by month (step three).
+        for sector in &e.sectors {
+            sector.loss.to_bits().hash(&mut hasher);
+        }
     }
     for w in works {
         let building = building_on(sim, w).map_or(0, |b| b.id.get());
@@ -226,6 +230,9 @@ pub fn earthworks_response(sim: &Sim) -> Vec<u8> {
                 (2, _) => "rotted through: a gap".to_owned(),
                 (_, 1) => "a gate, open".to_owned(),
                 (_, 2) => "a gate, shut".to_owned(),
+                _ if s.loss >= 0.25 => {
+                    format!("standing, its posts {:.0}% rotted through", s.loss * 100.0)
+                }
                 _ => "standing".to_owned(),
             };
             let text = fbb.create_string(&format!(

@@ -100,6 +100,9 @@ pub(crate) struct EnclosuresFile {
     pub cover: f64,
     pub front_m: f64,
     pub crossings_a_day: f64,
+    pub rot_per_year: f64,
+    pub mend_loss: f64,
+    pub alarm_days: u32,
 }
 
 impl EnclosuresFile {
@@ -115,6 +118,9 @@ impl EnclosuresFile {
             cover: self.cover,
             front_m: self.front_m,
             crossings_a_day: self.crossings_a_day,
+            rot_per_year: self.rot_per_year,
+            mend_loss: self.mend_loss,
+            alarm_days: self.alarm_days,
         }
     }
 
@@ -139,10 +145,18 @@ impl EnclosuresFile {
                 0.0,
                 100.0,
             ),
+            ("enclosures.rot_per_year", self.rot_per_year, 0.0, 1.0),
+            ("enclosures.mend_loss", self.mend_loss, 0.05, 1.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
             }
+        }
+        if self.alarm_days > 3650 {
+            p.push(format!(
+                "`enclosures.alarm_days` must be at most 3650 (got {})",
+                self.alarm_days
+            ));
         }
         if !(1..=12).contains(&self.gates) {
             p.push(format!(

@@ -2086,6 +2086,12 @@ suite, clippy and all ten smoke worlds before it was pushed.
   keeps them and the gathering's word, and each stretch stands as its posts are set. Save schema
   114, content API 100.
 
+- *Step three:* gates and upkeep. At first light the gates open; at dusk the household nearest
+  each shuts it if it fears people of other settlements. Posts rot month by month by the wetness
+  of their ground; a stretch half rotted is asked mending, one rotted through is a gap; the law
+  that raised the line keeps it, its people mending the worst stretch first. Save schema 115,
+  content API 101.
+
 **Found:** in a village still building its homes and breaking its fields, nobody leaves that work
 for the palisade in its first days: the gathering's word is worth 1-2 points against 3-5.
 
@@ -2093,6 +2099,8 @@ for the palisade in its first days: the gathering's word is worth 1-2 points aga
 way out with the line unbuilt, whole with its gate open, shut, and rotted through, the
 observer's sector entries, and a save and load that goes on alike; and in two villages, one raided
 weighs a palisade, proposes and passes it, and works it stretch by stretch to the chronicle.
-`decide.rs` checks the work is weighed by what it keeps and the gathering's word.
+`decide.rs` checks the work is weighed by what it keeps and the gathering's word. A third test
+shuts the gates at dusk when every household fears outsiders, opens them at first light, keeps
+them through a scheduled dusk and a save, and rots a stretch into a gap that work mends.
 
-**Open:** a gate's keeper, climbing seen, rot and upkeep (step three).
+**Open:** a climb being seen, a keeper by the watch, ditch-and-bank lines, sieges (BL).

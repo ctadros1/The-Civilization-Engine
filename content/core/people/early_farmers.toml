@@ -1312,3 +1312,11 @@ life_years = 15.0
 cover = 0.5
 crossings_a_day = 4.0
 front_m = 4.0
+# Posts rot at the foot: `rot_per_year` of their section through in a year in ground of wetness
+# one (11-11 §2.2: 5, 15 and 30 years as scenarios; fifteen), faster in wetter ground and wetter
+# months. A stretch rotted `mend_loss` through is asked mending while the law that raised the line
+# is in force; one rotted through is a gap. A household that believes people of other settlements
+# took from it or raided it within `alarm_days` shuts the gate nearest its home at dusk.
+rot_per_year = 0.0667
+mend_loss = 0.5
+alarm_days = 60

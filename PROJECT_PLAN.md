@@ -2801,8 +2801,21 @@ and M6a gives rivers a daily flow.
       (`PolitySave.enclosures`, `enclosure_saves`; target kind `Enclosure`), content API 100. A
       finding: in a village still building its homes and breaking its fields, the gathering's
       word (about 1-2 points) does not draw anyone from that work (3-5 points) in its first
-      days. **Not yet built:** a gate's keeper, a climb being seen, rot and upkeep (step three);
-      ditch-and-bank lines and work owed in days.
+      days.
+    - *As built, step three:* gates kept, posts rotting, upkeep. Each day at first light every
+      gate that stands is opened; at dusk the household whose home is nearest each shuts it
+      for the night if it believes people of other settlements took from it or raided its
+      settlement within `enclosures.alarm_days` (60). Posts rot at the foot month by month,
+      `rot_per_year` (1/15) of their section in ground of wetness one, as wet as the stretch's
+      ground and the month just lived; a stretch crossing `mend_loss` (0.5) has its mending
+      asked of the line's households (its share of the work, added to what each is asked), and
+      one rotted through is a gap that bars nothing until mended. The law that raised the line
+      keeps it: while it is in force its people choose mending as they chose building, the
+      most rotted stretch first. The observer's words for a stretch tell how far its posts have
+      rotted. Save schema 115 (`EnclosureSave.upkeep_h`, event kind `Gates`), content API
+      101. **Not yet built:** a climb being seen (a band's people are seen by those about, as
+      before, but nobody watches a line); a keeper by the watch; ditch-and-bank lines and work
+      owed in days; a law that keeps a line some other law raised.
   - **BL**: sieges and terms after force.
     - Camps; a band stays by a shut line, takes what lies outside and stops those it sees leave.
     - Endurance from stores and water as a derived measure; entry by a gate opened, a gap, a

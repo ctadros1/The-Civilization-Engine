@@ -32,6 +32,14 @@ pub struct EnclosureParams {
     pub front_m: f64,
     /// Times a day a household's people pass through the line, each going round to a gate.
     pub crossings_a_day: f64,
+    /// The share of a post's section rot takes at the foot in a year, in ground of wetness one
+    /// (step three; 11-11 §2.2: 5, 15 and 30 years as scenarios for timber's life).
+    pub rot_per_year: f64,
+    /// The share rotted through at which a stretch is asked mending.
+    pub mend_loss: f64,
+    /// Days a household that believes people of other settlements took from it or raided it
+    /// keeps the gate nearest its home shut at night.
+    pub alarm_days: u32,
 }
 
 impl EnclosureParams {
@@ -48,6 +56,9 @@ impl EnclosureParams {
             cover: 0.5,
             front_m: 4.0,
             crossings_a_day: 4.0,
+            rot_per_year: 1.0 / 15.0,
+            mend_loss: 0.5,
+            alarm_days: 60,
         }
     }
 }

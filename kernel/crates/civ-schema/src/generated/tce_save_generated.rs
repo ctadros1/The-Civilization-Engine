@@ -1421,14 +1421,15 @@ impl ::flatbuffers::SimpleToVerifyInSlice for TradeChannel {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_EVENT_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_EVENT_KIND: u8 = 3;
+pub const ENUM_MAX_EVENT_KIND: u8 = 4;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_EVENT_KIND: [EventKind; 4] = [
+pub const ENUM_VALUES_EVENT_KIND: [EventKind; 5] = [
   EventKind::AgentStep,
   EventKind::FireStep,
   EventKind::Ignite,
   EventKind::BandLook,
+  EventKind::Gates,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1440,14 +1441,16 @@ impl EventKind {
   pub const FireStep: Self = Self(1);
   pub const Ignite: Self = Self(2);
   pub const BandLook: Self = Self(3);
+  pub const Gates: Self = Self(4);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 3;
+  pub const ENUM_MAX: u8 = 4;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::AgentStep,
     Self::FireStep,
     Self::Ignite,
     Self::BandLook,
+    Self::Gates,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1456,6 +1459,7 @@ impl EventKind {
       Self::FireStep => Some("FireStep"),
       Self::Ignite => Some("Ignite"),
       Self::BandLook => Some("BandLook"),
+      Self::Gates => Some("Gates"),
       _ => None,
     }
   }
@@ -41754,6 +41758,7 @@ impl<'a> EnclosureSave<'a> {
   pub const VT_CREW: ::flatbuffers::VOffsetT = 24;
   pub const VT_BEGUN: ::flatbuffers::VOffsetT = 26;
   pub const VT_FINISHED: ::flatbuffers::VOffsetT = 28;
+  pub const VT_UPKEEP_H: ::flatbuffers::VOffsetT = 30;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -41772,6 +41777,7 @@ impl<'a> EnclosureSave<'a> {
     builder.add_law(args.law);
     builder.add_owner(args.owner);
     builder.add_id(args.id);
+    builder.add_upkeep_h(args.upkeep_h);
     if let Some(x) = args.shares { builder.add_shares(x); }
     builder.add_work_h(args.work_h);
     if let Some(x) = args.sectors { builder.add_sectors(x); }
@@ -41873,6 +41879,13 @@ impl<'a> EnclosureSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(EnclosureSave::VT_FINISHED, Some(-1)).unwrap()}
   }
+  #[inline]
+  pub fn upkeep_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(EnclosureSave::VT_UPKEEP_H, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for EnclosureSave<'_> {
@@ -41894,6 +41907,7 @@ impl ::flatbuffers::Verifiable for EnclosureSave<'_> {
      .visit_field::<u8>("crew", Self::VT_CREW, false)?
      .visit_field::<i64>("begun", Self::VT_BEGUN, false)?
      .visit_field::<i64>("finished", Self::VT_FINISHED, false)?
+     .visit_field::<f32>("upkeep_h", Self::VT_UPKEEP_H, false)?
      .finish();
     Ok(())
   }
@@ -41912,6 +41926,7 @@ pub struct EnclosureSaveArgs<'a> {
     pub crew: u8,
     pub begun: i64,
     pub finished: i64,
+    pub upkeep_h: f32,
 }
 impl<'a> Default for EnclosureSaveArgs<'a> {
   #[inline]
@@ -41930,6 +41945,7 @@ impl<'a> Default for EnclosureSaveArgs<'a> {
       crew: 0,
       begun: 0,
       finished: -1,
+      upkeep_h: 0.0,
     }
   }
 }
@@ -41992,6 +42008,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EnclosureSaveBuilder<'a, 'b, 
     self.fbb_.push_slot::<i64>(EnclosureSave::VT_FINISHED, finished, -1);
   }
   #[inline]
+  pub fn add_upkeep_h(&mut self, upkeep_h: f32) {
+    self.fbb_.push_slot::<f32>(EnclosureSave::VT_UPKEEP_H, upkeep_h, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EnclosureSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     EnclosureSaveBuilder {
@@ -42022,6 +42042,7 @@ impl ::core::fmt::Debug for EnclosureSave<'_> {
       ds.field("crew", &self.crew());
       ds.field("begun", &self.begun());
       ds.field("finished", &self.finished());
+      ds.field("upkeep_h", &self.upkeep_h());
       ds.finish()
   }
 }

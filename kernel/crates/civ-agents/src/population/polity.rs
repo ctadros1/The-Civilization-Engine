@@ -1788,9 +1788,14 @@ impl Population {
                     }
                     // A band against the settlement whose people raided their household lately,
                     // as its members know it, led by the one who proposes it (M6c slice BJ).
+                    // Not while their polity's word against raiding that settlement is in force,
+                    // as they know it (M6c slice BL).
                     PolicyKind::SendBand => {
                         let since = day - i64::from(params.crime.remember_days);
-                        if let Some(at) = self.raiders_known(own, since) {
+                        if let Some(at) = self
+                            .raiders_known(own, since)
+                            .filter(|&at| self.word_against_raiding(d, at).is_none())
+                        {
                             moves.push(MoveOption {
                                 nominee: Some(d),
                                 target: Some(at),

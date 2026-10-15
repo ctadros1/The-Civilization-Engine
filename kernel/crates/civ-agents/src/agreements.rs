@@ -26,6 +26,10 @@ pub enum Clause {
         kg: u32,
         every_days: u32,
     },
+    /// The polity on side `from` binds its people not to raid the other's, and hears a raid on
+    /// them as a case before its own gathering (M6c slice BL, ADR-0023 §8): no raids, and takings
+    /// heard. Both sides' together are a truce.
+    NoRaids { from: u8 },
 }
 
 impl Clause {
@@ -35,14 +39,15 @@ impl Clause {
             Clause::Leave { from } => (0, from),
             Clause::Gift { from, .. } => (1, from),
             Clause::Transfer { from, .. } => (2, from),
+            Clause::NoRaids { from } => (3, from),
         }
     }
 
     /// What it gives, in saves: the good, the kilograms and the days between payments (0 for
-    /// leave, and for a gift's days).
+    /// leave and no raids, and for a gift's days).
     pub fn amount(self) -> (u16, u32, u32) {
         match self {
-            Clause::Leave { .. } => (0, 0, 0),
+            Clause::Leave { .. } | Clause::NoRaids { .. } => (0, 0, 0),
             Clause::Gift { good, kg, .. } => (good, kg, 0),
             Clause::Transfer {
                 good,
@@ -72,6 +77,7 @@ impl Clause {
                 kg,
                 every_days: days,
             }),
+            3 => Some(Clause::NoRaids { from: side }),
             _ => None,
         }
     }
@@ -79,15 +85,22 @@ impl Clause {
     /// The side that gives by it.
     pub fn from(self) -> u8 {
         match self {
-            Clause::Leave { from } | Clause::Gift { from, .. } | Clause::Transfer { from, .. } => {
-                from
-            }
+            Clause::Leave { from }
+            | Clause::Gift { from, .. }
+            | Clause::Transfer { from, .. }
+            | Clause::NoRaids { from } => from,
         }
     }
 
     /// Whether it moves goods: a gift or a transfer.
     pub fn moves_goods(self) -> bool {
-        !matches!(self, Clause::Leave { .. })
+        matches!(self, Clause::Gift { .. } | Clause::Transfer { .. })
+    }
+
+    /// Whether it binds a side's people against raiding: the clauses of peace, as against those
+    /// of leave.
+    pub fn peace(self) -> bool {
+        matches!(self, Clause::NoRaids { .. })
     }
 }
 
@@ -296,6 +309,20 @@ impl Agreement {
             }
     }
 
+    /// Whether, in force, it binds the people of `from` not to raid those of `to`.
+    pub fn no_raids(&self, from: PermanentId, to: PermanentId) -> bool {
+        self.in_force()
+            && match (self.side_of(from), self.side_of(to)) {
+                (Some(f), Some(t)) if f != t => self.clauses.contains(&Clause::NoRaids { from: f }),
+                _ => false,
+            }
+    }
+
+    /// Whether it is an agreement of peace (any clause against raiding) rather than of leave.
+    pub fn peace(&self) -> bool {
+        self.clauses.iter().any(|c| c.peace())
+    }
+
     /// Whether it is still before the gatherings or awaiting word: neither in force nor ended.
     pub fn open(&self) -> bool {
         self.state == AgreementState::Offered
@@ -341,6 +368,11 @@ impl Agreement {
                     side(from),
                     side(1 - from),
                     every(every_days)
+                ),
+                Clause::NoRaids { from } => format!(
+                    "no raids by {}'s people on {}'s",
+                    side(from),
+                    side(1 - from)
                 ),
             })
             .collect();
@@ -391,10 +423,27 @@ impl Agreements {
         self.list.iter().any(|a| a.leave(from, to))
     }
 
+    /// The agreement in force that binds the people of `from` not to raid those of `to`, if any.
+    pub fn no_raids(&self, from: PermanentId, to: PermanentId) -> Option<&Agreement> {
+        self.list.iter().find(|a| a.no_raids(from, to))
+    }
+
     /// Whether an agreement between `a` and `b` is open or in force.
     pub fn between(&self, a: PermanentId, b: PermanentId) -> bool {
         self.list.iter().any(|x| {
             (x.open() || x.in_force()) && x.side_of(a).is_some() && x.side_of(b).is_some() && a != b
+        })
+    }
+
+    /// Whether an agreement of peace (`peace`) or of leave between `a` and `b` is open or in
+    /// force (M6c slice BL): one of each may stand at once.
+    pub fn between_on(&self, a: PermanentId, b: PermanentId, peace: bool) -> bool {
+        self.list.iter().any(|x| {
+            (x.open() || x.in_force())
+                && x.peace() == peace
+                && x.side_of(a).is_some()
+                && x.side_of(b).is_some()
+                && a != b
         })
     }
 
@@ -471,6 +520,25 @@ mod tests {
         };
         assert!(all.problems().is_empty());
         assert!(all.between(id(10), id(20)) && !all.between(id(10), id(30)));
+        assert!(all.between_on(id(10), id(20), false) && !all.between_on(id(10), id(20), true));
+    }
+
+    #[test]
+    fn no_raids_binds_only_the_side_whose_clause_it_is_and_only_in_force() {
+        let mut a = offered(vec![Clause::NoRaids { from: 1 }]);
+        assert!(a.peace() && !Clause::NoRaids { from: 1 }.moves_goods());
+        assert!(!a.no_raids(id(20), id(10)), "not before it is in force");
+        a.passed = [Some(3), Some(4)];
+        a.heard = [Some(5), Some(5)];
+        a.state = AgreementState::InForce { since: 5 };
+        assert!(a.no_raids(id(20), id(10)));
+        assert!(!a.no_raids(id(10), id(20)), "side 0 gave no such word");
+        let all = Agreements {
+            list: vec![a],
+            dues: Vec::new(),
+        };
+        assert!(all.no_raids(id(20), id(10)).is_some());
+        assert!(all.between_on(id(10), id(20), true) && !all.between_on(id(10), id(20), false));
     }
 
     #[test]
@@ -506,6 +574,13 @@ mod tests {
              from Ashford's store to Oakholt's each year, and a gift of 400 kg of grain from \
              Ashford's store to Oakholt's, for 5 years"
         );
+        a.clauses = vec![Clause::NoRaids { from: 0 }, Clause::NoRaids { from: 1 }];
+        a.term_days = 365;
+        assert_eq!(
+            a.words(&name, &good),
+            "no raids by Oakholt's people on Ashford's, and no raids by Ashford's people on \
+             Oakholt's, for a year"
+        );
         a.clauses.clear();
         assert_eq!(a.words(&name, &good), "no terms");
     }
@@ -526,6 +601,8 @@ mod tests {
                 kg: 100,
                 every_days: 365,
             },
+            Clause::NoRaids { from: 0 },
+            Clause::NoRaids { from: 1 },
         ] {
             let ((k, s), (g, kg, d)) = (c.code(), c.amount());
             assert_eq!(Clause::from_code(k, s, g, kg, d), Some(c));

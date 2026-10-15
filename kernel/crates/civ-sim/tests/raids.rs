@@ -848,3 +848,218 @@ fn under_a_law_against_raiding_a_raid_comes_before_the_raiders_own_gathering() {
         "brought by one who did not go"
     );
 }
+
+/// An agreement in force between the polities of settlements `a` (side 0) and `b` with
+/// `clauses`, decided at each by a law of the template for peace known to all its adults: the
+/// agreement's id and side 0's law.
+fn a_word(
+    sim: &mut Sim,
+    a: PermanentId,
+    b: PermanentId,
+    clauses: Vec<civ_agents::agreements::Clause>,
+) -> (PermanentId, PermanentId) {
+    use civ_agents::agreements::{Agreement, AgreementState};
+    use civ_agents::polity::{IssueKind, PolicyKind};
+    let peace = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.kind == PolicyKind::Agreement && d.answers.contains(&IssueKind::Raided))
+        .expect("a template for peace") as u16;
+    let laws = [a, b].map(|s| a_raid_law(sim, s, PolicyKind::Agreement, None, None));
+    let id = sim.allocate_id_for_tests();
+    let day = sim.now().day_index();
+    let pop = sim.people_mut_for_tests();
+    let mut polities = [a, b].map(|s| {
+        pop.polities
+            .iter()
+            .find(|p| p.settlement == s)
+            .expect("its polity")
+            .id
+    });
+    let mut negotiators = polities;
+    for (s, law) in laws.iter().enumerate() {
+        let p = pop
+            .polities
+            .iter_mut()
+            .find(|p| p.id == polities[s])
+            .expect("its polity");
+        let l = p.law_mut(*law).expect("the law");
+        l.policy = peace;
+        l.agreement = Some(id);
+        negotiators[s] = l.sponsor;
+    }
+    polities = [polities[0], polities[1]];
+    pop.agreements.list.push(Agreement {
+        id,
+        polities,
+        negotiators,
+        clauses,
+        term_days: 1825,
+        made: day,
+        laws: [Some(laws[0]), Some(laws[1])],
+        passed: [Some(day); 2],
+        heard: [Some(day); 2],
+        state: AgreementState::InForce { since: day },
+    });
+    (id, laws[0])
+}
+
+#[test]
+fn under_a_word_against_raiding_a_raid_comes_before_the_raiders_own_gathering() {
+    // M6c slice BL, step two (ADR-0023 §8): where its polity gave its word, by an agreement in
+    // force, that its people would not raid the other's, one who heard of a raid their own people
+    // made on the other village, and did not go, may bring it before their own gathering under the
+    // law that gave the word, as under a law against raiding; the word is kept in a save.
+    use civ_agents::agreements::Clause;
+    let mut sim = two_villages(3, 30);
+    sim.advance_minutes(DAY).expect("advances");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let (agreement, law) = a_word(&mut sim, a, b, vec![Clause::NoRaids { from: 0 }]);
+    let id = a_band(&mut sim, a, b, 5, 10);
+    let mut clash_day = None;
+    for _ in 0..(3 * 24 * 4) {
+        sim.advance_minutes(15).expect("advances");
+        let band = sim
+            .people()
+            .order
+            .bands
+            .iter()
+            .find(|x| x.id == id)
+            .expect("band")
+            .clone();
+        if let (None, Some(c)) = (clash_day, band.clash) {
+            let day = sim.now().day_index();
+            clash_day = Some(day);
+            let pop = sim.people_mut_for_tests();
+            let claim = pop
+                .word
+                .claims
+                .iter()
+                .find(|x| x.kind == civ_agents::word::ClaimKind::Raid && x.event == Some(c))
+                .map(|x| x.id)
+                .expect("the raid is told");
+            let at_home: Vec<PermanentId> = pop
+                .people
+                .iter()
+                .filter(|(_, p)| pop.household(p.household).and_then(|x| x.settlement) == Some(a))
+                .map(|(_, p)| p.id)
+                .collect();
+            for p in at_home {
+                pop.word.hear(p, claim, day, None, None);
+            }
+        }
+        if clash_day.is_some_and(|d| sim.now().day_index() > d + 1) {
+            break;
+        }
+    }
+    let band = sim
+        .people()
+        .order
+        .bands
+        .iter()
+        .find(|x| x.id == id)
+        .expect("band")
+        .clone();
+    assert!(
+        band.taken_kcal > 0.0,
+        "the band took something to answer for"
+    );
+    let incident = band.incident.expect("the raid is an incident");
+    let case = sim
+        .people()
+        .order
+        .cases
+        .iter()
+        .find(|c| c.incident == incident)
+        .expect("someone brought the raid before their own gathering")
+        .clone();
+    assert_eq!(case.settlement, a, "heard where the raiders live");
+    assert_eq!(case.law, law, "under the law that gave the word");
+    assert_eq!(case.accused, band.organizer);
+    assert_eq!(case.accuser, band.target);
+    // Those raided who named a raider hold that the raiders' polity does not keep its word.
+    let polity_a = sim
+        .people()
+        .polities
+        .iter()
+        .find(|p| p.settlement == a)
+        .expect("a polity")
+        .id;
+    let rp = sim.rules().people.relations.clone();
+    let day = sim.now().day_index();
+    let broken = sim
+        .people()
+        .people
+        .iter()
+        .filter_map(|(_, p)| sim.people().polity_views.of(p.id, polity_a, day, &rp))
+        .filter(|v| v.no[Domain::KeepsWord.index()] > rp.prior as f32)
+        .count();
+    assert!(broken > 0, "someone raided holds the word broken");
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "word").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().agreements, sim.people().agreements);
+    let kept = loaded.people().agreements.get(agreement).expect("kept");
+    assert_eq!(kept.clauses, vec![Clause::NoRaids { from: 0 }]);
+}
+
+#[test]
+fn a_word_binds_only_the_side_that_gave_it() {
+    // The word of side 1 alone does not bind side 0's people: a raid by village 0 on village 1
+    // goes before no gathering where no law against raiding is in force.
+    use civ_agents::agreements::Clause;
+    let mut sim = two_villages(3, 30);
+    sim.advance_minutes(DAY).expect("advances");
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    a_word(&mut sim, a, b, vec![Clause::NoRaids { from: 1 }]);
+    let id = a_band(&mut sim, a, b, 5, 10);
+    let mut clash_day = None;
+    for _ in 0..(3 * 24 * 4) {
+        sim.advance_minutes(15).expect("advances");
+        let band = sim
+            .people()
+            .order
+            .bands
+            .iter()
+            .find(|x| x.id == id)
+            .expect("band")
+            .clone();
+        if let (None, Some(c)) = (clash_day, band.clash) {
+            let day = sim.now().day_index();
+            clash_day = Some(day);
+            let pop = sim.people_mut_for_tests();
+            let claim = pop
+                .word
+                .claims
+                .iter()
+                .find(|x| x.kind == civ_agents::word::ClaimKind::Raid && x.event == Some(c))
+                .map(|x| x.id)
+                .expect("the raid is told");
+            let at_home: Vec<PermanentId> = pop
+                .people
+                .iter()
+                .filter(|(_, p)| pop.household(p.household).and_then(|x| x.settlement) == Some(a))
+                .map(|(_, p)| p.id)
+                .collect();
+            for p in at_home {
+                pop.word.hear(p, claim, day, None, None);
+            }
+        }
+        if clash_day.is_some_and(|d| sim.now().day_index() > d + 1) {
+            break;
+        }
+    }
+    let pop = sim.people();
+    let band = pop.order.bands.iter().find(|x| x.id == id).expect("band");
+    assert!(band.taken_kcal > 0.0, "the band took something");
+    let incident = band.incident.expect("the raid is an incident");
+    assert!(
+        !pop.order.cases.iter().any(|c| c.incident == incident),
+        "nobody brought it: their own polity gave no word"
+    );
+}

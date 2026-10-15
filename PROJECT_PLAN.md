@@ -2831,6 +2831,35 @@ and M6a gives rivers a daily flow.
       built:** taking what lies outside the line and stopping those who leave; members sleeping and
       eating at the camp (they go home when tired, which the stay weighs); endurance as a measure;
       assault at a gate's width and climbing in.
+    - *As built, step two:* terms after force. A clause `no raids` (code 3) is appended: the
+      polity on its side binds its people not to raid the other's, and its gathering hears such
+      a raid as a case (ADR-0023 §8's *no raids* and *takings heard* as one clause); both sides'
+      together are the truce. While an agreement holding it is in force, someone of that side who
+      knows the law that decided it at home weighs a raid on the other's people with the
+      `bands.w_law` that a law against raiding carries, one who heard of such a raid and did not
+      go may bring it before their own gathering under that law, and nobody of that side proposes
+      a band law against the other's settlement. A household that knows people of another
+      settlement raided it within memory (`raiders_known`) may seek peace, by a second agreement
+      template (`core:policy/year_of_peace`, answering `raided`, bearing on security and
+      reciprocity), weighing the raiders' word alone, a truce, the word with a yearly transfer
+      from its own store (tribute for peace), or with a gift from the raiders' store
+      (compensation), each for a year or five. Each household's stake is `relations.raids_kept`
+      (0.5) of what people of the other settlement took from it within memory a year, recovered
+      by the other's word, and as much of what its own members took from them, given up by its
+      own (ADR-0023 §8: threat as a forecast term). Two may now agree terms while their gathering
+      has other business; their sponsors put the terms to it when it is free, as the other side's
+      already did. Anyone who stood against a band, or learns who of another settlement took from
+      their own, while that settlement's polity's word against raiding theirs is in force and
+      they know their own law deciding it, takes `relations.performance` of evidence that it does
+      not keep its word (view act `WordBroken`). Save schema 117 (clause kind 3), content API 103
+      (`relations.raids_kept`, the template). A finding: in every scenario tried (raids one way,
+      heavy or moderate, with stores for tribute; and a feud), the two who met parted with no
+      terms. Takings are all a household counts of a raid, so what one side's word keeps from the
+      other its own raiders give up, and there is nothing over to share; the raiders' households,
+      and distrust of a village that raided them, hold each side back. **Not yet built:** the
+      danger and days away a raid costs counted in a household's stake; a negotiator's estimate
+      of the other's strength from sightings; assistance; a truce distinct from both sides' word;
+      one body (slice BM).
     - Endurance from stores and water as a derived measure; entry by a gate opened, a gap, a
       climb or an assault at a gate's width.
     - The clauses compensation, takings heard, no raids, truce, assistance, tribute for peace and
@@ -3900,3 +3929,16 @@ One line each. Don't re-litigate without a reason written next to the entry.
   Service is recorded on the band and the law's compliance rather than as an ADR-0015
   obligation, which is reckoned in food. Every weight is a design prior named in the content;
   nothing was tuned. What is not built yet is listed in §7 under the slice.
+- **Terms after force as one appended clause, and terms agreed while a gathering is busy
+  (2026-10-15, M6c slice BL, step two):** no new ADR (ADR-0023 §8). ADR-0023's *no raids* and
+  *takings heard* are one clause, given by a side; both sides' together stand for the *truce*,
+  and since a side's word already keeps its people from proposing a band law against the other,
+  a separate truce clause would add only a term that causes nothing at its end. Peace is sought
+  by a second template of the agreement kind (`year_of_peace`), so that what people hold dear
+  weighs a word against raiding apart from leave to use claimed places. Seeking terms no longer
+  waits for a gathering with no business: the meeting takes none of its time, and a raided
+  village answers a raid at its gathering with laws of its own; in the test of a raided village,
+  its gathering had business at every review for forty days, so under the old rule nobody there
+  sought peace. The seeker's side now puts
+  the terms to its gathering when it is free, as the other side already did, within
+  `relations.answer_days`. The existing agreement tests pass unchanged.

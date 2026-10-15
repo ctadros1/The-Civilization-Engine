@@ -1,0 +1,26 @@
+# Peace with a neighbour after force (M6c slice BL, ADR-0023 §8; research 13-05 §1.3: raiding
+# ends in negotiated terms, tribute or compensation as often as in defeat). Someone whose household
+# was raided by people of another settlement, as its members know it, and who may propose at home,
+# meets someone they know of that settlement who may propose there. The two weigh packages of
+# words against raiding (one side's, or both's: a truce), alone, with a yearly payment from the
+# raided side's store (tribute for peace) or a gift from the raiders' (compensation), for a term
+# (`relations.packages`, `relations.terms_days`), and agree on one both expect to pass at home, or
+# part with none. Each puts it to their own gathering as a law of this template; it is in force
+# once both have passed it and each side has heard of the other's decision. While it is, a side's
+# word binds its people not to raid the other's, and its gathering hears a raid on them as a case.
+# Whether anyone seeks it, and whether either gathering passes it, is people's choice. Its id
+# sorts after every older template's: hearth talk about a question is keyed by a template's place
+# in id order, so an id sorting earlier would shift theirs.
+kind = "policy"
+id = "core:policy/year_of_peace"
+name = "Peace with a neighbour"
+description = "An agreement with a neighbouring polity, passed by both gatherings: a side's people are not to raid the other's, as its terms say."
+does = "agreement"
+answers = ["raided"]
+question = "whether to make peace with a neighbour"
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 0.5      # raids are held back by the other side's word
+"core:value/reciprocity" = 0.3   # each side's word is given for the other's

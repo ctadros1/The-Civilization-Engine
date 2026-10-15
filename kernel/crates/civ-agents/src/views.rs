@@ -55,6 +55,9 @@ pub struct RelationsParams {
     /// that it helps from a gift handed over, to those of the receiving polity who know its law
     /// deciding the agreement (content API 64).
     pub performance: f64,
+    /// The share of what people of another settlement took from a household that it believes
+    /// their polity's word against raiding keeps from it (M6c slice BL, content API 103).
+    pub raids_kept: f64,
 }
 
 impl RelationsParams {
@@ -78,6 +81,7 @@ impl RelationsParams {
             deliver_days: 30,
             carry_points: 12.0,
             performance: 1.0,
+            raids_kept: 0.5,
         }
     }
 }
@@ -134,11 +138,14 @@ pub enum ViewAct {
     SawTaking = 5,
     /// One was told its people took from a store of one's settlement.
     HeardTaking = 6,
+    /// One came to know its people took from a store of one's settlement while its word against
+    /// raiding one's polity, by an agreement one knows, was in force (M6c slice BL, ADR-0023 §8).
+    WordBroken = 7,
 }
 
 impl ViewAct {
     /// Every act, in code order.
-    pub const ALL: [ViewAct; 7] = [
+    pub const ALL: [ViewAct; 8] = [
         ViewAct::SawTrespass,
         ViewAct::HeardTrespass,
         ViewAct::PaymentMet,
@@ -146,6 +153,7 @@ impl ViewAct {
         ViewAct::GiftReceived,
         ViewAct::SawTaking,
         ViewAct::HeardTaking,
+        ViewAct::WordBroken,
     ];
 
     /// Its number in saves.
@@ -166,7 +174,7 @@ impl ViewAct {
             | ViewAct::SawTaking
             | ViewAct::HeardTaking => (Domain::HarmsUs, true),
             ViewAct::PaymentMet => (Domain::KeepsWord, true),
-            ViewAct::PaymentMissed => (Domain::KeepsWord, false),
+            ViewAct::PaymentMissed | ViewAct::WordBroken => (Domain::KeepsWord, false),
             ViewAct::GiftReceived => (Domain::HelpsUs, true),
         }
     }
@@ -181,6 +189,7 @@ impl ViewAct {
             ViewAct::GiftReceived => "our polity received its gift",
             ViewAct::SawTaking => "saw or knew its people take from our stores",
             ViewAct::HeardTaking => "heard its people took from our stores",
+            ViewAct::WordBroken => "its people took from our stores against its word",
         }
     }
 }
@@ -411,7 +420,7 @@ mod tests {
         for a in ViewAct::ALL {
             assert_eq!(ViewAct::from_code(a.code()), Some(a));
         }
-        assert_eq!(ViewAct::from_code(7), None);
+        assert_eq!(ViewAct::from_code(8), None);
     }
 
     #[test]

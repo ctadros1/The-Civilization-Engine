@@ -64,7 +64,7 @@ impl Population {
             };
             for (k, c) in a.clauses.iter().enumerate() {
                 let (count, good, kg) = match *c {
-                    Clause::Leave { .. } => continue,
+                    Clause::Leave { .. } | Clause::NoRaids { .. } => continue,
                     Clause::Gift { good, kg, .. } => (1, good, kg),
                     Clause::Transfer {
                         good,

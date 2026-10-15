@@ -1067,6 +1067,9 @@ pub(crate) struct RelationsFile {
     /// Content API 64 (M5c slice AV, step two): the evidence a payment handed over or missed gives
     /// those of the receiving polity who know its law deciding the agreement.
     pub performance: f64,
+    /// Content API 103 (M6c slice BL): the share of what people of another settlement took from
+    /// a household that it believes their polity's word against raiding keeps from it.
+    pub raids_kept: f64,
 }
 
 /// Word of mouth and grievances (M4c slice AE, ADR-0016; content API 39). See
@@ -2371,6 +2374,7 @@ impl PeopleFile {
                 deliver_days: self.relations.deliver_days,
                 carry_points: self.relations.carry_points,
                 performance: self.relations.performance,
+                raids_kept: self.relations.raids_kept,
             },
             names,
         }
@@ -2557,6 +2561,12 @@ impl PeopleFile {
             p.push(format!(
                 "`relations.performance` must be between 0 and 10 (got {})",
                 v.performance
+            ));
+        }
+        if !(v.raids_kept.is_finite() && (0.0..=1.0).contains(&v.raids_kept)) {
+            p.push(format!(
+                "`relations.raids_kept` must be between 0 and 1 (got {})",
+                v.raids_kept
             ));
         }
         if !(1..=256).contains(&f.candidates) {

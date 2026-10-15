@@ -117,8 +117,8 @@ use super::{
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
     SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
-    SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, finish, section, single_chunk,
-    unreadable,
+    SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -552,6 +552,8 @@ enum Schema {
     V115,
     /// M6c slice BL, step one: bands camp by a shut line.
     V116,
+    /// M6c slice BL, step two: words against raiding in agreements (clause kind 3).
+    V117,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -682,7 +684,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V113 => Schema::V113,
         SCHEMA_V114 => Schema::V114,
         SCHEMA_V115 => Schema::V115,
-        SAVE_SCHEMA_VERSION => Schema::V116,
+        SCHEMA_V116 => Schema::V116,
+        SAVE_SCHEMA_VERSION => Schema::V117,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -3895,7 +3898,8 @@ fn carried(
         | Schema::V113
         | Schema::V114
         | Schema::V115
-        | Schema::V116 => {
+        | Schema::V116
+        | Schema::V117 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4184,7 +4188,8 @@ fn decode_households(
             | Schema::V113
             | Schema::V114
             | Schema::V115
-            | Schema::V116 => {
+            | Schema::V116
+            | Schema::V117 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -9226,7 +9231,8 @@ fn decode_relations(bytes: &[u8], rules: &Rules) -> Result<Relations, LoadError>
         let mut clauses = Vec::with_capacity(kinds.len());
         let mut clause_map = Vec::with_capacity(kinds.len());
         for (k, (&kind, &side)) in kinds.iter().zip(&sides).enumerate() {
-            let good = if kind == 0 {
+            // Leave and words against raiding (kind 3, schema 117) name no good.
+            let good = if kind == 0 || kind == 3 {
                 Some(0)
             } else {
                 good_of(saved_goods[k], &|| format!("agreement {id}'s clause {k}"))?

@@ -306,7 +306,9 @@ impl Population {
             - bp.w_danger * pros.defenders / 2.0
             - params.decision.w_walk_hour * 2.0 * pros.walk_min / 60.0
             - bp.w_objection * objection
-            - self.law_against_raiding(ctx, p).map_or(0.0, |_| bp.w_law)
+            - self
+                .raiding_forbidden(ctx, p, pros.target)
+                .map_or(0.0, |_| bp.w_law)
     }
 
     /// The law against raiding in force where `p` lives, if they know of it (ADR-0023 §3: "any
@@ -322,6 +324,70 @@ impl Population {
             .in_force(&ctx.catalog.policies, PolicyKind::AgainstRaiding)
             .find(|l| l.knows(p))
             .map(|l| (l.id, l.sanction))
+    }
+
+    /// What forbids `p` raiding household `target`, if they know of it: the law against raiding
+    /// in force where they live, or their polity's word against raiding the people of the
+    /// target's settlement (M6c slice BL). Its id and bundle.
+    fn raiding_forbidden(
+        &self,
+        ctx: &Ctx,
+        p: PermanentId,
+        target: PermanentId,
+    ) -> Option<(PermanentId, crate::polity::Sanction)> {
+        self.law_against_raiding(ctx, p).or_else(|| {
+            let at = self.household(target)?.settlement?;
+            self.word_against_raiding(p, at)
+        })
+    }
+
+    /// The law by which `p`'s polity gave its word, by an agreement in force, that its people
+    /// would not raid those of `settlement`'s polity, if `p` knows of it (M6c slice BL, ADR-0023
+    /// §8): its id and bundle.
+    pub(super) fn word_against_raiding(
+        &self,
+        p: PermanentId,
+        settlement: PermanentId,
+    ) -> Option<(PermanentId, crate::polity::Sanction)> {
+        if self.agreements.list.is_empty() {
+            return None;
+        }
+        let own = self.household(self.person(p)?.household)?.settlement?;
+        let pi = self.polity_of(own)?;
+        let qi = self.polity_of(settlement)?;
+        let (ours, theirs) = (self.polities[pi].id, self.polities[qi].id);
+        let a = self.agreements.no_raids(ours, theirs)?;
+        let law = a.laws[usize::from(a.side_of(ours)?)]?;
+        self.polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == law && l.knows(p))
+            .map(|l| (l.id, l.sanction))
+    }
+
+    /// Whether `holder`, of settlement `mine`, knows that polity `raiders` gave its word, by an
+    /// agreement in force, not to raid their own polity's people: they know the law by which
+    /// their own polity decided it (M6c slice BL).
+    pub(super) fn word_broken_known(
+        &self,
+        holder: PermanentId,
+        raiders: PermanentId,
+        mine: Option<PermanentId>,
+    ) -> bool {
+        if self.agreements.list.is_empty() {
+            return false;
+        }
+        let Some(pi) = mine.and_then(|s| self.polity_of(s)) else {
+            return false;
+        };
+        let polity = &self.polities[pi];
+        self.agreements
+            .no_raids(raiders, polity.id)
+            .is_some_and(|a| {
+                a.side_of(polity.id)
+                    .and_then(|s| a.laws[usize::from(s)])
+                    .is_some_and(|law| polity.laws.iter().any(|l| l.id == law && l.knows(holder)))
+            })
     }
 
     /// What joining `organizer`'s band is worth to `q` (ADR-0023 §3): as calling it, with the
@@ -356,7 +422,9 @@ impl Population {
             - bp.w_danger * pros.defenders / (joined.len() as f64 + 1.0)
             - params.decision.w_walk_hour * 2.0 * pros.walk_min / 60.0
             - bp.w_objection * objection
-            - self.law_against_raiding(ctx, q).map_or(0.0, |_| bp.w_law)
+            - self
+                .raiding_forbidden(ctx, q, pros.target)
+                .map_or(0.0, |_| bp.w_law)
     }
 
     /// `organizer` calls a band (ADR-0023 §3): they tell the adults of their settlement they
@@ -630,7 +698,7 @@ impl Population {
     }
 
     /// A raid its own people made yesterday, where a law against raiding is in force (ADR-0023
-    /// §5): each grown person of the band's settlement who heard of it, knows the law and did not
+    /// §5), or its word against raiding the people raided (M6c slice BL): each grown person of the band's settlement who heard of it, knows the law and did not
     /// go weighs bringing it before the gathering for the household raided, as one taken from
     /// would (research 09-07 §4.1), their regard for the one who led it against them; the first
     /// who chooses to brings it.
@@ -682,7 +750,7 @@ impl Population {
                 .collect();
             hearers.sort_unstable();
             for by in hearers {
-                let Some((law, sanction)) = self.law_against_raiding(ctx, by) else {
+                let Some((law, sanction)) = self.raiding_forbidden(ctx, by, b.target) else {
                     continue;
                 };
                 let regard = self.ties.regard(by, b.organizer, day, &params.ties);
@@ -1369,6 +1437,26 @@ impl Population {
             });
             for f in fighters.iter().filter(|f| !f.killed) {
                 self.word.hear(f.person, claim, day, None, Some(f.person));
+            }
+            // Those who stood against it, knowing the raiders' polity gave its word not to raid
+            // theirs, hold that it does not keep its word (M6c slice BL, ADR-0023 §8).
+            if let Some(raiders) = self.polity_of(b.settlement).map(|i| self.polities[i].id) {
+                let rp = &ctx.params.relations;
+                for f in fighters
+                    .iter()
+                    .filter(|f| !f.killed && f.side != Side::Band)
+                {
+                    if self.word_broken_known(f.person, raiders, Some(at)) {
+                        self.polity_views.record(
+                            f.person,
+                            raiders,
+                            crate::views::ViewAct::WordBroken,
+                            rp.performance,
+                            day,
+                            rp,
+                        );
+                    }
+                }
             }
             self.review_due.insert(b.target);
         }

@@ -664,6 +664,18 @@ impl Population {
                 let day = ctx.now.day_index();
                 self.polity_views
                     .record(belief.holder, polity, act, weight, day, rp);
+                // Against that polity's word not to raid one's own, as one knows it: it does not
+                // keep its word (M6c slice BL, ADR-0023 §8).
+                if self.word_broken_known(belief.holder, polity, mine) {
+                    self.polity_views.record(
+                        belief.holder,
+                        polity,
+                        crate::views::ViewAct::WordBroken,
+                        rp.performance,
+                        day,
+                        rp,
+                    );
+                }
             }
         }
         // What a taker knows of their own taking moves nothing.

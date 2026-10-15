@@ -359,6 +359,8 @@ pub const SCHEMA_V113: u32 = 113;
 pub const SCHEMA_V114: u32 = 114;
 /// Gates kept and posts rotting, before bands camp by a shut line.
 pub const SCHEMA_V115: u32 = 115;
+/// Bands that camp by a shut line, before words against raiding in agreements.
+pub const SCHEMA_V116: u32 = 116;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

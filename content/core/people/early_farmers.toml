@@ -964,6 +964,11 @@ carry_points = 12.0
 # evidence that the paying polity keeps its word, or does not; a gift handed over is as much that
 # it helps. As much as a trespass seen (`seen_trespass`); a design prior.
 performance = 1.0
+# Terms after force (M6c slice BL, ADR-0023 §8): a household raided by people of another settlement
+# believes `raids_kept` of what they took from it in memory, a year, is kept from it by their
+# polity's word against raiding, as a claim is believed to keep a share (`polity.claim_keeps`). A
+# design prior: research 13-05 gives no rate at which a village's word holds its raiders back.
+raids_kept = 0.5
 
 [moving]                         # moving to another settlement (M5a slice AN, ADR-0018 §5); design priors
 # Once a year on a day of its own, and when it forms, a household weighs joining each settlement it

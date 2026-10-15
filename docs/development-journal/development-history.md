@@ -2118,5 +2118,33 @@ them through a scheduled dusk and a save, and rots a stretch into a gap that wor
 (saved and loaded alike), and goes in when a stretch rots through; in a second world the line
 stays shut and the band goes home in several steps with nobody struck.
 
+- *Step two:* terms after force. An agreement may now carry a polity's word that its people will
+  not raid the other's (`no raids`, one side's or both sides'). While it is in force, those of that
+  side who know the law that gave it weigh a raid on the other's people as they weigh one under a
+  law against raiding, its gathering hears such a raid as a case under that law, and nobody of that
+  side proposes a band law against the other. A household raided by people of another settlement,
+  as its members know it, may seek peace by a second agreement template (`year_of_peace`, answering
+  `raided`): the raiders' word alone, a truce, the word with tribute from the raided side's store,
+  or with compensation from the raiders'. Each household weighs `relations.raids_kept` (0.5) of
+  what was taken either way within memory, a year. People may now agree terms while their
+  gathering is busy; the terms wait for it. Those who stood against a band, or learn who took from
+  them, while the raiders' word is in force hold that the raiders' polity does not keep its word.
+  Save schema 117, content API 103.
+
+**Evidence:** `civ-sim/tests/enclosures.rs`: a band comes up to a shut line, camps outside it
+(saved and loaded alike), and goes in when a stretch rots through; in a second world the line
+stays shut and the band goes home in several steps with nobody struck. `civ-sim/tests/raids.rs`:
+under a village's word a raid it made comes before its own gathering under the law that gave the
+word, those raided hold the word broken, and the word saves and loads; the other side's word alone
+binds nobody of the raiding side. `civ-sim/tests/agreements.rs`: two villages that raided each
+other seek peace, and the two part with no terms.
+
+**Finding:** in every scenario tried (one-way raids heavy or moderate, with stores for tribute, and
+a feud), the two who met parted with no terms. A household's stake in a raid is only what was
+taken, so what one side's word keeps from the other's homes its own raiders give up: there is
+nothing over to share. The raiders' households, who give up most, and distrust of a village that
+raided them hold each side back.
+
 **Open:** taking from outside the line and stopping those who leave, sleeping at the camp,
-endurance, assault and climbing; terms after force (step two).
+endurance, assault and climbing; the danger and days away a raid costs in a household's stake;
+a negotiator's estimate of the other's strength; assistance and one body (slice BM).

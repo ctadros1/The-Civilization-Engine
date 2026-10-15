@@ -7,6 +7,11 @@
 //! passed it and each side has heard of the other's decision from someone of the other
 //! settlement. Failure is an outcome, never repaired. The meeting itself takes no time: nobody
 //! walks to it (a simplification).
+//!
+//! Terms after force (M6c slice BL, ADR-0023 §8): someone whose household was raided by people of
+//! another settlement, as its members know it, seeks peace the same way, by the template that
+//! answers being raided: words against raiding, one side's or both's, alone or with tribute from
+//! the raided side's store or compensation from the raiders'.
 
 use super::*;
 use crate::agreements::{Agreement, AgreementState, Clause, Failure};
@@ -43,6 +48,12 @@ struct Stakes {
     /// Its share of what its polity's store gives or gets: one household's of the settlement's
     /// (M5c slice AV; a design prior: the store is everyone's levy).
     share: f64,
+    /// What people of the other settlement took from it a year, as its members know it, that the
+    /// other's word against raiding would keep from it (M6c slice BL).
+    raided_by: f64,
+    /// What its own members took from the other settlement's homes a year, that its own word
+    /// against raiding would give up.
+    raided: f64,
 }
 
 impl Stakes {
@@ -68,10 +79,18 @@ impl Stakes {
         } else {
             0.0
         };
+        // Words against raiding (M6c slice BL): the other's keeps what its people took, its own
+        // gives up what its members took.
+        if clauses.contains(&Clause::NoRaids { from: 1 - side }) {
+            recover += self.raided_by;
+        }
+        if clauses.contains(&Clause::NoRaids { from: side }) {
+            owe += self.raided;
+        }
         let (mut got, mut gave) = (0.0, 0.0);
         for c in clauses {
             match *c {
-                Clause::Leave { .. } => {}
+                Clause::Leave { .. } | Clause::NoRaids { .. } => {}
                 Clause::Gift { from, good, kg } => {
                     let k = f64::from(kg) * kcal(good) * self.share;
                     if from == side {
@@ -174,12 +193,52 @@ impl Population {
         out
     }
 
+    /// What household `h` lost to people of `settlement`, and what its own members took from
+    /// that settlement's homes, kcal, since day `since`, as its members know it (M6c slice BL): a
+    /// loss counts when a member named the taker or it was a band's raid.
+    fn taken_across(&self, h: PermanentId, settlement: PermanentId, since: i64) -> (f64, f64) {
+        let Some(x) = self.household(h) else {
+            return (0.0, 0.0);
+        };
+        let start = self.order.amounts.partition_point(|a| a.day < since);
+        let (mut lost, mut took) = (0.0, 0.0);
+        for a in &self.order.amounts[start..] {
+            if a.household != h {
+                continue;
+            }
+            let Some(i) = self.order.incident(a.incident) else {
+                continue;
+            };
+            if a.lost {
+                let known = self.order.bands.iter().any(|b| b.incident == Some(i.id))
+                    || x.members.iter().any(|&m| {
+                        self.order
+                            .belief(m, a.incident)
+                            .is_some_and(|b| b.taker.is_some())
+                    });
+                if i.across == Some(settlement) && known {
+                    lost += f64::from(a.kcal);
+                }
+            } else if i.across.is_some()
+                && self.household(i.target).and_then(|t| t.settlement) == Some(settlement)
+            {
+                took += f64::from(a.kcal);
+            }
+        }
+        (lost, took)
+    }
+
     /// What each household of polity `pi` with an outlook stands to get back and give up under
     /// leave between it and polity `oi`, in household order: as much of what the claims cost or
-    /// keep as a claim is believed to keep ([`crate::polity::PolityParams::claim_keeps`]).
+    /// keep as a claim is believed to keep ([`crate::polity::PolityParams::claim_keeps`]); and
+    /// under words against raiding, `relations.raids_kept` of what was taken either way within
+    /// memory, a year (M6c slice BL).
     fn stakes_of(&self, ctx: &Ctx, pi: usize, oi: usize) -> Vec<Stakes> {
         let (day, half) = (ctx.now.day_index(), ctx.params.places.use_half_life_days);
         let keeps = ctx.params.polity.claim_keeps;
+        let memory = ctx.params.crime.remember_days.max(1);
+        let since = day - i64::from(memory);
+        let raids = ctx.params.relations.raids_kept * 365.0 / f64::from(memory);
         let other = &self.polities[oi];
         let ours = self.polities[pi].claims_now();
         let homes = self.homes_in(self.polities[pi].settlement);
@@ -210,12 +269,15 @@ impl Population {
                             / (f64::from(u.days) + all).max(1e-9)
                     })
                     .sum();
+                let (lost, took) = self.taken_across(h, other.settlement, since);
                 Some(Stakes {
                     household: h,
                     outlook,
                     recover: recover * keeps,
                     owe: owe * keeps,
                     share,
+                    raided_by: lost * raids,
+                    raided: took * raids,
                 })
             })
             .collect()
@@ -332,39 +394,57 @@ impl Population {
             .collect()
     }
 
-    /// Polity `pi` reviewed and put nothing to its gathering (M5c slice AU): the elder of a
-    /// household that heard another polity claims places it works, who may propose at home,
-    /// seeks terms with the one of that polity's body they know best, when some package is one
-    /// they would sponsor, unless an agreement between the two polities is open or in force, or
-    /// one failed within memory. One meeting a review, the seekers in id order.
-    pub(super) fn seek_terms(&mut self, ctx: &mut Ctx, pi: usize) {
-        if self.claims_heard.households.is_empty() {
-            return;
-        }
-        let Some(k) = ctx
-            .catalog
+    /// The agreement template for terms of peace (`peace`: the one answering being raided, M6c
+    /// slice BL) or of leave (the one that does not).
+    fn agreement_template(ctx: &Ctx, peace: bool) -> Option<u16> {
+        ctx.catalog
             .policies
             .iter()
-            .position(|d| d.kind == PolicyKind::Agreement)
-        else {
-            return;
-        };
-        let polity = &self.polities[pi];
-        if polity.agenda().is_some() || polity.gathering.is_some() {
+            .position(|d| {
+                d.kind == PolicyKind::Agreement && d.answers.contains(&IssueKind::Raided) == peace
+            })
+            .map(|k| k as u16)
+    }
+
+    /// Polity `pi` reviewed (M5c slice AU): the elder of a
+    /// household that heard another polity claims places it works, or (M6c slice BL) knows
+    /// people of another settlement raided it within memory, who may propose at home, seeks
+    /// terms of leave, or of peace, with the one of that polity's body they know best, when some
+    /// package is one they would sponsor, unless an agreement of that kind between the two
+    /// polities is open or in force, or any between them failed within memory. One meeting a
+    /// review, the seekers in id order. The meeting takes no gathering's time: terms agreed while
+    /// the gathering has other business wait for it to be free (M6c slice BL; see
+    /// [`Population::agreements_day`]).
+    pub(super) fn seek_terms(&mut self, ctx: &mut Ctx, pi: usize) {
+        if self.claims_heard.households.is_empty()
+            && self.order.bands.is_empty()
+            && self.order.amounts.is_empty()
+        {
             return;
         }
+        let polity = &self.polities[pi];
         let (now, params) = (ctx.now, ctx.params);
         let (day, tp) = (now.day_index(), &params.ties);
         let own = polity.id;
+        let since = day - i64::from(params.crime.remember_days);
         let members = self.body_of(ctx, pi);
-        let mut wants: Vec<(PermanentId, Vec<PermanentId>)> = Vec::new();
+        let mut wants: Vec<(PermanentId, Vec<(PermanentId, bool)>)> = Vec::new();
         for h in self.homes_in(polity.settlement) {
-            let mut theirs: Vec<PermanentId> = self
+            let mut theirs: Vec<(PermanentId, bool)> = self
                 .claimed_from(ctx, pi, h)
                 .into_iter()
-                .map(|c| c.0)
+                .map(|c| (c.0, false))
                 .collect();
             theirs.dedup();
+            // Raided by people of another settlement with a polity (M6c slice BL).
+            if let Some(q) = self
+                .raiders_known(h, since)
+                .and_then(|s| self.polity_of(s))
+                .map(|qi| self.polities[qi].id)
+                .filter(|&q| q != own)
+            {
+                theirs.push((q, true));
+            }
             if theirs.is_empty() {
                 continue;
             }
@@ -378,13 +458,16 @@ impl Population {
         wants.sort_unstable_by_key(|w| w.0);
         let memory = i64::from(params.polity.vote_memory_days);
         for (seeker, theirs) in wants {
-            for q in theirs {
+            for (q, peace) in theirs {
+                let Some(k) = Self::agreement_template(ctx, peace) else {
+                    continue;
+                };
                 let failed_lately = self.agreements.list.iter().any(|a| {
                     a.side_of(own).is_some()
                         && a.side_of(q).is_some()
                         && matches!(a.state, AgreementState::Failed { day: d, .. } if day - d <= memory)
                 });
-                if self.agreements.between(own, q) || failed_lately {
+                if self.agreements.between_on(own, q, peace) || failed_lately {
                     continue;
                 }
                 let Some(qi) = self.polities.iter().position(|p| p.id == q) else {
@@ -399,16 +482,20 @@ impl Population {
                 // Seeking terms is a move like any other (ADR-0020 §6): they go only when some
                 // package is one they would sponsor, by their own forecast and the support they
                 // expect at home; otherwise there is nothing to seek.
+                let packages = if peace {
+                    self.peace_packages(ctx, pi, qi)
+                } else {
+                    self.packages(ctx, pi, qi)
+                };
                 let worth = || {
-                    let packages = self.packages(ctx, pi, qi);
-                    self.weigh_packages(ctx, pi, qi, 0, seeker, k as u16, &packages)
+                    self.weigh_packages(ctx, pi, qi, 0, seeker, k, &packages)
                         .iter()
                         .any(|w| w.score > 0.0 && w.support > 0.5)
                 };
                 if let Some((_, c)) = counterpart
                     && worth()
                 {
-                    self.meet(ctx, pi, qi, k as u16, seeker, c);
+                    self.meet(ctx, pi, qi, k, seeker, c, &packages);
                     return;
                 }
             }
@@ -419,7 +506,8 @@ impl Population {
     /// and weigh the packages between them. They agree on the package each
     /// expects to pass at home and to be worth sponsoring, the one worth most to the two
     /// together, or part with none; either is recorded. With terms agreed, the seeker sponsors it
-    /// at home at once.
+    /// at home at once if their gathering is free, else once it is.
+    #[allow(clippy::too_many_arguments)]
     fn meet(
         &mut self,
         ctx: &mut Ctx,
@@ -428,10 +516,10 @@ impl Population {
         k: u16,
         seeker: PermanentId,
         counterpart: PermanentId,
+        packages: &[Package],
     ) {
         let sides = [pi, qi];
         let negotiators = [seeker, counterpart];
-        let packages = self.packages(ctx, pi, qi);
         let weighed = [0u8, 1].map(|s| {
             let s_ = usize::from(s);
             self.weigh_packages(
@@ -441,7 +529,7 @@ impl Population {
                 s,
                 negotiators[s_],
                 k,
-                &packages,
+                packages,
             )
         });
         let both = |i: usize| weighed[0][i].score + weighed[1][i].score;
@@ -506,7 +594,11 @@ impl Population {
         };
         self.agreements.list.push(agreement);
         self.chronicle_agreement(ctx, id, step, sentence);
-        if pick.is_some() {
+        let free = {
+            let p = &self.polities[pi];
+            p.agenda().is_none() && p.gathering.is_none()
+        };
+        if pick.is_some() && free {
             self.sponsor(ctx, id, 0, k);
         }
     }
@@ -561,6 +653,46 @@ impl Population {
                         every_days: rp.transfer_days.max(1),
                     },
                 ]);
+            }
+        }
+        sets.iter()
+            .flat_map(|c| {
+                rp.terms_days.iter().map(move |&t| Package {
+                    clauses: c.clone(),
+                    term_days: t,
+                })
+            })
+            .take(rp.packages as usize)
+            .collect()
+    }
+
+    /// The packages of peace two of polities `pi` (side 0, raided) and `qi` (side 1, whose
+    /// people raided) may weigh (M6c slice BL, ADR-0023 §8): side 1's word against raiding alone,
+    /// both sides' (a truce), side 1's with a yearly payment from side 0's store (tribute for
+    /// peace) or a gift from side 1's (compensation) when both keep one and the payer's holds
+    /// it, for each term the content offers, up to the content's number of packages.
+    fn peace_packages(&self, ctx: &Ctx, pi: usize, qi: usize) -> Vec<Package> {
+        let rp = &ctx.params.relations;
+        let word = Clause::NoRaids { from: 1 };
+        let mut sets: Vec<Vec<Clause>> = vec![vec![word], vec![Clause::NoRaids { from: 0 }, word]];
+        if let (Some((good, _)), true) = (self.store_good(ctx, pi), self.keeps_store(ctx, qi)) {
+            for &kg in &rp.transfers_kg {
+                sets.push(vec![
+                    word,
+                    Clause::Transfer {
+                        from: 0,
+                        good,
+                        kg,
+                        every_days: rp.transfer_days.max(1),
+                    },
+                ]);
+            }
+        }
+        if let (Some((good, held)), true) = (self.store_good(ctx, qi), self.keeps_store(ctx, pi)) {
+            for &kg in &rp.gifts_kg {
+                if f64::from(kg) <= held {
+                    sets.push(vec![word, Clause::Gift { from: 1, good, kg }]);
+                }
             }
         }
         sets.iter()
@@ -693,10 +825,10 @@ impl Population {
         let m = MoveOption {
             policy: k,
             levy_share: 0.0,
-            issue: if side == 0 {
-                IssueKind::ClaimedFromUs
-            } else {
-                IssueKind::TermsSought
+            issue: match (side, clauses.iter().any(|c| c.peace())) {
+                (0, false) => IssueKind::ClaimedFromUs,
+                (0, true) => IssueKind::Raided,
+                _ => IssueKind::TermsSought,
             },
             nominee: None,
             sanction: Default::default(),
@@ -732,16 +864,12 @@ impl Population {
         }
         let day = ctx.now.day_index();
         let answer = ctx.params.relations.answer_days;
-        let k = ctx
-            .catalog
-            .policies
-            .iter()
-            .position(|d| d.kind == PolicyKind::Agreement);
         for i in 0..self.agreements.list.len() {
             let a = self.agreements.list[i].clone();
             if !(a.open() || a.in_force()) {
                 continue;
             }
+            let k = Self::agreement_template(ctx, a.peace());
             let ids = a.polities;
             let index = |p: &Population, s: usize| p.polities.iter().position(|x| x.id == ids[s]);
             let law_of = |s: usize| {
@@ -804,7 +932,7 @@ impl Population {
                             .any(|m| m.0 == a.negotiators[s])
                 });
                 if free && let Some(k) = k {
-                    self.sponsor(ctx, a.id, s as u8, k as u16);
+                    self.sponsor(ctx, a.id, s as u8, k);
                 } else if day - a.made > answer {
                     let why = Failure::NeverCalled(s as u8);
                     self.end_agreement(ctx, i, AgreementState::Failed { day, why });
@@ -975,6 +1103,8 @@ mod tests {
             recover: 150_000.0,
             owe: 0.0,
             share: 0.1,
+            raided_by: 0.0,
+            raided: 0.0,
         }
     }
 
@@ -1011,5 +1141,38 @@ mod tests {
         // Only its share: a household of twice as many shares gets half as much.
         let half = Stakes { share: 0.05, ..s };
         assert!(half.forecast(&[leave, gift], 1, &kcal, &pp).1 < getting.1);
+    }
+
+    #[test]
+    fn a_word_against_raiding_weighs_for_who_was_raided_and_against_who_raided() {
+        let pp = crate::polity::PolityParams::core();
+        let kcal = |_: u16| 3_400.0;
+        let s = Stakes {
+            recover: 0.0,
+            raided_by: 200_000.0,
+            raided: 50_000.0,
+            ..stakes()
+        };
+        // Side 0 was raided by side 1's people, and took less from them.
+        let theirs = s.forecast(&[Clause::NoRaids { from: 1 }], 0, &kcal, &pp);
+        assert!(theirs.0 > 0.0 && theirs.1 == 0.0, "{theirs:?}");
+        let ours = s.forecast(&[Clause::NoRaids { from: 0 }], 0, &kcal, &pp);
+        assert!(ours.0 < 0.0, "{ours:?}");
+        let truce = s.forecast(
+            &[Clause::NoRaids { from: 0 }, Clause::NoRaids { from: 1 }],
+            0,
+            &kcal,
+            &pp,
+        );
+        assert!(truce.0 > 0.0 && truce.0 < theirs.0, "{truce:?}");
+        // Tribute for peace weighs against it each year.
+        let tribute = Clause::Transfer {
+            from: 0,
+            good: 0,
+            kg: 100,
+            every_days: 365,
+        };
+        let paying = s.forecast(&[Clause::NoRaids { from: 1 }, tribute], 0, &kcal, &pp);
+        assert!(paying.0 < theirs.0, "{paying:?}");
     }
 }

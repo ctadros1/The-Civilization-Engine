@@ -849,7 +849,10 @@ fn an_ask_anchors_on_what_replacing_the_good_from_elsewhere_would_cost() {
         panic!(
             "the good is still offered in both: {believed:?}, {unaware:?}; first offered {:?}, now {:?}",
             offer,
-            worlds[1].people().household(seller).map(|h| h.offers.clone())
+            worlds[1]
+                .people()
+                .household(seller)
+                .map(|h| h.offers.clone())
         );
     };
     assert!(

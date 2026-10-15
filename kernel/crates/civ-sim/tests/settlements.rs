@@ -373,7 +373,11 @@ fn a_walk_in_sight_of_another_settlement_makes_it_known_and_word_of_it_goes_roun
     };
     let (seen, told) = (how(PlaceHow::Seen), how(PlaceHow::Told));
     assert!(seen > 0, "nobody walked within sight of it");
-    assert!(told > 0, "nobody was told of it ({seen} of {} saw it)", ours.len());
+    assert!(
+        told > 0,
+        "nobody was told of it ({seen} of {} saw it)",
+        ours.len()
+    );
     for &h in &ours {
         for k in pop.known_places.of(h) {
             if k.how == PlaceHow::Told {

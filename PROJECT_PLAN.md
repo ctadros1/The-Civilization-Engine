@@ -3734,3 +3734,19 @@ One line each. Don't re-litigate without a reason written next to the entry.
   §1.8 lists as one of seven endings, so the demo shows the siege and whatever ending the world
   reaches, and annexation only if a gathering chooses it. **Measured first (BI):** the funnel
   from targets elsewhere ranked to laws passed, before anything is tuned (the brief's §3).
+- **Takings across the boundary, measured and built (2026-10-15, M6c slice BI):** no new ADR
+  (ADR-0023 §2). **The probe first** (civ-sim's `take_probe` example): three villages of 100
+  founded together, lived three years at Max; on the first of each month, every household short of
+  its food target compared the best store it could take from at home with the best among the
+  homes of settlements its members had seen. River valley seeds 1-3 and ria coast seed 1:
+  297, 293, 281 and 187 household-probes short of food; 29, 144, 11 and 8 of them had seen homes
+  elsewhere; 0, 51, 2 and 0 would have ranked a store elsewhere first (by more food there, or none
+  at home); the median walk to the best store elsewhere was 54, 72, 82 and 52 minutes, and **not
+  one** lay within the 20 minutes a taker walks (`take_food`'s `max_walk_minutes`). Takings at home
+  over the same runs: 47, 97, 46 and 83. **Read:** villages founded kilometres apart do not take
+  from one another one household at a time, however hungry; anything that crosses between them
+  will be a band that sets out to (slice BJ). The widened targets are built anyway, for villages
+  that come to stand close (splinters, growth), and every consequence is wired: the incident names
+  the takers' settlement, a witness names only takers they know, *harms us* is written, the issue
+  `raided` is held and a watch answers it, and a law against taking recovers nothing from
+  outsiders. Nothing was tuned.

@@ -3491,6 +3491,24 @@ and M6a gives rivers a daily flow.
         **Not yet built:** labour-days owed to a creditor (ADR-0027 §3's harshest bundle: no
         behaviour yet sends one household's people to work another's fields); word of a default
         beyond the creditor's household; loans between settlements.
+    - **CC1**: lending from the store: a law under which the common store lends to households
+      short before their harvest, at the law's terms, repaid into it.
+      - *As built (2026-10-16):* content API 123 (saves and wire unchanged: a store's loan is a
+        claim in the same book, the polity its creditor). An appended policy kind,
+        `lend_from_store`, with a `[lending]` table (`increment`, `share`), answers `food_short`.
+        Under it a household whose food will not last to its harvest, and that one of whose
+        members knows the law, asks the store before its neighbours: it borrows the lesser of
+        what it wants and the law's share of the food the store holds, in the food the store holds
+        most of, owed with the law's increment, due a week after its harvest begins, repaid into
+        the store. The lender's beliefs do not enter: the law sets the terms. A household
+        forecasts the law by what its short year would borrow, up to its share of what the store
+        could lend, less the increment. Relief stays a gift. The wealth panel names "the common
+        store" as the lender. **Measured** (`civ-sim --example capture`, seed 1, three villages
+        of 40, four years, nothing nudged about lending): 67 loans, 51 of them from a common
+        store; 26 repaid, 9 defaulted, 4 refused at the due day, 27 open; a law of debts heard in
+        force in two villages; 136 people at the end. **Not yet built:** the keeper carrying the
+        store's loans (they are the store's, not the keeper's); custody, keepers lending deposits
+        and runs (CC2).
 
 **M8: The growing city (v1).**
 - *Contents:*
@@ -4640,3 +4658,12 @@ One line each. Don't re-litigate without a reason written next to the entry.
   the same bankfull and now stand longer. **Not changed:** a flooded floor's stores still spoil a
   share a day while the water stands (ADR-0022 §9); the smoke runs 30 days, so nothing in the
   routine checks would have caught this, and the long-run check stays the dashboard.
+- **2026-10-16 — a lean-village polity test failed once under load.** During slice CB2's checks,
+  `a_village_whose_food_will_not_last_proposes_and_its_gathering_decides`
+  (`kernel/crates/civ-sim/tests/polity.rs`) found no common store decided within its scene's 30
+  days while a four-year release run of the capture example shared the machine; it passed 11 of
+  11 runs alone, its file 3 of 3, and the whole suite alone afterwards. The scene is seeded, so a
+  load-dependent outcome would mean something read from time, scheduling or unordered iteration
+  reaches a decision. **Not yet investigated:** reproduce under load and bisect the first day the
+  digests differ; fix the source, never the test.
+

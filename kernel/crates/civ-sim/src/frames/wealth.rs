@@ -246,9 +246,12 @@ pub fn loan_words(sim: &Sim, settlement: PermanentId) -> Vec<String> {
             .or_else(|| pop.firm(h).and_then(|f| f.settlement))
             == Some(settlement)
     };
+    // A workshop, a polity's common store (M7d slice CC) or a household.
     let name = |h: PermanentId| {
         if pop.firm(h).is_some() {
             super::people::firm_name(sim, h)
+        } else if pop.polities.iter().any(|p| p.id == h) {
+            "the common store".to_owned()
         } else {
             super::people::household_name(sim, h)
         }
@@ -286,7 +289,7 @@ pub fn loan_words(sim: &Sim, settlement: PermanentId) -> Vec<String> {
                 } else {
                     "owed"
                 },
-                super::people::household_name(sim, c.creditor),
+                name(c.creditor),
                 c.owed,
                 if pop.firm(c.debtor).is_some() {
                     "wages unpaid since"

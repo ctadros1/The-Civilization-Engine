@@ -2601,3 +2601,13 @@ replaces another.
 within three years; 12 debts were brought and 9 found. The labour-days bundle is not built: no
 behaviour yet sends one household's people to work another's fields.
 
+## 2026-10-16 — CC1: lending from the store
+
+**Built:** ADR-0027 §4's public lending. A village may pass *lending from the store*: a household
+short before its harvest then asks the common store before its neighbours and borrows at the law's
+terms (a quarter of the store at most, a tenth more owed), repaid into the store after the
+harvest. Relief stays a gift. Content API 123; saves unchanged (the store is the loan's creditor).
+
+**Lived:** with nothing nudged about lending, 51 of the 67 loans of the M7c demo's world in four
+years came from a common store; 26 were repaid and 9 defaulted.
+

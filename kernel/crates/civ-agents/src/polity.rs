@@ -135,11 +135,15 @@ pub enum PolicyKind {
     /// such cases; a finding imposes the template's remedy ([`DebtsDef`]). Without it, a
     /// creditor has only its own answers and its household's memory.
     DebtsHeard,
+    /// Lending from the store (M7d slice CC, ADR-0027 §4): a household of the polity short of
+    /// food before its harvest may borrow from the common store at the law's terms
+    /// ([`LendingDef`]), repaid into it after the harvest. Relief stays a gift.
+    LendFromStore,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 26] = [
+    pub const ALL: [PolicyKind; 27] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -166,6 +170,7 @@ impl PolicyKind {
         PolicyKind::Recognize,
         PolicyKind::Privilege,
         PolicyKind::DebtsHeard,
+        PolicyKind::LendFromStore,
     ];
 
     /// The authored name.
@@ -197,6 +202,7 @@ impl PolicyKind {
             PolicyKind::Recognize => "recognize",
             PolicyKind::Privilege => "privilege",
             PolicyKind::DebtsHeard => "debts_heard",
+            PolicyKind::LendFromStore => "lend_from_store",
         }
     }
 
@@ -492,6 +498,18 @@ pub struct PolicyDef {
     pub privilege: Option<PrivilegeDef>,
     /// For debts heard: what a finding does (M7d slice CB, ADR-0027 §3).
     pub debts: Option<DebtsDef>,
+    /// For lending from the store: its terms (M7d slice CC, ADR-0027 §4).
+    pub lending: Option<LendingDef>,
+}
+
+/// The terms the common store lends on under a law of lending from the store (M7d slice CC,
+/// ADR-0027 §4): set by the law, not by what anyone believes of the borrower.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LendingDef {
+    /// The increment owed on what is lent, a share of it.
+    pub increment: f32,
+    /// The most of the food the store holds it lends at once, a share.
+    pub share: f32,
 }
 
 /// What a finding under a law of debts heard does (M7d slice CB, ADR-0027 §3): the custom's
@@ -1639,6 +1657,7 @@ pub fn ending_words(
         Some(PolicyKind::Recognize) => "the recognition of an organization".to_owned(),
         Some(PolicyKind::Privilege) => "the privilege of an organization".to_owned(),
         Some(PolicyKind::DebtsHeard) => "the hearing of debts".to_owned(),
+        Some(PolicyKind::LendFromStore) => "the lending from the store".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -2872,6 +2891,7 @@ pub(crate) mod tests {
             duty: None,
             privilege: None,
             debts: None,
+            lending: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -2986,6 +3006,7 @@ pub(crate) mod tests {
             duty: None,
             privilege: None,
             debts: None,
+            lending: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -3208,6 +3229,7 @@ pub(crate) mod tests {
             duty: None,
             privilege: None,
             debts: None,
+            lending: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

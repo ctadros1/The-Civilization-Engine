@@ -557,12 +557,23 @@ fn a_workshop_that_cannot_pay_a_wage_owes_it_and_fails_only_when_it_is_still_unp
 /// The law of debts heard of template `template` in force at household `h`'s polity since today,
 /// known to everyone there.
 fn debts_heard(sim: &mut Sim, h: PermanentId, template: &str) -> PermanentId {
-    use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome as Decided};
+    law_in_force(sim, h, template, civ_agents::polity::IssueKind::DebtsUnpaid)
+}
+
+/// The law of template `template`, answering `issue`, in force at household `h`'s polity since
+/// today, known to everyone there.
+fn law_in_force(
+    sim: &mut Sim,
+    h: PermanentId,
+    template: &str,
+    issue: civ_agents::polity::IssueKind,
+) -> PermanentId {
+    use civ_agents::polity::{Law, LawStatus, Outcome as Decided};
     let policies = &sim.rules().catalog.policies;
     let policy = policies
         .iter()
         .position(|d| d.id == template)
-        .expect("the core content has debts heard");
+        .expect("the core content has the template");
     let kind = policies[policy].kind;
     let id = sim.allocate_id_for_tests();
     let now = sim.now();
@@ -594,7 +605,7 @@ fn debts_heard(sim: &mut Sim, h: PermanentId, template: &str) -> PermanentId {
         status: LawStatus::InForce,
         sponsor: members[0],
         proposed: now,
-        issue: IssueKind::DebtsUnpaid,
+        issue,
         meets_day: now.day_index(),
         decided: Some(now),
         outcome: Some(Decided::Passed),
@@ -801,4 +812,72 @@ fn a_finding_on_a_debt_gives_time_or_imposes_what_is_owed() {
     if ob_after.paid_kcal > 0.0 {
         assert!(after < left, "paid on the loan: {after} of {left}");
     }
+}
+
+#[test]
+fn under_lending_from_the_store_a_short_household_borrows_from_it_and_repays_into_it() {
+    // M7d slice CC (ADR-0027 §4): the store first, at the law's terms; repaid into the store.
+    let mut sc = village();
+    credit(&mut sc.sim).pay_base = 50.0;
+    let at = sc
+        .sim
+        .people()
+        .household(sc.borrower)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sc
+        .sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.settlement == at)
+        .expect("a polity");
+    let store = sc.sim.people().polities[pi].id;
+    let goods = sc.sim.rules().catalog.goods.len();
+    {
+        let store = &mut sc.sim.people_mut_for_tests().polities[pi].stores;
+        store.resize(goods, 0.0);
+        store[sc.grain] = 2000.0;
+    }
+    law_in_force(
+        &mut sc.sim,
+        sc.borrower,
+        "core:policy/lend_from_store",
+        civ_agents::polity::IssueKind::FoodShort,
+    );
+    let def = sc
+        .sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .find(|d| d.id == "core:policy/lend_from_store")
+        .and_then(|d| d.lending)
+        .expect("terms");
+    weigh(&mut sc.sim);
+    let (_, c) = loan_of(&sc.sim, sc.borrower);
+    assert_eq!(c.creditor, store, "the store lent: {c:?}");
+    assert_eq!(usize::from(c.good), sc.grain);
+    assert!(f64::from(c.lent) <= 2000.0 * f64::from(def.share) + 1e-3);
+    assert!(
+        (f64::from(c.owed) - f64::from(c.lent) * (1.0 + f64::from(def.increment))).abs() < 1e-2,
+        "{c:?}"
+    );
+    let held = |sim: &Sim| sim.people().polities[pi].stores[sc.grain];
+    let after_lending = held(&sc.sim);
+    assert!(
+        after_lending < 2000.0 - f64::from(c.lent) + 1.0,
+        "{after_lending}"
+    );
+    // Repaid into the store.
+    feed(&mut sc.sim, sc.borrower, f64::from(c.owed) + 200.0);
+    repay(&mut sc.sim, c.due);
+    let (_, paid) = loan_of(&sc.sim, sc.borrower);
+    assert_eq!(paid.standing, Standing::Repaid, "{paid:?}");
+    assert!(held(&sc.sim) > after_lending + f64::from(c.owed) - 1.0);
+    let words = civ_sim::frames::wealth::loan_words(&sc.sim, at);
+    assert!(
+        words.iter().any(|w| w.contains("the common store")),
+        "{words:?}"
+    );
 }

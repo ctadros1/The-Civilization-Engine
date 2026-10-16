@@ -78,6 +78,9 @@ pub(super) struct Forecasts {
     /// What each household is owed on loans refused or left unpaid and not yet heard, and what
     /// it owes on such loans, kcal (M7d slice CB), by household id.
     debts: Vec<(PermanentId, f64, f64)>,
+    /// The food the common store holds, kcal, and the households it serves (M7d slice CC):
+    /// what lending from it could lend each.
+    store_food: (f64, usize),
 }
 
 /// What a household weighs a trade law by (M7c slice BV, ADR-0026 §1): its settlement's
@@ -590,6 +593,18 @@ impl Forecasts {
                     .binary_search_by_key(&h, |d| d.0)
                     .map_or((0.0, 0.0), |i| (self.debts[i].1, self.debts[i].2));
                 crate::polity::against_gain(o, to * share, from * share, pp)
+            }
+            // Lending from the store (M7d slice CC): what its short year would borrow, up to its
+            // share of what the store lends, less the increment it would owe.
+            Some(PolicyKind::LendFromStore) => {
+                let Some(def) = policies.get(usize::from(m.policy)).and_then(|d| d.lending) else {
+                    return 0.0;
+                };
+                let (food, n) = self.store_food;
+                let each = food * f64::from(def.share) / n.max(1) as f64;
+                let short = (o.year_need - o.held - o.harvest).max(0.0);
+                let borrow = short.min(each);
+                crate::polity::against_gain(o, borrow, borrow * f64::from(def.increment), pp)
             }
             Some(PolicyKind::Privilege) => {
                 let (Some(org), Some(def)) = (
@@ -1477,6 +1492,10 @@ impl Population {
             forum_cases: self.forum_cases(ctx, pi),
             trade: self.trade_forecast(ctx, pi, households),
             debts: self.debt_stakes(ctx, households),
+            store_food: (
+                stock_kcal(&self.polities[pi].stores, &ctx.catalog.goods),
+                households.len(),
+            ),
         }
     }
 
@@ -2718,6 +2737,8 @@ impl Population {
                             moves.push(MoveOption { hours, ..blank });
                         }
                     }
+                    // Lending from the store (M7d slice CC): one law, its terms the template's.
+                    PolicyKind::LendFromStore => moves.push(blank),
                     // Debts heard (M7d slice CB): one law, its remedy the template's; it
                     // replaces a law of debts heard of another template in force.
                     PolicyKind::DebtsHeard => {

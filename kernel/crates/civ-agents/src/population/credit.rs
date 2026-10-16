@@ -156,6 +156,12 @@ impl Population {
             let Some(borrower) = self.elder_of(id, now, params) else {
                 continue;
             };
+            let due = day + to_harvest.ceil() as i64 + 7;
+            // Under a law of lending from the store, the store first, at the law's terms (M7d
+            // slice CC).
+            if self.borrow_from_store(ctx, id, borrower, want, due) {
+                continue;
+            }
             // Those with food to spare, those its elder regards first.
             let mut lenders: Vec<(f64, PermanentId, f64)> = self
                 .households
@@ -178,7 +184,6 @@ impl Population {
                 .collect();
             lenders.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
             lenders.truncate(cp.max_asked as usize);
-            let due = day + to_harvest.ceil() as i64 + 7;
             let t_years = (due - day) as f64 / civ_core::time::DAYS_PER_YEAR as f64;
             let field = self.pledgeable_field(ctx, id);
             for (_, lender, spare) in lenders {
@@ -258,6 +263,107 @@ impl Population {
         }
     }
 
+    /// Household `hh`, whose elder is `borrower`, short `want` kcal before its harvest, borrows
+    /// from its polity's common store under a law of lending from the store in force there that
+    /// one of its members knows (M7d slice CC, ADR-0027 §4): the lesser of what it wants and the
+    /// law's share of the food the store holds, in the food good the store holds most of, owed
+    /// with the law's increment, due `due`. Whether it borrowed.
+    fn borrow_from_store(
+        &mut self,
+        ctx: &Ctx,
+        hh: PermanentId,
+        borrower: PermanentId,
+        want: f64,
+        due: i64,
+    ) -> bool {
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let day = now.day_index();
+        let Some(x) = self.household(hh) else {
+            return false;
+        };
+        let members = x.members.clone();
+        let Some(pi) = x.settlement.and_then(|s| self.polity_of(s)) else {
+            return false;
+        };
+        let Some(def) = self.polities[pi]
+            .in_force(
+                &ctx.catalog.policies,
+                crate::polity::PolicyKind::LendFromStore,
+            )
+            .find(|l| members.iter().any(|&m| l.knows(m)))
+            .and_then(|l| ctx.catalog.policies.get(usize::from(l.policy)))
+            .and_then(|d| d.lending)
+        else {
+            return false;
+        };
+        let sheltered = self.polity_sheltered(pi);
+        self.polities[pi].settle_stores(now, goods, sheltered);
+        let store = self.polities[pi].id;
+        let stores = &self.polities[pi].stores;
+        let Some((good, kg_held)) = (0..goods.len())
+            .filter(|&g| {
+                goods[g].purpose == GoodUse::Food
+                    && goods[g].kcal_per_kg > 0.0
+                    && !goods[g].kept_back()
+            })
+            .map(|g| (g, stores.get(g).copied().unwrap_or(0.0).max(0.0)))
+            .filter(|&(_, kg)| kg > 1e-6)
+            .max_by(|a, b| {
+                (a.1 * goods[a.0].kcal_per_kg)
+                    .total_cmp(&(b.1 * goods[b.0].kcal_per_kg))
+                    .then(b.0.cmp(&a.0))
+            })
+        else {
+            return false;
+        };
+        let food = stock_kcal(stores, goods);
+        let per_kg = goods[good].kcal_per_kg;
+        let kcal = want.min(f64::from(def.share) * food).min(kg_held * per_kg);
+        let kg = kcal / per_kg;
+        self.order.credit.asked += 1;
+        if kg <= 1e-3 {
+            return false;
+        }
+        let leg = Leg {
+            from: store,
+            to: hh,
+            good,
+            amount: kg,
+        };
+        if !self.transfer(now, params, goods, &[leg], Channel::Lent) {
+            return false;
+        }
+        let keeper = self.polities[pi].keeper().map_or(borrower, |(k, _)| k);
+        let credit = &mut self.order.credit;
+        credit.next += 1;
+        credit.claims.push(Claim {
+            id: credit.next,
+            creditor: store,
+            debtor: hh,
+            good: good as u16,
+            lent: kg as f32,
+            owed: (kg * (1.0 + f64::from(def.increment))) as f32,
+            paid: 0.0,
+            made: day,
+            due,
+            standing: Standing::Open,
+            witnesses: [keeper, borrower],
+            pledge: None,
+            answer: None,
+            asks: 0,
+            extensions: 0,
+            taken: None,
+            by_guarantor: 0.0,
+            recourse: None,
+        });
+        true
+    }
+
+    /// Whether `id` is a creditor still there to be paid: a household, or a polity's store.
+    fn creditor_here(&self, id: PermanentId) -> bool {
+        self.household(id).is_some() || self.polities.iter().any(|p| p.id == id)
+    }
+
     /// Kilograms of good `good` household `hh` can give today, keeping `keep_days` of its food.
     fn can_give(&self, ctx: &Ctx, hh: PermanentId, good: usize) -> f64 {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
@@ -319,7 +425,7 @@ impl Population {
                 continue;
             }
             let good = usize::from(c.good);
-            if self.household(c.debtor).is_none() || self.household(c.creditor).is_none() {
+            if self.household(c.debtor).is_none() || !self.creditor_here(c.creditor) {
                 self.order.credit.claims[i].standing = Standing::Lapsed;
                 continue;
             }

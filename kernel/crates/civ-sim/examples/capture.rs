@@ -131,6 +131,7 @@ fn laws_words(sim: &Sim) -> Vec<String> {
                     | PolicyKind::Privilege
                     | PolicyKind::AmendBody
                     | PolicyKind::DebtsHeard
+                    | PolicyKind::LendFromStore
             )
         }) {
             let (present, support, oppose) = l.counts();
@@ -243,6 +244,13 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
         count(civ_agents::credit::Standing::Refused),
         count(civ_agents::credit::Standing::Lapsed),
     ));
+    // Loans from a common store under a law of lending from the store (M7d slice CC).
+    let from_store = credit
+        .claims
+        .iter()
+        .filter(|c| sim.people().polities.iter().any(|p| p.id == c.creditor))
+        .count();
+    log.push(format!("  loans from the common store: {from_store}"));
     // Pledges and what came of them (M7d slice CB).
     let pledged = |code: u8| {
         credit

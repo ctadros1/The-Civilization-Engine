@@ -105,6 +105,19 @@ pub(crate) struct PolicyFile {
     /// For debts heard (`debts_heard`, content API 122, M7d slice CB): what a finding does.
     #[serde(default)]
     pub debts: Option<DebtsFile>,
+    /// For lending from the store (`lend_from_store`, content API 123, M7d slice CC): its terms.
+    #[serde(default)]
+    pub lending: Option<LendingFile>,
+}
+
+/// A law of lending from the store's terms in a policy file (content API 123, M7d slice CC).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct LendingFile {
+    /// The increment owed on what is lent, a share of it.
+    pub increment: f64,
+    /// The most of the food the store holds it lends at once, a share.
+    pub share: f64,
 }
 
 /// A law of debts heard's terms in a policy file (content API 122, M7d slice CB).
@@ -352,6 +365,13 @@ impl PolicyFile {
                     review: f.review,
                 })
             }),
+            lending: self
+                .lending
+                .as_ref()
+                .map(|l| civ_agents::polity::LendingDef {
+                    increment: l.increment as f32,
+                    share: l.share as f32,
+                }),
             debts: self.debts.as_ref().and_then(|d| {
                 Some(civ_agents::polity::DebtsDef {
                     remedy: civ_agents::polity::DebtRemedy::from_name(&d.remedy)?,
@@ -550,6 +570,25 @@ impl PolicyFile {
             (Some(_), _) => p.push("`privilege` is for `does = \"privilege\"`".to_owned()),
             (None, _) => {}
         }
+        // A law of lending from the store's terms (M7d slice CC): only for `lend_from_store`,
+        // which must have them.
+        match (&self.lending, PolicyKind::from_name(&self.does)) {
+            (Some(l), Some(PolicyKind::LendFromStore)) => {
+                for (name, v, hi) in [
+                    ("lending.increment", l.increment, 2.0),
+                    ("lending.share", l.share, 1.0),
+                ] {
+                    if !(v.is_finite() && (0.0..=hi).contains(&v)) {
+                        p.push(format!("`{name}` must be between 0 and {hi} (got {v})"));
+                    }
+                }
+            }
+            (None, Some(PolicyKind::LendFromStore)) => {
+                p.push("a `lend_from_store` template needs a `lending` table".to_owned());
+            }
+            (Some(_), _) => p.push("`lending` is for `does = \"lend_from_store\"`".to_owned()),
+            (None, _) => {}
+        }
         // A law of debts heard's terms (M7d slice CB): only for `debts_heard`, which must have
         // them.
         match (&self.debts, PolicyKind::from_name(&self.does)) {
@@ -722,7 +761,8 @@ impl PolicyFile {
                 | PolicyKind::Limit
                 | PolicyKind::Embargo
                 | PolicyKind::Recognize
-                | PolicyKind::DebtsHeard),
+                | PolicyKind::DebtsHeard
+                | PolicyKind::LendFromStore),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -781,7 +821,8 @@ impl PolicyFile {
                 | PolicyKind::Limit
                 | PolicyKind::Embargo
                 | PolicyKind::Recognize
-                | PolicyKind::DebtsHeard,
+                | PolicyKind::DebtsHeard
+                | PolicyKind::LendFromStore,
             )
             | None => {}
         }
@@ -1000,6 +1041,7 @@ mod tests {
             duty: None,
             privilege: None,
             debts: None,
+            lending: None,
         }
     }
 
@@ -1028,6 +1070,7 @@ mod tests {
             duty: None,
             privilege: None,
             debts: None,
+            lending: None,
             ..file()
         };
         let roofs = roofs_with(Some(rule("roofs_unburnt", 4.0)));
@@ -1065,6 +1108,7 @@ mod tests {
             duty: None,
             privilege: None,
             debts: None,
+            lending: None,
             ..file()
         };
         assert!(

@@ -103,6 +103,17 @@ pub fn law_text(
                 return format!("a privilege: {} alone {}", org(), g.words());
             }
         }
+        // Lending from the store (M7d slice CC): its terms.
+        civ_agents::polity::PolicyKind::LendFromStore => {
+            if let Some(l) = def.and_then(|d| d.lending) {
+                return format!(
+                    "lending from the store: a household short before its harvest may borrow up \
+                     to {:.0}\u{a0}% of the food it holds, repaid with {:.0}\u{a0}% more",
+                    100.0 * l.share,
+                    100.0 * l.increment
+                );
+            }
+        }
         // Debts heard (M7d slice CB): what a finding does.
         civ_agents::polity::PolicyKind::DebtsHeard => {
             if let Some(d) = def.and_then(|d| d.debts) {

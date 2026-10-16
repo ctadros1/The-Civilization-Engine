@@ -687,6 +687,11 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 123 (M7d slice CC, ADR-0027 §4) brings lending from the store. A policy may `does =
+"lend_from_store"` with a `[lending]` table: `increment` (what is owed on a loan beyond what was
+lent, a share of it) and `share` (the most of the food the store holds it lends at once). The core
+adds `core:policy/lend_from_store` (a tenth more, a quarter of the store), answering `food_short`.
+
 Content API 122 (M7d slice CB, ADR-0027 §3) brings *debts heard*. A policy may `does =
 "debts_heard"`, answering the appended issue `debts_unpaid` (a loan a household made was refused
 or left unpaid, and nothing was taken for it), with a `[debts]` table: `remedy` (`time`, the loan

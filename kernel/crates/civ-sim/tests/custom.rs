@@ -180,6 +180,7 @@ fn those_a_thin_gathering_overruled_propose_to_amend_the_custom_one_change_at_a_
             opinion: 0.0,
             values: 0.0,
             view: 0.0,
+            owed: 0.0,
         })
         .collect();
     let pop = sim.people_mut_for_tests();

@@ -587,6 +587,14 @@ w_stance = 1.0
 # founding processes run 3 to 36 months, and none is forced to finish). What they leave stands. A
 # design prior.
 founding_days = 90
+# Content API 117 (M7c slice BY, ADR-0026 §4; research 09-09 §1.7): a sponsor whose law would not
+# pass may give food to households a gift would bring round. A household owes a patron what such
+# gifts brought it within `owed_memory_days`, and its members' stances on the patron's laws gain
+# `w_owed` a day of its food (a tenth of a point: two and a half days carry the stance margin).
+# `patron_gift_days` caps one gift. Design priors, unestimated.
+w_owed = 0.1
+owed_memory_days = 365
+patron_gift_days = 10.0
 
 [crime]                          # taking, what is seen of it and what is owed (ADR-0015); tuning values
 # Research 04-09 §5.4 finds no established figures for moral-cost weights, belief-update rates or
@@ -692,6 +700,24 @@ round_stops = 6
 # brought before the gathering. All tuning values: 09-09 §2.3 gives no estimable figures.
 w_watch_report = 2.0
 ask_days = 3.0
+# Content API 117 (M7c slice BY, ADR-0026 §4; research 09-09 §1.3, §2.3): the store's keeper
+# weighs, at each of the polity's reviews, drawing for their own household up to `divert_share` of
+# the store's food (09-09's unestimated ceiling of 0.15 of the flow) as the watcher weighs asking
+# a payment: what it is worth to their household against their objection to taking what is not
+# theirs and the chance they believe they run of being found out. Below `favour_reserve_days` of
+# the settlement's food in the store, the keeper orders the asks by their regard and passes over
+# one they regard less than `favour_floor`. Tuning values.
+divert_share = 0.15
+favour_reserve_days = 30.0
+favour_floor = 0.0
+# A duty's collector, where a law names one, sees a purchase one of their polity brings home with
+# chance `collector_sight`, and either assesses it in full or asks the buyer's household for
+# `collector_ask_share` of what it owes to assess none of it (09-09 §1.3: under-assessing for a
+# payment), weighed as a watcher weighs asking; the household pays when that is worth more to it
+# than its objection, or refuses, pays the duty and holds the asking against the office. Tuning
+# values.
+collector_sight = 0.5
+collector_ask_share = 0.5
 # A curfew (M4b slice AD; the M4 crime brief §1.6: nobody may be away from home in set hours): a
 # household weighs one by `curfew_guard` of all it found missing back to it, and as much of what
 # its own members took from it, as it would a watch (the share of takings it believes a curfew

@@ -18593,7 +18593,8 @@ struct LawLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_HOLDER_NAME = 60,
     VT_BROKEN = 62,
     VT_BROKEN_UNAWARE = 64,
-    VT_REFUSED = 66
+    VT_REFUSED = 66,
+    VT_CONDUCT = 68
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -18691,6 +18692,9 @@ struct LawLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint32_t refused() const {
     return GetField<uint32_t>(VT_REFUSED, 0);
   }
+  const ::flatbuffers::String *conduct() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_CONDUCT);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -18734,6 +18738,8 @@ struct LawLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint32_t>(verifier, VT_BROKEN, 4) &&
            VerifyField<uint32_t>(verifier, VT_BROKEN_UNAWARE, 4) &&
            VerifyField<uint32_t>(verifier, VT_REFUSED, 4) &&
+           VerifyOffset(verifier, VT_CONDUCT) &&
+           verifier.VerifyString(conduct()) &&
            verifier.EndTable();
   }
 };
@@ -18838,6 +18844,9 @@ struct LawLineBuilder {
   void add_refused(uint32_t refused) {
     fbb_.AddElement<uint32_t>(LawLine::VT_REFUSED, refused, 0);
   }
+  void add_conduct(::flatbuffers::Offset<::flatbuffers::String> conduct) {
+    fbb_.AddOffset(LawLine::VT_CONDUCT, conduct);
+  }
   explicit LawLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -18882,7 +18891,8 @@ inline ::flatbuffers::Offset<LawLine> CreateLawLine(
     ::flatbuffers::Offset<::flatbuffers::String> holder_name = 0,
     uint32_t broken = 0,
     uint32_t broken_unaware = 0,
-    uint32_t refused = 0) {
+    uint32_t refused = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> conduct = 0) {
   LawLineBuilder builder_(_fbb);
   builder_.add_holder(holder);
   builder_.add_decided_minute(decided_minute);
@@ -18890,6 +18900,7 @@ inline ::flatbuffers::Offset<LawLine> CreateLawLine(
   builder_.add_proposed_minute(proposed_minute);
   builder_.add_sponsor(sponsor);
   builder_.add_id(id);
+  builder_.add_conduct(conduct);
   builder_.add_refused(refused);
   builder_.add_broken_unaware(broken_unaware);
   builder_.add_broken(broken);
@@ -18957,7 +18968,8 @@ inline ::flatbuffers::Offset<LawLine> CreateLawLineDirect(
     const char *holder_name = nullptr,
     uint32_t broken = 0,
     uint32_t broken_unaware = 0,
-    uint32_t refused = 0) {
+    uint32_t refused = 0,
+    const char *conduct = nullptr) {
   auto what__ = what ? _fbb.CreateString(what) : 0;
   auto policy__ = policy ? _fbb.CreateString(policy) : 0;
   auto sponsor_name__ = sponsor_name ? _fbb.CreateString(sponsor_name) : 0;
@@ -18965,6 +18977,7 @@ inline ::flatbuffers::Offset<LawLine> CreateLawLineDirect(
   auto decision__ = decision ? _fbb.CreateString(decision) : 0;
   auto stances__ = stances ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::StanceLine>>(*stances) : 0;
   auto holder_name__ = holder_name ? _fbb.CreateString(holder_name) : 0;
+  auto conduct__ = conduct ? _fbb.CreateString(conduct) : 0;
   return tce::wire::CreateLawLine(
       _fbb,
       id,
@@ -18998,7 +19011,8 @@ inline ::flatbuffers::Offset<LawLine> CreateLawLineDirect(
       holder_name__,
       broken,
       broken_unaware,
-      refused);
+      refused,
+      conduct__);
 }
 
 struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

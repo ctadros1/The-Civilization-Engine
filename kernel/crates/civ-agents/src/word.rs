@@ -523,11 +523,16 @@ pub enum Wrong {
     /// An organization of those who sell what they sell turned them away (M7c slice BW, ADR-0026
     /// §2).
     TurnedAway = 10,
+    /// The store's keeper passed over their ask, when the store was low, for those they favour
+    /// (M7c slice BY, ADR-0026 §4).
+    PassedOver = 11,
+    /// A duty's collector asked their household a payment to assess less (M7c slice BY).
+    Extorted = 12,
 }
 
 impl Wrong {
     /// Every event, in code order.
-    pub const ALL: [Wrong; 11] = [
+    pub const ALL: [Wrong; 13] = [
         Wrong::StoreEmpty,
         Wrong::FoundAgainst,
         Wrong::NotFound,
@@ -539,6 +544,8 @@ impl Wrong {
         Wrong::Struck,
         Wrong::Trespass,
         Wrong::TurnedAway,
+        Wrong::PassedOver,
+        Wrong::Extorted,
     ];
 
     /// Its number in saves.
@@ -578,6 +585,10 @@ impl Wrong {
             Wrong::TurnedAway => {
                 "an organization of those who sell what they sell turned them away"
             }
+            Wrong::PassedOver => {
+                "the store's keeper passed over their household's ask for those they favour"
+            }
+            Wrong::Extorted => "a duty's collector asked their household a payment to assess less",
         }
     }
 }

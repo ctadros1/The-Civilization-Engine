@@ -387,6 +387,8 @@ pub const SCHEMA_V127: u32 = 127;
 pub const SCHEMA_V128: u32 = 128;
 /// Organizations by stake, before privileges.
 pub const SCHEMA_V129: u32 = 129;
+/// Privileges, before the keeper's diversion.
+pub const SCHEMA_V130: u32 = 130;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

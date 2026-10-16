@@ -735,6 +735,7 @@ fn revolt_called(seed: u64) -> (Sim, civ_agents::faction::Revolt, Body) {
         opinion: 0.0,
         values: 0.0,
         view: 0.0,
+        owed: 0.0,
     };
     let (against, others): (Vec<PermanentId>, Vec<PermanentId>) = came
         .iter()

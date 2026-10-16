@@ -1,0 +1,24 @@
+# A duty on tools with a collector (M7c slice BY, ADR-0026 §4; research 09-09 §1.3, §5.4: start
+# with "a granary steward, a tax collector and a judge"). As `core:policy/duty_on_tools`, but the
+# law names one who collects it: they see purchases their polity's people bring home and assess
+# them in full, or ask the buyer's household a payment to assess none of it, which the household
+# pays or refuses and holds against the office. The proposer names the one they regard most,
+# themselves included. The office lapses, and the duty with it, when its holder dies or leaves.
+# Whether anyone proposes it, and whether a gathering passes it, is people's.
+kind = "policy"
+id = "core:policy/duty_on_tools_collected"
+name = "Duty on tools, collected"
+description = "Who buys tools at another settlement's door owes the common store a share of them, assessed by a collector."
+does = "duty"
+answers = ["fetched_elsewhere"]
+question = "whether to lay a duty on tools bought elsewhere, with one to collect it"
+levy_shares = [0.1, 0.25]
+
+[duty]
+purpose = "tool"
+collector = true
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/autonomy" = -0.75
+"core:value/reciprocity" = 0.25

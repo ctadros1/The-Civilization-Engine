@@ -2087,6 +2087,10 @@ table LawLine {
   // Wire 1.42 (M4c slice AH): levies kept back openly in a faction's refusal (counted in
   // `withheld_kg`; `evaded` counts only those kept back unannounced).
   refused: uint (id: 31);
+  // Wire 1.80 (M7c slice BY, ADR-0026 §4): how those who held it or stood to gain by it acted,
+  // in the kernel's words: a keeper's drawing and favour, a collector's payments, and a sponsor's
+  // gifts before the gathering; absent when there is nothing to tell.
+  conduct: string (id: 32);
 }
 
 // A settlement's polity (wire 1.27, ADR-0013): its custom in words, its members, its common

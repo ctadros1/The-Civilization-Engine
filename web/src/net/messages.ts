@@ -1092,6 +1092,11 @@ export interface LawLine {
   /** Wire 1.33: for a curfew, the times someone broke it knowing of it, and not. */
   broken: number;
   brokenUnaware: number;
+  /**
+   * Wire 1.80 (M7c slice BY): how its keeper, collector or sponsor acted, in the kernel's words;
+   * "" when there is nothing to tell.
+   */
+  conduct: string;
 }
 
 /** A settlement's polity (wire 1.27): its custom, members, store, gathering called and laws. */
@@ -4237,6 +4242,7 @@ function lawLine(l: W.LawLine): LawLine {
     holderName: l.holderName() ?? "",
     broken: l.broken(),
     brokenUnaware: l.brokenUnaware(),
+    conduct: l.conduct() ?? "",
   };
 }
 

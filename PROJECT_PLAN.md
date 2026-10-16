@@ -3330,6 +3330,43 @@ and M6a gives rivers a daily flow.
         happen, unlabelled); a licence as an asset, transfer or lease.
     - **BY**: corruption and patronage: the keeper's diversion and relief by favour, the
       collector, patron gifts and what a client owes.
+      - *As built (2026-10-16):* content API 117, save schema 131, wire 1.80. **The keeper's
+        diversion:** at each of the polity's reviews the keeper of a common store weighs drawing
+        from it for their own household, as a watcher weighs asking a payment (ΔU = B − M − p̂F:
+        `w_demand_loss` a day of their household's food, against `w_objection` for their objection
+        and `w_seen` for the chance they believe they run of being found out), never above the
+        objection's filter, up to `divert_share` of what it holds and no more than brings their
+        household to the days of food it tries to keep. What they draw moves on an appended
+        `Diverted` channel and is counted on the store's law; nobody is told, and what follows is
+        the store, emptier, failing those who ask of it. **Relief by favour:** below
+        `favour_reserve_days` of the settlement's food in the store, the keeper answers the asks of
+        those they regard and passes over one they regard less than `favour_floor`, who holds it
+        against the office (a grievance, `passed over`); both are counted. **The collector:** a
+        duty's template may name a collector (`[duty] collector = true`; the core adds
+        `core:policy/duty_on_tools_collected`), nominated as the most-regarded adult. They see a
+        purchase one of their polity brings home with chance `collector_sight` and assess it in
+        full, whatever the buyer knows of the law, or ask the household for `collector_ask_share`
+        of what it owes to assess none of it (weighed as the keeper weighs drawing); the household's
+        elder pays when what it saves is worth more than their objection, on the `Bribe` channel,
+        or refuses, and the duty is assessed in full and its grown members who know the law hold
+        the asking against the office (`extorted`). What a duty is worth to a buyer who cannot make
+        the good is now what it gave for it (BV valued it at nothing). **Patron gifts:** when a law
+        is put to the gathering its sponsor reckons each member's stance as their household
+        reckons the law, their regard for the one it names and what their household owes; if it
+        would not pass, the sponsor's household gives food to the households a gift of at most
+        `patron_gift_days` would bring round, the cheapest turn first, only if the gifts would
+        carry it, cost the household less than the law is worth to it and leave it above
+        subsistence. The gifts are ordinary gifts (the `Gift` channel, ties as any gift), recorded
+        with the law they were given before. A household owes a patron what such gifts brought it
+        within `owed_memory_days`, and its members' stances on the patron's laws gain `w_owed` a
+        day of its food (recorded with the stance, and in its words). A patron who saw a household
+        they gave to stand against them gives it nothing more. Only gifts so recorded are read; the
+        tie's help balance stays unread. **Words:** the government panel's law line says how its
+        keeper, collector or sponsor acted ("its keeper drew 40 kg from the store for their own
+        household 2 times"; "before the gathering, Mira's household gave 3 households food (14 days
+        of theirs)"). **Not yet built:** exposure of a diversion by someone who saw it (the store,
+        emptier, is what people see); a payer who tells of a collector's asking; patron gifts from
+        a faction's or organization's store; capture measured (BZ).
     - **BZ**: closure by amendment, capture diagnostics in sentences, the M7c demo (time-boxed,
       NUDGEs logged).
   - **M7d, credit and money** (ADR when reached): loans in goods, pledges and default, keepers

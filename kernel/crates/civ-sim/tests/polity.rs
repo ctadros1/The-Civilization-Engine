@@ -483,6 +483,7 @@ fn a_keeper_drawn_by_lot_keeps_for_a_term_and_cannot_be_drawn_again_at_once() {
                 opinion: 0.0,
                 values: 0.0,
                 view: 0.0,
+                owed: 0.0,
             })
             .collect::<Vec<_>>()
     };

@@ -2614,6 +2614,10 @@ export function bindUi(store: Store, actions: Actions): void {
           const broken = brokenText(l);
           if (broken) facts.append(el("dt", { text: "Kept" }), el("dd", { text: broken }));
         }
+        // How its keeper, collector or sponsor acted (wire 1.80, M7c slice BY).
+        if (l.conduct) {
+          facts.append(el("dt", { text: "Conduct" }), el("dd", { text: l.conduct }));
+        }
         const details = el(
           "details",
           { className: `law ${l.status.replace(" ", "-")}` },

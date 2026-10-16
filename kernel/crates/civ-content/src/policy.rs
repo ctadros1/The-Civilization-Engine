@@ -122,6 +122,9 @@ pub struct DutyFile {
     /// Whether households that offer such goods at home are spared it.
     #[serde(default)]
     pub exempt_sellers: bool,
+    /// Whether the law names one who collects it (content API 117, M7c slice BY).
+    #[serde(default)]
+    pub collector: bool,
 }
 
 /// A forum's terms in a policy file (content API 110).
@@ -340,6 +343,7 @@ impl PolicyFile {
                 Some(civ_agents::polity::DutyDef {
                     purpose: civ_agents::params::GoodUse::from_name(&d.purpose)?,
                     exempt_sellers: d.exempt_sellers,
+                    collector: d.collector,
                 })
             }),
             limit: self.limit.as_ref().and_then(|l| {

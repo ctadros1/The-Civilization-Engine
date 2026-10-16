@@ -10,6 +10,11 @@ use crate::polity::{LawStatus, PolicyKind};
 
 /// Purpose tag for whether one who owes a duty pays it (M7c slice BV).
 pub const PURPOSE_DUTY: u64 = 0x6475_7479_7061_7931; // "dutypay1"
+/// Purpose tags for whether a duty's collector sees a purchase, asks a payment, and whether it is
+/// paid (M7c slice BY).
+pub const PURPOSE_COLLECT: u64 = 0x636f_6c6c_6563_7431; // "collect1"
+pub const PURPOSE_COLLECT_ASK: u64 = 0x636f_6c61_736b_3031; // "colask01"
+pub const PURPOSE_COLLECT_PAY: u64 = 0x636f_6c70_6179_3031; // "colpay01"
 
 /// A purchase someone of a settlement made at another settlement's door, as the seller's market
 /// remembers it (M7c slice BV).
@@ -211,6 +216,7 @@ impl Population {
     /// the units, and paid at home in kind now if they choose to, as the levy is weighed (the
     /// norms they hold, where they stood on it and their regard for its sponsor, against what it
     /// costs); one who never heard of the law owes nothing they know of.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn pay_duties(
         &mut self,
         ctx: &Ctx,
@@ -219,9 +225,21 @@ impl Population {
         market: PermanentId,
         good: usize,
         units: f64,
+        (payment, paid): (usize, f64),
     ) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let pp = &params.polity;
+        // What a unit of the purchase is worth to the household: its own cost of it, else what
+        // it gave for it (the payment's own worth to it, or the food in it).
+        let unit_worth = self.household(household).map_or(0.0, |x| {
+            self.unit_kcal(ctx, x, good).unwrap_or_else(|| {
+                let each = self
+                    .unit_kcal(ctx, x, payment)
+                    .or_else(|| goods.get(payment).map(|g| g.kcal_per_kg))
+                    .unwrap_or(0.0);
+                each * paid / units.max(1e-9)
+            })
+        });
         let Some(pi) = self
             .household(household)
             .and_then(|x| x.settlement)
@@ -237,6 +255,21 @@ impl Population {
                 continue;
             }
             let (store, sponsor) = (self.polities[pi].id, law.sponsor);
+            // A collector who sees the purchase assesses it, whatever the buyer knows (M7c slice
+            // BY).
+            if let Some(collector) = law.holder.filter(|&c| c != who) {
+                let key = [
+                    ctx.seed,
+                    PURPOSE_COLLECT,
+                    who.get(),
+                    now.minutes() as u64,
+                    li as u64,
+                ];
+                if Rng64::from_key(&key).next_f64() < params.crime.collector_sight {
+                    self.collect_duty(ctx, pi, li, collector, household, good, owed, unit_worth);
+                    continue;
+                }
+            }
             if !law.knows(who) {
                 self.polities[pi].laws[li].compliance.unaware += 1;
                 continue;
@@ -249,11 +282,7 @@ impl Population {
             let Some(outlook) = self.outlook(ctx, household) else {
                 continue;
             };
-            let kcal = self
-                .household(household)
-                .and_then(|x| self.unit_kcal(ctx, x, good))
-                .unwrap_or(0.0)
-                * owed;
+            let kcal = unit_worth * owed;
             let regard = self.ties.regard(who, sponsor, day, &params.ties);
             let cost = pp.w_gain * crate::polity::levy_cost(&outlook, kcal, pp);
             self.ensure_norm_state(ctx, who);
@@ -285,6 +314,129 @@ impl Population {
                 c.complied += 1;
                 c.levied_kg += paid;
             }
+        }
+    }
+
+    /// Duty law `li` of polity `pi`'s collector `collector` saw household `household` bring home
+    /// a purchase of good `good` owing `owed` units, each worth `unit` kcal to it (M7c slice BY, ADR-0026 §4; research 09-09
+    /// §1.3: under-assessing for a payment). They assess it in full, or ask the household for
+    /// `collector_ask_share` of what it owes, worth `w_demand_loss` a day of their own household's
+    /// food against `w_objection` for their objection (never above its filter) and `w_seen` for
+    /// the chance they believe they run of being found out. Asked, the household's elder pays when
+    /// what it saves is worth more than their own objection; paid, nothing is assessed and the
+    /// payment moves on the `Bribe` channel; refused, the duty is assessed in full and the
+    /// household's grown members who know the law hold the asking against the office.
+    #[allow(clippy::too_many_arguments)]
+    fn collect_duty(
+        &mut self,
+        ctx: &Ctx,
+        pi: usize,
+        li: usize,
+        collector: PermanentId,
+        household: PermanentId,
+        good: usize,
+        owed: f64,
+        unit: f64,
+    ) {
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let cp = &params.crime;
+        let need_of = |pop: &Population, h: PermanentId| {
+            pop.household(h).map_or(1, |x| x.members.len().max(1)) as f64
+                * params.household.daily_kcal_per_person
+        };
+        let (store, law_id) = (self.polities[pi].id, self.polities[pi].laws[li].id);
+        let owed_kcal = owed * unit;
+        let Some((collector_hh, objection, risk)) = self
+            .person(collector)
+            .map(|p| (p.household, f64::from(p.objection), f64::from(p.risk_seen)))
+        else {
+            return;
+        };
+        let pay = cp.collector_ask_share * owed_kcal;
+        let ask = (objection < cp.objection_filter && pay > 1.0).then(|| {
+            cp.w_demand_loss * pay / need_of(self, collector_hh)
+                - cp.w_objection * objection
+                - cp.w_seen * risk
+        });
+        let key = [
+            ctx.seed,
+            PURPOSE_COLLECT_ASK,
+            collector.get(),
+            now.minutes() as u64,
+        ];
+        let asks = ask.is_some_and(|a| {
+            crate::demography::pick_softmax(&[0.0, a], Rng64::from_key(&key).next_f64()) == Some(1)
+        });
+        if asks {
+            self.polities[pi].laws[li].compliance.asked += 1;
+            let elder = self.elder_of(household, now, params);
+            let payer_objection = elder
+                .and_then(|e| self.person(e))
+                .map_or(1.0, |p| f64::from(p.objection));
+            let points = cp.w_demand_loss * (owed_kcal - pay) / need_of(self, household)
+                - cp.w_objection * payer_objection;
+            let key = [
+                ctx.seed,
+                PURPOSE_COLLECT_PAY,
+                household.get(),
+                now.minutes() as u64,
+            ];
+            let pays =
+                crate::demography::pick_softmax(&[0.0, points], Rng64::from_key(&key).next_f64())
+                    == Some(1);
+            let stores = self
+                .household(household)
+                .map(|x| stores_now(x, now, params, goods))
+                .unwrap_or_default();
+            let legs: Vec<Leg> = super::crime::take_goods(&stores, goods, f64::INFINITY, pay)
+                .into_iter()
+                .map(|(good, amount)| Leg {
+                    from: household,
+                    to: collector_hh,
+                    good,
+                    amount,
+                })
+                .collect();
+            let kg: f64 = legs.iter().map(|l| l.amount).sum();
+            if pays && kg > 1e-9 && self.transfer(now, params, goods, &legs, Channel::Bribe) {
+                let c = &mut self.polities[pi].laws[li].compliance;
+                c.bribed += 1;
+                c.bribe_kg += kg;
+                return;
+            }
+            let harm = pay / need_of(self, household);
+            for m in self.grown_of(household, now, params) {
+                if self.polities[pi].laws[li].knows(m) {
+                    self.grieve(
+                        ctx,
+                        m,
+                        crate::word::Grieved::Treatment,
+                        crate::word::Blamed::Office(law_id),
+                        law_id,
+                        harm,
+                        crate::word::Wrong::Extorted,
+                    );
+                }
+            }
+        }
+        let held = self
+            .household(household)
+            .and_then(|x| x.stores.get(good))
+            .copied()
+            .unwrap_or(0.0)
+            .max(0.0);
+        let paid = owed.min(held);
+        let leg = Leg {
+            from: household,
+            to: store,
+            good,
+            amount: paid,
+        };
+        if paid > 1e-9 && self.transfer(now, params, goods, &[leg], Channel::Duty) {
+            let c = &mut self.polities[pi].laws[li].compliance;
+            c.complied += 1;
+            c.assessed += 1;
+            c.levied_kg += paid;
         }
     }
 

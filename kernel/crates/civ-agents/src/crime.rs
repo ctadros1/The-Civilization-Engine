@@ -126,6 +126,19 @@ pub struct CrimeParams {
     /// Days of the taker's household's food a watcher asks to say nothing, at most what it can
     /// spare.
     pub ask_days: f64,
+    /// The keeper's diversion (M7c slice BY, ADR-0026 §4; research 09-09 §2.3: a ceiling of 0.15
+    /// of the flow, unestimated): the most of the store's food a keeper of it draws for their own
+    /// household at one review.
+    pub divert_share: f64,
+    /// Relief by favour: below this many days of its people's food in the store, its keeper
+    /// orders the asks by their regard, and passes over one they regard less than
+    /// `favour_floor`.
+    pub favour_reserve_days: f64,
+    pub favour_floor: f64,
+    /// A duty's collector (M7c slice BY): the chance they see a purchase one of their polity
+    /// brings home, and the share of what it owes they ask to assess none of it.
+    pub collector_sight: f64,
+    pub collector_ask_share: f64,
     /// The share of takings a household believes a curfew would keep off (M4b slice AD): what it
     /// weighs a curfew by, as `watch_guard` a watch.
     pub curfew_guard: f64,
@@ -202,6 +215,11 @@ impl CrimeParams {
             round_stops: 6,
             w_watch_report: 2.0,
             ask_days: 3.0,
+            divert_share: 0.15,
+            favour_reserve_days: 30.0,
+            favour_floor: 0.0,
+            collector_sight: 0.5,
+            collector_ask_share: 0.5,
             curfew_guard: 0.3,
             curfew_cost_days: 0.25,
             w_collect: 0.5,

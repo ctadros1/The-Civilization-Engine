@@ -687,6 +687,17 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 117 (M7c slice BY, ADR-0026 §4) brings corruption and patronage. The people
+profile's `[crime]` table adds `divert_share` (the most of a common store's food its keeper draws
+for their own household at one review), `favour_reserve_days` (below this many days of the
+settlement's food in the store, its keeper answers asks by their regard) and `favour_floor` (the
+regard below which they pass one over), `collector_sight` (the chance a duty's collector sees a
+purchase brought home) and `collector_ask_share` (the share of what is owed they ask to assess
+nothing). A duty's `[duty]` table may say `collector = true`: its law names a collector. The
+`[polity]` table adds `w_owed` (the points a stance gains for each day of its household's food a
+patron's gifts brought it), `owed_memory_days` and `patron_gift_days` (the most one gift is). The
+core adds `core:policy/duty_on_tools_collected`.
+
 Content API 116 (M7c slice BX, ADR-0026 §3) brings privileges. A policy may `does = "privilege"`
 with a `[privilege]` table, `grant` (`licence`: the sole right to offer goods of its `purpose` at
 doors in the settlement; `staple`: the sole right to sell there such goods fetched from another

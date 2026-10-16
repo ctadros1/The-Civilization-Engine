@@ -1351,6 +1351,12 @@ pub(crate) struct CrimeFile {
     pub round_stops: u32,
     pub w_watch_report: f64,
     pub ask_days: f64,
+    /// Content API 117 (M7c slice BY): the keeper's diversion and relief by favour.
+    pub divert_share: f64,
+    pub favour_reserve_days: f64,
+    pub favour_floor: f64,
+    pub collector_sight: f64,
+    pub collector_ask_share: f64,
     pub curfew_guard: f64,
     pub curfew_cost_days: f64,
     /// Content API 51 (M4c slice AI, step four): force.
@@ -1407,6 +1413,11 @@ impl CrimeFile {
             round_stops: self.round_stops,
             w_watch_report: self.w_watch_report,
             ask_days: self.ask_days,
+            divert_share: self.divert_share,
+            favour_reserve_days: self.favour_reserve_days,
+            favour_floor: self.favour_floor,
+            collector_sight: self.collector_sight,
+            collector_ask_share: self.collector_ask_share,
             curfew_guard: self.curfew_guard,
             curfew_cost_days: self.curfew_cost_days,
             w_collect: self.w_collect,
@@ -1472,6 +1483,21 @@ impl CrimeFile {
             ("crime.w_watch", self.w_watch, 0.0, 100.0),
             ("crime.w_watch_report", self.w_watch_report, -100.0, 100.0),
             ("crime.ask_days", self.ask_days, 0.0, 365.0),
+            ("crime.divert_share", self.divert_share, 0.0, 1.0),
+            (
+                "crime.favour_reserve_days",
+                self.favour_reserve_days,
+                0.0,
+                3650.0,
+            ),
+            ("crime.favour_floor", self.favour_floor, -1.0, 1.0),
+            ("crime.collector_sight", self.collector_sight, 0.0, 1.0),
+            (
+                "crime.collector_ask_share",
+                self.collector_ask_share,
+                0.0,
+                1.0,
+            ),
             ("crime.curfew_guard", self.curfew_guard, 0.0, 1.0),
             ("crime.curfew_cost_days", self.curfew_cost_days, 0.0, 365.0),
             ("crime.w_collect", self.w_collect, -100.0, 100.0),
@@ -1532,6 +1558,10 @@ pub(crate) struct PolityFile {
     /// Content API 49 (M4c slice AI): days after the custom is taken in which its new body weighs
     /// ending the laws the old one made.
     pub founding_days: u32,
+    /// Content API 117 (M7c slice BY): what a client owes a patron, and the most one gift is.
+    pub w_owed: f64,
+    pub owed_memory_days: u32,
+    pub patron_gift_days: f64,
 }
 
 impl PolityFile {
@@ -1558,6 +1588,9 @@ impl PolityFile {
             comply_base: self.comply_base,
             w_stance: self.w_stance,
             founding_days: self.founding_days,
+            w_owed: self.w_owed,
+            owed_memory_days: self.owed_memory_days,
+            patron_gift_days: self.patron_gift_days,
         }
     }
 
@@ -1568,6 +1601,7 @@ impl PolityFile {
             ("polity.gathering_minutes", self.gathering_minutes, 15, 600),
             ("polity.vote_memory_days", self.vote_memory_days, 0, 3650),
             ("polity.founding_days", self.founding_days, 1, 3650),
+            ("polity.owed_memory_days", self.owed_memory_days, 1, 3650),
         ] {
             if !(lo..=hi).contains(&v) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
@@ -1590,6 +1624,8 @@ impl PolityFile {
             ("polity.subsistence_share", self.subsistence_share, 0.0, 1.0),
             ("polity.comply_base", self.comply_base, -100.0, 100.0),
             ("polity.w_stance", self.w_stance, 0.0, 100.0),
+            ("polity.w_owed", self.w_owed, 0.0, 100.0),
+            ("polity.patron_gift_days", self.patron_gift_days, 0.0, 365.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

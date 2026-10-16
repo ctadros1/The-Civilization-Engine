@@ -93,6 +93,7 @@ fn law_line<'a>(
         .iter()
         .filter(|(p, _)| pop.person(*p).is_some())
         .count() as u32;
+    let conduct = conduct_words(sim, polity, law).map(|w| fbb.create_string(&w));
     let c = &law.compliance;
     wire::LawLine::create(
         fbb,
@@ -129,8 +130,62 @@ fn law_line<'a>(
             broken: c.broken,
             broken_unaware: c.broken_unaware,
             refused: c.refused,
+            conduct,
         },
     )
+}
+
+/// How those who held law `law` or stood to gain by it acted, in words (M7c slice BY): "its
+/// keeper drew 40 kg from the store for their own household 2 times; when it ran low, 3 asks were
+/// answered by favour and 1 passed over"; "its collector assessed 2 purchases in full and asked a
+/// payment 3 times, paid 1 time (4 kg)"; "before the gathering, Mira's household gave 3 households
+/// food (14 days of theirs)". None when there is nothing to tell.
+fn conduct_words(sim: &Sim, polity: &Polity, law: &Law) -> Option<String> {
+    let times = |n: u32| format!("{n} time{}", if n == 1 { "" } else { "s" });
+    let c = &law.compliance;
+    let mut parts = Vec::new();
+    if c.diverted > 0 {
+        parts.push(format!(
+            "its keeper drew {:.0} kg from the store for their own household {}",
+            c.diverted_kg,
+            times(c.diverted)
+        ));
+    }
+    if c.favoured + c.passed_over > 0 {
+        parts.push(format!(
+            "when it ran low, {} ask{} answered by favour and {} passed over",
+            c.favoured,
+            if c.favoured == 1 { " was" } else { "s were" },
+            c.passed_over
+        ));
+    }
+    if c.assessed + c.asked > 0 {
+        parts.push(format!(
+            "its collector assessed {} purchase{} in full and asked a payment {}, paid {} ({:.0} \
+             kg)",
+            c.assessed,
+            if c.assessed == 1 { "" } else { "s" },
+            times(c.asked),
+            times(c.bribed),
+            c.bribe_kg
+        ));
+    }
+    let gifts: Vec<_> = polity
+        .patron_gifts
+        .iter()
+        .filter(|g| g.law == law.id)
+        .collect();
+    if let Some(first) = gifts.first() {
+        let days: f32 = gifts.iter().map(|g| g.days).sum();
+        parts.push(format!(
+            "before the gathering, {}'s household gave {} household{} food ({days:.0} days of \
+             theirs)",
+            sim.people.name_of(first.patron),
+            gifts.len(),
+            if gifts.len() == 1 { "" } else { "s" }
+        ));
+    }
+    (!parts.is_empty()).then(|| parts.join("; "))
 }
 
 /// How someone came to be gone, in words: "when they died on 9 June of year 5".

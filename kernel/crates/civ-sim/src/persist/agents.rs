@@ -120,8 +120,8 @@ use super::{
     SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
-    SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, finish, section, single_chunk,
-    unreadable,
+    SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -586,6 +586,9 @@ enum Schema {
     V129,
     /// Privileges (M7c slice BX: policy kind code 24, firm exit 4).
     V130,
+    /// The keeper's diversion and relief by favour (M7c slice BY: `LawSave.diverted` and its
+    /// fellows, channel 20, `Wrong` code 11).
+    V131,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -730,7 +733,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V127 => Schema::V127,
         SCHEMA_V128 => Schema::V128,
         SCHEMA_V129 => Schema::V129,
-        SAVE_SCHEMA_VERSION => Schema::V130,
+        SCHEMA_V130 => Schema::V130,
+        SAVE_SCHEMA_VERSION => Schema::V131,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1334,6 +1338,10 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     let views: Vec<f32> = l.stances.iter().map(|r| r.view).collect();
                     let stance_views =
                         (views.iter().any(|&v| v != 0.0)).then(|| fbb.create_vector(&views));
+                    // What each household owed the sponsor (schema 131).
+                    let owed: Vec<f32> = l.stances.iter().map(|r| r.owed).collect();
+                    let stance_owed =
+                        (owed.iter().any(|&v| v != 0.0)).then(|| fbb.create_vector(&owed));
                     let known: Vec<save::KnownSave> = l
                         .known
                         .iter()
@@ -1361,6 +1369,14 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             to_hour: l.hours.1,
                             broken: c.broken,
                             broken_unaware: c.broken_unaware,
+                            diverted: c.diverted,
+                            diverted_kg: c.diverted_kg,
+                            favoured: c.favoured,
+                            passed_over: c.passed_over,
+                            assessed: c.assessed,
+                            asked: c.asked,
+                            bribed: c.bribed,
+                            bribe_kg: c.bribe_kg,
                             ends: l.ends.map_or(0, PermanentId::get),
                             agreement: l.agreement.map_or(0, PermanentId::get),
                             target: l.target.map_or(0, PermanentId::get),
@@ -1394,6 +1410,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             stance_opinions: Some(stance_opinions),
                             stance_values: Some(stance_values),
                             stance_views,
+                            stance_owed,
                         },
                     )
                 })
@@ -1718,6 +1735,23 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let elections = (!elections.is_empty()).then(|| fbb.create_vector(&elections));
+            // Patron gifts (schema 131, M7c slice BY).
+            let gifts: Vec<save::PatronGiftSave> = p
+                .patron_gifts
+                .iter()
+                .map(|g| {
+                    save::PatronGiftSave::new(
+                        g.patron.get(),
+                        g.giver.get(),
+                        g.client.get(),
+                        g.law.get(),
+                        g.day,
+                        g.kcal,
+                        g.days,
+                    )
+                })
+                .collect();
+            let patron_gifts = (!gifts.is_empty()).then(|| fbb.create_vector(&gifts));
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -1775,6 +1809,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     version_seats,
                     seated,
                     elections,
+                    patron_gifts,
                 },
             )
         })
@@ -2024,6 +2059,10 @@ fn decode_polities(
                 .stance_views()
                 .map(|v| v.iter().collect())
                 .unwrap_or_default();
+            let owed: Vec<f32> = l
+                .stance_owed()
+                .map(|v| v.iter().collect())
+                .unwrap_or_default();
             for (k, r) in l.stances().iter().flatten().enumerate() {
                 stances.push(StanceRecord {
                     person: required(r.person(), "a stance")?,
@@ -2039,6 +2078,7 @@ fn decode_polities(
                     opinion: opinions.get(k).copied().unwrap_or(0.0),
                     values: values.get(k).copied().unwrap_or(0.0),
                     view: views.get(k).copied().unwrap_or(0.0),
+                    owed: owed.get(k).copied().unwrap_or(0.0),
                 });
             }
             let mut known = Vec::new();
@@ -2086,6 +2126,14 @@ fn decode_polities(
                     unanswered: l.unanswered(),
                     broken: l.broken(),
                     broken_unaware: l.broken_unaware(),
+                    diverted: l.diverted(),
+                    diverted_kg: l.diverted_kg(),
+                    favoured: l.favoured(),
+                    passed_over: l.passed_over(),
+                    assessed: l.assessed(),
+                    asked: l.asked(),
+                    bribed: l.bribed(),
+                    bribe_kg: l.bribe_kg(),
                     refused: l.refused(),
                     refused_kg: l.refused_kg(),
                 },
@@ -2453,6 +2501,19 @@ fn decode_polities(
                 election: x.election(),
             });
         }
+        // Patron gifts (schema 131, M7c slice BY).
+        let mut patron_gifts = Vec::new();
+        for g in p.patron_gifts().iter().flatten() {
+            patron_gifts.push(civ_agents::polity::PatronGift {
+                patron: required(g.patron(), "a patron gift's patron")?,
+                giver: required(g.giver(), "a patron gift's giver")?,
+                client: required(g.client(), "a patron gift's client")?,
+                law: required(g.law(), "a patron gift's law")?,
+                day: g.day(),
+                kcal: g.kcal(),
+                days: g.days(),
+            });
+        }
         let mut elections = Vec::new();
         for e in p.elections().iter().flatten() {
             let what = format!("polity {id}'s election {}", e.id());
@@ -2602,6 +2663,7 @@ fn decode_polities(
             terms,
             seated,
             elections,
+            patron_gifts,
         });
     }
     Ok(out)
@@ -4364,7 +4426,8 @@ fn carried(
         | Schema::V127
         | Schema::V128
         | Schema::V129
-        | Schema::V130 => {
+        | Schema::V130
+        | Schema::V131 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4667,7 +4730,8 @@ fn decode_households(
             | Schema::V127
             | Schema::V128
             | Schema::V129
-            | Schema::V130 => {
+            | Schema::V130
+            | Schema::V131 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

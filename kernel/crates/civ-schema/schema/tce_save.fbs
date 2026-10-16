@@ -1323,6 +1323,21 @@ table LawSave {
   // The council seats of the body it was put to, packed as `PolitySave.seats` (schema 121); 0
   // for a body of all its members, and before.
   body_seats: ulong (id: 49);
+  // A store's keeper's diversions and the food, kilograms; asks answered by favour and passed
+  // over (schema 131, M7c slice BY).
+  diverted: uint (id: 50);
+  diverted_kg: double (id: 51);
+  favoured: uint (id: 52);
+  passed_over: uint (id: 53);
+  // A duty's collector's assessments, payments asked and paid, and the food paid (schema 131,
+  // M7c slice BY).
+  assessed: uint (id: 54);
+  asked: uint (id: 55);
+  bribed: uint (id: 56);
+  bribe_kg: double (id: 57);
+  // What each household owed the sponsor for gifts before a gathering added to each stance,
+  // points, in `stances` order (schema 131, M7c slice BY); absent when none did, and before.
+  stance_owed: [float] (id: 58);
 }
 
 // `law` 0: called on cases only (M4b slice AB).
@@ -1413,6 +1428,22 @@ table PolitySave {
   version_seats: [ulong] (id: 30);
   seated: [SeatSave] (id: 31);
   elections: [ElectionSave] (id: 32);
+  // Schema 131 (M7c slice BY): gifts its sponsors gave before its gatherings, oldest first,
+  // within memory; absent before.
+  patron_gifts: [PatronGiftSave] (id: 33);
+}
+
+// A gift a sponsor's household gave another's before the gathering on the sponsor's law (schema
+// 131): the sponsor, the two households, the law, the day, the food in kcal and in days of the
+// receiving household's food.
+struct PatronGiftSave {
+  patron: ulong;
+  giver: ulong;
+  client: ulong;
+  law: ulong;
+  day: long;
+  kcal: float;
+  days: float;
 }
 
 // A council seat held (schema 121): its number, its holder, from and until which day, and the

@@ -135,6 +135,9 @@ describe("the government on the wire", () => {
     const sponsorName = b.createString("Talia");
     const issue = b.createString("food would not last until the harvest");
     const decision = b.createString("agreed: 1 for, 0 against; 1 of 4 adults came, 1 needed");
+    const conduct = b.createString(
+      "before the gathering, Talia's household gave 2 households food (6 days of theirs)",
+    );
     const law = W.LawLine.createLawLine(
       b,
       208n,
@@ -169,6 +172,7 @@ describe("the government on the wire", () => {
       7,
       2,
       3,
+      conduct,
     );
     const laws = W.PolityLine.createLawsVector(b, [law]);
     const office = b.createString("Storekeeper: Ada, since 3 May of year 2");
@@ -427,6 +431,7 @@ describe("the government on the wire", () => {
       broken: 7,
       brokenUnaware: 2,
       reliefKg: 45,
+      conduct: "before the gathering, Talia's household gave 2 households food (6 days of theirs)",
     });
     expect(l.stances).toHaveLength(1);
     expect(l.stances[0]).toMatchObject({

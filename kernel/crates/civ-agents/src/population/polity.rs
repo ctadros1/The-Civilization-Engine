@@ -724,6 +724,10 @@ impl Population {
                 // Whether a member of an organization brings a breach of its privilege (M7c
                 // slice BX).
                 self.weigh_breaches(ctx, pi);
+                // Whether the store's keeper draws from it for their own household (M7c slice
+                // BY).
+                self.keeper_weighs_drawing(ctx, pi);
+                self.forget_patron_gifts(ctx, pi);
                 // Terms with another polity are sought when nothing was put to the gathering
                 // (M5c slice AU).
                 self.seek_terms(ctx, pi);
@@ -2680,11 +2684,29 @@ impl Population {
                             moves.push(MoveOption { hours, ..blank });
                         }
                     }
-                    // A duty at each rate the template offers (M7c slice BV).
+                    // A duty at each rate the template offers (M7c slice BV), naming as its
+                    // collector, where the template has one, the adult the deliberator regards
+                    // most, themselves included (M7c slice BY: favour in naming, as built).
                     PolicyKind::Duty => {
+                        let collector = def.duty.is_some_and(|u| u.collector).then(|| {
+                            adults
+                                .iter()
+                                .map(|a| a.0)
+                                .map(|c| {
+                                    let r = if c == d {
+                                        1.0
+                                    } else {
+                                        self.ties.regard(d, c, day, tp).clamp(0.0, 1.0)
+                                    };
+                                    (r, c)
+                                })
+                                .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)))
+                                .map(|x| x.1)
+                        });
                         for &share in &def.levy_shares {
                             moves.push(MoveOption {
                                 levy_share: share,
+                                nominee: collector.flatten(),
                                 ..blank
                             });
                         }
@@ -3400,6 +3422,8 @@ impl Population {
         let settlement = polity.settlement;
         // The sponsor knows it is called; everyone else hears by word (M4c slice AE).
         self.call_word(settlement, meets, Some(id), &[sponsor], day);
+        // Its sponsor may give before it meets (M7c slice BY).
+        self.patron_gives(ctx, pi, id);
         let place = ctx
             .land
             .settlements
@@ -3508,10 +3532,17 @@ impl Population {
                             - self.keenness(ctx, p, Blamed::Office(office))
                     }
                 });
+                // And what their household owes the sponsor for gifts (M7c slice BY).
+                let owed = self.owed_points(ctx, pi, household, [sponsor, face]);
                 let (stance, regard_points) = if p == sponsor {
                     (Stance::Support, 0.0)
                 } else {
-                    crate::polity::stance_between(gain + values + talk + view, regard, held, pp)
+                    crate::polity::stance_between(
+                        gain + values + talk + view + owed,
+                        regard,
+                        held,
+                        pp,
+                    )
                 };
                 Some(StanceRecord {
                     person: p,
@@ -3522,6 +3553,7 @@ impl Population {
                     opinion: talk as f32,
                     values: values as f32,
                     view: view as f32,
+                    owed: owed as f32,
                 })
             })
             .collect();
@@ -4125,6 +4157,17 @@ impl Population {
         };
         let need = t.members.len() as f64 * params.household.daily_kcal_per_person;
         let held = stock_kcal(&stores_now(t, now, params, goods), goods);
+        // Relief by favour (M7c slice BY): a low store's keeper passes over one they regard too
+        // little, who holds it against them.
+        match self.keeper_favours(ctx, pi, to) {
+            Some(true) => {
+                self.polities[pi].laws[li].compliance.passed_over += 1;
+                self.grieve_passed_over(ctx, pi, li, to);
+                return;
+            }
+            Some(false) => self.polities[pi].laws[li].compliance.favoured += 1,
+            None => {}
+        }
         let law = &self.polities[pi].laws[li];
         let mut want = (f64::from(law.relief_days) * need)
             .min(params.household.food_target_days * need - held)

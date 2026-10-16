@@ -29771,6 +29771,7 @@ impl<'a> LawLine<'a> {
   pub const VT_BROKEN: ::flatbuffers::VOffsetT = 62;
   pub const VT_BROKEN_UNAWARE: ::flatbuffers::VOffsetT = 64;
   pub const VT_REFUSED: ::flatbuffers::VOffsetT = 66;
+  pub const VT_CONDUCT: ::flatbuffers::VOffsetT = 68;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -29788,6 +29789,7 @@ impl<'a> LawLine<'a> {
     builder.add_proposed_minute(args.proposed_minute);
     builder.add_sponsor(args.sponsor);
     builder.add_id(args.id);
+    if let Some(x) = args.conduct { builder.add_conduct(x); }
     builder.add_refused(args.refused);
     builder.add_broken_unaware(args.broken_unaware);
     builder.add_broken(args.broken);
@@ -30042,6 +30044,13 @@ impl<'a> LawLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(LawLine::VT_REFUSED, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn conduct(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(LawLine::VT_CONDUCT, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for LawLine<'_> {
@@ -30082,6 +30091,7 @@ impl ::flatbuffers::Verifiable for LawLine<'_> {
      .visit_field::<u32>("broken", Self::VT_BROKEN, false)?
      .visit_field::<u32>("broken_unaware", Self::VT_BROKEN_UNAWARE, false)?
      .visit_field::<u32>("refused", Self::VT_REFUSED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("conduct", Self::VT_CONDUCT, false)?
      .finish();
     Ok(())
   }
@@ -30119,6 +30129,7 @@ pub struct LawLineArgs<'a> {
     pub broken: u32,
     pub broken_unaware: u32,
     pub refused: u32,
+    pub conduct: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for LawLineArgs<'a> {
   #[inline]
@@ -30156,6 +30167,7 @@ impl<'a> Default for LawLineArgs<'a> {
       broken: 0,
       broken_unaware: 0,
       refused: 0,
+      conduct: None,
     }
   }
 }
@@ -30294,6 +30306,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> LawLineBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u32>(LawLine::VT_REFUSED, refused, 0);
   }
   #[inline]
+  pub fn add_conduct(&mut self, conduct: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(LawLine::VT_CONDUCT, conduct);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> LawLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LawLineBuilder {
@@ -30343,6 +30359,7 @@ impl ::core::fmt::Debug for LawLine<'_> {
       ds.field("broken", &self.broken());
       ds.field("broken_unaware", &self.broken_unaware());
       ds.field("refused", &self.refused());
+      ds.field("conduct", &self.conduct());
       ds.finish()
   }
 }

@@ -2479,3 +2479,31 @@ and broken unawares by one who never heard of it; a breach brought by a member a
 workshop holding sickles and offering none given up as barred; a world with a privilege saves and
 loads exactly); the forecast's unit test (a licence and a staple, for a member, a rival seller and
 a buyer, by hand).
+
+## 2026-10-16 — BY: corruption and patronage
+
+**Built:** ADR-0026 §4. A common store's keeper weighs drawing from it for their own household at
+each review, as a watcher weighs asking a payment, never above their objection's filter and up to
+a share of what it holds; what they draw moves on its own channel, `Diverted`, and nobody is told.
+When the store runs low, the keeper answers those they regard and passes over one they regard too
+little, who holds it against the office. A duty may name a collector, who sees purchases brought
+home and assesses them in full, or asks the buyer's household for a payment to assess nothing; a
+household that will not pay is assessed and holds the asking against the office. A sponsor whose
+law would fail may give food, before the gathering, to the households a gift would bring round,
+if the gifts would carry it and cost less than the law is worth to them; a household owes its
+patron what such gifts brought it, and its members' stances on the patron's laws gain for it. A
+patron who saw a household they gave to stand against them gives it nothing more. The government
+panel's law line says how a keeper, collector or sponsor acted. Content API 117, save schema 131,
+wire 1.80.
+
+**Fixed on the way:** a duty owed by a household that cannot make the good was valued at nothing,
+so its levy cost nothing to weigh; it is now valued at what the household gave for it.
+
+**Evidence:** `tests/stewardship.rs` (a keeper with no objection draws, one at the filter never
+does; a low store's keeper passes over one they regard too little and answers one they favour; a
+world with a diversion saves and loads exactly), `tests/collector.rs` (a collector who objects
+assesses in full; one who asks is paid by a household that does not object, and refused by one
+that does, which is assessed and holds it against the office), `tests/patronage.rs` (a sponsor
+whose law would fail gives, and those given to owe it at the gathering; nobody gives for a law that
+would pass, where nothing is owed, or when the law is worth nothing to them; a patron who saw a
+client oppose gives it nothing more; a world with patron gifts saves and loads exactly).

@@ -485,6 +485,9 @@ pub struct PolicyDef {
 pub struct DutyDef {
     pub purpose: crate::params::GoodUse,
     pub exempt_sellers: bool,
+    /// The law names one who collects it (M7c slice BY, ADR-0026 §4): they see purchases and
+    /// assess them, and may ask a payment to assess less.
+    pub collector: bool,
 }
 
 impl DutyDef {
@@ -719,6 +722,14 @@ pub struct PolityParams {
     /// ending each law the old custom made (M4c slice AI, step two; research 09-11 §1.6). What
     /// they leave stands.
     pub founding_days: u32,
+    /// Points a member's stance gains for each day of their household's food that gifts from the
+    /// law's sponsor, given before a gathering, brought it within [`Self::owed_memory_days`] (M7c
+    /// slice BY, ADR-0026 §4: what a client owes; a prior).
+    pub w_owed: f64,
+    /// Days a patron's gift is owed for.
+    pub owed_memory_days: u32,
+    /// The most days of a client household's food a patron gives it before one gathering.
+    pub patron_gift_days: f64,
 }
 
 impl PolityParams {
@@ -746,6 +757,9 @@ impl PolityParams {
             comply_base: 0.0,
             w_stance: 1.0,
             founding_days: 90,
+            w_owed: 0.1,
+            owed_memory_days: 365,
+            patron_gift_days: 10.0,
         }
     }
 }
@@ -1086,6 +1100,30 @@ pub struct StanceRecord {
     /// w_regard`] times their view's warmth; M5c slice AU step three): 0 for any other law, and
     /// before.
     pub view: f32,
+    /// What the household owed the law's sponsor or the one it names, for gifts before a
+    /// gathering, added, points ([`PolityParams::w_owed`] times the days of its food they brought
+    /// it; M7c slice BY): 0 before.
+    pub owed: f32,
+}
+
+/// A gift of food a sponsor's household gave a member's before the gathering on the sponsor's law
+/// (M7c slice BY, ADR-0026 §4: an ordinary gift, with its political reason recorded).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PatronGift {
+    /// The sponsor who gave it.
+    pub patron: PermanentId,
+    /// Their household, which gave it.
+    pub giver: PermanentId,
+    /// The household given it.
+    pub client: PermanentId,
+    /// The law whose gathering it was given before.
+    pub law: PermanentId,
+    /// The day it was given.
+    pub day: i64,
+    /// Its food, kcal.
+    pub kcal: f32,
+    /// Days of the client household's food it was.
+    pub days: f32,
 }
 
 /// What became of what a law asks of people and gives them (ADR-0013 §3, stages 6-7).
@@ -1117,6 +1155,20 @@ pub struct Compliance {
     pub broken: u32,
     /// Times someone who did not know of it did what it forbids.
     pub broken_unaware: u32,
+    /// For a store kept by a keeper (M7c slice BY): times the keeper drew from it for their own
+    /// household, and the food, kilograms (on the store's law).
+    pub diverted: u32,
+    pub diverted_kg: f64,
+    /// Asks the store answered while low, ordered by the keeper's regard, and asks it passed
+    /// over (M7c slice BY: relief by favour).
+    pub favoured: u32,
+    pub passed_over: u32,
+    /// For a duty with a collector (M7c slice BY): purchases they assessed in full; payments
+    /// they asked to assess less, those paid, and the food paid them, kilograms.
+    pub assessed: u32,
+    pub asked: u32,
+    pub bribed: u32,
+    pub bribe_kg: f64,
 }
 
 /// What a watch has done (M4b slice AC): what anyone could see of it, and where its next round
@@ -1290,7 +1342,12 @@ pub fn stance_words(r: &StanceRecord, margin: f64, sponsor: PermanentId) -> Stri
         }
         _ => household.to_owned(),
     };
-    format!("{why}{held}{talked}")
+    let owed = if f64::from(r.owed) > 0.0 {
+        "; their household owed the sponsor for gifts before the gathering"
+    } else {
+        ""
+    };
+    format!("{why}{held}{talked}{owed}")
 }
 
 /// What a law is, in words, to follow "proposed", "agreed to" or "turned down": "a common store,
@@ -1773,6 +1830,9 @@ pub struct Polity {
     pub seated: Vec<crate::seats::Seat>,
     /// Every election it called, oldest first (ADR-0024 §3).
     pub elections: Vec<crate::seats::Election>,
+    /// Gifts its sponsors gave before its gatherings, oldest first, within
+    /// [`PolityParams::owed_memory_days`] (M7c slice BY).
+    pub patron_gifts: Vec<PatronGift>,
 }
 
 /// How a polity came to hold a settlement besides its seat (M6c slice BM, ADR-0023 §9). Codes are
@@ -1983,6 +2043,7 @@ impl Polity {
             terms: Vec::new(),
             seated: Vec::new(),
             elections: Vec::new(),
+            patron_gifts: Vec::new(),
         }
     }
 

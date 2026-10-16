@@ -54,11 +54,14 @@ pub enum Channel {
     /// Goods a member's household owes the polity's store on what it bought at another
     /// settlement's door, as a duty imposes (M7c slice BV, ADR-0026 §1).
     Duty = 19,
+    /// Food the keeper of a polity's store drew from it for their own household (M7c slice BY,
+    /// ADR-0026 §4).
+    Diverted = 20,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 19] = [
+    pub const ALL: [Channel; 20] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -78,6 +81,7 @@ impl Channel {
         Channel::Dues,
         Channel::Agreement,
         Channel::Duty,
+        Channel::Diverted,
     ];
 
     /// The channel with this code.
@@ -107,6 +111,7 @@ impl Channel {
             Channel::Dues => "dues",
             Channel::Agreement => "agreement",
             Channel::Duty => "duty",
+            Channel::Diverted => "diverted",
         }
     }
 }

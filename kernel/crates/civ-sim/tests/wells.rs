@@ -789,6 +789,7 @@ fn a_well_someone_suspects_is_put_to_the_gathering_to_close_and_kept_by_those_wh
             opinion: 0.0,
             values: 0.0,
             view: 0.0,
+            owed: 0.0,
         });
     }
     let by = |sim: &mut Sim, who: PermanentId| {

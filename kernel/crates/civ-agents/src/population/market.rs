@@ -1018,7 +1018,15 @@ impl Population {
                     c.broken_unaware += 1;
                 }
             }
-            self.pay_duties(ctx, who, buyer, market, d.good, d.units);
+            self.pay_duties(
+                ctx,
+                who,
+                buyer,
+                market,
+                d.good,
+                d.units,
+                (d.payment, d.paid),
+            );
         }
     }
 

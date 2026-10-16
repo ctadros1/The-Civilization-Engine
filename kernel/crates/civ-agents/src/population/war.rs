@@ -96,7 +96,7 @@ impl Population {
         let mut due: Vec<(PermanentId, PermanentId)> = Vec::new();
         for (_, p) in self.people.iter() {
             let age = p.age_years(now);
-            if age < bp.min_age || age > bp.max_age || busy.contains(&p.id) {
+            if !bp.can_go(age) || busy.contains(&p.id) {
                 continue;
             }
             let raided = self.raided_within(p.household, day - 1);
@@ -454,7 +454,7 @@ impl Population {
             .filter(|(_, q)| q.id != organizer)
             .filter(|(_, q)| {
                 let age = q.age_years(now);
-                age >= bp.min_age && age <= bp.max_age
+                bp.can_go(age)
             })
             .filter(|(_, q)| {
                 self.household(q.household)
@@ -571,7 +571,7 @@ impl Population {
             .person(leader)
             .filter(|p| {
                 let age = p.age_years(now);
-                age >= bp.min_age && age <= bp.max_age
+                bp.can_go(age)
             })
             .map(|p| p.household)
         else {
@@ -616,7 +616,7 @@ impl Population {
                 .filter(|&m| {
                     self.person(m).is_some_and(|p| {
                         let age = p.age_years(now);
-                        age >= bp.min_age && age <= bp.max_age
+                        bp.can_go(age)
                     })
                 })
                 .collect();

@@ -26,7 +26,7 @@ describe("a polity's laws in words", () => {
   it("say where a law stands", () => {
     expect(statusText({ status: "in force", outcome: "passed", meetsMinute: 0 })).toBe("in force");
     expect(statusText({ status: "lapsed", outcome: "passed", meetsMinute: 0 })).toBe(
-      "lapsed: the one it named is gone",
+      "lapsed: no longer in force",
     );
     expect(statusText({ status: "rejected", outcome: "failed", meetsMinute: 0 })).toBe("turned down");
     expect(statusText({ status: "rejected", outcome: "tied", meetsMinute: 0 })).toBe(

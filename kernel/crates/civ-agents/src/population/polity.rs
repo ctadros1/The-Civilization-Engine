@@ -1957,11 +1957,20 @@ impl Population {
                     // as its members know it, led by the one who proposes it (M6c slice BJ).
                     // Not while their polity's word against raiding that settlement is in force,
                     // as they know it (M6c slice BL), nor against a settlement their own polity
-                    // holds: once taken in, its people are members (M6c slice BM).
+                    // holds: once taken in, its people are members (M6c slice BM). Only one of
+                    // an age to go with a band proposes leading one: a law naming a leader who
+                    // cannot go would lapse the midnight it passed (the M6c demo's probe: every
+                    // such law of its world, 17, named a proposer of 67 to 69).
                     PolicyKind::SendBand => {
                         let since = day - i64::from(params.crime.remember_days);
+                        let bp = &params.bands;
+                        let can_lead = self
+                            .person(d)
+                            .map(|p| p.age_years(ctx.now))
+                            .is_some_and(|a| bp.can_go(a));
                         if let Some(at) = self
                             .raiders_known(own, since)
+                            .filter(|_| can_lead)
                             .filter(|&at| !self.polities[pi].holds(Some(at)))
                             .filter(|&at| self.word_against_raiding(d, at).is_none())
                         {

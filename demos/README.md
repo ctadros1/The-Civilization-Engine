@@ -49,7 +49,7 @@ newest complete, runnable milestone demonstration in this repository.
 | M5c · Relations and public works | Agreements and crossings are covered by lived runs and test worlds; no standalone observer recording is committed | [Project plan evidence](../PROJECT_PLAN.md#9-decisions-log) |
 | M6a · Water and sickness | Cholera, water sources, resident knowledge and the Water lens | [Watch the titled 1080p overview](m6a/m6a-overview.mp4) · [screenshots and run log](m6a/) · [demo runner](../web/e2e/m6a-demo.spec.ts) |
 | M6b · Fire, masonry and floods | Fire behavior is in progress; the milestone demonstration is planned | [Current status and evidence](../PROJECT_PLAN.md#7-milestones) |
-| M6c · War and conquest | Planned | [Current status](../PROJECT_PLAN.md#7-milestones) |
+| M6c · War and conquest | Two villages of 100 raid each other; one gathering raises a palisade, makes a law against raiding and sends bands by law, until a band holds the other village (screenshots of the siege page, the map and the Government panel, with the run log; two priors nudged, both logged) | [Screenshots and run log](m6c/) · [demo runner](../web/e2e/m6c-demo.spec.ts) |
 
 Some milestone demo scripts intentionally explore emergent outcomes and can take a long time. They
 run only when requested with `TCE_DEMO=1`; they may try more than one world and report what

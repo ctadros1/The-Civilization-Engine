@@ -374,6 +374,12 @@ pub struct BandParams {
 }
 
 impl BandParams {
+    /// Whether someone of `age` years may go with a band (`min_age` to `max_age`): who may lead
+    /// one, join one, or be sent by a law (M6c slice BJ).
+    pub fn can_go(&self, age: f64) -> bool {
+        age >= self.min_age && age <= self.max_age
+    }
+
     /// The core content's values, for tests.
     pub fn core() -> Self {
         BandParams {
@@ -711,5 +717,16 @@ mod tests {
             deathless * 10 >= runs * 8,
             "{deathless} of {runs} ended with nobody dead"
         );
+    }
+
+    #[test]
+    fn only_those_of_band_age_may_go_and_so_lead_a_band_a_law_sends() {
+        // The M6c demo's probe: every law to send a band that lapsed the midnight it passed named
+        // a proposer of 67 to 69 as its leader; the move is now offered by the same rule.
+        let bp = BandParams::core();
+        assert!(bp.can_go(bp.min_age) && bp.can_go(bp.max_age));
+        assert!(bp.can_go(34.0));
+        assert!(!bp.can_go(bp.min_age - 0.5));
+        assert!(!bp.can_go(68.0) && bp.max_age < 68.0);
     }
 }

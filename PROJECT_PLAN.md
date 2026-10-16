@@ -2925,6 +2925,23 @@ and M6a gives rivers a daily flow.
     - The demo: a siege, and what each gathering made of it. After a week with none, nudge a
       prior (a raider's valuation of a store they saw, or how long members stay before their
       harvest), never an event, and log a `NUDGE:`.
+    - *As built, the demo (2026-10-16; M6c closed):* `civ-sim`'s `siege` example lives up to
+      three worlds of two villages of 100 known to each other and keeps the first in which a hold
+      was kept or a polity took another in (else the first with a siege, else the last), and
+      `web/e2e/m6c-demo.spec.ts` shows it (`demos/m6c/`). In the kept world (river valley, seed 1)
+      no band was called in 120 days, so a raider's valuation of a store they saw was nudged
+      (`NUDGE: bands.w_spoils 0.5 -> 2`, day 180); Willowbank's people then raided Heronfield
+      every month, mostly finding the defence gave way. Heronfield made a law against raiding,
+      raised a palisade, took its custom from its adults to its elders, and sent bands by law; a
+      band camped by a line on day 336, its people went home before it held, and how long members
+      stay was nudged (`NUDGE: bands.w_camp_day 1 -> 0.25`, day 340); on day 587 a band Keld led
+      held Willowbank, and the siege page showed 264 days of food inside for 103 people. Neither
+      gathering took the held village in within 60 days. A probe of the first demo world found
+      every law to send a band that lapsed the midnight it passed (17 of 19) named a proposer of
+      67 to 69 as its leader, past `bands.max_age`: the move is now offered only to one of an age
+      to go (`BandParams::can_go`, one rule for proposing, leading and joining). Laws to send a
+      band still lapse when the one leading it finds no household of the target it knows to go
+      to; that is recorded, not repaired.
 
 **M7: Politics deepens.**
 - *Contents:*

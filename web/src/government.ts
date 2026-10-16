@@ -29,7 +29,9 @@ export function lawDayText(minute: number): string {
 /** "in force", "turned down", "lapsed", "before the gathering on 9 May of year 3". */
 export function statusText(l: Pick<LawLine, "status" | "outcome" | "meetsMinute">): string {
   if (l.status === "in force") return "in force";
-  if (l.status === "lapsed") return "lapsed: the one it named is gone";
+  // Lapsed: the one it named died or left, its term ran out, or its band came home (the chronicle
+  // says which).
+  if (l.status === "lapsed") return "lapsed: no longer in force";
   if (l.status === "superseded") return "superseded by a later law";
   if (l.status === "carried") return "carried: the law it named is ended";
   if (l.status === "proposed") return `before the gathering on ${lawDayText(l.meetsMinute)}`;

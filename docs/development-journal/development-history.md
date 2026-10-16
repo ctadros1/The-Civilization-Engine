@@ -2208,3 +2208,23 @@ lapsing the office, the last keeper never drawn for the next turn, a lot with no
 lapsing its law, and all of it saving and loading alike.
 
 **Open:** election and appointment (seated bodies, BO); a nominee's consent; campaigns.
+
+## 2026-10-16 — The M6c demo, and bands sent by law led only by those who can go
+
+**Found:** the first M6c demo world held no siege in 720 days although its gathering passed 31
+laws to send a band. A probe logged each such law: every one that lapsed the midnight it passed
+named a proposer of 67 to 69 as the band's leader, past `bands.max_age` (60); the two named
+proposers of band age both led their bands, and one held the other village.
+
+**Built:** `BandParams::can_go`, one age rule for proposing a band by law, leading it and joining
+it; the `send_band` move is offered only to one who can go. The `siege` example lives up to three
+worlds and keeps the one that went furthest; the demo spec loads the world it kept. The observer
+no longer says a lapsed law's holder is gone when its band came home or its term ran out.
+
+**Evidence:** `war::tests::only_those_of_band_age_may_go_and_so_lead_a_band_a_law_sends`; the
+demo (`demos/m6c/`): in the first world, bands sent by Heronfield's law camped by a line on day 336
+and held Willowbank from day 587 (two priors nudged, both logged); neither gathering took the
+held village in. M6c is closed.
+
+**Open:** a band sent by law still lapses when its leader knows no household of the target to go
+to.

@@ -12,7 +12,10 @@
 //! people's. The world lives at most `MAX_DAYS`; it is saved the first day a band camps by a line
 //! or holds a place ("During the siege") and at the end ("After the siege"), `AFTER_DAYS` after a
 //! hold was kept or a polity took another in, if one did. The nudged priors live only in this run:
-//! a loaded world takes its content's.
+//! a loaded world takes its content's. Whether a siege comes at all is people's, so up to `TRIES`
+//! worlds are lived, each of the next seed and its own name: the first where a hold was kept or a
+//! polity took another in is kept, else the first with a siege, else the last; the others' saves
+//! are removed, so the folder holds one world.
 //!
 //! ```sh
 //! cargo run --release -p civ-sim --example siege -- <saves folder> [seed]
@@ -42,6 +45,8 @@ const NUDGED_SPOILS: f64 = 2.0;
 const NUDGED_CAMP_DAY: f64 = 0.25;
 const DAY: i64 = 24 * 60;
 const NAME: &str = "Siegeford";
+/// Worlds lived at most.
+const TRIES: u64 = 3;
 
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
@@ -50,7 +55,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
     let seed = args.next().and_then(|s| s.parse().ok()).unwrap_or(1);
-    match make(&saves, seed) {
+    match make_tries(&saves, seed) {
         Ok(text) => {
             println!("{text}");
             ExitCode::SUCCESS
@@ -178,7 +183,47 @@ fn polities_words(sim: &Sim) -> Vec<String> {
         .collect()
 }
 
-fn make(saves: &Path, seed: u64) -> Result<String, String> {
+/// Lives up to `TRIES` worlds from `seed` on and keeps the one that went furthest: a hold kept or
+/// a polity taken in (2), a siege (1), or none (0).
+fn make_tries(saves: &Path, seed: u64) -> Result<String, String> {
+    let mut kept: Option<(u8, PathBuf, String)> = None;
+    for k in 0..TRIES {
+        let name = if k == 0 {
+            NAME.to_owned()
+        } else {
+            format!("{NAME} {}", k + 1)
+        };
+        let (text, reached, dir) = make(saves, seed + k, &name)?;
+        let text = format!("world {} (seed {}):\n{text}\nname: {name}", k + 1, seed + k);
+        match &kept {
+            Some((best, _, _)) if *best >= reached => {
+                std::fs::remove_dir_all(&dir).map_err(|e| e.to_string())?;
+            }
+            _ => {
+                if let Some((_, old, _)) = kept.take() {
+                    std::fs::remove_dir_all(&old).map_err(|e| e.to_string())?;
+                }
+                kept = Some((reached, dir, text));
+            }
+        }
+        if kept.as_ref().is_some_and(|k| k.0 == 2) {
+            break;
+        }
+    }
+    let (reached, _, text) = kept.ok_or("no world was lived")?;
+    Ok(format!(
+        "{text}\nkept this world: {}",
+        [
+            "no siege came",
+            "a siege came",
+            "a hold was kept or a polity took another in"
+        ][usize::from(reached)]
+    ))
+}
+
+/// Lives one world named `name` from `seed`: what happened, in words; how far it went (see
+/// `make_tries`); and its saves folder.
+fn make(saves: &Path, seed: u64, name: &str) -> Result<(String, u8, PathBuf), String> {
     let root = civ_content::find_content_root(Path::new(env!("CARGO_MANIFEST_DIR")))
         .ok_or("content/ is not above the crate")?;
     let content = civ_content::load(&root)
@@ -186,7 +231,7 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
         .ok_or("the content does not load: run `civ-host content validate`")?;
     let mut sim = Sim::create(
         &NewWorld {
-            name: NAME.to_owned(),
+            name: name.to_owned(),
             seed,
             preset_id: "core:worldgen/river_valley".to_owned(),
             size_cells: 768,
@@ -202,11 +247,9 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
     .map_err(|e| e.to_string())?;
     sim.set_speed(SPEED_MAX).map_err(|e| e.to_string())?;
     sim.advance_to_midnight().map_err(|e| e.to_string())?;
-    let dir = SaveDir::create(
-        saves.join(persist::world_dir_name(sim.meta())),
-        civ_schema::SAVE_EXTENSION,
-    )
-    .map_err(|e| e.to_string())?;
+    let world_dir = saves.join(persist::world_dir_name(sim.meta()));
+    let dir = SaveDir::create(world_dir.clone(), civ_schema::SAVE_EXTENSION)
+        .map_err(|e| e.to_string())?;
     let mut log = Vec::new();
     let (mut spoils_nudged, mut camp_nudged) = (false, false);
     let mut siege_saved = None;
@@ -304,5 +347,10 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
     let saved = persist::save(&mut sim, &dir, SaveKind::Manual, "After the siege")
         .map_err(|e| e.to_string())?;
     log.push(format!("saved {}", saved.path.display()));
-    Ok(log.join("\n"))
+    let reached = if ended_on.is_some() {
+        2
+    } else {
+        u8::from(siege_saved.is_some())
+    };
+    Ok((log.join("\n"), reached, world_dir))
 }

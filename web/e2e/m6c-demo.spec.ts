@@ -7,7 +7,9 @@
 // (each side's food at current use, what comes and goes by the line, the band's own food), the
 // map, and afterwards each polity's settlements, the laws each gathering weighed (bands, lines,
 // taking a village in, terms) and what the chronicle tells. Whatever happened is what is shown:
-// if no gathering took a village in, the panel shows none. It takes a long while, so it runs only
+// if no gathering took a village in, the panel shows none. The example may live up to three
+// worlds (each its own seed and name) and keeps the one that went furthest; the spec loads the
+// one it kept. It takes a long while, so it runs only
 // with TCE_DEMO=1; TCE_SHOTS_DIR saves the screenshots, and TCE_DEMO_SEED changes the seed.
 
 import { writeFileSync } from "node:fs";
@@ -20,7 +22,8 @@ test.skip(!process.env.TCE_DEMO, "the M6c demo runs only with TCE_DEMO=1");
 test.setTimeout(180 * 60_000);
 
 const shots = process.env.TCE_SHOTS_DIR;
-const NAME = "Siegeford";
+/** The kept world's name, as the example prints it (it may live up to three worlds). */
+let NAME = "Siegeford";
 
 /** Loads the save of `NAME` labelled `label`, or returns false if there is none. */
 async function loadSave(page: Page, label: string): Promise<boolean> {
@@ -55,6 +58,7 @@ test("a siege, each side's food at current use, and what each gathering made of 
   };
   const made = makeSiegeWorld(saves, process.env.TCE_DEMO_SEED ?? "1");
   log(`demo world:\n${made.trim()}`);
+  NAME = [...made.matchAll(/^name: (.*)$/gm)].at(-1)?.[1] ?? NAME;
   const host = await startHost(saves);
   try {
     page.on("pageerror", (e) => log(`page error: ${e.message}`));

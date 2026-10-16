@@ -696,6 +696,12 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             &polity.seated,
             &polity.elections,
             &|id| pop.name_of(id),
+            &|f| {
+                pop.factions.get(f).map_or_else(
+                    || "a faction".to_owned(),
+                    |f| super::word::faction_name(sim, f),
+                )
+            },
             &|d| day_words(SimTime::from_minutes(d * civ_core::time::MINUTES_PER_DAY)),
         ));
         let offices: Vec<_> = offices.iter().map(|w| fbb.create_string(w)).collect();

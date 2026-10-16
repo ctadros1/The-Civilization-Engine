@@ -44,11 +44,14 @@ pub enum ClaimKind {
     /// A council's election polls (or draws its lot) at the settlement's hearth on a day (M7a
     /// slice BO, ADR-0024 §3): told as a gathering called is.
     Election = 10,
+    /// Someone stands in a council's election that polls at the settlement's hearth on a day, and
+    /// says where they stand (M7a slice BP, ADR-0024 §4): `subject` is who stands.
+    Candidacy = 11,
 }
 
 impl ClaimKind {
     /// Every kind, in code order.
-    pub const ALL: [ClaimKind; 11] = [
+    pub const ALL: [ClaimKind; 12] = [
         ClaimKind::Gathering,
         ClaimKind::Grievance,
         ClaimKind::Petition,
@@ -60,6 +63,7 @@ impl ClaimKind {
         ClaimKind::Raid,
         ClaimKind::BandSeen,
         ClaimKind::Election,
+        ClaimKind::Candidacy,
     ];
 
     /// Whether claims of this kind are news while they are held (a household's sickness, a
@@ -197,6 +201,21 @@ impl Word {
             .iter()
             .rev()
             .find(|c| c.kind == ClaimKind::Election && c.settlement == settlement && c.day == day)
+            .map(|c| c.id)
+    }
+
+    /// The claim that `who` stands in the election that polls at `settlement` on `day`, if one was
+    /// made (M7a slice BP).
+    pub fn candidacy(&self, settlement: PermanentId, day: i64, who: PermanentId) -> Option<u32> {
+        self.claims
+            .iter()
+            .rev()
+            .find(|c| {
+                c.kind == ClaimKind::Candidacy
+                    && c.settlement == settlement
+                    && c.day == day
+                    && c.subject == Some(who)
+            })
             .map(|c| c.id)
     }
 
@@ -338,7 +357,8 @@ impl Word {
             | ClaimKind::Petition
             | ClaimKind::Refusal
             | ClaimKind::Revolt
-            | ClaimKind::Election => c.day < today,
+            | ClaimKind::Election
+            | ClaimKind::Candidacy => c.day < today,
             ClaimKind::Grievance => last + news_days < today,
             ClaimKind::Fire | ClaimKind::Raid | ClaimKind::BandSeen => c.day + news_days < today,
             ClaimKind::Sickness | ClaimKind::Suspicion => c.day + sickness_days < today,

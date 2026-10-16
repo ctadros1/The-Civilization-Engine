@@ -93,6 +93,39 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
                 None => format!("an election is held at {place} on {day}"),
             }
         }
+        // One who stands in a council's election, and where they said they stand (M7a slice BP).
+        ClaimKind::Candidacy => {
+            let day = day_words(SimTime::from_minutes(c.day * DAY));
+            let who = c.subject.map_or_else(|| "someone".to_owned(), name_of);
+            let election = pop
+                .polities
+                .iter()
+                .find(|p| p.settlement == c.settlement)
+                .and_then(|p| p.elections.iter().rev().find(|e| e.poll_day == c.day));
+            let seats = election.map_or_else(|| "a seat".to_owned(), |e| e.seats.words());
+            let policies = &sim.rules.catalog.policies;
+            let told: Vec<String> = election
+                .zip(c.subject)
+                .and_then(|(e, who)| e.positions_of(who))
+                .into_iter()
+                .flatten()
+                .filter_map(|&(q, x)| {
+                    let q = policies.get(usize::from(q))?.question.as_deref()?;
+                    Some(format!(
+                        "{} on {q}",
+                        civ_agents::opinion::lean_words(f64::from(x))
+                    ))
+                })
+                .collect();
+            if told.is_empty() {
+                format!("{who} stands for {seats}, polled on {day}")
+            } else {
+                format!(
+                    "{who} stands for {seats}, polled on {day}: {}",
+                    told.join("; ")
+                )
+            }
+        }
         ClaimKind::Gathering => {
             let day = day_words(SimTime::from_minutes(c.day * DAY));
             let law = c.subject.and_then(|id| {
@@ -710,6 +743,29 @@ fn whisper_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
                     "came to poll".to_owned()
                 } else if e.stood(p) {
                     "stood".to_owned()
+                } else {
+                    "did not come to poll".to_owned()
+                }
+            }),
+        // Whether they voted for the one who stood, once the polling day is past (M7a slice BP).
+        ClaimKind::Candidacy => pop
+            .polities
+            .iter()
+            .find(|q| q.settlement == c.settlement)
+            .and_then(|q| q.elections.iter().rev().find(|e| e.poll_day == c.day))
+            .filter(|e| e.poll_day < sim.now().day_index())
+            .zip(c.subject)
+            .map(|(e, who)| {
+                if who == p {
+                    "stood".to_owned()
+                } else if e
+                    .ballots
+                    .iter()
+                    .any(|(v, named)| *v == p && named.contains(&who))
+                {
+                    "named them".to_owned()
+                } else if e.polled(p) {
+                    "did not name them".to_owned()
                 } else {
                     "did not come to poll".to_owned()
                 }

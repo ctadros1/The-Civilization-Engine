@@ -73,6 +73,9 @@ pub struct Facts {
     /// An election polling at the hearth that they heard of and may poll in (M7a slice BO): what
     /// naming their choices is worth to them and the minutes it takes.
     pub poll: Option<GatheringFacts>,
+    /// Points they find in an evening at the hearth while an election they stand in runs, to
+    /// tell that they stand and where (M7a slice BP, ADR-0024 §4); 0 when they stand in none.
+    pub campaign: f64,
     /// The round of the watch they keep, if they keep one and may walk it now (M4b slice AC).
     pub watch: Option<WatchFacts>,
     /// A payment an agreement owes that they are to carry, set aside and waiting, if they can
@@ -1517,6 +1520,8 @@ pub fn candidates(
                     Reason::Loneliness,
                     w.w_social * f.loneliness * f.evening.max(0.25),
                 );
+                // One who stands tells the hearth so, and where they stand (M7a slice BP).
+                term(&mut terms, Reason::Campaign, f.campaign);
                 let steps = vec![
                     Step::Walk { to: hearth },
                     Step::Work {
@@ -2187,6 +2192,7 @@ mod tests {
         Facts {
             petition: None,
             poll: None,
+            campaign: 0.0,
             hurt: false,
             ill: false,
             home_afire: false,

@@ -105,6 +105,11 @@ pub(crate) struct ElectionsFile {
     pub vote_scale: f64,
     pub poll_base: f64,
     pub w_poll_stake: f64,
+    pub positions_told: u8,
+    pub w_distance: f64,
+    pub w_record: f64,
+    pub w_slate: f64,
+    pub w_campaign: f64,
 }
 
 impl ElectionsFile {
@@ -123,6 +128,11 @@ impl ElectionsFile {
             vote_scale: self.vote_scale,
             poll_base: self.poll_base,
             w_poll_stake: self.w_poll_stake,
+            positions_told: self.positions_told,
+            w_distance: self.w_distance,
+            w_record: self.w_record,
+            w_slate: self.w_slate,
+            w_campaign: self.w_campaign,
         }
     }
 
@@ -131,6 +141,13 @@ impl ElectionsFile {
             p.push(format!(
                 "`elections.stand_days` must be 1 to 60 (got {})",
                 self.stand_days
+            ));
+        }
+        // ADR-0024 §4: up to three questions.
+        if self.positions_told > 3 {
+            p.push(format!(
+                "`elections.positions_told` must be 0 to 3 (got {})",
+                self.positions_told
             ));
         }
         if !(1..=240).contains(&self.poll_minutes) {
@@ -156,6 +173,10 @@ impl ElectionsFile {
             ("elections.vote_scale", self.vote_scale, 0.0, 100.0),
             ("elections.poll_base", self.poll_base, 0.0, 100.0),
             ("elections.w_poll_stake", self.w_poll_stake, 0.0, 100.0),
+            ("elections.w_distance", self.w_distance, 0.0, 100.0),
+            ("elections.w_record", self.w_record, 0.0, 100.0),
+            ("elections.w_slate", self.w_slate, 0.0, 100.0),
+            ("elections.w_campaign", self.w_campaign, 0.0, 100.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

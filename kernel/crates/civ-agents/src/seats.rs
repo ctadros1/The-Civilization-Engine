@@ -218,12 +218,16 @@ impl ElectionStage {
     }
 }
 
-/// One who stood (ADR-0024 §3: standing is a choice).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// One who stood (ADR-0024 §3: standing is a choice), and where they said they stand (ADR-0024
+/// §4, M7a slice BP): their own positions, 0 against to 1 for, on the questions that mattered most
+/// to them when they stood (at most `ElectionParams::positions_told`), told with their name.
+#[derive(Clone, Debug, PartialEq)]
 pub struct Candidate {
     pub person: PermanentId,
     /// The day they put their name in.
     pub day: i64,
+    /// (question, by the policy template that asks it; their position), most salient first.
+    pub positions: Vec<(u16, f32)>,
 }
 
 /// An election (ADR-0024 §3): called, told, open for names, polled or drawn, counted, seated.
@@ -261,12 +265,30 @@ pub struct Election {
     pub ended: Option<i64>,
     /// The day the seats it fills end: the next election is called before it.
     pub until: i64,
+    /// Each faction's slate (ADR-0024 §5, M7a slice BP): the faction and those of its members
+    /// who stood whom its organizer endorsed, in faction order.
+    pub endorsements: Vec<(PermanentId, Vec<PermanentId>)>,
 }
 
 impl Election {
     /// Whether `person` stood.
     pub fn stood(&self, person: PermanentId) -> bool {
         self.candidates.iter().any(|c| c.person == person)
+    }
+
+    /// Whether faction `faction` endorsed `person`.
+    pub fn endorsed(&self, faction: PermanentId, person: PermanentId) -> bool {
+        self.endorsements
+            .iter()
+            .any(|(f, slate)| *f == faction && slate.contains(&person))
+    }
+
+    /// The positions `person` told when they stood, if they stood.
+    pub fn positions_of(&self, person: PermanentId) -> Option<&[(u16, f32)]> {
+        self.candidates
+            .iter()
+            .find(|c| c.person == person)
+            .map(|c| c.positions.as_slice())
     }
 
     /// Whether `person` came to poll.
@@ -316,6 +338,20 @@ pub struct ElectionParams {
     /// Points per point of the stake: how much better the first choice is than the one after the
     /// last seat.
     pub w_poll_stake: f64,
+    /// The questions a candidate tells where they stand on, most salient first (ADR-0024 §4: up
+    /// to three).
+    pub positions_told: u8,
+    /// A voter's utility against the mean distance between their positions and those a candidate
+    /// told, on the questions both hold (09-08 §1.3, D): unknown is no term.
+    pub w_distance: f64,
+    /// For the candidate's record as the voter saw it: how their stances at decisions both came
+    /// to lined up with the voter's household's stake, −1 to 1 (09-08 §1.3, R).
+    pub w_record: f64,
+    /// For a candidate their own faction endorsed (ADR-0024 §5).
+    pub w_slate: f64,
+    /// Points a candidate finds in an evening at the hearth while their election runs, where they
+    /// tell that they stand and where (ADR-0024 §4: a campaign is hours and claims).
+    pub w_campaign: f64,
 }
 
 impl ElectionParams {
@@ -335,6 +371,11 @@ impl ElectionParams {
             vote_scale: 1.0,
             poll_base: 0.5,
             w_poll_stake: 0.5,
+            positions_told: 3,
+            w_distance: 2.0,
+            w_record: 1.0,
+            w_slate: 1.0,
+            w_campaign: 1.0,
         }
     }
 }
@@ -348,6 +389,7 @@ pub fn council_words(
     seated: &[Seat],
     elections: &[Election],
     name_of: &dyn Fn(PermanentId) -> String,
+    faction_of: &dyn Fn(PermanentId) -> String,
     day: &dyn Fn(i64) -> String,
 ) -> Vec<String> {
     let mut out = Vec::new();
@@ -409,6 +451,11 @@ pub fn council_words(
             day(e.called),
             e.why.words()
         ));
+        // The factions' slates in it (M7a slice BP).
+        for (f, slate) in &e.endorsements {
+            let named: Vec<String> = slate.iter().map(|&p| name_of(p)).collect();
+            out.push(format!("{} backs {}", faction_of(*f), named.join(", ")));
+        }
     }
     out
 }

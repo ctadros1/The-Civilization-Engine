@@ -687,6 +687,15 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 107 (M7a slice BP, ADR-0024 §3-5) brings campaigns, positions and slates to
+elections. The people profile's `[elections]` table adds `positions_told` (0 to 3: how many
+questions one who stands says where they stand on, those that matter most to them), `w_distance`
+(a voter's utility against the mean distance from where a candidate said they stand, on the
+questions the voter holds a position on, once they have heard of the candidacy), `w_record` (for
+how the candidate's seen stances lined up with what the decided laws meant to the voter's
+household, −1 to 1), `w_slate` (for a candidate the voter's own faction backs) and `w_campaign`
+(points one who stands finds in an evening at the hearth while their election runs).
+
 Content API 31 (M4a slice Z) brings the polity: the `policy` kind, the people profile's
 `[polity]` and `behavior = "attend"` (`core:activity/attend_gathering`, adults only). The core
 pack reviews weekly (ADR-0014 §4; research 09-01 §3.3: 7-30 days), calls the gathering the next

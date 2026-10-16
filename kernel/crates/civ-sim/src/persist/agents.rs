@@ -119,7 +119,7 @@ use super::{
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
     SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
-    SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, finish, section, single_chunk, unreadable,
+    SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -563,6 +563,9 @@ enum Schema {
     V120,
     /// M7a slice BO: councils and their elections (`PolitySave.seats`, `seated`, `elections`).
     V121,
+    /// M7a slice BP: candidates' positions and faction slates (`ElectionSave.positions`,
+    /// `endorsements`).
+    V122,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -698,7 +701,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V118 => Schema::V118,
         SCHEMA_V119 => Schema::V119,
         SCHEMA_V120 => Schema::V120,
-        SAVE_SCHEMA_VERSION => Schema::V121,
+        SCHEMA_V121 => Schema::V121,
+        SAVE_SCHEMA_VERSION => Schema::V122,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1596,6 +1600,33 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     let totals = fbb.create_vector(&totals);
                     let winners: Vec<u64> = e.winners.iter().map(|p| p.get()).collect();
                     let winners = fbb.create_vector(&winners);
+                    let positions: Vec<save::StoodSave> = e
+                        .candidates
+                        .iter()
+                        .flat_map(|c| {
+                            c.positions
+                                .iter()
+                                .map(|&(q, x)| save::StoodSave::new(c.person.get(), q, x))
+                        })
+                        .collect();
+                    let positions = (!positions.is_empty()).then(|| fbb.create_vector(&positions));
+                    let endorsements: Vec<_> = e
+                        .endorsements
+                        .iter()
+                        .map(|(faction, named)| {
+                            let named: Vec<u64> = named.iter().map(|p| p.get()).collect();
+                            let named = fbb.create_vector(&named);
+                            save::SlateSave::create(
+                                &mut fbb,
+                                &save::SlateSaveArgs {
+                                    faction: faction.get(),
+                                    named: Some(named),
+                                },
+                            )
+                        })
+                        .collect();
+                    let endorsements =
+                        (!endorsements.is_empty()).then(|| fbb.create_vector(&endorsements));
                     save::ElectionSave::create(
                         &mut fbb,
                         &save::ElectionSaveArgs {
@@ -1614,6 +1645,8 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             by_lot: e.by_lot,
                             ended: e.ended.unwrap_or(-1),
                             until: e.until,
+                            positions,
+                            endorsements,
                         },
                     )
                 })
@@ -2370,7 +2403,24 @@ fn decode_polities(
                 candidates.push(civ_agents::seats::Candidate {
                     person: person(c.person(), "a candidate")?,
                     day: c.day(),
+                    positions: Vec::new(),
                 });
+            }
+            // Where each said they stand, and the factions' slates (schema 122); before, none.
+            for x in e.positions().iter().flatten() {
+                let Some(c) = candidates
+                    .iter_mut()
+                    .find(|c| c.person.get() == x.candidate())
+                else {
+                    return Err(bad(format!("{what}: a position of one who did not stand")));
+                };
+                c.positions.push((x.policy(), x.x()));
+            }
+            let mut endorsements = Vec::new();
+            for s in e.endorsements().iter().flatten() {
+                let faction = PermanentId::from_raw(s.faction())
+                    .ok_or_else(|| bad(format!("{what}: a slate of no faction")))?;
+                endorsements.push((faction, ids(s.named())?));
             }
             let mut ballots = Vec::new();
             for b in e.ballots().iter().flatten() {
@@ -2396,6 +2446,7 @@ fn decode_polities(
                 by_lot: e.by_lot(),
                 ended: (e.ended() >= 0).then_some(e.ended()),
                 until: e.until(),
+                endorsements,
             });
         }
         let ended = match p.ended_how() {
@@ -4194,7 +4245,8 @@ fn carried(
         | Schema::V118
         | Schema::V119
         | Schema::V120
-        | Schema::V121 => {
+        | Schema::V121
+        | Schema::V122 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4488,7 +4540,8 @@ fn decode_households(
             | Schema::V118
             | Schema::V119
             | Schema::V120
-            | Schema::V121 => {
+            | Schema::V121
+            | Schema::V122 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

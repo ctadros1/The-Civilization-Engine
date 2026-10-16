@@ -2876,6 +2876,7 @@ impl Population {
             gathering: self.gathering_facts(ctx, p.id, age, &hh, minute, evening_start),
             petition: self.petition_facts(ctx, p.id, age, &hh, minute, evening_start),
             poll: self.poll_facts(ctx, p.id, age, &hh, minute, evening_start),
+            campaign: self.campaign_points(ctx, p.id),
             watch: self.watch_facts(ctx, p.id, &hh, dark),
             carry: self.carry_facts(ctx, p.id, field_key, dark),
             crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),

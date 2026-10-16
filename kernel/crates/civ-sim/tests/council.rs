@@ -3,6 +3,10 @@
 //! who hear of it choose whether to stand; a contested field is polled at the hearth and counted
 //! by the block vote; those chosen sit, and only they are the body; the term's end calls the next
 //! election; the label reads the selection chain; and all of it saves and loads exactly.
+//!
+//! M7a slice BP (ADR-0024 §3-5): each who stands says where they stand on the questions that
+//! matter most to them, and word of it goes round as a claim; a faction backs those of its members
+//! who stood, as a slate; and both save and load.
 
 use std::path::Path;
 use std::sync::OnceLock;
@@ -115,6 +119,59 @@ fn a_council_is_elected_sits_as_the_body_and_is_elected_again_as_its_term_ends()
         "a village to elect from ({})",
         adults.len()
     );
+    // Each adult holds a position on two questions, spread from against to for (set down as if
+    // talked over: opinion is weighed elsewhere), so that those who stand have somewhere to say
+    // they stand (M7a slice BP).
+    let questions: Vec<u16> = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.question.is_some())
+        .map(|(i, _)| u16::try_from(i).expect("few policies"))
+        .take(2)
+        .collect();
+    assert_eq!(questions.len(), 2, "content asks questions");
+    {
+        let pop = sim.people_mut_for_tests();
+        for (k, &a) in adults.iter().enumerate() {
+            for (j, &q) in questions.iter().enumerate() {
+                pop.opinion.insert(civ_agents::opinion::Position {
+                    holder: a,
+                    policy: q,
+                    x: ((k + j) % 5) as f32 / 4.0,
+                    anchor: 0.5,
+                    salience: 0.5,
+                    since: now.day_index(),
+                    heard: 0,
+                });
+            }
+        }
+    }
+    // A faction of every other adult, so that some of its members stand (set down as if founded:
+    // founding is a choice weighed elsewhere).
+    let faction = sim.allocate_id_for_tests();
+    let faction_members: Vec<civ_core::PermanentId> = adults.iter().step_by(2).copied().collect();
+    {
+        let pop = sim.people_mut_for_tests();
+        let against = civ_agents::word::Blamed::Body(pop.polities[0].id);
+        pop.factions.list.push(civ_agents::faction::Faction::found(
+            faction,
+            settlement,
+            against,
+            faction_members[0],
+            now,
+        ));
+        for &m in &faction_members {
+            pop.factions.join(civ_agents::faction::Member {
+                person: m,
+                faction,
+                since: now.day_index(),
+                why: civ_agents::faction::Why::default(),
+            });
+        }
+    }
     // The custom is taken to a council, by one who will tell of the election first (set down as
     // if taken: the taking is a choice weighed elsewhere).
     {
@@ -156,9 +213,33 @@ fn a_council_is_elected_sits_as_the_body_and_is_elected_again_as_its_term_ends()
     saves_and_goes_on_alike(&mut sim, content(), DAY);
     // Names close, the polling day comes, the count is made.
     let stand_days = i64::from(sim.rules().people.elections.stand_days);
+    let mut word_checked = false;
     while sim.now().day_index() <= called + stand_days + 2 {
         sim.advance_minutes(DAY).expect("advances");
+        // While the polling is yet to come, word of each who stood, and where they stand, goes
+        // round from them (M7a slice BP); it is no longer news once the polling day is past.
+        let e = sim.people().polities[0]
+            .elections
+            .last()
+            .expect("the election");
+        if e.stage == ElectionStage::Polling && !word_checked {
+            word_checked = true;
+            let word = &sim.people().word;
+            let mut heard_of_someone = 0;
+            for c in &e.candidates {
+                let claim = word
+                    .candidacy(settlement, e.poll_day, c.person)
+                    .expect("word of each who stood");
+                assert!(word.has_heard(c.person, claim), "they know they stand");
+                heard_of_someone += adults
+                    .iter()
+                    .filter(|&&a| a != c.person && word.has_heard(a, claim))
+                    .count();
+            }
+            assert!(heard_of_someone > 0, "word of who stands goes round");
+        }
     }
+    assert!(word_checked, "the polling was awaited");
     let polity = &sim.people().polities[0];
     let e = polity.elections.last().expect("the election");
     assert_eq!(e.stage, ElectionStage::Installed, "{:?}", e.stage);
@@ -200,6 +281,42 @@ fn a_council_is_elected_sits_as_the_body_and_is_elected_again_as_its_term_ends()
     assert_eq!(sitting, winners);
     let until = e.until;
     assert!(polity.seated.iter().all(|s| s.until == until));
+    // Each who stood told where they stand on up to three questions they hold a position on.
+    let told = usize::from(sim.rules().people.elections.positions_told);
+    for c in &e.candidates {
+        assert!(c.positions.len() <= told);
+        let mut qs: Vec<u16> = c.positions.iter().map(|x| x.0).collect();
+        qs.dedup();
+        assert_eq!(qs.len(), c.positions.len(), "one position a question");
+        assert!(c.positions.iter().all(|x| (0.0..=1.0).contains(&x.1)));
+    }
+    assert!(
+        e.candidates.iter().any(|c| !c.positions.is_empty()),
+        "some who stood hold positions to tell"
+    );
+    // The faction backs those of its members who stood, as many as there are seats.
+    for (f, slate) in &e.endorsements {
+        assert_eq!(*f, faction, "the only faction here");
+        assert!(slate.len() <= usize::from(seats.n));
+        assert!(slate.iter().all(|p| standing.binary_search(p).is_ok()));
+    }
+    assert!(
+        !e.endorsements.is_empty(),
+        "with half the electorate in it, the faction has members who stood"
+    );
+    // The council's words name the slate.
+    let words = civ_agents::seats::council_words(
+        polity.body.seats,
+        &polity.seated,
+        &polity.elections,
+        &|id| sim.people().name_of(id),
+        &|_| "its faction".to_owned(),
+        &|d| d.to_string(),
+    );
+    assert!(
+        words.iter().any(|w| w.starts_with("its faction backs ")),
+        "{words:?}"
+    );
     assert!(
         sim.people()
             .chronicle

@@ -1437,6 +1437,19 @@ table BallotSave {
   named: [ulong] (id: 1);
 }
 
+// Where a candidate said they stand on one question (schema 122, M7a slice BP).
+struct StoodSave {
+  candidate: ulong;
+  policy: ushort;
+  x: float;
+}
+
+// A faction's slate in an election (schema 122): the members its organizer endorsed.
+table SlateSave {
+  faction: ulong (id: 0);
+  named: [ulong] (id: 1);
+}
+
 // A candidate's count (schema 121).
 struct VoteSave {
   person: ulong;
@@ -1464,6 +1477,8 @@ table ElectionSave {
   by_lot: bool (id: 12);
   ended: long = -1 (id: 13);
   until: long (id: 14);
+  positions: [StoodSave] (id: 15);
+  endorsements: [SlateSave] (id: 16);
 }
 
 // An office law's term (schema 120).

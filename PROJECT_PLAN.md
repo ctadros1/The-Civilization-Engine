@@ -3008,6 +3008,27 @@ and M6a gives rivers a daily flow.
         ballots; seats by settlement; the observer's election page.
     - **BP**: campaigns as hours and claims; voters' utility from positions, record, group,
       regard and standing; faction slates; the label reads "Republic".
+      - *As built (2026-10-16):* each who stands says where they stand on up to `positions_told`
+        questions (content API 107; those of highest salience to them), and word of it goes round
+        from them as a claim (`ClaimKind::Candidacy`, 11, one a candidate, no longer news once the
+        polling day is past). A voter's utility for a candidate adds three terms where state
+        exists, none where it does not: against the mean distance from where the candidate said
+        they stand, on the questions the voter holds a position on, once the voter heard of the
+        candidacy (`w_distance`); for the candidate's record as the voter saw it, over laws decided
+        within `vote_memory_days` at which both took a stance, the candidate's stance against what
+        the law meant to the voter's household, weighed by it (`w_record`, −1 to 1); and for a
+        candidate the voter's own faction backs (`w_slate`). When names close, each live faction
+        of the polity's settlements whose members stood backs up to n of them, as a slate
+        (`Election.endorsements`; a design prior: a faction backs its own). Campaigning is an
+        evening at the hearth: one who stands in an election still to poll finds `w_campaign`
+        points there (`Reason::Campaign`, 153), where the hearth talk carries their word. Positions
+        and slates are saved (save schema 122, `ElectionSave.positions`, `endorsements`); the
+        inspector words a candidacy with where they said they stand, and whether one named them;
+        the Government panel's offices name each faction's slate. **Not yet built:** campaigning
+        beyond the hearth (visits to households, gifts); a candidate choosing which questions to
+        tell by the electorate rather than their own salience; slates chosen by members rather
+        than taken whole; a "party" label for a faction that runs slates in election after
+        election; alliances and franchise changes (BQ).
     - **BQ**: electoral alliances, franchise amendments, seats by settlement; the observer's
       election pages; measured runs.
   - **M7b, courts and precedent** (ADR when reached): a forum named by law, precedent as the

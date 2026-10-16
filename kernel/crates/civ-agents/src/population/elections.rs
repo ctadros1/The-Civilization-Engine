@@ -199,6 +199,7 @@ impl Population {
             by_lot: false,
             ended: None,
             until,
+            endorsements: Vec::new(),
         });
         self.election_word(settlement, poll_day, &first, day);
         let (place, name) = self.place_words(ctx, settlement);
@@ -332,15 +333,109 @@ impl Population {
                 stood.push(p);
             }
         }
+        // Each who stands says where they stand on the questions that matter most to them
+        // (ADR-0024 §4), and word of it goes round from them (M7a slice BP).
+        let told = usize::from(ep.positions_told);
+        let candidates: Vec<Candidate> = stood
+            .iter()
+            .map(|&p| {
+                let mut held: Vec<&crate::opinion::Position> =
+                    self.opinion.held_by(p).iter().collect();
+                held.sort_by(|a, b| {
+                    b.salience
+                        .total_cmp(&a.salience)
+                        .then(a.policy.cmp(&b.policy))
+                });
+                Candidate {
+                    person: p,
+                    day,
+                    positions: held.iter().take(told).map(|x| (x.policy, x.x)).collect(),
+                }
+            })
+            .collect();
+        for c in &candidates {
+            self.candidacy_word(settlement, poll_day, c.person, day);
+        }
         let e = &mut self.polities[pi].elections[ei];
         for &(p, _) in &deciding {
             if let Err(i) = e.considered.binary_search(&p) {
                 e.considered.insert(i, p);
             }
         }
-        for p in stood {
-            e.candidates.push(Candidate { person: p, day });
+        e.candidates.extend(candidates);
+    }
+
+    /// Word that `who` stands in the election polling at `settlement` on `poll_day`: the claim,
+    /// made if new, which they hear first on `today`.
+    fn candidacy_word(
+        &mut self,
+        settlement: PermanentId,
+        poll_day: i64,
+        who: PermanentId,
+        today: i64,
+    ) {
+        let claim = match self.word.candidacy(settlement, poll_day, who) {
+            Some(c) => c,
+            None => self.word.make(Claim {
+                fire: None,
+                event: None,
+                id: 0,
+                kind: ClaimKind::Candidacy,
+                settlement,
+                day: poll_day,
+                subject: Some(who),
+                grievance: None,
+                suspected: None,
+            }),
+        };
+        self.word.hear(who, claim, today, None, Some(who));
+    }
+
+    /// Whether `voter` has heard that `who` stands in the election polling at `settlement` on
+    /// `poll_day`, and so where they said they stand.
+    fn heard_candidacy(
+        &self,
+        voter: PermanentId,
+        settlement: PermanentId,
+        poll_day: i64,
+        who: PermanentId,
+    ) -> bool {
+        self.word
+            .candidacy(settlement, poll_day, who)
+            .is_some_and(|c| self.word.has_heard(voter, c))
+    }
+
+    /// Each faction of polity `pi`'s settlements whose members stood in election `ei` has its
+    /// organizer endorse them, up to the seats (ADR-0024 §5, M7a slice BP; a design prior: a
+    /// faction backs its own). Members weigh the slate when they poll.
+    fn endorse_slates(&mut self, pi: usize, ei: usize) {
+        let polity = &self.polities[pi];
+        let e = &polity.elections[ei];
+        let n = usize::from(e.seats.n);
+        let mut slates: Vec<(PermanentId, Vec<PermanentId>)> = Vec::new();
+        for f in self
+            .factions
+            .list
+            .iter()
+            .filter(|f| f.ended.is_none() && polity.holds(Some(f.settlement)))
+        {
+            let mut slate: Vec<PermanentId> = e
+                .candidates
+                .iter()
+                .map(|c| c.person)
+                .filter(|&p| {
+                    self.factions
+                        .membership(p)
+                        .is_some_and(|m| m.faction == f.id)
+                })
+                .collect();
+            slate.truncate(n);
+            if !slate.is_empty() && self.person(f.organizer).is_some() {
+                slates.push((f.id, slate));
+            }
         }
+        slates.sort_by_key(|s| s.0);
+        self.polities[pi].elections[ei].endorsements = slates;
     }
 
     /// Names close on election `ei`: with nobody standing it fails; with no more standing than
@@ -348,6 +443,7 @@ impl Population {
     /// polling day comes.
     fn close_names(&mut self, ctx: &mut Ctx, pi: usize, ei: usize) {
         let day = ctx.now.day_index();
+        self.endorse_slates(pi, ei);
         let e = &mut self.polities[pi].elections[ei];
         let standing = e.standing();
         if standing.is_empty() {
@@ -537,7 +633,7 @@ impl Population {
         let mut utilities: Vec<f64> = e
             .standing()
             .into_iter()
-            .map(|c| self.vote_utility(ctx, person, hh.id, c))
+            .map(|c| self.vote_utility(ctx, person, hh.id, c, e, polity.settlement))
             .collect();
         utilities.sort_by(|a, b| b.total_cmp(a));
         let left_out = utilities
@@ -560,16 +656,20 @@ impl Population {
         })
     }
 
-    /// What candidate `c` is worth to voter `v` of household `vh` (ADR-0024 §3, 09-08 §1.3's
-    /// terms where state exists): regard (loyalty), their own household (group), the
-    /// candidate's standing in counsel (competence), and themselves. Positions and record wait
-    /// for campaigns (slice BP): unknown is no term.
+    /// What candidate `c` in election `e` at `settlement` is worth to voter `v` of household
+    /// `vh` (ADR-0024 §3, 09-08 §1.3's terms where state exists): regard (loyalty), their own
+    /// household (group), the candidate's standing in counsel (competence), and themselves;
+    /// distance from where the candidate said they stand, if the voter heard it (D); the
+    /// candidate's record as the voter saw it (R); and the voter's own faction's slate. Unknown
+    /// is no term, never neutral.
     pub(super) fn vote_utility(
         &self,
         ctx: &Ctx,
         v: PermanentId,
         vh: PermanentId,
         c: PermanentId,
+        e: &Election,
+        settlement: PermanentId,
     ) -> f64 {
         let (ep, day) = (&ctx.params.elections, ctx.now.day_index());
         if c == v {
@@ -582,7 +682,88 @@ impl Population {
             .of(c)
             .map_or(0.0, |s| s.in_domain(crate::ties::Domain::Counsel))
             .max(0.0);
+        let distance = self
+            .heard_candidacy(v, settlement, e.poll_day, c)
+            .then(|| e.positions_of(c))
+            .flatten()
+            .and_then(|told| self.distance(v, told));
+        let record = self.record(ctx, v, vh, c, settlement);
+        let slate = self
+            .factions
+            .membership(v)
+            .is_some_and(|m| e.endorsed(m.faction, c));
         ep.w_regard * regard + if same { ep.w_household } else { 0.0 } + ep.w_counsel * counsel
+            - distance.map_or(0.0, |d| ep.w_distance * d)
+            + record.map_or(0.0, |r| ep.w_record * r)
+            + if slate { ep.w_slate } else { 0.0 }
+    }
+
+    /// The mean distance, 0 to 1, between `v`'s positions and the positions `told`, on the
+    /// questions `v` holds one on; `None` when they hold none of them.
+    fn distance(&self, v: PermanentId, told: &[(u16, f32)]) -> Option<f64> {
+        let ds: Vec<f64> = told
+            .iter()
+            .filter_map(|&(q, x)| {
+                self.opinion
+                    .position(v, q)
+                    .map(|p| f64::from((p.x - x).abs()))
+            })
+            .collect();
+        (!ds.is_empty()).then(|| ds.iter().sum::<f64>() / ds.len() as f64)
+    }
+
+    /// Candidate `c`'s record as voter `v` of household `vh` saw it (09-08 §1.3, R; ADR-0024 §3:
+    /// the voter's household's stake in decisions they saw the candidate stand on): over the laws
+    /// of the polity seated at `settlement` decided within memory at which both took a stance,
+    /// how the candidate's stance lined up with what the law meant to `v`'s household, each
+    /// weighed by it, −1 to 1. `None` when they shared no such decision.
+    fn record(
+        &self,
+        ctx: &Ctx,
+        v: PermanentId,
+        vh: PermanentId,
+        c: PermanentId,
+        settlement: PermanentId,
+    ) -> Option<f64> {
+        let memory = i64::from(ctx.params.polity.vote_memory_days);
+        let day = ctx.now.day_index();
+        let polity = self.polities.iter().find(|p| p.settlement == settlement)?;
+        let (mut along, mut weight) = (0.0, 0.0);
+        for l in &polity.laws {
+            if !l.decided.is_some_and(|t| day - t.day_index() <= memory) {
+                continue;
+            }
+            let Some(mine) = l
+                .stances
+                .iter()
+                .find(|r| r.person == v && r.household == vh)
+            else {
+                continue;
+            };
+            let Some(theirs) = l.stances.iter().find(|r| r.person == c) else {
+                continue;
+            };
+            let stake = f64::from(mine.gain);
+            along += theirs.stance.sign() * stake;
+            weight += stake.abs();
+        }
+        (weight > 1e-9).then(|| (along / weight).clamp(-1.0, 1.0))
+    }
+
+    /// Points `person` finds in an evening at the hearth while an election they stand in runs,
+    /// to tell that they stand and where (ADR-0024 §4); 0 when they stand in none.
+    pub(crate) fn campaign_points(&self, ctx: &Ctx, person: PermanentId) -> f64 {
+        let day = ctx.now.day_index();
+        let standing = self.polities.iter().any(|p| {
+            p.elections
+                .iter()
+                .any(|e| e.stage.open() && e.poll_day >= day && e.stood(person))
+        });
+        if standing {
+            ctx.params.elections.w_campaign
+        } else {
+            0.0
+        }
     }
 
     /// `person` has come to the hearth on the polling day and names their choices: the top n of
@@ -613,10 +794,11 @@ impl Population {
         if e.polled(person) {
             return;
         }
+        let settlement = polity.settlement;
         let cands: Vec<(PermanentId, f64)> = e
             .standing()
             .into_iter()
-            .map(|c| (c, self.vote_utility(ctx, person, hh, c)))
+            .map(|c| (c, self.vote_utility(ctx, person, hh, c, e, settlement)))
             .collect();
         let key =
             Rng64::from_key(&[ctx.seed, polity_id.get(), u64::from(e.id), person.get()]).next_u64();

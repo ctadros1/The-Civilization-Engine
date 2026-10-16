@@ -369,6 +369,8 @@ pub const SCHEMA_V118: u32 = 118;
 pub const SCHEMA_V119: u32 = 119;
 /// Office laws held for a term, before councils and their elections.
 pub const SCHEMA_V120: u32 = 120;
+/// Councils and their elections, before candidates' positions and faction slates.
+pub const SCHEMA_V121: u32 = 121;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

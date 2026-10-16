@@ -8268,6 +8268,165 @@ impl<'a> CandidateSave {
 
 }
 
+// struct StoodSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct StoodSave(pub [u8; 16]);
+impl Default for StoodSave { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for StoodSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("StoodSave")
+      .field("candidate", &self.candidate())
+      .field("policy", &self.policy())
+      .field("x", &self.x())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for StoodSave {}
+impl<'a> ::flatbuffers::Follow<'a> for StoodSave {
+  type Inner = &'a StoodSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a StoodSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a StoodSave {
+  type Inner = &'a StoodSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<StoodSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for StoodSave {
+    type Output = StoodSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const StoodSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for StoodSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> StoodSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    candidate: u64,
+    policy: u16,
+    x: f32,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_candidate(candidate);
+    s.set_policy(policy);
+    s.set_x(x);
+    s
+  }
+
+  pub fn candidate(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_candidate(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn policy(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_policy(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn x(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[12..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_x(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[12..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct VoteSave, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -33656,6 +33815,119 @@ impl ::core::fmt::Debug for BallotSave<'_> {
       ds.finish()
   }
 }
+pub enum SlateSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SlateSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for SlateSave<'a> {
+  type Inner = SlateSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> SlateSave<'a> {
+  pub const VT_FACTION: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAMED: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    SlateSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SlateSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<SlateSave<'bldr>> {
+    let mut builder = SlateSaveBuilder::new(_fbb);
+    builder.add_faction(args.faction);
+    if let Some(x) = args.named { builder.add_named(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn faction(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SlateSave::VT_FACTION, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn named(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(SlateSave::VT_NAMED, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for SlateSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("faction", Self::VT_FACTION, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("named", Self::VT_NAMED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SlateSaveArgs<'a> {
+    pub faction: u64,
+    pub named: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
+}
+impl<'a> Default for SlateSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SlateSaveArgs {
+      faction: 0,
+      named: None,
+    }
+  }
+}
+
+pub struct SlateSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SlateSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_faction(&mut self, faction: u64) {
+    self.fbb_.push_slot::<u64>(SlateSave::VT_FACTION, faction, 0);
+  }
+  #[inline]
+  pub fn add_named(&mut self, named: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SlateSave::VT_NAMED, named);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SlateSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SlateSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<SlateSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for SlateSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("SlateSave");
+      ds.field("faction", &self.faction());
+      ds.field("named", &self.named());
+      ds.finish()
+  }
+}
 pub enum ElectionSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -33687,6 +33959,8 @@ impl<'a> ElectionSave<'a> {
   pub const VT_BY_LOT: ::flatbuffers::VOffsetT = 28;
   pub const VT_ENDED: ::flatbuffers::VOffsetT = 30;
   pub const VT_UNTIL: ::flatbuffers::VOffsetT = 32;
+  pub const VT_POSITIONS: ::flatbuffers::VOffsetT = 34;
+  pub const VT_ENDORSEMENTS: ::flatbuffers::VOffsetT = 36;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -33704,6 +33978,8 @@ impl<'a> ElectionSave<'a> {
     builder.add_stand_until(args.stand_until);
     builder.add_called(args.called);
     builder.add_seats(args.seats);
+    if let Some(x) = args.endorsements { builder.add_endorsements(x); }
+    if let Some(x) = args.positions { builder.add_positions(x); }
     if let Some(x) = args.winners { builder.add_winners(x); }
     if let Some(x) = args.totals { builder.add_totals(x); }
     if let Some(x) = args.ballots { builder.add_ballots(x); }
@@ -33822,6 +34098,20 @@ impl<'a> ElectionSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<i64>(ElectionSave::VT_UNTIL, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn positions(&self) -> Option<::flatbuffers::Vector<'a, StoodSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, StoodSave>>>(ElectionSave::VT_POSITIONS, None)}
+  }
+  #[inline]
+  pub fn endorsements(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SlateSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SlateSave>>>>(ElectionSave::VT_ENDORSEMENTS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ElectionSave<'_> {
@@ -33845,6 +34135,8 @@ impl ::flatbuffers::Verifiable for ElectionSave<'_> {
      .visit_field::<bool>("by_lot", Self::VT_BY_LOT, false)?
      .visit_field::<i64>("ended", Self::VT_ENDED, false)?
      .visit_field::<i64>("until", Self::VT_UNTIL, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, StoodSave>>>("positions", Self::VT_POSITIONS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<SlateSave>>>>("endorsements", Self::VT_ENDORSEMENTS, false)?
      .finish();
     Ok(())
   }
@@ -33865,6 +34157,8 @@ pub struct ElectionSaveArgs<'a> {
     pub by_lot: bool,
     pub ended: i64,
     pub until: i64,
+    pub positions: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, StoodSave>>>,
+    pub endorsements: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<SlateSave<'a>>>>>,
 }
 impl<'a> Default for ElectionSaveArgs<'a> {
   #[inline]
@@ -33885,6 +34179,8 @@ impl<'a> Default for ElectionSaveArgs<'a> {
       by_lot: false,
       ended: -1,
       until: 0,
+      positions: None,
+      endorsements: None,
     }
   }
 }
@@ -33955,6 +34251,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ElectionSaveBuilder<'a, 'b, A
     self.fbb_.push_slot::<i64>(ElectionSave::VT_UNTIL, until, 0);
   }
   #[inline]
+  pub fn add_positions(&mut self, positions: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , StoodSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ElectionSave::VT_POSITIONS, positions);
+  }
+  #[inline]
+  pub fn add_endorsements(&mut self, endorsements: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<SlateSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ElectionSave::VT_ENDORSEMENTS, endorsements);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ElectionSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ElectionSaveBuilder {
@@ -33987,6 +34291,8 @@ impl ::core::fmt::Debug for ElectionSave<'_> {
       ds.field("by_lot", &self.by_lot());
       ds.field("ended", &self.ended());
       ds.field("until", &self.until());
+      ds.field("positions", &self.positions());
+      ds.field("endorsements", &self.endorsements());
       ds.finish()
   }
 }

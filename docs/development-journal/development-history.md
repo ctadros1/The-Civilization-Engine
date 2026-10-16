@@ -2253,3 +2253,22 @@ council forecast by election and by lot, a council one change from its electorat
 **Open:** whether any village amends to a council on its own (the smoke found villages of 50 never
 amend their custom); appointment, consent and nominating others; positions and record in a
 voter's choice (BP); secret ballots; seats by settlement; the observer's election page.
+
+## 2026-10-16 — BP: campaigns, positions and slates
+
+**Built:** each who stands says where they stand on up to three questions that matter most to
+them, and word of it goes round from them as a claim; a voter weighs a candidate against the
+distance from where they said they stand (once heard), for their record on decisions the voter's
+household had a stake in, and for their own faction's slate, which each faction's organizer names
+from its members who stood when names close; one who stands finds points in an evening at the
+hearth while their election runs. Saves gain positions and slates (schema 122, content API 107);
+the inspector words a candidacy and whether one named them; the Government panel names each slate.
+
+**Evidence:** `civ-sim/tests/council.rs` now seeds positions and a faction of half the electorate:
+while the polling is to come, every candidate holds word of their own candidacy and others have
+heard it; each told at most three positions, one a question; the faction backs only members who
+stood, no more than the seats; the council's words name the slate; saves mid-election and after
+go on alike with positions and slates.
+
+**Open:** campaigning beyond the hearth; choosing what to tell by the electorate; a "party" label;
+whether slates change who sits over many elections (unmeasured).

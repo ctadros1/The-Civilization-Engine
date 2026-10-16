@@ -24,7 +24,8 @@ fn claim_key(c: &Claim) -> u64 {
         | ClaimKind::Suspicion
         | ClaimKind::Fire
         | ClaimKind::Raid
-        | ClaimKind::BandSeen => c.subject.map_or(0, PermanentId::get),
+        | ClaimKind::BandSeen
+        | ClaimKind::Candidacy => c.subject.map_or(0, PermanentId::get),
         _ => c.settlement.get(),
     };
     let event = c.event.map_or(0, |e| u64::from(e).rotate_left(8));
@@ -62,6 +63,7 @@ fn call_ahead(c: &Claim, day: i64) -> bool {
             | ClaimKind::Refusal
             | ClaimKind::Revolt
             | ClaimKind::Election
+            | ClaimKind::Candidacy
     ) && c.day >= day
 }
 

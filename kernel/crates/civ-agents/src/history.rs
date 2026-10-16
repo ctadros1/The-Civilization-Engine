@@ -197,6 +197,8 @@ pub enum Reason {
     Poll = 151,
     /// No election they heard of polls now.
     NoPoll = 152,
+    /// Telling the hearth that they stand in an election, and where (M7a slice BP, ADR-0024 §4).
+    Campaign = 153,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -208,7 +210,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 86] = [
+    pub const ALL: [Reason; 87] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -295,6 +297,7 @@ impl Reason {
         Reason::Palisade,
         Reason::Poll,
         Reason::NoPoll,
+        Reason::Campaign,
     ];
 
     /// The reason with this code.
@@ -393,6 +396,7 @@ impl Reason {
             Reason::Palisade => "what a palisade would keep from outsiders",
             Reason::Poll => "naming their choices for the council",
             Reason::NoPoll => "no election they heard of polls now",
+            Reason::Campaign => "telling the hearth that they stand, and where",
         }
     }
 }

@@ -247,6 +247,15 @@ impl Population {
                         if lost > 0.0 {
                             x.stores[g] -= lost;
                             x.flows.add(crate::person::Flow::Spoiled, g, lost);
+                            // The household sees its own stores spoil where the water stands
+                            // (M6b slice BG).
+                            x.remember_flood_loss(crate::person::FloodLoss {
+                                day: now.day_index(),
+                                cell: cell as u32,
+                                depth_cm: (flood_depth * 100.0).min(f32::from(u16::MAX)) as u16,
+                                kcal: (lost * def.kcal_per_kg) as f32,
+                                hours: 0.0,
+                            });
                             let reach = ctx.land.floodplain.cell_reach.get(cell).copied();
                             if let Some(hw) =
                                 self.floods.high_waters.iter_mut().find(|h| {
@@ -628,6 +637,24 @@ impl Population {
         // The settlement remembers it against the technique (ADR-0009 §6).
         let caution = &ctx.params.build.caution;
         self.remember_failure(settlement, technique, dead.len(), now, caution);
+        // And each household of it hears it told and remembers it (M6b slice BH).
+        if let Some(b) = ctx.land.buildings.get(i) {
+            let seen = crate::person::GaveWay {
+                day: now.day_index(),
+                building: id,
+                own: false,
+                wall_kind: crate::rules::wall_kind(&b.spec, &def.rules),
+                hours: Self::fire_cost_h(ctx, b) as f32,
+            };
+            for (_, x) in self.households.iter_mut() {
+                if settlement.is_some() && x.settlement == settlement {
+                    x.remember_gave_way(crate::person::GaveWay {
+                        own: x.id == household,
+                        ..seen
+                    });
+                }
+            }
+        }
         for who in dead {
             self.die(ctx, who, Cause::Collapse);
         }

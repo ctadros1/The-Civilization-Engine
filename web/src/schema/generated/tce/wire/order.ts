@@ -123,8 +123,40 @@ encountersLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+settled():number {
+  const offset = this.bb!.__offset(this.bb_pos, 36);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
+withdrawn():number {
+  const offset = this.bb!.__offset(this.bb_pos, 38);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
+challenges():number {
+  const offset = this.bb!.__offset(this.bb_pos, 40);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
+struckDown():number {
+  const offset = this.bb!.__offset(this.bb_pos, 42);
+  return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
+}
+
+caseLines(index: number):string
+caseLines(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+caseLines(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 44);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+caseLinesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 44);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startOrder(builder:flatbuffers.Builder) {
-  builder.startObject(16);
+  builder.startObject(21);
 }
 
 static addMinute(builder:flatbuffers.Builder, minute:bigint) {
@@ -227,12 +259,44 @@ static startEncountersVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addSettled(builder:flatbuffers.Builder, settled:number) {
+  builder.addFieldInt32(16, settled, 0);
+}
+
+static addWithdrawn(builder:flatbuffers.Builder, withdrawn:number) {
+  builder.addFieldInt32(17, withdrawn, 0);
+}
+
+static addChallenges(builder:flatbuffers.Builder, challenges:number) {
+  builder.addFieldInt32(18, challenges, 0);
+}
+
+static addStruckDown(builder:flatbuffers.Builder, struckDown:number) {
+  builder.addFieldInt32(19, struckDown, 0);
+}
+
+static addCaseLines(builder:flatbuffers.Builder, caseLinesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(20, caseLinesOffset, 0);
+}
+
+static createCaseLinesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startCaseLinesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endOrder(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createOrder(builder:flatbuffers.Builder, minute:bigint, incidentsOffset:flatbuffers.Offset, knownOffset:flatbuffers.Offset, attempts:number, takings:number, seen:number, knownToVictims:number, demands:number, met:number, refused:number, refusals:bigint, cases:number, found:number, notFound:number, unheard:number, encountersOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createOrder(builder:flatbuffers.Builder, minute:bigint, incidentsOffset:flatbuffers.Offset, knownOffset:flatbuffers.Offset, attempts:number, takings:number, seen:number, knownToVictims:number, demands:number, met:number, refused:number, refusals:bigint, cases:number, found:number, notFound:number, unheard:number, encountersOffset:flatbuffers.Offset, settled:number, withdrawn:number, challenges:number, struckDown:number, caseLinesOffset:flatbuffers.Offset):flatbuffers.Offset {
   Order.startOrder(builder);
   Order.addMinute(builder, minute);
   Order.addIncidents(builder, incidentsOffset);
@@ -250,6 +314,11 @@ static createOrder(builder:flatbuffers.Builder, minute:bigint, incidentsOffset:f
   Order.addNotFound(builder, notFound);
   Order.addUnheard(builder, unheard);
   Order.addEncounters(builder, encountersOffset);
+  Order.addSettled(builder, settled);
+  Order.addWithdrawn(builder, withdrawn);
+  Order.addChallenges(builder, challenges);
+  Order.addStruckDown(builder, struckDown);
+  Order.addCaseLines(builder, caseLinesOffset);
   return Order.endOrder(builder);
 }
 }

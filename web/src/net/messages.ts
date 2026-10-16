@@ -300,6 +300,19 @@ export interface PersonBrief {
   asleep: boolean;
 }
 
+/** Wire 1.74 (M6c slice BJ): a band not yet home or dispersed: who of it are going, the home it
+ * goes to, metres, and in words. */
+export interface BandBrief {
+  id: number;
+  from: number;
+  /** False while it is called and not yet out. */
+  out: boolean;
+  members: number[];
+  x: number;
+  y: number;
+  words: string;
+}
+
 export interface SettlementBrief {
   id: number;
   name: string;
@@ -382,6 +395,8 @@ export interface Snapshot {
    * people know of one or what a polity did about one changes (0 = no incident yet). Fetch them
    * with GetIncidents. */
   incidentsRev: number;
+  /** Wire 1.74: the bands not yet home or dispersed (none from older hosts). */
+  bands: BandBrief[];
 }
 
 export type FieldStage = "fallow" | "prepared" | "sown" | "reaped";
@@ -1021,7 +1036,14 @@ export interface StanceLine {
  * Where a law stands ("lapsed", wire 1.28: the one it named died or left; "carried", wire 1.44: a
  * repeal that passed, ending the law it named).
  */
-export type LawStatus = "proposed" | "in force" | "rejected" | "lapsed" | "superseded" | "carried";
+export type LawStatus =
+  | "proposed"
+  | "in force"
+  | "rejected"
+  | "lapsed"
+  | "superseded"
+  | "carried"
+  | "struck down";
 
 /** How a gathering decided. */
 export type LawOutcome = "passed" | "failed" | "tied" | "no quorum";
@@ -1070,6 +1092,11 @@ export interface LawLine {
   /** Wire 1.33: for a curfew, the times someone broke it knowing of it, and not. */
   broken: number;
   brokenUnaware: number;
+  /**
+   * Wire 1.80 (M7c slice BY): how its keeper, collector or sponsor acted, in the kernel's words;
+   * "" when there is nothing to tell.
+   */
+  conduct: string;
 }
 
 /** A settlement's polity (wire 1.27): its custom, members, store, gathering called and laws. */
@@ -1122,6 +1149,56 @@ export interface PolityLine {
    * its own people's side, worked out afterwards and read by nothing in the world.
    */
   relations: RelationLine[];
+  /**
+   * Wire 1.76 (M6c slice BM, ADR-0023 §9): its settlements with how and when, its seat first, in
+   * the kernel's words; and how its deciding closed ("taken in by Oakholt's polity on …"), or
+   * empty while it still decides.
+   */
+  settlements: string[];
+  ended: string;
+  /** Wire 1.77 (M7a slice BQ, ADR-0024 §3): its council's elections, newest first. */
+  elections: ElectionLine[];
+}
+
+/** One election of a council (wire 1.77), in the kernel's words. */
+export interface ElectionLine {
+  id: number;
+  heading: string;
+  stage: string;
+  turnout: string;
+  districts: string[];
+  alliances: string[];
+  candidates: CandidateLine[];
+}
+
+/** One who stood (wire 1.77). */
+export interface CandidateLine {
+  person: number;
+  name: string;
+  district: string;
+  told: string;
+  backed: string;
+  votes: number;
+  seated: boolean;
+}
+
+/**
+ * A siege (wire 1.76, ADR-0023 §7): a band camped by a shut line or holding a settlement, with
+ * each side's food at current use and what comes and goes by the line, in the kernel's words.
+ * Worked out afterwards and read by nothing in the world; never a measure of progress.
+ */
+export interface SiegeLine {
+  band: number;
+  from: number;
+  at: number;
+  /** "camped" or "holding". */
+  stage: "camped" | "holding";
+  words: string;
+  inside: string;
+  insideDays: number;
+  comesIn: string;
+  bandFood: string;
+  bandDays: number;
 }
 
 /** One polity's standing toward another (wire 1.57): a label and the reasons, in the kernel's words. */
@@ -1156,6 +1233,8 @@ export interface AgreementLine {
 export interface GovernmentInfo {
   minute: number;
   polities: PolityLine[];
+  /** Wire 1.76: every band camped by a shut line or holding a settlement. */
+  sieges: SiegeLine[];
 }
 
 /** How an attempt to take ended (wire 1.30). */
@@ -1230,6 +1309,13 @@ export interface OrderInfo {
    * newest first, in the kernel's words.
    */
   encounters: string[];
+  /** Wire 1.79 (M7b slice BU): cases settled and withdrawn, challenges and laws struck down. */
+  settled: number;
+  withdrawn: number;
+  challenges: number;
+  struckDown: number;
+  /** Wire 1.79: the latest cases and challenges in the kernel's words, newest first. */
+  caseLines: string[];
 }
 
 /** One good in a settlement's market (M3a slice I). Tallies fade by half every memory. */
@@ -1595,7 +1681,12 @@ export interface EarthworkInfo {
   deposit: number;
   /** Wire 1.72: the kernel's bank centre-line and current condition. */
   bank?: { ax: number; ay: number; bx: number; by: number; heightM: number; breached: boolean };
-
+  /** Wire 1.73: an irrigation ditch's line from its intake to its field, and whether it is open. */
+  ditch?: { ax: number; ay: number; bx: number; by: number; open: boolean };
+  /** Wire 1.75 (kind 5, M6c slice BK): a stretch of an enclosure's palisade — its ends, its place
+   * round the line, its state (0 to be built, 1 standing, 2 rotted through) and its gate (0 none,
+   * 1 open, 2 shut). */
+  sector?: { ax: number; ay: number; bx: number; by: number; index: number; state: number; gate: number };
 }
 
 /** A crossing over water (wire 1.60, M5c slice AW; ADR-0004 §7, ADR-0009 §9). */
@@ -2582,7 +2673,29 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     crossingsRev: Number(s.crossingsRev()),
     waterRev: Number(s.waterRev()),
     incidentsRev: Number(s.incidentsRev()),
+    bands: bandBriefs(s),
   };
+}
+
+function bandBriefs(s: W.Snapshot): BandBrief[] {
+  const out: BandBrief[] = [];
+  for (let i = 0; i < s.bandsLength(); i++) {
+    const b = s.bands(i);
+    if (!b) continue;
+    const target = b.target();
+    const members: number[] = [];
+    for (let k = 0; k < b.membersLength(); k++) members.push(Number(b.members(k)));
+    out.push({
+      id: b.id(),
+      from: Number(b.from()),
+      out: b.stage() !== 0,
+      members,
+      x: target?.x() ?? 0,
+      y: target?.y() ?? 0,
+      words: b.words() ?? "",
+    });
+  }
+  return out;
 }
 
 function deposits(w: W.Deposits): DepositsInfo {
@@ -2771,6 +2884,14 @@ function earthworks(w: W.Earthworks): EarthworksInfo {
       bank: e.bankA() && e.bankB() ? {
         ax: e.bankA()!.x(), ay: e.bankA()!.y(), bx: e.bankB()!.x(), by: e.bankB()!.y(),
         heightM: e.bankHeightM(), breached: e.bankBreached(),
+      } : undefined,
+      ditch: e.ditchA() && e.ditchB() ? {
+        ax: e.ditchA()!.x(), ay: e.ditchA()!.y(), bx: e.ditchB()!.x(), by: e.ditchB()!.y(),
+        open: e.ditchOpen(),
+      } : undefined,
+      sector: e.sectorA() && e.sectorB() ? {
+        ax: e.sectorA()!.x(), ay: e.sectorA()!.y(), bx: e.sectorB()!.x(), by: e.sectorB()!.y(),
+        index: e.sectorIndex(), state: e.sectorState(), gate: e.sectorGate(),
       } : undefined,
     });
   }
@@ -4067,6 +4188,8 @@ const LAW_STATUSES: LawStatus[] = [
   "lapsed",
   "superseded",
   "carried",
+  // Wire 1.78 (M7b slice BT): a forum with review found it breaks a limit.
+  "struck down",
 ];
 const OUTCOMES: LawOutcome[] = ["passed", "failed", "tied", "no quorum"];
 
@@ -4119,6 +4242,7 @@ function lawLine(l: W.LawLine): LawLine {
     holderName: l.holderName() ?? "",
     broken: l.broken(),
     brokenUnaware: l.brokenUnaware(),
+    conduct: l.conduct() ?? "",
   };
 }
 
@@ -4187,9 +4311,51 @@ function governmentInfo(w: W.Government): GovernmentInfo {
           }),
         };
       }),
+      settlements: Array.from({ length: p.settlementsLength() }, (_, k) => p.settlements(k) ?? ""),
+      ended: p.ended() ?? "",
+      elections: Array.from({ length: p.electionsLength() }, (_, k) => {
+        const e = p.elections(k)!;
+        return {
+          id: e.id(),
+          heading: e.heading() ?? "",
+          stage: e.stage() ?? "",
+          turnout: e.turnout() ?? "",
+          districts: Array.from({ length: e.districtsLength() }, (_, j) => e.districts(j) ?? ""),
+          alliances: Array.from({ length: e.alliancesLength() }, (_, j) => e.alliances(j) ?? ""),
+          candidates: Array.from({ length: e.candidatesLength() }, (_, j) => {
+            const c = e.candidates(j)!;
+            return {
+              person: Number(c.person()),
+              name: c.name() ?? "",
+              district: c.district() ?? "",
+              told: c.told() ?? "",
+              backed: c.backed() ?? "",
+              votes: c.votes(),
+              seated: c.seated(),
+            };
+          }),
+        };
+      }),
     });
   }
-  return { minute: Number(w.minute()), polities };
+  const sieges: SiegeLine[] = [];
+  for (let k = 0; k < w.siegesLength(); k++) {
+    const x = w.sieges(k);
+    if (!x) continue;
+    sieges.push({
+      band: x.band(),
+      from: Number(x.from()),
+      at: Number(x.at()),
+      stage: x.stage() === 5 ? "holding" : "camped",
+      words: x.words() ?? "",
+      inside: x.inside() ?? "",
+      insideDays: x.insideDays(),
+      comesIn: x.comesIn() ?? "",
+      bandFood: x.bandFood() ?? "",
+      bandDays: x.bandDays(),
+    });
+  }
+  return { minute: Number(w.minute()), polities, sieges };
 }
 
 const TAKING_OUTCOMES: TakingOutcome[] = ["taken", "turned back", "fled"];
@@ -4247,6 +4413,11 @@ export function orderInfo(w: W.Order): OrderInfo {
     notFound: w.notFound(),
     unheard: w.unheard(),
     encounters: Array.from({ length: w.encountersLength() }, (_, k) => w.encounters(k) ?? ""),
+    settled: w.settled(),
+    withdrawn: w.withdrawn(),
+    challenges: w.challenges(),
+    struckDown: w.struckDown(),
+    caseLines: Array.from({ length: w.caseLinesLength() }, (_, k) => w.caseLines(k) ?? ""),
   };
 }
 

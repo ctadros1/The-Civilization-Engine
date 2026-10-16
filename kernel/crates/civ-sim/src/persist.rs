@@ -329,6 +329,66 @@ pub const SCHEMA_V98: u32 = 98;
 pub const SCHEMA_V99: u32 = 99;
 /// Bank geometry before its explicit washed-soil account.
 pub const SCHEMA_V100: u32 = 100;
+/// Washed-soil accounts, before households' flood losses and banks built by law.
+pub const SCHEMA_V101: u32 = 101;
+/// Households' flood losses and banks built by law, before bank piping and told failures.
+pub const SCHEMA_V102: u32 = 102;
+/// Bank piping damage and told failures, before mending banks.
+pub const SCHEMA_V103: u32 = 103;
+/// Mended banks and keeping laws, before irrigation ditches.
+pub const SCHEMA_V104: u32 = 104;
+/// Irrigation ditches, before households dig them.
+pub const SCHEMA_V105: u32 = 105;
+/// Households dig ditches, before they remember fires.
+pub const SCHEMA_V106: u32 = 106;
+/// Households remember fires, before they remember buildings that gave way.
+pub const SCHEMA_V107: u32 = 107;
+/// Households remember buildings that gave way, before takings cross the boundary.
+pub const SCHEMA_V108: u32 = 108;
+/// Takings cross the boundary, before bands.
+pub const SCHEMA_V109: u32 = 109;
+/// Bands and encounters, before claims of raids and bands seen.
+pub const SCHEMA_V110: u32 = 110;
+/// Claims of raids and bands seen, before bands and raiding by law.
+pub const SCHEMA_V111: u32 = 111;
+/// Bands and raiding by law, before enclosures.
+pub const SCHEMA_V112: u32 = 112;
+/// Enclosures on the walking grid, before palisades raised by law.
+pub const SCHEMA_V113: u32 = 113;
+/// Palisades raised by law, before gates kept and posts rotting.
+pub const SCHEMA_V114: u32 = 114;
+/// Gates kept and posts rotting, before bands camp by a shut line.
+pub const SCHEMA_V115: u32 = 115;
+/// Bands that camp by a shut line, before words against raiding in agreements.
+pub const SCHEMA_V116: u32 = 116;
+/// Words against raiding in agreements, before a polity holds several settlements.
+pub const SCHEMA_V117: u32 = 117;
+/// A polity over several settlements, before bands holding a settlement and the annex law.
+pub const SCHEMA_V118: u32 = 118;
+/// Bands holding a settlement and the annex law, before office laws held for a term.
+pub const SCHEMA_V119: u32 = 119;
+/// Office laws held for a term, before councils and their elections.
+pub const SCHEMA_V120: u32 = 120;
+/// Councils and their elections, before candidates' positions and faction slates.
+pub const SCHEMA_V121: u32 = 121;
+/// Candidates' positions and faction slates, before seats shared among settlements.
+pub const SCHEMA_V122: u32 = 122;
+/// Seats shared among settlements, before electoral alliances.
+pub const SCHEMA_V123: u32 = 123;
+/// Electoral alliances, before forums.
+pub const SCHEMA_V124: u32 = 124;
+/// Forums, before precedent.
+pub const SCHEMA_V125: u32 = 125;
+/// Precedent, before limits and review.
+pub const SCHEMA_V126: u32 = 126;
+/// Limits and review, before trade laws (issue code 20).
+pub const SCHEMA_V127: u32 = 127;
+/// Trade laws, before organizations by stake.
+pub const SCHEMA_V128: u32 = 128;
+/// Organizations by stake, before privileges.
+pub const SCHEMA_V129: u32 = 129;
+/// Privileges, before the keeper's diversion.
+pub const SCHEMA_V130: u32 = 130;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

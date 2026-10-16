@@ -78,7 +78,7 @@ test("ties in the inspector and standing in its panel", async ({ page }) => {
       /^(Holds to no ideology\.|Holds to .+: '.+'; (brought with them|from .+ since .+))/,
     );
     await expect(opinions.locator(".faction")).toContainText(
-      /^(Belongs to no faction\.|.+'s faction, against .+, since .+\. They belong.+its dues counted\.)$/,
+      /^(Belongs to no faction\.|.+'s (faction|party), against .+, since .+\. They belong.+its dues counted\.)$/,
     );
     await expect(opinions.locator(".norms")).toContainText(
       /That what the gathering decides binds everyone: (holds firmly|holds|doubts|does not hold) \(\d\.\d\d\); believes /,

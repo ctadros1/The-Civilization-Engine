@@ -202,8 +202,15 @@ refused():number {
   return offset ? this.bb!.readUint32(this.bb_pos + offset) : 0;
 }
 
+conduct():string|null
+conduct(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+conduct(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 68);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startLawLine(builder:flatbuffers.Builder) {
-  builder.startObject(32);
+  builder.startObject(33);
 }
 
 static addId(builder:flatbuffers.Builder, id:bigint) {
@@ -346,12 +353,16 @@ static addRefused(builder:flatbuffers.Builder, refused:number) {
   builder.addFieldInt32(31, refused, 0);
 }
 
+static addConduct(builder:flatbuffers.Builder, conductOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(32, conductOffset, 0);
+}
+
 static endLawLine(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createLawLine(builder:flatbuffers.Builder, id:bigint, whatOffset:flatbuffers.Offset, policyOffset:flatbuffers.Offset, levyShare:number, reliefDays:number, status:number, sponsor:bigint, sponsorNameOffset:flatbuffers.Offset, proposedMinute:bigint, issueOffset:flatbuffers.Offset, meetsMinute:bigint, decidedMinute:bigint, outcome:number, decisionOffset:flatbuffers.Offset, eligible:number, quorum:number, stancesOffset:flatbuffers.Offset, known:number, complied:number, couldNot:number, evaded:number, unaware:number, leviedKg:number, withheldKg:number, relieved:number, reliefKg:number, unanswered:number, holder:bigint, holderNameOffset:flatbuffers.Offset, broken:number, brokenUnaware:number, refused:number):flatbuffers.Offset {
+static createLawLine(builder:flatbuffers.Builder, id:bigint, whatOffset:flatbuffers.Offset, policyOffset:flatbuffers.Offset, levyShare:number, reliefDays:number, status:number, sponsor:bigint, sponsorNameOffset:flatbuffers.Offset, proposedMinute:bigint, issueOffset:flatbuffers.Offset, meetsMinute:bigint, decidedMinute:bigint, outcome:number, decisionOffset:flatbuffers.Offset, eligible:number, quorum:number, stancesOffset:flatbuffers.Offset, known:number, complied:number, couldNot:number, evaded:number, unaware:number, leviedKg:number, withheldKg:number, relieved:number, reliefKg:number, unanswered:number, holder:bigint, holderNameOffset:flatbuffers.Offset, broken:number, brokenUnaware:number, refused:number, conductOffset:flatbuffers.Offset):flatbuffers.Offset {
   LawLine.startLawLine(builder);
   LawLine.addId(builder, id);
   LawLine.addWhat(builder, whatOffset);
@@ -385,6 +396,7 @@ static createLawLine(builder:flatbuffers.Builder, id:bigint, whatOffset:flatbuff
   LawLine.addBroken(builder, broken);
   LawLine.addBrokenUnaware(builder, brokenUnaware);
   LawLine.addRefused(builder, refused);
+  LawLine.addConduct(builder, conductOffset);
   return LawLine.endLawLine(builder);
 }
 }

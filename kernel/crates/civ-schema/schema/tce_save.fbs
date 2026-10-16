@@ -260,7 +260,7 @@ table Settlements {
 // People.techniques (in a decision receipt, into the content's techniques when it was saved).
 // Douse (schema 91, M6b slice BD, step three): `index` where the water is drawn (a source's cell,
 // or 4294967295 the household's store), `id` the building it is thrown on.
-enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16 }
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16, Bank = 17, Ditch = 18, Enclosure = 19 }
 
 enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
 
@@ -447,6 +447,49 @@ table Household {
   flood_home_cm: ushort (id: 18);
   flood_field_cm: ushort (id: 19);
   flood_day: long (id: 20);
+  // Schema 102 (M6b slice BG): what floods cost the household itself, as it saw, oldest first;
+  // absent before.
+  flood_losses: [FloodLossSave] (id: 21);
+  // Schema 106 (M6b slice BG): what each hour of digging its ditch is worth to it; 0 before.
+  ditch_worth: float (id: 22);
+  // Schema 107 (M6b slice BH): buildings it lost to fire or its people saw burn, oldest first;
+  // absent before.
+  fire_losses: [FireLossSave] (id: 23);
+  // Schema 108 (M6b slice BH): buildings of its settlement it heard gave way, oldest first;
+  // absent before.
+  gave_way: [GaveWaySave] (id: 24);
+}
+
+// A building a household heard gave way (schema 108, M6b slice BH): the day, the building,
+// whether it was the household's own, the kind of its walls, and the work putting it right
+// would take (hours).
+table GaveWaySave {
+  day: long (id: 0);
+  building: ulong (id: 1);
+  own: bool (id: 2);
+  wall_kind: ubyte (id: 3);
+  hours: float (id: 4);
+}
+
+// A building a household lost to fire or saw burn (schema 107, M6b slice BH): the day the fire
+// burnt out, the building, whether it was the household's own and whether its roof burns, and
+// the work putting it right would take (hours).
+table FireLossSave {
+  day: long (id: 0);
+  building: ulong (id: 1);
+  own: bool (id: 2);
+  burnable: bool (id: 3);
+  hours: float (id: 4);
+}
+
+// One day's loss to a flood at one place of a household's own (schema 102, M6b slice BG): the
+// day, the cell the water stood in, how deep (cm), the food lost (kcal) and the work lost (hours).
+table FloodLossSave {
+  day: long (id: 0);
+  cell: uint (id: 1);
+  depth_cm: ushort (id: 2);
+  kcal: float (id: 3);
+  hours: float (id: 4);
 }
 
 // Schema 10: one row of a household's posted terms (ADR-0006 §4). Goods are indexed like
@@ -1107,12 +1150,30 @@ struct BankSedimentRecord {
   compacted_m3: double;
 }
 
+// Seepage damage held against a bank so far, 0 to 1 (schema 103, M6b slice BG); a bank with
+// none has no record.
+struct BankPipingRecord {
+  work: ulong;
+  damage: double;
+}
+
+// Compacted earth laid back on a finished bank from its borrow pit to make up its crest
+// (schema 104, M6b slice BG); a bank never mended has no record.
+struct BankRefillRecord {
+  work: ulong;
+  compacted_m3: double;
+}
+
 table Earth {
   works: [EarthworkRecord] (id: 0);
   tiles: [GroundTile] (id: 1);
   links: [EarthLink] (id: 2);
   banks: [BankSegmentRecord] (id: 3);
   bank_sediment: [BankSedimentRecord] (id: 4);
+  bank_piping: [BankPipingRecord] (id: 5);
+  bank_refill: [BankRefillRecord] (id: 6);
+  ditches: [DitchRecord] (id: 7);
+  ditch_flows: [DitchFlowRecord] (id: 8);
 }
 
 // Section "ties" (schema 28): what each person remembers of others (ADR-0014 §1), by holder and
@@ -1257,6 +1318,26 @@ table LawSave {
   // What views of the other polity added to each stance on an agreement, points, in `stances`
   // order (schema 66, M5c slice AU step three); absent when none did, and before.
   stance_views: [float] (id: 47);
+  // For a band sent by law, the settlement it goes against, 0 for none (schema 112, M6c slice BJ).
+  target: ulong (id: 48);
+  // The council seats of the body it was put to, packed as `PolitySave.seats` (schema 121); 0
+  // for a body of all its members, and before.
+  body_seats: ulong (id: 49);
+  // A store's keeper's diversions and the food, kilograms; asks answered by favour and passed
+  // over (schema 131, M7c slice BY).
+  diverted: uint (id: 50);
+  diverted_kg: double (id: 51);
+  favoured: uint (id: 52);
+  passed_over: uint (id: 53);
+  // A duty's collector's assessments, payments asked and paid, and the food paid (schema 131,
+  // M7c slice BY).
+  assessed: uint (id: 54);
+  asked: uint (id: 55);
+  bribed: uint (id: 56);
+  bribe_kg: double (id: 57);
+  // What each household owed the sponsor for gifts before a gathering added to each stance,
+  // points, in `stances` order (schema 131, M7c slice BY); absent when none did, and before.
+  stance_owed: [float] (id: 58);
 }
 
 // `law` 0: called on cases only (M4b slice AB).
@@ -1311,6 +1392,246 @@ table PolitySave {
   // Where its laws to dig a well together would dig one (schema 83, M6a slice BA step four);
   // absent before.
   wells: [PublicWellSave] (id: 16);
+  // Where its laws to build a flood bank would build one (schema 102, M6b slice BG); absent
+  // before.
+  banks: [BankSiteSave] (id: 17);
+  // What each household reckoned, when it was proposed, a law's bank would save it a year, hours
+  // (schema 102); absent before.
+  bank_saves: [BankShareSave] (id: 18);
+  // The hours each household has given to a law's bank (schema 102); absent before.
+  bank_given: [BankShareSave] (id: 19);
+  // The banks its laws built whose giving way its chronicle has told, by their earthwork id
+  // (schema 103); absent before.
+  banks_failed: [ulong] (id: 20);
+  // Schema 104: which bank each law keeping one keeps, in the order made.
+  bank_keeps: [BankKeepRecord] (id: 21);
+  // Schema 114 (M6c slice BK): where its laws to raise a palisade would raise one, and what each
+  // household reckoned, when it was proposed, the palisade would keep it a year, hours (as
+  // `bank_saves`); absent before.
+  enclosures: [EnclosureSiteSave] (id: 22);
+  enclosure_saves: [BankShareSave] (id: 23);
+  // Schema 118 (M6c slice BM): the settlements it holds besides its seat, in the order taken;
+  // and, once another polity took it in, the day, that polity and how (`ended_how` 255 while it
+  // still decides). Absent before: it holds its seat alone and still decides.
+  held: [HeldSettlementSave] (id: 24);
+  ended_day: long = -1 (id: 25);
+  ended_by: ulong (id: 26);
+  ended_how: ubyte = 255 (id: 27);
+  // Schema 120 (M7a slice BN, ADR-0024 §2): its office laws held for a term, by law: the day
+  // each ends, and how many put their names in when it was filled by lot.
+  terms: [TermSave] (id: 28);
+  // Schema 121 (M7a slice BO, ADR-0024 §1, §3): its body's council seats, packed (n, then the
+  // electorate's, method's and term's codes; see `civ_agents::seats::Seats::pack`), 0 for a body
+  // of all its members; each custom version's, parallel to `versions`; its seats held now; and
+  // its elections, oldest first. Absent before: no council, no elections.
+  seats: ulong (id: 29);
+  version_seats: [ulong] (id: 30);
+  seated: [SeatSave] (id: 31);
+  elections: [ElectionSave] (id: 32);
+  // Schema 131 (M7c slice BY): gifts its sponsors gave before its gatherings, oldest first,
+  // within memory; absent before.
+  patron_gifts: [PatronGiftSave] (id: 33);
+}
+
+// A gift a sponsor's household gave another's before the gathering on the sponsor's law (schema
+// 131): the sponsor, the two households, the law, the day, the food in kcal and in days of the
+// receiving household's food.
+struct PatronGiftSave {
+  patron: ulong;
+  giver: ulong;
+  client: ulong;
+  law: ulong;
+  day: long;
+  kcal: float;
+  days: float;
+}
+
+// A council seat held (schema 121): its number, its holder, from and until which day, and the
+// election that seated them.
+struct SeatSave {
+  seat: ubyte;
+  holder: ulong;
+  since: long;
+  until: long;
+  election: uint;
+}
+
+// One who stood in an election (schema 121), and the day they put their name in.
+struct CandidateSave {
+  person: ulong;
+  day: long;
+}
+
+// One who came to poll (schema 121) and whom they named, first choice first.
+table BallotSave {
+  voter: ulong (id: 0);
+  named: [ulong] (id: 1);
+}
+
+// Where a candidate said they stand on one question (schema 122, M7a slice BP).
+struct StoodSave {
+  candidate: ulong;
+  policy: ushort;
+  x: float;
+}
+
+// A faction's slate in an election (schema 122): the members its organizer endorsed.
+table SlateSave {
+  faction: ulong (id: 0);
+  named: [ulong] (id: 1);
+}
+
+// A district's seats where a council's seats are shared among settlements (schema 123, M7a
+// slice BQ).
+struct DistrictSave {
+  settlement: ulong;
+  seats: ubyte;
+}
+
+// An electoral alliance (schema 124, M7a slice BQ): the two factions, in id order, and the
+// package they agreed (0 a common slate, 1 the first backs the second's, 2 the second the first's).
+struct AllianceSave {
+  first: ulong;
+  second: ulong;
+  package: ubyte;
+}
+
+// A candidate's count (schema 121).
+struct VoteSave {
+  person: ulong;
+  votes: uint;
+}
+
+// An election (schema 121, ADR-0024 §3): why it was called (0 the custom became a council, 1 the
+// term ending), the seats it fills (packed as `PolitySave.seats`), its days, its stage (0
+// standing, 1 polling, 2 installed, 3 no candidates, 4 no voters, 5 tied, 6 abandoned), who chose
+// whether to stand, who stood, the ballots, the count, those seated, whether a lot settled a
+// tie, the day it ended (-1 while it runs) and the day its seats end.
+table ElectionSave {
+  id: uint (id: 0);
+  why: ubyte (id: 1);
+  seats: ulong (id: 2);
+  called: long (id: 3);
+  stand_until: long (id: 4);
+  poll_day: long (id: 5);
+  stage: ubyte (id: 6);
+  considered: [ulong] (id: 7);
+  candidates: [CandidateSave] (id: 8);
+  ballots: [BallotSave] (id: 9);
+  totals: [VoteSave] (id: 10);
+  winners: [ulong] (id: 11);
+  by_lot: bool (id: 12);
+  ended: long = -1 (id: 13);
+  until: long (id: 14);
+  positions: [StoodSave] (id: 15);
+  endorsements: [SlateSave] (id: 16);
+  districts: [DistrictSave] (id: 17);
+  // Each candidate's district, in candidate order; 0 for seats of the whole polity (schema 123).
+  candidate_districts: [ulong] (id: 18);
+  alliances: [AllianceSave] (id: 19);
+}
+
+// An office law's term (schema 120).
+struct TermSave {
+  law: ulong;
+  until: long;
+  pool: uint;
+}
+
+// A settlement a polity holds besides its seat (schema 118): since the day, how (0 annexed,
+// 1 merged) and the polity that held it before.
+table HeldSettlementSave {
+  settlement: ulong (id: 0);
+  since: long (id: 1);
+  how: ubyte (id: 2);
+  from: ulong (id: 3);
+}
+
+// Where a law would raise a palisade (schema 114, M6c slice BK): the point its ring is drawn
+// round, metres, its radius, its gates, the homes it took in, the work it would take, and its
+// enclosure once begun (0 before).
+table EnclosureSiteSave {
+  law: ulong (id: 0);
+  x: float (id: 1);
+  y: float (id: 2);
+  radius_m: float (id: 3);
+  gates: ubyte (id: 4);
+  inside: ushort (id: 5);
+  labour_h: float (id: 6);
+  work: ulong (id: 7);
+}
+
+// Where a law would build a flood bank (schema 102, M6b slice BG): the reach whose water it keeps
+// out, its crest line in metres from the map's corner, its section, the ground it and its borrow
+// pit take, the work it would take, and its earthwork once begun (0 before).
+// An irrigation ditch (schema 105, M6b slice BG): its earthwork, the reach its intake takes from,
+// the field it waters, its line from intake to field in metres, its section, the fall of its bed,
+// its weeds (0-1) and silt, whether its intake is open, and the water it has moved, m³.
+struct DitchRecord {
+  work: ulong;
+  reach: uint;
+  field: ulong;
+  ax: double;
+  ay: double;
+  bx: double;
+  by: double;
+  bottom_m: double;
+  depth_m: double;
+  side_run: double;
+  drop_m: double;
+  weeds: double;
+  silt_m: double;
+  open: bool;
+  taken_m3: double;
+  kept_m3: double;
+  seeped_m3: double;
+  returned_m3: double;
+}
+
+// Today's change to a reach's flow from the ditches, passed on down the river, m³/s (schema 105).
+struct DitchFlowRecord {
+  reach: uint;
+  m3s: float;
+}
+
+// A law keeping a flood bank and the law that built it (schema 104, M6b slice BG).
+struct BankKeepRecord {
+  law: ulong;
+  built: ulong;
+}
+
+table BankSiteSave {
+  law: ulong (id: 0);
+  reach: uint (id: 1);
+  ax: double (id: 2);
+  ay: double (id: 3);
+  bx: double (id: 4);
+  by: double (id: 5);
+  height_m: double (id: 6);
+  crest_width_m: double (id: 7);
+  side_run: double (id: 8);
+  compacted_per_bank: double (id: 9);
+  env_x_cm: int (id: 10);
+  env_y_cm: int (id: 11);
+  env_w_cm: int (id: 12);
+  env_h_cm: int (id: 13);
+  pit_x_cm: int (id: 14);
+  pit_y_cm: int (id: 15);
+  pit_w_cm: int (id: 16);
+  pit_h_cm: int (id: 17);
+  labour_h: double (id: 18);
+  work: ulong (id: 19);
+  // Schema 104: repair hours asked of its households so far, besides building it, and whether
+  // they are asked to mend it now.
+  upkeep_h: double (id: 20);
+  mending: bool (id: 21);
+}
+
+// A household's hours against a law's bank (schema 102): reckoned saved a year, or given.
+table BankShareSave {
+  law: ulong (id: 0);
+  household: ulong (id: 1);
+  hours: float (id: 2);
 }
 
 // Where a law would dig a well (schema 83): its cell and ground, its well system's content id,
@@ -1380,6 +1701,9 @@ table IncidentSave {
   // as in older saves.
   food_days: float = nan (id: 11);
   richer: float = nan (id: 12);
+  // The taker's settlement when it is not the store's (schema 109, M6c slice BI); 0 within a
+  // settlement and in older saves.
+  across: ulong (id: 13);
 }
 
 // `taker`, `from` and `origin` are 0 when unknown or none. `source`: 0 saw it, 1 told, 2 found the
@@ -1503,6 +1827,18 @@ table CaseSave {
   eligible: uint (id: 14);
   stances: [CaseStanceSave] (id: 15);
   exiled: bool (id: 16);
+  // The hear-cases law whose forum is to hear it or heard it, 0 for the gathering (schema 125,
+  // M7b slice BR).
+  forum: ulong (id: 17);
+  // Its fact tags (schema 126, M7b slice BS: bits as `civ_agents::crime::CaseTags`), the finding
+  // it departed from (0 for none), and what the findings each who heard it recalled moved them,
+  // points, in the order of `stances` (empty before schema 126).
+  tags: ubyte (id: 18);
+  departed: uint (id: 19);
+  stance_precedent: [float] (id: 20);
+  // For a challenge (schema 127, M7b slice BT): the limit the law `law` is said to breach; 0 for
+  // a taking. A challenge names no incident (`incident` 0).
+  challenge: ulong (id: 21);
 }
 
 // How someone met one of the watch come to take what a finding owed: 0 yielded, 1 stood in the
@@ -1518,6 +1854,77 @@ struct HarmSave {
   to: ulong;
   days: ushort;
   killed: bool;
+}
+
+// A band (schema 110, M6c slice BJ, ADR-0023 §3). `purpose`: 0 take, 1 take back. `stage`: 0
+// called, 1 out, 2 home, 3 dispersed. `clash` is 0 when it met none. Minutes are from the calendar
+// origin; `taken` indexes `Order.goods`.
+table BandSave {
+  id: uint (id: 0);
+  organizer: ulong (id: 1);
+  settlement: ulong (id: 2);
+  purpose: ubyte (id: 3);
+  target: ulong (id: 4);
+  place: Point (id: 5);
+  called: long (id: 6);
+  muster: long (id: 7);
+  members: [ulong] (id: 8);
+  mustered: [ulong] (id: 9);
+  arrived: [ulong] (id: 10);
+  home: [ulong] (id: 11);
+  stage: ubyte (id: 12);
+  since: long (id: 13);
+  clash: uint (id: 14);
+  taken: [TakenGood] (id: 15);
+  taken_kcal: float (id: 16);
+  // Schema 111 (step two): who were asked and said no, in id order; none in earlier saves.
+  asked: [ulong] (id: 17);
+  // Schema 112 (step three): the incident it was recorded as, and the law that sent it; 0 for
+  // none.
+  incident: uint (id: 18);
+  law: ulong (id: 19);
+  // Schema 116 (M6c slice BL): where it comes up to the line round the place it goes to, if it
+  // does.
+  approach: Point (id: 20);
+  // Schema 119 (M6c slice BM): the day its people had held the settlement it went to the
+  // content's days, or -1; absent before, none.
+  held: long = -1 (id: 21);
+}
+
+// Someone in an encounter a band met: `side` 0 the band, 1 against it; `holds` 0 hands, 1 an axe,
+// 2 a spear; `gave_way` the minute they gave way, or -1.
+struct FighterSave {
+  person: ulong;
+  side: ubyte;
+  holds: ubyte;
+  will: float;
+  regard_leader: float;
+  gave_way: int;
+  hurt_days: ushort;
+  killed: bool;
+}
+
+// A blow in an encounter a band met, with the minute it fell.
+struct StruckSave {
+  minute: ushort;
+  by: ulong;
+  to: ulong;
+  days: ushort;
+  killed: bool;
+}
+
+// An encounter a band met (schema 110). `ended`: 0 nobody stood, 1 those against it gave way, 2 the
+// band gave way, 3 each went its way.
+table ClashSave {
+  id: uint (id: 0);
+  at: long (id: 1);
+  place: Point (id: 2);
+  band: uint (id: 3);
+  fighters: [FighterSave] (id: 4);
+  blows: [StruckSave] (id: 5);
+  frontage: uint (id: 6);
+  minutes: ushort (id: 7);
+  ended: ubyte (id: 8);
 }
 
 table EncounterSave {
@@ -1548,6 +1955,9 @@ table Order {
   sightings: [SightingSave] (id: 9);
   // Watchers come to households to take what a refused finding owed (schema 47); absent before.
   encounters: [EncounterSave] (id: 10);
+  // Bands called and the encounters they met (schema 110, M6c slice BJ); absent before.
+  bands: [BandSave] (id: 11);
+  clashes: [ClashSave] (id: 12);
 }
 
 // Section "word" (schema 35, M4c slice AE, ADR-0016): shared claims, who heard them, and the
@@ -1572,6 +1982,8 @@ table ClaimSave {
   counts: [ushort] (id: 10);
   // Schema 99: a found-burning account; 0 for other kinds and earlier saves.
   fire: uint (id: 11);
+  // Schema 111: the encounter a raid names, or the band a sighting names; 0 for other kinds.
+  event: uint (id: 12);
 }
 
 // A source someone suspects (schema 79, M6a slice BA, ADR-0021 §6): held since a day index, by
@@ -1742,6 +2154,15 @@ table FactionSave {
   stores: [double] (id: 9);
   stores_at: long (id: 10);
   history: [FactionEventSave] (id: 11);
+  // Schema 129 (M7c slice BW, ADR-0026 §2): an organization by stake. `has_stake` marks one;
+  // `stake_purpose` is a `GoodUse` code, `stake_admit` and `stake_decides` its rules' codes, and
+  // `stake_dues` the share of each threshing its members give. Its `against` names its founder,
+  // as a person. History events 3 (admitted) and 4 (turned away) name the applicant.
+  has_stake: bool (id: 12);
+  stake_purpose: ubyte (id: 13);
+  stake_admit: ubyte (id: 14);
+  stake_decides: ubyte (id: 15);
+  stake_dues: float (id: 16);
 }
 
 // A petition (schema 42, M4c slice AH, ADR-0017 §3): `policy` indexes `FactionsSave.policies`;
@@ -1802,6 +2223,9 @@ table RevoltSave {
   held_since: long (id: 11);
   ended: ubyte = 255 (id: 12);
   ended_at: long (id: 13);
+  // The council seats of the body it would install, packed as `PolitySave.seats` (schema 121);
+  // 0 for a body of all its members, and before.
+  seats: ulong (id: 14);
 }
 
 table FactionsSave {
@@ -1828,7 +2252,7 @@ table FactionsSave {
 // Schema 88 (M6b slice BC): FireStep, a minute of every fire burning, pending whenever one burns.
 // Schema 89 (M6b slice BD): Ignite, a home's fires in use may escape (`person` holds the
 // building's id).
-enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2 }
+enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3, Gates = 4 }
 
 table PendingEvent {
   at: long (id: 0);
@@ -2070,12 +2494,50 @@ struct WadeSave {
   wades: float;
 }
 
+// A stretch of an enclosure's line (schema 113, M6c slice BK): its ends in metres, its cells,
+// its work in hours, its gate (0 none, 1 open, 2 shut) and the share of its posts lost to rot.
+table EnclosureSectorSave {
+  ax: float (id: 0);
+  ay: float (id: 1);
+  bx: float (id: 2);
+  by: float (id: 3);
+  cells: [uint] (id: 4);
+  labour_h: float (id: 5);
+  gate: ubyte (id: 6);
+  loss: float (id: 7);
+}
+
+// An enclosure (schema 113, ADR-0023 §6): its polity, law and settlement, the circle it is drawn
+// round, its sectors, the work done and given by each household, its latest crew, when it was
+// begun (minutes) and the day its last sector stood (-1 while not).
+table EnclosureSave {
+  id: ulong (id: 0);
+  owner: ulong (id: 1);
+  law: ulong (id: 2);
+  settlement: ulong (id: 3);
+  centre: Point (id: 4);
+  radius_m: float (id: 5);
+  sectors: [EnclosureSectorSave] (id: 6);
+  work_h: float (id: 7);
+  shares: [CrossingShareSave] (id: 8);
+  crew_day: long (id: 9);
+  crew: ubyte (id: 10);
+  begun: long (id: 11);
+  finished: long = -1 (id: 12);
+  // Schema 115: the hours of mending its households have been asked since it was raised.
+  upkeep_h: float (id: 13);
+}
+
 // Every crossing, in the order begun, and the revision of their states (schema 68).
 table CrossingsSave {
   list: [CrossingSave] (id: 0);
   revision: uint (id: 1);
   // Schema 69: the river cells households' people wade, by household and cell.
   wades: [WadeSave] (id: 2);
+  // Schema 113 (M6c slice BK): every enclosure, in the order begun, and the revision of what
+  // bars walking.
+  enclosures: [EnclosureSave] (id: 3);
+  enclosures_revision: uint (id: 4);
 }
 
 // A well (schema 74, M6a slice AY, step three): `system` its well system's content id; its

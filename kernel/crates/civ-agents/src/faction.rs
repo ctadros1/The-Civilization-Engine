@@ -12,9 +12,16 @@
 //! who holds it may never join (04-10 §5.1). Members' households give a share of each threshing
 //! to its store, and a member's household short of food may ask it (04-10 §1.2, §1.5: mutual
 //! assistance). Nothing here reads a world total or another person's record.
+//!
+//! An organization by stake (M7c slice BW, ADR-0026 §2) is the same record of another kind:
+//! founded by one whose household sells goods of a purpose at home, around what a law over those
+//! goods would bring it, with rules of its own (who is admitted, who decides, its dues); those who
+//! sell the same goods, in its settlement or another, apply, and each application is admitted or
+//! turned away and recorded in its history.
 
 use civ_core::{PermanentId, SimTime};
 
+use crate::params::GoodUse;
 use crate::person::Flows;
 use crate::polity::Body;
 use crate::word::Blamed;
@@ -94,6 +101,18 @@ pub struct FactionParams {
     /// deciding for it costs a watcher `coup_cost` points beside what the norms they hold weigh;
     /// it stands `revolt_days` and holds as a revolt does, `hold_days` (09-11 §1.4, §2.2).
     pub coup_cost: f64,
+    /// Organizations by stake (M7c slice BW, ADR-0026 §2; research 08-17 §1.1, 09-10 §2.2): what
+    /// gathering others who sell the same goods costs one who founds, days of their household's
+    /// food (09-10 §2.2: 30 person-days, tested at 5 to 300); points for a law over their goods
+    /// that would bring as much a year as organizing costs; and the rules a new one starts
+    /// with, values over the vocabulary of [`Admit`] and [`Decides`], with the share of each
+    /// threshing its members' households give its store (08-17 §2.2: dues of 0 to 10 wage-days
+    /// a year).
+    pub organize_days: f64,
+    pub w_stake: f64,
+    pub stake_admit: Admit,
+    pub stake_decides: Decides,
+    pub stake_dues_share: f64,
 }
 
 impl FactionParams {
@@ -130,6 +149,11 @@ impl FactionParams {
             hold_days: 7,
             w_exclusion: 1.0,
             coup_cost: 0.75,
+            organize_days: 30.0,
+            w_stake: 1.0,
+            stake_admit: Admit::Sponsor,
+            stake_decides: Decides::Organizer,
+            stake_dues_share: 0.05,
         }
     }
 
@@ -149,14 +173,20 @@ pub enum FactionEventKind {
     Organizer = 1,
     /// Its last member left it, and it is no more.
     Ended = 2,
+    /// The one named asked to join it and was admitted (M7c slice BW).
+    Admitted = 3,
+    /// The one named asked to join it and was turned away (M7c slice BW).
+    TurnedAway = 4,
 }
 
 impl FactionEventKind {
     /// Every kind, in code order.
-    pub const ALL: [FactionEventKind; 3] = [
+    pub const ALL: [FactionEventKind; 5] = [
         FactionEventKind::Founded,
         FactionEventKind::Organizer,
         FactionEventKind::Ended,
+        FactionEventKind::Admitted,
+        FactionEventKind::TurnedAway,
     ];
 
     /// Its number in saves.
@@ -181,6 +211,93 @@ pub struct FactionEvent {
     pub who: Option<PermanentId>,
 }
 
+/// Who an organization by stake admits (ADR-0026 §2; research 08-17 §1.2). Codes are part of
+/// saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Admit {
+    /// Anyone who sells its goods.
+    Open = 0,
+    /// One a member speaks for: a member who regards them at least the trust floor.
+    Sponsor = 1,
+}
+
+impl Admit {
+    /// Every rule, in code order.
+    pub const ALL: [Admit; 2] = [Admit::Open, Admit::Sponsor];
+
+    /// The rule numbered `code`.
+    pub fn from_code(code: u8) -> Option<Admit> {
+        Admit::ALL.get(usize::from(code)).copied()
+    }
+
+    /// The rule named `name` in content: "open" or "sponsor".
+    pub fn from_name(name: &str) -> Option<Admit> {
+        match name {
+            "open" => Some(Admit::Open),
+            "sponsor" => Some(Admit::Sponsor),
+            _ => None,
+        }
+    }
+
+    /// In words: "anyone who sells them".
+    pub fn words(self) -> &'static str {
+        match self {
+            Admit::Open => "anyone who sells them",
+            Admit::Sponsor => "one a member speaks for",
+        }
+    }
+}
+
+/// Who decides for an organization by stake (ADR-0026 §2): whether an applicant is admitted.
+/// Codes are part of saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Decides {
+    /// Its organizer: an applicant they do not dislike is admitted.
+    Organizer = 0,
+    /// Its members: an applicant more of them regard well than ill is admitted.
+    Members = 1,
+}
+
+impl Decides {
+    /// Every rule, in code order.
+    pub const ALL: [Decides; 2] = [Decides::Organizer, Decides::Members];
+
+    /// The rule numbered `code`.
+    pub fn from_code(code: u8) -> Option<Decides> {
+        Decides::ALL.get(usize::from(code)).copied()
+    }
+
+    /// The rule named `name` in content: "organizer" or "members".
+    pub fn from_name(name: &str) -> Option<Decides> {
+        match name {
+            "organizer" => Some(Decides::Organizer),
+            "members" => Some(Decides::Members),
+            _ => None,
+        }
+    }
+
+    /// In words: "its organizer".
+    pub fn words(self) -> &'static str {
+        match self {
+            Decides::Organizer => "its organizer",
+            Decides::Members => "its members",
+        }
+    }
+}
+
+/// What an organization by stake is about and its rules (M7c slice BW, ADR-0026 §2).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Stake {
+    /// The purpose of the goods its members sell.
+    pub purpose: GoodUse,
+    /// Who it admits.
+    pub admit: Admit,
+    /// Who decides whether an applicant is admitted.
+    pub decides: Decides,
+    /// The share of each threshing its members' households give its store.
+    pub dues_share: f32,
+}
+
 /// A faction (ADR-0017 §2): an organization, apart from what its members believe.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Faction {
@@ -188,7 +305,8 @@ pub struct Faction {
     pub id: PermanentId,
     /// The settlement it gathers in.
     pub settlement: PermanentId,
-    /// The party its founder held a grievance against.
+    /// The party its founder held a grievance against; for an organization by stake, its founder,
+    /// as a person (it is against nobody).
     pub against: Blamed,
     /// Who founded it.
     pub founder: PermanentId,
@@ -206,6 +324,9 @@ pub struct Faction {
     pub flows: Flows,
     /// Its history, oldest first.
     pub history: Vec<FactionEvent>,
+    /// What it is about, for an organization by stake (M7c slice BW); `None` for a faction of a
+    /// grievance.
+    pub stake: Option<Stake>,
 }
 
 impl Faction {
@@ -233,7 +354,28 @@ impl Faction {
                 kind: FactionEventKind::Founded,
                 who: Some(founder),
             }],
+            stake: None,
         }
+    }
+
+    /// An organization by stake founded by `founder` at `now` in `settlement` (M7c slice BW).
+    pub fn organize(
+        id: PermanentId,
+        settlement: PermanentId,
+        founder: PermanentId,
+        stake: Stake,
+        now: SimTime,
+    ) -> Faction {
+        Faction {
+            stake: Some(stake),
+            ..Faction::found(id, settlement, Blamed::Person(founder), founder, now)
+        }
+    }
+
+    /// The share of each threshing its members' households give its store.
+    pub fn dues_share(&self, params: &FactionParams) -> f64 {
+        self.stake
+            .map_or(params.dues_share, |s| f64::from(s.dues_share))
     }
 
     /// Whether it has members still.
@@ -607,9 +749,32 @@ pub fn found_worth(grievance: f64, shared: f64, p: &FactionParams) -> f64 {
 /// against a threshold of 1.10, its dues counted". `party` names what it stands against,
 /// `organizer` its organizer, and `organizes` says whether they are that organizer.
 pub fn why_words(why: &Why, party: &str, organizer: &str, organizes: bool) -> String {
+    reasons_words(
+        why,
+        &format!("holding a grievance against {party}"),
+        organizer,
+        organizes,
+    )
+}
+
+/// Why someone belongs to an organization by stake over goods of `purpose` (M7c slice BW): "belong,
+/// selling tools at home, which a duty would serve, and 2 of those they know belong: …".
+pub fn stake_why_words(why: &Why, purpose: GoodUse, organizer: &str, organizes: bool) -> String {
+    reasons_words(
+        why,
+        &format!(
+            "selling {} at home, which a duty would serve",
+            purpose.plural_words()
+        ),
+        organizer,
+        organizes,
+    )
+}
+
+fn reasons_words(why: &Why, cause: &str, organizer: &str, organizes: bool) -> String {
     let mut reasons: Vec<String> = Vec::new();
     if why.grievance >= 0.05 {
-        reasons.push(format!("holding a grievance against {party}"));
+        reasons.push(cause.to_owned());
     }
     if !organizes && why.organizer >= 0.05 {
         reasons.push(format!("regarding {organizer}"));

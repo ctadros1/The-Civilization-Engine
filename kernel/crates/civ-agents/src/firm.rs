@@ -24,11 +24,14 @@ pub enum Exit {
     OwnerGone = 2,
     /// It could not pay what it owed (financial failure).
     Failure = 3,
+    /// It sold nothing for a long time because a privilege its owners kept barred it from
+    /// offering what it makes (M7c slice BX, ADR-0026 §3: apart from `Idle`).
+    Barred = 4,
 }
 
 impl Exit {
     /// Every cause, in code order.
-    pub const ALL: [Exit; 3] = [Exit::Idle, Exit::OwnerGone, Exit::Failure];
+    pub const ALL: [Exit; 4] = [Exit::Idle, Exit::OwnerGone, Exit::Failure, Exit::Barred];
 
     /// The cause with this code.
     pub fn from_code(code: u8) -> Option<Exit> {
@@ -41,6 +44,7 @@ impl Exit {
             Exit::Idle => "it sold nothing for months",
             Exit::OwnerGone => "its household was no more",
             Exit::Failure => "it could not pay what it owed",
+            Exit::Barred => "a privilege its owners kept barred it from offering what it made",
         }
     }
 }

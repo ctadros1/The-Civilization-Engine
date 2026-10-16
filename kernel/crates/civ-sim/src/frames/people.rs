@@ -77,6 +77,114 @@ pub fn person_briefs<'a>(
     fbb.create_vector(&briefs)
 }
 
+/// The bands not yet home or dispersed (wire 1.74, M6c slice BJ), oldest first: each one's
+/// number, who of it are going (before the muster those who said they would, after it those who
+/// came and are not yet home), and in words ("Ada leads 5 of Oakdale to take food from Bo's
+/// household at Thornmere").
+pub fn band_lines(sim: &Sim) -> Vec<(u32, Vec<u64>, String)> {
+    use civ_agents::war::BandStage;
+    let pop = &sim.people;
+    let place = |s: PermanentId| {
+        sim.land
+            .settlements
+            .iter()
+            .find(|x| x.id == s)
+            .map_or_else(|| "another settlement".to_owned(), |x| x.name.clone())
+    };
+    pop.order
+        .bands
+        .iter()
+        .filter(|b| !b.stage.over())
+        .map(|b| {
+            let going: Vec<u64> = match b.stage {
+                BandStage::Called => b.members.iter().map(|m| m.get()).collect(),
+                _ => b
+                    .mustered
+                    .iter()
+                    .filter(|m| !b.home.contains(m))
+                    .filter(|&&m| pop.person(m).is_some())
+                    .map(|m| m.get())
+                    .collect(),
+            };
+            let to = pop
+                .household(b.target)
+                .and_then(|x| x.settlement)
+                .map_or_else(String::new, |s| format!(" at {}", place(s)));
+            let what = b.purpose.words().trim_start_matches("to ");
+            let whose = household_name(sim, b.target);
+            let law = if b.law.is_some() {
+                ", sent by its gathering's law"
+            } else {
+                ""
+            };
+            let words = match b.stage {
+                BandStage::Called => format!(
+                    "{} has called {} of {} to {what} from {whose}{to}{law}; they muster at the \
+                     hearth at {}:00",
+                    pop.name_of(b.organizer),
+                    going.len(),
+                    place(b.settlement),
+                    b.muster.rem_euclid(24 * 60) / 60
+                ),
+                // Camped by a shut line (M6c slice BL).
+                BandStage::Camped => format!(
+                    "{} and {} of {} are camped outside the palisade{to}, come {what} from \
+                     {whose}{law}",
+                    pop.name_of(b.organizer),
+                    going.len().saturating_sub(1),
+                    place(b.settlement)
+                ),
+                // Holding a settlement (M6c slice BM).
+                BandStage::Holding => format!(
+                    "{} and {} of {} hold the place{to}{law}, keeping it{held}",
+                    pop.name_of(b.organizer),
+                    going.len().saturating_sub(1),
+                    place(b.settlement),
+                    held = if b.held.is_some() {
+                        " as long as a hold needs"
+                    } else {
+                        ""
+                    }
+                ),
+                _ => format!(
+                    "{} leads {} of {} to {what} from {whose}{to}{law}",
+                    pop.name_of(b.organizer),
+                    going.len(),
+                    place(b.settlement)
+                ),
+            };
+            (b.id, going, words)
+        })
+        .collect()
+}
+
+/// The snapshot's bands not yet home or dispersed (wire 1.74), as [`band_lines`] has them.
+pub fn band_briefs<'a>(
+    fbb: &mut FlatBufferBuilder<'a>,
+    sim: &Sim,
+) -> WIPOffset<Vector<'a, ForwardsUOffset<wire::BandBrief<'a>>>> {
+    let briefs: Vec<_> = band_lines(sim)
+        .into_iter()
+        .filter_map(|(id, going, words)| {
+            let b = sim.people.order.bands.iter().find(|b| b.id == id)?;
+            let members = fbb.create_vector(&going);
+            let words = fbb.create_string(&words);
+            Some(wire::BandBrief::create(
+                fbb,
+                &wire::BandBriefArgs {
+                    id,
+                    from: b.settlement.get(),
+                    stage: u8::from(b.stage != civ_agents::war::BandStage::Called),
+                    members: Some(members),
+                    target: Some(&vec2(b.place)),
+                    words: Some(words),
+                },
+            ))
+        })
+        .collect();
+    fbb.create_vector(&briefs)
+}
+
 /// The snapshot's settlements, oldest first, with their living population.
 pub fn settlement_briefs<'a>(
     fbb: &mut FlatBufferBuilder<'a>,
@@ -793,6 +901,47 @@ pub fn describe_target(
             }
             None => "a well".to_owned(),
         },
+        // A flood bank built by law (M6b slice BG): "the flood bank east of home".
+        Target::Bank(id) => match sim.land.banks.iter().find(|b| b.work == id) {
+            Some(b) => {
+                let at = (
+                    ((b.a[0] + b.b[0]) / 2.0) as f32,
+                    ((b.a[1] + b.b[1]) / 2.0) as f32,
+                );
+                if (at.0 - home.0).hypot(at.1 - home.1) <= 15.0 {
+                    "the flood bank beside home".to_owned()
+                } else {
+                    format!("the flood bank {} of home", bearing(home, at))
+                }
+            }
+            None => "a flood bank".to_owned(),
+        },
+        // An irrigation ditch (M6b slice BG): "the ditch south of home".
+        Target::Ditch(id) => match sim.land.ditches.iter().find(|d| d.work == id) {
+            Some(d) => {
+                let at = (
+                    ((d.a[0] + d.b[0]) / 2.0) as f32,
+                    ((d.a[1] + d.b[1]) / 2.0) as f32,
+                );
+                if (at.0 - home.0).hypot(at.1 - home.1) <= 15.0 {
+                    "the ditch beside home".to_owned()
+                } else {
+                    format!("the ditch {} of home", bearing(home, at))
+                }
+            }
+            None => "a ditch".to_owned(),
+        },
+        // A palisade raised by law (M6c slice BK): "the palisade round Ashford".
+        Target::Enclosure(id) => match sim.land.enclosures.position(id) {
+            Some(i) => {
+                let e = &sim.land.enclosures.list[i];
+                match sim.land.settlements.iter().find(|s| s.id == e.settlement) {
+                    Some(s) => format!("the palisade round {}", s.name),
+                    None => "a palisade".to_owned(),
+                }
+            }
+            None => "a palisade".to_owned(),
+        },
     }
 }
 
@@ -937,6 +1086,12 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
                     }
                 }
                 Target::Well(_) => format!("{what}, {place}"),
+                // "building the flood bank east of home" (M6b slice BG).
+                Target::Bank(_) => format!("building {place}"),
+                // "digging the ditch south of home" (M6b slice BG).
+                Target::Ditch(_) => format!("digging {place}"),
+                // "setting posts on the palisade round Ashford" (M6c slice BK).
+                Target::Enclosure(_) => format!("setting posts on {place}"),
                 // Another settlement's hearth (M5a slice AM): "visiting the hearth of Ashford".
                 Target::Hearth(_)
                     if def.is_some_and(|d| d.behavior == civ_agents::Behavior::Visit) =>

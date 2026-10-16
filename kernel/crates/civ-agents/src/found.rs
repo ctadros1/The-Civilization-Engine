@@ -722,6 +722,10 @@ fn add_family(
         admired: None,
         midden: crate::person::Midden::begun(now),
         flood_memory: crate::person::FloodMemory::default(),
+        flood_losses: Vec::new(),
+        ditch_worth: 0.0,
+        fire_losses: Vec::new(),
+        gave_way: Vec::new(),
     });
     // One who comes alone has no partner; a family's first two are its couple.
     let couple = (family.len() >= 2).then(|| founding_couple(params, family, now, d));
@@ -1598,6 +1602,7 @@ pub(crate) mod tests {
                 wading_factor: 0.25,
                 ford_max_discharge_m3s: 3.0,
                 max_slope: 1.0,
+                climb_factor: 0.05,
             },
             walk_speed_by_age: vec![(0.0, 1.0)],
             capacity_by_age: vec![(0.0, 1.0)],
@@ -1781,6 +1786,12 @@ pub(crate) mod tests {
             relations: crate::views::RelationsParams::core(),
             suspicion: crate::suspicion::SuspicionParams::core(),
             fire: crate::fire::FireParams::core(),
+            levees: crate::levees::LeveeParams::default(),
+            ditches: crate::irrigation::DitchPlanParams::default(),
+            rules: crate::rules::RuleParams::default(),
+            bands: crate::war::BandParams::core(),
+            elections: crate::seats::ElectionParams::core(),
+            enclosures: crate::enclose::EnclosureParams::core(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

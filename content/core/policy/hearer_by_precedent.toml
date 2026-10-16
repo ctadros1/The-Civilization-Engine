@@ -1,0 +1,25 @@
+# A hearer bound by findings (M7b slice BS, ADR-0025 §2). As `name_a_hearer`, but the one named
+# is bound by the findings they remember of the same facts: a large weight toward them, which what
+# their household stands to gain or lose and their regard for the two parties can still outweigh
+# (research 09-07 §1.5: precedent is several values, authority among them; binding precedent does
+# not make findings converge). Whether anyone proposes it, in place of a forum or none, is people's.
+kind = "policy"
+id = "core:policy/hearer_by_precedent"
+name = "Hearer bound by findings"
+description = "The one the gathering names hears the cases brought under the laws against taking and raiding, bound by the findings they remember."
+does = "hear_cases"
+answers = ["cases_waiting"]
+question = "whether one named should hear the cases brought, as cases were found before"
+
+[forum]
+seat = "holder"
+hears = ["against_taking", "against_raiding"]
+authority = "binding"
+# It may hear challenges of laws under limits in force (content API 112, M7b slice BT,
+# ADR-0025 §4: review is a power a law gives a forum).
+review = true
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 0.75
+"core:value/autonomy" = -0.5

@@ -83,11 +83,27 @@ pub enum Behavior {
     Salvage,
     /// Pull a threatened building down with its owner's leave and a crew (ADR-0022 §6).
     Pull,
+    /// Walk to a flood bank the polity's gathering asked to be built, dig earth from its borrow
+    /// pit, carry it a basket at a time, spread and tamp it, and walk home (M6b slice BG;
+    /// ADR-0022 §11): the activity's numbers, the bank's earth.
+    Levee,
+    /// Walk to the irrigation ditch the household is digging to its field, dig and form its
+    /// channel, and walk home (M6b slice BG): the activity's numbers, the ditch's earth.
+    Ditch,
+    /// Go with a band they joined: to the hearth for the muster, there, and home (M6c slice
+    /// BJ, ADR-0023 §3).
+    Band,
+    /// Set posts on a palisade their polity is raising under a law they know of: walk to the
+    /// first stretch still to stand, work, and walk home (M6c slice BK).
+    Palisade,
+    /// Go to the hearth on an election's polling day to name one's choices (M7a slice BO,
+    /// ADR-0024 §3): only for one of its electorate who heard of it, once.
+    Poll,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 29] = [
+    pub const ALL: [Behavior; 34] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -117,6 +133,11 @@ impl Behavior {
         Behavior::Strip,
         Behavior::Salvage,
         Behavior::Pull,
+        Behavior::Levee,
+        Behavior::Ditch,
+        Behavior::Band,
+        Behavior::Palisade,
+        Behavior::Poll,
     ];
 
     /// The authored name of a behavior.
@@ -151,6 +172,11 @@ impl Behavior {
             Behavior::Strip => "strip",
             Behavior::Salvage => "salvage",
             Behavior::Pull => "pull",
+            Behavior::Levee => "levee",
+            Behavior::Ditch => "ditch",
+            Behavior::Band => "band",
+            Behavior::Palisade => "palisade",
+            Behavior::Poll => "poll",
         }
     }
 
@@ -243,6 +269,17 @@ impl GoodUse {
     /// The use with an authored name.
     pub fn from_name(name: &str) -> Option<GoodUse> {
         GoodUse::ALL.into_iter().find(|u| u.name() == name)
+    }
+
+    /// Goods of this use, in words: "tools" (M7c slice BV).
+    pub fn plural_words(self) -> &'static str {
+        match self {
+            GoodUse::Food => "food",
+            GoodUse::Fuel => "fuel",
+            GoodUse::Material => "materials",
+            GoodUse::Tool => "tools",
+            GoodUse::Store => "pots and stores",
+        }
     }
 }
 
@@ -1736,6 +1773,19 @@ pub struct PeopleParams {
     pub suspicion: crate::suspicion::SuspicionParams,
     /// How buildings burn and fire passes between them (M6b slice BC, ADR-0022 §4).
     pub fire: crate::fire::FireParams,
+    /// How people lay out and build flood banks, and remember what floods cost them (M6b slice
+    /// BG, ADR-0022 §11).
+    pub levees: crate::levees::LeveeParams,
+    /// How a household lays out and digs an irrigation ditch to its field (M6b slice BG).
+    pub ditches: crate::irrigation::DitchPlanParams,
+    /// How people weigh a rule for building (M6b slice BH).
+    pub rules: crate::rules::RuleParams,
+    /// Who calls a band, who joins it and how encounters run (M6c slice BJ).
+    pub bands: crate::war::BandParams,
+    /// How seated bodies' elections run (M7a slice BO; content API 106).
+    pub elections: crate::seats::ElectionParams,
+    /// How people lay out and weigh an enclosure (M6c slice BK; content API 100).
+    pub enclosures: crate::enclose::EnclosureParams,
     /// Names.
     pub names: NameParams,
 }

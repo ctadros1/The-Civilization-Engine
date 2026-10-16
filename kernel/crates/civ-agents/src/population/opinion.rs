@@ -47,6 +47,7 @@ fn level_of(def: &PolicyDef, k: u16, polity: &crate::polity::Polity) -> MoveOpti
         body: None,
         ends: None,
         site: None,
+        target: None,
         own_gain: 0.0,
         followers_gain: 0.0,
         support: 0.5,
@@ -81,15 +82,14 @@ impl Population {
             return;
         }
         for pi in 0..self.polities.len() {
-            let settlement = self.polities[pi].settlement;
             let mut households: Vec<PermanentId> = self
                 .households
                 .iter()
-                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
                 .map(|(_, x)| x.id)
                 .collect();
             households.sort_unstable();
-            let adults = self.members_of(settlement, now, params);
+            let adults = self.members_of_polity(pi, now, params);
             let fc = self.forecasts(ctx, pi, &households, &adults);
             let mut anchors: Vec<(PermanentId, u16, f64, f64)> = Vec::new();
             for &k in &questions {

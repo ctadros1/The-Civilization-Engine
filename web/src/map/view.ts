@@ -27,7 +27,7 @@ import { buildingAt, buildingMarks, type Mark } from "../buildings.js";
 import { homeAt, lensMarks, type LensLayer } from "../coverage.js";
 import { crossingAt, crossingEnds, crossingLook } from "../crossings.js";
 import { depositAt, depositLook } from "../deposits.js";
-import { changedTiles, detailTilesOver, earthworkAt, earthworkLook } from "../earthworks.js";
+import { DITCH_COLOUR, PALISADE_COLOUR, changedTiles, detailTilesOver, earthworkAt, earthworkLook, sectorLook } from "../earthworks.js";
 import { fieldAt, fieldLook } from "../fields.js";
 import type { HostClient } from "../net/client.js";
 import { TRAIL_COLOUR, pathAt, smoothed, trailLook, wornPixels } from "../paths.js";
@@ -49,6 +49,7 @@ import {
   type GoodInfo,
   type Hydrography,
   type PathsInfo,
+  type BandBrief,
   type PersonBrief,
   type SettlementBrief,
   type SpringInfo,
@@ -208,6 +209,9 @@ function drawMark(g: Graphics, m: Mark): void {
   if (m.stroke) g.stroke(m.stroke);
 }
 
+/** The colour bands are drawn in (wire 1.74). */
+const BAND_COLOUR = 0xd9534f;
+
 export class MapView {
   private app: Application | null = null;
   private readonly world = new Container();
@@ -258,6 +262,7 @@ export class MapView {
   private readonly settlementLayer = new Container();
   private readonly peopleLayer = new Graphics();
   private people: PersonBrief[] = [];
+  private bands: BandBrief[] = [];
   private settlements: SettlementBrief[] = [];
   private settlementsKey = "";
   private clock: Clock | null = null;
@@ -341,6 +346,7 @@ export class MapView {
     this.info = null;
     this.inFlight = 0;
     this.people = [];
+    this.bands = [];
     this.settlements = [];
     this.settlementsKey = "";
     for (const child of this.settlementLayer.removeChildren()) child.destroy();
@@ -370,8 +376,14 @@ export class MapView {
   }
 
   /** The people, settlements and clock of the latest snapshot. */
-  setPeople(people: PersonBrief[], settlements: SettlementBrief[], clock: Clock | null): void {
+  setPeople(
+    people: PersonBrief[],
+    settlements: SettlementBrief[],
+    clock: Clock | null,
+    bands: BandBrief[] = [],
+  ): void {
     this.people = people;
+    this.bands = bands;
     this.clock = clock;
     this.clockAt = performance.now();
     pruneTrips(people, this.trips);
@@ -419,6 +431,19 @@ export class MapView {
       const look = earthworkLook(w);
       if (w.bank) {
         g.moveTo(w.bank.ax, w.bank.ay).lineTo(w.bank.bx, w.bank.by).stroke({ width: 1.5, color: look.colour, alpha: w.bank.breached ? 0.3 : 0.9 });
+        continue;
+      }
+      // An irrigation ditch (wire 1.73): its line, solid while its intake is open, faint while
+      // it is shut or still being dug.
+      if (w.ditch) {
+        const shown = w.ditch.open ? 0.9 : 0.25 + 0.35 * Math.min(1, Math.max(0, w.done));
+        g.moveTo(w.ditch.ax, w.ditch.ay).lineTo(w.ditch.bx, w.ditch.by).stroke({ width: 1, color: DITCH_COLOUR, alpha: shown });
+        continue;
+      }
+      // A stretch of an enclosure's palisade (wire 1.75): its line, by its state and gate.
+      if (w.sector) {
+        const s = sectorLook(w.sector);
+        g.moveTo(w.sector.ax, w.sector.ay).lineTo(w.sector.bx, w.sector.by).stroke({ width: s.width, color: PALISADE_COLOUR, alpha: s.alpha });
         continue;
       }
       g.rect(w.x, w.y, w.w, w.h).fill({ color: look.colour, alpha: look.alpha });
@@ -670,6 +695,22 @@ export class MapView {
     const pxM = 1 / this.scale;
     const positions = this.drawnPositions();
     let selectedAt: [number, number, number] | null = null;
+    // Each band out (wire 1.74): a line from each who goes with it to the home it goes to, and a
+    // ring there; a band still to muster is drawn faint.
+    if (this.bands.length > 0) {
+      const at = new Map<number, number>();
+      for (const [i, p] of this.people.entries()) at.set(p.id, i);
+      for (const b of this.bands) {
+        const alpha = b.out ? 0.7 : 0.25;
+        for (const m of b.members) {
+          const i = at.get(m);
+          if (i === undefined) continue;
+          const [x, y] = positions[i]!;
+          g.moveTo(x, y).lineTo(b.x, b.y).stroke({ width: pxM, color: BAND_COLOUR, alpha });
+        }
+        g.circle(b.x, b.y, 6 * pxM).stroke({ width: 2 * pxM, color: BAND_COLOUR, alpha });
+      }
+    }
     for (const [i, p] of this.people.entries()) {
       const [x, y] = positions[i]!;
       const r = (p.ageYears < 3 ? 0.55 : p.ageYears < 12 ? 0.72 : 1) * PERSON_PX * pxM;

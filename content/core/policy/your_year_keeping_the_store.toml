@@ -1,0 +1,19 @@
+# Keeping the common store for a year (M7a slice BN, ADR-0024 §2; research 09-02 §5.1: tenure is
+# a term, or life subject to removal; 09-14 §1.7: offices can be part-time and unpaid). The one the
+# gathering names keeps the store for a year from the day it passes; the office lapses at the
+# year's end, and the store lies unkept until a gathering names a keeper again, who may be the same
+# one. Whether anyone proposes a keeper for a year, whom, and whether the gathering agrees, is
+# people's choice.
+kind = "policy"
+id = "core:policy/your_year_keeping_the_store"
+name = "Storekeeper for a year"
+description = "The one the gathering names keeps the common store for a year, and may be named again."
+does = "keep_store"
+answers = ["store_unkept"]
+question = "whether the store should be kept for a year at a time"
+
+[tenure]
+term_days = 360
+
+[bears]
+"core:value/security" = 0.5

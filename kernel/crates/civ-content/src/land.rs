@@ -43,6 +43,22 @@ pub(crate) struct LandFile {
     pub contamination: Option<ContaminationFile>,
     #[serde(default)]
     pub banks: Option<BankFile>,
+    /// Irrigation ditches' hydraulics (content API 91). A profile may leave it out: then the
+    /// defaults hold.
+    #[serde(default)]
+    pub ditches: Option<DitchFile>,
+}
+
+/// Irrigation ditch hydraulics (content API 91): see [`civ_land::ditches::DitchParams`].
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DitchFile {
+    pub n_clean: f64,
+    pub n_weedy: f64,
+    pub max_share: f64,
+    pub conveyance: f64,
+    pub application: f64,
+    pub min_gradient: f64,
 }
 
 /// Conditional bank damage (content API 87).
@@ -50,6 +66,11 @@ pub(crate) struct LandFile {
 #[serde(deny_unknown_fields)]
 pub(crate) struct BankFile {
     pub erosion_per_head_day: f64,
+    /// Seepage damage a day per metre of head (content API 89).
+    pub piping_per_head_day: f64,
+    /// The share of built height new fill settles by, and in how many days (content API 89).
+    pub settle_share: f64,
+    pub settle_days: f64,
 }
 
 /// The `[contamination]` section of a land profile (ADR-0021 §4; content API 73).
@@ -651,12 +672,26 @@ impl LandFile {
                 .map_or_else(civ_land::banks::BankParams::default, |b| {
                     civ_land::banks::BankParams {
                         erosion_per_head_day: b.erosion_per_head_day,
+                        piping_per_head_day: b.piping_per_head_day,
+                        settle_share: b.settle_share,
+                        settle_days: b.settle_days,
                     }
                 }),
             contamination: self
                 .contamination
                 .as_ref()
                 .map_or_else(ContaminationParams::default, ContaminationFile::params),
+            ditches: self.ditches.as_ref().map_or_else(
+                civ_land::ditches::DitchParams::default,
+                |d| civ_land::ditches::DitchParams {
+                    n_clean: d.n_clean,
+                    n_weedy: d.n_weedy,
+                    max_share: d.max_share,
+                    conveyance: d.conveyance,
+                    application: d.application,
+                    min_gradient: d.min_gradient,
+                },
+            ),
         })
     }
 
@@ -724,11 +759,44 @@ impl LandFile {
         if !(self.richness_feature_m.is_finite() && self.richness_feature_m > 0.0) {
             p.push("`richness_feature_m` must be positive".to_owned());
         }
-        if let Some(b) = &self.banks
-            && (!b.erosion_per_head_day.is_finite()
-                || !(0.0..=10.0).contains(&b.erosion_per_head_day))
-        {
-            p.push("`banks.erosion_per_head_day` must be between 0 and 10".into());
+        if let Some(b) = &self.banks {
+            for (name, v, lo, hi) in [
+                (
+                    "banks.erosion_per_head_day",
+                    b.erosion_per_head_day,
+                    0.0,
+                    10.0,
+                ),
+                (
+                    "banks.piping_per_head_day",
+                    b.piping_per_head_day,
+                    0.0,
+                    10.0,
+                ),
+                ("banks.settle_share", b.settle_share, 0.0, 0.5),
+                ("banks.settle_days", b.settle_days, 1.0, 36500.0),
+            ] {
+                if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                    p.push(format!("`{name}` must be between {lo} and {hi}"));
+                }
+            }
+        }
+        if let Some(d) = &self.ditches {
+            for (name, v, lo, hi) in [
+                ("ditches.n_clean", d.n_clean, 0.01, 0.2),
+                ("ditches.n_weedy", d.n_weedy, 0.01, 0.2),
+                ("ditches.max_share", d.max_share, 0.0, 1.0),
+                ("ditches.conveyance", d.conveyance, 0.05, 1.0),
+                ("ditches.application", d.application, 0.05, 1.0),
+                ("ditches.min_gradient", d.min_gradient, 0.0, 0.1),
+            ] {
+                if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                    p.push(format!("`{name}` must be between {lo} and {hi}"));
+                }
+            }
+            if d.n_weedy < d.n_clean {
+                p.push("`ditches.n_weedy` must not be below `ditches.n_clean`".to_owned());
+            }
         }
         self.weather.problems(&mut p);
         self.soil.problems(&mut p);

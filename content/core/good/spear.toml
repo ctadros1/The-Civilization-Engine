@@ -1,0 +1,21 @@
+# A wooden spear, its point shaped and hardened in the fire, for hunting and, when it comes to it,
+# for fighting (research 07-10 §3.1, W01: basic hafted and pointed weapons are starting
+# capabilities, not discoveries made after farming). Its unit is about 100 hours of use (a tuning
+# value; the research gives no lifetimes). A household wants one for every two members old enough
+# to hunt. What a person holds into a fight sets how often they land a blow (ADR-0023 §4), never
+# how hard it falls.
+kind = "good"
+id = "core:good/spear"
+name = "Spear"
+purpose = "tool"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[tool]
+life_h = 100.0
+per_worker = 0.5
+fixed = false

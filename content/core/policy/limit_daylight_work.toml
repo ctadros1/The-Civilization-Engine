@@ -1,0 +1,25 @@
+# A limit: no law keeps a household from its own work in daylight (M7b slice BT, ADR-0025 §3). A
+# law above laws: a curfew that covers more than `minutes` of the longest day's light breaches it
+# (the kernel reads a curfew's hours against the day's light at the settlement's latitude). It is
+# adopted only through the custom's amendment route, by one the gathering overruled or who holds a
+# grievance against it, and changed only by two of every three who take a side (entrenchment). A
+# law that breaches it still passes; it matters only when someone it binds challenges the law and
+# a forum with review finds against it. Content may not aim a limit at curfews alone: this one
+# binds any law that keeps people at home. Whether anyone proposes it is people's.
+kind = "policy"
+id = "core:policy/limit_daylight_work"
+name = "Daylight work"
+description = "No law may keep a household from its own work for more than half an hour of the longest day's light."
+does = "limit"
+answers = ["overruled"]
+question = "whether any law may keep people from their work in daylight"
+
+[limit]
+predicate = "daylight_work"
+minutes = 30
+change = "two_thirds"
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/autonomy" = 1.0
+"core:value/security" = -0.25

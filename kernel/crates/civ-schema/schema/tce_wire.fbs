@@ -339,6 +339,18 @@ table SettlementBrief {
   style: string (id: 13);
 }
 
+// Wire 1.74 (M6c slice BJ, ADR-0023 §11): a band not yet home or dispersed: the settlement it is
+// of, its stage (0 called, 1 out), who of it are going (before the muster those who said they
+// would, after it those who came and are not yet home), the home it goes to, and in words.
+table BandBrief {
+  id: uint (id: 0);
+  from: ulong (id: 1);
+  stage: ubyte (id: 2);
+  members: [ulong] (id: 3);
+  target: Vec2 (id: 4);
+  words: string (id: 5);
+}
+
 table Snapshot {
   world: WorldInfo (id: 0);
   clock: Clock (id: 1);
@@ -397,6 +409,8 @@ table Snapshot {
   // moves on or ends, or what people know of one or what a polity did about one changes (0 = no
   // incident yet). Fetch them with GetIncidents when it differs from the revision last fetched.
   incidents_rev: ulong (id: 21);
+  // Wire 1.74 (M6c slice BJ): the bands not yet home or dispersed.
+  bands: [BandBrief] (id: 22);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -1763,7 +1777,8 @@ table Deposits {
 // deposit's goods, or the spoil heap beside a pit.
 table EarthworkInfo {
   id: ulong (id: 0);
-  // What it is: 0 a platform; wire 1.21: 1 a pit, 2 a spoil heap; wire 1.72: 3 a bank. Append only.
+  // What it is: 0 a platform; wire 1.21: 1 a pit, 2 a spoil heap; wire 1.72: 3 a bank; wire 1.73: 4
+  // an irrigation ditch; wire 1.75: 5 a sector of an enclosure's line. Append only.
   kind: ubyte (id: 1);
   // The rectangle it levels, metres from the map's north-west corner.
   x: float (id: 2);
@@ -1790,6 +1805,19 @@ table EarthworkInfo {
   bank_b: Vec2 (id: 16);
   bank_height_m: float (id: 17);
   bank_breached: bool (id: 18);
+  // Wire 1.73: an irrigation ditch's line from its intake to its field, metres, and whether its
+  // intake is open.
+  ditch_a: Vec2 (id: 19);
+  ditch_b: Vec2 (id: 20);
+  ditch_open: bool (id: 21);
+  // Wire 1.75 (M6c slice BK): an enclosure sector's ends, metres, its place round the line, its
+  // state (0 not yet built, 1 standing, 2 rotted through, a gap) and its gate (0 none, 1 open,
+  // 2 shut). Its `id` is the enclosure's.
+  sector_a: Vec2 (id: 22);
+  sector_b: Vec2 (id: 23);
+  sector_index: uint (id: 24);
+  sector_state: ubyte (id: 25);
+  sector_gate: ubyte (id: 26);
 }
 
 
@@ -2020,7 +2048,7 @@ table LawLine {
   // 0 before the gathering, 1 in force, 2 rejected, 3 lapsed (wire 1.28: the one it named died or
   // left), 4 superseded (wire 1.35: an amendment of the custom a later one replaced; 1.41: any law
   // a later one ended or changed), 5 carried (wire 1.44: a repeal that passed, ending the law it
-  // named).
+  // named), 6 struck down (wire 1.78, M7b slice BT: a forum with review found it breaks a limit).
   status: ubyte (id: 5);
   sponsor: ulong (id: 6);
   sponsor_name: string (id: 7);
@@ -2059,6 +2087,10 @@ table LawLine {
   // Wire 1.42 (M4c slice AH): levies kept back openly in a faction's refusal (counted in
   // `withheld_kg`; `evaded` counts only those kept back unannounced).
   refused: uint (id: 31);
+  // Wire 1.80 (M7c slice BY, ADR-0026 §4): how those who held it or stood to gain by it acted,
+  // in the kernel's words: a keeper's drawing and favour, a collector's payments, and a sponsor's
+  // gifts before the gathering; absent when there is nothing to tell.
+  conduct: string (id: 32);
 }
 
 // A settlement's polity (wire 1.27, ADR-0013): its custom in words, its members, its common
@@ -2125,6 +2157,43 @@ table PolityLine {
   // Wire 1.57 (M5c slice AT, ADR-0020 §1): how it stands toward each other lived-in polity, from
   // its own people's side, worked out afterwards and read by nothing in the world.
   relations: [RelationLine] (id: 25);
+  // Wire 1.76 (M6c slice BM, ADR-0023 §9): its settlements with how and when, its seat first, in
+  // words rendered by the kernel ("Oakholt, its seat, since 3 May of year 1"; "Ashford, taken in
+  // on 9 June of year 12 from the polity seated there, by annexation"); and, for a polity whose
+  // deciding closed, how ("taken in by Oakholt's polity on 9 June of year 12, by annexation"), or
+  // empty while it still decides.
+  settlements: [string] (id: 26);
+  ended: string (id: 27);
+  // Wire 1.77 (M7a slice BQ, ADR-0024 §3): its council's elections, newest first, at most six.
+  elections: [ElectionLine] (id: 28);
+}
+
+// One election of a council (wire 1.77, ADR-0024 §3), in words rendered by the kernel: which, when
+// and why it was called and for what seats ("Election 2, called on 3 May of year 2 because the
+// seats' term was ending: a council of 5, elected by the adults for 360 days"); where it stands
+// ("counted and seated on 12 May of year 2"); who came ("31 of the 52 now of the electorate came
+// to poll"); each district's seats; the alliances made for it; and each who stood.
+table ElectionLine {
+  id: uint (id: 0);
+  heading: string (id: 1);
+  stage: string (id: 2);
+  turnout: string (id: 3);
+  districts: [string] (id: 4);
+  alliances: [string] (id: 5);
+  candidates: [CandidateLine] (id: 6);
+}
+
+// One who stood (wire 1.77): their district where seats are shared ("" else), where they said
+// they stand ("leans for whether to keep a common store"), who backed them ("backed by Mira's
+// faction"), the names counted for them and whether they were seated.
+table CandidateLine {
+  person: ulong (id: 0);
+  name: string (id: 1);
+  district: string (id: 2);
+  told: string (id: 3);
+  backed: string (id: 4);
+  votes: uint (id: 5);
+  seated: bool (id: 6);
 }
 
 // One polity's standing toward another (wire 1.57): the other polity and its settlement's name, a
@@ -2156,9 +2225,38 @@ table AgreementLine {
   payments: [string] (id: 5);
 }
 
+// A siege (wire 1.76, ADR-0023 §7 and §11): a band camped by a shut line, or holding the
+// settlement it went to, and each side's food at current use, worked out afterwards and read by
+// nothing in the world. Never a progress measure: the kernel keeps no siege record and no timer.
+table SiegeLine {
+  // The band, the settlement it is of, and the settlement it camps by or holds.
+  band: uint (id: 0);
+  from: ulong (id: 1);
+  at: ulong (id: 2);
+  // 4 camped, 5 holding (the band's stage).
+  stage: ubyte (id: 3);
+  // The band in words, as the map's band brief has it.
+  words: string (id: 4);
+  // Inside: the food of the households of the place it camps by or holds, and the common store
+  // of the polity deciding for it, in days at what their people eat ("its 12 households hold
+  // about 38 days of food for 41 people, and the common store 6 days more"), and the days.
+  inside: string (id: 5);
+  inside_days: float (id: 6);
+  // What still comes in or goes out: water and fields by the line ("no open well inside the
+  // line: every walk to water goes out through a gate; 18 of its 23 fields lie outside it").
+  comes_in: string (id: 7);
+  // The band's own food: what those there carry and what it took, in days for those there, and
+  // what their households at home hold ("14 there carry about 2 days of food and took 3 days'
+  // more; their households at home hold about 50 days").
+  band_food: string (id: 8);
+  band_days: float (id: 9);
+}
+
 table Government {
   minute: long (id: 0);
   polities: [PolityLine] (id: 1);
+  // Wire 1.76 (M6c slice BM): every band camped by a shut line or holding a settlement.
+  sieges: [SiegeLine] (id: 2);
 }
 
 // What happened (the truth layer, ADR-0015 §1): one attempt to take from a household's store.
@@ -2229,6 +2327,14 @@ table Order {
   // newest first, each in words rendered by the kernel: who came, who met them how, what was taken
   // and every blow struck, by whom, to whom, and what it did (research 06-10 §4.C).
   encounters: [string] (id: 15);
+  // Wire 1.79 (M7b slice BU, ADR-0025): cases settled and withdrawn, challenges of laws under
+  // limits and the laws they struck down, and the latest cases and challenges in the kernel's
+  // words, newest first (at most 20): who brought what before whom, how it closed and when.
+  settled: uint (id: 16);
+  withdrawn: uint (id: 17);
+  challenges: uint (id: 18);
+  struck_down: uint (id: 19);
+  case_lines: [string] (id: 20);
 }
 
 // ---- Incidents (wire 1.64, M6a slice BB, ADR-0015 §8) ---------------------------------------

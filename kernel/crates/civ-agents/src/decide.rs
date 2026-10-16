@@ -70,6 +70,12 @@ pub struct Facts {
     /// A petition sitting at the hearth they heard of and may join (M4c slice AH): what joining
     /// it is worth to them and the minutes it still sits.
     pub petition: Option<GatheringFacts>,
+    /// An election polling at the hearth that they heard of and may poll in (M7a slice BO): what
+    /// naming their choices is worth to them and the minutes it takes.
+    pub poll: Option<GatheringFacts>,
+    /// Points they find in an evening at the hearth while an election they stand in runs, to
+    /// tell that they stand and where (M7a slice BP, ADR-0024 §4); 0 when they stand in none.
+    pub campaign: f64,
     /// The round of the watch they keep, if they keep one and may walk it now (M4b slice AC).
     pub watch: Option<WatchFacts>,
     /// A payment an agreement owes that they are to carry, set aside and waiting, if they can
@@ -80,6 +86,14 @@ pub struct Facts {
     pub crossing: Option<CrossingFacts>,
     /// The well their household is digging or relining, if any (M6a slice AY, step three).
     pub well: Option<WellFacts>,
+    /// The flood bank their polity is building, if they may work on it (M6b slice BG).
+    pub levee: Option<LeveeFacts>,
+    /// The irrigation ditch their household is digging to its field, if any (M6b slice BG).
+    pub ditch: Option<DitchFacts>,
+    /// The palisade their polity is raising, if they may work on it (M6c slice BK).
+    pub enclosure: Option<EnclosureFacts>,
+    /// A band they joined that musters within the day, if any (M6c slice BJ).
+    pub band: Option<BandFacts>,
     /// Whether a blow keeps them from work today (M4c slice AI, step four): they eat, drink, rest,
     /// sleep and keep company, and do no work.
     pub hurt: bool,
@@ -187,6 +201,65 @@ pub struct WellFacts {
     /// given the share asked of it (M6a slice BA, step four); 0 for its own.
     pub duty: f64,
     pub full: bool,
+}
+
+/// A flood bank their polity is building under a law they know of (M6b slice BG; ADR-0022 §11):
+/// where its work is done, the walk there from home, the work it still takes, the hours a year
+/// their household reckoned it would save it for each hour of that work, what keeping to the
+/// gathering's word is worth while their household has not given its share, and whether as many
+/// work on it now as its length gives room for.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LeveeFacts {
+    pub bank: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub left_h: f64,
+    pub saves_per_hour: f64,
+    pub duty: f64,
+    pub full: bool,
+}
+
+/// A palisade their polity is raising round its hearth under a law they know of (M6c slice BK;
+/// ADR-0023 §6), as a flood bank built together: where its work is done, the walk there from
+/// home, the work it still takes, the hours a year their household reckoned it would keep it for
+/// each hour of that work, what keeping to the gathering's word is worth while their household
+/// has not given its share, and whether as many work on it now as the line still to stand gives
+/// room for.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EnclosureFacts {
+    pub enclosure: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub left_h: f64,
+    pub saves_per_hour: f64,
+    pub duty: f64,
+    pub full: bool,
+}
+
+/// An irrigation ditch someone's household is digging to its field (M6b slice BG): its
+/// earthwork, where its work is done (its middle), the walk there from home, the work it still
+/// takes, and the hours a year the water it would bring the field is worth to the household,
+/// for each hour of its digging.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DitchFacts {
+    pub ditch: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub left_h: f64,
+    pub saves_per_hour: f64,
+}
+
+/// A band someone joined that musters within the day (M6c slice BJ, ADR-0023 §3): what going is
+/// worth to one who said they would, its hearth, how long to wait there for the muster, where it
+/// goes and how long it stays.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BandFacts {
+    pub band: u32,
+    pub points: f64,
+    pub hearth: (f32, f32),
+    pub wait_min: f64,
+    pub target: (f32, f32),
+    pub stay_min: u32,
 }
 
 /// A payment someone is to carry (M5c slice AV, ADR-0020 §7): where the store set it aside, the
@@ -764,6 +837,20 @@ pub fn candidates(
         if def.behavior == Behavior::Well && f.well.is_none() {
             continue;
         }
+        // And work on a flood bank to all but those whose polity is building one under a law
+        // they know of (M6b slice BG).
+        if def.behavior == Behavior::Levee && f.levee.is_none() {
+            continue;
+        }
+        // And work on a palisade to all but those whose polity is raising one under a law they
+        // know of (M6c slice BK).
+        if def.behavior == Behavior::Palisade && f.enclosure.is_none() {
+            continue;
+        }
+        // And digging a ditch to all but those whose household is digging one (M6b slice BG).
+        if def.behavior == Behavior::Ditch && f.ditch.is_none() {
+            continue;
+        }
         // And tending to all but those with someone ill at home still owed care (M6a slice AZ,
         // step three).
         if def.behavior == Behavior::Tend && f.tend.is_none() {
@@ -803,6 +890,7 @@ pub fn candidates(
                     | Behavior::Ask
                     | Behavior::Attend
                     | Behavior::Petition
+                    | Behavior::Poll
             )
         {
             excluded.push((id, Reason::Hurt));
@@ -1432,6 +1520,8 @@ pub fn candidates(
                     Reason::Loneliness,
                     w.w_social * f.loneliness * f.evening.max(0.25),
                 );
+                // One who stands tells the hearth so, and where they stand (M7a slice BP).
+                term(&mut terms, Reason::Campaign, f.campaign);
                 let steps = vec![
                     Step::Walk { to: hearth },
                     Step::Work {
@@ -1467,6 +1557,27 @@ pub fn candidates(
                 };
                 // What joining the petition is worth to them, and the company of those who come.
                 term(&mut terms, Reason::Petition, g.points);
+                term(
+                    &mut terms,
+                    Reason::Loneliness,
+                    w.w_social * f.loneliness * f.evening.max(0.25),
+                );
+                let steps = vec![
+                    Step::Walk { to: hearth },
+                    Step::Work {
+                        minutes: g.minutes.round().max(1.0) as u32,
+                    },
+                ];
+                out.push(finish(id, Target::Hearth(settlement), terms, steps));
+            }
+            Behavior::Poll => {
+                let (Some((settlement, hearth)), Some(g)) = (f.hearth, f.poll) else {
+                    excluded.push((id, Reason::NoPoll));
+                    continue;
+                };
+                // What naming their choices is worth to them (M7a slice BO), and the company
+                // of those who come.
+                term(&mut terms, Reason::Poll, g.points);
                 term(
                     &mut terms,
                     Reason::Loneliness,
@@ -1597,6 +1708,88 @@ pub fn candidates(
                     Ok(steps) => out.push(finish(id, Target::Well(c.well), terms, steps)),
                     Err(why) => excluded.push((id, why)),
                 }
+            }
+            Behavior::Levee => {
+                // Work on the polity's flood bank (M6b slice BG), as on a crossing built
+                // together.
+                let Some(c) = f.levee else {
+                    continue;
+                };
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: c.saves_per_hour,
+                    duty: c.duty,
+                    full: c.full,
+                };
+                match session_at_site(def, w, f, &site, Reason::Levee, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Bank(c.bank), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
+                }
+            }
+            Behavior::Palisade => {
+                // Work on the polity's palisade (M6c slice BK), as on a flood bank built
+                // together.
+                let Some(c) = f.enclosure else {
+                    continue;
+                };
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: c.saves_per_hour,
+                    duty: c.duty,
+                    full: c.full,
+                };
+                match session_at_site(def, w, f, &site, Reason::Palisade, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Enclosure(c.enclosure), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
+                }
+            }
+            Behavior::Ditch => {
+                // Digging the household's irrigation ditch (M6b slice BG), as a crossing the
+                // household builds: nobody else asks it of them.
+                let Some(c) = f.ditch else {
+                    continue;
+                };
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: c.saves_per_hour,
+                    duty: 0.0,
+                    full: false,
+                };
+                match session_at_site(def, w, f, &site, Reason::Ditch, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Ditch(c.ditch), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
+                }
+            }
+            Behavior::Band => {
+                // A band they said they would go with (M6c slice BJ, ADR-0023 §3): to the hearth
+                // for the muster, the walk there at the band's hour, the stay, and home.
+                let Some(b) = f.band else {
+                    excluded.push((id, Reason::NoBand));
+                    continue;
+                };
+                let Some((settlement, _)) = f.hearth else {
+                    excluded.push((id, Reason::NoBand));
+                    continue;
+                };
+                term(&mut terms, Reason::Band, b.points);
+                let steps = vec![
+                    Step::Walk { to: b.hearth },
+                    Step::Work {
+                        minutes: b.wait_min.round().max(1.0) as u32,
+                    },
+                    Step::Walk { to: b.target },
+                    Step::Work {
+                        minutes: b.stay_min.max(1),
+                    },
+                    Step::Walk { to: f.home },
+                ];
+                out.push(finish(id, Target::Hearth(settlement), terms, steps));
             }
             Behavior::Douse => {
                 // A load of water carried to a roof a fire threatens (M6b slice BD, step three;
@@ -1998,6 +2191,8 @@ mod tests {
     fn facts() -> Facts {
         Facts {
             petition: None,
+            poll: None,
+            campaign: 0.0,
             hurt: false,
             ill: false,
             home_afire: false,
@@ -2034,6 +2229,10 @@ mod tests {
             carry: None,
             crossing: None,
             well: None,
+            levee: None,
+            enclosure: None,
+            ditch: None,
+            band: None,
         }
     }
 
@@ -2627,6 +2826,79 @@ mod tests {
             "{:?}",
             c.steps
         );
+    }
+
+    #[test]
+    fn work_on_a_palisade_is_weighed_by_what_it_keeps_and_the_gatherings_word() {
+        let mut set = activity("work_on_palisade", Behavior::Palisade, Vec::new(), 1.0);
+        set.min_minutes = 60;
+        set.max_minutes = 240;
+        set.max_walk_minutes = 30;
+        set.par = 5.0;
+        let defs = vec![set];
+        let cannot = |_: usize, _: &[usize]| Err((Reason::NoTool, None));
+        let shop = Workshop {
+            free_tools: &[],
+            held_tools: &[],
+            best_make: &cannot,
+            makes_tool: &|_| false,
+            knows: &|_| true,
+        };
+        let run = |f: &Facts| {
+            candidates(
+                &defs,
+                &weights(),
+                f,
+                &limits(),
+                &|_| None,
+                &|_| Err(Reason::NoPlace),
+                None,
+                &|| None,
+                &|| None,
+                &|| Err(Reason::NoReport),
+                &|| None,
+                Err(Reason::Built),
+                &shop,
+                &|| Err(Reason::NoProblem),
+                &|| Err(Reason::WouldNotTake),
+                &Vec::new,
+            )
+        };
+        // No palisade being raised: the work is no part of anyone's choice.
+        let (cands, excluded) = run(&facts());
+        assert!(cands.is_empty() && excluded.is_empty());
+        // One being raised, its next stretch a short walk away, each hour keeping a twentieth of
+        // an hour a year, and the gathering's word owed: a full session at the line.
+        let line = PermanentId::from_raw(11).expect("an id");
+        let ef = EnclosureFacts {
+            enclosure: line,
+            at: (30.0, 0.0),
+            walk_min: 0.5,
+            left_h: 800.0,
+            saves_per_hour: 0.05,
+            duty: 1.5,
+            full: false,
+        };
+        let f = Facts {
+            enclosure: Some(ef),
+            dark: false,
+            daylight_left_min: 600.0,
+            ..facts()
+        };
+        let (cands, _) = run(&f);
+        let c = cands.first().expect("weighed");
+        assert_eq!(c.scored.target, Target::Enclosure(line));
+        assert!(matches!(c.steps[1], Step::Work { minutes: 240 }));
+        let has = |r: Reason| c.scored.terms.iter().any(|t| t.reason == r);
+        assert!(has(Reason::Palisade) && has(Reason::PublicWork));
+        // As many at work as the line still to stand has room for: left out, and why.
+        let full = Facts {
+            enclosure: Some(EnclosureFacts { full: true, ..ef }),
+            ..f.clone()
+        };
+        let (cands, excluded) = run(&full);
+        assert!(cands.is_empty());
+        assert!(excluded.contains(&(0, Reason::Crowded)));
     }
 
     #[test]

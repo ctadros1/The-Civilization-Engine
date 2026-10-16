@@ -248,8 +248,7 @@ impl Population {
     /// Lets go of every tie to someone no longer here (dead or gone), and of the ties those
     /// people held.
     pub(crate) fn prune_ties(&mut self) {
-        let here: std::collections::HashSet<PermanentId> =
-            self.people.iter().map(|(_, p)| p.id).collect();
+        let here: civ_core::FastSet<PermanentId> = self.people.iter().map(|(_, p)| p.id).collect();
         for holder in self.ties.holders() {
             if !here.contains(&holder) {
                 self.ties.forget_holder(holder);

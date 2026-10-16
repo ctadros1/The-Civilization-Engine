@@ -5,7 +5,7 @@
 use civ_agents::polity::{
     Law, LawStatus, Outcome, Polity, Stance, day_words, decision_words, office_words, stance_words,
 };
-use civ_core::SimTime;
+use civ_core::{PermanentId, SimTime};
 use civ_schema::flatbuffers::{FlatBufferBuilder, WIPOffset};
 use civ_schema::wire;
 
@@ -20,6 +20,7 @@ fn status_code(s: LawStatus) -> u8 {
         LawStatus::Lapsed => 3,
         LawStatus::Superseded => 4,
         LawStatus::Carried => 5,
+        LawStatus::StruckDown => 6,
     }
 }
 
@@ -92,6 +93,7 @@ fn law_line<'a>(
         .iter()
         .filter(|(p, _)| pop.person(*p).is_some())
         .count() as u32;
+    let conduct = conduct_words(sim, polity, law).map(|w| fbb.create_string(&w));
     let c = &law.compliance;
     wire::LawLine::create(
         fbb,
@@ -128,8 +130,62 @@ fn law_line<'a>(
             broken: c.broken,
             broken_unaware: c.broken_unaware,
             refused: c.refused,
+            conduct,
         },
     )
+}
+
+/// How those who held law `law` or stood to gain by it acted, in words (M7c slice BY): "its
+/// keeper drew 40 kg from the store for their own household 2 times; when it ran low, 3 asks were
+/// answered by favour and 1 passed over"; "its collector assessed 2 purchases in full and asked a
+/// payment 3 times, paid 1 time (4 kg)"; "before the gathering, Mira's household gave 3 households
+/// food (14 days of theirs)". None when there is nothing to tell.
+fn conduct_words(sim: &Sim, polity: &Polity, law: &Law) -> Option<String> {
+    let times = |n: u32| format!("{n} time{}", if n == 1 { "" } else { "s" });
+    let c = &law.compliance;
+    let mut parts = Vec::new();
+    if c.diverted > 0 {
+        parts.push(format!(
+            "its keeper drew {:.0} kg from the store for their own household {}",
+            c.diverted_kg,
+            times(c.diverted)
+        ));
+    }
+    if c.favoured + c.passed_over > 0 {
+        parts.push(format!(
+            "when it ran low, {} ask{} answered by favour and {} passed over",
+            c.favoured,
+            if c.favoured == 1 { " was" } else { "s were" },
+            c.passed_over
+        ));
+    }
+    if c.assessed + c.asked > 0 {
+        parts.push(format!(
+            "its collector assessed {} purchase{} in full and asked a payment {}, paid {} ({:.0} \
+             kg)",
+            c.assessed,
+            if c.assessed == 1 { "" } else { "s" },
+            times(c.asked),
+            times(c.bribed),
+            c.bribe_kg
+        ));
+    }
+    let gifts: Vec<_> = polity
+        .patron_gifts
+        .iter()
+        .filter(|g| g.law == law.id)
+        .collect();
+    if let Some(first) = gifts.first() {
+        let days: f32 = gifts.iter().map(|g| g.days).sum();
+        parts.push(format!(
+            "before the gathering, {}'s household gave {} household{} food ({days:.0} days of \
+             theirs)",
+            sim.people.name_of(first.patron),
+            gifts.len(),
+            if gifts.len() == 1 { "" } else { "s" }
+        ));
+    }
+    (!parts.is_empty()).then(|| parts.join("; "))
 }
 
 /// How someone came to be gone, in words: "when they died on 9 June of year 5".
@@ -164,7 +220,7 @@ fn store_words(sim: &Sim, stores: &[f64]) -> String {
 /// newest first among each: "Mira's faction, against the gathering, since 3 May of year 2: 5
 /// members, organized by Mira; its store holds grain 40 kg"; "Bo's faction, against the
 /// storekeeper, from 3 May of year 2 until 9 June of year 3, when its last member left".
-fn faction_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String> {
+pub fn faction_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String> {
     let pop = &sim.people;
     let mut here: Vec<&civ_agents::faction::Faction> = pop
         .factions
@@ -181,8 +237,11 @@ fn faction_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String> {
     here.into_iter()
         .map(|f| {
             let name = super::word::faction_name(sim, f);
-            let against = super::word::blamed_words(sim, f.against);
             let since = civ_agents::polity::day_words(f.founded);
+            if let Some(st) = f.stake {
+                return organization_words(sim, f, &st, &name, &since);
+            }
+            let against = super::word::blamed_words(sim, f.against);
             match f.ended {
                 None => {
                     let members = pop.factions.members_of(f.id).count();
@@ -201,6 +260,142 @@ fn faction_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String> {
             }
         })
         .collect()
+}
+
+/// An organization by stake in words (M7c slice BW, ADR-0026 §2): what it is of and its rules,
+/// its members and where those of another settlement live, its applications, and who recognizes
+/// it: "Mira's organization, of those who sell tools (it admits one a member speaks for, its
+/// organizer decides, and its dues are a twentieth of each threshing), since 3 May of year 2: 3
+/// members, 1 of them of Sedgebrook, organized by Mira; 2 admitted and 1 turned away; its store
+/// holds grain 4 kg; Oakholt's gathering recognizes it".
+fn organization_words(
+    sim: &Sim,
+    f: &civ_agents::faction::Faction,
+    st: &civ_agents::faction::Stake,
+    name: &str,
+    since: &str,
+) -> String {
+    use civ_agents::faction::FactionEventKind;
+    let pop = &sim.people;
+    let of = format!(
+        "{name}, of those who sell {} (it admits {}, {} decides, and its dues are {} of each \
+         threshing)",
+        st.purpose.plural_words(),
+        st.admit.words(),
+        st.decides.words(),
+        civ_agents::polity::share_text(f64::from(st.dues_share)),
+    );
+    let recognized = format!(
+        "{}{}",
+        super::word::recognized_words(sim, f.id),
+        privilege_words(sim, f.id)
+    );
+    if let Some(end) = f.ended {
+        return format!(
+            "{of}, from {since} until {}, when its last member left{recognized}",
+            civ_agents::polity::day_words(end)
+        );
+    }
+    let members: Vec<PermanentId> = pop.factions.members_of(f.id).map(|m| m.person).collect();
+    let mut elsewhere: Vec<(PermanentId, usize)> = Vec::new();
+    for &m in &members {
+        let Some(s) = pop
+            .person(m)
+            .and_then(|p| pop.household(p.household))
+            .and_then(|h| h.settlement)
+            .filter(|&s| s != f.settlement)
+        else {
+            continue;
+        };
+        match elsewhere.iter_mut().find(|e| e.0 == s) {
+            Some(e) => e.1 += 1,
+            None => elsewhere.push((s, 1)),
+        }
+    }
+    elsewhere.sort_by_key(|e| e.0);
+    let away = elsewhere
+        .iter()
+        .map(|&(s, n)| format!(", {n} of them of {}", settlement_name(sim, s)))
+        .collect::<String>();
+    let count = |k: FactionEventKind| f.history.iter().filter(|e| e.kind == k).count();
+    let (admitted, refused) = (
+        count(FactionEventKind::Admitted),
+        count(FactionEventKind::TurnedAway),
+    );
+    let applications = if admitted + refused == 0 {
+        String::new()
+    } else {
+        format!("; {admitted} admitted and {refused} turned away")
+    };
+    format!(
+        "{of}, since {since}: {} member{}{away}, organized by {}{applications}; its store holds \
+         {}{recognized}",
+        members.len(),
+        if members.len() == 1 { "" } else { "s" },
+        pop.name_of(f.organizer),
+        store_words(sim, &f.stores)
+    )
+}
+
+/// The privileges in force for organization `org` in words, after what it is (M7c slice BX,
+/// ADR-0026 §3: drag measured, never set): what each grants and where, how often those it binds
+/// kept it and broke it, the cases its members brought and found, and the workshops given up as
+/// barred: "; at Oakholt it alone may offer tools at doors here: kept 3 times and broken 2; 1 case
+/// brought, 1 found; 1 workshop given up, barred", or nothing.
+fn privilege_words(sim: &Sim, org: PermanentId) -> String {
+    use civ_agents::crime::CaseStage;
+    use civ_agents::polity::{LawStatus, PolicyKind};
+    let pop = &sim.people;
+    let mut out = String::new();
+    for p in &pop.polities {
+        for l in p.laws.iter().filter(|l| {
+            l.kind == PolicyKind::Privilege
+                && l.status == LawStatus::InForce
+                && l.target == Some(org)
+        }) {
+            let Some(g) = sim
+                .rules
+                .catalog
+                .policies
+                .get(usize::from(l.policy))
+                .and_then(|d| d.privilege)
+            else {
+                continue;
+            };
+            let c = l.compliance;
+            let cases: Vec<_> = pop.order.cases.iter().filter(|x| x.law == l.id).collect();
+            let found = cases.iter().filter(|x| x.stage == CaseStage::Found).count();
+            let since = l.decided.unwrap_or(l.proposed);
+            let barred = pop
+                .firms
+                .iter()
+                .filter(|f| p.holds(f.settlement))
+                .filter(|f| {
+                    f.closed.is_some_and(|(at, why)| {
+                        why == civ_agents::firm::Exit::Barred && at >= since
+                    })
+                })
+                .count();
+            out.push_str(&format!(
+                "; at {} it alone {}: kept {} time{} and broken {}; {} case{} brought, {} found",
+                settlement_name(sim, p.settlement),
+                g.words(),
+                c.complied,
+                if c.complied == 1 { "" } else { "s" },
+                c.broken + c.broken_unaware,
+                cases.len(),
+                if cases.len() == 1 { "" } else { "s" },
+                found
+            ));
+            if barred > 0 {
+                out.push_str(&format!(
+                    "; {barred} workshop{} given up, barred",
+                    if barred == 1 { "" } else { "s" }
+                ));
+            }
+        }
+    }
+    out
 }
 
 /// The petitions of `settlement` in words (wire 1.41, ADR-0017 §3), newest first: "Mira's
@@ -394,6 +589,430 @@ pub fn coup_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String> {
         .collect()
 }
 
+/// The name of settlement `s`, or "another settlement".
+fn settlement_name(sim: &Sim, s: civ_core::PermanentId) -> String {
+    sim.land
+        .settlements
+        .iter()
+        .find(|x| x.id == s)
+        .map_or_else(|| "another settlement".to_owned(), |x| x.name.clone())
+}
+
+/// How a polity came to hold a settlement, in words.
+fn held_how_words(how: civ_agents::polity::HeldHow) -> &'static str {
+    match how {
+        civ_agents::polity::HeldHow::Annexed => "by annexation",
+        civ_agents::polity::HeldHow::Merged => "as one body, by agreement",
+    }
+}
+
+/// An election in words for the observer (wire 1.77, M7a slice BQ).
+#[derive(Clone, Debug)]
+pub struct ElectionWords {
+    pub id: u32,
+    pub heading: String,
+    pub stage: String,
+    pub turnout: String,
+    pub districts: Vec<String>,
+    pub alliances: Vec<String>,
+    pub candidates: Vec<CandidateWords>,
+}
+
+/// One who stood, in words (wire 1.77).
+#[derive(Clone, Debug)]
+pub struct CandidateWords {
+    pub person: u64,
+    pub name: String,
+    pub district: String,
+    pub told: String,
+    pub backed: String,
+    pub votes: u32,
+    pub seated: bool,
+}
+
+/// Polity `pi`'s council's elections in words, newest first, at most six (wire 1.77, ADR-0024
+/// §3): worked out when asked, read by nothing in the world.
+pub fn election_words(sim: &Sim, pi: usize) -> Vec<ElectionWords> {
+    use civ_agents::seats::{ElectionStage, Package, SeatMethod};
+    let pop = &sim.people;
+    let polity = &pop.polities[pi];
+    let day = |d: i64| day_words(SimTime::from_minutes(d * civ_core::time::MINUTES_PER_DAY));
+    let place = |s: civ_core::PermanentId| {
+        sim.land
+            .settlements
+            .iter()
+            .find(|x| x.id == s)
+            .map_or_else(|| "another settlement".to_owned(), |x| x.name.clone())
+    };
+    let faction = |f: civ_core::PermanentId| {
+        pop.factions.get(f).map_or_else(
+            || "a faction".to_owned(),
+            |f| super::word::faction_name(sim, f),
+        )
+    };
+    let policies = &sim.rules.catalog.policies;
+    polity
+        .elections
+        .iter()
+        .rev()
+        .take(6)
+        .map(|e| {
+            let heading = format!(
+                "Election {}, called on {} because {}: {}",
+                e.id,
+                day(e.called),
+                e.why.words(),
+                e.seats.words()
+            );
+            let stage = match e.stage {
+                ElectionStage::Standing => format!(
+                    "open for names until {}; {} have stood",
+                    day(e.stand_until),
+                    e.candidates.len()
+                ),
+                ElectionStage::Polling => match e.seats.method {
+                    SeatMethod::Election => format!("to be polled on {}", day(e.poll_day)),
+                    SeatMethod::Lot => format!("the lot is drawn on {}", day(e.poll_day)),
+                },
+                ElectionStage::Installed => format!(
+                    "counted and seated on {}{}",
+                    day(e.ended.unwrap_or(e.poll_day)),
+                    if e.by_lot {
+                        "; a lot settled a tie"
+                    } else {
+                        ""
+                    }
+                ),
+                stage => format!(
+                    "{} on {}",
+                    stage.words(),
+                    day(e.ended.unwrap_or(e.poll_day))
+                ),
+            };
+            let turnout = if e.seats.method == SeatMethod::Lot {
+                "drawn by lot from those who put their names in".to_owned()
+            } else if e.ballots.is_empty() {
+                if e.stage == ElectionStage::Installed {
+                    "nobody polled: those who stood sat unopposed".to_owned()
+                } else {
+                    String::new()
+                }
+            } else {
+                let now = pop.electorate_count(
+                    &sim.land.fields,
+                    pi,
+                    &e.seats,
+                    sim.now(),
+                    &sim.rules.people,
+                );
+                format!(
+                    "{} of the {now} now of the electorate came to poll",
+                    e.ballots.len()
+                )
+            };
+            let districts = e
+                .districts
+                .iter()
+                .map(|&(d, n)| format!("{}: {n} seat{}", place(d), if n == 1 { "" } else { "s" }))
+                .collect();
+            let alliances = e
+                .alliances
+                .iter()
+                .map(|a| {
+                    let how = match a.package {
+                        Package::Common => "stand on one slate",
+                        Package::FirstStandsDown => "back the second's slate",
+                        Package::SecondStandsDown => "back the first's slate",
+                    };
+                    format!(
+                        "{} and {} {how}",
+                        faction(a.factions[0]),
+                        faction(a.factions[1])
+                    )
+                })
+                .collect();
+            let candidates = e
+                .candidates
+                .iter()
+                .map(|c| {
+                    let told: Vec<String> = c
+                        .positions
+                        .iter()
+                        .filter_map(|&(q, x)| {
+                            let q = policies.get(usize::from(q))?.question.as_deref()?;
+                            Some(format!(
+                                "{} {q}",
+                                civ_agents::opinion::lean_words(f64::from(x))
+                            ))
+                        })
+                        .collect();
+                    let backers: Vec<String> = e
+                        .endorsements
+                        .iter()
+                        .filter(|s| s.1.contains(&c.person))
+                        .map(|s| faction(s.0))
+                        .collect();
+                    CandidateWords {
+                        person: c.person.get(),
+                        name: pop.name_of(c.person),
+                        district: c.district.map_or_else(String::new, place),
+                        told: told.join("; "),
+                        backed: if backers.is_empty() {
+                            String::new()
+                        } else {
+                            format!("backed by {}", backers.join(" and "))
+                        },
+                        votes: e.totals.iter().find(|t| t.0 == c.person).map_or(0, |t| t.1),
+                        seated: e.winners.contains(&c.person),
+                    }
+                })
+                .collect();
+            ElectionWords {
+                id: e.id,
+                heading,
+                stage,
+                turnout,
+                districts,
+                alliances,
+                candidates,
+            }
+        })
+        .collect()
+}
+
+/// Polity `polity`'s settlements in words (wire 1.76, M6c slice BM), its seat first: "Oakholt,
+/// its seat, since 3 May of year 1"; "Ashford, taken in on 9 June of year 12 from Ashford's
+/// polity, by annexation".
+pub fn polity_settlement_words(sim: &Sim, polity: &Polity) -> Vec<String> {
+    let pop = &sim.people;
+    let seat = format!(
+        "{}, its seat, since {}",
+        settlement_name(sim, polity.settlement),
+        day_words(polity.founded)
+    );
+    std::iter::once(seat)
+        .chain(polity.held.iter().map(|h| {
+            let from = pop
+                .polities
+                .iter()
+                .find(|p| p.id == h.from)
+                .filter(|p| p.id != polity.id)
+                .map_or_else(String::new, |p| {
+                    format!(" from {}'s polity", settlement_name(sim, p.settlement))
+                });
+            format!(
+                "{}, taken in on {}{from}, {}",
+                settlement_name(sim, h.settlement),
+                day_words(SimTime::from_minutes(h.since * 24 * 60)),
+                held_how_words(h.how)
+            )
+        }))
+        .collect()
+}
+
+/// How polity `polity`'s deciding closed, in words (wire 1.76): "taken in by Oakholt's polity on
+/// 9 June of year 12, by annexation"; empty while it still decides.
+pub fn polity_ended_words(sim: &Sim, polity: &Polity) -> String {
+    polity.ended.map_or_else(String::new, |e| {
+        let by = sim
+            .people
+            .polities
+            .iter()
+            .find(|p| p.id == e.by)
+            .map_or_else(
+                || "another polity".to_owned(),
+                |p| format!("{}'s polity", settlement_name(sim, p.settlement)),
+            );
+        format!(
+            "taken in by {by} on {}, {}",
+            day_words(SimTime::from_minutes(e.day * 24 * 60)),
+            held_how_words(e.how)
+        )
+    })
+}
+
+/// Food energy in the stores of households `households` now, kcal, and how many people they
+/// keep.
+fn households_food(sim: &Sim, households: &[civ_core::PermanentId]) -> (f64, usize) {
+    let (pop, rules, now) = (&sim.people, &sim.rules, sim.now());
+    let goods = &rules.catalog.goods;
+    let (mut kcal, mut people) = (0.0, 0usize);
+    for &h in households {
+        if let Some(x) = pop.household(h) {
+            let stores = civ_agents::population::stores_now(x, now, &rules.people, goods);
+            kcal += civ_agents::person::stock_kcal(&stores, goods);
+            people += x.members.len();
+        }
+    }
+    (kcal, people)
+}
+
+/// Days of food `kcal` would keep `people` at what each eats in a day.
+fn food_days(sim: &Sim, kcal: f64, people: usize) -> f64 {
+    let daily = sim.rules.people.household.daily_kcal_per_person;
+    kcal / (people as f64 * daily).max(1.0)
+}
+
+/// One siege's facts and words (wire 1.76, ADR-0023 §7 and §11): the band, the place it camps by
+/// or holds, each side's food at current use, and what comes and goes by the line. Worked out
+/// afterwards; nothing in the world reads it.
+#[derive(Clone, Debug)]
+pub struct Siege {
+    /// The band, the settlement it is of, the settlement it camps by or holds, and its stage
+    /// (4 camped, 5 holding).
+    pub band: u32,
+    pub from: civ_core::PermanentId,
+    pub at: civ_core::PermanentId,
+    pub stage: u8,
+    /// The band in words, as the map's band brief has it.
+    pub words: String,
+    /// Inside: the food of the place's households and of a common store kept there, in words
+    /// and in days at what its people eat.
+    pub inside: String,
+    pub inside_days: f64,
+    /// Water and fields by the line, in words.
+    pub comes_in: String,
+    /// The band's own food, in words and in days for those there.
+    pub band_food: String,
+    pub band_days: f64,
+}
+
+/// Every band camped by a shut line or holding a settlement, as sieges, oldest band first.
+pub fn sieges(sim: &Sim) -> Vec<Siege> {
+    use civ_agents::war::BandStage;
+    let (pop, land) = (&sim.people, &sim.land);
+    let goods = &sim.rules.catalog.goods;
+    let words = super::people::band_lines(sim);
+    pop.order
+        .bands
+        .iter()
+        .filter(|b| matches!(b.stage, BandStage::Camped | BandStage::Holding))
+        .filter_map(|b| {
+            let at = pop.household(b.target)?.settlement?;
+            // Inside: the households of the place, and the common store if it is kept there.
+            let mut theirs: Vec<civ_core::PermanentId> = pop
+                .households
+                .iter()
+                .filter(|(_, x)| x.settlement == Some(at) && !x.members.is_empty())
+                .map(|(_, x)| x.id)
+                .collect();
+            theirs.sort_unstable();
+            let (kcal, people) = households_food(sim, &theirs);
+            let mut inside_days = food_days(sim, kcal, people);
+            let mut inside = format!(
+                "its {} households hold about {:.0} days of food for {people} people at what \
+                 they eat",
+                theirs.len(),
+                inside_days
+            );
+            if let Some(p) = pop
+                .polities
+                .iter()
+                .find(|p| p.holds(Some(at)) && p.settlement == at)
+            {
+                let more = food_days(
+                    sim,
+                    civ_agents::person::stock_kcal(&p.stores, goods),
+                    people,
+                );
+                if more >= 0.5 {
+                    inside.push_str(&format!(
+                        ", and the common store kept there {more:.0} days more"
+                    ));
+                    inside_days += more;
+                }
+            }
+            // What comes and goes by the line: water and fields.
+            let line = land
+                .enclosures
+                .list
+                .iter()
+                .find(|e| e.settlement == at && e.finished.is_some());
+            let comes_in = match line {
+                None => "no line stands round it: its people come and go as they would".to_owned(),
+                Some(e) => {
+                    let wells = land
+                        .wells
+                        .list
+                        .iter()
+                        .filter(|w| w.is_open() && e.inside(w.rect.centre_m()))
+                        .count();
+                    let water = match wells {
+                        0 => "no open well inside the line: every walk to water goes out \
+                              through a gate"
+                            .to_owned(),
+                        1 => "an open well inside the line".to_owned(),
+                        n => format!("{n} open wells inside the line"),
+                    };
+                    let fields: Vec<_> = land
+                        .fields
+                        .iter()
+                        .filter(|f| theirs.binary_search(&f.household).is_ok())
+                        .collect();
+                    let outside = fields
+                        .iter()
+                        .filter(|f| !e.inside(f.rect.centre_m()))
+                        .count();
+                    format!(
+                        "{water}; {outside} of its {} fields lie outside it",
+                        fields.len()
+                    )
+                }
+            };
+            // The band: what those there carry, and what their households at home hold.
+            let there: Vec<_> = b
+                .arrived
+                .iter()
+                .filter(|m| !b.home.contains(m))
+                .filter_map(|&m| pop.person(m))
+                .collect();
+            let carried: f64 = there
+                .iter()
+                .filter_map(|p| {
+                    let g = goods.get(usize::from(p.carrying.good?))?;
+                    (g.purpose == civ_agents::params::GoodUse::Food)
+                        .then(|| f64::from(p.carrying.kg) * g.kcal_per_kg)
+                })
+                .sum();
+            let band_days = food_days(sim, carried, there.len());
+            let mut homes: Vec<civ_core::PermanentId> = there.iter().map(|p| p.household).collect();
+            homes.sort_unstable();
+            homes.dedup();
+            let (home_kcal, home_people) = households_food(sim, &homes);
+            let took = if b.taken_kcal > 0.0 {
+                format!(
+                    " (it took {:.0} days' food for them)",
+                    food_days(sim, f64::from(b.taken_kcal), there.len())
+                )
+            } else {
+                String::new()
+            };
+            let band_food = format!(
+                "{} there carry about {band_days:.0} days of food{took}; their households at \
+                 home hold about {:.0} days for their {home_people} people",
+                there.len(),
+                food_days(sim, home_kcal, home_people)
+            );
+            let words = words
+                .iter()
+                .find(|w| w.0 == b.id)
+                .map_or_else(String::new, |w| w.2.clone());
+            Some(Siege {
+                band: b.id,
+                from: b.settlement,
+                at,
+                stage: b.stage as u8,
+                words,
+                inside,
+                inside_days,
+                comes_in,
+                band_food,
+                band_days,
+            })
+        })
+        .collect()
+}
+
 /// A `Response` with every settlement's polity.
 pub fn government_response(sim: &Sim) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
@@ -423,7 +1042,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             .filter(|(_, p)| p.age_years(now) >= adult)
             .filter(|(_, p)| {
                 pop.household(p.household)
-                    .is_some_and(|x| x.settlement == Some(polity.settlement))
+                    .is_some_and(|x| polity.holds(x.settlement))
             })
             .count() as u32;
         let laws: Vec<_> = polity
@@ -433,15 +1052,35 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             .map(|l| law_line(&mut fbb, sim, polity, l))
             .collect();
         let laws = fbb.create_vector(&laws);
-        let offices: Vec<_> = office_words(
+        let mut offices = office_words(
             polity,
             &rules.catalog.policies,
             &|id| pop.name_of(id),
             &|id| gone_words(sim, id),
-        )
-        .iter()
-        .map(|w| fbb.create_string(w))
-        .collect();
+            now.day_index(),
+        );
+        // Its council's seats and latest election, if it has one (M7a slice BO).
+        offices.extend(civ_agents::seats::council_words(
+            polity.body.seats,
+            &polity.seated,
+            &polity.elections,
+            &|id| pop.name_of(id),
+            &|f| {
+                pop.factions.get(f).map_or_else(
+                    || "a faction".to_owned(),
+                    |f| super::word::faction_name(sim, f),
+                )
+            },
+            &|s| {
+                sim.land
+                    .settlements
+                    .iter()
+                    .find(|x| x.id == s)
+                    .map_or_else(|| "another settlement".to_owned(), |x| x.name.clone())
+            },
+            &|d| day_words(SimTime::from_minutes(d * civ_core::time::MINUTES_PER_DAY)),
+        ));
+        let offices: Vec<_> = offices.iter().map(|w| fbb.create_string(w)).collect();
         let offices = fbb.create_vector(&offices);
         // The custom's versions, and how many its body admits now (wire 1.35, M4c slice AF).
         let history: Vec<_> =
@@ -575,6 +1214,62 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             .unwrap_or_default();
         let cases: Vec<_> = cases.iter().map(|c| fbb.create_string(c)).collect();
         let gathering_cases = fbb.create_vector(&cases);
+        // Its settlements, and how its deciding closed (wire 1.76, M6c slice BM).
+        let settlements: Vec<_> = polity_settlement_words(sim, polity)
+            .iter()
+            .map(|w| fbb.create_string(w))
+            .collect();
+        let settlements = fbb.create_vector(&settlements);
+        let ended = fbb.create_string(&polity_ended_words(sim, polity));
+        // Its council's elections (wire 1.77, M7a slice BQ).
+        let elections: Vec<_> = election_words(sim, pi)
+            .into_iter()
+            .map(|e| {
+                let candidates: Vec<_> = e
+                    .candidates
+                    .iter()
+                    .map(|c| {
+                        let name = fbb.create_string(&c.name);
+                        let district = fbb.create_string(&c.district);
+                        let told = fbb.create_string(&c.told);
+                        let backed = fbb.create_string(&c.backed);
+                        wire::CandidateLine::create(
+                            &mut fbb,
+                            &wire::CandidateLineArgs {
+                                person: c.person,
+                                name: Some(name),
+                                district: Some(district),
+                                told: Some(told),
+                                backed: Some(backed),
+                                votes: c.votes,
+                                seated: c.seated,
+                            },
+                        )
+                    })
+                    .collect();
+                let candidates = fbb.create_vector(&candidates);
+                let heading = fbb.create_string(&e.heading);
+                let stage = fbb.create_string(&e.stage);
+                let turnout = fbb.create_string(&e.turnout);
+                let districts: Vec<_> = e.districts.iter().map(|w| fbb.create_string(w)).collect();
+                let districts = fbb.create_vector(&districts);
+                let alliances: Vec<_> = e.alliances.iter().map(|w| fbb.create_string(w)).collect();
+                let alliances = fbb.create_vector(&alliances);
+                wire::ElectionLine::create(
+                    &mut fbb,
+                    &wire::ElectionLineArgs {
+                        id: e.id,
+                        heading: Some(heading),
+                        stage: Some(stage),
+                        turnout: Some(turnout),
+                        districts: Some(districts),
+                        alliances: Some(alliances),
+                        candidates: Some(candidates),
+                    },
+                )
+            })
+            .collect();
+        let elections = fbb.create_vector(&elections);
         list.push(wire::PolityLine::create(
             &mut fbb,
             &wire::PolityLineArgs {
@@ -604,15 +1299,44 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                 coups: Some(coups),
                 body_members,
                 relations: Some(relations),
+                settlements: Some(settlements),
+                ended: Some(ended),
+                elections: Some(elections),
             },
         ));
     }
     let polities = fbb.create_vector(&list);
+    let sieges: Vec<_> = sieges(sim)
+        .into_iter()
+        .map(|x| {
+            let words = fbb.create_string(&x.words);
+            let inside = fbb.create_string(&x.inside);
+            let comes_in = fbb.create_string(&x.comes_in);
+            let band_food = fbb.create_string(&x.band_food);
+            wire::SiegeLine::create(
+                &mut fbb,
+                &wire::SiegeLineArgs {
+                    band: x.band,
+                    from: x.from.get(),
+                    at: x.at.get(),
+                    stage: x.stage,
+                    words: Some(words),
+                    inside: Some(inside),
+                    inside_days: x.inside_days as f32,
+                    comes_in: Some(comes_in),
+                    band_food: Some(band_food),
+                    band_days: x.band_days as f32,
+                },
+            )
+        })
+        .collect();
+    let sieges = fbb.create_vector(&sieges);
     let body = wire::Government::create(
         &mut fbb,
         &wire::GovernmentArgs {
             minute: now.minutes(),
             polities: Some(polities),
+            sieges: Some(sieges),
         },
     );
     response(fbb, wire::ResponseBody::Government, body)

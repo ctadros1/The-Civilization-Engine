@@ -32,21 +32,26 @@ pub mod caution;
 pub mod condition;
 pub mod contagion;
 pub mod convergence;
+pub mod count;
 pub mod crime;
 pub mod decide;
 pub mod demography;
+pub mod enclose;
 pub mod faction;
 pub mod farm;
 pub mod fire;
 pub mod firm;
 pub mod floods;
 pub mod fords;
+pub mod forum;
 pub mod found;
 pub mod history;
 pub mod ideology;
 pub mod influence;
+pub mod irrigation;
 pub mod knowledge;
 pub mod ledger;
+pub mod levees;
 pub mod make;
 pub mod market;
 pub mod needs;
@@ -58,6 +63,8 @@ pub mod places;
 pub mod polity;
 pub mod population;
 pub mod reports;
+pub mod rules;
+pub mod seats;
 pub mod sickness;
 pub mod standing;
 pub mod structure;
@@ -68,6 +75,7 @@ pub mod uses;
 pub mod value;
 pub mod values;
 pub mod views;
+pub mod war;
 pub mod wealth;
 pub mod word;
 
@@ -85,6 +93,7 @@ pub use ledger::Channel;
 pub use needs::Sex;
 pub use params::{ActivityDef, Behavior, Catalog, PeopleParams, RecipeDef, SkillDef};
 pub use person::{
-    Activity, FloodMemory, Household, KnownPatch, Load, Person, Repro, Step, Target, Traits, Trip,
+    Activity, FloodLoss, FloodMemory, Household, KnownPatch, Load, Person, Repro, Step, Target,
+    Traits, Trip,
 };
 pub use population::{AgentEvent, Approximations, Ctx, Population, TimeUse, WaterDraws};

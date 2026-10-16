@@ -1,0 +1,32 @@
+# Walls of stone or brick (M6b slice BH; ADR-0022 §12; research 11-09 §5.2: a requirement naming a
+# technique, as London's 1667 Act asked for brick or stone outer walls, 11-09 §1.2). When fire has
+# taken buildings a household knew, or buildings it knew have given way (the issues `burned` and
+# `gave_way`), someone who knows rubble walling may propose that new walls must be of rubble, mud
+# brick or fired brick. Whether mass walls would have saved a building that gave way is the
+# proposer's reading, not the kernel's: an inquiry's attributed cause may not be the actual one
+# (11-09 §1.4), so this template answers both issues by authoring judgement. It binds only
+# buildings begun once it is in force (11-09 §1.7). A household weighs it by the loss it believes
+# averted against what building its next home's walls of stone or brick would cost more; a hut
+# cannot have them, so a household that builds huts keeps it only by building otherwise, and
+# otherwise breaks it. Keeping it is each builder's choice, with no sanction (11-09 §5.3). Its id
+# sorts after every older template's: hearth talk about a question is keyed by a template's place
+# in id order.
+kind = "policy"
+id = "core:policy/works_wrought_walls"
+name = "Walls of stone or brick"
+description = "New walls must be of rubble, mud brick or fired brick, not wattle and daub."
+does = "building_rule"
+answers = ["burned", "gave_way"]
+question = "whether new walls must be of stone or brick"
+
+[rule]
+template = "walls_of_kinds"
+walls = ["rubble", "mud_brick", "fired_brick"]
+needs = "core:technique/rubble_walling"
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: it guards against fire and collapse, and binds how
+# people build.
+[bears]
+"core:value/security" = 0.5
+"core:value/autonomy" = -0.5

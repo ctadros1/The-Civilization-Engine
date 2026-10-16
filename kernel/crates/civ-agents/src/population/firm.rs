@@ -316,7 +316,23 @@ impl Population {
             return;
         };
         if (now.minutes() - since.minutes()) as f64 / 1440.0 > params.firm.idle_close_days {
-            self.close_firm(ctx, id, Exit::Idle);
+            // Barred, when a licence binding its owners covers what it makes and it holds such
+            // goods but offers none of them: its owners kept the licence (M7c slice BX).
+            let goods = &ctx.catalog.goods;
+            let purpose = |g: usize| goods.get(g).map(|d| d.purpose);
+            let barred = self.firm(id).is_some_and(|f| {
+                self.privileges_binding(ctx, owner).iter().any(|(_, _, d)| {
+                    let covered = |g: usize| purpose(g) == Some(d.purpose);
+                    d.grant == crate::polity::Grant::Licence
+                        && f.lines.iter().any(|&g| covered(usize::from(g)))
+                        && f.stores
+                            .iter()
+                            .enumerate()
+                            .any(|(g, &kg)| covered(g) && kg >= 1.0)
+                        && !f.offers.iter().any(|o| covered(usize::from(o.good)))
+                })
+            });
+            self.close_firm(ctx, id, if barred { Exit::Barred } else { Exit::Idle });
             return;
         }
         self.settle_firm(ctx, id);
@@ -424,6 +440,11 @@ impl Population {
                 ..w
             })
         });
+        // A privilege that binds its owners, kept, withdraws the offers it covers (M7c slice BX).
+        let rows = match self.firm(id).map(|f| f.owner) {
+            Some(owner) => self.keep_privileges(ctx, owner, rows).0,
+            None => rows,
+        };
         if let Some(f) = self.firm_mut(id) {
             f.offers = rows;
             f.wage = wage;

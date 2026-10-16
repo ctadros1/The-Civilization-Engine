@@ -24,10 +24,20 @@ fn building_on<'a>(sim: &'a Sim, w: &Earthwork) -> Option<&'a Building> {
 /// none.
 pub fn earthworks_rev(sim: &Sim) -> u64 {
     let works = &sim.land.earthworks;
-    if works.is_empty() {
+    let enclosures = &sim.land.enclosures;
+    if works.is_empty() && enclosures.list.is_empty() {
         return 0;
     }
     let mut hasher = DefaultHasher::new();
+    // Enclosures (M6c slice BK): their lines, gates and work.
+    enclosures.revision().hash(&mut hasher);
+    for e in &enclosures.list {
+        (e.id.get(), e.work_h.to_bits(), e.sectors.len()).hash(&mut hasher);
+        // Rot at the posts' foot, month by month (step three).
+        for sector in &e.sectors {
+            sector.loss.to_bits().hash(&mut hasher);
+        }
+    }
     for w in works {
         let building = building_on(sim, w).map_or(0, |b| b.id.get());
         (w.id.get(), w.done.to_bits(), w.cut_m3.to_bits(), building).hash(&mut hasher);
@@ -37,6 +47,8 @@ pub fn earthworks_rev(sim: &Sim) -> u64 {
                 b.erosion_m.to_bits(),
                 b.sediment_m3.to_bits(),
                 b.breached,
+                b.piping.to_bits(),
+                b.refill_m3.to_bits(),
             )
                 .hash(&mut hasher);
         }
@@ -94,7 +106,26 @@ fn words(sim: &Sim, w: &Earthwork, building: Option<&Building>) -> String {
         }
         EarthKind::Bank => {
             let bank = sim.land.banks.iter().find(|b| b.work == w.id);
-            return bank.map_or_else(|| "bank geometry unavailable".into(), |b| format!("a {:.0} m bank, {:.0}% built, crest {:.2} m above ground{}; earth from borrow pit {}; {} washed into sediment stock", b.length_m(), w.done * 100.0, (b.built_height_m(w.done) - b.settlement_m - b.erosion_m).max(0.0), if b.breached { ", breached" } else { "" }, b.borrow, volume(b.sediment_m3)));
+            return bank.map_or_else(|| "bank geometry unavailable".into(), |b| format!("a {:.0} m bank, {:.0}% built, crest {:.2} m above ground{}; earth from borrow pit {}; {} washed into sediment stock", b.length_m(), w.done * 100.0, (b.built_height_m(w.done) - b.settlement_m - b.erosion_m).max(0.0), if b.breached { ", breached".to_owned() } else if b.piping > 0.0 { format!(", {:.0}% of the way to piping through", b.piping * 100.0) } else { String::new() }, b.borrow, volume(b.sediment_m3)) + &if b.refill_m3 > 0.0 { format!("; {} laid back on it in mending", volume(b.refill_m3)) } else { String::new() });
+        }
+        EarthKind::Ditch => {
+            let ditch = sim.land.ditches.iter().find(|d| d.work == w.id);
+            return ditch.map_or_else(
+                || "ditch geometry unavailable".into(),
+                |d| {
+                    let whose = eldest_name(sim, w.household)
+                        .map_or_else(|| "an".to_owned(), |name| format!("{name}'s household's"));
+                    format!(
+                        "{whose} irrigation ditch, {:.0} m from the river to its field, {:.0}% dug; \
+                         {}; {} taken from the river, {} kept by the field",
+                        d.length_m(),
+                        f64::from(w.done) * 100.0,
+                        if d.open { "its intake open" } else { "its intake closed" },
+                        volume(d.taken_m3),
+                        volume(d.kept_m3)
+                    )
+                },
+            );
         }
         EarthKind::Spoil => {
             let (good, working) = dug_for(sim, w);
@@ -127,6 +158,7 @@ fn kind(k: EarthKind) -> u8 {
         EarthKind::Pit => 1,
         EarthKind::Spoil => 2,
         EarthKind::Bank => 3,
+        EarthKind::Ditch => 4,
     }
 }
 
@@ -140,6 +172,9 @@ pub fn earthworks_response(sim: &Sim) -> Vec<u8> {
         let bank = sim.land.banks.iter().find(|b| b.work == w.id);
         let a = bank.map(|b| wire::Vec2::new(b.a[0] as f32, b.a[1] as f32));
         let b = bank.map(|b| wire::Vec2::new(b.b[0] as f32, b.b[1] as f32));
+        let ditch = sim.land.ditches.iter().find(|d| d.work == w.id);
+        let da = ditch.map(|d| wire::Vec2::new(d.a[0] as f32, d.a[1] as f32));
+        let db = ditch.map(|d| wire::Vec2::new(d.b[0] as f32, d.b[1] as f32));
         list.push(wire::EarthworkInfo::create(
             &mut fbb,
             &wire::EarthworkInfoArgs {
@@ -164,8 +199,68 @@ pub fn earthworks_response(sim: &Sim) -> Vec<u8> {
                     (b.built_height_m(w.done) - b.settlement_m - b.erosion_m).max(0.0) as f32
                 }),
                 bank_breached: bank.is_some_and(|b| b.breached),
+                ditch_a: da.as_ref(),
+                ditch_b: db.as_ref(),
+                ditch_open: ditch.is_some_and(|d| d.open),
+                ..Default::default()
             },
         ));
+    }
+    // Each enclosure's sectors (wire 1.75, M6c slice BK).
+    for e in &sim.land.enclosures.list {
+        let standing = e.standing();
+        let whose = sim
+            .land
+            .settlements
+            .iter()
+            .find(|s| s.id == e.settlement)
+            .map_or_else(|| "a settlement".to_owned(), |s| s.name.clone());
+        for (i, s) in e.sectors.iter().enumerate() {
+            let state = if i >= standing {
+                0
+            } else if s.gap() {
+                2
+            } else {
+                1
+            };
+            let gate = s.gate.map_or(0, |g| if g.open { 1 } else { 2 });
+            let what = match (state, gate) {
+                (0, 0) => "to be built".to_owned(),
+                (0, _) => "a gate, to be built".to_owned(),
+                (2, _) => "rotted through: a gap".to_owned(),
+                (_, 1) => "a gate, open".to_owned(),
+                (_, 2) => "a gate, shut".to_owned(),
+                _ if s.loss >= 0.25 => {
+                    format!("standing, its posts {:.0}% rotted through", s.loss * 100.0)
+                }
+                _ => "standing".to_owned(),
+            };
+            let text = fbb.create_string(&format!(
+                "a stretch of the palisade round {whose}, {:.0} m: {what}",
+                s.length_m()
+            ));
+            let a = wire::Vec2::new(s.a.0, s.a.1);
+            let b = wire::Vec2::new(s.b.0, s.b.1);
+            list.push(wire::EarthworkInfo::create(
+                &mut fbb,
+                &wire::EarthworkInfoArgs {
+                    id: e.id.get(),
+                    kind: 5,
+                    x: s.a.0.min(s.b.0),
+                    y: s.a.1.min(s.b.1),
+                    w: (s.a.0 - s.b.0).abs(),
+                    h: (s.a.1 - s.b.1).abs(),
+                    done: if i < standing { 1.0 } else { 0.0 },
+                    words: Some(text),
+                    sector_a: Some(&a),
+                    sector_b: Some(&b),
+                    sector_index: i as u32,
+                    sector_state: state,
+                    sector_gate: gate,
+                    ..Default::default()
+                },
+            ));
+        }
     }
     let list = fbb.create_vector(&list);
     let tiles: Vec<wire::GroundTileRev> = sim

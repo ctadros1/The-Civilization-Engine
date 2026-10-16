@@ -202,6 +202,7 @@ impl Population {
             Some(c) if spell.is_none_or(|s| day - c.day <= s) => c.id,
             _ => self.word.make(crate::word::Claim {
                 fire: None,
+                event: None,
                 id: 0,
                 kind: crate::word::ClaimKind::Sickness,
                 settlement,

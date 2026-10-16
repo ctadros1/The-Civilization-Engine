@@ -199,7 +199,7 @@ impl Population {
         let Some(&hd) = self.hh_index.get(&id) else {
             return;
         };
-        let born: HashMap<PermanentId, i64> = self
+        let born: FastMap<PermanentId, i64> = self
             .households
             .get(hd)
             .map(|x| {
@@ -854,8 +854,8 @@ impl Population {
     }
 
     /// Parents and children of everyone in the records.
-    fn family_links(&self) -> HashMap<PermanentId, Vec<PermanentId>> {
-        let mut links: HashMap<PermanentId, Vec<PermanentId>> = HashMap::new();
+    fn family_links(&self) -> FastMap<PermanentId, Vec<PermanentId>> {
+        let mut links: FastMap<PermanentId, Vec<PermanentId>> = FastMap::default();
         for r in self.records.values() {
             for parent in [r.mother, r.father].into_iter().flatten() {
                 links.entry(r.id).or_default().push(parent);
@@ -1685,6 +1685,10 @@ impl Population {
             admired,
             midden: crate::person::Midden::begun(ctx.now),
             flood_memory: crate::person::FloodMemory::default(),
+            flood_losses: Vec::new(),
+            ditch_worth: 0.0,
+            fire_losses: Vec::new(),
+            gave_way: Vec::new(),
         });
         for who in [woman, man] {
             let Some(from) = self.person(who).map(|p| p.household) else {

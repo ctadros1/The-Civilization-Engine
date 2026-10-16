@@ -1,0 +1,26 @@
+# A hearer (M7b slice BR, ADR-0025 §1: a forum is a law). The one the gathering names hears the
+# cases brought under the law against taking and the law against raiding, the evening after each
+# is brought, alone: they find only by standing for a finding (research 09-07 §1.3: who decides is
+# its own choice; 09-02 §5.1: a single adjudicator is among the commonest forums). They are
+# unpaid, as the watch is. The law names its holder and lapses when they die or leave, and then
+# cases go to the gathering again. A hearer never hears a case their household is party to. The
+# gathering stays the forum for everything else; nothing creates a court. Whether anyone proposes
+# one, whom, and whether the body agrees, is people's.
+kind = "policy"
+id = "core:policy/name_a_hearer"
+name = "Hearer"
+description = "The one the gathering names hears the cases brought under the laws against taking and raiding, alone."
+does = "hear_cases"
+answers = ["cases_waiting"]
+question = "whether one named should hear the cases brought"
+
+[forum]
+seat = "holder"
+hears = ["against_taking", "against_raiding"]
+# They follow no finding but as they believe it (content API 111, M7b slice BS).
+authority = "informative"
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 0.5
+"core:value/autonomy" = -0.5    # one person decides what the gathering did

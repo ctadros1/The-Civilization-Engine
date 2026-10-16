@@ -4,6 +4,7 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { ElectionLine } from '../../tce/wire/election-line.js';
 import { LawLine } from '../../tce/wire/law-line.js';
 import { RelationLine } from '../../tce/wire/relation-line.js';
 
@@ -244,8 +245,37 @@ relationsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+settlements(index: number):string
+settlements(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+settlements(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 56);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+settlementsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 56);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+ended():string|null
+ended(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+ended(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 58);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+elections(index: number, obj?:ElectionLine):ElectionLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 60);
+  return offset ? (obj || new ElectionLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+electionsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 60);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startPolityLine(builder:flatbuffers.Builder) {
-  builder.startObject(26);
+  builder.startObject(29);
 }
 
 static addPolity(builder:flatbuffers.Builder, polity:bigint) {
@@ -496,12 +526,48 @@ static startRelationsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addSettlements(builder:flatbuffers.Builder, settlementsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(26, settlementsOffset, 0);
+}
+
+static createSettlementsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startSettlementsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addEnded(builder:flatbuffers.Builder, endedOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(27, endedOffset, 0);
+}
+
+static addElections(builder:flatbuffers.Builder, electionsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(28, electionsOffset, 0);
+}
+
+static createElectionsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startElectionsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endPolityLine(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:bigint, nameOffset:flatbuffers.Offset, foundedMinute:bigint, customOffset:flatbuffers.Offset, members:number, storeOffset:flatbuffers.Offset, storeKg:number, lawsOffset:flatbuffers.Offset, gatheringLaw:bigint, gatheringMinute:bigint, gatheringPresent:number, officesOffset:flatbuffers.Offset, labelOffset:flatbuffers.Offset, labelModifiersOffset:flatbuffers.Offset, labelWhyOffset:flatbuffers.Offset, labelConfidence:number, gatheringCasesOffset:flatbuffers.Offset, customHistoryOffset:flatbuffers.Offset, bodyMembers:number, factionsOffset:flatbuffers.Offset, petitionsOffset:flatbuffers.Offset, refusalsOffset:flatbuffers.Offset, revoltsOffset:flatbuffers.Offset, coupsOffset:flatbuffers.Offset, relationsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:bigint, nameOffset:flatbuffers.Offset, foundedMinute:bigint, customOffset:flatbuffers.Offset, members:number, storeOffset:flatbuffers.Offset, storeKg:number, lawsOffset:flatbuffers.Offset, gatheringLaw:bigint, gatheringMinute:bigint, gatheringPresent:number, officesOffset:flatbuffers.Offset, labelOffset:flatbuffers.Offset, labelModifiersOffset:flatbuffers.Offset, labelWhyOffset:flatbuffers.Offset, labelConfidence:number, gatheringCasesOffset:flatbuffers.Offset, customHistoryOffset:flatbuffers.Offset, bodyMembers:number, factionsOffset:flatbuffers.Offset, petitionsOffset:flatbuffers.Offset, refusalsOffset:flatbuffers.Offset, revoltsOffset:flatbuffers.Offset, coupsOffset:flatbuffers.Offset, relationsOffset:flatbuffers.Offset, settlementsOffset:flatbuffers.Offset, endedOffset:flatbuffers.Offset, electionsOffset:flatbuffers.Offset):flatbuffers.Offset {
   PolityLine.startPolityLine(builder);
   PolityLine.addPolity(builder, polity);
   PolityLine.addSettlement(builder, settlement);
@@ -529,6 +595,9 @@ static createPolityLine(builder:flatbuffers.Builder, polity:bigint, settlement:b
   PolityLine.addRevolts(builder, revoltsOffset);
   PolityLine.addCoups(builder, coupsOffset);
   PolityLine.addRelations(builder, relationsOffset);
+  PolityLine.addSettlements(builder, settlementsOffset);
+  PolityLine.addEnded(builder, endedOffset);
+  PolityLine.addElections(builder, electionsOffset);
   return PolityLine.endPolityLine(builder);
 }
 }

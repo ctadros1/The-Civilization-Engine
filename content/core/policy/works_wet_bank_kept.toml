@@ -1,0 +1,24 @@
+# A flood bank kept (M6b slice BG; ADR-0022 §11: nobody mends a polity's bank unless a law asks;
+# research 12-08 §1.4: maintenance needs an organization of its own, not the mobilization that
+# built it). When a bank the polity built wants mending (it has sunk or worn below its design,
+# water has seeped through it, or it has given way) and no law keeps it (the issue `bank_worn`),
+# anyone may propose that the polity keep it. A household weighs it by the losses it reckoned,
+# when the bank was proposed, the bank keeps out, a year, less its share of mending it now spread
+# over a bank's life, each hour worth the food an hour of its own work brings (research 11-07
+# §2.3). Once passed, the bank is looked over when a high water goes down and at each year's start
+# (research 11-12 §5.5: event-driven maintenance plus periodic inspection), and whenever it wants
+# mending each household is asked an equal share of the work: its people give it as they choose,
+# and nothing follows a share not given, so a bank may still be let go. Its id sorts after every
+# older template's: hearth talk about a question is keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/works_wet_bank_kept"
+name = "Flood bank kept"
+description = "The polity looks over the flood bank it built after each high water and each year, and each household is asked an equal share of mending it whenever it wants it."
+does = "keep_bank"
+answers = ["bank_worn"]
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement, as for building the bank: a share of every household's
+# hours is asked.
+[bears]
+"core:value/autonomy" = -0.5

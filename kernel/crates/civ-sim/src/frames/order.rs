@@ -162,41 +162,152 @@ pub(crate) fn watch_words(sim: &Sim, i: &Incident) -> String {
 /// The case brought for an incident and how the gathering decided, in words: what the polity
 /// knows.
 pub(crate) fn case_words(sim: &Sim, incident: u32) -> String {
-    let pop = &sim.people;
-    let Some(c) = pop
+    sim.people
         .order
         .cases
         .iter()
         .rev()
-        .find(|c| c.incident == incident)
-    else {
-        return String::new();
+        .find(|c| c.incident == incident && c.challenge.is_none())
+        .map_or_else(String::new, |c| case_text(sim, c))
+}
+
+/// A challenge of a law under a limit, in words (M7b slice BU): who challenged what before whom,
+/// and how it closed.
+pub(crate) fn challenge_text(sim: &Sim, c: &civ_agents::crime::Case) -> String {
+    let pop = &sim.people;
+    let policies = &sim.rules.catalog.policies;
+    let laws = || pop.polities.iter().flat_map(|p| &p.laws);
+    let words_of = |id: civ_core::PermanentId| {
+        laws().find(|l| l.id == id).map_or_else(
+            || "a law".to_owned(),
+            |l| civ_agents::polity::law_words(l, policies, &|p| pop.name_of(p)),
+        )
     };
+    let limit = c
+        .challenge
+        .and_then(|lid| laws().find(|l| l.id == lid))
+        .and_then(|l| policies.get(usize::from(l.policy))?.limit)
+        .map_or_else(|| "a limit".to_owned(), |l| l.words());
+    let forum = c.forum.and_then(|f| {
+        let law = laws().find(|l| l.id == f)?;
+        let def = policies.get(usize::from(law.policy))?.forum.as_ref()?;
+        let holder = law.holder.map(|h| pop.name_of(h));
+        let w = civ_agents::forum::hearers_words(def, holder.as_deref());
+        let mut ch = w.chars();
+        ch.next()
+            .map(|f| f.to_lowercase().collect::<String>() + ch.as_str())
+    });
+    let before = forum.unwrap_or_else(|| "a forum".to_owned());
+    let (_, support, oppose) = c.counts();
+    let closed = c
+        .closure_days()
+        .filter(|_| c.stage != CaseStage::Open)
+        .map_or_else(String::new, |d| {
+            format!("; closed {d} day{} after", if d == 1 { "" } else { "s" })
+        });
+    let how = match c.stage {
+        CaseStage::Open => "it waits to be heard".to_owned(),
+        CaseStage::Found => format!(
+            "{before} found that it breaks the limit, {support} for and {oppose} against: it \
+             binds no more"
+        ),
+        CaseStage::NotFound => format!(
+            "{before} did not find that it breaks the limit, {support} for and {oppose} \
+             against: it stands"
+        ),
+        _ => "it was never heard".to_owned(),
+    };
+    format!(
+        "{} challenged {} before {before}, under the limit that {limit}; {how}{closed}",
+        pop.name_of(c.by),
+        words_of(c.law)
+    )
+}
+
+/// A case of a taking, in words (what the polity knows).
+pub(crate) fn case_text(sim: &Sim, c: &civ_agents::crime::Case) -> String {
+    let pop = &sim.people;
     let witnesses = match c.leads.len() {
         1 => "1 witness".to_owned(),
         n => format!("{n} witnesses"),
     };
+    // Who was to hear it: the gathering, or a forum (M7b slice BR).
+    let forum = c.forum.and_then(|f| {
+        let law = pop
+            .polities
+            .iter()
+            .flat_map(|p| &p.laws)
+            .find(|l| l.id == f)?;
+        let def = sim
+            .rules
+            .catalog
+            .policies
+            .get(usize::from(law.policy))?
+            .forum
+            .as_ref()?;
+        let holder = law.holder.map(|h| pop.name_of(h));
+        Some((
+            def,
+            civ_agents::forum::hearers_words(def, holder.as_deref()),
+        ))
+    });
+    let hearers = forum.as_ref().map_or_else(
+        || "the gathering".to_owned(),
+        |(_, w)| {
+            let mut c = w.chars();
+            c.next()
+                .map(|f| f.to_lowercase().collect::<String>() + c.as_str())
+                .unwrap_or_default()
+        },
+    );
     let brought = format!(
-        "{} brought it before the gathering on the word of {witnesses}",
+        "{} brought it before {hearers} on the word of {witnesses}",
         pop.name_of(c.by)
     );
     let (present, support, oppose) = c.counts();
-    let tally = format!(
-        "{support} for, {oppose} against; {present} of {} adults came",
-        c.eligible
-    );
+    let tally = match &forum {
+        Some((def, _)) if def.seat == civ_agents::forum::ForumSeat::Holder => {
+            "heard alone".to_owned()
+        }
+        Some(_) => format!("{support} for, {oppose} against, of {} who sat", c.eligible),
+        None => format!(
+            "{support} for, {oppose} against; {present} of {} adults came",
+            c.eligible
+        ),
+    };
     let accused = pop.name_of(c.accused);
     let decided = match c.stage {
         CaseStage::Open => "it waits to be heard".to_owned(),
-        CaseStage::Found if c.exiled => format!(
-            "the gathering found that {accused} took: {tally}; they were sent from the valley"
-        ),
-        CaseStage::Found => format!("the gathering found that {accused} took: {tally}"),
-        CaseStage::NotFound => {
-            format!("the gathering did not find that {accused} took: {tally}")
+        CaseStage::Found if c.exiled => {
+            format!("{hearers} found that {accused} took: {tally}; they were sent from the valley")
         }
+        CaseStage::Found => format!("{hearers} found that {accused} took: {tally}"),
+        CaseStage::NotFound => {
+            format!("{hearers} did not find that {accused} took: {tally}")
+        }
+        CaseStage::Unheard if forum.is_some() => "nobody sat to hear it".to_owned(),
         CaseStage::Unheard => format!("too few came to hear it: {present} of {}", c.eligible),
         CaseStage::Lapsed => "it was never heard: a party was no longer there".to_owned(),
+        CaseStage::Settled => format!(
+            "{accused}'s household offered back what was taken before it was heard, and it was \
+             accepted"
+        ),
+        CaseStage::Withdrawn => {
+            "it was withdrawn before it was heard: what was taken had been given back".to_owned()
+        }
+    };
+    // A finding against a remembered one of the same facts (M7b slice BS).
+    let decided = match c.departed {
+        Some(n) => format!("{decided}; it departed from case {n}, of the same facts"),
+        None => decided,
+    };
+    // Time to closure (M7b slice BR).
+    let decided = match c.closure_days() {
+        Some(d) if c.stage != CaseStage::Open => format!(
+            "{decided}; closed {d} day{} after it was brought",
+            if d == 1 { "" } else { "s" }
+        ),
+        _ => decided,
     };
     format!("{brought}; {decided}")
 }
@@ -325,6 +436,27 @@ pub fn order_response(sim: &Sim) -> Vec<u8> {
         .map(|e| fbb.create_string(&e.name))
         .collect();
     let encounters = fbb.create_vector(&encounters);
+    // The latest cases and challenges in words (wire 1.79).
+    let case_lines: Vec<_> = order
+        .cases
+        .iter()
+        .rev()
+        .take(20)
+        .map(|c| {
+            let text = if c.challenge.is_some() {
+                challenge_text(sim, c)
+            } else {
+                case_text(sim, c)
+            };
+            let mut ch = text.chars();
+            let text = ch
+                .next()
+                .map(|f| f.to_uppercase().collect::<String>() + ch.as_str())
+                .unwrap_or_default();
+            fbb.create_string(&format!("Case {}: {text}.", c.id))
+        })
+        .collect();
+    let case_lines = fbb.create_vector(&case_lines);
     let body = wire::Order::create(
         &mut fbb,
         &wire::OrderArgs {
@@ -348,6 +480,15 @@ pub fn order_response(sim: &Sim) -> Vec<u8> {
             not_found: stage(CaseStage::NotFound),
             unheard: stage(CaseStage::Unheard),
             encounters: Some(encounters),
+            settled: stage(CaseStage::Settled),
+            withdrawn: stage(CaseStage::Withdrawn),
+            challenges: order.cases.iter().filter(|c| c.challenge.is_some()).count() as u32,
+            struck_down: order
+                .cases
+                .iter()
+                .filter(|c| c.challenge.is_some() && c.stage == CaseStage::Found)
+                .count() as u32,
+            case_lines: Some(case_lines),
         },
     );
     response(fbb, wire::ResponseBody::Order, body)

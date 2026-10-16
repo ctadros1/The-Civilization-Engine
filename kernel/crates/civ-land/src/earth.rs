@@ -33,6 +33,10 @@ pub enum EarthKind {
     Spoil,
     /// A linear embankment; its hydraulic geometry is stored in a bank segment.
     Bank,
+    /// An irrigation ditch: a channel below the grid whose line and section are stored in a ditch
+    /// segment (M6b slice BG). Its earth is thrown along its side within the cells it crosses, so
+    /// the cells' mean ground is unchanged.
+    Ditch,
 }
 
 /// The surface an earthwork leaves, over the area it touches, and the earth it moves.
@@ -419,7 +423,7 @@ pub fn advance(work: &mut Earthwork, map: &WorldMap, ground: &mut GroundDelta, s
             );
         }
         // A pit or a heap is as far as its earth ([`dig`]).
-        EarthKind::Pit | EarthKind::Spoil | EarthKind::Bank => return,
+        EarthKind::Pit | EarthKind::Spoil | EarthKind::Bank | EarthKind::Ditch => return,
     }
     work.done = share;
 }
@@ -491,7 +495,7 @@ pub fn replay(work: &Earthwork, map: &WorldMap, ground: &mut GroundDelta) {
         }
         EarthKind::Pit => spread(&work.rect, -f64::from(work.cut_m3), ground),
         EarthKind::Spoil => spread(&work.rect, f64::from(work.cut_m3), ground),
-        EarthKind::Bank => {}
+        EarthKind::Bank | EarthKind::Ditch => {}
     }
 }
 

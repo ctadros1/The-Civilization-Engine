@@ -39,6 +39,32 @@ pub fn blamed_words(sim: &Sim, blamed: Blamed) -> String {
             ),
         Blamed::Household(h) => super::people::household_name(sim, h),
         Blamed::Person(p) => pop.name_of(p),
+        // A forum (M7b slice BU): who sits in it.
+        Blamed::Forum(law) => pop
+            .polities
+            .iter()
+            .flat_map(|p| &p.laws)
+            .find(|l| l.id == law)
+            .and_then(|l| {
+                let def = sim
+                    .rules
+                    .catalog
+                    .policies
+                    .get(usize::from(l.policy))?
+                    .forum
+                    .as_ref()?;
+                let holder = l.holder.map(|h| pop.name_of(h));
+                let w = civ_agents::forum::hearers_words(def, holder.as_deref());
+                let mut c = w.chars();
+                c.next()
+                    .map(|f| f.to_lowercase().collect::<String>() + c.as_str())
+            })
+            .unwrap_or_else(|| "a forum".to_owned()),
+        // An organization by stake that turned them away (M7c slice BW).
+        Blamed::Organization(id) => pop
+            .factions
+            .get(id)
+            .map_or_else(|| "an organization".to_owned(), |f| faction_name(sim, f)),
     }
 }
 
@@ -58,6 +84,35 @@ pub fn law_text(
             super::sickness::place_words(sim, source)
         );
     }
+    // What names an organization or a settlement says which (M7c slices BV-BX).
+    let org = || {
+        law.target
+            .and_then(|t| sim.people.factions.get(t))
+            .map_or_else(|| "an organization".to_owned(), |f| faction_name(sim, f))
+    };
+    let def = sim.rules.catalog.policies.get(usize::from(law.policy));
+    match law.kind {
+        civ_agents::polity::PolicyKind::Recognize => {
+            return format!(
+                "recognition of {}: its members owe no duty on the goods it sells",
+                org()
+            );
+        }
+        civ_agents::polity::PolicyKind::Privilege => {
+            if let Some(g) = def.and_then(|d| d.privilege) {
+                return format!("a privilege: {} alone {}", org(), g.words());
+            }
+        }
+        civ_agents::polity::PolicyKind::Embargo => {
+            if let Some(t) = law.target {
+                return format!(
+                    "an embargo: nobody of theirs may buy at {}'s doors",
+                    place_name(sim, t)
+                );
+            }
+        }
+        _ => {}
+    }
     polity.words_of(law, &sim.rules.catalog.policies, &|id| {
         sim.people.name_of(id)
     })
@@ -70,6 +125,89 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
     let pop = &sim.people;
     let name_of = |id: PermanentId| pop.name_of(id);
     match c.kind {
+        // A finding (M7b slice BS).
+        ClaimKind::Finding => {
+            let day = day_words(SimTime::from_minutes(c.day * DAY));
+            let place = place_name(sim, c.settlement);
+            match c.event.and_then(|id| pop.order.case(id)) {
+                Some(case) => format!(
+                    "case {} at {place}, that {} took food from another household, was {} on \
+                     {day}",
+                    case.id,
+                    name_of(case.accused),
+                    if case.stage == civ_agents::crime::CaseStage::Found {
+                        "found"
+                    } else {
+                        "not found"
+                    }
+                ),
+                None => format!("a case was decided at {place} on {day}"),
+            }
+        }
+        // A council's election (M7a slice BO).
+        ClaimKind::Election => {
+            let day = day_words(SimTime::from_minutes(c.day * DAY));
+            let place = sim
+                .land
+                .settlements
+                .iter()
+                .find(|s| s.id == c.settlement)
+                .map_or("the hearth", |s| s.name.as_str());
+            let seats = pop
+                .polities
+                .iter()
+                .find(|p| p.settlement == c.settlement)
+                .and_then(|p| p.elections.iter().rev().find(|e| e.poll_day == c.day))
+                .map(|e| e.seats);
+            match seats {
+                Some(s) if s.method == civ_agents::seats::SeatMethod::Lot => {
+                    format!("the lot for {} is drawn at {place} on {day}", s.words())
+                }
+                Some(s) => format!("{} is polled at {place} on {day}", s.words()),
+                None => format!("an election is held at {place} on {day}"),
+            }
+        }
+        // One who stands in a council's election, and where they said they stand (M7a slice BP).
+        ClaimKind::Candidacy => {
+            let day = day_words(SimTime::from_minutes(c.day * DAY));
+            let who = c.subject.map_or_else(|| "someone".to_owned(), name_of);
+            let election = pop
+                .polities
+                .iter()
+                .find(|p| p.settlement == c.settlement)
+                .and_then(|p| p.elections.iter().rev().find(|e| e.poll_day == c.day));
+            let mut seats = election.map_or_else(|| "a seat".to_owned(), |e| e.seats.words());
+            // Where seats are shared among settlements, the district they stand in (M7a slice BQ).
+            if let Some(d) = election
+                .zip(c.subject)
+                .and_then(|(e, who)| e.candidates.iter().find(|x| x.person == who))
+                .and_then(|x| x.district)
+            {
+                seats = format!("{seats}, in {}", place_name(sim, d));
+            }
+            let policies = &sim.rules.catalog.policies;
+            let told: Vec<String> = election
+                .zip(c.subject)
+                .and_then(|(e, who)| e.positions_of(who))
+                .into_iter()
+                .flatten()
+                .filter_map(|&(q, x)| {
+                    let q = policies.get(usize::from(q))?.question.as_deref()?;
+                    Some(format!(
+                        "{} on {q}",
+                        civ_agents::opinion::lean_words(f64::from(x))
+                    ))
+                })
+                .collect();
+            if told.is_empty() {
+                format!("{who} stands for {seats}, polled on {day}")
+            } else {
+                format!(
+                    "{who} stands for {seats}, polled on {day}: {}",
+                    told.join("; ")
+                )
+            }
+        }
         ClaimKind::Gathering => {
             let day = day_words(SimTime::from_minutes(c.day * DAY));
             let law = c.subject.and_then(|id| {
@@ -177,6 +315,76 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
             );
             format!("{at} was found burning on {on}; this account names no cause")
         }
+        ClaimKind::Raid => {
+            let on = day_words(SimTime::from_minutes(c.day * DAY));
+            let of = c.subject.map_or_else(
+                || "a household".to_owned(),
+                |h| super::people::household_name(sim, h),
+            );
+            let clash = c
+                .event
+                .and_then(|id| pop.order.clashes.iter().find(|x| x.id == id));
+            let band = clash.and_then(|x| pop.order.bands.iter().find(|b| b.id == x.band));
+            match (clash, band) {
+                (Some(x), Some(b)) => {
+                    let came = x
+                        .fighters
+                        .iter()
+                        .filter(|f| f.side == civ_agents::war::Side::Band)
+                        .count();
+                    let struck = x.blows.len();
+                    let died = x.blows.iter().filter(|s| s.harm.killed).count();
+                    let mut said = format!(
+                        "{came} of {} came in a band to {of} on {on}",
+                        place_name(sim, b.settlement)
+                    );
+                    if struck > 0 {
+                        said.push_str(&format!(
+                            "; {struck} {} struck",
+                            if struck == 1 {
+                                "blow was"
+                            } else {
+                                "blows were"
+                            }
+                        ));
+                    }
+                    if died > 0 {
+                        said.push_str(&format!(
+                            ", and {died} died of {}",
+                            if struck == 1 { "it" } else { "them" }
+                        ));
+                    }
+                    if b.taken_kcal > 0.0 {
+                        let kg: f32 = b.taken.iter().map(|t| t.1).sum();
+                        said.push_str(&format!("; they took {kg:.0} kg"));
+                    } else {
+                        said.push_str("; they took nothing");
+                    }
+                    said
+                }
+                _ => format!("people of another settlement came in a band to {of} on {on}"),
+            }
+        }
+        ClaimKind::BandSeen => {
+            let on = day_words(SimTime::from_minutes(c.day * DAY));
+            match c
+                .event
+                .and_then(|id| pop.order.bands.iter().find(|b| b.id == id))
+            {
+                Some(b) => {
+                    let toward = pop
+                        .household(b.target)
+                        .and_then(|x| x.settlement)
+                        .map_or_else(String::new, |s| format!(", toward {}", place_name(sim, s)));
+                    format!(
+                        "a band of {} of {} was seen walking on {on}{toward}",
+                        b.mustered.len(),
+                        place_name(sim, b.settlement)
+                    )
+                }
+                None => format!("a band was seen walking on {on}"),
+            }
+        }
         ClaimKind::Sickness => {
             let from = day_words(SimTime::from_minutes(c.day * DAY));
             match c.subject {
@@ -188,6 +396,15 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
             }
         }
     }
+}
+
+/// A settlement's name, or "another settlement".
+fn place_name(sim: &Sim, id: PermanentId) -> String {
+    sim.land
+        .settlements
+        .iter()
+        .find(|s| s.id == id)
+        .map_or_else(|| "another settlement".to_owned(), |s| s.name.clone())
 }
 
 /// The grievances `p` holds, the most keenly felt now first.
@@ -286,6 +503,7 @@ pub fn norm_lines<'a>(
             );
             let does = match def.kind {
                 NormKind::AbideByLaws => "pay what the gathering asks",
+                NormKind::AbideByFindings => "meet what a finding imposes",
             };
             let statement = fbb.create_string(&def.statement);
             let holds = fbb.create_string(endorse_words(e));
@@ -379,9 +597,65 @@ pub fn ideology_lines<'a>(
     fbb.create_vector(&lines)
 }
 
-/// A faction's name, after its founder: "Mira's faction".
+/// A faction's name, after its founder: "Mira's faction"; an organization by stake's, "Mira's
+/// organization".
 pub fn faction_name(sim: &Sim, f: &civ_agents::faction::Faction) -> String {
-    format!("{}'s faction", sim.people.name_of(f.founder))
+    let word = if f.stake.is_some() {
+        "organization"
+    } else if is_party(sim, f) {
+        "party"
+    } else {
+        "faction"
+    };
+    format!("{}'s {word}", sim.people.name_of(f.founder))
+}
+
+/// What an organization by stake is of and its rules, in words (M7c slice BW): "those who sell
+/// tools; it admits one a member speaks for, its organizer decides, and its dues are a twentieth
+/// of each threshing".
+pub fn stake_words(st: &civ_agents::faction::Stake) -> String {
+    format!(
+        "those who sell {}; it admits {}, {} decides, and its dues are {} of each threshing",
+        st.purpose.plural_words(),
+        st.admit.words(),
+        st.decides.words(),
+        civ_agents::polity::share_text(f64::from(st.dues_share)),
+    )
+}
+
+/// Which polities recognize organization `org` by a law in force (M7c slice BW), after its
+/// stake: "; Oakholt's gathering recognizes it", or nothing.
+pub fn recognized_words(sim: &Sim, org: PermanentId) -> String {
+    let by: Vec<String> = sim
+        .people
+        .polities
+        .iter()
+        .filter(|p| {
+            p.laws.iter().any(|l| {
+                l.kind == civ_agents::polity::PolicyKind::Recognize
+                    && l.status == civ_agents::polity::LawStatus::InForce
+                    && l.target == Some(org)
+            })
+        })
+        .map(|p| format!("{}'s gathering", place_name(sim, p.settlement)))
+        .collect();
+    if by.is_empty() {
+        String::new()
+    } else {
+        format!("; {} recognizes it", by.join(" and "))
+    }
+}
+
+/// Whether the observer calls faction `f` a party (ADR-0024 §5, M7a slice BQ): it has backed a
+/// slate in two elections or more. Derived here, never saved, and nothing in the world reads it.
+pub fn is_party(sim: &Sim, f: &civ_agents::faction::Faction) -> bool {
+    sim.people
+        .polities
+        .iter()
+        .flat_map(|p| &p.elections)
+        .filter(|e| e.endorsements.iter().any(|x| x.0 == f.id))
+        .count()
+        >= 2
 }
 
 /// The law whose levy refusal `r` keeps back, in words (M4c slice AH): "a common store, taking a
@@ -429,9 +703,25 @@ pub fn faction_line<'a>(
     let pop = &sim.people;
     let m = pop.factions.membership(p.id)?;
     let f = pop.factions.get(m.faction)?;
-    let party = blamed_words(sim, f.against);
     let organizer = pop.name_of(f.organizer);
-    let why = civ_agents::faction::why_words(&m.why, &party, &organizer, f.organizer == p.id);
+    let (party, why) = match f.stake {
+        // An organization by stake is against nobody: it is of those who sell its goods.
+        Some(st) => (
+            format!("{}{}", stake_words(&st), recognized_words(sim, f.id)),
+            civ_agents::faction::stake_why_words(
+                &m.why,
+                st.purpose,
+                &organizer,
+                f.organizer == p.id,
+            ),
+        ),
+        None => {
+            let party = blamed_words(sim, f.against);
+            let why =
+                civ_agents::faction::why_words(&m.why, &party, &organizer, f.organizer == p.id);
+            (party, why)
+        }
+    };
     let name = fbb.create_string(&faction_name(sim, f));
     let against = fbb.create_string(&party);
     let organizer_name = fbb.create_string(&organizer);
@@ -542,7 +832,7 @@ pub fn news_lines<'a>(
             // Another household's sickness, or another's suspicion, while it is news (M6a slice BA).
             ClaimKind::Sickness => c.subject != Some(p.household),
             ClaimKind::Suspicion => c.subject != Some(p.id),
-            ClaimKind::Fire => true,
+            ClaimKind::Fire | ClaimKind::Raid | ClaimKind::BandSeen => true,
             _ => c.day >= today,
         })
         .take(MAX_NEWS_SHOWN)
@@ -596,6 +886,45 @@ fn whisper_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
     said.push(format!("told {} since", others(told)));
     let since = i.at.day_index();
     let acted = match c.kind {
+        // Whether they came to poll, once the polling day is past (M7a slice BO).
+        ClaimKind::Election => pop
+            .polities
+            .iter()
+            .find(|q| q.settlement == c.settlement)
+            .and_then(|q| q.elections.iter().rev().find(|e| e.poll_day == c.day))
+            .filter(|e| e.poll_day < sim.now().day_index())
+            .map(|e| {
+                if e.polled(p) {
+                    "came to poll".to_owned()
+                } else if e.stood(p) {
+                    "stood".to_owned()
+                } else {
+                    "did not come to poll".to_owned()
+                }
+            }),
+        // Whether they voted for the one who stood, once the polling day is past (M7a slice BP).
+        ClaimKind::Candidacy => pop
+            .polities
+            .iter()
+            .find(|q| q.settlement == c.settlement)
+            .and_then(|q| q.elections.iter().rev().find(|e| e.poll_day == c.day))
+            .filter(|e| e.poll_day < sim.now().day_index())
+            .zip(c.subject)
+            .map(|(e, who)| {
+                if who == p {
+                    "stood".to_owned()
+                } else if e
+                    .ballots
+                    .iter()
+                    .any(|(v, named)| *v == p && named.contains(&who))
+                {
+                    "named them".to_owned()
+                } else if e.polled(p) {
+                    "did not name them".to_owned()
+                } else {
+                    "did not come to poll".to_owned()
+                }
+            }),
         ClaimKind::Gathering => c.subject.and_then(|law| {
             let l = pop
                 .polities
@@ -637,8 +966,14 @@ fn whisper_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
                 .to_owned()
             })
         }),
-        // What people do of sickness they heard of is slice BA's later steps.
-        ClaimKind::Sickness | ClaimKind::Suspicion | ClaimKind::Fire => None,
+        // What people do of sickness they heard of is slice BA's later steps; a finding remembered
+        // is recalled at a hearing (M7b slice BS).
+        ClaimKind::Finding
+        | ClaimKind::Sickness
+        | ClaimKind::Suspicion
+        | ClaimKind::Fire
+        | ClaimKind::Raid
+        | ClaimKind::BandSeen => None,
         ClaimKind::Grievance => {
             let against = c.grievance.map(|g| g.0);
             let m = pop.factions.membership(p).copied();

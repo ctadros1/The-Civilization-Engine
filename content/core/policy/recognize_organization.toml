@@ -1,0 +1,19 @@
+# Recognition (M7c slice BW, ADR-0026 §2): the polity recognizes an organization by stake its
+# sponsor's household belongs to. In BW what recognition does is spare its members' households
+# the polity's duties on goods of what it sells (the trades they fetch to resell); privileges
+# follow in BX. Existing, recognized and privileged are three states: an organization exists
+# without any law. Who proposes it, and whether a gathering passes it, is people's: each
+# household weighs what its own purchases would no longer owe against what the store would no
+# longer take.
+kind = "policy"
+id = "core:policy/recognize_organization"
+name = "Recognition of an organization"
+description = "The polity recognizes an organization of those who sell the same goods: its members owe no duty on them."
+does = "recognize"
+answers = ["fetched_elsewhere"]
+question = "whether to recognize an organization of those who sell what they sell"
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/autonomy" = 0.25
+"core:value/reciprocity" = -0.25

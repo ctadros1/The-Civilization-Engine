@@ -1,0 +1,29 @@
+# Roofs that do not burn (M6b slice BH; ADR-0022 §12; research 11-09 §5.2: a requirement to
+# achieve a property, kept apart from one naming a technique). When fire has taken buildings a
+# household knew (the issue `burned`), someone who knows how to fire tile may propose that a new
+# roof within a set distance of another building must not burn (research 12-03 §2.2: radiation
+# from a burning dwelling falls from about 36 kW/m² at 1 m to 5 kW/m² at 4 m). It binds only
+# buildings begun once it is in force (11-09 §1.7: never rebuild the village when a law passes),
+# so old roofs stay as they are and a patchwork is lawful. A household weighs it by the fire loss
+# it believes averted against what its next building would cost more under it; one that builds
+# nothing soon pays nothing yet. Keeping it is each builder's choice, with no sanction (11-09
+# §5.3): a tile roof, or a plot far enough from others. Its id sorts after every older
+# template's: hearth talk about a question is keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/works_wrought_roofs"
+name = "Roofs that do not burn"
+description = "A new roof within four metres of another building must not burn: tile, not thatch."
+does = "building_rule"
+answers = ["burned"]
+question = "whether new roofs near others must not burn"
+
+[rule]
+template = "roofs_unburnt"
+within_m = 4.0
+needs = "core:technique/firing"
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: it guards against fire and binds how people build.
+[bears]
+"core:value/security" = 0.5
+"core:value/autonomy" = -0.5

@@ -21,6 +21,11 @@ pub struct RelationsParams {
     pub seen_trespass: f64,
     /// The same from hearing of it told at the hearth.
     pub heard_trespass: f64,
+    /// Evidence that the other polity harms one's own from seeing its people take from a store
+    /// of one's settlement, or knowing who took from one's own (M6c slice BI, content API 95).
+    pub seen_taking: f64,
+    /// The same from hearing of it told.
+    pub heard_taking: f64,
     /// The chance someone tells a companion of a claim on a place their polity's law makes, or
     /// one of another polity's their household heard of, when the companion's household has not
     /// heard of it (content API 61).
@@ -50,6 +55,9 @@ pub struct RelationsParams {
     /// that it helps from a gift handed over, to those of the receiving polity who know its law
     /// deciding the agreement (content API 64).
     pub performance: f64,
+    /// The share of what people of another settlement took from a household that it believes
+    /// their polity's word against raiding keeps from it (M6c slice BL, content API 103).
+    pub raids_kept: f64,
 }
 
 impl RelationsParams {
@@ -60,6 +68,8 @@ impl RelationsParams {
             half_life_days: 1826.0,
             seen_trespass: 1.0,
             heard_trespass: 0.5,
+            seen_taking: 1.0,
+            heard_taking: 0.5,
             share_claims: 0.15,
             claimed_worth: 0.5,
             packages: 16,
@@ -71,6 +81,7 @@ impl RelationsParams {
             deliver_days: 30,
             carry_points: 12.0,
             performance: 1.0,
+            raids_kept: 0.5,
         }
     }
 }
@@ -122,16 +133,27 @@ pub enum ViewAct {
     PaymentMissed = 3,
     /// A gift it gave one's polity under an agreement one knows was handed over.
     GiftReceived = 4,
+    /// One saw its people take from a store of one's settlement, or one's household knows who of
+    /// them took from it (M6c slice BI).
+    SawTaking = 5,
+    /// One was told its people took from a store of one's settlement.
+    HeardTaking = 6,
+    /// One came to know its people took from a store of one's settlement while its word against
+    /// raiding one's polity, by an agreement one knows, was in force (M6c slice BL, ADR-0023 §8).
+    WordBroken = 7,
 }
 
 impl ViewAct {
     /// Every act, in code order.
-    pub const ALL: [ViewAct; 5] = [
+    pub const ALL: [ViewAct; 8] = [
         ViewAct::SawTrespass,
         ViewAct::HeardTrespass,
         ViewAct::PaymentMet,
         ViewAct::PaymentMissed,
         ViewAct::GiftReceived,
+        ViewAct::SawTaking,
+        ViewAct::HeardTaking,
+        ViewAct::WordBroken,
     ];
 
     /// Its number in saves.
@@ -147,9 +169,12 @@ impl ViewAct {
     /// The domain it writes, and whether for (true) or against.
     pub fn writes(self) -> (Domain, bool) {
         match self {
-            ViewAct::SawTrespass | ViewAct::HeardTrespass => (Domain::HarmsUs, true),
+            ViewAct::SawTrespass
+            | ViewAct::HeardTrespass
+            | ViewAct::SawTaking
+            | ViewAct::HeardTaking => (Domain::HarmsUs, true),
             ViewAct::PaymentMet => (Domain::KeepsWord, true),
-            ViewAct::PaymentMissed => (Domain::KeepsWord, false),
+            ViewAct::PaymentMissed | ViewAct::WordBroken => (Domain::KeepsWord, false),
             ViewAct::GiftReceived => (Domain::HelpsUs, true),
         }
     }
@@ -162,6 +187,9 @@ impl ViewAct {
             ViewAct::PaymentMet => "a payment it owed our polity came",
             ViewAct::PaymentMissed => "a payment it owed our polity never came",
             ViewAct::GiftReceived => "our polity received its gift",
+            ViewAct::SawTaking => "saw or knew its people take from our stores",
+            ViewAct::HeardTaking => "heard its people took from our stores",
+            ViewAct::WordBroken => "its people took from our stores against its word",
         }
     }
 }
@@ -392,7 +420,7 @@ mod tests {
         for a in ViewAct::ALL {
             assert_eq!(ViewAct::from_code(a.code()), Some(a));
         }
-        assert_eq!(ViewAct::from_code(5), None);
+        assert_eq!(ViewAct::from_code(8), None);
     }
 
     #[test]

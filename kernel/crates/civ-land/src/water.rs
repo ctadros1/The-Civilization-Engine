@@ -553,6 +553,20 @@ impl Water {
         out
     }
 
+    /// `m3` of water seeping into the ground of patch `p` from a ditch (M6b slice BG): the head
+    /// rises by it over the patch's storage. A patch of water alone takes it into its water, and
+    /// its head is unchanged.
+    pub fn recharge(&mut self, p: usize, m3: f64) {
+        if p >= self.heads.len() || self.aquifer.fixed(p) || m3 <= 0.0 {
+            return;
+        }
+        if let Some(&storage) = self.aquifer.storage_m2.get(p)
+            && storage > 0.0
+        {
+            self.heads[p] += m3 / storage;
+        }
+    }
+
     /// What the runoff store let go today, mm over the map's land: derived from what it holds
     /// after letting it go.
     pub fn flow_mm(&self, params: &WaterParams) -> f64 {

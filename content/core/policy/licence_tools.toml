@@ -1,0 +1,33 @@
+# A licence on tools (M7c slice BX, ADR-0026 §3; research 08-17 §1.5: an exclusive right covers
+# an occupation, a product, a place or a customer, and the excluded may hire on with a member,
+# sell through one, conceal, move, petition or give up). It grants the organization of tool
+# sellers it names, which the polity must already recognize, the sole right to offer tools at
+# doors in the settlement. A household none of whose people belong weighs keeping it when it
+# reviews what it offers, as a levy is weighed; an offer posted anyway is seen by every buyer,
+# and becomes a case only if a member brings it. A finding imposes one of the bundles, in days
+# of the breaching household's food; the amounts are tuning values, not historical rates.
+# Whether anyone proposes it, with which bundle, and whether a gathering passes it, is people's.
+kind = "policy"
+id = "core:policy/licence_tools"
+name = "Licence on tools"
+description = "Only the organization of tool sellers it names may offer tools at doors here."
+does = "privilege"
+answers = ["fetched_elsewhere"]
+question = "whether only an organization of tool sellers may sell tools here"
+
+[privilege]
+grant = "licence"
+purpose = "tool"
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/autonomy" = -1.0
+"core:value/reciprocity" = 0.25
+
+[[bundles]]
+compensation_days = 0.0
+fine_days = 2.0           # two days' food to the common store
+
+[[bundles]]
+compensation_days = 3.0   # three to the member's household that brought it
+fine_days = 2.0

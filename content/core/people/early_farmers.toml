@@ -21,6 +21,10 @@ offtrail_factor = 0.6            # unworn ground; a worn trail restores full spe
 wading_factor = 0.25             # speed while wading a fordable river
 ford_max_discharge_m3s = 3.0     # mean discharge a river can be waded at
 max_slope = 1.0                  # 45 degrees
+# Climbing over a standing enclosure's palisade (M6c slice BK, content API 99; ADR-0023 §6): the
+# speed across its cells relative to the ground. A design prior: a 3-4 m palisade climbed with
+# hands and a leg up takes minutes where walking past takes seconds; no study gives a rate.
+climb_factor = 0.05
 
 [energy]                         # FAO/WHO/UNU Schofield equations (research 05-02 §2.1)
 bmr_band_starts = [0.0, 3.0, 10.0, 18.0, 30.0, 60.0]
@@ -519,6 +523,9 @@ acts = [
   # M4c slice AI, step four (content API 51): being struck weighs against the one who struck, as
   # heavily as their taking from one's own household.
   { act = "struck", familiarity = 0.0, warmth = 0.0, domain = "provision", good = 0.0, bad = 3.0 },
+  # M6c slice BJ, step two (content API 97): one who stayed home when a band went is a little less
+  # to be counted on, a sixth of a refused restitution for each unit (`bands.shirk_*`).
+  { act = "stayed_home", familiarity = 0.0, warmth = 0.0, domain = "word", good = 0.0, bad = 0.5 },
 ]
 
 [standing]                       # standing and notables (ADR-0014 §3-4); tuning values
@@ -580,6 +587,14 @@ w_stance = 1.0
 # founding processes run 3 to 36 months, and none is forced to finish). What they leave stands. A
 # design prior.
 founding_days = 90
+# Content API 117 (M7c slice BY, ADR-0026 §4; research 09-09 §1.7): a sponsor whose law would not
+# pass may give food to households a gift would bring round. A household owes a patron what such
+# gifts brought it within `owed_memory_days`, and its members' stances on the patron's laws gain
+# `w_owed` a day of its food (a tenth of a point: two and a half days carry the stance margin).
+# `patron_gift_days` caps one gift. Design priors, unestimated.
+w_owed = 0.1
+owed_memory_days = 365
+patron_gift_days = 10.0
 
 [crime]                          # taking, what is seen of it and what is owed (ADR-0015); tuning values
 # Research 04-09 §5.4 finds no established figures for moral-cost weights, belief-update rates or
@@ -685,6 +700,24 @@ round_stops = 6
 # brought before the gathering. All tuning values: 09-09 §2.3 gives no estimable figures.
 w_watch_report = 2.0
 ask_days = 3.0
+# Content API 117 (M7c slice BY, ADR-0026 §4; research 09-09 §1.3, §2.3): the store's keeper
+# weighs, at each of the polity's reviews, drawing for their own household up to `divert_share` of
+# the store's food (09-09's unestimated ceiling of 0.15 of the flow) as the watcher weighs asking
+# a payment: what it is worth to their household against their objection to taking what is not
+# theirs and the chance they believe they run of being found out. Below `favour_reserve_days` of
+# the settlement's food in the store, the keeper orders the asks by their regard and passes over
+# one they regard less than `favour_floor`. Tuning values.
+divert_share = 0.15
+favour_reserve_days = 30.0
+favour_floor = 0.0
+# A duty's collector, where a law names one, sees a purchase one of their polity brings home with
+# chance `collector_sight`, and either assesses it in full or asks the buyer's household for
+# `collector_ask_share` of what it owes to assess none of it (09-09 §1.3: under-assessing for a
+# payment), weighed as a watcher weighs asking; the household pays when that is worth more to it
+# than its objection, or refuses, pays the duty and holds the asking against the office. Tuning
+# values.
+collector_sight = 0.5
+collector_ask_share = 0.5
 # A curfew (M4b slice AD; the M4 crime brief §1.6: nobody may be away from home in set hours): a
 # household weighs one by `curfew_guard` of all it found missing back to it, and as much of what
 # its own members took from it, as it would a watch (the share of takings it believes a curfew
@@ -711,6 +744,16 @@ w_harm = 1.0
 strike_threshold = [1.0, 4.0]
 hurt_days = [3, 21]
 kill_share = 0.02
+# Precedent (content API 111, M7b slice BS, ADR-0025 §2): a sitter recalls up to `recall_k`
+# findings they remember (3 to 8), those whose fact tags match the case's most, newest first; under
+# a persuasive forum they lean toward those findings by `w_persuasive` points times the share of
+# tags matched, under a binding one by `w_binding`. Design priors: 09-07 §1.5 gives no weights.
+recall_k = 5
+w_persuasive = 1.0
+w_binding = 4.0
+# Review (content API 112, M7b slice BT, ADR-0025 §4): the points toward striking down a law a
+# sitter reads as clearly breaching a limit (times the reading, -1 to 1). A design prior.
+w_reading = 2.0
 
 [word]                           # word of mouth and grievances (M4c slice AE, ADR-0016); tuning values
 # A gathering is heard of by contact, never broadcast (research 09-16 §1.3: attendance and timing
@@ -854,6 +897,22 @@ w_exclusion = 1.0
 # the day before; it holds once more stand with it than with the gathering for `hold_days`, and
 # fails after `revolt_days`. A design prior, as a revolt's.
 coup_cost = 0.75
+# Content API 115 (M7c slice BW, ADR-0026 §2): organizations by stake. One whose household offers
+# goods at home that a duty in the content is laid on weighs organizing others who sell them: what
+# the best such duty would bring its household a year (slice BV's forecast, from the purchases on
+# record), as days of its food against `organize_days`, the cost of organizing (research 09-10
+# §2.2: 30 person-days, tested at 5-300), worth `w_stake` points when the law would bring as much a
+# year as organizing costs; organizing itself costs `w_stake`, and the dues weigh as a faction's.
+# A new one starts with the rules below: who it admits ("open": anyone who sells its goods;
+# "sponsor": one a member regards at least `trust_floor`), who decides ("organizer": the organizer,
+# unless they hold the applicant in ill regard; "members": more of the members who know them
+# regard them well than ill), and the share of each threshing its members give (research 08-17
+# §2.2: dues of 0-10 wage-days a year, unestimated). Design priors.
+organize_days = 30.0
+w_stake = 1.0
+stake_admit = "sponsor"
+stake_decides = "organizer"
+stake_dues_share = 0.05
 
 [places]                         # knowing other settlements (M5a slice AM, ADR-0018 §4); design priors
 # Another settlement is known only by contact (research 13-01 §1.1; 09-16 §1.2): founded alongside
@@ -910,6 +969,11 @@ prior = 1.0
 half_life_days = 1826.0
 seen_trespass = 1.0
 heard_trespass = 0.5
+# The same for takings across the boundary (M6c slice BI, ADR-0023 §2): seeing people of another
+# settlement take from a store of one's own, or knowing who of them took from one's household,
+# adds `seen_taking`; being told of it adds `heard_taking`. Design priors, as for trespass.
+seen_taking = 1.0
+heard_taking = 0.5
 # Word of a claim on a place crosses only with travellers (ADR-0020 §2): someone who knows a claim
 # their polity's law makes tells a companion from elsewhere at the hearth with `share_claims`, and
 # so does someone whose household heard of another polity's claim (research 09-16 §2.2: 0.05-0.25
@@ -952,6 +1016,11 @@ carry_points = 12.0
 # evidence that the paying polity keeps its word, or does not; a gift handed over is as much that
 # it helps. As much as a trespass seen (`seen_trespass`); a design prior.
 performance = 1.0
+# Terms after force (M6c slice BL, ADR-0023 §8): a household raided by people of another settlement
+# believes `raids_kept` of what they took from it in memory, a year, is kept from it by their
+# polity's word against raiding, as a claim is believed to keep a share (`polity.claim_keeps`). A
+# design prior: research 13-05 gives no rate at which a village's word holds its raiders back.
+raids_kept = 0.5
 
 [moving]                         # moving to another settlement (M5a slice AN, ADR-0018 §5); design priors
 # Once a year on a day of its own, and when it forms, a household weighs joining each settlement it
@@ -981,6 +1050,11 @@ reviews = 2
 # moves people; no value). A death of sickness at home, or the first of a household to suspect the
 # water it draws, sets it weighing where to live at once. A design prior, set as `w_grievance`.
 w_sickness = 3.0
+# Raids (M6c slice BJ, step two, ADR-0023 §10): `w_raids` for the raids its members heard of on
+# their settlement, counted n / (1 + n), less those heard of on the place weighed. Word of a raid
+# on their own settlement sets a household weighing where to live at once; a move the raids alone
+# tipped is recorded as fled. A design prior, set as `w_sickness` (05-06 §5.1: safety).
+w_raids = 3.0
 
 [founding]                       # founding a settlement of their own (M5a slice AO); design priors
 # At the same review, a household also weighs founding a settlement with others at a site a member
@@ -1123,3 +1197,221 @@ salvage_share = 0.5
 pull_crew = 2
 pull_h_per_m2 = 0.03
 pull_cost = 0.8
+
+[levees]                         # flood banks built together (M6b slice BG, ADR-0022 §11); design priors unless cited
+# A household remembers what a flood cost it, its stores spoiled where water stood in its
+# buildings and its sown fields lost under water, for `memory_years`; it reckons a bank keeps water
+# out for `life_years`, over which its share of the work is spread. Design priors.
+memory_years = 10.0
+life_years = 20.0
+# A bank is laid out to stand `freeboard_m` above the highest water its people remember at the
+# places it would keep dry (the M6 fire brief §1.10: "crest at the highest water remembered plus
+# freeboard"), never lower than `min_height_m` nor higher than `max_height_m` above its ground.
+freeboard_m = 0.3
+min_height_m = 0.3
+max_height_m = 3.0
+# Its section (research 11-12 §2.5 C: a village levee, crest 1 m, sides 2:1) and its earth
+# (§2.4: compacted 0.90 and loose 1.20 of what lay in the ground; §2.3: 1,300-1,500 kg a loose
+# cubic metre).
+crest_width_m = 1.0
+side_run = 2.0
+compacted_per_bank = 0.9
+loose_per_bank = 1.2
+loose_kg_per_m3 = 1400.0
+# Its work, each part charged apart (§1.2): digging at `digging.h_per_m3`; carrying a basket of
+# `carry_kg` (§2.4: 20, 15-25) from the pit to the bank and back, `load_min` to fill and tip it;
+# spreading and tamping at `place_h_per_m3` a compacted cubic metre (§2.4: 3 m³ an 8-hour day).
+carry_kg = 20.0
+load_min = 0.5
+place_h_per_m3 = 2.667
+# The borrow pit beside it is dug `pit_depth_m` deep, and each worker needs `front_m` of bank to
+# work at once: a narrow front holds few (§1.2). Design priors.
+pit_depth_m = 1.0
+front_m = 5.0
+# A finished bank is looked over when a high water goes down and at each year's start, and mended
+# once its crest has sunk or worn `mend_crest_m` below its design, or water has done `mend_piping`
+# of seepage damage to it (0 to 1), or it has given way (research 11-12 §4.1: inspect, refill,
+# compact; §5.5: event-driven maintenance plus periodic inspection). Design priors.
+mend_crest_m = 0.1
+mend_piping = 0.1
+
+[ditches]                        # irrigation ditches a household digs to its own field (M6b slice BG, ADR-0022 §11); design priors unless cited
+# A channel 0.3 m wide at the bottom and 0.4 m deep with sides of 1.5:1 (research 11-12 §2.3: 1.5:1
+# in ordinary earth).
+bottom_m = 0.3
+depth_m = 0.4
+side_run = 1.5
+# Hours to dig and form a cubic metre of channel (research 11-12 §2.2: 0.8-1.2 m³ a worker-day for
+# excavating and accurately forming canals; one cubic metre an eight-hour day).
+h_per_m3 = 8.0
+# The longest ditch a household lays out, metres, and the years it reckons one serves its field.
+max_length_m = 400.0
+life_years = 20.0
+# A household weighs a ditch for a field whose last crop got less than this share of the water it
+# needed, as its people saw the crop thirst.
+short_share = 0.9
+
+[rules]                          # how people weigh a rule for building (M6b slice BH, ADR-0022 §12); design priors unless cited
+# Years a household remembers a building it lost to fire or saw burn (research 11-09 §2.3: a
+# personal disaster memory of 2-20 years, an exploratory range).
+memory_years = 10.0
+# The share of what fire would take from its buildings a household believes a rule averts, and the
+# years over which it weighs that against what its next building would cost more under the rule.
+avoided_share = 0.5
+horizon_years = 20.0
+
+[bands]                          # who calls a band, who joins it and how it runs (M6c slice BJ, ADR-0023 §3-4); design priors unless cited
+# Days between someone's reviews of calling a band, as for any choice they reconsider monthly
+# (research 13-05 §2.4 tests 7-30 days); someone whose household came to know that people of
+# another settlement took from it weighs it the next midnight. 0 calls none.
+review_days = 30
+# Ages that call, join and go (the same as hunting).
+min_age = 15.0
+max_age = 60.0
+# The longest walk a band goes, minutes one way (two hours: a raid and the walk home in a day).
+max_walk_minutes = 120.0
+# The share of a load someone hopes to find in a store of a settlement whose food they never saw.
+food_prior = 0.5
+# Points for each day of their household's food a load would bring home; for each unit of
+# grievance against the household it goes to; against, for each defender they believe would
+# stand there, shared among those who go; and against, for their objection to taking (0-1).
+w_spoils = 0.5
+w_grievance = 2.0
+w_danger = 1.5
+w_objection = 4.0
+# Points for regard for the organizer, and for regard for those who have joined (research 13-05
+# §1.2: status and reciprocity; 13-06 §1.2: trust in the organizer).
+w_regard = 2.0
+w_follow = 1.0
+# The range a person's reluctance to call a band, and to join one, is drawn in.
+call_threshold = [1.0, 4.0]
+join_threshold = [0.5, 3.0]
+# The least regard an organizer holds for someone to tell them, and the most they tell.
+join_regard = 0.3
+told_most = 12
+# The fewest at the muster for a band to set off, the organizer counting.
+least = 2
+# The hour it musters the day after it is called, and what going is worth to one who said they
+# would (enough to set aside most of a morning's work).
+muster_hour = 7
+w_promise = 20.0
+# Minutes a band stays where it went.
+stay_minutes = 30
+# Content API 97 (step two). Every `look_minutes` while a band is out, anyone grown and awake of
+# another settlement within the watch's sight of one of it going hears that a band was seen
+# (ADR-0023 §8). When it sets off, each who went writes the act `stayed_home` (`[ties]`) toward
+# each who said they would come and did not, `shirk_promised` units, and toward each asked who
+# said no, `shirk_asked` (ADR-0023 §3: "shirking costs regard", a little; design priors, to be
+# measured before they are tuned).
+look_minutes = 10
+shirk_promised = 2.0
+shirk_asked = 1.0
+# Content API 98 (step three: laws, ADR-0023 §5). One who knows a law against raiding in force
+# where they live weighs `w_law` points against calling or joining a band. A band sent by law asks
+# each household for one of its grown people: it sends the one most willing, or keeps its share
+# back as a levy is kept back (`[polity]`'s compliance: the norm that the gathering binds, where
+# they stood, their regard for the sponsor), weighing the one it sends as `service_days` days of
+# its food away and at risk; the gathering's forecast reckons it the same. A household believes
+# `retaliation_share` of what outsiders took from it was brought on it by its own people's raids
+# (13-05 §1.2: raids beget raids; no figure). All design priors.
+w_law = 3.0
+service_days = 2.0
+retaliation_share = 0.5
+# Will to stay in an encounter, points: of one who went with the band; of one standing at their
+# own home; of a neighbour, at full regard for the household come to.
+will_band = 2.0
+will_home = 3.0
+will_neighbour = 2.0
+
+# Content API 102 (slice BL): a band that comes up to a shut line round the place it went camps
+# outside it (ADR-0023 §7). Every `camp_minutes` each who camps chooses to stay or go home: they
+# stay for what made them go (their will and grievance) against `w_camp_day` points for each day
+# camped and `w_camp_tired` at a full day's want of sleep (design priors: members go home one by
+# one, never all at once on a date).
+camp_minutes = 120
+w_camp_day = 1.0
+w_camp_tired = 2.0
+# Holds (M6c slice BM, ADR-0023 §9): a band sent by law that held the place at its encounter stays
+# to hold the settlement; it holds once its people have kept it `hold_days` (ADR-0017 §4's seven
+# days, as a revolt holds). Whoever stays lies down where they are once their want of sleep
+# reaches `sleep_out_at`, for `sleep_out_minutes`, and the days a law's service owes
+# (`service_days`) count nothing against staying. Design priors.
+hold_days = 7
+sleep_out_at = 0.6
+sleep_out_minutes = 360
+
+[bands.fight]                    # how an encounter runs (ADR-0023 §4; research 13-07 §1.5-1.7, §2.3)
+# The longest an encounter runs, minutes (13-07 §2.3: steps of 10-60 s; the kernel's minute is
+# the top of that range).
+max_minutes = 60
+# Pairs that can fight at once at a household's home, its door and yard (13-07 §1.5:
+# E = min(N_available, K_usable)).
+frontage_home = 3
+# The chance a paired fighter lands a blow in a minute, by what they hold.
+land_hands = 0.03
+land_axe = 0.06
+land_spear = 0.08
+# Days a landed blow keeps someone from work, and the share that kill: the watch's blows'
+# priors (M4c slice AI; no report gives a rate for a blow among villagers).
+hurt_days = [3, 21]
+kill_share = 0.02
+# Will lost for each blow one's own side took in the last `seen_minutes` (13-07 §2.3 tests 2-10),
+# by the share of one's own side who have given way, and for each day of one's own hurt; will kept
+# for regard for the one who leads one's side while they stand (13-07 §1.8).
+will_seen = 0.5
+seen_minutes = 5
+will_gave = 2.0
+will_hurt = 0.2
+will_leader = 1.0
+
+[enclosures]                     # a palisade round the hearth raised by law (M6c slice BK, ADR-0023 §6); design priors unless cited
+# A line is cut into sectors of at most `sector_m` (research 11-11 §2.2: a simulation sector of
+# 10-25 m), with `gates` gates spread round it. A metre of palisade takes `palisade_h_per_m` hours
+# to fell, trim and carry its posts and to trench and set them (11-11 §2.3: about five 20 cm posts
+# a metre; no labour total is given, so a design prior).
+sector_m = 20.0
+gates = 2
+palisade_h_per_m = 6.0
+# The line takes in the homes within `reach_m` of the hearth, running `margin_m` outside the
+# farthest of them, never closer than `min_radius_m`.
+reach_m = 120.0
+margin_m = 6.0
+min_radius_m = 15.0
+# A household reckons its posts stand `life_years` (11-11 §2.2: 5, 15 and 30 years as scenarios),
+# over which its share of the work is spread; that a line keeps out `cover` of what people of other
+# settlements took from it while its home is inside; that its people pass through the line
+# `crossings_a_day` times a day, each going round to a gate. One worker has room along each
+# `front_m` of line still to be built.
+life_years = 15.0
+cover = 0.5
+crossings_a_day = 4.0
+front_m = 4.0
+# Posts rot at the foot: `rot_per_year` of their section through in a year in ground of wetness
+# one (11-11 §2.2: 5, 15 and 30 years as scenarios; fifteen), faster in wetter ground and wetter
+# months. A stretch rotted `mend_loss` through is asked mending while the law that raised the line
+# is in force; one rotted through is a gap. A household that believes people of other settlements
+# took from it or raided it within `alarm_days` shuts the gate nearest its home at dusk.
+rot_per_year = 0.0667
+mend_loss = 0.5
+alarm_days = 60
+
+[elections]                      # seated bodies' elections (M7a slice BO, ADR-0024 §3); design priors
+stand_days = 7                   # days names may be put in after an election is called
+poll_minutes = 30                # minutes at the hearth naming one's choices
+w_sit = 1.0                      # points per unit of household gain a seat would turn its way
+w_standing = 0.5                 # points per unit of standing in counsel (the regard a seat may bring)
+sit_cost = 1.0                   # points against: a term's evenings in council and the walk
+stand_temperature = 0.5          # temperature of the choice to stand
+w_regard = 1.0                   # a voter's utility: regard for the candidate (loyalty)
+w_household = 2.0                # one of their own household (group)
+w_counsel = 0.5                  # the candidate's standing in counsel (competence)
+w_self = 3.0                     # themselves, when they stood
+vote_scale = 1.0                 # the scale of the one softmax a ranking is drawn at
+poll_base = 0.5                  # points for coming to poll before the stake
+w_poll_stake = 0.5               # points per point of the stake (first choice over the best left out)
+positions_told = 3               # questions a candidate says where they stand on (ADR-0024 §4)
+w_distance = 2.0                 # a voter's utility against the distance from where a candidate stands
+w_record = 1.0                   # for how a candidate's seen stances lined up with the voter's household's stake
+w_slate = 1.0                    # for a candidate the voter's own faction endorsed
+w_campaign = 1.0                 # points for a candidate's evening at the hearth while their election runs
+w_evening = 0.25                 # points an evening at the gathering costs one who comes: what a council saves (ADR-0024 §6)

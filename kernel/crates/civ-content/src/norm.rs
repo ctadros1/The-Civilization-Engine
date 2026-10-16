@@ -20,7 +20,7 @@ pub(crate) struct NormFile {
     pub description: String,
     /// What it says: "what the gathering decides binds everyone".
     pub statement: String,
-    /// What the kernel does with it: `abide_by_laws`.
+    /// What the kernel does with it: `abide_by_laws` or `abide_by_findings` (content API 113).
     pub does: String,
     pub endorse: Endorse,
     pub expect: Expect,

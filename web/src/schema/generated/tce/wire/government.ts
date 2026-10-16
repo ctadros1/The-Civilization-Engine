@@ -5,6 +5,7 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { PolityLine } from '../../tce/wire/polity-line.js';
+import { SiegeLine } from '../../tce/wire/siege-line.js';
 
 
 export class Government {
@@ -40,8 +41,18 @@ politiesLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+sieges(index: number, obj?:SiegeLine):SiegeLine|null {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? (obj || new SiegeLine()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+siegesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startGovernment(builder:flatbuffers.Builder) {
-  builder.startObject(2);
+  builder.startObject(3);
 }
 
 static addMinute(builder:flatbuffers.Builder, minute:bigint) {
@@ -64,15 +75,32 @@ static startPolitiesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addSieges(builder:flatbuffers.Builder, siegesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(2, siegesOffset, 0);
+}
+
+static createSiegesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startSiegesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endGovernment(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createGovernment(builder:flatbuffers.Builder, minute:bigint, politiesOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createGovernment(builder:flatbuffers.Builder, minute:bigint, politiesOffset:flatbuffers.Offset, siegesOffset:flatbuffers.Offset):flatbuffers.Offset {
   Government.startGovernment(builder);
   Government.addMinute(builder, minute);
   Government.addPolities(builder, politiesOffset);
+  Government.addSieges(builder, siegesOffset);
   return Government.endGovernment(builder);
 }
 }

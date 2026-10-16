@@ -155,6 +155,7 @@ fn neighbours(claims: &[usize], workers: [&[usize]; 2]) -> Neighbours {
             body: None,
             ends: None,
             agreement: None,
+            target: None,
         });
         polity.claimed.push((laws[s], places[s]));
         for &h in &homes[1 - s] {
@@ -685,6 +686,7 @@ fn keep_store(sim: &mut Sim, polity: PermanentId, keeper: Option<PermanentId>, k
         body: None,
         ends: None,
         agreement: None,
+        target: None,
     };
     let p = pop
         .polities
@@ -757,6 +759,7 @@ fn in_force(
             body: None,
             ends: None,
             agreement: Some(id),
+            target: None,
         });
     }
     pop.agreements.list.push(civ_agents::agreements::Agreement {
@@ -1105,4 +1108,147 @@ fn saves_and_goes_on_alike(sim: &mut Sim, minutes: i64) {
     sim.advance_minutes(minutes).expect("advances");
     loaded.advance_minutes(minutes).expect("advances");
     same(sim, &loaded);
+}
+
+/// Sets down in `sim` that `taker` of household `taker_hh` (of `across`) took `kcal` from
+/// household `held` today, and that `holder` of `held` was told who it was: the incident, what
+/// each household knows of it, and the belief.
+#[allow(clippy::too_many_arguments)]
+fn a_taking_told(
+    sim: &mut Sim,
+    taker: PermanentId,
+    taker_hh: PermanentId,
+    held: PermanentId,
+    holder: PermanentId,
+    across: PermanentId,
+    kcal: f32,
+) {
+    use civ_agents::crime::{Belief, Incident, KnownAmount, Outcome as Ended, Source};
+    let now = sim.now();
+    let day = now.day_index();
+    let id = {
+        let order = &mut sim.people_mut_for_tests().order;
+        let id = order.incidents.last().map_or(1, |i| i.id + 1);
+        order.incidents.push(Incident {
+            id,
+            at: now,
+            actor: taker,
+            actor_household: taker_hh,
+            target: held,
+            place: (0.0, 0.0),
+            outcome: Ended::Taken,
+            goods: Vec::new(),
+            kcal,
+            seen_by: Vec::new(),
+            noticed: true,
+            food_days: f32::NAN,
+            richer: f32::NAN,
+            across: Some(across),
+        });
+        for (household, lost) in [(held, true), (taker_hh, false)] {
+            order.amounts.push(KnownAmount {
+                household,
+                incident: id,
+                kcal,
+                lost,
+                day,
+            });
+        }
+        id
+    };
+    sim.with_ctx_for_tests(|pop, ctx| {
+        pop.come_to_believe_for_tests(
+            ctx,
+            Belief {
+                holder,
+                incident: id,
+                taker: Some(taker),
+                source: Source::Told,
+                from: None,
+                origin: None,
+                day,
+            },
+        );
+    });
+}
+
+#[test]
+fn villages_that_raided_each_other_seek_peace_and_the_word_is_weighed_at_both_gatherings() {
+    // M6c slice BL, step two (ADR-0023 §8): nobody claims anything, but someone of each village
+    // took a great deal from every household of the other, and each was told who. An elder of
+    // village 0 seeks peace with someone they know of village 1, by the template that answers
+    // being raided: packages of words against raiding, the raiders' alone or both sides' (a
+    // truce), or with a yearly payment from village 0's store (tribute) or a gift from village 1's
+    // (compensation), as both keep a common store. Each household weighs what the other's word
+    // keeps from it against what its own gives up.
+    let Neighbours {
+        mut sim,
+        polities,
+        homes,
+        adults,
+        ..
+    } = neighbours(&[], [&[], &[]]);
+    keep_store(&mut sim, polities[0], None, 2_000.0);
+    keep_store(&mut sim, polities[1], None, 2_000.0);
+    // Each taker's household is not among those the other village's people know.
+    let need = sim.rules().people.household.daily_kcal_per_person as f32;
+    for s in [1, 0] {
+        let taker_hh = *homes[s].last().expect("households");
+        let taker = sim.people().household(taker_hh).expect("household").members[0];
+        let across = sim.land().settlements[s].id;
+        for &held in &homes[1 - s] {
+            let holder = sim.people().household(held).expect("household").members[0];
+            a_taking_told(
+                &mut sim,
+                taker,
+                taker_hh,
+                held,
+                holder,
+                across,
+                300.0 * need,
+            );
+        }
+    }
+    let peace =
+        sim.rules().catalog.policies.iter().position(|d| {
+            d.kind == PolicyKind::Agreement && d.answers.contains(&IssueKind::Raided)
+        });
+    assert!(peace.is_some(), "a template for peace");
+    let mut made = None;
+    for _ in 0..30 {
+        sim.advance_minutes(DAY).expect("lives");
+        if let Some(a) = sim.people().agreements.list.first() {
+            made = Some(a.clone());
+            break;
+        }
+    }
+    let a = made.expect("the raided village sought terms, its gathering busy or not");
+    let entries = agreement_entries(&sim);
+    assert_eq!(
+        a.polities, polities,
+        "sought from the side that looked first"
+    );
+    assert!(adults[0].contains(&a.negotiators[0]));
+    assert!(adults[1].contains(&a.negotiators[1]));
+    // Takings are all either side counts of a raid (not the danger or the days away), so what one
+    // side's word keeps from the other's homes its own raiders give up: there is nothing over to
+    // share. The raiders' households, who would give up most, and distrust of a village that
+    // raided them, hold each side back from the other's best package, and the two part with none.
+    assert_eq!(
+        a.state,
+        AgreementState::Failed {
+            day: a.made,
+            why: Failure::NoTerms
+        },
+        "{entries:?}"
+    );
+    assert!(a.clauses.is_empty());
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].0, AgreementStep::NoTerms);
+    assert!(entries[0].1.contains("sought terms"), "{}", entries[0].1);
+    // Nobody seeks again while the failure is within memory.
+    sim.advance_minutes(20 * DAY).expect("lives");
+    assert_eq!(sim.people().agreements.list.len(), 1);
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    saves_and_goes_on_alike(&mut sim, DAY);
 }

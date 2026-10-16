@@ -1,0 +1,56 @@
+# The M7b demo (civ-sim --example courts, seeds 1-4, 2026-10-16): what its worlds reached.
+# Run as the demo spec runs it (web/e2e/m7b-demo.spec.ts, TCE_DEMO=1), with the priors it nudges.
+
+
+demo world:
+world 1 (seed 1):
+day 150: 41 people
+day 240: 40 people
+day 330: 38 people
+day 400: NUDGE (what bringing a case costs): 340 days lived and not yet a case brought under a law against taking; crime.report_cost 1 -> 0
+day 420: 41 people
+day 510: 41 people
+day 520: NUDGE (the share of takings a household believes a curfew keeps off): 460 days lived and not yet a curfew in force; crime.curfew_guard 0.3 -> 0.8
+day 600: 41 people
+day 660: NUDGE (what an evening at the gathering costs one who comes): 600 days lived and not yet a forum that may review in force; elections.w_evening 0.25 -> 1
+day 690: 41 people
+day 760: NUDGE (the weight a household puts on the hours a curfew keeps it home): 700 days lived and not yet a limit in force; crime.curfew_cost_days 0.25 -> 2
+day 780: 42 people
+day 820: NUDGE (what proposing costs a sponsor): 760 days lived and not yet a limit in force; polity.propose_cost 0.5 -> 0.1
+day 870: 42 people
+day 960: 43 people
+day 1050: 42 people
+lived 1000 days, to day 1060; 42 people
+  Common store proposed on day 948 by Marek: InForce (11 for, 8 against, 22 came)
+  Seat a council proposed on day 955 by Isla: InForce (24 for, 0 against, 24 came)
+  Storekeeper by turns proposed on day 969 by Juna: InForce (4 for, 0 against, 5 came)
+  Storekeeper proposed on day 983 by Juna: InForce (5 for, 0 against, 5 came)
+  0 cases brought (0 before a forum): 0 found, 0 not found, 0 unheard, 0 lapsed, 0 settled, 0 withdrawn, 0 open; 0 departed from a finding
+  label: Republic (A council of 9, elected by the adults for 360 days. Those who sit in its council decide by acclamation: more for than against carries it, and a tie fails; half of them must come.)
+saved /tmp/tce-e2e-saves-KcTUGx/hallowford-47a4236d/g0000000001-manual.tcesave
+name: Hallowford
+kept this world: 0 of 6 steps reached
+no law was struck down: there is no ruling to show
+
+# A second run, with one more prior nudged by hand on day 200 (crime.w_objection 20 -> 5, not kept):
+world 3 (seed 3):
+day 260: NUDGE (the weight a person's objection to taking carries): 200 days lived and not yet a case brought under a law against taking; crime.w_objection 20 -> 5
+day 400: NUDGE (what bringing a case costs): 340 days lived and not yet a case brought under a law against taking; crime.report_cost 1 -> 0
+day 520: NUDGE (the share of takings a household believes a curfew keeps off): 460 days lived and not yet a curfew in force; crime.curfew_guard 0.3 -> 0.8
+day 660: NUDGE (what an evening at the gathering costs one who comes): 600 days lived and not yet a forum that may review in force; elections.w_evening 0.25 -> 1
+day 760: NUDGE (the weight a household puts on the hours a curfew keeps it home): 700 days lived and not yet a limit in force; crime.curfew_cost_days 0.25 -> 2
+day 810: a curfew in force
+day 820: NUDGE (what proposing costs a sponsor): 760 days lived and not yet a limit in force; polity.propose_cost 0.5 -> 0.1
+day 839: the village is empty
+  Common store proposed on day 353 by Norrin: InForce (21 for, 4 against, 26 came)
+  Seat a council proposed on day 360 by Lune: Superseded (26 for, 0 against, 26 came)
+  Storekeeper proposed on day 612 by Ferrin: Lapsed (3 for, 0 against, 4 came)
+  Curfew proposed on day 808 by Ulric, 23:00 to 04:00: InForce (2 for, 0 against, 4 came)
+  Amend the custom proposed on day 815 by Lune: Superseded (3 for, 0 against, 3 came)
+  Storekeeper proposed on day 829 by Mae: InForce (4 for, 0 against, 5 came)
+  Seat a council proposed on day 836 by Sige: InForce (1 for, 0 against, 1 came)
+  0 cases brought (0 before a forum): 0 found, 0 not found, 0 unheard, 0 lapsed, 0 settled, 0 withdrawn, 0 open; 0 departed from a finding
+  label: Oligarchic republic (A council of 9, elected by the adults for 360 days. Those who sit in its council decide by acclamation: more for than against carries it, and a tie fails; half of them must come.)
+saved /tmp/claude-0/-home-user/bd5ef89e-7e5f-5d80-b6eb-89b55275d9a4/scratchpad/courts-saves/hallowford-3-cec1033a/g0000000001-manual.tcesave
+name: Hallowford 3
+kept this world: 1 of 6 steps reached

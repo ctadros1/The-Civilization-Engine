@@ -3,7 +3,7 @@
 // called (1.29); the observer only joins the pieces.
 
 import { formatKg, simDate } from "./format.js";
-import type { LawLine, PolityLine, StanceLine } from "./net/messages.js";
+import type { CandidateLine, ElectionLine, LawLine, PolityLine, StanceLine } from "./net/messages.js";
 
 const MONTHS = [
   "January",
@@ -29,9 +29,12 @@ export function lawDayText(minute: number): string {
 /** "in force", "turned down", "lapsed", "before the gathering on 9 May of year 3". */
 export function statusText(l: Pick<LawLine, "status" | "outcome" | "meetsMinute">): string {
   if (l.status === "in force") return "in force";
-  if (l.status === "lapsed") return "lapsed: the one it named is gone";
+  // Lapsed: the one it named died or left, its term ran out, or its band came home (the chronicle
+  // says which).
+  if (l.status === "lapsed") return "lapsed: no longer in force";
   if (l.status === "superseded") return "superseded by a later law";
   if (l.status === "carried") return "carried: the law it named is ended";
+  if (l.status === "struck down") return "struck down: a forum found it breaks a limit";
   if (l.status === "proposed") return `before the gathering on ${lawDayText(l.meetsMinute)}`;
   switch (l.outcome) {
     case "tied":
@@ -116,4 +119,25 @@ export function labelText(
   if (p.label === "") return "";
   const qualified = p.labelModifiers.length > 0 ? `: ${p.labelModifiers.join("; ")}` : "";
   return `${p.label}${qualified} (confidence ${p.labelConfidence.toFixed(2)})`;
+}
+
+/** One who stood, in a line (wire 1.77): "Mira (Ashford): 12 names, seated; backed by Bo's
+ * faction; leans for whether to keep a common store". */
+export function candidateText(c: CandidateLine, polled: boolean): string {
+  const parts = [c.district ? `${c.name} (${c.district})` : c.name];
+  const count = polled ? `${c.votes} name${c.votes === 1 ? "" : "s"}` : "";
+  const seat = c.seated ? "seated" : "";
+  const head = [count, seat].filter((x) => x).join(", ");
+  let line = head ? `${parts[0]}: ${head}` : parts[0]!;
+  if (c.backed) line += `; ${c.backed}`;
+  if (c.told) line += `; ${c.told}`;
+  return line;
+}
+
+/** Those who stood, the seated first and then by names counted, ties by name (wire 1.77). */
+export function candidateOrder(e: Pick<ElectionLine, "candidates">): CandidateLine[] {
+  return [...e.candidates].sort(
+    (a, b) =>
+      Number(b.seated) - Number(a.seated) || b.votes - a.votes || a.name.localeCompare(b.name),
+  );
 }

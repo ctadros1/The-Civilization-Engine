@@ -20,16 +20,20 @@ pub const PURPOSE_WORD_HEARTH: u64 = 0x776f_7264_6865_6172; // "wordhear"
 /// its kind; so that other claims made or let go never move it (ADR-0016 §6).
 fn claim_key(c: &Claim) -> u64 {
     let whose = match c.kind {
-        ClaimKind::Sickness | ClaimKind::Suspicion | ClaimKind::Fire => {
-            c.subject.map_or(0, PermanentId::get)
-        }
+        ClaimKind::Sickness
+        | ClaimKind::Suspicion
+        | ClaimKind::Fire
+        | ClaimKind::Raid
+        | ClaimKind::BandSeen
+        | ClaimKind::Candidacy => c.subject.map_or(0, PermanentId::get),
         _ => c.settlement.get(),
     };
+    let event = c.event.map_or(0, |e| u64::from(e).rotate_left(8));
     let source = c.suspected.map_or(0, |(place, _)| {
         let (kind, id) = place.code();
         id.rotate_left(20) ^ u64::from(kind)
     });
-    whose ^ source ^ (c.day as u64).rotate_left(40) ^ (u64::from(c.kind.code()) << 56)
+    whose ^ source ^ event ^ (c.day as u64).rotate_left(40) ^ (u64::from(c.kind.code()) << 56)
 }
 
 /// Whether claim `c` is told as news on `day`, and how likely a companion at the hearth is to tell
@@ -38,7 +42,11 @@ fn claim_key(c: &Claim) -> u64 {
 fn hearth_chance(c: &Claim, day: i64, wp: &crate::word::WordParams) -> Option<f64> {
     if call_ahead(c, day) {
         Some(wp.share_urgent)
-    } else if c.kind == ClaimKind::Fire {
+    } else if matches!(
+        c.kind,
+        ClaimKind::Fire | ClaimKind::Raid | ClaimKind::BandSeen
+    ) || fresh_finding(c, day, wp)
+    {
         Some(wp.share_routine)
     } else if c.kind.held_news() {
         Some(wp.share_sickness)
@@ -47,11 +55,22 @@ fn hearth_chance(c: &Claim, day: i64, wp: &crate::word::WordParams) -> Option<f6
     }
 }
 
+/// Whether claim `c` is a finding still news on `day` (M7b slice BS): told for `news_days`, held
+/// for longer.
+fn fresh_finding(c: &Claim, day: i64, wp: &crate::word::WordParams) -> bool {
+    c.kind == ClaimKind::Finding && c.day + i64::from(wp.news_days) >= day
+}
+
 /// Whether claim `c` is a call still ahead on `day`: a gathering, a petition or a refusal.
 fn call_ahead(c: &Claim, day: i64) -> bool {
     matches!(
         c.kind,
-        ClaimKind::Gathering | ClaimKind::Petition | ClaimKind::Refusal | ClaimKind::Revolt
+        ClaimKind::Gathering
+            | ClaimKind::Petition
+            | ClaimKind::Refusal
+            | ClaimKind::Revolt
+            | ClaimKind::Election
+            | ClaimKind::Candidacy
     ) && c.day >= day
 }
 
@@ -76,6 +95,7 @@ impl Population {
             Some(c) => c,
             None => self.word.make(Claim {
                 fire: None,
+                event: None,
                 id: 0,
                 kind: ClaimKind::Gathering,
                 settlement,
@@ -125,6 +145,7 @@ impl Population {
             Some(c) => c,
             None => self.word.make(Claim {
                 fire: None,
+                event: None,
                 id: 0,
                 kind: ClaimKind::Petition,
                 settlement,
@@ -158,6 +179,7 @@ impl Population {
             Some(c) => c,
             None => self.word.make(Claim {
                 fire: None,
+                event: None,
                 id: 0,
                 kind,
                 settlement,
@@ -219,15 +241,19 @@ impl Population {
         let day = ctx.now.day_index();
         let index = &self.index;
         self.word.let_go_of_gone(|p| index.contains_key(&p));
-        self.word
-            .prune(day, i64::from(wp.news_days), i64::from(wp.sickness_days));
+        self.word.prune(
+            day,
+            i64::from(wp.news_days),
+            i64::from(wp.sickness_days),
+            i64::from(ctx.params.crime.remember_days),
+        );
         // Each with what it is keyed by: never the claim's number, which unrelated claims move
         // (ADR-0016 §6).
         let ahead: Vec<(u32, u64)> = self
             .word
             .claims
             .iter()
-            .filter(|c| call_ahead(c, day) || c.kind.held_news())
+            .filter(|c| call_ahead(c, day) || c.kind.held_news() || fresh_finding(c, day, wp))
             .map(|c| (c.id, claim_key(c)))
             .collect();
         if ahead.is_empty() {
@@ -277,7 +303,33 @@ impl Population {
             }
         }
         for (listener, claim, teller, origin) in told {
-            self.word.hear(listener, claim, day, Some(teller), origin);
+            self.hear_told(listener, claim, day, teller, origin);
+        }
+    }
+
+    /// `listener` hears claim `claim` from `teller` on `day`; word of a raid on their own
+    /// settlement sets their household weighing where to live at once (ADR-0023 §10).
+    fn hear_told(
+        &mut self,
+        listener: PermanentId,
+        claim: u32,
+        day: i64,
+        teller: PermanentId,
+        origin: Option<PermanentId>,
+    ) {
+        if !self.word.hear(listener, claim, day, Some(teller), origin) {
+            return;
+        }
+        let raid = self
+            .word
+            .claim(claim)
+            .filter(|c| c.kind == ClaimKind::Raid)
+            .map(|c| c.settlement);
+        if let Some(at) = raid
+            && let Some(hh) = self.person(listener).map(|p| p.household)
+            && self.household(hh).and_then(|x| x.settlement) == Some(at)
+        {
+            self.review_due.insert(hh);
         }
     }
 
@@ -314,7 +366,7 @@ impl Population {
             }
         }
         for (listener, claim, teller, origin) in told {
-            self.word.hear(listener, claim, day, Some(teller), origin);
+            self.hear_told(listener, claim, day, teller, origin);
         }
         // And of the grievances each holds keenly.
         self.tell_grievances(ctx, a, b);
@@ -446,11 +498,10 @@ impl Population {
                         && l.holder.is_some()
                 })
                 .map_or((body, None), |l| (Blamed::Office(l.id), l.holder));
-            let settlement = polity.settlement;
             let mut homes: Vec<(PermanentId, f64)> = self
                 .households
                 .iter()
-                .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+                .filter(|(_, x)| polity.holds(x.settlement) && !x.members.is_empty())
                 .map(|(_, x)| {
                     let need = x.members.len() as f64 * params.household.daily_kcal_per_person;
                     let days = stock_kcal(&stores_now(x, now, params, goods), goods) / need;
@@ -532,7 +583,10 @@ impl Population {
     ) {
         use crate::crime::CaseStage;
         let (now, params) = (ctx.now, ctx.params);
-        let body = Blamed::Body(self.polities[pi].id);
+        // A forum's finding blames the forum (M7b slice BU, ADR-0025 §5).
+        let body = c
+            .forum
+            .map_or(Blamed::Body(self.polities[pi].id), Blamed::Forum);
         let knows = |pop: &Population, p: PermanentId| {
             pop.polities[pi]
                 .laws
@@ -693,6 +747,7 @@ impl Population {
             let claim = claim.unwrap_or_else(|| {
                 self.word.make(Claim {
                     fire: None,
+                    event: None,
                     id: 0,
                     kind: ClaimKind::Grievance,
                     settlement,

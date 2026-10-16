@@ -145,6 +145,68 @@ export function makeCholeraWorld(saves: string, seed = "1"): string {
   return done.stdout;
 }
 
+/** Makes the M6b demo world with civ-sim's `great_fire` example in `saves`; returns what it printed. */
+export function makeGreatFireWorld(saves: string, seed = "1"): string {
+  const done = spawnSync(
+    "cargo",
+    [
+      ...["run", "--release", "--quiet", "-p", "civ-sim", "--example", "great_fire"],
+      ...["--", saves, seed],
+    ],
+    { cwd: path.join(repo, "kernel"), encoding: "utf8", timeout: 7_200_000 },
+  );
+  if (done.status !== 0) {
+    throw new Error(`great_fire failed (${done.status}):\n${done.stdout}\n${done.stderr}`);
+  }
+  return done.stdout;
+}
+
+/**
+ * Makes the M6c demo's world with civ-sim's `siege` example (two villages lived until a band
+ * camps by a line or holds a place, nudged priors logged as NUDGEs) into `saves`, and returns
+ * what it printed.
+ */
+export function makeSiegeWorld(saves: string, seed = "1"): string {
+  const done = spawnSync(
+    "cargo",
+    [...["run", "--release", "--quiet", "-p", "civ-sim", "--example", "siege"], ...["--", saves, seed]],
+    { cwd: path.join(repo, "kernel"), encoding: "utf8", timeout: 7_200_000 },
+  );
+  if (done.status !== 0) {
+    throw new Error(`siege failed (${done.status}):\n${done.stdout}\n${done.stderr}`);
+  }
+  return done.stdout;
+}
+
+/**
+ * Runs civ-sim's `council` example (a village of 120 that may take a council, nudged priors
+ * logged as NUDGEs) into `saves`, and returns what it printed.
+ */
+export function makeCouncilWorld(saves: string, seed = "1"): string {
+  const done = spawnSync(
+    "cargo",
+    [...["run", "--release", "--quiet", "-p", "civ-sim", "--example", "council"], ...["--", saves, seed]],
+    { cwd: path.join(repo, "kernel"), encoding: "utf8", timeout: 7_200_000 },
+  );
+  if (done.status !== 0) {
+    throw new Error(`council failed (${done.status}):\n${done.stdout}\n${done.stderr}`);
+  }
+  return done.stdout;
+}
+
+/** Makes the M7b demo's worlds with civ-sim's `courts` example (slow: it lives up to 900 days). */
+export function makeCourtsWorld(saves: string, seed = "1"): string {
+  const done = spawnSync(
+    "cargo",
+    [...["run", "--release", "--quiet", "-p", "civ-sim", "--example", "courts"], ...["--", saves, seed]],
+    { cwd: path.join(repo, "kernel"), encoding: "utf8", timeout: 7_200_000 },
+  );
+  if (done.status !== 0) {
+    throw new Error(`courts failed (${done.status}):\n${done.stdout}\n${done.stderr}`);
+  }
+  return done.stdout;
+}
+
 export interface Host {
   url: string;
   process: ChildProcess;

@@ -235,7 +235,7 @@ impl Population {
                 .or_default()
                 .push((w.goods_h, w.household));
         }
-        let standing: HashMap<PermanentId, f64> = goods.into_values().flat_map(ranks).collect();
+        let standing: FastMap<PermanentId, f64> = goods.into_values().flat_map(ranks).collect();
         // The year's new buildings that stand whole.
         let mut met: Vec<Met> = Vec::new();
         for b in &land.buildings {
@@ -280,16 +280,16 @@ impl Population {
         for m in &met {
             built.entry(m.settlement).or_default().push((m.built, m.id));
         }
-        let craft: HashMap<PermanentId, f64> = built.into_values().flat_map(ranks).collect();
+        let craft: FastMap<PermanentId, f64> = built.into_values().flat_map(ranks).collect();
         met.sort_by_key(|m| m.id);
         // What each household's people saw elsewhere, among the year's new buildings, and what
         // it thinks of their owners (M5b slice AR).
-        let mut away: HashMap<PermanentId, Vec<(usize, f64)>> = HashMap::new();
+        let mut away: FastMap<PermanentId, Vec<(usize, f64)>> = FastMap::default();
         if !self.seen_away.is_empty() {
             let day = now.day_index();
-            let index: HashMap<PermanentId, usize> =
+            let index: FastMap<PermanentId, usize> =
                 met.iter().enumerate().map(|(i, m)| (m.id, i)).collect();
-            let members: HashMap<PermanentId, &[PermanentId]> = self
+            let members: FastMap<PermanentId, &[PermanentId]> = self
                 .households
                 .iter()
                 .map(|(_, x)| (x.id, x.members.as_slice()))

@@ -35,6 +35,27 @@ pub(super) struct TakeTarget {
     regard: f64,
 }
 
+/// One hungry household's best store at home and among the homes of settlements it has seen
+/// (M6c slice BI's probe): kcal a load would carry and the ranking cost, walk minutes plus the
+/// asking weight of regard. Measurement only.
+#[derive(Clone, Copy, Debug)]
+pub struct TakeProbe {
+    /// The household.
+    pub household: PermanentId,
+    /// Its settlement.
+    pub settlement: PermanentId,
+    /// The food it wants, kcal.
+    pub want_kcal: f64,
+    /// Settlements other than its own whose homes a member has seen.
+    pub seen: usize,
+    /// The best store at home: kcal, cost.
+    pub home: Option<(f64, f64)>,
+    /// The best store among homes seen elsewhere: kcal, cost, settlement.
+    pub away: Option<(f64, f64, PermanentId)>,
+    /// Stores elsewhere with food that the hearth's walking field does not reach.
+    pub away_unreachable: usize,
+}
+
 /// What a taker would carry off a store `stores`: up to `carry_kg` and `want_kcal` of its food,
 /// the densest first so a load carries the most (seed kept back is left), as `(good, kg)`.
 pub(super) fn take_goods(
@@ -103,9 +124,16 @@ impl Population {
         }
         let reach = &self.homes.get(&field_key)?.reach;
         let (tp, day) = (&params.ties, now.day_index());
+        // And the homes of other settlements its members have seen (M6c slice BI, ADR-0023 §2),
+        // within the same reach.
+        let seen = self.homes_seen_elsewhere(hh.id, settlement);
         let mut found: Vec<TakeTarget> = Vec::new();
         for (_, x) in self.households.iter() {
-            if x.id == hh.id || x.settlement != Some(settlement) || x.members.is_empty() {
+            if x.id == hh.id
+                || x.members.is_empty()
+                || x.settlement
+                    .is_none_or(|s| s != settlement && !seen.contains(&s))
+            {
                 continue;
             }
             let stores = stores_now(x, now, params, goods);
@@ -141,6 +169,157 @@ impl Population {
             .map(|t| (t.walk_min + tp.ask_known_min * t.regard, t))
             .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.household.cmp(&b.1.household)))
             .map(|(_, t)| t)
+    }
+
+    /// The settlements other than `own` whose homes a member of household `household` has seen:
+    /// walked within sight of, gone to, or lived in (M6c slice BI). Founding groups who only
+    /// knew where each other camped, and places only told of, are not among them.
+    pub(super) fn homes_seen_elsewhere(
+        &self,
+        household: PermanentId,
+        own: PermanentId,
+    ) -> Vec<PermanentId> {
+        use crate::places::PlaceHow;
+        self.known_places
+            .of(household)
+            .iter()
+            .filter(|k| {
+                k.settlement != own
+                    && (k.visited.is_some()
+                        || matches!(k.how, PlaceHow::Seen | PlaceHow::Visited | PlaceHow::Lived))
+            })
+            .map(|k| k.settlement)
+            .collect()
+    }
+
+    /// For every household of a settlement short of its food target, the best store it could
+    /// take from at home and the best among homes of the settlements its members have seen (by
+    /// walking in sight, a visit, or living there), each as kcal a load would carry and the cost
+    /// `take_target` ranks by. Measurement only, for M6c slice BI's probe: nothing reads it.
+    pub fn take_probe_for_tests(&mut self, ctx: &Ctx) -> Vec<TakeProbe> {
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let tp = &params.ties;
+        let day = now.day_index();
+        let mut out = Vec::new();
+        let ids: Vec<PermanentId> = self.households.iter().map(|(_, h)| h.id).collect();
+        for id in ids {
+            let Some(hh) = self.household(id).cloned() else {
+                continue;
+            };
+            let Some(settlement) = hh.settlement else {
+                continue;
+            };
+            if hh.members.is_empty() {
+                continue;
+            }
+            let kcal_day = hh.members.len() as f64 * params.household.daily_kcal_per_person;
+            let held = stock_kcal(&stores_now(&hh, now, params, goods), goods);
+            let want = (params.household.food_target_days * kcal_day - held).max(0.0);
+            if want <= 0.0 {
+                continue;
+            }
+            let Some(hearth) = ctx
+                .land
+                .settlements
+                .iter()
+                .find(|x| x.id == settlement)
+                .map(|x| x.hearth_m)
+            else {
+                continue;
+            };
+            self.home_field(ctx, settlement, hearth);
+            let seen = self.homes_seen_elsewhere(id, settlement);
+            let Some(reach) = self.homes.get(&settlement).map(|f| &f.reach) else {
+                continue;
+            };
+            let mut home: Option<(f64, f64)> = None;
+            let mut away: Option<(f64, f64, PermanentId)> = None;
+            let mut unreachable = 0usize;
+            for (_, x) in self.households.iter() {
+                if x.id == hh.id || x.members.is_empty() {
+                    continue;
+                }
+                let Some(xs) = x.settlement else { continue };
+                let at_home = xs == settlement;
+                if !at_home && !seen.contains(&xs) {
+                    continue;
+                }
+                let stores = stores_now(x, now, params, goods);
+                let kcal: f64 = take_goods(&stores, goods, params.household.carry_kg, want)
+                    .iter()
+                    .map(|&(g, kg)| kg * goods[g].kcal_per_kg)
+                    .sum();
+                if kcal <= 0.0 {
+                    continue;
+                }
+                let Some(secs) = reach.seconds_to(cell_of(ctx.map, x.home)) else {
+                    if !at_home {
+                        unreachable += 1;
+                    }
+                    continue;
+                };
+                let regard = self.elder_of(x.id, now, params).map_or(0.0, |e| {
+                    hh.members
+                        .iter()
+                        .map(|&m| self.ties.regard(m, e, day, tp))
+                        .fold(0.0, f64::max)
+                        .clamp(0.0, 1.0)
+                });
+                let cost = f64::from(secs) / 60.0 + tp.ask_known_min * regard;
+                let better = |best: Option<(f64, f64)>| {
+                    best.is_none_or(|(k, c)| kcal > k + 1e-6 || (kcal >= k - 1e-6 && cost < c))
+                };
+                if at_home {
+                    if better(home) {
+                        home = Some((kcal, cost));
+                    }
+                } else if better(away.map(|(k, c, _)| (k, c))) {
+                    away = Some((kcal, cost, xs));
+                }
+            }
+            out.push(TakeProbe {
+                household: id,
+                settlement,
+                want_kcal: want,
+                seen: seen.len(),
+                home,
+                away,
+                away_unreachable: unreachable,
+            });
+        }
+        out
+    }
+
+    /// Whether a member of household `household` knows someone of another settlement took from
+    /// its store since day `since` (M6c slice BI: the issue `raided`).
+    pub(super) fn raided_within(&self, household: PermanentId, since: i64) -> bool {
+        let Some(x) = self.household(household) else {
+            return false;
+        };
+        let start = self.order.amounts.partition_point(|a| a.day < since);
+        self.order.amounts[start..].iter().any(|a| {
+            a.lost
+                && a.household == household
+                && self
+                    .order
+                    .incident(a.incident)
+                    .is_some_and(|i| i.across.is_some())
+                && x.members.iter().any(|&m| {
+                    self.order
+                        .belief(m, a.incident)
+                        .is_some_and(|b| b.taker.is_some())
+                })
+        })
+    }
+
+    /// [`Self::raided_within`], for tests.
+    pub fn raided_within_for_tests(&self, household: PermanentId, since: i64) -> bool {
+        self.raided_within(household, since)
+    }
+
+    /// [`Self::come_to_believe`], for tests.
+    pub fn come_to_believe_for_tests(&mut self, ctx: &Ctx, belief: Belief) {
+        self.come_to_believe(ctx, belief);
     }
 
     /// Whether `p` turned back or fled from a store and is still waiting before trying again
@@ -236,6 +415,8 @@ impl Population {
             return;
         }
         let (home, members, settlement) = (vh.home, vh.members.clone(), vh.settlement);
+        let from = self.household(taker_hh).and_then(|x| x.settlement);
+        let across = from.filter(|&f| Some(f) != settlement);
         let (food_days, richer) = self.food_place(taker_hh, now, params, goods);
         let t = now.minutes() as f64;
         // A capable guardian is one of an age to stop them (research 04-09 §1.1: routine activity
@@ -338,6 +519,7 @@ impl Population {
             noticed: false,
             food_days,
             richer,
+            across,
         });
         // The taker learns from their own attempt: turned back or seen is a sign takers are
         // seen; an unseen taking that they are not.
@@ -378,14 +560,23 @@ impl Population {
                 day,
             });
         }
-        // Those who saw know who it was.
+        // Those who saw know who it was if they know them: one of their own settlement, or
+        // someone they have a tie to (ADR-0023 §2). A stranger from elsewhere they cannot name.
+        let tp = &params.ties;
         for &w in &seen_by {
+            let knows = across.is_none()
+                || self
+                    .person(w)
+                    .and_then(|p| self.household(p.household))
+                    .and_then(|x| x.settlement)
+                    == from
+                || self.ties.tie(w, taker, day, tp).is_some();
             self.come_to_believe(
                 ctx,
                 Belief {
                     holder: w,
                     incident: id,
-                    taker: Some(taker),
+                    taker: knows.then_some(taker),
                     source: Source::Saw,
                     from: None,
                     origin: Some(w),
@@ -411,12 +602,17 @@ impl Population {
                 .max_by(|a, b| a.1.total_cmp(&b.1))
                 .map_or("food", |&(g, _)| goods[g].name.as_str())
                 .to_lowercase();
+            // One from another settlement is told as of it (M6c slice BI).
+            let of = across.map_or_else(String::new, |s| {
+                format!("of {} ", self.settlement_name(ctx, s))
+            });
             let name = match outcome {
                 Outcome::Taken => {
-                    format!("took {kg:.0} kg of {what} from the household of {elder}; {saw}.")
+                    format!("{of}took {kg:.0} kg of {what} from the household of {elder}; {saw}.")
                 }
                 _ => format!(
-                    "tried to take food from the household of {elder} and fled when seen; {saw}."
+                    "{of}tried to take food from the household of {elder} and fled when seen; \
+                     {saw}."
                 ),
             };
             let mut people = vec![taker];
@@ -438,8 +634,49 @@ impl Population {
     /// that they are not) and, if they know who took, their tie to the taker.
     pub(super) fn come_to_believe(&mut self, ctx: &Ctx, belief: Belief) {
         let target = self.order.incident(belief.incident).map(|i| i.target);
+        let across = self.order.incident(belief.incident).and_then(|i| i.across);
         if !self.order.learn(belief) {
             return;
+        }
+        // Knowing who of another settlement took from a store of one's own is evidence that
+        // their polity harms one's own (M6c slice BI, ADR-0023 §2).
+        if belief.taker.is_some()
+            && belief.source != Source::Did
+            && let Some(from) = across
+        {
+            let mine = self
+                .person(belief.holder)
+                .and_then(|p| self.household(p.household))
+                .and_then(|x| x.settlement);
+            let theirs = target
+                .and_then(|t| self.household(t))
+                .and_then(|x| x.settlement);
+            if mine.is_some()
+                && mine == theirs
+                && let Some(polity) = self.polity_of(from).map(|i| self.polities[i].id)
+            {
+                let rp = &ctx.params.relations;
+                let (act, weight) = if belief.source == Source::Told {
+                    (crate::views::ViewAct::HeardTaking, rp.heard_taking)
+                } else {
+                    (crate::views::ViewAct::SawTaking, rp.seen_taking)
+                };
+                let day = ctx.now.day_index();
+                self.polity_views
+                    .record(belief.holder, polity, act, weight, day, rp);
+                // Against that polity's word not to raid one's own, as one knows it: it does not
+                // keep its word (M6c slice BL, ADR-0023 §8).
+                if self.word_broken_known(belief.holder, polity, mine) {
+                    self.polity_views.record(
+                        belief.holder,
+                        polity,
+                        crate::views::ViewAct::WordBroken,
+                        rp.performance,
+                        day,
+                        rp,
+                    );
+                }
+            }
         }
         // What a taker knows of their own taking moves nothing.
         if belief.source == Source::Did {
@@ -1000,7 +1237,15 @@ impl Population {
                                 .sum(),
                             None => ob.left_kcal(),
                         };
-                        let found = if ob.case.is_some() {
+                        // Only a finding of its own settlement's gathering binds it (M6c slice
+                        // BI, ADR-0023 §2).
+                        let case = ob.case.and_then(|c| self.order.case(c));
+                        let found = if case.is_some_and(|c| Some(c.settlement) != settlement) {
+                            0.0
+                        } else if case.is_some_and(|c| c.forum.is_some()) {
+                            // A forum's finding, by the norm that findings bind (M7b slice BU).
+                            self.findings_points(ctx, by)
+                        } else if case.is_some() {
                             cp.w_comply_found
                         } else {
                             0.0
@@ -1191,6 +1436,10 @@ impl Population {
             .take_while(|a| a.day >= since)
             .filter(|a| a.household == h)
         {
+            let across = self
+                .order
+                .incident(a.incident)
+                .is_some_and(|i| i.across.is_some());
             if a.lost {
                 let known = x.members.iter().any(|&m| {
                     self.order
@@ -1200,12 +1449,20 @@ impl Population {
                 if known {
                     out.lost_kcal += f64::from(a.kcal);
                     out.lost += 1;
+                    if across {
+                        out.outside_kcal += f64::from(a.kcal);
+                        out.outside += 1;
+                    }
                 } else {
                     out.unknown_kcal += f64::from(a.kcal);
                 }
             } else {
                 out.took_kcal += f64::from(a.kcal);
                 out.took += 1;
+                if across {
+                    out.took_outside_kcal += f64::from(a.kcal);
+                    out.took_outside += 1;
+                }
             }
         }
         let grown: Vec<f64> = x

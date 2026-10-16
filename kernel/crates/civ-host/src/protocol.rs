@@ -949,6 +949,9 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
     let settlements = parts
         .sim
         .map(|sim| civ_sim::frames::people::settlement_briefs(&mut fbb, sim));
+    let bands = parts
+        .sim
+        .map(|sim| civ_sim::frames::people::band_briefs(&mut fbb, sim));
     let chronicle_head = parts.sim.map_or(0, civ_sim::frames::people::chronicle_head);
     let fields_rev = parts.sim.map_or(0, civ_sim::frames::fields::fields_rev);
     let buildings_rev = parts
@@ -1028,6 +1031,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             crossings_rev,
             water_rev,
             incidents_rev,
+            bands,
         },
     );
     finish(fbb, root)

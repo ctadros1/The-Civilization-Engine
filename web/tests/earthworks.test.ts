@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { changedTiles, detailTilesOver, earthworkAt, earthworkLook } from "../src/earthworks.js";
+import { changedTiles, detailTilesOver, earthworkAt, earthworkLook, sectorLook } from "../src/earthworks.js";
 import type { EarthworkInfo, EarthworksInfo } from "../src/net/messages.js";
 
 function work(over: Partial<EarthworkInfo> = {}): EarthworkInfo {
@@ -53,6 +53,19 @@ describe("earthworks", () => {
     const platform = earthworkLook(work({ kind: 0, done: 1 }));
     expect(new Set([pit.colour, heap.colour, platform.colour]).size).toBe(3);
     expect(earthworkLook(work({ kind: 1, cutM3: 0 })).alpha).toBeLessThan(pit.alpha);
+  });
+
+  it("draws a standing palisade thick and solid, an open gate thinner, and a gap or unbuilt stretch faint", () => {
+    const at = { ax: 0, ay: 0, bx: 10, by: 0, index: 0 };
+    const wall = sectorLook({ ...at, state: 1, gate: 0 });
+    const shut = sectorLook({ ...at, state: 1, gate: 2 });
+    const open = sectorLook({ ...at, state: 1, gate: 1 });
+    const gap = sectorLook({ ...at, state: 2, gate: 0 });
+    const unbuilt = sectorLook({ ...at, state: 0, gate: 1 });
+    expect(shut).toEqual(wall);
+    expect(open.width).toBeLessThan(wall.width);
+    expect(gap.alpha).toBeLessThan(open.alpha);
+    expect(unbuilt.alpha).toBeLessThan(wall.alpha);
   });
 
   it("names the ground tiles whose revision changed since last seen", () => {

@@ -36,11 +36,26 @@ pub enum ClaimKind {
     Suspicion = 6,
     /// A building was found burning, with no cause asserted.
     Fire = 7,
+    /// People of another settlement came in a band to a household (M6c slice BJ, ADR-0023 §8):
+    /// who, what was taken, who was struck, as the encounter's record has it.
+    Raid = 8,
+    /// A band was seen walking (ADR-0023 §8): where, how many, which way.
+    BandSeen = 9,
+    /// A council's election polls (or draws its lot) at the settlement's hearth on a day (M7a
+    /// slice BO, ADR-0024 §3): told as a gathering called is.
+    Election = 10,
+    /// Someone stands in a council's election that polls at the settlement's hearth on a day, and
+    /// says where they stand (M7a slice BP, ADR-0024 §4): `subject` is who stands.
+    Candidacy = 11,
+    /// A case was found or not found at the settlement on a day (M7b slice BS, ADR-0025 §2): its
+    /// `event` is the case. Those who heard it hold it at first hand; others hear it as news; it
+    /// is remembered as long as takings are.
+    Finding = 12,
 }
 
 impl ClaimKind {
     /// Every kind, in code order.
-    pub const ALL: [ClaimKind; 8] = [
+    pub const ALL: [ClaimKind; 13] = [
         ClaimKind::Gathering,
         ClaimKind::Grievance,
         ClaimKind::Petition,
@@ -49,6 +64,11 @@ impl ClaimKind {
         ClaimKind::Sickness,
         ClaimKind::Suspicion,
         ClaimKind::Fire,
+        ClaimKind::Raid,
+        ClaimKind::BandSeen,
+        ClaimKind::Election,
+        ClaimKind::Candidacy,
+        ClaimKind::Finding,
     ];
 
     /// Whether claims of this kind are news while they are held (a household's sickness, a
@@ -56,7 +76,11 @@ impl ClaimKind {
     pub fn held_news(self) -> bool {
         matches!(
             self,
-            ClaimKind::Sickness | ClaimKind::Suspicion | ClaimKind::Fire
+            ClaimKind::Sickness
+                | ClaimKind::Suspicion
+                | ClaimKind::Fire
+                | ClaimKind::Raid
+                | ClaimKind::BandSeen
         )
     }
 
@@ -114,6 +138,8 @@ pub struct Claim {
     pub suspected: Option<(Place, Counts)>,
     /// The recorded fire a found-burning account names; never its cause.
     pub fire: Option<u32>,
+    /// The recorded encounter a raid names, or the band a sighting names (M6c slice BJ).
+    pub event: Option<u32>,
 }
 
 /// That `holder` heard claim `claim` (ADR-0016 §3).
@@ -171,6 +197,30 @@ impl Word {
             .iter()
             .rev()
             .find(|c| c.kind == ClaimKind::Gathering && c.settlement == settlement && c.day == day)
+            .map(|c| c.id)
+    }
+
+    /// The claim that an election polls at `settlement` on `day`, if one was made (M7a slice BO).
+    pub fn election(&self, settlement: PermanentId, day: i64) -> Option<u32> {
+        self.claims
+            .iter()
+            .rev()
+            .find(|c| c.kind == ClaimKind::Election && c.settlement == settlement && c.day == day)
+            .map(|c| c.id)
+    }
+
+    /// The claim that `who` stands in the election that polls at `settlement` on `day`, if one was
+    /// made (M7a slice BP).
+    pub fn candidacy(&self, settlement: PermanentId, day: i64, who: PermanentId) -> Option<u32> {
+        self.claims
+            .iter()
+            .rev()
+            .find(|c| {
+                c.kind == ClaimKind::Candidacy
+                    && c.settlement == settlement
+                    && c.day == day
+                    && c.subject == Some(who)
+            })
             .map(|c| c.id)
     }
 
@@ -304,16 +354,21 @@ impl Word {
     }
 
     /// Lets go of what is no longer news on `today`: a gathering's call once its day has passed,
-    /// a grievance told more than `news_days` ago and not since, and sickness first seen or a
-    /// suspicion first held more than `sickness_days` ago; and of claims nobody holds.
-    pub fn prune(&mut self, today: i64, news_days: i64, sickness_days: i64) {
+    /// a grievance told more than `news_days` ago and not since, sickness first seen or a
+    /// suspicion first held more than `sickness_days` ago, and a finding made more than
+    /// `finding_days` ago; and of claims nobody holds.
+    pub fn prune(&mut self, today: i64, news_days: i64, sickness_days: i64, finding_days: i64) {
         let stale = |c: &Claim, last: i64| match c.kind {
-            ClaimKind::Gathering | ClaimKind::Petition | ClaimKind::Refusal | ClaimKind::Revolt => {
-                c.day < today
-            }
+            ClaimKind::Gathering
+            | ClaimKind::Petition
+            | ClaimKind::Refusal
+            | ClaimKind::Revolt
+            | ClaimKind::Election
+            | ClaimKind::Candidacy => c.day < today,
             ClaimKind::Grievance => last + news_days < today,
-            ClaimKind::Fire => c.day + news_days < today,
+            ClaimKind::Fire | ClaimKind::Raid | ClaimKind::BandSeen => c.day + news_days < today,
             ClaimKind::Sickness | ClaimKind::Suspicion => c.day + sickness_days < today,
+            ClaimKind::Finding => c.day + finding_days < today,
         };
         let claims = &self.claims;
         let find = |id: u32| {
@@ -404,6 +459,11 @@ pub enum Blamed {
     Household(PermanentId),
     /// A person.
     Person(PermanentId),
+    /// A forum, by the *hear cases* law that names it (M7b slice BU, ADR-0025 §5): grievances
+    /// over its findings blame it, not the body.
+    Forum(PermanentId),
+    /// An organization, by its id (M7c slice BW, ADR-0026 §2): one that turned an applicant away.
+    Organization(PermanentId),
 }
 
 impl Blamed {
@@ -414,6 +474,8 @@ impl Blamed {
             Blamed::Office(id) => (1, id.get()),
             Blamed::Household(id) => (2, id.get()),
             Blamed::Person(id) => (3, id.get()),
+            Blamed::Forum(id) => (4, id.get()),
+            Blamed::Organization(id) => (5, id.get()),
         }
     }
 
@@ -425,6 +487,8 @@ impl Blamed {
             1 => Some(Blamed::Office(id)),
             2 => Some(Blamed::Household(id)),
             3 => Some(Blamed::Person(id)),
+            4 => Some(Blamed::Forum(id)),
+            5 => Some(Blamed::Organization(id)),
             _ => None,
         }
     }
@@ -456,11 +520,19 @@ pub enum Wrong {
     /// People of another settlement worked a place their polity claims, without leave (M5c slice
     /// AT, ADR-0020 §4).
     Trespass = 9,
+    /// An organization of those who sell what they sell turned them away (M7c slice BW, ADR-0026
+    /// §2).
+    TurnedAway = 10,
+    /// The store's keeper passed over their ask, when the store was low, for those they favour
+    /// (M7c slice BY, ADR-0026 §4).
+    PassedOver = 11,
+    /// A duty's collector asked their household a payment to assess less (M7c slice BY).
+    Extorted = 12,
 }
 
 impl Wrong {
     /// Every event, in code order.
-    pub const ALL: [Wrong; 10] = [
+    pub const ALL: [Wrong; 13] = [
         Wrong::StoreEmpty,
         Wrong::FoundAgainst,
         Wrong::NotFound,
@@ -471,6 +543,9 @@ impl Wrong {
         Wrong::Forced,
         Wrong::Struck,
         Wrong::Trespass,
+        Wrong::TurnedAway,
+        Wrong::PassedOver,
+        Wrong::Extorted,
     ];
 
     /// Its number in saves.
@@ -507,6 +582,13 @@ impl Wrong {
             Wrong::Trespass => {
                 "people of another settlement worked a place their polity claims, without leave"
             }
+            Wrong::TurnedAway => {
+                "an organization of those who sell what they sell turned them away"
+            }
+            Wrong::PassedOver => {
+                "the store's keeper passed over their household's ask for those they favour"
+            }
+            Wrong::Extorted => "a duty's collector asked their household a payment to assess less",
         }
     }
 }
@@ -631,6 +713,7 @@ mod tests {
         let mut w = Word::default();
         let c = w.make(Claim {
             fire: None,
+            event: None,
             id: 0,
             kind: ClaimKind::Gathering,
             settlement: id(1),
@@ -650,9 +733,9 @@ mod tests {
         assert_eq!((h[0].from, h[0].origin), (Some(id(5)), Some(id(5))));
         assert!(w.has_heard(id(5), c) && !w.has_heard(id(4), c));
         // A gathering's call is news until its day has passed.
-        w.prune(10, 60, 30);
+        w.prune(10, 60, 30, 365);
         assert!(w.has_heard(id(3), c));
-        w.prune(11, 60, 30);
+        w.prune(11, 60, 30, 365);
         assert!(!w.has_heard(id(3), c) && w.claim(c).is_none());
     }
 
@@ -661,6 +744,7 @@ mod tests {
         let mut w = Word::default();
         let sick = |day| Claim {
             fire: None,
+            event: None,
             id: 0,
             kind: ClaimKind::Sickness,
             settlement: id(1),
@@ -676,9 +760,9 @@ mod tests {
         assert_eq!(w.sickness(id(20)).map(|c| c.id), Some(again));
         assert!(w.sickness(id(21)).is_none());
         // Thirty days after it was first seen it is still news; a day later it is let go.
-        w.prune(40, 60, 30);
+        w.prune(40, 60, 30, 365);
         assert!(w.has_heard(id(5), first));
-        w.prune(41, 60, 30);
+        w.prune(41, 60, 30, 365);
         assert!(!w.has_heard(id(5), first) && w.has_heard(id(5), again));
     }
 
@@ -687,6 +771,7 @@ mod tests {
         let mut w = Word::default();
         let c = w.make(Claim {
             fire: None,
+            event: None,
             id: 0,
             kind: ClaimKind::Gathering,
             settlement: id(1),

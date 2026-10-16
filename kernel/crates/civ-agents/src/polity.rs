@@ -68,11 +68,73 @@ pub enum PolicyKind {
     /// crossing built together is (09-06: labour asked and labour given are kept apart); once
     /// open, the polity's people may draw at it. Nobody is made to work.
     DigWell,
+    /// The polity builds a flood bank where it would have kept out the water that cost its
+    /// households (M6b slice BG; ADR-0022 §11): it begins once passed, the polity's, and each
+    /// household is asked an equal share of its work, as a crossing built together is (research
+    /// 12-08 §1.2: those who gain and those who work may differ). Nobody is made to work, and
+    /// nobody keeps it up unless a law asks (ADR-0022 §11).
+    BuildBank,
+    /// The polity keeps a flood bank it built (M6b slice BG; ADR-0022 §11: nobody mends a
+    /// polity's bank unless a law asks; research 12-08 §1.4: maintenance needs an organization
+    /// of its own, not the mobilization that built it): the bank is looked over when a high water
+    /// goes down and each year, and whenever it wants mending each household is asked an equal
+    /// share of the work, as for building it. Nobody is made to work.
+    KeepBank,
+    /// A rule for building (M6b slice BH; ADR-0022 §12): what its template requires of buildings
+    /// begun from the day it is in force ([`RuleDef`]). Old buildings stand as they are (research
+    /// 11-09 §1.7: never rebuild the whole village when a law passes). Keeping it is each
+    /// builder's choice, as a curfew's is, with no sanction in M6b.
+    BuildingRule,
+    /// The polity sends a band against the settlement whose people raided its households (M6c
+    /// slice BJ, step three; ADR-0023 §5): the one it names leads it, and each household owes
+    /// one of its grown people to go, whom it chooses, or keeps its share back as a levy is kept
+    /// back. The band goes once; when it is home, or never set off, the law has run its course.
+    SendBand,
+    /// A raid by the polity's own people on another settlement is a wrong its gathering hears
+    /// (M6c slice BJ, step three; ADR-0023 §5): whoever it finds led one gives back what was
+    /// taken, and the law's bundle besides, to the household raided.
+    AgainstRaiding,
+    /// The polity raises a palisade round its hearth, taking in the homes within a reach (M6c
+    /// slice BK, step two; ADR-0023 §6): it is begun once passed, the polity's, and each
+    /// household is asked an equal share of its work, as a crossing built together is; homes
+    /// outside the line pay without its cover. Nobody is made to work.
+    Enclose,
+    /// The polity takes in the settlement a band its law sent holds (M6c slice BM; ADR-0023
+    /// §9): the held polity's deciding closes, its laws lapse, its store becomes this polity's
+    /// and its residents become this polity's members. Passed, it is done at once and has run its
+    /// course.
+    Annex,
+    /// A forum (M7b slice BR, ADR-0025 §1): who hears the cases of the kinds of law its template
+    /// names, besides the gathering: one holder it names, a panel drawn by lot, or the elders.
+    HearCases,
+    /// A limit (M7b slice BT, ADR-0025 §3): a law above laws, forbidding laws whose fields meet a
+    /// predicate the kernel knows; adopted only through the custom's amendment route, and changed
+    /// only by its own rule. A law that breaches it still passes: it matters only when someone
+    /// challenges and a forum with review finds against the law.
+    Limit,
+    /// A duty (M7c slice BV, ADR-0026 §1): a member's household that buys goods of its template's
+    /// purpose at another settlement's door owes the polity's store a share of them (the law's
+    /// levy share), paid at home in kind as the levy is, or kept back.
+    Duty,
+    /// An embargo (M7c slice BV, ADR-0026 §1): no member may buy at the doors of the settlement
+    /// it names (its target). Keeping it is each person's choice, as a curfew's is.
+    Embargo,
+    /// Recognition (M7c slice BW, ADR-0026 §2): the polity recognizes the organization by stake
+    /// it names (its target). In BW a recognized organization's members' households owe none of
+    /// the polity's duties on goods of the organization's purpose; privileges follow in BX. It
+    /// ends with the organization.
+    Recognize,
+    /// A privilege (M7c slice BX, ADR-0026 §3): the organization it names (its target) alone may
+    /// offer goods of its template's purpose at doors in the settlement (a licence), or alone may
+    /// sell there such goods fetched from another settlement (a staple). Keeping it is each
+    /// seller's choice; a breach is an offer at a door, which becomes a case only if someone
+    /// brings it, and a finding imposes the template's bundle.
+    Privilege,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 12] = [
+    pub const ALL: [PolicyKind; 25] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -85,6 +147,19 @@ impl PolicyKind {
         PolicyKind::BuildCrossing,
         PolicyKind::CloseSource,
         PolicyKind::DigWell,
+        PolicyKind::BuildBank,
+        PolicyKind::KeepBank,
+        PolicyKind::BuildingRule,
+        PolicyKind::SendBand,
+        PolicyKind::AgainstRaiding,
+        PolicyKind::Enclose,
+        PolicyKind::Annex,
+        PolicyKind::HearCases,
+        PolicyKind::Limit,
+        PolicyKind::Duty,
+        PolicyKind::Embargo,
+        PolicyKind::Recognize,
+        PolicyKind::Privilege,
     ];
 
     /// The authored name.
@@ -102,6 +177,19 @@ impl PolicyKind {
             PolicyKind::BuildCrossing => "build_crossing",
             PolicyKind::CloseSource => "close_source",
             PolicyKind::DigWell => "dig_well",
+            PolicyKind::BuildBank => "build_bank",
+            PolicyKind::KeepBank => "keep_bank",
+            PolicyKind::BuildingRule => "building_rule",
+            PolicyKind::SendBand => "send_band",
+            PolicyKind::AgainstRaiding => "against_raiding",
+            PolicyKind::Enclose => "enclose",
+            PolicyKind::Annex => "annex",
+            PolicyKind::HearCases => "hear_cases",
+            PolicyKind::Limit => "limit",
+            PolicyKind::Duty => "duty",
+            PolicyKind::Embargo => "embargo",
+            PolicyKind::Recognize => "recognize",
+            PolicyKind::Privilege => "privilege",
         }
     }
 
@@ -158,11 +246,35 @@ pub enum IssueKind {
     /// the settlement's households more walking over its lining's life than its work (M6a slice
     /// BA, step four), as fords make a crossing an issue.
     WaterFar,
+    /// A flood cost a household of the settlement within its people's memory, as they saw (its
+    /// stores spoiled where water stood, its sown crop drowned), and a bank built together would
+    /// have kept that water out, its saving over its life above its work (M6b slice BG), as
+    /// fords make a crossing an issue.
+    Flooded,
+    /// A flood bank the polity built wants mending, and no law of its keeps it (M6b slice BG).
+    BankWorn,
+    /// A household of the settlement lost a building to fire, or its people saw one burn, within
+    /// their memory (M6b slice BH; ADR-0022 §12).
+    Burned,
+    /// A building of the settlement gave way within its people's memory, as they heard told
+    /// (M6b slice BH; ADR-0022 §12).
+    GaveWay,
+    /// A household of the settlement knows people of another settlement took from its store
+    /// within its people's memory (M6c slice BI; ADR-0023 §2).
+    Raided,
+    /// A band the polity's law sent holds another settlement (M6c slice BM; ADR-0023 §9).
+    Holding,
+    /// A case a household of the settlement brought within memory was not heard, or was not
+    /// found (M7b slice BR, ADR-0025 §1): what a forum answers.
+    CasesWaiting,
+    /// A household of the settlement offers at home goods its people fetched from another
+    /// settlement lately (M7c slice BV, ADR-0026 §1): what a duty or an embargo answers.
+    FetchedElsewhere,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 13] = [
+    pub const ALL: [IssueKind; 21] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -176,6 +288,14 @@ impl IssueKind {
         IssueKind::Sickness,
         IssueKind::SourceSuspected,
         IssueKind::WaterFar,
+        IssueKind::Flooded,
+        IssueKind::BankWorn,
+        IssueKind::Burned,
+        IssueKind::GaveWay,
+        IssueKind::Raided,
+        IssueKind::Holding,
+        IssueKind::CasesWaiting,
+        IssueKind::FetchedElsewhere,
     ];
 
     /// The authored name.
@@ -194,6 +314,14 @@ impl IssueKind {
             IssueKind::Sickness => "sickness",
             IssueKind::SourceSuspected => "source_suspected",
             IssueKind::WaterFar => "water_far",
+            IssueKind::Flooded => "flooded",
+            IssueKind::BankWorn => "bank_worn",
+            IssueKind::Burned => "burned",
+            IssueKind::GaveWay => "gave_way",
+            IssueKind::Raided => "raided",
+            IssueKind::Holding => "holding",
+            IssueKind::CasesWaiting => "cases_waiting",
+            IssueKind::FetchedElsewhere => "fetched_elsewhere",
         }
     }
 
@@ -225,6 +353,16 @@ impl IssueKind {
             IssueKind::Sickness => "its people had sickness at home lately",
             IssueKind::SourceSuspected => "they hold that the water there sickens",
             IssueKind::WaterFar => "its people walked far for water",
+            IssueKind::Flooded => "floodwater had cost its households",
+            IssueKind::BankWorn => "the bank they built against floodwater wanted mending",
+            IssueKind::Burned => "fire had taken buildings they knew",
+            IssueKind::GaveWay => "buildings they knew had given way",
+            IssueKind::Raided => "people of another settlement took from households' stores",
+            IssueKind::Holding => "a band of theirs held another settlement",
+            IssueKind::CasesWaiting => "a case they brought went unheard or was not found",
+            IssueKind::FetchedElsewhere => {
+                "people of theirs fetched from elsewhere goods their households offer at home"
+            }
         }
     }
 }
@@ -326,6 +464,177 @@ pub struct PolicyDef {
     /// How a law of it bears on each value content names: (index in the catalog's values, −1
     /// against to 1 for), in value order (M4c slice AG, step three).
     pub bears: Vec<(u16, f32)>,
+    /// For a rule for building: what it requires (M6b slice BH).
+    pub rule: Option<RuleDef>,
+    /// For an office (the store's keeper, the watch): how long it is held and how it is filled,
+    /// when not until the holder dies or leaves and named by the body (M7a slice BN, ADR-0024 §2).
+    pub tenure: Option<Tenure>,
+    /// For a forum: who sits and what it hears (M7b slice BR, ADR-0025 §1).
+    pub forum: Option<crate::forum::ForumDef>,
+    /// For a limit: what it forbids and the rule that changes it (M7b slice BT).
+    pub limit: Option<crate::forum::LimitDef>,
+    /// For a duty: what it is laid on (M7c slice BV, ADR-0026 §1).
+    pub duty: Option<DutyDef>,
+    /// For a privilege: what it grants (M7c slice BX, ADR-0026 §3).
+    pub privilege: Option<PrivilegeDef>,
+}
+
+/// What a duty is laid on (M7c slice BV, ADR-0026 §1): goods of one purpose bought at another
+/// settlement's door, and whether households that offer such goods at home are spared it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DutyDef {
+    pub purpose: crate::params::GoodUse,
+    pub exempt_sellers: bool,
+    /// The law names one who collects it (M7c slice BY, ADR-0026 §4): they see purchases and
+    /// assess them, and may ask a payment to assess less.
+    pub collector: bool,
+}
+
+impl DutyDef {
+    /// What it is laid on, in words: "tools bought at another settlement's door".
+    pub fn words(&self) -> String {
+        format!(
+            "{} bought at another settlement's door{}",
+            self.purpose.plural_words(),
+            if self.exempt_sellers {
+                ", but by households that offer them at home"
+            } else {
+                ""
+            }
+        )
+    }
+}
+
+/// What a privilege grants (M7c slice BX, ADR-0026 §3). Codes are part of saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Grant {
+    /// The sole right to offer goods of its purpose at doors in the settlement.
+    Licence = 0,
+    /// The sole right to sell in the settlement goods of its purpose fetched from another.
+    Staple = 1,
+}
+
+impl Grant {
+    /// Every grant, in code order.
+    pub const ALL: [Grant; 2] = [Grant::Licence, Grant::Staple];
+
+    /// The authored name.
+    pub fn name(self) -> &'static str {
+        match self {
+            Grant::Licence => "licence",
+            Grant::Staple => "staple",
+        }
+    }
+
+    /// The grant with an authored name.
+    pub fn from_name(name: &str) -> Option<Grant> {
+        Grant::ALL.into_iter().find(|g| g.name() == name)
+    }
+}
+
+/// A privilege's terms (M7c slice BX, ADR-0026 §3): what it grants, over goods of one purpose.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PrivilegeDef {
+    pub grant: Grant,
+    pub purpose: crate::params::GoodUse,
+}
+
+impl PrivilegeDef {
+    /// What it grants, in words after "an organization alone": "may offer tools at doors here",
+    /// "may sell here tools fetched from another settlement".
+    pub fn words(&self) -> String {
+        match self.grant {
+            Grant::Licence => format!("may offer {} at doors here", self.purpose.plural_words()),
+            Grant::Staple => format!(
+                "may sell here {} fetched from another settlement",
+                self.purpose.plural_words()
+            ),
+        }
+    }
+}
+
+/// An office's tenure (M7a slice BN, ADR-0024 §2): a term of days, whether the one who held it
+/// may be named or drawn again for the next, and whether it is filled by lot from those who put
+/// their names in rather than named by the body.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Tenure {
+    pub term_days: u32,
+    pub renewable: bool,
+    pub by_lot: bool,
+}
+
+/// An office law's term as it was filled (M7a slice BN): the day it ends, and how many put their
+/// names in when it was drawn by lot (0 when the body named its holder).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Term {
+    pub until: i64,
+    pub pool: u32,
+}
+
+/// What a rule for building requires of a building begun while it is in force (M6b slice BH;
+/// ADR-0022 §12). Each template names either a property or a technique (research 11-09 §5.2),
+/// and applies only where its predicate holds (11-09 §1.7).
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuleDef {
+    /// What it requires.
+    pub template: RuleTemplate,
+    /// The technique a sponsor must know to put it forward (11-09 §1.4: remedies come from known
+    /// techniques), by index in the catalog's techniques.
+    pub needs: Option<usize>,
+}
+
+/// A rule's template (M6b slice BH): codes are part of content, append only.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum RuleTemplate {
+    /// A building whose plot lies within `within_m` metres of another building's must have a
+    /// roof that does not burn (a property: 11-09 §5.2), as fired tile is.
+    RoofsUnburnt { within_m: f32 },
+    /// A building's walls must be of one of the kinds named, a bit for each wall kind (0 wattle
+    /// and daub, 1 rubble, 2 mud brick, 3 fired brick: ADR-0022 §10): a technique (11-09 §5.2).
+    WallsOfKinds { kinds: u8 },
+    /// A building's plot must keep at least `gap_m` metres from every other's (separation:
+    /// 11-09 §5.2).
+    LeastGap { gap_m: f32 },
+}
+
+/// The names of the wall kinds, by kind code (ADR-0022 §10).
+pub const WALL_KINDS: [&str; 4] = ["wattle", "rubble", "mud_brick", "fired_brick"];
+
+impl RuleTemplate {
+    /// The authored name.
+    pub fn name(self) -> &'static str {
+        match self {
+            RuleTemplate::RoofsUnburnt { .. } => "roofs_unburnt",
+            RuleTemplate::WallsOfKinds { .. } => "walls_of_kinds",
+            RuleTemplate::LeastGap { .. } => "least_gap",
+        }
+    }
+
+    /// What it requires, in words: "a new roof within 4 m of another building must not burn".
+    pub fn words(self) -> String {
+        match self {
+            RuleTemplate::RoofsUnburnt { within_m } => {
+                format!("a new roof within {within_m:.0} m of another building must not burn")
+            }
+            RuleTemplate::WallsOfKinds { kinds } => {
+                let names: Vec<&str> = ["wattle and daub", "rubble", "mud brick", "fired brick"]
+                    .into_iter()
+                    .enumerate()
+                    .filter(|(k, _)| kinds & (1 << k) != 0)
+                    .map(|(_, n)| n)
+                    .collect();
+                let list = match names.as_slice() {
+                    [] => "nothing".to_owned(),
+                    [one] => (*one).to_owned(),
+                    [rest @ .., last] => format!("{} or {last}", rest.join(", ")),
+                };
+                format!("new walls must be of {list}")
+            }
+            RuleTemplate::LeastGap { gap_m } => {
+                format!("a new building must stand {gap_m:.0} m from every other")
+            }
+        }
+    }
 }
 
 /// Hours of the day a curfew runs, `(from, to)`: from the start of hour `from` to the start of
@@ -413,6 +722,14 @@ pub struct PolityParams {
     /// ending each law the old custom made (M4c slice AI, step two; research 09-11 §1.6). What
     /// they leave stands.
     pub founding_days: u32,
+    /// Points a member's stance gains for each day of their household's food that gifts from the
+    /// law's sponsor, given before a gathering, brought it within [`Self::owed_memory_days`] (M7c
+    /// slice BY, ADR-0026 §4: what a client owes; a prior).
+    pub w_owed: f64,
+    /// Days a patron's gift is owed for.
+    pub owed_memory_days: u32,
+    /// The most days of a client household's food a patron gives it before one gathering.
+    pub patron_gift_days: f64,
 }
 
 impl PolityParams {
@@ -440,6 +757,9 @@ impl PolityParams {
             comply_base: 0.0,
             w_stance: 1.0,
             founding_days: 90,
+            w_owed: 0.1,
+            owed_memory_days: 365,
+            patron_gift_days: 10.0,
         }
     }
 }
@@ -458,15 +778,19 @@ pub enum Membership {
     /// Those who keep the watch by a law in force (M4c slice AI, step three): the body a coup
     /// among them makes. When none keeps it, nobody.
     Watch,
+    /// Those who hold a seat in its council (M7a slice BO, ADR-0024 §1): the body's `seats` say
+    /// how many seats there are and how they are filled.
+    Seats,
 }
 
 impl Membership {
     /// Every membership, in code order.
-    pub const ALL: [Membership; 4] = [
+    pub const ALL: [Membership; 5] = [
         Membership::Adults,
         Membership::Elders,
         Membership::Landholders,
         Membership::Watch,
+        Membership::Seats,
     ];
 
     /// Its number in saves.
@@ -486,6 +810,7 @@ impl Membership {
             Membership::Elders => "elders",
             Membership::Landholders => "landholders",
             Membership::Watch => "watch",
+            Membership::Seats => "seats",
         }
     }
 
@@ -501,6 +826,7 @@ impl Membership {
             Membership::Elders => "elders",
             Membership::Landholders => "landholders",
             Membership::Watch => "watchers",
+            Membership::Seats => "councillors",
         }
     }
 }
@@ -553,6 +879,9 @@ pub struct Body {
     pub quorum_share: f32,
     /// How those present decide.
     pub pass: PassRule,
+    /// For a council (`members` is `Seats`): its seats and how they are filled (M7a slice BO,
+    /// ADR-0024 §1). `None` for a body of all its members.
+    pub seats: Option<crate::seats::Seats>,
 }
 
 impl Body {
@@ -563,7 +892,40 @@ impl Body {
             members: Membership::Adults,
             quorum_share: params.quorum_share as f32,
             pass: PassRule::MoreForThanAgainst,
+            seats: None,
         }
+    }
+
+    /// How many make up the body for its quorum, `members` of it there now: for a council, its
+    /// seats, filled or empty (ADR-0024 §1: a body short of quorum fails, recorded); else its
+    /// members.
+    pub fn eligible(&self, members: usize) -> u32 {
+        self.seats.map_or(members as u32, |s| u32::from(s.n))
+    }
+
+    /// How many changes body `self` is from `current` (research 09-05 §3.9: reform changes a
+    /// gate within the procedure): who belongs, the quorum and the rule, each one; a council's
+    /// seats, method and term each one more. A gathering becoming a council of its own members,
+    /// or a council its electorate's gathering, is one change.
+    pub fn changes_from(&self, current: &Body) -> u32 {
+        let who = |b: &Body| b.seats.map_or(b.members, |s| s.electorate);
+        // Taking seats or giving them up is the one change: a council's quorum is a share of its
+        // seats, a gathering's of its members, so the two shares are not compared (M7a slice BQ).
+        let seating = self.seats.is_some() != current.seats.is_some();
+        let mut n = u32::from(!seating && (self.quorum_share - current.quorum_share).abs() > 1e-6)
+            + u32::from(self.pass != current.pass)
+            + u32::from(who(self) != who(current));
+        match (self.seats, current.seats) {
+            (Some(a), Some(b)) => {
+                n += u32::from(a.n != b.n)
+                    + u32::from(a.method != b.method)
+                    + u32::from(a.term_days != b.term_days)
+                    + u32::from(a.by_settlement != b.by_settlement);
+            }
+            (None, None) => {}
+            _ => n += 1,
+        }
+        n
     }
 
     /// The body in words: "The adults who come to the hearth decide by acclamation: a quarter of
@@ -576,6 +938,7 @@ impl Body {
                 "The adults of households that hold land who come to the hearth"
             }
             Membership::Watch => "Those who keep the watch",
+            Membership::Seats => "Those who sit in its council",
         };
         let how = match self.pass {
             PassRule::MoreForThanAgainst => {
@@ -593,7 +956,19 @@ impl Body {
             50 => "half of them must come".to_owned(),
             pct => format!("{pct} in a hundred of them must come"),
         };
-        format!("{who} {how}; {quorum}.")
+        match self.seats {
+            Some(s) => {
+                let mut c = s.words().chars().collect::<Vec<char>>();
+                if let Some(f) = c.first_mut() {
+                    *f = f.to_ascii_uppercase();
+                }
+                format!(
+                    "{}. {who} {how}; {quorum}.",
+                    c.into_iter().collect::<String>()
+                )
+            }
+            None => format!("{who} {how}; {quorum}."),
+        }
     }
 
     /// The body as a clause to follow "so that" or a colon: "the elders of its households who
@@ -651,6 +1026,9 @@ pub enum LawStatus {
     /// A repeal that passed (M4c slice AI, step two): the law it named is superseded, and the
     /// repeal itself asks and gives nothing.
     Carried,
+    /// A forum with review found it breaches a limit in force, on a challenge (M7b slice BT,
+    /// ADR-0025 §4): it no longer binds. The case that struck it names it.
+    StruckDown,
 }
 
 /// How a gathering's decision went. Codes are part of saves: append only.
@@ -722,6 +1100,30 @@ pub struct StanceRecord {
     /// w_regard`] times their view's warmth; M5c slice AU step three): 0 for any other law, and
     /// before.
     pub view: f32,
+    /// What the household owed the law's sponsor or the one it names, for gifts before a
+    /// gathering, added, points ([`PolityParams::w_owed`] times the days of its food they brought
+    /// it; M7c slice BY): 0 before.
+    pub owed: f32,
+}
+
+/// A gift of food a sponsor's household gave a member's before the gathering on the sponsor's law
+/// (M7c slice BY, ADR-0026 §4: an ordinary gift, with its political reason recorded).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PatronGift {
+    /// The sponsor who gave it.
+    pub patron: PermanentId,
+    /// Their household, which gave it.
+    pub giver: PermanentId,
+    /// The household given it.
+    pub client: PermanentId,
+    /// The law whose gathering it was given before.
+    pub law: PermanentId,
+    /// The day it was given.
+    pub day: i64,
+    /// Its food, kcal.
+    pub kcal: f32,
+    /// Days of the client household's food it was.
+    pub days: f32,
 }
 
 /// What became of what a law asks of people and gives them (ADR-0013 §3, stages 6-7).
@@ -753,6 +1155,20 @@ pub struct Compliance {
     pub broken: u32,
     /// Times someone who did not know of it did what it forbids.
     pub broken_unaware: u32,
+    /// For a store kept by a keeper (M7c slice BY): times the keeper drew from it for their own
+    /// household, and the food, kilograms (on the store's law).
+    pub diverted: u32,
+    pub diverted_kg: f64,
+    /// Asks the store answered while low, ordered by the keeper's regard, and asks it passed
+    /// over (M7c slice BY: relief by favour).
+    pub favoured: u32,
+    pub passed_over: u32,
+    /// For a duty with a collector (M7c slice BY): purchases they assessed in full; payments
+    /// they asked to assess less, those paid, and the food paid them, kilograms.
+    pub assessed: u32,
+    pub asked: u32,
+    pub bribed: u32,
+    pub bribe_kg: f64,
 }
 
 /// What a watch has done (M4b slice AC): what anyone could see of it, and where its next round
@@ -824,6 +1240,8 @@ pub struct Law {
     pub ends: Option<PermanentId>,
     /// For the polity's side of an agreement: which (M5c slice AU).
     pub agreement: Option<PermanentId>,
+    /// For a band sent by law: the settlement it goes against (M6c slice BJ).
+    pub target: Option<PermanentId>,
 }
 
 impl Law {
@@ -924,7 +1342,12 @@ pub fn stance_words(r: &StanceRecord, margin: f64, sponsor: PermanentId) -> Stri
         }
         _ => household.to_owned(),
     };
-    format!("{why}{held}{talked}")
+    let owed = if f64::from(r.owed) > 0.0 {
+        "; their household owed the sponsor for gifts before the gathering"
+    } else {
+        ""
+    };
+    format!("{why}{held}{talked}{owed}")
 }
 
 /// What a law is, in words, to follow "proposed", "agreed to" or "turned down": "a common store,
@@ -954,6 +1377,52 @@ pub fn law_words(
     if def.is_some_and(|d| d.kind == PolicyKind::Agreement) {
         return "an agreement with a neighbouring polity".to_owned();
     }
+    // A duty or an embargo (M7c slice BV): what it is laid on, and on whom.
+    if let Some(d) = def
+        .filter(|d| d.kind == PolicyKind::Duty)
+        .and_then(|d| d.duty.as_ref())
+    {
+        return format!(
+            "a duty of {} of {}, owed to the common store",
+            share_text(f64::from(law.levy_share)),
+            d.words()
+        );
+    }
+    // Without the settlement at hand (see [`Polity::words_of`]), only what it forbids.
+    if def.is_some_and(|d| d.kind == PolicyKind::Embargo) {
+        return "an embargo: nobody of theirs may buy at the doors of another settlement"
+            .to_owned();
+    }
+    // A privilege (M7c slice BX): what it grants, without the organization at hand.
+    if let Some(g) = def
+        .filter(|d| d.kind == PolicyKind::Privilege)
+        .and_then(|d| d.privilege.as_ref())
+    {
+        return format!("a privilege: an organization alone {}", g.words());
+    }
+    // Without the organization at hand (see [`Polity::words_of`]), only what it does.
+    if def.is_some_and(|d| d.kind == PolicyKind::Recognize) {
+        return "recognition of an organization: its members owe no duty on the goods it sells"
+            .to_owned();
+    }
+    // A limit (M7b slice BT): what it forbids.
+    if let Some(l) = def
+        .filter(|d| d.kind == PolicyKind::Limit)
+        .and_then(|d| d.limit.as_ref())
+    {
+        return format!("a limit: {}", l.words());
+    }
+    // A forum (M7b slice BR): who hears which cases.
+    if let Some(f) = def
+        .filter(|d| d.kind == PolicyKind::HearCases)
+        .and_then(|d| d.forum.as_ref())
+    {
+        let heard = crate::forum::heard_words(f);
+        return match law.holder {
+            Some(h) => format!("{} to hear the cases brought under {heard}", name_of(h)),
+            None => format!("{} to hear the cases brought under {heard}", f.words()),
+        };
+    }
     // Without the site at hand (see [`Polity::words_of`]), only what it is.
     if def.is_some_and(|d| d.kind == PolicyKind::BuildCrossing) {
         return "a crossing over a stream its people wade, each household doing its share of the \
@@ -965,6 +1434,32 @@ pub fn law_words(
         return "a well dug together beside the hearth, each household doing its share of the work"
             .to_owned();
     }
+    // Without the site at hand (see [`Polity::words_of`]), only what it is.
+    if def.is_some_and(|d| d.kind == PolicyKind::BuildBank) {
+        return "a bank against floodwater built together, each household doing its share of the \
+                work"
+            .to_owned();
+    }
+    if def.is_some_and(|d| d.kind == PolicyKind::Annex) {
+        return "taking in the settlement a band of theirs holds".to_owned();
+    }
+    // Without the site at hand (see [`Polity::words_of`]), only what it is.
+    if def.is_some_and(|d| d.kind == PolicyKind::Enclose) {
+        return "a palisade round the hearth, each household doing its share of the work"
+            .to_owned();
+    }
+    if def.is_some_and(|d| d.kind == PolicyKind::KeepBank) {
+        return "the keeping of a bank against floodwater, mended whenever it wants it, each \
+                household doing its share of the work"
+            .to_owned();
+    }
+    // A rule for building (M6b slice BH): what it requires of what is begun under it.
+    if let Some(r) = def.and_then(|d| d.rule.as_ref()) {
+        return format!(
+            "a rule for building: {}, of what is begun from its day",
+            r.template.words()
+        );
+    }
     // Without the source at hand (see [`Polity::words_of`]), only what it does.
     if def.is_some_and(|d| d.kind == PolicyKind::CloseSource) {
         return "the closing of a source of water: nobody may draw there".to_owned();
@@ -974,6 +1469,21 @@ pub fn law_words(
             "a law against taking: whoever is found to have taken from another household's \
              store gives back what was taken{}",
             law.sanction.words()
+        );
+    }
+    if def.is_some_and(|d| d.kind == PolicyKind::AgainstRaiding) {
+        return format!(
+            "a law against raiding: whoever is found to have led a band that took from a \
+             household of another settlement gives back what was taken{}",
+            law.sanction.words()
+        );
+    }
+    // Without the settlement at hand (see [`Polity::words_of`]), only who leads it.
+    if def.is_some_and(|d| d.kind == PolicyKind::SendBand) {
+        let who = law.holder.map_or_else(|| "someone".to_owned(), name_of);
+        return format!(
+            "a band led by {who} against the settlement whose people raided us, each household \
+             owing one of its grown people to go"
         );
     }
     // An office's holder named in place of the one in it (M4c slice AH).
@@ -1040,6 +1550,19 @@ pub fn ending_words(
         Some(PolicyKind::BuildCrossing) => "the work on a crossing".to_owned(),
         Some(PolicyKind::CloseSource) => "the closing of a source of water".to_owned(),
         Some(PolicyKind::DigWell) => "the work on a well".to_owned(),
+        Some(PolicyKind::BuildBank) => "the work on a flood bank".to_owned(),
+        Some(PolicyKind::KeepBank) => "the keeping of a flood bank".to_owned(),
+        Some(PolicyKind::BuildingRule) => "the rule for building".to_owned(),
+        Some(PolicyKind::SendBand) => "the band sent by law".to_owned(),
+        Some(PolicyKind::AgainstRaiding) => "the law against raiding".to_owned(),
+        Some(PolicyKind::Enclose) => "the work on a palisade".to_owned(),
+        Some(PolicyKind::Annex) => "the taking in of a held settlement".to_owned(),
+        Some(PolicyKind::HearCases) => who("hearing of cases"),
+        Some(PolicyKind::Limit) => "a limit on laws".to_owned(),
+        Some(PolicyKind::Duty) => "the duty on goods bought elsewhere".to_owned(),
+        Some(PolicyKind::Embargo) => "the embargo".to_owned(),
+        Some(PolicyKind::Recognize) => "the recognition of an organization".to_owned(),
+        Some(PolicyKind::Privilege) => "the privilege of an organization".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -1122,10 +1645,14 @@ pub fn office_words(
     policies: &[PolicyDef],
     name_of: &dyn Fn(PermanentId) -> String,
     gone: &dyn Fn(PermanentId) -> String,
+    today: i64,
 ) -> Vec<String> {
     let mut out = Vec::new();
     for (k, def) in policies.iter().enumerate() {
-        if !matches!(def.kind, PolicyKind::KeepStore | PolicyKind::KeepWatch) {
+        if !matches!(
+            def.kind,
+            PolicyKind::KeepStore | PolicyKind::KeepWatch | PolicyKind::HearCases
+        ) {
             continue;
         }
         // The last one named, still holding it or since gone.
@@ -1156,16 +1683,45 @@ pub fn office_words(
         } else {
             String::new()
         };
+        // Held for a term (M7a slice BN): until when, and how it was filled.
+        let term = polity.term_of(law.id);
+        let held_for = term.map_or_else(String::new, |t| {
+            let lot = match t.pool {
+                0 => String::new(),
+                1 => ", drawn by lot, the only one who put their name in".to_owned(),
+                n => format!(", drawn by lot from {n} who put their names in"),
+            };
+            format!(
+                ", until {}{lot}",
+                day_words(SimTime::from_minutes(
+                    t.until * civ_core::time::MINUTES_PER_DAY
+                ))
+            )
+        });
         out.push(match law.status {
             LawStatus::InForce => {
-                format!("{}: {}, since {since}{record}", def.name, name_of(holder))
+                format!(
+                    "{}: {}, since {since}{held_for}{record}",
+                    def.name,
+                    name_of(holder)
+                )
             }
-            _ => format!(
-                "{}: vacant, since {} {}",
-                def.name,
-                name_of(holder),
-                gone(holder)
-            ),
+            _ => match term.filter(|t| t.until <= today) {
+                Some(t) => format!(
+                    "{}: vacant, since {}'s term ended on {}",
+                    def.name,
+                    name_of(holder),
+                    day_words(SimTime::from_minutes(
+                        t.until * civ_core::time::MINUTES_PER_DAY
+                    ))
+                ),
+                None => format!(
+                    "{}: vacant, since {} {}",
+                    def.name,
+                    name_of(holder),
+                    gone(holder)
+                ),
+            },
         });
     }
     out
@@ -1243,6 +1799,151 @@ pub struct Polity {
     /// Where its laws to dig a well together would dig one, each with its law (M6a slice BA,
     /// step four): recorded when the law is proposed.
     pub wells: Vec<(PermanentId, WellSite)>,
+    /// Where each law to build a flood bank would build it, by law (M6b slice BG).
+    pub banks: Vec<(PermanentId, BankSite)>,
+    /// What each household reckoned, when it was proposed, a law's bank would save it a year,
+    /// hours: the losses it remembered at the places the bank would keep dry (law, household,
+    /// hours), by law then household.
+    pub bank_saves: Vec<(PermanentId, PermanentId, f32)>,
+    /// The hours each household has given to a law's bank (law, household, hours), by law then
+    /// household (research 09-06: labour asked and labour given kept apart).
+    pub bank_given: Vec<(PermanentId, PermanentId, f32)>,
+    /// The banks its laws built whose giving way its chronicle has told, by earthwork id.
+    pub banks_failed: Vec<PermanentId>,
+    /// Which bank each law keeping one keeps (keep law, the law that built it), in the order made
+    /// (M6b slice BG).
+    pub bank_keeps: Vec<(PermanentId, PermanentId)>,
+    /// Where each law to raise a palisade would raise it, by law (M6c slice BK).
+    pub enclosures: Vec<(PermanentId, EnclosureSite)>,
+    /// What each household reckoned, when it was proposed, a law's palisade would keep it a year,
+    /// in hours of its work (law, household, hours), by law then household.
+    pub enclosure_saves: Vec<(PermanentId, PermanentId, f32)>,
+    /// The settlements it holds besides its seat (`settlement`), in the order taken (M6c slice
+    /// BM, ADR-0023 §9): their residents are its members too.
+    pub held: Vec<HeldSettlement>,
+    /// Its deciding closed, when another polity took it in (M6c slice BM): its record is kept.
+    pub ended: Option<PolityEnd>,
+    /// The terms of its office laws held for a term, by law id (M7a slice BN).
+    pub terms: Vec<(PermanentId, Term)>,
+    /// Its council's seats held now, by seat (M7a slice BO, ADR-0024 §1): empty unless its body
+    /// is a council, and while nobody sits.
+    pub seated: Vec<crate::seats::Seat>,
+    /// Every election it called, oldest first (ADR-0024 §3).
+    pub elections: Vec<crate::seats::Election>,
+    /// Gifts its sponsors gave before its gatherings, oldest first, within
+    /// [`PolityParams::owed_memory_days`] (M7c slice BY).
+    pub patron_gifts: Vec<PatronGift>,
+}
+
+/// How a polity came to hold a settlement besides its seat (M6c slice BM, ADR-0023 §9). Codes are
+/// part of saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HeldHow {
+    /// Its own gathering annexed it, having held it from outside.
+    Annexed = 0,
+    /// Both gatherings agreed to be one body (the *one body* clause).
+    Merged = 1,
+}
+
+impl HeldHow {
+    /// Its code in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The way with code `code`.
+    pub fn from_code(code: u8) -> Option<HeldHow> {
+        [HeldHow::Annexed, HeldHow::Merged]
+            .get(usize::from(code))
+            .copied()
+    }
+
+    /// In words, after "since": "annexed", "merged".
+    pub fn words(self) -> &'static str {
+        match self {
+            HeldHow::Annexed => "annexed",
+            HeldHow::Merged => "joined by agreement",
+        }
+    }
+}
+
+/// A settlement a polity holds besides its seat: since when, how, and the polity that held it
+/// before.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HeldSettlement {
+    pub settlement: PermanentId,
+    pub since: i64,
+    pub how: HeldHow,
+    pub from: PermanentId,
+}
+
+/// How a polity's deciding closed: the day, the polity that took it in, and how.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PolityEnd {
+    pub day: i64,
+    pub by: PermanentId,
+    pub how: HeldHow,
+}
+
+/// Where a law would raise a palisade (M6c slice BK; ADR-0023 §6): the point its ring is drawn
+/// round (the hearth), its radius, its gates, how many homes it takes in, the work it would take,
+/// and the enclosure once begun.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EnclosureSite {
+    pub centre: (f32, f32),
+    pub radius_m: f32,
+    pub gates: u8,
+    /// Homes inside it when it was proposed.
+    pub inside: u16,
+    /// The work it takes, hours.
+    pub labour_h: f32,
+    /// Its enclosure once begun.
+    pub work: Option<PermanentId>,
+}
+
+impl EnclosureSite {
+    /// The length of its line, metres.
+    pub fn length_m(&self) -> f64 {
+        std::f64::consts::TAU * f64::from(self.radius_m)
+    }
+}
+
+/// Where a law would build a flood bank (M6b slice BG; ADR-0022 §11): the reach whose water it
+/// keeps out, its straight crest line from `a` to `b` in metres from the map's corner, its
+/// section, the ground it reserves and its borrow pit's, and the work it would take.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BankSite {
+    /// The river reach whose floodwater it keeps out.
+    pub reach: u32,
+    pub a: [f64; 2],
+    pub b: [f64; 2],
+    /// Its finished height above its ground, metres.
+    pub height_m: f64,
+    pub crest_width_m: f64,
+    pub side_run: f64,
+    /// Compacted volume per cubic metre dug in place.
+    pub compacted_per_bank: f64,
+    /// The ground its trapezoid takes.
+    pub envelope: civ_land::fields::RectCm,
+    /// The pit its earth is dug from.
+    pub pit: civ_land::fields::RectCm,
+    /// The work it takes, hours: digging, carrying and placing.
+    pub labour_h: f64,
+    /// The work its mending has asked of its households since it was built, hours: each is asked
+    /// its share of building and mending together.
+    pub upkeep_h: f64,
+    /// Whether its households are asked to mend it now: from when a law keeping it finds it
+    /// wanting until all its mending is done.
+    pub mending: bool,
+    /// Its earthwork once begun: the bank's own id (its segment's `work`).
+    pub work: Option<PermanentId>,
+}
+
+impl BankSite {
+    /// Its length, metres.
+    pub fn length_m(&self) -> f64 {
+        (self.a[0] - self.b[0]).hypot(self.a[1] - self.b[1])
+    }
 }
 
 /// Where a law would dig a well (M6a slice BA, step four): its cell and ground, its well system
@@ -1330,7 +2031,65 @@ impl Polity {
             sites: Vec::new(),
             closed: Vec::new(),
             wells: Vec::new(),
+            banks: Vec::new(),
+            bank_saves: Vec::new(),
+            bank_given: Vec::new(),
+            banks_failed: Vec::new(),
+            bank_keeps: Vec::new(),
+            enclosures: Vec::new(),
+            enclosure_saves: Vec::new(),
+            held: Vec::new(),
+            ended: None,
+            terms: Vec::new(),
+            seated: Vec::new(),
+            elections: Vec::new(),
+            patron_gifts: Vec::new(),
         }
+    }
+
+    /// The term of office law `law`, if it is held for one (M7a slice BN).
+    pub fn term_of(&self, law: PermanentId) -> Option<Term> {
+        self.terms
+            .binary_search_by_key(&law, |t| t.0)
+            .ok()
+            .map(|i| self.terms[i].1)
+    }
+
+    /// Records office law `law`'s term (M7a slice BN), keeping the terms in law order.
+    pub fn set_term(&mut self, law: PermanentId, term: Term) {
+        match self.terms.binary_search_by_key(&law, |t| t.0) {
+            Ok(i) => self.terms[i].1 = term,
+            Err(i) => self.terms.insert(i, (law, term)),
+        }
+    }
+
+    /// Whether, still deciding, it holds settlement `s`: its seat or one it took in (M6c slice
+    /// BM). Residence in any is membership (ADR-0023 §9).
+    pub fn holds(&self, s: Option<PermanentId>) -> bool {
+        self.ended.is_none()
+            && s.is_some_and(|s| {
+                s == self.settlement || self.held.iter().any(|h| h.settlement == s)
+            })
+    }
+
+    /// Its settlements, the seat first, then those it took in, in the order taken.
+    pub fn settlements(&self) -> Vec<PermanentId> {
+        std::iter::once(self.settlement)
+            .chain(self.held.iter().map(|h| h.settlement))
+            .collect()
+    }
+
+    /// Where law `law` would raise a palisade, if it is one that would (M6c slice BK).
+    pub fn enclosure_site_of(&self, law: PermanentId) -> Option<EnclosureSite> {
+        self.enclosures.iter().find(|e| e.0 == law).map(|e| e.1)
+    }
+
+    /// The hours a year household `household` reckoned law `law`'s palisade would keep it, when
+    /// the law was proposed (M6c slice BK).
+    pub fn enclosure_saves_of(&self, law: PermanentId, household: PermanentId) -> f32 {
+        self.enclosure_saves
+            .binary_search_by_key(&(law, household), |s| (s.0, s.1))
+            .map_or(0.0, |i| self.enclosure_saves[i].2)
     }
 
     /// Where law `law` would build a crossing, if it is one that would (M5c slice AW).
@@ -1341,6 +2100,65 @@ impl Polity {
     /// Where law `law` would dig a well, if it is one that would (M6a slice BA).
     pub fn well_site_of(&self, law: PermanentId) -> Option<WellSite> {
         self.wells.iter().find(|w| w.0 == law).map(|w| w.1)
+    }
+
+    /// Where law `law` would build a flood bank, if it is one that would (M6b slice BG).
+    pub fn bank_site_of(&self, law: PermanentId) -> Option<BankSite> {
+        self.banks.iter().find(|b| b.0 == law).map(|b| b.1)
+    }
+
+    /// The bank law `law` keeps, if it is one that keeps one: the law that built it, and its
+    /// site (M6b slice BG).
+    pub fn kept_bank_of(&self, law: PermanentId) -> Option<(PermanentId, BankSite)> {
+        let built = self.bank_keeps.iter().find(|k| k.0 == law)?.1;
+        Some((built, self.bank_site_of(built)?))
+    }
+
+    /// The law in force that keeps the bank law `built` built, if any (M6b slice BG).
+    pub fn keeper_of(&self, built: PermanentId) -> Option<PermanentId> {
+        self.bank_keeps
+            .iter()
+            .filter(|k| k.1 == built)
+            .map(|k| k.0)
+            .find(|&k| {
+                self.laws
+                    .iter()
+                    .any(|l| l.id == k && l.status == LawStatus::InForce)
+            })
+    }
+
+    /// The hours all households have given to law `law`'s bank.
+    pub fn bank_given_all(&self, law: PermanentId) -> f64 {
+        self.bank_given
+            .iter()
+            .filter(|g| g.0 == law)
+            .map(|g| f64::from(g.2))
+            .sum()
+    }
+
+    /// What household `household` reckoned law `law`'s bank would save it a year, hours.
+    pub fn bank_saves_of(&self, law: PermanentId, household: PermanentId) -> f32 {
+        self.bank_saves
+            .binary_search_by_key(&(law, household), |s| (s.0, s.1))
+            .map_or(0.0, |i| self.bank_saves[i].2)
+    }
+
+    /// The hours household `household` has given to law `law`'s bank.
+    pub fn bank_given_by(&self, law: PermanentId, household: PermanentId) -> f32 {
+        self.bank_given
+            .binary_search_by_key(&(law, household), |s| (s.0, s.1))
+            .map_or(0.0, |i| self.bank_given[i].2)
+    }
+
+    /// Household `household` gives `hours` more to law `law`'s bank.
+    pub fn give_to_bank(&mut self, law: PermanentId, household: PermanentId, hours: f32) {
+        match self
+            .bank_given
+            .binary_search_by_key(&(law, household), |s| (s.0, s.1))
+        {
+            Ok(i) => self.bank_given[i].2 += hours,
+            Err(i) => self.bank_given.insert(i, (law, household, hours)),
+        }
     }
 
     /// The source of water law `law` would close, if it is one that would (M6a slice BA).
@@ -1400,6 +2218,18 @@ impl Polity {
     /// The law before the gathering, if any.
     pub fn agenda(&self) -> Option<&Law> {
         self.laws.iter().find(|l| l.status == LawStatus::Proposed)
+    }
+
+    /// The forum a *hear cases* law in force names, and that law (M7b slice BR, ADR-0025 §1):
+    /// one at a time.
+    pub fn forum<'a>(
+        &'a self,
+        policies: &'a [PolicyDef],
+    ) -> Option<(&'a Law, &'a crate::forum::ForumDef)> {
+        self.laws
+            .iter()
+            .filter(|l| l.status == LawStatus::InForce && l.kind == PolicyKind::HearCases)
+            .find_map(|l| Some((l, policies.get(usize::from(l.policy))?.forum.as_ref()?)))
     }
 
     /// The one who keeps the store under their roof by a law in force, and that law.
@@ -1486,6 +2316,45 @@ impl Polity {
                 "a well {:.1} m deep beside the hearth, each household doing its share of {:.0} \
                  hours of work",
                 site.target_m, site.labour_h
+            );
+        }
+        // A bank says how long and high it would stand and the work it asks (M6b slice BG).
+        if kind == Some(PolicyKind::BuildBank)
+            && let Some(site) = self.bank_site_of(law.id)
+        {
+            return format!(
+                "a bank {:.0} m long and {:.1} m high against floodwater, each household doing \
+                 its share of {:.0} hours of work",
+                site.length_m(),
+                site.height_m,
+                site.labour_h
+            );
+        }
+        // A palisade says how long a line it would raise, the homes it takes in and the work it
+        // asks (M6c slice BK).
+        if kind == Some(PolicyKind::Enclose)
+            && let Some(site) = self.enclosure_site_of(law.id)
+        {
+            return format!(
+                "a palisade {:.0} m round the hearth with {} gate{}, taking in {} home{}, each \
+                 household doing its share of {:.0} hours of work",
+                site.length_m(),
+                site.gates,
+                if site.gates == 1 { "" } else { "s" },
+                site.inside,
+                if site.inside == 1 { "" } else { "s" },
+                site.labour_h
+            );
+        }
+        // Keeping a bank names it (M6b slice BG).
+        if kind == Some(PolicyKind::KeepBank)
+            && let Some((_, site)) = self.kept_bank_of(law.id)
+        {
+            return format!(
+                "the keeping of the bank {:.0} m long against floodwater, looked over after each \
+                 high water and each year and mended whenever it wants it, each household doing \
+                 its share of the work",
+                site.length_m()
             );
         }
         match law
@@ -1683,6 +2552,8 @@ pub struct MoveOption {
     pub ends: Option<PermanentId>,
     /// The river cell it would span, for a crossing (M5c slice AW).
     pub site: Option<u32>,
+    /// The settlement it goes against, for a band sent by law (M6c slice BJ).
+    pub target: Option<PermanentId>,
     /// The forecast for the person's own household ([`store_gain`]).
     pub own_gain: f64,
     /// The forecast for the households of those who regard them, weighted by that regard.
@@ -1894,6 +2765,7 @@ pub(crate) mod tests {
             body: None,
             ends: None,
             agreement: None,
+            target: None,
         };
         assert!(law.learn(pid(9), 3));
         assert!(law.learn(pid(4), 5));
@@ -1917,6 +2789,12 @@ pub(crate) mod tests {
             bodies: Vec::new(),
             question: None,
             bears: Vec::new(),
+            rule: None,
+            tenure: None,
+            forum: None,
+            limit: None,
+            duty: None,
+            privilege: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -1948,6 +2826,7 @@ pub(crate) mod tests {
             body: None,
             ends: None,
             agreement: None,
+            target: None,
         };
         let name_of = |_: PermanentId| "Ada".to_owned();
         assert_eq!(
@@ -2023,6 +2902,12 @@ pub(crate) mod tests {
             bodies: Vec::new(),
             question: None,
             bears: Vec::new(),
+            rule: None,
+            tenure: None,
+            forum: None,
+            limit: None,
+            duty: None,
+            privilege: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -2054,12 +2939,17 @@ pub(crate) mod tests {
             body: None,
             ends: None,
             agreement: None,
+            target: None,
         });
         assert_eq!(polity.watcher().map(|w| w.0), Some(pid(9)));
         assert!(polity.keeper().is_none(), "a watch keeps no store");
-        let words = office_words(&polity, &policies, &|_| "Bram".to_owned(), &|_| {
-            String::new()
-        });
+        let words = office_words(
+            &polity,
+            &policies,
+            &|_| "Bram".to_owned(),
+            &|_| String::new(),
+            0,
+        );
         assert_eq!(words.len(), 1);
         assert!(
             words[0].starts_with("Watch: Bram, since ")
@@ -2121,6 +3011,20 @@ pub(crate) mod tests {
             ..Default::default()
         };
         assert!(gain(&none, &bundle).abs() < 1e-12);
+        // What takers of another settlement took no finding at home recovers, and what one's
+        // own took elsewhere no gathering at home hears (M6c slice BI).
+        let raided = crate::crime::TakingsKnown {
+            outside_kcal: robbed.lost_kcal,
+            outside: robbed.lost,
+            ..robbed
+        };
+        assert!(gain(&raided, &bundle).abs() < 1e-12);
+        let raider = crate::crime::TakingsKnown {
+            took_outside_kcal: took.took_kcal,
+            took_outside: took.took,
+            ..took
+        };
+        assert!(gain(&raider, &bundle).abs() < 1e-12);
     }
 
     #[test]
@@ -2204,6 +3108,7 @@ pub(crate) mod tests {
             body: Some(elders),
             ends: None,
             agreement: None,
+            target: None,
         };
         let policies = [PolicyDef {
             id: "core:policy/amend_custom".to_owned(),
@@ -2218,6 +3123,12 @@ pub(crate) mod tests {
             bodies: vec![elders],
             question: None,
             bears: Vec::new(),
+            rule: None,
+            tenure: None,
+            forum: None,
+            limit: None,
+            duty: None,
+            privilege: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())
@@ -2257,6 +3168,7 @@ pub(crate) mod tests {
             body: None,
             ends: None,
             site: None,
+            target: None,
             own_gain: 0.3,
             followers_gain: 0.2,
             support: 0.8,

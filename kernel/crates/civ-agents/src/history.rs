@@ -178,6 +178,30 @@ pub enum Reason {
     FireThreatens = 144,
     /// Home is flooded (M6b slice BF): nothing is done there until waters recede.
     HomeFlooded = 145,
+    /// What a flood bank the polity is building would have kept out of the household's own
+    /// stores and fields, as its people saw, for the work this session puts into it (M6b slice
+    /// BG).
+    Levee = 146,
+    /// The water an irrigation ditch the household is digging would bring its field, for the
+    /// work this session puts into it (M6b slice BG).
+    Ditch = 147,
+    /// Going with a band they said they would go with (M6c slice BJ, ADR-0023 §3).
+    Band = 148,
+    /// No band they joined musters today.
+    NoBand = 149,
+    /// What a palisade the polity is raising would keep from people of other settlements, for
+    /// the work this session puts into it (M6c slice BK).
+    Palisade = 150,
+    /// Naming their choices for the council on its polling day: the content's base and how much
+    /// better their first choice is than the best left out (M7a slice BO, ADR-0024 §3).
+    Poll = 151,
+    /// No election they heard of polls now.
+    NoPoll = 152,
+    /// Telling the hearth that they stand in an election, and where (M7a slice BP, ADR-0024 §4).
+    Campaign = 153,
+    /// Excluded: an embargo they keep forbids buying at the doors the trip would go to (M7c slice
+    /// BV, ADR-0026 §1).
+    Embargo = 154,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -189,7 +213,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 79] = [
+    pub const ALL: [Reason; 88] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -269,6 +293,15 @@ impl Reason {
         Reason::HomeAfire,
         Reason::FireThreatens,
         Reason::HomeFlooded,
+        Reason::Levee,
+        Reason::Ditch,
+        Reason::Band,
+        Reason::NoBand,
+        Reason::Palisade,
+        Reason::Poll,
+        Reason::NoPoll,
+        Reason::Campaign,
+        Reason::Embargo,
     ];
 
     /// The reason with this code.
@@ -360,6 +393,15 @@ impl Reason {
             Reason::HomeAfire => "a fire burns at home",
             Reason::FireThreatens => "a fire threatens a roof",
             Reason::HomeFlooded => "home is flooded",
+            Reason::Levee => "what a flood bank would keep out",
+            Reason::Ditch => "the water a ditch would bring the field",
+            Reason::Band => "the band they said they would go with",
+            Reason::NoBand => "no band they joined musters today",
+            Reason::Palisade => "what a palisade would keep from outsiders",
+            Reason::Poll => "naming their choices for the council",
+            Reason::NoPoll => "no election they heard of polls now",
+            Reason::Campaign => "telling the hearth that they stand, and where",
+            Reason::Embargo => "an embargo they keep forbids buying there",
         }
     }
 }
@@ -550,11 +592,13 @@ pub enum ResidenceWhy {
     LeftMap,
     /// Their household went with others to found it (M5a slice AO).
     Founded,
+    /// Their household moved there from raids on its home (M6c slice BJ, ADR-0023 §10).
+    Fled,
 }
 
 impl ResidenceWhy {
     /// Every reason, in code order.
-    pub const ALL: [ResidenceWhy; 9] = [
+    pub const ALL: [ResidenceWhy; 10] = [
         ResidenceWhy::Born,
         ResidenceWhy::Founder,
         ResidenceWhy::Arrived,
@@ -564,6 +608,7 @@ impl ResidenceWhy {
         ResidenceWhy::Exiled,
         ResidenceWhy::LeftMap,
         ResidenceWhy::Founded,
+        ResidenceWhy::Fled,
     ];
 
     /// Its code in saves.
@@ -588,6 +633,7 @@ impl ResidenceWhy {
             ResidenceWhy::Exiled => "sent away by a finding",
             ResidenceWhy::LeftMap => "left with their household",
             ResidenceWhy::Founded => "went with others to found it",
+            ResidenceWhy::Fled => "fled raids with their household",
         }
     }
 }
@@ -778,6 +824,40 @@ pub enum ChronicleKind {
     Flood,
     /// High winds tore roofs or coverings (M6b slice BF).
     StormDamage,
+    /// A household finished digging an irrigation ditch to its field (M6b slice BG): `people` is
+    /// who dug its last, `place` its middle, and `name` the sentence.
+    Ditch,
+    /// A band met those of another settlement who stood against it, or found nobody (M6c slice
+    /// BJ, ADR-0023 §4): `people` is the one who called it, then the household's elder; `place`
+    /// the household's home; `number` the food taken, kcal; `name` the sentence.
+    Raid,
+    /// A household moved away from raids on its home (M6c slice BJ, ADR-0023 §10): as `Moved`.
+    Fled,
+    /// A palisade a polity raised stood whole (M6c slice BK, ADR-0023 §6): `people` is who set
+    /// its last posts, `settlement` whose it is, `place` its centre, `number` its length in
+    /// metres, and `name` the sentence.
+    Enclosure,
+    /// A polity took another in, by annexation or by agreement (M6c slice BM, ADR-0023 §9):
+    /// `settlement` the seat of the one taken in, `place` its hearth, `number` how
+    /// ([`crate::polity::HeldHow`]'s code), and `name` the sentence.
+    PolityJoined,
+    /// A settlement a polity had taken in became a polity of its own, by a revolt there (M6c
+    /// slice BM, ADR-0023 §9): `people` is who called it, `settlement` the settlement, `place`
+    /// its hearth, and `name` the sentence.
+    Seceded,
+    /// A lot drew who holds an office filled by lot (M7a slice BN, ADR-0024 §2): `people` is who
+    /// it fell to, `settlement` the polity's seat, `number` how many put their names in, and
+    /// `name` the sentence.
+    LotDrawn,
+    /// A council's election was called (M7a slice BO, ADR-0024 §3): `people` is who knew first,
+    /// `settlement` the polity's seat, `number` the seats, and `name` the sentence.
+    ElectionCalled,
+    /// A council's election ended, its winners seated or failed (M7a slice BO): `people` is who
+    /// were seated, `settlement` the polity's seat, `number` how many, and `name` the sentence.
+    ElectionHeld,
+    /// Two factions' organizers agreed an alliance for an election (M7a slice BQ): `people` the
+    /// two organizers.
+    AllianceMade,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -787,6 +867,15 @@ pub enum FloodStep {
     Inundated = 0,
     /// Floodwaters receded.
     Receded = 1,
+    /// A flood bank a polity's gathering asked for was finished (M6b slice BG).
+    BankBuilt = 2,
+    /// A flood bank a polity built gave way, piped through or washed down (M6b slice BG).
+    BankGaveWay = 3,
+    /// A polity's flood bank was found to want mending, and its households were asked their
+    /// shares of the work (M6b slice BG).
+    BankWantsMending = 4,
+    /// A polity's flood bank was mended (M6b slice BG).
+    BankMended = 5,
 }
 
 /// What happened in a storm, in a [`ChronicleKind::StormDamage`] entry. Numeric in saves: append only.
@@ -1097,16 +1186,25 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                 )],
             }
         }
-        ChronicleKind::Moved => {
+        ChronicleKind::Moved | ChronicleKind::Fled => {
+            let fled = event.kind == ChronicleKind::Fled;
             let Some(eldest) = person(0) else {
-                return vec![Span::Text("A household moved away.".to_owned())];
+                return vec![Span::Text(
+                    if fled {
+                        "A household fled raids."
+                    } else {
+                        "A household moved away."
+                    }
+                    .to_owned(),
+                )];
             };
             let n = event.number.round() as i64;
+            let verb = if fled { "fled raids to" } else { "moved to" };
             let mut spans = vec![Span::Text("The household of ".to_owned()), eldest];
             spans.push(Span::Text(if n > 1 {
-                format!(" ({n} people) moved to ")
+                format!(" ({n} people) {verb} ")
             } else {
-                " moved to ".to_owned()
+                format!(" {verb} ")
             }));
             spans.push(settlement(event));
             spans.push(Span::Text(".".to_owned()));
@@ -1408,7 +1506,16 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::Outbreak
         | ChronicleKind::Fire
         | ChronicleKind::Flood
-        | ChronicleKind::StormDamage => {
+        | ChronicleKind::StormDamage
+        | ChronicleKind::Ditch
+        | ChronicleKind::Raid
+        | ChronicleKind::Enclosure
+        | ChronicleKind::PolityJoined
+        | ChronicleKind::Seceded
+        | ChronicleKind::LotDrawn
+        | ChronicleKind::ElectionCalled
+        | ChronicleKind::ElectionHeld
+        | ChronicleKind::AllianceMade => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

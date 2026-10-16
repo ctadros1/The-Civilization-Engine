@@ -1762,3 +1762,748 @@ The owner requested a stopping point to hand off to Claude after their usage res
 slice and `docs/handoffs/2026-10-14-m6b-claude.md` are the stopping point. BG remains partial;
 no production agent creates a bank, and BH/M6c are future work. The handoff separates tested
 mechanisms, calibration limits and the next integration steps. No merge to main.
+
+## 2026-10-14 — BG: flood banks built together
+
+**Picked up from the handoff.** Gemini's BE/BF and Codex's BD/BF/BG work were pulled and
+checked: the full workspace simcheck suite passed (911 tests, 1 ignored), formatting and schema
+freshness held. Codex's handoff named BG's chosen public bank work as the next step; this is it.
+
+**What changed:** households now remember what floods cost them as they saw: floor stores
+spoiled in their buildings (their food) and sown crops drowned after five days under water
+(their seed and work), each at its cell and depth, for ten years. The issue `flooded` and the
+policy `build_bank` follow the crossing and well pattern: a planner finds a straight bank
+beside the river that would have kept the remembered water out of those places (tested on
+the reach's own connected-storage path with every standing bank), at the highest remembered
+surface plus freeboard, with a borrow pit beside it on free ground; a household weighs it by
+its own remembered losses there against its equal share of the work. Passed, the polity lays
+out the bank with no earth in it. People choose to work on it; each session digs, carries a
+basket at a time the straight way from the pit beside it at their own pace, and places earth, each charged
+apart, through Codex's `place_from_borrow`. Only the hours that moved earth count as given. A
+front holds as many workers at once as its length allows. Saves 102, content API 88.
+
+**Findings:** in six lived villages flooded once, most banks that would keep a household's
+place dry run across fields or plots and are rejected; others leave a way round their ends;
+the two that passed did not repay their work after one flood remembered over ten years. That
+is the world declining the bank, not a fault. With the same loss remembered five years running,
+a 40 m bank was proposed, and in thirty lived days three households gave 10 of its 384 hours
+by their own choice: slow, but chosen.
+
+**Also found and fixed:** under a raised river a debug assertion fired in the field-site
+cache. Floodwater redraws the ground a household looks over within a day, and the cache's
+stamp did not include that ground. It does now.
+
+**Evidence:** a new test (`tests/levees.rs`) floods a lived village, checks who remembers
+losses, that one flood does not repay a bank, that the bank found keeps only losers' places
+and repays its work, that losers gain and others lose by it, that it is proposed with the
+issue `flooded` and words naming its size and work, that it is laid out empty, that six hours
+of a worker's time place earth dug from the pit (fill equals pit earth times compaction), that
+duty holds until the household's share is given and then stops, that it saves and loads
+exactly, and that finishing it is told.
+
+**Open:** banks of several segments and across fields; piping, settlement and paid upkeep;
+trapped rain; irrigation; then BH.
+
+## 2026-10-14 — BG: banks seep, settle and give way
+
+**What changed:** Codex's banks already wore down when water ran over them. Now water held
+against one side of a bank, below its crest, seeps through it. Each day adds damage in
+proportion to the difference in level across it, and the damage stays with the bank. At full
+damage, water pipes through and the bank is breached though its crest was never reached
+(research 11-12: piping can fail a bank before water reaches the crest, and damage persists
+until repaired). New fill settles a little over its first year or so. A bank a gathering
+built that breaks is told once in the chronicle, saying how it broke. The observer's bank
+words show how far it is toward piping. Saves 103 carry the damage and the told failures;
+content API 89 carries the three new priors.
+
+**Findings:** the test village's finished bank is 0.41 m high. Raising the reach beside it by
++50 m³/s for six days gave it 0.14% damage. Larger floods covered both sides, so nothing was
+held back and there was nothing to seep: they ran over it, and +200 m³/s wore 2.5 mm off its
+crest. A bank that low fails by overtopping before seepage matters. Seepage is how a higher
+bank fails while holding water back.
+
+**Evidence:** unit tests show that damage grows with head, that there is none without head
+or with level water on both sides, that a bank breaks at full damage and is no longer a
+barrier, and that settling only deepens and stops short of its share. Save tests cover a
+round trip of damage, refusal of NaN or above-one damage, and refusal of damage under schema
+102 headers while undamaged banks still load. The levee test breaks the finished bank and
+checks that it is told exactly once, across a reload. Before this commit, the full simcheck
+workspace suite, all-target clippy, formatting, schema freshness, all ten release short-smoke
+worlds and the web build with its 173 unit tests pass.
+
+**Ten-year smoke of the previous step (8df52c0):** stopped by its 90-minute limit while it
+was still running the river valleys, so this is not a full result. All five ria-coast worlds
+passed. Coasts 1, 2 and 4 kept 52, 45 and 49 people, and the bands of coasts 3 and 5 died out
+in years 4 and 2, as two bands did in Codex's last ten-year run. No river-valley world
+finished. The run shared the CPU with builds and probes, so its times are not a speed result.
+
+**Open:** repair and upkeep by law; banks of several segments and across fields; trapped rain;
+irrigation; then BH.
+
+## 2026-10-14 — BG: banks kept and mended
+
+**What changed:** a bank now needs its own law to be kept. Research 12-08 says "Do not assume
+that a successful construction mobilization persists indefinitely". ADR-0022 says nobody mends
+a polity's bank unless a law asks. So when a bank the village built has sunk, worn or seeped
+past a threshold, or given way, the issue `bank_worn` holds, and anyone may propose `keep_bank`.
+Each household weighs what it reckoned the bank saves it against its share of the mending.
+Passed, the bank is looked over after every high water and at each year's start, and its
+mending is asked in equal shares. People choose to do it: earth is dug from the bank's pit and
+laid back on its crest, and seeping bank is dug out and tamped again. A breach stays open until
+the mending is finished. Saves 104, content API 90.
+
+**Finding:** in the test village, a second, higher bank beside the first outweighed keeping
+the first while households still remembered their losses. Building anew can beat mending, and
+the gathering decides which.
+
+**Evidence:** a unit test covers the mending physics: mass moves from pit to bank, wear is made
+up before settling, seepage damage falls with the work done, a breach closes only when all its
+mending is done, and nothing is mended before it is built. The levee test follows a damaged
+bank through the full sequence: no mending without a law; household gains; the proposal under
+`bank_worn`; mending asked once and not again while under way; chosen work; the mended
+chronicle; reloads. A save test covers a mended bank's round trip and its refusal under a
+schema 103 header. Before this commit, the full simcheck workspace suite, all-target clippy,
+formatting, schema freshness, all ten release short-smoke worlds and the web build with its 173
+unit tests pass.
+
+**Also fixed:** the first full-suite run failed `homes_catch_fire_from_their_hearths_at_the_same_
+minutes_whatever_the_speed` once. Twelve runs alone all passed. Its worlds took a random world
+id, and its statistical assertion (some escapes put out at once, some while growing, some
+catching) depends on that draw. Its helper now uses the fixed test world id, as the project's
+other worlds do, and all 32 fire tests pass.
+
+**Open:** banks of several segments and across fields; trapped rain; irrigation; soil-dependent
+seepage; then BH.
+
+## 2026-10-14 — BG: irrigation ditches, the water's part
+
+**What changed:** a ditch is a channel from an intake beside a river to a field. It carries
+Manning's flow at its fall, and weeds and silt slow it. While its intake is open and the field's
+crop grows, it takes what the field's root zone lacks, within what it can carry and half of
+what the river still carries there. A fifth seeps into the ground on the way. The field keeps
+six tenths of what arrives, and the rest runs back to the river below the intake. The river
+loses the taking at the intake and below, and gets the return back further down. Every cubic
+metre is accounted for. Saves 105, content API 91.
+
+**Not yet:** nobody digs or opens a ditch. Households choosing to do so for a dry field,
+weeds and silt growing and being cleared, and the observer drawing ditches come next.
+
+**Evidence:** unit tests check that Manning's capacity matches the formula, that weeds alone
+cut it to 62.5 % (research 11-12 §4.4), and that silt and a flat bed lower it. They also check
+that a day takes what the field lacks within capacity and the river's share, with every loss
+kept, and nothing while the ditch is closed, unfinished or the field is full. An integration
+test opens a finished ditch in a lived village. Its field held more water than the same field
+with the ditch shut, and on a dry day the intake reach and every reach below lost exactly what
+the ditch took, less what returned. It saves, loads and lives on exactly, and a schema 104
+header claiming ditches is refused. Before this commit, the full simcheck workspace suite, all-target
+clippy, formatting, schema freshness, all ten release short-smoke worlds and the web build with
+its 173 unit tests pass.
+
+## 2026-10-14 — BG: households dig ditches
+
+**What changed:** once a year each household looks at its fields' last season. Where a crop
+got much less water than it needed, the household weighs a ditch from the river. It counts the
+grain the missing water cost, at what that grain costs it to grow, over twenty years, against
+the hours of digging at a cubic metre a day. If it is worth it, the household lays the ditch
+out from the best intake within 400 m that falls enough. The line avoids other people's fields,
+plots and wells. Its people dig it as they choose, and its finishing goes in the chronicle.
+After that, its intake is opened while the crop grows and runs short of water. Saves 106,
+content API 92.
+
+**Evidence:** a test sets up a field whose last crop got half its water. The household lays
+out a ditch within reach and gradient, and lays out none when the crop got all it needed. Its
+people see the work and what it is worth. Eight hours dig a cubic metre, and finishing it is
+told. Sown again with a dry root zone, the ditch is opened and waters the field, and the world
+saves and loads exactly. The water test now compares a world with the ditch to one without, since
+households open and shut intakes themselves.
+
+**Not yet measured:** how often households in lived worlds dig ditches after dry years. Before this commit, the full simcheck workspace suite,
+all-target clippy, formatting, schema freshness, all ten release short-smoke worlds and the web
+build with its 173 unit tests pass.
+
+**Open:** weeds and silt, and their clearing; drawing ditches on the map; trapped rain; then
+BH.
+
+
+## 2026-10-15 — BG: the observer draws ditches
+
+**What changed:** wire 1.73 gives an earthwork of kind 4 its ditch's line and whether its
+intake is open. The map draws a ditch as a blue line from the river to its field, solid while
+the intake is open and faint while it is shut or still being dug. Its words say whose it is,
+how long, how far dug, and the water taken and kept. The short smoke's earthworks note now
+counts ditches laid out and dug and the water they moved.
+
+**Decided:** weeds and silt stay as fields of a ditch but do not grow yet. A household's ditch
+carries about 0.16 m³/s clean, and the driest hectare wants about 0.005 m³/s. Fully weeded and
+half silted it still carries four times that, so neither would bind, and clearing them would
+be work nobody needs. They come back with shared ditches feeding many fields.
+
+**Evidence:** the kernel ditch test reads the earthworks response and finds the ditch's line,
+its open intake and its words. A web unit test decodes a kind 4 earthwork with its line, and
+the banks and earthworks end-to-end specs pass on wire 1.73. Before this commit, the full
+simcheck workspace suite, all-target clippy, formatting, schema freshness and the web build
+with its 174 unit tests pass.
+
+## 2026-10-15 — BH: roofs that do not burn
+
+**What changed:** a household now remembers each building it lost to fire and each one its
+people were in or saw burn, for ten years, with the work putting it right would take. While any
+household remembers one, the issue `burned` is before the gathering. The first rule for building
+is content: a new roof within 4 m of another building must not burn. Only someone who knows how
+to fire tile may propose it. A household weighs it by the fire loss it believes averted against
+what tiling its next home would cost, and a household that builds nothing soon pays nothing yet.
+In force, it binds only what is begun from its day. A builder who keeps it chooses tile where
+they can make it, else a plot 4 m from every other building; with neither, they build as they
+would and break it. Each building begun within reach is counted kept or broken. A tile roof
+begun under the rule names it. Save schema 107, content API 93.
+
+**Found:** a household that lost its stores with its home falls below its subsistence, where
+the forecast values a little more food at nothing, so it does not back the rule. That is the
+existing utility every law uses; the rule's support comes from neighbours who saw the fire and
+still hold food.
+
+**Evidence:** a test burns one of four huts 1.5 m apart; the fire took the row, and every
+household that saw it remembers each hut, its own marked. Nobody proposes the rule while nobody
+fires tile; once the settlement knows firing, someone does, against `burned`. In force and known,
+a household that keeps it lays out a home that is tiled or 4 m apart, and the world saves and
+loads exactly. A content test checks the rule's validation. The ten-year smoke of the ditch
+commit passed in all four worlds: households laid out 11 to 21 ditches and dug 3 to 12 each.
+
+## 2026-10-15 — BH: walls of stone or brick, and buildings kept apart
+
+**What changed:** when a building gives way, every household of its settlement hears of it and
+remembers it, with its walls, for ten years; while any does, the issue `gave_way` is before the
+gathering. Two more rules for building are content. New walls must be of rubble, mud brick or
+fired brick: someone who knows rubble walling may propose it, against fire or a building that
+gave way, since people blame the walls whatever truly brought it down. New buildings must stand
+3 m from every other: anyone may propose it after a fire. Each is weighed by the losses of the
+kind it forbids against what keeping it would add to a household's next home. A builder who keeps
+the walls rule builds mass walls where they know how; a hut cannot, and breaks it. A builder who
+keeps the gap rule takes a plot apart. Save schema 108, content API 94.
+
+**Evidence:** a test makes a hut fail under its own weight: every household of the settlement
+remembers it, the owner's as its own, its walls wattle. The walls rule is proposed against
+`gave_way` and the gap rule is not until a hut burns, when it is proposed against `burned`. In
+force, a hut counts as breaking the walls rule and a hut 6 m apart as keeping the gap rule; the
+world saves and loads exactly. A content test checks both templates' validation. BH1's commit
+passed the full simcheck suite (69 binaries) and all ten release short-smoke worlds after it was
+pushed.
+
+## 2026-10-15 — The M6b demo: a fire, and the rules it moved people to
+
+**What happened:** river valley seed 1, a band of 100, lived 450 days with no fire of its own
+escaping, so the observer set one (logged as `NUDGE`s): the thatched hut with the most others
+within 4 m, at noon of the first dry, windy day. It took that hut and the two beside it, and no
+lives. Within two weeks the gathering passed two rules for building, walls of stone or brick
+(42 for, 3 against) and buildings kept apart (49 for, 2 against). Nobody knew firing, so nobody
+proposed tile roofs. In the year after, the burnt huts were mended in place and nobody began a
+new building, so neither rule bound anything.
+
+**Found:** a rule binding only new work does nothing in a village that mends rather than builds;
+research 11-09 §1.7's other activation modes (major alteration, inspection) would reach the old
+stock and are not built. A village of scattered huts burns three, not twenty; a great fire waits
+on denser building. The village shrank over the year as households left the valley, which a
+fire-free run of the same world shows too.
+
+**Evidence:** the demo spec passed end to end (12.5 minutes); its log and three pictures are in
+`demos/m6b/`. BH2 passed the full simcheck suite (69 binaries) after it was pushed.
+
+## 2026-10-15 — M6c design: force between polities
+
+**Decision:** ADR-0023 decides war as what people do, never a state: no war calendar, takings
+across the boundary at homes people have seen, bands called by anyone or by law and joined by
+choice, two-sided encounters by the minute over a frontage with no battle score, service law,
+enclosures, sieges, clauses of terms, and a polity over several settlements. Five slices, BI to
+BM; the demo is a siege and what each gathering made of it.
+
+## 2026-10-15 — BI: takings across the boundary
+
+**What happened:** a probe came first (civ-sim's `take_probe`): in four worlds of three villages
+of 100 lived three years, households short of food had seen homes elsewhere in up to half their
+probes, but not one store elsewhere lay within the 20 minutes a taker walks (median 52-82
+minutes). Takings were widened anyway, for villages that come to stand close: a household may
+take from a home of another settlement its people have seen; the incident names the takers'
+settlement; a witness names only takers they know; *harms us* is written of the takers' polity;
+the issue `raided` is held and a watch answers it; a law against taking at home recovers nothing
+from outsiders. Save schema 109, content API 95.
+
+**Found:** villages kilometres apart do not take from each other one household at a time,
+however hungry. Anything that crosses between them must be a band that sets out to.
+
+## 2026-10-15 — BJ: bands and encounters
+
+**What happened, in three steps and the observer's view:**
+
+- *Step one:* a band is called by an adult at their monthly review or the midnight after their
+  household learns people of another settlement took from it, to take back from that household
+  or to take from the nearest seen home within a band's walk; those told choose to join; the
+  muster is who comes; the encounter (`war::fight`) pairs fighters up to a frontage, blows land
+  by what each holds (a wooden spear, an axe, hands), and each minute each stays or gives way by
+  what they saw, their hurts and their regard for a leader who stands. What the band takes is an
+  incident across the boundary, the seed left. Save schema 110, content API 96.
+- *Step two:* shirking costs regard (tie act `stayed_home`); people of other settlements within
+  sight of a band walking hear *band seen*; everyone in an encounter hears *raid*; those who gave
+  way leave at once; word of a raid on one's own settlement prompts a residence review, raids
+  heard of weigh in where a household lives, and a move they alone tipped is recorded as *fled*.
+  Save schema 111, content API 97.
+- *Step three:* the laws `send_band` (a band led by the one it names against the settlement
+  whose people raided us; each household sends one or keeps its share back exactly as a levy is
+  kept back) and `against_raiding` (a raid one's own people made, heard before one's own
+  gathering for the household raided). Save schema 112, content API 98.
+- *Observer:* the snapshot carries the bands not yet home (wire 1.74); the map draws a line from
+  each who goes to the home it goes to, and the settlements list says it in words.
+
+**Found:** in the two-village test worlds a band's round-trip walk costs about 7 points against
+1-3 for a load of spoils, so nobody goes for food alone; it is the gathering's law (with the
+norm that it binds) that sends people. In one world the villages lay across a river nobody could
+wade, out of every band's reach. Service is recorded on the band and the law's compliance, not as
+an ADR-0015 obligation, because obligations are reckoned in food.
+
+**Evidence:** `civ-sim/tests/raids.rs` covers a band mustering, walking, meeting whoever stands
+and coming home; save and load mid-band; shirking, sightings and the raid claim; a band sent by
+law asking each household and the law lapsing; and a raid brought before the raiders' own
+gathering. `settlements.rs` checks the raid pull on moving. Each step passed the full simcheck
+suite, clippy and all ten smoke worlds before it was pushed.
+
+**Open:** blame of the body that sent a band, food carried out (slice BL's camps), enclosures
+(BK), sieges and terms (BL), and a polity over several settlements with the M6c demo (BM).
+
+## 2026-10-15 — BK: enclosures
+
+**Built so far:**
+- *Step one:* an enclosure's record and its place on the walking grid. A ring round a hearth is
+  cut into sectors (at most a set length each, their cells joined edge to edge), some of them
+  gates. Work done on the line stands its sectors in order, so a half-done line bars half its
+  length. A standing sector is climbed at a twentieth of walking speed; an open gate is the
+  ground, a shut one the wall, and a sector rotted through is a gap. Changes bump a revision
+  the walking grid and planned routes are kept against. Save schema 113, content API 99, wire
+  1.75 (each sector as an earthwork entry the map draws as a line).
+
+- *Step two:* the law `enclose`. A household raided by people of another settlement weighs a
+  palisade round the hearth: half of what it believes outsiders took, if its home is inside,
+  against its share of the work over the posts' fifteen years and the walk round to a gate. Passed,
+  the line is laid out and each household asked an equal share; people choose the work by what it
+  keeps them and the gathering's word, and each stretch stands as its posts are set. Save schema
+  114, content API 100.
+
+- *Step three:* gates and upkeep. At first light the gates open; at dusk the household nearest
+  each shuts it if it fears people of other settlements. Posts rot month by month by the wetness
+  of their ground; a stretch half rotted is asked mending, one rotted through is a gap; the law
+  that raised the line keeps it, its people mending the worst stretch first. Save schema 115,
+  content API 101.
+
+**Found:** in a village still building its homes and breaking its fields, nobody leaves that work
+for the palisade in its first days: the gathering's word is worth 1-2 points against 3-5.
+
+**Evidence:** `civ-sim/tests/enclosures.rs` lays a ring round a village's hearth and checks the
+way out with the line unbuilt, whole with its gate open, shut, and rotted through, the
+observer's sector entries, and a save and load that goes on alike; and in two villages, one raided
+weighs a palisade, proposes and passes it, and works it stretch by stretch to the chronicle.
+`decide.rs` checks the work is weighed by what it keeps and the gathering's word. A third test
+shuts the gates at dusk when every household fears outsiders, opens them at first light, keeps
+them through a scheduled dusk and a save, and rots a stretch into a gap that work mends.
+
+**Open:** a climb being seen, a keeper by the watch, ditch-and-bank lines, sieges (BL).
+
+## 2026-10-15 — BL: camps by a shut line
+
+**Built so far:**
+- *Step one:* a band called against a home inside a palisade walks to the line first. Those who
+  heard it was seen coming shut their gates; if the line bars it when all are there, it camps
+  outside. Every two hours each who came weighs staying against the days camped and their want of
+  sleep, so the band goes home one by one; a gate left open or a stretch rotted through lets it in
+  to meet whoever stands. Save schema 116, content API 102.
+
+**Evidence:** `civ-sim/tests/enclosures.rs`: a band comes up to a shut line, camps outside it
+(saved and loaded alike), and goes in when a stretch rots through; in a second world the line
+stays shut and the band goes home in several steps with nobody struck.
+
+- *Step two:* terms after force. An agreement may now carry a polity's word that its people will
+  not raid the other's (`no raids`, one side's or both sides'). While it is in force, those of that
+  side who know the law that gave it weigh a raid on the other's people as they weigh one under a
+  law against raiding, its gathering hears such a raid as a case under that law, and nobody of that
+  side proposes a band law against the other. A household raided by people of another settlement,
+  as its members know it, may seek peace by a second agreement template (`year_of_peace`, answering
+  `raided`): the raiders' word alone, a truce, the word with tribute from the raided side's store,
+  or with compensation from the raiders'. Each household weighs `relations.raids_kept` (0.5) of
+  what was taken either way within memory, a year. People may now agree terms while their
+  gathering is busy; the terms wait for it. Those who stood against a band, or learn who took from
+  them, while the raiders' word is in force hold that the raiders' polity does not keep its word.
+  Save schema 117, content API 103.
+
+**Evidence:** `civ-sim/tests/enclosures.rs`: a band comes up to a shut line, camps outside it
+(saved and loaded alike), and goes in when a stretch rots through; in a second world the line
+stays shut and the band goes home in several steps with nobody struck. `civ-sim/tests/raids.rs`:
+under a village's word a raid it made comes before its own gathering under the law that gave the
+word, those raided hold the word broken, and the word saves and loads; the other side's word alone
+binds nobody of the raiding side. `civ-sim/tests/agreements.rs`: two villages that raided each
+other seek peace, and the two part with no terms.
+
+**Finding:** in every scenario tried (one-way raids heavy or moderate, with stores for tribute, and
+a feud), the two who met parted with no terms. A household's stake in a raid is only what was
+taken, so what one side's word keeps from the other's homes its own raiders give up: there is
+nothing over to share. The raiders' households, who give up most, and distrust of a village that
+raided them hold each side back.
+
+**Open:** taking from outside the line and stopping those who leave, sleeping at the camp,
+endurance, assault and climbing; the danger and days away a raid costs in a household's stake;
+a negotiator's estimate of the other's strength; assistance and one body (slice BM).
+
+## 2026-10-15 — BM: a polity over several settlements
+
+**Built so far:**
+- *Step one:* a polity keeps its seat and the settlements it took in, with since, how and from
+  whom. Membership is residence in any of them; the gathering still sits at the seat's hearth.
+  Taking a polity in closes its deciding, lapses its laws, moves its store to the taker and ends
+  its agreements, and the chronicle tells it. Save schema 118.
+
+- *Step two:* a band a law sent that holds the field stays to hold the settlement, sleeping
+  there, its people going home one by one as at a camp, though not before the law's service
+  days; anyone of the village about the place meets it again once a day. Kept seven days, the
+  settlement is held; its polity may then pass an `annex` law to take it in. The clause *one body*
+  joins the packages of peace and, in force, merges the two. Save schema 119, content API 104.
+
+**Evidence:** `civ-sim/tests/holdings.rs`: one polity takes another in; the other decides no
+more, its adults are the taker's members, its store and agreements follow, no polity is founded
+again for its settlement, and it all saves and loads alike. A band a law sent takes the field,
+stays and sleeps at the place, and goes home after the law's service days; a hold kept its days
+raises the issue, and the annex law takes the village in; an agreement of one body merges two
+polities.
+
+**Finding:** no hold stood its seven days in the test world: holders went home on the fourth.
+
+- *Step three:* a revolt that holds at a settlement taken in, rather than at the seat, makes
+  it a polity of its own again, founded with the revolt's body; only the officeholders living
+  there count. A closed record and a deciding polity may share a seat, so the load check and the
+  smoke count only polities still deciding. The observer (wire 1.76) shows each polity's
+  settlements, how a closed one ended, and a siege page: each band camped by a line or holding a
+  place, the food inside and the band's own food in days at current use, and water and fields
+  by the line, worked out when asked and never saved. A gathering no longer sends a band against
+  a settlement its own polity holds (found by the demo run: after the annexation, the taker's
+  law sent its band against its new members).
+
+**Evidence (step three):** `holdings.rs`: a revolt held at a village taken in founds a new
+polity under its body, the taker keeps its seat and custom, the village's adults are the new
+polity's members, and it saves and loads alike; the Government panel's words for settlements
+and a closed polity. `enclosures.rs`: the siege page for a band camped by a shut line.
+
+**Open:** a founding window for the old laws; eating at the hold; the M6c demo.
+
+## 2026-10-15 — M7 design, and BN: offices held for a term, filled by lot, and exact counting
+
+**Design:** four briefs (`docs/briefs/m7-*.md`) read the politics and economy reports; M7 splits
+into councils and elections (M7a), courts (M7b), trade laws, guilds and capture (M7c), and credit
+and money (M7d). [ADR-0024](../../decisions/0024-seats-offices-and-elections.md) settles seats,
+offices and elections.
+
+**Built:** an exact counting module (plurality, block vote, single vote, ties failing or drawn by
+a keyed lot); office templates with a tenure (a term, renewable or not, named or by lot); a lot
+drawn from those who stood for the office; offices lapsing at their term's end; terms saved per
+polity (save schema 120, content API 105); the chronicle's `LotDrawn`; the Government panel's
+offices telling until when and how they were filled.
+
+**Evidence:** the counting module's six unit tests (09-08 §4's 42/33/25 case among them);
+`civ-sim/tests/polity.rs`: a keeper drawn by lot from the three who stood for it, the term's end
+lapsing the office, the last keeper never drawn for the next turn, a lot with nobody to draw
+lapsing its law, and all of it saving and loading alike.
+
+**Open:** election and appointment (seated bodies, BO); a nominee's consent; campaigns.
+
+## 2026-10-16 — The M6c demo, and bands sent by law led only by those who can go
+
+**Found:** the first M6c demo world held no siege in 720 days although its gathering passed 31
+laws to send a band. A probe logged each such law: every one that lapsed the midnight it passed
+named a proposer of 67 to 69 as the band's leader, past `bands.max_age` (60); the two named
+proposers of band age both led their bands, and one held the other village.
+
+**Built:** `BandParams::can_go`, one age rule for proposing a band by law, leading it and joining
+it; the `send_band` move is offered only to one who can go. The `siege` example lives up to three
+worlds and keeps the one that went furthest; the demo spec loads the world it kept. The observer
+no longer says a lapsed law's holder is gone when its band came home or its term ran out.
+
+**Evidence:** `war::tests::only_those_of_band_age_may_go_and_so_lead_a_band_a_law_sends`; the
+demo (`demos/m6c/`): in the first world, bands sent by Heronfield's law camped by a line on day 336
+and held Willowbank from day 587 (two priors nudged, both logged); neither gathering took the
+held village in. M6c is closed.
+
+**Open:** a band sent by law still lapses when its leader knows no household of the target to go
+to.
+
+## 2026-10-16 — BO: councils and their elections
+
+**Built:** a body may be a council of seats filled from an electorate by election or by lot for a
+term (ADR-0024 §1); `core:policy/seat_a_council` offers councils of 5 or 9 seats as an amendment
+one change from a gathering of their electorate, weighed by the council the sponsor expects would
+sit. An election is called when the custom becomes a council and as its term nears its end; word
+of it goes round; each of the electorate who hears of it chooses once whether to stand; a field
+no larger than the seats sits unopposed, a lot draws among the names, or the polling day comes, an
+activity at the hearth where each names up to n from one ranking; the block vote counts the names.
+Under a council the body is those who sit, its quorum counts its seats, and only they propose.
+Saves gain seats, elections and open ballots (schema 121, content API 106); the chronicle tells
+elections called and ended; the Government panel lists the seats and the latest election; the
+label reads a council by election or lot for a term as a republic.
+
+**Evidence:** `civ-sim/tests/council.rs`: a custom taken to a council calls its election the next
+midnight; with standing free, more stand than there are seats, some come to poll, the block vote
+counts every name once, those named most sit and are the body, the label reads "Republic", saves
+mid-election and after go on alike, and the term's end calls the next election, done by the time
+the seats end. Unit tests: seats packed for saves, the voter's ranking at the softmax's rate, the
+council forecast by election and by lot, a council one change from its electorate's gathering.
+
+**Open:** whether any village amends to a council on its own (the smoke found villages of 50 never
+amend their custom); appointment, consent and nominating others; positions and record in a
+voter's choice (BP); secret ballots; seats by settlement; the observer's election page.
+
+## 2026-10-16 — BP: campaigns, positions and slates
+
+**Built:** each who stands says where they stand on up to three questions that matter most to
+them, and word of it goes round from them as a claim; a voter weighs a candidate against the
+distance from where they said they stand (once heard), for their record on decisions the voter's
+household had a stake in, and for their own faction's slate, which each faction's organizer names
+from its members who stood when names close; one who stands finds points in an evening at the
+hearth while their election runs. Saves gain positions and slates (schema 122, content API 107);
+the inspector words a candidacy and whether one named them; the Government panel names each slate.
+
+**Evidence:** `civ-sim/tests/council.rs` now seeds positions and a faction of half the electorate:
+while the polling is to come, every candidate holds word of their own candidacy and others have
+heard it; each told at most three positions, one a question; the faction backs only members who
+stood, no more than the seats; the council's words name the slate; saves mid-election and after
+go on alike with positions and slates.
+
+**Open:** campaigning beyond the hearth; choosing what to tell by the electorate; a "party" label;
+whether slates change who sits over many elections (unmeasured).
+
+## 2026-10-16 — BQ, step one: seats by settlement, franchise forecasts, parties
+
+**Built:** a council's seats may be shared among the settlements a polity holds, each a district
+electing its share by the size of its electorate (largest remainder); candidates stand where they
+live and voters poll at their own hearth for their own district; each district is counted apart.
+A franchise change alone is forecast by recounting the last election's open ballots with only the
+new electorate's. The observer calls a faction with slates in two elections a party. A council by
+lot no longer sends people to poll for its draw (a BO fix). Saves gain districts (schema 123,
+content API 108).
+
+**Evidence:** `seats::apportion` unit test (9 seats among 60/25/15 give 6/2/1; ties to the first;
+an empty district gets none); `civ-sim/tests/council.rs`: a polity of two villages taking a
+council by settlement shares five seats between them, each candidate's district is where they
+live, each ballot names only its own district's candidates and no more than its seats, each
+district seats no more than its share, and saves mid-election and after go on alike; a franchise
+forecast seats only those the new electorate named.
+
+**Open:** alliances; the election page; whether any village takes a council by settlement unaided.
+
+## 2026-10-16 — BQ, step two: electoral alliances
+
+**Built:** when names close, two factions whose organizers know each other may meet and weigh a
+common slate (shared by following) or one backing the other's, against what each reckons it
+would win alone if every bloc voted its own slate; they agree when neither loses and one gains,
+and both back the slate. The chronicle tells it; saves keep it (schema 124).
+
+**Evidence:** unit tests of `bloc_seats` (two that split lose to a third and win together; ties
+to the first) and of the common slate's D'Hondt order; `civ-sim/tests/council.rs`: three factions
+of about 30, 25 and 40 % of a village, their organizers knowing every member; with 5, 2 and 8 of
+them standing, the two smaller agree one common slate with members of both, the largest keeps its
+own, the chronicle tells it, and a save goes on alike.
+
+**Open:** whether factions in lived worlds ever stand in numbers that make an alliance worth it.
+
+## 2026-10-16 — BQ, step three: the election page, the evenings a council saves
+
+**Built:** the observer's election page (wire 1.77): each council's latest elections, who stood
+and where they said they stand, who backed them, the names counted and who sat, under the polity
+in the Government panel. Households judging a council now count the evenings it would save their
+people who come and would not sit (ADR-0024 §6; `elections.w_evening`, content API 109). The
+demo world (civ-sim's `council` example) and its spec.
+
+**Fixed:** a council was two changes from the founding custom, since its quorum (a half of its
+seats) was compared with the gathering's (a quarter of its adults), so no village was ever
+offered one: the first demo run lived 720 days, a nudge included, and its one amendment was to a
+two-thirds rule. Taking seats or giving them up is now the one change. The second run still took no
+council: the evenings term had reached only the forecast a revolt's program uses, not the one
+sponsors and stances use (`amend_gain`); it now reaches both.
+
+**Fixed, again:** the M4a government e2e lived a village of 25 adults that took a council of 9 by 24
+to 0 in its first summer; one stood, and the council could never make its quorum (which counts its
+seats filled or empty), so it decided nothing for a year. An election that seats too few for the
+quorum now has the seats called again a stand's length after it closed (`TooFewSat`). Two tests
+written before councils were one change from the gathering (an amendment test and the revolt
+tests, whose premise is that no amendment would serve the overruled) now account for councils.
+
+**Evidence:** web unit tests decode the election page and order and word its candidates; the
+body-change unit test now starts from the founding custom's quorum. `tests/council.rs` calls the seats again when nobody stood.
+
+## 2026-10-16 — The M7a demo; M7a closed
+
+**Built:** nothing new in the kernel: civ-sim's `council` example and `web/e2e/m7a-demo.spec.ts`
+make and show the demo world (`demos/m7a/`).
+
+**Evidence:** in Moothill (river valley, seed 1, a village of 120) no amendment came in 180 days, so
+one prior was nudged and logged (`elections.w_evening 0.25 -> 1`, day 240). On day 248 a council of
+5 elected by the adults passed 65 to 0; eight stood, 63 of 66 came to poll, and five were seated by
+the block vote, split on the common store and on hearing cases. The label read the polity as a
+republic.
+
+## 2026-10-16 — BR: a forum by law
+
+**Built:** ADR-0025 §1. A `hear_cases` law names a forum (a hearer, a panel by lot or the elders)
+for the cases brought under the laws against taking and raiding; the case is heard by it the
+midnight after it is brought, a hearer alone and a panel or the elders by their own rule, nobody of
+the two households sitting. Before the sitting it may be settled (the accused offers back what is
+owed and the bringer accepts) or withdrawn (the loss was made good by demand). The *cases waiting*
+issue, the forum's forecast from a household's own cases and evenings, the observer's case words
+naming who heard it and the days to closure; save schema 125 (`Case.forum`), content API 110 and
+three core templates.
+
+**Evidence:** `tests/forum.rs` (a hearer alone the evening after; a panel and the elders without the
+two households; a hearer of a party or a forum ended leaves it to the gathering; settled and
+withdrawn; exact save and load); the forum's unit test; content validates.
+
+## 2026-10-16 — BS: precedent
+
+**Built:** ADR-0025 §2. Cases keep fact tags derived when heard; every finding is remembered as a
+claim by those who heard it and told as news; sitters recall up to five of those they hold, the
+most alike first; a forum's authority (informative, persuasive, binding; the template's, content
+API 111) sets how far a recalled finding moves a stance; a finding against an identical recalled
+one is recorded as a departure. A forum may be replaced by another, which is how its authority
+changes. Save schema 126.
+
+**Evidence:** `tests/forum.rs`: the hearer and the parties hold the finding; a second like case
+heard by an informative hearer who saw it is found, departing from the first, and by a binding
+hearer is kept to the first (-4 points of precedent); the forum unit test for precedent points.
+
+## 2026-10-16 — BT: limits and review
+
+**Built:** ADR-0025 §3-4. A limit is a law above laws, adopted through the amendment route and
+changed only by its own rule; its predicate is one the kernel reads (a curfew's hours against the
+year's light, a levy's share). A forum may be given review; where it and a limit are in force,
+those a breaching law costs weigh challenging it, and the forum, reading the law against the limit,
+may strike it down (`StruckDown`, wire 1.78). Content API 112, save schema 127.
+
+**Evidence:** `tests/review.rs`: a curfew from nine to five, with a daylight limit and the elders
+reviewing, is challenged by one it keeps home and struck down; a curfew from eleven to four, or a
+forum without review, sees no challenge; a challenge saves and loads exactly. The forum unit test
+reads curfews and levies against limits.
+
+## 2026-10-16 — BU: rulings carried out
+
+**Built:** ADR-0025 §5. A ruling is known person by person: one who knew a law struck down and has
+not heard the finding keeps it, within memory, in a curfew's hours and a levy alike. A norm that a
+forum's findings bind (`abide_by_findings`, content API 113), held apart from the gathering's,
+weighs toward meeting what a forum imposes and is learned at the hearth from those whose households
+met or refused it. A forum's findings are held against the forum, and such a grievance opens *cases
+waiting*. The dashboard's Justice row; wire 1.79's settled, withdrawn, challenges, struck down and
+the latest cases in words, shown in the Order and Government panels. The demo example `courts`.
+
+**Evidence:** `tests/review.rs` (a ruling known person by person: those who heard it no longer keep
+the curfew, those who knew the law and have not heard it do); `tests/forum.rs` (a forum's finding
+blamed on the forum; the norm's points); the dashboard's Justice unit test; `web/tests/order.test.ts`.
+
+## 2026-10-16 — BV: trade laws
+
+**Built:** ADR-0026 §1. A duty on goods of a purpose bought at another settlement's door, owed to
+the store in kind at the purchase and paid or kept back as the levy is; an embargo on a named
+settlement's doors, kept or broken person by person as a curfew is; the duty in the replacement
+cost of goods from elsewhere; the issue *goods fetched elsewhere*; each household's forecast of
+either from the purchases and offers on record. Content API 114, save schema 128 (issue code 20),
+ledger channel `Duty` (19), reason `Embargo` (154).
+
+**Evidence:** `tests/trade_law.rs` (a duty on tools owed on sickles bought elsewhere, paid to the
+store or kept back; another polity's duty binds nobody of this one; an embargo known and kept turns
+the trip away, where the same scene without it buys; a world with a duty saves and loads exactly);
+the forecast's unit test (a duty and an embargo, for a buyer and a seller, by hand). The probe
+`civ-sim --example trade_laws` (three bands of 40, seed 1): 5 purchases between settlements in
+three years; once the issue opened, 6 duties and 3 embargoes proposed at Oakholt, a duty passed 3–0
+by a gathering of five and an embargo 2–0, and a duty 2–0 at Sedgebrook. Small volumes, small
+gatherings: the villages were already short of food, which is the next thing looked into.
+
+## 2026-10-16 — Rivers back in their banks
+
+**Found:** villages emptied in their second to fourth winter. A monthly ledger of one village's food
+showed the harvests were fine and the floods were not: bankfull had been set to 1.5 times each
+reach's mean flow, where the research's 1.4–1.5 was a recurrence in years, so the flashy daily rivers
+stood over their banks five to nine weeks a year and spoiled stores and seed on house floors.
+
+**Fixed:** each landscape's climatology now routes its 300 years of surplus through the runoff store
+and takes bankfull as the yearly peak reached once in 1.4 years (6.3 times the mean in the river
+valley). Days over bankfull fell from 36–66 a year to 0–19; the probe village of 40 lives six years at
+41–47 people. Seed 3's village still empties in its third year, after a flood of 27 times the
+mean flow put a metre of water in its homes: a rare flood, left to stand. No schema or content change: floodplains are derived when a world is made or loaded.
+
+**Evidence:** `weather::tests::bankfull_is_the_peak_flow_most_years_reach`; the flood, bank and
+crossing tests; the six-year probe of seeds 1 to 3.
+
+## 2026-10-16 — BW: organizations by stake
+
+**Built:** ADR-0026 §2. A faction may carry a stake: the purpose of the goods its members sell,
+who it admits (anyone who sells them, or one a member speaks for), who decides (its organizer or
+its members) and its dues. Someone whose household offers goods a duty would serve organizes
+others who sell them when what the best such duty would bring their household outweighs the cost
+of organizing, they know another household that sells such goods, and no organization over them
+exists that they know of. Applicants are admitted or turned away by its rules, each recorded, and
+one turned away holds it against the organization. A *recognition* law names an organization;
+while it is in force its members' households owe none of the polity's duties on its goods. The
+government panel describes an organization, its members elsewhere, its applications and who
+recognizes it. Content API 115, save schema 129.
+
+**Evidence:** `tests/organization.rs` (organizing when a duty would pay and not when organizing
+costs too much; admission by sponsorship and by an open rule, refusal held against it; a member
+of another settlement stays one; recognition spares members a duty, and another polity's does
+not; the panel's words; a world with one saves and loads exactly); the forecast's unit test. The
+trade-laws probe, four years of seed 1: the villages live (137 people), but one purchase between
+settlements in four years; a duty and an embargo passed at Oakholt, and nobody organized.
+
+## 2026-10-16 — The M7b demo: fed villages bring no cases
+
+**Ran:** `civ-sim --example courts`, as the M7b demo spec runs it, four worlds of 40 for 1,000
+days each with the demo's logged nudges. With rivers in their banks the villages lived, fed, and
+nobody took from another's store: not one case was brought in any world, so the court's path
+(a case, a curfew, a forum that may review, a limit, a challenge, a law struck down) never began.
+A second run with one more prior nudged by hand (objection to taking weighed a quarter) passed a
+curfew in one world before a rare flood emptied it. Recorded as the demo's outcome
+(`demos/m7b/m7b-demo.txt`); nothing was forced, and the spec's pictures wait for a world that
+reaches a ruling.
+
+## 2026-10-16 — BX: privileges and the barred
+
+**Built:** ADR-0026 §3. A *privilege* law grants a recognized organization a licence (the sole
+right to offer goods of a purpose at doors in the settlement) or a staple (the sole right to sell
+there such goods fetched elsewhere). Households outside it weigh keeping it at each review of
+their offers, as they weigh a levy: kept, the covered offers are withdrawn; broken, they stand at
+the door. A member weighs bringing a breach as a case, heard by the gathering or a forum that
+hears privileges, and a finding imposes the law's bundle. A workshop given up while its owners
+keep a licence over what it makes is given up barred. The organization's line in the government
+panel counts kept, broken, cases and barred workshops. Content API 116, save schema 130.
+
+**Evidence:** `tests/privilege.rs` (a licence kept or broken by one outside the organization,
+and broken unawares by one who never heard of it; a breach brought by a member and heard; a
+workshop holding sickles and offering none given up as barred; a world with a privilege saves and
+loads exactly); the forecast's unit test (a licence and a staple, for a member, a rival seller and
+a buyer, by hand).
+
+## 2026-10-16 — BY: corruption and patronage
+
+**Built:** ADR-0026 §4. A common store's keeper weighs drawing from it for their own household at
+each review, as a watcher weighs asking a payment, never above their objection's filter and up to
+a share of what it holds; what they draw moves on its own channel, `Diverted`, and nobody is told.
+When the store runs low, the keeper answers those they regard and passes over one they regard too
+little, who holds it against the office. A duty may name a collector, who sees purchases brought
+home and assesses them in full, or asks the buyer's household for a payment to assess nothing; a
+household that will not pay is assessed and holds the asking against the office. A sponsor whose
+law would fail may give food, before the gathering, to the households a gift would bring round,
+if the gifts would carry it and cost less than the law is worth to them; a household owes its
+patron what such gifts brought it, and its members' stances on the patron's laws gain for it. A
+patron who saw a household they gave to stand against them gives it nothing more. The government
+panel's law line says how a keeper, collector or sponsor acted. Content API 117, save schema 131,
+wire 1.80.
+
+**Fixed on the way:** a duty owed by a household that cannot make the good was valued at nothing,
+so its levy cost nothing to weigh; it is now valued at what the household gave for it.
+
+**Evidence:** `tests/stewardship.rs` (a keeper with no objection draws, one at the filter never
+does; a low store's keeper passes over one they regard too little and answers one they favour; a
+world with a diversion saves and loads exactly), `tests/collector.rs` (a collector who objects
+assesses in full; one who asks is paid by a household that does not object, and refused by one
+that does, which is assessed and holds it against the office), `tests/patronage.rs` (a sponsor
+whose law would fail gives, and those given to owe it at the gathering; nobody gives for a law that
+would pass, where nothing is owed, or when the law is worth nothing to them; a patron who saw a
+client oppose gives it nothing more; a world with patron gifts saves and loads exactly).

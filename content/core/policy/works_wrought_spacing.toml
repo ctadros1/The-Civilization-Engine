@@ -1,0 +1,26 @@
+# Buildings kept apart (M6b slice BH; ADR-0022 §12; research 11-09 §5.2: separation, a requirement
+# to achieve a property). When fire has taken buildings a household knew (the issue `burned`),
+# anyone may propose that a new building must stand a set distance from every other (research
+# 12-03 §2.2: separation thresholds of about 2.14 m and 3.14 m held for its configurations of
+# burning dwellings). It needs no technique: only ground. It binds only buildings begun once it is
+# in force (11-09 §1.7), so old neighbours stand as close as they stood. A household weighs it by
+# the fire loss it believes averted against nothing: a plot apart costs it no work it reckons.
+# Keeping it is each builder's choice, with no sanction (11-09 §5.3). Its id sorts after every
+# older template's: hearth talk about a question is keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/works_wrought_spacing"
+name = "Buildings kept apart"
+description = "A new building must stand three metres from every other."
+does = "building_rule"
+answers = ["burned"]
+question = "whether new buildings must stand apart"
+
+[rule]
+template = "least_gap"
+gap_m = 3.0
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: it guards against fire and binds where people build.
+[bears]
+"core:value/security" = 0.5
+"core:value/autonomy" = -0.3

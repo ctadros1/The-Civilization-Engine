@@ -384,6 +384,9 @@ pub struct MovingParams {
     /// M6a slice BA, ADR-0021 §7): the sickness it believes here, against places where it knows
     /// of none.
     pub w_sickness: f64,
+    /// For the raids its members heard of on a settlement (M6c slice BJ, ADR-0023 §10), counted
+    /// `n / (1 + n)`: those believed here against those believed there.
+    pub w_raids: f64,
 }
 
 impl MovingParams {
@@ -398,6 +401,7 @@ impl MovingParams {
             cost: 2.0,
             reviews: 2,
             w_sickness: 3.0,
+            w_raids: 3.0,
         }
     }
 }

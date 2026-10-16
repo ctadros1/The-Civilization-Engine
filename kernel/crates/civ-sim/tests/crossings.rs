@@ -526,6 +526,7 @@ fn a_crossing_the_gathering_asks_for_is_built_by_the_households_shares_of_its_wo
             body: None,
             ends: None,
             agreement: None,
+            target: None,
         });
         p.sites.push((id, site));
     }

@@ -7,6 +7,7 @@ impl Population {
         let (now, day) = (ctx.now, ctx.now.day_index());
 
         // 1. High-water monitoring along river reaches
+        let mut receded = false;
         let (_, origins) = ctx.land.river_flow_state(ctx.map, ctx.land_params, day);
         for (r, sources) in origins.iter().enumerate() {
             let q = ctx.land.reach_discharges.get(r).copied().unwrap_or(0.0);
@@ -110,6 +111,7 @@ impl Population {
                 }
             } else if let Some(idx) = active_idx {
                 // High water receded
+                receded = true;
                 let hw = &mut self.floods.high_waters[idx];
                 hw.ended = Some(now);
                 let at = hw.at;
@@ -184,8 +186,14 @@ impl Population {
             hw.fields_flooded = hw.fields_flooded.max(fld_flooded);
         }
 
-        // 2. Household flood memory
+        // 2. Household flood memory. What a flood cost a household is remembered for its
+        // people's years of memory (M6b slice BG).
+        let keep_days = (ctx.params.levees.memory_years * DAYS_PER_YEAR as f64).round() as i64;
+        // And what fire took that it knew of, for its own years (M6b slice BH).
+        let fire_days = (ctx.params.rules.memory_years * DAYS_PER_YEAR as f64).round() as i64;
         for (_, hh) in self.households.iter_mut() {
+            hh.forget_flood_losses(day, keep_days);
+            hh.forget_fire_losses(day, fire_days);
             let home_cell = cell_of(ctx.map, hh.home);
             let home_cm = ctx
                 .land
@@ -207,6 +215,59 @@ impl Population {
                 .unwrap_or(0);
             if home_cm > 0 || field_cm > 0 {
                 hh.flood_memory.remember(home_cm, field_cm, day);
+            }
+        }
+
+        // 3. A bank a gathering built that the water broke is told once (M6b slice BG).
+        for pi in 0..self.polities.len() {
+            let settlement = self.polities[pi].settlement;
+            let works: Vec<PermanentId> = self.polities[pi]
+                .banks
+                .iter()
+                .filter_map(|(_, site)| site.work)
+                .filter(|w| !self.polities[pi].banks_failed.contains(w))
+                .collect();
+            for work in works {
+                let Some(bank) = ctx.land.banks.iter().find(|b| b.work == work && b.breached)
+                else {
+                    continue;
+                };
+                let how = if bank.piping >= 1.0 {
+                    "water found a way through it"
+                } else {
+                    "the water washed its crest away"
+                };
+                let mid = [(bank.a[0] + bank.b[0]) / 2.0, (bank.a[1] + bank.b[1]) / 2.0];
+                let place = ctx
+                    .land
+                    .settlements
+                    .iter()
+                    .find(|t| t.id == settlement)
+                    .map_or_else(|| "the village".to_owned(), |t| t.name.clone());
+                let sentence = format!(
+                    "The bank {place}'s people built against floodwater gave way: {how}, \
+                     {:.0} m of it.",
+                    bank.length_m()
+                );
+                self.polities[pi].banks_failed.push(work);
+                self.chronicle_push(
+                    now,
+                    ChronicleKind::Flood,
+                    Vec::new(),
+                    Some(settlement),
+                    Some((mid[0] as f32, mid[1] as f32)),
+                    f64::from(FloodStep::BankGaveWay as u8),
+                    sentence,
+                );
+            }
+        }
+
+        // 4. Banks laws keep are looked over when a high water goes down and at each year's
+        // start (M6b slice BG; research 11-12 §5.5: event-driven maintenance plus periodic
+        // inspection).
+        if receded || day.rem_euclid(DAYS_PER_YEAR) == 0 {
+            for pi in 0..self.polities.len() {
+                self.look_over_banks(ctx, pi);
             }
         }
 

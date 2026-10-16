@@ -4,7 +4,7 @@
 //! ground a household breaks is set where it is marked out. Holding or working a field changes
 //! nothing about how it yields (research 08-09: a change of claim is not a change of fertility).
 
-use std::collections::HashSet;
+use civ_core::FastSet;
 
 use civ_core::PermanentId;
 use civ_land::{Field, FieldStage, Land, Party};
@@ -255,7 +255,7 @@ impl Population {
         }
         // Fields that could change hands: the settlement's (allocation by need), or ground
         // nearby nobody holds any more and fields its households hold (holders).
-        let mine: HashSet<PermanentId> = households.iter().map(|x| x.0).collect();
+        let mine: FastSet<PermanentId> = households.iter().map(|x| x.0).collect();
         let candidates: Vec<usize> = ctx
             .land
             .fields
@@ -274,7 +274,7 @@ impl Population {
             })
             .map(|(i, _)| i)
             .collect();
-        let mut done: HashSet<PermanentId> = HashSet::new();
+        let mut done: FastSet<PermanentId> = FastSet::default();
         loop {
             // The household furthest short of its need, by share of it.
             let taker = households

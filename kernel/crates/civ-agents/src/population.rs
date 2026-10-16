@@ -6,7 +6,7 @@
 //! decides what to do next. Needs are brought up to date only at step boundaries.
 
 use std::cell::OnceCell;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use civ_core::time::{DAYS_PER_YEAR, MINUTES_PER_DAY};
@@ -45,16 +45,22 @@ mod crime;
 mod crossings;
 mod deposits;
 mod digging;
+mod ditches;
+mod duties;
+mod elections;
+mod enclosures;
 mod faction;
 mod fire;
 mod firm;
 mod floods;
 mod force;
 mod founding;
+mod holds;
 mod ideology;
 mod influence;
 mod knowledge;
 mod land;
+mod levees;
 mod life;
 mod loads;
 mod market;
@@ -62,12 +68,18 @@ mod moving;
 mod norm;
 mod opinion;
 mod payments;
+mod war;
+pub use crime::TakeProbe;
 pub use payments::Burden;
+mod patronage;
 mod places;
 mod polity;
+mod privileges;
 mod relations;
 mod residence;
+mod rules;
 mod sickness;
+mod stewardship;
 mod suspicion;
 mod terms;
 mod values;
@@ -167,6 +179,12 @@ pub enum AgentEvent {
         /// The home.
         building: PermanentId,
     },
+    /// Those about look at the bands walking (M6c slice BJ, ADR-0023 §8): one is pending
+    /// whenever a band is out.
+    BandLook,
+    /// Gates are kept (M6c slice BK, step three): at first light each is opened, and at dusk the
+    /// household nearest each chooses whether to shut it for the night.
+    Gates,
 }
 
 /// The approximations the kernel makes as it advances (ADR-0011 §4), each on or off on its own.
@@ -352,7 +370,7 @@ impl ViewCells {
 /// Minutes people spent, by what they did: the length of each step as it finished (counters, not
 /// saved; for the consistency test, ADR-0011 §5). Every minute of a life falls in some step, so
 /// they add up to the person-minutes lived.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct TimeUse {
     /// Minutes of work, rest, sleep and the rest, by behaviour in [`Behavior::ALL`] order.
     pub work: [f64; Behavior::ALL.len()],
@@ -360,6 +378,16 @@ pub struct TimeUse {
     pub walking: f64,
     /// Minutes waiting, where a step could not begin.
     pub waiting: f64,
+}
+
+impl Default for TimeUse {
+    fn default() -> Self {
+        TimeUse {
+            work: [0.0; Behavior::ALL.len()],
+            walking: 0.0,
+            waiting: 0.0,
+        }
+    }
 }
 
 /// Loads of water drawn, by the kind of place they were drawn at, and the litres they came to
@@ -590,8 +618,10 @@ struct HomePlan {
 
 /// Whether what [`site_inputs`] reads may have changed, cheaply: fields, plots and earthworks are
 /// only ever added, and none is moved, so their counts say whether any has been; and the count
-/// of moves of households' homes. While these stand, a site found earlier in the day stands.
-type SiteStamp = (usize, usize, usize, u64);
+/// of moves of households' homes; and the ground the household looks over, which its home's view
+/// can redraw within a day (floodwater changes what ground it can break, M6b slice BF). While
+/// these stand, a site found earlier in the day stands.
+type SiteStamp = (usize, usize, usize, u64, Option<civ_land::RectCm>);
 
 /// What finding new ground for a field reads that can change within a day, as one number: the
 /// fields, plots and earthworks laid out on `ground` (the ground the search looks at,
@@ -665,7 +695,11 @@ fn peak_ratio(params: &PeopleParams) -> f64 {
 fn is_company(b: Behavior) -> bool {
     matches!(
         b,
-        Behavior::Socialize | Behavior::Attend | Behavior::Petition | Behavior::Visit
+        Behavior::Socialize
+            | Behavior::Attend
+            | Behavior::Petition
+            | Behavior::Poll
+            | Behavior::Visit
     )
 }
 
@@ -1013,7 +1047,7 @@ impl Population {
         now: SimTime,
     ) {
         const PURPOSE_KIT: u64 = 0x6b69_7430_3030_3031; // "kit00001"
-        let ages: HashMap<PermanentId, f64> = self
+        let ages: FastMap<PermanentId, f64> = self
             .people
             .iter()
             .map(|(_, p)| (p.id, p.age_years(now)))
@@ -1238,7 +1272,7 @@ impl Population {
                 ));
             }
         }
-        let mut ids = std::collections::HashSet::new();
+        let mut ids = civ_core::FastSet::default();
         for (_, p) in self.people.iter() {
             if !ids.insert(p.id) || p.id.get() >= next_id {
                 out.push(format!("person {} has a duplicate or unallocated id", p.id));
@@ -1284,7 +1318,7 @@ impl Population {
                 out.push(format!("person {} has a value that is not a number", p.id));
             }
         }
-        let mut hh_ids = std::collections::HashSet::new();
+        let mut hh_ids = civ_core::FastSet::default();
         for (_, h) in self.households.iter() {
             if !hh_ids.insert(h.id) || h.id.get() >= next_id {
                 out.push(format!(
@@ -1307,7 +1341,7 @@ impl Population {
                 ));
             }
         }
-        let mut firm_ids = std::collections::HashSet::new();
+        let mut firm_ids = civ_core::FastSet::default();
         for f in &self.firms {
             if !firm_ids.insert(f.id) || hh_ids.contains(&f.id) || f.id.get() >= next_id {
                 out.push(format!("firm {} has a duplicate or unallocated id", f.id));
@@ -1329,7 +1363,7 @@ impl Population {
             }
         }
         // Factions (M4c slice AH): ids of their own, members alive and in live ones.
-        let mut faction_ids = std::collections::HashSet::new();
+        let mut faction_ids = civ_core::FastSet::default();
         for f in &self.factions.list {
             if !faction_ids.insert(f.id)
                 || hh_ids.contains(&f.id)
@@ -1489,6 +1523,8 @@ impl Population {
             }
             AgentEvent::Fire => self.fire_minute(ctx),
             AgentEvent::Ignite { building } => self.ignite(ctx, building),
+            AgentEvent::BandLook => self.band_look(ctx),
+            AgentEvent::Gates => self.keep_gates(ctx),
         }
     }
 
@@ -1724,6 +1760,7 @@ impl Population {
             land.plots.len(),
             land.earthworks.len(),
             self.homes_moved,
+            ground,
         );
         let kept = self
             .sites
@@ -2054,12 +2091,28 @@ impl Population {
         };
         let goods = &catalog.goods;
         let reach = self.homes.get(&field_key).map(|f| &f.reach);
+        // The rules for building its builders keep (M6b slice BH), and the plots of the buildings
+        // that stand, which a new one keeps its distance from.
+        let kept_rules = self.rules_kept(ctx, hh);
+        let rule_rects: Vec<civ_land::RectCm> = if kept_rules.any() {
+            ctx.land
+                .buildings
+                .iter()
+                .filter(|b| b.standing())
+                .filter_map(|b| ctx.land.plots.iter().find(|p| p.id == b.plot))
+                .map(|p| p.rect)
+                .collect()
+        } else {
+            Vec::new()
+        };
         // Where `choice` would stand, its door toward `toward`, if there is clear ground for it
-        // within `max_m` of its home.
-        let site = |(p, shape): (usize, build::Shape),
-                    toward: Option<(f32, f32)>,
-                    firm: Option<PermanentId>,
-                    max_m: f64| {
+        // within `max_m` of its home: keeping the rule its builders keep, if there is ground for
+        // that, else as they would without it.
+        let site_kept = |(p, shape): (usize, build::Shape),
+                         toward: Option<(f32, f32)>,
+                         firm: Option<PermanentId>,
+                         max_m: f64,
+                         obey_rules: bool| {
             let program = &catalog.buildings[p];
             // Members as strong as what the settlement has seen of the technique calls for.
             let caution = self.caution(
@@ -2090,17 +2143,29 @@ impl Population {
                         .any(|p| p.knows(t))
                 })
             };
+            // The rules in force that its builders keep (M6b slice BH): a roof that does not burn
+            // where they can make one, else a plot apart from others; walls of a kind a rule
+            // allows where they can build them; a plot the least gap from every other.
+            let rules = if obey_rules {
+                kept_rules
+            } else {
+                Default::default()
+            };
+            let caution_thatch =
+                self.fire_caution_thatch(hh.settlement, ctx.now, &ctx.params.build.caution);
+            let caution_wattle =
+                self.fire_caution_wattle(hh.settlement, ctx.now, &ctx.params.build.caution);
             let fire_design = build::FireDesign {
-                caution_thatch: self.fire_caution_thatch(
-                    hh.settlement,
-                    ctx.now,
-                    &ctx.params.build.caution,
-                ),
-                caution_wattle: self.fire_caution_wattle(
-                    hh.settlement,
-                    ctx.now,
-                    &ctx.params.build.caution,
-                ),
+                caution_thatch: if rules.roof_within.is_some() {
+                    caution_thatch.max(2.0)
+                } else {
+                    caution_thatch
+                },
+                caution_wattle: if rules.walls.is_some() {
+                    caution_wattle.max(2.0)
+                } else {
+                    caution_wattle
+                },
                 knows_rubble: knows_technique("core:technique/rubble_walling"),
                 knows_mud_brick: knows_technique("core:technique/mud_brick"),
                 knows_firing: knows_technique("core:technique/firing"),
@@ -2122,6 +2187,22 @@ impl Population {
                         )
                     })
                     .flatten()
+                    // A roof that burns is not put within a roof rule's reach of another building,
+                    // walls are of a kind the rules allow, and a plot keeps the least gap.
+                    .filter(|spec| {
+                        let nearest = || {
+                            let rect = build::plot_rect(spec, program);
+                            rule_rects
+                                .iter()
+                                .map(|r| crate::rules::gap_m(&rect, r))
+                                .fold(f64::INFINITY, f64::min)
+                        };
+                        rules.roof_within.is_none_or(|within| {
+                            crate::rules::roof_unburnt(spec) || nearest() >= within
+                        }) && rules.walls.is_none_or(|kinds| {
+                            kinds & (1 << crate::rules::wall_kind(spec, &program.rules)) != 0
+                        }) && rules.gap.is_none_or(|gap| nearest() >= gap)
+                    })
             };
             // Ground that drops too far across a plot is levelled, and ground too steep to level
             // by hand, or that would be levelled beside water, is not built on; level ground is
@@ -2143,6 +2224,17 @@ impl Population {
             )?;
             let stages = build::stage_needs(&spec, program)?;
             Some(NewHome { spec, stages, firm })
+        };
+        let site = |choice: (usize, build::Shape),
+                    toward: Option<(f32, f32)>,
+                    firm: Option<PermanentId>,
+                    max_m: f64| {
+            site_kept(choice, toward, firm, max_m, true).or_else(|| {
+                kept_rules
+                    .any()
+                    .then(|| site_kept(choice, toward, firm, max_m, false))
+                    .flatten()
+            })
         };
         // A first home before anything, farther afield if there is no clear ground near; then a
         // store, while goods are lost for want of room, and a workshop for each firm that has more
@@ -2460,6 +2552,8 @@ impl Population {
             first.labour_h += levelling;
         }
         self.stage_needs.insert(id, stages);
+        // Whether it keeps the rules for building in force that bind it (M6b slice BH).
+        self.count_rule_keeping(ctx, household, id);
         let at = build::centre_m(&site.spec);
         if !housed
             && let Some(&hd) = self.hh_index.get(&household)
@@ -2710,6 +2804,11 @@ impl Population {
             farm::days_to_harvest(c, self.fields_of(ctx.land, hh_id), now.day_index())
                 + params.household.harvest_margin_days
         });
+        // A band they joined that musters within the day (M6c slice BJ).
+        let band_facts = match self.people.get(h).map(|p| (p.id, p.pos)) {
+            Some((who, pos)) => self.band_facts(ctx, who, pos),
+            None => None,
+        };
         // Roofs a fire they know of threatens (M6b slice BD, step three).
         let fire_facts = self.fire_facts(
             ctx,
@@ -2780,10 +2879,16 @@ impl Population {
             hearth: hh.settlement.zip(hearth),
             gathering: self.gathering_facts(ctx, p.id, age, &hh, minute, evening_start),
             petition: self.petition_facts(ctx, p.id, age, &hh, minute, evening_start),
+            poll: self.poll_facts(ctx, p.id, age, &hh, minute, evening_start),
+            campaign: self.campaign_points(ctx, p.id),
             watch: self.watch_facts(ctx, p.id, &hh, dark),
             carry: self.carry_facts(ctx, p.id, field_key, dark),
             crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),
             well: self.well_facts(ctx, &hh, p.id, dark),
+            levee: self.levee_facts(ctx, &hh, p.id, field_key, dark),
+            enclosure: self.enclosure_facts(ctx, &hh, p.id, field_key, dark),
+            ditch: self.ditch_facts(ctx, &hh, field_key, dark),
+            band: band_facts,
             hurt: self
                 .order
                 .hurt_until(p.id)
@@ -3283,13 +3388,18 @@ impl Population {
                 return Err(Reason::AnotherGoes);
             }
             // For its own need first; else an errand, to sell at home (M5b slice AQ).
-            hh_view
+            let trip = hh_view
                 .fetch
                 .get_or_init(|| {
                     self.best_fetch(ctx, &hh, &stores, reach)
                         .or_else(|| self.errand_trip(ctx, &hh, reach))
                 })
-                .ok_or(Reason::NoReport)
+                .ok_or(Reason::NoReport)?;
+            // Not to doors an embargo they keep forbids (M7c slice BV).
+            if me.is_some_and(|m| self.keeps_embargo(ctx, m, hh.id, trip.seller)) {
+                return Err(Reason::Embargo);
+            }
+            Ok(trip)
         };
         // Paid work at a workshop of another household (slice J).
         let session_min = catalog
@@ -4030,7 +4140,15 @@ impl Population {
                     return;
                 }
                 Step::Wait { minutes } => {
-                    self.start_work(ctx, h, minutes, None);
+                    // One with a band holding a settlement waits there asleep (M6c slice BM).
+                    let band = self.people.get(h).is_some_and(|p| {
+                        ctx.catalog
+                            .activities
+                            .get(p.act.def as usize)
+                            .is_some_and(|a| a.behavior == Behavior::Band)
+                    });
+                    let behavior = band.then_some(Behavior::Sleep);
+                    self.start_work(ctx, h, minutes, behavior);
                     return;
                 }
             }
@@ -4182,7 +4300,13 @@ impl Population {
         let params = ctx.params;
         let present = match (behavior, self.people.get(h)) {
             (
-                Some(Behavior::Socialize | Behavior::Attend | Behavior::Petition | Behavior::Visit),
+                Some(
+                    Behavior::Socialize
+                    | Behavior::Attend
+                    | Behavior::Petition
+                    | Behavior::Poll
+                    | Behavior::Visit,
+                ),
                 Some(p),
             ) => self.hearth_company(ctx, p.id, p.act.target),
             _ => Vec::new(),
@@ -4208,6 +4332,11 @@ impl Population {
         if let (Some(Behavior::Attend), Some(p)) = (behavior, self.people.get(h)) {
             let me = p.id;
             self.attend(ctx, me);
+        }
+        // Someone come to poll names their choices (M7a slice BO).
+        if let (Some(Behavior::Poll), Some(p)) = (behavior, self.people.get(h)) {
+            let me = p.id;
+            self.cast(ctx, me);
         }
         // Someone come to a petition is counted among those who came (M4c slice AH).
         if let (Some(Behavior::Petition), Some(p)) = (behavior, self.people.get(h)) {
@@ -4238,13 +4367,17 @@ impl Population {
             .map_or(params.energy.idle_par, |a| a.par);
         let (par, asleep, company) = match behavior {
             Some(Behavior::Sleep) => (def_par, true, params.social.household_quality),
-            Some(Behavior::Socialize | Behavior::Attend | Behavior::Petition | Behavior::Visit) => {
-                (
-                    def_par,
-                    false,
-                    (params.social.quality_per_companion * companions as f64).min(1.0),
-                )
-            }
+            Some(
+                Behavior::Socialize
+                | Behavior::Attend
+                | Behavior::Petition
+                | Behavior::Poll
+                | Behavior::Visit,
+            ) => (
+                def_par,
+                false,
+                (params.social.quality_per_companion * companions as f64).min(1.0),
+            ),
             // Work at home is done among the household.
             Some(
                 Behavior::Eat
@@ -4269,10 +4402,14 @@ impl Population {
                 | Behavior::Carry
                 | Behavior::Bridge
                 | Behavior::Well
+                | Behavior::Levee
+                | Behavior::Palisade
+                | Behavior::Ditch
                 | Behavior::Douse
                 | Behavior::Strip
                 | Behavior::Pull
-                | Behavior::Salvage,
+                | Behavior::Salvage
+                | Behavior::Band,
             ) => (def_par, false, 0.0),
             None => (params.energy.idle_par, false, 0.0),
         };
@@ -4284,9 +4421,24 @@ impl Population {
         p.act.step_ends = now.plus_minutes(i64::from(minutes.max(1)));
         let (id, version, ends) = (p.id, p.act.version, p.act.step_ends);
         ctx.schedule_step(ends, id, version);
+        // At the muster, or arrived where the band went (M6c slice BJ): last, so that an
+        // encounter may cut short the stay just scheduled.
+        if behavior == Some(Behavior::Band) {
+            self.band_work(ctx, h);
+        }
     }
 
     fn end_step(&mut self, ctx: &mut Ctx, h: Handle<Person>) {
+        // The muster, and coming home, for those with a band (M6c slice BJ).
+        let band = self.people.get(h).is_some_and(|p| {
+            ctx.catalog
+                .activities
+                .get(p.act.def as usize)
+                .is_some_and(|a| a.behavior == Behavior::Band)
+        });
+        if band {
+            self.band_step_ended(ctx, h);
+        }
         let now = ctx.now;
         let params = ctx.params;
         let Some(p) = self.people.get_mut(h) else {
@@ -4512,6 +4664,33 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.well_work(ctx, (h, who), household, well, hours);
+                    }
+                }
+                Some(Behavior::Levee) => {
+                    if let Target::Bank(bank) = p.act.target {
+                        let rate = def.as_ref().map_or(1.0, |d| d.rate);
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let (who, household) = (p.id, p.household);
+                        self.levee_work(ctx, (h, who), household, bank, hours);
+                    }
+                }
+                Some(Behavior::Palisade) => {
+                    if let Target::Enclosure(enclosure) = p.act.target {
+                        let rate = def.as_ref().map_or(1.0, |d| d.rate);
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let (who, household) = (p.id, p.household);
+                        self.enclosure_work(ctx, who, household, enclosure, hours);
+                    }
+                }
+                Some(Behavior::Ditch) => {
+                    if let Target::Ditch(ditch) = p.act.target {
+                        let rate = def.as_ref().map_or(1.0, |d| d.rate);
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let (who, household) = (p.id, p.household);
+                        self.ditch_work(ctx, who, household, ditch, hours);
                     }
                 }
                 Some(Behavior::Hire) => {
@@ -5721,6 +5900,8 @@ impl Population {
 
     pub fn on_day(&mut self, ctx: &mut Ctx) {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        // Gates are opened at first light and kept at dusk (M6c slice BK).
+        self.schedule_gates(ctx);
         // Households see their options afresh each day (ADR-0011 §4), and a leisure block that
         // runs past midnight ends in a decision made afresh: nobody decides between midnight's
         // day of work and the day's first event, so a save there loses nothing.
@@ -5743,10 +5924,36 @@ impl Population {
             self.norm_month(ctx);
         }
         // The season turns for every field: a sowing window passes, a crop left standing is lost.
+        // A sown crop drowned under water is a loss its household saw (M6b slice BG): the seed
+        // it was sown with and the work put into it.
         let day = now.day_index();
+        let mut drowned: Vec<(PermanentId, crate::person::FloodLoss)> = Vec::new();
         for f in &mut ctx.land.fields {
             if let Some(crop) = ctx.catalog.crops.get(usize::from(f.crop)) {
-                f.new_day(crop, day, now);
+                let under = f.stage == FieldStage::Sown && f.submerged_days >= 5;
+                let loss = crate::person::FloodLoss {
+                    day,
+                    cell: cell_of(ctx.map, f.rect.centre_m()) as u32,
+                    depth_cm: f.last_flood_depth_cm,
+                    kcal: (crop.seed_kg_per_ha
+                        * f.area_ha()
+                        * ctx
+                            .catalog
+                            .goods
+                            .get(crop.seed_good)
+                            .map_or(0.0, |g| g.kcal_per_kg)) as f32,
+                    hours: f.work_h + f.tended_h,
+                };
+                if f.new_day(crop, day, now) && under {
+                    drowned.push((f.household, loss));
+                }
+            }
+        }
+        for (h, loss) in drowned {
+            if let Some(&hd) = self.hh_index.get(&h)
+                && let Some(x) = self.households.get_mut(hd)
+            {
+                x.remember_flood_loss(loss);
             }
         }
         // A settlement's harvest is in once none of its fields has a crop growing or unthreshed.
@@ -5795,6 +6002,7 @@ impl Population {
         // Takings found, word of them gone round, and what households taken from choose and are
         // owed (ADR-0015).
         self.crime_day(ctx);
+        self.band_day(ctx);
         // The yearly land review (ADR-0007 §2): fields given out by need, or ground nobody holds
         // any more taken up.
         if day.rem_euclid(365) == i64::from(ctx.regime.review_day) {
@@ -5808,6 +6016,8 @@ impl Population {
         // weather just lived goes into the chronicle (ADR-0012).
         if now.date().day == 1 {
             self.wear_buildings(ctx);
+            // A month's rot at the foot of every palisade's posts (M6c slice BK).
+            self.wear_enclosures(ctx);
             // Each household's midden grows with its members and wastes (M3c slice V).
             for (_, h) in self.households.iter_mut() {
                 let members = h.members.len();
@@ -5851,6 +6061,9 @@ impl Population {
             }
         }
         self.well_reviews(ctx, day);
+        // And the ditches (M6b slice BG): the households whose day it is weigh one, and every
+        // ditch's intake is opened or shut for the day.
+        self.ditches_day(ctx, day);
         // A month ended: its asks and prices per pair of settlements are recorded (M5b slice AQ).
         self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.

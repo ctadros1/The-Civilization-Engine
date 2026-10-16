@@ -99,6 +99,31 @@ impl Population {
     pub(crate) fn share_norms(&mut self, ctx: &Ctx, a: PermanentId, b: PermanentId) {
         let day = ctx.now.day_index();
         let mut said: Vec<(PermanentId, u16, f64)> = Vec::new();
+        // What a forum's finding imposed on their household, met or refused (M7b slice BU).
+        for (teller, listener) in [(a, b), (b, a)] {
+            let Some(hh) = self.person(teller).map(|p| p.household) else {
+                continue;
+            };
+            for (k, def) in ctx.catalog.norms.iter().enumerate() {
+                if def.kind != NormKind::AbideByFindings {
+                    continue;
+                }
+                let Some(x) = self.findings_met(hh, day - def.tell_days) else {
+                    continue;
+                };
+                let key = [
+                    ctx.seed,
+                    PURPOSE_NORM_TELL,
+                    teller.get(),
+                    listener.get(),
+                    id_key(&def.id),
+                    ctx.now.minutes() as u64,
+                ];
+                if Rng64::from_key(&key).next_f64() < def.share {
+                    said.push((listener, k as u16, x));
+                }
+            }
+        }
         for (teller, listener) in [(a, b), (b, a)] {
             let Some(act) = self
                 .person(teller)
@@ -147,5 +172,44 @@ impl Population {
             .filter(|(_, d)| d.kind == NormKind::AbideByLaws)
             .filter_map(|(k, d)| Some(points(self.norms.state(person, k as u16)?, d)))
             .sum()
+    }
+
+    /// The points `person` adds for meeting what a forum's finding imposes (M7b slice BU): their
+    /// own state of each norm that findings bind.
+    pub(super) fn findings_points(&self, ctx: &Ctx, person: PermanentId) -> f64 {
+        ctx.catalog
+            .norms
+            .iter()
+            .enumerate()
+            .filter(|(_, d)| d.kind == NormKind::AbideByFindings)
+            .filter_map(|(k, d)| Some(points(self.norms.state(person, k as u16)?, d)))
+            .sum()
+    }
+
+    /// The share of what forums' findings imposed on household `household` that it has met,
+    /// of those answered on or after `since` (M7b slice BU): what one of it tells of findings.
+    fn findings_met(&self, household: PermanentId, since: i64) -> Option<f64> {
+        let (mut met, mut all) = (0u32, 0u32);
+        for o in &self.order.obligations {
+            if o.debtor != household || o.made < since {
+                continue;
+            }
+            if !o
+                .case
+                .and_then(|c| self.order.case(c))
+                .is_some_and(|c| c.forum.is_some())
+            {
+                continue;
+            }
+            match o.standing {
+                crate::crime::Standing::Met => {
+                    met += 1;
+                    all += 1;
+                }
+                crate::crime::Standing::Refused => all += 1,
+                _ => {}
+            }
+        }
+        (all > 0).then(|| f64::from(met) / f64::from(all))
     }
 }

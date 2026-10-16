@@ -1,0 +1,21 @@
+# Digging the irrigation ditch a household chose to dig to its own field (M6b slice BG; ADR-0022
+# §11): excavating and forming its channel and throwing the earth along its side (research 11-12
+# §2.2: 0.8-1.2 m³ a worker-day for forming canals; see the people profile's `[ditches]`). Heavy
+# work, as working on a flood bank is; ages and session lengths are tuning values as for that work.
+# Its id sorts after every older activity's: activities are kept in id order. It asks no tool the
+# content makes (a digging stick and a basket).
+kind = "activity"
+id = "core:activity/work_with_spade_on_ditch"
+name = "Dig a ditch to the field"
+doing = "digging a ditch"
+behavior = "ditch"
+par = 5.0
+min_age_years = 14.0
+max_age_years = 65.0
+min_minutes = 60
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 30
+technique = ""
+tools = []
+rate = 1.0

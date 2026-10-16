@@ -107,6 +107,7 @@ fn a_store_in_force(sim: &mut Sim) {
         watch: Default::default(),
         ends: None,
         agreement: None,
+        target: None,
         body: None,
     });
 }
@@ -127,22 +128,28 @@ fn everyone_holds_the_norm_and_learns_what_households_did_from_companions() {
     {
         let pop = sim.people();
         let n = &pop.norms;
+        // Everyone holds each norm the content has, the gathering's among them (and, since M7b
+        // slice BU, that findings bind).
+        let held: Vec<_> = n.states.iter().filter(|s| s.norm == binds).collect();
         assert_eq!(
-            n.states.len(),
+            held.len(),
             pop.people.len(),
             "everyone here on the first of the month holds one"
         );
-        assert!(n.states.iter().all(|s| s.norm == binds));
+        assert_eq!(
+            n.states.len(),
+            pop.people.len() * sim.rules().catalog.norms.len()
+        );
         assert!(
-            n.states.iter().all(|s| (s.expect - prior).abs() < 1e-6),
+            held.iter().all(|s| (s.expect - prior).abs() < 1e-6),
             "nobody has been told anything yet"
         );
-        let endorse: Vec<f32> = n.states.iter().map(|s| s.endorse).collect();
+        let endorse: Vec<f32> = held.iter().map(|s| s.endorse).collect();
         let (lo, hi) = endorse
             .iter()
             .fold((1.0f32, 0.0f32), |(l, h), &e| (l.min(e), h.max(e)));
         assert!(hi - lo > 0.4, "held each their own way: {lo}..{hi}");
-        assert!(n.states.iter().all(|s| (0.2..=0.9).contains(&s.threshold)));
+        assert!(held.iter().all(|s| (0.2..=0.9).contains(&s.threshold)));
         assert!(n.acts.is_empty() && n.told == 0);
     }
     a_store_in_force(&mut sim);

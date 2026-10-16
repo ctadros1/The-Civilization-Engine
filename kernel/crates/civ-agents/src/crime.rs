@@ -126,6 +126,19 @@ pub struct CrimeParams {
     /// Days of the taker's household's food a watcher asks to say nothing, at most what it can
     /// spare.
     pub ask_days: f64,
+    /// The keeper's diversion (M7c slice BY, ADR-0026 §4; research 09-09 §2.3: a ceiling of 0.15
+    /// of the flow, unestimated): the most of the store's food a keeper of it draws for their own
+    /// household at one review.
+    pub divert_share: f64,
+    /// Relief by favour: below this many days of its people's food in the store, its keeper
+    /// orders the asks by their regard, and passes over one they regard less than
+    /// `favour_floor`.
+    pub favour_reserve_days: f64,
+    pub favour_floor: f64,
+    /// A duty's collector (M7c slice BY): the chance they see a purchase one of their polity
+    /// brings home, and the share of what it owes they ask to assess none of it.
+    pub collector_sight: f64,
+    pub collector_ask_share: f64,
     /// The share of takings a household believes a curfew would keep off (M4b slice AD): what it
     /// weighs a curfew by, as `watch_guard` a watch.
     pub curfew_guard: f64,
@@ -147,6 +160,18 @@ pub struct CrimeParams {
     pub hurt_days: [u16; 2],
     /// The chance a blow kills.
     pub kill_share: f64,
+    /// Remembered findings a sitter recalls at a hearing, at most (M7b slice BS, ADR-0025 §2: a
+    /// design prior, 3 to 8): those with the most fact tags matching the case's, newest first.
+    pub recall_k: u32,
+    /// Points toward the recalled findings' direction, by the share of tags each matches, under
+    /// a forum whose authority is persuasive (M7b slice BS).
+    pub w_persuasive: f64,
+    /// The same under a binding authority: a large weight that stake and regard can still
+    /// outweigh (ADR-0025 §2).
+    pub w_binding: f64,
+    /// Points toward finding against a challenged law for a clear breach of the limit, as a
+    /// sitter reads it (M7b slice BT): times the reading, -1 (clearly none) to 1 (clearly one).
+    pub w_reading: f64,
 }
 
 impl CrimeParams {
@@ -190,6 +215,11 @@ impl CrimeParams {
             round_stops: 6,
             w_watch_report: 2.0,
             ask_days: 3.0,
+            divert_share: 0.15,
+            favour_reserve_days: 30.0,
+            favour_floor: 0.0,
+            collector_sight: 0.5,
+            collector_ask_share: 0.5,
             curfew_guard: 0.3,
             curfew_cost_days: 0.25,
             w_collect: 0.5,
@@ -197,6 +227,10 @@ impl CrimeParams {
             strike_threshold: [1.0, 4.0],
             hurt_days: [3, 21],
             kill_share: 0.02,
+            recall_k: 5,
+            w_persuasive: 1.0,
+            w_binding: 4.0,
+            w_reading: 2.0,
         }
     }
 }
@@ -314,6 +348,9 @@ pub struct Incident {
     /// days of their need, ties counting half: about one half if takers came from any household
     /// alike, more if from the poorer. NaN without a settlement or another household in it.
     pub richer: f32,
+    /// The taker's settlement, when it is not the one the store was in (M6c slice BI, ADR-0023
+    /// §2); none within a settlement and in older saves.
+    pub across: Option<PermanentId>,
 }
 
 /// How someone came to believe what they believe of an incident. Codes are part of saves: append
@@ -399,6 +436,14 @@ pub struct TakingsKnown {
     pub took: u32,
     /// The mean chance its grown members believe a taker runs of being seen.
     pub risk: f64,
+    /// Of `lost_kcal` and `lost`, what takers of another settlement took (M6c slice BI): a law
+    /// against taking at home recovers none of it, since its findings bind nobody there.
+    pub outside_kcal: f64,
+    pub outside: u32,
+    /// Of `took_kcal` and `took`, what its members took from stores of another settlement,
+    /// which no gathering of its own hears.
+    pub took_outside_kcal: f64,
+    pub took_outside: u32,
 }
 
 impl TakingsKnown {
@@ -428,9 +473,11 @@ impl TakingsKnown {
             0.0
         };
         let fine = f64::from(sanction.fine_days) * need_day + exile;
-        let recover = self.lost_kcal + f64::from(self.lost) * comp;
-        let owe =
-            self.risk.clamp(0.0, 1.0) * (self.took_kcal + f64::from(self.took) * (comp + fine));
+        let lost = (self.lost_kcal - self.outside_kcal).max(0.0);
+        let recover = lost + f64::from(self.lost.saturating_sub(self.outside)) * comp;
+        let took = (self.took_kcal - self.took_outside_kcal).max(0.0);
+        let owe = self.risk.clamp(0.0, 1.0)
+            * (took + f64::from(self.took.saturating_sub(self.took_outside)) * (comp + fine));
         (recover, owe)
     }
 }
@@ -634,6 +681,10 @@ pub struct Order {
     /// Watchers come to households to take what a refused finding owed, in order (M4c slice AI,
     /// step four).
     pub encounters: Vec<Encounter>,
+    /// Bands called, in the order called (M6c slice BJ, ADR-0023 §3).
+    pub bands: Vec<crate::war::Band>,
+    /// Encounters bands met, in order (M6c slice BJ, ADR-0023 §4).
+    pub clashes: Vec<crate::war::Clash>,
     /// Asks refused because the giver believed the asker took (a counter, not saved).
     pub refusals: u64,
 }
@@ -719,9 +770,17 @@ impl Encounter {
 impl Order {
     /// The day through which `person` is kept from work by blows they took, if any.
     pub fn hurt_until(&self, person: PermanentId) -> Option<i64> {
-        self.encounters
+        let watch = self
+            .encounters
             .iter()
-            .flat_map(|e| e.harms.iter().map(move |h| (e.day, h)))
+            .flat_map(|e| e.harms.iter().map(move |h| (e.day, h)));
+        let bands = self.clashes.iter().flat_map(|c| {
+            c.blows
+                .iter()
+                .map(move |s| (c.at.div_euclid(civ_core::time::MINUTES_PER_DAY), &s.harm))
+        });
+        watch
+            .chain(bands)
             .filter(|(_, h)| h.to == person && !h.killed)
             .map(|(day, h)| day + i64::from(h.days))
             .max()
@@ -801,16 +860,24 @@ pub enum CaseStage {
     Unheard = 3,
     /// The household that brought it, or the accused, was no longer there to be heard.
     Lapsed = 4,
+    /// Before a forum sat, the accused's household offered back what was taken and the one who
+    /// brought it accepted (M7b slice BR, ADR-0025 §1): it is owed as restitution, unheard.
+    Settled = 5,
+    /// Before a forum sat, the one who brought it withdrew it: their household had back all it
+    /// said it lost (M7b slice BR).
+    Withdrawn = 6,
 }
 
 impl CaseStage {
     /// Every stage, in code order.
-    pub const ALL: [CaseStage; 5] = [
+    pub const ALL: [CaseStage; 7] = [
         CaseStage::Open,
         CaseStage::Found,
         CaseStage::NotFound,
         CaseStage::Unheard,
         CaseStage::Lapsed,
+        CaseStage::Settled,
+        CaseStage::Withdrawn,
     ];
 
     /// Its number in saves.
@@ -863,6 +930,48 @@ pub struct Case {
     pub stances: Vec<CaseStance>,
     /// The finding sent the accused from the valley.
     pub exiled: bool,
+    /// The *hear cases* law whose forum is to hear it, or heard it (M7b slice BR, ADR-0025 §1);
+    /// none for the gathering.
+    pub forum: Option<PermanentId>,
+    /// For a challenge (M7b slice BT, ADR-0025 §4): the limit in force the law `law` is said to
+    /// breach. A challenge has no incident; its accused is the law's sponsor.
+    pub challenge: Option<PermanentId>,
+    /// Its fact tags, derived when it was heard from what it holds (M7b slice BS, ADR-0025 §2):
+    /// see [`CaseTags`].
+    pub tags: u8,
+    /// The remembered finding of the same tags it went against, if it did (M7b slice BS).
+    pub departed: Option<u32>,
+}
+
+/// A case's fact tags (M7b slice BS, ADR-0025 §2): derived from what the case holds, never from
+/// the incident. Bits are part of saves: append only.
+#[derive(Debug)]
+pub struct CaseTags;
+
+impl CaseTags {
+    /// Brought under a law against raiding (else against taking).
+    pub const RAIDING: u8 = 1;
+    /// The accused lived in another settlement.
+    pub const OUTSIDER: u8 = 2;
+    /// The accused was close kin of someone of the household that brought it.
+    pub const KIN: u8 = 4;
+    /// More than one account behind it.
+    pub const ACCOUNTS: u8 = 8;
+    /// What it said was lost was five days or more of the household's food.
+    pub const LARGE: u8 = 16;
+    /// The accused had been found against before.
+    pub const AGAIN: u8 = 32;
+    /// How many tags there are.
+    pub const COUNT: u32 = 6;
+    /// A challenge of a law under a limit (M7b slice BT): compared only with challenges, whose
+    /// first tag is the levy predicate (else daylight work).
+    pub const CHALLENGE: u8 = 64;
+
+    /// The share of tags `a` and `b` agree on, 0 to 1.
+    pub fn matched(a: u8, b: u8) -> f64 {
+        let differ = ((a ^ b) & 0x3f).count_ones();
+        f64::from(Self::COUNT - differ) / f64::from(Self::COUNT)
+    }
 }
 
 /// One member's stance at a hearing, with what moved it (ADR-0015 §4).
@@ -881,9 +990,18 @@ pub struct CaseStance {
     pub belief: f32,
     /// Their regard for the one who brought it less their regard for the accused, points.
     pub regard: f32,
+    /// What the findings they recalled moved them, points (M7b slice BS): by the forum's
+    /// authority, nothing where it is informative.
+    pub precedent: f32,
 }
 
 impl Case {
+    /// Days from being brought to being closed (heard, settled, withdrawn or lapsed), once it is
+    /// (M7b slice BR: time to closure).
+    pub fn closure_days(&self) -> Option<i64> {
+        self.heard.map(|t| t.day_index() - self.opened)
+    }
+
     /// Who came, and how many supported and opposed a finding.
     pub fn counts(&self) -> (u32, u32, u32) {
         let n =
@@ -1167,6 +1285,7 @@ mod tests {
             took_kcal: 50.0,
             took: 1,
             risk: 0.5,
+            ..Default::default()
         };
         let (recover, owe) = k.watched(0.5);
         assert!((recover - 200.0).abs() < 1e-9, "losses whoever took them");

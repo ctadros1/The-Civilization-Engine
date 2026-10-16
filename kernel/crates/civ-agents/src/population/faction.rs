@@ -11,9 +11,10 @@
 use super::*;
 use crate::decide::GatheringFacts;
 use crate::faction::{
-    Coup, Faction, FactionEvent, FactionEventKind, Member, Petition, Refusal, Revolt, RevoltEnd,
-    Side, Why, attend_points, found_worth, shared, why_belong,
+    Admit, Coup, Decides, Faction, FactionEvent, FactionEventKind, Member, Petition, Refusal,
+    Revolt, RevoltEnd, Side, Stake, Why, attend_points, found_worth, shared, why_belong,
 };
+use crate::params::GoodUse;
 use crate::polity::{
     Body, CustomVersion, IssueKind, LawStatus, Membership, MoveOption, Outcome, PolicyKind,
 };
@@ -66,8 +67,10 @@ impl Population {
                     .person(m.person)
                     .and_then(|p| self.household(p.household))
                     .and_then(|x| x.settlement);
-                let here = self.factions.get(m.faction).map(|f| f.settlement);
-                home.is_none() || home != here
+                // An organization by stake keeps members wherever they live (ADR-0026 §2).
+                let f = self.factions.get(m.faction);
+                let here = f.map(|f| f.settlement);
+                home.is_none() || (home != here && !f.is_some_and(|f| f.stake.is_some()))
             })
             .map(|m| m.person)
             .collect();
@@ -161,8 +164,8 @@ impl Population {
         let p = &self.polities[pi];
         match party {
             Blamed::Body(id) => id == p.id,
-            Blamed::Office(law) => p.laws.iter().any(|l| l.id == law),
-            Blamed::Household(_) | Blamed::Person(_) => false,
+            Blamed::Office(law) | Blamed::Forum(law) => p.laws.iter().any(|l| l.id == law),
+            Blamed::Household(_) | Blamed::Person(_) | Blamed::Organization(_) => false,
         }
     }
 
@@ -182,7 +185,13 @@ impl Population {
         let Some(f) = self.factions.get(id) else {
             return Why::default();
         };
-        let grievance = self.keenness(ctx, person, f.against);
+        let (grievance, dues) = match f.stake {
+            Some(st) => (
+                self.stake_points(ctx, person, st.purpose),
+                f64::from(st.dues_share),
+            ),
+            None => (self.keenness(ctx, person, f.against), fp.dues_share),
+        };
         // Regard for its organizer is what draws others; an organizer stays for the grievance
         // and those who joined, so one nobody joins gives it up.
         let regard = if f.organizer == person {
@@ -208,7 +217,284 @@ impl Population {
             }
         }
         let share = if all > 0.0 { belong / all } else { 0.0 };
-        why_belong(grievance, regard, share, known, threshold, fp)
+        let why = why_belong(grievance, regard, share, known, threshold, fp);
+        Why {
+            dues: (fp.w_dues * dues) as f32,
+            ..why
+        }
+    }
+
+    /// What a law over goods of `purpose` would bring `person`'s household as one that offers
+    /// them at home, points (M7c slice BW, ADR-0026 §2): of the duties on such goods the content
+    /// offers, at each of their rates, the most its household forecasts a duty would bring it a
+    /// year less what it would owe (slice BV's forecast, from the purchases on record), as days
+    /// of its food against the days organizing costs. 0 for one whose household offers none.
+    pub(super) fn stake_points(&self, ctx: &Ctx, person: PermanentId, purpose: GoodUse) -> f64 {
+        let fp = &ctx.params.faction;
+        let Some(h) = self.person(person).map(|p| p.household) else {
+            return 0.0;
+        };
+        let Some(x) = self.household(h) else {
+            return 0.0;
+        };
+        let Some(pi) = x.settlement.and_then(|s| self.polity_of(s)) else {
+            return 0.0;
+        };
+        if !self.offers_at_home(ctx, h, purpose) {
+            return 0.0;
+        }
+        let duties: Vec<(f64, bool)> = ctx
+            .catalog
+            .policies
+            .iter()
+            .filter(|d| d.kind == PolicyKind::Duty)
+            .filter_map(|d| d.duty.filter(|u| u.purpose == purpose).map(|u| (d, u)))
+            .flat_map(|(d, u)| d.levy_shares.iter().map(move |&r| (r, u.exempt_sellers)))
+            .collect();
+        if duties.is_empty() {
+            return 0.0;
+        }
+        let at = self.polities[pi].settlement;
+        let households: Vec<PermanentId> = self
+            .households
+            .iter()
+            .filter(|(_, y)| y.settlement == Some(at) && !y.members.is_empty())
+            .map(|(_, y)| y.id)
+            .collect();
+        let trade = self.trade_forecast(ctx, pi, &households);
+        let best = duties
+            .iter()
+            .map(|&(rate, exempt)| {
+                let (gain, owes) = trade.duty(h, rate, purpose, exempt, ctx.params.market.margin);
+                gain - owes
+            })
+            .fold(0.0, f64::max);
+        let day_kcal = x.members.len().max(1) as f64 * ctx.params.household.daily_kcal_per_person;
+        let days = best / day_kcal.max(1.0);
+        fp.w_stake * days / fp.organize_days.max(1e-6)
+    }
+
+    /// The purposes of goods `person`'s household offers at home that a duty in the content is
+    /// laid on, in code order.
+    fn goods_staked(&self, ctx: &Ctx, person: PermanentId) -> Vec<GoodUse> {
+        let Some(h) = self.person(person).map(|p| p.household) else {
+            return Vec::new();
+        };
+        GoodUse::ALL
+            .into_iter()
+            .filter(|&p| {
+                ctx.catalog
+                    .policies
+                    .iter()
+                    .any(|d| d.kind == PolicyKind::Duty && d.duty.is_some_and(|u| u.purpose == p))
+            })
+            .filter(|&p| self.offers_at_home(ctx, h, p))
+            .collect()
+    }
+
+    /// `person` asks to join organization `id` (M7c slice BW, ADR-0026 §2): admitted as its rules
+    /// have it (anyone who sells its goods, or one a member regards at least the trust floor;
+    /// then its organizer, unless they hold them in ill regard, or more of its members who know
+    /// them regard them well than ill), or turned away, which they hold against it. Either is
+    /// recorded in its history. Whether they were admitted.
+    fn apply_to(&mut self, ctx: &Ctx, person: PermanentId, id: PermanentId, why: Why) -> bool {
+        let (fp, tp, now, day) = (
+            &ctx.params.faction,
+            &ctx.params.ties,
+            ctx.now,
+            ctx.now.day_index(),
+        );
+        let Some(f) = self.factions.get(id) else {
+            return false;
+        };
+        let Some(st) = f.stake else {
+            return false;
+        };
+        let organizer = f.organizer;
+        let members: Vec<PermanentId> = self
+            .factions
+            .members_of(id)
+            .map(|m| m.person)
+            .filter(|&m| m != person)
+            .collect();
+        let sponsored = match st.admit {
+            Admit::Open => true,
+            Admit::Sponsor => members
+                .iter()
+                .any(|&m| self.ties.regard(m, person, day, tp) >= fp.trust_floor),
+        };
+        let decided = match st.decides {
+            Decides::Organizer => self.ties.regard(organizer, person, day, tp) >= 0.0,
+            Decides::Members => {
+                let (mut well, mut ill) = (0usize, 0usize);
+                for &m in &members {
+                    if self.ties.known(m, person, day, tp) <= 0.0 {
+                        continue;
+                    }
+                    if self.ties.regard(m, person, day, tp) >= 0.0 {
+                        well += 1;
+                    } else {
+                        ill += 1;
+                    }
+                }
+                well > ill
+            }
+        };
+        let admitted = sponsored && decided;
+        if let Some(f) = self.factions.get_mut(id) {
+            f.history.push(FactionEvent {
+                at: now,
+                kind: if admitted {
+                    FactionEventKind::Admitted
+                } else {
+                    FactionEventKind::TurnedAway
+                },
+                who: Some(person),
+            });
+        }
+        if admitted {
+            self.factions.join(Member {
+                person,
+                faction: id,
+                since: day,
+                why,
+            });
+            self.factions.joined += 1;
+        } else {
+            // What being shut out costs them: what they expected of belonging, as days of their
+            // household's food.
+            let days = f64::from(why.grievance).max(0.0) / fp.w_stake.max(1e-6) * fp.organize_days;
+            self.grieve(
+                ctx,
+                person,
+                Grieved::Treatment,
+                Blamed::Organization(id),
+                id,
+                days,
+                Wrong::TurnedAway,
+            );
+        }
+        admitted
+    }
+
+    /// Whether `person` was turned away by organization `id` within `days` of `day`.
+    fn turned_away(&self, person: PermanentId, id: PermanentId, day: i64, days: u32) -> bool {
+        self.factions.get(id).is_some_and(|f| {
+            f.history.iter().any(|e| {
+                e.kind == FactionEventKind::TurnedAway
+                    && e.who == Some(person)
+                    && day - e.at.day_index() < i64::from(days)
+            })
+        })
+    }
+
+    /// `person` of `settlement`, whose household offers goods of each of `stakes` at home, weighs
+    /// organizing those who sell the same goods (M7c slice BW, ADR-0026 §2; research 08-17 §1.1):
+    /// for the purpose a duty over which would bring their household most, when no organization
+    /// over it they know of (`known`) exists, they know at least one other household that sells
+    /// such goods, here or in another settlement, they founded none that ended lately, and what
+    /// it would bring, less what organizing costs (`w_stake`: a law bringing as much a year as
+    /// organizing costs) and its dues, is worth their threshold. The rules it starts with are the
+    /// content's. Whether they founded one.
+    fn consider_organizing(
+        &mut self,
+        ctx: &mut Ctx,
+        person: PermanentId,
+        settlement: PermanentId,
+        threshold: f64,
+        stakes: &[GoodUse],
+        known: &[PermanentId],
+    ) -> bool {
+        let (fp, tp, now, day) = (
+            &ctx.params.faction,
+            &ctx.params.ties,
+            ctx.now,
+            ctx.now.day_index(),
+        );
+        let best = stakes
+            .iter()
+            .map(|&p| (self.stake_points(ctx, person, p), p))
+            .max_by(|a, b| a.0.total_cmp(&b.0).then((b.1 as u8).cmp(&(a.1 as u8))));
+        let Some((points, purpose)) = best else {
+            return false;
+        };
+        let worth = points - fp.w_stake - fp.w_dues * fp.stake_dues_share;
+        if worth <= threshold {
+            return false;
+        }
+        if known.iter().any(|&id| {
+            self.factions
+                .get(id)
+                .and_then(|f| f.stake)
+                .is_some_and(|s| s.purpose == purpose)
+        }) {
+            return false;
+        }
+        let tried = self.factions.list.iter().any(|f| {
+            f.founder == person
+                && f.stake.is_some()
+                && f.ended
+                    .is_some_and(|t| day - t.day_index() < i64::from(fp.retry_days))
+        });
+        if tried {
+            return false;
+        }
+        // Another household they know of that offers such goods at home, wherever it lives.
+        let own = self.person(person).map(|p| p.household);
+        let others = self.ties.of(person).iter().any(|t| {
+            t.known_at(day, tp) > 0.0
+                && self.person(t.to).is_some_and(|q| {
+                    Some(q.household) != own && self.offers_at_home(ctx, q.household, purpose)
+                })
+        });
+        if !others {
+            return false;
+        }
+        let id = ctx.ids.allocate();
+        let stake = Stake {
+            purpose,
+            admit: fp.stake_admit,
+            decides: fp.stake_decides,
+            dues_share: fp.stake_dues_share as f32,
+        };
+        self.factions
+            .list
+            .push(Faction::organize(id, settlement, person, stake, now));
+        let why = self.why_for(ctx, person, id, threshold);
+        self.factions.join(Member {
+            person,
+            faction: id,
+            since: day,
+            why,
+        });
+        self.factions.joined += 1;
+        true
+    }
+
+    /// `person` reviews where they belong now, as on their review day: for tests.
+    #[doc(hidden)]
+    pub fn review_belonging_for_tests(&mut self, ctx: &mut Ctx, person: PermanentId) {
+        let Some(settlement) = self
+            .person(person)
+            .and_then(|p| self.household(p.household))
+            .and_then(|x| x.settlement)
+        else {
+            return;
+        };
+        self.review_belonging(ctx, person, settlement);
+    }
+
+    /// `person` asks to join organization `id` now, whatever belonging is worth to them; whether
+    /// they were admitted: for tests.
+    #[doc(hidden)]
+    pub fn apply_for_tests(&mut self, ctx: &Ctx, person: PermanentId, id: PermanentId) -> bool {
+        self.apply_to(ctx, person, id, Why::default())
+    }
+
+    /// What a law over goods of `purpose` would bring `person`'s household, points: for tests.
+    #[doc(hidden)]
+    pub fn stake_points_for_tests(&self, ctx: &Ctx, person: PermanentId, purpose: GoodUse) -> f64 {
+        self.stake_points(ctx, person, purpose)
     }
 
     /// `person` of `settlement` reviews where they belong.
@@ -240,7 +526,7 @@ impl Population {
                 if self
                     .factions
                     .get(m.faction)
-                    .is_some_and(|f| f.organizer == person && f.is_live())
+                    .is_some_and(|f| f.organizer == person && f.is_live() && f.stake.is_none())
                     && !self.consider_petition(ctx, person, m.faction, threshold)
                     && !self.consider_refusal(ctx, person, m.faction, threshold)
                 {
@@ -252,11 +538,21 @@ impl Population {
         }
         // The factions here they know of: whose organizer or a member of which they know.
         let knows = |q: PermanentId| self.ties.known(person, q, day, tp) > 0.0;
+        // An organization by stake they know of may be of another settlement, if they sell its
+        // goods (ADR-0026 §2); one that turned them away lately they do not ask again.
+        let stakes = self.goods_staked(ctx, person);
         let known: Vec<PermanentId> = self
             .factions
             .list
             .iter()
-            .filter(|f| f.is_live() && f.settlement == settlement)
+            .filter(|f| f.is_live())
+            .filter(|f| match f.stake {
+                None => f.settlement == settlement,
+                Some(st) => {
+                    stakes.contains(&st.purpose)
+                        && !self.turned_away(person, f.id, day, fp.retry_days)
+                }
+            })
             .filter(|f| {
                 knows(f.organizer) || self.factions.members_of(f.id).any(|m| knows(m.person))
             })
@@ -269,13 +565,25 @@ impl Population {
         if let Some((why, faction)) = best
             && why.worth() > threshold
         {
-            self.factions.join(Member {
-                person,
-                faction,
-                since: day,
-                why,
-            });
-            self.factions.joined += 1;
+            if self
+                .factions
+                .get(faction)
+                .is_some_and(|f| f.stake.is_some())
+            {
+                self.apply_to(ctx, person, faction, why);
+            } else {
+                self.factions.join(Member {
+                    person,
+                    faction,
+                    since: day,
+                    why,
+                });
+                self.factions.joined += 1;
+            }
+            return;
+        }
+        // Organizing those who sell what their household sells (M7c slice BW).
+        if self.consider_organizing(ctx, person, settlement, threshold, &stakes, &known) {
             return;
         }
         // Founding one: over the party they hold their keenest grievance against, when they know
@@ -369,7 +677,7 @@ impl Population {
         else {
             return;
         };
-        let owed = grain_kg * params.faction.dues_share;
+        let owed = grain_kg * self.factions.list[fi].dues_share(&params.faction);
         if owed <= 1e-9 {
             return;
         }
@@ -569,15 +877,14 @@ impl Population {
             _ => return None,
         };
         let def = policies.get(usize::from(law.policy))?;
-        let settlement = polity.settlement;
         let mut households: Vec<PermanentId> = self
             .households
             .iter()
-            .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+            .filter(|(_, x)| polity.holds(x.settlement) && !x.members.is_empty())
             .map(|(_, x)| x.id)
             .collect();
         households.sort_unstable();
-        let adults = self.members_of(settlement, now, params);
+        let adults = self.members_of_polity(pi, now, params);
         let fc = self.forecasts(ctx, pi, &households, &adults);
         let mut theirs: Vec<PermanentId> = self
             .factions
@@ -599,6 +906,7 @@ impl Population {
             body: None,
             ends: Some(law.id),
             site: None,
+            target: None,
             own_gain: 0.0,
             followers_gain: 0.0,
             support: 0.5,
@@ -798,7 +1106,10 @@ impl Population {
             Blamed::Office(office) => polity.laws.iter().any(|l| {
                 l.id == office && l.status == LawStatus::InForce && l.kind == PolicyKind::KeepStore
             }),
-            Blamed::Household(_) | Blamed::Person(_) => false,
+            Blamed::Household(_)
+            | Blamed::Person(_)
+            | Blamed::Forum(_)
+            | Blamed::Organization(_) => false,
         };
         let Some(law) = polity
             .laws
@@ -893,7 +1204,7 @@ impl Population {
             .collect();
         households.sort_unstable();
         households.dedup();
-        let adults = self.members_of(polity.settlement, now, params);
+        let adults = self.members_of_polity(pi, now, params);
         let mut best: Option<(f64, Body)> = None;
         for def in ctx
             .catalog
@@ -902,14 +1213,16 @@ impl Population {
             .filter(|d| d.kind == PolicyKind::AmendBody)
         {
             for &b in &def.bodies {
+                // A council admits its organizer if they may stand for it (M7a slice BO).
+                let gate = b.seats.map_or(b.members, |s| s.electorate);
                 let admits = self
-                    .admitted(b.members, &adults, &ctx.land.fields, now, params)
+                    .admitted(gate, &adults, &ctx.land.fields, now, params)
                     .iter()
                     .any(|a| a.0 == organizer);
                 if b == current || !admits {
                     continue;
                 }
-                let gain = self.body_gain(ctx, pi, &b, &households, &decisions);
+                let gain = self.body_gain(ctx, pi, &b, organizer, &households, &decisions);
                 if gain > 1e-9 && best.is_none_or(|(g, _)| gain > g) {
                     best = Some((gain, b));
                 }
@@ -1135,7 +1448,9 @@ impl Population {
             }
             sides.sort_by_key(|s| s.0);
             // Its officeholders: the store's keeper and the watch (09-11 §1.5: administration
-            // and coercion).
+            // and coercion). At a settlement the polity took in, those of them who live there
+            // (ADR-0023 §9: the store kept there and the watch there).
+            let seat = self.polities[pi].settlement == settlement;
             let holders: Vec<PermanentId> = self.polities[pi]
                 .laws
                 .iter()
@@ -1144,6 +1459,12 @@ impl Population {
                         && matches!(l.kind, PolicyKind::KeepStore | PolicyKind::KeepWatch)
                 })
                 .filter_map(|l| l.holder)
+                .filter(|&h| {
+                    seat || self
+                        .person(h)
+                        .and_then(|p| self.household(p.household))
+                        .is_some_and(|x| x.settlement == Some(settlement))
+                })
                 .collect();
             let r = &mut self.factions.revolts[ri];
             r.sides = sides;
@@ -1161,9 +1482,11 @@ impl Population {
     }
 
     /// Revolt `ri` at polity `pi` ends as `end`: held, its body decides from now on, a version
-    /// of the custom taken, not amended (ADR-0017 §1), any amendment in force superseded; or it
-    /// came to nothing. The chronicle says which.
-    fn end_revolt(&mut self, ctx: &Ctx, ri: usize, pi: usize, end: RevoltEnd) {
+    /// of the custom taken, not amended (ADR-0017 §1), any amendment in force superseded; held
+    /// at a settlement `pi` took in rather than at its seat, that settlement is a polity of its
+    /// own under that body (ADR-0023 §9: secession); or it came to nothing. The chronicle says
+    /// which.
+    fn end_revolt(&mut self, ctx: &mut Ctx, ri: usize, pi: usize, end: RevoltEnd) {
         let now = ctx.now;
         let r = &mut self.factions.revolts[ri];
         r.ended = Some((end, now));
@@ -1171,6 +1494,9 @@ impl Population {
         let (place, name) = self.settlement_place(ctx, settlement);
         let who = self.name_of(organizer);
         match end {
+            RevoltEnd::Held if settlement != self.polities[pi].settlement => {
+                self.secede(ctx, pi, settlement, body, organizer);
+            }
             RevoltEnd::Held => {
                 let words = format!(
                     "At {name}, those who stood with {who} took the deciding from the gathering, \
@@ -1194,6 +1520,13 @@ impl Population {
                     words,
                 );
             }
+        }
+    }
+
+    /// For tests: revolt `ri` ends as `end`, at the polity holding its settlement.
+    pub fn end_revolt_for_tests(&mut self, ctx: &mut Ctx, ri: usize, end: RevoltEnd) {
+        if let Some(pi) = self.polity_of(self.factions.revolts[ri].settlement) {
+            self.end_revolt(ctx, ri, pi, end);
         }
     }
 
@@ -1284,8 +1617,10 @@ impl Population {
         if worth <= threshold {
             return;
         }
+        // The watch decides as the custom did, but as a body of all its watchers, no council.
         let body = Body {
             members: Membership::Watch,
+            seats: None,
             ..current
         };
         let id = ctx.ids.allocate();

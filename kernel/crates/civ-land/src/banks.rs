@@ -24,6 +24,12 @@ pub struct BankSegment {
     pub breached: bool,
     /// Soil washed off the bank, in compacted-equivalent cubic metres. Saved.
     pub sediment_m3: f64,
+    /// Seepage damage held against it so far, 0 to 1: at 1 water has piped through and the
+    /// bank has given way (M6b slice BG; research 11-12 §4.2). It persists until repaired.
+    pub piping: f64,
+    /// Compacted earth placed back on the finished bank from its borrow pit to make up its
+    /// crest, m³ (M6b slice BG: mending). Saved.
+    pub refill_m3: f64,
 }
 
 impl BankSegment {
@@ -50,6 +56,41 @@ impl BankSegment {
         self.fill_m3() / self.compacted_per_bank
     }
 
+    /// Its crest's height above its ground now, metres: as far as it is built, less what it
+    /// has settled and what water has worn off it.
+    pub fn crest_m(&self, done: f32) -> f64 {
+        (self.built_height_m(done) - self.settlement_m - self.erosion_m).max(0.0)
+    }
+
+    /// The compacted volume of its trapezoid between heights `from` and `to`, m³.
+    pub fn band_m3(&self, from: f64, to: f64) -> f64 {
+        let area = |h: f64| self.crest_width_m * h + self.side_run * h * h;
+        self.length_m() * (area(to.max(from)) - area(from)).max(0.0)
+    }
+
+    /// The height its crest rises to when `m3` of compacted earth is laid on a crest at `from`.
+    fn rise_to(&self, from: f64, m3: f64) -> f64 {
+        let area = self.crest_width_m * from
+            + self.side_run * from * from
+            + m3.max(0.0) / self.length_m().max(1e-9);
+        ((self.crest_width_m.powi(2) + 4.0 * self.side_run * area).sqrt() - self.crest_width_m)
+            / (2.0 * self.side_run)
+    }
+
+    /// What mending a finished bank would take (M6b slice BG; research 11-12 §4.1: refill and
+    /// compact): compacted earth to bring its crest back to its design height, and compacted
+    /// bank to dig out and tamp again where water has seeped through it (its damage's share of
+    /// the whole bank, a design prior), m³. Nothing while it is still being built.
+    pub fn mend_need(&self, work: &Earthwork) -> (f64, f64) {
+        if work.done < 1.0 {
+            return (0.0, 0.0);
+        }
+        (
+            self.band_m3(self.crest_m(1.0), self.height_m),
+            self.piping * self.fill_m3(),
+        )
+    }
+
     pub fn valid(&self, map: &WorldMap) -> bool {
         let width = f64::from(map.width) * f64::from(map.cell_size_m);
         let height = f64::from(map.height) * f64::from(map.cell_size_m);
@@ -65,6 +106,8 @@ impl BankSegment {
                 self.settlement_m,
                 self.erosion_m,
                 self.sediment_m3,
+                self.piping,
+                self.refill_m3,
             ])
             .all(f64::is_finite);
         let length = self.length_m();
@@ -91,9 +134,51 @@ impl BankSegment {
             && self.settlement_m >= 0.0
             && self.erosion_m >= 0.0
             && self.sediment_m3 >= 0.0
+            && (0.0..=1.0).contains(&self.piping)
+            && self.refill_m3 >= 0.0
             && [self.a, self.b]
                 .iter()
                 .all(|p| p[0] >= 0.0 && p[1] >= 0.0 && p[0] <= width && p[1] <= height)
+    }
+
+    /// The least axis-aligned rectangle holding the bank's full trapezoid, rounded out to
+    /// whole centimetres: the ground a bank's earthwork reserves.
+    pub fn envelope(&self) -> crate::RectCm {
+        let length = self.length_m();
+        let normal = [
+            (self.b[1] - self.a[1]) / length,
+            (self.a[0] - self.b[0]) / length,
+        ];
+        let reach = self.crest_width_m / 2.0 + self.side_run * self.height_m;
+        let corners: Vec<[f64; 2]> = [self.a, self.b]
+            .iter()
+            .flat_map(|p| {
+                [-1.0, 1.0].map(|sign| {
+                    [
+                        p[0] + sign * normal[0] * reach,
+                        p[1] + sign * normal[1] * reach,
+                    ]
+                })
+            })
+            .collect();
+        let x0 = corners.iter().map(|c| c[0]).fold(f64::INFINITY, f64::min);
+        let y0 = corners.iter().map(|c| c[1]).fold(f64::INFINITY, f64::min);
+        let x1 = corners
+            .iter()
+            .map(|c| c[0])
+            .fold(f64::NEG_INFINITY, f64::max);
+        let y1 = corners
+            .iter()
+            .map(|c| c[1])
+            .fold(f64::NEG_INFINITY, f64::max);
+        let x = (x0 * 100.0).floor() as i32;
+        let y = (y0 * 100.0).floor() as i32;
+        crate::RectCm {
+            x,
+            y,
+            w: ((x1 * 100.0).ceil() as i32 - x).max(1),
+            h: ((y1 * 100.0).ceil() as i32 - y).max(1),
+        }
     }
 
     /// The reserved envelope must contain the bank's full trapezoid, not just its line.
@@ -135,6 +220,12 @@ impl BankSegment {
         if self.breached || height <= 0.0 {
             return Vec::new();
         }
+        self.barriers_at(map, hands, height)
+    }
+
+    /// The edges the segment would block if it stood `height` metres above its ground: a
+    /// design's crest before any earth is placed (M6b slice BG: choosing where to build).
+    pub fn barriers_at(&self, map: &WorldMap, hands: &[f32], height: f64) -> Vec<FloodBarrier> {
         let cell = f64::from(map.cell_size_m);
         let min_x = (self.a[0].min(self.b[0]) / cell).floor().max(0.0) as u32;
         let min_y = (self.a[1].min(self.b[1]) / cell).floor().max(0.0) as u32;
@@ -226,19 +317,88 @@ pub fn ground_changes(
         .collect()
 }
 
-/// An authored overtopping prior, not an annual failure probability.
+/// Authored damage priors, not annual failure probabilities (research 11-12 §4.2: separate
+/// the load from the resistance; damage persists across events unless repaired).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BankParams {
     /// Crest metres eroded per day per metre of overflow head to the power 1.5.
     pub erosion_per_head_day: f64,
+    /// Seepage damage a day per metre of water held against a bank below its crest: it gives
+    /// way by piping once its damage reaches 1.
+    pub piping_per_head_day: f64,
+    /// The share of its built height placed fill settles by as it consolidates, and the time
+    /// constant of that settling, days: design priors (research 11-12 names crest settlement
+    /// among a levee's defects but gives no figure).
+    pub settle_share: f64,
+    pub settle_days: f64,
 }
 
 impl Default for BankParams {
     fn default() -> Self {
         Self {
             erosion_per_head_day: 0.02,
+            piping_per_head_day: 0.01,
+            settle_share: 0.05,
+            settle_days: 365.0,
         }
     }
+}
+
+/// One day's settling of a bank's placed fill (M6b slice BG): its crest sinks toward
+/// `settle_share` of its built height, most of the way within `settle_days`. Settling only
+/// deepens; fill placed later settles in its turn. Mass is unchanged: the fill only packs down.
+pub fn settle_day(bank: &mut BankSegment, work: &Earthwork, params: BankParams) -> bool {
+    if work.done <= 0.0 || params.settle_share <= 0.0 || params.settle_days <= 0.0 {
+        return false;
+    }
+    let target = params.settle_share * bank.built_height_m(work.done);
+    if target <= bank.settlement_m {
+        return false;
+    }
+    bank.settlement_m += (target - bank.settlement_m) * (1.0 - (-1.0 / params.settle_days).exp());
+    true
+}
+
+/// One day's seepage through a bank (M6b slice BG; research 11-12 §4.2): water standing against
+/// one side of it, below its crest, higher than the other side's water or ground, adds damage by
+/// that head; at a damage of 1 water pipes through and the bank gives way before its crest is
+/// reached. Uses the elapsed day's depths, as overtopping does.
+pub fn pipe_day(
+    bank: &mut BankSegment,
+    work: &Earthwork,
+    map: &WorldMap,
+    floodplain: &civ_world::hydraulics::WorldFloodplain,
+    depths: &[f32],
+    params: BankParams,
+    ground: &crate::earth::GroundDelta,
+) -> bool {
+    if bank.breached || work.done <= 0.0 || params.piping_per_head_day <= 0.0 {
+        return false;
+    }
+    let hands = &floodplain.cell_hand;
+    let surface = |c: u32| -> Option<(f64, bool)> {
+        let d = f64::from(*depths.get(c as usize)?);
+        let ground = f64::from(*hands.get(c as usize)?) + f64::from(ground.at(c as usize));
+        Some((ground + d.max(0.0), d > 0.0))
+    };
+    let head = bank
+        .barriers(map, std::slice::from_ref(work), hands)
+        .iter()
+        .filter_map(|edge| {
+            let (a, b) = (surface(edge.a)?, surface(edge.b)?);
+            let (high, low) = if a.0 >= b.0 { (a, b) } else { (b, a) };
+            high.1
+                .then(|| (high.0.min(edge.crest_hand_m) - low.0).max(0.0))
+        })
+        .fold(0.0_f64, f64::max);
+    if head <= 0.0 {
+        return false;
+    }
+    bank.piping = (bank.piping + params.piping_per_head_day * head).min(1.0);
+    if bank.piping >= 1.0 {
+        bank.breached = true;
+    }
+    true
 }
 
 /// Apply one day's actual overtopping. No head, no wear; soil removed from the bank
@@ -287,7 +447,7 @@ pub fn overtop_day(
     let after = (before - loss).max(0.0);
     let washed = bank.length_m()
         * (bank.crest_width_m * loss + bank.side_run * (before.powi(2) - after.powi(2)));
-    let remaining = (f64::from(work.cut_m3) - bank.sediment_m3).max(0.0);
+    let remaining = (f64::from(work.cut_m3) - bank.sediment_m3 + bank.refill_m3).max(0.0);
     let washed = washed.min(remaining);
     let samples = bank_samples(bank, height, map);
     let total: f64 = samples.iter().map(|(_, v)| v).sum();
@@ -390,7 +550,9 @@ pub fn place_from_borrow(
                     f64::from(x) * f64::from(map.cell_size_m) + 0.5,
                     f64::from(y) * f64::from(map.cell_size_m) + 0.5,
                 ),
-                sign * volume * (f64::from(state.cut_m3) - bank.sediment_m3).max(0.0) / total,
+                sign * volume
+                    * (f64::from(state.cut_m3) - bank.sediment_m3 + bank.refill_m3).max(0.0)
+                    / total,
             );
         }
     }
@@ -399,6 +561,74 @@ pub fn place_from_borrow(
     works[at].cut_m3 = after_fill;
     works[at].done = after_done;
     Ok(dug)
+}
+
+/// Mend a finished bank (M6b slice BG; research 11-12 §4.1: refill, compact): lay up to
+/// `refill_m3` of compacted earth, dug from its borrow pit, on its crest, which raises it back
+/// toward its design height (making up what water wore off before what it settled), and dig out
+/// and tamp again up to `rework_m3` of bank where water has seeped through it, which lowers its
+/// damage by that share of the whole. Each is capped by what it needs. A breach stays open until
+/// all it needs is done. The caller supplies completed work; this awards none. Returns the earth
+/// dug from the pit and the bank reworked, m³.
+pub fn mend(
+    bank: &mut BankSegment,
+    works: &mut [Earthwork],
+    map: &WorldMap,
+    ground: &mut crate::earth::GroundDelta,
+    refill_m3: f64,
+    rework_m3: f64,
+) -> Result<(f64, f64), &'static str> {
+    if !bank.valid(map) || !refill_m3.is_finite() || !rework_m3.is_finite() {
+        return Err("invalid bank design or earth quantity");
+    }
+    let at = works
+        .iter()
+        .position(|w| w.id == bank.work && w.kind == EarthKind::Bank)
+        .ok_or("bank earthwork missing")?;
+    let pit = works
+        .iter()
+        .position(|w| w.id == bank.borrow && w.kind == EarthKind::Pit && w.deposit.is_none())
+        .ok_or("bank borrow source missing")?;
+    if works[at].done < 1.0 {
+        return Err("a bank is mended only once it is built");
+    }
+    let (want_fill, want_rework) = bank.mend_need(&works[at]);
+    let fill = refill_m3.clamp(0.0, want_fill);
+    let mut dug = 0.0;
+    if fill > 0.0 {
+        let samples = bank_samples(bank, bank.built_height_m(1.0), map);
+        let total: f64 = samples.iter().map(|(_, v)| v).sum();
+        if total <= 0.0 {
+            return Err("bank footprint has no fill storage");
+        }
+        for ((x, y), volume) in samples {
+            ground.add(
+                (
+                    f64::from(x) * f64::from(map.cell_size_m) + 0.5,
+                    f64::from(y) * f64::from(map.cell_size_m) + 0.5,
+                ),
+                volume * fill / total,
+            );
+        }
+        dug = fill / bank.compacted_per_bank;
+        crate::earth::dig_out(&mut works[pit], map, ground, dug);
+        let from = bank.crest_m(1.0);
+        let mut rise = (bank.rise_to(from, fill) - from).max(0.0);
+        let worn = rise.min(bank.erosion_m);
+        bank.erosion_m -= worn;
+        rise -= worn;
+        bank.settlement_m = (bank.settlement_m - rise).max(0.0);
+        bank.refill_m3 += fill;
+    }
+    let rework = rework_m3.clamp(0.0, want_rework);
+    if rework > 0.0 {
+        bank.piping = (bank.piping - rework / bank.fill_m3().max(1e-9)).max(0.0);
+    }
+    if bank.breached {
+        let (fill_left, rework_left) = bank.mend_need(&works[at]);
+        bank.breached = fill_left > 1e-6 || rework_left > 1e-6;
+    }
+    Ok((dug, rework))
 }
 
 /// Rebuild a bank's cell-average ground from its linear design and placed volume.
@@ -420,7 +650,7 @@ pub fn replay(
                 f64::from(x) * f64::from(map.cell_size_m) + 0.5,
                 f64::from(y) * f64::from(map.cell_size_m) + 0.5,
             ),
-            volume * (f64::from(work.cut_m3) - bank.sediment_m3).max(0.0) / total,
+            volume * (f64::from(work.cut_m3) - bank.sediment_m3 + bank.refill_m3).max(0.0) / total,
         );
     }
 }
@@ -491,6 +721,8 @@ mod tests {
             erosion_m: 0.0,
             breached: false,
             sediment_m3: 0.0,
+            piping: 0.0,
+            refill_m3: 0.0,
         };
         let work = |n, kind, rect| Earthwork {
             id: id(n),
@@ -574,6 +806,8 @@ mod tests {
         let dry = vec![0.0; map.cell_count()];
         let prior = BankParams {
             erosion_per_head_day: 0.02,
+            piping_per_head_day: 0.0,
+            ..BankParams::default()
         };
         assert!(!overtop_day(
             &mut eroding,
@@ -654,5 +888,140 @@ mod tests {
         );
         assert_eq!(ground, before);
         assert!(place_from_borrow(&bank, &mut works, &map, &mut ground, f64::NAN).is_err());
+
+        // Seepage: water held below the crest on one side adds damage by its head; none without
+        // a head; at a damage of 1 the bank gives way though its crest was never reached.
+        let mut seeping = bank;
+        works[0].done = 1.0;
+        let level = GroundDelta::new(map.width, map.height, map.cell_size_m);
+        let piping = BankParams {
+            piping_per_head_day: 0.25,
+            ..BankParams::default()
+        };
+        assert!(!pipe_day(
+            &mut seeping,
+            &works[0],
+            &map,
+            &floodplain,
+            &dry,
+            piping,
+            &level
+        ));
+        let edges = seeping.barriers(&map, &works[..1], hands);
+        assert!(!edges.is_empty());
+        let mut one_side = vec![0.0_f32; map.cell_count()];
+        for e in &edges {
+            one_side[e.a.min(e.b) as usize] = 0.8;
+        }
+        assert!(pipe_day(
+            &mut seeping,
+            &works[0],
+            &map,
+            &floodplain,
+            &one_side,
+            piping,
+            &level
+        ));
+        let first = seeping.piping;
+        assert!(first > 0.0 && first < 1.0 && !seeping.breached);
+        // The same water on both sides holds no head.
+        let mut level_water = seeping;
+        let both = vec![0.8_f32; map.cell_count()];
+        assert!(!pipe_day(
+            &mut level_water,
+            &works[0],
+            &map,
+            &floodplain,
+            &both,
+            piping,
+            &level
+        ));
+        assert_eq!(level_water.piping, first);
+        for _ in 0..20 {
+            pipe_day(
+                &mut seeping,
+                &works[0],
+                &map,
+                &floodplain,
+                &one_side,
+                piping,
+                &level,
+            );
+        }
+        assert_eq!(seeping.piping, 1.0);
+        assert!(seeping.breached);
+        assert!(seeping.barriers(&map, &works[..1], hands).is_empty());
+
+        // Settling: the crest sinks toward its share of the built height and never rises.
+        let mut settling = bank;
+        let params = BankParams::default();
+        let mut last = 0.0;
+        for _ in 0..(3 * 365) {
+            assert!(settle_day(&mut settling, &works[0], params));
+            assert!(settling.settlement_m > last);
+            last = settling.settlement_m;
+        }
+        let target = params.settle_share * bank.built_height_m(1.0);
+        assert!(last < target && last > 0.9 * target);
+        let unbuilt = Earthwork {
+            done: 0.0,
+            ..works[0]
+        };
+        assert!(!settle_day(&mut settling, &unbuilt, params));
+
+        // Mending: a worn, settled and seeping bank is made up with earth from its pit and
+        // tamped again, what it wore first; mass moves from the pit to the bank.
+        let mut worn = BankSegment {
+            erosion_m: 0.2,
+            settlement_m: 0.05,
+            piping: 0.4,
+            ..bank
+        };
+        let (fill_need, rework_need) = worn.mend_need(&works[0]);
+        assert!(fill_need > 0.0 && (fill_need - worn.band_m3(1.25, 1.5)).abs() < 1e-9);
+        assert!((rework_need - 0.4 * worn.fill_m3()).abs() < 1e-9);
+        let mut mended = ground.clone();
+        let pit_before = f64::from(works[1].cut_m3);
+        let (dug, reworked) = mend(
+            &mut worn,
+            &mut works,
+            &map,
+            &mut mended,
+            fill_need / 2.0,
+            rework_need / 2.0,
+        )
+        .expect("mends");
+        assert!((dug - fill_need / 2.0 / 0.9).abs() < 1e-9);
+        assert!((reworked - rework_need / 2.0).abs() < 1e-9);
+        assert!((f64::from(works[1].cut_m3) - pit_before - dug).abs() < 1e-3);
+        assert!((mended.net_m3() - ground.net_m3() - (fill_need / 2.0 - dug)).abs() < 1e-3);
+        assert!(worn.erosion_m > 0.0 && worn.erosion_m < 0.2 && worn.settlement_m == 0.05);
+        assert!((worn.piping - 0.2).abs() < 1e-9);
+        assert!((worn.refill_m3 - fill_need / 2.0).abs() < 1e-9);
+        mend(&mut worn, &mut works, &map, &mut mended, 1e9, 1e9).expect("mends");
+        assert!(
+            (worn.crest_m(1.0) - 1.5).abs() < 1e-6,
+            "{}",
+            worn.crest_m(1.0)
+        );
+        assert!(worn.erosion_m == 0.0 && worn.settlement_m < 1e-6 && worn.piping == 0.0);
+        assert!((worn.refill_m3 - fill_need).abs() < 1e-6);
+        assert_eq!(worn.mend_need(&works[0]), (0.0, 0.0));
+        // A breach stays open until all it needs is done.
+        let mut broken = BankSegment {
+            piping: 1.0,
+            breached: true,
+            ..bank
+        };
+        let need = broken.mend_need(&works[0]).1;
+        mend(&mut broken, &mut works, &map, &mut mended, 0.0, need / 2.0).expect("mends");
+        assert!(broken.breached);
+        mend(&mut broken, &mut works, &map, &mut mended, 0.0, need).expect("mends");
+        assert!(!broken.breached && broken.piping == 0.0);
+        assert!(!broken.barriers(&map, &works[..1], hands).is_empty());
+        // Nothing is mended before it is built.
+        works[0].done = 0.5;
+        assert!(mend(&mut broken, &mut works, &map, &mut mended, 1.0, 1.0).is_err());
+        assert_eq!(broken.mend_need(&works[0]), (0.0, 0.0));
     }
 }

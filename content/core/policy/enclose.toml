@@ -1,0 +1,23 @@
+# A palisade round the hearth (M6c slice BK, step two; ADR-0023 §6): the polity raises a line of
+# posts round its hearth, taking in the homes within a reach, with gates spread round it. Each
+# household is asked an equal share of the work, as for a crossing or a bank built together; homes
+# outside the line pay without its cover. A household weighs what it believes the line keeps out of
+# its home (a share of what people of other settlements took from it) against its share of the
+# work, spread over the posts' life, and its people's walk round to a gate (research 11-11 §1.1-1.3:
+# an enclosure is not a fortress by itself, and incomplete works give partial benefit). Whether
+# anyone proposes it and whether the gathering passes it is people's choice; nothing here weighs
+# toward it.
+kind = "policy"
+id = "core:policy/enclose"
+name = "Palisade round the hearth"
+description = "The village raises a line of posts round its hearth, taking in the homes near it, each household doing an equal share of the work."
+does = "enclose"
+answers = ["raided"]
+# The question people take positions on (content API 41, M4c slice AG).
+question = "whether to raise a palisade round the hearth"
+
+# How a law of this kind bears on what people hold dear (content API 43): -1 against a value to
+# 1 for it. An authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 1.0
+"core:value/autonomy" = -0.3     # each household owes its share of the work

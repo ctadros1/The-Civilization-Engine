@@ -41,6 +41,9 @@ pub struct NavParams {
     pub ford_max_discharge_m3s: f64,
     /// Steepest step that can be walked, rise over run.
     pub max_slope: f64,
+    /// Speed climbing over a standing enclosure's line, relative to the ground, 0-1 (M6c slice
+    /// BK).
+    pub climb_factor: f64,
 }
 
 impl NavParams {
@@ -72,6 +75,8 @@ pub struct NavGrid {
     revision: u32,
     /// The revision of the flood depths laid over it (M6b slice BF); 0 for none.
     flood_revision: u32,
+    /// The revision of the enclosures whose lines are laid over it (M6c slice BK); 0 for none.
+    barrier_revision: u32,
     /// Derived from effective walking conditions, stable across flow-only changes and loads.
     travel_revision: u64,
 }
@@ -396,6 +401,53 @@ impl NavGrid {
         Self::with_decks_and_flood(map, params, &[], 0, None, None, 0)
     }
 
+    /// As [`NavGrid::with_decks_and_flood`], with `barriers` laid over it last (M6c slice BK):
+    /// each `(cell, factor)` a standing enclosure's cell, never walked faster than its factor
+    /// lets. `barrier_revision` is the revision of the enclosures they come from.
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_barriers(
+        map: &WorldMap,
+        params: NavParams,
+        decks: &[(u32, f32)],
+        revision: u32,
+        reach_discharges: Option<&[f32]>,
+        flood_depths: Option<&[f32]>,
+        flood_revision: u32,
+        barriers: &[(u32, f32)],
+        barrier_revision: u32,
+    ) -> Self {
+        let mut grid = Self::with_decks_and_flood(
+            map,
+            params,
+            decks,
+            revision,
+            reach_discharges,
+            flood_depths,
+            flood_revision,
+        );
+        if barriers.is_empty() {
+            return grid;
+        }
+        for &(c, factor) in barriers {
+            if let Some(g) = grid.ground.get_mut(c as usize) {
+                *g = g.min(factor);
+            }
+        }
+        let mut hash = DefaultHasher::new();
+        grid.travel_revision.hash(&mut hash);
+        for value in &grid.ground {
+            value.to_bits().hash(&mut hash);
+        }
+        grid.travel_revision = hash.finish();
+        grid.barrier_revision = barrier_revision;
+        grid
+    }
+
+    /// The revision of the enclosures laid over it.
+    pub fn barrier_revision(&self) -> u32 {
+        self.barrier_revision
+    }
+
     /// The map's grid with `decks` laid over it (M5c slice AW, ADR-0004 amended): each `(cell,
     /// factor)` an open crossing's span, walked at its deck's speed, never slower than the cell
     /// is waded. `revision` is the revision of the crossings they come from, which
@@ -472,6 +524,7 @@ impl NavGrid {
             params.wading_factor,
             params.ford_max_discharge_m3s,
             params.max_slope,
+            params.climb_factor,
         ] {
             value.to_bits().hash(&mut hash);
         }
@@ -487,6 +540,7 @@ impl NavGrid {
             ground,
             revision,
             flood_revision,
+            barrier_revision: 0,
             travel_revision: hash.finish(),
         }
     }
@@ -1397,6 +1451,7 @@ mod tests {
             wading_factor: 0.25,
             ford_max_discharge_m3s: 2.0,
             max_slope: 1.0,
+            climb_factor: 0.05,
         }
     }
 

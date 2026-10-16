@@ -56,6 +56,8 @@ import {
 } from "./word.js";
 import {
   brokenText,
+  candidateOrder,
+  candidateText,
   labelText,
   lawDayText,
   levyText,
@@ -81,6 +83,7 @@ import { HostError } from "./net/client.js";
 import type {
   ChronicleEntry,
   Decision,
+  ElectionLine,
   EventItem,
   FirmBrief,
   IncidentRow,
@@ -195,6 +198,34 @@ function el<K extends keyof HTMLElementTagNameMap>(
   if (props.text !== undefined) node.textContent = props.text;
   node.append(...children);
   return node;
+}
+
+/** One election on the election page (wire 1.77, ADR-0024 §3), in the kernel's words. */
+function electionBlock(e: ElectionLine): HTMLElement {
+  const polled = e.turnout.includes("came to poll");
+  const block = el(
+    "div",
+    { className: "election" },
+    el("p", { className: "heading", text: e.heading }),
+    el("p", { className: "stage", text: e.stage }),
+  );
+  if (e.turnout) block.append(el("p", { className: "turnout", text: e.turnout }));
+  if (e.districts.length > 0) {
+    block.append(el("p", { className: "districts", text: `Seats by settlement: ${e.districts.join("; ")}.` }));
+  }
+  for (const a of e.alliances) block.append(el("p", { className: "alliance", text: a }));
+  if (e.candidates.length > 0) {
+    block.append(
+      el(
+        "ul",
+        { className: "candidates" },
+        ...candidateOrder(e).map((c) =>
+          el("li", { className: c.seated ? "candidate seated" : "candidate", text: candidateText(c, polled) }),
+        ),
+      ),
+    );
+  }
+  return block;
 }
 
 function setText(node: HTMLElement, text: string): void {
@@ -1477,9 +1508,11 @@ export function bindUi(store: Store, actions: Actions): void {
     renderedSelection = undefined;
     const people = state.snapshot?.people ?? [];
     const settlements = state.snapshot?.settlements ?? [];
+    const bands = state.snapshot?.bands ?? [];
     const key = JSON.stringify([
       world?.worldId ?? null,
       people.length,
+      bands.map((b) => [b.id, b.words]),
       settlements.map((s) => [
         s.id,
         s.population,
@@ -1536,6 +1569,10 @@ export function bindUi(store: Store, actions: Actions): void {
         ...s.coalitions.map((c) => el("span", { className: "since coalition", text: `${c}.` })),
         // Its way of building on the three clocks (wire 1.56, M5b slice AR).
         s.style ? el("span", { className: "since style", text: `Building: ${s.style}.` }) : "",
+        // Its bands not yet home (wire 1.74, M6c slice BJ).
+        ...bands
+          .filter((b) => b.from === s.id)
+          .map((b) => el("span", { className: "since band", text: `${b.words}.` })),
       ),
     );
     nodes.push(
@@ -2376,10 +2413,44 @@ export function bindUi(store: Store, actions: Actions): void {
     if (g.polities.length === 0) {
       nodes.push(el("p", { className: "empty", text: "No settlement has a polity yet: each is founded at the first midnight." }));
     }
+    // Sieges (wire 1.76, ADR-0023 §7): each side's food at current use, never a measure of
+    // progress.
+    if (g.sieges.length > 0) {
+      nodes.push(
+        el(
+          "div",
+          { className: "sieges" },
+          el("h3", { text: "Sieges" }),
+          el("p", {
+            className: "aside",
+            text: "Each side's food at what its people eat now, worked out afterwards; nothing in the world reads it, and nothing here counts toward an end.",
+          }),
+          ...g.sieges.map((x) =>
+            el(
+              "div",
+              { className: `siege ${x.stage}` },
+              el("strong", { text: x.words }),
+              el("p", { className: "inside", text: `Inside: ${x.inside}.` }),
+              el("p", { className: "comes-in", text: `By the line: ${x.comesIn}.` }),
+              el("p", { className: "band-food", text: `The band: ${x.bandFood}.` }),
+            ),
+          ),
+        ),
+      );
+    }
     for (const p of g.polities) {
-      const block = el("div", { className: "polity" });
+      const block = el("div", { className: p.ended ? "polity ended" : "polity" });
+      block.append(el("h3", { text: p.name || "A settlement" }));
+      // How its deciding closed, and the settlements it holds (wire 1.76, ADR-0023 §9).
+      if (p.ended) {
+        block.append(el("p", { className: "ended-note", text: `Decides no more: ${p.ended}.` }));
+      }
+      if (p.settlements.length > 1) {
+        block.append(
+          el("ul", { className: "settlements" }, ...p.settlements.map((v) => el("li", { text: v }))),
+        );
+      }
       block.append(
-        el("h3", { text: p.name || "A settlement" }),
         el("p", { className: "custom", text: p.custom }),
         el("p", {
           className: "since",
@@ -2400,6 +2471,19 @@ export function bindUi(store: Store, actions: Actions): void {
       if (p.offices.length > 0) {
         block.append(
           el("ul", { className: "offices" }, ...p.offices.map((o) => el("li", { text: o }))),
+        );
+      }
+      // Its council's elections (wire 1.77, ADR-0024 §3): the election page.
+      if (p.elections.length > 0) {
+        block.append(
+          el(
+            "details",
+            { className: "elections" },
+            el("summary", {
+              text: `Elections (${p.elections.length}${p.elections.length >= 6 ? ", the latest" : ""})`,
+            }),
+            ...p.elections.map((e) => electionBlock(e)),
+          ),
         );
       }
       // Its factions (wire 1.40, ADR-0017 §2).
@@ -2529,6 +2613,10 @@ export function bindUi(store: Store, actions: Actions): void {
           if (relief) facts.append(el("dt", { text: "Relief" }), el("dd", { text: relief }));
           const broken = brokenText(l);
           if (broken) facts.append(el("dt", { text: "Kept" }), el("dd", { text: broken }));
+        }
+        // How its keeper, collector or sponsor acted (wire 1.80, M7c slice BY).
+        if (l.conduct) {
+          facts.append(el("dt", { text: "Conduct" }), el("dd", { text: l.conduct }));
         }
         const details = el(
           "details",
@@ -2851,6 +2939,17 @@ export function bindUi(store: Store, actions: Actions): void {
     if (o && (state.incidentKind === 0 || state.incidentKind === 1)) {
       nodes.push(el("p", { className: "order-totals", text: totalsText(o) }));
       // Watchers come to take what a refused finding owed (wire 1.46).
+      // The latest cases and challenges (wire 1.79, M7b slice BU).
+      if (o.caseLines.length > 0) {
+        nodes.push(
+          el(
+            "details",
+            { className: "case-lines" },
+            el("summary", { text: `Cases (${o.caseLines.length}, the latest)` }),
+            el("ul", {}, ...o.caseLines.map((v) => el("li", { text: v }))),
+          ),
+        );
+      }
       if (o.encounters.length > 0) {
         nodes.push(el("ul", { className: "encounters" }, ...o.encounters.map((v) => el("li", { text: v }))));
       }

@@ -1,0 +1,19 @@
+# Going with a band one joined (M6c slice BJ, ADR-0023 §3): to the hearth for the muster, the
+# walk to where the band goes, the stay there, and home. Only for those who joined a band that
+# musters within the day; whoever is at the hearth at the hour goes (13-06 §1.2: muster is who
+# comes). `max_walk_minutes` is the longest walk a band goes, one way; `min_minutes` the stay.
+kind = "activity"
+id = "core:activity/go_with_band"
+name = "Go with a band"
+doing = "with a band"
+behavior = "band"
+par = 4.0
+min_age_years = 15.0
+max_age_years = 60.0
+min_minutes = 30
+max_minutes = 30
+daylight_only = false
+max_walk_minutes = 120
+technique = ""
+tools = []
+rate = 1.0

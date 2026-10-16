@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   brokenText,
+  candidateOrder,
+  candidateText,
   labelText,
   lawDayText,
   levyText,
@@ -26,7 +28,7 @@ describe("a polity's laws in words", () => {
   it("say where a law stands", () => {
     expect(statusText({ status: "in force", outcome: "passed", meetsMinute: 0 })).toBe("in force");
     expect(statusText({ status: "lapsed", outcome: "passed", meetsMinute: 0 })).toBe(
-      "lapsed: the one it named is gone",
+      "lapsed: no longer in force",
     );
     expect(statusText({ status: "rejected", outcome: "failed", meetsMinute: 0 })).toBe("turned down");
     expect(statusText({ status: "rejected", outcome: "tied", meetsMinute: 0 })).toBe(
@@ -133,6 +135,9 @@ describe("the government on the wire", () => {
     const sponsorName = b.createString("Talia");
     const issue = b.createString("food would not last until the harvest");
     const decision = b.createString("agreed: 1 for, 0 against; 1 of 4 adults came, 1 needed");
+    const conduct = b.createString(
+      "before the gathering, Talia's household gave 2 households food (6 days of theirs)",
+    );
     const law = W.LawLine.createLawLine(
       b,
       208n,
@@ -167,6 +172,7 @@ describe("the government on the wire", () => {
       7,
       2,
       3,
+      conduct,
     );
     const laws = W.PolityLine.createLawsVector(b, [law]);
     const office = b.createString("Storekeeper: Ada, since 3 May of year 2");
@@ -233,6 +239,34 @@ describe("the government on the wire", () => {
       agreements,
     );
     const relations = W.PolityLine.createRelationsVector(b, [relation]);
+    const settlements = W.PolityLine.createSettlementsVector(b, [
+      b.createString("Stonewick, its seat, since 1 March of year 1"),
+      b.createString("Ashford, taken in on 9 June of year 3 from Ashford's polity, by annexation"),
+    ]);
+    const ended = b.createString("");
+    const candidate = W.CandidateLine.createCandidateLine(
+      b,
+      44n,
+      b.createString("Mira"),
+      b.createString(""),
+      b.createString("leans for whether to keep a common store"),
+      b.createString("backed by Bo's faction"),
+      12,
+      true,
+    );
+    const election = W.ElectionLine.createElectionLine(
+      b,
+      2,
+      b.createString(
+        "Election 2, called on 3 May of year 2 because the seats' term was ending: a council of 5, elected by the adults for 360 days",
+      ),
+      b.createString("counted and seated on 12 May of year 2"),
+      b.createString("31 of the 52 now of the electorate came to poll"),
+      W.ElectionLine.createDistrictsVector(b, []),
+      W.ElectionLine.createAlliancesVector(b, [b.createString("Bo's faction and Ada's party stand on one slate")]),
+      W.ElectionLine.createCandidatesVector(b, [candidate]),
+    );
+    const elections = W.PolityLine.createElectionsVector(b, [election]);
     const name = b.createString("Stonewick");
     const custom = b.createString("The adults who come to the hearth decide by acclamation.");
     const store = b.createString("grain 26 kg");
@@ -264,9 +298,30 @@ describe("the government on the wire", () => {
       revolts,
       coups,
       relations,
+      settlements,
+      ended,
+      elections,
     );
     const polities = W.Government.createPolitiesVector(b, [polity]);
-    const government = W.Government.createGovernment(b, BigInt(103 * DAY), polities);
+    const siege = W.SiegeLine.createSiegeLine(
+      b,
+      7,
+      12n,
+      40n,
+      4,
+      b.createString("Ada leads 9 of Stonewick to take food from Bo's household at Ashford"),
+      b.createString("its 11 households hold about 38 days of food for 41 people at what they eat"),
+      38,
+      b.createString(
+        "no open well inside the line: every walk to water goes out through a gate; 18 of its 23 fields lie outside it",
+      ),
+      b.createString(
+        "9 there carry about 2 days of food; their households at home hold about 50 days for their 30 people",
+      ),
+      2,
+    );
+    const sieges = W.Government.createSiegesVector(b, [siege]);
+    const government = W.Government.createGovernment(b, BigInt(103 * DAY), polities, sieges);
     const response = W.Response.createResponse(b, W.ResponseBody.Government, government);
     b.finish(response);
     const body = M.decodeResponse(b.asUint8Array());
@@ -318,6 +373,47 @@ describe("the government on the wire", () => {
         ],
       },
     ]);
+    expect(p.settlements).toHaveLength(2);
+    expect(p.settlements[1]).toContain("by annexation");
+    expect(p.ended).toBe("");
+    expect(p.elections).toEqual([
+      {
+        id: 2,
+        heading:
+          "Election 2, called on 3 May of year 2 because the seats' term was ending: a council of 5, elected by the adults for 360 days",
+        stage: "counted and seated on 12 May of year 2",
+        turnout: "31 of the 52 now of the electorate came to poll",
+        districts: [],
+        alliances: ["Bo's faction and Ada's party stand on one slate"],
+        candidates: [
+          {
+            person: 44,
+            name: "Mira",
+            district: "",
+            told: "leans for whether to keep a common store",
+            backed: "backed by Bo's faction",
+            votes: 12,
+            seated: true,
+          },
+        ],
+      },
+    ]);
+    expect(body.government.sieges).toEqual([
+      {
+        band: 7,
+        from: 12,
+        at: 40,
+        stage: "camped",
+        words: "Ada leads 9 of Stonewick to take food from Bo's household at Ashford",
+        inside: "its 11 households hold about 38 days of food for 41 people at what they eat",
+        insideDays: 38,
+        comesIn:
+          "no open well inside the line: every walk to water goes out through a gate; 18 of its 23 fields lie outside it",
+        bandFood:
+          "9 there carry about 2 days of food; their households at home hold about 50 days for their 30 people",
+        bandDays: 2,
+      },
+    ]);
     expect(p.customHistory).toHaveLength(2);
     expect(p.customHistory[1]).toContain("by the amendment Ada proposed");
     const l = p.laws[0]!;
@@ -335,6 +431,7 @@ describe("the government on the wire", () => {
       broken: 7,
       brokenUnaware: 2,
       reliefKg: 45,
+      conduct: "before the gathering, Talia's household gave 2 households food (6 days of theirs)",
     });
     expect(l.stances).toHaveLength(1);
     expect(l.stances[0]).toMatchObject({
@@ -347,5 +444,44 @@ describe("the government on the wire", () => {
     expect(l.stances[0]!.regard).toBeCloseTo(0.4, 5);
     expect(l.stances[0]!.opinion).toBeCloseTo(0.3, 5);
     expect(l.stances[0]!.values).toBeCloseTo(-0.6, 5);
+  });
+});
+
+describe("the election page", () => {
+  const c = (name: string, votes: number, seated: boolean, more: Partial<M.CandidateLine> = {}) => ({
+    person: votes,
+    name,
+    district: "",
+    told: "",
+    backed: "",
+    votes,
+    seated,
+    ...more,
+  });
+
+  it("words one who stood with their count, seat, backers and where they stand", () => {
+    expect(
+      candidateText(
+        c("Mira", 12, true, {
+          district: "Ashford",
+          backed: "backed by Bo's faction",
+          told: "leans for whether to keep a common store",
+        }),
+        true,
+      ),
+    ).toBe(
+      "Mira (Ashford): 12 names, seated; backed by Bo's faction; leans for whether to keep a common store",
+    );
+    expect(candidateText(c("Bo", 1, false), true)).toBe("Bo: 1 name");
+    // Unopposed or by lot, no count is shown.
+    expect(candidateText(c("Ada", 0, true), false)).toBe("Ada: seated");
+    expect(candidateText(c("Tam", 0, false), false)).toBe("Tam");
+  });
+
+  it("lists the seated first, then by names counted, ties by name", () => {
+    const order = candidateOrder({
+      candidates: [c("Tam", 3, false), c("Bo", 9, true), c("Ada", 3, false), c("Mira", 4, true)],
+    });
+    expect(order.map((x) => x.name)).toEqual(["Bo", "Mira", "Ada", "Tam"]);
   });
 });

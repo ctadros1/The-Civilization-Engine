@@ -330,13 +330,30 @@ fn a_walk_in_sight_of_another_settlement_makes_it_known_and_word_of_it_goes_roun
     use civ_agents::places::PlaceHow;
     // World 9: its two camps are on one bank of the trunk river, which nobody can wade.
     let mut sim = world(9, 50, &[30]).expect("generates");
-    // Bring the second camp's hearth to 900 m east of the first's, so that some of the first's
-    // walks pass within sight of it and others do not.
+    // Bring the second camp's hearth to 900 m east of the first's, so that the first's walks
+    // pass within sight of it. Once someone has seen it, it is taken out of anyone's sight (test
+    // scaffolding: where every household's walks pass it, as with hunting trips since slice BJ,
+    // all would see it and nobody would need telling), so that word of it can only go round.
     let first = sim.land().settlements[0].clone();
     let near = (first.hearth_m.0 + 900.0, first.hearth_m.1);
     sim.land_mut_for_tests().settlements[1].hearth_m = near;
     let other = sim.land().settlements[1].id;
-    sim.advance_minutes(40 * 24 * 60).expect("lives");
+    let mut moved = false;
+    for _ in 0..(40 * 24) {
+        sim.advance_minutes(60).expect("lives");
+        let seen_yet = sim
+            .people()
+            .known_places
+            .known
+            .values()
+            .flatten()
+            .any(|k| k.settlement == other && k.how == PlaceHow::Seen);
+        if seen_yet && !moved {
+            let (w, h) = sim.map().extent_m();
+            sim.land_mut_for_tests().settlements[1].hearth_m = (w as f32 * 2.0, h as f32 * 2.0);
+            moved = true;
+        }
+    }
     let pop = sim.people();
     let ours: Vec<_> = pop
         .households
@@ -356,7 +373,11 @@ fn a_walk_in_sight_of_another_settlement_makes_it_known_and_word_of_it_goes_roun
     };
     let (seen, told) = (how(PlaceHow::Seen), how(PlaceHow::Told));
     assert!(seen > 0, "nobody walked within sight of it");
-    assert!(told > 0, "nobody was told of it ({seen} saw it)");
+    assert!(
+        told > 0,
+        "nobody was told of it ({seen} of {} saw it)",
+        ours.len()
+    );
     for &h in &ours {
         for k in pop.known_places.of(h) {
             if k.how == PlaceHow::Told {
@@ -702,6 +723,7 @@ fn sickness_a_household_believes_at_home_weighs_toward_every_place_it_knows() {
         for &h in &here[..3] {
             let c = pop.word.make(Claim {
                 fire: None,
+                event: None,
                 id: 0,
                 kind: ClaimKind::Sickness,
                 settlement: a,
@@ -719,6 +741,58 @@ fn sickness_a_household_believes_at_home_weighs_toward_every_place_it_knows() {
     for ((s, x), (t, y)) in before.iter().zip(&after) {
         assert_eq!(s, t);
         assert!((y - x - w * share).abs() < 1e-9, "{x} then {y}");
+    }
+}
+
+#[test]
+fn raids_heard_of_at_home_weigh_toward_elsewhere_and_raids_there_against_it() {
+    // M6c slice BJ, step two (ADR-0023 §10): two raids its members heard of on their own
+    // settlement make every other place it knows worth `w_raids` times 2/3 more; one heard of on
+    // the place weighed takes back `w_raids` times 1/2 of that.
+    use civ_agents::word::{Claim, ClaimKind};
+    let mut sim = world_knowing(3, 50, &[50], true).expect("generates");
+    let a = sim.land().settlements[0].id;
+    let (household, _) = household_of(&sim, a);
+    let worth =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.move_worth_for_tests(ctx, household));
+    let before = worth(&mut sim);
+    assert!(!before.is_empty(), "it knows another place");
+    let member = sim.people().household(household).expect("lives").members[0];
+    let today = sim.now().day_index();
+    let raid = |pop: &mut civ_agents::Population, at: civ_core::PermanentId, event: u32| {
+        let c = pop.word.make(Claim {
+            fire: None,
+            event: Some(event),
+            id: 0,
+            kind: ClaimKind::Raid,
+            settlement: at,
+            day: today,
+            subject: None,
+            grievance: None,
+            suspected: None,
+        });
+        pop.word.hear(member, c, today, None, None);
+    };
+    {
+        let pop = sim.people_mut_for_tests();
+        raid(pop, a, 1);
+        raid(pop, a, 2);
+    }
+    let after = worth(&mut sim);
+    let w = sim.rules().people.moving.w_raids;
+    for ((s, x), (t, y)) in before.iter().zip(&after) {
+        assert_eq!(s, t);
+        assert!((y - x - w * 2.0 / 3.0).abs() < 1e-9, "{x} then {y}");
+    }
+    let (there, _) = after[0];
+    raid(sim.people_mut_for_tests(), there, 3);
+    let last = worth(&mut sim);
+    assert!((last[0].1 - after[0].1 + w * 0.5).abs() < 1e-9);
+    for ((_, y), (_, z)) in after.iter().zip(&last).skip(1) {
+        assert!(
+            (y - z).abs() < 1e-9,
+            "a raid elsewhere changes nothing here"
+        );
     }
 }
 
@@ -1361,6 +1435,7 @@ fn a_refused_petition_has_its_organizer_weigh_leaving_together_with_its_faction(
         body: None,
         ends: None,
         agreement: None,
+        target: None,
     });
     pop.factions.petitions.push(Petition {
         id: asked,

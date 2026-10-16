@@ -56,6 +56,12 @@ pub enum Target {
     /// is drawn: the cell of a well or of the water at a bank or spring, or [`FROM_STORE`] for the
     /// household's store at home (M6b slice BD, step three).
     Douse { building: PermanentId, from: u32 },
+    /// A flood bank, by its earthwork's permanent id: the one worked on (M6b slice BG).
+    Bank(PermanentId),
+    /// An irrigation ditch, by its earthwork's permanent id: the one dug (M6b slice BG).
+    Ditch(PermanentId),
+    /// A palisade, by its enclosure's permanent id: the one raised (M6c slice BK).
+    Enclosure(PermanentId),
 }
 
 /// Water for a fire drawn from the household's store at home, not a source (see
@@ -729,6 +735,130 @@ pub struct Household {
     pub midden: Midden,
     /// Memory of the deepest floodwaters observed at home and at fields (M6b slice BF).
     pub flood_memory: FloodMemory,
+    /// What floods cost the household itself, as it saw: its stores spoiled where water stood in
+    /// its buildings and its sown fields lost under water (M6b slice BG), oldest first, kept for
+    /// the years its people remember.
+    pub flood_losses: Vec<FloodLoss>,
+    /// What each hour of digging its ditch is worth to the household, hours a year of the grain
+    /// the water would bring its field (M6b slice BG): as it reckoned when it chose to dig.
+    pub ditch_worth: f32,
+    /// Buildings the household lost to fire or its people saw burn (M6b slice BH), oldest first,
+    /// kept for the years its people remember.
+    pub fire_losses: Vec<FireLoss>,
+    /// Buildings of its settlement its people heard gave way (M6b slice BH), oldest first, kept
+    /// for the years its people remember.
+    pub gave_way: Vec<GaveWay>,
+}
+
+/// A building of a household's settlement that gave way, as its people heard it told (M6b slice
+/// BH; ADR-0022 §12): its walls, and the work putting it right would take.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GaveWay {
+    /// The day it gave way.
+    pub day: i64,
+    /// The building.
+    pub building: PermanentId,
+    /// Whether it was the household's own.
+    pub own: bool,
+    /// The kind of its walls (0 wattle and daub, 1 rubble, 2 mud brick, 3 fired brick).
+    pub wall_kind: u8,
+    /// The work putting it right would take, hours.
+    pub hours: f32,
+}
+
+/// A building a household lost to fire, or that its people saw burn (M6b slice BH; ADR-0022
+/// §12): what they saw it cost, as the work putting it right would take.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FireLoss {
+    /// The day the fire burnt out.
+    pub day: i64,
+    /// The building.
+    pub building: PermanentId,
+    /// Whether it was the household's own.
+    pub own: bool,
+    /// Whether its roof was of a kind that burns.
+    pub burnable: bool,
+    /// The work putting it right would take, hours: building it again if it fell, else mending
+    /// what the fire took.
+    pub hours: f32,
+}
+
+/// One day's loss to a flood at one place of a household's own (M6b slice BG): what it saw the
+/// water take there. The place and the depth say where a bank would have to keep water out, and
+/// how high; the food and the work lost say what keeping it out would have been worth.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FloodLoss {
+    /// The day.
+    pub day: i64,
+    /// The cell the water stood in: a building's or a field's middle.
+    pub cell: u32,
+    /// How deep the water stood there, cm.
+    pub depth_cm: u16,
+    /// The food lost, kcal: stores spoiled, or the seed a lost crop was sown with.
+    pub kcal: f32,
+    /// The work lost, hours: a lost crop's preparing, sowing and tending.
+    pub hours: f32,
+}
+
+impl Household {
+    /// Remembers a loss to a flood (M6b slice BG): one record a day and place, the deeper water
+    /// and the losses summed.
+    pub fn remember_flood_loss(&mut self, loss: FloodLoss) {
+        if let Some(l) = self
+            .flood_losses
+            .iter_mut()
+            .rev()
+            .take_while(|l| l.day == loss.day)
+            .find(|l| l.cell == loss.cell)
+        {
+            l.depth_cm = l.depth_cm.max(loss.depth_cm);
+            l.kcal += loss.kcal;
+            l.hours += loss.hours;
+            return;
+        }
+        self.flood_losses.push(loss);
+    }
+
+    /// Forgets losses older than `days` before `today`.
+    pub fn forget_flood_losses(&mut self, today: i64, days: i64) {
+        self.flood_losses.retain(|l| today - l.day <= days);
+    }
+
+    /// Remembers a building lost to fire or seen burn (M6b slice BH): one record a building and
+    /// day, its own loss kept over one only seen.
+    pub fn remember_fire_loss(&mut self, loss: FireLoss) {
+        if let Some(l) = self
+            .fire_losses
+            .iter_mut()
+            .find(|l| l.day == loss.day && l.building == loss.building)
+        {
+            l.own |= loss.own;
+            l.hours = l.hours.max(loss.hours);
+            return;
+        }
+        self.fire_losses.push(loss);
+    }
+
+    /// Forgets fire losses, and buildings heard to have given way, older than `days` before
+    /// `today`.
+    pub fn forget_fire_losses(&mut self, today: i64, days: i64) {
+        self.fire_losses.retain(|l| today - l.day <= days);
+        self.gave_way.retain(|l| today - l.day <= days);
+    }
+
+    /// Remembers a building that gave way (M6b slice BH): one record a building and day.
+    pub fn remember_gave_way(&mut self, seen: GaveWay) {
+        if let Some(l) = self
+            .gave_way
+            .iter_mut()
+            .find(|l| l.day == seen.day && l.building == seen.building)
+        {
+            l.own |= seen.own;
+            l.hours = l.hours.max(seen.hours);
+            return;
+        }
+        self.gave_way.push(seen);
+    }
 }
 
 /// A household's memory of floodwaters at its home and fields (M6b slice BF).
@@ -1148,6 +1278,10 @@ mod tests {
             admired: None,
             midden: Midden::default(),
             flood_memory: FloodMemory::default(),
+            flood_losses: Vec::new(),
+            ditch_worth: 0.0,
+            fire_losses: Vec::new(),
+            gave_way: Vec::new(),
         }
     }
 

@@ -64,7 +64,9 @@ impl Population {
             };
             for (k, c) in a.clauses.iter().enumerate() {
                 let (count, good, kg) = match *c {
-                    Clause::Leave { .. } => continue,
+                    Clause::Leave { .. } | Clause::NoRaids { .. } | Clause::OneBody { .. } => {
+                        continue;
+                    }
                     Clause::Gift { good, kg, .. } => (1, good, kg),
                     Clause::Transfer {
                         good,
@@ -248,11 +250,10 @@ impl Population {
     /// Who is to carry payment `i` from polity `pi`: the one it named, while they live there; else
     /// the keeper of its store; else the one of its side who agreed to the terms; else nobody.
     fn carrier_for(&self, pi: usize, i: usize) -> Option<PermanentId> {
-        let settlement = self.polities[pi].settlement;
         let lives_here = |p: PermanentId| {
             self.person(p)
                 .and_then(|x| self.household(x.household))
-                .is_some_and(|x| x.settlement == Some(settlement))
+                .is_some_and(|x| self.polities[pi].holds(x.settlement))
         };
         let d = &self.agreements.dues[i];
         let negotiator = self

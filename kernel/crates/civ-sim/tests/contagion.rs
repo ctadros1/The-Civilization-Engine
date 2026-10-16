@@ -842,6 +842,7 @@ fn the_incidents_list_every_case_and_an_outbreak_s_page_traces_the_well_its_wate
             body: None,
             ends: None,
             agreement: None,
+            target: None,
         });
         p.closed.push((id, Place::Source(elsewhere)));
     }

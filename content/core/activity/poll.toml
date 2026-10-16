@@ -1,0 +1,20 @@
+# Coming to the hearth to name one's choices on an election's polling day (M7a slice BO, ADR-0024
+# §3): only on the evening of the polling day, only for one of the electorate who has heard of it,
+# and once. Whether to come is a choice of their own, weighed beside everything else they might do:
+# the content's base, and how much better their first choice is than the best left out (research
+# 09-08 §1.6: duty, stakes, and the costs of their own day). Whoever else comes is company.
+kind = "activity"
+id = "core:activity/poll"
+name = "Come to poll"
+doing = "naming their choices"
+behavior = "poll"
+par = 1.5
+min_age_years = 15.0
+max_age_years = 130.0
+min_minutes = 10
+max_minutes = 60
+daylight_only = false
+max_walk_minutes = 20
+technique = ""
+tools = []
+rate = 1.0

@@ -7,7 +7,6 @@
 
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::ledger::Channel;
 use civ_agents::polity::{Body, IssueKind, Law, LawStatus, Outcome, PolicyKind};
@@ -32,8 +31,10 @@ fn content() -> &'static ContentRegistry {
     })
 }
 
+/// A world of `seed`, of one identity whatever the run: the scheduler breaks ties by the world's
+/// identity, so a fresh one would make each run a different world.
 fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
-    Sim::create(
+    Sim::create_for_tests(
         &NewWorld {
             name: "Factions".to_owned(),
             seed,
@@ -45,8 +46,7 @@ fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
             regime_id: String::new(),
         },
         content,
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [3; 16],
     )
     .expect("generates")
 }
@@ -157,6 +157,7 @@ fn aggrieved_at(
             body: None,
             ends: None,
             agreement: None,
+            target: None,
         };
         let laws = &mut pop.polities[0].laws;
         if !laws
@@ -203,6 +204,7 @@ fn aggrieved_at(
         });
         let claim = pop.word.make(Claim {
             fire: None,
+            event: None,
             id: 0,
             kind: ClaimKind::Grievance,
             settlement,
@@ -365,6 +367,7 @@ fn a_faction_petitions_the_gathering_and_those_who_heard_choose_whether_to_come(
         body: None,
         ends: None,
         agreement: None,
+        target: None,
     });
     for (_, x) in pop.households.iter_mut() {
         x.stores.resize(grain + 1, 0.0);
@@ -477,7 +480,11 @@ fn a_faction_petitions_the_gathering_and_those_who_heard_choose_whether_to_come(
 
 #[test]
 fn a_faction_against_the_keeper_petitions_for_another_and_the_gathering_weighs_both() {
-    let (mut sim, _, office) = aggrieved_at(7, true);
+    let seed: u64 = std::env::var("TCE_SEED")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(7);
+    let (mut sim, _, office) = aggrieved_at(seed, true);
     let (old, keeper) = office.expect("a keeper");
     let mut called = None;
     for _ in 0..80 {
@@ -567,6 +574,7 @@ fn where_no_petition_can_be_called_a_faction_keeps_back_the_levy_together() {
         body: None,
         ends: None,
         agreement: None,
+        target: None,
     });
     // Nobody here holds that what the gathering decides binds, nor believes others abide by it.
     for s in &mut pop.norms.states {
@@ -657,6 +665,13 @@ fn where_no_petition_can_be_called_a_faction_keeps_back_the_levy_together() {
 fn revolt_called(seed: u64) -> (Sim, civ_agents::faction::Revolt, Body) {
     use civ_agents::polity::{Membership, Stance};
     let (mut sim, adults) = aggrieved_village(seed);
+    // The revolt under test, not the price of evenings (M7a slice BQ): with it, any council one
+    // change from the custom would save the faction's people evenings, and so serve them.
+    sim.rules_mut_for_tests()
+        .expect("rules not yet shared")
+        .people
+        .elections
+        .w_evening = 0.0;
     let pop = sim.people_mut_for_tests();
     // Its founding custom lets only the elders of its households decide.
     let elders = Body {
@@ -720,6 +735,7 @@ fn revolt_called(seed: u64) -> (Sim, civ_agents::faction::Revolt, Body) {
         opinion: 0.0,
         values: 0.0,
         view: 0.0,
+        owed: 0.0,
     };
     let (against, others): (Vec<PermanentId>, Vec<PermanentId>) = came
         .iter()
@@ -760,6 +776,7 @@ fn revolt_called(seed: u64) -> (Sim, civ_agents::faction::Revolt, Body) {
         body: None,
         ends: None,
         agreement: None,
+        target: None,
     });
     assert!(
         !pop.polities[0]
@@ -968,6 +985,7 @@ fn a_body_that_took_the_deciding_weighs_ending_the_laws_the_old_custom_made() {
         body: None,
         ends: None,
         agreement: None,
+        target: None,
     };
     let (levy, home) = (
         PermanentId::from_raw(next).expect("non-zero"),
@@ -1089,6 +1107,7 @@ fn where_the_watch_is_several_one_of_them_may_take_the_deciding_for_it() {
             body: None,
             ends: None,
             agreement: None,
+            target: None,
         });
     }
     for s in &mut pop.norms.states {

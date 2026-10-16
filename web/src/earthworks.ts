@@ -18,8 +18,20 @@ export function earthworkAt(works: EarthworkInfo[], xM: number, yM: number): Ear
 export const EARTH_COLOUR = 0x9c7a52;
 /** A pit's open ground, darker and deeper. */
 export const PIT_COLOUR = 0x4e3b28;
+/** An irrigation ditch's water, drawn as its line (wire 1.73). */
+export const DITCH_COLOUR = 0x3f7fbf;
 /** A spoil heap's loose earth, paler. */
 export const SPOIL_COLOUR = 0xc2a57c;
+/** An enclosure's palisade, timber brown (wire 1.75). */
+export const PALISADE_COLOUR = 0x6b4a2b;
+
+/** How a stretch of palisade is drawn: solid and thick while it stands, a faint thin line where
+ * it is still to be built or has rotted into a gap; a gate thinner than the wall while open. */
+export function sectorLook(s: NonNullable<EarthworkInfo["sector"]>): { width: number; alpha: number } {
+  if (s.state !== 1) return { width: 0.6, alpha: s.state === 2 ? 0.2 : 0.3 };
+  if (s.gate === 1) return { width: 0.8, alpha: 0.6 };
+  return { width: 2, alpha: 0.95 };
+}
 
 /** How an earthwork is drawn: a platform as bare earth, more solid the more of it is done and
  * always outlined, so one not yet begun still shows where it will be; a pit dark and a spoil heap

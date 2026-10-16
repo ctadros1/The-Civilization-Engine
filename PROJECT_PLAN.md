@@ -1,7 +1,7 @@
 # The Civilization Engine: Project Plan
 
 Status: plan of record, written 2026-09-27 from the planning interview.
-Implementation status (2026-10-14): **M0–M3c are implemented**:
+Implementation status (2026-10-15): **M0–M3c are implemented**:
 world and village life, the early economy, knowledge and building, daily weather, soils and
 fertility, and the Detailed/Accelerated time modes. **M2's kernel library and C interface are
 implemented; its Unreal client remains future work.** **M4, Councils, law and crime, is
@@ -16,15 +16,14 @@ and village log crossings. The earlier roof-style demo no longer qualifies after
 routing separated its villages. A failed agreement ratification is covered by a test world, not a
 lived demo. **M6a, Water and sickness, is implemented**, including the cholera demo, water and
 incident views, and household and polity responses to suspected sources. **M6b, Fire, masonry and
-floods, is in progress:** fire behavior, its observer view, household ignitions, noticing and
-alarms, water carried to threatened roofs, roof stripping and goods salvage are implemented,
-along with the dashboard's Fires row. Masonry, brick and tile, flood depths and wet-floor
-damage, evacuation, storm uplift and flood/storm kernel commands are implemented. BD adds crew demolition, dated fire accounts, response explanations, the Help at a fire lens
-and a published ignition sweep; spontaneous crews and broad response calibration remain unclaimed.
-BG begins with saved physical bank segments, conservative river-flood barriers, borrow storage
-and conditional overtopping erosion with explicit washed soil. Voluntary bank
-work, maintenance, trapped rain, ditches, building rules and the M6b demo remain planned.
-M6c, war and conquest, is future work. See §7 for scope and §9 for
+floods, is implemented:** buildings burn and spread fire by exposure; people notice, raise
+alarms, carry water, strip roofs, salvage goods and pull buildings down; masonry, brick and tile;
+floods and storms by routing and the weather; flood banks and irrigation ditches dug by choice
+and kept by law; building rules proposed after fires and failures, binding new work; and the
+great fire demo. Trapped rain, shared ditches, multi-segment banks, crossing scour and flood
+gates are left open. **M6c, War and conquest, is designed**
+([ADR-0023](decisions/0023-force-between-polities.md), slices BI–BM) and not yet built.
+See §7 for scope and §9 for
 implementation evidence and known limits.
 The README lists what exists, what is planned and the known limitations.
 Planning happens on the MacBook; development and running happen on the Windows PC
@@ -2517,15 +2516,102 @@ and M6a gives rivers a daily flow.
       borrow depressions, even after a breach. Actual overtopping now lowers crests with
       duration and retains removed soil in a washed-sediment stock. Save schema 101 adds
       that stock; content API 87 adds its strict authored erosion prior. Piping, upkeep,
-      rain ponding, voluntary public work and irrigation remain the following BG steps.
+      rain ponding and irrigation remain the following BG steps.
+    - *Banks built together (2026-10-14, §9):* a household remembers what floods cost it as
+      it saw: its stores spoiled where water stood in its buildings, its sown crops drowned
+      (the seed and the work put in), at the place and depth, for `levees.memory_years`. The
+      issue `flooded` holds when a straight bank beside the river would have kept that water
+      out of those places, its saving over its life above its work; the policy `build_bank`
+      (content `core:policy/works_wet_bank`) is proposed, forecast and decided as a crossing
+      built together. A household gains only from its own remembered losses at the places
+      the bank would keep dry; one that lost nothing gains nothing and is asked its share.
+      Passed, the polity lays out the bank and its borrow pit with no earth in them. People
+      work on it as they choose (`work_with_others_on_bank`, behaviour `levee`): each
+      session's hours dig, carry (a basket at a time, the straight way from the pit beside it at
+      their own pace) and place earth, each charged apart, and only the hours that moved earth are
+      the household's given. A narrow front holds as many as its length gives room for at
+      once. Save schema 102, content API 88, wire 1.72 unchanged.
+    - *Banks seep, settle and give way (2026-10-14, §9):* water standing against one side of
+      a bank, below its crest and above the other side's water or ground, adds seepage
+      damage by that head each day (`banks.piping_per_head_day`); at a damage of 1 the bank
+      pipes through and is breached before its crest is reached. Damage persists until
+      repaired (repair is not built yet). Placed fill settles toward `banks.settle_share` of
+      its built height, most of it within `banks.settle_days`. A bank a gathering built
+      that breaks is told once in the chronicle, saying whether water found a way through
+      or washed its crest away. The observer's bank words name seepage damage. Save schema
+      103, content API 89, wire 1.72 unchanged.
+    - *Banks kept and mended (2026-10-14, §9):* nobody mends a polity's bank unless a law
+      asks. When a bank it built has sunk or worn `levees.mend_crest_m` below its design,
+      taken `levees.mend_piping` of seepage damage or given way, and no law keeps it, the
+      issue `bank_worn` holds. The policy `keep_bank` (content
+      `core:policy/works_wet_bank_kept`) is then weighed by each household's reckoned
+      saving from that bank against its share of the mending. Passed, the bank is looked over
+      when a high water goes down and at each year's start, and its mending is asked in equal
+      shares of building and mending together. People choose to do it: earth dug from the
+      pit and laid on the crest (what water wore off first, then what settled), then seeping
+      bank dug out and tamped again. A breach stays open until all its mending is done.
+      Save schema 104, content API 90, wire 1.72 unchanged.
+    - *Irrigation ditches, the water's part (2026-10-14, §9):* the earth kind `ditch` is a
+      straight channel below the grid from an intake beside a reach to the field it waters,
+      with a section, a fall, weeds and silt. It carries Manning's flow at its gradient, and
+      nothing below `ditches.min_gradient`. While its intake is open and its field's crop
+      grows, it takes what the root zone lacks to be full, no more than it can carry or
+      `ditches.max_share` of what its reach still carries after the ditches above it. Of that,
+      `conveyance` reaches the field and the rest recharges the ground water under the ditch;
+      the field keeps `application`, and the rest returns to the river below the intake. The
+      taking is debited from its reach and every reach below, once. Save schema 105, content
+      API 91, wire 1.72 unchanged (a ditch's earthwork is sent as kind 4 with words).
+    - *Households dig ditches (2026-10-14, §9):* once a year each household looks over its
+      fields. For one whose last crop got less than `ditches.short_share` of the water it
+      needed, it weighs a ditch: the grain that water would have grown in an average year,
+      at its own hours a kilogram, over `ditches.life_years`, against the digging at the
+      canal-forming rate. The intake can be on any reach within `max_length_m` whose bed
+      would fall the least gradient. The line may cross no other field, plot or well. Its
+      people dig it as they choose (`work_with_spade_on_ditch`, behaviour `ditch`), and its
+      finishing is told. Once dug, the intake is opened at midnight while the crop grows and
+      its root zone is below the easy-water share, and shut otherwise. Save schema 106
+      (`Household.ditch_worth`), content API 92. Wire 1.73 sends a ditch's line and whether
+      its intake is open, and the observer draws it as a blue line, solid while open.
     - Earth kinds `bank` and `ditch` as lines of segments.
     - Water behind a bank only over its crest or through a breach. Overtopping and piping.
     - The issue `flooded`, and the policy `build_bank`, asked in equal shares as a crossing is.
     - Irrigation ditches from an intake at a gradient: in a dry spell, a field is watered
       through ADR-0012 §2's water response, at 03-02's efficiency. Sediment and weeds want
-      clearing.
+      clearing (deferred until ditches are shared: a household's ditch carries far more than
+      its field needs, §9).
     - Drains and terraces wait.
-  - **BH**: building rules and the M6b demo.
+  - **BH**: building rules and the M6b demo, done.
+    - *Roofs that do not burn (2026-10-15, §9):* a household remembers, for
+      `rules.memory_years`, each building it lost to fire and each one its people were in or saw
+      burn (not those they only heard shouted of), with what putting it right would take. The
+      issue `burned` holds while any household remembers one. The policy kind `building_rule`
+      takes its template from content: `core:policy/works_wrought_roofs` asks that a new roof
+      within 4 m of another building must not burn, and only someone who knows firing may
+      propose it. A household weighs it by the fire loss it believes averted (the burnt roofs
+      it remembers among the settlement's buildings, a year, times rebuilding its own thatched
+      buildings and, if it is about to build, its next home, times `rules.avoided_share`)
+      against what tiling its next home would cost more, spread over `rules.horizon_years`.
+      In force, it binds buildings begun from its day. A household whose eldest knows it and
+      chooses to keep it, weighed as a curfew's keeping is, chooses a tile roof where it can
+      make one, else a plot at least the rule's distance from every other building; with no
+      such plot it builds as it would and breaks the rule. Each building begun within the
+      rule's reach is counted kept, broken knowingly or broken unaware. A tile roof begun under
+      the rule says so in the observer's building words. Save schema 107
+      (`Household.fire_losses`), content API 93, wire 1.73 unchanged.
+    - *Walls of stone or brick, and buildings kept apart (2026-10-15, §9):* every household
+      of a settlement hears when one of its buildings gives way and remembers it, with its
+      walls and what putting it right would take; the issue `gave_way` holds while any does.
+      Two more templates: `core:policy/works_wrought_walls` (new walls of rubble, mud brick or
+      fired brick; proposed by someone who knows rubble walling; it answers both `burned` and
+      `gave_way`, since people blame the walls whatever brought a building down) and
+      `core:policy/works_wrought_spacing` (a new building 3 m from every other; no technique
+      needed; it answers `burned`). Each is weighed as the roofs rule is, by the losses of the
+      kind it forbids; walls cost what building the next home's walls of stone or brick would
+      add, and a gap costs nothing a household reckons. Builders who keep a walls rule build mass
+      walls where they know how and their program has walls to choose (a hut does not, and
+      breaks it); a gap rule, a plot that far from every standing building. A building begun
+      under a rule it keeps says so. Save schema 108 (`Household.gave_way`), content API 94,
+      wire 1.73 unchanged.
     - The issues `burned` and `gave_way`.
     - The policy `building_rule`, with three content templates: roofs that do not burn near
       another building, walls of named kinds, and a least gap. Each binds buildings begun from
@@ -2535,14 +2621,327 @@ and M6a gives rivers a daily flow.
     - A building's provenance names the rule it was built under.
     - The demo: a great fire, the fire tool's if no lived world shows one in a time-boxed
       week (`NUDGE`s logged), and what followed.
+    - *The M6b demo, as built (2026-10-15, §9):* civ-sim's `great_fire` example, run by
+      `web/e2e/m6b-demo.spec.ts` with `TCE_DEMO=1`, pictures in `demos/m6b/`. River valley seed
+      1, a band of 100: no fire of its own in 450 days, so the observer set alight the thatched
+      hut with the most others within 4 m, at noon of the first dry, windy day (`NUDGE`s). It
+      took 3 buildings and no lives. Within two weeks the gathering passed walls of stone or
+      brick and buildings kept apart; nobody fired tile, so nobody proposed tile roofs. In the
+      year after, the burnt huts were mended in place and nobody began a new building, so
+      neither rule bound anything.
 
 **M6c: War and conquest.**
 - *Contents:* takings and raids between villages; operational war (who fights and why, a band
   raised, supplied and moved, fighting and its losses); the fortification kit carried from M5;
   sieges; conquest and annexation, vassalage, secession, merger and federation.
 - *Demo:* M6's third part: a siege ends in annexation.
-- *Design:* when M6b is done, from `docs/briefs/m6-war.md` and the observer brief, with one ADR
-  expected.
+- *Design (2026-10-15):* one ADR,
+  [ADR-0023](decisions/0023-force-between-polities.md). It amends ADR-0013 §1 and ADR-0018 §1 (a
+  polity over several settlements), ADR-0018 §2 (camping, presence apart from residence),
+  ADR-0020 §4 and §6 (takings across the boundary, blaming a body that sent a band, appended
+  clauses), ADR-0009 and ADR-0010 (enclosures on the walking grid). It covers:
+  - no war calendar and no war state: "at war" is a label;
+  - takings across the boundary, at homes people have seen;
+  - bands called by anyone or by law, joined by choice, supplied by what members carry;
+  - encounters with two sides, by the minute, bounded by frontage, with no battle score;
+  - service owed by law;
+  - enclosures raised by law, with gates kept open or shut;
+  - sieges as camped bands, ended by mechanism;
+  - terms after force, with strength believed, not read;
+  - holds from outside, annexation, merger and secession.
+
+  It draws on the war brief (`docs/briefs/m6-war.md`) and the observer brief, with 13-07 and
+  13-05 checked where the design rests on them. The brief's open questions are answered in §9.
+  Five slices:
+  - **BI**: takings across the boundary.
+    - A probe first: how often a hungry household would rank a store elsewhere above any at
+      home, and how many homes elsewhere households have seen.
+    - `Take`'s targets add homes of another settlement a member has seen, within walking reach.
+    - Attribution by what witnesses know; the view act *harms us*; the issue `raided`.
+    - A demand for restitution across the boundary as a visit; a case heard against an outsider
+      binds nobody there.
+    - A world where nobody has seen a home elsewhere gives the same digests as before.
+    - *Takings across the boundary, as built (2026-10-15, §9):* a household short of food weighs
+      the stores of households of another settlement whose homes a member has seen (walked
+      within sight of, gone to, or lived in; founding groups who only knew where each other
+      camped do not count), as it weighs its neighbours', within the 20 minutes a taker walks
+      (`take_food`'s `max_walk_minutes`). The incident names the taker's settlement, and the
+      chronicle and the incident page tell them as of it. A witness names the taker only if
+      they are of the taker's settlement or have a tie to them; a stranger from elsewhere they
+      cannot name. Knowing who of another settlement took from a store of one's own writes
+      *harms us* toward their polity (`seen_taking` when seen, `heard_taking` when told), and
+      the household holds the issue `raided` while it remembers it (`crime.remember_days`); a
+      watch answers it. A law against taking recovers nothing from takers of another
+      settlement and charges nothing for what one's own took elsewhere. A gathering may hear a
+      case against an outsider and find against them, but cannot send them from a valley they
+      do not live in, and its finding adds no weight to their paying. A demand across the
+      boundary is made and answered as within a settlement: walking it there waits. Save
+      schema 109 (`IncidentSave.across`), content API 95, wire 1.73 unchanged.
+  - **BJ**: bands and encounters.
+    - The wooden spear (wood shaping), held as goods.
+    - Band purposes as content; an organizer weighs calling one; joining by choice; muster as who
+      comes; stages; food carried; the walk at the slowest member's pace; spoils on a ledger
+      channel, leaving seed.
+    - Encounters with two sides: per-minute choices, frontage, `blow()` per pair, will to stay,
+      pursuit, those not fighting flee or stay. Lanchester checks as tests.
+    - Grievances, views, the claim kinds *band seen* and *raid*, the residence reason *fled* and
+      the event review.
+    - The policy kinds `send_band` and `against_raiding`, and service owed as an obligation.
+    - *Bands and encounters, step one, as built (2026-10-15, §9):* each adult reviews calling
+      a band every `bands.review_days` (on a day set by who they are), and the midnight after
+      their household comes to know people of another settlement took from it. The band goes to
+      take back from the household they know took, or else to take from the nearest home of a
+      settlement their people have seen, within `bands.max_walk_minutes`. Calling is worth their
+      household's load in days of its food, as they hope to find it (`food_prior` where they
+      never saw that village's food), and their grievance against the household, less the danger
+      of the defenders they know of (shared with a companion), the walk and their objection to
+      taking; a keyed reluctance in `call_threshold` must be passed. They tell up to `told_most`
+      adults they regard, each of whom weighs joining as calling with the danger shared among
+      those who joined, their regard for the organizer and for those already going. A band of
+      `least` or more musters the next day at `muster_hour`: those who joined choose the band
+      activity (worth `w_promise`), walk to the hearth, and whoever is there at the hour goes.
+      They walk to the household at their own pace, and when every one who went has arrived the
+      encounter runs (`war::fight`): the household's adults at home and neighbours awake within
+      sight who choose to stand (by regard for the household) against the band, pairs up to
+      `frontage_home`, blows landing at a chance set by what each holds (a spear, an axe, bare
+      hands; a household's spears and axes go to its people in order), each blow `hurt_days`
+      and `kill_share` as the watch's; each minute each still standing stays or gives way by the
+      blows their side took in the last `seen_minutes`, the share of their side gone, their own
+      hurts and their regard for a leader who stands. If the band holds the place, each standing
+      member carries off a load, the seed left. The taking or the try is an incident across the
+      boundary, seen by those who stood, who name those of the band they know; every blow is a
+      tie act, deaths are `Violence`, hurts keep people from work, and the chronicle tells it
+      (`Raid`). They stay `stay_minutes` and walk home. A wooden spear (wood shaping, 3 hours from
+      1.5 kg of timber) is a hunting tool: hunting with one brings back 1.3 times the game. Save
+      schema 110 (`Order.bands`, `Order.clashes`), content API 96, wire 1.73 unchanged.
+    - *Bands and encounters, step two, as built (2026-10-15, §9):* when a band sets off, each
+      who went writes the tie act `stayed_home` toward each who said they would come and did not
+      (`bands.shirk_promised` units) and toward each asked who said no (`shirk_asked`; the band
+      keeps who was asked). While any band is out, every `bands.look_minutes` anyone grown and
+      awake of another settlement within the watch's sight of one of it walking hears the claim
+      *band seen* (its band: how many, from where, toward where). Everyone in an encounter who
+      lives hears the claim *raid* (its encounter: who came, the blows, deaths, what was taken),
+      and both are told at home and at the hearth as news, like a fire. Those of the band who
+      gave way leave at once, and all of it when it gave way or the sides parted. The household
+      raided weighs where to live at once, and so does any household when one of its members
+      first hears of a raid on their own settlement (ADR-0023 §10); moving weighs `moving.w_raids`
+      for the raids heard of at home, counted n / (1 + n), less those heard of at the place
+      weighed, and a move the raids alone tipped is recorded as *fled* (a residence reason and a
+      chronicle entry; the dashboard counts it with the exiles, apart from peaceful moves). ADR-0018
+      §5's rule of two reviews running stands, so one raid alone moves nobody. Save schema 111
+      (`ClaimSave.event`, `BandSave.asked`, a pending `BandLook`), content API 97, wire 1.73
+      unchanged (claims reach the inspector in words).
+    - *Bands and encounters, step three, as built (2026-10-15, §9):* two policy kinds, both
+      answering `raided`. **`send_band`** is proposed by one whose household knows which
+      settlement's people raided it (a raid on it they heard of, or a taking whose taker one of
+      them named), naming themselves to lead it against that settlement; a household forecasts
+      what it lost to outsiders, to take back, and a load if it has someone grown to send, against
+      `bands.service_days` of its food for the one it sends. Passed, the band is called the next
+      midnight: the leader's prospect is limited to that settlement, and each other household
+      sends its most willing grown member or keeps its share back exactly as a levy is kept back
+      (the norm that the gathering binds, where they stood, regard for the sponsor, against the
+      service days as a levy's cost; keeping back and not knowing are counted in the law's
+      compliance). The band goes once; when it is home, or could not be called, the law lapses.
+      **`against_raiding`** carries bundles as a law against taking: anyone who knows it weighs
+      `bands.w_law` against calling or joining a band, and the midnight after a raid that took
+      something, each grown person of the raiders' settlement who heard of it, knows the law and
+      did not go weighs bringing it before their own gathering for the household raided (the
+      reporting points a household taken from weighs, with their regard for the leader); the
+      first who chooses to brings the case, heard where the raiders live against the one who led
+      it. A household forecasts it as `bands.retaliation_share` of what outsiders took from it,
+      which it believes its own people's raids bring, against what its own members took from
+      other settlements. Service owed is recorded on the band (who went, who was asked and kept
+      back) and in the law's compliance, not as an ADR-0015 obligation: obligations are reckoned
+      in food, and a person's going is not. Save schema 112 (`LawSave.target`, `BandSave.incident`
+      and `law`), content API 98. A finding: in the two-village test worlds a band's walk costs
+      about 7 points against 1-3 for its spoils, so nobody goes for a load alone; the gathering's
+      law is what sends people. The observer (wire 1.74) gets each band not yet home in the
+      snapshot: who goes, where to, and a sentence; the map draws a line from each who goes to the
+      home it goes to, and the settlements list says it. **Not yet built:** blame of the body
+      that sent a band, and food carried out (waits for camps, slice BL).
+  - **BK**: enclosures.
+    - A line of sectors around the store, the hearth or homes within a reach: ditch and bank
+      from slice BG's lines, palisade parts that rot, gates.
+    - Laid on the walking grid; gates open or shut by their keeper; climbing slow and seen.
+    - The policy kind `enclose`, weighed by takings and raids believed and expected; work owed or
+      in equal shares; upkeep as work orders.
+    - *As built, step one:* the record and the walking grid. An enclosure is a ring round a
+      point, cut into sectors of at most a given length (each with the cells under it, joined
+      edge to edge so nobody steps through it corner-wise), one or more of them gates, open or
+      shut. Work is done on the line as a whole and the sectors stand in order round it as it
+      is done, so a line half done bars half its length and nothing else (research 11-11 §1.3).
+      A standing sector that has not rotted through, and is not an open gate, is crossed only by
+      climbing, at `walking.climb_factor` (0.05) of the ground's speed: the walking grid takes
+      the least of the ground and the barrier on each of its cells, and every change to what
+      bars walking bumps the enclosures' revision, against which the grid and every planned
+      route are kept, as for crossings. Save schema 113 (`CrossingsSave.enclosures` and
+      `enclosures_revision`), content API 99, wire 1.75 (an earthwork entry of kind 5 for each
+      sector: its ends, its place round the line, its state and its gate, and a sentence); the
+      map draws each sector as a line, thick while it stands, thinner for an open gate, faint
+      where it is still to be built or has rotted into a gap. A test lays a ring round a
+      village's hearth with its gate facing away from a place outside: unbuilt, it changes
+      nothing; whole with its gate open, the way out goes round by the gate; shut, every way out
+      is a climb and slower still; rotted through, it is as if it were not there; and it saves
+      and loads with the world.
+    - *As built, step two:* the law and the work. The policy kind `enclose` answers `raided`.
+      The line it would raise takes in the homes within `enclosures.reach_m` (120 m) of the
+      hearth, running `margin_m` outside the farthest, with `gates` (2) gates and
+      `palisade_h_per_m` (6) hours of work a metre (research 11-11 gives about five posts a
+      metre and no labour total: a design prior). A household weighs what it believes the line
+      keeps out of its home, `cover` (0.5) of what people of other settlements took from it in
+      the last year as its members know, against its share of the work spread over the posts'
+      `life_years` (15, the middle of 11-11's scenarios) and its people's walk round to a gate;
+      a home outside the line pays its share without cover. Proposed, the law records its line
+      and the hours a year each household reckoned it would keep it; passed, the line is laid
+      out round the hearth, the polity's, and each household is asked an equal share. Its
+      people choose the work (`palisade`, an activity) by what it keeps them and the gathering's
+      word while their share is owed, at the first stretch still to stand they can walk to,
+      with room for one along each `front_m` (4 m) of line still to stand; each stretch stands
+      once its posts' work is done, and the last is told in the chronicle. Save schema 114
+      (`PolitySave.enclosures`, `enclosure_saves`; target kind `Enclosure`), content API 100. A
+      finding: in a village still building its homes and breaking its fields, the gathering's
+      word (about 1-2 points) does not draw anyone from that work (3-5 points) in its first
+      days.
+    - *As built, step three:* gates kept, posts rotting, upkeep. Each day at first light every
+      gate that stands is opened; at dusk the household whose home is nearest each shuts it
+      for the night if it believes people of other settlements took from it or raided its
+      settlement within `enclosures.alarm_days` (60). Posts rot at the foot month by month,
+      `rot_per_year` (1/15) of their section in ground of wetness one, as wet as the stretch's
+      ground and the month just lived; a stretch crossing `mend_loss` (0.5) has its mending
+      asked of the line's households (its share of the work, added to what each is asked), and
+      one rotted through is a gap that bars nothing until mended. The law that raised the line
+      keeps it: while it is in force its people choose mending as they chose building, the
+      most rotted stretch first. The observer's words for a stretch tell how far its posts have
+      rotted. Save schema 115 (`EnclosureSave.upkeep_h`, event kind `Gates`), content API
+      101. **Not yet built:** a climb being seen (a band's people are seen by those about, as
+      before, but nobody watches a line); a keeper by the watch; ditch-and-bank lines and work
+      owed in days; a law that keeps a line some other law raised.
+  - **BL**: sieges and terms after force.
+    - Camps; a band stays by a shut line, takes what lies outside and stops those it sees leave.
+    - *As built, step one:* camps. A band called against a household whose home lies inside a
+      line walks first to the line, outside it on the side toward its own hearth. Anyone of the
+      village who heard it was seen coming shuts the gate nearest their home at once, keeps it
+      shut at first light while the band is coming or camped, and at dusk. If the line bars the
+      band when it is all there (whole, no stretch rotted through, every gate shut), it camps:
+      every `bands.camp_minutes` (120) each who came chooses to stay or go home, staying for their
+      will and grievance against `w_camp_day` (1) points a day camped and `w_camp_tired` (2) at a
+      full day's want of sleep, with a keyed draw; so they go home one by one, never all at once.
+      If at a look the line no longer bars them (a gate open, a gap), they go in and meet whoever
+      stands. Save schema 116 (`BandSave.approach`; stage `Camped`), content API 102. **Not yet
+      built:** taking what lies outside the line and stopping those who leave; members sleeping and
+      eating at the camp (they go home when tired, which the stay weighs); endurance as a measure;
+      assault at a gate's width and climbing in.
+    - *As built, step two:* terms after force. A clause `no raids` (code 3) is appended: the
+      polity on its side binds its people not to raid the other's, and its gathering hears such
+      a raid as a case (ADR-0023 §8's *no raids* and *takings heard* as one clause); both sides'
+      together are the truce. While an agreement holding it is in force, someone of that side who
+      knows the law that decided it at home weighs a raid on the other's people with the
+      `bands.w_law` that a law against raiding carries, one who heard of such a raid and did not
+      go may bring it before their own gathering under that law, and nobody of that side proposes
+      a band law against the other's settlement. A household that knows people of another
+      settlement raided it within memory (`raiders_known`) may seek peace, by a second agreement
+      template (`core:policy/year_of_peace`, answering `raided`, bearing on security and
+      reciprocity), weighing the raiders' word alone, a truce, the word with a yearly transfer
+      from its own store (tribute for peace), or with a gift from the raiders' store
+      (compensation), each for a year or five. Each household's stake is `relations.raids_kept`
+      (0.5) of what people of the other settlement took from it within memory a year, recovered
+      by the other's word, and as much of what its own members took from them, given up by its
+      own (ADR-0023 §8: threat as a forecast term). Two may now agree terms while their gathering
+      has other business; their sponsors put the terms to it when it is free, as the other side's
+      already did. Anyone who stood against a band, or learns who of another settlement took from
+      their own, while that settlement's polity's word against raiding theirs is in force and
+      they know their own law deciding it, takes `relations.performance` of evidence that it does
+      not keep its word (view act `WordBroken`). Save schema 117 (clause kind 3), content API 103
+      (`relations.raids_kept`, the template). A finding: in every scenario tried (raids one way,
+      heavy or moderate, with stores for tribute; and a feud), the two who met parted with no
+      terms. Takings are all a household counts of a raid, so what one side's word keeps from the
+      other its own raiders give up, and there is nothing over to share; the raiders' households,
+      and distrust of a village that raided them, hold each side back. **Not yet built:** the
+      danger and days away a raid costs counted in a household's stake; a negotiator's estimate
+      of the other's strength from sightings; assistance; a truce distinct from both sides' word;
+      one body (slice BM).
+    - Endurance from stores and water as a derived measure; entry by a gate opened, a gap, a
+      climb or an assault at a gate's width.
+    - The clauses compensation, takings heard, no raids, truce, assistance, tribute for peace and
+      one body; a negotiator's estimate of strength from sightings.
+  - **BM**: a polity over several settlements, and the M6c demo.
+    - Each polity's settlements with since and how; membership by residence in any; the body at
+      the seat's hearth.
+    - *As built, step one:* a polity keeps its seat and the settlements it took in, each with the
+      day, how (annexed, or joined by agreement) and the polity that held it before; and, once
+      another polity took it in, the day, that polity and how. Membership is residence in any of
+      its settlements: its body, its households' forecasts and stakes, levies, opinion, petitions
+      and the bands its laws send all count the households of every settlement it holds, while
+      its gathering still sits at the seat's hearth and word of it travels as before, so people of
+      a far village come only if they hear and walk. Public works are still sited at the seat
+      (a simplification). Taking a polity in (the act BM's later steps call) closes the other's
+      deciding: its laws lapse, its gathering is called off, its common store is added to the
+      taker's (one store a polity), every agreement it was party to ends, no polity is founded
+      again for its settlements, and the chronicle tells it (`PolityJoined`). Save schema 118
+      (`PolitySave.held`, `ended_*`).
+    - *As built, step two:* the hold, the annex law and one body. A band a law sent that holds
+      the field at its encounter stays to hold the settlement (stage `Holding`): each of its
+      people chooses at the end of each stay to stay, for their will and grievance against
+      `bands.w_camp_day` a day beyond the days the law's service owes (`bands.service_days`),
+      lying down where they are for `bands.sleep_out_minutes` once their want of sleep reaches
+      `bands.sleep_out_at`; or to go home. Once a day, if anyone grown of the settlement is
+      about the place, they meet again, with no further taking, and a band that no longer holds
+      the field goes home; a band with fewer than `bands.least` there is let go. Kept
+      `bands.hold_days` (7, ADR-0017 §4's seven days), the settlement is held, and the chronicle
+      tells it; a hold changes nothing by itself. Its polity then has the issue `holding`, which
+      the policy kind `annex` answers (`core:policy/yoke_of_a_held_village`): each household
+      weighs its share of the held polity's store, once, against what it holds dear; passed, the
+      polity takes the held one in (step one's act) and the band goes home. The clause *one body*
+      (code 4) is appended to the packages of peace, weighed as a truce is; once in force, the
+      side whose custom governs takes the other in, as merged. The observer's words tell a band
+      holding a place. Save schema 119 (`BandSave.held`, stage `Holding`, issue `Holding`,
+      clause kind 4), content API 104 (`bands.hold_days`, `sleep_out_at`, `sleep_out_minutes`,
+      the template). A finding: with the camp's weights, the band a law sent against a village
+      in the test world held the field, stayed and slept there, and went home one by one on its
+      fourth day; no hold stood its seven days, so nothing was annexed without a hand-built
+      hold. **Not yet built:** a founding window for the old laws (they lapse instead); eating at
+      the hold (they live on what they carry and on reserves); secession.
+    - *As built, step three:* secession and the siege page. A revolt called at a settlement its
+      polity took in, rather than at the seat, counts as officeholders only the store's keeper
+      and the watch who live there (ADR-0023 §9: the store kept there and the watch there); held,
+      the settlement is a polity of its own, founded with the revolt's body as a daughter is
+      founded with its parent's, its founding custom marked taken by those who stood with the
+      organizer; it starts with no store and no laws (the common store stays where it was kept),
+      the polity it left keeps its seat, custom and agreements, and the chronicle tells it
+      (`Seceded`, code 56). A polity taken in keeps its closed record, so a seat may be named by a
+      closed record and a deciding one at once; the load check and the smoke's polity check now
+      count polities still deciding. The observer (wire 1.76): each polity's settlements with how
+      and when, how a closed one's deciding ended, and in the Government panel a siege page, a
+      line for each band camped by a line or holding a place: the band in words, the food inside
+      (the place's households' stores, and the common store if it is kept there) in days at what
+      its people eat, water and fields by the line (open wells inside it, fields outside it), and
+      the band's own food (what those there carry, what it took, what their households at home
+      hold), worked out when asked and never saved; no progress, no timer. No save schema change.
+    - A hold from outside; the policy kind `annex`; annexation closing the held polity's
+      deciding, with a founding window; the *one body* clause; secession as a revolt scoped to
+      one settlement.
+    - The observer: bands on the map, encounters in plain verbs, lines and gates, a siege page,
+      each polity's settlements.
+    - The demo: a siege, and what each gathering made of it. After a week with none, nudge a
+      prior (a raider's valuation of a store they saw, or how long members stay before their
+      harvest), never an event, and log a `NUDGE:`.
+    - *As built, the demo (2026-10-16; M6c closed):* `civ-sim`'s `siege` example lives up to
+      three worlds of two villages of 100 known to each other and keeps the first in which a hold
+      was kept or a polity took another in (else the first with a siege, else the last), and
+      `web/e2e/m6c-demo.spec.ts` shows it (`demos/m6c/`). In the kept world (river valley, seed 1)
+      no band was called in 120 days, so a raider's valuation of a store they saw was nudged
+      (`NUDGE: bands.w_spoils 0.5 -> 2`, day 180); Willowbank's people then raided Heronfield
+      every month, mostly finding the defence gave way. Heronfield made a law against raiding,
+      raised a palisade, took its custom from its adults to its elders, and sent bands by law; a
+      band camped by a line on day 336, its people went home before it held, and how long members
+      stay was nudged (`NUDGE: bands.w_camp_day 1 -> 0.25`, day 340); on day 587 a band Keld led
+      held Willowbank, and the siege page showed 264 days of food inside for 103 people. Neither
+      gathering took the held village in within 60 days. A probe of the first demo world found
+      every law to send a band that lapsed the midnight it passed (17 of 19) named a proposer of
+      67 to 69 as its leader, past `bands.max_age`: the move is now offered only to one of an age
+      to go (`BandParams::can_go`, one rule for proposing, leading and joining). Laws to send a
+      band still lapse when the one leading it finds no household of the target it knows to go
+      to; that is recorded, not repaired.
 
 **M7: Politics deepens.**
 - *Contents:*
@@ -2556,6 +2955,423 @@ and M6a gives rivers a daily flow.
   protectionist tariffs; a court strikes down a curfew.
 - *Proves:* the deep political layer on top of the M4 primitives.
 - *Defers:* planning institutions, transport.
+- *Split (2026-10-15, §9 "M7 design"):* four parts, each with its own part of the demo, as
+  M5 and M6 were split.
+  - **M7a, councils and elections** ([ADR-0024](decisions/0024-seats-offices-and-elections.md)):
+    - **BN**: office tenure and the four ways to fill an office (named, elected, lot,
+      appointed); the exact counting module (plurality, block vote, single vote) with its tests.
+      - *As built (2026-10-15):* `civ-agents/src/count.rs` counts exactly: plurality, the block
+        vote (a name repeated counts once, only the first n different names count) and the single
+        vote, with a tie for the last seat failing or drawn by a keyed lot, and seats beyond those
+        voted for left unfilled; `draw` draws a lot from a pool without repeats; six unit tests,
+        09-08 §4's 42/33/25 case among them. An office template may carry a tenure (content API
+        105): a term of days, whether its holder may serve the next term, and whether it is
+        filled by lot. A lot draws, once the law passes, from those who stood for it (a design
+        prior), never the last holder of an office that is not renewable; with nobody to draw the
+        law lapses. At the term's end the office lapses as at a death ("their term ended") and
+        the issue opens again: there is no automatic renewal. The terms are kept per polity by
+        law (save schema 120, `PolitySave.terms`), the chronicle tells a lot (`LotDrawn`, code
+        57), and the Government panel's offices say until when and how they were filled. The core
+        adds two templates: the store kept by turns, drawn by lot for half a year, and the store
+        kept for a year by one the gathering names. **Not yet built:** election and appointment,
+        which need seated bodies (BO); a nominee's consent; watch templates with a tenure.
+    - **BO**: seated bodies reached by amendment; elections as dated records (called, told,
+      candidacy, polling, count, certification, installation), standing and polling as choices.
+      - *As built (2026-10-16):* a body may be a council (`Membership::Seats`, `Body.seats`: n
+        seats, an electorate of one membership, election or lot, a term of days); its members are
+        those who sit, its quorum counts its seats, filled or empty, and only they propose and come
+        to its sittings. `core:policy/seat_a_council` (content API 106) offers councils of 5 or 9
+        for 360 days by election or lot, one change from a gathering of their electorate; a sponsor
+        weighs one by ADR-0024 §6's prior (by election the n of the electorate they know who stand
+        highest in counsel would sit, re-deciding what was seen with those people's stances and the
+        quorum counted as met; by lot the electorate's stances in proportion), and a revolt's
+        program weighs councils the same way. An election (`civ-agents/src/seats.rs`,
+        `population/elections.rs`) is called the midnight after the custom becomes a council and
+        again as its seats' term nears its end; word goes round as a claim (`ClaimKind::Election`);
+        each of the electorate who hears of it chooses once whether to stand (a seat's share of the
+        stake in decisions they saw go against them, standing in counsel, against a term's
+        evenings, one keyed draw); when names close, a field no larger than the seats sits
+        unopposed, a lot draws among the names, or the polling day comes: polling is an activity
+        (`core:activity/poll`), a walk to the hearth that evening for those who heard of it, worth
+        the content's base and how much better their first choice is than the best left out; each
+        names up to n from one ranking drawn at a fixed scale over regard, their own household and
+        standing in counsel; the block vote counts the names, a keyed lot settling a tie for the
+        last seats. Nobody standing or nobody polling fails, recorded, and the seats stay empty until
+        the next election. Seats, elections, candidates and open ballots are saved (save schema
+        121); the chronicle tells an election called and its end (`ElectionCalled`, 58;
+        `ElectionHeld`, 59); the Government panel's offices list each seat and the latest
+        election; the label reads a council by election or lot for a fixed term as a "Republic"
+        ("Oligarchic republic" under the restricted share), with its electorate's share and
+        whether its seats were contested. **Not yet built:** appointment by another office; a
+        nominee's consent; nominating someone else; positions and record in a voter's choice
+        (campaigns, BP); the hours a council saves a household in the amendment forecast; secret
+        ballots; seats by settlement; the observer's election page.
+    - **BP**: campaigns as hours and claims; voters' utility from positions, record, group,
+      regard and standing; faction slates; the label reads "Republic".
+      - *As built (2026-10-16):* each who stands says where they stand on up to `positions_told`
+        questions (content API 107; those of highest salience to them), and word of it goes round
+        from them as a claim (`ClaimKind::Candidacy`, 11, one a candidate, no longer news once the
+        polling day is past). A voter's utility for a candidate adds three terms where state
+        exists, none where it does not: against the mean distance from where the candidate said
+        they stand, on the questions the voter holds a position on, once the voter heard of the
+        candidacy (`w_distance`); for the candidate's record as the voter saw it, over laws decided
+        within `vote_memory_days` at which both took a stance, the candidate's stance against what
+        the law meant to the voter's household, weighed by it (`w_record`, −1 to 1); and for a
+        candidate the voter's own faction backs (`w_slate`). When names close, each live faction
+        of the polity's settlements whose members stood backs up to n of them, as a slate
+        (`Election.endorsements`; a design prior: a faction backs its own). Campaigning is an
+        evening at the hearth: one who stands in an election still to poll finds `w_campaign`
+        points there (`Reason::Campaign`, 153), where the hearth talk carries their word. Positions
+        and slates are saved (save schema 122, `ElectionSave.positions`, `endorsements`); the
+        inspector words a candidacy with where they said they stand, and whether one named them;
+        the Government panel's offices name each faction's slate. **Not yet built:** campaigning
+        beyond the hearth (visits to households, gifts); a candidate choosing which questions to
+        tell by the electorate rather than their own salience; slates chosen by members rather
+        than taken whole; a "party" label for a faction that runs slates in election after
+        election; alliances and franchise changes (BQ).
+    - **BQ**: electoral alliances, franchise amendments, seats by settlement; the observer's
+      election pages; measured runs.
+      - *As built, step one (2026-10-16):* a council's seats may be shared among a polity's
+        settlements (`Seats.by_settlement`, content API 108 `seat_districts`, offered only to a
+        polity that holds several): when its election is called each settlement is a district
+        with its share of the seats by the size of its electorate, by the largest remainder
+        (`seats::apportion`, unit-tested); each who stands stands where they live, for its
+        seats; each voter polls at their own hearth for their own district's seats; each district
+        is counted apart by the block vote, its own keyed lot settling a tie, and one whose field
+        is no larger than its seats sits unopposed; the forecast of a council by settlement takes
+        each district's share from those the sponsor knows who live there. A change of franchise
+        alone (the same council, another electorate) is forecast by counting the last election's
+        open ballots again with only the new electorate's (research 09-08 §1.8), falling back to
+        the counsel prior when none of them polled. The observer calls a faction that has backed a
+        slate in two elections a party ("Mira's party"; derived, never saved, read by nothing).
+        A council by lot no longer sends anyone to poll: its lot is drawn, as BO meant, and nobody
+        walks to the hearth for it (a fix). Districts are saved (save schema 123,
+        `ElectionSave.districts`, `candidate_districts`); the Government panel lists the seats by
+        settlement, and a candidacy names its district. **Not yet built:** the observer's
+        election page and the measured runs (step three); a district's seats re-shared between
+        elections only when one is called.
+      - *As built, step two (2026-10-16):* electoral alliances (ADR-0024 §5, research 09-08
+        §1.9). When names close on an election of seats of the whole polity with three slates or
+        more, each pair of factions whose organizers know each other may meet: each organizer
+        reckons the following of every faction from those of the electorate they know to belong
+        to it (all of their own), and the seats each slate would take if every bloc voted its own
+        slate whole (`seats::bloc_seats`, a design prior); they weigh three packages against that
+        outside option (one common slate shared between them by following, D'Hondt's rule; or
+        either backing the other's slate) and agree the one that leaves neither worse off and
+        one better, the best for the one who gains least first; else they part. Both then back
+        its slate, which their members weigh as their own faction's; each faction joins one
+        alliance at most, and it binds that election only. The chronicle tells it
+        (`AllianceMade`, 60); the Government panel names it; alliances are saved (save schema 124,
+        `ElectionSave.alliances`). **Not yet built:** alliances within a district; candidates left
+        off a common slate standing down (they stay in the field); keeping or breaking an
+        alliance as a later choice; blocs in the council, derived.
+      - *As built, step three (2026-10-16):* the observer's election page (wire 1.77,
+        `PolityLine.elections`): each council's latest six elections in the kernel's words — why
+        and when called and for what seats, where it stands, who came of the electorate now, the
+        seats by settlement, the alliances, and each who stood with their district, where they
+        said they stand, who backed them, the names counted and whether they sat — shown in the
+        Government panel under the polity. The evenings a council saves (ADR-0024 §6, which BO
+        left unbuilt): a household judging a council also counts, for each decision it saw, its
+        people who came and would not sit, at `elections.w_evening` points each (content API 109,
+        a design prior of 0.25 against the custom's 1.0 pull to the gathering). civ-sim's
+        `council` example and the M7a demo spec make the demo world (a village of 120; a
+        time-boxed NUDGE of that prior if no council by day 180). A fix found by the demo's
+        first run: a council was two changes from the founding custom (its quorum of a half of
+        its seats against the gathering's quarter of its adults), so no village could ever be
+        offered one; taking seats or giving them up is now the one change, the two quorums not
+        compared (BO's unit test had used a gathering at a half). A second, found by the M4a
+        government e2e: a village of 25 adults took a council of 9 by 24 to 0 within its first
+        summer (the evenings it would save), only one stood, and the council, whose quorum counts
+        its seats filled or empty, decided nothing for a year. An election that leaves too few
+        seated to make the quorum now has its seats called again `stand_days` after it closed
+        (`ElectionWhy::TooFewSat`, code 2), those seated giving theirs up to the winners as at a
+        term's end; those whose proposals the empty council failed have more reason to stand.
+        The M4a e2e accepts a village that took a council.
+    - *As built, the demo (2026-10-16; M7a closed):* civ-sim's `council` example lives up to two
+      worlds of a village of 120 and keeps the first in which a council sat, and
+      `web/e2e/m7a-demo.spec.ts` shows it (`demos/m7a/`). In the kept world (river valley, seed
+      1, Moothill) no amendment was proposed in 180 days, so what an evening at the gathering
+      costs one who comes was nudged (`NUDGE: elections.w_evening 0.25 -> 1`, day 240). Emmer,
+      whom the gathering had decided against, proposed a council of 5 elected by the adults for
+      360 days on day 248; it passed 65 to 0, every one of the 65 adults coming, each for what
+      their household stood to gain and many for regard of the sponsor. The election was called
+      the next day; eight stood, each saying where they stood on the common store and on hearing
+      takings and raids, and 63 of the 66 of the electorate came to poll: Ulmer and Orrin 44
+      names, Arden 42, Davor and Jessa 41 were seated, Dessa 37, Odessa 36 and Jask 30 were not.
+      The council sat split on the store and on hearing cases (two for, two against, one
+      undecided), and the label read it as a republic. What the council then decided, and its
+      second election, are for longer runs.
+  - **M7b, courts and precedent** ([ADR-0025](decisions/0025-forums-precedent-and-review.md)):
+    - **BR**: a forum by law (*hear cases*: one holder, a panel by lot, or a membership; its
+      own rule), the *cases waiting* issue, sittings the evening after a case is brought,
+      settled and withdrawn closures, time to closure; the gathering stays the default.
+      - *As built (2026-10-16):* a `hear_cases` policy kind with a `[forum]` table (content API
+        110): its seat (`holder`, `panel` of 3 to 15, or `elders`), the kinds of law whose cases
+        it hears (`against_taking`, `against_raiding`), and for a panel or the elders a quorum
+        of those who sit and a pass rule. One forum is in force at a time. The core offers
+        `core:policy/name_a_hearer` (one named, alone), `core:policy/hear_by_panel` (five by
+        lot, more for than against) and `core:policy/hear_by_elders` (two thirds). A case
+        brought under a law it hears goes before it (`Case.forum`, save schema 125), never
+        before the gathering; a holder never hears a case their household is party to (the
+        gathering does). It sits the midnight after: the holder alone, finding only by standing
+        for a finding; a panel drawn by a lot keyed by world, polity and case from the body's
+        members; or the elders of the households; nobody of the two households sits. Each
+        sitter stands as a gathering's member would (belief, stake, regard); all who sit come.
+        A forum whose law ended before it sat sends the case back to the gathering. Before the
+        sitting a case before a forum may close otherwise: withdrawn when the household had back
+        all it said it lost by demand; settled when the accused's elder offers back what is
+        still owed (weighed as paying a demand, plus the weight of a finding by the case's
+        accounts) and the one who brought it accepts an offer at least the case's strength times
+        what is owed and its compensation (owed as restitution). The gathering's own cases keep
+        its procedure, so a world without a forum is unchanged. The *cases waiting* issue opens
+        when a case of the settlement went unheard or was not found within memory. A household
+        weighs a forum by its own cases the gathering heard within memory, re-heard as the forum
+        would (a holder as they stood there, else even odds; a panel or the elders as those who
+        came stood), a year of the difference, and the evenings its people spent hearing cases.
+        A holder lapses as any office. Time to closure is each case's days from brought to
+        closed (`Case::closure_days`), in the observer's case words. **Not yet built:** a
+        hearer's tenure or lot; the forum's own hearth and walk (sitters are called, not
+        walking); grievances against a forum (BU); counts of settled and withdrawn cases on the
+        wire (BU's justice counts).
+    - **BS**: precedent: fact tags derived from saved cases (the gathering's since M4 count),
+      findings held as claims, recall of up to k by sitters, authority (informative,
+      persuasive, binding) as the forum's value, departures recorded.
+      - *As built (2026-10-16):* each case heard keeps six fact tags derived then from what it
+        holds (`Case.tags`, save schema 126: raiding or taking, the accused an outsider, close
+        kin of the household, more than one account, five days' food or more, found against
+        before). Every finding, the gathering's included, is a claim (`ClaimKind::Finding`, 12)
+        held at first hand by those who heard it and the two parties, told at home and the
+        hearth while news, and held for `crime.remember_days`; it dies with its holders. A sitter
+        recalls up to `crime.recall_k` (5) of the findings they hold, most tags matched then
+        newest; under a forum whose authority is persuasive they lean toward each recalled
+        finding's direction by `crime.w_persuasive` (1.0) points times the share of tags matched
+        (averaged), under a binding one by `crime.w_binding` (4.0); informative (the gathering,
+        and a forum so authored) adds nothing (`CaseStance.precedent`). A finding against the
+        newest recalled one of identical tags records `Case.departed` and says so in the
+        chronicle and the observer's case words. Authority is the forum template's
+        (`[forum] authority`, content API 111): the core's hearer and panel are informative, the
+        elders persuasive, and a new `core:policy/hearer_by_precedent` binding; a forum is
+        changed by a *hear cases* law that ends the one in force, weighed by all cases heard
+        within memory (a forum's included, evenings counted only for the gathering's). In the
+        test world the informative hearer who saw the second of two like takings found it,
+        departing from the first; bound by the first, they kept to it. **Not yet built:** an
+        admitted or denied tag (nobody admits); findings weighing a sponsor's forecast; a
+        forum's authority changed apart from its seat.
+    - **BT**: limits and review: limit templates (daylight work, a levy's share) adopted by
+      amendment with entrenchment, review as a power a forum's law grants, challenges by those
+      a law binds and burdens, `StruckDown`, the gathering's answers as moves.
+      - *As built (2026-10-16):* a `limit` policy kind with a `[limit]` table (content API
+        112): a predicate from a closed set the kernel reads (`daylight_work`: a curfew may
+        cover at most `minutes` of the longest day's light, read each week of the year at the
+        content's latitude; `levy_share`: a law may levy at most `share`), and `change`, the rule
+        its own change is decided by (a repeal ending a limit is decided by it: entrenchment).
+        The core offers `core:policy/limit_daylight_work` (30 minutes, two thirds) and
+        `core:policy/limit_levy` (a quarter, two thirds). A limit is weighed only through the
+        amendment route, by one overruled or aggrieved, and only one forbidding a law in force:
+        each household judges it at half what ending the laws it forbids would bring it. A
+        breaching law still passes. A `[forum] review = true` forum (the core's elders and its
+        hearer bound by findings) may hear challenges: at each review, where such a forum and a
+        limit are in force, each adult whose household a bound law costs weighs U = p·V − C (V
+        its gain if the law ended, as ending it is weighed; p from the reading, an even chance
+        at the bound and certain at twice it; C `crime.report_cost` and their regard for the
+        law's sponsor), and the one with most to gain brings it (`Case.challenge`, save schema
+        127; no incident; the sponsor stands accused). The forum sits the midnight after: each
+        sitter weighs the reading (`crime.w_reading`, 2, times −1 to 1), their household's
+        gain, regard for the two, and recalled findings on challenges; found, the law is
+        `StruckDown` (law status 6, wire 1.78), not in force for anyone. In the test world, a
+        curfew from nine to five (55 minutes of June light at 48°) was challenged and struck
+        down by the elders. **Not yet built:** standing narrower than bearing a cost (any
+        household it costs may bring it); knowing of a ruling person by person (BU); a
+        challenger's p from findings they remember.
+    - **BU**: rulings carried out and the demo: rulings known person by person, the *abide by
+      findings* norm, grievances against a forum, the dashboard's justice counts, the observer's
+      Cases and Government views, and the demo's struck-down curfew (time-boxed, NUDGEs logged).
+      - *As built (2026-10-16):* a ruling is known person by person: one who knew a law struck
+        down within `crime.remember_days`, and has not heard the finding that struck it (a
+        `Finding` claim, told as any), keeps it as if in force, in the curfew's hours and a
+        levy alike (`Population::still_keeps`). A new norm kind, `abide_by_findings` (content
+        API 113; the core's `core:norm/findings_bind`, held apart from the gathering's norm and
+        more weakly by founders), adds its points when a household weighs meeting what a forum's
+        finding imposes; the gathering's findings keep `AbideByLaws`. Companions at the hearth
+        tell whether their household met what forums imposed on it within the norm's
+        `tell_days`, and listeners learn their expectation from it. A forum's finding is held
+        against the forum, not the body (`Blamed::Forum`, grievance code 4): by the household
+        it found against, or the household taken from when it did not find. Such a grievance
+        unresolved opens the *cases waiting* issue, so the gathering may change or end the
+        forum. The dashboard gains a Justice row, reported and not graded: cases before the
+        gathering and before forums, found, not found, unheard, lapsed, settled and withdrawn,
+        challenges and the laws they struck down, departures, and mean days to closure. Wire
+        1.79 adds to the order view the counts settled, withdrawn, challenges and struck down,
+        and the latest 20 cases and challenges in the kernel's words (who brought what before
+        whom, how it closed and when); the observer's Order panel lists them and the
+        Government panel shows a law struck down as such. The demo is
+        `civ-sim --example courts` (below). **The demo (2026-10-16, `demos/m7b/m7b-demo.txt`):**
+        since rivers keep their banks (§9), the demo's villages of 40 live their 1,000 days fed,
+        and nobody takes from another's store: in four worlds (seeds 1-4), with every logged
+        nudge, not one case was brought, so no forum heard one and no limit was ever tested. The
+        best of a second run, with a seventh prior nudged by hand (objection to taking weighed a
+        quarter, not kept), passed a curfew on day 810 and emptied in a flood on day 839 (seed 3,
+        the rare flood of §9). The demo shows what its worlds reached, as its brief asks: a court
+        striking down a curfew needs takings first, and fed villages make none; nothing was
+        forced. **Not yet built:** appeal or rehearing; a forum per
+        settlement; standing narrower than bearing a cost; a challenger's chance from the
+        findings they remember.
+  - **M7c, trade laws, guilds and capture**
+    ([ADR-0026](decisions/0026-organizations-privileges-and-trade-policy.md)):
+    - **BV**: trade laws: duty and embargo, the *goods fetched elsewhere* issue, duties owed
+      from purchases at another settlement's door and paid in kind as a choice, the duty in the
+      replacement anchor, forecasts from each household's own records; first a probe of trade
+      volume and forecast sizes in lived worlds of three settlements.
+      - *As built (2026-10-16):* two policy kinds (content API 114). A *duty* (`does = "duty"`,
+        its rates the template's `levy_shares`, a `[duty]` table naming the `purpose` of the goods
+        it is laid on and whether households that offer such goods at home are spared,
+        `exempt_sellers`) is owed on goods a member's household buys at another settlement's door
+        (not one the polity holds): at the purchase, each duty in force on the good's purpose is
+        weighed as the levy is (the norms held, where the buyer stood on it, regard for its
+        sponsor, against what the share owed is worth to the household), and paid at once to the
+        store in kind on a new `Duty` channel (19), or kept back, counted in the law's compliance;
+        one who never heard of the law owes nothing they know of. An *embargo* (`does =
+        "embargo"`) names a settlement (the law's target): a member who knows it and would keep it
+        (the points the norms they hold, their stance and their regard give keeping a law, as a
+        curfew's) does not set out for its doors (`Reason::Embargo`, 154); a purchase there by one
+        who knows it counts as broken. A duty in force raises the replacement cost a household
+        reckons for goods it could fetch (ADR-0019 §5). The issue *goods fetched elsewhere* (issue
+        code 20, save schema 128) opens when a household of the settlement offers at home goods of
+        a purpose its people bought at another settlement's doors within a year (the trades that
+        market remembers) and holds a report of that market. The moves: a duty at each rate; an
+        embargo on the settlement its people bought most from, of those the proposer's household
+        knows. Each household forecasts a trade law from the purchases and offers on record: a
+        duty costs it the share owed on its own purchases (none if spared) and brings it, as one
+        that offers such goods, its share of the buyers it expects back (others' purchases at the
+        rate, a design prior) at the market's margin, and its share of what the store would take;
+        an embargo costs it the margin on what it bought there and brings a seller its share of the
+        buyers who would come home. The core offers `core:policy/duty_on_tools` (a tenth or a
+        quarter) and `core:policy/embargo`. A `levy_share` limit (M7b slice BT) binds a duty's rate
+        as it binds any law's. **The probe** (`civ-sim --example trade_laws`, three bands of 40 that
+        know each other's camps, seed 1, nothing set): 5 purchases between settlements in three
+        years (4 by Oakholt at Sedgebrook's doors in year 2, one back in year 3). Once the issue
+        opened, Oakholt's people proposed 6 duties and 3 embargoes in 23 weeks, most to gatherings
+        of one or two; a gathering of five passed a duty 3–0, and one of three an embargo 2–0, and
+        Sedgebrook's gathering passed a duty 2–0. The volume is small, so a trade law here answers
+        a handful of purchases; the villages then emptied in year 4 (a food shortfall found before
+        this slice, recorded in §9). **Not yet built:** a collector (BY), a duty paid in arrears or
+        brought as a case, an embargo on selling, duties exempting an organization's members
+        (BW).
+    - **BW**: organizations by stake: a faction kind founded from goods sold or resold, founding
+      by search, rules, dues, applications and refusals, recognition by law, the organization's
+      page.
+      - *As built (2026-10-16):* a faction may carry a *stake* (content API 115, save schema
+        129): the purpose of the goods its members sell, who it admits (`open`: anyone who sells
+        them; `sponsor`: one a member regards at least the trust floor), who decides (`organizer`:
+        admitted unless the organizer holds them in ill regard; `members`: more of the members who
+        know them regard them well than ill) and its dues (a share of each threshing, as a
+        faction's). At their monthly review someone whose household offers at home goods a duty in
+        the content is laid on weighs organizing: what the best such duty would bring their
+        household a year less what it would owe (slice BV's forecast), as days of its food against
+        `organize_days` (30, research 09-10 §2.2), worth `w_stake` points when the law would bring as
+        much a year as organizing costs; organizing costs `w_stake` and the dues. They organize when
+        that is worth their threshold, they know no organization over those goods, they founded none
+        that ended lately, and they know another household, here or in another settlement, that
+        offers such goods. Others who sell them weigh joining as a faction's members do, the
+        forecast standing in for a grievance, and apply: admitted or turned away by its rules, each
+        recorded (`Admitted`, `TurnedAway`); one turned away holds it against the organization
+        (`Blamed::Organization`, `Wrong::TurnedAway`). Members may live in other settlements. A
+        *recognition* (`does = "recognize"`, `core:policy/recognize_organization`, answering *goods
+        fetched elsewhere*) names an organization someone of the proposer's household belongs to;
+        while it is in force, that organization's members' households owe none of the polity's
+        duties on goods of its purpose. Each household weighs it from the purchases on record: a
+        member's what its own purchases would no longer owe, everyone their share of what the store
+        would no longer take. The forecast of a trade law now values a good a household cannot make
+        at its own ask, or else at what was paid for it at the other door. The government panel
+        says what an organization is, its rules, its members and where those of another settlement
+        live, how many it admitted and turned away, and which gatherings recognize it.
+        **The probe** (`civ-sim --example trade_laws`, now printing organizations; seed 1, four
+        years, nothing set): with rivers in their banks the three villages lived (124, 130, 131
+        and 137 people at the year's ends), but their people bought at another settlement's door
+        once in four years (Oakholt at Sedgebrook's, in year 2). Oakholt's gatherings of four
+        passed an embargo 2–1 and a duty 3–0 on that one purchase; nobody organized, as nobody's
+        household offered at home goods a duty would bring it much. Trade between settlements is
+        the scarce thing, so a demo of capture (BZ) will need it, by the world or by a prior,
+        logged. **Not yet built:** admission by a fee; a privilege (BX).
+    - **BX**: privileges and the barred: licence and staple, breaches brought as cases, the
+      barred exit, the drag measures.
+      - *As built (2026-10-16):* a policy kind *privilege* (content API 116, save schema 130:
+        policy code 24, firm exit 4) with a `[privilege]` table: `grant` (`licence`: the sole right
+        to offer goods of its `purpose` at doors in the settlement; `staple`: the sole right to
+        sell there such goods fetched from another settlement) and the `bundles` a finding of a
+        breach imposes. Its law names an organization by stake (its target). The move is open to a
+        deliberator whose household belongs to an organization of the template's purpose that the
+        polity recognizes and that no law of the template names, once for each bundle. Each
+        household forecasts it from the trades on record at the market's margin (a design
+        prior): for a licence, a member that offers such goods gets its share of the sales at
+        home others made, another seller loses its own, and a buyer pays the margin on what it
+        bought from others; for a staple, a member gets its share of what others who offer such
+        goods fetched elsewhere, and they lose it. A household none of whose people belong weighs
+        a privilege that binds it when it reviews its offers, and its workshops' (its elder, if
+        they know the law: the norms they hold, their stance and their regard for its sponsor
+        against what the covered offers would bring, as a levy is weighed); kept, the covered
+        offers are withdrawn, and one keeping a staple fetches no such goods to sell; each
+        weighing counts in the law's compliance (kept, broken, broken unaware). A breach is an
+        offer standing at a door. At the polity's review each grown member of the organization
+        weighs bringing it, U = V − C (research 09-07 §4.1: V the bundle's compensation and their
+        share of what the breach's offers would bring, in days of their food; C the cost of a
+        case and their regard for the breaching household's elder); the one with most to gain
+        brings it, and the gathering, or a forum whose `hears` includes `privilege` (the elders'
+        and the panel's now do), hears it as a case: everyone saw the offer, so every sitter
+        believes it was made, and stake and regard decide. A finding imposes the bundle (fine to
+        the store, compensation to the household that brought it). A workshop given up while a
+        licence binding its owners covers what it makes, holding such goods and offering none, is
+        given up `Barred`. The core adds `core:policy/licence_tools` and
+        `core:policy/staple_tools`. The government panel names the organization a privilege is
+        for, and an organization's line says, for each privilege, how often it was kept and
+        broken, the cases brought and found, and the workshops given up as barred: the drag,
+        measured, not set. **Not yet built:** protected prices against the neighbour's door (BZ's
+        capture sentences); selling through a member and hired work as recorded responses (they
+        happen, unlabelled); a licence as an asset, transfer or lease.
+    - **BY**: corruption and patronage: the keeper's diversion and relief by favour, the
+      collector, patron gifts and what a client owes.
+      - *As built (2026-10-16):* content API 117, save schema 131, wire 1.80. **The keeper's
+        diversion:** at each of the polity's reviews the keeper of a common store weighs drawing
+        from it for their own household, as a watcher weighs asking a payment (ΔU = B − M − p̂F:
+        `w_demand_loss` a day of their household's food, against `w_objection` for their objection
+        and `w_seen` for the chance they believe they run of being found out), never above the
+        objection's filter, up to `divert_share` of what it holds and no more than brings their
+        household to the days of food it tries to keep. What they draw moves on an appended
+        `Diverted` channel and is counted on the store's law; nobody is told, and what follows is
+        the store, emptier, failing those who ask of it. **Relief by favour:** below
+        `favour_reserve_days` of the settlement's food in the store, the keeper answers the asks of
+        those they regard and passes over one they regard less than `favour_floor`, who holds it
+        against the office (a grievance, `passed over`); both are counted. **The collector:** a
+        duty's template may name a collector (`[duty] collector = true`; the core adds
+        `core:policy/duty_on_tools_collected`), nominated as the most-regarded adult. They see a
+        purchase one of their polity brings home with chance `collector_sight` and assess it in
+        full, whatever the buyer knows of the law, or ask the household for `collector_ask_share`
+        of what it owes to assess none of it (weighed as the keeper weighs drawing); the household's
+        elder pays when what it saves is worth more than their objection, on the `Bribe` channel,
+        or refuses, and the duty is assessed in full and its grown members who know the law hold
+        the asking against the office (`extorted`). What a duty is worth to a buyer who cannot make
+        the good is now what it gave for it (BV valued it at nothing). **Patron gifts:** when a law
+        is put to the gathering its sponsor reckons each member's stance as their household
+        reckons the law, their regard for the one it names and what their household owes; if it
+        would not pass, the sponsor's household gives food to the households a gift of at most
+        `patron_gift_days` would bring round, the cheapest turn first, only if the gifts would
+        carry it, cost the household less than the law is worth to it and leave it above
+        subsistence. The gifts are ordinary gifts (the `Gift` channel, ties as any gift), recorded
+        with the law they were given before. A household owes a patron what such gifts brought it
+        within `owed_memory_days`, and its members' stances on the patron's laws gain `w_owed` a
+        day of its food (recorded with the stance, and in its words). A patron who saw a household
+        they gave to stand against them gives it nothing more. Only gifts so recorded are read; the
+        tie's help balance stays unread. **Words:** the government panel's law line says how its
+        keeper, collector or sponsor acted ("its keeper drew 40 kg from the store for their own
+        household 2 times"; "before the gathering, Mira's household gave 3 households food (14 days
+        of theirs)"). **Not yet built:** exposure of a diversion by someone who saw it (the store,
+        emptier, is what people see); a payer who tells of a collector's asking; patron gifts from
+        a faction's or organization's store; capture measured (BZ).
+    - **BZ**: closure by amendment, capture diagnostics in sentences, the M7c demo (time-boxed,
+      NUDGEs logged).
+  - **M7d, credit and money** (ADR when reached): loans in goods, pledges and default, keepers
+    and store lending, money's worth to its holder, then metal, minting and debasement (slices
+    CA–CE, from `docs/briefs/m7-money.md`).
 
 **M8: The growing city (v1).**
 - *Contents:*
@@ -3190,7 +4006,7 @@ One line each. Don't re-litigate without a reason written next to the entry.
   Workspace tests (`simcheck`), clippy, content validation, web tests and all 10 smoke worlds pass.
 
 - **Floods and storms, as built (2026-10-13, M6b slice BF; ADR-0022 §8, §9):**
-  **Hydraulics & floodplain:** Reach hydraulic geometry with width, slope, and Manning roughness $n=0.035$; bankfull discharge $Q_{bf} = 1.5 \times Q_{mean}$ and stage $d_{bf} = (n Q_{bf} / (w S^{0.5}))^{0.6}$. Height Above Nearest Drainage (HAND) precomputed from D8 flow routing into reach compartments. Inundation extent and depth calculated using reach transit time ($L / V_{bf}$) and cumulative elevation-storage curves, ensuring mass conservation and natural overbank stage.
+  **Hydraulics & floodplain:** Reach hydraulic geometry with width, slope, and Manning roughness $n=0.035$; bankfull discharge $Q_{bf} = 1.5 \times Q_{mean}$ (corrected 2026-10-16: the landscape's 1.4-year flow, below) and stage $d_{bf} = (n Q_{bf} / (w S^{0.5}))^{0.6}$. Height Above Nearest Drainage (HAND) precomputed from D8 flow routing into reach compartments. Inundation extent and depth calculated using reach transit time ($L / V_{bf}$) and cumulative elevation-storage curves, ensuring mass conservation and natural overbank stage.
   **Fords & walkability:** Dynamic daily fordability based on river stage; wading threshold restricts deep cells ($>0.5\text{ m}$) from being walked into.
   **Impacts:** Water above floor spoils perishable/food floor goods at depth-dependent rates while preserving durables; wetness wears daub and mud brick; submerged crops track flood days; people evacuate flooded homes to dry kin homes or settlement hearth.
   **Storms & uplift:** Monthly wind gusts draw uplift loads ($q = \frac{1}{2}\rho V^2$); covering uplift capacity calibrated with material-specific thresholds (thatch $600 + 600 \times Q$, tile $1500 + 1000 \times (1 - \text{loss})$); torn coverings record storm damage incidents and episodes without triggering premature structural collapse.
@@ -3261,9 +4077,447 @@ One line each. Don't re-litigate without a reason written next to the entry.
   fixed bank struct; schemas through 100 retain saved ground/damage with no invented sediment.
   Content API 87 adds strict optional `[banks]`; wire stays 1.72, with sediment in kernel words.
 
+- **Banks built together, as built (2026-10-14, M6b slice BG; ADR-0022 §11):** no new ADR.
+  **What people remember:** a household's own flood losses only (research 12-08 §1.3:
+  "requests arise from observed problems"): floor stores spoiled in its buildings, valued at
+  their food, and sown crops drowned (5 days under water), valued at their seed and work, each
+  at its cell and depth, kept `memory_years` (10, a design prior). Nothing global (episode
+  counts, observer origin) enters a forecast; `FloodMemory`'s maxima are not read. **Where a
+  bank goes:** straight segments parallel to the river near each costliest remembered place
+  (up to six), at 7 positions and 8 lengths. Each is laid out at the highest remembered water
+  surface plus `freeboard_m` above the lowest ground it crosses (0.3-3 m), on ground free to
+  dig, with a square borrow pit `pit_depth_m` deep beside it. A place counts as kept dry when
+  the reach's water, as high as remembered there, reaches it only over a crest: the same
+  minimax connected-storage path the flood depths use (extracted, unchanged), with every
+  standing bank. The kept losses, at what an hour of each household's work brings, over
+  `life_years`, must exceed the work. This is an engineering judgement the planner makes, as
+  crossing sites are found by path; people's gains come only from their own losses.
+  **Its work (research 11-12 §1.2, §2.4):** per bank cubic metre, `digging.h_per_m3` to dig,
+  84 basket loads (1.2 loose × 1,400 kg / 20 kg) each `load_min` plus the walk there and back
+  at the worker's own pace, and 0.9 × `place_h_per_m3` to spread and tamp. Earth moves through
+  `place_from_borrow` at the end of each work step, so nothing is left half-carried; no
+  labour or fill comes with adoption. Concurrent workers are capped at length / `front_m`.
+  **Measured:** six lived river-valley villages flooded once at +100 and +400 m³/s after 40
+  days: 0-6 of 6-7 households recorded losses. Most candidate banks crossed fields or plots
+  (1,435 of 1,582 rejected), 147 kept nothing dry, two passed the geometry and neither
+  repaid its work after one remembered flood (best: 7.6 h a year against 384 h). With the
+  same loss remembered five years running (the test's setup), a 40 m, 0.4 m bank is proposed,
+  passes in the test's hands, and in thirty lived days three households give 10.2 of its 384
+  hours by their own choice. **Also fixed:** the field-site cache's stamp now includes the
+  ground a household looks over, which flood water redraws within a day (a debug assertion
+  fired under a raised river; release builds could keep a stale site for the day). **Left:**
+  banks of more than one segment, banks across fields, piping, settlement, paid repairs and
+  upkeep by law, trapped rain and irrigation remain planned.
+
+- **Banks seep, settle and give way, as built (2026-10-14, M6b slice BG; ADR-0022 §11):** no
+  new ADR. Research 11-12 §4.2 separates load from resistance and holds damage across events
+  until repaired; that is the model, with authored priors and no annual failure chance.
+  **Seepage:** each lived day, over a bank's sound barrier edges, the head is the high side's
+  water surface (capped at the crest) less the low side's surface or ground, taken only where
+  the high side is wet. The largest head adds `piping_per_head_day` × head (0.01 a metre-day,
+  a design prior) to the bank's damage, which is capped at 1. At 1 the bank is breached and
+  stops being a barrier. Water over the crest on both sides holds no head; overtopping erosion
+  (unchanged) wears it instead. **Settling:** placed fill sinks toward `settle_share` (0.05)
+  of its built height with a time constant of `settle_days` (365). It only deepens and moves
+  no earth. Research 11-12 names crest settlement among a levee's defects and leaves the
+  settlement allowance out of its volume formula without a figure, so both values are design
+  priors. **Told:** a bank built by
+  law that breaks is told once (`FloodStep::BankGaveWay`) and recorded in the polity's
+  `banks_failed`. **Saves 103:** piping damage per bank (0 < d ≤ 1, no duplicates, naming a
+  bank) and the told failures (naming the polity's own banks). Older headers that carry
+  either are refused, and schema 102 loads with no damage. **Measured:** on the test village
+  (seed 3), the finished 0.41 m bank under the same reach raised in turn by +50, +100 and
+  +200 m³/s for six days each took 0.14% damage, all from the first. The larger floods
+  covered both sides, so there was no head, and +200 wore 2.5 mm off its crest. A bank that
+  low is overtopped before seepage matters; seepage is the failure of a higher bank holding
+  back water. **Not conditional yet:** the research's hazard depends on material and
+  foundation, but the land carries no soil texture to condition on, so one rate serves every
+  bank. **Left:** that conditioning, paid repair and upkeep by law, banks of more than one
+  segment and across fields, trapped rain and irrigation.
+
+- **Banks kept and mended, as built (2026-10-14, M6b slice BG; ADR-0022 §11):** no new ADR.
+  ADR-0022 §11 says "Nobody mends a polity's bank unless a law asks", and research 12-08 §1.4
+  says "Do not assume that a successful construction mobilization persists indefinitely".
+  Keeping a bank is therefore its own law, not a term of the law that built it. **Issue and
+  policy:** `bank_worn` (appended, code 14) holds while a bank the polity built wants mending
+  and no law in force keeps it. A bank wants mending once it has given way, its crest has sunk
+  or worn `mend_crest_m` (0.1 m) below its design, or it has taken `mend_piping` (0.1) of
+  seepage damage; both are design priors. `keep_bank` (appended) is proposed, forecast and
+  decided like a bank built. A household gains what it reckoned, when the bank was proposed,
+  the bank saves it a year, and pays its share of the mending wanted now, spread over
+  `life_years`. This treats a mended bank as good as new, a design prior. **Looking over:** a
+  kept bank is looked over when a high water goes down and at each year's start (research
+  11-12 §5.5: event-driven maintenance plus periodic inspection). If it wants mending and is
+  not already being mended, its hours are added to what is asked of the households. Each
+  household's share is of building and mending together, and the chronicle tells it.
+  **Mending (research 11-12 §4.1: inspect, refill, compact):** `banks::mend` lays compacted
+  earth dug from the bank's own borrow pit on its crest, at the building charges for digging,
+  carrying and placing. It restores what water wore off first, then what settled. Then it digs
+  out and tamps again the bank's damaged share, its seepage damage times its whole fill (a
+  design prior), at digging plus placing hours with no carrying. Mass moves from the pit to the
+  bank; the washed-sediment account is untouched. A breach stays open until all the mending it
+  needs is done. People choose the work as they choose to build; when it is done the
+  chronicle says so, and a later failure is told again. Nothing keeps a bank no law keeps, and
+  a law in force does not make anyone work, so a neglected bank remains a possible result.
+  **Saves 104:** refill per bank, repair hours asked and the mending flag per bank site, and
+  each keeping law's bank. Older headers carrying any of them are refused. **In the test
+  village:** a second, higher bank beside the first outweighed keeping the first while
+  households still remembered their losses. In the test, with those memories cleared, the
+  keeping law was proposed under `bank_worn`, mending was asked, and a worker's hours repaired
+  the seepage damage. **Left:** banks of more than one segment and across fields, trapped
+  rain and irrigation, and conditioning the seepage rate on soil.
+
 - **Claude handoff (2026-10-14, owner request):** stop after the tested overtopping slice on
   `codex/codex-development`, with no merge to main. The handoff is
   `docs/handoffs/2026-10-14-m6b-claude.md`; BG remains partial and BH/M6c remain planned.
   Erosion uses elapsed-day depths before forcing rollover, so a one-day flood counts.
   The final full workspace, short smoke, clippy, schema, web, commons and bank browser gates
   pass; the interrupted later ten-year run is not reported as a pass.
+
+- **Irrigation ditches, the water's part, as built (2026-10-14, M6b slice BG; ADR-0022 §11):**
+  no new ADR. **Channel (research 11-12 §1.5-§1.6, §2.3):** a ditch is a straight trapezoid
+  below the grid: bottom width, depth, side slope 1.5:1, and its bed's fall from intake to field
+  end. Its cut is L d (b + z d). Its earth lies along its side within the cells it crosses, so
+  the cells' mean ground is unchanged; this sub-grid simplification is stated, not hidden.
+  **Capacity:** Manning's Q = A R^(2/3) S^(1/2) / n running full above its silt. n goes from
+  `n_clean` (0.025) to `n_weedy` (0.040) with its weeds, which reproduces research 11-12
+  §4.4's 62.5 % capacity. It carries nothing below `min_gradient` (0.05 %). **A day's water
+  (research 03-02 §1.5, §2.1):** after the day's rain and the aquifer's step, each open ditch
+  whose earthwork is finished and whose field's crop is growing takes what that field's root
+  zone lacks to be full, divided by conveyance times application. It takes no more than its
+  capacity for a day or `max_share` (0.5, a design prior) of what its reach still carries after
+  the ditches above it. `conveyance` (0.8, a design prior for a short earthen ditch) reaches the
+  field; the rest recharges the aquifer patch under the ditch's middle, and a patch of water
+  alone takes it into its water. The field's root zone keeps `application` (0.6, research 03-02
+  §2.1 for surface application); the rest returns to the reach below the intake. The taking is
+  debited from its reach and every reach below, and the return is credited from the next reach
+  down, as changes to the day's flows that are saved for the day. Natural downstream flow
+  already includes its tributaries, so nothing is summed twice. Each ditch keeps its totals
+  taken, kept, seeped and returned, which must balance. **Saves 105:** ditch records and the
+  day's ditch flows; older headers carrying either are refused. **Tested:** in a lived village,
+  a finished ditch open to the river beside a sown field held more water in that field over ten
+  days than the same ditch shut. Every cubic metre was accounted for. On a dry day the intake
+  reach lost exactly what the ditch took, and every reach below lost that less what returned.
+  The world saved and loaded exactly and lived on the same. **Left:** households choosing to dig
+  and open a ditch, weeds and silt growing, clearing, the observer drawing ditches (the web
+  draws kind 4 as a plain earthwork rectangle for now), and trapped rain.
+
+- **Households dig ditches, as built (2026-10-14, M6b slice BG; ADR-0022 §11; the M6 fire
+  brief §1.11):** no new ADR. **Who and when:** a household, alone, on its day of the year
+  (keyed by the world and the household, as crossings are). One ditch at a time, and none to a
+  field that has one. **What it sees:** its own field's last season, the water the crop needed
+  and got, recorded at the field and kept until the next sowing. It does not see the soil or the
+  river's flow. A field whose crop got less than `short_share` (0.9) of its need is weighed.
+  **Forecast:** the grain lost to water is the crop's average yield on that ground times its
+  area times one less the water factor (ADR-0012 §2's response, the same the harvest uses),
+  valued at the household's own hours a kilogram of that grain. Over `life_years` (20) it must
+  exceed the digging: the channel's cut at `h_per_m3` (8 hours, research 11-12 §2.2's 0.8-1.2
+  m³ a worker-day for forming canals). A 100 m ditch of 0.3 by 0.4 m at 1.5:1 is 36 m³, 288
+  hours, within research 11-12 §2.5 A's 33-50 worker-days for 40 m³. **Site:** a point on any
+  reach within `max_length_m` (400 m) of the field's middle. The bed is taken in half the
+  ditch's depth below the river's water there and cut its depth into the field. Its fall must
+  reach the land profile's least gradient, and its line may cross no other field, plot or
+  well. The best net gain wins. **Its earthwork's ground** is a 2 m square at the intake; the
+  line is the segment's, below the grid. Plots laid later are not yet kept off a ditch's line,
+  a stated limit. **Work:** people choose to dig it like a crossing the household builds, by
+  what each hour is worth (`ditch_worth`, reckoned when chosen and saved), with no duty. Hours
+  dig channel at `h_per_m3`, and its finishing is chronicled (`ChronicleKind::Ditch`).
+  **Opening (design prior: no labour):** at midnight, open while the field's crop grows and its
+  root zone holds less than the easy-water share, shut otherwise. Water reaches the field from
+  the next day's step. **Tested:** with its last crop at half its need, a household lays out a
+  ditch within reach and gradient; with its crop fully watered it does not. It lays out no
+  second ditch while digging. Its people see the work and its worth. Eight hours dig a cubic
+  metre, and the rest finishes it and is told. Sown again with a dry root zone, the ditch is
+  opened and waters the field, and the world saves and loads exactly. **Not yet measured:**
+  how often lived households dig in dry years. **Measured (2026-10-15):** in the ten-year
+  smoke (two presets, two seeds) households laid out 11 to 21 ditches a world and dug 3 to 12
+  of them; dug ditches took 12,000 to 36,000 m³ from the rivers, of which fields kept 48 %.
+  All four worlds passed. Most laid-out ditches stay undug: a household weighs one again each
+  year and digs it only as it chooses. **Deferred: weeds and silt growing and their
+  clearing.** A household's ditch carries about 0.16 m³/s clean, and the driest hectare wants
+  about 0.005 m³/s (417 m³ a day). Fully weeded and half silted it still carries about
+  0.023 m³/s, four times that, so neither binds and their clearing would be work nobody needs.
+  They come back with shared ditches feeding many fields. **Left:** shared ditches and trapped
+  rain. **Observer (wire 1.73):** an earthwork of kind 4
+  carries its ditch's line and whether its intake is open. The map draws it as a blue line,
+  solid while open and faint while shut or being dug, and its words say whose it is, how long,
+  how far dug, and the water taken and kept.
+
+- **Roofs that do not burn, as built (2026-10-15, M6b slice BH; ADR-0022 §12):** no new ADR.
+  **Memory:** at a fire's end, the household whose building it was and the household of everyone
+  who was in it or saw it burn remember it (`Household.fire_losses`: day, building, own or seen,
+  whether its roof burns, and the hours putting it right would take: building it again if it
+  fell, else mending each part it lost), for `rules.memory_years` (10; research 11-09 §2.3's
+  2-20 years). Someone who only heard the shout remembers nothing. **Issue:** `burned` holds while
+  any household of the settlement remembers a fire, and its households' elders are among those
+  who weigh moves. **Template:** the policy kind `building_rule` is appended; its template is
+  content (`[rule]`: `template`, `within_m`, `needs`), so the kernel holds the predicate and the
+  content the numbers. `roofs_unburnt` names a property, not a technique (11-09 §5.2): a roof
+  that does not burn, which today only fired tile is. 4 m follows 12-03 §2.2's radiation falling
+  to 5 kW/m² at 4 m. **Sponsor:** only someone who knows the technique the template names
+  (`firing`) is offered the move (11-09 §1.4). **Forecast:** the burnt roofs a household
+  remembers, over the settlement's standing buildings and the memory's years, is its believed
+  rate; times rebuilding its own buildings that burn (and its next home, if it has no roof
+  enough or its home has given way), times `rules.avoided_share` (0.5, a design prior), is what
+  it believes averted a year. Against it, a household about to build pays what tiling its newest
+  home would add (work, carrying and its own cost of the materials) over `rules.horizon_years`
+  (20); a hut, or a household that cannot make tile, keeps the rule by building apart and reckons
+  that free. A household below its subsistence values a little more food at nothing, as for any
+  law, so those who lost their stores with their homes are not the rule's keenest supporters.
+  **Binding and keeping:** in force, it binds buildings begun from the day it passed; old roofs
+  stay (11-09 §1.7). A household's eldest who knows it keeps it by the curfew's weighing (norm,
+  stance, regard for the sponsor), with no sanction: a tile roof where its people fire tile and
+  the program is a frame, else a plot at least the rule's distance from every standing building,
+  else it builds as it would. Each building begun within reach counts as kept, broken or broken
+  unaware. **Provenance:** a tile roof begun while the rule was in force names it, derived from
+  its start and the law's history (a rule since ended no longer shows: the law keeps no end
+  date). **Tested:** in a lived village a row of huts 1.5 m apart, one set alight; the fire took
+  the row, every household that saw it remembered each hut, with the owner's marked its own;
+  households above subsistence forecast a gain; nobody proposed the rule while nobody fired
+  tile, and someone did once the settlement knew firing, against the issue `burned`; in force
+  and known, a household that kept it laid out a home that was tiled or 4 m from every other
+  building; the world saved and loaded exactly. **Not yet:** walls of named kinds, a least gap,
+  the issue `gave_way`, and how often lived worlds come to such a rule. **Verified after
+  commit:** the full simcheck suite (69 binaries) and all ten release short-smoke worlds pass.
+
+- **Walls of stone or brick, and buildings kept apart, as built (2026-10-15, M6b slice BH;
+  ADR-0022 §12):** no new ADR. **Memory:** when a building gives way, every household of its
+  settlement hears it told (as the chronicle tells it) and remembers it for
+  `rules.memory_years`: day, building, its own or not, its wall kind and what putting it right
+  would take (`Household.gave_way`, save schema 108). **Issue:** `gave_way` while any household
+  remembers one. **Templates** (content API 94): `walls_of_kinds` names allowed wall kinds
+  (`wattle`, `rubble`, `mud_brick`, `fired_brick`), a technique in 11-09 §5.2's sense;
+  `least_gap` names a distance, a separation. Content authors `works_wrought_walls` (rubble, mud
+  brick or fired brick; needs rubble walling, which founders bring) and `works_wrought_spacing`
+  (3 m, from 12-03 §2.2's 2.14-3.14 m thresholds; needs nothing). The walls template answers
+  both `burned` and `gave_way` by authoring judgement: a remedy follows the cause people
+  attribute, not the kernel's (11-09 §1.4), so a hut brought down by rot may move a village to
+  ask for stone walls. **Forecast:** as for roofs, a household's believed rate is the losses of
+  the kind the rule forbids that it remembers (for walls, every fire and every building that
+  gave way whose walls the rule forbids; for a gap, burnt thatch) over the settlement's standing
+  buildings and the memory's years, times rebuilding its own forbidden buildings (and its next
+  home if about to build), times `rules.avoided_share`. A walls rule costs what its newest frame
+  home's walls of the best allowed kind it can build would add; a gap rule costs nothing it
+  reckons (the walk to a farther plot is not counted, a simplification). **Keeping:** a keeper of
+  a walls rule designs mass walls where it knows a masonry technique and its program is a frame;
+  a hut cannot, so it builds as it would and breaks the rule. A keeper of a gap rule takes a plot
+  that far from every standing building. A walls or gap rule binds every building begun; a roof
+  rule only one within its reach. **Tested:** a hut made to fail under its own weight was heard
+  of by every household of the settlement, its owner's marked its own and its walls wattle; the
+  walls rule was proposed against `gave_way` while nothing had burned and the gap rule was not;
+  once a hut burned the gap rule was proposed against `burned`; in force, a hut counted as
+  breaking the walls rule and a hut 6 m from its neighbours as keeping the gap rule; the world
+  saved and loaded exactly. **Not yet:** how often lived worlds come to these rules (the demo).
+
+- **The M6b demo, as built (2026-10-15, M6b slice BH; plan §7's M6 demo, second part):** no new
+  ADR. **The world** (civ-sim's `great_fire` example, run by `web/e2e/m6b-demo.spec.ts` with
+  `TCE_DEMO=1`; `demos/m6b/m6b-demo.txt` and three pictures): river valley seed 1 at 768 cells, a
+  band of 100, lived 450 days at Max, into its second summer. **No lived great fire:** in 450 days
+  no fire of the village's own escaped (the ignition sweep, §9, found escapes rare at this size),
+  so, the time box spent, the observer set one. **`NUDGE`s, logged:** where (the observer's sight
+  of the truth: the thatched building with the most others within 4 m of its plot, here 3) and
+  when (noon of the first day whose fuel held 0.13 of its dry mass or less and whose wind blew at
+  4 m/s or more; the first try waited from autumn for 0.11, which this valley rarely reaches, and
+  never found it). Up to four worlds are made and the first whose fire took four buildings is
+  kept; none did, so the last is kept. **What happened** (four worlds, all alike in the fire and
+  its politics): on 30 May of year 2, in 6.7 m/s of wind with fuel at 0.12, the fire spread from
+  Kesta's household's hut to the two beside it and took 3 buildings, 120 kg of goods and no lives.
+  Every household that remained remembered it. A week later Lena, who knew rubble walling,
+  proposed that new walls be of rubble, mud brick or fired brick, against the fire; the gathering
+  agreed, 42 for and 3 against. A week after that Talia proposed that a new building stand 3 m
+  from every other; agreed, 49 for and 2 against. Most stances read "it makes little difference
+  to their household": the forecasts were small, and people voted by their values (the rules bear
+  on security) and their regard for the sponsor. Nobody knew firing, so nobody proposed tile roofs.
+  **What followed:** the three burnt huts were mended in place, standing and roofed a year on; and
+  nobody began a new building in that year, so neither rule bound anything: 0 kept, 0 broken.
+  Over the year the village shrank (107 people to 32-72 in the four worlds) as households left
+  the valley; a fire-free run of the same world loses its band the same way in its third year
+  (founding failure, recorded since M3c), so this is not the fire's. **Found:** (1) a rule that
+  binds only new work does nothing while a village mends rather than builds: research 11-09 §1.7's
+  other activation modes (major alteration, periodic inspection) are what would reach the old
+  stock, and none is built; (2) a village of scattered huts burns three, not twenty: whether a
+  great fire is possible waits on denser building (towns, M7), not on spread tuned up. **Not
+  established:** whether a rule ever comes to bind in a lived world, and whether its builders keep
+  it. M6b closes with BF's open items (crossing scour, flood gates) and BG's trapped rain, shared
+  ditches and multi-segment banks recorded as left, not done.
+- **M6c design (2026-10-15, plan §7):** from the war brief and the observer brief
+  (`docs/briefs/m6-war.md`, `m6-observer.md`), with 13-07 §1.2 (Lanchester laws as benchmarks
+  that should not "determine battle termination"), §1.5 (E = min(N_available, K_usable), both
+  sides "from the same pre-step state"), §1.6 (no casualty breakpoint), §1.7 (withdrawal, rout and
+  surrender apart; pursuit needs reach), §2.3 (10–60 s steps; a 2–10 minute window of seen losses)
+  and §5, and 13-05 §1.2–1.3 (joining a raid as each person's utility; the bargaining range)
+  checked where the design rests on them. **One ADR,**
+  [ADR-0023](decisions/0023-force-between-polities.md) (force between polities), amending
+  ADR-0013 §1 and ADR-0018 §1 (a polity over several settlements, with since and how), ADR-0018 §2
+  (camping), ADR-0020 §4 and §6 (takings across the boundary; a body that sent a band is blamed;
+  appended clauses), ADR-0009 and ADR-0010 (enclosures on the walking grid). **Five slices**
+  (§7): BI (takings across the boundary), BJ (bands and encounters), BK (enclosures), BL (sieges
+  and terms after force), BM (a polity over several settlements, and the demo). **In that order**
+  because takings give raids and enclosures a reason before war does (the plan's fortification
+  kit, "takings between villages that give them a purpose before war does"); a band must exist
+  before a line is worth raising against it; a siege needs a band and a shut line; and a change
+  of sovereignty needs a hold or terms. The brief's suggested order put enclosures with takings;
+  they come third here because a line raised only against takings is a fence, which households
+  can already weigh. **The brief's open questions, answered.** (1) Anyone may call a raid
+  (13-05 §1.2); a law may too. Without unauthorized raids a treaty cannot be undermined by its
+  own side. (2) Annexation changes membership: a polity keeps a list of settlements, which is
+  why this milestone needs its ADR. (3) A body of several settlements gathers at its seat's
+  hearth, so distance shows as absence (13-04 §1.7); a custom amendment can move the seat. (4)
+  Per-minute choices and blows replace plan §5.5's Lanchester-style model, which stays as tests
+  (a gate-limited exchange keeps the linear law). (5) Captives wait for M7: custody needs
+  household membership the kernel lacks; a strike on someone not fighting is recorded as the
+  striker's choice. (6) A wooden spear now, made with wood shaping; bows, shields and armour
+  later, each with its materials and skills (07-10 §3.1). (7) Fighting skill comes only by
+  fighting until someone has a reason to ask for drill. (8) Threat is only a forecast term: a
+  household weighing tribute for peace reads the raids and bands it heard of; a leader's demand
+  travelling as a claim waits. (9) Raiders leave seed, as `take_goods` does; a switch is measured
+  later with 13-09 §4's raid before planting against one after harvest. (10) The demo may nudge a
+  raider's valuation of a store they saw, or how long members stay before their harvest calls
+  them home, never an event; `NUDGE:` logged. (11) The *one body* clause (merger) and
+  *assistance* (a league) are enough for M6's merger and federation; a competence matrix waits
+  for M7. (12) Both: an actual raid prompts ADR-0018 §5's event review, and the yearly review
+  weighs raids heard of, with safety among the terms. **The observer brief's question (10):** the
+  siege page shows each side's food at current use, what still comes in and the band's
+  endurance, never a progress bar. **Plot guards:** no date, era, size, rate or count makes a raid
+  likelier; no issue weighs toward a band; the demo names an outcome (annexation) that 13-08
+  §1.8 lists as one of seven endings, so the demo shows the siege and whatever ending the world
+  reaches, and annexation only if a gathering chooses it. **Measured first (BI):** the funnel
+  from targets elsewhere ranked to laws passed, before anything is tuned (the brief's §3).
+- **Takings across the boundary, measured and built (2026-10-15, M6c slice BI):** no new ADR
+  (ADR-0023 §2). **The probe first** (civ-sim's `take_probe` example): three villages of 100
+  founded together, lived three years at Max; on the first of each month, every household short of
+  its food target compared the best store it could take from at home with the best among the
+  homes of settlements its members had seen. River valley seeds 1-3 and ria coast seed 1:
+  297, 293, 281 and 187 household-probes short of food; 29, 144, 11 and 8 of them had seen homes
+  elsewhere; 0, 51, 2 and 0 would have ranked a store elsewhere first (by more food there, or none
+  at home); the median walk to the best store elsewhere was 54, 72, 82 and 52 minutes, and **not
+  one** lay within the 20 minutes a taker walks (`take_food`'s `max_walk_minutes`). Takings at home
+  over the same runs: 47, 97, 46 and 83. **Read:** villages founded kilometres apart do not take
+  from one another one household at a time, however hungry; anything that crosses between them
+  will be a band that sets out to (slice BJ). The widened targets are built anyway, for villages
+  that come to stand close (splinters, growth), and every consequence is wired: the incident names
+  the takers' settlement, a witness names only takers they know, *harms us* is written, the issue
+  `raided` is held and a watch answers it, and a law against taking recovers nothing from
+  outsiders. Nothing was tuned.
+- **Bands and encounters, built in two steps (2026-10-15, M6c slice BJ):** no new ADR
+  (ADR-0023 §3-4, §8, §10). Step one: a band is called by anyone at their review or the midnight
+  after their household learns people of another settlement took from it; it goes only where its
+  people have seen homes, within `bands.max_walk_minutes`; joining is each person's choice; the
+  muster is who comes; the encounter is `war::fight`'s per-minute exchange over a frontage with
+  no battle score, and the taking is an ordinary incident across the boundary. Step two: shirking
+  costs regard (the tie act `stayed_home`), bands walking are seen (claim *band seen*), raids are
+  told (claim *raid*), those who gave way leave at once, and raids heard of weigh in where a
+  household lives, with *fled* recorded when they alone tipped a move. Step three: the laws
+  `send_band` (a band led by the one it names, each household owing one person or keeping its
+  share back as a levy) and `against_raiding` (a raid heard before the raiders' own gathering).
+  Service is recorded on the band and the law's compliance rather than as an ADR-0015
+  obligation, which is reckoned in food. Every weight is a design prior named in the content;
+  nothing was tuned. What is not built yet is listed in §7 under the slice.
+- **Terms after force as one appended clause, and terms agreed while a gathering is busy
+  (2026-10-15, M6c slice BL, step two):** no new ADR (ADR-0023 §8). ADR-0023's *no raids* and
+  *takings heard* are one clause, given by a side; both sides' together stand for the *truce*,
+  and since a side's word already keeps its people from proposing a band law against the other,
+  a separate truce clause would add only a term that causes nothing at its end. Peace is sought
+  by a second template of the agreement kind (`year_of_peace`), so that what people hold dear
+  weighs a word against raiding apart from leave to use claimed places. Seeking terms no longer
+  waits for a gathering with no business: the meeting takes none of its time, and a raided
+  village answers a raid at its gathering with laws of its own; in the test of a raided village,
+  its gathering had business at every review for forty days, so under the old rule nobody there
+  sought peace. The seeker's side now puts
+  the terms to its gathering when it is free, as the other side already did, within
+  `relations.answer_days`. The existing agreement tests pass unchanged.
+- **M7 design (2026-10-15, plan §7):** from four briefs (`docs/briefs/m7-elections.md`,
+  `m7-capture.md`, `m7-courts.md`, `m7-money.md`), which read 09-02, 09-04, 09-05, 09-06,
+  09-07, 09-08, 09-09, 09-10, 09-15, 08-04 to 08-08, 08-12, 08-13, 08-17 and 08-20. **M7 is split
+  in four** (§7), as M5 and M6 were, because its contents are four kinds of work: M7a councils
+  and elections, M7b courts and precedent, M7c trade laws, guilds and capture, M7d credit and
+  money. **In that order** because the demo's captured "assembly" is a seated body (M7a) whose
+  seats and votes M7c's merchants work on; courts (M7b) reuse M7a's seats and methods for
+  forums, and come before capture so that a captured assembly's laws can be reviewed; money
+  comes last because coin needs metal and a polity that spends, neither of which exists, and
+  because the money brief finds that credit in goods comes before coin (08-06, executive
+  recommendation; 08-07 §4), against plan §5.3's ladder, which M7d's ADR will settle. **One ADR
+  now,** [ADR-0024](decisions/0024-seats-offices-and-elections.md) (seats, offices and
+  elections); M7b, M7c and M7d are designed when reached, one ADR each expected. **The elections
+  brief's open questions, answered:** (1) one body: a seated body is a `Membership` of the one
+  deciding body, so ADR-0013 §1 stands; (2) open stances by default, secret as a body value;
+  (3) the council forecast's prior (the n eligible the sponsor knows who stand highest in
+  counsel) is accepted and named as a design prior; (4) a seated body amends itself by its own
+  rule, and the electorate's ratification waits; (5) households weigh the evenings a council
+  saves them; (6) no party record, a label only; (7) terms of 6, 12 or 36 months in content,
+  12 the default template; (8) seats may be apportioned by settlement; (9) strategic voting is
+  off; (10) compliance keeps its present terms, no per-authority legitimacy; (11) offices stay
+  unpaid in M7a, and patronage's selective benefits come with M7c; (12) any demo nudge is a
+  prior, time-boxed and logged as `NUDGE:`, never an event. **Plot guards:** no population,
+  date or era makes a council likelier; the smoke's finding that villages of about 50 never
+  amend may stand as a result. The demo names two outcomes (a captured assembly's tariff, a
+  struck-down curfew); each part's demo shows what its world reached, nudging only priors.
+- **M7b design (2026-10-16, plan §7):** from the courts brief (`docs/briefs/m7-courts.md`),
+  which reads 09-07, 09-06, 09-02, 09-05, 09-04, 06-05 and 06-09. **One ADR,**
+  [ADR-0025](decisions/0025-forums-precedent-and-review.md) (forums, precedent and review):
+  a forum is a law (*hear cases*) naming what it hears, its seat (one holder, a panel by lot,
+  or a membership) and its rule; precedent is the saved case and the remembered finding;
+  a limit is a law above laws, a predicate over laws' own fields from a closed set the kernel
+  reads; review is a power a forum's law grants; rulings are carried out and known as anything
+  else. **Four slices** (§7): BR (a forum by law), BS (precedent), BT (limits and review), BU
+  (rulings carried out and the demo). **The brief's open questions, answered:** (1) the
+  gathering's findings since M4 are precedent (09-07's opening); (2) all three seats, content
+  offering each; (3) limits are a closed set in code, parameterized by content: daylight work
+  (a curfew's hours) and a levy's share in v0; (4) review is a power a forum's law grants, apart
+  from any limit; (5) standing comes from bearing a law, so challenges are abstract, and pleas
+  within a case wait; (6) curfews keep no sanction; (7) an appended norm, *abide by findings*;
+  (8) the bundle stays fixed; (9) no rehearing in v0; (10) one forum at the seat; (11) after a
+  time-boxed week without a strike-down, nudge the weight a household puts on hours a curfew
+  keeps it home, or the cost of proposing an amendment, logged as `NUDGE:`; (12) land and debt
+  wait for M7d. **Plot guards:** no date, era or size makes a forum, a limit or a challenge
+  likelier; no content limit may be aimed at curfews alone; a world without a *hear cases* law
+  gives the same digests as before.
+- **M7c design (2026-10-16, plan §7):** from the capture brief (`docs/briefs/m7-capture.md`),
+  which reads 09-09, 09-10, 08-17, 08-12, 08-08, 08-13 and 08-18. **One ADR,**
+  [ADR-0026](decisions/0026-organizations-privileges-and-trade-policy.md) (organizations,
+  privileges and trade policy): duties and embargoes are laws whose taxable event is the
+  purchase at another settlement's door; organizations by stake are a kind of ADR-0017's
+  faction; a privilege (licence or staple) is a law naming an organization, breached by a posted
+  offer and brought as a case; the keeper's diversion, relief by favour, the collector and patron
+  gifts are corruption and patronage; closure is a run of amendments; capture and drag are derived
+  and measured. **Five slices** (§7): BV (trade laws, after a probe of volume), BW (organizations
+  by stake), BX (privileges and the barred), BY (corruption and patronage), BZ (closure, capture
+  diagnostics, the demo). **The brief's open questions, answered:** (1) the purchase at the
+  door; (2) duties in kind to the store until M7d; (3) a kind of faction; (4) members across
+  settlements, privileges per polity; (5) a duty may exempt resellers or a named organization's
+  members, a sponsor's vocabulary; (6) breaches are cases, heard by a forum whose law hears
+  privileges, else the gathering; (7) only gifts recorded as a patron's enter stances
+  (`w_owed`), so the general help balance stays unread; (8) open acclamation stays, no secret
+  ballot in M7; (9) relief by favour, recorded; (10) a staple or an exempting duty passed by a
+  body carried by members and those who owe them counts, and the demo says what happened;
+  (11) measure first: three settlements and fetching to resell, both existing; (12) nepotism is
+  measured against the kin share among the eligible. **Plot guards:** no authored
+  organization; no issue weighs toward a trade law; no meter enters a choice; a world without
+  any of the new records gives the same digests as before.
+- **Rivers left their banks for weeks every year, fixed (2026-10-16, found while probing M7c
+  slice BV):** villages of 40 to 120 founders emptied in their second to fourth winter. **Measured:**
+  a monthly ledger of seed 1's food (river valley, a band of 40) showed harvests near plan
+  (about 477 days of food a person in year 2) but each wet season's flood spoiling 25–47 days of
+  food a person in a month, seed among it, so the next sowing shrank (55 then 43 days of seed),
+  harvests fell (477, 371, then less) and the village left in month 51. Eating was not the cause
+  (about 2,100 kcal a person a day once settled). **The cause:** bankfull discharge was 1.5 × each
+  reach's mean (as built in slice BF), a misreading of research 03-02 §2.1, where 1.4–1.5 is the
+  *recurrence in years* of the bankfull flood. Rivers by the day are flashy (seed 1's flow against
+  its mean: median 0.08, 90th percentile 2.4, yearly peaks 9–20), so 1.5 × the mean was passed on
+  36–66 days a year in river valley 1 and 2 and ria coast 1. **The fix:** each landscape's
+  climatology routes its 300 years of daily surplus as the world's water does (the ground's share
+  as an even base flow, the rest through the runoff store) and takes bankfull as the yearly peak
+  reached once in 1.4 years (`BANKFULL_RECURRENCE_YEARS`, the median of the Ohio sites):
+  6.3 × the mean in river valley, 5.3 × on the ria coast. Floodplains are derived, not saved, so
+  saved worlds take the new banks when loaded; no schema or content change. **After:** days
+  above bankfull 0–19 a year in the same worlds (most years have a short flood, as a 1.4-year
+  flood should); seed 1's band lives six years at 41–47 people with 340–600 days of food a
+  person, seed 2's at 46 with 720. Seed 3's still empties, in month 26: a high water peaking at
+  27 × the mean in its eleventh month stood up to a metre deep in its homes for days and took
+  about half the food on their floors (within the 03-07 depth-damage envelope: 0.33–0.49 of the
+  most at half a metre), on top of a thin first harvest. A rare flood, not a yearly one; left to
+  stand as the world's variance. `tests/levees.rs` raises its flood to 150 m³/s over bankfull,
+  not 100 over the natural flow, to keep one flood short of repaying a bank. Crossings scour at
+  the same bankfull and now stand longer. **Not changed:** a flooded floor's stores still spoil a
+  share a day while the water stands (ADR-0022 §9); the smoke runs 30 days, so nothing in the
+  routine checks would have caught this, and the long-run check stays the dashboard.

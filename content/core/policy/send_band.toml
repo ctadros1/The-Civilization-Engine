@@ -1,0 +1,24 @@
+# A band sent by law (M6c slice BJ, step three; ADR-0023 §5): the gathering names one to lead a
+# band against the settlement whose people raided its households, and each household owes one of
+# its grown people to go. Households equip their own and nobody is paid; each chooses whom it
+# sends, the one most willing, or keeps its share back as a levy is kept back. The band goes once:
+# when it is home, or it never set off, the law has run its course. Research 13-05 §1.2 gives the
+# terms a household weighs (what a raid would bring back, what it costs to send someone) and no
+# weights; 13-03 §2.3's days of service a year wait for bands that camp (slice BL). Whether anyone
+# proposes it, whom it names and whether the gathering passes it is people's choice; nothing here
+# weighs toward it.
+kind = "policy"
+id = "core:policy/send_band"
+name = "Band sent by law"
+description = "The one the gathering names leads a band against the settlement whose people raided its households, each household owing one of its grown people to go."
+does = "send_band"
+answers = ["raided"]
+# The question people take positions on (content API 41, M4c slice AG).
+question = "whether to send a band against those who raided us"
+
+# How a law of this kind bears on what people hold dear (content API 43): -1 against a value to
+# 1 for it. An authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 0.5
+"core:value/reciprocity" = 0.5   # what was taken is taken back
+"core:value/autonomy" = -0.5     # each household owes someone

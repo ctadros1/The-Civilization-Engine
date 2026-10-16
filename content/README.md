@@ -651,6 +651,140 @@ settlement the store spoils as a roofed store and relief is asked at their home;
 leave the law lapses (the chronicle says so), the store is unkept again and the issue is open for
 a new proposal: succession is a new law, not a rule written in advance (research 09-03 §3.1, §5.1).
 
+Content API 105 (M7a slice BN, ADR-0024 §2) brings an office's tenure. A `keep_store` or
+`keep_watch` template may carry a `[tenure]` table: `term_days` (1 to 3650) the office is held
+from the day the body passes it, `renewable` (default true) whether its holder may be named or
+drawn for the next term, and `fill`, `named` (the default: the sponsor nominates, as before) or
+`lot`. Filled by lot, a law names nobody; once it passes, a lot keyed by the law draws its holder
+from those who stood for it at the gathering (a design prior: wanting the office kept is taken as
+willingness to keep it), less the last holder where the office is not renewable and anyone
+keeping the watch already. With nobody to draw, the law lapses. At its term's end the office
+lapses, as at a death, and the issue opens again. The core adds
+`core:policy/your_turn_keeping_the_store` (half a year, by lot, not renewable) and
+`core:policy/your_year_keeping_the_store` (a year, named, renewable).
+
+Content API 106 (M7a slice BO, ADR-0024 §1, §3, §6) brings councils and their elections. An
+`amend_body` template may add three council levels, given together: `seats` (3 to 31 each),
+`seat_methods` (`election` or `lot`) and `seat_terms` (30 to 3650 days each); its bodies are then
+councils, one for each combination, whose `members` name their electorates (`adults`, `elders` or
+`landholders`). A council is one change from a gathering of its own electorate, so a sponsor
+weighs it as any other amendment: each household judges it by how the council the sponsor expects
+would have decided what its members saw decided (a design prior: by election, the n of the
+electorate the sponsor knows who stand highest in counsel would sit; by lot, the electorate's seen
+stances in proportion). Under a council the body is those who sit; its quorum counts its seats,
+filled or empty; only they propose and come to its sittings. An election is called the midnight
+after the custom becomes a council and again as the seats' term nears its end; word of it goes
+round as word of a gathering does; each of the electorate who hears of it chooses once whether to
+stand; when names close, a field no larger than the seats sits unopposed, a lot draws among the
+names, or the polling day comes, when each of the electorate who heard of it may walk to the hearth
+(the `core:activity/poll` activity, behaviour `poll`) and name up to n of those who stood, ranked
+by one draw at a fixed scale over regard, their own household and standing in counsel; the block
+vote counts the names, a keyed lot settling a tie for the last seats. Nobody standing or nobody
+polling fails, recorded, and the seats stay empty until the next election. The people profile's
+`[elections]` table holds the days names are open, the minutes polling takes, the points of
+standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's weights (`w_regard`,
+`w_household`, `w_counsel`, `w_self`, `vote_scale`) and the points of coming to poll (`poll_base`,
+`w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
+election or by lot, quorum half, more for than against).
+
+Content API 117 (M7c slice BY, ADR-0026 §4) brings corruption and patronage. The people
+profile's `[crime]` table adds `divert_share` (the most of a common store's food its keeper draws
+for their own household at one review), `favour_reserve_days` (below this many days of the
+settlement's food in the store, its keeper answers asks by their regard) and `favour_floor` (the
+regard below which they pass one over), `collector_sight` (the chance a duty's collector sees a
+purchase brought home) and `collector_ask_share` (the share of what is owed they ask to assess
+nothing). A duty's `[duty]` table may say `collector = true`: its law names a collector. The
+`[polity]` table adds `w_owed` (the points a stance gains for each day of its household's food a
+patron's gifts brought it), `owed_memory_days` and `patron_gift_days` (the most one gift is). The
+core adds `core:policy/duty_on_tools_collected`.
+
+Content API 116 (M7c slice BX, ADR-0026 §3) brings privileges. A policy may `does = "privilege"`
+with a `[privilege]` table, `grant` (`licence`: the sole right to offer goods of its `purpose` at
+doors in the settlement; `staple`: the sole right to sell there such goods fetched from another
+settlement) and `purpose` (`food`, `fuel`, `material`, `tool` or `store`), and the `bundles` a
+finding of a breach imposes (as a law against taking's, its compensation going to the household
+that brought the case). It names a recognized organization when proposed. A forum's `hears` may
+name `privilege`. The core adds `core:policy/licence_tools` and `core:policy/staple_tools`, and the
+elders and the panel hear privileges.
+
+Content API 115 (M7c slice BW, ADR-0026 §2) brings organizations by stake and their recognition.
+The people profile's `[faction]` table adds `organize_days` (the cost of organizing, in days of the
+founder's household's food), `w_stake` (the points a duty worth that much a year brings, and what
+organizing itself costs), `stake_admit` (`open`: anyone who sells the goods; `sponsor`: one a member
+speaks for), `stake_decides` (`organizer` or `members`: who decides an application) and
+`stake_dues_share` (the share of each threshing a member gives, at least 0 and below 1). A policy
+may `does = "recognize"`, which takes nothing of its own: it names an organization by stake its
+proposer's household belongs to, and while it is in force that organization's members' households
+owe none of the polity's duties on goods of what it sells. The core adds
+`core:policy/recognize_organization`, answering `fetched_elsewhere`.
+
+Content API 114 (M7c slice BV, ADR-0026 §1) brings trade laws. A policy may `does = "duty"`, its
+rates its `levy_shares` (above 0 and below 1) and a `[duty]` table: `purpose` (`food`, `fuel`,
+`material`, `tool` or `store`: the goods it is laid on) and `exempt_sellers` (households that offer
+such goods at home are spared it); or `does = "embargo"`, which takes nothing of its own: it names
+the settlement its people bought most from when proposed. Both answer the new issue
+`fetched_elsewhere`. The core adds `core:policy/duty_on_tools` and `core:policy/embargo`.
+
+Content API 113 (M7b slice BU, ADR-0025 §5) brings the norm that findings bind. A norm may
+`does = "abide_by_findings"`: its points weigh toward meeting what a forum's finding imposes, as
+`abide_by_laws` weighs toward meeting the gathering's, and its `[expect] share` and `tell_days`
+say how often companions at the hearth tell whether their household met what forums imposed on it,
+and for how long that is worth telling. The core adds `core:norm/findings_bind`.
+
+Content API 112 (M7b slice BT, ADR-0025 §3-4) brings limits and review. A policy may `does =
+"limit"` with a `[limit]` table: `predicate` (`daylight_work`, with `minutes`: the most of the
+longest day's light a curfew may cover, 1 to 720; or `levy_share`, with `share`: the most of a
+harvest a law may levy, above 0 and below 1) and `change` (`more_for` or `two_thirds`: the rule
+its own repeal is decided by). It answers the `overruled` issue and is weighed only as an amendment
+is. A `[forum]` table may add `review = true`: that forum hears challenges of laws in force under
+limits in force, brought by those a law costs. The people profile's `[crime]` table adds
+`w_reading`. The core adds `core:policy/limit_daylight_work` and `core:policy/limit_levy`, and
+gives review to the elders and to the hearer bound by findings.
+
+Content API 111 (M7b slice BS, ADR-0025 §2) brings precedent. A `[forum]` table may add
+`authority`: `informative` (the default: sitters follow no finding but as they believe it),
+`persuasive` or `binding`. The people profile's `[crime]` table adds `recall_k` (3 to 8: how
+many remembered findings a sitter recalls, those whose fact tags match the case's most, newest
+first), `w_persuasive` and `w_binding` (the points a recalled finding moves a sitter toward its
+direction, times the share of tags matched, under each authority). Every finding is remembered by
+those who heard it as a claim and told as news. The core makes the elders persuasive and adds
+`core:policy/hearer_by_precedent` (a hearer bound by findings).
+
+Content API 110 (M7b slice BR, ADR-0025 §1) brings forums. A policy may `does = "hear_cases"`
+with a `[forum]` table: `seat` (`holder`, one the body names, as an office; `panel`, `panel` of
+3 to 15 drawn by a keyed lot from the body's members for each sitting; or `elders`, the eldest
+adult of each household), `hears` (the kinds of law whose cases it hears: `against_taking`,
+`against_raiding`), and for a panel or the elders `quorum_share` (default 0.5) and `pass`
+(default `more_for`). It answers the `cases_waiting` issue. A case brought under a law it hears is
+heard by it the midnight after, nobody of the two households sitting; before then it may be
+settled or withdrawn. The core adds `core:policy/name_a_hearer`, `core:policy/hear_by_panel` and
+`core:policy/hear_by_elders`.
+
+Content API 109 (M7a slice BQ, ADR-0024 §6) prices the evenings a council saves. The people
+profile's `[elections]` table adds `w_evening`: the points an evening at the gathering costs one
+who comes. When a household judges a council by the decisions its members saw, it also counts,
+for each, its people who came and would not sit under the council the sponsor expects, at
+`w_evening` each (the same points a proposal and a stance weigh, over `polity.w_gain`).
+
+Content API 108 (M7a slice BQ, ADR-0024 §1) lets a council's seats be shared among a polity's
+settlements. An `amend_body` template with council levels may add `seat_districts`: `at_large`
+(the whole polity elects every seat, as before) and `by_settlement` (each settlement it holds is a
+district electing its share). A council by settlement is offered only to a polity that holds more
+than one settlement. When its election is called, the seats are shared out by the size of each
+settlement's electorate then, by the largest remainder (a tie to the seat's settlement first);
+each who stands stands in the district they live in, for its seats; each voter polls at their own
+hearth for their own district's seats, as many as it has; each district is counted apart, and one
+whose field is no larger than its seats sits unopposed. `core:policy/seat_a_council` offers both.
+
+Content API 107 (M7a slice BP, ADR-0024 §3-5) brings campaigns, positions and slates to
+elections. The people profile's `[elections]` table adds `positions_told` (0 to 3: how many
+questions one who stands says where they stand on, those that matter most to them), `w_distance`
+(a voter's utility against the mean distance from where a candidate said they stand, on the
+questions the voter holds a position on, once they have heard of the candidacy), `w_record` (for
+how the candidate's seen stances lined up with what the decided laws meant to the voter's
+household, −1 to 1), `w_slate` (for a candidate the voter's own faction backs) and `w_campaign`
+(points one who stands finds in an evening at the hearth while their election runs).
+
 Content API 31 (M4a slice Z) brings the polity: the `policy` kind, the people profile's
 `[polity]` and `behavior = "attend"` (`core:activity/attend_gathering`, adults only). The core
 pack reviews weekly (ADR-0014 §4; research 09-01 §3.3: 7-30 days), calls the gathering the next

@@ -616,7 +616,8 @@ fn check_years(sim: &mut Sim, years: u32, result: &mut SmokeResult) {
     result.notes.extend(takings(sim));
 }
 
-/// What a polity's history must hold to (ADR-0013): one polity a settlement; every law decided by
+/// What a polity's history must hold to (ADR-0013): one polity still deciding holds each
+/// settlement (a polity taken in keeps its record, closed; M6c slice BM); every law decided by
 /// the rule of the custom's version in force when it was decided (M4c slice AF), over the stances
 /// recorded, no more present than eligible; a law in force passed (an amendment later replaced
 /// stands superseded); at most one law before the gathering, and a gathering only for it.
@@ -625,7 +626,7 @@ fn polity_problems(sim: &Sim) -> Vec<String> {
     let mut out = Vec::new();
     let pop = sim.people();
     for s in &sim.land().settlements {
-        let n = pop.polities.iter().filter(|p| p.settlement == s.id).count();
+        let n = pop.polities.iter().filter(|p| p.holds(Some(s.id))).count();
         if n != 1 {
             out.push(format!("{} has {n} polities", s.name));
         }
@@ -1423,6 +1424,22 @@ fn earthworks(sim: &Sim) -> Option<String> {
     if daub > 0 {
         let noun = plural(daub, "daub pit", "daub pits");
         parts.push(format!("{daub} {noun}, {daubed:.0} m³"));
+    }
+    // Irrigation ditches (M6b slice BG): laid out, dug, and the water they moved.
+    let ditches = &sim.land().ditches;
+    if !ditches.is_empty() {
+        let dug = works
+            .iter()
+            .filter(|w| w.kind == EarthKind::Ditch && w.done >= 1.0)
+            .count();
+        let taken: f64 = ditches.iter().map(|d| d.taken_m3).sum();
+        let kept: f64 = ditches.iter().map(|d| d.kept_m3).sum();
+        let noun = plural(ditches.len(), "ditch", "ditches");
+        parts.push(format!(
+            "{} {noun} laid out, {dug} dug, {taken:.0} m³ taken from the river and {kept:.0} m³ \
+             kept by fields",
+            ditches.len()
+        ));
     }
     (!parts.is_empty()).then(|| parts.join("; "))
 }

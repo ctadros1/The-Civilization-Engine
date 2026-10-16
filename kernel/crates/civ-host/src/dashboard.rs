@@ -152,6 +152,8 @@ pub struct WorldRun {
     pub regimes_by_decade: Vec<(u32, Vec<String>)>,
     /// Its attempts to take, by where the taker's household stood by food.
     pub crime: CrimeSeen,
+    /// Its cases and challenges, how each closed and by whom (M7b slice BU).
+    pub justice: JusticeSeen,
     /// Each settlement at the end: its name and its residents (ADR-0018).
     pub settlements: Vec<(String, u32)>,
     /// Where a settlement's accounts did not balance in some year (ADR-0018 §3's hard check).
@@ -608,6 +610,8 @@ pub struct Between {
     pub taken_in: u32,
     /// Sent away by a finding: forced, so not counted with the others.
     pub exiled: u32,
+    /// With their household, from raids on its home (M6c slice BJ): forced, so not counted.
+    pub fled: u32,
 }
 
 impl Between {
@@ -629,6 +633,7 @@ impl Between {
                     ResidenceWhy::Married => out.married += 1,
                     ResidenceWhy::TakenIn => out.taken_in += 1,
                     ResidenceWhy::Exiled => out.exiled += 1,
+                    ResidenceWhy::Fled => out.fled += 1,
                     _ => {}
                 }
             }
@@ -691,6 +696,111 @@ pub struct CrimeSeen {
     pub seen: Ranked,
     /// Those brought before a gathering.
     pub cases: Ranked,
+}
+
+/// A world's cases and challenges (M7b slice BU): by forum or gathering, how each closed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize)]
+pub struct JusticeSeen {
+    /// Cases of takings brought before the gathering.
+    pub gathering: u32,
+    /// Cases of takings brought before a forum.
+    pub forum: u32,
+    /// Found, not found, unheard, lapsed, settled and withdrawn, takings and challenges together.
+    pub found: u32,
+    pub not_found: u32,
+    pub unheard: u32,
+    pub lapsed: u32,
+    pub settled: u32,
+    pub withdrawn: u32,
+    /// Challenges of laws under limits, and the laws they struck down.
+    pub challenges: u32,
+    pub struck: u32,
+    /// Findings that departed from a remembered one of the same facts.
+    pub departed: u32,
+    /// Days from brought to closed, summed over the closed, and how many closed.
+    pub days: i64,
+    pub closed: u32,
+}
+
+impl JusticeSeen {
+    /// The tally of `order`'s cases.
+    pub fn of(order: &civ_agents::crime::Order) -> JusticeSeen {
+        use civ_agents::crime::CaseStage;
+        let mut j = JusticeSeen::default();
+        for c in &order.cases {
+            if c.challenge.is_some() {
+                j.challenges += 1;
+                if c.stage == CaseStage::Found {
+                    j.struck += 1;
+                }
+            } else if c.forum.is_some() {
+                j.forum += 1;
+            } else {
+                j.gathering += 1;
+            }
+            match c.stage {
+                CaseStage::Open => {}
+                CaseStage::Found => j.found += 1,
+                CaseStage::NotFound => j.not_found += 1,
+                CaseStage::Unheard => j.unheard += 1,
+                CaseStage::Lapsed => j.lapsed += 1,
+                CaseStage::Settled => j.settled += 1,
+                CaseStage::Withdrawn => j.withdrawn += 1,
+            }
+            j.departed += u32::from(c.departed.is_some());
+            if let Some(d) = c.closure_days().filter(|_| c.stage != CaseStage::Open) {
+                j.days += d;
+                j.closed += 1;
+            }
+        }
+        j
+    }
+
+    fn join(&mut self, o: &JusticeSeen) {
+        self.gathering += o.gathering;
+        self.forum += o.forum;
+        self.found += o.found;
+        self.not_found += o.not_found;
+        self.unheard += o.unheard;
+        self.lapsed += o.lapsed;
+        self.settled += o.settled;
+        self.withdrawn += o.withdrawn;
+        self.challenges += o.challenges;
+        self.struck += o.struck;
+        self.departed += o.departed;
+        self.days += o.days;
+        self.closed += o.closed;
+    }
+
+    /// In words: "12 cases before the gathering, 4 before forums; 7 found, 5 not found, 1
+    /// unheard, 0 lapsed, 2 settled, 1 withdrawn; 1 challenge, 1 law struck down; 1 departure;
+    /// 2.3 days to closure on average".
+    pub fn words(&self) -> String {
+        let days = if self.closed > 0 {
+            format!(
+                "{:.1} days to closure on average",
+                self.days as f64 / f64::from(self.closed)
+            )
+        } else {
+            "none closed".to_owned()
+        };
+        format!(
+            "{} cases before the gathering, {} before forums; {} found, {} not found, {} \
+             unheard, {} lapsed, {} settled, {} withdrawn; {} challenges, {} laws struck down; \
+             {} departures; {days}",
+            self.gathering,
+            self.forum,
+            self.found,
+            self.not_found,
+            self.unheard,
+            self.lapsed,
+            self.settled,
+            self.withdrawn,
+            self.challenges,
+            self.struck,
+            self.departed,
+        )
+    }
 }
 
 impl CrimeSeen {
@@ -1031,6 +1141,7 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
     }
     world.gini = by_year.into_iter().map(|(y, (g, p))| (y, g, p)).collect();
     world.crime = CrimeSeen::of(&sim.people().order);
+    world.justice = JusticeSeen::of(&sim.people().order);
     world.water = WaterSeen::of(sim);
     world.fires.count(sim);
     world.floods.count(sim);
@@ -1108,6 +1219,7 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
         neighbours(worlds),
         accounting(worlds),
         crime(worlds),
+        justice(worlds),
         water(worlds),
         epidemics(worlds),
         fires(worlds),
@@ -1218,8 +1330,9 @@ fn moves(worlds: &[WorldRun]) -> Row {
             let b = &w.between;
             format!(
                 "world {}: {rate:.1} ({} with their households, {} founding, {} on marrying, {} \
-                 taken in; {} exiled not counted); turnover {turnover:.1}, net {net:+.1}",
-                w.seed, b.moved, b.founded, b.married, b.taken_in, b.exiled
+                 taken in; {} fled and {} exiled not counted); turnover {turnover:.1}, net \
+                 {net:+.1}",
+                w.seed, b.moved, b.founded, b.married, b.taken_in, b.fled, b.exiled
             )
         })
         .collect();
@@ -1491,6 +1604,25 @@ fn crime(worlds: &[WorldRun]) -> Row {
             format!("too few attempts to take to judge, {MIN_ATTEMPTS} needed: {words}"),
         ),
     }
+}
+
+/// Justice (M7b slice BU, ADR-0025 §5), reported and not graded: cases before the gathering and
+/// before forums, how each closed, challenges and laws struck down, findings that departed from a
+/// remembered one, and the days from brought to closed. Nothing says how often villages should
+/// go to law; the row shows what they did.
+fn justice(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Justice",
+        "cases before the gathering and before forums, how each closed, challenges and laws \
+         struck down, departures from remembered findings, days to closure, all worlds together",
+        "reported",
+    )
+    .source("ADR-0025; research 09-07 §1.1, §2.2 (disputes outnumber adjudications)");
+    let mut all = JusticeSeen::default();
+    for w in worlds {
+        all.join(&w.justice);
+    }
+    row.graded(Grade::Gray, all.words())
 }
 
 /// Where people drew their water, their wells and what they used a day, reported and not graded
@@ -2421,6 +2553,7 @@ mod tests {
             "Price convergence",
             "Neighbours",
             "Crime and poverty",
+            "Justice",
             "Water",
             "Epidemics",
             "Floods and storms",
@@ -2447,7 +2580,59 @@ mod tests {
         // Only population and the accounts are graded, both worlds keep their bands and no
         // settlement's accounts failed: a pass, but no grey row counts as one.
         assert!(dashboard.passed());
-        assert_eq!(dashboard.summary(), "2 passed, 15 not yet applicable");
+        assert_eq!(dashboard.summary(), "2 passed, 16 not yet applicable");
+    }
+
+    #[test]
+    fn the_justice_row_tallies_cases_by_who_heard_them_and_how_they_closed() {
+        use civ_agents::crime::{Case, CaseStage, Order};
+        let id = |n: u64| civ_core::PermanentId::from_raw(n).expect("non-zero");
+        let case = |n: u32, stage, forum: bool, challenge: bool, departed| Case {
+            id: n,
+            incident: n,
+            settlement: id(1),
+            law: id(2),
+            accuser: id(3),
+            by: id(4),
+            accused: id(5),
+            accused_household: id(6),
+            kcal: 1000.0,
+            leads: Vec::new(),
+            opened: 10,
+            stage,
+            heard: (stage != CaseStage::Open)
+                .then(|| civ_core::SimTime::from_minutes(13 * 24 * 60)),
+            eligible: 0,
+            stances: Vec::new(),
+            exiled: false,
+            forum: forum.then(|| id(7)),
+            challenge: challenge.then(|| id(8)),
+            tags: 0,
+            departed,
+        };
+        let order = Order {
+            cases: vec![
+                case(1, CaseStage::Found, false, false, None),
+                case(2, CaseStage::Settled, true, false, None),
+                case(3, CaseStage::NotFound, true, false, Some(1)),
+                case(4, CaseStage::Found, true, true, None),
+                case(5, CaseStage::Open, true, false, None),
+            ],
+            ..Order::default()
+        };
+        let j = JusticeSeen::of(&order);
+        assert_eq!((j.gathering, j.forum, j.challenges, j.struck), (1, 3, 1, 1));
+        assert_eq!((j.found, j.not_found, j.settled, j.departed), (2, 1, 1, 1));
+        assert_eq!((j.closed, j.days), (4, 12));
+        let mut all = JusticeSeen::default();
+        all.join(&j);
+        all.join(&j);
+        assert_eq!(all.closed, 8);
+        assert!(
+            all.words().contains("3.0 days to closure"),
+            "{}",
+            all.words()
+        );
     }
 
     #[test]
@@ -2543,6 +2728,7 @@ mod tests {
             married: 6,
             taken_in: 2,
             exiled: 40,
+            fled: 0,
         };
         assert_eq!(moves(&[w.clone()]).grade, Grade::Gray, "one settlement");
         w.settlements = vec![("A".to_owned(), 50), ("B".to_owned(), 50)];

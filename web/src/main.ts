@@ -65,7 +65,7 @@ const client = new HostClient(socketUrl(), {
   snapshot: (snapshot, epoch) => {
     store.update({ snapshot, epoch });
     syncMap();
-    map.setPeople(snapshot.people, snapshot.settlements, snapshot.clock);
+    map.setPeople(snapshot.people, snapshot.settlements, snapshot.clock, snapshot.bands);
     map.setSeason(seasonOf(snapshot.clock));
     void syncChronicle();
     void syncFields();
@@ -1482,6 +1482,8 @@ const hooks = {
               relations: p.relations,
               petitions: p.petitions,
               refusals: p.refusals,
+              settlements: p.settlements,
+              ended: p.ended,
               laws: p.laws.map((l) => ({
                 what: l.what,
                 status: l.status,
@@ -1491,6 +1493,7 @@ const hooks = {
                 known: l.known,
               })),
             })),
+            sieges: s.government.sieges,
           }
         : null,
       incidentKind: s.incidentKind,

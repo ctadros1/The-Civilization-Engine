@@ -81,6 +81,7 @@ use civ_agents::ledger::{Channel, Trade};
 use civ_agents::market::{Market, MonthOfTrade, Offer};
 use civ_agents::person::{Know, KnowSource};
 use civ_agents::population::DepositKnown;
+use civ_agents::seats::Seats;
 use civ_agents::wealth::{Spread, WealthYear};
 use civ_agents::{
     Activity, AgentEvent, Cause, Household, KnownPatch, Load, Person, Population, Reason, Receipt,
@@ -115,7 +116,12 @@ use super::{
     SCHEMA_V73, SCHEMA_V74, SCHEMA_V75, SCHEMA_V76, SCHEMA_V77, SCHEMA_V78, SCHEMA_V79, SCHEMA_V80,
     SCHEMA_V81, SCHEMA_V82, SCHEMA_V83, SCHEMA_V84, SCHEMA_V85, SCHEMA_V86, SCHEMA_V87, SCHEMA_V88,
     SCHEMA_V89, SCHEMA_V90, SCHEMA_V91, SCHEMA_V92, SCHEMA_V93, SCHEMA_V94, SCHEMA_V95, SCHEMA_V96,
-    SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, finish, section, single_chunk, unreadable,
+    SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
+    SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
+    SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
+    SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
+    SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -519,6 +525,70 @@ enum Schema {
     V99,
     V100,
     V101,
+    /// M6b slice BG: households' flood losses, banks built by law.
+    V102,
+    /// M6b slice BG: bank piping damage and told failures.
+    V103,
+    /// M6b slice BG: banks mended (refill, repair hours asked).
+    V104,
+    /// M6b slice BG: irrigation ditches.
+    V105,
+    /// M6b slice BG: households dig ditches.
+    V106,
+    /// M6b slice BH: households remember fires.
+    V107,
+    /// M6b slice BH: households remember buildings that gave way.
+    V108,
+    /// M6c slice BI: an incident names the taker's settlement when it is another.
+    V109,
+    /// M6c slice BJ: bands and the encounters they met.
+    V110,
+    /// M6c slice BJ, step two: raids and bands seen as claims, who was asked to a band.
+    V111,
+    /// M6c slice BJ, step three: bands sent and raiding forbidden by law.
+    V112,
+    /// M6c slice BK: enclosures.
+    V113,
+    /// M6c slice BK, step two: palisades raised by law.
+    V114,
+    /// M6c slice BK, step three: gates kept, posts rotting and mended.
+    V115,
+    /// M6c slice BL, step one: bands camp by a shut line.
+    V116,
+    /// M6c slice BL, step two: words against raiding in agreements (clause kind 3).
+    V117,
+    /// M6c slice BM, step one: a polity holds several settlements, and one taken in ends.
+    V118,
+    /// M6c slice BM, step two: bands holding a settlement, the annex law and the holding issue.
+    V119,
+    /// M7a slice BN: office laws held for a term (`PolitySave.terms`).
+    V120,
+    /// M7a slice BO: councils and their elections (`PolitySave.seats`, `seated`, `elections`).
+    V121,
+    /// M7a slice BP: candidates' positions and faction slates (`ElectionSave.positions`,
+    /// `endorsements`).
+    V122,
+    /// M7a slice BQ: seats shared among settlements (`ElectionSave.districts`,
+    /// `candidate_districts`; the seats' packed number gains a bit).
+    V123,
+    /// M7a slice BQ: electoral alliances (`ElectionSave.alliances`).
+    V124,
+    /// M7b slice BR: forums (`CaseSave.forum`).
+    V125,
+    /// M7b slice BS: precedent (`CaseSave.tags`, `departed`, `stance_precedent`).
+    V126,
+    /// M7b slice BT: limits and review (`CaseSave.challenge`, law status 6 struck down).
+    V127,
+    /// Trade laws: the issue *goods fetched elsewhere* (M7c slice BV).
+    V128,
+    /// Organizations by stake (M7c slice BW: `FactionSave.has_stake` and its rules, events 3-4,
+    /// `Blamed` kind 5, `Wrong` code 10).
+    V129,
+    /// Privileges (M7c slice BX: policy kind code 24, firm exit 4).
+    V130,
+    /// The keeper's diversion and relief by favour (M7c slice BY: `LawSave.diverted` and its
+    /// fellows, channel 20, `Wrong` code 11).
+    V131,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -634,7 +704,37 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V98 => Schema::V98,
         SCHEMA_V99 => Schema::V99,
         SCHEMA_V100 => Schema::V100,
-        SAVE_SCHEMA_VERSION => Schema::V101,
+        SCHEMA_V101 => Schema::V101,
+        SCHEMA_V102 => Schema::V102,
+        SCHEMA_V103 => Schema::V103,
+        SCHEMA_V104 => Schema::V104,
+        SCHEMA_V105 => Schema::V105,
+        SCHEMA_V106 => Schema::V106,
+        SCHEMA_V107 => Schema::V107,
+        SCHEMA_V108 => Schema::V108,
+        SCHEMA_V109 => Schema::V109,
+        SCHEMA_V110 => Schema::V110,
+        SCHEMA_V111 => Schema::V111,
+        SCHEMA_V112 => Schema::V112,
+        SCHEMA_V113 => Schema::V113,
+        SCHEMA_V114 => Schema::V114,
+        SCHEMA_V115 => Schema::V115,
+        SCHEMA_V116 => Schema::V116,
+        SCHEMA_V117 => Schema::V117,
+        SCHEMA_V118 => Schema::V118,
+        SCHEMA_V119 => Schema::V119,
+        SCHEMA_V120 => Schema::V120,
+        SCHEMA_V121 => Schema::V121,
+        SCHEMA_V122 => Schema::V122,
+        SCHEMA_V123 => Schema::V123,
+        SCHEMA_V124 => Schema::V124,
+        SCHEMA_V125 => Schema::V125,
+        SCHEMA_V126 => Schema::V126,
+        SCHEMA_V127 => Schema::V127,
+        SCHEMA_V128 => Schema::V128,
+        SCHEMA_V129 => Schema::V129,
+        SCHEMA_V130 => Schema::V130,
+        SAVE_SCHEMA_VERSION => Schema::V131,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -780,6 +880,17 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V29 {
         let bytes = single_chunk(reader, SECTION_POLITY)?;
         people.polities = decode_polities(&bytes, rules)?;
+        // Explicit migration: schemas through 103 had asked no bank mending.
+        if schema < Schema::V104
+            && people.polities.iter().any(|p| {
+                !p.bank_keeps.is_empty()
+                    || p.banks.iter().any(|(_, s)| s.upkeep_h != 0.0 || s.mending)
+            })
+        {
+            return Err(LoadError::Malformed(
+                "bank mending asked before schema 104".into(),
+            ));
+        }
     }
     // Takings (schema 31); before them nobody had taken anything.
     if schema >= Schema::V31 {
@@ -869,7 +980,7 @@ pub(super) fn decode<R: Read + Seek>(
     // none.
     if schema >= Schema::V68 {
         let bytes = single_chunk(reader, SECTION_CROSSINGS)?;
-        (land.crossings, people.fords) = decode_crossings(&bytes, rules, map)?;
+        (land.crossings, people.fords, land.enclosures) = decode_crossings(&bytes, rules, map)?;
     }
     // Wells (schema 74); before, none.
     if schema >= Schema::V74 {
@@ -1013,6 +1124,36 @@ pub(super) fn decode<R: Read + Seek>(
                 "a non-fire claim names a fire".to_owned(),
             ));
         }
+        // A raid names a recorded encounter, a band seen a recorded band (schema 111), a finding
+        // a recorded case (schema 126, M7b slice BS).
+        let named = match c.kind {
+            civ_agents::word::ClaimKind::Raid => Some((
+                c.event
+                    .is_some_and(|id| people.order.clashes.iter().any(|x| x.id == id)),
+                Schema::V111,
+            )),
+            civ_agents::word::ClaimKind::BandSeen => Some((
+                c.event
+                    .is_some_and(|id| people.order.bands.iter().any(|x| x.id == id)),
+                Schema::V111,
+            )),
+            civ_agents::word::ClaimKind::Finding => Some((
+                c.event
+                    .is_some_and(|id| people.order.cases.iter().any(|x| x.id == id)),
+                Schema::V126,
+            )),
+            _ => None,
+        };
+        match named {
+            Some((true, since)) if schema >= since => {}
+            None if c.event.is_none() => {}
+            _ => {
+                return Err(LoadError::Malformed(format!(
+                    "claim {} names no recorded encounter, band or case",
+                    c.id
+                )));
+            }
+        }
     }
     for p in &people.fires.pulled {
         let bad = p.work_h <= 0.0
@@ -1087,11 +1228,41 @@ pub(super) fn decode<R: Read + Seek>(
                 p.id, p.settlement
             ));
         }
-        if people.polities[..i]
-            .iter()
-            .any(|o| o.settlement == p.settlement)
+        // A polity taken in keeps its record, closed, and its settlement may be seat again of
+        // one that broke away later (M6c slice BM): two still deciding is what is wrong.
+        if p.ended.is_none()
+            && people.polities[..i]
+                .iter()
+                .any(|o| o.holds(Some(p.settlement)))
         {
             problems.push(format!("settlement {} has two polities", p.settlement));
+        }
+        for (law, _) in &p.terms {
+            if !p.laws.iter().any(|l| l.id == *law) {
+                problems.push(format!(
+                    "polity {} has a term of law {law}, not its own",
+                    p.id
+                ));
+            }
+        }
+        for h in &p.held {
+            if !settlements.contains(&h.settlement) {
+                problems.push(format!(
+                    "polity {} holds missing settlement {}",
+                    p.id, h.settlement
+                ));
+            }
+            let holders = people
+                .polities
+                .iter()
+                .filter(|o| o.holds(Some(h.settlement)))
+                .count();
+            if p.ended.is_none() && holders != 1 {
+                problems.push(format!(
+                    "settlement {} is held by {holders} polities still deciding",
+                    h.settlement
+                ));
+            }
         }
     }
     for (i, m) in people.markets.iter().enumerate() {
@@ -1167,6 +1338,10 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     let views: Vec<f32> = l.stances.iter().map(|r| r.view).collect();
                     let stance_views =
                         (views.iter().any(|&v| v != 0.0)).then(|| fbb.create_vector(&views));
+                    // What each household owed the sponsor (schema 131).
+                    let owed: Vec<f32> = l.stances.iter().map(|r| r.owed).collect();
+                    let stance_owed =
+                        (owed.iter().any(|&v| v != 0.0)).then(|| fbb.create_vector(&owed));
                     let known: Vec<save::KnownSave> = l
                         .known
                         .iter()
@@ -1194,8 +1369,17 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             to_hour: l.hours.1,
                             broken: c.broken,
                             broken_unaware: c.broken_unaware,
+                            diverted: c.diverted,
+                            diverted_kg: c.diverted_kg,
+                            favoured: c.favoured,
+                            passed_over: c.passed_over,
+                            assessed: c.assessed,
+                            asked: c.asked,
+                            bribed: c.bribed,
+                            bribe_kg: c.bribe_kg,
                             ends: l.ends.map_or(0, PermanentId::get),
                             agreement: l.agreement.map_or(0, PermanentId::get),
+                            target: l.target.map_or(0, PermanentId::get),
                             status: law_status_code(l.status),
                             sponsor: l.sponsor.get(),
                             proposed: l.proposed.minutes(),
@@ -1222,9 +1406,11 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             body_members: l.body.map_or(u8::MAX, |b| b.members.code()),
                             body_quorum: l.body.map_or(0.0, |b| b.quorum_share),
                             body_pass: l.body.map_or(0, |b| b.pass.code()),
+                            body_seats: l.body.map_or(0, |b| Seats::pack(b.seats)),
                             stance_opinions: Some(stance_opinions),
                             stance_values: Some(stance_values),
                             stance_views,
+                            stance_owed,
                         },
                     )
                 })
@@ -1322,6 +1508,250 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let wells = (!wells.is_empty()).then(|| fbb.create_vector(&wells));
+            // Where its laws would build flood banks, what each household reckoned they would
+            // save it, and what each has given (schema 102).
+            let banks: Vec<_> = p
+                .banks
+                .iter()
+                .map(|&(law, s)| {
+                    save::BankSiteSave::create(
+                        &mut fbb,
+                        &save::BankSiteSaveArgs {
+                            law: law.get(),
+                            reach: s.reach,
+                            ax: s.a[0],
+                            ay: s.a[1],
+                            bx: s.b[0],
+                            by: s.b[1],
+                            height_m: s.height_m,
+                            crest_width_m: s.crest_width_m,
+                            side_run: s.side_run,
+                            compacted_per_bank: s.compacted_per_bank,
+                            env_x_cm: s.envelope.x,
+                            env_y_cm: s.envelope.y,
+                            env_w_cm: s.envelope.w,
+                            env_h_cm: s.envelope.h,
+                            pit_x_cm: s.pit.x,
+                            pit_y_cm: s.pit.y,
+                            pit_w_cm: s.pit.w,
+                            pit_h_cm: s.pit.h,
+                            labour_h: s.labour_h,
+                            upkeep_h: s.upkeep_h,
+                            mending: s.mending,
+                            work: s.work.map_or(0, PermanentId::get),
+                        },
+                    )
+                })
+                .collect();
+            let banks = (!banks.is_empty()).then(|| fbb.create_vector(&banks));
+            let banks_failed: Vec<u64> = p.banks_failed.iter().map(|w| w.get()).collect();
+            let banks_failed = (!banks_failed.is_empty()).then(|| fbb.create_vector(&banks_failed));
+            let bank_keeps: Vec<_> = p
+                .bank_keeps
+                .iter()
+                .map(|(k, b)| save::BankKeepRecord::new(k.get(), b.get()))
+                .collect();
+            let bank_keeps = (!bank_keeps.is_empty()).then(|| fbb.create_vector(&bank_keeps));
+            let bank_saves = bank_share_rows(&mut fbb, &p.bank_saves);
+            let bank_given = bank_share_rows(&mut fbb, &p.bank_given);
+            // Where its laws would raise palisades, and what each household reckoned they
+            // would keep it (schema 114).
+            let enclosures: Vec<_> = p
+                .enclosures
+                .iter()
+                .map(|&(law, s)| {
+                    save::EnclosureSiteSave::create(
+                        &mut fbb,
+                        &save::EnclosureSiteSaveArgs {
+                            law: law.get(),
+                            x: s.centre.0,
+                            y: s.centre.1,
+                            radius_m: s.radius_m,
+                            gates: s.gates,
+                            inside: s.inside,
+                            labour_h: s.labour_h,
+                            work: s.work.map_or(0, PermanentId::get),
+                        },
+                    )
+                })
+                .collect();
+            let enclosures = (!enclosures.is_empty()).then(|| fbb.create_vector(&enclosures));
+            let enclosure_saves = bank_share_rows(&mut fbb, &p.enclosure_saves);
+            // The settlements it holds besides its seat, and its end (schema 118).
+            let held: Vec<_> = p
+                .held
+                .iter()
+                .map(|h| {
+                    save::HeldSettlementSave::create(
+                        &mut fbb,
+                        &save::HeldSettlementSaveArgs {
+                            settlement: h.settlement.get(),
+                            since: h.since,
+                            how: h.how.code(),
+                            from: h.from.get(),
+                        },
+                    )
+                })
+                .collect();
+            let held = (!held.is_empty()).then(|| fbb.create_vector(&held));
+            // Its office laws held for a term (schema 120).
+            let terms: Vec<save::TermSave> = p
+                .terms
+                .iter()
+                .map(|&(law, t)| save::TermSave::new(law.get(), t.until, t.pool))
+                .collect();
+            let terms = (!terms.is_empty()).then(|| fbb.create_vector(&terms));
+            // Its council: each version's seats, the seats held and its elections (schema 121).
+            let version_seats: Vec<u64> = p
+                .versions
+                .iter()
+                .map(|v| Seats::pack(v.body.seats))
+                .collect();
+            let version_seats = version_seats
+                .iter()
+                .any(|&v| v != 0)
+                .then(|| fbb.create_vector(&version_seats));
+            let seated: Vec<save::SeatSave> = p
+                .seated
+                .iter()
+                .map(|x| save::SeatSave::new(x.seat, x.holder.get(), x.since, x.until, x.election))
+                .collect();
+            let seated = (!seated.is_empty()).then(|| fbb.create_vector(&seated));
+            let elections: Vec<_> = p
+                .elections
+                .iter()
+                .map(|e| {
+                    let considered: Vec<u64> = e.considered.iter().map(|p| p.get()).collect();
+                    let considered = fbb.create_vector(&considered);
+                    let candidates: Vec<save::CandidateSave> = e
+                        .candidates
+                        .iter()
+                        .map(|c| save::CandidateSave::new(c.person.get(), c.day))
+                        .collect();
+                    let candidates = fbb.create_vector(&candidates);
+                    let ballots: Vec<_> = e
+                        .ballots
+                        .iter()
+                        .map(|(voter, named)| {
+                            let named: Vec<u64> = named.iter().map(|p| p.get()).collect();
+                            let named = fbb.create_vector(&named);
+                            save::BallotSave::create(
+                                &mut fbb,
+                                &save::BallotSaveArgs {
+                                    voter: voter.get(),
+                                    named: Some(named),
+                                },
+                            )
+                        })
+                        .collect();
+                    let ballots = fbb.create_vector(&ballots);
+                    let totals: Vec<save::VoteSave> = e
+                        .totals
+                        .iter()
+                        .map(|&(c, v)| save::VoteSave::new(c.get(), v))
+                        .collect();
+                    let totals = fbb.create_vector(&totals);
+                    let winners: Vec<u64> = e.winners.iter().map(|p| p.get()).collect();
+                    let winners = fbb.create_vector(&winners);
+                    let positions: Vec<save::StoodSave> = e
+                        .candidates
+                        .iter()
+                        .flat_map(|c| {
+                            c.positions
+                                .iter()
+                                .map(|&(q, x)| save::StoodSave::new(c.person.get(), q, x))
+                        })
+                        .collect();
+                    let positions = (!positions.is_empty()).then(|| fbb.create_vector(&positions));
+                    let endorsements: Vec<_> = e
+                        .endorsements
+                        .iter()
+                        .map(|(faction, named)| {
+                            let named: Vec<u64> = named.iter().map(|p| p.get()).collect();
+                            let named = fbb.create_vector(&named);
+                            save::SlateSave::create(
+                                &mut fbb,
+                                &save::SlateSaveArgs {
+                                    faction: faction.get(),
+                                    named: Some(named),
+                                },
+                            )
+                        })
+                        .collect();
+                    let endorsements =
+                        (!endorsements.is_empty()).then(|| fbb.create_vector(&endorsements));
+                    let districts: Vec<save::DistrictSave> = e
+                        .districts
+                        .iter()
+                        .map(|&(s, n)| save::DistrictSave::new(s.get(), n))
+                        .collect();
+                    let districts = (!districts.is_empty()).then(|| fbb.create_vector(&districts));
+                    let alliances: Vec<save::AllianceSave> = e
+                        .alliances
+                        .iter()
+                        .map(|a| {
+                            save::AllianceSave::new(
+                                a.factions[0].get(),
+                                a.factions[1].get(),
+                                a.package.code(),
+                            )
+                        })
+                        .collect();
+                    let alliances = (!alliances.is_empty()).then(|| fbb.create_vector(&alliances));
+                    let candidate_districts =
+                        e.candidates.iter().any(|c| c.district.is_some()).then(|| {
+                            let ds: Vec<u64> = e
+                                .candidates
+                                .iter()
+                                .map(|c| c.district.map_or(0, |d| d.get()))
+                                .collect();
+                            fbb.create_vector(&ds)
+                        });
+                    save::ElectionSave::create(
+                        &mut fbb,
+                        &save::ElectionSaveArgs {
+                            id: e.id,
+                            why: e.why.code(),
+                            seats: Seats::pack(Some(e.seats)),
+                            called: e.called,
+                            stand_until: e.stand_until,
+                            poll_day: e.poll_day,
+                            stage: e.stage.code(),
+                            considered: Some(considered),
+                            candidates: Some(candidates),
+                            ballots: Some(ballots),
+                            totals: Some(totals),
+                            winners: Some(winners),
+                            by_lot: e.by_lot,
+                            ended: e.ended.unwrap_or(-1),
+                            until: e.until,
+                            positions,
+                            endorsements,
+                            districts,
+                            candidate_districts,
+                            alliances,
+                        },
+                    )
+                })
+                .collect();
+            let elections = (!elections.is_empty()).then(|| fbb.create_vector(&elections));
+            // Patron gifts (schema 131, M7c slice BY).
+            let gifts: Vec<save::PatronGiftSave> = p
+                .patron_gifts
+                .iter()
+                .map(|g| {
+                    save::PatronGiftSave::new(
+                        g.patron.get(),
+                        g.giver.get(),
+                        g.client.get(),
+                        g.law.get(),
+                        g.day,
+                        g.kcal,
+                        g.days,
+                    )
+                })
+                .collect();
+            let patron_gifts = (!gifts.is_empty()).then(|| fbb.create_vector(&gifts));
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -1363,6 +1793,23 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     sites,
                     closed,
                     wells,
+                    banks,
+                    bank_saves,
+                    bank_given,
+                    banks_failed,
+                    bank_keeps,
+                    enclosures,
+                    enclosure_saves,
+                    held,
+                    ended_day: p.ended.map_or(-1, |e| e.day),
+                    ended_by: p.ended.map_or(0, |e| e.by.get()),
+                    ended_how: p.ended.map_or(255, |e| e.how.code()),
+                    terms,
+                    seats: Seats::pack(p.body.seats),
+                    version_seats,
+                    seated,
+                    elections,
+                    patron_gifts,
                 },
             )
         })
@@ -1407,7 +1854,34 @@ fn law_status_code(s: civ_agents::polity::LawStatus) -> u8 {
         LawStatus::Lapsed => 3,
         LawStatus::Superseded => 4,
         LawStatus::Carried => 5,
+        LawStatus::StruckDown => 6,
     }
+}
+
+/// A polity's bank shares (law, household, hours) as saved rows (schema 102), absent when none.
+#[allow(clippy::type_complexity)]
+fn bank_share_rows<'a>(
+    fbb: &mut FlatBufferBuilder<'a>,
+    list: &[(PermanentId, PermanentId, f32)],
+) -> Option<
+    flatbuffers::WIPOffset<
+        flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<save::BankShareSave<'a>>>,
+    >,
+> {
+    let rows: Vec<_> = list
+        .iter()
+        .map(|&(law, h, hours)| {
+            save::BankShareSave::create(
+                fbb,
+                &save::BankShareSaveArgs {
+                    law: law.get(),
+                    household: h.get(),
+                    hours,
+                },
+            )
+        })
+        .collect();
+    (!rows.is_empty()).then(|| fbb.create_vector(&rows))
 }
 
 fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
@@ -1426,6 +1900,14 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::Sickness => 10,
         IssueKind::SourceSuspected => 11,
         IssueKind::WaterFar => 12,
+        IssueKind::Flooded => 13,
+        IssueKind::BankWorn => 14,
+        IssueKind::Burned => 15,
+        IssueKind::GaveWay => 16,
+        IssueKind::Raided => 17,
+        IssueKind::Holding => 18,
+        IssueKind::CasesWaiting => 19,
+        IssueKind::FetchedElsewhere => 20,
     }
 }
 
@@ -1464,19 +1946,29 @@ fn decode_polities(
     for p in root.polities().iter().flatten() {
         let id = required(p.id(), "a polity")?;
         let settlement = required(p.settlement(), "a polity's settlement")?;
-        let body_of = |members: u8, quorum_share: f32, pass: u8, what: &str| {
+        // A body's seats come with a council's membership and only with it (schema 121).
+        let body_of = |members: u8, quorum_share: f32, pass: u8, seats: u64, what: &str| {
+            let members = Membership::from_code(members)
+                .ok_or_else(|| bad(format!("{what} has membership code {members}")))?;
+            let seats = Seats::unpack(seats).map_err(|e| bad(format!("{what}: {e}")))?;
+            if (members == Membership::Seats) != seats.is_some() {
+                return Err(bad(format!(
+                    "{what} is a council without seats, or seats without one"
+                )));
+            }
             Ok::<Body, LoadError>(Body {
-                members: Membership::from_code(members)
-                    .ok_or_else(|| bad(format!("{what} has membership code {members}")))?,
+                members,
                 quorum_share,
                 pass: PassRule::from_code(pass)
                     .ok_or_else(|| bad(format!("{what} has decision rule code {pass}")))?,
+                seats,
             })
         };
         let body = body_of(
             p.members(),
             p.quorum_share(),
             p.pass(),
+            p.seats(),
             &format!("polity {id}"),
         )?;
         let saved: Vec<f64> = p.stores().map(|v| v.iter().collect()).unwrap_or_default();
@@ -1519,6 +2011,7 @@ fn decode_polities(
                 3 => LawStatus::Lapsed,
                 4 => LawStatus::Superseded,
                 5 => LawStatus::Carried,
+                6 => LawStatus::StruckDown,
                 c => return Err(bad(format!("law {law} has status code {c}"))),
             };
             let issue = match l.issue() {
@@ -1535,6 +2028,14 @@ fn decode_polities(
                 10 => IssueKind::Sickness,
                 11 => IssueKind::SourceSuspected,
                 12 => IssueKind::WaterFar,
+                13 => IssueKind::Flooded,
+                14 => IssueKind::BankWorn,
+                15 => IssueKind::Burned,
+                16 => IssueKind::GaveWay,
+                17 => IssueKind::Raided,
+                18 => IssueKind::Holding,
+                19 => IssueKind::CasesWaiting,
+                20 => IssueKind::FetchedElsewhere,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -1558,6 +2059,10 @@ fn decode_polities(
                 .stance_views()
                 .map(|v| v.iter().collect())
                 .unwrap_or_default();
+            let owed: Vec<f32> = l
+                .stance_owed()
+                .map(|v| v.iter().collect())
+                .unwrap_or_default();
             for (k, r) in l.stances().iter().flatten().enumerate() {
                 stances.push(StanceRecord {
                     person: required(r.person(), "a stance")?,
@@ -1573,6 +2078,7 @@ fn decode_polities(
                     opinion: opinions.get(k).copied().unwrap_or(0.0),
                     values: values.get(k).copied().unwrap_or(0.0),
                     view: views.get(k).copied().unwrap_or(0.0),
+                    owed: owed.get(k).copied().unwrap_or(0.0),
                 });
             }
             let mut known = Vec::new();
@@ -1598,6 +2104,7 @@ fn decode_polities(
                 status,
                 ends: PermanentId::from_raw(l.ends()),
                 agreement: PermanentId::from_raw(l.agreement()),
+                target: PermanentId::from_raw(l.target()),
                 sponsor: required(l.sponsor(), "a law's sponsor")?,
                 proposed: time(l.proposed()),
                 issue,
@@ -1619,6 +2126,14 @@ fn decode_polities(
                     unanswered: l.unanswered(),
                     broken: l.broken(),
                     broken_unaware: l.broken_unaware(),
+                    diverted: l.diverted(),
+                    diverted_kg: l.diverted_kg(),
+                    favoured: l.favoured(),
+                    passed_over: l.passed_over(),
+                    assessed: l.assessed(),
+                    asked: l.asked(),
+                    bribed: l.bribed(),
+                    bribe_kg: l.bribe_kg(),
                     refused: l.refused(),
                     refused_kg: l.refused_kg(),
                 },
@@ -1636,6 +2151,7 @@ fn decode_polities(
                         m,
                         l.body_quorum(),
                         l.body_pass(),
+                        l.body_seats(),
                         &format!("law {law}"),
                     )?),
                 },
@@ -1687,12 +2203,18 @@ fn decode_polities(
             .seized_by()
             .map(|v| v.iter().collect())
             .unwrap_or_default();
+        // Each version's council seats (schema 121); before, none.
+        let version_seats: Vec<u64> = p
+            .version_seats()
+            .map(|v| v.iter().collect())
+            .unwrap_or_default();
         for (k, v) in p.versions().iter().flatten().enumerate() {
             versions.push(CustomVersion {
                 body: body_of(
                     v.members(),
                     v.quorum_share(),
                     v.pass(),
+                    version_seats.get(k).copied().unwrap_or(0),
                     &format!("polity {id}'s custom"),
                 )?,
                 since: time(v.since()),
@@ -1809,6 +2331,310 @@ fn decode_polities(
                 },
             ));
         }
+        // Where its laws would build flood banks, what each household reckoned and gave (schema
+        // 102); before, none. A site of a missing law, or a share out of order, refuses the save.
+        let law_of = |raw: u64, what: &str| {
+            PermanentId::from_raw(raw)
+                .filter(|law| laws.iter().any(|l| l.id == *law))
+                .ok_or_else(|| bad(format!("polity {id} names {what} by a missing law {raw}")))
+        };
+        let mut banks = Vec::new();
+        for c in p.banks().iter().flatten() {
+            let law = law_of(c.law(), "a bank's site")?;
+            let site = civ_agents::polity::BankSite {
+                reach: c.reach(),
+                a: [c.ax(), c.ay()],
+                b: [c.bx(), c.by()],
+                height_m: c.height_m(),
+                crest_width_m: c.crest_width_m(),
+                side_run: c.side_run(),
+                compacted_per_bank: c.compacted_per_bank(),
+                envelope: civ_land::RectCm {
+                    x: c.env_x_cm(),
+                    y: c.env_y_cm(),
+                    w: c.env_w_cm(),
+                    h: c.env_h_cm(),
+                },
+                pit: civ_land::RectCm {
+                    x: c.pit_x_cm(),
+                    y: c.pit_y_cm(),
+                    w: c.pit_w_cm(),
+                    h: c.pit_h_cm(),
+                },
+                labour_h: c.labour_h(),
+                upkeep_h: c.upkeep_h(),
+                mending: c.mending(),
+                work: PermanentId::from_raw(c.work()),
+            };
+            let finite = [
+                site.a[0],
+                site.a[1],
+                site.b[0],
+                site.b[1],
+                site.height_m,
+                site.crest_width_m,
+                site.side_run,
+                site.compacted_per_bank,
+                site.labour_h,
+                site.upkeep_h,
+            ]
+            .iter()
+            .all(|v| v.is_finite());
+            if !finite || site.labour_h < 0.0 || site.upkeep_h < 0.0 || site.length_m() <= 0.0 {
+                return Err(bad(format!("polity {id} has a bank site of no shape")));
+            }
+            banks.push((law, site));
+        }
+        let bank_shares = |list: Option<
+            flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<save::BankShareSave<'_>>>,
+        >,
+                           what: &str|
+         -> Result<Vec<(PermanentId, PermanentId, f32)>, LoadError> {
+            let mut out: Vec<(PermanentId, PermanentId, f32)> = Vec::new();
+            for r in list.iter().flatten() {
+                let law = law_of(r.law(), what)?;
+                let h = PermanentId::from_raw(r.household())
+                    .ok_or_else(|| bad(format!("polity {id} names {what} of no household")))?;
+                if !(r.hours().is_finite() && r.hours() >= 0.0)
+                    || out.last().is_some_and(|p| (p.0, p.1) >= (law, h))
+                {
+                    return Err(bad(format!("polity {id} has {what} out of order")));
+                }
+                out.push((law, h, r.hours()));
+            }
+            Ok(out)
+        };
+        let bank_saves = bank_shares(p.bank_saves(), "a bank's reckoned saving")?;
+        let bank_given = bank_shares(p.bank_given(), "hours given to a bank")?;
+        // The failures of its banks its chronicle has told (schema 103); before, none.
+        let mut banks_failed = Vec::new();
+        for raw in p.banks_failed().iter().flatten() {
+            let w = PermanentId::from_raw(raw)
+                .filter(|w| banks.iter().any(|b| b.1.work == Some(*w)))
+                .ok_or_else(|| bad(format!("polity {id} tells a failure of no bank of its own")))?;
+            banks_failed.push(w);
+        }
+        // Which bank each law keeping one keeps (schema 104); before, none.
+        let mut bank_keeps = Vec::new();
+        for k in p.bank_keeps().iter().flatten() {
+            let law = law_of(k.law(), "a bank's keeping")?;
+            let built = law_of(k.built(), "a kept bank")?;
+            if !banks.iter().any(|b| b.0 == built) || bank_keeps.iter().any(|x: &(_, _)| x.0 == law)
+            {
+                return Err(bad(format!("polity {id} keeps no bank of its own")));
+            }
+            bank_keeps.push((law, built));
+        }
+        // Where its laws would raise palisades (schema 114); before, nowhere.
+        let mut enclosures = Vec::new();
+        for e in p.enclosures().iter().flatten() {
+            let law = law_of(e.law(), "a palisade")?;
+            let ok = e.x().is_finite()
+                && e.y().is_finite()
+                && e.radius_m().is_finite()
+                && e.radius_m() > 0.0
+                && e.gates() >= 1
+                && e.labour_h().is_finite()
+                && e.labour_h() > 0.0;
+            if !ok || enclosures.iter().any(|x: &(PermanentId, _)| x.0 == law) {
+                return Err(bad(format!("polity {id} has a palisade's site malformed")));
+            }
+            enclosures.push((
+                law,
+                civ_agents::polity::EnclosureSite {
+                    centre: (e.x(), e.y()),
+                    radius_m: e.radius_m(),
+                    gates: e.gates(),
+                    inside: e.inside(),
+                    labour_h: e.labour_h(),
+                    work: PermanentId::from_raw(e.work()),
+                },
+            ));
+        }
+        let enclosure_saves = bank_shares(p.enclosure_saves(), "a palisade's reckoned saving")?;
+        // The settlements it holds besides its seat, and its end (schema 118); before, its seat
+        // alone, still deciding.
+        let mut held = Vec::new();
+        for h in p.held().iter().flatten() {
+            let (Some(settlement), Some(how), Some(from)) = (
+                PermanentId::from_raw(h.settlement()),
+                civ_agents::polity::HeldHow::from_code(h.how()),
+                PermanentId::from_raw(h.from()),
+            ) else {
+                return Err(bad(format!("polity {id} holds a settlement malformed")));
+            };
+            held.push(civ_agents::polity::HeldSettlement {
+                settlement,
+                since: h.since(),
+                how,
+                from,
+            });
+        }
+        // Its office laws held for a term (schema 120); before, none were.
+        let mut terms = Vec::new();
+        for t in p.terms().iter().flatten() {
+            let Some(law) = PermanentId::from_raw(t.law()) else {
+                return Err(bad(format!("polity {id} has a term of no law")));
+            };
+            terms.push((
+                law,
+                civ_agents::polity::Term {
+                    until: t.until(),
+                    pool: t.pool(),
+                },
+            ));
+        }
+        if !terms.windows(2).all(|w| w[0].0 < w[1].0) {
+            return Err(bad(format!("polity {id}'s terms are out of order")));
+        }
+        // Its council's seats held and its elections (schema 121); before, none.
+        let person = |raw: u64, what: &str| {
+            PermanentId::from_raw(raw).ok_or_else(|| bad(format!("polity {id}: {what} is nobody")))
+        };
+        let mut seated = Vec::new();
+        for x in p.seated().iter().flatten() {
+            seated.push(civ_agents::seats::Seat {
+                seat: x.seat(),
+                holder: person(x.holder(), "a seat's holder")?,
+                since: x.since(),
+                until: x.until(),
+                election: x.election(),
+            });
+        }
+        // Patron gifts (schema 131, M7c slice BY).
+        let mut patron_gifts = Vec::new();
+        for g in p.patron_gifts().iter().flatten() {
+            patron_gifts.push(civ_agents::polity::PatronGift {
+                patron: required(g.patron(), "a patron gift's patron")?,
+                giver: required(g.giver(), "a patron gift's giver")?,
+                client: required(g.client(), "a patron gift's client")?,
+                law: required(g.law(), "a patron gift's law")?,
+                day: g.day(),
+                kcal: g.kcal(),
+                days: g.days(),
+            });
+        }
+        let mut elections = Vec::new();
+        for e in p.elections().iter().flatten() {
+            let what = format!("polity {id}'s election {}", e.id());
+            let seats = Seats::unpack(e.seats())
+                .map_err(|m| bad(format!("{what}: {m}")))?
+                .ok_or_else(|| bad(format!("{what} fills no seats")))?;
+            let why = civ_agents::seats::ElectionWhy::from_code(e.why())
+                .ok_or_else(|| bad(format!("{what} has reason code {}", e.why())))?;
+            let stage = civ_agents::seats::ElectionStage::from_code(e.stage())
+                .ok_or_else(|| bad(format!("{what} has stage code {}", e.stage())))?;
+            let ids =
+                |v: Option<flatbuffers::Vector<'_, u64>>| -> Result<Vec<PermanentId>, LoadError> {
+                    v.iter()
+                        .flatten()
+                        .map(|raw| person(raw, "one in an election"))
+                        .collect()
+                };
+            let mut candidates = Vec::new();
+            for c in e.candidates().iter().flatten() {
+                candidates.push(civ_agents::seats::Candidate {
+                    person: person(c.person(), "a candidate")?,
+                    day: c.day(),
+                    positions: Vec::new(),
+                    district: None,
+                });
+            }
+            // Each candidate's district, and each district's seats (schema 123); before, none.
+            if let Some(ds) = e.candidate_districts() {
+                if ds.len() != candidates.len() {
+                    return Err(bad(format!("{what}: districts for some who stood only")));
+                }
+                for (c, d) in candidates.iter_mut().zip(ds.iter()) {
+                    c.district = PermanentId::from_raw(d);
+                }
+            }
+            let districts: Vec<(PermanentId, u8)> = e
+                .districts()
+                .iter()
+                .flatten()
+                .map(|d| {
+                    PermanentId::from_raw(d.settlement())
+                        .map(|s| (s, d.seats()))
+                        .ok_or_else(|| bad(format!("{what}: a district of nowhere")))
+                })
+                .collect::<Result<_, _>>()?;
+            // Its alliances (schema 124); before, none.
+            let mut alliances = Vec::new();
+            for a in e.alliances().iter().flatten() {
+                let (Some(first), Some(second), Some(package)) = (
+                    PermanentId::from_raw(a.first()),
+                    PermanentId::from_raw(a.second()),
+                    civ_agents::seats::Package::from_code(a.package()),
+                ) else {
+                    return Err(bad(format!("{what}: an alliance is malformed")));
+                };
+                alliances.push(civ_agents::seats::Alliance {
+                    factions: [first, second],
+                    package,
+                });
+            }
+            // Where each said they stand, and the factions' slates (schema 122); before, none.
+            for x in e.positions().iter().flatten() {
+                let Some(c) = candidates
+                    .iter_mut()
+                    .find(|c| c.person.get() == x.candidate())
+                else {
+                    return Err(bad(format!("{what}: a position of one who did not stand")));
+                };
+                c.positions.push((x.policy(), x.x()));
+            }
+            let mut endorsements = Vec::new();
+            for s in e.endorsements().iter().flatten() {
+                let faction = PermanentId::from_raw(s.faction())
+                    .ok_or_else(|| bad(format!("{what}: a slate of no faction")))?;
+                endorsements.push((faction, ids(s.named())?));
+            }
+            let mut ballots = Vec::new();
+            for b in e.ballots().iter().flatten() {
+                ballots.push((person(b.voter(), "a voter")?, ids(b.named())?));
+            }
+            let mut totals = Vec::new();
+            for t in e.totals().iter().flatten() {
+                totals.push((person(t.person(), "one counted")?, t.votes()));
+            }
+            elections.push(civ_agents::seats::Election {
+                id: e.id(),
+                why,
+                seats,
+                called: e.called(),
+                stand_until: e.stand_until(),
+                poll_day: e.poll_day(),
+                stage,
+                considered: ids(e.considered())?,
+                candidates,
+                ballots,
+                totals,
+                winners: ids(e.winners())?,
+                by_lot: e.by_lot(),
+                ended: (e.ended() >= 0).then_some(e.ended()),
+                until: e.until(),
+                endorsements,
+                districts,
+                alliances,
+            });
+        }
+        let ended = match p.ended_how() {
+            255 => None,
+            code => {
+                let (Some(how), Some(by)) = (
+                    civ_agents::polity::HeldHow::from_code(code),
+                    PermanentId::from_raw(p.ended_by()),
+                ) else {
+                    return Err(bad(format!("polity {id}'s end is malformed")));
+                };
+                Some(civ_agents::polity::PolityEnd {
+                    day: p.ended_day(),
+                    by,
+                    how,
+                })
+            }
+        };
         out.push(Polity {
             id,
             settlement,
@@ -1825,6 +2651,19 @@ fn decode_polities(
             sites,
             closed,
             wells,
+            banks,
+            bank_saves,
+            bank_given,
+            banks_failed,
+            bank_keeps,
+            enclosures,
+            enclosure_saves,
+            held,
+            ended,
+            terms,
+            seated,
+            elections,
+            patron_gifts,
         });
     }
     Ok(out)
@@ -1857,6 +2696,7 @@ fn encode_earth(land: &Land) -> Vec<u8> {
                     civ_land::earth::EarthKind::Pit => 1,
                     civ_land::earth::EarthKind::Spoil => 2,
                     civ_land::earth::EarthKind::Bank => 3,
+                    civ_land::earth::EarthKind::Ditch => 4,
                 },
             )
         })
@@ -1914,6 +2754,53 @@ fn encode_earth(land: &Land) -> Vec<u8> {
         .map(|b| save::BankSedimentRecord::new(b.work.get(), b.sediment_m3))
         .collect();
     let sediment = fbb.create_vector(&sediment);
+    let piping: Vec<_> = land
+        .banks
+        .iter()
+        .filter(|b| b.piping != 0.0)
+        .map(|b| save::BankPipingRecord::new(b.work.get(), b.piping))
+        .collect();
+    let piping = fbb.create_vector(&piping);
+    let refill: Vec<_> = land
+        .banks
+        .iter()
+        .filter(|b| b.refill_m3 != 0.0)
+        .map(|b| save::BankRefillRecord::new(b.work.get(), b.refill_m3))
+        .collect();
+    let refill = fbb.create_vector(&refill);
+    let ditches: Vec<_> = land
+        .ditches
+        .iter()
+        .map(|d| {
+            save::DitchRecord::new(
+                d.work.get(),
+                d.reach,
+                d.field.get(),
+                d.a[0],
+                d.a[1],
+                d.b[0],
+                d.b[1],
+                d.bottom_m,
+                d.depth_m,
+                d.side_run,
+                d.drop_m,
+                d.weeds,
+                d.silt_m,
+                d.open,
+                d.taken_m3,
+                d.kept_m3,
+                d.seeped_m3,
+                d.returned_m3,
+            )
+        })
+        .collect();
+    let ditches = fbb.create_vector(&ditches);
+    let ditch_flows: Vec<_> = land
+        .ditch_flows
+        .iter()
+        .map(|&(r, q)| save::DitchFlowRecord::new(r, q))
+        .collect();
+    let ditch_flows = fbb.create_vector(&ditch_flows);
     let root = save::Earth::create(
         &mut fbb,
         &save::EarthArgs {
@@ -1922,6 +2809,10 @@ fn encode_earth(land: &Land) -> Vec<u8> {
             links: Some(links),
             banks: Some(banks),
             bank_sediment: Some(sediment),
+            bank_piping: Some(piping),
+            bank_refill: Some(refill),
+            ditches: Some(ditches),
+            ditch_flows: Some(ditch_flows),
         },
     );
     finish(fbb, root)
@@ -1936,6 +2827,7 @@ fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), Loa
             1 => civ_land::earth::EarthKind::Pit,
             2 => civ_land::earth::EarthKind::Spoil,
             3 if schema >= Schema::V100 => civ_land::earth::EarthKind::Bank,
+            4 if schema >= Schema::V105 => civ_land::earth::EarthKind::Ditch,
             other => {
                 return Err(LoadError::Malformed(format!(
                     "an earthwork has kind {other}"
@@ -1984,6 +2876,8 @@ fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), Loa
                 erosion_m: b.erosion_m(),
                 breached: b.breached(),
                 sediment_m3: 0.0,
+                piping: 0.0,
+                refill_m3: 0.0,
             });
         }
     }
@@ -2010,6 +2904,81 @@ fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), Loa
         }
         bank.sediment_m3 = record.compacted_m3();
     }
+    // Explicit migration: schemas through 102 have no seepage damage.
+    if schema < Schema::V103 && root.bank_piping().is_some_and(|v| !v.is_empty()) {
+        return Err(LoadError::Malformed("bank piping before schema 103".into()));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for record in root.bank_piping().iter().flatten() {
+        let bank = land
+            .banks
+            .iter_mut()
+            .find(|b| b.work.get() == record.work())
+            .ok_or_else(|| LoadError::Malformed("piping names missing bank".into()))?;
+        if !seen.insert(record.work())
+            || !record.damage().is_finite()
+            || !(record.damage() > 0.0 && record.damage() <= 1.0)
+        {
+            return Err(LoadError::Malformed(
+                "invalid or duplicate bank piping".into(),
+            ));
+        }
+        bank.piping = record.damage();
+    }
+    // Explicit migration: schemas through 103 have mended no bank.
+    if schema < Schema::V104 && root.bank_refill().is_some_and(|v| !v.is_empty()) {
+        return Err(LoadError::Malformed("bank refill before schema 104".into()));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for record in root.bank_refill().iter().flatten() {
+        let bank = land
+            .banks
+            .iter_mut()
+            .find(|b| b.work.get() == record.work())
+            .ok_or_else(|| LoadError::Malformed("refill names missing bank".into()))?;
+        if !seen.insert(record.work())
+            || !record.compacted_m3().is_finite()
+            || record.compacted_m3() <= 0.0
+        {
+            return Err(LoadError::Malformed(
+                "invalid or duplicate bank refill".into(),
+            ));
+        }
+        bank.refill_m3 = record.compacted_m3();
+    }
+    // Explicit migration: schemas through 104 have no irrigation ditches.
+    if schema < Schema::V105
+        && (root.ditches().is_some_and(|v| !v.is_empty())
+            || root.ditch_flows().is_some_and(|v| !v.is_empty()))
+    {
+        return Err(LoadError::Malformed("ditches before schema 105".into()));
+    }
+    for d in root.ditches().iter().flatten() {
+        land.ditches.push(civ_land::ditches::DitchSegment {
+            work: required(d.work(), "a ditch")?,
+            reach: d.reach(),
+            field: required(d.field(), "a ditch's field")?,
+            a: [d.ax(), d.ay()],
+            b: [d.bx(), d.by()],
+            bottom_m: d.bottom_m(),
+            depth_m: d.depth_m(),
+            side_run: d.side_run(),
+            drop_m: d.drop_m(),
+            weeds: d.weeds(),
+            silt_m: d.silt_m(),
+            open: d.open(),
+            taken_m3: d.taken_m3(),
+            kept_m3: d.kept_m3(),
+            seeped_m3: d.seeped_m3(),
+            returned_m3: d.returned_m3(),
+        });
+    }
+    land.ditch_flows = root
+        .ditch_flows()
+        .iter()
+        .flatten()
+        .map(|f| (f.reach(), f.m3s()))
+        .collect();
     // Schema 21: what each pit and heap is linked to.
     for l in root.links().iter().flatten() {
         let work = land
@@ -2393,6 +3362,9 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::Crossing(c) => (save::TargetKind::Crossing, 0, c.get()),
         Target::Well(w) => (save::TargetKind::Well, 0, w.get()),
         Target::Douse { building, from } => (save::TargetKind::Douse, from, building.get()),
+        Target::Bank(b) => (save::TargetKind::Bank, 0, b.get()),
+        Target::Ditch(d) => (save::TargetKind::Ditch, 0, d.get()),
+        Target::Enclosure(e) => (save::TargetKind::Enclosure, 0, e.get()),
     }
 }
 
@@ -2433,6 +3405,9 @@ fn target_of(
             building: required(id, "a roof to throw water on")?,
             from: index,
         },
+        save::TargetKind::Bank => Target::Bank(required(id, "a bank target")?),
+        save::TargetKind::Ditch => Target::Ditch(required(id, "a ditch target")?),
+        save::TargetKind::Enclosure => Target::Enclosure(required(id, "a palisade target")?),
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -2704,6 +3679,7 @@ fn decode_land(
             )
         }
     };
+    let floodplain = civ_world::WorldFloodplain::new(map, &civ_land::manning(&climatology));
     let mut land = Land {
         patches: Patches {
             cols: l.cols(),
@@ -2730,14 +3706,17 @@ fn decode_land(
         // Read from its own section (schema 20 on).
         earthworks: Vec::new(),
         banks: Vec::new(),
+        ditches: Vec::new(),
+        ditch_flows: Vec::new(),
         ground: civ_land::earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
         // Read from its own section (schema 68 on).
         crossings: Default::default(),
+        enclosures: Default::default(),
         // The heads and the store below (schema 72 on); the aquifer derived.
         water: Default::default(),
         // Read from its own section (schema 74 on).
         wells: Default::default(),
-        floodplain: civ_world::WorldFloodplain::new(map, &civ_world::ManningParams::default()),
+        floodplain,
         reach_discharges: map.reaches.iter().map(|r| r.discharge_m3s).collect(),
         flood_depths: vec![0.0; map.cell_count()],
         flood_revision: 0,
@@ -3418,7 +4397,37 @@ fn carried(
         | Schema::V98
         | Schema::V99
         | Schema::V100
-        | Schema::V101 => {
+        | Schema::V101
+        | Schema::V102
+        | Schema::V103
+        | Schema::V104
+        | Schema::V105
+        | Schema::V106
+        | Schema::V107
+        | Schema::V108
+        | Schema::V109
+        | Schema::V110
+        | Schema::V111
+        | Schema::V112
+        | Schema::V113
+        | Schema::V114
+        | Schema::V115
+        | Schema::V116
+        | Schema::V117
+        | Schema::V118
+        | Schema::V119
+        | Schema::V120
+        | Schema::V121
+        | Schema::V122
+        | Schema::V123
+        | Schema::V124
+        | Schema::V125
+        | Schema::V126
+        | Schema::V127
+        | Schema::V128
+        | Schema::V129
+        | Schema::V130
+        | Schema::V131 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -3467,6 +4476,60 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
             let offers: Vec<_> = h.offers.iter().map(|o| encode_offer(&mut fbb, o)).collect();
             let offers = fbb.create_vector(&offers);
             let taste = fbb.create_vector(&h.taste.traits());
+            // What floods cost it (schema 102).
+            let flood_losses: Vec<_> = h
+                .flood_losses
+                .iter()
+                .map(|l| {
+                    save::FloodLossSave::create(
+                        &mut fbb,
+                        &save::FloodLossSaveArgs {
+                            day: l.day,
+                            cell: l.cell,
+                            depth_cm: l.depth_cm,
+                            kcal: l.kcal,
+                            hours: l.hours,
+                        },
+                    )
+                })
+                .collect();
+            let flood_losses = (!flood_losses.is_empty()).then(|| fbb.create_vector(&flood_losses));
+            // What fire took that it knew of (schema 107).
+            let fire_losses: Vec<_> = h
+                .fire_losses
+                .iter()
+                .map(|l| {
+                    save::FireLossSave::create(
+                        &mut fbb,
+                        &save::FireLossSaveArgs {
+                            day: l.day,
+                            building: l.building.get(),
+                            own: l.own,
+                            burnable: l.burnable,
+                            hours: l.hours,
+                        },
+                    )
+                })
+                .collect();
+            let fire_losses = (!fire_losses.is_empty()).then(|| fbb.create_vector(&fire_losses));
+            // What it heard gave way (schema 108).
+            let gave_way: Vec<_> = h
+                .gave_way
+                .iter()
+                .map(|l| {
+                    save::GaveWaySave::create(
+                        &mut fbb,
+                        &save::GaveWaySaveArgs {
+                            day: l.day,
+                            building: l.building.get(),
+                            own: l.own,
+                            wall_kind: l.wall_kind,
+                            hours: l.hours,
+                        },
+                    )
+                })
+                .collect();
+            let gave_way = (!gave_way.is_empty()).then(|| fbb.create_vector(&gave_way));
             save::Household::create(
                 &mut fbb,
                 &save::HouseholdArgs {
@@ -3491,6 +4554,10 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                     flood_home_cm: h.flood_memory.home_depth_cm,
                     flood_field_cm: h.flood_memory.field_depth_cm,
                     flood_day: h.flood_memory.day,
+                    flood_losses,
+                    ditch_worth: h.ditch_worth,
+                    fire_losses,
+                    gave_way,
                 },
             )
         })
@@ -3634,7 +4701,37 @@ fn decode_households(
             | Schema::V98
             | Schema::V99
             | Schema::V100
-            | Schema::V101 => {
+            | Schema::V101
+            | Schema::V102
+            | Schema::V103
+            | Schema::V104
+            | Schema::V105
+            | Schema::V106
+            | Schema::V107
+            | Schema::V108
+            | Schema::V109
+            | Schema::V110
+            | Schema::V111
+            | Schema::V112
+            | Schema::V113
+            | Schema::V114
+            | Schema::V115
+            | Schema::V116
+            | Schema::V117
+            | Schema::V118
+            | Schema::V119
+            | Schema::V120
+            | Schema::V121
+            | Schema::V122
+            | Schema::V123
+            | Schema::V124
+            | Schema::V125
+            | Schema::V126
+            | Schema::V127
+            | Schema::V128
+            | Schema::V129
+            | Schema::V130
+            | Schema::V131 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -3769,6 +4866,105 @@ fn decode_households(
             } else {
                 civ_agents::person::FloodMemory::default()
             },
+            // What floods cost it (schema 102); before, nothing remembered.
+            flood_losses: {
+                let mut out: Vec<civ_agents::FloodLoss> = Vec::new();
+                for l in h.flood_losses().iter().flatten() {
+                    let ok = l.kcal().is_finite()
+                        && l.kcal() >= 0.0
+                        && l.hours().is_finite()
+                        && l.hours() >= 0.0
+                        && out.last().is_none_or(|p| p.day <= l.day());
+                    if !ok {
+                        return Err(LoadError::Malformed(format!(
+                            "household {hh_id} remembers a flood loss out of order or of no \
+                             amount"
+                        )));
+                    }
+                    out.push(civ_agents::FloodLoss {
+                        day: l.day(),
+                        cell: l.cell(),
+                        depth_cm: l.depth_cm(),
+                        kcal: l.kcal(),
+                        hours: l.hours(),
+                    });
+                }
+                out
+            },
+            // What digging its ditch is worth to it (schema 106); before, nothing.
+            ditch_worth: {
+                let v = h.ditch_worth();
+                if !(v.is_finite() && v >= 0.0) || (schema < Schema::V106 && v != 0.0) {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} reckons its ditch worth {v}"
+                    )));
+                }
+                v
+            },
+            // What fire took that it knew of (schema 107); before, nothing remembered.
+            fire_losses: {
+                let mut out: Vec<civ_agents::person::FireLoss> = Vec::new();
+                let losses = h.fire_losses();
+                if schema < Schema::V107 && losses.is_some() {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} remembers fires in a save before schema 107"
+                    )));
+                }
+                for l in losses.iter().flatten() {
+                    let building = PermanentId::from_raw(l.building());
+                    let ok = l.hours().is_finite()
+                        && l.hours() >= 0.0
+                        && building.is_some()
+                        && out.last().is_none_or(|p| p.day <= l.day());
+                    let (Some(building), true) = (building, ok) else {
+                        return Err(LoadError::Malformed(format!(
+                            "household {hh_id} remembers a fire out of order, of no building \
+                             or of no amount"
+                        )));
+                    };
+                    out.push(civ_agents::person::FireLoss {
+                        day: l.day(),
+                        building,
+                        own: l.own(),
+                        burnable: l.burnable(),
+                        hours: l.hours(),
+                    });
+                }
+                out
+            },
+            // What it heard gave way (schema 108); before, nothing remembered.
+            gave_way: {
+                let mut out: Vec<civ_agents::person::GaveWay> = Vec::new();
+                let heard = h.gave_way();
+                if schema < Schema::V108 && heard.is_some() {
+                    return Err(LoadError::Malformed(format!(
+                        "household {hh_id} remembers buildings that gave way in a save before \
+                         schema 108"
+                    )));
+                }
+                for l in heard.iter().flatten() {
+                    let building = PermanentId::from_raw(l.building());
+                    let ok = l.hours().is_finite()
+                        && l.hours() >= 0.0
+                        && l.wall_kind() <= 3
+                        && building.is_some()
+                        && out.last().is_none_or(|p| p.day <= l.day());
+                    let (Some(building), true) = (building, ok) else {
+                        return Err(LoadError::Malformed(format!(
+                            "household {hh_id} remembers a building that gave way out of order, \
+                             of no building, wall kind or amount"
+                        )));
+                    };
+                    out.push(civ_agents::person::GaveWay {
+                        day: l.day(),
+                        building,
+                        own: l.own(),
+                        wall_kind: l.wall_kind(),
+                        hours: l.hours(),
+                    });
+                }
+                out
+            },
         });
     }
     Ok(out)
@@ -3807,6 +5003,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
                     noticed: i.noticed,
                     food_days: i.food_days,
                     richer: i.richer,
+                    across: i.across.map_or(0, |s| s.get()),
                 },
             )
         })
@@ -3893,6 +5090,8 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let stances = fbb.create_vector(&stances);
+            let precedent: Vec<f32> = c.stances.iter().map(|r| r.precedent).collect();
+            let precedent = fbb.create_vector(&precedent);
             save::CaseSave::create(
                 &mut fbb,
                 &save::CaseSaveArgs {
@@ -3913,6 +5112,11 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
                     eligible: c.eligible,
                     stances: Some(stances),
                     exiled: c.exiled,
+                    forum: c.forum.map_or(0, PermanentId::get),
+                    challenge: c.challenge.map_or(0, PermanentId::get),
+                    tags: c.tags,
+                    departed: c.departed.unwrap_or(0),
+                    stance_precedent: Some(precedent),
                 },
             )
         })
@@ -3970,6 +5174,108 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let encounters = fbb.create_vector(&encounters);
+    // Bands and the encounters they met (schema 110).
+    let ids = |fbb: &mut flatbuffers::FlatBufferBuilder<'static>, v: &[PermanentId]| {
+        let raw: Vec<u64> = v.iter().map(|p| p.get()).collect();
+        fbb.create_vector(&raw)
+    };
+    let bands: Vec<_> = order
+        .bands
+        .iter()
+        .map(|b| {
+            let members = ids(&mut fbb, &b.members);
+            let asked = ids(&mut fbb, &b.asked);
+            let mustered = ids(&mut fbb, &b.mustered);
+            let arrived = ids(&mut fbb, &b.arrived);
+            let home = ids(&mut fbb, &b.home);
+            let taken: Vec<save::TakenGood> = b
+                .taken
+                .iter()
+                .map(|&(g, amount)| save::TakenGood::new(g, amount))
+                .collect();
+            let taken = fbb.create_vector(&taken);
+            save::BandSave::create(
+                &mut fbb,
+                &save::BandSaveArgs {
+                    id: b.id,
+                    organizer: b.organizer.get(),
+                    settlement: b.settlement.get(),
+                    purpose: b.purpose.code(),
+                    target: b.target.get(),
+                    place: Some(&point(b.place)),
+                    called: b.called,
+                    muster: b.muster,
+                    members: Some(members),
+                    asked: Some(asked),
+                    mustered: Some(mustered),
+                    arrived: Some(arrived),
+                    home: Some(home),
+                    stage: b.stage.code(),
+                    since: b.since,
+                    clash: b.clash.unwrap_or(0),
+                    incident: b.incident.unwrap_or(0),
+                    law: b.law.map_or(0, PermanentId::get),
+                    approach: b.approach.map(point).as_ref(),
+                    held: b.held.unwrap_or(-1),
+                    taken: Some(taken),
+                    taken_kcal: b.taken_kcal,
+                },
+            )
+        })
+        .collect();
+    let bands = fbb.create_vector(&bands);
+    let clashes: Vec<_> = order
+        .clashes
+        .iter()
+        .map(|c| {
+            let fighters: Vec<save::FighterSave> = c
+                .fighters
+                .iter()
+                .map(|f| {
+                    save::FighterSave::new(
+                        f.person.get(),
+                        f.side.code(),
+                        f.holds.code(),
+                        f.will,
+                        f.regard_leader,
+                        f.gave_way.map_or(-1, i32::from),
+                        f.hurt_days,
+                        f.killed,
+                    )
+                })
+                .collect();
+            let fighters = fbb.create_vector(&fighters);
+            let blows: Vec<save::StruckSave> = c
+                .blows
+                .iter()
+                .map(|s| {
+                    save::StruckSave::new(
+                        s.minute,
+                        s.harm.by.get(),
+                        s.harm.to.get(),
+                        s.harm.days,
+                        s.harm.killed,
+                    )
+                })
+                .collect();
+            let blows = fbb.create_vector(&blows);
+            save::ClashSave::create(
+                &mut fbb,
+                &save::ClashSaveArgs {
+                    id: c.id,
+                    at: c.at,
+                    place: Some(&point(c.place)),
+                    band: c.band,
+                    fighters: Some(fighters),
+                    blows: Some(blows),
+                    frontage: c.frontage,
+                    minutes: c.minutes,
+                    ended: c.ended.code(),
+                },
+            )
+        })
+        .collect();
+    let clashes = fbb.create_vector(&clashes);
     let amounts: Vec<save::AmountSave> = order
         .amounts
         .iter()
@@ -3990,6 +5296,8 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
             cases: Some(cases),
             sightings: Some(sightings),
             encounters: Some(encounters),
+            bands: Some(bands),
+            clashes: Some(clashes),
         },
     );
     finish(fbb, root)
@@ -4037,6 +5345,7 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
             noticed: i.noticed(),
             food_days: i.food_days(),
             richer: i.richer(),
+            across: id_of(i.across()),
         });
     }
     for b in root.beliefs().iter().flatten() {
@@ -4127,7 +5436,11 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
     for c in root.cases().iter().flatten() {
         let cid = c.id();
         let mut stances = Vec::new();
-        for r in c.stances().iter().flatten() {
+        let precedent: Vec<f32> = c
+            .stance_precedent()
+            .map(|v| v.iter().collect())
+            .unwrap_or_default();
+        for (i, r) in c.stances().iter().flatten().enumerate() {
             stances.push(civ_agents::crime::CaseStance {
                 person: required(r.person(), "someone at a hearing")?,
                 household: required(r.household(), "a household at a hearing")?,
@@ -4136,6 +5449,7 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
                 stake: r.stake(),
                 belief: r.belief(),
                 regard: r.regard(),
+                precedent: precedent.get(i).copied().unwrap_or(0.0),
             });
         }
         order.cases.push(Case {
@@ -4159,6 +5473,10 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
             eligible: c.eligible(),
             stances,
             exiled: c.exiled(),
+            forum: id_of(c.forum()),
+            challenge: id_of(c.challenge()),
+            tags: c.tags(),
+            departed: (c.departed() != 0).then_some(c.departed()),
         });
     }
     for a in root.amounts().iter().flatten() {
@@ -4208,6 +5526,87 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
             forced: e.forced(),
             taken_kcal: e.taken_kcal(),
             harms,
+        });
+    }
+    for b in root.bands().iter().flatten() {
+        let id = b.id();
+        let list = |v: Option<flatbuffers::Vector<'_, u64>>| -> Vec<PermanentId> {
+            v.map(|v| v.iter().filter_map(id_of).collect())
+                .unwrap_or_default()
+        };
+        let mut taken = Vec::new();
+        for g in b.taken().iter().flatten() {
+            if let Some(good) = saved_good(&goods, u32::from(g.good()), || format!("band {id}"))? {
+                taken.push((good, g.amount()));
+            }
+        }
+        order.bands.push(civ_agents::war::Band {
+            id,
+            organizer: required(b.organizer(), "a band's organizer")?,
+            settlement: required(b.settlement(), "a band's settlement")?,
+            purpose: civ_agents::war::BandPurpose::from_code(b.purpose())
+                .ok_or_else(|| bad(format!("band {id} has purpose code {}", b.purpose())))?,
+            target: required(b.target(), "a band's target")?,
+            place: b.place().map_or((0.0, 0.0), |p| (p.x(), p.y())),
+            called: b.called(),
+            muster: b.muster(),
+            members: list(b.members()),
+            asked: list(b.asked()),
+            mustered: list(b.mustered()),
+            arrived: list(b.arrived()),
+            home: list(b.home()),
+            stage: civ_agents::war::BandStage::from_code(b.stage())
+                .ok_or_else(|| bad(format!("band {id} has stage code {}", b.stage())))?,
+            since: b.since(),
+            clash: (b.clash() != 0).then_some(b.clash()),
+            incident: (b.incident() != 0).then_some(b.incident()),
+            law: PermanentId::from_raw(b.law()),
+            taken,
+            taken_kcal: b.taken_kcal(),
+            approach: b.approach().map(|p| (p.x(), p.y())),
+            held: (b.held() >= 0).then_some(b.held()),
+        });
+    }
+    for c in root.clashes().iter().flatten() {
+        let id = c.id();
+        let mut fighters = Vec::new();
+        for f in c.fighters().iter().flatten() {
+            fighters.push(civ_agents::war::Fighter {
+                person: required(f.person(), "one in an encounter")?,
+                side: civ_agents::war::Side::from_code(f.side())
+                    .ok_or_else(|| bad(format!("encounter {id} has side code {}", f.side())))?,
+                holds: civ_agents::war::Holding::from_code(f.holds())
+                    .ok_or_else(|| bad(format!("encounter {id} has holding code {}", f.holds())))?,
+                will: f.will(),
+                regard_leader: f.regard_leader(),
+                gave_way: u16::try_from(f.gave_way()).ok(),
+                hurt_days: f.hurt_days(),
+                killed: f.killed(),
+            });
+        }
+        let mut blows = Vec::new();
+        for s in c.blows().iter().flatten() {
+            blows.push(civ_agents::war::Struck {
+                minute: s.minute(),
+                harm: civ_agents::crime::Harm {
+                    by: required(s.by(), "one who struck")?,
+                    to: required(s.to(), "one struck")?,
+                    days: s.days(),
+                    killed: s.killed(),
+                },
+            });
+        }
+        order.clashes.push(civ_agents::war::Clash {
+            id,
+            at: c.at(),
+            place: c.place().map_or((0.0, 0.0), |p| (p.x(), p.y())),
+            band: c.band(),
+            fighters,
+            blows,
+            frontage: c.frontage(),
+            minutes: c.minutes(),
+            ended: civ_agents::war::Ended::from_code(c.ended())
+                .ok_or_else(|| bad(format!("encounter {id} has ending code {}", c.ended())))?,
         });
     }
     let problems = order_problems(&order);
@@ -4272,7 +5671,11 @@ fn order_problems(order: &civ_agents::crime::Order) -> Vec<String> {
             s.officer, s.incident
         ));
     }
-    if let Some(c) = order.cases.iter().find(|c| !known(c.incident)) {
+    if let Some(c) = order
+        .cases
+        .iter()
+        .find(|c| c.challenge.is_none() && !known(c.incident))
+    {
         out.push(format!(
             "case {} names missing incident {}",
             c.id, c.incident
@@ -4349,6 +5752,16 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Fire => 48,
         ChronicleKind::Flood => 49,
         ChronicleKind::StormDamage => 50,
+        ChronicleKind::Ditch => 51,
+        ChronicleKind::Raid => 52,
+        ChronicleKind::Fled => 53,
+        ChronicleKind::Enclosure => 54,
+        ChronicleKind::PolityJoined => 55,
+        ChronicleKind::Seceded => 56,
+        ChronicleKind::LotDrawn => 57,
+        ChronicleKind::ElectionCalled => 58,
+        ChronicleKind::ElectionHeld => 59,
+        ChronicleKind::AllianceMade => 60,
     }
 }
 
@@ -4404,6 +5817,16 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         48 => Some(ChronicleKind::Fire),
         49 => Some(ChronicleKind::Flood),
         50 => Some(ChronicleKind::StormDamage),
+        51 => Some(ChronicleKind::Ditch),
+        52 => Some(ChronicleKind::Raid),
+        53 => Some(ChronicleKind::Fled),
+        54 => Some(ChronicleKind::Enclosure),
+        55 => Some(ChronicleKind::PolityJoined),
+        56 => Some(ChronicleKind::Seceded),
+        57 => Some(ChronicleKind::LotDrawn),
+        58 => Some(ChronicleKind::ElectionCalled),
+        59 => Some(ChronicleKind::ElectionHeld),
+        60 => Some(ChronicleKind::AllianceMade),
         _ => None,
     }
 }
@@ -6281,6 +7704,8 @@ fn encode_events(sim: &Sim) -> Vec<u8> {
                 SimEvent::Agent(AgentEvent::Ignite { building }) => {
                     (save::EventKind::Ignite, building.get(), 0)
                 }
+                SimEvent::Agent(AgentEvent::BandLook) => (save::EventKind::BandLook, 0, 0),
+                SimEvent::Agent(AgentEvent::Gates) => (save::EventKind::Gates, 0, 0),
             };
             save::PendingEvent::create(
                 &mut fbb,
@@ -6320,6 +7745,8 @@ fn decode_events(bytes: &[u8]) -> Result<Vec<PendingEvent<SimEvent>>, LoadError>
             save::EventKind::Ignite => SimEvent::Agent(AgentEvent::Ignite {
                 building: required(e.person(), "an ignition's building")?,
             }),
+            save::EventKind::BandLook => SimEvent::Agent(AgentEvent::BandLook),
+            save::EventKind::Gates => SimEvent::Agent(AgentEvent::Gates),
             other => {
                 return Err(LoadError::Incompatible(format!(
                     "a pending event is of kind {}, which this build does not know",
@@ -6464,6 +7891,7 @@ fn encode_word(word: &civ_agents::word::Word) -> Vec<u8> {
                     place,
                     counts,
                     fire: c.fire.unwrap_or(0),
+                    event: c.event.unwrap_or(0),
                 },
             )
         })
@@ -6588,6 +8016,7 @@ fn decode_word(bytes: &[u8]) -> Result<civ_agents::word::Word, LoadError> {
             grievance,
             suspected,
             fire: (c.fire() != 0).then_some(c.fire()),
+            event: (c.event() != 0).then_some(c.event()),
         });
     }
     if !word.claims.windows(2).all(|w| w[0].id < w[1].id) {
@@ -7016,6 +8445,7 @@ fn encode_factions(
                     called: r.called.minutes(),
                     until: r.until,
                     members: r.body.members.code(),
+                    seats: Seats::pack(r.body.seats),
                     quorum_share: r.body.quorum_share,
                     pass: r.body.pass.code(),
                     sides: Some(sides),
@@ -7049,6 +8479,7 @@ fn encode_factions(
                     called: c.called.minutes(),
                     until: c.until,
                     members: c.body.members.code(),
+                    seats: Seats::pack(c.body.seats),
                     quorum_share: c.body.quorum_share,
                     pass: c.body.pass.code(),
                     sides: Some(sides),
@@ -7096,6 +8527,11 @@ fn encode_factions(
                     stores: Some(stores),
                     stores_at: f.stores_at.minutes(),
                     history: Some(history),
+                    has_stake: f.stake.is_some(),
+                    stake_purpose: f.stake.map_or(0, |s| s.purpose as u8),
+                    stake_admit: f.stake.map_or(0, |s| s.admit as u8),
+                    stake_decides: f.stake.map_or(0, |s| s.decides as u8),
+                    stake_dues: f.stake.map_or(0.0, |s| s.dues_share),
                 },
             )
         })
@@ -7191,6 +8627,24 @@ fn decode_factions(
             stores_at: SimTime::from_minutes(f.stores_at()),
             flows: Default::default(),
             history,
+            stake: if f.has_stake() {
+                let purpose = civ_agents::params::GoodUse::ALL
+                    .get(usize::from(f.stake_purpose()))
+                    .copied()
+                    .ok_or_else(|| bad(format!("organization {id} is of no purpose")))?;
+                let admit = civ_agents::faction::Admit::from_code(f.stake_admit())
+                    .ok_or_else(|| bad(format!("organization {id} admits by no rule")))?;
+                let decides = civ_agents::faction::Decides::from_code(f.stake_decides())
+                    .ok_or_else(|| bad(format!("organization {id} decides by no rule")))?;
+                Some(civ_agents::faction::Stake {
+                    purpose,
+                    admit,
+                    decides,
+                    dues_share: f.stake_dues(),
+                })
+            } else {
+                None
+            },
         });
     }
     let mut members = Vec::new();
@@ -7314,6 +8768,8 @@ fn decode_factions(
             quorum_share: r.quorum_share(),
             pass: PassRule::from_code(r.pass())
                 .ok_or_else(|| bad(format!("episode {id} has decision rule code {}", r.pass())))?,
+            // A council's seats (schema 121); before, none.
+            seats: Seats::unpack(r.seats()).map_err(|e| bad(format!("episode {id}: {e}")))?,
         };
         let mut sides = Vec::new();
         for s in r.sides().iter().flatten() {
@@ -8378,7 +9834,9 @@ fn decode_relations(bytes: &[u8], rules: &Rules) -> Result<Relations, LoadError>
         let mut clauses = Vec::with_capacity(kinds.len());
         let mut clause_map = Vec::with_capacity(kinds.len());
         for (k, (&kind, &side)) in kinds.iter().zip(&sides).enumerate() {
-            let good = if kind == 0 {
+            // Leave, words against raiding (kind 3, schema 117) and one body (kind 4, schema
+            // 119) name no good.
+            let good = if kind == 0 || kind == 3 || kind == 4 {
                 Some(0)
             } else {
                 good_of(saved_goods[k], &|| format!("agreement {id}'s clause {k}"))?
@@ -8558,12 +10016,68 @@ fn encode_crossings(land: &Land, fords: &civ_agents::fords::Fords, rules: &Rules
         })
         .collect();
     let wades = (!wades.is_empty()).then(|| fbb.create_vector(&wades));
+    let enclosures: Vec<_> = land
+        .enclosures
+        .list
+        .iter()
+        .map(|e| {
+            let sectors: Vec<_> = e
+                .sectors
+                .iter()
+                .map(|s| {
+                    let cells = fbb.create_vector(&s.cells);
+                    save::EnclosureSectorSave::create(
+                        &mut fbb,
+                        &save::EnclosureSectorSaveArgs {
+                            ax: s.a.0,
+                            ay: s.a.1,
+                            bx: s.b.0,
+                            by: s.b.1,
+                            cells: Some(cells),
+                            labour_h: s.labour_h,
+                            gate: s.gate.map_or(0, |g| if g.open { 1 } else { 2 }),
+                            loss: s.loss,
+                        },
+                    )
+                })
+                .collect();
+            let sectors = fbb.create_vector(&sectors);
+            let shares: Vec<save::CrossingShareSave> = e
+                .shares
+                .iter()
+                .map(|&(h, hours)| save::CrossingShareSave::new(h.get(), hours))
+                .collect();
+            let shares = (!shares.is_empty()).then(|| fbb.create_vector(&shares));
+            save::EnclosureSave::create(
+                &mut fbb,
+                &save::EnclosureSaveArgs {
+                    id: e.id.get(),
+                    owner: e.owner.get(),
+                    law: e.law.get(),
+                    settlement: e.settlement.get(),
+                    centre: Some(&point(e.centre)),
+                    radius_m: e.radius_m,
+                    sectors: Some(sectors),
+                    work_h: e.work_h,
+                    shares,
+                    crew_day: e.crew.0,
+                    crew: e.crew.1,
+                    begun: e.begun.minutes(),
+                    finished: e.finished.unwrap_or(-1),
+                    upkeep_h: e.upkeep_h,
+                },
+            )
+        })
+        .collect();
+    let enclosures = (!enclosures.is_empty()).then(|| fbb.create_vector(&enclosures));
     let root = save::CrossingsSave::create(
         &mut fbb,
         &save::CrossingsSaveArgs {
             list: Some(list),
             revision: land.crossings.revision(),
             wades,
+            enclosures,
+            enclosures_revision: land.enclosures.revision(),
         },
     );
     finish(fbb, root)
@@ -8572,11 +10086,19 @@ fn encode_crossings(land: &Land, fords: &civ_agents::fords::Fords, rules: &Rules
 /// The crossings saved in `bytes`, and the streams households wade. A crossing of a bridge
 /// system the loaded content no longer has is dropped; one spanning cells off the map is
 /// malformed, as is a wade of a cell off the map.
+#[allow(clippy::type_complexity)]
 fn decode_crossings(
     bytes: &[u8],
     rules: &Rules,
     map: &WorldMap,
-) -> Result<(civ_land::crossings::Crossings, civ_agents::fords::Fords), LoadError> {
+) -> Result<
+    (
+        civ_land::crossings::Crossings,
+        civ_agents::fords::Fords,
+        civ_land::enclosures::Enclosures,
+    ),
+    LoadError,
+> {
     use civ_land::crossings::{Collapse, Crossing, CrossingOwner, CrossingState, Crossings};
     let root = flatbuffers::root::<save::CrossingsSave>(bytes)
         .map_err(|e| unreadable(SECTION_CROSSINGS, &e))?;
@@ -8660,7 +10182,64 @@ fn decode_crossings(
                 day: w.day(),
             });
     }
-    Ok((Crossings::with_revision(list, root.revision()), fords))
+    // Enclosures (schema 113); before, none.
+    let mut enclosures = Vec::new();
+    for e in root.enclosures().iter().flatten() {
+        use civ_land::enclosures::{Enclosure, Gate, Sector};
+        let id = required(e.id(), "an enclosure")?;
+        let bad = |what: &str| LoadError::Malformed(format!("enclosure {id} has {what}"));
+        let mut sectors = Vec::new();
+        for s in e.sectors().iter().flatten() {
+            let cells: Vec<u32> = s.cells().map(|v| v.iter().collect()).unwrap_or_default();
+            if cells.iter().any(|&x| u64::from(x) >= cells_on_map) {
+                return Err(bad("a sector off the map"));
+            }
+            let gate = match s.gate() {
+                0 => None,
+                1 => Some(Gate { open: true }),
+                2 => Some(Gate { open: false }),
+                g => return Err(bad(&format!("gate code {g}"))),
+            };
+            sectors.push(Sector {
+                a: (s.ax(), s.ay()),
+                b: (s.bx(), s.by()),
+                cells,
+                labour_h: s.labour_h(),
+                gate,
+                loss: s.loss(),
+            });
+        }
+        let mut shares = Vec::new();
+        for s in e.shares().iter().flatten() {
+            shares.push((required(s.household(), "a share's household")?, s.hours()));
+        }
+        enclosures.push(Enclosure {
+            id,
+            owner: required(e.owner(), "an enclosure's polity")?,
+            law: required(e.law(), "an enclosure's law")?,
+            settlement: required(e.settlement(), "an enclosure's settlement")?,
+            centre: e.centre().map_or((0.0, 0.0), |p| (p.x(), p.y())),
+            radius_m: e.radius_m(),
+            sectors,
+            work_h: e.work_h(),
+            shares,
+            crew: (e.crew_day(), e.crew()),
+            begun: SimTime::from_minutes(e.begun()),
+            finished: (e.finished() >= 0).then_some(e.finished()),
+            upkeep_h: e.upkeep_h(),
+        });
+    }
+    let enclosures =
+        civ_land::enclosures::Enclosures::with_revision(enclosures, root.enclosures_revision());
+    let problems = enclosures.problems();
+    if let Some(p) = problems.first() {
+        return Err(LoadError::Malformed(p.clone()));
+    }
+    Ok((
+        Crossings::with_revision(list, root.revision()),
+        fords,
+        enclosures,
+    ))
 }
 
 fn encode_wells(land: &Land, rules: &Rules) -> Vec<u8> {

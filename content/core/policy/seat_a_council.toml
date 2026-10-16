@@ -1,0 +1,24 @@
+# Seating a council (M7a slice BO, ADR-0024 §1, §6): the custom amended from a gathering of all
+# its members to a council of a few seats, filled from those members by election or by lot for a
+# term, or back. It is an amendment like any other (ADR-0017 §1): open only to someone a gathering
+# they came to overruled, or who holds a grievance against the gathering; one change at a time (a
+# council's electorate is the gathering's membership); and each household judges it by how the
+# council its sponsor expects would have decided what its members saw decided (a design prior:
+# the n of the electorate the sponsor knows who stand highest in counsel would sit, or by lot the
+# electorate's stances in proportion). The present custom decides it. Nothing prefers a council:
+# whether anyone proposes one, and whether it passes, is people's choice (ADR-0024 §6: no
+# population gate). Seats, methods and terms are levels a sponsor weighs, tuning values (research
+# 09-05 §2.3: 5, 9 and 15 seats).
+kind = "policy"
+id = "core:policy/seat_a_council"
+name = "Seat a council"
+description = "Makes the deciding body a council of a few seats, filled by election or by lot for a term."
+does = "amend_body"
+answers = ["overruled"]
+members = ["adults", "elders", "landholders"]
+quorum_shares = [0.5]
+pass = ["more_for"]
+seats = [5, 9]
+seat_methods = ["election", "lot"]
+seat_terms = [360]
+seat_districts = ["at_large", "by_settlement"]   # by settlement: offered only where the polity holds several (M7a slice BQ)

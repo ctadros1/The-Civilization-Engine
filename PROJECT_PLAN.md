@@ -3087,6 +3087,20 @@ and M6a gives rivers a daily flow.
         (`ElectionWhy::TooFewSat`, code 2), those seated giving theirs up to the winners as at a
         term's end; those whose proposals the empty council failed have more reason to stand.
         The M4a e2e accepts a village that took a council.
+    - *As built, the demo (2026-10-16; M7a closed):* civ-sim's `council` example lives up to two
+      worlds of a village of 120 and keeps the first in which a council sat, and
+      `web/e2e/m7a-demo.spec.ts` shows it (`demos/m7a/`). In the kept world (river valley, seed
+      1, Moothill) no amendment was proposed in 180 days, so what an evening at the gathering
+      costs one who comes was nudged (`NUDGE: elections.w_evening 0.25 -> 1`, day 240). Emmer,
+      whom the gathering had decided against, proposed a council of 5 elected by the adults for
+      360 days on day 248; it passed 65 to 0, every one of the 65 adults coming, each for what
+      their household stood to gain and many for regard of the sponsor. The election was called
+      the next day; eight stood, each saying where they stood on the common store and on hearing
+      takings and raids, and 63 of the 66 of the electorate came to poll: Ulmer and Orrin 44
+      names, Arden 42, Davor and Jessa 41 were seated, Dessa 37, Odessa 36 and Jask 30 were not.
+      The council sat split on the store and on hearing cases (two for, two against, one
+      undecided), and the label read it as a republic. What the council then decided, and its
+      second election, are for longer runs.
   - **M7b, courts and precedent** ([ADR-0025](decisions/0025-forums-precedent-and-review.md)):
     - **BR**: a forum by law (*hear cases*: one holder, a panel by lot, or a membership; its
       own rule), the *cases waiting* issue, sittings the evening after a case is brought,

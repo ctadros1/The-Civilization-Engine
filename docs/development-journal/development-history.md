@@ -2331,3 +2331,14 @@ tests, whose premise is that no amendment would serve the overruled) now account
 
 **Evidence:** web unit tests decode the election page and order and word its candidates; the
 body-change unit test now starts from the founding custom's quorum. `tests/council.rs` calls the seats again when nobody stood.
+
+## 2026-10-16 — The M7a demo; M7a closed
+
+**Built:** nothing new in the kernel: civ-sim's `council` example and `web/e2e/m7a-demo.spec.ts`
+make and show the demo world (`demos/m7a/`).
+
+**Evidence:** in Moothill (river valley, seed 1, a village of 120) no amendment came in 180 days, so
+one prior was nudged and logged (`elections.w_evening 0.25 -> 1`, day 240). On day 248 a council of
+5 elected by the adults passed 65 to 0; eight stood, 63 of 66 came to poll, and five were seated by
+the block vote, split on the common store and on hearing cases. The label read the polity as a
+republic.

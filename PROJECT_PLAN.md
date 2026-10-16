@@ -2943,6 +2943,21 @@ and M6a gives rivers a daily flow.
   - **M7a, councils and elections** ([ADR-0024](decisions/0024-seats-offices-and-elections.md)):
     - **BN**: office tenure and the four ways to fill an office (named, elected, lot,
       appointed); the exact counting module (plurality, block vote, single vote) with its tests.
+      - *As built (2026-10-15):* `civ-agents/src/count.rs` counts exactly: plurality, the block
+        vote (a name repeated counts once, only the first n different names count) and the single
+        vote, with a tie for the last seat failing or drawn by a keyed lot, and seats beyond those
+        voted for left unfilled; `draw` draws a lot from a pool without repeats; six unit tests,
+        09-08 §4's 42/33/25 case among them. An office template may carry a tenure (content API
+        105): a term of days, whether its holder may serve the next term, and whether it is
+        filled by lot. A lot draws, once the law passes, from those who stood for it (a design
+        prior), never the last holder of an office that is not renewable; with nobody to draw the
+        law lapses. At the term's end the office lapses as at a death ("their term ended") and
+        the issue opens again: there is no automatic renewal. The terms are kept per polity by
+        law (save schema 120, `PolitySave.terms`), the chronicle tells a lot (`LotDrawn`, code
+        57), and the Government panel's offices say until when and how they were filled. The core
+        adds two templates: the store kept by turns, drawn by lot for half a year, and the store
+        kept for a year by one the gathering names. **Not yet built:** election and appointment,
+        which need seated bodies (BO); a nominee's consent; watch templates with a tenure.
     - **BO**: seated bodies reached by amendment; elections as dated records (called, told,
       candidacy, polling, count, certification, installation), standing and polling as choices.
     - **BP**: campaigns as hours and claims; voters' utility from positions, record, group,

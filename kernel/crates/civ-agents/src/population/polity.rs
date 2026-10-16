@@ -399,6 +399,119 @@ impl Population {
         }
     }
 
+    /// Who may not be named or drawn for office template `policy` of polity `pi` on `day` (M7a
+    /// slice BN, ADR-0024 §2): the holder of its last term, once that term has ended, where the
+    /// template does not let them serve again.
+    fn term_barred(
+        &self,
+        pi: usize,
+        policy: u16,
+        day: i64,
+        def: &crate::polity::PolicyDef,
+    ) -> Option<PermanentId> {
+        if def.tenure.is_none_or(|t| t.renewable) {
+            return None;
+        }
+        let p = &self.polities[pi];
+        let (term, holder) = p
+            .laws
+            .iter()
+            .rev()
+            .filter(|l| l.policy == policy)
+            .find_map(|l| Some((p.term_of(l.id)?, l.holder?)))?;
+        (term.until <= day).then_some(holder)
+    }
+
+    /// Office law `law_id` of polity `pi` passed, and its template holds it for a term (M7a slice
+    /// BN, ADR-0024 §2): its term runs from today. Filled by lot, those who stood for it at the
+    /// gathering are those who put their names in (a design prior: wanting the office kept is
+    /// taken as willingness to keep it), less any its last term bars and any keeping the watch
+    /// already; a lot keyed by the law draws one. With nobody to draw, the law lapses and the
+    /// chronicle says so.
+    fn fill_term(&mut self, ctx: &mut Ctx, pi: usize, law_id: PermanentId) {
+        let day = ctx.now.day_index();
+        let Some(law) = self.polities[pi].laws.iter().find(|l| l.id == law_id) else {
+            return;
+        };
+        let def = &ctx.catalog.policies[usize::from(law.policy)];
+        let Some(tenure) = def.tenure else {
+            return;
+        };
+        let mut pool = 0;
+        if tenure.by_lot {
+            let barred = self.term_barred(pi, law.policy, day, def);
+            let watching: Vec<PermanentId> = self.polities[pi].watchers().map(|w| w.0).collect();
+            let names: Vec<PermanentId> = law
+                .stances
+                .iter()
+                .filter(|r| r.stance == crate::polity::Stance::Support)
+                .map(|r| r.person)
+                .filter(|&p| Some(p) != barred && !watching.contains(&p))
+                .filter(|&p| self.person(p).is_some())
+                .collect();
+            pool = names.len() as u32;
+            let key = Rng64::from_key(&[ctx.seed, law_id.get()]).next_u64();
+            let drawn = crate::count::draw(&names, 1, key);
+            let settlement = self.polities[pi].settlement;
+            let (place, name) = ctx
+                .land
+                .settlements
+                .iter()
+                .find(|s| s.id == settlement)
+                .map_or((None, String::new()), |s| {
+                    (Some(s.hearth_m), s.name.clone())
+                });
+            let office = def.name.to_lowercase();
+            match drawn.first() {
+                Some(&h) => {
+                    if let Some(l) = self.polities[pi].law_mut(law_id) {
+                        l.holder = Some(h);
+                    }
+                    let words = format!(
+                        "The lot fell to {}, of {pool} who put their names in, for the office of \
+                         {office} at {name}.",
+                        self.name_of(h)
+                    );
+                    self.chronicle_push(
+                        ctx.now,
+                        ChronicleKind::LotDrawn,
+                        vec![h],
+                        Some(settlement),
+                        place,
+                        f64::from(pool),
+                        words,
+                    );
+                }
+                None => {
+                    if let Some(l) = self.polities[pi].law_mut(law_id) {
+                        l.status = LawStatus::Lapsed;
+                    }
+                    let words = format!(
+                        "Nobody put their name in for the office of {office} at {name}: the lot \
+                         drew no one."
+                    );
+                    self.chronicle_push(
+                        ctx.now,
+                        ChronicleKind::LawLapsed,
+                        Vec::new(),
+                        Some(settlement),
+                        place,
+                        0.0,
+                        words,
+                    );
+                    return;
+                }
+            }
+        }
+        let until = day + i64::from(tenure.term_days);
+        self.polities[pi].set_term(law_id, crate::polity::Term { until, pool });
+    }
+
+    /// For tests: office law `law_id` of polity `pi`, passed, has its term filled.
+    pub fn fill_term_for_tests(&mut self, ctx: &mut Ctx, pi: usize, law_id: PermanentId) {
+        self.fill_term(ctx, pi, law_id);
+    }
+
     /// A law that names someone lapses when they die or leave the settlement: the store they
     /// kept lies unkept again, or the watch they kept is unkept, which is a vacancy the next
     /// review may answer (succession, ADR-0013 §2). Nothing fills it by itself.
@@ -433,7 +546,11 @@ impl Population {
                 .person(holder)
                 .and_then(|p| self.household(p.household))
                 .is_some_and(|x| self.polities[pi].holds(x.settlement));
-            if here {
+            // An office held for a term lapses at its end (M7a slice BN).
+            let term_ended = self.polities[pi]
+                .term_of(law)
+                .is_some_and(|t| ctx.now.day_index() >= t.until);
+            if here && !term_ended {
                 return;
             }
             if kind == PolicyKind::KeepStore {
@@ -444,6 +561,7 @@ impl Population {
                 l.status = LawStatus::Lapsed;
             }
             let why = match self.records.get(&holder) {
+                _ if here && term_ended => "their term ended",
                 Some(r) if r.died.is_some() => "they died",
                 Some(r) if r.left.is_some() => "they left the valley",
                 _ => "they no longer live there",
@@ -1868,9 +1986,18 @@ impl Population {
                             moves.push(MoveOption { hours, ..blank });
                         }
                     }
+                    // An office filled by lot names nobody: the lot draws among those who put
+                    // their names in once it passes (M7a slice BN).
+                    PolicyKind::KeepStore | PolicyKind::KeepWatch
+                        if def.tenure.is_some_and(|t| t.by_lot) =>
+                    {
+                        moves.push(blank);
+                    }
                     PolicyKind::KeepStore => {
+                        let barred = self.term_barred(pi, k, day, def);
                         let pick = roofed
                             .iter()
+                            .filter(|&&c| Some(c) != barred)
                             .map(|&c| {
                                 let r = if c == d {
                                     1.0
@@ -2009,9 +2136,10 @@ impl Population {
                     // A watch: the adult they regard most, themselves at full regard (M4b slice
                     // AC), of those who do not keep it already (M4c slice AI).
                     PolicyKind::KeepWatch => {
+                        let barred = self.term_barred(pi, k, day, def);
                         let pick = adults
                             .iter()
-                            .filter(|&&(c, _)| !watching.contains(&c))
+                            .filter(|&&(c, _)| !watching.contains(&c) && Some(c) != barred)
                             .map(|&(c, _)| {
                                 let r = if c == d {
                                     1.0
@@ -2570,6 +2698,12 @@ impl Population {
         } else {
             LawStatus::Rejected
         };
+        // An office held for a term is filled, by lot where its template says (M7a slice BN).
+        if outcome == Outcome::Passed
+            && matches!(kind, PolicyKind::KeepStore | PolicyKind::KeepWatch)
+        {
+            self.fill_term(ctx, pi, law_id);
+        }
         // A crossing passed is begun at once, the polity's (M5c slice AW, step three).
         if outcome == Outcome::Passed
             && kind == PolicyKind::BuildCrossing

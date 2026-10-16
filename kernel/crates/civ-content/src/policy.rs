@@ -64,6 +64,11 @@ pub(crate) struct PolicyFile {
     /// For a rule for building (content API 93, M6b slice BH): what it requires.
     #[serde(default)]
     pub rule: Option<RuleFile>,
+    /// For an office (`keep_store`, `keep_watch`): a term and how it is filled (content API 105,
+    /// M7a slice BN, ADR-0024 §2). Absent, the office is held until its holder dies or leaves,
+    /// and the body names its holder.
+    #[serde(default)]
+    pub tenure: Option<TenureFile>,
 }
 
 /// What a rule for building requires (M6b slice BH; ADR-0022 §12).
@@ -123,6 +128,29 @@ pub(crate) struct BundleFile {
     pub exile: bool,
 }
 
+/// An office's tenure in a policy file (content API 105).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct TenureFile {
+    /// Days the office is held from the day the body passes it.
+    pub term_days: u32,
+    /// Whether the one who held it may be named or drawn again for the next term.
+    #[serde(default = "yes")]
+    pub renewable: bool,
+    /// `named`: the body names its holder; `lot`: a lot draws among those who put their names
+    /// in.
+    #[serde(default = "named")]
+    pub fill: String,
+}
+
+fn yes() -> bool {
+    true
+}
+
+fn named() -> String {
+    "named".to_owned()
+}
+
 impl PolicyFile {
     /// The compiled template (call after [`PolicyFile::problems`] found none, and with every
     /// value `bears` names defined: `value_index` finds it).
@@ -169,6 +197,11 @@ impl PolicyFile {
                     template: r.template()?,
                     needs: r.needs.as_deref().and_then(technique_index),
                 })
+            }),
+            tenure: self.tenure.as_ref().map(|t| civ_agents::polity::Tenure {
+                term_days: t.term_days,
+                renewable: t.renewable,
+                by_lot: t.fill == "lot",
             }),
         }
     }
@@ -217,6 +250,31 @@ impl PolicyFile {
                 p.push(format!(
                     "`answers` names `{a}`; issues are `{}`",
                     all.join("`, `")
+                ));
+            }
+        }
+        if let Some(t) = &self.tenure {
+            if !matches!(
+                PolicyKind::from_name(&self.does),
+                Some(PolicyKind::KeepStore | PolicyKind::KeepWatch)
+            ) {
+                p.push(
+                    "`tenure` is for an office: `does` must be `keep_store` or `keep_watch`"
+                        .to_owned(),
+                );
+            }
+            // A day to ten years (research 09-14 §2.1: a presiding officer for a day; 09-02
+            // §5.1: life subject to removal is the absent tenure).
+            if !(1..=3650).contains(&t.term_days) {
+                p.push(format!(
+                    "`tenure.term_days` must be 1 to 3650 (got {})",
+                    t.term_days
+                ));
+            }
+            if !matches!(t.fill.as_str(), "named" | "lot") {
+                p.push(format!(
+                    "`tenure.fill` must be `named` or `lot` (got `{}`); election and appointment come with seated bodies",
+                    t.fill
                 ));
             }
         }
@@ -465,6 +523,7 @@ mod tests {
             question: None,
             bears: Default::default(),
             rule: None,
+            tenure: None,
         }
     }
 
@@ -487,6 +546,7 @@ mod tests {
             levy_shares: Vec::new(),
             relief_days: 0.0,
             rule: r,
+            tenure: None,
             ..file()
         };
         let roofs = roofs_with(Some(rule("roofs_unburnt", 4.0)));
@@ -518,6 +578,7 @@ mod tests {
         }
         let stray = PolicyFile {
             rule: Some(rule("roofs_unburnt", 4.0)),
+            tenure: None,
             ..file()
         };
         assert!(

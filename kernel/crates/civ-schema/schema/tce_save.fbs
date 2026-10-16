@@ -1399,6 +1399,16 @@ table PolitySave {
   ended_day: long = -1 (id: 25);
   ended_by: ulong (id: 26);
   ended_how: ubyte = 255 (id: 27);
+  // Schema 120 (M7a slice BN, ADR-0024 §2): its office laws held for a term, by law: the day
+  // each ends, and how many put their names in when it was filled by lot.
+  terms: [TermSave] (id: 28);
+}
+
+// An office law's term (schema 120).
+struct TermSave {
+  law: ulong;
+  until: long;
+  pool: uint;
 }
 
 // A settlement a polity holds besides its seat (schema 118): since the day, how (0 annexed,

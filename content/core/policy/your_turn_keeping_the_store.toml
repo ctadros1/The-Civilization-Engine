@@ -1,0 +1,27 @@
+# Keeping the common store by turns, drawn by lot (M7a slice BN, ADR-0024 §2; research 09-02 §4.1:
+# Athens chose councillors by lot; 09-14 §1.7: offices can be unpaid and rotating; 09-14 §2.1: a
+# presiding officer could serve one night and day). Passed, a lot draws the keeper from those who
+# stood for it at the gathering (taking wanting the store kept as willingness to keep it, a design
+# prior), and the office lapses at the term's end, when the store lies unkept again until a
+# gathering decides afresh; the one who kept it may not be drawn for the next turn. With nobody to
+# draw, the law lapses at once. Whether anyone proposes keeping by turns, and whether the gathering
+# agrees, is people's choice. Its id sorts after every older template's: hearth talk about a
+# question is keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/your_turn_keeping_the_store"
+name = "Storekeeper by turns"
+description = "A lot draws the keeper of the common store from those who want it kept, for half a year; the one who kept it may not be drawn for the next turn."
+does = "keep_store"
+answers = ["store_unkept"]
+question = "whether the store should be kept by turns, drawn by lot"
+
+[tenure]
+term_days = 180
+renewable = false
+fill = "lot"
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 0.5
+"core:value/reciprocity" = 0.5      # each takes a turn

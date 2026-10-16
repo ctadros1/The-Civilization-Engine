@@ -7918,6 +7918,165 @@ impl<'a> CustomVersionSave {
 
 }
 
+// struct TermSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct TermSave(pub [u8; 24]);
+impl Default for TermSave { 
+  fn default() -> Self { 
+    Self([0; 24])
+  }
+}
+impl ::core::fmt::Debug for TermSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("TermSave")
+      .field("law", &self.law())
+      .field("until", &self.until())
+      .field("pool", &self.pool())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for TermSave {}
+impl<'a> ::flatbuffers::Follow<'a> for TermSave {
+  type Inner = &'a TermSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a TermSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a TermSave {
+  type Inner = &'a TermSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<TermSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for TermSave {
+    type Output = TermSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const TermSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for TermSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> TermSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    law: u64,
+    until: i64,
+    pool: u32,
+  ) -> Self {
+    let mut s = Self([0; 24]);
+    s.set_law(law);
+    s.set_until(until);
+    s.set_pool(pool);
+    s
+  }
+
+  pub fn law(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_law(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn until(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_until(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn pool(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_pool(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct DitchRecord, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -32294,6 +32453,7 @@ impl<'a> PolitySave<'a> {
   pub const VT_ENDED_DAY: ::flatbuffers::VOffsetT = 54;
   pub const VT_ENDED_BY: ::flatbuffers::VOffsetT = 56;
   pub const VT_ENDED_HOW: ::flatbuffers::VOffsetT = 58;
+  pub const VT_TERMS: ::flatbuffers::VOffsetT = 60;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32312,6 +32472,7 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.terms { builder.add_terms(x); }
     if let Some(x) = args.held { builder.add_held(x); }
     if let Some(x) = args.enclosure_saves { builder.add_enclosure_saves(x); }
     if let Some(x) = args.enclosures { builder.add_enclosures(x); }
@@ -32533,6 +32694,13 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u8>(PolitySave::VT_ENDED_HOW, Some(255)).unwrap()}
   }
+  #[inline]
+  pub fn terms(&self) -> Option<::flatbuffers::Vector<'a, TermSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TermSave>>>(PolitySave::VT_TERMS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -32569,6 +32737,7 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<i64>("ended_day", Self::VT_ENDED_DAY, false)?
      .visit_field::<u64>("ended_by", Self::VT_ENDED_BY, false)?
      .visit_field::<u8>("ended_how", Self::VT_ENDED_HOW, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TermSave>>>("terms", Self::VT_TERMS, false)?
      .finish();
     Ok(())
   }
@@ -32602,6 +32771,7 @@ pub struct PolitySaveArgs<'a> {
     pub ended_day: i64,
     pub ended_by: u64,
     pub ended_how: u8,
+    pub terms: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TermSave>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -32635,6 +32805,7 @@ impl<'a> Default for PolitySaveArgs<'a> {
       ended_day: -1,
       ended_by: 0,
       ended_how: 255,
+      terms: None,
     }
   }
 }
@@ -32757,6 +32928,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<u8>(PolitySave::VT_ENDED_HOW, ended_how, 255);
   }
   #[inline]
+  pub fn add_terms(&mut self, terms: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TermSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_TERMS, terms);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -32802,6 +32977,7 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("ended_day", &self.ended_day());
       ds.field("ended_by", &self.ended_by());
       ds.field("ended_how", &self.ended_how());
+      ds.field("terms", &self.terms());
       ds.finish()
   }
 }

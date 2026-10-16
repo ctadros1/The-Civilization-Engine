@@ -365,6 +365,8 @@ pub const SCHEMA_V116: u32 = 116;
 pub const SCHEMA_V117: u32 = 117;
 /// A polity over several settlements, before bands holding a settlement and the annex law.
 pub const SCHEMA_V118: u32 = 118;
+/// Bands holding a settlement and the annex law, before office laws held for a term.
+pub const SCHEMA_V119: u32 = 119;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

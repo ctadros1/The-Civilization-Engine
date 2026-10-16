@@ -688,6 +688,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             &rules.catalog.policies,
             &|id| pop.name_of(id),
             &|id| gone_words(sim, id),
+            now.day_index(),
         )
         .iter()
         .map(|w| fbb.create_string(w))

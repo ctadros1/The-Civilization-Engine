@@ -118,7 +118,7 @@ use super::{
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
     SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
-    SCHEMA_V118, finish, section, single_chunk, unreadable,
+    SCHEMA_V118, SCHEMA_V119, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -558,6 +558,8 @@ enum Schema {
     V118,
     /// M6c slice BM, step two: bands holding a settlement, the annex law and the holding issue.
     V119,
+    /// M7a slice BN: office laws held for a term (`PolitySave.terms`).
+    V120,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -691,7 +693,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V116 => Schema::V116,
         SCHEMA_V117 => Schema::V117,
         SCHEMA_V118 => Schema::V118,
-        SAVE_SCHEMA_VERSION => Schema::V119,
+        SCHEMA_V119 => Schema::V119,
+        SAVE_SCHEMA_VERSION => Schema::V120,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1186,6 +1189,14 @@ pub(super) fn decode<R: Read + Seek>(
         {
             problems.push(format!("settlement {} has two polities", p.settlement));
         }
+        for (law, _) in &p.terms {
+            if !p.laws.iter().any(|l| l.id == *law) {
+                problems.push(format!(
+                    "polity {} has a term of law {law}, not its own",
+                    p.id
+                ));
+            }
+        }
         for h in &p.held {
             if !settlements.contains(&h.settlement) {
                 problems.push(format!(
@@ -1521,6 +1532,13 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let held = (!held.is_empty()).then(|| fbb.create_vector(&held));
+            // Its office laws held for a term (schema 120).
+            let terms: Vec<save::TermSave> = p
+                .terms
+                .iter()
+                .map(|&(law, t)| save::TermSave::new(law.get(), t.until, t.pool))
+                .collect();
+            let terms = (!terms.is_empty()).then(|| fbb.create_vector(&terms));
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -1573,6 +1591,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     ended_day: p.ended.map_or(-1, |e| e.day),
                     ended_by: p.ended.map_or(0, |e| e.by.get()),
                     ended_how: p.ended.map_or(255, |e| e.how.code()),
+                    terms,
                 },
             )
         })
@@ -2197,6 +2216,23 @@ fn decode_polities(
                 from,
             });
         }
+        // Its office laws held for a term (schema 120); before, none were.
+        let mut terms = Vec::new();
+        for t in p.terms().iter().flatten() {
+            let Some(law) = PermanentId::from_raw(t.law()) else {
+                return Err(bad(format!("polity {id} has a term of no law")));
+            };
+            terms.push((
+                law,
+                civ_agents::polity::Term {
+                    until: t.until(),
+                    pool: t.pool(),
+                },
+            ));
+        }
+        if !terms.windows(2).all(|w| w[0].0 < w[1].0) {
+            return Err(bad(format!("polity {id}'s terms are out of order")));
+        }
         let ended = match p.ended_how() {
             255 => None,
             code => {
@@ -2238,6 +2274,7 @@ fn decode_polities(
             enclosure_saves,
             held,
             ended,
+            terms,
         });
     }
     Ok(out)
@@ -3988,7 +4025,8 @@ fn carried(
         | Schema::V116
         | Schema::V117
         | Schema::V118
-        | Schema::V119 => {
+        | Schema::V119
+        | Schema::V120 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4280,7 +4318,8 @@ fn decode_households(
             | Schema::V116
             | Schema::V117
             | Schema::V118
-            | Schema::V119 => {
+            | Schema::V119
+            | Schema::V120 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5287,6 +5326,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::Enclosure => 54,
         ChronicleKind::PolityJoined => 55,
         ChronicleKind::Seceded => 56,
+        ChronicleKind::LotDrawn => 57,
     }
 }
 
@@ -5348,6 +5388,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         54 => Some(ChronicleKind::Enclosure),
         55 => Some(ChronicleKind::PolityJoined),
         56 => Some(ChronicleKind::Seceded),
+        57 => Some(ChronicleKind::LotDrawn),
         _ => None,
     }
 }

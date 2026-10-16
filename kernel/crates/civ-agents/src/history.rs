@@ -827,6 +827,10 @@ pub enum ChronicleKind {
     /// slice BM, ADR-0023 §9): `people` is who called it, `settlement` the settlement, `place`
     /// its hearth, and `name` the sentence.
     Seceded,
+    /// A lot drew who holds an office filled by lot (M7a slice BN, ADR-0024 §2): `people` is who
+    /// it fell to, `settlement` the polity's seat, `number` how many put their names in, and
+    /// `name` the sentence.
+    LotDrawn,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1480,7 +1484,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::Raid
         | ChronicleKind::Enclosure
         | ChronicleKind::PolityJoined
-        | ChronicleKind::Seceded => {
+        | ChronicleKind::Seceded
+        | ChronicleKind::LotDrawn => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

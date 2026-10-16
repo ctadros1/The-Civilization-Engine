@@ -651,6 +651,18 @@ settlement the store spoils as a roofed store and relief is asked at their home;
 leave the law lapses (the chronicle says so), the store is unkept again and the issue is open for
 a new proposal: succession is a new law, not a rule written in advance (research 09-03 §3.1, §5.1).
 
+Content API 105 (M7a slice BN, ADR-0024 §2) brings an office's tenure. A `keep_store` or
+`keep_watch` template may carry a `[tenure]` table: `term_days` (1 to 3650) the office is held
+from the day the body passes it, `renewable` (default true) whether its holder may be named or
+drawn for the next term, and `fill`, `named` (the default: the sponsor nominates, as before) or
+`lot`. Filled by lot, a law names nobody; once it passes, a lot keyed by the law draws its holder
+from those who stood for it at the gathering (a design prior: wanting the office kept is taken as
+willingness to keep it), less the last holder where the office is not renewable and anyone
+keeping the watch already. With nobody to draw, the law lapses. At its term's end the office
+lapses, as at a death, and the issue opens again. The core adds
+`core:policy/your_turn_keeping_the_store` (half a year, by lot, not renewable) and
+`core:policy/your_year_keeping_the_store` (a year, named, renewable).
+
 Content API 31 (M4a slice Z) brings the polity: the `policy` kind, the people profile's
 `[polity]` and `behavior = "attend"` (`core:activity/attend_gathering`, adults only). The core
 pack reviews weekly (ADR-0014 §4; research 09-01 §3.3: 7-30 days), calls the gathering the next

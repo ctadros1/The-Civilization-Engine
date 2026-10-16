@@ -2188,3 +2188,23 @@ polity's members, and it saves and loads alike; the Government panel's words for
 and a closed polity. `enclosures.rs`: the siege page for a band camped by a shut line.
 
 **Open:** a founding window for the old laws; eating at the hold; the M6c demo.
+
+## 2026-10-15 — M7 design, and BN: offices held for a term, filled by lot, and exact counting
+
+**Design:** four briefs (`docs/briefs/m7-*.md`) read the politics and economy reports; M7 splits
+into councils and elections (M7a), courts (M7b), trade laws, guilds and capture (M7c), and credit
+and money (M7d). [ADR-0024](../../decisions/0024-seats-offices-and-elections.md) settles seats,
+offices and elections.
+
+**Built:** an exact counting module (plurality, block vote, single vote, ties failing or drawn by
+a keyed lot); office templates with a tenure (a term, renewable or not, named or by lot); a lot
+drawn from those who stood for the office; offices lapsing at their term's end; terms saved per
+polity (save schema 120, content API 105); the chronicle's `LotDrawn`; the Government panel's
+offices telling until when and how they were filled.
+
+**Evidence:** the counting module's six unit tests (09-08 §4's 42/33/25 case among them);
+`civ-sim/tests/polity.rs`: a keeper drawn by lot from the three who stood for it, the term's end
+lapsing the office, the last keeper never drawn for the next turn, a lot with nobody to draw
+lapsing its law, and all of it saving and loading alike.
+
+**Open:** election and appointment (seated bodies, BO); a nominee's consent; campaigns.

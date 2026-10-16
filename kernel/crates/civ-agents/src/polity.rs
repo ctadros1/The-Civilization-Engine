@@ -414,6 +414,27 @@ pub struct PolicyDef {
     pub bears: Vec<(u16, f32)>,
     /// For a rule for building: what it requires (M6b slice BH).
     pub rule: Option<RuleDef>,
+    /// For an office (the store's keeper, the watch): how long it is held and how it is filled,
+    /// when not until the holder dies or leaves and named by the body (M7a slice BN, ADR-0024 §2).
+    pub tenure: Option<Tenure>,
+}
+
+/// An office's tenure (M7a slice BN, ADR-0024 §2): a term of days, whether the one who held it
+/// may be named or drawn again for the next, and whether it is filled by lot from those who put
+/// their names in rather than named by the body.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Tenure {
+    pub term_days: u32,
+    pub renewable: bool,
+    pub by_lot: bool,
+}
+
+/// An office law's term as it was filled (M7a slice BN): the day it ends, and how many put their
+/// names in when it was drawn by lot (0 when the body named its holder).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Term {
+    pub until: i64,
+    pub pool: u32,
 }
 
 /// What a rule for building requires of a building begun while it is in force (M6b slice BH;
@@ -1326,6 +1347,7 @@ pub fn office_words(
     policies: &[PolicyDef],
     name_of: &dyn Fn(PermanentId) -> String,
     gone: &dyn Fn(PermanentId) -> String,
+    today: i64,
 ) -> Vec<String> {
     let mut out = Vec::new();
     for (k, def) in policies.iter().enumerate() {
@@ -1360,16 +1382,45 @@ pub fn office_words(
         } else {
             String::new()
         };
+        // Held for a term (M7a slice BN): until when, and how it was filled.
+        let term = polity.term_of(law.id);
+        let held_for = term.map_or_else(String::new, |t| {
+            let lot = match t.pool {
+                0 => String::new(),
+                1 => ", drawn by lot, the only one who put their name in".to_owned(),
+                n => format!(", drawn by lot from {n} who put their names in"),
+            };
+            format!(
+                ", until {}{lot}",
+                day_words(SimTime::from_minutes(
+                    t.until * civ_core::time::MINUTES_PER_DAY
+                ))
+            )
+        });
         out.push(match law.status {
             LawStatus::InForce => {
-                format!("{}: {}, since {since}{record}", def.name, name_of(holder))
+                format!(
+                    "{}: {}, since {since}{held_for}{record}",
+                    def.name,
+                    name_of(holder)
+                )
             }
-            _ => format!(
-                "{}: vacant, since {} {}",
-                def.name,
-                name_of(holder),
-                gone(holder)
-            ),
+            _ => match term.filter(|t| t.until <= today) {
+                Some(t) => format!(
+                    "{}: vacant, since {}'s term ended on {}",
+                    def.name,
+                    name_of(holder),
+                    day_words(SimTime::from_minutes(
+                        t.until * civ_core::time::MINUTES_PER_DAY
+                    ))
+                ),
+                None => format!(
+                    "{}: vacant, since {} {}",
+                    def.name,
+                    name_of(holder),
+                    gone(holder)
+                ),
+            },
         });
     }
     out
@@ -1471,6 +1522,8 @@ pub struct Polity {
     pub held: Vec<HeldSettlement>,
     /// Its deciding closed, when another polity took it in (M6c slice BM): its record is kept.
     pub ended: Option<PolityEnd>,
+    /// The terms of its office laws held for a term, by law id (M7a slice BN).
+    pub terms: Vec<(PermanentId, Term)>,
 }
 
 /// How a polity came to hold a settlement besides its seat (M6c slice BM, ADR-0023 §9). Codes are
@@ -1678,6 +1731,23 @@ impl Polity {
             enclosure_saves: Vec::new(),
             held: Vec::new(),
             ended: None,
+            terms: Vec::new(),
+        }
+    }
+
+    /// The term of office law `law`, if it is held for one (M7a slice BN).
+    pub fn term_of(&self, law: PermanentId) -> Option<Term> {
+        self.terms
+            .binary_search_by_key(&law, |t| t.0)
+            .ok()
+            .map(|i| self.terms[i].1)
+    }
+
+    /// Records office law `law`'s term (M7a slice BN), keeping the terms in law order.
+    pub fn set_term(&mut self, law: PermanentId, term: Term) {
+        match self.terms.binary_search_by_key(&law, |t| t.0) {
+            Ok(i) => self.terms[i].1 = term,
+            Err(i) => self.terms.insert(i, (law, term)),
         }
     }
 
@@ -2396,6 +2466,7 @@ pub(crate) mod tests {
             question: None,
             bears: Vec::new(),
             rule: None,
+            tenure: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -2504,6 +2575,7 @@ pub(crate) mod tests {
             question: None,
             bears: Vec::new(),
             rule: None,
+            tenure: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -2539,9 +2611,13 @@ pub(crate) mod tests {
         });
         assert_eq!(polity.watcher().map(|w| w.0), Some(pid(9)));
         assert!(polity.keeper().is_none(), "a watch keeps no store");
-        let words = office_words(&polity, &policies, &|_| "Bram".to_owned(), &|_| {
-            String::new()
-        });
+        let words = office_words(
+            &polity,
+            &policies,
+            &|_| "Bram".to_owned(),
+            &|_| String::new(),
+            0,
+        );
         assert_eq!(words.len(), 1);
         assert!(
             words[0].starts_with("Watch: Bram, since ")
@@ -2716,6 +2792,7 @@ pub(crate) mod tests {
             question: None,
             bears: Vec::new(),
             rule: None,
+            tenure: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

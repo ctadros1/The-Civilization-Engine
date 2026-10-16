@@ -103,6 +103,23 @@ pub fn law_text(
                 return format!("a privilege: {} alone {}", org(), g.words());
             }
         }
+        // Debts heard (M7d slice CB): what a finding does.
+        civ_agents::polity::PolicyKind::DebtsHeard => {
+            if let Some(d) = def.and_then(|d| d.debts) {
+                let remedy = match d.remedy {
+                    civ_agents::polity::DebtRemedy::Time => {
+                        format!("gives the debtor {} days more", d.extend_days)
+                    }
+                    civ_agents::polity::DebtRemedy::Imposed => {
+                        "imposes what is owed, as a finding is met".to_owned()
+                    }
+                };
+                return format!(
+                    "debts heard: a loan refused or left unpaid may be brought, and a finding \
+                     {remedy}"
+                );
+            }
+        }
         civ_agents::polity::PolicyKind::Embargo => {
             if let Some(t) = law.target {
                 return format!(

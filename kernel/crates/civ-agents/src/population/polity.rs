@@ -75,6 +75,9 @@ pub(super) struct Forecasts {
     forum_cases: Vec<ForumCase>,
     /// What a duty or an embargo would bring each household (M7c slice BV).
     trade: TradeForecast,
+    /// What each household is owed on loans refused or left unpaid and not yet heard, and what
+    /// it owes on such loans, kcal (M7d slice CB), by household id.
+    debts: Vec<(PermanentId, f64, f64)>,
 }
 
 /// What a household weighs a trade law by (M7c slice BV, ADR-0026 §1): its settlement's
@@ -575,6 +578,19 @@ impl Forecasts {
                 let (gain, cost) = self.trade.recognize(h, org);
                 crate::polity::kept_gain(o, gain, pp) - crate::polity::levy_cost(o, cost, pp)
             }
+            // Debts heard (M7d slice CB): what it is owed and owes on failed loans, at the share
+            // a finding is expected to move.
+            Some(PolicyKind::DebtsHeard) => {
+                let Some(def) = policies.get(usize::from(m.policy)).and_then(|d| d.debts) else {
+                    return 0.0;
+                };
+                let share = f64::from(def.share);
+                let (to, from) = self
+                    .debts
+                    .binary_search_by_key(&h, |d| d.0)
+                    .map_or((0.0, 0.0), |i| (self.debts[i].1, self.debts[i].2));
+                crate::polity::against_gain(o, to * share, from * share, pp)
+            }
             Some(PolicyKind::Privilege) => {
                 let (Some(org), Some(def)) = (
                     m.target,
@@ -724,6 +740,8 @@ impl Population {
                 // Whether a member of an organization brings a breach of its privilege (M7c
                 // slice BX).
                 self.weigh_breaches(ctx, pi);
+                // Whether a creditor brings a loan refused or left unpaid (M7d slice CB).
+                self.weigh_debts(ctx, pi);
                 // Whether the store's keeper draws from it for their own household (M7c slice
                 // BY).
                 self.keeper_weighs_drawing(ctx, pi);
@@ -1458,6 +1476,7 @@ impl Population {
             }),
             forum_cases: self.forum_cases(ctx, pi),
             trade: self.trade_forecast(ctx, pi, households),
+            debts: self.debt_stakes(ctx, households),
         }
     }
 
@@ -2231,6 +2250,14 @@ impl Population {
         if self.fetched_elsewhere(ctx, pi, &households) {
             issues.push(IssueKind::FetchedElsewhere);
         }
+        // A loan one of its households made was refused or left unpaid, and nothing was taken
+        // for it nor a case brought (M7d slice CB).
+        if households
+            .iter()
+            .any(|&h| !self.unheard_debts(h).is_empty())
+        {
+            issues.push(IssueKind::DebtsUnpaid);
+        }
         let polity = &self.polities[pi];
         // A watch may have one more while takings continue (M4c slice AI: a watch of several):
         // food taken from a household here since the newest watcher was named.
@@ -2690,6 +2717,18 @@ impl Population {
                         for &hours in &def.hours {
                             moves.push(MoveOption { hours, ..blank });
                         }
+                    }
+                    // Debts heard (M7d slice CB): one law, its remedy the template's; it
+                    // replaces a law of debts heard of another template in force.
+                    PolicyKind::DebtsHeard => {
+                        let ends = self.polities[pi]
+                            .laws
+                            .iter()
+                            .find(|l| {
+                                l.kind == PolicyKind::DebtsHeard && l.status == LawStatus::InForce
+                            })
+                            .map(|l| l.id);
+                        moves.push(MoveOption { ends, ..blank });
                     }
                     // A duty at each rate the template offers (M7c slice BV), naming as its
                     // collector, where the template has one, the adult the deliberator regards

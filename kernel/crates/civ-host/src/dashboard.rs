@@ -2609,6 +2609,7 @@ mod tests {
             challenge: challenge.then(|| id(8)),
             tags: 0,
             departed,
+            loan: None,
         };
         let order = Order {
             cases: vec![

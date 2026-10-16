@@ -553,3 +553,252 @@ fn a_workshop_that_cannot_pay_a_wage_owes_it_and_fails_only_when_it_is_still_unp
         "{words:?}"
     );
 }
+
+/// The law of debts heard of template `template` in force at household `h`'s polity since today,
+/// known to everyone there.
+fn debts_heard(sim: &mut Sim, h: PermanentId, template: &str) -> PermanentId {
+    use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome as Decided};
+    let policies = &sim.rules().catalog.policies;
+    let policy = policies
+        .iter()
+        .position(|d| d.id == template)
+        .expect("the core content has debts heard");
+    let kind = policies[policy].kind;
+    let id = sim.allocate_id_for_tests();
+    let now = sim.now();
+    let pop = sim.people_mut_for_tests();
+    let at = pop
+        .household(h)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let members: Vec<PermanentId> = pop
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(at))
+        .flat_map(|(_, x)| x.members.clone())
+        .collect();
+    let pi = pop
+        .polities
+        .iter()
+        .position(|p| p.settlement == at)
+        .expect("a polity");
+    let mut law = Law {
+        id,
+        policy: policy as u16,
+        kind,
+        levy_share: 0.0,
+        holder: None,
+        relief_days: 0.0,
+        sanction: Default::default(),
+        hours: (0, 0),
+        status: LawStatus::InForce,
+        sponsor: members[0],
+        proposed: now,
+        issue: IssueKind::DebtsUnpaid,
+        meets_day: now.day_index(),
+        decided: Some(now),
+        outcome: Some(Decided::Passed),
+        eligible: members.len() as u32,
+        stances: Vec::new(),
+        known: Vec::new(),
+        compliance: Default::default(),
+        watch: Default::default(),
+        body: None,
+        ends: None,
+        agreement: None,
+        target: None,
+    };
+    for &m in &members {
+        law.learn(m, now.day_index());
+    }
+    pop.polities[pi].laws.push(law);
+    id
+}
+
+/// A village whose borrower took a loan and left it unpaid when its days of grace ran out.
+fn defaulted() -> (Scene, u32) {
+    let mut sc = village();
+    let cp = credit(&mut sc.sim);
+    cp.pay_base = 50.0;
+    cp.max_extensions = 0;
+    weigh(&mut sc.sim);
+    let (i, c) = loan_of(&sc.sim, sc.borrower);
+    feed(&mut sc.sim, sc.borrower, 0.0);
+    let grace = i64::from(sc.sim.rules().people.credit.grace_days);
+    repay(&mut sc.sim, c.due + grace + 1);
+    assert_eq!(loans(&sc.sim)[i].standing, Standing::Defaulted);
+    (sc, c.id)
+}
+
+#[test]
+fn under_debts_heard_a_creditor_brings_a_loan_left_unpaid_and_it_is_heard() {
+    // M7d slice CB (ADR-0027 §3): without the law nobody brings it; with it in force, the
+    // lender's household brings it before the gathering, which hears it.
+    let (mut sc, loan) = defaulted();
+    let pi = |sim: &Sim, h: PermanentId| {
+        let at = sim.people().household(h).and_then(|x| x.settlement);
+        sim.people()
+            .polities
+            .iter()
+            .position(|p| p.settlement == at.expect("settled"))
+            .expect("a polity")
+    };
+    let p = pi(&sc.sim, sc.lender);
+    sc.sim
+        .with_ctx_for_tests(|pop, ctx| pop.weigh_debts_for_tests(ctx, p));
+    let case = |sim: &Sim| {
+        sim.people()
+            .order
+            .cases
+            .iter()
+            .find(|c| c.loan == Some(loan))
+            .cloned()
+    };
+    assert!(case(&sc.sim).is_none(), "no law, no case");
+    let law = debts_heard(&mut sc.sim, sc.lender, "core:policy/debts_heard");
+    sc.sim
+        .with_ctx_for_tests(|pop, ctx| pop.weigh_debts_for_tests(ctx, p));
+    let c = case(&sc.sim).expect("the lender's household brought it");
+    assert_eq!(
+        (c.law, c.accuser, c.accused_household, c.incident),
+        (law, sc.lender, sc.borrower, 0)
+    );
+    // Brought once.
+    sc.sim
+        .with_ctx_for_tests(|pop, ctx| pop.weigh_debts_for_tests(ctx, p));
+    let brought = sc
+        .sim
+        .people()
+        .order
+        .cases
+        .iter()
+        .filter(|c| c.loan == Some(loan))
+        .count();
+    assert_eq!(brought, 1);
+    assert!(
+        sc.sim
+            .people()
+            .chronicle
+            .iter()
+            .any(|e| e.name.contains("for a loan it did not repay")),
+        "the chronicle says it was brought"
+    );
+    // A world with it saves and loads exactly.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = persist::save(
+        &mut sc.sim,
+        &saves,
+        commons_persist::SaveKind::Manual,
+        "debts",
+    )
+    .expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(case(&loaded), case(&sc.sim));
+    // The gathering hears it.
+    for _ in 0..60 {
+        if case(&sc.sim).is_some_and(|c| c.stage != civ_agents::crime::CaseStage::Open) {
+            break;
+        }
+        sc.sim.advance_minutes(DAY).expect("advances");
+    }
+    let c = case(&sc.sim).expect("kept");
+    assert_ne!(
+        c.stage,
+        civ_agents::crime::CaseStage::Open,
+        "heard within two months"
+    );
+    if c.stage == civ_agents::crime::CaseStage::Found {
+        assert!(
+            sc.sim.people().order.obligations.iter().any(|o| {
+                o.case == Some(c.id)
+                    && o.kind == civ_agents::crime::Owed::Debt
+                    && o.incident == loan
+                    && o.debtor == sc.borrower
+                    && o.beneficiary == sc.lender
+            }),
+            "a finding imposes what is owed"
+        );
+    }
+}
+
+#[test]
+fn a_finding_on_a_debt_gives_time_or_imposes_what_is_owed() {
+    use civ_agents::polity::{DebtRemedy, DebtsDef};
+    // Time: the loan is open again, unanswered, due later.
+    let (mut sc, loan) = defaulted();
+    let today = sc.sim.now().day_index();
+    let time = DebtsDef {
+        remedy: DebtRemedy::Time,
+        share: 0.5,
+        extend_days: 180,
+    };
+    let words = sc
+        .sim
+        .with_ctx_for_tests(|pop, ctx| pop.debt_found_for_tests(ctx, loan, 1, time));
+    assert!(words.contains("given until"), "{words}");
+    let c = loans(&sc.sim)
+        .into_iter()
+        .find(|c| c.id == loan)
+        .expect("kept");
+    assert_eq!(
+        (c.standing, c.answer, c.due),
+        (Standing::Open, None, today + 180)
+    );
+    // Imposed: what is still owed is owed as a finding's obligation, and what is paid on it is
+    // paid on the loan.
+    let (mut sc, loan) = defaulted();
+    let imposed = DebtsDef {
+        remedy: DebtRemedy::Imposed,
+        share: 1.0,
+        extend_days: 0,
+    };
+    let left = loans(&sc.sim)
+        .into_iter()
+        .find(|c| c.id == loan)
+        .expect("kept")
+        .left();
+    sc.sim
+        .with_ctx_for_tests(|pop, ctx| pop.debt_found_for_tests(ctx, loan, 1, imposed));
+    let ob = sc
+        .sim
+        .people()
+        .order
+        .obligations
+        .iter()
+        .find(|o| o.kind == civ_agents::crime::Owed::Debt)
+        .copied()
+        .expect("an obligation");
+    assert_eq!(
+        (ob.incident, ob.debtor, ob.beneficiary),
+        (loan, sc.borrower, sc.lender)
+    );
+    let per_kg = sc.sim.rules().catalog.goods[sc.grain].kcal_per_kg;
+    assert!(
+        (f64::from(ob.kcal) - left * per_kg).abs() < 1.0,
+        "{ob:?} {left}"
+    );
+    // The debtor, given grain and meaning to pay, pays on it day by day.
+    feed(&mut sc.sim, sc.borrower, 3000.0);
+    for _ in 0..10 {
+        sc.sim.advance_minutes(DAY).expect("advances");
+    }
+    let after = loans(&sc.sim)
+        .into_iter()
+        .find(|c| c.id == loan)
+        .expect("kept")
+        .left();
+    let ob_after = sc
+        .sim
+        .people()
+        .order
+        .obligations
+        .iter()
+        .find(|o| o.id == ob.id)
+        .copied()
+        .expect("kept");
+    if ob_after.paid_kcal > 0.0 {
+        assert!(after < left, "paid on the loan: {after} of {left}");
+    }
+}

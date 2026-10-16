@@ -589,15 +589,19 @@ pub enum Owed {
     Compensation = 2,
     /// Food to the polity's common store, as the law's bundle says.
     Fine = 3,
+    /// What is still owed on a loan, imposed by a finding under a law of debts heard (M7d slice
+    /// CB, ADR-0027 §3): `incident` names the loan, and what is paid is paid on it.
+    Debt = 4,
 }
 
 impl Owed {
     /// Every kind, in code order.
-    pub const ALL: [Owed; 4] = [
+    pub const ALL: [Owed; 5] = [
         Owed::Demanded,
         Owed::Restitution,
         Owed::Compensation,
         Owed::Fine,
+        Owed::Debt,
     ];
 
     /// Its number in saves.
@@ -617,6 +621,7 @@ impl Owed {
             Owed::Restitution => "restitution",
             Owed::Compensation => "compensation",
             Owed::Fine => "a fine",
+            Owed::Debt => "a debt",
         }
     }
 }
@@ -943,6 +948,9 @@ pub struct Case {
     pub tags: u8,
     /// The remembered finding of the same tags it went against, if it did (M7b slice BS).
     pub departed: Option<u32>,
+    /// For a debt brought under a law of debts heard (M7d slice CB, ADR-0027 §3): the loan it is
+    /// of. A debt names no incident (`incident` 0).
+    pub loan: Option<u32>,
 }
 
 /// A case's fact tags (M7b slice BS, ADR-0025 §2): derived from what the case holds, never from

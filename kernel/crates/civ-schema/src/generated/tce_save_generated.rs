@@ -37714,6 +37714,7 @@ impl<'a> CaseSave<'a> {
   pub const VT_DEPARTED: ::flatbuffers::VOffsetT = 42;
   pub const VT_STANCE_PRECEDENT: ::flatbuffers::VOffsetT = 44;
   pub const VT_CHALLENGE: ::flatbuffers::VOffsetT = 46;
+  pub const VT_LOAN: ::flatbuffers::VOffsetT = 48;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -37735,6 +37736,7 @@ impl<'a> CaseSave<'a> {
     builder.add_accuser(args.accuser);
     builder.add_law(args.law);
     builder.add_settlement(args.settlement);
+    builder.add_loan(args.loan);
     if let Some(x) = args.stance_precedent { builder.add_stance_precedent(x); }
     builder.add_departed(args.departed);
     if let Some(x) = args.stances { builder.add_stances(x); }
@@ -37905,6 +37907,13 @@ impl<'a> CaseSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(CaseSave::VT_CHALLENGE, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn loan(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CaseSave::VT_LOAN, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for CaseSave<'_> {
@@ -37935,6 +37944,7 @@ impl ::flatbuffers::Verifiable for CaseSave<'_> {
      .visit_field::<u32>("departed", Self::VT_DEPARTED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("stance_precedent", Self::VT_STANCE_PRECEDENT, false)?
      .visit_field::<u64>("challenge", Self::VT_CHALLENGE, false)?
+     .visit_field::<u32>("loan", Self::VT_LOAN, false)?
      .finish();
     Ok(())
   }
@@ -37962,6 +37972,7 @@ pub struct CaseSaveArgs<'a> {
     pub departed: u32,
     pub stance_precedent: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
     pub challenge: u64,
+    pub loan: u32,
 }
 impl<'a> Default for CaseSaveArgs<'a> {
   #[inline]
@@ -37989,6 +38000,7 @@ impl<'a> Default for CaseSaveArgs<'a> {
       departed: 0,
       stance_precedent: None,
       challenge: 0,
+      loan: 0,
     }
   }
 }
@@ -38087,6 +38099,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CaseSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(CaseSave::VT_CHALLENGE, challenge, 0);
   }
   #[inline]
+  pub fn add_loan(&mut self, loan: u32) {
+    self.fbb_.push_slot::<u32>(CaseSave::VT_LOAN, loan, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CaseSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     CaseSaveBuilder {
@@ -38126,6 +38142,7 @@ impl ::core::fmt::Debug for CaseSave<'_> {
       ds.field("departed", &self.departed());
       ds.field("stance_precedent", &self.stance_precedent());
       ds.field("challenge", &self.challenge());
+      ds.field("loan", &self.loan());
       ds.finish()
   }
 }

@@ -497,6 +497,250 @@ impl Population {
         }
     }
 
+    /// Loans household `creditor` made that were refused or left unpaid, with something still
+    /// owed, whose pledge was not taken and that nobody has brought a case for (M7d slice CB).
+    pub(super) fn unheard_debts(&self, creditor: PermanentId) -> Vec<u32> {
+        self.order
+            .credit
+            .claims
+            .iter()
+            .filter(|c| {
+                c.creditor == creditor
+                    && c.standing.failed()
+                    && c.left() > 1e-3
+                    && c.taken.is_none()
+                    && self.firm(c.debtor).is_none()
+            })
+            .map(|c| c.id)
+            .filter(|&id| !self.order.cases.iter().any(|k| k.loan == Some(id)))
+            .collect()
+    }
+
+    /// What each of `households` is owed on loans refused or left unpaid and not yet heard, and
+    /// what it owes on such loans, kcal (M7d slice CB), in household order.
+    pub(super) fn debt_stakes(
+        &self,
+        ctx: &Ctx,
+        households: &[PermanentId],
+    ) -> Vec<(PermanentId, f64, f64)> {
+        let goods = &ctx.catalog.goods;
+        let mut out: Vec<(PermanentId, f64, f64)> =
+            households.iter().map(|&h| (h, 0.0, 0.0)).collect();
+        out.sort_by_key(|x| x.0);
+        for h in households {
+            for id in self.unheard_debts(*h) {
+                let Some(c) = self.order.credit.claim(id) else {
+                    continue;
+                };
+                let kcal = c.left()
+                    * goods
+                        .get(usize::from(c.good))
+                        .map_or(0.0, |g| g.kcal_per_kg);
+                if let Ok(i) = out.binary_search_by_key(&c.creditor, |x| x.0) {
+                    out[i].1 += kcal;
+                }
+                if let Ok(i) = out.binary_search_by_key(&c.debtor, |x| x.0) {
+                    out[i].2 += kcal;
+                }
+            }
+        }
+        out
+    }
+
+    /// Whether a creditor brings a loan refused or left unpaid before polity `pi`'s gathering,
+    /// at its review (M7d slice CB, ADR-0027 §3): with a law of debts heard in force, for each
+    /// such loan of a household of the polity's settlements that nobody brought yet, each grown
+    /// member of the creditor's household weighs U = V − C as a breach is weighed (research 09-07
+    /// §4.1): V what a finding would move, the debt at the law's share, in days of their
+    /// household's food at the points a day is worth in a dispute; C the cost of bringing a case
+    /// and their regard for the debtor's elder. The one with the most to gain, if anyone, brings
+    /// it.
+    pub(super) fn weigh_debts(&mut self, ctx: &mut Ctx, pi: usize) {
+        let (now, params) = (ctx.now, ctx.params);
+        let (pp, cp, day) = (&params.polity, &params.crime, now.day_index());
+        let Some((law_id, def)) = self.polities[pi]
+            .laws
+            .iter()
+            .filter(|l| {
+                l.kind == crate::polity::PolicyKind::DebtsHeard
+                    && l.status == crate::polity::LawStatus::InForce
+            })
+            .find_map(|l| {
+                let d = ctx.catalog.policies.get(usize::from(l.policy))?.debts?;
+                Some((l.id, d))
+            })
+        else {
+            return;
+        };
+        let goods = &ctx.catalog.goods;
+        let mut creditors: Vec<PermanentId> = self
+            .households
+            .iter()
+            .map(|(_, x)| x)
+            .filter(|x| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
+            .map(|x| x.id)
+            .collect();
+        creditors.sort_unstable();
+        for creditor in creditors {
+            for id in self.unheard_debts(creditor) {
+                let Some(c) = self.order.credit.claim(id).cloned() else {
+                    continue;
+                };
+                let Some(accused) = self
+                    .elder_of(c.debtor, now, params)
+                    .filter(|_| self.household(c.debtor).is_some())
+                else {
+                    continue;
+                };
+                let kcal = c.left()
+                    * goods
+                        .get(usize::from(c.good))
+                        .map_or(0.0, |g| g.kcal_per_kg);
+                let need = self.day_need(creditor, params);
+                let v = cp.w_demand_loss * kcal * f64::from(def.share) / need;
+                let members: Vec<PermanentId> = self
+                    .household(creditor)
+                    .map(|x| x.members.clone())
+                    .unwrap_or_default();
+                let mut best: Option<(f64, PermanentId)> = None;
+                for m in members {
+                    let grown = self
+                        .person(m)
+                        .is_some_and(|p| p.age_years(now) >= params.family.independent_age);
+                    if !grown {
+                        continue;
+                    }
+                    let regard = self
+                        .ties
+                        .regard(m, accused, day, &params.ties)
+                        .clamp(0.0, 1.0);
+                    let u = v - cp.report_cost - pp.w_regard * regard;
+                    if u > 0.0 && best.is_none_or(|b| u > b.0) {
+                        best = Some((u, m));
+                    }
+                }
+                let Some((_, by)) = best else {
+                    continue;
+                };
+                let settlement = self.polities[pi].settlement;
+                let case = self.order.cases.last().map_or(1, |k| k.id + 1);
+                self.order.cases.push(crate::crime::Case {
+                    id: case,
+                    incident: 0,
+                    settlement,
+                    law: law_id,
+                    accuser: creditor,
+                    by,
+                    accused,
+                    accused_household: c.debtor,
+                    kcal: kcal as f32,
+                    leads: vec![c.witnesses[0]],
+                    opened: day,
+                    stage: crate::crime::CaseStage::Open,
+                    heard: None,
+                    eligible: 0,
+                    stances: Vec::new(),
+                    exiled: false,
+                    forum: None,
+                    challenge: None,
+                    tags: 0,
+                    departed: None,
+                    loan: Some(id),
+                });
+                let (place, name) = ctx
+                    .land
+                    .settlements
+                    .iter()
+                    .find(|s| s.id == settlement)
+                    .map_or((None, String::new()), |s| {
+                        (Some(s.hearth_m), s.name.clone())
+                    });
+                let words = format!(
+                    "brought a case at {name} against {}'s household for a loan it did not \
+                     repay.",
+                    self.name_of(accused),
+                );
+                self.chronicle_push(
+                    now,
+                    ChronicleKind::CaseBrought,
+                    vec![by, accused],
+                    Some(settlement),
+                    place,
+                    0.0,
+                    words,
+                );
+            }
+        }
+    }
+
+    /// `kcal` of food paid on debt imposed for loan `id` (M7d slice CB): paid on the loan, in its
+    /// good.
+    pub(super) fn paid_on_loan(&mut self, ctx: &Ctx, id: u32, kcal: f64) {
+        let goods = &ctx.catalog.goods;
+        if let Some(c) = self.order.credit.claims.iter_mut().find(|c| c.id == id) {
+            let per_kg = goods
+                .get(usize::from(c.good))
+                .map_or(0.0, |g| g.kcal_per_kg);
+            if per_kg > 0.0 {
+                let kg = (kcal / per_kg).min(c.left());
+                c.paid += kg as f32;
+            }
+        }
+    }
+
+    /// A finding under a law of debts heard against loan `id`'s debtor (M7d slice CB): the
+    /// remedy `def` names. Time: the loan is open again, unanswered, due `extend_days` from
+    /// today. Imposed: what is still owed, as a finding's obligation of the debtor's household
+    /// to the creditor's, due as findings are. Words for the chronicle, after "…owes it".
+    pub(super) fn debt_found(
+        &mut self,
+        ctx: &Ctx,
+        id: u32,
+        case: u32,
+        def: crate::polity::DebtsDef,
+    ) -> String {
+        let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
+        let day = now.day_index();
+        let Some(i) = self.order.credit.claims.iter().position(|c| c.id == id) else {
+            return String::new();
+        };
+        let c = self.order.credit.claims[i].clone();
+        match def.remedy {
+            crate::polity::DebtRemedy::Time => {
+                let claim = &mut self.order.credit.claims[i];
+                claim.standing = Standing::Open;
+                claim.answer = None;
+                claim.due = day + i64::from(def.extend_days);
+                format!(
+                    ", and is given until {} to pay it",
+                    crate::polity::day_words(SimTime::from_minutes(claim.due * 24 * 60))
+                )
+            }
+            crate::polity::DebtRemedy::Imposed => {
+                let kcal = c.left()
+                    * goods
+                        .get(usize::from(c.good))
+                        .map_or(0.0, |g| g.kcal_per_kg);
+                let ob = self.order.obligations.last().map_or(1, |o| o.id + 1);
+                self.order.obligations.push(crate::crime::Obligation {
+                    id: ob,
+                    incident: id,
+                    kind: crate::crime::Owed::Debt,
+                    case: Some(case),
+                    debtor: c.debtor,
+                    beneficiary: c.creditor,
+                    kcal: kcal as f32,
+                    paid_kcal: 0.0,
+                    made: day,
+                    due: day + i64::from(params.crime.due_days),
+                    standing: crate::crime::Standing::Open,
+                    answer: None,
+                });
+                ", which the finding imposes".to_owned()
+            }
+        }
+    }
+
     /// Loan `i` failed today (refused, or unpaid when grace ran out): the creditor's household
     /// notes it of the debtor's elder, and the creditor takes the pledge: the guarantor is called
     /// on now; a field is taken when it lies between crops ([`Self::pledged_fields`]).
@@ -650,6 +894,24 @@ impl Population {
         for k in 0..review {
             self.weigh_borrowing(ctx, day + k);
         }
+    }
+
+    /// Whether a creditor of polity `pi` brings a failed loan, whatever day it is: for tests.
+    #[doc(hidden)]
+    pub fn weigh_debts_for_tests(&mut self, ctx: &mut Ctx, pi: usize) {
+        self.weigh_debts(ctx, pi);
+    }
+
+    /// A finding against loan `id`'s debtor in case `case`, by remedy `def`: for tests.
+    #[doc(hidden)]
+    pub fn debt_found_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        id: u32,
+        case: u32,
+        def: crate::polity::DebtsDef,
+    ) -> String {
+        self.debt_found(ctx, id, case, def)
     }
 
     /// Household `owner` sets up a workshop making `good`, founded by `founder`: for tests.

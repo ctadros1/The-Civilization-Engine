@@ -1220,6 +1220,7 @@ fn a_refused_finding(sim: &mut Sim) -> (PermanentId, PermanentId, u32) {
         challenge: None,
         tags: 0,
         departed: None,
+        loan: None,
     });
     let id = order.obligations.iter().map(|o| o.id).max().unwrap_or(0) + 1;
     order.obligations.push(Obligation {

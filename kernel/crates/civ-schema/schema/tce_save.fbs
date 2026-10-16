@@ -1839,6 +1839,9 @@ table CaseSave {
   // For a challenge (schema 127, M7b slice BT): the limit the law `law` is said to breach; 0 for
   // a taking. A challenge names no incident (`incident` 0).
   challenge: ulong (id: 21);
+  // For a debt brought under a law of debts heard (schema 135, M7d slice CB): the loan it is of;
+  // 0 for none. A debt names no incident (`incident` 0).
+  loan: uint (id: 22);
 }
 
 // How someone met one of the watch come to take what a finding owed: 0 yielded, 1 stood in the

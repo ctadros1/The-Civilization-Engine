@@ -395,6 +395,8 @@ pub const SCHEMA_V131: u32 = 131;
 pub const SCHEMA_V132: u32 = 132;
 /// Loans, before pledges and answers at the due day.
 pub const SCHEMA_V133: u32 = 133;
+/// Pledges and answers at the due day, before debts heard.
+pub const SCHEMA_V134: u32 = 134;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

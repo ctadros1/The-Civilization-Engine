@@ -320,6 +320,7 @@ impl Population {
                     challenge: None,
                     tags: 0,
                     departed: None,
+                    loan: None,
                 });
                 let (place, name) = ctx
                     .land

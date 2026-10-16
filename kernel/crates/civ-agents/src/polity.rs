@@ -130,11 +130,16 @@ pub enum PolicyKind {
     /// seller's choice; a breach is an offer at a door, which becomes a case only if someone
     /// brings it, and a finding imposes the template's bundle.
     Privilege,
+    /// Debts heard (M7d slice CB, ADR-0027 §3): a creditor whose loan was refused or left unpaid
+    /// when its days of grace ran out may bring it before the gathering, or a forum that hears
+    /// such cases; a finding imposes the template's remedy ([`DebtsDef`]). Without it, a
+    /// creditor has only its own answers and its household's memory.
+    DebtsHeard,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 25] = [
+    pub const ALL: [PolicyKind; 26] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -160,6 +165,7 @@ impl PolicyKind {
         PolicyKind::Embargo,
         PolicyKind::Recognize,
         PolicyKind::Privilege,
+        PolicyKind::DebtsHeard,
     ];
 
     /// The authored name.
@@ -190,6 +196,7 @@ impl PolicyKind {
             PolicyKind::Embargo => "embargo",
             PolicyKind::Recognize => "recognize",
             PolicyKind::Privilege => "privilege",
+            PolicyKind::DebtsHeard => "debts_heard",
         }
     }
 
@@ -270,11 +277,14 @@ pub enum IssueKind {
     /// A household of the settlement offers at home goods its people fetched from another
     /// settlement lately (M7c slice BV, ADR-0026 §1): what a duty or an embargo answers.
     FetchedElsewhere,
+    /// A loan their household made was refused or left unpaid, and nothing was taken for it
+    /// (M7d slice CB, ADR-0027 §3): what a law of debts heard answers.
+    DebtsUnpaid,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 21] = [
+    pub const ALL: [IssueKind; 22] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -296,6 +306,7 @@ impl IssueKind {
         IssueKind::Holding,
         IssueKind::CasesWaiting,
         IssueKind::FetchedElsewhere,
+        IssueKind::DebtsUnpaid,
     ];
 
     /// The authored name.
@@ -322,6 +333,7 @@ impl IssueKind {
             IssueKind::Holding => "holding",
             IssueKind::CasesWaiting => "cases_waiting",
             IssueKind::FetchedElsewhere => "fetched_elsewhere",
+            IssueKind::DebtsUnpaid => "debts_unpaid",
         }
     }
 
@@ -363,6 +375,7 @@ impl IssueKind {
             IssueKind::FetchedElsewhere => {
                 "people of theirs fetched from elsewhere goods their households offer at home"
             }
+            IssueKind::DebtsUnpaid => "a loan their household made was not repaid",
         }
     }
 }
@@ -477,6 +490,49 @@ pub struct PolicyDef {
     pub duty: Option<DutyDef>,
     /// For a privilege: what it grants (M7c slice BX, ADR-0026 §3).
     pub privilege: Option<PrivilegeDef>,
+    /// For debts heard: what a finding does (M7d slice CB, ADR-0027 §3).
+    pub debts: Option<DebtsDef>,
+}
+
+/// What a finding under a law of debts heard does (M7d slice CB, ADR-0027 §3): the custom's
+/// choice. Codes are part of content: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DebtRemedy {
+    /// The debt stands, and the debtor is given time: the loan is open again, due `extend_days`
+    /// after the finding (an extension in a lean year, research 08-20 §1.6).
+    Time = 0,
+    /// What is still owed is imposed as a finding's obligation, met as a finding is (paid,
+    /// refused and held against, or taken by the watch where a law sends it).
+    Imposed = 1,
+}
+
+impl DebtRemedy {
+    /// The authored name.
+    pub fn name(self) -> &'static str {
+        match self {
+            DebtRemedy::Time => "time",
+            DebtRemedy::Imposed => "imposed",
+        }
+    }
+
+    /// The remedy with an authored name.
+    pub fn from_name(name: &str) -> Option<DebtRemedy> {
+        [DebtRemedy::Time, DebtRemedy::Imposed]
+            .into_iter()
+            .find(|r| r.name() == name)
+    }
+}
+
+/// A law of debts heard's terms (M7d slice CB, ADR-0027 §3).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DebtsDef {
+    /// What a finding does.
+    pub remedy: DebtRemedy,
+    /// The share of what is still owed households expect a finding to move between creditor and
+    /// debtor, for their forecasts (all of it when imposed; less for time).
+    pub share: f32,
+    /// For time: the days after the finding the loan falls due again.
+    pub extend_days: u32,
 }
 
 /// What a duty is laid on (M7c slice BV, ADR-0026 §1): goods of one purpose bought at another
@@ -1582,6 +1638,7 @@ pub fn ending_words(
         Some(PolicyKind::Embargo) => "the embargo".to_owned(),
         Some(PolicyKind::Recognize) => "the recognition of an organization".to_owned(),
         Some(PolicyKind::Privilege) => "the privilege of an organization".to_owned(),
+        Some(PolicyKind::DebtsHeard) => "the hearing of debts".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -2814,6 +2871,7 @@ pub(crate) mod tests {
             limit: None,
             duty: None,
             privilege: None,
+            debts: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -2927,6 +2985,7 @@ pub(crate) mod tests {
             limit: None,
             duty: None,
             privilege: None,
+            debts: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -3148,6 +3207,7 @@ pub(crate) mod tests {
             limit: None,
             duty: None,
             privilege: None,
+            debts: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

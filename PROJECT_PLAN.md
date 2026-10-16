@@ -3465,6 +3465,32 @@ and M6a gives rivers a daily flow.
         of a wage, so no wages were owed; the same run made 75 loans (one with a guarantor, who
         was called on and holds a claim on the debtor), 25 times time was asked and granted, 22
         repaid, 20 defaulted, 11 lapsed. **Not yet built:** *debts heard* (CB2).
+    - **CB2**: *debts heard*: a law under which a creditor brings a loan refused or left unpaid
+      before the gathering, whose finding gives time or imposes what is owed.
+      - *As built (2026-10-16):* content API 122, save schema 135 (wire unchanged). An appended
+        policy kind, `debts_heard`, answers the appended issue `debts_unpaid` (a loan a
+        household made was refused or left unpaid, nothing was taken for it and no case brought);
+        its template chooses the remedy: `time` (the loan open again, due `extend_days` after the
+        finding) or `imposed` (what is still owed, as a finding's obligation of the appended kind
+        *debt*, met as findings are: paid day by day on the repaid channel, refused and held
+        against the gathering, or taken by the watch where a law sends it; what is paid is paid
+        on the loan). The core offers both (`core:policy/debts_heard`,
+        `core:policy/debts_heard_time`, 180 days); one passed replaces the other in force. Each
+        household forecasts it by what it is owed and owes on such loans, at the template's share.
+        At the polity's review a grown member of a creditor's household weighs bringing each such
+        loan as a breach is weighed (V − C), the loan's witnesses the case's account; the
+        gathering, or a forum that hears such cases, hears it with the stakes the remedy moves, and
+        the chronicle says what was found. A case of a loan names no incident; saves now check a
+        case's incident only when it names one, and a debt's obligation against its loan.
+        **Measured** (`civ-sim --example capture`, seed 1, three villages of 40, four years):
+        nobody nudged anything about debts. Two villages passed a law of debts heard, one of them
+        replacing the imposed remedy with time within a week; 12 debts were brought, 9 found, 3
+        unheard or lapsed, none found for the debtor; 58 loans, 23 repaid, 14 defaulted, one
+        refused at the due day, the first field pledged; 133 people at the end. A first run,
+        before one law replaced the other, had both remedies in force at once in two villages.
+        **Not yet built:** labour-days owed to a creditor (ADR-0027 §3's harshest bundle: no
+        behaviour yet sends one household's people to work another's fields); word of a default
+        beyond the creditor's household; loans between settlements.
 
 **M8: The growing city (v1).**
 - *Contents:*

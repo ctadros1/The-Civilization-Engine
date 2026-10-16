@@ -2585,3 +2585,19 @@ the workshop stays open; owners with nothing see it fail on the due day and not 
 **Lived:** in the M7c demo's world no workshop came up short of a wage in four years, so none was
 owed; the loans of the same run included the first guarantor called on.
 
+## 2026-10-16 — CB2: debts heard
+
+**Built:** ADR-0027 §3's law. A village may pass *debts heard*: a creditor whose loan was refused,
+or left unpaid when grace ran out, brings it before the gathering, the loan's witnesses its
+account, and the finding either gives the debtor time or imposes what is still owed as a finding's
+obligation, paid, refused or taken as findings are. Content API 122, save schema 135.
+
+**Fixed on the way:** a world saved with a case that names no incident (a breach of a privilege,
+now a debt) would not have loaded; saves now check a case's incident only when it names one. The
+first lived run had both remedies in force at once in two villages; a law of debts heard now
+replaces another.
+
+**Lived:** with nothing nudged about debts, two of three villages passed a law of debts heard
+within three years; 12 debts were brought and 9 found. The labour-days bundle is not built: no
+behaviour yet sends one household's people to work another's fields.
+

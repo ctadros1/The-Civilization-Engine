@@ -130,6 +130,7 @@ fn laws_words(sim: &Sim) -> Vec<String> {
                     | PolicyKind::Recognize
                     | PolicyKind::Privilege
                     | PolicyKind::AmendBody
+                    | PolicyKind::DebtsHeard
             )
         }) {
             let (present, support, oppose) = l.counts();
@@ -288,6 +289,33 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
         wages
             .iter()
             .filter(|c| c.standing == civ_agents::credit::Standing::Defaulted)
+            .count(),
+    ));
+    // Debts brought under a law of debts heard (M7d slice CB).
+    let debts: Vec<_> = sim
+        .people()
+        .order
+        .cases
+        .iter()
+        .filter(|c| c.loan.is_some())
+        .collect();
+    log.push(format!(
+        "  debts brought: {} ({} found, {} not found, {} unheard or lapsed)",
+        debts.len(),
+        debts
+            .iter()
+            .filter(|c| c.stage == civ_agents::crime::CaseStage::Found)
+            .count(),
+        debts
+            .iter()
+            .filter(|c| c.stage == civ_agents::crime::CaseStage::NotFound)
+            .count(),
+        debts
+            .iter()
+            .filter(|c| matches!(
+                c.stage,
+                civ_agents::crime::CaseStage::Unheard | civ_agents::crime::CaseStage::Lapsed
+            ))
             .count(),
     ));
     log.extend(laws_words(&sim).into_iter().map(|w| format!("  {w}")));

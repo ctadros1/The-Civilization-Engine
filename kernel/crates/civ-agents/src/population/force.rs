@@ -176,9 +176,14 @@ impl Population {
                 Owed::Demanded | Owed::Restitution => Channel::Restitution,
                 Owed::Compensation => Channel::Compensation,
                 Owed::Fine => Channel::Fine,
+                Owed::Debt => Channel::Repaid,
             };
             if !legs.is_empty() && self.transfer(now, params, goods, &legs, channel) {
                 taken = kcal;
+                // What is taken on a debt is paid on its loan (M7d slice CB).
+                if ob.kind == Owed::Debt {
+                    self.paid_on_loan(ctx, ob.incident, kcal);
+                }
                 let o = &mut self.order.obligations[k];
                 o.paid_kcal += kcal as f32;
                 if o.left_kcal() <= 1.0 {

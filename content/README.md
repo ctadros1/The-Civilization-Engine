@@ -687,6 +687,14 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 122 (M7d slice CB, ADR-0027 §3) brings *debts heard*. A policy may `does =
+"debts_heard"`, answering the appended issue `debts_unpaid` (a loan a household made was refused
+or left unpaid, and nothing was taken for it), with a `[debts]` table: `remedy` (`time`, the loan
+open again and due `extend_days` after the finding, or `imposed`, what is still owed imposed as a
+finding's obligation) and `share` (what households expect a finding to move, for their
+forecasts). The core adds `core:policy/debts_heard` (imposed) and
+`core:policy/debts_heard_time` (180 days more); one of them in force replaces the other.
+
 Content API 121 (M7d slice CB, ADR-0027 §3) brings wage arrears: the `[credit]` table adds
 `wage_days`, the days a workshop has to pay wages it could not pay before it fails.
 

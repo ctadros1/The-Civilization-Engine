@@ -121,7 +121,7 @@ use super::{
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
-    SCHEMA_V132, SCHEMA_V133, finish, section, single_chunk, unreadable,
+    SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -595,6 +595,8 @@ enum Schema {
     V133,
     /// Pledges and answers at the due day (M7d slice CB: `Order.loan_terms`, loan standings 3-4).
     V134,
+    /// Debts heard (M7d slice CB: `CaseSave.loan`, obligation kind 4, issue code 21).
+    V135,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -743,7 +745,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V131 => Schema::V131,
         SCHEMA_V132 => Schema::V132,
         SCHEMA_V133 => Schema::V133,
-        SAVE_SCHEMA_VERSION => Schema::V134,
+        SCHEMA_V134 => Schema::V134,
+        SAVE_SCHEMA_VERSION => Schema::V135,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1917,6 +1920,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::Holding => 18,
         IssueKind::CasesWaiting => 19,
         IssueKind::FetchedElsewhere => 20,
+        IssueKind::DebtsUnpaid => 21,
     }
 }
 
@@ -2045,6 +2049,7 @@ fn decode_polities(
                 18 => IssueKind::Holding,
                 19 => IssueKind::CasesWaiting,
                 20 => IssueKind::FetchedElsewhere,
+                21 => IssueKind::DebtsUnpaid,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -4439,7 +4444,8 @@ fn carried(
         | Schema::V131
         | Schema::V132
         | Schema::V133
-        | Schema::V134 => {
+        | Schema::V134
+        | Schema::V135 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4746,7 +4752,8 @@ fn decode_households(
             | Schema::V131
             | Schema::V132
             | Schema::V133
-            | Schema::V134 => {
+            | Schema::V134
+            | Schema::V135 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5132,6 +5139,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
                     tags: c.tags,
                     departed: c.departed.unwrap_or(0),
                     stance_precedent: Some(precedent),
+                    loan: c.loan.unwrap_or(0),
                 },
             )
         })
@@ -5542,6 +5550,7 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
             exiled: c.exiled(),
             forum: id_of(c.forum()),
             challenge: id_of(c.challenge()),
+            loan: (c.loan() != 0).then_some(c.loan()),
             tags: c.tags(),
             departed: (c.departed() != 0).then_some(c.departed()),
         });
@@ -5772,7 +5781,14 @@ fn order_problems(order: &civ_agents::crime::Order) -> Vec<String> {
     if let Some(r) = order.responses.iter().find(|r| !known(r.incident)) {
         out.push(format!("a response names missing incident {}", r.incident));
     }
-    if let Some(o) = order.obligations.iter().find(|o| !known(o.incident)) {
+    // A debt imposed by a finding names its loan, not an incident (M7d slice CB).
+    if let Some(o) = order.obligations.iter().find(|o| {
+        if o.kind == civ_agents::crime::Owed::Debt {
+            order.credit.claim(o.incident).is_none()
+        } else {
+            !known(o.incident)
+        }
+    }) {
         out.push(format!(
             "obligation {} names missing incident {}",
             o.id, o.incident
@@ -5799,7 +5815,8 @@ fn order_problems(order: &civ_agents::crime::Order) -> Vec<String> {
     if let Some(c) = order
         .cases
         .iter()
-        .find(|c| c.challenge.is_none() && !known(c.incident))
+        // A challenge, a breach of a privilege or a debt names no incident (0).
+        .find(|c| c.incident != 0 && !known(c.incident))
     {
         out.push(format!(
             "case {} names missing incident {}",

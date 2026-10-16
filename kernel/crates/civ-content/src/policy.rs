@@ -102,6 +102,23 @@ pub(crate) struct PolicyFile {
     /// `bundles` are what a finding of a breach imposes.
     #[serde(default)]
     pub privilege: Option<PrivilegeFile>,
+    /// For debts heard (`debts_heard`, content API 122, M7d slice CB): what a finding does.
+    #[serde(default)]
+    pub debts: Option<DebtsFile>,
+}
+
+/// A law of debts heard's terms in a policy file (content API 122, M7d slice CB).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct DebtsFile {
+    /// `time` (the loan is open again, due later) or `imposed` (what is owed is imposed as a
+    /// finding's obligation).
+    pub remedy: String,
+    /// The share of what is owed households expect a finding to move, for their forecasts.
+    pub share: f64,
+    /// For `time`: the days after the finding the loan falls due again.
+    #[serde(default)]
+    pub extend_days: u32,
 }
 
 /// A privilege's terms in a policy file (content API 116, M7c slice BX).
@@ -335,6 +352,13 @@ impl PolicyFile {
                     review: f.review,
                 })
             }),
+            debts: self.debts.as_ref().and_then(|d| {
+                Some(civ_agents::polity::DebtsDef {
+                    remedy: civ_agents::polity::DebtRemedy::from_name(&d.remedy)?,
+                    share: d.share as f32,
+                    extend_days: d.extend_days,
+                })
+            }),
             privilege: self.privilege.as_ref().and_then(|g| {
                 Some(civ_agents::polity::PrivilegeDef {
                     grant: civ_agents::polity::Grant::from_name(&g.grant)?,
@@ -526,6 +550,38 @@ impl PolicyFile {
             (Some(_), _) => p.push("`privilege` is for `does = \"privilege\"`".to_owned()),
             (None, _) => {}
         }
+        // A law of debts heard's terms (M7d slice CB): only for `debts_heard`, which must have
+        // them.
+        match (&self.debts, PolicyKind::from_name(&self.does)) {
+            (Some(d), Some(PolicyKind::DebtsHeard)) => {
+                let remedy = civ_agents::polity::DebtRemedy::from_name(&d.remedy);
+                if remedy.is_none() {
+                    p.push(format!(
+                        "`debts.remedy` must be `time` or `imposed` (got `{}`)",
+                        d.remedy
+                    ));
+                }
+                if !(d.share.is_finite() && (0.0..=1.0).contains(&d.share)) {
+                    p.push(format!(
+                        "`debts.share` must be between 0 and 1 (got {})",
+                        d.share
+                    ));
+                }
+                if remedy == Some(civ_agents::polity::DebtRemedy::Time)
+                    && !(1..=720).contains(&d.extend_days)
+                {
+                    p.push(format!(
+                        "`debts.extend_days` must be between 1 and 720 for `time` (got {})",
+                        d.extend_days
+                    ));
+                }
+            }
+            (None, Some(PolicyKind::DebtsHeard)) => {
+                p.push("a `debts_heard` template needs a `debts` table".to_owned());
+            }
+            (Some(_), _) => p.push("`debts` is for `does = \"debts_heard\"`".to_owned()),
+            (None, _) => {}
+        }
         // A duty's terms (M7c slice BV): only for `duty`, which must have them.
         match (&self.duty, PolicyKind::from_name(&self.does)) {
             (Some(d), Some(PolicyKind::Duty)) => {
@@ -665,7 +721,8 @@ impl PolicyFile {
                 | PolicyKind::HearCases
                 | PolicyKind::Limit
                 | PolicyKind::Embargo
-                | PolicyKind::Recognize),
+                | PolicyKind::Recognize
+                | PolicyKind::DebtsHeard),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -723,7 +780,8 @@ impl PolicyFile {
                 | PolicyKind::HearCases
                 | PolicyKind::Limit
                 | PolicyKind::Embargo
-                | PolicyKind::Recognize,
+                | PolicyKind::Recognize
+                | PolicyKind::DebtsHeard,
             )
             | None => {}
         }
@@ -941,6 +999,7 @@ mod tests {
             limit: None,
             duty: None,
             privilege: None,
+            debts: None,
         }
     }
 
@@ -968,6 +1027,7 @@ mod tests {
             limit: None,
             duty: None,
             privilege: None,
+            debts: None,
             ..file()
         };
         let roofs = roofs_with(Some(rule("roofs_unburnt", 4.0)));
@@ -1004,6 +1064,7 @@ mod tests {
             limit: None,
             duty: None,
             privilege: None,
+            debts: None,
             ..file()
         };
         assert!(

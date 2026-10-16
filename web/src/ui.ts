@@ -2457,6 +2457,17 @@ export function bindUi(store: Store, actions: Actions): void {
           text: `${membersText(p)}; the common store holds ${p.store}.`,
         }),
       );
+      // Who organizations by stake have come to hold (wire 1.81, M7c slice BZ).
+      if (p.capture.length > 0) {
+        block.append(
+          el(
+            "details",
+            { className: "capture" },
+            el("summary", { text: "Who holds sway" }),
+            el("ul", {}, ...p.capture.map((v) => el("li", { text: v }))),
+          ),
+        );
+      }
       // Its custom's versions, once it has been amended (wire 1.35, ADR-0017 §1).
       if (p.customHistory.length > 1) {
         block.append(

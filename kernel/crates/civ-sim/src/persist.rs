@@ -389,6 +389,8 @@ pub const SCHEMA_V128: u32 = 128;
 pub const SCHEMA_V129: u32 = 129;
 /// Privileges, before the keeper's diversion.
 pub const SCHEMA_V130: u32 = 130;
+/// The keeper's diversion, the collector and patron gifts, before closed bodies.
+pub const SCHEMA_V131: u32 = 131;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

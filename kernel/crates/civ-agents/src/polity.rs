@@ -781,16 +781,24 @@ pub enum Membership {
     /// Those who hold a seat in its council (M7a slice BO, ADR-0024 §1): the body's `seats` say
     /// how many seats there are and how they are filled.
     Seats,
+    /// The adults of households that belong to an organization by stake the polity recognizes
+    /// (M7c slice BZ, ADR-0026 §5: closure). When it recognizes none, nobody.
+    Organized,
+    /// The adults of households that belong to an organization a privilege of the polity in force
+    /// is granted to (M7c slice BZ). When none holds one, nobody.
+    Privileged,
 }
 
 impl Membership {
     /// Every membership, in code order.
-    pub const ALL: [Membership; 5] = [
+    pub const ALL: [Membership; 7] = [
         Membership::Adults,
         Membership::Elders,
         Membership::Landholders,
         Membership::Watch,
         Membership::Seats,
+        Membership::Organized,
+        Membership::Privileged,
     ];
 
     /// Its number in saves.
@@ -811,6 +819,8 @@ impl Membership {
             Membership::Landholders => "landholders",
             Membership::Watch => "watch",
             Membership::Seats => "seats",
+            Membership::Organized => "organized",
+            Membership::Privileged => "privileged",
         }
     }
 
@@ -827,6 +837,8 @@ impl Membership {
             Membership::Landholders => "landholders",
             Membership::Watch => "watchers",
             Membership::Seats => "councillors",
+            Membership::Organized => "members of recognized organizations",
+            Membership::Privileged => "members of privileged organizations",
         }
     }
 }
@@ -939,6 +951,13 @@ impl Body {
             }
             Membership::Watch => "Those who keep the watch",
             Membership::Seats => "Those who sit in its council",
+            Membership::Organized => {
+                "The adults of households in an organization it recognizes who come to the hearth"
+            }
+            Membership::Privileged => {
+                "The adults of households in an organization it grants a privilege who come to the \
+                 hearth"
+            }
         };
         let how = match self.pass {
             PassRule::MoreForThanAgainst => {

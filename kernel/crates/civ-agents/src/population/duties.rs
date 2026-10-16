@@ -6,7 +6,7 @@
 //! at home, and from the trades the other markets remember of its settlement's people.
 
 use super::*;
-use crate::polity::{LawStatus, PolicyKind};
+use crate::polity::{LawStatus, Membership, PolicyKind};
 
 /// Purpose tag for whether one who owes a duty pays it (M7c slice BV).
 pub const PURPOSE_DUTY: u64 = 0x6475_7479_7061_7931; // "dutypay1"
@@ -86,6 +86,30 @@ impl Population {
                 && l.status == LawStatus::InForce
                 && l.target == Some(org)
         })
+    }
+
+    /// Whether household `household` belongs to membership `m` of a closed body (M7c slice BZ,
+    /// ADR-0026 §5): an organization it belongs to is recognized by the polity that holds its
+    /// settlement (`Organized`) or holds one of its privileges in force (`Privileged`).
+    pub(crate) fn closed_member(&self, m: Membership, household: PermanentId) -> bool {
+        let Some(pi) = self
+            .household(household)
+            .and_then(|x| x.settlement)
+            .and_then(|s| self.polity_of(s))
+        else {
+            return false;
+        };
+        self.stake_organizations_of(household)
+            .into_iter()
+            .any(|org| match m {
+                Membership::Organized => self.recognizes(pi, org),
+                Membership::Privileged => self.polities[pi].laws.iter().any(|l| {
+                    l.kind == PolicyKind::Privilege
+                        && l.status == LawStatus::InForce
+                        && l.target == Some(org)
+                }),
+                _ => false,
+            })
     }
 
     /// The organizations by stake, not ended, that someone of household `household` belongs

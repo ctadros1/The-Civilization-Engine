@@ -120,8 +120,8 @@ use super::{
     SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
-    SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, finish, section,
-    single_chunk, unreadable,
+    SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
+    finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -589,6 +589,8 @@ enum Schema {
     /// The keeper's diversion and relief by favour (M7c slice BY: `LawSave.diverted` and its
     /// fellows, channel 20, `Wrong` code 11).
     V131,
+    /// Closed bodies (M7c slice BZ: membership codes 5 and 6).
+    V132,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -734,7 +736,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V128 => Schema::V128,
         SCHEMA_V129 => Schema::V129,
         SCHEMA_V130 => Schema::V130,
-        SAVE_SCHEMA_VERSION => Schema::V131,
+        SCHEMA_V131 => Schema::V131,
+        SAVE_SCHEMA_VERSION => Schema::V132,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -4427,7 +4430,8 @@ fn carried(
         | Schema::V128
         | Schema::V129
         | Schema::V130
-        | Schema::V131 => {
+        | Schema::V131
+        | Schema::V132 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4731,7 +4735,8 @@ fn decode_households(
             | Schema::V128
             | Schema::V129
             | Schema::V130
-            | Schema::V131 => {
+            | Schema::V131
+            | Schema::V132 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

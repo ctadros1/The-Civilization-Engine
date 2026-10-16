@@ -46,7 +46,9 @@ pub(crate) struct PolicyFile {
     #[serde(default)]
     pub hours: Vec<[u8; 2]>,
     /// For an amendment of the custom (content API 40): who may belong (`adults`, `elders`,
-    /// `landholders`), the shares of members who must come, and the rules (`more_for`,
+    /// `landholders`; content API 118, M7c slice BZ: `organized`, the members of organizations the
+    /// polity recognizes, and `privileged`, those of organizations it grants a privilege), the
+    /// shares of members who must come, and the rules (`more_for`,
     /// `two_thirds`) a sponsor may combine into the body they propose.
     #[serde(default)]
     pub members: Vec<String>,

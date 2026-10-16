@@ -3369,7 +3369,35 @@ and M6a gives rivers a daily flow.
         a faction's or organization's store; capture measured (BZ).
     - **BZ**: closure by amendment, capture diagnostics in sentences, the M7c demo (time-boxed,
       NUDGEs logged).
-  - **M7d, credit and money** (ADR when reached): loans in goods, pledges and default, keepers
+      - *As built (2026-10-16):* content API 118, save schema 132, wire 1.81. **Closure:** a body's
+        membership may be `organized` (the adults of households in an organization by stake the
+        polity recognizes) or `privileged` (those of households in one a privilege of the polity in
+        force is granted to); while there is none, such a body has nobody and its gatherings fail
+        for want of a quorum, recorded. The core adds `core:policy/close_the_custom`, an amendment
+        offering both, open (as any amendment) to someone a gathering overruled, each household
+        judging it by how the body it would make would have decided what its members saw decided:
+        closure is a run of amendments someone proposed, each with its stances. **Capture,
+        derived:** the government panel says, for each organization by stake with members among a
+        polity's people, in sentences and never a percentage, how many of the laws passed since it
+        was founded its members proposed and who stood for them (its members, and those who owed
+        its members for gifts), how many of the polity's offices its members hold, the cases
+        brought against its members and found, those it turned away, how many of the purchases its
+        people made lately at other settlements' doors were by households outside it, and, for the
+        goods its privileges cover, the last price at home against the neighbours'. Nothing reads
+        the sentences. **The M7c demo** (`civ-sim --example capture`, `demos/m7c/m7c-demo.txt`):
+        three villages of 40 that know each other, four years, nudging only the two priors ADR-0026
+        §6 names after their time boxes. In seed 1 nobody bought at another settlement's door in a
+        year; NUDGE: a report's half-life 30 → 90 days at day 420, after which the first purchase
+        came on day 526, and within ten weeks a council of five passed an embargo 6–0 and a duty on
+        tools 5–0 (a republic's assembly passing protectionist trade law). Nobody organized:
+        NUDGE: an organization's fixed cost 30 → 10 days of food at day 780, and still none, so no
+        recognition, privilege, patron gift or closed custom, and the capture sentences had
+        nothing to say. Seed 2 bought nothing elsewhere in four years under both nudges. Every
+        village took a council of five or nine by election. The outcome recorded is the one the
+        ADR anticipated: trade between villages of this size is too small to fight over, so trade
+        law comes but capture does not. **Not yet built:** stakes large enough to organize for
+        (more people, more trade, money); a capture path shown in a lived world.
+  - **M7d, credit and money** ([ADR-0027](decisions/0027-claims-and-coin.md)): loans in goods, pledges and default, keepers
     and store lending, money's worth to its holder, then metal, minting and debasement (slices
     CA–CE, from `docs/briefs/m7-money.md`).
 

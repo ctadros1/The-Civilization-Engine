@@ -1014,6 +1014,12 @@ impl Population {
                 .collect(),
             // Those of them who hold a council seat (M7a slice BO): one sits where they live.
             Membership::Seats => self.sitting(adults),
+            // Members of organizations it recognizes, or grants a privilege (M7c slice BZ).
+            Membership::Organized | Membership::Privileged => adults
+                .iter()
+                .copied()
+                .filter(|&(_, h)| self.closed_member(m, h))
+                .collect(),
         }
     }
 
@@ -1046,6 +1052,7 @@ impl Population {
             Membership::Landholders => fields.iter().any(|f| f.holder.household() == Some(hh)),
             Membership::Watch => self.keeps_a_watch(person),
             Membership::Seats => self.sits(person),
+            m @ (Membership::Organized | Membership::Privileged) => self.closed_member(m, hh),
         }
     }
 

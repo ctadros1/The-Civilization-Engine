@@ -1,0 +1,129 @@
+# The M7c demo (civ-sim --example capture, seeds 1-2, 2026-10-16): three villages of 40, four
+# years each, with the priors it nudges logged. Saves paths are this run's scratch folder.
+
+world (seed 1):
+day 180: 121 people
+day 300: 120 people
+day 420: 122 people
+day 420: NUDGE (how long a price heard of elsewhere is believed): 360 days lived and not yet a purchase at another settlement's door; reports.half_life_days 30 -> 90
+day 526: a purchase at another settlement's door
+day 540: 125 people
+day 593: a trade law in force
+day 660: 127 people
+day 780: 130 people
+day 780: NUDGE (what organizing costs its founder, in days of their household's food): 720 days lived and not yet an organization by stake; faction.organize_days 30 -> 10
+day 900: 131 people
+day 1020: 131 people
+day 1140: 131 people
+day 1260: 132 people
+day 1380: 126 people
+day 1500: 129 people
+lived 1440 days, to day 1500; 129 people
+  purchases at another settlement's door its markets still remember: 0
+  Seat a council proposed on day 248 by Alma: Superseded (26 for, 0 against, 26 came)
+  Seat a council proposed on day 1291 by Imma: Superseded (3 for, 0 against, 3 came)
+  Seat a council proposed on day 1375 by Aud: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 1389 by Lune: Rejected (3 for, 0 against, 3 came)
+  Seat a council proposed on day 1403 by Tarran: Rejected (4 for, 0 against, 4 came)
+  Seat a council proposed on day 1417 by Brannoc: Rejected (4 for, 0 against, 4 came)
+  Seat a council proposed on day 1494 by Lune: InForce (5 for, 0 against, 5 came)
+  Seat a council proposed on day 101 by Runa: Superseded (17 for, 0 against, 23 came)
+  Duty on tools proposed on day 528 by Pia: Rejected (2 for, 0 against, 2 came)
+  Duty on tools, collected proposed on day 535 by Fenn: Rejected (1 for, 0 against, 2 came)
+  Duty on tools proposed on day 542 by Fenn: Rejected (2 for, 0 against, 2 came)
+  Duty on tools proposed on day 549 by Abran: Rejected (3 for, 0 against, 3 came)
+  Duty on tools, collected proposed on day 556 by Yorin: Rejected (3 for, 0 against, 3 came)
+  Duty on tools proposed on day 563 by Elva: Rejected (3 for, 0 against, 3 came)
+  Seat a council proposed on day 570 by Elva: Rejected (2 for, 0 against, 2 came)
+  Embargo proposed on day 577 by Gala: Rejected (3 for, 0 against, 3 came)
+  Duty on tools, collected proposed on day 584 by Gala: Rejected (4 for, 0 against, 4 came)
+  Duty on tools, collected proposed on day 591 by Gala: Lapsed (6 for, 0 against, 6 came)
+  Embargo proposed on day 605 by Gala: InForce (6 for, 0 against, 6 came)
+  Seat a council proposed on day 612 by Gala: Superseded (7 for, 0 against, 7 came)
+  Duty on tools proposed on day 633 by Dace: InForce (5 for, 0 against, 5 came)
+  Duty on tools, collected proposed on day 871 by Cael: Rejected (4 for, 0 against, 4 came)
+  Seat a council proposed on day 878 by Cael: Rejected (0 for, 0 against, 0 came)
+  Seat a council proposed on day 948 by Brisa: Rejected (3 for, 0 against, 3 came)
+  Seat a council proposed on day 976 by Yorin: Rejected (4 for, 0 against, 4 came)
+  Seat a council proposed on day 983 by Yorin: Rejected (0 for, 0 against, 0 came)
+  Seat a council proposed on day 1004 by Yorin: Rejected (3 for, 0 against, 3 came)
+  Seat a council proposed on day 1018 by Yorin: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 1053 by Aster: Rejected (0 for, 0 against, 0 came)
+  Seat a council proposed on day 1074 by Aster: Rejected (4 for, 0 against, 4 came)
+  Seat a council proposed on day 1081 by Ulric: Rejected (4 for, 0 against, 4 came)
+  Seat a council proposed on day 1137 by Brannoc: Rejected (4 for, 0 against, 4 came)
+  Seat a council proposed on day 1158 by Orla: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 1165 by Aster: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 1172 by Aster: Rejected (4 for, 0 against, 4 came)
+  Seat a council proposed on day 1179 by Aster: Rejected (1 for, 0 against, 2 came)
+  Seat a council proposed on day 1221 by Moss: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 1228 by Iver: Superseded (5 for, 0 against, 5 came)
+  Seat a council proposed on day 1298 by Fara: InForce (3 for, 0 against, 3 came)
+  Seat a council proposed on day 234 by Loren: Superseded (23 for, 0 against, 23 came)
+  Seat a council proposed on day 367 by Una: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 388 by Una: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 416 by Esk: Superseded (6 for, 0 against, 6 came)
+  Seat a council proposed on day 584 by Dessa: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 591 by Jessen: Superseded (3 for, 0 against, 3 came)
+  Seat a council proposed on day 640 by Ulmer: Superseded (5 for, 0 against, 5 came)
+  Seat a council proposed on day 1228 by Jask: Superseded (5 for, 0 against, 5 came)
+  Seat a council proposed on day 1291 by Esk: Superseded (3 for, 0 against, 4 came)
+  Seat a council proposed on day 1361 by Loren: Superseded (4 for, 0 against, 5 came)
+  Seat a council proposed on day 1417 by Ferrin: InForce (3 for, 0 against, 4 came)
+  Seat a council proposed on day 1466 by Runa: Rejected (4 for, 0 against, 4 came)
+  Seat a council proposed on day 1480 by Corin: Rejected (4 for, 0 against, 4 came)
+  Seat a council proposed on day 1487 by Runa: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 1494 by Corin: Rejected (2 for, 0 against, 2 came)
+  label: Republic (A council of 5, elected by the adults for 360 days. Those who sit in its council decide by acclamation: more for than against carries it, and a tie fails; half of them must come.)
+  label: Republic (A council of 5, elected by the adults for 360 days. Those who sit in its council decide by acclamation: more for than against carries it, and a tie fails; half of them must come.)
+  label: Republic (A council of 9, elected by the landholders for 360 days. Those who sit in its council decide by acclamation: more for than against carries it, and a tie fails; half of them must come.)
+saved m7c-saves/three-fords-f4ee7f7c/g0000000001-manual.tcesave
+reached 2 of 7 steps
+
+real	21m25.389s
+user	27m9.742s
+sys	0m24.490s
+
+world (seed 2):
+day 180: 125 people
+day 300: 129 people
+day 420: 127 people
+day 420: NUDGE (how long a price heard of elsewhere is believed): 360 days lived and not yet a purchase at another settlement's door; reports.half_life_days 30 -> 90
+day 540: 130 people
+day 660: 128 people
+day 780: 130 people
+day 780: NUDGE (what organizing costs its founder, in days of their household's food): 720 days lived and not yet an organization by stake; faction.organize_days 30 -> 10
+day 900: 130 people
+day 1020: 133 people
+day 1140: 132 people
+day 1260: 134 people
+day 1380: 135 people
+day 1500: 136 people
+lived 1440 days, to day 1500; 136 people
+  purchases at another settlement's door its markets still remember: 0
+  Seat a council proposed on day 101 by Brisa: Superseded (23 for, 0 against, 25 came)
+  Seat a council proposed on day 248 by Elva: Superseded (4 for, 0 against, 4 came)
+  Seat a council proposed on day 591 by Dwyn: Superseded (4 for, 0 against, 4 came)
+  Seat a council proposed on day 605 by Elva: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 612 by Elva: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 787 by Piers: InForce (3 for, 0 against, 3 came)
+  Seat a council proposed on day 269 by Aud: InForce (22 for, 4 against, 26 came)
+  Seat a council proposed on day 136 by Isla: Superseded (22 for, 0 against, 22 came)
+  Seat a council proposed on day 171 by Ilmer: Superseded (3 for, 0 against, 3 came)
+  Seat a council proposed on day 213 by Ilmer: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 220 by Ilmer: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 234 by Ilmer: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 241 by Ilmer: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 255 by Hesta: Rejected (0 for, 0 against, 0 came)
+  Seat a council proposed on day 269 by Fara: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 297 by Hesta: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 311 by Fara: InForce (4 for, 0 against, 4 came)
+  label: Republic (A council of 5, elected by the landholders for 360 days. Those who sit in its council decide by acclamation: more for than against carries it, and a tie fails; half of them must come.)
+  label: Republic (A council of 5, elected by the adults for 360 days. Those who sit in its council decide by acclamation: more for than against carries it, and a tie fails; half of them must come.)
+  label: Republic (A council of 5, elected by the adults for 360 days. Those who sit in its council decide by acclamation: more for than against carries it, and a tie fails; half of them must come.)
+saved m7c-saves/three-fords-dc76ce83/g0000000001-manual.tcesave
+reached 0 of 7 steps
+
+real	7m13.281s
+user	10m31.536s
+sys	0m12.743s

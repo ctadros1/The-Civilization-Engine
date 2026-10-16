@@ -1158,6 +1158,11 @@ export interface PolityLine {
   ended: string;
   /** Wire 1.77 (M7a slice BQ, ADR-0024 §3): its council's elections, newest first. */
   elections: ElectionLine[];
+  /**
+   * Wire 1.81 (M7c slice BZ, ADR-0026 §5): who each organization by stake has come to hold, in the
+   * kernel's sentences.
+   */
+  capture: string[];
 }
 
 /** One election of a council (wire 1.77), in the kernel's words. */
@@ -4336,6 +4341,7 @@ function governmentInfo(w: W.Government): GovernmentInfo {
           }),
         };
       }),
+      capture: Array.from({ length: p.captureLength() }, (_, k) => p.capture(k) ?? ""),
     });
   }
   const sieges: SiegeLine[] = [];

@@ -33,6 +33,7 @@ the milestone is too big and gets split.
 | [0024](0024-seats-offices-and-elections.md) | Seats, offices and elections | Accepted | M7a |
 | [0025](0025-forums-precedent-and-review.md) | Forums, precedent and review | Accepted | M7b |
 | [0026](0026-organizations-privileges-and-trade-policy.md) | Organizations, privileges and trade policy | Accepted | M7c |
+| [0027](0027-claims-and-coin.md) | Claims and coin | Accepted | M7d |
 
 ## Template
 

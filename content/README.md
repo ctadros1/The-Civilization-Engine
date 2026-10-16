@@ -687,6 +687,12 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 118 (M7c slice BZ, ADR-0026 §5) brings closure. An amendment's `members` may name
+`organized` (the adults of households in an organization by stake the polity recognizes) and
+`privileged` (those of households in one it grants a privilege in force); while the polity
+recognizes, or grants, none, such a body has nobody, and its gatherings fail for want of a
+quorum, recorded. The core adds `core:policy/close_the_custom`, answering `overruled`.
+
 Content API 117 (M7c slice BY, ADR-0026 §4) brings corruption and patronage. The people
 profile's `[crime]` table adds `divert_share` (the most of a common store's food its keeper draws
 for their own household at one review), `favour_reserve_days` (below this many days of the

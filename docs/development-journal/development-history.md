@@ -2507,3 +2507,26 @@ that does, which is assessed and holds it against the office), `tests/patronage.
 whose law would fail gives, and those given to owe it at the gathering; nobody gives for a law that
 would pass, where nothing is owed, or when the law is worth nothing to them; a patron who saw a
 client oppose gives it nothing more; a world with patron gifts saves and loads exactly).
+
+## 2026-10-16 — BZ: closure, capture in sentences, and the M7c demo
+
+**Built:** ADR-0026 §5. A body's membership may be closed to the adults of households in an
+organization the polity recognizes, or in one it grants a privilege; with none, the body has
+nobody and its gatherings fail, recorded. The core's `close_the_custom` amendment offers both, and
+is weighed as any amendment is. The government panel says, for each organization with members
+among a polity's people, what it has come to hold: laws its members proposed and who carried
+them, offices its members hold, cases against them, those it turned away, who bought elsewhere,
+and protected prices against the neighbours'. Content API 118, save schema 132, wire 1.81.
+ADR-0027 sets M7d's design: claims in goods first, then keepers, then money's worth, metal and
+coin.
+
+**The demo:** three villages of 40, four years, two seeds, nudging only a report's half-life and
+an organization's fixed cost. Seed 1: after the first nudge a purchase at a neighbour's door, then
+an embargo and a duty on tools passed by a council of five; nobody organized even after the
+second nudge. Seed 2: nobody bought elsewhere at all. Recorded as the outcome (`demos/m7c`): at
+this scale trade law comes, capture does not.
+
+**Evidence:** `tests/closure.rs` (a closed body admits members alone, and nobody without a
+recognized or privileged organization; the core amendment offers both; the capture sentences;
+a world with a closed custom saves and loads exactly).
+

@@ -2166,6 +2166,10 @@ table PolityLine {
   ended: string (id: 27);
   // Wire 1.77 (M7a slice BQ, ADR-0024 §3): its council's elections, newest first, at most six.
   elections: [ElectionLine] (id: 28);
+  // Wire 1.81 (M7c slice BZ, ADR-0026 §5): who each organization by stake with members among its
+  // people has come to hold, in sentences rendered by the kernel, never a percentage ("Mira's
+  // organization: 3 of the 4 laws passed since it was founded were proposed by its members; ...").
+  capture: [string] (id: 29);
 }
 
 // One election of a council (wire 1.77, ADR-0024 §3), in words rendered by the kernel: which, when

@@ -57,7 +57,11 @@ fn hearth_chance(c: &Claim, day: i64, wp: &crate::word::WordParams) -> Option<f6
 fn call_ahead(c: &Claim, day: i64) -> bool {
     matches!(
         c.kind,
-        ClaimKind::Gathering | ClaimKind::Petition | ClaimKind::Refusal | ClaimKind::Revolt
+        ClaimKind::Gathering
+            | ClaimKind::Petition
+            | ClaimKind::Refusal
+            | ClaimKind::Revolt
+            | ClaimKind::Election
     ) && c.day >= day
 }
 

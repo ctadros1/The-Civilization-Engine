@@ -81,6 +81,7 @@ use civ_agents::ledger::{Channel, Trade};
 use civ_agents::market::{Market, MonthOfTrade, Offer};
 use civ_agents::person::{Know, KnowSource};
 use civ_agents::population::DepositKnown;
+use civ_agents::seats::Seats;
 use civ_agents::wealth::{Spread, WealthYear};
 use civ_agents::{
     Activity, AgentEvent, Cause, Household, KnownPatch, Load, Person, Population, Reason, Receipt,
@@ -118,7 +119,7 @@ use super::{
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
     SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
-    SCHEMA_V118, SCHEMA_V119, finish, section, single_chunk, unreadable,
+    SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -560,6 +561,8 @@ enum Schema {
     V119,
     /// M7a slice BN: office laws held for a term (`PolitySave.terms`).
     V120,
+    /// M7a slice BO: councils and their elections (`PolitySave.seats`, `seated`, `elections`).
+    V121,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -694,7 +697,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V117 => Schema::V117,
         SCHEMA_V118 => Schema::V118,
         SCHEMA_V119 => Schema::V119,
-        SAVE_SCHEMA_VERSION => Schema::V120,
+        SCHEMA_V120 => Schema::V120,
+        SAVE_SCHEMA_VERSION => Schema::V121,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1346,6 +1350,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             body_members: l.body.map_or(u8::MAX, |b| b.members.code()),
                             body_quorum: l.body.map_or(0.0, |b| b.quorum_share),
                             body_pass: l.body.map_or(0, |b| b.pass.code()),
+                            body_seats: l.body.map_or(0, |b| Seats::pack(b.seats)),
                             stance_opinions: Some(stance_opinions),
                             stance_values: Some(stance_values),
                             stance_views,
@@ -1539,6 +1544,81 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 .map(|&(law, t)| save::TermSave::new(law.get(), t.until, t.pool))
                 .collect();
             let terms = (!terms.is_empty()).then(|| fbb.create_vector(&terms));
+            // Its council: each version's seats, the seats held and its elections (schema 121).
+            let version_seats: Vec<u64> = p
+                .versions
+                .iter()
+                .map(|v| Seats::pack(v.body.seats))
+                .collect();
+            let version_seats = version_seats
+                .iter()
+                .any(|&v| v != 0)
+                .then(|| fbb.create_vector(&version_seats));
+            let seated: Vec<save::SeatSave> = p
+                .seated
+                .iter()
+                .map(|x| save::SeatSave::new(x.seat, x.holder.get(), x.since, x.until, x.election))
+                .collect();
+            let seated = (!seated.is_empty()).then(|| fbb.create_vector(&seated));
+            let elections: Vec<_> = p
+                .elections
+                .iter()
+                .map(|e| {
+                    let considered: Vec<u64> = e.considered.iter().map(|p| p.get()).collect();
+                    let considered = fbb.create_vector(&considered);
+                    let candidates: Vec<save::CandidateSave> = e
+                        .candidates
+                        .iter()
+                        .map(|c| save::CandidateSave::new(c.person.get(), c.day))
+                        .collect();
+                    let candidates = fbb.create_vector(&candidates);
+                    let ballots: Vec<_> = e
+                        .ballots
+                        .iter()
+                        .map(|(voter, named)| {
+                            let named: Vec<u64> = named.iter().map(|p| p.get()).collect();
+                            let named = fbb.create_vector(&named);
+                            save::BallotSave::create(
+                                &mut fbb,
+                                &save::BallotSaveArgs {
+                                    voter: voter.get(),
+                                    named: Some(named),
+                                },
+                            )
+                        })
+                        .collect();
+                    let ballots = fbb.create_vector(&ballots);
+                    let totals: Vec<save::VoteSave> = e
+                        .totals
+                        .iter()
+                        .map(|&(c, v)| save::VoteSave::new(c.get(), v))
+                        .collect();
+                    let totals = fbb.create_vector(&totals);
+                    let winners: Vec<u64> = e.winners.iter().map(|p| p.get()).collect();
+                    let winners = fbb.create_vector(&winners);
+                    save::ElectionSave::create(
+                        &mut fbb,
+                        &save::ElectionSaveArgs {
+                            id: e.id,
+                            why: e.why.code(),
+                            seats: Seats::pack(Some(e.seats)),
+                            called: e.called,
+                            stand_until: e.stand_until,
+                            poll_day: e.poll_day,
+                            stage: e.stage.code(),
+                            considered: Some(considered),
+                            candidates: Some(candidates),
+                            ballots: Some(ballots),
+                            totals: Some(totals),
+                            winners: Some(winners),
+                            by_lot: e.by_lot,
+                            ended: e.ended.unwrap_or(-1),
+                            until: e.until,
+                        },
+                    )
+                })
+                .collect();
+            let elections = (!elections.is_empty()).then(|| fbb.create_vector(&elections));
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -1592,6 +1672,10 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     ended_by: p.ended.map_or(0, |e| e.by.get()),
                     ended_how: p.ended.map_or(255, |e| e.how.code()),
                     terms,
+                    seats: Seats::pack(p.body.seats),
+                    version_seats,
+                    seated,
+                    elections,
                 },
             )
         })
@@ -1725,19 +1809,29 @@ fn decode_polities(
     for p in root.polities().iter().flatten() {
         let id = required(p.id(), "a polity")?;
         let settlement = required(p.settlement(), "a polity's settlement")?;
-        let body_of = |members: u8, quorum_share: f32, pass: u8, what: &str| {
+        // A body's seats come with a council's membership and only with it (schema 121).
+        let body_of = |members: u8, quorum_share: f32, pass: u8, seats: u64, what: &str| {
+            let members = Membership::from_code(members)
+                .ok_or_else(|| bad(format!("{what} has membership code {members}")))?;
+            let seats = Seats::unpack(seats).map_err(|e| bad(format!("{what}: {e}")))?;
+            if (members == Membership::Seats) != seats.is_some() {
+                return Err(bad(format!(
+                    "{what} is a council without seats, or seats without one"
+                )));
+            }
             Ok::<Body, LoadError>(Body {
-                members: Membership::from_code(members)
-                    .ok_or_else(|| bad(format!("{what} has membership code {members}")))?,
+                members,
                 quorum_share,
                 pass: PassRule::from_code(pass)
                     .ok_or_else(|| bad(format!("{what} has decision rule code {pass}")))?,
+                seats,
             })
         };
         let body = body_of(
             p.members(),
             p.quorum_share(),
             p.pass(),
+            p.seats(),
             &format!("polity {id}"),
         )?;
         let saved: Vec<f64> = p.stores().map(|v| v.iter().collect()).unwrap_or_default();
@@ -1904,6 +1998,7 @@ fn decode_polities(
                         m,
                         l.body_quorum(),
                         l.body_pass(),
+                        l.body_seats(),
                         &format!("law {law}"),
                     )?),
                 },
@@ -1955,12 +2050,18 @@ fn decode_polities(
             .seized_by()
             .map(|v| v.iter().collect())
             .unwrap_or_default();
+        // Each version's council seats (schema 121); before, none.
+        let version_seats: Vec<u64> = p
+            .version_seats()
+            .map(|v| v.iter().collect())
+            .unwrap_or_default();
         for (k, v) in p.versions().iter().flatten().enumerate() {
             versions.push(CustomVersion {
                 body: body_of(
                     v.members(),
                     v.quorum_share(),
                     v.pass(),
+                    version_seats.get(k).copied().unwrap_or(0),
                     &format!("polity {id}'s custom"),
                 )?,
                 since: time(v.since()),
@@ -2233,6 +2334,70 @@ fn decode_polities(
         if !terms.windows(2).all(|w| w[0].0 < w[1].0) {
             return Err(bad(format!("polity {id}'s terms are out of order")));
         }
+        // Its council's seats held and its elections (schema 121); before, none.
+        let person = |raw: u64, what: &str| {
+            PermanentId::from_raw(raw).ok_or_else(|| bad(format!("polity {id}: {what} is nobody")))
+        };
+        let mut seated = Vec::new();
+        for x in p.seated().iter().flatten() {
+            seated.push(civ_agents::seats::Seat {
+                seat: x.seat(),
+                holder: person(x.holder(), "a seat's holder")?,
+                since: x.since(),
+                until: x.until(),
+                election: x.election(),
+            });
+        }
+        let mut elections = Vec::new();
+        for e in p.elections().iter().flatten() {
+            let what = format!("polity {id}'s election {}", e.id());
+            let seats = Seats::unpack(e.seats())
+                .map_err(|m| bad(format!("{what}: {m}")))?
+                .ok_or_else(|| bad(format!("{what} fills no seats")))?;
+            let why = civ_agents::seats::ElectionWhy::from_code(e.why())
+                .ok_or_else(|| bad(format!("{what} has reason code {}", e.why())))?;
+            let stage = civ_agents::seats::ElectionStage::from_code(e.stage())
+                .ok_or_else(|| bad(format!("{what} has stage code {}", e.stage())))?;
+            let ids =
+                |v: Option<flatbuffers::Vector<'_, u64>>| -> Result<Vec<PermanentId>, LoadError> {
+                    v.iter()
+                        .flatten()
+                        .map(|raw| person(raw, "one in an election"))
+                        .collect()
+                };
+            let mut candidates = Vec::new();
+            for c in e.candidates().iter().flatten() {
+                candidates.push(civ_agents::seats::Candidate {
+                    person: person(c.person(), "a candidate")?,
+                    day: c.day(),
+                });
+            }
+            let mut ballots = Vec::new();
+            for b in e.ballots().iter().flatten() {
+                ballots.push((person(b.voter(), "a voter")?, ids(b.named())?));
+            }
+            let mut totals = Vec::new();
+            for t in e.totals().iter().flatten() {
+                totals.push((person(t.person(), "one counted")?, t.votes()));
+            }
+            elections.push(civ_agents::seats::Election {
+                id: e.id(),
+                why,
+                seats,
+                called: e.called(),
+                stand_until: e.stand_until(),
+                poll_day: e.poll_day(),
+                stage,
+                considered: ids(e.considered())?,
+                candidates,
+                ballots,
+                totals,
+                winners: ids(e.winners())?,
+                by_lot: e.by_lot(),
+                ended: (e.ended() >= 0).then_some(e.ended()),
+                until: e.until(),
+            });
+        }
         let ended = match p.ended_how() {
             255 => None,
             code => {
@@ -2275,6 +2440,8 @@ fn decode_polities(
             held,
             ended,
             terms,
+            seated,
+            elections,
         });
     }
     Ok(out)
@@ -4026,7 +4193,8 @@ fn carried(
         | Schema::V117
         | Schema::V118
         | Schema::V119
-        | Schema::V120 => {
+        | Schema::V120
+        | Schema::V121 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4319,7 +4487,8 @@ fn decode_households(
             | Schema::V117
             | Schema::V118
             | Schema::V119
-            | Schema::V120 => {
+            | Schema::V120
+            | Schema::V121 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5327,6 +5496,8 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::PolityJoined => 55,
         ChronicleKind::Seceded => 56,
         ChronicleKind::LotDrawn => 57,
+        ChronicleKind::ElectionCalled => 58,
+        ChronicleKind::ElectionHeld => 59,
     }
 }
 
@@ -5389,6 +5560,8 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         55 => Some(ChronicleKind::PolityJoined),
         56 => Some(ChronicleKind::Seceded),
         57 => Some(ChronicleKind::LotDrawn),
+        58 => Some(ChronicleKind::ElectionCalled),
+        59 => Some(ChronicleKind::ElectionHeld),
         _ => None,
     }
 }
@@ -8007,6 +8180,7 @@ fn encode_factions(
                     called: r.called.minutes(),
                     until: r.until,
                     members: r.body.members.code(),
+                    seats: Seats::pack(r.body.seats),
                     quorum_share: r.body.quorum_share,
                     pass: r.body.pass.code(),
                     sides: Some(sides),
@@ -8040,6 +8214,7 @@ fn encode_factions(
                     called: c.called.minutes(),
                     until: c.until,
                     members: c.body.members.code(),
+                    seats: Seats::pack(c.body.seats),
                     quorum_share: c.body.quorum_share,
                     pass: c.body.pass.code(),
                     sides: Some(sides),
@@ -8305,6 +8480,8 @@ fn decode_factions(
             quorum_share: r.quorum_share(),
             pass: PassRule::from_code(r.pass())
                 .ok_or_else(|| bad(format!("episode {id} has decision rule code {}", r.pass())))?,
+            // A council's seats (schema 121); before, none.
+            seats: Seats::unpack(r.seats()).map_err(|e| bad(format!("episode {id}: {e}")))?,
         };
         let mut sides = Vec::new();
         for s in r.sides().iter().flatten() {

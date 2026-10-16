@@ -83,6 +83,85 @@ pub(crate) struct PeopleFile {
     pub bands: BandsFile,
     /// How people lay out and weigh an enclosure (M6c slice BK; content API 100).
     pub enclosures: EnclosuresFile,
+    /// How a council's elections run (M7a slice BO; content API 106).
+    pub elections: ElectionsFile,
+}
+
+/// How a council's elections run (M7a slice BO; content API 106). See
+/// [`civ_agents::seats::ElectionParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ElectionsFile {
+    pub stand_days: u32,
+    pub poll_minutes: u32,
+    pub w_sit: f64,
+    pub w_standing: f64,
+    pub sit_cost: f64,
+    pub stand_temperature: f64,
+    pub w_regard: f64,
+    pub w_household: f64,
+    pub w_counsel: f64,
+    pub w_self: f64,
+    pub vote_scale: f64,
+    pub poll_base: f64,
+    pub w_poll_stake: f64,
+}
+
+impl ElectionsFile {
+    fn params(&self) -> civ_agents::seats::ElectionParams {
+        civ_agents::seats::ElectionParams {
+            stand_days: self.stand_days,
+            poll_minutes: self.poll_minutes,
+            w_sit: self.w_sit,
+            w_standing: self.w_standing,
+            sit_cost: self.sit_cost,
+            stand_temperature: self.stand_temperature,
+            w_regard: self.w_regard,
+            w_household: self.w_household,
+            w_counsel: self.w_counsel,
+            w_self: self.w_self,
+            vote_scale: self.vote_scale,
+            poll_base: self.poll_base,
+            w_poll_stake: self.w_poll_stake,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        if !(1..=60).contains(&self.stand_days) {
+            p.push(format!(
+                "`elections.stand_days` must be 1 to 60 (got {})",
+                self.stand_days
+            ));
+        }
+        if !(1..=240).contains(&self.poll_minutes) {
+            p.push(format!(
+                "`elections.poll_minutes` must be 1 to 240 (got {})",
+                self.poll_minutes
+            ));
+        }
+        for (name, v, lo, hi) in [
+            ("elections.w_sit", self.w_sit, 0.0, 100.0),
+            ("elections.w_standing", self.w_standing, 0.0, 100.0),
+            ("elections.sit_cost", self.sit_cost, 0.0, 100.0),
+            (
+                "elections.stand_temperature",
+                self.stand_temperature,
+                0.01,
+                100.0,
+            ),
+            ("elections.w_regard", self.w_regard, 0.0, 100.0),
+            ("elections.w_household", self.w_household, 0.0, 100.0),
+            ("elections.w_counsel", self.w_counsel, 0.0, 100.0),
+            ("elections.w_self", self.w_self, 0.0, 100.0),
+            ("elections.vote_scale", self.vote_scale, 0.0, 100.0),
+            ("elections.poll_base", self.poll_base, 0.0, 100.0),
+            ("elections.w_poll_stake", self.w_poll_stake, 0.0, 100.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+    }
 }
 
 /// How people lay out and weigh an enclosure (M6c slice BK; content API 100). See
@@ -2372,6 +2451,7 @@ impl PeopleFile {
             rules: self.rules.params(),
             bands: self.bands.params(),
             enclosures: self.enclosures.params(),
+            elections: self.elections.params(),
             relations: civ_agents::views::RelationsParams {
                 prior: self.relations.prior,
                 half_life_days: self.relations.half_life_days,
@@ -2411,6 +2491,7 @@ impl PeopleFile {
         self.rules.problems(&mut p);
         self.bands.problems(&mut p);
         self.enclosures.problems(&mut p);
+        self.elections.problems(&mut p);
         if !(self.places.sight_m.is_finite() && (0.0..=10_000.0).contains(&self.places.sight_m)) {
             p.push(format!(
                 "`places.sight_m` must be between 0 and 10000 (got {})",

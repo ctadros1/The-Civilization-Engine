@@ -367,6 +367,8 @@ pub const SCHEMA_V117: u32 = 117;
 pub const SCHEMA_V118: u32 = 118;
 /// Bands holding a settlement and the annex law, before office laws held for a term.
 pub const SCHEMA_V119: u32 = 119;
+/// Office laws held for a term, before councils and their elections.
+pub const SCHEMA_V120: u32 = 120;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

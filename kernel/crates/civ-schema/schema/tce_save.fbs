@@ -1320,6 +1320,9 @@ table LawSave {
   stance_views: [float] (id: 47);
   // For a band sent by law, the settlement it goes against, 0 for none (schema 112, M6c slice BJ).
   target: ulong (id: 48);
+  // The council seats of the body it was put to, packed as `PolitySave.seats` (schema 121); 0
+  // for a body of all its members, and before.
+  body_seats: ulong (id: 49);
 }
 
 // `law` 0: called on cases only (M4b slice AB).
@@ -1402,6 +1405,65 @@ table PolitySave {
   // Schema 120 (M7a slice BN, ADR-0024 §2): its office laws held for a term, by law: the day
   // each ends, and how many put their names in when it was filled by lot.
   terms: [TermSave] (id: 28);
+  // Schema 121 (M7a slice BO, ADR-0024 §1, §3): its body's council seats, packed (n, then the
+  // electorate's, method's and term's codes; see `civ_agents::seats::Seats::pack`), 0 for a body
+  // of all its members; each custom version's, parallel to `versions`; its seats held now; and
+  // its elections, oldest first. Absent before: no council, no elections.
+  seats: ulong (id: 29);
+  version_seats: [ulong] (id: 30);
+  seated: [SeatSave] (id: 31);
+  elections: [ElectionSave] (id: 32);
+}
+
+// A council seat held (schema 121): its number, its holder, from and until which day, and the
+// election that seated them.
+struct SeatSave {
+  seat: ubyte;
+  holder: ulong;
+  since: long;
+  until: long;
+  election: uint;
+}
+
+// One who stood in an election (schema 121), and the day they put their name in.
+struct CandidateSave {
+  person: ulong;
+  day: long;
+}
+
+// One who came to poll (schema 121) and whom they named, first choice first.
+table BallotSave {
+  voter: ulong (id: 0);
+  named: [ulong] (id: 1);
+}
+
+// A candidate's count (schema 121).
+struct VoteSave {
+  person: ulong;
+  votes: uint;
+}
+
+// An election (schema 121, ADR-0024 §3): why it was called (0 the custom became a council, 1 the
+// term ending), the seats it fills (packed as `PolitySave.seats`), its days, its stage (0
+// standing, 1 polling, 2 installed, 3 no candidates, 4 no voters, 5 tied, 6 abandoned), who chose
+// whether to stand, who stood, the ballots, the count, those seated, whether a lot settled a
+// tie, the day it ended (-1 while it runs) and the day its seats end.
+table ElectionSave {
+  id: uint (id: 0);
+  why: ubyte (id: 1);
+  seats: ulong (id: 2);
+  called: long (id: 3);
+  stand_until: long (id: 4);
+  poll_day: long (id: 5);
+  stage: ubyte (id: 6);
+  considered: [ulong] (id: 7);
+  candidates: [CandidateSave] (id: 8);
+  ballots: [BallotSave] (id: 9);
+  totals: [VoteSave] (id: 10);
+  winners: [ulong] (id: 11);
+  by_lot: bool (id: 12);
+  ended: long = -1 (id: 13);
+  until: long (id: 14);
 }
 
 // An office law's term (schema 120).
@@ -2075,6 +2137,9 @@ table RevoltSave {
   held_since: long (id: 11);
   ended: ubyte = 255 (id: 12);
   ended_at: long (id: 13);
+  // The council seats of the body it would install, packed as `PolitySave.seats` (schema 121);
+  // 0 for a body of all its members, and before.
+  seats: ulong (id: 14);
 }
 
 table FactionsSave {

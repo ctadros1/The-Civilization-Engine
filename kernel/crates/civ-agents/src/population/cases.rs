@@ -371,8 +371,9 @@ impl Population {
                 })
             })
             .collect();
-        let eligible = members.len() as u32;
         let body = self.polities[pi].body;
+        // A council counts its seats, filled or empty (M7a slice BO).
+        let eligible = body.eligible(members.len());
         let case = &mut self.order.cases[k];
         case.stances = stances;
         case.eligible = eligible;

@@ -6,6 +6,7 @@
 use civ_agents::polity::{
     Body, IssueKind, Membership, PassRule, PolicyDef, PolicyKind, RuleDef, RuleTemplate, WALL_KINDS,
 };
+use civ_agents::seats::{SeatMethod, Seats};
 use serde::Deserialize;
 
 /// The `kind` value of a policy template.
@@ -53,6 +54,16 @@ pub(crate) struct PolicyFile {
     pub quorum_shares: Vec<f64>,
     #[serde(default)]
     pub pass: Vec<String>,
+    /// For an amendment to a council (content API 106, M7a slice BO, ADR-0024 §1): the seat
+    /// counts, the ways seats are filled (`election`, `lot`) and the terms in days a sponsor may
+    /// combine; `members` then names the councils' electorates. Left out, the template's bodies
+    /// are bodies of all their members.
+    #[serde(default)]
+    pub seats: Vec<u8>,
+    #[serde(default)]
+    pub seat_methods: Vec<String>,
+    #[serde(default)]
+    pub seat_terms: Vec<u16>,
     /// The question people take positions on (content API 41, M4c slice AG): "whether to keep a
     /// common store". Left out, nobody holds a position on it.
     #[serde(default)]
@@ -212,15 +223,45 @@ impl PolicyFile {
         if PolicyKind::from_name(&self.does) != Some(PolicyKind::AmendBody) {
             return Vec::new();
         }
+        // A council's seats, each way they may be combined (M7a slice BO): none for a body
+        // of all its members.
+        let mut councils: Vec<Option<(u8, SeatMethod, u16)>> = Vec::new();
+        for &n in &self.seats {
+            for method in self
+                .seat_methods
+                .iter()
+                .filter_map(|m| SeatMethod::from_name(m))
+            {
+                for &t in &self.seat_terms {
+                    councils.push(Some((n, method, t)));
+                }
+            }
+        }
+        if councils.is_empty() {
+            councils.push(None);
+        }
         let mut out = Vec::new();
         for m in self.members.iter().filter_map(|m| Membership::from_name(m)) {
             for &q in &self.quorum_shares {
                 for r in self.pass.iter().filter_map(|r| PassRule::from_name(r)) {
-                    out.push(Body {
-                        members: m,
-                        quorum_share: q as f32,
-                        pass: r,
-                    });
+                    for c in &councils {
+                        let seats = c.map(|(n, method, term_days)| Seats {
+                            n,
+                            electorate: m,
+                            method,
+                            term_days,
+                        });
+                        out.push(Body {
+                            members: if seats.is_some() {
+                                Membership::Seats
+                            } else {
+                                m
+                            },
+                            quorum_share: q as f32,
+                            pass: r,
+                            seats,
+                        });
+                    }
                 }
             }
         }
@@ -417,12 +458,53 @@ impl PolicyFile {
                     ));
                 }
             }
+            // A council's levels come together or not at all (M7a slice BO).
+            let council = [
+                !self.seats.is_empty(),
+                !self.seat_methods.is_empty(),
+                !self.seat_terms.is_empty(),
+            ];
+            if council.iter().any(|&c| c) && !council.iter().all(|&c| c) {
+                p.push(
+                    "`seats`, `seat_methods` and `seat_terms` must be given together".to_owned(),
+                );
+            }
+            for &n in &self.seats {
+                // Research 09-05 §2.3: councils of 5, 9 and 15.
+                if !(3..=31).contains(&n) {
+                    p.push(format!("`seats` must each be 3 to 31 (got {n})"));
+                }
+            }
+            for m in &self.seat_methods {
+                if SeatMethod::from_name(m).is_none() {
+                    p.push(format!(
+                        "`seat_methods` names `{m}`; methods are `election`, `lot`"
+                    ));
+                }
+            }
+            for &t in &self.seat_terms {
+                if !(30..=3650).contains(&t) {
+                    p.push(format!(
+                        "`seat_terms` must each be 30 to 3650 days (got {t})"
+                    ));
+                }
+            }
+            if self.members.iter().any(|m| m == "seats" || m == "watch") && council[0] {
+                p.push(
+                    "a council's electorate (`members`) is `adults`, `elders` or `landholders`"
+                        .to_owned(),
+                );
+            }
         } else if !self.members.is_empty()
             || !self.quorum_shares.is_empty()
             || !self.pass.is_empty()
+            || !self.seats.is_empty()
+            || !self.seat_methods.is_empty()
+            || !self.seat_terms.is_empty()
         {
             p.push(
-                "only an `amend_body` policy has `members`, `quorum_shares` and `pass`".to_owned(),
+                "only an `amend_body` policy has `members`, `quorum_shares`, `pass` and seats"
+                    .to_owned(),
             );
         }
         if PolicyKind::from_name(&self.does) == Some(PolicyKind::Curfew) {
@@ -520,6 +602,9 @@ mod tests {
             members: Vec::new(),
             quorum_shares: Vec::new(),
             pass: Vec::new(),
+            seats: Vec::new(),
+            seat_methods: Vec::new(),
+            seat_terms: Vec::new(),
             question: None,
             bears: Default::default(),
             rule: None,

@@ -902,14 +902,16 @@ impl Population {
             .filter(|d| d.kind == PolicyKind::AmendBody)
         {
             for &b in &def.bodies {
+                // A council admits its organizer if they may stand for it (M7a slice BO).
+                let gate = b.seats.map_or(b.members, |s| s.electorate);
                 let admits = self
-                    .admitted(b.members, &adults, &ctx.land.fields, now, params)
+                    .admitted(gate, &adults, &ctx.land.fields, now, params)
                     .iter()
                     .any(|a| a.0 == organizer);
                 if b == current || !admits {
                     continue;
                 }
-                let gain = self.body_gain(ctx, pi, &b, &households, &decisions);
+                let gain = self.body_gain(ctx, pi, &b, organizer, &households, &decisions);
                 if gain > 1e-9 && best.is_none_or(|(g, _)| gain > g) {
                     best = Some((gain, b));
                 }
@@ -1304,8 +1306,10 @@ impl Population {
         if worth <= threshold {
             return;
         }
+        // The watch decides as the custom did, but as a body of all its watchers, no council.
         let body = Body {
             members: Membership::Watch,
+            seats: None,
             ..current
         };
         let id = ctx.ids.allocate();

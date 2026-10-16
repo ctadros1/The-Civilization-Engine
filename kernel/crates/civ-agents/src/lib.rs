@@ -63,6 +63,7 @@ pub mod polity;
 pub mod population;
 pub mod reports;
 pub mod rules;
+pub mod seats;
 pub mod sickness;
 pub mod standing;
 pub mod structure;

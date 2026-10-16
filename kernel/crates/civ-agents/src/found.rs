@@ -1790,6 +1790,7 @@ pub(crate) mod tests {
             ditches: crate::irrigation::DitchPlanParams::default(),
             rules: crate::rules::RuleParams::default(),
             bands: crate::war::BandParams::core(),
+            elections: crate::seats::ElectionParams::core(),
             enclosures: crate::enclose::EnclosureParams::core(),
             farm: FarmParams {
                 crop: 0,

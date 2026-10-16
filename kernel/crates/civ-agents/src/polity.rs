@@ -633,15 +633,19 @@ pub enum Membership {
     /// Those who keep the watch by a law in force (M4c slice AI, step three): the body a coup
     /// among them makes. When none keeps it, nobody.
     Watch,
+    /// Those who hold a seat in its council (M7a slice BO, ADR-0024 §1): the body's `seats` say
+    /// how many seats there are and how they are filled.
+    Seats,
 }
 
 impl Membership {
     /// Every membership, in code order.
-    pub const ALL: [Membership; 4] = [
+    pub const ALL: [Membership; 5] = [
         Membership::Adults,
         Membership::Elders,
         Membership::Landholders,
         Membership::Watch,
+        Membership::Seats,
     ];
 
     /// Its number in saves.
@@ -661,6 +665,7 @@ impl Membership {
             Membership::Elders => "elders",
             Membership::Landholders => "landholders",
             Membership::Watch => "watch",
+            Membership::Seats => "seats",
         }
     }
 
@@ -676,6 +681,7 @@ impl Membership {
             Membership::Elders => "elders",
             Membership::Landholders => "landholders",
             Membership::Watch => "watchers",
+            Membership::Seats => "councillors",
         }
     }
 }
@@ -728,6 +734,9 @@ pub struct Body {
     pub quorum_share: f32,
     /// How those present decide.
     pub pass: PassRule,
+    /// For a council (`members` is `Seats`): its seats and how they are filled (M7a slice BO,
+    /// ADR-0024 §1). `None` for a body of all its members.
+    pub seats: Option<crate::seats::Seats>,
 }
 
 impl Body {
@@ -738,7 +747,36 @@ impl Body {
             members: Membership::Adults,
             quorum_share: params.quorum_share as f32,
             pass: PassRule::MoreForThanAgainst,
+            seats: None,
         }
+    }
+
+    /// How many make up the body for its quorum, `members` of it there now: for a council, its
+    /// seats, filled or empty (ADR-0024 §1: a body short of quorum fails, recorded); else its
+    /// members.
+    pub fn eligible(&self, members: usize) -> u32 {
+        self.seats.map_or(members as u32, |s| u32::from(s.n))
+    }
+
+    /// How many changes body `self` is from `current` (research 09-05 §3.9: reform changes a
+    /// gate within the procedure): who belongs, the quorum and the rule, each one; a council's
+    /// seats, method and term each one more. A gathering becoming a council of its own members,
+    /// or a council its electorate's gathering, is one change.
+    pub fn changes_from(&self, current: &Body) -> u32 {
+        let who = |b: &Body| b.seats.map_or(b.members, |s| s.electorate);
+        let mut n = u32::from((self.quorum_share - current.quorum_share).abs() > 1e-6)
+            + u32::from(self.pass != current.pass)
+            + u32::from(who(self) != who(current));
+        match (self.seats, current.seats) {
+            (Some(a), Some(b)) => {
+                n += u32::from(a.n != b.n)
+                    + u32::from(a.method != b.method)
+                    + u32::from(a.term_days != b.term_days);
+            }
+            (None, None) => {}
+            _ => n += 1,
+        }
+        n
     }
 
     /// The body in words: "The adults who come to the hearth decide by acclamation: a quarter of
@@ -751,6 +789,7 @@ impl Body {
                 "The adults of households that hold land who come to the hearth"
             }
             Membership::Watch => "Those who keep the watch",
+            Membership::Seats => "Those who sit in its council",
         };
         let how = match self.pass {
             PassRule::MoreForThanAgainst => {
@@ -768,7 +807,19 @@ impl Body {
             50 => "half of them must come".to_owned(),
             pct => format!("{pct} in a hundred of them must come"),
         };
-        format!("{who} {how}; {quorum}.")
+        match self.seats {
+            Some(s) => {
+                let mut c = s.words().chars().collect::<Vec<char>>();
+                if let Some(f) = c.first_mut() {
+                    *f = f.to_ascii_uppercase();
+                }
+                format!(
+                    "{}. {who} {how}; {quorum}.",
+                    c.into_iter().collect::<String>()
+                )
+            }
+            None => format!("{who} {how}; {quorum}."),
+        }
     }
 
     /// The body as a clause to follow "so that" or a colon: "the elders of its households who
@@ -1524,6 +1575,11 @@ pub struct Polity {
     pub ended: Option<PolityEnd>,
     /// The terms of its office laws held for a term, by law id (M7a slice BN).
     pub terms: Vec<(PermanentId, Term)>,
+    /// Its council's seats held now, by seat (M7a slice BO, ADR-0024 §1): empty unless its body
+    /// is a council, and while nobody sits.
+    pub seated: Vec<crate::seats::Seat>,
+    /// Every election it called, oldest first (ADR-0024 §3).
+    pub elections: Vec<crate::seats::Election>,
 }
 
 /// How a polity came to hold a settlement besides its seat (M6c slice BM, ADR-0023 §9). Codes are
@@ -1732,6 +1788,8 @@ impl Polity {
             held: Vec::new(),
             ended: None,
             terms: Vec::new(),
+            seated: Vec::new(),
+            elections: Vec::new(),
         }
     }
 

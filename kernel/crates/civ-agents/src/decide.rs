@@ -70,6 +70,9 @@ pub struct Facts {
     /// A petition sitting at the hearth they heard of and may join (M4c slice AH): what joining
     /// it is worth to them and the minutes it still sits.
     pub petition: Option<GatheringFacts>,
+    /// An election polling at the hearth that they heard of and may poll in (M7a slice BO): what
+    /// naming their choices is worth to them and the minutes it takes.
+    pub poll: Option<GatheringFacts>,
     /// The round of the watch they keep, if they keep one and may walk it now (M4b slice AC).
     pub watch: Option<WatchFacts>,
     /// A payment an agreement owes that they are to carry, set aside and waiting, if they can
@@ -884,6 +887,7 @@ pub fn candidates(
                     | Behavior::Ask
                     | Behavior::Attend
                     | Behavior::Petition
+                    | Behavior::Poll
             )
         {
             excluded.push((id, Reason::Hurt));
@@ -1561,6 +1565,27 @@ pub fn candidates(
                 ];
                 out.push(finish(id, Target::Hearth(settlement), terms, steps));
             }
+            Behavior::Poll => {
+                let (Some((settlement, hearth)), Some(g)) = (f.hearth, f.poll) else {
+                    excluded.push((id, Reason::NoPoll));
+                    continue;
+                };
+                // What naming their choices is worth to them (M7a slice BO), and the company
+                // of those who come.
+                term(&mut terms, Reason::Poll, g.points);
+                term(
+                    &mut terms,
+                    Reason::Loneliness,
+                    w.w_social * f.loneliness * f.evening.max(0.25),
+                );
+                let steps = vec![
+                    Step::Walk { to: hearth },
+                    Step::Work {
+                        minutes: g.minutes.round().max(1.0) as u32,
+                    },
+                ];
+                out.push(finish(id, Target::Hearth(settlement), terms, steps));
+            }
             Behavior::Visit => {
                 // Company at another settlement's hearth (M5a slice AM): reached before dark,
                 // home again the same day. Its company is worth what being alone makes it, as
@@ -2161,6 +2186,7 @@ mod tests {
     fn facts() -> Facts {
         Facts {
             petition: None,
+            poll: None,
             hurt: false,
             ill: false,
             home_afire: false,

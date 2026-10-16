@@ -1342,3 +1342,18 @@ front_m = 4.0
 rot_per_year = 0.0667
 mend_loss = 0.5
 alarm_days = 60
+
+[elections]                      # seated bodies' elections (M7a slice BO, ADR-0024 §3); design priors
+stand_days = 7                   # days names may be put in after an election is called
+poll_minutes = 30                # minutes at the hearth naming one's choices
+w_sit = 1.0                      # points per unit of household gain a seat would turn its way
+w_standing = 0.5                 # points per unit of standing in counsel (the regard a seat may bring)
+sit_cost = 1.0                   # points against: a term's evenings in council and the walk
+stand_temperature = 0.5          # temperature of the choice to stand
+w_regard = 1.0                   # a voter's utility: regard for the candidate (loyalty)
+w_household = 2.0                # one of their own household (group)
+w_counsel = 0.5                  # the candidate's standing in counsel (competence)
+w_self = 3.0                     # themselves, when they stood
+vote_scale = 1.0                 # the scale of the one softmax a ranking is drawn at
+poll_base = 0.5                  # points for coming to poll before the stake
+w_poll_stake = 0.5               # points per point of the stake (first choice over the best left out)

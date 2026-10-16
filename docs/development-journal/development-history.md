@@ -2228,3 +2228,28 @@ held village in. M6c is closed.
 
 **Open:** a band sent by law still lapses when its leader knows no household of the target to go
 to.
+
+## 2026-10-16 — BO: councils and their elections
+
+**Built:** a body may be a council of seats filled from an electorate by election or by lot for a
+term (ADR-0024 §1); `core:policy/seat_a_council` offers councils of 5 or 9 seats as an amendment
+one change from a gathering of their electorate, weighed by the council the sponsor expects would
+sit. An election is called when the custom becomes a council and as its term nears its end; word
+of it goes round; each of the electorate who hears of it chooses once whether to stand; a field
+no larger than the seats sits unopposed, a lot draws among the names, or the polling day comes, an
+activity at the hearth where each names up to n from one ranking; the block vote counts the names.
+Under a council the body is those who sit, its quorum counts its seats, and only they propose.
+Saves gain seats, elections and open ballots (schema 121, content API 106); the chronicle tells
+elections called and ended; the Government panel lists the seats and the latest election; the
+label reads a council by election or lot for a term as a republic.
+
+**Evidence:** `civ-sim/tests/council.rs`: a custom taken to a council calls its election the next
+midnight; with standing free, more stand than there are seats, some come to poll, the block vote
+counts every name once, those named most sit and are the body, the label reads "Republic", saves
+mid-election and after go on alike, and the term's end calls the next election, done by the time
+the seats end. Unit tests: seats packed for saves, the voter's ranking at the softmax's rate, the
+council forecast by election and by lot, a council one change from its electorate's gathering.
+
+**Open:** whether any village amends to a council on its own (the smoke found villages of 50 never
+amend their custom); appointment, consent and nominating others; positions and record in a
+voter's choice (BP); secret ballots; seats by settlement; the observer's election page.

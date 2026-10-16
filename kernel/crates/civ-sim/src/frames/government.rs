@@ -683,16 +683,22 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             .map(|l| law_line(&mut fbb, sim, polity, l))
             .collect();
         let laws = fbb.create_vector(&laws);
-        let offices: Vec<_> = office_words(
+        let mut offices = office_words(
             polity,
             &rules.catalog.policies,
             &|id| pop.name_of(id),
             &|id| gone_words(sim, id),
             now.day_index(),
-        )
-        .iter()
-        .map(|w| fbb.create_string(w))
-        .collect();
+        );
+        // Its council's seats and latest election, if it has one (M7a slice BO).
+        offices.extend(civ_agents::seats::council_words(
+            polity.body.seats,
+            &polity.seated,
+            &polity.elections,
+            &|id| pop.name_of(id),
+            &|d| day_words(SimTime::from_minutes(d * civ_core::time::MINUTES_PER_DAY)),
+        ));
+        let offices: Vec<_> = offices.iter().map(|w| fbb.create_string(w)).collect();
         let offices = fbb.create_vector(&offices);
         // The custom's versions, and how many its body admits now (wire 1.35, M4c slice AF).
         let history: Vec<_> =

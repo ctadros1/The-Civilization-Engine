@@ -46,6 +46,7 @@ mod crossings;
 mod deposits;
 mod digging;
 mod ditches;
+mod elections;
 mod enclosures;
 mod faction;
 mod fire;
@@ -690,7 +691,11 @@ fn peak_ratio(params: &PeopleParams) -> f64 {
 fn is_company(b: Behavior) -> bool {
     matches!(
         b,
-        Behavior::Socialize | Behavior::Attend | Behavior::Petition | Behavior::Visit
+        Behavior::Socialize
+            | Behavior::Attend
+            | Behavior::Petition
+            | Behavior::Poll
+            | Behavior::Visit
     )
 }
 
@@ -2870,6 +2875,7 @@ impl Population {
             hearth: hh.settlement.zip(hearth),
             gathering: self.gathering_facts(ctx, p.id, age, &hh, minute, evening_start),
             petition: self.petition_facts(ctx, p.id, age, &hh, minute, evening_start),
+            poll: self.poll_facts(ctx, p.id, age, &hh, minute, evening_start),
             watch: self.watch_facts(ctx, p.id, &hh, dark),
             carry: self.carry_facts(ctx, p.id, field_key, dark),
             crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),
@@ -4284,7 +4290,13 @@ impl Population {
         let params = ctx.params;
         let present = match (behavior, self.people.get(h)) {
             (
-                Some(Behavior::Socialize | Behavior::Attend | Behavior::Petition | Behavior::Visit),
+                Some(
+                    Behavior::Socialize
+                    | Behavior::Attend
+                    | Behavior::Petition
+                    | Behavior::Poll
+                    | Behavior::Visit,
+                ),
                 Some(p),
             ) => self.hearth_company(ctx, p.id, p.act.target),
             _ => Vec::new(),
@@ -4310,6 +4322,11 @@ impl Population {
         if let (Some(Behavior::Attend), Some(p)) = (behavior, self.people.get(h)) {
             let me = p.id;
             self.attend(ctx, me);
+        }
+        // Someone come to poll names their choices (M7a slice BO).
+        if let (Some(Behavior::Poll), Some(p)) = (behavior, self.people.get(h)) {
+            let me = p.id;
+            self.cast(ctx, me);
         }
         // Someone come to a petition is counted among those who came (M4c slice AH).
         if let (Some(Behavior::Petition), Some(p)) = (behavior, self.people.get(h)) {
@@ -4340,13 +4357,17 @@ impl Population {
             .map_or(params.energy.idle_par, |a| a.par);
         let (par, asleep, company) = match behavior {
             Some(Behavior::Sleep) => (def_par, true, params.social.household_quality),
-            Some(Behavior::Socialize | Behavior::Attend | Behavior::Petition | Behavior::Visit) => {
-                (
-                    def_par,
-                    false,
-                    (params.social.quality_per_companion * companions as f64).min(1.0),
-                )
-            }
+            Some(
+                Behavior::Socialize
+                | Behavior::Attend
+                | Behavior::Petition
+                | Behavior::Poll
+                | Behavior::Visit,
+            ) => (
+                def_par,
+                false,
+                (params.social.quality_per_companion * companions as f64).min(1.0),
+            ),
             // Work at home is done among the household.
             Some(
                 Behavior::Eat

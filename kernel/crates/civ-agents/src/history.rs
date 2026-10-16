@@ -192,6 +192,11 @@ pub enum Reason {
     /// What a palisade the polity is raising would keep from people of other settlements, for
     /// the work this session puts into it (M6c slice BK).
     Palisade = 150,
+    /// Naming their choices for the council on its polling day: the content's base and how much
+    /// better their first choice is than the best left out (M7a slice BO, ADR-0024 §3).
+    Poll = 151,
+    /// No election they heard of polls now.
+    NoPoll = 152,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -203,7 +208,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 84] = [
+    pub const ALL: [Reason; 86] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -288,6 +293,8 @@ impl Reason {
         Reason::Band,
         Reason::NoBand,
         Reason::Palisade,
+        Reason::Poll,
+        Reason::NoPoll,
     ];
 
     /// The reason with this code.
@@ -384,6 +391,8 @@ impl Reason {
             Reason::Band => "the band they said they would go with",
             Reason::NoBand => "no band they joined musters today",
             Reason::Palisade => "what a palisade would keep from outsiders",
+            Reason::Poll => "naming their choices for the council",
+            Reason::NoPoll => "no election they heard of polls now",
         }
     }
 }
@@ -831,6 +840,12 @@ pub enum ChronicleKind {
     /// it fell to, `settlement` the polity's seat, `number` how many put their names in, and
     /// `name` the sentence.
     LotDrawn,
+    /// A council's election was called (M7a slice BO, ADR-0024 §3): `people` is who knew first,
+    /// `settlement` the polity's seat, `number` the seats, and `name` the sentence.
+    ElectionCalled,
+    /// A council's election ended, its winners seated or failed (M7a slice BO): `people` is who
+    /// were seated, `settlement` the polity's seat, `number` how many, and `name` the sentence.
+    ElectionHeld,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1485,7 +1500,9 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::Enclosure
         | ChronicleKind::PolityJoined
         | ChronicleKind::Seceded
-        | ChronicleKind::LotDrawn => {
+        | ChronicleKind::LotDrawn
+        | ChronicleKind::ElectionCalled
+        | ChronicleKind::ElectionHeld => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

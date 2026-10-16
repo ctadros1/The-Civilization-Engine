@@ -70,6 +70,29 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
     let pop = &sim.people;
     let name_of = |id: PermanentId| pop.name_of(id);
     match c.kind {
+        // A council's election (M7a slice BO).
+        ClaimKind::Election => {
+            let day = day_words(SimTime::from_minutes(c.day * DAY));
+            let place = sim
+                .land
+                .settlements
+                .iter()
+                .find(|s| s.id == c.settlement)
+                .map_or("the hearth", |s| s.name.as_str());
+            let seats = pop
+                .polities
+                .iter()
+                .find(|p| p.settlement == c.settlement)
+                .and_then(|p| p.elections.iter().rev().find(|e| e.poll_day == c.day))
+                .map(|e| e.seats);
+            match seats {
+                Some(s) if s.method == civ_agents::seats::SeatMethod::Lot => {
+                    format!("the lot for {} is drawn at {place} on {day}", s.words())
+                }
+                Some(s) => format!("{} is polled at {place} on {day}", s.words()),
+                None => format!("an election is held at {place} on {day}"),
+            }
+        }
         ClaimKind::Gathering => {
             let day = day_words(SimTime::from_minutes(c.day * DAY));
             let law = c.subject.and_then(|id| {
@@ -675,6 +698,22 @@ fn whisper_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
     said.push(format!("told {} since", others(told)));
     let since = i.at.day_index();
     let acted = match c.kind {
+        // Whether they came to poll, once the polling day is past (M7a slice BO).
+        ClaimKind::Election => pop
+            .polities
+            .iter()
+            .find(|q| q.settlement == c.settlement)
+            .and_then(|q| q.elections.iter().rev().find(|e| e.poll_day == c.day))
+            .filter(|e| e.poll_day < sim.now().day_index())
+            .map(|e| {
+                if e.polled(p) {
+                    "came to poll".to_owned()
+                } else if e.stood(p) {
+                    "stood".to_owned()
+                } else {
+                    "did not come to poll".to_owned()
+                }
+            }),
         ClaimKind::Gathering => c.subject.and_then(|law| {
             let l = pop
                 .polities

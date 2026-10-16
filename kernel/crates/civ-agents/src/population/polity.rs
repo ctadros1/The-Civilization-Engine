@@ -15,8 +15,8 @@ use crate::word::Blamed;
 /// A decision someone saw made at a gathering (M4c slice AF): each stance taken, by person and
 /// household, with what the household stood to gain in points, and whether it passed.
 pub(super) struct Seen {
-    stances: Vec<(PermanentId, PermanentId, Stance, f64)>,
-    passed: bool,
+    pub(super) stances: Vec<(PermanentId, PermanentId, Stance, f64)>,
+    pub(super) passed: bool,
 }
 
 /// What a settlement's households expect (ADR-0013 §5), for forecasting what a move would bring
@@ -340,6 +340,8 @@ impl Population {
             self.forget_ended_claims();
         }
         self.lapse_keepers(ctx);
+        // Councils' elections, called, stood for, polled, counted and seated (M7a slice BO).
+        self.elections_day(ctx);
         for pi in 0..self.polities.len() {
             if self.polities[pi]
                 .gathering
@@ -676,6 +678,8 @@ impl Population {
                 .copied()
                 .filter(|&(p, _)| self.keeps_a_watch(p))
                 .collect(),
+            // Those of them who hold a council seat (M7a slice BO): one sits where they live.
+            Membership::Seats => self.sitting(adults),
         }
     }
 
@@ -707,6 +711,7 @@ impl Population {
             Membership::Elders => self.elder_of(hh, now, params) == Some(person),
             Membership::Landholders => fields.iter().any(|f| f.holder.household() == Some(hh)),
             Membership::Watch => self.keeps_a_watch(person),
+            Membership::Seats => self.sits(person),
         }
     }
 
@@ -1472,6 +1477,7 @@ impl Population {
         ctx: &Ctx,
         pi: usize,
         b: &Body,
+        sponsor: PermanentId,
         households: &[PermanentId],
         decisions: &[Seen],
     ) -> f64 {
@@ -1484,9 +1490,35 @@ impl Population {
             .into_iter()
             .map(|a| a.0)
             .collect();
+        // A council is judged by those its sponsor expects would sit (M7a slice BO).
+        let sitters = b.seats.map(|seats| {
+            let electorate: Vec<PermanentId> = self
+                .admitted(seats.electorate, &adults, &ctx.land.fields, now, params)
+                .into_iter()
+                .map(|a| a.0)
+                .collect();
+            (
+                seats,
+                self.forecast_sitters(ctx, &seats, &electorate, sponsor),
+            )
+        });
         decisions
             .iter()
             .map(|s| {
+                if let Some((seats, sit)) = &sitters {
+                    let stances: Vec<(PermanentId, Stance)> =
+                        s.stances.iter().map(|r| (r.0, r.2)).collect();
+                    let now_passes = super::elections::council_would_pass(b, seats, sit, &stances);
+                    if now_passes == s.passed {
+                        return 0.0;
+                    }
+                    let sign = if now_passes { 1.0 } else { -1.0 };
+                    return households
+                        .iter()
+                        .filter_map(|&h| s.stances.iter().find(|r| r.1 == h))
+                        .map(|r| sign * r.3 / pp.w_gain.max(1e-9))
+                        .sum::<f64>();
+                }
                 let (mut present, mut support, mut oppose) = (0, 0, 0);
                 for &(p, _, stance, _) in &s.stances {
                     if admitted.binary_search(&p).is_err() {
@@ -1809,8 +1841,14 @@ impl Population {
             })
             .collect();
         // Whether body `b` would have passed decision `s`: those of the stances it admits now,
-        // by its rule (research 09-05 §1.4).
-        let would_pass = |s: &Seen, b: &Body| {
+        // by its rule (research 09-05 §1.4); a council by the stances of `sitters`, those its
+        // sponsor expects would sit (M7a slice BO, ADR-0024 §6).
+        let would_pass = |s: &Seen, b: &Body, sitters: Option<&[PermanentId]>| {
+            if let (Some(seats), Some(sit)) = (b.seats, sitters) {
+                let stances: Vec<(PermanentId, Stance)> =
+                    s.stances.iter().map(|r| (r.0, r.2)).collect();
+                return super::elections::council_would_pass(b, &seats, sit, &stances);
+            }
             let admitted = &admitted_by[usize::from(b.members.code())];
             let (mut present, mut support, mut oppose) = (0, 0, 0);
             for &(p, _, stance, _) in &s.stances {
@@ -1829,20 +1867,21 @@ impl Population {
         // What body `b` would bring household `h`, from decisions `seen` (research 09-02 §3.7,
         // 09-05 §1.2: a rule is judged by how it would have decided what was seen): each one it
         // would have turned the other way, at the household's stake in it.
-        let amend_gain = |b: &Body, h: PermanentId, seen: &[usize]| -> f64 {
-            seen.iter()
-                .map(|&i| {
-                    let s = &decisions[i];
-                    let now_passes = would_pass(s, b);
-                    if now_passes == s.passed {
-                        return 0.0;
-                    }
-                    let stake = s.stances.iter().find(|r| r.1 == h).map_or(0.0, |r| r.3);
-                    let sign = if now_passes { 1.0 } else { -1.0 };
-                    sign * stake / pp.w_gain.max(1e-9)
-                })
-                .sum()
-        };
+        let amend_gain =
+            |b: &Body, sitters: Option<&[PermanentId]>, h: PermanentId, seen: &[usize]| -> f64 {
+                seen.iter()
+                    .map(|&i| {
+                        let s = &decisions[i];
+                        let now_passes = would_pass(s, b, sitters);
+                        if now_passes == s.passed {
+                            return 0.0;
+                        }
+                        let stake = s.stances.iter().find(|r| r.1 == h).map_or(0.0, |r| r.3);
+                        let sign = if now_passes { 1.0 } else { -1.0 };
+                        sign * stake / pp.w_gain.max(1e-9)
+                    })
+                    .sum()
+            };
         // The decisions those `seen` saw.
         let seen_by = |seen: &dyn Fn(PermanentId, PermanentId) -> bool| -> Vec<usize> {
             decisions
@@ -2171,6 +2210,8 @@ impl Population {
             // to within memory overruled, or who holds a grievance against the gathering; each
             // body a template offers that differs from the custom and would keep them in it.
             let seen_d = seen_by(&|p, _| p == d);
+            // Those the sponsor expects would sit in each council they weigh (M7a slice BO).
+            let mut sat: Vec<(Body, Vec<PermanentId>)> = Vec::new();
             let overruled = seen_d.iter().any(|&i| {
                 let s = &decisions[i];
                 s.stances.iter().any(|r| {
@@ -2191,15 +2232,19 @@ impl Population {
                         continue;
                     }
                     for &b in &def.bodies {
-                        let keeps = admitted_by[usize::from(b.members.code())]
+                        // A council keeps them in it if they may stand for it (M7a slice
+                        // BO): its electorate.
+                        let gate = b.seats.map_or(b.members, |s| s.electorate);
+                        let keeps = admitted_by[usize::from(gate.code())]
                             .binary_search(&d)
                             .is_ok();
                         // One change at a time (research 09-05 §2.3: a sponsor weighs a few
                         // alternatives; §3.9: reform changes a gate within the procedure).
-                        let changes = u32::from(b.members != current.members)
-                            + u32::from((b.quorum_share - current.quorum_share).abs() > 1e-6)
-                            + u32::from(b.pass != current.pass);
-                        if changes == 1 && keeps {
+                        if b.changes_from(&current) == 1 && keeps {
+                            if let Some(seats) = b.seats {
+                                let electorate = &admitted_by[usize::from(seats.electorate.code())];
+                                sat.push((b, self.forecast_sitters(ctx, &seats, electorate, d)));
+                            }
                             moves.push(MoveOption {
                                 policy: k as u16,
                                 levy_share: 0.0,
@@ -2219,8 +2264,9 @@ impl Population {
                     }
                 }
             }
+            let sitters_of = |b: &Body| sat.iter().find(|x| x.0 == *b).map(|x| x.1.as_slice());
             let gain_for = |m: &MoveOption, h: PermanentId| match (m.body, m.ends) {
-                (Some(b), _) => amend_gain(&b, h, &seen_d),
+                (Some(b), _) => amend_gain(&b, sitters_of(&b), h, &seen_d),
                 (None, Some(_)) => -held(m, h),
                 (None, None) => gain_of(m, h),
             };
@@ -2327,7 +2373,9 @@ impl Population {
                         // Each household judges an amendment by the decisions its own members
                         // saw (M4c slice AF).
                         let gain = match (m.body, m.ends) {
-                            (Some(b), _) => amend_gain(&b, *h, &seen_by(&|_, hh| hh == *h)),
+                            (Some(b), _) => {
+                                amend_gain(&b, sitters_of(&b), *h, &seen_by(&|_, hh| hh == *h))
+                            }
                             (None, Some(_)) => -held(&m, *h),
                             (None, None) => gain_of(&m, *h),
                         };
@@ -2686,7 +2734,8 @@ impl Population {
         };
         law.stances = stances;
         let (present, support, oppose) = law.counts();
-        let eligible = members.len() as u32;
+        // A council counts its seats, filled or empty (M7a slice BO, ADR-0024 §1).
+        let eligible = body.eligible(members.len());
         let outcome = body.decide(eligible, present, support, oppose);
         law.eligible = eligible;
         law.decided = Some(now);

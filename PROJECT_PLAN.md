@@ -2977,6 +2977,35 @@ and M6a gives rivers a daily flow.
         which need seated bodies (BO); a nominee's consent; watch templates with a tenure.
     - **BO**: seated bodies reached by amendment; elections as dated records (called, told,
       candidacy, polling, count, certification, installation), standing and polling as choices.
+      - *As built (2026-10-16):* a body may be a council (`Membership::Seats`, `Body.seats`: n
+        seats, an electorate of one membership, election or lot, a term of days); its members are
+        those who sit, its quorum counts its seats, filled or empty, and only they propose and come
+        to its sittings. `core:policy/seat_a_council` (content API 106) offers councils of 5 or 9
+        for 360 days by election or lot, one change from a gathering of their electorate; a sponsor
+        weighs one by ADR-0024 §6's prior (by election the n of the electorate they know who stand
+        highest in counsel would sit, re-deciding what was seen with those people's stances and the
+        quorum counted as met; by lot the electorate's stances in proportion), and a revolt's
+        program weighs councils the same way. An election (`civ-agents/src/seats.rs`,
+        `population/elections.rs`) is called the midnight after the custom becomes a council and
+        again as its seats' term nears its end; word goes round as a claim (`ClaimKind::Election`);
+        each of the electorate who hears of it chooses once whether to stand (a seat's share of the
+        stake in decisions they saw go against them, standing in counsel, against a term's
+        evenings, one keyed draw); when names close, a field no larger than the seats sits
+        unopposed, a lot draws among the names, or the polling day comes: polling is an activity
+        (`core:activity/poll`), a walk to the hearth that evening for those who heard of it, worth
+        the content's base and how much better their first choice is than the best left out; each
+        names up to n from one ranking drawn at a fixed scale over regard, their own household and
+        standing in counsel; the block vote counts the names, a keyed lot settling a tie for the
+        last seats. Nobody standing or nobody polling fails, recorded, and the seats stay empty until
+        the next election. Seats, elections, candidates and open ballots are saved (save schema
+        121); the chronicle tells an election called and its end (`ElectionCalled`, 58;
+        `ElectionHeld`, 59); the Government panel's offices list each seat and the latest
+        election; the label reads a council by election or lot for a fixed term as a "Republic"
+        ("Oligarchic republic" under the restricted share), with its electorate's share and
+        whether its seats were contested. **Not yet built:** appointment by another office; a
+        nominee's consent; nominating someone else; positions and record in a voter's choice
+        (campaigns, BP); the hours a council saves a household in the amendment forecast; secret
+        ballots; seats by settlement; the observer's election page.
     - **BP**: campaigns as hours and claims; voters' utility from positions, record, group,
       regard and standing; faction slates; the label reads "Republic".
     - **BQ**: electoral alliances, franchise amendments, seats by settlement; the observer's

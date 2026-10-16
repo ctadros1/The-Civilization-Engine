@@ -84,6 +84,22 @@ pub struct Evidence {
     pub levies_kept: u32,
     /// The offices its laws created.
     pub offices: Vec<OfficeEvidence>,
+    /// Its council, when its body is one (M7a slice BO, ADR-0024 §7).
+    pub council: Option<CouncilEvidence>,
+}
+
+/// A council's selection chain, read for the label (ADR-0024 §7; research 09-15 §6.4): its
+/// seats and how they are filled, the share of the governed adults who choose them, how many
+/// sit, and its last election's field and turnout.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CouncilEvidence {
+    pub seats: civ_agents::seats::Seats,
+    /// The share of the governed adults in its electorate.
+    pub electorate_share: f64,
+    /// Seats held now.
+    pub seated: u32,
+    /// Its last counted election: those who stood and those who came to poll; none before one.
+    pub last: Option<(u32, u32)>,
 }
 
 /// A polity's label: a name, what qualifies it, a confidence and the reasons, in words.
@@ -230,6 +246,7 @@ pub fn evidence(
         backers,
         carried,
         levies_paid,
+        council: None,
         levies_kept,
         offices,
     }
@@ -257,7 +274,7 @@ pub fn label_of(sim: &crate::Sim, polity: &Polity) -> Label {
             pop.body_members(&sim.land().fields, pi, now, &rules.people)
                 .len() as u32
         });
-    let e = evidence(
+    let mut e = evidence(
         polity,
         &rules.catalog.policies,
         adults,
@@ -265,6 +282,31 @@ pub fn label_of(sim: &crate::Sim, polity: &Polity) -> Label {
         now,
         rules.people.polity.stance_margin,
     );
+    // A council's selection chain (M7a slice BO).
+    e.council = polity.body.seats.map(|seats| {
+        let electorate = pop
+            .polities
+            .iter()
+            .position(|p| p.id == polity.id)
+            .map_or(0, |pi| {
+                pop.electorate_count(&sim.land().fields, pi, &seats, now, &rules.people)
+            });
+        CouncilEvidence {
+            seats,
+            electorate_share: if adults == 0 {
+                0.0
+            } else {
+                f64::from(electorate.min(adults)) / f64::from(adults)
+            },
+            seated: polity.seated.len() as u32,
+            last: polity
+                .elections
+                .iter()
+                .rev()
+                .find(|x| x.stage == civ_agents::seats::ElectionStage::Installed)
+                .map(|x| (x.standing().len() as u32, x.ballots.len() as u32)),
+        }
+    });
     classify(&e, &|id| pop.name_of(id), &civ_agents::polity::day_words)
 }
 
@@ -286,8 +328,51 @@ pub fn classify(
 ) -> Label {
     let mut why = Vec::new();
     let mut modifiers = Vec::new();
-    // Who may decide (de jure): an assembly of nearly all, some, or a restricted group.
-    let organization = if e.body_share >= BROAD {
+    // Who may decide (de jure): an assembly of nearly all, some, or a restricted group; or a
+    // council filled by election or lot for fixed terms, read by who chooses it (ADR-0024 §7:
+    // a selection chain; never "democracy" from structure alone).
+    let organization = if let Some(c) = &e.council {
+        let how = match c.seats.method {
+            civ_agents::seats::SeatMethod::Election => "elected",
+            civ_agents::seats::SeatMethod::Lot => "drawn by lot",
+        };
+        why.push(format!(
+            "A council of {} {how} for {} days decides, and what it decides binds; {} of its \
+             adults choose it, and {} of its seats are held.",
+            c.seats.n,
+            c.seats.term_days,
+            percent(c.electorate_share),
+            c.seated
+        ));
+        modifiers.push(format!("council of {} {how}", c.seats.n));
+        if c.electorate_share < BROAD {
+            modifiers.push(format!(
+                "electorate {} of adults",
+                percent(c.electorate_share)
+            ));
+        }
+        match c.last {
+            Some((stood, 0)) => {
+                why.push(format!(
+                    "At its last election {stood} stood for its {} seats and nobody needed to poll.",
+                    c.seats.n
+                ));
+                if c.seats.method == civ_agents::seats::SeatMethod::Election {
+                    modifiers.push("seats uncontested".to_owned());
+                }
+            }
+            Some((stood, polled)) => why.push(format!(
+                "At its last election {stood} stood for its {} seats and {polled} came to poll.",
+                c.seats.n
+            )),
+            None => why.push("No election has seated it yet.".to_owned()),
+        }
+        if c.electorate_share >= RESTRICTED {
+            "Republic"
+        } else {
+            "Oligarchic republic"
+        }
+    } else if e.body_share >= BROAD {
         why.push(
             "All its adults may come and decide, and what they decide binds: leadership answers \
              to the gathering."
@@ -495,6 +580,7 @@ mod tests {
                 since: Some(SimTime::from_minutes(400 * 1440)),
                 holders: 1,
             }],
+            council: None,
         }
     }
 

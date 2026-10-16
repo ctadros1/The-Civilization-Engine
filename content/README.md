@@ -663,6 +663,30 @@ lapses, as at a death, and the issue opens again. The core adds
 `core:policy/your_turn_keeping_the_store` (half a year, by lot, not renewable) and
 `core:policy/your_year_keeping_the_store` (a year, named, renewable).
 
+Content API 106 (M7a slice BO, ADR-0024 §1, §3, §6) brings councils and their elections. An
+`amend_body` template may add three council levels, given together: `seats` (3 to 31 each),
+`seat_methods` (`election` or `lot`) and `seat_terms` (30 to 3650 days each); its bodies are then
+councils, one for each combination, whose `members` name their electorates (`adults`, `elders` or
+`landholders`). A council is one change from a gathering of its own electorate, so a sponsor
+weighs it as any other amendment: each household judges it by how the council the sponsor expects
+would have decided what its members saw decided (a design prior: by election, the n of the
+electorate the sponsor knows who stand highest in counsel would sit; by lot, the electorate's seen
+stances in proportion). Under a council the body is those who sit; its quorum counts its seats,
+filled or empty; only they propose and come to its sittings. An election is called the midnight
+after the custom becomes a council and again as the seats' term nears its end; word of it goes
+round as word of a gathering does; each of the electorate who hears of it chooses once whether to
+stand; when names close, a field no larger than the seats sits unopposed, a lot draws among the
+names, or the polling day comes, when each of the electorate who heard of it may walk to the hearth
+(the `core:activity/poll` activity, behaviour `poll`) and name up to n of those who stood, ranked
+by one draw at a fixed scale over regard, their own household and standing in counsel; the block
+vote counts the names, a keyed lot settling a tie for the last seats. Nobody standing or nobody
+polling fails, recorded, and the seats stay empty until the next election. The people profile's
+`[elections]` table holds the days names are open, the minutes polling takes, the points of
+standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's weights (`w_regard`,
+`w_household`, `w_counsel`, `w_self`, `vote_scale`) and the points of coming to poll (`poll_base`,
+`w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
+election or by lot, quorum half, more for than against).
+
 Content API 31 (M4a slice Z) brings the polity: the `policy` kind, the people profile's
 `[polity]` and `behavior = "attend"` (`core:activity/attend_gathering`, adults only). The core
 pack reviews weekly (ADR-0014 §4; research 09-01 §3.3: 7-30 days), calls the gathering the next

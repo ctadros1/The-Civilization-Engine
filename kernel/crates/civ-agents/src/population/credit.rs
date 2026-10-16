@@ -313,6 +313,11 @@ impl Population {
             .collect();
         for i in due {
             let c = self.order.credit.claims[i].clone();
+            // Wages a workshop owes are paid, or it fails (M7d slice CB).
+            if self.firm(c.debtor).is_some() {
+                self.repay_wages(ctx, i);
+                continue;
+            }
             let good = usize::from(c.good);
             if self.household(c.debtor).is_none() || self.household(c.creditor).is_none() {
                 self.order.credit.claims[i].standing = Standing::Lapsed;
@@ -372,6 +377,123 @@ impl Population {
                 self.order.credit.claims[i].standing = Standing::Defaulted;
                 self.loan_failed(ctx, i, day);
             }
+        }
+    }
+
+    /// Workshop `id` could not pay household `worker` `kg` of good `good` it owed in wages
+    /// (ADR-0027 §3): it owes them, added to what it owes that household already, due when the
+    /// days of wage grace run out.
+    pub(super) fn owe_wages(
+        &mut self,
+        ctx: &Ctx,
+        id: PermanentId,
+        worker: PermanentId,
+        good: usize,
+        kg: f64,
+    ) {
+        let (now, params) = (ctx.now, ctx.params);
+        let day = now.day_index();
+        if kg <= 1e-9 {
+            return;
+        }
+        let credit = &mut self.order.credit;
+        if let Some(c) = credit.claims.iter_mut().find(|c| {
+            c.debtor == id
+                && c.creditor == worker
+                && usize::from(c.good) == good
+                && c.standing == Standing::Open
+        }) {
+            c.lent += kg as f32;
+            c.owed += kg as f32;
+            return;
+        }
+        let owner = self.firm(id).map(|f| f.owner);
+        let witnesses = [
+            self.elder_of(worker, now, params),
+            owner.and_then(|o| self.elder_of(o, now, params)),
+        ];
+        let [Some(a), Some(b)] = witnesses else {
+            return;
+        };
+        let credit = &mut self.order.credit;
+        credit.next += 1;
+        credit.claims.push(Claim {
+            id: credit.next,
+            creditor: worker,
+            debtor: id,
+            good: good as u16,
+            lent: kg as f32,
+            owed: kg as f32,
+            paid: 0.0,
+            made: day,
+            due: day + i64::from(params.credit.wage_days),
+            standing: Standing::Open,
+            witnesses: [a, b],
+            pledge: None,
+            answer: None,
+            asks: 0,
+            extensions: 0,
+            taken: None,
+            by_guarantor: 0.0,
+            recourse: None,
+        });
+    }
+
+    /// Wages workshop claim `i` owes, due: the workshop pays what it holds of the good, its owners
+    /// what they can spare besides, for they answer for what it owes; unpaid then, it fails, and
+    /// the worker's household notes it of the owners' elder.
+    fn repay_wages(&mut self, ctx: &Ctx, i: usize) {
+        let (now, params) = (ctx.now, ctx.params);
+        let c = self.order.credit.claims[i].clone();
+        let good = usize::from(c.good);
+        if self.household(c.creditor).is_none() {
+            self.order.credit.claims[i].standing = Standing::Lapsed;
+            return;
+        }
+        let Some((owner, open)) = self.firm(c.debtor).map(|f| (f.owner, f.is_open())) else {
+            return;
+        };
+        if open {
+            self.settle_firm(ctx, c.debtor);
+            let held = self
+                .firm(c.debtor)
+                .and_then(|f| f.stores.get(good))
+                .copied()
+                .unwrap_or(0.0)
+                .max(0.0);
+            let pay = c.left().min(held);
+            if self.pay_loan(ctx, c.debtor, c.creditor, good, pay) {
+                self.order.credit.claims[i].paid += pay as f32;
+            }
+        }
+        let left = self.order.credit.claims[i].left();
+        let pay = left.min(self.can_give(ctx, owner, good));
+        if self.household(owner).is_some() && self.pay_loan(ctx, owner, c.creditor, good, pay) {
+            self.order.credit.claims[i].paid += pay as f32;
+        }
+        let elders = (
+            self.elder_of(c.creditor, now, params),
+            self.elder_of(owner, now, params),
+        );
+        if self.order.credit.claims[i].left() <= 1e-3 {
+            self.order.credit.claims[i].standing = Standing::Repaid;
+            if let (Some(a), Some(b)) = elders {
+                self.note_tie(ctx, a, b, Act::Repaid, 1.0, 0.0);
+            }
+            return;
+        }
+        self.order.credit.claims[i].standing = Standing::Defaulted;
+        if let Some(b) = elders.1 {
+            let members = self
+                .household(c.creditor)
+                .map(|x| x.members.clone())
+                .unwrap_or_default();
+            for m in members {
+                self.note_tie(ctx, m, b, Act::Defaulted, 1.0, 0.0);
+            }
+        }
+        if open {
+            self.close_firm(ctx, c.debtor, crate::firm::Exit::Failure);
         }
     }
 
@@ -528,6 +650,31 @@ impl Population {
         for k in 0..review {
             self.weigh_borrowing(ctx, day + k);
         }
+    }
+
+    /// Household `owner` sets up a workshop making `good`, founded by `founder`: for tests.
+    #[doc(hidden)]
+    pub fn found_firm_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        owner: PermanentId,
+        founder: PermanentId,
+        good: usize,
+    ) -> Option<PermanentId> {
+        self.found_firm(ctx, owner, founder, good)
+    }
+
+    /// Workshop `id` owes household `worker` `kg` of good `good` in wages: for tests.
+    #[doc(hidden)]
+    pub fn owe_wages_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        id: PermanentId,
+        worker: PermanentId,
+        good: usize,
+        kg: f64,
+    ) {
+        self.owe_wages(ctx, id, worker, good, kg);
     }
 
     /// Loans due by `day` are answered and paid now, and pledged fields change hands: for

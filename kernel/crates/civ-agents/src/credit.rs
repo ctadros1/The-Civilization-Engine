@@ -236,6 +236,8 @@ pub struct CreditParams {
     /// Points against paying per share of the food the debtor household holds that what it owes
     /// would take.
     pub w_pay_cost: f64,
+    /// Days a workshop has to pay wages it could not pay before it fails (slice CB).
+    pub wage_days: u32,
 }
 
 impl Default for CreditParams {
@@ -260,6 +262,7 @@ impl Default for CreditParams {
             pay_base: 3.0,
             w_pay_regard: 2.0,
             w_pay_cost: 2.0,
+            wage_days: 30,
         }
     }
 }

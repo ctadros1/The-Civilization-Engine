@@ -114,6 +114,8 @@ pub(crate) struct CreditFile {
     pub pay_base: f64,
     pub w_pay_regard: f64,
     pub w_pay_cost: f64,
+    // Wage arrears (M7d slice CB; content API 121).
+    pub wage_days: u32,
 }
 
 impl CreditFile {
@@ -138,6 +140,7 @@ impl CreditFile {
             pay_base: self.pay_base,
             w_pay_regard: self.w_pay_regard,
             w_pay_cost: self.w_pay_cost,
+            wage_days: self.wage_days,
         }
     }
 
@@ -148,6 +151,7 @@ impl CreditFile {
             ("credit.grace_days", self.grace_days, 0, 365),
             ("credit.extension_days", self.extension_days, 1, 365),
             ("credit.max_extensions", self.max_extensions, 0, 10),
+            ("credit.wage_days", self.wage_days, 0, 365),
         ] {
             if !(lo..=hi).contains(&v) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

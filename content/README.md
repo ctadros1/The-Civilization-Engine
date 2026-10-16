@@ -687,6 +687,9 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 121 (M7d slice CB, ADR-0027 §3) brings wage arrears: the `[credit]` table adds
+`wage_days`, the days a workshop has to pay wages it could not pay before it fails.
+
 Content API 120 (M7d slice CB, ADR-0027 §3) brings pledges and answers at the due day. The
 `[credit]` table adds `field_recovery` (the share of a debt a lender believes the use of a field
 pledged recovers), `guarantor_regard` (the least regard a household's elder holds for a

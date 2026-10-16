@@ -239,7 +239,20 @@ pub fn loan_words(sim: &Sim, settlement: PermanentId) -> Vec<String> {
     let pop = &sim.people;
     let today = sim.now().day_index();
     let year = civ_core::time::DAYS_PER_YEAR;
-    let here = |h: PermanentId| pop.household(h).and_then(|x| x.settlement) == Some(settlement);
+    // A household's settlement, or a workshop's (M7d slice CB: wages a workshop owes).
+    let here = |h: PermanentId| {
+        pop.household(h)
+            .and_then(|x| x.settlement)
+            .or_else(|| pop.firm(h).and_then(|f| f.settlement))
+            == Some(settlement)
+    };
+    let name = |h: PermanentId| {
+        if pop.firm(h).is_some() {
+            super::people::firm_name(sim, h)
+        } else {
+            super::people::household_name(sim, h)
+        }
+    };
     let mut loans: Vec<&civ_agents::credit::Claim> = pop
         .order
         .credit
@@ -266,8 +279,8 @@ pub fn loan_words(sim: &Sim, settlement: PermanentId) -> Vec<String> {
                 .get(usize::from(c.good))
                 .map_or("goods".to_owned(), |g| g.name.to_lowercase());
             let base = format!(
-                "{} {} {} {:.0} kg of {good}, lent on {}",
-                super::people::household_name(sim, c.debtor),
+                "{} {} {} {:.0} kg of {good}, {} on {}",
+                name(c.debtor),
                 if c.standing == Standing::Open {
                     "owes"
                 } else {
@@ -275,6 +288,11 @@ pub fn loan_words(sim: &Sim, settlement: PermanentId) -> Vec<String> {
                 },
                 super::people::household_name(sim, c.creditor),
                 c.owed,
+                if pop.firm(c.debtor).is_some() {
+                    "wages unpaid since"
+                } else {
+                    "lent"
+                },
                 day(c.made),
             );
             // What it was lent against, and on whose word (M7d slice CB).
@@ -308,6 +326,11 @@ pub fn loan_words(sim: &Sim, settlement: PermanentId) -> Vec<String> {
                 }
                 Standing::Open => format!("{base}, due on {}", day(c.due)),
                 Standing::Repaid => format!("{base}, and repaid it"),
+                // A workshop that could not pay wages fails when they fall due (M7d slice CB).
+                Standing::Defaulted if pop.firm(c.debtor).is_some() => format!(
+                    "{base}, and failed when they fell due, {:.0} kg still owed",
+                    c.left()
+                ),
                 Standing::Defaulted if c.left() > 1e-3 => format!(
                     "{base}, and had not repaid it when its days of grace ran out{}; \
                      {:.0} kg are still owed",

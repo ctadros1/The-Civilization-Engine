@@ -2572,3 +2572,16 @@ save and load exactly. Lived (three villages of 40, four years): 69 loans, 21 ti
 time and granted, 22 repaid, 15 defaulted, none refused at the due day, and not one pledge: no
 lender refused a loan bare.
 
+## 2026-10-16 — CB3: wage arrears
+
+**Built:** ADR-0027 §3's last line. A workshop that could not pay a wage used to fail that day;
+now what it and its owners cannot pay it owes the worker's household, in the same book as loans,
+and it hires nobody until it has paid. When the debt falls due its owners pay what they can spare;
+unpaid, the workshop fails and the worker's household remembers it. Content API 121.
+
+**Tested:** wages owed one household add up in one claim; owners with grain pay them when due and
+the workshop stays open; owners with nothing see it fail on the due day and not before.
+
+**Lived:** in the M7c demo's world no workshop came up short of a wage in four years, so none was
+owed; the loans of the same run included the first guarantor called on.
+

@@ -465,3 +465,91 @@ fn a_world_with_loans_saves_and_loads_exactly() {
     loaded.advance_minutes(3 * DAY).expect("lives");
     same(&sc.sim, &loaded);
 }
+
+#[test]
+fn a_workshop_that_cannot_pay_a_wage_owes_it_and_fails_only_when_it_is_still_unpaid() {
+    // M7d slice CB (ADR-0027 §3): what a workshop could not pay, it owes the worker's household;
+    // it hires nobody meanwhile; its owners pay what they can spare when it falls due, and if it is
+    // unpaid then, the workshop fails.
+    let open = |sim: &Sim, id: PermanentId| {
+        sim.people()
+            .firms
+            .iter()
+            .find(|f| f.id == id)
+            .is_some_and(|f| f.is_open())
+    };
+    let wage_days = |sim: &Sim| i64::from(sim.rules().people.credit.wage_days);
+    let set_up = |owner_grain: f64| {
+        let mut sc = village();
+        let sickle = sc
+            .sim
+            .rules()
+            .catalog
+            .goods
+            .iter()
+            .position(|g| g.id == "core:good/sickle")
+            .expect("sickle");
+        feed(&mut sc.sim, sc.lender, owner_grain);
+        let founder = sc.sim.people().household(sc.lender).expect("owner").members[0];
+        let (owner, worker, grain) = (sc.lender, sc.borrower, sc.grain);
+        let firm = sc
+            .sim
+            .with_ctx_for_tests(|pop, ctx| pop.found_firm_for_tests(ctx, owner, founder, sickle))
+            .expect("a workshop");
+        sc.sim.with_ctx_for_tests(|pop, ctx| {
+            pop.owe_wages_for_tests(ctx, firm, worker, grain, 6.0);
+            pop.owe_wages_for_tests(ctx, firm, worker, grain, 4.0);
+        });
+        (sc, firm)
+    };
+    // Its owners have grain to spare: they pay what the workshop owes when it falls due.
+    let (mut sc, firm) = set_up(3000.0);
+    let owed: Vec<Claim> = loans(&sc.sim)
+        .into_iter()
+        .filter(|c| c.debtor == firm)
+        .collect();
+    assert_eq!(
+        owed.len(),
+        1,
+        "wages owed one household are one claim: {owed:?}"
+    );
+    assert!((owed[0].owed - 10.0).abs() < 1e-4);
+    assert_eq!(owed[0].creditor, sc.borrower);
+    assert!(sc.sim.people().order.credit.owes(firm));
+    let due = owed[0].made + wage_days(&sc.sim);
+    assert_eq!(owed[0].due, due);
+    let worker_before = grain_of(&sc.sim, sc.borrower, sc.grain);
+    repay(&mut sc.sim, due);
+    let paid = loans(&sc.sim)
+        .into_iter()
+        .find(|c| c.debtor == firm)
+        .expect("the wages");
+    assert_eq!(paid.standing, Standing::Repaid, "{paid:?}");
+    assert!((grain_of(&sc.sim, sc.borrower, sc.grain) - worker_before - 10.0).abs() < 1e-3);
+    assert!(open(&sc.sim, firm), "a workshop that paid stays open");
+    // Its owners have nothing: unpaid when due, the workshop fails.
+    let (mut sc, firm) = set_up(0.0);
+    let due = sc.sim.now().day_index() + wage_days(&sc.sim);
+    repay(&mut sc.sim, due - 1);
+    assert!(open(&sc.sim, firm), "not yet due");
+    repay(&mut sc.sim, due);
+    let unpaid = loans(&sc.sim)
+        .into_iter()
+        .find(|c| c.debtor == firm)
+        .expect("the wages");
+    assert_eq!(unpaid.standing, Standing::Defaulted);
+    assert!(!open(&sc.sim, firm), "a workshop unpaid when due fails");
+    let settlement = sc
+        .sim
+        .people()
+        .household(sc.borrower)
+        .and_then(|x| x.settlement)
+        .expect("a settlement");
+    let words = civ_sim::frames::wealth::loan_words(&sc.sim, settlement);
+    assert!(
+        words
+            .iter()
+            .any(|w| w.contains("wages unpaid since") && w.contains("failed")),
+        "{words:?}"
+    );
+}

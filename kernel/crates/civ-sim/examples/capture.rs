@@ -272,6 +272,24 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
             .map(|c| u32::from(c.extensions))
             .sum::<u32>(),
     ));
+    // Wages workshops could not pay (M7d slice CB).
+    let wages: Vec<_> = credit
+        .claims
+        .iter()
+        .filter(|c| sim.people().firm(c.debtor).is_some())
+        .collect();
+    log.push(format!(
+        "  wages owed by workshops: {} ({} paid, {} unpaid when due)",
+        wages.len(),
+        wages
+            .iter()
+            .filter(|c| c.standing == civ_agents::credit::Standing::Repaid)
+            .count(),
+        wages
+            .iter()
+            .filter(|c| c.standing == civ_agents::credit::Standing::Defaulted)
+            .count(),
+    ));
     log.extend(laws_words(&sim).into_iter().map(|w| format!("  {w}")));
     for p in &sim.people().polities {
         let label = civ_sim::labels::label_of(&sim, p);

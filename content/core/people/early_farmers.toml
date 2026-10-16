@@ -1464,3 +1464,7 @@ extend_regard = 0.0
 pay_base = 3.0
 w_pay_regard = 2.0
 w_pay_cost = 2.0
+# Content API 121 (M7d slice CB, ADR-0027 §3). A workshop that cannot pay a wage owes it to the
+# worker's household and hires nobody until it has paid; it fails only if what it owes is unpaid
+# `wage_days` after the work (plan §9's "revisit with credit"). A design prior, unestimated.
+wage_days = 30

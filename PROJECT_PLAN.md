@@ -3450,6 +3450,21 @@ and M6a gives rivers a daily flow.
         these harvests no lender refused a loan bare, so pledges wait for leaner years or warier
         priors. **Not yet built:** *debts heard* (CB2); wage arrears (CB3); labour-days owed to a
         creditor; what a default teaches beyond the creditor's household.
+    - **CB3**: wage arrears: a workshop that cannot pay a wage owes it, and fails only when it is
+      unpaid by the due day.
+      - *As built (2026-10-16):* content API 121 (`wage_days`); saves and wire unchanged (a
+        workshop's wages owed are claims in the same book, the workshop the debtor). What a
+        workshop and its owners cannot pay of a wage it owes the worker's household, added to what
+        it owes that household already, due `wage_days` after; meanwhile it hires nobody. When
+        due, it pays what it holds of the good and its owners what they can spare; paid, the
+        worker's elder notes the owners' word kept; unpaid, the worker's household notes it, and
+        the workshop fails (its goods go to its owners, as at any closing). A workshop closed
+        while owing leaves its owners to pay. The wealth panel says "wages unpaid since". Plan §9's
+        "revisit with credit" for workshops that failed the first day they were short is answered.
+        **Measured** (`civ-sim --example capture`, seed 1, four years): no workshop was ever short
+        of a wage, so no wages were owed; the same run made 75 loans (one with a guarantor, who
+        was called on and holds a claim on the debtor), 25 times time was asked and granted, 22
+        repaid, 20 defaulted, 11 lapsed. **Not yet built:** *debts heard* (CB2).
 
 **M8: The growing city (v1).**
 - *Contents:*

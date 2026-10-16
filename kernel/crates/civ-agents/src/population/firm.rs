@@ -157,7 +157,7 @@ impl Population {
     }
 
     /// Brings a firm's stores up to now, under its owners' roof when they have one.
-    fn settle_firm(&mut self, ctx: &Ctx, id: PermanentId) {
+    pub(super) fn settle_firm(&mut self, ctx: &Ctx, id: PermanentId) {
         let sheltered = self
             .firm(id)
             .and_then(|f| self.household(f.owner))
@@ -573,6 +573,8 @@ impl Population {
             .firms
             .iter()
             .filter(|f| f.is_open() && f.owner != hh.id && f.settlement == Some(settlement))
+            // A workshop that owes wages hires nobody until it has paid them (M7d slice CB).
+            .filter(|f| !self.order.credit.owes(f.id))
             .filter_map(|f| f.wage.filter(|w| w.open_hours() >= 0.5).map(|w| (f, w)))
             .collect();
         if hiring.is_empty() {
@@ -757,8 +759,10 @@ impl Population {
                 );
             }
         }
+        // What it could not pay it owes the worker's household as a claim, due when the days
+        // of wage grace run out; it fails only if it is still unpaid then (M7d slice CB).
         if paid + 1e-6 < owed {
-            self.close_firm(ctx, id, Exit::Failure);
+            self.owe_wages(ctx, id, worker, pay, owed - paid);
         }
     }
 

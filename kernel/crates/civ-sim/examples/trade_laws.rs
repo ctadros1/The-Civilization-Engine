@@ -1,9 +1,10 @@
 //! A probe of trade laws for M7c slice BV (ADR-0026 §1; the capture brief §4: "measure the
 //! volume and the forecast distribution before building organizations"): three founding bands of
 //! `BAND` that know where each other camped live `YEARS` years as the content has them. Nothing is
-//! set and nothing nudged. It prints, a year at a time, the purchases between settlements and
-//! every duty or embargo proposed, with its stances; and at the end every law of the polities.
-//! Whether anyone proposes a trade law at these volumes is the question.
+//! set and nothing nudged. It prints, a year at a time, the purchases between settlements, every
+//! duty, embargo or recognition proposed, with its stances, and the organizations by stake (M7c
+//! slice BW) with their members and applications; and at the end every law of the polities.
+//! Whether anyone proposes a trade law, or organizes, at these volumes is the question.
 //!
 //! ```sh
 //! cargo run --release -p civ-sim --example trade_laws -- [seed] [years]
@@ -13,6 +14,7 @@ use std::path::Path;
 use std::process::ExitCode;
 use std::sync::atomic::AtomicBool;
 
+use civ_agents::faction::FactionEventKind;
 use civ_agents::polity::PolicyKind;
 use civ_core::PermanentId;
 use civ_sim::{NewWorld, SPEED_MAX, Sim};
@@ -92,7 +94,10 @@ fn run(seed: u64, years: i64) -> Result<(), String> {
         }
         let laws: Vec<_> = pop.polities.iter().flat_map(|p| &p.laws).collect();
         for l in laws.iter().skip(seen_laws) {
-            if matches!(l.kind, PolicyKind::Duty | PolicyKind::Embargo) {
+            if matches!(
+                l.kind,
+                PolicyKind::Duty | PolicyKind::Embargo | PolicyKind::Recognize
+            ) {
                 let (present, support, oppose) = l.counts();
                 println!(
                     "  {:?} proposed on day {}: {:?} ({support} for, {oppose} against, {present} \
@@ -104,6 +109,20 @@ fn run(seed: u64, years: i64) -> Result<(), String> {
             }
         }
         seen_laws = laws.len();
+        for f in pop.factions.list.iter().filter(|f| f.stake.is_some()) {
+            let count = |k: FactionEventKind| f.history.iter().filter(|e| e.kind == k).count();
+            println!(
+                "  organization of {} founded on day {} at {}{}: {} members; {} admitted, {} \
+                 turned away",
+                f.stake.map_or("?", |s| s.purpose.plural_words()),
+                f.founded.day_index(),
+                name(f.settlement),
+                if f.ended.is_some() { ", ended" } else { "" },
+                pop.factions.members_of(f.id).count(),
+                count(FactionEventKind::Admitted),
+                count(FactionEventKind::TurnedAway),
+            );
+        }
     }
     let pop = sim.people();
     for p in &pop.polities {

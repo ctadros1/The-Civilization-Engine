@@ -22,6 +22,9 @@ pub(crate) struct BoughtAway {
     /// The good, by index in the catalog's goods.
     pub good: usize,
     pub units: f64,
+    /// What was paid for it: the payment good, by index in the catalog's goods, and how much.
+    pub payment: usize,
+    pub paid: f64,
 }
 
 impl Population {
@@ -40,6 +43,8 @@ impl Population {
                     market: m.settlement,
                     good: usize::from(t.good),
                     units: f64::from(t.units),
+                    payment: usize::from(t.payment),
+                    paid: f64::from(t.paid),
                 });
             }
         }
@@ -69,6 +74,56 @@ impl Population {
                 .any(|f| f.offers.iter().any(|o| of(o.good)))
     }
 
+    /// Whether polity `pi` recognizes organization `org` by a law in force (M7c slice BW).
+    pub(crate) fn recognizes(&self, pi: usize, org: PermanentId) -> bool {
+        self.polities[pi].laws.iter().any(|l| {
+            l.kind == PolicyKind::Recognize
+                && l.status == LawStatus::InForce
+                && l.target == Some(org)
+        })
+    }
+
+    /// The organizations by stake, not ended, that someone of household `household` belongs
+    /// to, in id order (M7c slice BW).
+    pub(crate) fn stake_organizations_of(&self, household: PermanentId) -> Vec<PermanentId> {
+        let mut out: Vec<PermanentId> = self
+            .household(household)
+            .map(|x| {
+                x.members
+                    .iter()
+                    .filter_map(|&p| self.factions.membership(p))
+                    .filter_map(|m| self.factions.get(m.faction))
+                    .filter(|f| f.ended.is_none() && f.stake.is_some())
+                    .map(|f| f.id)
+                    .collect()
+            })
+            .unwrap_or_default();
+        out.sort_unstable();
+        out.dedup();
+        out
+    }
+
+    /// Whether household `household` owes polity `pi` no duty on goods of `purpose` because an
+    /// organization of that purpose someone of it belongs to is recognized by a law in force
+    /// (M7c slice BW).
+    fn spared_by_recognition(
+        &self,
+        pi: usize,
+        household: PermanentId,
+        purpose: crate::params::GoodUse,
+    ) -> bool {
+        self.stake_organizations_of(household)
+            .into_iter()
+            .any(|org| {
+                self.recognizes(pi, org)
+                    && self
+                        .factions
+                        .get(org)
+                        .and_then(|f| f.stake)
+                        .is_some_and(|s| s.purpose == purpose)
+            })
+    }
+
     /// What a unit of good `good` is worth to household `hh`, kcal: its own cost in hours at what
     /// an hour of its work brings it in food (M7c slice BV); none when it cannot reckon the good.
     pub(crate) fn unit_kcal(&self, ctx: &Ctx, hh: &Household, good: usize) -> Option<f64> {
@@ -92,7 +147,9 @@ impl Population {
         let Some(purpose) = ctx.catalog.goods.get(good).map(|g| g.purpose) else {
             return Vec::new();
         };
-        if self.polities[pi].holds(Some(market)) {
+        if self.polities[pi].holds(Some(market))
+            || self.spared_by_recognition(pi, household, purpose)
+        {
             return Vec::new();
         }
         (0..self.polities[pi].laws.len())

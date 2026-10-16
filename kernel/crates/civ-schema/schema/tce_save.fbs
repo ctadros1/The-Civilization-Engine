@@ -2123,6 +2123,15 @@ table FactionSave {
   stores: [double] (id: 9);
   stores_at: long (id: 10);
   history: [FactionEventSave] (id: 11);
+  // Schema 129 (M7c slice BW, ADR-0026 §2): an organization by stake. `has_stake` marks one;
+  // `stake_purpose` is a `GoodUse` code, `stake_admit` and `stake_decides` its rules' codes, and
+  // `stake_dues` the share of each threshing its members give. Its `against` names its founder,
+  // as a person. History events 3 (admitted) and 4 (turned away) name the applicant.
+  has_stake: bool (id: 12);
+  stake_purpose: ubyte (id: 13);
+  stake_admit: ubyte (id: 14);
+  stake_decides: ubyte (id: 15);
+  stake_dues: float (id: 16);
 }
 
 // A petition (schema 42, M4c slice AH, ADR-0017 §3): `policy` indexes `FactionsSave.policies`;

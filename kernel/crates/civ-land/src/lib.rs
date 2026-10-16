@@ -904,7 +904,7 @@ impl Land {
             }
         }
         let (w_cm, h_cm) = (f64::from(w) * 100.0, f64::from(h) * 100.0);
-        let mut seen = std::collections::HashSet::new();
+        let mut seen = civ_core::FastSet::default();
         for d in &self.deposits {
             let b = &d.body;
             let (x, y) = (b.at_cm.0 as f64, b.at_cm.1 as f64);
@@ -939,8 +939,8 @@ impl Land {
                 ));
             }
         }
-        let mut bank_ids = std::collections::HashSet::new();
-        let mut borrow_ids = std::collections::HashSet::new();
+        let mut bank_ids = civ_core::FastSet::default();
+        let mut borrow_ids = civ_core::FastSet::default();
         for bank in &self.banks {
             let work = self.earthworks.iter().find(|w| w.id == bank.work);
             let borrow = self.earthworks.iter().find(|w| w.id == bank.borrow);
@@ -986,7 +986,7 @@ impl Land {
         }
         // Each ditch is whole, takes from a reach of the map, and is the one segment of a ditch
         // earthwork whose earth is its channel's (M6b slice BG).
-        let mut ditch_ids = std::collections::HashSet::new();
+        let mut ditch_ids = civ_core::FastSet::default();
         for ditch in &self.ditches {
             let work = self
                 .earthworks
@@ -1023,7 +1023,7 @@ impl Land {
         {
             out.push("a ditch flow names no reach or is not finite".to_owned());
         }
-        let mut ids = std::collections::HashSet::new();
+        let mut ids = civ_core::FastSet::default();
         for f in &self.fields {
             let r = f.rect;
             let inside = r.w > 0

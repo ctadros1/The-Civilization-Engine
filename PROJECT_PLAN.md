@@ -3252,6 +3252,39 @@ and M6a gives rivers a daily flow.
     - **BW**: organizations by stake: a faction kind founded from goods sold or resold, founding
       by search, rules, dues, applications and refusals, recognition by law, the organization's
       page.
+      - *As built (2026-10-16):* a faction may carry a *stake* (content API 115, save schema
+        129): the purpose of the goods its members sell, who it admits (`open`: anyone who sells
+        them; `sponsor`: one a member regards at least the trust floor), who decides (`organizer`:
+        admitted unless the organizer holds them in ill regard; `members`: more of the members who
+        know them regard them well than ill) and its dues (a share of each threshing, as a
+        faction's). At their monthly review someone whose household offers at home goods a duty in
+        the content is laid on weighs organizing: what the best such duty would bring their
+        household a year less what it would owe (slice BV's forecast), as days of its food against
+        `organize_days` (30, research 09-10 §2.2), worth `w_stake` points when the law would bring as
+        much a year as organizing costs; organizing costs `w_stake` and the dues. They organize when
+        that is worth their threshold, they know no organization over those goods, they founded none
+        that ended lately, and they know another household, here or in another settlement, that
+        offers such goods. Others who sell them weigh joining as a faction's members do, the
+        forecast standing in for a grievance, and apply: admitted or turned away by its rules, each
+        recorded (`Admitted`, `TurnedAway`); one turned away holds it against the organization
+        (`Blamed::Organization`, `Wrong::TurnedAway`). Members may live in other settlements. A
+        *recognition* (`does = "recognize"`, `core:policy/recognize_organization`, answering *goods
+        fetched elsewhere*) names an organization someone of the proposer's household belongs to;
+        while it is in force, that organization's members' households owe none of the polity's
+        duties on goods of its purpose. Each household weighs it from the purchases on record: a
+        member's what its own purchases would no longer owe, everyone their share of what the store
+        would no longer take. The forecast of a trade law now values a good a household cannot make
+        at its own ask, or else at what was paid for it at the other door. The government panel
+        says what an organization is, its rules, its members and where those of another settlement
+        live, how many it admitted and turned away, and which gatherings recognize it.
+        **The probe** (`civ-sim --example trade_laws`, now printing organizations; seed 1, four
+        years, nothing set): with rivers in their banks the three villages lived (124, 130, 131
+        and 137 people at the year's ends), but their people bought at another settlement's door
+        once in four years (Oakholt at Sedgebrook's, in year 2). Oakholt's gatherings of four
+        passed an embargo 2–1 and a duty 3–0 on that one purchase; nobody organized, as nobody's
+        household offered at home goods a duty would bring it much. Trade between settlements is
+        the scarce thing, so a demo of capture (BZ) will need it, by the world or by a prior,
+        logged. **Not yet built:** admission by a fee; a privilege (BX).
     - **BX**: privileges and the barred: licence and staple, breaches brought as cases, the
       barred exit, the drag measures.
     - **BY**: corruption and patronage: the keeper's diversion and relief by favour, the

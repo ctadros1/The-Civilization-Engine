@@ -871,6 +871,22 @@ w_exclusion = 1.0
 # the day before; it holds once more stand with it than with the gathering for `hold_days`, and
 # fails after `revolt_days`. A design prior, as a revolt's.
 coup_cost = 0.75
+# Content API 115 (M7c slice BW, ADR-0026 §2): organizations by stake. One whose household offers
+# goods at home that a duty in the content is laid on weighs organizing others who sell them: what
+# the best such duty would bring its household a year (slice BV's forecast, from the purchases on
+# record), as days of its food against `organize_days`, the cost of organizing (research 09-10
+# §2.2: 30 person-days, tested at 5-300), worth `w_stake` points when the law would bring as much a
+# year as organizing costs; organizing itself costs `w_stake`, and the dues weigh as a faction's.
+# A new one starts with the rules below: who it admits ("open": anyone who sells its goods;
+# "sponsor": one a member regards at least `trust_floor`), who decides ("organizer": the organizer,
+# unless they hold the applicant in ill regard; "members": more of the members who know them
+# regard them well than ill), and the share of each threshing its members give (research 08-17
+# §2.2: dues of 0-10 wage-days a year, unestimated). Design priors.
+organize_days = 30.0
+w_stake = 1.0
+stake_admit = "sponsor"
+stake_decides = "organizer"
+stake_dues_share = 0.05
 
 [places]                         # knowing other settlements (M5a slice AM, ADR-0018 §4); design priors
 # Another settlement is known only by contact (research 13-01 §1.1; 09-16 §1.2): founded alongside

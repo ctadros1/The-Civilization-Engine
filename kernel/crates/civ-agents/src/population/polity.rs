@@ -82,7 +82,7 @@ pub(super) struct Forecasts {
 /// of each good bought is worth to each household, kcal, and which households offer goods of each
 /// purpose at home.
 #[derive(Default)]
-struct TradeForecast {
+pub(super) struct TradeForecast {
     away: Vec<super::duties::BoughtAway>,
     /// (household, good, kcal a unit), in household then good order.
     unit: Vec<(PermanentId, usize, f64)>,
@@ -91,6 +91,13 @@ struct TradeForecast {
     /// Each good's purpose, by index in the catalog's goods.
     purpose: Vec<GoodUse>,
     households: usize,
+    /// The polity's duties in force (M7c slice BW): each one's purpose, rate, and whether it
+    /// spares those who offer such goods at home.
+    duties: Vec<(GoodUse, f64, bool)>,
+    /// The organizations by stake with members among the polity's households (M7c slice BW):
+    /// each one's id, purpose, those households in order, and whether a law in force of the
+    /// polity recognizes it.
+    orgs: Vec<(PermanentId, GoodUse, Vec<PermanentId>, bool)>,
 }
 
 impl TradeForecast {
@@ -108,12 +115,23 @@ impl TradeForecast {
         self.sellers.iter().filter(|s| s.1 == purpose).count()
     }
 
+    /// Whether household `h` owes no duty on goods of `purpose`: one that spares sellers and it
+    /// offers them at home, or an organization of that purpose its people belong to is recognized
+    /// (M7c slice BW).
+    fn spared(&self, h: PermanentId, purpose: GoodUse, exempt: bool) -> bool {
+        (exempt && self.sells(h, purpose))
+            || self
+                .orgs
+                .iter()
+                .any(|o| o.3 && o.1 == purpose && o.2.binary_search(&h).is_ok())
+    }
+
     /// What a duty of `rate` on goods of `purpose` would bring household `h` a year, kcal: what
     /// its own purchases would owe (none when it is spared as one that offers such goods at
     /// home), and, as one that offers them, its share of the buyers it expects back (others'
     /// purchases at the rate, a design prior: the dearer by the duty, the more come home) at
     /// its margin, and its share of what the store would take.
-    fn duty(
+    pub(super) fn duty(
         &self,
         h: PermanentId,
         rate: f64,
@@ -123,7 +141,7 @@ impl TradeForecast {
     ) -> (f64, f64) {
         let of = |b: &&super::duties::BoughtAway| self.purpose.get(b.good) == Some(&purpose);
         let sells = self.sells(h, purpose);
-        let owes: f64 = if exempt && sells {
+        let owes: f64 = if self.spared(h, purpose, exempt) {
             0.0
         } else {
             self.away
@@ -148,7 +166,7 @@ impl TradeForecast {
             .away
             .iter()
             .filter(of)
-            .filter(|b| !(exempt && self.sells(b.household, purpose)))
+            .filter(|b| !self.spared(b.household, purpose, exempt))
             .map(|b| b.units * rate * self.unit(h, b.good))
             .sum::<f64>()
             / self.households.max(1) as f64;
@@ -175,6 +193,31 @@ impl TradeForecast {
             })
             .sum();
         (back, lost)
+    }
+
+    /// What recognizing organization `org` would bring household `h` a year, kcal (M7c slice
+    /// BW): the duties in force its own purchases of the organization's goods would no longer
+    /// owe, as a member's household; and what it costs, its share of what the store would no
+    /// longer take from members' households.
+    fn recognize(&self, h: PermanentId, org: PermanentId) -> (f64, f64) {
+        let Some((_, purpose, members, _)) = self.orgs.iter().find(|o| o.0 == org) else {
+            return (0.0, 0.0);
+        };
+        let (mut saved, mut lost) = (0.0, 0.0);
+        for &(_, rate, exempt) in self.duties.iter().filter(|d| d.0 == *purpose) {
+            for b in self.away.iter().filter(|b| {
+                self.purpose.get(b.good) == Some(purpose)
+                    && members.binary_search(&b.household).is_ok()
+                    && !self.spared(b.household, *purpose, exempt)
+            }) {
+                let v = b.units * rate * self.unit(h, b.good);
+                if b.household == h {
+                    saved += v;
+                }
+                lost += v / self.households.max(1) as f64;
+            }
+        }
+        (saved, lost)
     }
 }
 
@@ -463,6 +506,13 @@ impl Forecasts {
                     return 0.0;
                 };
                 let (gain, cost) = self.trade.embargo(h, at, params.market.margin);
+                crate::polity::kept_gain(o, gain, pp) - crate::polity::levy_cost(o, cost, pp)
+            }
+            Some(PolicyKind::Recognize) => {
+                let Some(org) = m.target else {
+                    return 0.0;
+                };
+                let (gain, cost) = self.trade.recognize(h, org);
                 crate::polity::kept_gain(o, gain, pp) - crate::polity::levy_cost(o, cost, pp)
             }
             // An amendment's gain is judged from decisions seen, and an end to a law from that
@@ -1612,12 +1662,18 @@ impl Population {
 
     /// What households `households` of polity `pi` weigh a trade law by (M7c slice BV): built
     /// only when the content has one and its people bought elsewhere within a year.
-    fn trade_forecast(&self, ctx: &Ctx, pi: usize, households: &[PermanentId]) -> TradeForecast {
-        let has = ctx
-            .catalog
-            .policies
-            .iter()
-            .any(|d| matches!(d.kind, PolicyKind::Duty | PolicyKind::Embargo));
+    pub(super) fn trade_forecast(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        households: &[PermanentId],
+    ) -> TradeForecast {
+        let has = ctx.catalog.policies.iter().any(|d| {
+            matches!(
+                d.kind,
+                PolicyKind::Duty | PolicyKind::Embargo | PolicyKind::Recognize
+            )
+        });
         if !has {
             return TradeForecast::default();
         }
@@ -1642,7 +1698,26 @@ impl Population {
             let costs = self.own_costs_of(ctx, x);
             let hour = self.hour_kcal(ctx, x);
             for &g in &goods {
-                if let Some(c) = costs.get(g).copied().flatten() {
+                // What a unit is worth to it: what making one would cost it, or, for a good it
+                // cannot make, its own ask for one if it offers it, or else what was paid for one
+                // at the other doors, at its own cost of the payment (M7c slice BW).
+                let own = costs.get(g).copied().flatten().or_else(|| {
+                    x.offers
+                        .iter()
+                        .filter(|o| usize::from(o.good) == g && o.ask_h > 0.0)
+                        .map(|o| f64::from(o.ask_h))
+                        .reduce(f64::min)
+                });
+                let paid = || {
+                    let (mut cost, mut units) = (0.0, 0.0);
+                    for b in away.iter().filter(|b| b.good == g) {
+                        let pay = costs.get(b.payment).copied().flatten()?;
+                        cost += b.paid * pay;
+                        units += b.units;
+                    }
+                    (units > 0.0).then(|| cost / units)
+                };
+                if let Some(c) = own.or_else(paid) {
                     unit.push((h, g, c * hour));
                 }
             }
@@ -1652,12 +1727,51 @@ impl Population {
                 }
             }
         }
+        let duties = self.polities[pi]
+            .laws
+            .iter()
+            .filter(|l| l.kind == PolicyKind::Duty && l.status == LawStatus::InForce)
+            .filter_map(|l| {
+                let d = ctx.catalog.policies.get(usize::from(l.policy))?.duty?;
+                Some((d.purpose, f64::from(l.levy_share), d.exempt_sellers))
+            })
+            .collect();
+        let mut orgs: Vec<(PermanentId, GoodUse, Vec<PermanentId>, bool)> = Vec::new();
+        for &h in &hs {
+            let Some(x) = self.household(h) else {
+                continue;
+            };
+            for &p in &x.members {
+                let Some(f) = self
+                    .factions
+                    .membership(p)
+                    .and_then(|m| self.factions.get(m.faction))
+                    .filter(|f| f.ended.is_none())
+                else {
+                    continue;
+                };
+                let Some(stake) = f.stake else {
+                    continue;
+                };
+                match orgs.iter_mut().find(|o| o.0 == f.id) {
+                    Some(o) => {
+                        if o.2.last() != Some(&h) {
+                            o.2.push(h);
+                        }
+                    }
+                    None => orgs.push((f.id, stake.purpose, vec![h], self.recognizes(pi, f.id))),
+                }
+            }
+        }
+        orgs.sort_unstable_by_key(|o| o.0);
         TradeForecast {
             away,
             unit,
             sellers,
             purpose: ctx.catalog.goods.iter().map(|g| g.purpose).collect(),
             households: hs.len(),
+            duties,
+            orgs,
         }
     }
 
@@ -2029,6 +2143,11 @@ impl Population {
                 // Another closing, of a source none in force closes, and another well once none
                 // is being dug (M6a slice BA).
                 if matches!(d.kind, PolicyKind::CloseSource | PolicyKind::DigWell) {
+                    return true;
+                }
+                // Another recognition, of an organization none in force recognizes (M7c slice
+                // BW).
+                if d.kind == PolicyKind::Recognize {
                     return true;
                 }
                 // Another bank once none is being built (M6b slice BG: `public_bank` holds to
@@ -2485,6 +2604,19 @@ impl Population {
                                 target: Some(at),
                                 ..blank
                             });
+                        }
+                    }
+                    // Recognition of each organization by stake someone of the deliberator's
+                    // household belongs to that no law in force of the polity recognizes (M7c
+                    // slice BW).
+                    PolicyKind::Recognize => {
+                        for org in self.stake_organizations_of(own) {
+                            if !self.recognizes(pi, org) {
+                                moves.push(MoveOption {
+                                    target: Some(org),
+                                    ..blank
+                                });
+                            }
                         }
                     }
                     // An office filled by lot names nobody: the lot draws among those who put
@@ -3974,18 +4106,24 @@ mod tests {
                     market: there,
                     good: 0,
                     units: 2.0,
+                    payment: 1,
+                    paid: 0.0,
                 },
                 BoughtAway {
                     household: other,
                     market: there,
                     good: 0,
                     units: 1.0,
+                    payment: 1,
+                    paid: 0.0,
                 },
             ],
             unit: vec![(buyer, 0, 1000.0), (seller, 0, 1000.0), (other, 0, 1000.0)],
             sellers: vec![(seller, GoodUse::Tool)],
             purpose: vec![GoodUse::Tool],
             households: 3,
+            duties: Vec::new(),
+            orgs: Vec::new(),
         };
         // A duty of a quarter: the buyer owes 500 kcal and gets its share of what the store takes
         // (750 / 3); the seller gets back a quarter of the three bought, at its margin of a fifth
@@ -4006,5 +4144,19 @@ mod tests {
         assert!(cost == 0.0 && (gain - 600.0).abs() < 1e-9);
         // Elsewhere, nothing.
         assert_eq!(t.embargo(buyer, id(8), 0.2), (0.0, 0.0));
+        // With a duty of a quarter in force on tools, recognizing an organization the buyer's
+        // household belongs to saves it the 500 kcal it owes, and costs each household its share
+        // of what the store no longer takes (500 / 3).
+        let org = id(20);
+        let mut t = t;
+        t.duties = vec![(GoodUse::Tool, 0.25, false)];
+        t.orgs = vec![(org, GoodUse::Tool, vec![buyer], false)];
+        let (gain, cost) = t.recognize(buyer, org);
+        assert!((gain - 500.0).abs() < 1e-9 && (cost - 500.0 / 3.0).abs() < 1e-9);
+        let (gain, cost) = t.recognize(seller, org);
+        assert!(gain == 0.0 && (cost - 500.0 / 3.0).abs() < 1e-9);
+        // Once recognized, the buyer's household owes the duty nothing.
+        t.orgs[0].3 = true;
+        assert_eq!(t.duty(buyer, 0.25, GoodUse::Tool, false, 0.2).1, 0.0);
     }
 }

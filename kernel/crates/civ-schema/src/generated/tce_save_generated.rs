@@ -39205,6 +39205,11 @@ impl<'a> FactionSave<'a> {
   pub const VT_STORES: ::flatbuffers::VOffsetT = 22;
   pub const VT_STORES_AT: ::flatbuffers::VOffsetT = 24;
   pub const VT_HISTORY: ::flatbuffers::VOffsetT = 26;
+  pub const VT_HAS_STAKE: ::flatbuffers::VOffsetT = 28;
+  pub const VT_STAKE_PURPOSE: ::flatbuffers::VOffsetT = 30;
+  pub const VT_STAKE_ADMIT: ::flatbuffers::VOffsetT = 32;
+  pub const VT_STAKE_DECIDES: ::flatbuffers::VOffsetT = 34;
+  pub const VT_STAKE_DUES: ::flatbuffers::VOffsetT = 36;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -39224,8 +39229,13 @@ impl<'a> FactionSave<'a> {
     builder.add_against(args.against);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    builder.add_stake_dues(args.stake_dues);
     if let Some(x) = args.history { builder.add_history(x); }
     if let Some(x) = args.stores { builder.add_stores(x); }
+    builder.add_stake_decides(args.stake_decides);
+    builder.add_stake_admit(args.stake_admit);
+    builder.add_stake_purpose(args.stake_purpose);
+    builder.add_has_stake(args.has_stake);
     builder.add_has_ended(args.has_ended);
     builder.add_against_kind(args.against_kind);
     builder.finish()
@@ -39316,6 +39326,41 @@ impl<'a> FactionSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, FactionEventSave>>>(FactionSave::VT_HISTORY, None)}
   }
+  #[inline]
+  pub fn has_stake(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(FactionSave::VT_HAS_STAKE, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn stake_purpose(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(FactionSave::VT_STAKE_PURPOSE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn stake_admit(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(FactionSave::VT_STAKE_ADMIT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn stake_decides(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(FactionSave::VT_STAKE_DECIDES, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn stake_dues(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(FactionSave::VT_STAKE_DUES, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FactionSave<'_> {
@@ -39336,6 +39381,11 @@ impl ::flatbuffers::Verifiable for FactionSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("stores", Self::VT_STORES, false)?
      .visit_field::<i64>("stores_at", Self::VT_STORES_AT, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, FactionEventSave>>>("history", Self::VT_HISTORY, false)?
+     .visit_field::<bool>("has_stake", Self::VT_HAS_STAKE, false)?
+     .visit_field::<u8>("stake_purpose", Self::VT_STAKE_PURPOSE, false)?
+     .visit_field::<u8>("stake_admit", Self::VT_STAKE_ADMIT, false)?
+     .visit_field::<u8>("stake_decides", Self::VT_STAKE_DECIDES, false)?
+     .visit_field::<f32>("stake_dues", Self::VT_STAKE_DUES, false)?
      .finish();
     Ok(())
   }
@@ -39353,6 +39403,11 @@ pub struct FactionSaveArgs<'a> {
     pub stores: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
     pub stores_at: i64,
     pub history: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, FactionEventSave>>>,
+    pub has_stake: bool,
+    pub stake_purpose: u8,
+    pub stake_admit: u8,
+    pub stake_decides: u8,
+    pub stake_dues: f32,
 }
 impl<'a> Default for FactionSaveArgs<'a> {
   #[inline]
@@ -39370,6 +39425,11 @@ impl<'a> Default for FactionSaveArgs<'a> {
       stores: None,
       stores_at: 0,
       history: None,
+      has_stake: false,
+      stake_purpose: 0,
+      stake_admit: 0,
+      stake_decides: 0,
+      stake_dues: 0.0,
     }
   }
 }
@@ -39428,6 +39488,26 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FactionSaveBuilder<'a, 'b, A>
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FactionSave::VT_HISTORY, history);
   }
   #[inline]
+  pub fn add_has_stake(&mut self, has_stake: bool) {
+    self.fbb_.push_slot::<bool>(FactionSave::VT_HAS_STAKE, has_stake, false);
+  }
+  #[inline]
+  pub fn add_stake_purpose(&mut self, stake_purpose: u8) {
+    self.fbb_.push_slot::<u8>(FactionSave::VT_STAKE_PURPOSE, stake_purpose, 0);
+  }
+  #[inline]
+  pub fn add_stake_admit(&mut self, stake_admit: u8) {
+    self.fbb_.push_slot::<u8>(FactionSave::VT_STAKE_ADMIT, stake_admit, 0);
+  }
+  #[inline]
+  pub fn add_stake_decides(&mut self, stake_decides: u8) {
+    self.fbb_.push_slot::<u8>(FactionSave::VT_STAKE_DECIDES, stake_decides, 0);
+  }
+  #[inline]
+  pub fn add_stake_dues(&mut self, stake_dues: f32) {
+    self.fbb_.push_slot::<f32>(FactionSave::VT_STAKE_DUES, stake_dues, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FactionSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FactionSaveBuilder {
@@ -39457,6 +39537,11 @@ impl ::core::fmt::Debug for FactionSave<'_> {
       ds.field("stores", &self.stores());
       ds.field("stores_at", &self.stores_at());
       ds.field("history", &self.history());
+      ds.field("has_stake", &self.has_stake());
+      ds.field("stake_purpose", &self.stake_purpose());
+      ds.field("stake_admit", &self.stake_admit());
+      ds.field("stake_decides", &self.stake_decides());
+      ds.field("stake_dues", &self.stake_dues());
       ds.finish()
   }
 }

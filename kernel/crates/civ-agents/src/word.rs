@@ -462,6 +462,8 @@ pub enum Blamed {
     /// A forum, by the *hear cases* law that names it (M7b slice BU, ADR-0025 §5): grievances
     /// over its findings blame it, not the body.
     Forum(PermanentId),
+    /// An organization, by its id (M7c slice BW, ADR-0026 §2): one that turned an applicant away.
+    Organization(PermanentId),
 }
 
 impl Blamed {
@@ -473,6 +475,7 @@ impl Blamed {
             Blamed::Household(id) => (2, id.get()),
             Blamed::Person(id) => (3, id.get()),
             Blamed::Forum(id) => (4, id.get()),
+            Blamed::Organization(id) => (5, id.get()),
         }
     }
 
@@ -485,6 +488,7 @@ impl Blamed {
             2 => Some(Blamed::Household(id)),
             3 => Some(Blamed::Person(id)),
             4 => Some(Blamed::Forum(id)),
+            5 => Some(Blamed::Organization(id)),
             _ => None,
         }
     }
@@ -516,11 +520,14 @@ pub enum Wrong {
     /// People of another settlement worked a place their polity claims, without leave (M5c slice
     /// AT, ADR-0020 §4).
     Trespass = 9,
+    /// An organization of those who sell what they sell turned them away (M7c slice BW, ADR-0026
+    /// §2).
+    TurnedAway = 10,
 }
 
 impl Wrong {
     /// Every event, in code order.
-    pub const ALL: [Wrong; 10] = [
+    pub const ALL: [Wrong; 11] = [
         Wrong::StoreEmpty,
         Wrong::FoundAgainst,
         Wrong::NotFound,
@@ -531,6 +538,7 @@ impl Wrong {
         Wrong::Forced,
         Wrong::Struck,
         Wrong::Trespass,
+        Wrong::TurnedAway,
     ];
 
     /// Its number in saves.
@@ -566,6 +574,9 @@ impl Wrong {
             Wrong::Struck => "one of their household was struck by one who keeps the watch",
             Wrong::Trespass => {
                 "people of another settlement worked a place their polity claims, without leave"
+            }
+            Wrong::TurnedAway => {
+                "an organization of those who sell what they sell turned them away"
             }
         }
     }

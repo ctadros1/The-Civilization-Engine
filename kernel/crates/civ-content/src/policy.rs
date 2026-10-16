@@ -610,7 +610,8 @@ impl PolicyFile {
                 | PolicyKind::Annex
                 | PolicyKind::HearCases
                 | PolicyKind::Limit
-                | PolicyKind::Embargo),
+                | PolicyKind::Embargo
+                | PolicyKind::Recognize),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -664,7 +665,8 @@ impl PolicyFile {
                 | PolicyKind::Annex
                 | PolicyKind::HearCases
                 | PolicyKind::Limit
-                | PolicyKind::Embargo,
+                | PolicyKind::Embargo
+                | PolicyKind::Recognize,
             )
             | None => {}
         }

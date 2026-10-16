@@ -60,6 +60,11 @@ pub fn blamed_words(sim: &Sim, blamed: Blamed) -> String {
                     .map(|f| f.to_lowercase().collect::<String>() + c.as_str())
             })
             .unwrap_or_else(|| "a forum".to_owned()),
+        // An organization by stake that turned them away (M7c slice BW).
+        Blamed::Organization(id) => pop
+            .factions
+            .get(id)
+            .map_or_else(|| "an organization".to_owned(), |f| faction_name(sim, f)),
     }
 }
 
@@ -563,10 +568,53 @@ pub fn ideology_lines<'a>(
     fbb.create_vector(&lines)
 }
 
-/// A faction's name, after its founder: "Mira's faction".
+/// A faction's name, after its founder: "Mira's faction"; an organization by stake's, "Mira's
+/// organization".
 pub fn faction_name(sim: &Sim, f: &civ_agents::faction::Faction) -> String {
-    let word = if is_party(sim, f) { "party" } else { "faction" };
+    let word = if f.stake.is_some() {
+        "organization"
+    } else if is_party(sim, f) {
+        "party"
+    } else {
+        "faction"
+    };
     format!("{}'s {word}", sim.people.name_of(f.founder))
+}
+
+/// What an organization by stake is of and its rules, in words (M7c slice BW): "those who sell
+/// tools; it admits one a member speaks for, its organizer decides, and its dues are a twentieth
+/// of each threshing".
+pub fn stake_words(st: &civ_agents::faction::Stake) -> String {
+    format!(
+        "those who sell {}; it admits {}, {} decides, and its dues are {} of each threshing",
+        st.purpose.plural_words(),
+        st.admit.words(),
+        st.decides.words(),
+        civ_agents::polity::share_text(f64::from(st.dues_share)),
+    )
+}
+
+/// Which polities recognize organization `org` by a law in force (M7c slice BW), after its
+/// stake: "; Oakholt's gathering recognizes it", or nothing.
+pub fn recognized_words(sim: &Sim, org: PermanentId) -> String {
+    let by: Vec<String> = sim
+        .people
+        .polities
+        .iter()
+        .filter(|p| {
+            p.laws.iter().any(|l| {
+                l.kind == civ_agents::polity::PolicyKind::Recognize
+                    && l.status == civ_agents::polity::LawStatus::InForce
+                    && l.target == Some(org)
+            })
+        })
+        .map(|p| format!("{}'s gathering", place_name(sim, p.settlement)))
+        .collect();
+    if by.is_empty() {
+        String::new()
+    } else {
+        format!("; {} recognizes it", by.join(" and "))
+    }
 }
 
 /// Whether the observer calls faction `f` a party (ADR-0024 §5, M7a slice BQ): it has backed a
@@ -626,9 +674,25 @@ pub fn faction_line<'a>(
     let pop = &sim.people;
     let m = pop.factions.membership(p.id)?;
     let f = pop.factions.get(m.faction)?;
-    let party = blamed_words(sim, f.against);
     let organizer = pop.name_of(f.organizer);
-    let why = civ_agents::faction::why_words(&m.why, &party, &organizer, f.organizer == p.id);
+    let (party, why) = match f.stake {
+        // An organization by stake is against nobody: it is of those who sell its goods.
+        Some(st) => (
+            format!("{}{}", stake_words(&st), recognized_words(sim, f.id)),
+            civ_agents::faction::stake_why_words(
+                &m.why,
+                st.purpose,
+                &organizer,
+                f.organizer == p.id,
+            ),
+        ),
+        None => {
+            let party = blamed_words(sim, f.against);
+            let why =
+                civ_agents::faction::why_words(&m.why, &party, &organizer, f.organizer == p.id);
+            (party, why)
+        }
+    };
     let name = fbb.create_string(&faction_name(sim, f));
     let against = fbb.create_string(&party);
     let organizer_name = fbb.create_string(&organizer);

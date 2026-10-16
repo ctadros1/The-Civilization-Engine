@@ -119,11 +119,16 @@ pub enum PolicyKind {
     /// An embargo (M7c slice BV, ADR-0026 §1): no member may buy at the doors of the settlement
     /// it names (its target). Keeping it is each person's choice, as a curfew's is.
     Embargo,
+    /// Recognition (M7c slice BW, ADR-0026 §2): the polity recognizes the organization by stake
+    /// it names (its target). In BW a recognized organization's members' households owe none of
+    /// the polity's duties on goods of the organization's purpose; privileges follow in BX. It
+    /// ends with the organization.
+    Recognize,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 23] = [
+    pub const ALL: [PolicyKind; 24] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -147,6 +152,7 @@ impl PolicyKind {
         PolicyKind::Limit,
         PolicyKind::Duty,
         PolicyKind::Embargo,
+        PolicyKind::Recognize,
     ];
 
     /// The authored name.
@@ -175,6 +181,7 @@ impl PolicyKind {
             PolicyKind::Limit => "limit",
             PolicyKind::Duty => "duty",
             PolicyKind::Embargo => "embargo",
+            PolicyKind::Recognize => "recognize",
         }
     }
 
@@ -1271,6 +1278,11 @@ pub fn law_words(
         return "an embargo: nobody of theirs may buy at the doors of another settlement"
             .to_owned();
     }
+    // Without the organization at hand (see [`Polity::words_of`]), only what it does.
+    if def.is_some_and(|d| d.kind == PolicyKind::Recognize) {
+        return "recognition of an organization: its members owe no duty on the goods it sells"
+            .to_owned();
+    }
     // A limit (M7b slice BT): what it forbids.
     if let Some(l) = def
         .filter(|d| d.kind == PolicyKind::Limit)
@@ -1427,6 +1439,7 @@ pub fn ending_words(
         Some(PolicyKind::Limit) => "a limit on laws".to_owned(),
         Some(PolicyKind::Duty) => "the duty on goods bought elsewhere".to_owned(),
         Some(PolicyKind::Embargo) => "the embargo".to_owned(),
+        Some(PolicyKind::Recognize) => "the recognition of an organization".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }

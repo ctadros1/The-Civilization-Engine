@@ -687,6 +687,17 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 115 (M7c slice BW, ADR-0026 §2) brings organizations by stake and their recognition.
+The people profile's `[faction]` table adds `organize_days` (the cost of organizing, in days of the
+founder's household's food), `w_stake` (the points a duty worth that much a year brings, and what
+organizing itself costs), `stake_admit` (`open`: anyone who sells the goods; `sponsor`: one a member
+speaks for), `stake_decides` (`organizer` or `members`: who decides an application) and
+`stake_dues_share` (the share of each threshing a member gives, at least 0 and below 1). A policy
+may `does = "recognize"`, which takes nothing of its own: it names an organization by stake its
+proposer's household belongs to, and while it is in force that organization's members' households
+owe none of the polity's duties on goods of what it sells. The core adds
+`core:policy/recognize_organization`, answering `fetched_elsewhere`.
+
 Content API 114 (M7c slice BV, ADR-0026 §1) brings trade laws. A policy may `does = "duty"`, its
 rates its `levy_shares` (above 0 and below 1) and a `[duty]` table: `purpose` (`food`, `fuel`,
 `material`, `tool` or `store`: the goods it is laid on) and `exempt_sellers` (households that offer

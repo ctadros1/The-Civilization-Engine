@@ -6,7 +6,7 @@
 //! decides what to do next. Needs are brought up to date only at step boundaries.
 
 use std::cell::OnceCell;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use civ_core::time::{DAYS_PER_YEAR, MINUTES_PER_DAY};
@@ -1044,7 +1044,7 @@ impl Population {
         now: SimTime,
     ) {
         const PURPOSE_KIT: u64 = 0x6b69_7430_3030_3031; // "kit00001"
-        let ages: HashMap<PermanentId, f64> = self
+        let ages: FastMap<PermanentId, f64> = self
             .people
             .iter()
             .map(|(_, p)| (p.id, p.age_years(now)))
@@ -1269,7 +1269,7 @@ impl Population {
                 ));
             }
         }
-        let mut ids = std::collections::HashSet::new();
+        let mut ids = civ_core::FastSet::default();
         for (_, p) in self.people.iter() {
             if !ids.insert(p.id) || p.id.get() >= next_id {
                 out.push(format!("person {} has a duplicate or unallocated id", p.id));
@@ -1315,7 +1315,7 @@ impl Population {
                 out.push(format!("person {} has a value that is not a number", p.id));
             }
         }
-        let mut hh_ids = std::collections::HashSet::new();
+        let mut hh_ids = civ_core::FastSet::default();
         for (_, h) in self.households.iter() {
             if !hh_ids.insert(h.id) || h.id.get() >= next_id {
                 out.push(format!(
@@ -1338,7 +1338,7 @@ impl Population {
                 ));
             }
         }
-        let mut firm_ids = std::collections::HashSet::new();
+        let mut firm_ids = civ_core::FastSet::default();
         for f in &self.firms {
             if !firm_ids.insert(f.id) || hh_ids.contains(&f.id) || f.id.get() >= next_id {
                 out.push(format!("firm {} has a duplicate or unallocated id", f.id));
@@ -1360,7 +1360,7 @@ impl Population {
             }
         }
         // Factions (M4c slice AH): ids of their own, members alive and in live ones.
-        let mut faction_ids = std::collections::HashSet::new();
+        let mut faction_ids = civ_core::FastSet::default();
         for f in &self.factions.list {
             if !faction_ids.insert(f.id)
                 || hh_ids.contains(&f.id)

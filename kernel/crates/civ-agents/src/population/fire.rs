@@ -1523,8 +1523,8 @@ impl Population {
             .min()
             .unwrap_or(now.minutes());
         let roots: Vec<u32> = burning.iter().map(|&(_, r, _)| r).collect();
-        let mut knows_fire: std::collections::HashSet<(u32, PermanentId)> = Default::default();
-        let mut knows_root: std::collections::HashSet<(u32, PermanentId)> = Default::default();
+        let mut knows_fire: civ_core::FastSet<(u32, PermanentId)> = Default::default();
+        let mut knows_root: civ_core::FastSet<(u32, PermanentId)> = Default::default();
         let start = self
             .fires
             .knew

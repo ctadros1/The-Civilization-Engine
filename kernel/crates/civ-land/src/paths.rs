@@ -17,7 +17,9 @@
 //! ground (`civ_world::nav::NavParams::offtrail_factor`), so people are drawn to the ground others
 //! wore and use makes more use.
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::VecDeque;
+
+use civ_core::{FastMap, FastSet};
 
 use civ_world::nav::simplify_indices;
 
@@ -175,7 +177,7 @@ pub struct Wear {
     tiles_x: u32,
     cell_m: f32,
     tiles: Vec<WearTile>,
-    slot: HashMap<u32, usize>,
+    slot: FastMap<u32, usize>,
     /// Changes at every survey: the routing view and trails it describes.
     rev: u32,
     /// The day of the last survey.
@@ -479,7 +481,7 @@ impl Wear {
     pub fn problems(&self) -> Vec<String> {
         let mut out = Vec::new();
         let count = self.tile_count();
-        let mut seen = HashSet::new();
+        let mut seen = FastSet::default();
         for t in &self.tiles {
             if t.index >= count {
                 out.push(format!("wear tile {} is outside the map", t.index));
@@ -501,7 +503,7 @@ impl Wear {
     /// and junction to junction.
     /// The trails of the routing view: its trail cells, traced.
     fn trace(&self) -> Vec<Trail> {
-        let mut cells: HashSet<(i32, i32)> = HashSet::new();
+        let mut cells: FastSet<(i32, i32)> = FastSet::default();
         let tx = self.tiles_x as i32;
         let words = TILE_CELLS / 64;
         for (t, &index) in self.view_index.iter().enumerate() {
@@ -617,8 +619,8 @@ const N8: [(i32, i32); 8] = [
 
 /// Morphological closing: grows the cells by one in every direction, then shrinks them back, so
 /// a trail broken by a cell or two that walks wore a little less is traced as one.
-fn close(cells: &HashSet<(i32, i32)>) -> HashSet<(i32, i32)> {
-    let mut grown: HashSet<(i32, i32)> = cells.clone();
+fn close(cells: &FastSet<(i32, i32)>) -> FastSet<(i32, i32)> {
+    let mut grown: FastSet<(i32, i32)> = cells.clone();
     for &(x, y) in cells {
         for (dx, dy) in N8 {
             grown.insert((x + dx, y + dy));
@@ -632,10 +634,10 @@ fn close(cells: &HashSet<(i32, i32)>) -> HashSet<(i32, i32)> {
 }
 
 /// Groups cells that touch (eight ways), each group sorted, groups in order of their first cell.
-fn components(cells: &HashSet<(i32, i32)>) -> Vec<Vec<(i32, i32)>> {
+fn components(cells: &FastSet<(i32, i32)>) -> Vec<Vec<(i32, i32)>> {
     let mut sorted: Vec<(i32, i32)> = cells.iter().copied().collect();
     sorted.sort_by_key(|&(x, y)| (y, x));
-    let mut seen: HashSet<(i32, i32)> = HashSet::new();
+    let mut seen: FastSet<(i32, i32)> = FastSet::default();
     let mut out = Vec::new();
     for &start in &sorted {
         if !seen.insert(start) {
@@ -662,8 +664,8 @@ fn components(cells: &HashSet<(i32, i32)>) -> Vec<Vec<(i32, i32)>> {
 /// peeled): thins a group of cells down to lines about one cell wide, keeping its shape and
 /// connections. Without the correction a line of cells stepping diagonally, as a straight walk
 /// at most angles leaves, is eaten away from its ends.
-fn thin(cells: &[(i32, i32)]) -> HashSet<(i32, i32)> {
-    let mut set: HashSet<(i32, i32)> = cells.iter().copied().collect();
+fn thin(cells: &[(i32, i32)]) -> FastSet<(i32, i32)> {
+    let mut set: FastSet<(i32, i32)> = cells.iter().copied().collect();
     let mut order: Vec<(i32, i32)> = cells.to_vec();
     loop {
         let mut changed = false;
@@ -705,11 +707,11 @@ type Cell = (i32, i32);
 /// Follows a skeleton one cell wide into chains of cells between ends and junctions. Cells link
 /// orthogonally, and diagonally only where no orthogonal neighbour joins them already, so a corner
 /// or a staircase is one line rather than a knot of junctions.
-fn chains(skeleton: &HashSet<Cell>) -> Vec<Vec<Cell>> {
+fn chains(skeleton: &FastSet<Cell>) -> Vec<Vec<Cell>> {
     let order = |c: &Cell| (c.1, c.0);
     let mut sorted: Vec<Cell> = skeleton.iter().copied().collect();
     sorted.sort_by_key(order);
-    let adj: HashMap<Cell, Vec<Cell>> = sorted
+    let adj: FastMap<Cell, Vec<Cell>> = sorted
         .iter()
         .map(|&(x, y)| {
             let mut next: Vec<Cell> = N8
@@ -736,7 +738,7 @@ fn chains(skeleton: &HashSet<Cell>) -> Vec<Vec<Cell>> {
             (b, a)
         }
     };
-    let walk = |start: Cell, next: Cell, used: &mut HashSet<(Cell, Cell)>| {
+    let walk = |start: Cell, next: Cell, used: &mut FastSet<(Cell, Cell)>| {
         let mut chain = vec![start];
         let (mut prev, mut cur) = (start, next);
         used.insert(key(prev, cur));
@@ -756,7 +758,7 @@ fn chains(skeleton: &HashSet<Cell>) -> Vec<Vec<Cell>> {
         }
         chain
     };
-    let mut used: HashSet<(Cell, Cell)> = HashSet::new();
+    let mut used: FastSet<(Cell, Cell)> = FastSet::default();
     let mut out: Vec<Vec<Cell>> = Vec::new();
     for &c in &sorted {
         if degree(&c) == 2 {
@@ -926,7 +928,7 @@ mod tests {
     }
 
     fn traced(cells: &[Cell]) -> Vec<Vec<Cell>> {
-        let set: HashSet<Cell> = cells.iter().copied().collect();
+        let set: FastSet<Cell> = cells.iter().copied().collect();
         let mut out = Vec::new();
         for c in components(&set) {
             out.extend(chains(&thin(&c)));

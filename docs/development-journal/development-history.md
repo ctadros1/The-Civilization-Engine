@@ -2431,3 +2431,24 @@ mean flow put a metre of water in its homes: a rare flood, left to stand. No sch
 
 **Evidence:** `weather::tests::bankfull_is_the_peak_flow_most_years_reach`; the flood, bank and
 crossing tests; the six-year probe of seeds 1 to 3.
+
+## 2026-10-16 — BW: organizations by stake
+
+**Built:** ADR-0026 §2. A faction may carry a stake: the purpose of the goods its members sell,
+who it admits (anyone who sells them, or one a member speaks for), who decides (its organizer or
+its members) and its dues. Someone whose household offers goods a duty would serve organizes
+others who sell them when what the best such duty would bring their household outweighs the cost
+of organizing, they know another household that sells such goods, and no organization over them
+exists that they know of. Applicants are admitted or turned away by its rules, each recorded, and
+one turned away holds it against the organization. A *recognition* law names an organization;
+while it is in force its members' households owe none of the polity's duties on its goods. The
+government panel describes an organization, its members elsewhere, its applications and who
+recognizes it. Content API 115, save schema 129.
+
+**Evidence:** `tests/organization.rs` (organizing when a duty would pay and not when organizing
+costs too much; admission by sponsorship and by an open rule, refusal held against it; a member
+of another settlement stays one; recognition spares members a duty, and another polity's does
+not; the panel's words; a world with one saves and loads exactly); the forecast's unit test. The
+trade-laws probe, four years of seed 1: the villages live (137 people), but one purchase between
+settlements in four years; a duty and an embargo passed at Oakholt, and nobody organized.
+

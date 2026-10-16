@@ -923,6 +923,12 @@ pub(crate) struct FactionFile {
     pub w_exclusion: f64,
     /// Content API 50 (M4c slice AI, step three): what calling a coup costs a watcher, points.
     pub coup_cost: f64,
+    /// Content API 115 (M7c slice BW): organizations by stake.
+    pub organize_days: f64,
+    pub w_stake: f64,
+    pub stake_admit: String,
+    pub stake_decides: String,
+    pub stake_dues_share: f64,
 }
 
 impl FactionFile {
@@ -958,6 +964,13 @@ impl FactionFile {
             hold_days: self.hold_days,
             w_exclusion: self.w_exclusion,
             coup_cost: self.coup_cost,
+            organize_days: self.organize_days,
+            w_stake: self.w_stake,
+            stake_admit: civ_agents::faction::Admit::from_name(&self.stake_admit)
+                .unwrap_or(civ_agents::faction::Admit::Sponsor),
+            stake_decides: civ_agents::faction::Decides::from_name(&self.stake_decides)
+                .unwrap_or(civ_agents::faction::Decides::Organizer),
+            stake_dues_share: self.stake_dues_share,
         }
     }
 
@@ -1025,6 +1038,9 @@ impl FactionFile {
             ("faction.revolt_cost", self.revolt_cost, 0.0, 100.0),
             ("faction.w_exclusion", self.w_exclusion, 0.0, 100.0),
             ("faction.coup_cost", self.coup_cost, 0.0, 100.0),
+            ("faction.organize_days", self.organize_days, 0.1, 3650.0),
+            ("faction.w_stake", self.w_stake, 0.0, 100.0),
+            ("faction.stake_dues_share", self.stake_dues_share, 0.0, 1.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
@@ -1032,6 +1048,18 @@ impl FactionFile {
         }
         if self.threshold[0] > self.threshold[1] {
             p.push("`faction.threshold` must run from low to high".to_owned());
+        }
+        if civ_agents::faction::Admit::from_name(&self.stake_admit).is_none() {
+            p.push(format!(
+                "`faction.stake_admit` must be \"open\" or \"sponsor\" (got {:?})",
+                self.stake_admit
+            ));
+        }
+        if civ_agents::faction::Decides::from_name(&self.stake_decides).is_none() {
+            p.push(format!(
+                "`faction.stake_decides` must be \"organizer\" or \"members\" (got {:?})",
+                self.stake_decides
+            ));
         }
     }
 }

@@ -120,7 +120,7 @@ use super::{
     SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
-    SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, finish, section, single_chunk, unreadable,
+    SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -580,6 +580,9 @@ enum Schema {
     V127,
     /// Trade laws: the issue *goods fetched elsewhere* (M7c slice BV).
     V128,
+    /// Organizations by stake (M7c slice BW: `FactionSave.has_stake` and its rules, events 3-4,
+    /// `Blamed` kind 5, `Wrong` code 10).
+    V129,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -722,7 +725,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V125 => Schema::V125,
         SCHEMA_V126 => Schema::V126,
         SCHEMA_V127 => Schema::V127,
-        SAVE_SCHEMA_VERSION => Schema::V128,
+        SCHEMA_V128 => Schema::V128,
+        SAVE_SCHEMA_VERSION => Schema::V129,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -4354,7 +4358,8 @@ fn carried(
         | Schema::V125
         | Schema::V126
         | Schema::V127
-        | Schema::V128 => {
+        | Schema::V128
+        | Schema::V129 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4655,7 +4660,8 @@ fn decode_households(
             | Schema::V125
             | Schema::V126
             | Schema::V127
-            | Schema::V128 => {
+            | Schema::V128
+            | Schema::V129 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -8451,6 +8457,11 @@ fn encode_factions(
                     stores: Some(stores),
                     stores_at: f.stores_at.minutes(),
                     history: Some(history),
+                    has_stake: f.stake.is_some(),
+                    stake_purpose: f.stake.map_or(0, |s| s.purpose as u8),
+                    stake_admit: f.stake.map_or(0, |s| s.admit as u8),
+                    stake_decides: f.stake.map_or(0, |s| s.decides as u8),
+                    stake_dues: f.stake.map_or(0.0, |s| s.dues_share),
                 },
             )
         })
@@ -8546,6 +8557,24 @@ fn decode_factions(
             stores_at: SimTime::from_minutes(f.stores_at()),
             flows: Default::default(),
             history,
+            stake: if f.has_stake() {
+                let purpose = civ_agents::params::GoodUse::ALL
+                    .get(usize::from(f.stake_purpose()))
+                    .copied()
+                    .ok_or_else(|| bad(format!("organization {id} is of no purpose")))?;
+                let admit = civ_agents::faction::Admit::from_code(f.stake_admit())
+                    .ok_or_else(|| bad(format!("organization {id} admits by no rule")))?;
+                let decides = civ_agents::faction::Decides::from_code(f.stake_decides())
+                    .ok_or_else(|| bad(format!("organization {id} decides by no rule")))?;
+                Some(civ_agents::faction::Stake {
+                    purpose,
+                    admit,
+                    decides,
+                    dues_share: f.stake_dues(),
+                })
+            } else {
+                None
+            },
         });
     }
     let mut members = Vec::new();

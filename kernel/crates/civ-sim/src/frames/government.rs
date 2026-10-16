@@ -5,7 +5,7 @@
 use civ_agents::polity::{
     Law, LawStatus, Outcome, Polity, Stance, day_words, decision_words, office_words, stance_words,
 };
-use civ_core::SimTime;
+use civ_core::{PermanentId, SimTime};
 use civ_schema::flatbuffers::{FlatBufferBuilder, WIPOffset};
 use civ_schema::wire;
 
@@ -165,7 +165,7 @@ fn store_words(sim: &Sim, stores: &[f64]) -> String {
 /// newest first among each: "Mira's faction, against the gathering, since 3 May of year 2: 5
 /// members, organized by Mira; its store holds grain 40 kg"; "Bo's faction, against the
 /// storekeeper, from 3 May of year 2 until 9 June of year 3, when its last member left".
-fn faction_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String> {
+pub fn faction_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String> {
     let pop = &sim.people;
     let mut here: Vec<&civ_agents::faction::Faction> = pop
         .factions
@@ -182,8 +182,11 @@ fn faction_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String> {
     here.into_iter()
         .map(|f| {
             let name = super::word::faction_name(sim, f);
-            let against = super::word::blamed_words(sim, f.against);
             let since = civ_agents::polity::day_words(f.founded);
+            if let Some(st) = f.stake {
+                return organization_words(sim, f, &st, &name, &since);
+            }
+            let against = super::word::blamed_words(sim, f.against);
             match f.ended {
                 None => {
                     let members = pop.factions.members_of(f.id).count();
@@ -202,6 +205,77 @@ fn faction_words(sim: &Sim, settlement: civ_core::PermanentId) -> Vec<String> {
             }
         })
         .collect()
+}
+
+/// An organization by stake in words (M7c slice BW, ADR-0026 §2): what it is of and its rules,
+/// its members and where those of another settlement live, its applications, and who recognizes
+/// it: "Mira's organization, of those who sell tools (it admits one a member speaks for, its
+/// organizer decides, and its dues are a twentieth of each threshing), since 3 May of year 2: 3
+/// members, 1 of them of Sedgebrook, organized by Mira; 2 admitted and 1 turned away; its store
+/// holds grain 4 kg; Oakholt's gathering recognizes it".
+fn organization_words(
+    sim: &Sim,
+    f: &civ_agents::faction::Faction,
+    st: &civ_agents::faction::Stake,
+    name: &str,
+    since: &str,
+) -> String {
+    use civ_agents::faction::FactionEventKind;
+    let pop = &sim.people;
+    let of = format!(
+        "{name}, of those who sell {} (it admits {}, {} decides, and its dues are {} of each \
+         threshing)",
+        st.purpose.plural_words(),
+        st.admit.words(),
+        st.decides.words(),
+        civ_agents::polity::share_text(f64::from(st.dues_share)),
+    );
+    let recognized = super::word::recognized_words(sim, f.id);
+    if let Some(end) = f.ended {
+        return format!(
+            "{of}, from {since} until {}, when its last member left{recognized}",
+            civ_agents::polity::day_words(end)
+        );
+    }
+    let members: Vec<PermanentId> = pop.factions.members_of(f.id).map(|m| m.person).collect();
+    let mut elsewhere: Vec<(PermanentId, usize)> = Vec::new();
+    for &m in &members {
+        let Some(s) = pop
+            .person(m)
+            .and_then(|p| pop.household(p.household))
+            .and_then(|h| h.settlement)
+            .filter(|&s| s != f.settlement)
+        else {
+            continue;
+        };
+        match elsewhere.iter_mut().find(|e| e.0 == s) {
+            Some(e) => e.1 += 1,
+            None => elsewhere.push((s, 1)),
+        }
+    }
+    elsewhere.sort_by_key(|e| e.0);
+    let away = elsewhere
+        .iter()
+        .map(|&(s, n)| format!(", {n} of them of {}", settlement_name(sim, s)))
+        .collect::<String>();
+    let count = |k: FactionEventKind| f.history.iter().filter(|e| e.kind == k).count();
+    let (admitted, refused) = (
+        count(FactionEventKind::Admitted),
+        count(FactionEventKind::TurnedAway),
+    );
+    let applications = if admitted + refused == 0 {
+        String::new()
+    } else {
+        format!("; {admitted} admitted and {refused} turned away")
+    };
+    format!(
+        "{of}, since {since}: {} member{}{away}, organized by {}{applications}; its store holds \
+         {}{recognized}",
+        members.len(),
+        if members.len() == 1 { "" } else { "s" },
+        pop.name_of(f.organizer),
+        store_words(sim, &f.stores)
+    )
 }
 
 /// The petitions of `settlement` in words (wire 1.41, ADR-0017 §3), newest first: "Mira's

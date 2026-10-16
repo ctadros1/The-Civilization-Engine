@@ -3205,7 +3205,15 @@ and M6a gives rivers a daily flow.
         and the latest 20 cases and challenges in the kernel's words (who brought what before
         whom, how it closed and when); the observer's Order panel lists them and the
         Government panel shows a law struck down as such. The demo is
-        `civ-sim --example courts` (below). **Not yet built:** appeal or rehearing; a forum per
+        `civ-sim --example courts` (below). **The demo (2026-10-16, `demos/m7b/m7b-demo.txt`):**
+        since rivers keep their banks (§9), the demo's villages of 40 live their 1,000 days fed,
+        and nobody takes from another's store: in four worlds (seeds 1-4), with every logged
+        nudge, not one case was brought, so no forum heard one and no limit was ever tested. The
+        best of a second run, with a seventh prior nudged by hand (objection to taking weighed a
+        quarter, not kept), passed a curfew on day 810 and emptied in a flood on day 839 (seed 3,
+        the rare flood of §9). The demo shows what its worlds reached, as its brief asks: a court
+        striking down a curfew needs takings first, and fed villages make none; nothing was
+        forced. **Not yet built:** appeal or rehearing; a forum per
         settlement; standing narrower than bearing a cost; a challenger's chance from the
         findings they remember.
   - **M7c, trade laws, guilds and capture**

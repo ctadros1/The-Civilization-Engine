@@ -2452,3 +2452,13 @@ not; the panel's words; a world with one saves and loads exactly); the forecast'
 trade-laws probe, four years of seed 1: the villages live (137 people), but one purchase between
 settlements in four years; a duty and an embargo passed at Oakholt, and nobody organized.
 
+## 2026-10-16 — The M7b demo: fed villages bring no cases
+
+**Ran:** `civ-sim --example courts`, as the M7b demo spec runs it, four worlds of 40 for 1,000
+days each with the demo's logged nudges. With rivers in their banks the villages lived, fed, and
+nobody took from another's store: not one case was brought in any world, so the court's path
+(a case, a curfew, a forum that may review, a limit, a challenge, a law struck down) never began.
+A second run with one more prior nudged by hand (objection to taking weighed a quarter) passed a
+curfew in one world before a rare flood emptied it. Recorded as the demo's outcome
+(`demos/m7b/m7b-demo.txt`); nothing was forced, and the spec's pictures wait for a world that
+reaches a ruling.

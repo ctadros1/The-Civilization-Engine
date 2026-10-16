@@ -3031,9 +3031,75 @@ and M6a gives rivers a daily flow.
         election; alliances and franchise changes (BQ).
     - **BQ**: electoral alliances, franchise amendments, seats by settlement; the observer's
       election pages; measured runs.
-  - **M7b, courts and precedent** (ADR when reached): a forum named by law, precedent as the
-    saved case, limits adopted by amendment and judicial review, rulings carried out; the
-    demo's struck-down curfew (slices BR–BU, from `docs/briefs/m7-courts.md`).
+      - *As built, step one (2026-10-16):* a council's seats may be shared among a polity's
+        settlements (`Seats.by_settlement`, content API 108 `seat_districts`, offered only to a
+        polity that holds several): when its election is called each settlement is a district
+        with its share of the seats by the size of its electorate, by the largest remainder
+        (`seats::apportion`, unit-tested); each who stands stands where they live, for its
+        seats; each voter polls at their own hearth for their own district's seats; each district
+        is counted apart by the block vote, its own keyed lot settling a tie, and one whose field
+        is no larger than its seats sits unopposed; the forecast of a council by settlement takes
+        each district's share from those the sponsor knows who live there. A change of franchise
+        alone (the same council, another electorate) is forecast by counting the last election's
+        open ballots again with only the new electorate's (research 09-08 §1.8), falling back to
+        the counsel prior when none of them polled. The observer calls a faction that has backed a
+        slate in two elections a party ("Mira's party"; derived, never saved, read by nothing).
+        A council by lot no longer sends anyone to poll: its lot is drawn, as BO meant, and nobody
+        walks to the hearth for it (a fix). Districts are saved (save schema 123,
+        `ElectionSave.districts`, `candidate_districts`); the Government panel lists the seats by
+        settlement, and a candidacy names its district. **Not yet built:** the observer's
+        election page and the measured runs (step three); a district's seats re-shared between
+        elections only when one is called.
+      - *As built, step two (2026-10-16):* electoral alliances (ADR-0024 §5, research 09-08
+        §1.9). When names close on an election of seats of the whole polity with three slates or
+        more, each pair of factions whose organizers know each other may meet: each organizer
+        reckons the following of every faction from those of the electorate they know to belong
+        to it (all of their own), and the seats each slate would take if every bloc voted its own
+        slate whole (`seats::bloc_seats`, a design prior); they weigh three packages against that
+        outside option (one common slate shared between them by following, D'Hondt's rule; or
+        either backing the other's slate) and agree the one that leaves neither worse off and
+        one better, the best for the one who gains least first; else they part. Both then back
+        its slate, which their members weigh as their own faction's; each faction joins one
+        alliance at most, and it binds that election only. The chronicle tells it
+        (`AllianceMade`, 60); the Government panel names it; alliances are saved (save schema 124,
+        `ElectionSave.alliances`). **Not yet built:** alliances within a district; candidates left
+        off a common slate standing down (they stay in the field); keeping or breaking an
+        alliance as a later choice; blocs in the council, derived.
+      - *As built, step three (2026-10-16):* the observer's election page (wire 1.77,
+        `PolityLine.elections`): each council's latest six elections in the kernel's words — why
+        and when called and for what seats, where it stands, who came of the electorate now, the
+        seats by settlement, the alliances, and each who stood with their district, where they
+        said they stand, who backed them, the names counted and whether they sat — shown in the
+        Government panel under the polity. The evenings a council saves (ADR-0024 §6, which BO
+        left unbuilt): a household judging a council also counts, for each decision it saw, its
+        people who came and would not sit, at `elections.w_evening` points each (content API 109,
+        a design prior of 0.25 against the custom's 1.0 pull to the gathering). civ-sim's
+        `council` example and the M7a demo spec make the demo world (a village of 120; a
+        time-boxed NUDGE of that prior if no council by day 180). A fix found by the demo's
+        first run: a council was two changes from the founding custom (its quorum of a half of
+        its seats against the gathering's quarter of its adults), so no village could ever be
+        offered one; taking seats or giving them up is now the one change, the two quorums not
+        compared (BO's unit test had used a gathering at a half). A second, found by the M4a
+        government e2e: a village of 25 adults took a council of 9 by 24 to 0 within its first
+        summer (the evenings it would save), only one stood, and the council, whose quorum counts
+        its seats filled or empty, decided nothing for a year. An election that leaves too few
+        seated to make the quorum now has its seats called again `stand_days` after it closed
+        (`ElectionWhy::TooFewSat`, code 2), those seated giving theirs up to the winners as at a
+        term's end; those whose proposals the empty council failed have more reason to stand.
+        The M4a e2e accepts a village that took a council.
+  - **M7b, courts and precedent** ([ADR-0025](decisions/0025-forums-precedent-and-review.md)):
+    - **BR**: a forum by law (*hear cases*: one holder, a panel by lot, or a membership; its
+      own rule), the *cases waiting* issue, sittings the evening after a case is brought,
+      settled and withdrawn closures, time to closure; the gathering stays the default.
+    - **BS**: precedent: fact tags derived from saved cases (the gathering's since M4 count),
+      findings held as claims, recall of up to k by sitters, authority (informative,
+      persuasive, binding) as the forum's value, departures recorded.
+    - **BT**: limits and review: limit templates (daylight work, a levy's share) adopted by
+      amendment with entrenchment, review as a power a forum's law grants, challenges by those
+      a law binds and burdens, `StruckDown`, the gathering's answers as moves.
+    - **BU**: rulings carried out and the demo: rulings known person by person, the *abide by
+      findings* norm, grievances against a forum, the dashboard's justice counts, the observer's
+      Cases and Government views, and the demo's struck-down curfew (time-boxed, NUDGEs logged).
   - **M7c, trade laws, guilds and capture** (ADR when reached): duties and embargoes as laws,
     organizations by shared stake, privileges and the barred, corruption and patronage as
     specific choices; the demo's captured assembly (slices BV–BZ, from
@@ -4121,3 +4187,23 @@ One line each. Don't re-litigate without a reason written next to the entry.
   date or era makes a council likelier; the smoke's finding that villages of about 50 never
   amend may stand as a result. The demo names two outcomes (a captured assembly's tariff, a
   struck-down curfew); each part's demo shows what its world reached, nudging only priors.
+- **M7b design (2026-10-16, plan §7):** from the courts brief (`docs/briefs/m7-courts.md`),
+  which reads 09-07, 09-06, 09-02, 09-05, 09-04, 06-05 and 06-09. **One ADR,**
+  [ADR-0025](decisions/0025-forums-precedent-and-review.md) (forums, precedent and review):
+  a forum is a law (*hear cases*) naming what it hears, its seat (one holder, a panel by lot,
+  or a membership) and its rule; precedent is the saved case and the remembered finding;
+  a limit is a law above laws, a predicate over laws' own fields from a closed set the kernel
+  reads; review is a power a forum's law grants; rulings are carried out and known as anything
+  else. **Four slices** (§7): BR (a forum by law), BS (precedent), BT (limits and review), BU
+  (rulings carried out and the demo). **The brief's open questions, answered:** (1) the
+  gathering's findings since M4 are precedent (09-07's opening); (2) all three seats, content
+  offering each; (3) limits are a closed set in code, parameterized by content: daylight work
+  (a curfew's hours) and a levy's share in v0; (4) review is a power a forum's law grants, apart
+  from any limit; (5) standing comes from bearing a law, so challenges are abstract, and pleas
+  within a case wait; (6) curfews keep no sanction; (7) an appended norm, *abide by findings*;
+  (8) the bundle stays fixed; (9) no rehearing in v0; (10) one forum at the seat; (11) after a
+  time-boxed week without a strike-down, nudge the weight a household puts on hours a curfew
+  keeps it home, or the cost of proposing an amendment, logged as `NUDGE:`; (12) land and debt
+  wait for M7d. **Plot guards:** no date, era or size makes a forum, a limit or a challenge
+  likelier; no content limit may be aimed at curfews alone; a world without a *hear cases* law
+  gives the same digests as before.

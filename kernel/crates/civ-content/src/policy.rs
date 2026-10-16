@@ -64,6 +64,11 @@ pub(crate) struct PolicyFile {
     pub seat_methods: Vec<String>,
     #[serde(default)]
     pub seat_terms: Vec<u16>,
+    /// How a council's seats may be held among a polity's settlements (content API 108, M7a
+    /// slice BQ): `at_large` (the whole polity elects them all) and `by_settlement` (each
+    /// settlement elects its share). Left out, `at_large` alone.
+    #[serde(default)]
+    pub seat_districts: Vec<String>,
     /// The question people take positions on (content API 41, M4c slice AG): "whether to keep a
     /// common store". Left out, nobody holds a position on it.
     #[serde(default)]
@@ -225,7 +230,19 @@ impl PolicyFile {
         }
         // A council's seats, each way they may be combined (M7a slice BO): none for a body
         // of all its members.
-        let mut councils: Vec<Option<(u8, SeatMethod, u16)>> = Vec::new();
+        let mut councils: Vec<Option<(u8, SeatMethod, u16, bool)>> = Vec::new();
+        let districts: Vec<bool> = if self.seat_districts.is_empty() {
+            vec![false]
+        } else {
+            self.seat_districts
+                .iter()
+                .filter_map(|d| match d.as_str() {
+                    "at_large" => Some(false),
+                    "by_settlement" => Some(true),
+                    _ => None,
+                })
+                .collect()
+        };
         for &n in &self.seats {
             for method in self
                 .seat_methods
@@ -233,7 +250,9 @@ impl PolicyFile {
                 .filter_map(|m| SeatMethod::from_name(m))
             {
                 for &t in &self.seat_terms {
-                    councils.push(Some((n, method, t)));
+                    for &d in &districts {
+                        councils.push(Some((n, method, t, d)));
+                    }
                 }
             }
         }
@@ -245,11 +264,12 @@ impl PolicyFile {
             for &q in &self.quorum_shares {
                 for r in self.pass.iter().filter_map(|r| PassRule::from_name(r)) {
                     for c in &councils {
-                        let seats = c.map(|(n, method, term_days)| Seats {
+                        let seats = c.map(|(n, method, term_days, by_settlement)| Seats {
                             n,
                             electorate: m,
                             method,
                             term_days,
+                            by_settlement,
                         });
                         out.push(Body {
                             members: if seats.is_some() {
@@ -482,6 +502,16 @@ impl PolicyFile {
                     ));
                 }
             }
+            for d in &self.seat_districts {
+                if d != "at_large" && d != "by_settlement" {
+                    p.push(format!(
+                        "`seat_districts` names `{d}`; they are `at_large`, `by_settlement`"
+                    ));
+                }
+            }
+            if !self.seat_districts.is_empty() && !council[0] {
+                p.push("`seat_districts` needs `seats`".to_owned());
+            }
             for &t in &self.seat_terms {
                 if !(30..=3650).contains(&t) {
                     p.push(format!(
@@ -605,6 +635,7 @@ mod tests {
             seats: Vec::new(),
             seat_methods: Vec::new(),
             seat_terms: Vec::new(),
+            seat_districts: Vec::new(),
             question: None,
             bears: Default::default(),
             rule: None,

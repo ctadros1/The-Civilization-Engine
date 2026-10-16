@@ -178,6 +178,22 @@ export function makeSiegeWorld(saves: string, seed = "1"): string {
   return done.stdout;
 }
 
+/**
+ * Runs civ-sim's `council` example (a village of 120 that may take a council, nudged priors
+ * logged as NUDGEs) into `saves`, and returns what it printed.
+ */
+export function makeCouncilWorld(saves: string, seed = "1"): string {
+  const done = spawnSync(
+    "cargo",
+    [...["run", "--release", "--quiet", "-p", "civ-sim", "--example", "council"], ...["--", saves, seed]],
+    { cwd: path.join(repo, "kernel"), encoding: "utf8", timeout: 7_200_000 },
+  );
+  if (done.status !== 0) {
+    throw new Error(`council failed (${done.status}):\n${done.stdout}\n${done.stderr}`);
+  }
+  return done.stdout;
+}
+
 export interface Host {
   url: string;
   process: ChildProcess;

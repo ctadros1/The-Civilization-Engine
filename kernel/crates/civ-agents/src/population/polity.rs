@@ -1499,7 +1499,7 @@ impl Population {
                 .collect();
             (
                 seats,
-                self.forecast_sitters(ctx, &seats, &electorate, sponsor),
+                self.forecast_sitters(ctx, pi, &seats, &electorate, sponsor),
             )
         });
         decisions
@@ -1508,16 +1508,26 @@ impl Population {
                 if let Some((seats, sit)) = &sitters {
                     let stances: Vec<(PermanentId, Stance)> =
                         s.stances.iter().map(|r| (r.0, r.2)).collect();
+                    // The evenings it would have saved them (ADR-0024 §6, M7a slice BQ): each of
+                    // their people who came who would not sit.
+                    let saved = s
+                        .stances
+                        .iter()
+                        .filter(|r| households.contains(&r.1) && sit.binary_search(&r.0).is_err())
+                        .count() as f64
+                        * params.elections.w_evening
+                        / pp.w_gain.max(1e-9);
                     let now_passes = super::elections::council_would_pass(b, seats, sit, &stances);
                     if now_passes == s.passed {
-                        return 0.0;
+                        return saved;
                     }
                     let sign = if now_passes { 1.0 } else { -1.0 };
-                    return households
-                        .iter()
-                        .filter_map(|&h| s.stances.iter().find(|r| r.1 == h))
-                        .map(|r| sign * r.3 / pp.w_gain.max(1e-9))
-                        .sum::<f64>();
+                    return saved
+                        + households
+                            .iter()
+                            .filter_map(|&h| s.stances.iter().find(|r| r.1 == h))
+                            .map(|r| sign * r.3 / pp.w_gain.max(1e-9))
+                            .sum::<f64>();
                 }
                 let (mut present, mut support, mut oppose) = (0, 0, 0);
                 for &(p, _, stance, _) in &s.stances {
@@ -1872,13 +1882,23 @@ impl Population {
                 seen.iter()
                     .map(|&i| {
                         let s = &decisions[i];
+                        // Under a council, the evenings it would have saved the household: each
+                        // of its people who came who would not sit (ADR-0024 §6, M7a slice BQ).
+                        let saved = sitters.map_or(0.0, |sit| {
+                            s.stances
+                                .iter()
+                                .filter(|r| r.1 == h && sit.binary_search(&r.0).is_err())
+                                .count() as f64
+                                * params.elections.w_evening
+                                / pp.w_gain.max(1e-9)
+                        });
                         let now_passes = would_pass(s, b, sitters);
                         if now_passes == s.passed {
-                            return 0.0;
+                            return saved;
                         }
                         let stake = s.stances.iter().find(|r| r.1 == h).map_or(0.0, |r| r.3);
                         let sign = if now_passes { 1.0 } else { -1.0 };
-                        sign * stake / pp.w_gain.max(1e-9)
+                        saved + sign * stake / pp.w_gain.max(1e-9)
                     })
                     .sum()
             };
@@ -2232,6 +2252,13 @@ impl Population {
                         continue;
                     }
                     for &b in &def.bodies {
+                        // Seats shared among settlements only where the polity holds several
+                        // (M7a slice BQ).
+                        if b.seats.is_some_and(|s| s.by_settlement)
+                            && self.polities[pi].held.is_empty()
+                        {
+                            continue;
+                        }
                         // A council keeps them in it if they may stand for it (M7a slice
                         // BO): its electorate.
                         let gate = b.seats.map_or(b.members, |s| s.electorate);
@@ -2243,7 +2270,10 @@ impl Population {
                         if b.changes_from(&current) == 1 && keeps {
                             if let Some(seats) = b.seats {
                                 let electorate = &admitted_by[usize::from(seats.electorate.code())];
-                                sat.push((b, self.forecast_sitters(ctx, &seats, electorate, d)));
+                                sat.push((
+                                    b,
+                                    self.forecast_sitters(ctx, pi, &seats, electorate, d),
+                                ));
                             }
                             moves.push(MoveOption {
                                 policy: k as u16,

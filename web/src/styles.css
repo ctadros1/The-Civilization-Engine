@@ -1507,6 +1507,34 @@ button.link:hover {
   font-size: 12px;
 }
 
+/* The election page (wire 1.77, ADR-0024 §3). */
+.polity details.elections {
+  margin: 2px 0;
+  font-size: 12px;
+}
+
+.polity .election {
+  border-bottom: 1px solid var(--line);
+  padding: 3px 0;
+}
+
+.polity .election p {
+  margin: 1px 0;
+}
+
+.polity .election .heading {
+  font-weight: 600;
+}
+
+.polity .election .candidates {
+  margin: 2px 0;
+  padding-left: 18px;
+}
+
+.polity .election .candidate.seated {
+  font-weight: 600;
+}
+
 .polity details.label ul {
   margin: 2px 0;
   padding-left: 18px;

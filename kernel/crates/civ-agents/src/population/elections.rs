@@ -16,7 +16,8 @@ use crate::decide::GatheringFacts;
 use crate::history::ChronicleKind;
 use crate::polity::{Membership, Outcome, Stance};
 use crate::seats::{
-    Candidate, Election, ElectionStage, ElectionWhy, Seat, SeatMethod, Seats, ranking,
+    Alliance, Candidate, Election, ElectionStage, ElectionWhy, Package, Seat, SeatMethod, Seats,
+    apportion, bloc_seats, ranking,
 };
 use crate::word::{Claim, ClaimKind};
 
@@ -90,6 +91,36 @@ impl Population {
             .len() as u32
     }
 
+    /// Where polity `pi`'s `seats` are shared among its settlements and it holds several (M7a
+    /// slice BQ, ADR-0024 §1): each settlement, the seat's first, and its share of the seats by
+    /// its electorate now; else none.
+    fn districts(&self, ctx: &Ctx, pi: usize, seats: &Seats) -> Vec<(PermanentId, u8)> {
+        let polity = &self.polities[pi];
+        if !seats.by_settlement || polity.held.is_empty() {
+            return Vec::new();
+        }
+        let electorate = self.electorate(ctx, pi, seats);
+        let counts: Vec<(PermanentId, u32)> = polity
+            .settlements()
+            .into_iter()
+            .map(|s| {
+                let n = electorate
+                    .iter()
+                    .filter(|e| self.household(e.1).and_then(|h| h.settlement) == Some(s))
+                    .count();
+                (s, n as u32)
+            })
+            .collect();
+        apportion(seats.n, &counts)
+    }
+
+    /// The settlement `person` lives in, if any.
+    fn residence(&self, person: PermanentId) -> Option<PermanentId> {
+        self.person(person)
+            .and_then(|p| self.household(p.household))
+            .and_then(|h| h.settlement)
+    }
+
     /// Polity `pi`'s council at midnight.
     fn election_step(&mut self, ctx: &mut Ctx, pi: usize) {
         let day = ctx.now.day_index();
@@ -158,9 +189,15 @@ impl Population {
             .rev()
             .find(|e| e.called >= since && e.seats == seats);
         let lead = i64::from(ep.stand_days) + 2;
+        // Too few seated for its quorum: the seats are called again, `stand_days` after the last
+        // election closed, and those seated give theirs up to the winners as at a term's end.
+        let too_few = (polity.seated.len() as u32) < polity.body.quorum(u32::from(seats.n));
         let why = match last {
             None => ElectionWhy::Amendment,
             Some(e) if day + lead >= e.until => ElectionWhy::TermEnding,
+            Some(e) if too_few && e.ended.is_some_and(|d| day >= d + i64::from(ep.stand_days)) => {
+                ElectionWhy::TooFewSat
+            }
             Some(_) => return,
         };
         let id = polity.elections.last().map_or(1, |e| e.id + 1);
@@ -176,6 +213,16 @@ impl Population {
                     .map_or_else(Vec::new, |l| l.stances.iter().map(|r| r.person).collect())
             }),
             ElectionWhy::TermEnding => polity.seated.iter().map(|s| s.holder).collect(),
+            // Those seated, and those who stood last time.
+            ElectionWhy::TooFewSat => polity
+                .seated
+                .iter()
+                .map(|s| s.holder)
+                .chain(
+                    last.into_iter()
+                        .flat_map(|e| e.candidates.iter().map(|c| c.person)),
+                )
+                .collect(),
         };
         if let Some(by) = polity.versions.last().and_then(|v| v.seized_by) {
             first.push(by);
@@ -183,6 +230,7 @@ impl Population {
         first.sort_unstable();
         first.dedup();
         let settlement = polity.settlement;
+        let districts = self.districts(ctx, pi, &seats);
         self.polities[pi].elections.push(Election {
             id,
             why,
@@ -200,6 +248,8 @@ impl Population {
             ended: None,
             until,
             endorsements: Vec::new(),
+            districts,
+            alliances: Vec::new(),
         });
         self.election_word(settlement, poll_day, &first, day);
         let (place, name) = self.place_words(ctx, settlement);
@@ -288,6 +338,10 @@ impl Population {
         let (settlement, polity_id) = (polity.settlement, polity.id);
         let e = &polity.elections[ei];
         let (seats, poll_day, id) = (e.seats, e.poll_day, e.id);
+        // Where seats are shared among settlements, each stands in the district they live in,
+        // for its seats (M7a slice BQ).
+        let district_of =
+            |h: PermanentId| e.district_for(self.household(h).and_then(|x| x.settlement));
         let deciding: Vec<(PermanentId, PermanentId)> = self
             .electorate(ctx, pi, &seats)
             .into_iter()
@@ -300,6 +354,11 @@ impl Population {
         let decisions = self.decisions_seen(ctx, pi);
         let mut stood = Vec::new();
         for &(p, h) in &deciding {
+            let d = district_of(h);
+            let n = e.seats_in(d);
+            if n == 0 {
+                continue;
+            }
             let turned: f64 = decisions
                 .iter()
                 .filter_map(|s| {
@@ -318,8 +377,7 @@ impl Population {
                 .of(p)
                 .map_or(0.0, |s| s.in_domain(crate::ties::Domain::Counsel))
                 .max(0.0);
-            let points = ep.w_sit * turned / f64::from(seats.n.max(1)) + ep.w_standing * counsel
-                - ep.sit_cost;
+            let points = ep.w_sit * turned / f64::from(n) + ep.w_standing * counsel - ep.sit_cost;
             let chance = 1.0 / (1.0 + (-points / ep.stand_temperature.max(1e-9)).exp());
             let draw = Rng64::from_key(&[
                 ctx.seed,
@@ -330,7 +388,7 @@ impl Population {
             ])
             .next_f64();
             if draw < chance {
-                stood.push(p);
+                stood.push((p, d));
             }
         }
         // Each who stands says where they stand on the questions that matter most to them
@@ -338,7 +396,7 @@ impl Population {
         let told = usize::from(ep.positions_told);
         let candidates: Vec<Candidate> = stood
             .iter()
-            .map(|&p| {
+            .map(|&(p, district)| {
                 let mut held: Vec<&crate::opinion::Position> =
                     self.opinion.held_by(p).iter().collect();
                 held.sort_by(|a, b| {
@@ -350,6 +408,7 @@ impl Population {
                     person: p,
                     day,
                     positions: held.iter().take(told).map(|x| (x.policy, x.x)).collect(),
+                    district,
                 }
             })
             .collect();
@@ -438,12 +497,156 @@ impl Population {
         self.polities[pi].elections[ei].endorsements = slates;
     }
 
+    /// Before names close on election `ei` of polity `pi`, each pair of factions with slates
+    /// whose organizers know each other may meet (ADR-0024 §5, research 09-08 §1.9, M7a slice
+    /// BQ): each reckons, from those of the electorate they know to belong to each faction (all
+    /// of their own), the seats each faction's slate would take if every bloc voted its own slate
+    /// whole (`bloc_seats`, a design prior); and weighs three packages against that outside
+    /// option: one common slate, shared by following, or either standing down for the other.
+    /// They agree on the package that leaves neither worse off and one better, the best for the
+    /// one who gains least first, then for both; else they part. Both then back its slate. Seats
+    /// shared among settlements wait (each district would need its own meeting).
+    fn seek_alliances(&mut self, ctx: &Ctx, pi: usize, ei: usize) {
+        let day = ctx.now.day_index();
+        let tp = &ctx.params.ties;
+        let e = &self.polities[pi].elections[ei];
+        if !e.districts.is_empty() || e.endorsements.len() < 3 {
+            return;
+        }
+        let n = e.seats.n;
+        let seats = e.seats;
+        let mut slates = e.endorsements.clone();
+        let electorate: Vec<PermanentId> = self
+            .electorate(ctx, pi, &seats)
+            .into_iter()
+            .map(|x| x.0)
+            .collect();
+        let factions: Vec<PermanentId> = slates.iter().map(|s| s.0).collect();
+        let organizer: Vec<Option<PermanentId>> = factions
+            .iter()
+            .map(|&f| self.factions.get(f).map(|x| x.organizer))
+            .collect();
+        // How many of the electorate organizer `o` (of faction `own`) reckons follow faction `f`.
+        let following = |o: PermanentId, own: PermanentId, f: PermanentId| -> u32 {
+            electorate
+                .iter()
+                .filter(|&&p| {
+                    self.factions.membership(p).is_some_and(|m| m.faction == f)
+                        && (f == own || p == o || self.ties.tie(o, p, day, tp).is_some())
+                })
+                .count() as u32
+        };
+        let mut allied: Vec<bool> = vec![false; slates.len()];
+        let mut made: Vec<(Alliance, Vec<PermanentId>, [PermanentId; 2])> = Vec::new();
+        for i in 0..slates.len() {
+            for j in (i + 1)..slates.len() {
+                if allied[i] || allied[j] {
+                    continue;
+                }
+                let (Some(oi), Some(oj)) = (organizer[i], organizer[j]) else {
+                    continue;
+                };
+                if self.ties.tie(oi, oj, day, tp).is_none() {
+                    continue;
+                }
+                // Each organizer's reckoning: followings of every faction, as they see them.
+                let seen: [Vec<u32>; 2] = [(oi, factions[i]), (oj, factions[j])]
+                    .map(|(o, own)| factions.iter().map(|&f| following(o, own, f)).collect());
+                let lens: Vec<usize> = slates.iter().map(|s| s.1.len()).collect();
+                let own_of = |slate: &[PermanentId], f: PermanentId, k: u32| -> u32 {
+                    slate
+                        .iter()
+                        .take(k as usize)
+                        .filter(|&&p| self.factions.membership(p).is_some_and(|m| m.faction == f))
+                        .count() as u32
+                };
+                // Seats each side expects for its own members, alone.
+                let alone: [u32; 2] = [0, 1].map(|w| {
+                    let blocs: Vec<(u32, usize)> =
+                        seen[w].iter().copied().zip(lens.iter().copied()).collect();
+                    bloc_seats(n, &blocs)[if w == 0 { i } else { j }]
+                });
+                let mut best: Option<(i64, i64, Package, Vec<PermanentId>)> = None;
+                for package in Package::ALL {
+                    let slate = match package {
+                        Package::Common => {
+                            common_slate(&slates[i].1, &slates[j].1, seen[0][i], seen[1][j], n)
+                        }
+                        Package::FirstStandsDown => slates[j].1.clone(),
+                        Package::SecondStandsDown => slates[i].1.clone(),
+                    };
+                    let gains: [i64; 2] = [0, 1].map(|w| {
+                        let mut blocs: Vec<(u32, usize)> =
+                            seen[w].iter().copied().zip(lens.iter().copied()).collect();
+                        blocs[i] = (seen[w][i] + seen[w][j], slate.len());
+                        blocs[j] = (0, 0);
+                        let k = bloc_seats(n, &blocs)[i];
+                        let own = own_of(&slate, factions[if w == 0 { i } else { j }], k);
+                        i64::from(own) - i64::from(alone[w])
+                    });
+                    if gains[0] < 0 || gains[1] < 0 || gains[0] + gains[1] <= 0 {
+                        continue;
+                    }
+                    let key = (gains[0].min(gains[1]), gains[0] + gains[1]);
+                    if best.as_ref().is_none_or(|b| key > (b.0, b.1)) {
+                        best = Some((key.0, key.1, package, slate));
+                    }
+                }
+                if let Some((_, _, package, slate)) = best {
+                    allied[i] = true;
+                    allied[j] = true;
+                    made.push((
+                        Alliance {
+                            factions: [factions[i], factions[j]],
+                            package,
+                        },
+                        slate,
+                        [oi, oj],
+                    ));
+                }
+            }
+        }
+        if made.is_empty() {
+            return;
+        }
+        let settlement = self.polities[pi].settlement;
+        let (place, name) = self.place_words(ctx, settlement);
+        for (a, slate, organizers) in made {
+            for s in slates.iter_mut().filter(|s| a.factions.contains(&s.0)) {
+                s.1 = slate.clone();
+            }
+            let names: Vec<String> = slate.iter().map(|&p| self.name_of(p)).collect();
+            let words = format!(
+                "{} and {} agreed at {name} to {} for the council: {}.",
+                self.name_of(organizers[0]),
+                self.name_of(organizers[1]),
+                match a.package {
+                    Package::Common => "stand on one slate",
+                    Package::FirstStandsDown | Package::SecondStandsDown => "back one slate",
+                },
+                names.join(", ")
+            );
+            self.chronicle_push(
+                ctx.now,
+                ChronicleKind::AllianceMade,
+                organizers.to_vec(),
+                Some(settlement),
+                place,
+                slate.len() as f64,
+                words,
+            );
+            self.polities[pi].elections[ei].alliances.push(a);
+        }
+        self.polities[pi].elections[ei].endorsements = slates;
+    }
+
     /// Names close on election `ei`: with nobody standing it fails; with no more standing than
     /// seats, those who stood sit unopposed; by lot, the lot waits for its day; by election, the
     /// polling day comes.
     fn close_names(&mut self, ctx: &mut Ctx, pi: usize, ei: usize) {
         let day = ctx.now.day_index();
         self.endorse_slates(pi, ei);
+        self.seek_alliances(ctx, pi, ei);
         let e = &mut self.polities[pi].elections[ei];
         let standing = e.standing();
         if standing.is_empty() {
@@ -452,9 +655,23 @@ impl Population {
             self.tell_election(ctx, pi, ei);
             return;
         }
-        if standing.len() <= usize::from(e.seats.n) {
+        // Every district's field no larger than its seats: those who stood sit unopposed.
+        let contested = e
+            .district_seats()
+            .into_iter()
+            .any(|(d, n)| e.standing_in(d).len() > usize::from(n));
+        if !contested {
             e.totals = standing.iter().map(|&c| (c, 0)).collect();
-            let winners: Vec<PermanentId> = e.candidates.iter().map(|c| c.person).collect();
+            let winners: Vec<PermanentId> = e
+                .district_seats()
+                .into_iter()
+                .flat_map(|(d, _)| {
+                    e.candidates
+                        .iter()
+                        .filter(move |c| c.district == d)
+                        .map(|c| c.person)
+                })
+                .collect();
             self.install(ctx, pi, ei, winners, false);
             return;
         }
@@ -467,23 +684,62 @@ impl Population {
         let day = ctx.now.day_index();
         let polity_id = self.polities[pi].id;
         let e = &mut self.polities[pi].elections[ei];
-        let standing = e.standing();
-        let key = Rng64::from_key(&[ctx.seed, polity_id.get(), u64::from(e.id)]).next_u64();
-        let n = u32::from(e.seats.n);
-        let result = match e.seats.method {
-            SeatMethod::Lot => {
-                let drawn = count::draw(&standing, n, key);
-                e.totals = drawn.iter().map(|&c| (c, 1)).collect();
-                Some((drawn, true))
+        // Each district counted apart (M7a slice BQ): one of the whole polity where seats are not
+        // shared, whose count is as it was.
+        let (mut winners, mut totals, mut by_lot) = (Vec::new(), Vec::new(), false);
+        let (mut any_counted, mut any_unpolled) = (false, false);
+        for (d, k) in e.district_seats() {
+            let standing = e.standing_in(d);
+            let n = u32::from(k);
+            let key = match d {
+                None => Rng64::from_key(&[ctx.seed, polity_id.get(), u64::from(e.id)]),
+                Some(d) => Rng64::from_key(&[ctx.seed, polity_id.get(), u64::from(e.id), d.get()]),
             }
-            SeatMethod::Election if e.ballots.is_empty() => None,
-            SeatMethod::Election => {
-                let ballots: Vec<Vec<PermanentId>> =
-                    e.ballots.iter().map(|b| b.1.clone()).collect();
-                let r = count::block_vote(&ballots, &standing, n, TieRule::Lot(key));
-                e.totals = r.totals.votes.clone();
-                Some((r.winners, r.by_lot))
+            .next_u64();
+            if standing.len() <= usize::from(k) {
+                // Unopposed in its district.
+                totals.extend(standing.iter().map(|&c| (c, 0)));
+                winners.extend(standing);
+                any_counted = true;
+                continue;
             }
+            match e.seats.method {
+                SeatMethod::Lot => {
+                    let drawn = count::draw(&standing, n, key);
+                    totals.extend(drawn.iter().map(|&c| (c, 1)));
+                    winners.extend(drawn);
+                    by_lot = true;
+                    any_counted = true;
+                }
+                SeatMethod::Election => {
+                    let ballots: Vec<Vec<PermanentId>> = e
+                        .ballots
+                        .iter()
+                        .filter(|b| {
+                            b.1.first()
+                                .is_some_and(|c| standing.binary_search(c).is_ok())
+                        })
+                        .map(|b| b.1.clone())
+                        .collect();
+                    if ballots.is_empty() {
+                        any_unpolled = true;
+                        continue;
+                    }
+                    let r = count::block_vote(&ballots, &standing, n, TieRule::Lot(key));
+                    totals.extend(r.totals.votes.iter().copied());
+                    by_lot |= r.by_lot;
+                    winners.extend(r.winners);
+                    any_counted = true;
+                }
+            }
+        }
+        e.totals = totals;
+        let result = if any_counted {
+            Some((winners, by_lot))
+        } else if any_unpolled {
+            None
+        } else {
+            Some((Vec::new(), false))
         };
         match result {
             Some((winners, by_lot)) if !winners.is_empty() => {
@@ -613,6 +869,17 @@ impl Population {
             .elections
             .iter()
             .find(|e| e.stage == ElectionStage::Polling)?;
+        // A lot is drawn, not polled.
+        if e.seats.method == SeatMethod::Lot {
+            return None;
+        }
+        // Each polls for their own district's seats, where those are contested (M7a slice BQ).
+        let d = e.district_for(hh.settlement);
+        let n = e.seats_in(d);
+        let standing = e.standing_in(d);
+        if standing.len() <= usize::from(n) {
+            return None;
+        }
         let end = evening_start + i64::from(params.polity.gathering_minutes);
         if e.poll_day != ctx.now.day_index()
             || minute < evening_start
@@ -630,14 +897,13 @@ impl Population {
         {
             return None;
         }
-        let mut utilities: Vec<f64> = e
-            .standing()
+        let mut utilities: Vec<f64> = standing
             .into_iter()
             .map(|c| self.vote_utility(ctx, person, hh.id, c, e, polity.settlement))
             .collect();
         utilities.sort_by(|a, b| b.total_cmp(a));
         let left_out = utilities
-            .get(usize::from(e.seats.n))
+            .get(usize::from(n))
             .copied()
             .unwrap_or(f64::NEG_INFINITY);
         let stake = utilities
@@ -791,19 +1057,24 @@ impl Population {
             return;
         };
         let e = &polity.elections[ei];
-        if e.polled(person) {
+        if e.polled(person) || e.seats.method == SeatMethod::Lot {
             return;
         }
         let settlement = polity.settlement;
-        let cands: Vec<(PermanentId, f64)> = e
-            .standing()
+        let d = e.district_for(self.household(hh).and_then(|x| x.settlement));
+        let n = e.seats_in(d);
+        let standing = e.standing_in(d);
+        if standing.len() <= usize::from(n) {
+            return;
+        }
+        let cands: Vec<(PermanentId, f64)> = standing
             .into_iter()
             .map(|c| (c, self.vote_utility(ctx, person, hh, c, e, settlement)))
             .collect();
         let key =
             Rng64::from_key(&[ctx.seed, polity_id.get(), u64::from(e.id), person.get()]).next_u64();
         let mut choice = ranking(&cands, ctx.params.elections.vote_scale, key);
-        choice.truncate(usize::from(e.seats.n));
+        choice.truncate(usize::from(n));
         self.polities[pi].elections[ei]
             .ballots
             .push((person, choice));
@@ -828,12 +1099,17 @@ impl Population {
         }
     }
 
-    /// Who the sponsor of a council of `seats` expects would sit in it (ADR-0024 §6, a design
-    /// prior): by election, the n of the electorate `sponsor` knows (a tie, or themselves) who
-    /// stand highest in counsel; by lot, the whole electorate (its seen stances in proportion).
+    /// Who the sponsor of a council of `seats` for polity `pi` expects would sit in it (ADR-0024
+    /// §6, a design prior): by election, the n of the electorate `sponsor` knows (a tie, or
+    /// themselves) who stand highest in counsel, each district's share from those living there
+    /// where seats are shared among settlements; by lot, the whole electorate (its seen stances in
+    /// proportion). A change of franchise alone, under a council by election whose last count
+    /// they saw, is forecast by counting that election's open ballots again with only the new
+    /// electorate's (research 09-08 §1.8; M7a slice BQ).
     pub(super) fn forecast_sitters(
         &self,
         ctx: &Ctx,
+        pi: usize,
         seats: &Seats,
         electorate: &[PermanentId],
         sponsor: PermanentId,
@@ -841,9 +1117,12 @@ impl Population {
         if seats.method == SeatMethod::Lot {
             return electorate.to_vec();
         }
+        if let Some(out) = self.recount_for_franchise(ctx, pi, seats, electorate) {
+            return out;
+        }
         let day = ctx.now.day_index();
         let tp = &ctx.params.ties;
-        let mut known: Vec<(f64, PermanentId)> = electorate
+        let known: Vec<(f64, PermanentId)> = electorate
             .iter()
             .copied()
             .filter(|&p| p == sponsor || self.ties.tie(sponsor, p, day, tp).is_some())
@@ -855,12 +1134,129 @@ impl Population {
                 (counsel, p)
             })
             .collect();
-        known.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
-        known.truncate(usize::from(seats.n));
-        let mut out: Vec<PermanentId> = known.into_iter().map(|k| k.1).collect();
+        let top = |mut pool: Vec<(f64, PermanentId)>, k: usize| -> Vec<PermanentId> {
+            pool.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+            pool.truncate(k);
+            pool.into_iter().map(|x| x.1).collect()
+        };
+        let polity = &self.polities[pi];
+        let mut out = if seats.by_settlement && !polity.held.is_empty() {
+            let counts: Vec<(PermanentId, u32)> = polity
+                .settlements()
+                .into_iter()
+                .map(|s| {
+                    let n = electorate
+                        .iter()
+                        .filter(|&&p| self.residence(p) == Some(s))
+                        .count();
+                    (s, n as u32)
+                })
+                .collect();
+            apportion(seats.n, &counts)
+                .into_iter()
+                .flat_map(|(s, k)| {
+                    let pool: Vec<(f64, PermanentId)> = known
+                        .iter()
+                        .copied()
+                        .filter(|&(_, p)| self.residence(p) == Some(s))
+                        .collect();
+                    top(pool, usize::from(k))
+                })
+                .collect()
+        } else {
+            top(known, usize::from(seats.n))
+        };
         out.sort_unstable();
         out
     }
+
+    /// Who the sponsor of a council of `seats` for polity `pi` expects would sit, and that
+    /// council's electorate now, in id order: for tests.
+    pub fn forecast_sitters_for_tests(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        seats: &Seats,
+        sponsor: PermanentId,
+    ) -> (Vec<PermanentId>, Vec<PermanentId>) {
+        let electorate: Vec<PermanentId> = self
+            .electorate(ctx, pi, seats)
+            .into_iter()
+            .map(|e| e.0)
+            .collect();
+        (
+            self.forecast_sitters(ctx, pi, seats, &electorate, sponsor),
+            electorate,
+        )
+    }
+
+    /// Those who would have sat had only `electorate` (in id order) polled in polity `pi`'s last
+    /// counted election, where `seats` differ from its council's only in who chooses: its open
+    /// ballots counted again by the block vote, the same lot settling a tie. `None` where that
+    /// does not apply, or nobody of the new electorate polled.
+    fn recount_for_franchise(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        seats: &Seats,
+        electorate: &[PermanentId],
+    ) -> Option<Vec<PermanentId>> {
+        let polity = &self.polities[pi];
+        let current = polity.body.seats?;
+        let same_but_franchise = current.method == SeatMethod::Election
+            && current.n == seats.n
+            && current.term_days == seats.term_days
+            && !current.by_settlement
+            && !seats.by_settlement
+            && current.electorate != seats.electorate;
+        if !same_but_franchise {
+            return None;
+        }
+        let e = polity
+            .elections
+            .iter()
+            .rev()
+            .find(|e| e.stage == ElectionStage::Installed && e.seats == current)?;
+        let ballots: Vec<Vec<PermanentId>> = e
+            .ballots
+            .iter()
+            .filter(|b| electorate.binary_search(&b.0).is_ok())
+            .map(|b| b.1.clone())
+            .collect();
+        if ballots.is_empty() {
+            return None;
+        }
+        let key = Rng64::from_key(&[ctx.seed, polity.id.get(), u64::from(e.id)]).next_u64();
+        let r = count::block_vote(
+            &ballots,
+            &e.standing(),
+            u32::from(seats.n),
+            TieRule::Lot(key),
+        );
+        let mut out = r.winners;
+        out.sort_unstable();
+        Some(out)
+    }
+}
+
+/// One slate of two factions' (`a`, `b`, each in its own order), followed by `fa` and `fb`: up to
+/// `n` names, each next one from the side with the more following for each name it has already
+/// (D'Hondt's rule between the two), the first side on a tie, until both are out of names.
+fn common_slate(a: &[PermanentId], b: &[PermanentId], fa: u32, fb: u32, n: u8) -> Vec<PermanentId> {
+    let (mut ia, mut ib) = (0usize, 0usize);
+    let mut out = Vec::new();
+    while out.len() < usize::from(n) && (ia < a.len() || ib < b.len()) {
+        let qa = f64::from(fa) / (ia as f64 + 1.0);
+        let qb = f64::from(fb) / (ib as f64 + 1.0);
+        if ib >= b.len() || (ia < a.len() && qa >= qb) {
+            out.push(a[ia]);
+            ia += 1;
+        } else {
+            out.push(b[ib]);
+            ib += 1;
+        }
+    }
+    out
 }
 
 /// Whether a council of `seats` with rule `body`, sat by `sitters` (in id order), would have
@@ -911,6 +1307,7 @@ mod tests {
             electorate: Membership::Adults,
             method,
             term_days: 360,
+            by_settlement: false,
         };
         let body = Body {
             members: Membership::Seats,
@@ -919,6 +1316,23 @@ mod tests {
             seats: Some(seats),
         };
         (body, seats)
+    }
+
+    #[test]
+    fn a_common_slate_shares_its_names_by_following() {
+        let a = [id(1), id(2), id(3), id(4)];
+        let b = [id(11), id(12), id(13)];
+        // Followings 6 and 3, quotients 6, 3, 2, 1.5 against 3, 1.5: names go 1, then 2 (a tie
+        // at 3 to the first side), 11, 3, then 4 (a tie at 1.5 to the first side).
+        assert_eq!(
+            common_slate(&a, &b, 6, 3, 5),
+            vec![id(1), id(2), id(11), id(3), id(4)]
+        );
+        // One side out of names: the other fills the rest.
+        assert_eq!(
+            common_slate(&[id(1)], &b, 9, 1, 3),
+            vec![id(1), id(11), id(12)]
+        );
     }
 
     #[test]
@@ -990,6 +1404,23 @@ mod tests {
         };
         assert_eq!(body.changes_from(&gathering), 1);
         assert_eq!(gathering.changes_from(&body), 1);
+        // The founding custom's quorum is a quarter of its adults; a council's is of its seats:
+        // the two shares are not compared, and taking seats stays one change (M7a slice BQ).
+        let founding = Body {
+            quorum_share: 0.25,
+            ..gathering
+        };
+        assert_eq!(body.changes_from(&founding), 1);
+        assert_eq!(founding.changes_from(&body), 1);
+        let half = Body {
+            quorum_share: 0.25,
+            ..body
+        };
+        assert_eq!(
+            half.changes_from(&body),
+            1,
+            "between councils, quorum is a change"
+        );
         let elders = Body {
             members: Membership::Elders,
             ..gathering

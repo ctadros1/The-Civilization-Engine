@@ -1144,6 +1144,30 @@ export interface PolityLine {
    */
   settlements: string[];
   ended: string;
+  /** Wire 1.77 (M7a slice BQ, ADR-0024 §3): its council's elections, newest first. */
+  elections: ElectionLine[];
+}
+
+/** One election of a council (wire 1.77), in the kernel's words. */
+export interface ElectionLine {
+  id: number;
+  heading: string;
+  stage: string;
+  turnout: string;
+  districts: string[];
+  alliances: string[];
+  candidates: CandidateLine[];
+}
+
+/** One who stood (wire 1.77). */
+export interface CandidateLine {
+  person: number;
+  name: string;
+  district: string;
+  told: string;
+  backed: string;
+  votes: number;
+  seated: boolean;
 }
 
 /**
@@ -4267,6 +4291,29 @@ function governmentInfo(w: W.Government): GovernmentInfo {
       }),
       settlements: Array.from({ length: p.settlementsLength() }, (_, k) => p.settlements(k) ?? ""),
       ended: p.ended() ?? "",
+      elections: Array.from({ length: p.electionsLength() }, (_, k) => {
+        const e = p.elections(k)!;
+        return {
+          id: e.id(),
+          heading: e.heading() ?? "",
+          stage: e.stage() ?? "",
+          turnout: e.turnout() ?? "",
+          districts: Array.from({ length: e.districtsLength() }, (_, j) => e.districts(j) ?? ""),
+          alliances: Array.from({ length: e.alliancesLength() }, (_, j) => e.alliances(j) ?? ""),
+          candidates: Array.from({ length: e.candidatesLength() }, (_, j) => {
+            const c = e.candidates(j)!;
+            return {
+              person: Number(c.person()),
+              name: c.name() ?? "",
+              district: c.district() ?? "",
+              told: c.told() ?? "",
+              backed: c.backed() ?? "",
+              votes: c.votes(),
+              seated: c.seated(),
+            };
+          }),
+        };
+      }),
     });
   }
   const sieges: SiegeLine[] = [];

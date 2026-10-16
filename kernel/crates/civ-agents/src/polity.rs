@@ -764,14 +764,18 @@ impl Body {
     /// or a council its electorate's gathering, is one change.
     pub fn changes_from(&self, current: &Body) -> u32 {
         let who = |b: &Body| b.seats.map_or(b.members, |s| s.electorate);
-        let mut n = u32::from((self.quorum_share - current.quorum_share).abs() > 1e-6)
+        // Taking seats or giving them up is the one change: a council's quorum is a share of its
+        // seats, a gathering's of its members, so the two shares are not compared (M7a slice BQ).
+        let seating = self.seats.is_some() != current.seats.is_some();
+        let mut n = u32::from(!seating && (self.quorum_share - current.quorum_share).abs() > 1e-6)
             + u32::from(self.pass != current.pass)
             + u32::from(who(self) != who(current));
         match (self.seats, current.seats) {
             (Some(a), Some(b)) => {
                 n += u32::from(a.n != b.n)
                     + u32::from(a.method != b.method)
-                    + u32::from(a.term_days != b.term_days);
+                    + u32::from(a.term_days != b.term_days)
+                    + u32::from(a.by_settlement != b.by_settlement);
             }
             (None, None) => {}
             _ => n += 1,

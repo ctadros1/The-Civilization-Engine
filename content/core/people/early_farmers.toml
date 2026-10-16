@@ -1362,3 +1362,4 @@ w_distance = 2.0                 # a voter's utility against the distance from w
 w_record = 1.0                   # for how a candidate's seen stances lined up with the voter's household's stake
 w_slate = 1.0                    # for a candidate the voter's own faction endorsed
 w_campaign = 1.0                 # points for a candidate's evening at the hearth while their election runs
+w_evening = 0.25                 # points an evening at the gathering costs one who comes: what a council saves (ADR-0024 §6)

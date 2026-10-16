@@ -2160,6 +2160,36 @@ table PolityLine {
   // empty while it still decides.
   settlements: [string] (id: 26);
   ended: string (id: 27);
+  // Wire 1.77 (M7a slice BQ, ADR-0024 §3): its council's elections, newest first, at most six.
+  elections: [ElectionLine] (id: 28);
+}
+
+// One election of a council (wire 1.77, ADR-0024 §3), in words rendered by the kernel: which, when
+// and why it was called and for what seats ("Election 2, called on 3 May of year 2 because the
+// seats' term was ending: a council of 5, elected by the adults for 360 days"); where it stands
+// ("counted and seated on 12 May of year 2"); who came ("31 of the 52 now of the electorate came
+// to poll"); each district's seats; the alliances made for it; and each who stood.
+table ElectionLine {
+  id: uint (id: 0);
+  heading: string (id: 1);
+  stage: string (id: 2);
+  turnout: string (id: 3);
+  districts: [string] (id: 4);
+  alliances: [string] (id: 5);
+  candidates: [CandidateLine] (id: 6);
+}
+
+// One who stood (wire 1.77): their district where seats are shared ("" else), where they said
+// they stand ("leans for whether to keep a common store"), who backed them ("backed by Mira's
+// faction"), the names counted for them and whether they were seated.
+table CandidateLine {
+  person: ulong (id: 0);
+  name: string (id: 1);
+  district: string (id: 2);
+  told: string (id: 3);
+  backed: string (id: 4);
+  votes: uint (id: 5);
+  seated: bool (id: 6);
 }
 
 // One polity's standing toward another (wire 1.57): the other polity and its settlement's name, a

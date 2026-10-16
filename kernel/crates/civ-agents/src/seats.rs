@@ -59,6 +59,10 @@ pub struct Seats {
     pub method: SeatMethod,
     /// Days a term runs from installation.
     pub term_days: u16,
+    /// Whether, in a polity of several settlements, the seats are shared out among them by the
+    /// size of each one's electorate, each settlement its own district electing its share from
+    /// those who live there (ADR-0024 §1, M7a slice BQ; research 09-08 §1.7).
+    pub by_settlement: bool,
 }
 
 impl Seats {
@@ -69,6 +73,7 @@ impl Seats {
                 | (u64::from(s.electorate.code()) << 8)
                 | (u64::from(s.method.code()) << 16)
                 | (u64::from(s.term_days) << 24)
+                | (u64::from(s.by_settlement) << 40)
         })
     }
 
@@ -84,7 +89,8 @@ impl Seats {
         let method = SeatMethod::from_code(((v >> 16) & 0xff) as u8)
             .ok_or_else(|| format!("seats {v:#x}: no such method"))?;
         let term_days = ((v >> 24) & 0xffff) as u16;
-        if n == 0 || term_days == 0 || v >> 40 != 0 {
+        let by_settlement = (v >> 40) & 1 == 1;
+        if n == 0 || term_days == 0 || v >> 41 != 0 {
             return Err(format!("seats {v:#x}: no seats or no term"));
         }
         Ok(Some(Seats {
@@ -92,6 +98,7 @@ impl Seats {
             electorate,
             method,
             term_days,
+            by_settlement,
         }))
     }
 
@@ -102,12 +109,107 @@ impl Seats {
             SeatMethod::Lot => "drawn by lot from",
         };
         format!(
-            "a council of {}, {how} the {} for {} days",
+            "a council of {}, {how} the {} for {} days{}",
             self.n,
             self.electorate.noun(),
-            self.term_days
+            self.term_days,
+            if self.by_settlement {
+                ", its seats shared among its settlements"
+            } else {
+                ""
+            }
         )
     }
+}
+
+/// What two factions' organizers agreed for an election (ADR-0024 §5, M7a slice BQ): a common
+/// slate, or one standing down for the other. Codes are part of saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Package {
+    /// One slate of both factions' members, shared by the size of each one's following.
+    Common = 0,
+    /// The first faction backs the second's slate.
+    FirstStandsDown = 1,
+    /// The second faction backs the first's slate.
+    SecondStandsDown = 2,
+}
+
+impl Package {
+    /// Every package, in code order.
+    pub const ALL: [Package; 3] = [
+        Package::Common,
+        Package::FirstStandsDown,
+        Package::SecondStandsDown,
+    ];
+
+    /// Its number in saves.
+    pub fn code(self) -> u8 {
+        self as u8
+    }
+
+    /// The package numbered `code`.
+    pub fn from_code(code: u8) -> Option<Package> {
+        Package::ALL.get(usize::from(code)).copied()
+    }
+}
+
+/// An electoral alliance (ADR-0024 §5, research 09-08 §1.9): two factions whose organizers met
+/// before names closed and agreed a package; both back the slate it gave. It binds this election
+/// only.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Alliance {
+    /// The two factions, in id order.
+    pub factions: [PermanentId; 2],
+    /// What they agreed.
+    pub package: Package,
+}
+
+/// Seats each bloc would take by the block vote if each votes its own slate whole (a design
+/// prior an organizer reckons by, ADR-0024 §5): blocs by following, largest first (a tie to the
+/// first in order), each filling as many of the seats left as its slate has names. `blocs` is
+/// (following, names on its slate).
+pub fn bloc_seats(n: u8, blocs: &[(u32, usize)]) -> Vec<u32> {
+    let mut order: Vec<usize> = (0..blocs.len()).collect();
+    order.sort_by(|&a, &b| blocs[b].0.cmp(&blocs[a].0).then(a.cmp(&b)));
+    let mut left = u32::from(n);
+    let mut out = vec![0; blocs.len()];
+    for i in order {
+        if blocs[i].0 == 0 {
+            continue;
+        }
+        let take = left.min(blocs[i].1 as u32);
+        out[i] = take;
+        left -= take;
+    }
+    out
+}
+
+/// `n` seats shared among districts by the size of each one's electorate (`counts`: district and
+/// electorate, in district order), by the largest remainder (Hamilton's method; a design prior
+/// among exact methods): each district its whole quota, the seats left over to the largest
+/// remainders, a tie to the district first in order. Districts with no electorate get none; with
+/// no electorate anywhere, none do.
+pub fn apportion(n: u8, counts: &[(PermanentId, u32)]) -> Vec<(PermanentId, u8)> {
+    let total: u64 = counts.iter().map(|c| u64::from(c.1)).sum();
+    if total == 0 {
+        return counts.iter().map(|c| (c.0, 0)).collect();
+    }
+    let n64 = u64::from(n);
+    let mut out: Vec<(PermanentId, u8)> = counts
+        .iter()
+        .map(|c| (c.0, (u64::from(c.1) * n64 / total) as u8))
+        .collect();
+    let given: u64 = out.iter().map(|d| u64::from(d.1)).sum();
+    let mut rest: Vec<(u64, usize)> = counts
+        .iter()
+        .enumerate()
+        .map(|(i, c)| ((u64::from(c.1) * n64) % total, i))
+        .collect();
+    rest.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+    for &(_, i) in rest.iter().take((n64 - given) as usize) {
+        out[i].1 += 1;
+    }
+    out
 }
 
 /// A seat held (ADR-0024 §1: holders by seat, with their seat's since and until).
@@ -132,11 +234,19 @@ pub enum ElectionWhy {
     Amendment = 0,
     /// The seats' term is ending.
     TermEnding = 1,
+    /// Too few sat after the last election for the council to make its quorum: the seats are
+    /// called again (M7a slice BQ, a fix: else a council nobody stood for decides nothing for a
+    /// term).
+    TooFewSat = 2,
 }
 
 impl ElectionWhy {
     /// Every reason, in code order.
-    pub const ALL: [ElectionWhy; 2] = [ElectionWhy::Amendment, ElectionWhy::TermEnding];
+    pub const ALL: [ElectionWhy; 3] = [
+        ElectionWhy::Amendment,
+        ElectionWhy::TermEnding,
+        ElectionWhy::TooFewSat,
+    ];
 
     /// Its number in saves.
     pub fn code(self) -> u8 {
@@ -153,6 +263,7 @@ impl ElectionWhy {
         match self {
             ElectionWhy::Amendment => "the custom became a council",
             ElectionWhy::TermEnding => "the council's term is ending",
+            ElectionWhy::TooFewSat => "too few sat for the council to decide",
         }
     }
 }
@@ -228,6 +339,9 @@ pub struct Candidate {
     pub day: i64,
     /// (question, by the policy template that asks it; their position), most salient first.
     pub positions: Vec<(u16, f32)>,
+    /// The district they stood in, where seats are shared among settlements: the settlement they
+    /// lived in when they stood (M7a slice BQ); `None` for seats of the whole polity.
+    pub district: Option<PermanentId>,
 }
 
 /// An election (ADR-0024 §3): called, told, open for names, polled or drawn, counted, seated.
@@ -268,9 +382,54 @@ pub struct Election {
     /// Each faction's slate (ADR-0024 §5, M7a slice BP): the faction and those of its members
     /// who stood whom its organizer endorsed, in faction order.
     pub endorsements: Vec<(PermanentId, Vec<PermanentId>)>,
+    /// Where seats are shared among settlements (M7a slice BQ): each district and its seats, in
+    /// settlement order, as shared out when it was called; empty for seats of the whole polity.
+    pub districts: Vec<(PermanentId, u8)>,
+    /// Alliances agreed for it (M7a slice BQ), in the order made; each faction in one at most.
+    pub alliances: Vec<Alliance>,
 }
 
 impl Election {
+    /// The seats of district `d` (`None` for the whole polity): all of them for the whole polity.
+    pub fn seats_in(&self, d: Option<PermanentId>) -> u8 {
+        match d {
+            None => self.seats.n,
+            Some(d) => self.districts.iter().find(|x| x.0 == d).map_or(0, |x| x.1),
+        }
+    }
+
+    /// The district a voter or candidate living in `settlement` belongs to: `None` for seats of
+    /// the whole polity.
+    pub fn district_for(&self, settlement: Option<PermanentId>) -> Option<PermanentId> {
+        if self.districts.is_empty() {
+            None
+        } else {
+            settlement
+        }
+    }
+
+    /// Those who stood in district `d`, in id order.
+    pub fn standing_in(&self, d: Option<PermanentId>) -> Vec<PermanentId> {
+        let mut out: Vec<PermanentId> = self
+            .candidates
+            .iter()
+            .filter(|c| c.district == d)
+            .map(|c| c.person)
+            .collect();
+        out.sort_unstable();
+        out.dedup();
+        out
+    }
+
+    /// Each district and its seats: one of the whole polity where seats are not shared.
+    pub fn district_seats(&self) -> Vec<(Option<PermanentId>, u8)> {
+        if self.districts.is_empty() {
+            vec![(None, self.seats.n)]
+        } else {
+            self.districts.iter().map(|&(d, n)| (Some(d), n)).collect()
+        }
+    }
+
     /// Whether `person` stood.
     pub fn stood(&self, person: PermanentId) -> bool {
         self.candidates.iter().any(|c| c.person == person)
@@ -352,6 +511,10 @@ pub struct ElectionParams {
     /// Points a candidate finds in an evening at the hearth while their election runs, where they
     /// tell that they stand and where (ADR-0024 §4: a campaign is hours and claims).
     pub w_campaign: f64,
+    /// Points an evening at the gathering costs one who comes (ADR-0024 §6: a household weighs
+    /// the evenings a council would save it, a gathering's hours priced as attending is; M7a
+    /// slice BQ). A design prior.
+    pub w_evening: f64,
 }
 
 impl ElectionParams {
@@ -376,6 +539,7 @@ impl ElectionParams {
             w_record: 1.0,
             w_slate: 1.0,
             w_campaign: 1.0,
+            w_evening: 0.25,
         }
     }
 }
@@ -390,6 +554,7 @@ pub fn council_words(
     elections: &[Election],
     name_of: &dyn Fn(PermanentId) -> String,
     faction_of: &dyn Fn(PermanentId) -> String,
+    place_of: &dyn Fn(PermanentId) -> String,
     day: &dyn Fn(i64) -> String,
 ) -> Vec<String> {
     let mut out = Vec::new();
@@ -451,6 +616,28 @@ pub fn council_words(
             day(e.called),
             e.why.words()
         ));
+        // Its districts, where seats are shared among settlements (M7a slice BQ).
+        if !e.districts.is_empty() {
+            let shares: Vec<String> = e
+                .districts
+                .iter()
+                .map(|&(d, n)| format!("{} {n}", place_of(d)))
+                .collect();
+            out.push(format!("Its seats by settlement: {}", shares.join(", ")));
+        }
+        // Alliances agreed for it (M7a slice BQ).
+        for a in &e.alliances {
+            let how = match a.package {
+                Package::Common => "stand on one slate",
+                Package::FirstStandsDown => "back the second's slate",
+                Package::SecondStandsDown => "back the first's slate",
+            };
+            out.push(format!(
+                "{} and {} {how}",
+                faction_of(a.factions[0]),
+                faction_of(a.factions[1])
+            ));
+        }
         // The factions' slates in it (M7a slice BP).
         for (f, slate) in &e.endorsements {
             let named: Vec<String> = slate.iter().map(|&p| name_of(p)).collect();
@@ -491,6 +678,7 @@ mod tests {
             electorate: Membership::Elders,
             method: SeatMethod::Lot,
             term_days: 360,
+            by_settlement: false,
         };
         assert_eq!(Seats::pack(None), 0);
         assert_eq!(Seats::unpack(0), Ok(None));
@@ -502,6 +690,48 @@ mod tests {
             s.words(),
             "a council of 9, drawn by lot from the elders for 360 days"
         );
+        // Seats shared among settlements pack and unpack too (M7a slice BQ).
+        let d = Seats {
+            by_settlement: true,
+            ..s
+        };
+        assert_eq!(Seats::unpack(Seats::pack(Some(d))), Ok(Some(d)));
+        assert_ne!(Seats::pack(Some(d)), Seats::pack(Some(s)));
+        assert!(Seats::unpack(Seats::pack(Some(d)) | 1 << 41).is_err());
+    }
+
+    #[test]
+    fn blocs_fill_the_seats_by_following_each_up_to_its_slate() {
+        // 5 seats; followings 5, 4 and 3 with slates of 3, 5 and 2: the largest takes its 3,
+        // the next the 2 left, the last none.
+        assert_eq!(bloc_seats(5, &[(4, 5), (5, 3), (3, 2)]), vec![2, 3, 0]);
+        // Two that split their following lose to a third; together they take the seats.
+        assert_eq!(bloc_seats(5, &[(4, 5), (3, 5), (5, 5)]), vec![0, 0, 5]);
+        assert_eq!(bloc_seats(5, &[(7, 5), (5, 5)]), vec![5, 0]);
+        // A tie goes to the first; a bloc nobody follows takes nothing.
+        assert_eq!(bloc_seats(3, &[(2, 3), (2, 3), (0, 3)]), vec![3, 0, 0]);
+        assert_eq!(Package::from_code(2), Some(Package::SecondStandsDown));
+        assert_eq!(Package::from_code(3), None);
+    }
+
+    #[test]
+    fn seats_are_shared_among_districts_by_the_largest_remainder() {
+        let id = |n| PermanentId::from_raw(n).expect("non-zero");
+        let (a, b, c) = (id(1), id(2), id(3));
+        // 9 seats among electorates of 60, 25 and 15: quotas 5.4, 2.25, 1.35, so 5, 2 and 1
+        // whole, the last seat to the largest remainder (0.4).
+        assert_eq!(
+            apportion(9, &[(a, 60), (b, 25), (c, 15)]),
+            vec![(a, 6), (b, 2), (c, 1)]
+        );
+        // Every seat is given, and a district with nobody gets none.
+        let shared = apportion(5, &[(a, 10), (b, 0), (c, 10)]);
+        assert_eq!(shared.iter().map(|d| u32::from(d.1)).sum::<u32>(), 5);
+        assert_eq!(shared[1].1, 0);
+        // A tie in the remainders goes to the district first in order.
+        assert_eq!(apportion(5, &[(a, 10), (c, 10)]), vec![(a, 3), (c, 2)]);
+        // Nobody anywhere: no seats are given.
+        assert_eq!(apportion(5, &[(a, 0), (b, 0)]), vec![(a, 0), (b, 0)]);
     }
 
     #[test]

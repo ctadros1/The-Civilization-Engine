@@ -102,7 +102,15 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
                 .iter()
                 .find(|p| p.settlement == c.settlement)
                 .and_then(|p| p.elections.iter().rev().find(|e| e.poll_day == c.day));
-            let seats = election.map_or_else(|| "a seat".to_owned(), |e| e.seats.words());
+            let mut seats = election.map_or_else(|| "a seat".to_owned(), |e| e.seats.words());
+            // Where seats are shared among settlements, the district they stand in (M7a slice BQ).
+            if let Some(d) = election
+                .zip(c.subject)
+                .and_then(|(e, who)| e.candidates.iter().find(|x| x.person == who))
+                .and_then(|x| x.district)
+            {
+                seats = format!("{seats}, in {}", place_name(sim, d));
+            }
             let policies = &sim.rules.catalog.policies;
             let told: Vec<String> = election
                 .zip(c.subject)
@@ -516,7 +524,20 @@ pub fn ideology_lines<'a>(
 
 /// A faction's name, after its founder: "Mira's faction".
 pub fn faction_name(sim: &Sim, f: &civ_agents::faction::Faction) -> String {
-    format!("{}'s faction", sim.people.name_of(f.founder))
+    let word = if is_party(sim, f) { "party" } else { "faction" };
+    format!("{}'s {word}", sim.people.name_of(f.founder))
+}
+
+/// Whether the observer calls faction `f` a party (ADR-0024 §5, M7a slice BQ): it has backed a
+/// slate in two elections or more. Derived here, never saved, and nothing in the world reads it.
+pub fn is_party(sim: &Sim, f: &civ_agents::faction::Faction) -> bool {
+    sim.people
+        .polities
+        .iter()
+        .flat_map(|p| &p.elections)
+        .filter(|e| e.endorsements.iter().any(|x| x.0 == f.id))
+        .count()
+        >= 2
 }
 
 /// The law whose levy refusal `r` keeps back, in words (M4c slice AH): "a common store, taking a

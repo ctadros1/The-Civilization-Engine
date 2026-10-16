@@ -411,6 +411,180 @@ fn held_how_words(how: civ_agents::polity::HeldHow) -> &'static str {
     }
 }
 
+/// An election in words for the observer (wire 1.77, M7a slice BQ).
+#[derive(Clone, Debug)]
+pub struct ElectionWords {
+    pub id: u32,
+    pub heading: String,
+    pub stage: String,
+    pub turnout: String,
+    pub districts: Vec<String>,
+    pub alliances: Vec<String>,
+    pub candidates: Vec<CandidateWords>,
+}
+
+/// One who stood, in words (wire 1.77).
+#[derive(Clone, Debug)]
+pub struct CandidateWords {
+    pub person: u64,
+    pub name: String,
+    pub district: String,
+    pub told: String,
+    pub backed: String,
+    pub votes: u32,
+    pub seated: bool,
+}
+
+/// Polity `pi`'s council's elections in words, newest first, at most six (wire 1.77, ADR-0024
+/// §3): worked out when asked, read by nothing in the world.
+pub fn election_words(sim: &Sim, pi: usize) -> Vec<ElectionWords> {
+    use civ_agents::seats::{ElectionStage, Package, SeatMethod};
+    let pop = &sim.people;
+    let polity = &pop.polities[pi];
+    let day = |d: i64| day_words(SimTime::from_minutes(d * civ_core::time::MINUTES_PER_DAY));
+    let place = |s: civ_core::PermanentId| {
+        sim.land
+            .settlements
+            .iter()
+            .find(|x| x.id == s)
+            .map_or_else(|| "another settlement".to_owned(), |x| x.name.clone())
+    };
+    let faction = |f: civ_core::PermanentId| {
+        pop.factions.get(f).map_or_else(
+            || "a faction".to_owned(),
+            |f| super::word::faction_name(sim, f),
+        )
+    };
+    let policies = &sim.rules.catalog.policies;
+    polity
+        .elections
+        .iter()
+        .rev()
+        .take(6)
+        .map(|e| {
+            let heading = format!(
+                "Election {}, called on {} because {}: {}",
+                e.id,
+                day(e.called),
+                e.why.words(),
+                e.seats.words()
+            );
+            let stage = match e.stage {
+                ElectionStage::Standing => format!(
+                    "open for names until {}; {} have stood",
+                    day(e.stand_until),
+                    e.candidates.len()
+                ),
+                ElectionStage::Polling => match e.seats.method {
+                    SeatMethod::Election => format!("to be polled on {}", day(e.poll_day)),
+                    SeatMethod::Lot => format!("the lot is drawn on {}", day(e.poll_day)),
+                },
+                ElectionStage::Installed => format!(
+                    "counted and seated on {}{}",
+                    day(e.ended.unwrap_or(e.poll_day)),
+                    if e.by_lot {
+                        "; a lot settled a tie"
+                    } else {
+                        ""
+                    }
+                ),
+                stage => format!(
+                    "{} on {}",
+                    stage.words(),
+                    day(e.ended.unwrap_or(e.poll_day))
+                ),
+            };
+            let turnout = if e.seats.method == SeatMethod::Lot {
+                "drawn by lot from those who put their names in".to_owned()
+            } else if e.ballots.is_empty() {
+                if e.stage == ElectionStage::Installed {
+                    "nobody polled: those who stood sat unopposed".to_owned()
+                } else {
+                    String::new()
+                }
+            } else {
+                let now = pop.electorate_count(
+                    &sim.land.fields,
+                    pi,
+                    &e.seats,
+                    sim.now(),
+                    &sim.rules.people,
+                );
+                format!(
+                    "{} of the {now} now of the electorate came to poll",
+                    e.ballots.len()
+                )
+            };
+            let districts = e
+                .districts
+                .iter()
+                .map(|&(d, n)| format!("{}: {n} seat{}", place(d), if n == 1 { "" } else { "s" }))
+                .collect();
+            let alliances = e
+                .alliances
+                .iter()
+                .map(|a| {
+                    let how = match a.package {
+                        Package::Common => "stand on one slate",
+                        Package::FirstStandsDown => "back the second's slate",
+                        Package::SecondStandsDown => "back the first's slate",
+                    };
+                    format!(
+                        "{} and {} {how}",
+                        faction(a.factions[0]),
+                        faction(a.factions[1])
+                    )
+                })
+                .collect();
+            let candidates = e
+                .candidates
+                .iter()
+                .map(|c| {
+                    let told: Vec<String> = c
+                        .positions
+                        .iter()
+                        .filter_map(|&(q, x)| {
+                            let q = policies.get(usize::from(q))?.question.as_deref()?;
+                            Some(format!(
+                                "{} {q}",
+                                civ_agents::opinion::lean_words(f64::from(x))
+                            ))
+                        })
+                        .collect();
+                    let backers: Vec<String> = e
+                        .endorsements
+                        .iter()
+                        .filter(|s| s.1.contains(&c.person))
+                        .map(|s| faction(s.0))
+                        .collect();
+                    CandidateWords {
+                        person: c.person.get(),
+                        name: pop.name_of(c.person),
+                        district: c.district.map_or_else(String::new, place),
+                        told: told.join("; "),
+                        backed: if backers.is_empty() {
+                            String::new()
+                        } else {
+                            format!("backed by {}", backers.join(" and "))
+                        },
+                        votes: e.totals.iter().find(|t| t.0 == c.person).map_or(0, |t| t.1),
+                        seated: e.winners.contains(&c.person),
+                    }
+                })
+                .collect();
+            ElectionWords {
+                id: e.id,
+                heading,
+                stage,
+                turnout,
+                districts,
+                alliances,
+                candidates,
+            }
+        })
+        .collect()
+}
+
 /// Polity `polity`'s settlements in words (wire 1.76, M6c slice BM), its seat first: "Oakholt,
 /// its seat, since 3 May of year 1"; "Ashford, taken in on 9 June of year 12 from Ashford's
 /// polity, by annexation".
@@ -702,6 +876,13 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                     |f| super::word::faction_name(sim, f),
                 )
             },
+            &|s| {
+                sim.land
+                    .settlements
+                    .iter()
+                    .find(|x| x.id == s)
+                    .map_or_else(|| "another settlement".to_owned(), |x| x.name.clone())
+            },
             &|d| day_words(SimTime::from_minutes(d * civ_core::time::MINUTES_PER_DAY)),
         ));
         let offices: Vec<_> = offices.iter().map(|w| fbb.create_string(w)).collect();
@@ -845,6 +1026,55 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
             .collect();
         let settlements = fbb.create_vector(&settlements);
         let ended = fbb.create_string(&polity_ended_words(sim, polity));
+        // Its council's elections (wire 1.77, M7a slice BQ).
+        let elections: Vec<_> = election_words(sim, pi)
+            .into_iter()
+            .map(|e| {
+                let candidates: Vec<_> = e
+                    .candidates
+                    .iter()
+                    .map(|c| {
+                        let name = fbb.create_string(&c.name);
+                        let district = fbb.create_string(&c.district);
+                        let told = fbb.create_string(&c.told);
+                        let backed = fbb.create_string(&c.backed);
+                        wire::CandidateLine::create(
+                            &mut fbb,
+                            &wire::CandidateLineArgs {
+                                person: c.person,
+                                name: Some(name),
+                                district: Some(district),
+                                told: Some(told),
+                                backed: Some(backed),
+                                votes: c.votes,
+                                seated: c.seated,
+                            },
+                        )
+                    })
+                    .collect();
+                let candidates = fbb.create_vector(&candidates);
+                let heading = fbb.create_string(&e.heading);
+                let stage = fbb.create_string(&e.stage);
+                let turnout = fbb.create_string(&e.turnout);
+                let districts: Vec<_> = e.districts.iter().map(|w| fbb.create_string(w)).collect();
+                let districts = fbb.create_vector(&districts);
+                let alliances: Vec<_> = e.alliances.iter().map(|w| fbb.create_string(w)).collect();
+                let alliances = fbb.create_vector(&alliances);
+                wire::ElectionLine::create(
+                    &mut fbb,
+                    &wire::ElectionLineArgs {
+                        id: e.id,
+                        heading: Some(heading),
+                        stage: Some(stage),
+                        turnout: Some(turnout),
+                        districts: Some(districts),
+                        alliances: Some(alliances),
+                        candidates: Some(candidates),
+                    },
+                )
+            })
+            .collect();
+        let elections = fbb.create_vector(&elections);
         list.push(wire::PolityLine::create(
             &mut fbb,
             &wire::PolityLineArgs {
@@ -876,6 +1106,7 @@ pub fn government_response(sim: &Sim) -> Vec<u8> {
                 relations: Some(relations),
                 settlements: Some(settlements),
                 ended: Some(ended),
+                elections: Some(elections),
             },
         ));
     }

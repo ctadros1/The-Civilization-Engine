@@ -209,13 +209,19 @@ fn those_a_thin_gathering_overruled_propose_to_amend_the_custom_one_change_at_a_
     assert_eq!(amend.issue, IssueKind::Overruled);
     let founding = Body::gathering(&sure.people.params.polity);
     let body = amend.body.expect("the body it would make");
-    let changes = u32::from(body.members != founding.members)
-        + u32::from((body.quorum_share - founding.quorum_share).abs() > 1e-6)
-        + u32::from(body.pass != founding.pass);
-    assert_eq!(changes, 1, "one change at a time: {body:?}");
-    // Under the elders the thin gathering would have passed it; under any other single change
-    // it would not: that is the one worth their proposing.
-    assert_eq!(body.members, Membership::Elders, "{body:?}");
+    assert_eq!(
+        body.changes_from(&founding),
+        1,
+        "one change at a time: {body:?}"
+    );
+    // Under the elders the thin gathering would have passed it, and under a council, whose
+    // sitters the sponsor expects to stand as those who came stood (M7a slices BO, BQ: taking
+    // seats is one change, and saves the evenings of those who would not sit); under any other
+    // single change it would not: those are the ones worth their proposing.
+    assert!(
+        matches!(body.members, Membership::Elders | Membership::Seats),
+        "{body:?}"
+    );
     let pop = sim.people();
     assert!(
         pop.chronicle.iter().any(

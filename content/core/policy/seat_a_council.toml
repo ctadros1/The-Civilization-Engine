@@ -21,3 +21,4 @@ pass = ["more_for"]
 seats = [5, 9]
 seat_methods = ["election", "lot"]
 seat_terms = [360]
+seat_districts = ["at_large", "by_settlement"]   # by settlement: offered only where the polity holds several (M7a slice BQ)

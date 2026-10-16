@@ -2272,3 +2272,62 @@ go on alike with positions and slates.
 
 **Open:** campaigning beyond the hearth; choosing what to tell by the electorate; a "party" label;
 whether slates change who sits over many elections (unmeasured).
+
+## 2026-10-16 — BQ, step one: seats by settlement, franchise forecasts, parties
+
+**Built:** a council's seats may be shared among the settlements a polity holds, each a district
+electing its share by the size of its electorate (largest remainder); candidates stand where they
+live and voters poll at their own hearth for their own district; each district is counted apart.
+A franchise change alone is forecast by recounting the last election's open ballots with only the
+new electorate's. The observer calls a faction with slates in two elections a party. A council by
+lot no longer sends people to poll for its draw (a BO fix). Saves gain districts (schema 123,
+content API 108).
+
+**Evidence:** `seats::apportion` unit test (9 seats among 60/25/15 give 6/2/1; ties to the first;
+an empty district gets none); `civ-sim/tests/council.rs`: a polity of two villages taking a
+council by settlement shares five seats between them, each candidate's district is where they
+live, each ballot names only its own district's candidates and no more than its seats, each
+district seats no more than its share, and saves mid-election and after go on alike; a franchise
+forecast seats only those the new electorate named.
+
+**Open:** alliances; the election page; whether any village takes a council by settlement unaided.
+
+## 2026-10-16 — BQ, step two: electoral alliances
+
+**Built:** when names close, two factions whose organizers know each other may meet and weigh a
+common slate (shared by following) or one backing the other's, against what each reckons it
+would win alone if every bloc voted its own slate; they agree when neither loses and one gains,
+and both back the slate. The chronicle tells it; saves keep it (schema 124).
+
+**Evidence:** unit tests of `bloc_seats` (two that split lose to a third and win together; ties
+to the first) and of the common slate's D'Hondt order; `civ-sim/tests/council.rs`: three factions
+of about 30, 25 and 40 % of a village, their organizers knowing every member; with 5, 2 and 8 of
+them standing, the two smaller agree one common slate with members of both, the largest keeps its
+own, the chronicle tells it, and a save goes on alike.
+
+**Open:** whether factions in lived worlds ever stand in numbers that make an alliance worth it.
+
+## 2026-10-16 — BQ, step three: the election page, the evenings a council saves
+
+**Built:** the observer's election page (wire 1.77): each council's latest elections, who stood
+and where they said they stand, who backed them, the names counted and who sat, under the polity
+in the Government panel. Households judging a council now count the evenings it would save their
+people who come and would not sit (ADR-0024 §6; `elections.w_evening`, content API 109). The
+demo world (civ-sim's `council` example) and its spec.
+
+**Fixed:** a council was two changes from the founding custom, since its quorum (a half of its
+seats) was compared with the gathering's (a quarter of its adults), so no village was ever
+offered one: the first demo run lived 720 days, a nudge included, and its one amendment was to a
+two-thirds rule. Taking seats or giving them up is now the one change. The second run still took no
+council: the evenings term had reached only the forecast a revolt's program uses, not the one
+sponsors and stances use (`amend_gain`); it now reaches both.
+
+**Fixed, again:** the M4a government e2e lived a village of 25 adults that took a council of 9 by 24
+to 0 in its first summer; one stood, and the council could never make its quorum (which counts its
+seats filled or empty), so it decided nothing for a year. An election that seats too few for the
+quorum now has the seats called again a stand's length after it closed (`TooFewSat`). Two tests
+written before councils were one change from the gathering (an amendment test and the revolt
+tests, whose premise is that no amendment would serve the overruled) now account for councils.
+
+**Evidence:** web unit tests decode the election page and order and word its candidates; the
+body-change unit test now starts from the founding custom's quorum. `tests/council.rs` calls the seats again when nobody stood.

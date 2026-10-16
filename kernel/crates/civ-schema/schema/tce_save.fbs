@@ -1450,6 +1450,21 @@ table SlateSave {
   named: [ulong] (id: 1);
 }
 
+// A district's seats where a council's seats are shared among settlements (schema 123, M7a
+// slice BQ).
+struct DistrictSave {
+  settlement: ulong;
+  seats: ubyte;
+}
+
+// An electoral alliance (schema 124, M7a slice BQ): the two factions, in id order, and the
+// package they agreed (0 a common slate, 1 the first backs the second's, 2 the second the first's).
+struct AllianceSave {
+  first: ulong;
+  second: ulong;
+  package: ubyte;
+}
+
 // A candidate's count (schema 121).
 struct VoteSave {
   person: ulong;
@@ -1479,6 +1494,10 @@ table ElectionSave {
   until: long (id: 14);
   positions: [StoodSave] (id: 15);
   endorsements: [SlateSave] (id: 16);
+  districts: [DistrictSave] (id: 17);
+  // Each candidate's district, in candidate order; 0 for seats of the whole polity (schema 123).
+  candidate_districts: [ulong] (id: 18);
+  alliances: [AllianceSave] (id: 19);
 }
 
 // An office law's term (schema 120).

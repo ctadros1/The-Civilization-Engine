@@ -110,6 +110,7 @@ pub(crate) struct ElectionsFile {
     pub w_record: f64,
     pub w_slate: f64,
     pub w_campaign: f64,
+    pub w_evening: f64,
 }
 
 impl ElectionsFile {
@@ -133,6 +134,7 @@ impl ElectionsFile {
             w_record: self.w_record,
             w_slate: self.w_slate,
             w_campaign: self.w_campaign,
+            w_evening: self.w_evening,
         }
     }
 
@@ -177,6 +179,7 @@ impl ElectionsFile {
             ("elections.w_record", self.w_record, 0.0, 100.0),
             ("elections.w_slate", self.w_slate, 0.0, 100.0),
             ("elections.w_campaign", self.w_campaign, 0.0, 100.0),
+            ("elections.w_evening", self.w_evening, 0.0, 100.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

@@ -45,23 +45,28 @@ test("a polity, its custom and a law's history in the government panel", async (
     const panel = page.locator("#government-body");
     await expect(panel.locator(".polity h3").first()).toHaveText(polity.name);
     await expect(panel.locator(".custom").first()).toContainText("decide by acclamation");
+    // Since M7a slice BQ a village may take its custom to a council early, its seats being one
+    // change from the gathering: the panel then says how many of its adults may decide.
+    const council = polity.custom.includes("council of");
     await expect(panel.locator(".polity .since").first()).toContainText(
-      `${polity.members} adults; the common store holds`,
+      new RegExp(`${polity.members} adults(, \\d+ of whom may decide)?; the common store holds`),
     );
 
     // What it would be called, worked out by the kernel from its history, with the reasons.
-    expect(polity.label).toMatch(/^Council community/);
+    expect(polity.label).toMatch(council ? /\S/ : /^Council community/);
     const label = panel.locator("details.label").first();
     await expect(label.locator("summary")).toContainText(`Would be called: ${polity.label}`);
     await label.locator("summary").click();
     await expect(label.locator("li")).toHaveCount(polity.labelWhy.length);
-    await expect(label.locator("li").first()).toContainText("adults may come and decide");
+    await expect(label.locator("li").first()).toContainText(
+      council ? "council" : "adults may come and decide",
+    );
 
     // A law the gathering decided, opened to its history.
     expect(polity.laws.length).toBeGreaterThan(0);
     const decided = polity.laws.find((l) => l.outcome !== null)!;
     expect(decided).toBeDefined();
-    expect(decided.decision).toMatch(/adults came/);
+    expect(decided.decision).toMatch(/(adults|councillors) came/);
     const law = panel.locator("details.law").filter({ hasText: decided.what }).first();
     await law.locator("summary").click();
     await expect(law.locator(".law-history")).toContainText("Proposed");

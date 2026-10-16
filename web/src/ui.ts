@@ -56,6 +56,8 @@ import {
 } from "./word.js";
 import {
   brokenText,
+  candidateOrder,
+  candidateText,
   labelText,
   lawDayText,
   levyText,
@@ -81,6 +83,7 @@ import { HostError } from "./net/client.js";
 import type {
   ChronicleEntry,
   Decision,
+  ElectionLine,
   EventItem,
   FirmBrief,
   IncidentRow,
@@ -195,6 +198,34 @@ function el<K extends keyof HTMLElementTagNameMap>(
   if (props.text !== undefined) node.textContent = props.text;
   node.append(...children);
   return node;
+}
+
+/** One election on the election page (wire 1.77, ADR-0024 §3), in the kernel's words. */
+function electionBlock(e: ElectionLine): HTMLElement {
+  const polled = e.turnout.includes("came to poll");
+  const block = el(
+    "div",
+    { className: "election" },
+    el("p", { className: "heading", text: e.heading }),
+    el("p", { className: "stage", text: e.stage }),
+  );
+  if (e.turnout) block.append(el("p", { className: "turnout", text: e.turnout }));
+  if (e.districts.length > 0) {
+    block.append(el("p", { className: "districts", text: `Seats by settlement: ${e.districts.join("; ")}.` }));
+  }
+  for (const a of e.alliances) block.append(el("p", { className: "alliance", text: a }));
+  if (e.candidates.length > 0) {
+    block.append(
+      el(
+        "ul",
+        { className: "candidates" },
+        ...candidateOrder(e).map((c) =>
+          el("li", { className: c.seated ? "candidate seated" : "candidate", text: candidateText(c, polled) }),
+        ),
+      ),
+    );
+  }
+  return block;
 }
 
 function setText(node: HTMLElement, text: string): void {
@@ -2440,6 +2471,19 @@ export function bindUi(store: Store, actions: Actions): void {
       if (p.offices.length > 0) {
         block.append(
           el("ul", { className: "offices" }, ...p.offices.map((o) => el("li", { text: o }))),
+        );
+      }
+      // Its council's elections (wire 1.77, ADR-0024 §3): the election page.
+      if (p.elections.length > 0) {
+        block.append(
+          el(
+            "details",
+            { className: "elections" },
+            el("summary", {
+              text: `Elections (${p.elections.length}${p.elections.length >= 6 ? ", the latest" : ""})`,
+            }),
+            ...p.elections.map((e) => electionBlock(e)),
+          ),
         );
       }
       // Its factions (wire 1.40, ADR-0017 §2).

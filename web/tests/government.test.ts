@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   brokenText,
+  candidateOrder,
+  candidateText,
   labelText,
   lawDayText,
   levyText,
@@ -238,6 +240,29 @@ describe("the government on the wire", () => {
       b.createString("Ashford, taken in on 9 June of year 3 from Ashford's polity, by annexation"),
     ]);
     const ended = b.createString("");
+    const candidate = W.CandidateLine.createCandidateLine(
+      b,
+      44n,
+      b.createString("Mira"),
+      b.createString(""),
+      b.createString("leans for whether to keep a common store"),
+      b.createString("backed by Bo's faction"),
+      12,
+      true,
+    );
+    const election = W.ElectionLine.createElectionLine(
+      b,
+      2,
+      b.createString(
+        "Election 2, called on 3 May of year 2 because the seats' term was ending: a council of 5, elected by the adults for 360 days",
+      ),
+      b.createString("counted and seated on 12 May of year 2"),
+      b.createString("31 of the 52 now of the electorate came to poll"),
+      W.ElectionLine.createDistrictsVector(b, []),
+      W.ElectionLine.createAlliancesVector(b, [b.createString("Bo's faction and Ada's party stand on one slate")]),
+      W.ElectionLine.createCandidatesVector(b, [candidate]),
+    );
+    const elections = W.PolityLine.createElectionsVector(b, [election]);
     const name = b.createString("Stonewick");
     const custom = b.createString("The adults who come to the hearth decide by acclamation.");
     const store = b.createString("grain 26 kg");
@@ -271,6 +296,7 @@ describe("the government on the wire", () => {
       relations,
       settlements,
       ended,
+      elections,
     );
     const polities = W.Government.createPolitiesVector(b, [polity]);
     const siege = W.SiegeLine.createSiegeLine(
@@ -346,6 +372,28 @@ describe("the government on the wire", () => {
     expect(p.settlements).toHaveLength(2);
     expect(p.settlements[1]).toContain("by annexation");
     expect(p.ended).toBe("");
+    expect(p.elections).toEqual([
+      {
+        id: 2,
+        heading:
+          "Election 2, called on 3 May of year 2 because the seats' term was ending: a council of 5, elected by the adults for 360 days",
+        stage: "counted and seated on 12 May of year 2",
+        turnout: "31 of the 52 now of the electorate came to poll",
+        districts: [],
+        alliances: ["Bo's faction and Ada's party stand on one slate"],
+        candidates: [
+          {
+            person: 44,
+            name: "Mira",
+            district: "",
+            told: "leans for whether to keep a common store",
+            backed: "backed by Bo's faction",
+            votes: 12,
+            seated: true,
+          },
+        ],
+      },
+    ]);
     expect(body.government.sieges).toEqual([
       {
         band: 7,
@@ -391,5 +439,44 @@ describe("the government on the wire", () => {
     expect(l.stances[0]!.regard).toBeCloseTo(0.4, 5);
     expect(l.stances[0]!.opinion).toBeCloseTo(0.3, 5);
     expect(l.stances[0]!.values).toBeCloseTo(-0.6, 5);
+  });
+});
+
+describe("the election page", () => {
+  const c = (name: string, votes: number, seated: boolean, more: Partial<M.CandidateLine> = {}) => ({
+    person: votes,
+    name,
+    district: "",
+    told: "",
+    backed: "",
+    votes,
+    seated,
+    ...more,
+  });
+
+  it("words one who stood with their count, seat, backers and where they stand", () => {
+    expect(
+      candidateText(
+        c("Mira", 12, true, {
+          district: "Ashford",
+          backed: "backed by Bo's faction",
+          told: "leans for whether to keep a common store",
+        }),
+        true,
+      ),
+    ).toBe(
+      "Mira (Ashford): 12 names, seated; backed by Bo's faction; leans for whether to keep a common store",
+    );
+    expect(candidateText(c("Bo", 1, false), true)).toBe("Bo: 1 name");
+    // Unopposed or by lot, no count is shown.
+    expect(candidateText(c("Ada", 0, true), false)).toBe("Ada: seated");
+    expect(candidateText(c("Tam", 0, false), false)).toBe("Tam");
+  });
+
+  it("lists the seated first, then by names counted, ties by name", () => {
+    const order = candidateOrder({
+      candidates: [c("Tam", 3, false), c("Bo", 9, true), c("Ada", 3, false), c("Mira", 4, true)],
+    });
+    expect(order.map((x) => x.name)).toEqual(["Bo", "Mira", "Ada", "Tam"]);
   });
 });

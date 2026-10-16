@@ -119,7 +119,8 @@ use super::{
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
     SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
-    SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, finish, section, single_chunk, unreadable,
+    SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -566,6 +567,11 @@ enum Schema {
     /// M7a slice BP: candidates' positions and faction slates (`ElectionSave.positions`,
     /// `endorsements`).
     V122,
+    /// M7a slice BQ: seats shared among settlements (`ElectionSave.districts`,
+    /// `candidate_districts`; the seats' packed number gains a bit).
+    V123,
+    /// M7a slice BQ: electoral alliances (`ElectionSave.alliances`).
+    V124,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -702,7 +708,9 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V119 => Schema::V119,
         SCHEMA_V120 => Schema::V120,
         SCHEMA_V121 => Schema::V121,
-        SAVE_SCHEMA_VERSION => Schema::V122,
+        SCHEMA_V122 => Schema::V122,
+        SCHEMA_V123 => Schema::V123,
+        SAVE_SCHEMA_VERSION => Schema::V124,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1627,6 +1635,33 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                         .collect();
                     let endorsements =
                         (!endorsements.is_empty()).then(|| fbb.create_vector(&endorsements));
+                    let districts: Vec<save::DistrictSave> = e
+                        .districts
+                        .iter()
+                        .map(|&(s, n)| save::DistrictSave::new(s.get(), n))
+                        .collect();
+                    let districts = (!districts.is_empty()).then(|| fbb.create_vector(&districts));
+                    let alliances: Vec<save::AllianceSave> = e
+                        .alliances
+                        .iter()
+                        .map(|a| {
+                            save::AllianceSave::new(
+                                a.factions[0].get(),
+                                a.factions[1].get(),
+                                a.package.code(),
+                            )
+                        })
+                        .collect();
+                    let alliances = (!alliances.is_empty()).then(|| fbb.create_vector(&alliances));
+                    let candidate_districts =
+                        e.candidates.iter().any(|c| c.district.is_some()).then(|| {
+                            let ds: Vec<u64> = e
+                                .candidates
+                                .iter()
+                                .map(|c| c.district.map_or(0, |d| d.get()))
+                                .collect();
+                            fbb.create_vector(&ds)
+                        });
                     save::ElectionSave::create(
                         &mut fbb,
                         &save::ElectionSaveArgs {
@@ -1647,6 +1682,9 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             until: e.until,
                             positions,
                             endorsements,
+                            districts,
+                            candidate_districts,
+                            alliances,
                         },
                     )
                 })
@@ -2404,6 +2442,41 @@ fn decode_polities(
                     person: person(c.person(), "a candidate")?,
                     day: c.day(),
                     positions: Vec::new(),
+                    district: None,
+                });
+            }
+            // Each candidate's district, and each district's seats (schema 123); before, none.
+            if let Some(ds) = e.candidate_districts() {
+                if ds.len() != candidates.len() {
+                    return Err(bad(format!("{what}: districts for some who stood only")));
+                }
+                for (c, d) in candidates.iter_mut().zip(ds.iter()) {
+                    c.district = PermanentId::from_raw(d);
+                }
+            }
+            let districts: Vec<(PermanentId, u8)> = e
+                .districts()
+                .iter()
+                .flatten()
+                .map(|d| {
+                    PermanentId::from_raw(d.settlement())
+                        .map(|s| (s, d.seats()))
+                        .ok_or_else(|| bad(format!("{what}: a district of nowhere")))
+                })
+                .collect::<Result<_, _>>()?;
+            // Its alliances (schema 124); before, none.
+            let mut alliances = Vec::new();
+            for a in e.alliances().iter().flatten() {
+                let (Some(first), Some(second), Some(package)) = (
+                    PermanentId::from_raw(a.first()),
+                    PermanentId::from_raw(a.second()),
+                    civ_agents::seats::Package::from_code(a.package()),
+                ) else {
+                    return Err(bad(format!("{what}: an alliance is malformed")));
+                };
+                alliances.push(civ_agents::seats::Alliance {
+                    factions: [first, second],
+                    package,
                 });
             }
             // Where each said they stand, and the factions' slates (schema 122); before, none.
@@ -2447,6 +2520,8 @@ fn decode_polities(
                 ended: (e.ended() >= 0).then_some(e.ended()),
                 until: e.until(),
                 endorsements,
+                districts,
+                alliances,
             });
         }
         let ended = match p.ended_how() {
@@ -4246,7 +4321,9 @@ fn carried(
         | Schema::V119
         | Schema::V120
         | Schema::V121
-        | Schema::V122 => {
+        | Schema::V122
+        | Schema::V123
+        | Schema::V124 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4541,7 +4618,9 @@ fn decode_households(
             | Schema::V119
             | Schema::V120
             | Schema::V121
-            | Schema::V122 => {
+            | Schema::V122
+            | Schema::V123
+            | Schema::V124 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5551,6 +5630,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::LotDrawn => 57,
         ChronicleKind::ElectionCalled => 58,
         ChronicleKind::ElectionHeld => 59,
+        ChronicleKind::AllianceMade => 60,
     }
 }
 
@@ -5615,6 +5695,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         57 => Some(ChronicleKind::LotDrawn),
         58 => Some(ChronicleKind::ElectionCalled),
         59 => Some(ChronicleKind::ElectionHeld),
+        60 => Some(ChronicleKind::AllianceMade),
         _ => None,
     }
 }

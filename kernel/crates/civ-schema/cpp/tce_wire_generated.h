@@ -472,6 +472,12 @@ struct LawLineBuilder;
 struct PolityLine;
 struct PolityLineBuilder;
 
+struct ElectionLine;
+struct ElectionLineBuilder;
+
+struct CandidateLine;
+struct CandidateLineBuilder;
+
 struct RelationLine;
 struct RelationLineBuilder;
 
@@ -19026,7 +19032,8 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_COUPS = 52,
     VT_RELATIONS = 54,
     VT_SETTLEMENTS = 56,
-    VT_ENDED = 58
+    VT_ENDED = 58,
+    VT_ELECTIONS = 60
   };
   uint64_t polity() const {
     return GetField<uint64_t>(VT_POLITY, 0);
@@ -19112,6 +19119,9 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *ended() const {
     return GetPointer<const ::flatbuffers::String *>(VT_ENDED);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ElectionLine>> *elections() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ElectionLine>> *>(VT_ELECTIONS);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -19174,6 +19184,9 @@ struct PolityLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVectorOfStrings(settlements()) &&
            VerifyOffset(verifier, VT_ENDED) &&
            verifier.VerifyString(ended()) &&
+           VerifyOffset(verifier, VT_ELECTIONS) &&
+           verifier.VerifyVector(elections()) &&
+           verifier.VerifyVectorOfTables(elections()) &&
            verifier.EndTable();
   }
 };
@@ -19266,6 +19279,9 @@ struct PolityLineBuilder {
   void add_ended(::flatbuffers::Offset<::flatbuffers::String> ended) {
     fbb_.AddOffset(PolityLine::VT_ENDED, ended);
   }
+  void add_elections(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ElectionLine>>> elections) {
+    fbb_.AddOffset(PolityLine::VT_ELECTIONS, elections);
+  }
   explicit PolityLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -19306,13 +19322,15 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLine(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coups = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::RelationLine>>> relations = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> settlements = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> ended = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> ended = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ElectionLine>>> elections = 0) {
   PolityLineBuilder builder_(_fbb);
   builder_.add_gathering_minute(gathering_minute);
   builder_.add_gathering_law(gathering_law);
   builder_.add_founded_minute(founded_minute);
   builder_.add_settlement(settlement);
   builder_.add_polity(polity);
+  builder_.add_elections(elections);
   builder_.add_ended(ended);
   builder_.add_settlements(settlements);
   builder_.add_relations(relations);
@@ -19373,7 +19391,8 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *coups = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::RelationLine>> *relations = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *settlements = nullptr,
-    const char *ended = nullptr) {
+    const char *ended = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::ElectionLine>> *elections = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto custom__ = custom ? _fbb.CreateString(custom) : 0;
   auto store__ = store ? _fbb.CreateString(store) : 0;
@@ -19392,6 +19411,7 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
   auto relations__ = relations ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::RelationLine>>(*relations) : 0;
   auto settlements__ = settlements ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*settlements) : 0;
   auto ended__ = ended ? _fbb.CreateString(ended) : 0;
+  auto elections__ = elections ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::ElectionLine>>(*elections) : 0;
   return tce::wire::CreatePolityLine(
       _fbb,
       polity,
@@ -19421,7 +19441,287 @@ inline ::flatbuffers::Offset<PolityLine> CreatePolityLineDirect(
       coups__,
       relations__,
       settlements__,
-      ended__);
+      ended__,
+      elections__);
+}
+
+struct ElectionLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef ElectionLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_HEADING = 6,
+    VT_STAGE = 8,
+    VT_TURNOUT = 10,
+    VT_DISTRICTS = 12,
+    VT_ALLIANCES = 14,
+    VT_CANDIDATES = 16
+  };
+  uint32_t id() const {
+    return GetField<uint32_t>(VT_ID, 0);
+  }
+  const ::flatbuffers::String *heading() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_HEADING);
+  }
+  const ::flatbuffers::String *stage() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_STAGE);
+  }
+  const ::flatbuffers::String *turnout() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_TURNOUT);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *districts() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_DISTRICTS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *alliances() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_ALLIANCES);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CandidateLine>> *candidates() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CandidateLine>> *>(VT_CANDIDATES);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           VerifyOffset(verifier, VT_HEADING) &&
+           verifier.VerifyString(heading()) &&
+           VerifyOffset(verifier, VT_STAGE) &&
+           verifier.VerifyString(stage()) &&
+           VerifyOffset(verifier, VT_TURNOUT) &&
+           verifier.VerifyString(turnout()) &&
+           VerifyOffset(verifier, VT_DISTRICTS) &&
+           verifier.VerifyVector(districts()) &&
+           verifier.VerifyVectorOfStrings(districts()) &&
+           VerifyOffset(verifier, VT_ALLIANCES) &&
+           verifier.VerifyVector(alliances()) &&
+           verifier.VerifyVectorOfStrings(alliances()) &&
+           VerifyOffset(verifier, VT_CANDIDATES) &&
+           verifier.VerifyVector(candidates()) &&
+           verifier.VerifyVectorOfTables(candidates()) &&
+           verifier.EndTable();
+  }
+};
+
+struct ElectionLineBuilder {
+  typedef ElectionLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint32_t id) {
+    fbb_.AddElement<uint32_t>(ElectionLine::VT_ID, id, 0);
+  }
+  void add_heading(::flatbuffers::Offset<::flatbuffers::String> heading) {
+    fbb_.AddOffset(ElectionLine::VT_HEADING, heading);
+  }
+  void add_stage(::flatbuffers::Offset<::flatbuffers::String> stage) {
+    fbb_.AddOffset(ElectionLine::VT_STAGE, stage);
+  }
+  void add_turnout(::flatbuffers::Offset<::flatbuffers::String> turnout) {
+    fbb_.AddOffset(ElectionLine::VT_TURNOUT, turnout);
+  }
+  void add_districts(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> districts) {
+    fbb_.AddOffset(ElectionLine::VT_DISTRICTS, districts);
+  }
+  void add_alliances(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> alliances) {
+    fbb_.AddOffset(ElectionLine::VT_ALLIANCES, alliances);
+  }
+  void add_candidates(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CandidateLine>>> candidates) {
+    fbb_.AddOffset(ElectionLine::VT_CANDIDATES, candidates);
+  }
+  explicit ElectionLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<ElectionLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<ElectionLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<ElectionLine> CreateElectionLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> heading = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> stage = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> turnout = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> districts = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> alliances = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CandidateLine>>> candidates = 0) {
+  ElectionLineBuilder builder_(_fbb);
+  builder_.add_candidates(candidates);
+  builder_.add_alliances(alliances);
+  builder_.add_districts(districts);
+  builder_.add_turnout(turnout);
+  builder_.add_stage(stage);
+  builder_.add_heading(heading);
+  builder_.add_id(id);
+  return builder_.Finish();
+}
+
+struct ElectionLine::Traits {
+  using type = ElectionLine;
+  static auto constexpr Create = CreateElectionLine;
+};
+
+inline ::flatbuffers::Offset<ElectionLine> CreateElectionLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    const char *heading = nullptr,
+    const char *stage = nullptr,
+    const char *turnout = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *districts = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *alliances = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::CandidateLine>> *candidates = nullptr) {
+  auto heading__ = heading ? _fbb.CreateString(heading) : 0;
+  auto stage__ = stage ? _fbb.CreateString(stage) : 0;
+  auto turnout__ = turnout ? _fbb.CreateString(turnout) : 0;
+  auto districts__ = districts ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*districts) : 0;
+  auto alliances__ = alliances ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*alliances) : 0;
+  auto candidates__ = candidates ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::CandidateLine>>(*candidates) : 0;
+  return tce::wire::CreateElectionLine(
+      _fbb,
+      id,
+      heading__,
+      stage__,
+      turnout__,
+      districts__,
+      alliances__,
+      candidates__);
+}
+
+struct CandidateLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef CandidateLineBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_PERSON = 4,
+    VT_NAME = 6,
+    VT_DISTRICT = 8,
+    VT_TOLD = 10,
+    VT_BACKED = 12,
+    VT_VOTES = 14,
+    VT_SEATED = 16
+  };
+  uint64_t person() const {
+    return GetField<uint64_t>(VT_PERSON, 0);
+  }
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  const ::flatbuffers::String *district() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_DISTRICT);
+  }
+  const ::flatbuffers::String *told() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_TOLD);
+  }
+  const ::flatbuffers::String *backed() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_BACKED);
+  }
+  uint32_t votes() const {
+    return GetField<uint32_t>(VT_VOTES, 0);
+  }
+  bool seated() const {
+    return GetField<uint8_t>(VT_SEATED, 0) != 0;
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint64_t>(verifier, VT_PERSON, 8) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyOffset(verifier, VT_DISTRICT) &&
+           verifier.VerifyString(district()) &&
+           VerifyOffset(verifier, VT_TOLD) &&
+           verifier.VerifyString(told()) &&
+           VerifyOffset(verifier, VT_BACKED) &&
+           verifier.VerifyString(backed()) &&
+           VerifyField<uint32_t>(verifier, VT_VOTES, 4) &&
+           VerifyField<uint8_t>(verifier, VT_SEATED, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct CandidateLineBuilder {
+  typedef CandidateLine Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_person(uint64_t person) {
+    fbb_.AddElement<uint64_t>(CandidateLine::VT_PERSON, person, 0);
+  }
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(CandidateLine::VT_NAME, name);
+  }
+  void add_district(::flatbuffers::Offset<::flatbuffers::String> district) {
+    fbb_.AddOffset(CandidateLine::VT_DISTRICT, district);
+  }
+  void add_told(::flatbuffers::Offset<::flatbuffers::String> told) {
+    fbb_.AddOffset(CandidateLine::VT_TOLD, told);
+  }
+  void add_backed(::flatbuffers::Offset<::flatbuffers::String> backed) {
+    fbb_.AddOffset(CandidateLine::VT_BACKED, backed);
+  }
+  void add_votes(uint32_t votes) {
+    fbb_.AddElement<uint32_t>(CandidateLine::VT_VOTES, votes, 0);
+  }
+  void add_seated(bool seated) {
+    fbb_.AddElement<uint8_t>(CandidateLine::VT_SEATED, static_cast<uint8_t>(seated), 0);
+  }
+  explicit CandidateLineBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<CandidateLine> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<CandidateLine>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<CandidateLine> CreateCandidateLine(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t person = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> district = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> told = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> backed = 0,
+    uint32_t votes = 0,
+    bool seated = false) {
+  CandidateLineBuilder builder_(_fbb);
+  builder_.add_person(person);
+  builder_.add_votes(votes);
+  builder_.add_backed(backed);
+  builder_.add_told(told);
+  builder_.add_district(district);
+  builder_.add_name(name);
+  builder_.add_seated(seated);
+  return builder_.Finish();
+}
+
+struct CandidateLine::Traits {
+  using type = CandidateLine;
+  static auto constexpr Create = CreateCandidateLine;
+};
+
+inline ::flatbuffers::Offset<CandidateLine> CreateCandidateLineDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint64_t person = 0,
+    const char *name = nullptr,
+    const char *district = nullptr,
+    const char *told = nullptr,
+    const char *backed = nullptr,
+    uint32_t votes = 0,
+    bool seated = false) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto district__ = district ? _fbb.CreateString(district) : 0;
+  auto told__ = told ? _fbb.CreateString(told) : 0;
+  auto backed__ = backed ? _fbb.CreateString(backed) : 0;
+  return tce::wire::CreateCandidateLine(
+      _fbb,
+      person,
+      name__,
+      district__,
+      told__,
+      backed__,
+      votes,
+      seated);
 }
 
 struct RelationLine FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

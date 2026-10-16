@@ -661,6 +661,13 @@ fn where_no_petition_can_be_called_a_faction_keeps_back_the_levy_together() {
 fn revolt_called(seed: u64) -> (Sim, civ_agents::faction::Revolt, Body) {
     use civ_agents::polity::{Membership, Stance};
     let (mut sim, adults) = aggrieved_village(seed);
+    // The revolt under test, not the price of evenings (M7a slice BQ): with it, any council one
+    // change from the custom would save the faction's people evenings, and so serve them.
+    sim.rules_mut_for_tests()
+        .expect("rules not yet shared")
+        .people
+        .elections
+        .w_evening = 0.0;
     let pop = sim.people_mut_for_tests();
     // Its founding custom lets only the elders of its households decide.
     let elders = Body {

@@ -687,6 +687,22 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 109 (M7a slice BQ, ADR-0024 §6) prices the evenings a council saves. The people
+profile's `[elections]` table adds `w_evening`: the points an evening at the gathering costs one
+who comes. When a household judges a council by the decisions its members saw, it also counts,
+for each, its people who came and would not sit under the council the sponsor expects, at
+`w_evening` each (the same points a proposal and a stance weigh, over `polity.w_gain`).
+
+Content API 108 (M7a slice BQ, ADR-0024 §1) lets a council's seats be shared among a polity's
+settlements. An `amend_body` template with council levels may add `seat_districts`: `at_large`
+(the whole polity elects every seat, as before) and `by_settlement` (each settlement it holds is a
+district electing its share). A council by settlement is offered only to a polity that holds more
+than one settlement. When its election is called, the seats are shared out by the size of each
+settlement's electorate then, by the largest remainder (a tie to the seat's settlement first);
+each who stands stands in the district they live in, for its seats; each voter polls at their own
+hearth for their own district's seats, as many as it has; each district is counted apart, and one
+whose field is no larger than its seats sits unopposed. `core:policy/seat_a_council` offers both.
+
 Content API 107 (M7a slice BP, ADR-0024 §3-5) brings campaigns, positions and slates to
 elections. The people profile's `[elections]` table adds `positions_told` (0 to 3: how many
 questions one who stands says where they stand on, those that matter most to them), `w_distance`

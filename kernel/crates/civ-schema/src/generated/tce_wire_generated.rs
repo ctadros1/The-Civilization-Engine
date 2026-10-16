@@ -30390,6 +30390,7 @@ impl<'a> PolityLine<'a> {
   pub const VT_RELATIONS: ::flatbuffers::VOffsetT = 54;
   pub const VT_SETTLEMENTS: ::flatbuffers::VOffsetT = 56;
   pub const VT_ENDED: ::flatbuffers::VOffsetT = 58;
+  pub const VT_ELECTIONS: ::flatbuffers::VOffsetT = 60;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -30406,6 +30407,7 @@ impl<'a> PolityLine<'a> {
     builder.add_founded_minute(args.founded_minute);
     builder.add_settlement(args.settlement);
     builder.add_polity(args.polity);
+    if let Some(x) = args.elections { builder.add_elections(x); }
     if let Some(x) = args.ended { builder.add_ended(x); }
     if let Some(x) = args.settlements { builder.add_settlements(x); }
     if let Some(x) = args.relations { builder.add_relations(x); }
@@ -30629,6 +30631,13 @@ impl<'a> PolityLine<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PolityLine::VT_ENDED, None)}
   }
+  #[inline]
+  pub fn elections(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ElectionLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ElectionLine>>>>(PolityLine::VT_ELECTIONS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolityLine<'_> {
@@ -30665,6 +30674,7 @@ impl ::flatbuffers::Verifiable for PolityLine<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RelationLine>>>>("relations", Self::VT_RELATIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("settlements", Self::VT_SETTLEMENTS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("ended", Self::VT_ENDED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ElectionLine>>>>("elections", Self::VT_ELECTIONS, false)?
      .finish();
     Ok(())
   }
@@ -30698,6 +30708,7 @@ pub struct PolityLineArgs<'a> {
     pub relations: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RelationLine<'a>>>>>,
     pub settlements: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub ended: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub elections: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ElectionLine<'a>>>>>,
 }
 impl<'a> Default for PolityLineArgs<'a> {
   #[inline]
@@ -30731,6 +30742,7 @@ impl<'a> Default for PolityLineArgs<'a> {
       relations: None,
       settlements: None,
       ended: None,
+      elections: None,
     }
   }
 }
@@ -30853,6 +30865,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolityLineBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_ENDED, ended);
   }
   #[inline]
+  pub fn add_elections(&mut self, elections: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ElectionLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolityLine::VT_ELECTIONS, elections);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolityLineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolityLineBuilder {
@@ -30898,6 +30914,403 @@ impl ::core::fmt::Debug for PolityLine<'_> {
       ds.field("relations", &self.relations());
       ds.field("settlements", &self.settlements());
       ds.field("ended", &self.ended());
+      ds.field("elections", &self.elections());
+      ds.finish()
+  }
+}
+pub enum ElectionLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ElectionLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for ElectionLine<'a> {
+  type Inner = ElectionLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> ElectionLine<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_HEADING: ::flatbuffers::VOffsetT = 6;
+  pub const VT_STAGE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_TURNOUT: ::flatbuffers::VOffsetT = 10;
+  pub const VT_DISTRICTS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_ALLIANCES: ::flatbuffers::VOffsetT = 14;
+  pub const VT_CANDIDATES: ::flatbuffers::VOffsetT = 16;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    ElectionLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ElectionLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<ElectionLine<'bldr>> {
+    let mut builder = ElectionLineBuilder::new(_fbb);
+    if let Some(x) = args.candidates { builder.add_candidates(x); }
+    if let Some(x) = args.alliances { builder.add_alliances(x); }
+    if let Some(x) = args.districts { builder.add_districts(x); }
+    if let Some(x) = args.turnout { builder.add_turnout(x); }
+    if let Some(x) = args.stage { builder.add_stage(x); }
+    if let Some(x) = args.heading { builder.add_heading(x); }
+    builder.add_id(args.id);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ElectionLine::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn heading(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ElectionLine::VT_HEADING, None)}
+  }
+  #[inline]
+  pub fn stage(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ElectionLine::VT_STAGE, None)}
+  }
+  #[inline]
+  pub fn turnout(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ElectionLine::VT_TURNOUT, None)}
+  }
+  #[inline]
+  pub fn districts(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(ElectionLine::VT_DISTRICTS, None)}
+  }
+  #[inline]
+  pub fn alliances(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(ElectionLine::VT_ALLIANCES, None)}
+  }
+  #[inline]
+  pub fn candidates(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CandidateLine<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CandidateLine>>>>(ElectionLine::VT_CANDIDATES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for ElectionLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("heading", Self::VT_HEADING, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("stage", Self::VT_STAGE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("turnout", Self::VT_TURNOUT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("districts", Self::VT_DISTRICTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("alliances", Self::VT_ALLIANCES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CandidateLine>>>>("candidates", Self::VT_CANDIDATES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ElectionLineArgs<'a> {
+    pub id: u32,
+    pub heading: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub stage: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub turnout: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub districts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub alliances: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub candidates: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CandidateLine<'a>>>>>,
+}
+impl<'a> Default for ElectionLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ElectionLineArgs {
+      id: 0,
+      heading: None,
+      stage: None,
+      turnout: None,
+      districts: None,
+      alliances: None,
+      candidates: None,
+    }
+  }
+}
+
+pub struct ElectionLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ElectionLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(ElectionLine::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_heading(&mut self, heading: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ElectionLine::VT_HEADING, heading);
+  }
+  #[inline]
+  pub fn add_stage(&mut self, stage: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ElectionLine::VT_STAGE, stage);
+  }
+  #[inline]
+  pub fn add_turnout(&mut self, turnout: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ElectionLine::VT_TURNOUT, turnout);
+  }
+  #[inline]
+  pub fn add_districts(&mut self, districts: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ElectionLine::VT_DISTRICTS, districts);
+  }
+  #[inline]
+  pub fn add_alliances(&mut self, alliances: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ElectionLine::VT_ALLIANCES, alliances);
+  }
+  #[inline]
+  pub fn add_candidates(&mut self, candidates: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<CandidateLine<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ElectionLine::VT_CANDIDATES, candidates);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ElectionLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ElectionLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<ElectionLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for ElectionLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("ElectionLine");
+      ds.field("id", &self.id());
+      ds.field("heading", &self.heading());
+      ds.field("stage", &self.stage());
+      ds.field("turnout", &self.turnout());
+      ds.field("districts", &self.districts());
+      ds.field("alliances", &self.alliances());
+      ds.field("candidates", &self.candidates());
+      ds.finish()
+  }
+}
+pub enum CandidateLineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct CandidateLine<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for CandidateLine<'a> {
+  type Inner = CandidateLine<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> CandidateLine<'a> {
+  pub const VT_PERSON: ::flatbuffers::VOffsetT = 4;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 6;
+  pub const VT_DISTRICT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_TOLD: ::flatbuffers::VOffsetT = 10;
+  pub const VT_BACKED: ::flatbuffers::VOffsetT = 12;
+  pub const VT_VOTES: ::flatbuffers::VOffsetT = 14;
+  pub const VT_SEATED: ::flatbuffers::VOffsetT = 16;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    CandidateLine { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CandidateLineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<CandidateLine<'bldr>> {
+    let mut builder = CandidateLineBuilder::new(_fbb);
+    builder.add_person(args.person);
+    builder.add_votes(args.votes);
+    if let Some(x) = args.backed { builder.add_backed(x); }
+    if let Some(x) = args.told { builder.add_told(x); }
+    if let Some(x) = args.district { builder.add_district(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.add_seated(args.seated);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn person(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CandidateLine::VT_PERSON, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(CandidateLine::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn district(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(CandidateLine::VT_DISTRICT, None)}
+  }
+  #[inline]
+  pub fn told(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(CandidateLine::VT_TOLD, None)}
+  }
+  #[inline]
+  pub fn backed(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(CandidateLine::VT_BACKED, None)}
+  }
+  #[inline]
+  pub fn votes(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CandidateLine::VT_VOTES, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn seated(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(CandidateLine::VT_SEATED, Some(false)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for CandidateLine<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("person", Self::VT_PERSON, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("district", Self::VT_DISTRICT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("told", Self::VT_TOLD, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("backed", Self::VT_BACKED, false)?
+     .visit_field::<u32>("votes", Self::VT_VOTES, false)?
+     .visit_field::<bool>("seated", Self::VT_SEATED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CandidateLineArgs<'a> {
+    pub person: u64,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub district: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub told: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub backed: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub votes: u32,
+    pub seated: bool,
+}
+impl<'a> Default for CandidateLineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CandidateLineArgs {
+      person: 0,
+      name: None,
+      district: None,
+      told: None,
+      backed: None,
+      votes: 0,
+      seated: false,
+    }
+  }
+}
+
+pub struct CandidateLineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CandidateLineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_person(&mut self, person: u64) {
+    self.fbb_.push_slot::<u64>(CandidateLine::VT_PERSON, person, 0);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CandidateLine::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_district(&mut self, district: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CandidateLine::VT_DISTRICT, district);
+  }
+  #[inline]
+  pub fn add_told(&mut self, told: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CandidateLine::VT_TOLD, told);
+  }
+  #[inline]
+  pub fn add_backed(&mut self, backed: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CandidateLine::VT_BACKED, backed);
+  }
+  #[inline]
+  pub fn add_votes(&mut self, votes: u32) {
+    self.fbb_.push_slot::<u32>(CandidateLine::VT_VOTES, votes, 0);
+  }
+  #[inline]
+  pub fn add_seated(&mut self, seated: bool) {
+    self.fbb_.push_slot::<bool>(CandidateLine::VT_SEATED, seated, false);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CandidateLineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CandidateLineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<CandidateLine<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for CandidateLine<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("CandidateLine");
+      ds.field("person", &self.person());
+      ds.field("name", &self.name());
+      ds.field("district", &self.district());
+      ds.field("told", &self.told());
+      ds.field("backed", &self.backed());
+      ds.field("votes", &self.votes());
+      ds.field("seated", &self.seated());
       ds.finish()
   }
 }

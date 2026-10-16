@@ -371,6 +371,10 @@ pub const SCHEMA_V119: u32 = 119;
 pub const SCHEMA_V120: u32 = 120;
 /// Councils and their elections, before candidates' positions and faction slates.
 pub const SCHEMA_V121: u32 = 121;
+/// Candidates' positions and faction slates, before seats shared among settlements.
+pub const SCHEMA_V122: u32 = 122;
+/// Seats shared among settlements, before electoral alliances.
+pub const SCHEMA_V123: u32 = 123;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

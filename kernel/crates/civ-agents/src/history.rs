@@ -850,6 +850,9 @@ pub enum ChronicleKind {
     /// A council's election ended, its winners seated or failed (M7a slice BO): `people` is who
     /// were seated, `settlement` the polity's seat, `number` how many, and `name` the sentence.
     ElectionHeld,
+    /// Two factions' organizers agreed an alliance for an election (M7a slice BQ): `people` the
+    /// two organizers.
+    AllianceMade,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1506,7 +1509,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::Seceded
         | ChronicleKind::LotDrawn
         | ChronicleKind::ElectionCalled
-        | ChronicleKind::ElectionHeld => {
+        | ChronicleKind::ElectionHeld
+        | ChronicleKind::AllianceMade => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

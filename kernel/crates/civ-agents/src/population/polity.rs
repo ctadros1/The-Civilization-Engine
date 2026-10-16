@@ -98,6 +98,9 @@ pub(super) struct TradeForecast {
     /// each one's id, purpose, those households in order, and whether a law in force of the
     /// polity recognizes it.
     orgs: Vec<(PermanentId, GoodUse, Vec<PermanentId>, bool)>,
+    /// Sales at the settlement's own doors within a year (M7c slice BX): (the selling household,
+    /// a workshop's owner for a workshop's, the buying household, good, units).
+    home: Vec<(PermanentId, PermanentId, usize, f64)>,
 }
 
 impl TradeForecast {
@@ -193,6 +196,63 @@ impl TradeForecast {
             })
             .sum();
         (back, lost)
+    }
+
+    /// What a privilege `def` for organization `org` would bring household `h` a year, kcal
+    /// (M7c slice BX), and what it would cost it, at the market's margin (a design prior, as for
+    /// an embargo). A licence: an organization's member that offers such goods gets its share of
+    /// the sales at home others made; another that sells them loses its own sales, and a buyer
+    /// pays the margin on what it bought from others (fewer sellers, dearer). A staple: a member
+    /// that offers them gets its share of what others who offer them fetched from elsewhere;
+    /// those others lose the margin on it.
+    fn privilege(
+        &self,
+        h: PermanentId,
+        org: PermanentId,
+        def: crate::polity::PrivilegeDef,
+        margin: f64,
+    ) -> (f64, f64) {
+        let Some((_, _, members, _)) = self.orgs.iter().find(|o| o.0 == org) else {
+            return (0.0, 0.0);
+        };
+        let member = |x: PermanentId| members.binary_search(&x).is_ok();
+        let of = |g: usize| self.purpose.get(g) == Some(&def.purpose);
+        let member_sellers = members
+            .iter()
+            .filter(|&&m| self.sells(m, def.purpose))
+            .count()
+            .max(1) as f64;
+        let shares = member(h) && self.sells(h, def.purpose);
+        let (mut gain, mut cost) = (0.0, 0.0);
+        match def.grant {
+            crate::polity::Grant::Licence => {
+                for &(seller, buyer, g, units) in
+                    self.home.iter().filter(|s| of(s.2) && !member(s.0))
+                {
+                    let v = units * self.unit(h, g) * margin;
+                    if shares {
+                        gain += v / member_sellers;
+                    }
+                    if seller == h || buyer == h {
+                        cost += v;
+                    }
+                }
+            }
+            crate::polity::Grant::Staple => {
+                for b in self.away.iter().filter(|b| {
+                    of(b.good) && !member(b.household) && self.sells(b.household, def.purpose)
+                }) {
+                    let v = b.units * self.unit(h, b.good) * margin;
+                    if shares {
+                        gain += v / member_sellers;
+                    }
+                    if b.household == h {
+                        cost += v;
+                    }
+                }
+            }
+        }
+        (gain, cost)
     }
 
     /// What recognizing organization `org` would bring household `h` a year, kcal (M7c slice
@@ -515,6 +575,18 @@ impl Forecasts {
                 let (gain, cost) = self.trade.recognize(h, org);
                 crate::polity::kept_gain(o, gain, pp) - crate::polity::levy_cost(o, cost, pp)
             }
+            Some(PolicyKind::Privilege) => {
+                let (Some(org), Some(def)) = (
+                    m.target,
+                    policies
+                        .get(usize::from(m.policy))
+                        .and_then(|d| d.privilege),
+                ) else {
+                    return 0.0;
+                };
+                let (gain, cost) = self.trade.privilege(h, org, def, params.market.margin);
+                crate::polity::kept_gain(o, gain, pp) - crate::polity::levy_cost(o, cost, pp)
+            }
             // An amendment's gain is judged from decisions seen, and an end to a law from that
             // law, kept (M4c slices AF, AI): neither forecasts anything of its own.
             Some(PolicyKind::AmendBody | PolicyKind::Repeal) => 0.0,
@@ -649,6 +721,9 @@ impl Population {
                 self.review(ctx, pi);
                 // Whether anyone bound by a law a limit forbids challenges it (M7b slice BT).
                 self.weigh_challenges(ctx, pi);
+                // Whether a member of an organization brings a breach of its privilege (M7c
+                // slice BX).
+                self.weigh_breaches(ctx, pi);
                 // Terms with another polity are sought when nothing was put to the gathering
                 // (M5c slice AU).
                 self.seek_terms(ctx, pi);
@@ -1671,7 +1746,10 @@ impl Population {
         let has = ctx.catalog.policies.iter().any(|d| {
             matches!(
                 d.kind,
-                PolicyKind::Duty | PolicyKind::Embargo | PolicyKind::Recognize
+                PolicyKind::Duty
+                    | PolicyKind::Embargo
+                    | PolicyKind::Recognize
+                    | PolicyKind::Privilege
             )
         });
         if !has {
@@ -1681,10 +1759,41 @@ impl Population {
             self.polities[pi].settlement,
             ctx.now.day_index() - DAYS_PER_YEAR,
         );
-        if away.is_empty() {
+        // Sales at home, of goods some privilege in the content is over (M7c slice BX).
+        let privileged: Vec<GoodUse> = ctx
+            .catalog
+            .policies
+            .iter()
+            .filter_map(|d| d.privilege.map(|g| g.purpose))
+            .collect();
+        let since = ctx.now.day_index() - DAYS_PER_YEAR;
+        let home: Vec<(PermanentId, PermanentId, usize, f64)> = self
+            .market(self.polities[pi].settlement)
+            .map(|m| {
+                m.recent
+                    .iter()
+                    .filter(|t| t.at.day_index() >= since)
+                    .filter(|t| {
+                        ctx.catalog
+                            .goods
+                            .get(usize::from(t.good))
+                            .is_some_and(|g| privileged.contains(&g.purpose))
+                    })
+                    .map(|t| {
+                        let seller = self.firm(t.seller).map_or(t.seller, |f| f.owner);
+                        (seller, t.buyer, usize::from(t.good), f64::from(t.units))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        if away.is_empty() && home.is_empty() {
             return TradeForecast::default();
         }
-        let mut goods: Vec<usize> = away.iter().map(|b| b.good).collect();
+        let mut goods: Vec<usize> = away
+            .iter()
+            .map(|b| b.good)
+            .chain(home.iter().map(|s| s.2))
+            .collect();
         goods.sort_unstable();
         goods.dedup();
         let mut unit = Vec::new();
@@ -1772,6 +1881,7 @@ impl Population {
             households: hs.len(),
             duties,
             orgs,
+            home,
         }
     }
 
@@ -2146,8 +2256,9 @@ impl Population {
                     return true;
                 }
                 // Another recognition, of an organization none in force recognizes (M7c slice
-                // BW).
-                if d.kind == PolicyKind::Recognize {
+                // BW), and another privilege, for one none in force of its template names (M7c
+                // slice BX).
+                if matches!(d.kind, PolicyKind::Recognize | PolicyKind::Privilege) {
                     return true;
                 }
                 // Another bank once none is being built (M6b slice BG: `public_bank` holds to
@@ -2616,6 +2727,36 @@ impl Population {
                                     target: Some(org),
                                     ..blank
                                 });
+                            }
+                        }
+                    }
+                    // A privilege, with each bundle a finding of a breach may impose, for each
+                    // organization by stake of the template's purpose someone of the
+                    // deliberator's household belongs to, that the polity recognizes and that no
+                    // law in force of the template names (M7c slice BX).
+                    PolicyKind::Privilege => {
+                        let Some(g) = def.privilege else {
+                            continue;
+                        };
+                        for org in self.stake_organizations_of(own) {
+                            let fits = self
+                                .factions
+                                .get(org)
+                                .and_then(|f| f.stake)
+                                .is_some_and(|s| s.purpose == g.purpose);
+                            let held = self.polities[pi].laws.iter().any(|l| {
+                                l.policy == k
+                                    && l.status == LawStatus::InForce
+                                    && l.target == Some(org)
+                            });
+                            if fits && !held && self.recognizes(pi, org) {
+                                for &sanction in &def.bundles {
+                                    moves.push(MoveOption {
+                                        target: Some(org),
+                                        sanction,
+                                        ..blank
+                                    });
+                                }
                             }
                         }
                     }
@@ -4124,6 +4265,7 @@ mod tests {
             households: 3,
             duties: Vec::new(),
             orgs: Vec::new(),
+            home: Vec::new(),
         };
         // A duty of a quarter: the buyer owes 500 kcal and gets its share of what the store takes
         // (750 / 3); the seller gets back a quarter of the three bought, at its margin of a fifth
@@ -4158,5 +4300,28 @@ mod tests {
         // Once recognized, the buyer's household owes the duty nothing.
         t.orgs[0].3 = true;
         assert_eq!(t.duty(buyer, 0.25, GoodUse::Tool, false, 0.2).1, 0.0);
+        // A licence for an organization the seller belongs to: at home the other household sold
+        // 4 sickles to the buyer, which the seller gets the margin on (800), and which costs the
+        // other household its sales and the buyer what it bought (800 each). A staple: the
+        // seller gets the margin on what the other, which also offers tools, fetched (one
+        // sickle: 200), which costs that other as much.
+        use crate::polity::{Grant, PrivilegeDef};
+        t.orgs = vec![(org, GoodUse::Tool, vec![seller], true)];
+        t.home = vec![(other, buyer, 0, 4.0)];
+        let licence = PrivilegeDef {
+            grant: Grant::Licence,
+            purpose: GoodUse::Tool,
+        };
+        assert_eq!(t.privilege(seller, org, licence, 0.2), (800.0, 0.0));
+        assert_eq!(t.privilege(other, org, licence, 0.2), (0.0, 800.0));
+        assert_eq!(t.privilege(buyer, org, licence, 0.2), (0.0, 800.0));
+        t.sellers.push((other, GoodUse::Tool));
+        let staple = PrivilegeDef {
+            grant: Grant::Staple,
+            ..licence
+        };
+        assert_eq!(t.privilege(seller, org, staple, 0.2), (200.0, 0.0));
+        assert_eq!(t.privilege(other, org, staple, 0.2), (0.0, 200.0));
+        assert_eq!(t.privilege(buyer, org, staple, 0.2), (0.0, 0.0));
     }
 }

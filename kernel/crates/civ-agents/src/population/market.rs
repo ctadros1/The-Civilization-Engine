@@ -410,6 +410,14 @@ impl Population {
             }
             // What it might fetch from elsewhere to sell at home (M5b slice AQ, ADR-0019 §6).
             let errand = self.plan_errand(ctx, hh, &stores, &costs, &holding, &offered);
+            // A privilege that binds it, kept, withdraws the offers it covers, and one who keeps
+            // a staple fetches no such goods to sell (M7c slice BX).
+            let (rows, staples) = self.keep_privileges(ctx, id, rows);
+            let errand = errand.filter(|e| {
+                goods
+                    .get(usize::from(e.good))
+                    .is_none_or(|d| !staples.contains(&d.purpose))
+            });
             if let Some(x) = self.household_mut_by_id(id) {
                 x.offers = rows;
             }

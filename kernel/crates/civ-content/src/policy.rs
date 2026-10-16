@@ -96,6 +96,21 @@ pub(crate) struct PolicyFile {
     /// `levy_shares`.
     #[serde(default)]
     pub duty: Option<DutyFile>,
+    /// For a privilege (`privilege`, content API 116, M7c slice BX): what it grants. Its
+    /// `bundles` are what a finding of a breach imposes.
+    #[serde(default)]
+    pub privilege: Option<PrivilegeFile>,
+}
+
+/// A privilege's terms in a policy file (content API 116, M7c slice BX).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct PrivilegeFile {
+    /// `licence` (the sole right to offer the goods at doors in the settlement) or `staple` (the
+    /// sole right to sell there such goods fetched from another settlement).
+    pub grant: String,
+    /// The purpose of the goods: `food`, `fuel`, `material`, `tool` or `store`.
+    pub purpose: String,
 }
 
 /// A duty's terms in a policy file (content API 114, M7c slice BV).
@@ -315,6 +330,12 @@ impl PolicyFile {
                     review: f.review,
                 })
             }),
+            privilege: self.privilege.as_ref().and_then(|g| {
+                Some(civ_agents::polity::PrivilegeDef {
+                    grant: civ_agents::polity::Grant::from_name(&g.grant)?,
+                    purpose: civ_agents::params::GoodUse::from_name(&g.purpose)?,
+                })
+            }),
             duty: self.duty.as_ref().and_then(|d| {
                 Some(civ_agents::polity::DutyDef {
                     purpose: civ_agents::params::GoodUse::from_name(&d.purpose)?,
@@ -445,10 +466,14 @@ impl PolicyFile {
                 for h in &f.hears {
                     if !matches!(
                         PolicyKind::from_name(h),
-                        Some(PolicyKind::AgainstTaking | PolicyKind::AgainstRaiding)
+                        Some(
+                            PolicyKind::AgainstTaking
+                                | PolicyKind::AgainstRaiding
+                                | PolicyKind::Privilege
+                        )
                     ) {
                         p.push(format!(
-                            "`forum.hears` names `{h}`; cases are brought under `against_taking` and `against_raiding`"
+                            "`forum.hears` names `{h}`; cases are brought under `against_taking`, `against_raiding` and `privilege`"
                         ));
                     }
                 }
@@ -470,6 +495,29 @@ impl PolicyFile {
                 p.push("a `hear_cases` template needs a `forum` table".to_owned());
             }
             (Some(_), _) => p.push("`forum` is for `does = \"hear_cases\"`".to_owned()),
+            (None, _) => {}
+        }
+        // A privilege's terms (M7c slice BX): only for `privilege`, which must have them.
+        match (&self.privilege, PolicyKind::from_name(&self.does)) {
+            (Some(g), Some(PolicyKind::Privilege)) => {
+                if civ_agents::polity::Grant::from_name(&g.grant).is_none() {
+                    p.push(format!(
+                        "`privilege.grant` must be `licence` or `staple` (got `{}`)",
+                        g.grant
+                    ));
+                }
+                if civ_agents::params::GoodUse::from_name(&g.purpose).is_none() {
+                    p.push(format!(
+                        "`privilege.purpose` must be `food`, `fuel`, `material`, `tool` or \
+                         `store` (got `{}`)",
+                        g.purpose
+                    ));
+                }
+            }
+            (None, Some(PolicyKind::Privilege)) => {
+                p.push("a `privilege` template needs a `privilege` table".to_owned());
+            }
+            (Some(_), _) => p.push("`privilege` is for `does = \"privilege\"`".to_owned()),
             (None, _) => {}
         }
         // A duty's terms (M7c slice BV): only for `duty`, which must have them.
@@ -618,7 +666,10 @@ impl PolicyFile {
                     k.name()
                 ));
             }
-            Some(k @ (PolicyKind::AgainstTaking | PolicyKind::AgainstRaiding)) => {
+            Some(
+                k
+                @ (PolicyKind::AgainstTaking | PolicyKind::AgainstRaiding | PolicyKind::Privilege),
+            ) => {
                 if !self.levy_shares.is_empty() || self.relief_days != 0.0 {
                     p.push(format!(
                         "an `{}` policy levies nothing: leave out `levy_shares` and \
@@ -794,10 +845,13 @@ impl PolicyFile {
         }
         if !matches!(
             PolicyKind::from_name(&self.does),
-            Some(PolicyKind::AgainstTaking | PolicyKind::AgainstRaiding)
+            Some(PolicyKind::AgainstTaking | PolicyKind::AgainstRaiding | PolicyKind::Privilege)
         ) && !self.bundles.is_empty()
         {
-            p.push("only an `against_taking` or `against_raiding` policy has `bundles`".to_owned());
+            p.push(
+                "only an `against_taking`, `against_raiding` or `privilege` policy has `bundles`"
+                    .to_owned(),
+            );
         }
         match (PolicyKind::from_name(&self.does), &self.rule) {
             (Some(PolicyKind::BuildingRule), None) => {
@@ -880,6 +934,7 @@ mod tests {
             forum: None,
             limit: None,
             duty: None,
+            privilege: None,
         }
     }
 
@@ -906,6 +961,7 @@ mod tests {
             forum: None,
             limit: None,
             duty: None,
+            privilege: None,
             ..file()
         };
         let roofs = roofs_with(Some(rule("roofs_unburnt", 4.0)));
@@ -941,6 +997,7 @@ mod tests {
             forum: None,
             limit: None,
             duty: None,
+            privilege: None,
             ..file()
         };
         assert!(

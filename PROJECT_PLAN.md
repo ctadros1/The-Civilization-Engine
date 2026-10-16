@@ -3295,6 +3295,39 @@ and M6a gives rivers a daily flow.
         logged. **Not yet built:** admission by a fee; a privilege (BX).
     - **BX**: privileges and the barred: licence and staple, breaches brought as cases, the
       barred exit, the drag measures.
+      - *As built (2026-10-16):* a policy kind *privilege* (content API 116, save schema 130:
+        policy code 24, firm exit 4) with a `[privilege]` table: `grant` (`licence`: the sole right
+        to offer goods of its `purpose` at doors in the settlement; `staple`: the sole right to
+        sell there such goods fetched from another settlement) and the `bundles` a finding of a
+        breach imposes. Its law names an organization by stake (its target). The move is open to a
+        deliberator whose household belongs to an organization of the template's purpose that the
+        polity recognizes and that no law of the template names, once for each bundle. Each
+        household forecasts it from the trades on record at the market's margin (a design
+        prior): for a licence, a member that offers such goods gets its share of the sales at
+        home others made, another seller loses its own, and a buyer pays the margin on what it
+        bought from others; for a staple, a member gets its share of what others who offer such
+        goods fetched elsewhere, and they lose it. A household none of whose people belong weighs
+        a privilege that binds it when it reviews its offers, and its workshops' (its elder, if
+        they know the law: the norms they hold, their stance and their regard for its sponsor
+        against what the covered offers would bring, as a levy is weighed); kept, the covered
+        offers are withdrawn, and one keeping a staple fetches no such goods to sell; each
+        weighing counts in the law's compliance (kept, broken, broken unaware). A breach is an
+        offer standing at a door. At the polity's review each grown member of the organization
+        weighs bringing it, U = V − C (research 09-07 §4.1: V the bundle's compensation and their
+        share of what the breach's offers would bring, in days of their food; C the cost of a
+        case and their regard for the breaching household's elder); the one with most to gain
+        brings it, and the gathering, or a forum whose `hears` includes `privilege` (the elders'
+        and the panel's now do), hears it as a case: everyone saw the offer, so every sitter
+        believes it was made, and stake and regard decide. A finding imposes the bundle (fine to
+        the store, compensation to the household that brought it). A workshop given up while a
+        licence binding its owners covers what it makes, holding such goods and offering none, is
+        given up `Barred`. The core adds `core:policy/licence_tools` and
+        `core:policy/staple_tools`. The government panel names the organization a privilege is
+        for, and an organization's line says, for each privilege, how often it was kept and
+        broken, the cases brought and found, and the workshops given up as barred: the drag,
+        measured, not set. **Not yet built:** protected prices against the neighbour's door (BZ's
+        capture sentences); selling through a member and hired work as recorded responses (they
+        happen, unlabelled); a licence as an asset, transfer or lease.
     - **BY**: corruption and patronage: the keeper's diversion and relief by favour, the
       collector, patron gifts and what a client owes.
     - **BZ**: closure by amendment, capture diagnostics in sentences, the M7c demo (time-boxed,

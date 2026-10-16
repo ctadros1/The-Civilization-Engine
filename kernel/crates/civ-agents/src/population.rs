@@ -73,6 +73,7 @@ pub use crime::TakeProbe;
 pub use payments::Burden;
 mod places;
 mod polity;
+mod privileges;
 mod relations;
 mod residence;
 mod rules;

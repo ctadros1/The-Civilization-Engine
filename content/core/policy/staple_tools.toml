@@ -1,0 +1,32 @@
+# A staple on tools (M7c slice BX, ADR-0026 §3; research 08-17 §1.5). It grants the organization
+# of tool sellers it names, which the polity must already recognize, the sole right to sell in
+# the settlement tools fetched from another: others may still make and sell their own, and fetch
+# tools for their own use. A household none of whose people belong weighs keeping it when it
+# reviews what it offers, as a levy is weighed; kept, it withdraws the fetched tools it offered
+# and fetches no more to sell. A breach is an offer at a door, which every buyer sees, and
+# becomes a case only if a member brings it. The bundles are in days of the breaching
+# household's food; tuning values, not historical rates.
+kind = "policy"
+id = "core:policy/staple_tools"
+name = "Staple on tools"
+description = "Only the organization of tool sellers it names may sell here tools fetched from another settlement."
+does = "privilege"
+answers = ["fetched_elsewhere"]
+question = "whether only an organization of tool sellers may sell tools fetched from elsewhere"
+
+[privilege]
+grant = "staple"
+purpose = "tool"
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/autonomy" = -0.75
+"core:value/reciprocity" = 0.25
+
+[[bundles]]
+compensation_days = 0.0
+fine_days = 2.0
+
+[[bundles]]
+compensation_days = 3.0
+fine_days = 2.0

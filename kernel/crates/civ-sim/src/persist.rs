@@ -385,6 +385,8 @@ pub const SCHEMA_V126: u32 = 126;
 pub const SCHEMA_V127: u32 = 127;
 /// Trade laws, before organizations by stake.
 pub const SCHEMA_V128: u32 = 128;
+/// Organizations by stake, before privileges.
+pub const SCHEMA_V129: u32 = 129;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

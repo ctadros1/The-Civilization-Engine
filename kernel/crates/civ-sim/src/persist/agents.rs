@@ -120,7 +120,8 @@ use super::{
     SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
-    SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, finish, section, single_chunk, unreadable,
+    SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, finish, section, single_chunk,
+    unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -583,6 +584,8 @@ enum Schema {
     /// Organizations by stake (M7c slice BW: `FactionSave.has_stake` and its rules, events 3-4,
     /// `Blamed` kind 5, `Wrong` code 10).
     V129,
+    /// Privileges (M7c slice BX: policy kind code 24, firm exit 4).
+    V130,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -726,7 +729,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V126 => Schema::V126,
         SCHEMA_V127 => Schema::V127,
         SCHEMA_V128 => Schema::V128,
-        SAVE_SCHEMA_VERSION => Schema::V129,
+        SCHEMA_V129 => Schema::V129,
+        SAVE_SCHEMA_VERSION => Schema::V130,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -4359,7 +4363,8 @@ fn carried(
         | Schema::V126
         | Schema::V127
         | Schema::V128
-        | Schema::V129 => {
+        | Schema::V129
+        | Schema::V130 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4661,7 +4666,8 @@ fn decode_households(
             | Schema::V126
             | Schema::V127
             | Schema::V128
-            | Schema::V129 => {
+            | Schema::V129
+            | Schema::V130 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

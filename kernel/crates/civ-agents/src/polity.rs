@@ -124,11 +124,17 @@ pub enum PolicyKind {
     /// the polity's duties on goods of the organization's purpose; privileges follow in BX. It
     /// ends with the organization.
     Recognize,
+    /// A privilege (M7c slice BX, ADR-0026 §3): the organization it names (its target) alone may
+    /// offer goods of its template's purpose at doors in the settlement (a licence), or alone may
+    /// sell there such goods fetched from another settlement (a staple). Keeping it is each
+    /// seller's choice; a breach is an offer at a door, which becomes a case only if someone
+    /// brings it, and a finding imposes the template's bundle.
+    Privilege,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 24] = [
+    pub const ALL: [PolicyKind; 25] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -153,6 +159,7 @@ impl PolicyKind {
         PolicyKind::Duty,
         PolicyKind::Embargo,
         PolicyKind::Recognize,
+        PolicyKind::Privilege,
     ];
 
     /// The authored name.
@@ -182,6 +189,7 @@ impl PolicyKind {
             PolicyKind::Duty => "duty",
             PolicyKind::Embargo => "embargo",
             PolicyKind::Recognize => "recognize",
+            PolicyKind::Privilege => "privilege",
         }
     }
 
@@ -467,6 +475,8 @@ pub struct PolicyDef {
     pub limit: Option<crate::forum::LimitDef>,
     /// For a duty: what it is laid on (M7c slice BV, ADR-0026 §1).
     pub duty: Option<DutyDef>,
+    /// For a privilege: what it grants (M7c slice BX, ADR-0026 §3).
+    pub privilege: Option<PrivilegeDef>,
 }
 
 /// What a duty is laid on (M7c slice BV, ADR-0026 §1): goods of one purpose bought at another
@@ -489,6 +499,54 @@ impl DutyDef {
                 ""
             }
         )
+    }
+}
+
+/// What a privilege grants (M7c slice BX, ADR-0026 §3). Codes are part of saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Grant {
+    /// The sole right to offer goods of its purpose at doors in the settlement.
+    Licence = 0,
+    /// The sole right to sell in the settlement goods of its purpose fetched from another.
+    Staple = 1,
+}
+
+impl Grant {
+    /// Every grant, in code order.
+    pub const ALL: [Grant; 2] = [Grant::Licence, Grant::Staple];
+
+    /// The authored name.
+    pub fn name(self) -> &'static str {
+        match self {
+            Grant::Licence => "licence",
+            Grant::Staple => "staple",
+        }
+    }
+
+    /// The grant with an authored name.
+    pub fn from_name(name: &str) -> Option<Grant> {
+        Grant::ALL.into_iter().find(|g| g.name() == name)
+    }
+}
+
+/// A privilege's terms (M7c slice BX, ADR-0026 §3): what it grants, over goods of one purpose.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PrivilegeDef {
+    pub grant: Grant,
+    pub purpose: crate::params::GoodUse,
+}
+
+impl PrivilegeDef {
+    /// What it grants, in words after "an organization alone": "may offer tools at doors here",
+    /// "may sell here tools fetched from another settlement".
+    pub fn words(&self) -> String {
+        match self.grant {
+            Grant::Licence => format!("may offer {} at doors here", self.purpose.plural_words()),
+            Grant::Staple => format!(
+                "may sell here {} fetched from another settlement",
+                self.purpose.plural_words()
+            ),
+        }
     }
 }
 
@@ -1278,6 +1336,13 @@ pub fn law_words(
         return "an embargo: nobody of theirs may buy at the doors of another settlement"
             .to_owned();
     }
+    // A privilege (M7c slice BX): what it grants, without the organization at hand.
+    if let Some(g) = def
+        .filter(|d| d.kind == PolicyKind::Privilege)
+        .and_then(|d| d.privilege.as_ref())
+    {
+        return format!("a privilege: an organization alone {}", g.words());
+    }
     // Without the organization at hand (see [`Polity::words_of`]), only what it does.
     if def.is_some_and(|d| d.kind == PolicyKind::Recognize) {
         return "recognition of an organization: its members owe no duty on the goods it sells"
@@ -1440,6 +1505,7 @@ pub fn ending_words(
         Some(PolicyKind::Duty) => "the duty on goods bought elsewhere".to_owned(),
         Some(PolicyKind::Embargo) => "the embargo".to_owned(),
         Some(PolicyKind::Recognize) => "the recognition of an organization".to_owned(),
+        Some(PolicyKind::Privilege) => "the privilege of an organization".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -2667,6 +2733,7 @@ pub(crate) mod tests {
             forum: None,
             limit: None,
             duty: None,
+            privilege: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -2779,6 +2846,7 @@ pub(crate) mod tests {
             forum: None,
             limit: None,
             duty: None,
+            privilege: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -2999,6 +3067,7 @@ pub(crate) mod tests {
             forum: None,
             limit: None,
             duty: None,
+            privilege: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

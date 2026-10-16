@@ -14,7 +14,7 @@ question = "whether a few drawn by lot should hear the cases brought"
 [forum]
 seat = "panel"
 panel = 5
-hears = ["against_taking", "against_raiding"]
+hears = ["against_taking", "against_raiding", "privilege"]
 # Those drawn follow no finding but as they believe it (content API 111, M7b slice BS).
 authority = "informative"
 quorum_share = 0.5

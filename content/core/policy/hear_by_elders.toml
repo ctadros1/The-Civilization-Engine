@@ -13,7 +13,7 @@ question = "whether the elders should hear the cases brought"
 
 [forum]
 seat = "elders"
-hears = ["against_taking", "against_raiding"]
+hears = ["against_taking", "against_raiding", "privilege"]
 # The elders lean toward the findings they remember of the same facts (content API 111, M7b
 # slice BS, ADR-0025 §2: authority as the forum's value).
 authority = "persuasive"

@@ -84,6 +84,35 @@ pub fn law_text(
             super::sickness::place_words(sim, source)
         );
     }
+    // What names an organization or a settlement says which (M7c slices BV-BX).
+    let org = || {
+        law.target
+            .and_then(|t| sim.people.factions.get(t))
+            .map_or_else(|| "an organization".to_owned(), |f| faction_name(sim, f))
+    };
+    let def = sim.rules.catalog.policies.get(usize::from(law.policy));
+    match law.kind {
+        civ_agents::polity::PolicyKind::Recognize => {
+            return format!(
+                "recognition of {}: its members owe no duty on the goods it sells",
+                org()
+            );
+        }
+        civ_agents::polity::PolicyKind::Privilege => {
+            if let Some(g) = def.and_then(|d| d.privilege) {
+                return format!("a privilege: {} alone {}", org(), g.words());
+            }
+        }
+        civ_agents::polity::PolicyKind::Embargo => {
+            if let Some(t) = law.target {
+                return format!(
+                    "an embargo: nobody of theirs may buy at {}'s doors",
+                    place_name(sim, t)
+                );
+            }
+        }
+        _ => {}
+    }
     polity.words_of(law, &sim.rules.catalog.policies, &|id| {
         sim.people.name_of(id)
     })

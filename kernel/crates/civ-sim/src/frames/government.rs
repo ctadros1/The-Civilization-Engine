@@ -230,7 +230,11 @@ fn organization_words(
         st.decides.words(),
         civ_agents::polity::share_text(f64::from(st.dues_share)),
     );
-    let recognized = super::word::recognized_words(sim, f.id);
+    let recognized = format!(
+        "{}{}",
+        super::word::recognized_words(sim, f.id),
+        privilege_words(sim, f.id)
+    );
     if let Some(end) = f.ended {
         return format!(
             "{of}, from {since} until {}, when its last member left{recognized}",
@@ -276,6 +280,67 @@ fn organization_words(
         pop.name_of(f.organizer),
         store_words(sim, &f.stores)
     )
+}
+
+/// The privileges in force for organization `org` in words, after what it is (M7c slice BX,
+/// ADR-0026 §3: drag measured, never set): what each grants and where, how often those it binds
+/// kept it and broke it, the cases its members brought and found, and the workshops given up as
+/// barred: "; at Oakholt it alone may offer tools at doors here: kept 3 times and broken 2; 1 case
+/// brought, 1 found; 1 workshop given up, barred", or nothing.
+fn privilege_words(sim: &Sim, org: PermanentId) -> String {
+    use civ_agents::crime::CaseStage;
+    use civ_agents::polity::{LawStatus, PolicyKind};
+    let pop = &sim.people;
+    let mut out = String::new();
+    for p in &pop.polities {
+        for l in p.laws.iter().filter(|l| {
+            l.kind == PolicyKind::Privilege
+                && l.status == LawStatus::InForce
+                && l.target == Some(org)
+        }) {
+            let Some(g) = sim
+                .rules
+                .catalog
+                .policies
+                .get(usize::from(l.policy))
+                .and_then(|d| d.privilege)
+            else {
+                continue;
+            };
+            let c = l.compliance;
+            let cases: Vec<_> = pop.order.cases.iter().filter(|x| x.law == l.id).collect();
+            let found = cases.iter().filter(|x| x.stage == CaseStage::Found).count();
+            let since = l.decided.unwrap_or(l.proposed);
+            let barred = pop
+                .firms
+                .iter()
+                .filter(|f| p.holds(f.settlement))
+                .filter(|f| {
+                    f.closed.is_some_and(|(at, why)| {
+                        why == civ_agents::firm::Exit::Barred && at >= since
+                    })
+                })
+                .count();
+            out.push_str(&format!(
+                "; at {} it alone {}: kept {} time{} and broken {}; {} case{} brought, {} found",
+                settlement_name(sim, p.settlement),
+                g.words(),
+                c.complied,
+                if c.complied == 1 { "" } else { "s" },
+                c.broken + c.broken_unaware,
+                cases.len(),
+                if cases.len() == 1 { "" } else { "s" },
+                found
+            ));
+            if barred > 0 {
+                out.push_str(&format!(
+                    "; {barred} workshop{} given up, barred",
+                    if barred == 1 { "" } else { "s" }
+                ));
+            }
+        }
+    }
+    out
 }
 
 /// The petitions of `settlement` in words (wire 1.41, ADR-0017 §3), newest first: "Mira's

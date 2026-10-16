@@ -687,6 +687,15 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 116 (M7c slice BX, ADR-0026 §3) brings privileges. A policy may `does = "privilege"`
+with a `[privilege]` table, `grant` (`licence`: the sole right to offer goods of its `purpose` at
+doors in the settlement; `staple`: the sole right to sell there such goods fetched from another
+settlement) and `purpose` (`food`, `fuel`, `material`, `tool` or `store`), and the `bundles` a
+finding of a breach imposes (as a law against taking's, its compensation going to the household
+that brought the case). It names a recognized organization when proposed. A forum's `hears` may
+name `privilege`. The core adds `core:policy/licence_tools` and `core:policy/staple_tools`, and the
+elders and the panel hear privileges.
+
 Content API 115 (M7c slice BW, ADR-0026 §2) brings organizations by stake and their recognition.
 The people profile's `[faction]` table adds `organize_days` (the cost of organizing, in days of the
 founder's household's food), `w_stake` (the points a duty worth that much a year brings, and what

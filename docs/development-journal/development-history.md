@@ -2462,3 +2462,20 @@ A second run with one more prior nudged by hand (objection to taking weighed a q
 curfew in one world before a rare flood emptied it. Recorded as the demo's outcome
 (`demos/m7b/m7b-demo.txt`); nothing was forced, and the spec's pictures wait for a world that
 reaches a ruling.
+
+## 2026-10-16 — BX: privileges and the barred
+
+**Built:** ADR-0026 §3. A *privilege* law grants a recognized organization a licence (the sole
+right to offer goods of a purpose at doors in the settlement) or a staple (the sole right to sell
+there such goods fetched elsewhere). Households outside it weigh keeping it at each review of
+their offers, as they weigh a levy: kept, the covered offers are withdrawn; broken, they stand at
+the door. A member weighs bringing a breach as a case, heard by the gathering or a forum that
+hears privileges, and a finding imposes the law's bundle. A workshop given up while its owners
+keep a licence over what it makes is given up barred. The organization's line in the government
+panel counts kept, broken, cases and barred workshops. Content API 116, save schema 130.
+
+**Evidence:** `tests/privilege.rs` (a licence kept or broken by one outside the organization,
+and broken unawares by one who never heard of it; a breach brought by a member and heard; a
+workshop holding sickles and offering none given up as barred; a world with a privilege saves and
+loads exactly); the forecast's unit test (a licence and a staple, for a member, a rival seller and
+a buyer, by hand).

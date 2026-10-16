@@ -247,6 +247,7 @@ pub fn heard_words(def: &ForumDef) -> String {
         .filter_map(|k| match k {
             PolicyKind::AgainstTaking => Some("against taking"),
             PolicyKind::AgainstRaiding => Some("against raiding"),
+            PolicyKind::Privilege => Some("granting privileges"),
             _ => None,
         })
         .collect();

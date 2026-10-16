@@ -339,7 +339,8 @@ impl Population {
             .cases
             .iter()
             .filter(|c| c.stage == CaseStage::Open && c.forum.is_some() && c.opened < day)
-            .filter(|c| c.challenge.is_none())
+            // A challenge or a breach of a privilege has nothing taken to give back.
+            .filter(|c| c.challenge.is_none() && c.incident != 0)
             .map(|c| c.id)
             .collect();
         for id in due {
@@ -694,8 +695,19 @@ impl Population {
         }
     }
 
-    /// Law `law_id` of polity `pi`, in words.
-    fn law_words_of(&self, ctx: &Ctx, pi: usize, law_id: PermanentId) -> String {
+    /// Law `law_id` of polity `pi`, in words; a privilege names its organization (M7c slice BX).
+    pub(super) fn law_words_of(&self, ctx: &Ctx, pi: usize, law_id: PermanentId) -> String {
+        let law = self.polities[pi].laws.iter().find(|l| l.id == law_id);
+        if let Some((org, def)) = law.and_then(|l| {
+            let def = ctx.catalog.policies.get(usize::from(l.policy))?.privilege?;
+            Some((self.factions.get(l.target?)?, def))
+        }) {
+            return format!(
+                "{}'s organization's privilege (it alone {})",
+                self.name_of(org.founder),
+                def.words()
+            );
+        }
         self.polities[pi]
             .laws
             .iter()
@@ -1088,6 +1100,17 @@ impl Population {
             .find(|l| l.id == c.law)
             .map(|l| l.sanction)
             .unwrap_or_default();
+        // A breach of a privilege (M7c slice BX): an offer at a door, which everyone saw.
+        let breach = self.polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == c.law)
+            .is_some_and(|l| l.kind == PolicyKind::Privilege);
+        let breach_words = if breach {
+            self.law_words_of(ctx, pi, c.law)
+        } else {
+            String::new()
+        };
         let need_of = |h: PermanentId| {
             self.household(h).map_or(1, |x| x.members.len().max(1)) as f64
                 * params.household.daily_kcal_per_person
@@ -1149,10 +1172,11 @@ impl Population {
                 } else {
                     0.0
                 };
-                let believes = self
-                    .order
-                    .belief(p, c.incident)
-                    .is_some_and(|b| b.taker == Some(c.accused));
+                let believes = breach
+                    || self
+                        .order
+                        .belief(p, c.incident)
+                        .is_some_and(|b| b.taker == Some(c.accused));
                 let belief = belief_points(believes, c.leads.len(), cp);
                 let regard_points = pp.w_regard * (regard(p, c.by) - regard(p, c.accused));
                 let recalled = self.recall(p, c.id, tags, cp.recall_k as usize);
@@ -1241,6 +1265,38 @@ impl Population {
             None => format!("{support} for, {oppose} against; {present} of {eligible} adults came"),
         };
         let words = match decided {
+            Decided::Passed if breach => {
+                let mut owed = Vec::new();
+                if compensation > 1.0 {
+                    owed.push(format!(
+                        "{:.0} days' food to the household that brought it",
+                        f64::from(sanction.compensation_days)
+                    ));
+                }
+                if fine > 1.0 {
+                    owed.push(format!(
+                        "{:.0} days' food to the common store",
+                        f64::from(sanction.fine_days)
+                    ));
+                }
+                let owes = if owed.is_empty() {
+                    String::new()
+                } else {
+                    format!(" {accused_name}'s household owes {}.", owed.join(" and "))
+                };
+                format!(
+                    "{who} found that {accused_name}'s household broke {breach_words}: \
+                     {tally}.{owes}"
+                )
+            }
+            Decided::Failed if breach => format!(
+                "{who} did not find that {accused_name}'s household broke {breach_words}: \
+                 {tally}."
+            ),
+            Decided::Tied if breach => format!(
+                "{who} was evenly split on whether {accused_name}'s household broke \
+                 {breach_words}, so it found nothing: {tally}."
+            ),
             Decided::Passed => {
                 // The household owes; the one found is the one sent away.
                 let owed = Sanction {
@@ -1363,7 +1419,8 @@ impl Population {
             self.order.cases[k].exiled = true;
         }
         for &p in heard_by {
-            if p == c.accused
+            if breach
+                || p == c.accused
                 || self
                     .order
                     .belief(p, c.incident)

@@ -2530,3 +2530,24 @@ this scale trade law comes, capture does not.
 recognized or privileged organization; the core amendment offers both; the capture sentences;
 a world with a closed custom saves and loads exactly).
 
+## 2026-10-16 — CA: loans in goods between households
+
+**Built:** ADR-0027 §1-2. A loan is a claim in a book of its own, apart from gifts and from what
+findings impose. A household whose food will not last to its harvest asks neighbours with food to
+spare, those it regards first; each lender weighs the loan by research 08-07 §1.3's reservation
+rate from its regard for the borrower and the harvest it expects them to bring in, asks at least
+a customary increment, and refuses when it believes the loan too likely lost. Loans fall due a
+week after the borrower's harvest comes in; repaid, the lender's elder notes its word kept;
+unpaid after the days of grace, defaulted and remembered. The wealth panel lists each village's
+loans. Content API 119, save schema 133, wire 1.82.
+
+**Fixed on the way:** the first build let a household that had just borrowed lend on what it
+borrowed (a borrowed season's food counts as spare); one that owes now lends nothing.
+
+**Evidence:** `tests/credit.rs` (a short household borrows from one with food to spare, at the
+increment, due after its harvest, and asks for no second loan while it owes; a lender believing
+the loan too likely lost refuses, and nobody lends to one short of nothing; repaid at the due day,
+or defaulted when grace runs out; a world with loans saves and loads exactly); the reservation
+rate checked against the money brief's illustration. Lived: three villages of 40 for four years
+made 60 loans, 24 repaid, 18 defaulted, and held their numbers.
+

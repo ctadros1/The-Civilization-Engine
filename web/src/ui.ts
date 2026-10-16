@@ -2163,6 +2163,13 @@ export function bindUi(store: Store, actions: Actions): void {
           ),
         ),
       );
+      // Loans its households owe (wire 1.82, M7d slice CA).
+      if (s.loans.length > 0) {
+        block.append(
+          el("h4", { text: "Loans" }),
+          el("ul", { className: "loans" }, ...s.loans.map((v) => el("li", { text: v }))),
+        );
+      }
       if (s.households.length > HOUSEHOLDS_SHOWN) {
         block.append(
           el("p", {

@@ -85,6 +85,72 @@ pub(crate) struct PeopleFile {
     pub enclosures: EnclosuresFile,
     /// How a council's elections run (M7a slice BO; content API 106).
     pub elections: ElectionsFile,
+    /// How households borrow and lend food (M7d slice CA; content API 119).
+    pub credit: CreditFile,
+}
+
+/// How households borrow and lend food (M7d slice CA, ADR-0027 §2; content API 119). See
+/// [`civ_agents::credit::CreditParams`] for what each means.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct CreditFile {
+    pub review_days: u32,
+    pub least_days: f64,
+    pub customary_increment: f64,
+    pub max_increment: f64,
+    pub p_prior: f64,
+    pub p_max: f64,
+    pub keep_return: f64,
+    pub lend_share: f64,
+    pub max_asked: u32,
+    pub grace_days: u32,
+}
+
+impl CreditFile {
+    fn params(&self) -> civ_agents::credit::CreditParams {
+        civ_agents::credit::CreditParams {
+            review_days: self.review_days,
+            least_days: self.least_days,
+            customary_increment: self.customary_increment,
+            max_increment: self.max_increment,
+            p_prior: self.p_prior,
+            p_max: self.p_max,
+            keep_return: self.keep_return,
+            lend_share: self.lend_share,
+            max_asked: self.max_asked,
+            grace_days: self.grace_days,
+        }
+    }
+
+    fn problems(&self, p: &mut Vec<String>) {
+        for (name, v, lo, hi) in [
+            ("credit.review_days", self.review_days, 1, 365),
+            ("credit.max_asked", self.max_asked, 1, 20),
+            ("credit.grace_days", self.grace_days, 0, 365),
+        ] {
+            if !(lo..=hi).contains(&v) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+        for (name, v, lo, hi) in [
+            ("credit.least_days", self.least_days, 0.0, 365.0),
+            (
+                "credit.customary_increment",
+                self.customary_increment,
+                0.0,
+                10.0,
+            ),
+            ("credit.max_increment", self.max_increment, 0.0, 10.0),
+            ("credit.p_prior", self.p_prior, 0.0, 1.0),
+            ("credit.p_max", self.p_max, 0.0, 1.0),
+            ("credit.keep_return", self.keep_return, -1.0, 10.0),
+            ("credit.lend_share", self.lend_share, 0.0, 1.0),
+        ] {
+            if !(v.is_finite() && (lo..=hi).contains(&v)) {
+                p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
+            }
+        }
+    }
 }
 
 /// How a council's elections run (M7a slice BO; content API 106). See
@@ -2554,6 +2620,7 @@ impl PeopleFile {
             bands: self.bands.params(),
             enclosures: self.enclosures.params(),
             elections: self.elections.params(),
+            credit: self.credit.params(),
             relations: civ_agents::views::RelationsParams {
                 prior: self.relations.prior,
                 half_life_days: self.relations.half_life_days,
@@ -2594,6 +2661,7 @@ impl PeopleFile {
         self.bands.problems(&mut p);
         self.enclosures.problems(&mut p);
         self.elections.problems(&mut p);
+        self.credit.problems(&mut p);
         if !(self.places.sight_m.is_finite() && (0.0..=10_000.0).contains(&self.places.sight_m)) {
             p.push(format!(
                 "`places.sight_m` must be between 0 and 10000 (got {})",

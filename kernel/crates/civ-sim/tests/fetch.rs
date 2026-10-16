@@ -116,6 +116,12 @@ fn scene() -> Scene {
 /// [`scene`] in world `seed`.
 fn scene_in(seed: u64) -> Scene {
     let mut sim = world(seed, 30, &[30]);
+    // Nobody borrows (M7d slice CA): a household fed by a loan would make and offer goods again.
+    sim.rules_mut_for_tests()
+        .expect("rules of its own")
+        .people
+        .credit
+        .least_days = 1e9;
     sim.advance_minutes(DAY).expect("advances");
     let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
     let sickle = good(&sim, "core:good/sickle");

@@ -71,6 +71,7 @@ mod payments;
 mod war;
 pub use crime::TakeProbe;
 pub use payments::Burden;
+mod credit;
 mod patronage;
 mod places;
 mod polity;
@@ -6068,6 +6069,8 @@ impl Population {
         self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.
         self.review_offers(ctx, day);
+        // Households whose day it is weigh borrowing, and loans due are paid (M7d slice CA).
+        self.credit_day(ctx, day);
         // A workshop whose firm closed goes to another firm of its household that has none.
         self.hand_on_workshops(ctx.land, ctx.catalog);
         // Births, deaths, couples and the households they make.

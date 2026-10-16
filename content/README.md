@@ -687,6 +687,16 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 119 (M7d slice CA, ADR-0027 §1-2) brings loans in goods. The people profile adds a
+`[credit]` table: `review_days` (how often a household asks itself whether its food will last to
+its harvest), `least_days` (the least days of its food it borrows), `customary_increment` (the
+least increment a lender asks, a share of what it lends), `max_increment` (the most a borrower
+accepts), `p_prior` (the chance a lender believes a loan to a stranger is not repaid), `p_max`
+(above which it refuses), `keep_return` (what keeping the food at home earns a lender a year),
+`lend_share` (the most of what it can spare a lender lends), `max_asked` (lenders asked at one
+review) and `grace_days` (days after the due day before a loan is defaulted). The `[ties]` acts
+gain `lent`, `repaid` and `defaulted`.
+
 Content API 118 (M7c slice BZ, ADR-0026 §5) brings closure. An amendment's `members` may name
 `organized` (the adults of households in an organization by stake the polity recognizes) and
 `privileged` (those of households in one it grants a privilege in force); while the polity

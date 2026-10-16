@@ -1786,6 +1786,8 @@ pub struct PeopleParams {
     pub elections: crate::seats::ElectionParams,
     /// How people lay out and weigh an enclosure (M6c slice BK; content API 100).
     pub enclosures: crate::enclose::EnclosureParams,
+    /// How households borrow and lend food (M7d slice CA, ADR-0027 §2; content API 119).
+    pub credit: crate::credit::CreditParams,
     /// Names.
     pub names: NameParams,
 }

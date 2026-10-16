@@ -685,6 +685,8 @@ pub struct Order {
     pub bands: Vec<crate::war::Band>,
     /// Encounters bands met, in order (M6c slice BJ, ADR-0023 §4).
     pub clashes: Vec<crate::war::Clash>,
+    /// Loans in goods between households (M7d slice CA, ADR-0027 §1).
+    pub credit: crate::credit::Credit,
     /// Asks refused because the giver believed the asker took (a counter, not saved).
     pub refusals: u64,
 }

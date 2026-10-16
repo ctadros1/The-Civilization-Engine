@@ -25642,6 +25642,7 @@ impl<'a> SettlementWealth<'a> {
   pub const VT_NOW: ::flatbuffers::VOffsetT = 8;
   pub const VT_HOUSEHOLDS: ::flatbuffers::VOffsetT = 10;
   pub const VT_HISTORY: ::flatbuffers::VOffsetT = 12;
+  pub const VT_LOANS: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -25654,6 +25655,7 @@ impl<'a> SettlementWealth<'a> {
   ) -> ::flatbuffers::WIPOffset<SettlementWealth<'bldr>> {
     let mut builder = SettlementWealthBuilder::new(_fbb);
     builder.add_settlement(args.settlement);
+    if let Some(x) = args.loans { builder.add_loans(x); }
     if let Some(x) = args.history { builder.add_history(x); }
     if let Some(x) = args.households { builder.add_households(x); }
     if let Some(x) = args.now { builder.add_now(x); }
@@ -25697,6 +25699,13 @@ impl<'a> SettlementWealth<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WealthSpread>>>>(SettlementWealth::VT_HISTORY, None)}
   }
+  #[inline]
+  pub fn loans(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(SettlementWealth::VT_LOANS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for SettlementWealth<'_> {
@@ -25710,6 +25719,7 @@ impl ::flatbuffers::Verifiable for SettlementWealth<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<WealthSpread>>("now", Self::VT_NOW, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<HouseholdWealth>>>>("households", Self::VT_HOUSEHOLDS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WealthSpread>>>>("history", Self::VT_HISTORY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("loans", Self::VT_LOANS, false)?
      .finish();
     Ok(())
   }
@@ -25720,6 +25730,7 @@ pub struct SettlementWealthArgs<'a> {
     pub now: Option<::flatbuffers::WIPOffset<WealthSpread<'a>>>,
     pub households: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<HouseholdWealth<'a>>>>>,
     pub history: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WealthSpread<'a>>>>>,
+    pub loans: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for SettlementWealthArgs<'a> {
   #[inline]
@@ -25730,6 +25741,7 @@ impl<'a> Default for SettlementWealthArgs<'a> {
       now: None,
       households: None,
       history: None,
+      loans: None,
     }
   }
 }
@@ -25760,6 +25772,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SettlementWealthBuilder<'a, '
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SettlementWealth::VT_HISTORY, history);
   }
   #[inline]
+  pub fn add_loans(&mut self, loans: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(SettlementWealth::VT_LOANS, loans);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SettlementWealthBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SettlementWealthBuilder {
@@ -25782,6 +25798,7 @@ impl ::core::fmt::Debug for SettlementWealth<'_> {
       ds.field("now", &self.now());
       ds.field("households", &self.households());
       ds.field("history", &self.history());
+      ds.field("loans", &self.loans());
       ds.finish()
   }
 }

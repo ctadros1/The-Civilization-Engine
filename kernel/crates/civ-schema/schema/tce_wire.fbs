@@ -1685,6 +1685,11 @@ table SettlementWealth {
   households: [HouseholdWealth] (id: 3);
   // At the end of each year, oldest first.
   history: [WealthSpread] (id: 4);
+  // Wire 1.82 (M7d slice CA, ADR-0027 §1): loans its households owe, open ones first then those
+  // closed within a year, newest first, at most twelve, in the kernel's words ("Wren's household
+  // owes Mira's household 40 kg of grain, lent on 3 May of year 2, due on 9 September of year
+  // 2").
+  loans: [string] (id: 5);
 }
 
 table Wealth {

@@ -1792,6 +1792,7 @@ pub(crate) mod tests {
             bands: crate::war::BandParams::core(),
             elections: crate::seats::ElectionParams::core(),
             enclosures: crate::enclose::EnclosureParams::core(),
+            credit: crate::credit::CreditParams::default(),
             farm: FarmParams {
                 crop: 0,
                 grain_share: 0.75,

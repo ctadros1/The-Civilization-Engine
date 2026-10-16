@@ -8,7 +8,7 @@ use std::hash::{Hash, Hasher};
 
 use civ_agents::params::{LandHolder, LandUse, RegimeDef, Succession};
 use civ_agents::wealth::{HouseholdWealth, Spread};
-use civ_core::PermanentId;
+use civ_core::{PermanentId, SimTime};
 use civ_schema::flatbuffers::{FlatBufferBuilder, WIPOffset};
 use civ_schema::wire;
 
@@ -199,6 +199,11 @@ pub fn wealth_response(sim: &Sim) -> Vec<u8> {
                 .map(|y| spread_info(&mut fbb, y.year, &y.spread))
                 .collect();
             let years = fbb.create_vector(&years);
+            let loans: Vec<_> = loan_words(sim, id)
+                .iter()
+                .map(|w| fbb.create_string(w))
+                .collect();
+            let loans = fbb.create_vector(&loans);
             wire::SettlementWealth::create(
                 &mut fbb,
                 &wire::SettlementWealthArgs {
@@ -207,6 +212,7 @@ pub fn wealth_response(sim: &Sim) -> Vec<u8> {
                     now: spread,
                     households: Some(households),
                     history: Some(years),
+                    loans: Some(loans),
                 },
             )
         })
@@ -222,6 +228,64 @@ pub fn wealth_response(sim: &Sim) -> Vec<u8> {
         },
     );
     response(fbb, wire::ResponseBody::Wealth, body)
+}
+
+/// Loans the households of `settlement` owe (M7d slice CA, ADR-0027 §1), in words: open ones
+/// first, then those closed within a year, newest first, at most twelve. "Wren's household owes
+/// Mira's household 40 kg of grain, lent on 3 May of year 2, due on 9 September of year 2";
+/// "... repaid it"; "... did not repay 12 kg of it".
+pub fn loan_words(sim: &Sim, settlement: PermanentId) -> Vec<String> {
+    use civ_agents::credit::Standing;
+    let pop = &sim.people;
+    let today = sim.now().day_index();
+    let year = civ_core::time::DAYS_PER_YEAR;
+    let here = |h: PermanentId| pop.household(h).and_then(|x| x.settlement) == Some(settlement);
+    let mut loans: Vec<&civ_agents::credit::Claim> = pop
+        .order
+        .credit
+        .claims
+        .iter()
+        .filter(|c| here(c.debtor))
+        .filter(|c| c.standing == Standing::Open || today - c.due <= year)
+        .collect();
+    loans.sort_by(|a, b| {
+        (a.standing != Standing::Open)
+            .cmp(&(b.standing != Standing::Open))
+            .then(b.made.cmp(&a.made))
+            .then(b.id.cmp(&a.id))
+    });
+    loans.truncate(12);
+    let day = |d: i64| civ_agents::polity::day_words(SimTime::from_minutes(d * 1440));
+    loans
+        .into_iter()
+        .map(|c| {
+            let good = sim
+                .rules
+                .catalog
+                .goods
+                .get(usize::from(c.good))
+                .map_or("goods".to_owned(), |g| g.name.to_lowercase());
+            let base = format!(
+                "{} {} {} {:.0} kg of {good}, lent on {}",
+                super::people::household_name(sim, c.debtor),
+                if c.standing == Standing::Open {
+                    "owes"
+                } else {
+                    "owed"
+                },
+                super::people::household_name(sim, c.creditor),
+                c.owed,
+                day(c.made),
+            );
+            match c.standing {
+                Standing::Open => format!("{base}, due on {}", day(c.due)),
+                Standing::Repaid => format!("{base}, and repaid it"),
+                Standing::Defaulted => {
+                    format!("{base}, and did not repay {:.0} kg of it", c.left())
+                }
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]

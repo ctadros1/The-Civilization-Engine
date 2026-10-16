@@ -1580,6 +1580,11 @@ export interface SettlementWealth {
   households: HouseholdWealth[];
   /** At the end of each year, oldest first. */
   history: WealthSpread[];
+  /**
+   * Wire 1.82 (M7d slice CA): loans its households owe, open ones first then those closed within
+   * a year, newest first, in the kernel's words.
+   */
+  loans: string[];
 }
 
 export interface WealthInfo {
@@ -3853,6 +3858,7 @@ function wealth(w: W.Wealth): WealthInfo {
       now: now ? wealthSpread(now) : null,
       households,
       history,
+      loans: Array.from({ length: s.loansLength() }, (_, k) => s.loans(k) ?? ""),
     });
   }
   return { rev: Number(w.rev()), regimeName: w.regimeName() ?? "", settlements };

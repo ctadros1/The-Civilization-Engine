@@ -33,6 +33,7 @@ pub mod condition;
 pub mod contagion;
 pub mod convergence;
 pub mod count;
+pub mod credit;
 pub mod crime;
 pub mod decide;
 pub mod demography;

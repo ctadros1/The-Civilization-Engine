@@ -864,12 +864,16 @@ describe("decoders", () => {
     const households = W.SettlementWealth.createHouseholdsVector(b, [household]);
     const history = W.SettlementWealth.createHistoryVector(b, [spread(1n, 0.25), spread(2n, 0.5)]);
     const place = b.createString("Alderford");
+    const loans = W.SettlementWealth.createLoansVector(b, [
+      b.createString("Wren's household owes Mira's household 40 kg of grain, lent on 3 May of year 2, due on 9 September of year 2"),
+    ]);
     W.SettlementWealth.startSettlementWealth(b);
     W.SettlementWealth.addSettlement(b, 3n);
     W.SettlementWealth.addName(b, place);
     W.SettlementWealth.addNow(b, now);
     W.SettlementWealth.addHouseholds(b, households);
     W.SettlementWealth.addHistory(b, history);
+    W.SettlementWealth.addLoans(b, loans);
     const settlement = W.SettlementWealth.endSettlementWealth(b);
     const regime = b.createString("Village fields");
     const list = W.Wealth.createSettlementsVector(b, [settlement]);
@@ -881,6 +885,9 @@ describe("decoders", () => {
     expect(body.wealth.regimeName).toBe("Village fields");
     const s = body.wealth.settlements[0]!;
     expect([s.settlement, s.name]).toEqual([3, "Alderford"]);
+    expect(s.loans).toEqual([
+      "Wren's household owes Mira's household 40 kg of grain, lent on 3 May of year 2, due on 9 September of year 2",
+    ]);
     expect(s.now).toMatchObject({ year: 3, households: 2, people: 7, giniGoods: 0.5, holdingNone: 1 });
     expect(s.now?.commonHa).toBe(1.5);
     expect([s.now?.roofedM2PerHouse, s.now?.storageKgPerHouse]).toEqual([41.5, 4150]);

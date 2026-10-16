@@ -3400,6 +3400,32 @@ and M6a gives rivers a daily flow.
   - **M7d, credit and money** ([ADR-0027](decisions/0027-claims-and-coin.md)): loans in goods, pledges and default, keepers
     and store lending, money's worth to its holder, then metal, minting and debasement (slices
     CA–CE, from `docs/briefs/m7-money.md`).
+    - **CA**: loans in goods between households: the claim book, asking and lending by i_min from
+      ties, harvest due days, repayment, word evidence from what was repaid.
+      - *As built (2026-10-16):* content API 119, save schema 133, wire 1.82. A loan is a claim in
+        a book of its own (`Order.credit`), apart from gifts (which keep no debt) and from
+        ADR-0015's obligations: creditor and debtor households, the good, kilograms lent, owed and
+        paid, the days made and due, its standing (open, repaid, defaulted) and its two witnesses
+        (the elders). Every `review_days` a household holding no open loan whose food will not last
+        to its harvest (by at least `least_days` of its food) and that holds fields asks up to
+        `max_asked` households of its settlement with food to spare, those its elder regards
+        first; one that owes lends nothing. Each lender decides by research 08-07 §1.3's
+        reservation rate from what it believes: p from its regard for the borrower and the harvest
+        it expects the borrower to bring in against the debt, no recovery without a pledge, and
+        `keep_return` for keeping the food at home; it asks the larger of that rate over the
+        loan's years and the `customary_increment`, and refuses above `p_max` (or the borrower
+        above `max_increment`). It lends the lesser of what is wanted and `lend_share` of what it
+        can spare, in the food good it holds most of, due a week after the borrower's harvest
+        begins to come in, on the appended `Lent` channel. From the due day the debtor pays what it
+        holds of the good (`Repaid`); in full, the lender's elder notes that its word was kept
+        (tie act `repaid`); unpaid after `grace_days`, the loan is defaulted (`defaulted`). The
+        borrower's elder notes the loan (`lent`). The wealth panel lists each settlement's loans in
+        words. **Measured** (`civ-sim --example capture`, seed 1, three villages of 40, four
+        years): 61 asks, 1 refused, 60 loans made, 24 repaid, 18 defaulted, 18 still open; the
+        villages held their numbers (127 people at the end, 129 before credit). Interest is
+        measured, never set. **Not yet built:** pledges, guarantors, answers at the due day and
+        *debts heard* (CB); what a default teaches beyond the lender's elder; loans between
+        settlements or by workshops.
 
 **M8: The growing city (v1).**
 - *Contents:*

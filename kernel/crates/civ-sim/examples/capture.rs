@@ -225,6 +225,20 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
     log.push(format!(
         "  purchases at another settlement's door its markets still remember: {purchases}"
     ));
+    // Loans in goods (M7d slice CA): what the asking came to.
+    let credit = &sim.people().order.credit;
+    let count = |st: civ_agents::credit::Standing| {
+        credit.claims.iter().filter(|c| c.standing == st).count()
+    };
+    log.push(format!(
+        "  loans: {} asked, {} refused, {} made ({} open, {} repaid, {} defaulted)",
+        credit.asked,
+        credit.refused,
+        credit.claims.len(),
+        count(civ_agents::credit::Standing::Open),
+        count(civ_agents::credit::Standing::Repaid),
+        count(civ_agents::credit::Standing::Defaulted),
+    ));
     log.extend(laws_words(&sim).into_iter().map(|w| format!("  {w}")));
     for p in &sim.people().polities {
         let label = civ_sim::labels::label_of(&sim, p);

@@ -1958,6 +1958,30 @@ table Order {
   // Bands called and the encounters they met (schema 110, M6c slice BJ); absent before.
   bands: [BandSave] (id: 11);
   clashes: [ClashSave] (id: 12);
+  // Loans in goods between households, oldest first, the last loan number, and the asks made and
+  // refused (schema 133, M7d slice CA, ADR-0027 §1); absent before.
+  loans: [LoanSave] (id: 13);
+  loans_next: uint (id: 14);
+  loans_asked: ulong (id: 15);
+  loans_refused: ulong (id: 16);
+}
+
+// A loan in goods (schema 133): its number, the creditor and debtor households, the good (an
+// index into `Order.goods`), kilograms lent, owed and paid, the days made and due, its standing
+// (0 open, 1 repaid, 2 defaulted) and its two witnesses.
+struct LoanSave {
+  id: uint;
+  creditor: ulong;
+  debtor: ulong;
+  good: ushort;
+  standing: ubyte;
+  lent: float;
+  owed: float;
+  paid: float;
+  made: long;
+  due: long;
+  witness_a: ulong;
+  witness_b: ulong;
 }
 
 // Section "word" (schema 35, M4c slice AE, ADR-0016): shared claims, who heard them, and the

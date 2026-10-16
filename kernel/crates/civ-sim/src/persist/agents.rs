@@ -121,7 +121,7 @@ use super::{
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
-    finish, section, single_chunk, unreadable,
+    SCHEMA_V132, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -591,6 +591,8 @@ enum Schema {
     V131,
     /// Closed bodies (M7c slice BZ: membership codes 5 and 6).
     V132,
+    /// Loans in goods (M7d slice CA: `Order.loans`, channels 21-22, tie acts 15-17).
+    V133,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -737,7 +739,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V129 => Schema::V129,
         SCHEMA_V130 => Schema::V130,
         SCHEMA_V131 => Schema::V131,
-        SAVE_SCHEMA_VERSION => Schema::V132,
+        SCHEMA_V132 => Schema::V132,
+        SAVE_SCHEMA_VERSION => Schema::V133,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -4431,7 +4434,8 @@ fn carried(
         | Schema::V129
         | Schema::V130
         | Schema::V131
-        | Schema::V132 => {
+        | Schema::V132
+        | Schema::V133 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4736,7 +4740,8 @@ fn decode_households(
             | Schema::V129
             | Schema::V130
             | Schema::V131
-            | Schema::V132 => {
+            | Schema::V132
+            | Schema::V133 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5287,6 +5292,29 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
         .map(|a| save::AmountSave::new(a.household.get(), a.day, a.incident, a.kcal, a.lost))
         .collect();
     let amounts = fbb.create_vector(&amounts);
+    // Loans in goods (schema 133, M7d slice CA).
+    let credit = &order.credit;
+    let loans: Vec<save::LoanSave> = credit
+        .claims
+        .iter()
+        .map(|c| {
+            save::LoanSave::new(
+                c.id,
+                c.creditor.get(),
+                c.debtor.get(),
+                c.good,
+                c.standing.code(),
+                c.lent,
+                c.owed,
+                c.paid,
+                c.made,
+                c.due,
+                c.witnesses[0].get(),
+                c.witnesses[1].get(),
+            )
+        })
+        .collect();
+    let loans = (!loans.is_empty()).then(|| fbb.create_vector(&loans));
     let root = save::Order::create(
         &mut fbb,
         &save::OrderArgs {
@@ -5303,6 +5331,10 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
             encounters: Some(encounters),
             bands: Some(bands),
             clashes: Some(clashes),
+            loans,
+            loans_next: credit.next,
+            loans_asked: credit.asked,
+            loans_refused: credit.refused,
         },
     );
     finish(fbb, root)
@@ -5614,6 +5646,34 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
                 .ok_or_else(|| bad(format!("encounter {id} has ending code {}", c.ended())))?,
         });
     }
+    // Loans in goods (schema 133, M7d slice CA); a loan of a good the content no longer has is
+    // dropped.
+    for l in root.loans().iter().flatten() {
+        let id = l.id();
+        let Some(good) = saved_good(&goods, u32::from(l.good()), || format!("loan {id}"))? else {
+            continue;
+        };
+        order.credit.claims.push(civ_agents::credit::Claim {
+            id,
+            creditor: required(l.creditor(), "a loan's creditor")?,
+            debtor: required(l.debtor(), "a loan's debtor")?,
+            good,
+            lent: l.lent(),
+            owed: l.owed(),
+            paid: l.paid(),
+            made: l.made(),
+            due: l.due(),
+            standing: civ_agents::credit::Standing::from_code(l.standing())
+                .ok_or_else(|| bad(format!("loan {id} has standing code {}", l.standing())))?,
+            witnesses: [
+                required(l.witness_a(), "a loan's witness")?,
+                required(l.witness_b(), "a loan's witness")?,
+            ],
+        });
+    }
+    order.credit.next = root.loans_next();
+    order.credit.asked = root.loans_asked();
+    order.credit.refused = root.loans_refused();
     let problems = order_problems(&order);
     if !problems.is_empty() {
         return Err(LoadError::Invalid(problems));

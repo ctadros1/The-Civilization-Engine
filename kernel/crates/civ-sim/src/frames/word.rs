@@ -39,6 +39,27 @@ pub fn blamed_words(sim: &Sim, blamed: Blamed) -> String {
             ),
         Blamed::Household(h) => super::people::household_name(sim, h),
         Blamed::Person(p) => pop.name_of(p),
+        // A forum (M7b slice BU): who sits in it.
+        Blamed::Forum(law) => pop
+            .polities
+            .iter()
+            .flat_map(|p| &p.laws)
+            .find(|l| l.id == law)
+            .and_then(|l| {
+                let def = sim
+                    .rules
+                    .catalog
+                    .policies
+                    .get(usize::from(l.policy))?
+                    .forum
+                    .as_ref()?;
+                let holder = l.holder.map(|h| pop.name_of(h));
+                let w = civ_agents::forum::hearers_words(def, holder.as_deref());
+                let mut c = w.chars();
+                c.next()
+                    .map(|f| f.to_lowercase().collect::<String>() + c.as_str())
+            })
+            .unwrap_or_else(|| "a forum".to_owned()),
     }
 }
 
@@ -70,6 +91,25 @@ pub fn claim_words(sim: &Sim, c: &Claim) -> String {
     let pop = &sim.people;
     let name_of = |id: PermanentId| pop.name_of(id);
     match c.kind {
+        // A finding (M7b slice BS).
+        ClaimKind::Finding => {
+            let day = day_words(SimTime::from_minutes(c.day * DAY));
+            let place = place_name(sim, c.settlement);
+            match c.event.and_then(|id| pop.order.case(id)) {
+                Some(case) => format!(
+                    "case {} at {place}, that {} took food from another household, was {} on \
+                     {day}",
+                    case.id,
+                    name_of(case.accused),
+                    if case.stage == civ_agents::crime::CaseStage::Found {
+                        "found"
+                    } else {
+                        "not found"
+                    }
+                ),
+                None => format!("a case was decided at {place} on {day}"),
+            }
+        }
         // A council's election (M7a slice BO).
         ClaimKind::Election => {
             let day = day_words(SimTime::from_minutes(c.day * DAY));
@@ -429,6 +469,7 @@ pub fn norm_lines<'a>(
             );
             let does = match def.kind {
                 NormKind::AbideByLaws => "pay what the gathering asks",
+                NormKind::AbideByFindings => "meet what a finding imposes",
             };
             let statement = fbb.create_string(&def.statement);
             let holds = fbb.create_string(endorse_words(e));
@@ -832,8 +873,10 @@ fn whisper_words(sim: &Sim, i: &Influence, p: PermanentId) -> String {
                 .to_owned()
             })
         }),
-        // What people do of sickness they heard of is slice BA's later steps.
-        ClaimKind::Sickness
+        // What people do of sickness they heard of is slice BA's later steps; a finding remembered
+        // is recalled at a hearing (M7b slice BS).
+        ClaimKind::Finding
+        | ClaimKind::Sickness
         | ClaimKind::Suspicion
         | ClaimKind::Fire
         | ClaimKind::Raid

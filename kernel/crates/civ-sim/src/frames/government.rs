@@ -20,6 +20,7 @@ fn status_code(s: LawStatus) -> u8 {
         LawStatus::Lapsed => 3,
         LawStatus::Superseded => 4,
         LawStatus::Carried => 5,
+        LawStatus::StruckDown => 6,
     }
 }
 

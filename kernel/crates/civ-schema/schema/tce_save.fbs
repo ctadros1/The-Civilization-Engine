@@ -1796,6 +1796,18 @@ table CaseSave {
   eligible: uint (id: 14);
   stances: [CaseStanceSave] (id: 15);
   exiled: bool (id: 16);
+  // The hear-cases law whose forum is to hear it or heard it, 0 for the gathering (schema 125,
+  // M7b slice BR).
+  forum: ulong (id: 17);
+  // Its fact tags (schema 126, M7b slice BS: bits as `civ_agents::crime::CaseTags`), the finding
+  // it departed from (0 for none), and what the findings each who heard it recalled moved them,
+  // points, in the order of `stances` (empty before schema 126).
+  tags: ubyte (id: 18);
+  departed: uint (id: 19);
+  stance_precedent: [float] (id: 20);
+  // For a challenge (schema 127, M7b slice BT): the limit the law `law` is said to breach; 0 for
+  // a taking. A challenge names no incident (`incident` 0).
+  challenge: ulong (id: 21);
 }
 
 // How someone met one of the watch come to take what a finding owed: 0 yielded, 1 stood in the

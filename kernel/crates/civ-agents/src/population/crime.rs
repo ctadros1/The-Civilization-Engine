@@ -1239,11 +1239,13 @@ impl Population {
                         };
                         // Only a finding of its own settlement's gathering binds it (M6c slice
                         // BI, ADR-0023 §2).
-                        let found = if ob
-                            .case
-                            .and_then(|c| self.order.case(c))
-                            .is_some_and(|c| Some(c.settlement) == settlement)
-                        {
+                        let case = ob.case.and_then(|c| self.order.case(c));
+                        let found = if case.is_some_and(|c| Some(c.settlement) != settlement) {
+                            0.0
+                        } else if case.is_some_and(|c| c.forum.is_some()) {
+                            // A forum's finding, by the norm that findings bind (M7b slice BU).
+                            self.findings_points(ctx, by)
+                        } else if case.is_some() {
                             cp.w_comply_found
                         } else {
                             0.0

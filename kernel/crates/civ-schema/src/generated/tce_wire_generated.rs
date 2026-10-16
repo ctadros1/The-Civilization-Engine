@@ -32568,6 +32568,11 @@ impl<'a> Order<'a> {
   pub const VT_NOT_FOUND: ::flatbuffers::VOffsetT = 30;
   pub const VT_UNHEARD: ::flatbuffers::VOffsetT = 32;
   pub const VT_ENCOUNTERS: ::flatbuffers::VOffsetT = 34;
+  pub const VT_SETTLED: ::flatbuffers::VOffsetT = 36;
+  pub const VT_WITHDRAWN: ::flatbuffers::VOffsetT = 38;
+  pub const VT_CHALLENGES: ::flatbuffers::VOffsetT = 40;
+  pub const VT_STRUCK_DOWN: ::flatbuffers::VOffsetT = 42;
+  pub const VT_CASE_LINES: ::flatbuffers::VOffsetT = 44;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32581,6 +32586,11 @@ impl<'a> Order<'a> {
     let mut builder = OrderBuilder::new(_fbb);
     builder.add_refusals(args.refusals);
     builder.add_minute(args.minute);
+    if let Some(x) = args.case_lines { builder.add_case_lines(x); }
+    builder.add_struck_down(args.struck_down);
+    builder.add_challenges(args.challenges);
+    builder.add_withdrawn(args.withdrawn);
+    builder.add_settled(args.settled);
     if let Some(x) = args.encounters { builder.add_encounters(x); }
     builder.add_unheard(args.unheard);
     builder.add_not_found(args.not_found);
@@ -32711,6 +32721,41 @@ impl<'a> Order<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Order::VT_ENCOUNTERS, None)}
   }
+  #[inline]
+  pub fn settled(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Order::VT_SETTLED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn withdrawn(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Order::VT_WITHDRAWN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn challenges(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Order::VT_CHALLENGES, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn struck_down(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Order::VT_STRUCK_DOWN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn case_lines(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Order::VT_CASE_LINES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Order<'_> {
@@ -32735,6 +32780,11 @@ impl ::flatbuffers::Verifiable for Order<'_> {
      .visit_field::<u32>("not_found", Self::VT_NOT_FOUND, false)?
      .visit_field::<u32>("unheard", Self::VT_UNHEARD, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("encounters", Self::VT_ENCOUNTERS, false)?
+     .visit_field::<u32>("settled", Self::VT_SETTLED, false)?
+     .visit_field::<u32>("withdrawn", Self::VT_WITHDRAWN, false)?
+     .visit_field::<u32>("challenges", Self::VT_CHALLENGES, false)?
+     .visit_field::<u32>("struck_down", Self::VT_STRUCK_DOWN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("case_lines", Self::VT_CASE_LINES, false)?
      .finish();
     Ok(())
   }
@@ -32756,6 +32806,11 @@ pub struct OrderArgs<'a> {
     pub not_found: u32,
     pub unheard: u32,
     pub encounters: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub settled: u32,
+    pub withdrawn: u32,
+    pub challenges: u32,
+    pub struck_down: u32,
+    pub case_lines: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for OrderArgs<'a> {
   #[inline]
@@ -32777,6 +32832,11 @@ impl<'a> Default for OrderArgs<'a> {
       not_found: 0,
       unheard: 0,
       encounters: None,
+      settled: 0,
+      withdrawn: 0,
+      challenges: 0,
+      struck_down: 0,
+      case_lines: None,
     }
   }
 }
@@ -32851,6 +32911,26 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OrderBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Order::VT_ENCOUNTERS, encounters);
   }
   #[inline]
+  pub fn add_settled(&mut self, settled: u32) {
+    self.fbb_.push_slot::<u32>(Order::VT_SETTLED, settled, 0);
+  }
+  #[inline]
+  pub fn add_withdrawn(&mut self, withdrawn: u32) {
+    self.fbb_.push_slot::<u32>(Order::VT_WITHDRAWN, withdrawn, 0);
+  }
+  #[inline]
+  pub fn add_challenges(&mut self, challenges: u32) {
+    self.fbb_.push_slot::<u32>(Order::VT_CHALLENGES, challenges, 0);
+  }
+  #[inline]
+  pub fn add_struck_down(&mut self, struck_down: u32) {
+    self.fbb_.push_slot::<u32>(Order::VT_STRUCK_DOWN, struck_down, 0);
+  }
+  #[inline]
+  pub fn add_case_lines(&mut self, case_lines: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Order::VT_CASE_LINES, case_lines);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OrderBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     OrderBuilder {
@@ -32884,6 +32964,11 @@ impl ::core::fmt::Debug for Order<'_> {
       ds.field("not_found", &self.not_found());
       ds.field("unheard", &self.unheard());
       ds.field("encounters", &self.encounters());
+      ds.field("settled", &self.settled());
+      ds.field("withdrawn", &self.withdrawn());
+      ds.field("challenges", &self.challenges());
+      ds.field("struck_down", &self.struck_down());
+      ds.field("case_lines", &self.case_lines());
       ds.finish()
   }
 }

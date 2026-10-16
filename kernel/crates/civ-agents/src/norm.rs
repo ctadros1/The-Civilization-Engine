@@ -25,15 +25,20 @@ use crate::demography::normal;
 pub enum NormKind {
     /// Abide by what the gathering decided: pay its levy, keep its curfew.
     AbideByLaws,
+    /// Abide by what a forum found: meet what its finding imposes (M7b slice BU, ADR-0025 §5).
+    /// Drawn and learned as the first is, so one may trust the gathering and not its hearer, or
+    /// the reverse.
+    AbideByFindings,
 }
 
 impl NormKind {
-    pub const ALL: [NormKind; 1] = [NormKind::AbideByLaws];
+    pub const ALL: [NormKind; 2] = [NormKind::AbideByLaws, NormKind::AbideByFindings];
 
     /// The name a norm file uses in `does`.
     pub fn name(self) -> &'static str {
         match self {
             NormKind::AbideByLaws => "abide_by_laws",
+            NormKind::AbideByFindings => "abide_by_findings",
         }
     }
 

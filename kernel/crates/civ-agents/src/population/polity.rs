@@ -70,6 +70,22 @@ pub(super) struct Forecasts {
     /// Each household's share of the store of the polity a band of its law holds, kcal, as its
     /// people know it there (M6c slice BM): what taking it in would bring each once.
     annex_share: f64,
+    /// The cases the gathering or a forum heard within memory (M7b slices BR, BS): what one
+    /// weighing a forum judges it by.
+    forum_cases: Vec<ForumCase>,
+}
+
+/// A case the gathering heard within memory, as one weighing a forum sees it (M7b slice BR,
+/// ADR-0025 §1): the household that brought it and the accused's, what it said it lost, kcal,
+/// whether it was found, and each stance taken (person, household, stance).
+struct ForumCase {
+    /// Heard at the gathering (else by a forum).
+    gathered: bool,
+    accuser: PermanentId,
+    accused: PermanentId,
+    kcal: f64,
+    found: bool,
+    stances: Vec<(PermanentId, PermanentId, Stance)>,
 }
 
 /// What closing a source would bring a household (M6a slice BA, step four): the household, the
@@ -278,6 +294,53 @@ impl Forecasts {
                 let owed = (p.share_h() / p.life.max(1e-9) + detour) * kcal;
                 crate::polity::kept_gain(o, kept, pp) - crate::polity::levy_cost(o, owed, pp)
             }
+            // A forum (M7b slice BR): the household's own cases the gathering heard within
+            // memory, heard again as the forum would hear them (a holder as they stood there, or
+            // at even odds if they did not come; a panel or the elders as those who came stood),
+            // the difference in what it got back or paid, a year; and the evenings its people
+            // spent hearing cases, which they would keep.
+            Some(PolicyKind::HearCases) => {
+                let Some(def) = policies
+                    .get(usize::from(m.policy))
+                    .and_then(|d| d.forum.as_ref())
+                else {
+                    return 0.0;
+                };
+                let (mut net, mut evenings) = (0.0, 0usize);
+                for c in &self.forum_cases {
+                    if c.gathered {
+                        evenings += c.stances.iter().filter(|r| r.1 == h).count();
+                    }
+                    let side = if c.accuser == h {
+                        1.0
+                    } else if c.accused == h {
+                        -1.0
+                    } else {
+                        continue;
+                    };
+                    let n = |s: Stance| c.stances.iter().filter(|r| r.2 == s).count() as f64;
+                    let (support, oppose) = (n(Stance::Support), n(Stance::Oppose));
+                    let chance = match def.seat {
+                        crate::forum::ForumSeat::Holder => {
+                            match m.nominee.and_then(|p| c.stances.iter().find(|r| r.0 == p)) {
+                                Some((_, _, Stance::Support)) => 1.0,
+                                Some((_, _, Stance::Oppose)) => 0.0,
+                                _ => 0.5,
+                            }
+                        }
+                        _ if support + oppose > 0.0 => support / (support + oppose),
+                        _ => 0.5,
+                    };
+                    net += side * (chance - f64::from(u8::from(c.found))) * c.kcal;
+                }
+                net *= 365.0 / f64::from(params.crime.remember_days.max(1));
+                let kept = evenings as f64 * params.elections.w_evening / pp.w_gain.max(1e-9);
+                kept + if net >= 0.0 {
+                    crate::polity::kept_gain(o, net, pp)
+                } else {
+                    -crate::polity::levy_cost(o, -net, pp)
+                }
+            }
             // An amendment's gain is judged from decisions seen, and an end to a law from that
             // law, kept (M4c slices AF, AI): neither forecasts anything of its own.
             Some(PolicyKind::AmendBody | PolicyKind::Repeal) => 0.0,
@@ -351,6 +414,17 @@ impl Population {
                 self.decide_gathering(ctx, pi);
             }
         }
+        // Forums hear the cases brought to them before today, those not settled or withdrawn
+        // first (M7b slice BR).
+        if self
+            .order
+            .cases
+            .iter()
+            .any(|c| c.forum.is_some() && c.stage == crate::crime::CaseStage::Open)
+        {
+            self.settle_cases(ctx);
+            self.forums_day(ctx);
+        }
         // Agreements between polities: a gathering's decision on one, a side not yet put to its
         // gathering, and one coming into force, failing or ending (M5c slice AU).
         self.agreements_day(ctx);
@@ -366,7 +440,12 @@ impl Population {
             .any(|c| c.stage == crate::crime::CaseStage::Open)
         {
             for pi in 0..self.polities.len() {
-                self.put_cases(pi, day, ctx.params.polity.notice_days);
+                self.put_cases(
+                    &ctx.catalog.policies,
+                    pi,
+                    day,
+                    ctx.params.polity.notice_days,
+                );
             }
         }
         self.tell_households(day);
@@ -394,6 +473,8 @@ impl Population {
             {
                 self.polities[pi].reviewed = day;
                 self.review(ctx, pi);
+                // Whether anyone bound by a law a limit forbids challenges it (M7b slice BT).
+                self.weigh_challenges(ctx, pi);
                 // Terms with another polity are sought when nothing was put to the gathering
                 // (M5c slice AU).
                 self.seek_terms(ctx, pi);
@@ -576,10 +657,10 @@ impl Population {
                 .map_or((None, String::new()), |s| {
                     (Some(s.hearth_m), s.name.clone())
                 });
-            let office = if kind == PolicyKind::KeepWatch {
-                "keeps watch"
-            } else {
-                "keeps the common store"
+            let office = match kind {
+                PolicyKind::KeepWatch => "keeps watch",
+                PolicyKind::HearCases => "hears cases",
+                _ => "keeps the common store",
             };
             let words = format!(
                 "{} no longer {office} at {name}: {why}.",
@@ -1115,7 +1196,49 @@ impl Population {
                     .count();
                 kcal / (households.len() + theirs).max(1) as f64
             }),
+            forum_cases: self.forum_cases(ctx, pi),
         }
+    }
+
+    /// The cases polity `pi`'s gathering or forum heard within memory (M7b slices BR, BS), when
+    /// its content offers a forum.
+    fn forum_cases(&self, ctx: &Ctx, pi: usize) -> Vec<ForumCase> {
+        if !ctx
+            .catalog
+            .policies
+            .iter()
+            .any(|d| d.kind == PolicyKind::HearCases)
+        {
+            return Vec::new();
+        }
+        let since = ctx.now.day_index() - i64::from(ctx.params.crime.remember_days);
+        let polity = &self.polities[pi];
+        self.order
+            .cases
+            .iter()
+            .filter(|c| polity.holds(Some(c.settlement)))
+            .filter(|c| c.heard.is_some_and(|t| t.day_index() >= since))
+            .filter(|c| {
+                matches!(
+                    c.stage,
+                    crate::crime::CaseStage::Found
+                        | crate::crime::CaseStage::NotFound
+                        | crate::crime::CaseStage::Unheard
+                )
+            })
+            .map(|c| ForumCase {
+                gathered: c.forum.is_none(),
+                accuser: c.accuser,
+                accused: c.accused_household,
+                kcal: f64::from(c.kcal),
+                found: c.stage == crate::crime::CaseStage::Found,
+                stances: c
+                    .stances
+                    .iter()
+                    .map(|r| (r.person, r.household, r.stance))
+                    .collect(),
+            })
+            .collect()
     }
 
     /// What closing each source of water an adult among `adults` holds sickens, and polity `pi`
@@ -1672,6 +1795,27 @@ impl Population {
         if self.held_by(pi).is_some() {
             issues.push(IssueKind::Holding);
         }
+        // A case one of its households brought went unheard, or was not found, within memory
+        // (M7b slice BR, ADR-0025 §1).
+        let remember = day - i64::from(params.crime.remember_days);
+        if self.order.cases.iter().any(|c| {
+            c.settlement == settlement
+                && c.opened >= remember
+                && matches!(
+                    c.stage,
+                    crate::crime::CaseStage::Unheard | crate::crime::CaseStage::NotFound
+                )
+        }) || self.polities[pi]
+            .forum(&ctx.catalog.policies)
+            .is_some_and(|(f, _)| {
+                self.word
+                    .grievances
+                    .iter()
+                    .any(|g| g.blamed == Blamed::Forum(f.id) && g.unresolved_days > 0.0)
+            })
+        {
+            issues.push(IssueKind::CasesWaiting);
+        }
         let polity = &self.polities[pi];
         // A watch may have one more while takings continue (M4c slice AI: a watch of several):
         // food taken from a household here since the newest watcher was named.
@@ -1719,6 +1863,15 @@ impl Population {
                 // A palisade, while the settlement has none (M6c slice BK: `public_enclosure`).
                 if d.kind == PolicyKind::Enclose {
                     return true;
+                }
+                // One forum at a time (M7b slice BR): another may replace the one in force (M7b
+                // slice BS: its seat or its authority changed by a law).
+                if d.kind == PolicyKind::HearCases {
+                    return !polity.laws.iter().any(|l| {
+                        l.kind == PolicyKind::HearCases
+                            && l.status == LawStatus::InForce
+                            && usize::from(l.policy) == *k
+                    });
                 }
                 (d.kind == PolicyKind::KeepWatch && taken_since)
                     // Another claim, for places the claims in force do not name (M5c slice AT).
@@ -1958,6 +2111,69 @@ impl Population {
         // Those who keep the watch now (M4c slice AI).
         let watching: Vec<PermanentId> = self.polities[pi].watchers().map(|w| w.0).collect();
         let held = |m: &MoveOption, h: PermanentId| ended(m).map_or(0.0, |k| gain_of(&k.1, h));
+        // What each limit a template offers, not in force, would bring each household (M7b slice
+        // BT, ADR-0025 §3): half what ending the laws in force it forbids would, for the chance a
+        // challenge of each would be found (nothing for a law it is better off under).
+        let latitude = params.latitude_deg;
+        let limit_gains: Vec<(u16, Vec<(PermanentId, f64)>)> = policies
+            .iter()
+            .enumerate()
+            .filter_map(|(k, def)| {
+                let lim = def
+                    .limit
+                    .as_ref()
+                    .filter(|_| def.kind == PolicyKind::Limit)?;
+                let in_force = self.polities[pi]
+                    .laws
+                    .iter()
+                    .any(|l| usize::from(l.policy) == k && l.status == LawStatus::InForce);
+                if in_force {
+                    return None;
+                }
+                let breached: Vec<MoveOption> = self.polities[pi]
+                    .laws
+                    .iter()
+                    .filter(|l| l.status == LawStatus::InForce)
+                    .filter(|l| {
+                        lim.reading(l.kind, l.hours, f64::from(l.levy_share), latitude)
+                            .is_some_and(|r| r > 0.0)
+                    })
+                    .map(|l| MoveOption {
+                        policy: l.policy,
+                        levy_share: f64::from(l.levy_share),
+                        issue: l.issue,
+                        nominee: l.holder,
+                        sanction: l.sanction,
+                        hours: l.hours,
+                        body: None,
+                        ends: None,
+                        target: l.target,
+                        site: None,
+                        own_gain: 0.0,
+                        followers_gain: 0.0,
+                        support: 0.5,
+                    })
+                    .collect();
+                if breached.is_empty() {
+                    return None;
+                }
+                let gains = outlooks
+                    .iter()
+                    .map(|(h, _)| {
+                        let g: f64 = breached.iter().map(|m| (-gain_of(m, *h)).max(0.0)).sum();
+                        (*h, 0.5 * g)
+                    })
+                    .collect();
+                Some((k as u16, gains))
+            })
+            .collect();
+        let limit_gain = |m: &MoveOption, h: PermanentId| {
+            limit_gains
+                .iter()
+                .find(|l| l.0 == m.policy)
+                .and_then(|l| l.1.iter().find(|g| g.0 == h))
+                .map(|g| g.1)
+        };
         for d in deliberators {
             let Some(own) = members
                 .binary_search_by_key(&d, |m| m.0)
@@ -2179,6 +2395,49 @@ impl Population {
                     // Seeking terms with another polity is weighed apart, after these (M5c
                     // slice AU): it is a meeting before it is a law.
                     PolicyKind::Agreement => {}
+                    // A limit is weighed only as an amendment is (M7b slice BT).
+                    PolicyKind::Limit => {}
+                    // A forum (M7b slice BR): one holder the sponsor regards most, themselves at
+                    // full regard; a panel or the elders name nobody.
+                    PolicyKind::HearCases => {
+                        // In place of the forum in force, if one is (M7b slice BS).
+                        let blank = MoveOption {
+                            ends: self.polities[pi]
+                                .laws
+                                .iter()
+                                .find(|l| {
+                                    l.kind == PolicyKind::HearCases
+                                        && l.status == LawStatus::InForce
+                                })
+                                .map(|l| l.id),
+                            ..blank
+                        };
+                        let holder = def
+                            .forum
+                            .as_ref()
+                            .is_some_and(|f| f.seat == crate::forum::ForumSeat::Holder);
+                        if holder {
+                            let pick = adults
+                                .iter()
+                                .map(|&(c, _)| {
+                                    let r = if c == d {
+                                        1.0
+                                    } else {
+                                        self.ties.regard(d, c, day, tp).clamp(0.0, 1.0)
+                                    };
+                                    (r, c)
+                                })
+                                .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
+                            if let Some((_, c)) = pick {
+                                moves.push(MoveOption {
+                                    nominee: Some(c),
+                                    ..blank
+                                });
+                            }
+                        } else {
+                            moves.push(blank);
+                        }
+                    }
                     // While founding, an end to each law the old custom made (M4c slice AI): a
                     // store's levy ends as a petition would end it, the store giving what it
                     // holds; any other law is repealed.
@@ -2247,6 +2506,25 @@ impl Population {
                 .grievances_of(d)
                 .any(|g| g.blamed == Blamed::Body(polity_id) && g.unresolved_days > 0.0);
             if overruled {
+                // A limit, as an amendment is (M7b slice BT, ADR-0025 §3): one forbidding a law in
+                // force.
+                for (k, _) in &limit_gains {
+                    moves.push(MoveOption {
+                        policy: *k,
+                        levy_share: 0.0,
+                        issue: IssueKind::Overruled,
+                        nominee: None,
+                        sanction: Default::default(),
+                        hours: (0, 0),
+                        body: None,
+                        ends: None,
+                        site: None,
+                        target: None,
+                        own_gain: 0.0,
+                        followers_gain: 0.0,
+                        support: 0.5,
+                    });
+                }
                 for (k, def) in ctx.catalog.policies.iter().enumerate() {
                     if def.kind != PolicyKind::AmendBody {
                         continue;
@@ -2298,7 +2576,7 @@ impl Population {
             let gain_for = |m: &MoveOption, h: PermanentId| match (m.body, m.ends) {
                 (Some(b), _) => amend_gain(&b, sitters_of(&b), h, &seen_d),
                 (None, Some(_)) => -held(m, h),
-                (None, None) => gain_of(m, h),
+                (None, None) => limit_gain(m, h).unwrap_or_else(|| gain_of(m, h)),
             };
             for m in &mut moves {
                 // Those who regard them, by how much; and those they know, by where they would
@@ -2392,7 +2670,9 @@ impl Population {
                     .is_some_and(|d| d.kind == PolicyKind::KeepWatch)
                     && !watching.is_empty()
             };
-            moves.retain(|m| (m.body.is_none() && !further(m)) || m.own_gain > 0.0);
+            // So is a limit (M7b slice BT).
+            let limit = |m: &MoveOption| limit_gains.iter().any(|l| l.0 == m.policy);
+            moves.retain(|m| (m.body.is_none() && !further(m) && !limit(m)) || m.own_gain > 0.0);
             let u =
                 Rng64::from_key(&[ctx.seed, PURPOSE_DELIBERATE, d.get(), day as u64]).next_f64();
             let choice = deliberator.choose(&moves, u);
@@ -2407,7 +2687,7 @@ impl Population {
                                 amend_gain(&b, sitters_of(&b), *h, &seen_by(&|_, hh| hh == *h))
                             }
                             (None, Some(_)) => -held(&m, *h),
-                            (None, None) => gain_of(&m, *h),
+                            (None, None) => limit_gain(&m, *h).unwrap_or_else(|| gain_of(&m, *h)),
                         };
                         (*h, (pp.w_gain * gain) as f32)
                     })
@@ -2657,7 +2937,7 @@ impl Population {
             self.decide_law(ctx, pi, &g, law);
         }
         for &case in &g.cases {
-            self.hear_case(ctx, pi, &g, case);
+            self.hear_case(ctx, pi, &g.present, None, case);
         }
     }
 
@@ -2756,7 +3036,20 @@ impl Population {
             })
             .collect();
         let polity = &mut self.polities[pi];
-        let body = polity.body;
+        // A change of a limit is decided by the limit's own rule (M7b slice BT, ADR-0025 §3:
+        // entrenchment).
+        let entrenched = polity
+            .laws
+            .iter()
+            .find(|l| l.id == law_id)
+            .and_then(|l| l.ends)
+            .and_then(|e| polity.laws.iter().find(|l| l.id == e))
+            .and_then(|l| ctx.catalog.policies.get(usize::from(l.policy))?.limit)
+            .map(|lim| lim.change);
+        let body = Body {
+            pass: entrenched.unwrap_or(polity.body.pass),
+            ..polity.body
+        };
         // A further watcher's rounds start past those of the watchers before them (M4c slice AI).
         let watching = polity.watchers().count() as u32;
         let Some(law) = polity.law_mut(law_id) else {
@@ -3078,7 +3371,7 @@ impl Population {
         let pi = self.polity_of(hh.settlement?)?;
         let laws = &self.polities[pi].laws;
         let li = laws.iter().position(|l| {
-            l.status == LawStatus::InForce
+            (l.status == LawStatus::InForce || self.keeps_struck(ctx, person, l))
                 && l.kind == PolicyKind::Curfew
                 && crate::polity::within_hours(l.hours, minute)
         })?;
@@ -3096,6 +3389,45 @@ impl Population {
             crate::polity::comply_points(norm, stance, regard, 0.0, &ctx.params.polity).max(0.0)
         });
         Some((pi, li, points))
+    }
+
+    /// Whether `person` still keeps law `l`, struck down, as if it bound them (M7b slice BU,
+    /// ADR-0025 §5: a ruling is known person by person): they knew the law, have not heard the
+    /// finding that struck it, and it was struck within memory.
+    fn keeps_struck(&self, ctx: &Ctx, person: PermanentId, l: &crate::polity::Law) -> bool {
+        self.still_keeps(
+            person,
+            l,
+            ctx.now.day_index(),
+            ctx.params.crime.remember_days,
+        )
+    }
+
+    /// As [`Population::keeps_struck`], on day `today`, a ruling remembered `remember_days`.
+    pub fn still_keeps(
+        &self,
+        person: PermanentId,
+        l: &crate::polity::Law,
+        today: i64,
+        remember_days: u32,
+    ) -> bool {
+        if l.status != LawStatus::StruckDown || !l.knows(person) {
+            return false;
+        }
+        let since = today - i64::from(remember_days);
+        let Some(ruling) = self.order.cases.iter().rev().find(|c| {
+            c.law == l.id && c.challenge.is_some() && c.stage == crate::crime::CaseStage::Found
+        }) else {
+            return false;
+        };
+        if ruling.heard.is_none_or(|t| t.day_index() < since) {
+            return false;
+        }
+        !self.word.heard_by(person).iter().any(|h| {
+            self.word.claim(h.claim).is_some_and(|c| {
+                c.kind == crate::word::ClaimKind::Finding && c.event == Some(ruling.id)
+            })
+        })
     }
 
     /// `person` sits down at the gathering of their settlement.
@@ -3146,7 +3478,7 @@ impl Population {
         let laws: Vec<usize> = (0..self.polities[pi].laws.len())
             .filter(|&li| {
                 let l = &self.polities[pi].laws[li];
-                l.status == LawStatus::InForce
+                (l.status == LawStatus::InForce || self.keeps_struck(ctx, who, l))
                     && ctx
                         .catalog
                         .policies

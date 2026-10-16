@@ -1,0 +1,21 @@
+# A limit: no levy above a share (M7b slice BT, ADR-0025 §3). A law that levies more than a quarter
+# of a harvest breaches it. Adopted only through the custom's amendment route and changed only by
+# two of every three who take a side; it matters only when someone a levy binds challenges it and
+# a forum with review finds against it.
+kind = "policy"
+id = "core:policy/limit_levy"
+name = "No great levy"
+description = "No law may levy more than a quarter of a harvest."
+does = "limit"
+answers = ["overruled"]
+question = "whether any law may levy more than a quarter of a harvest"
+
+[limit]
+predicate = "levy_share"
+share = 0.25
+change = "two_thirds"
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/autonomy" = 0.5
+"core:value/reciprocity" = -0.25

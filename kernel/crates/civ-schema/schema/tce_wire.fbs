@@ -2048,7 +2048,7 @@ table LawLine {
   // 0 before the gathering, 1 in force, 2 rejected, 3 lapsed (wire 1.28: the one it named died or
   // left), 4 superseded (wire 1.35: an amendment of the custom a later one replaced; 1.41: any law
   // a later one ended or changed), 5 carried (wire 1.44: a repeal that passed, ending the law it
-  // named).
+  // named), 6 struck down (wire 1.78, M7b slice BT: a forum with review found it breaks a limit).
   status: ubyte (id: 5);
   sponsor: ulong (id: 6);
   sponsor_name: string (id: 7);
@@ -2323,6 +2323,14 @@ table Order {
   // newest first, each in words rendered by the kernel: who came, who met them how, what was taken
   // and every blow struck, by whom, to whom, and what it did (research 06-10 §4.C).
   encounters: [string] (id: 15);
+  // Wire 1.79 (M7b slice BU, ADR-0025): cases settled and withdrawn, challenges of laws under
+  // limits and the laws they struck down, and the latest cases and challenges in the kernel's
+  // words, newest first (at most 20): who brought what before whom, how it closed and when.
+  settled: uint (id: 16);
+  withdrawn: uint (id: 17);
+  challenges: uint (id: 18);
+  struck_down: uint (id: 19);
+  case_lines: [string] (id: 20);
 }
 
 // ---- Incidents (wire 1.64, M6a slice BB, ADR-0015 §8) ---------------------------------------

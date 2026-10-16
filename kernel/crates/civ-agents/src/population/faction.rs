@@ -161,7 +161,7 @@ impl Population {
         let p = &self.polities[pi];
         match party {
             Blamed::Body(id) => id == p.id,
-            Blamed::Office(law) => p.laws.iter().any(|l| l.id == law),
+            Blamed::Office(law) | Blamed::Forum(law) => p.laws.iter().any(|l| l.id == law),
             Blamed::Household(_) | Blamed::Person(_) => false,
         }
     }
@@ -798,7 +798,7 @@ impl Population {
             Blamed::Office(office) => polity.laws.iter().any(|l| {
                 l.id == office && l.status == LawStatus::InForce && l.kind == PolicyKind::KeepStore
             }),
-            Blamed::Household(_) | Blamed::Person(_) => false,
+            Blamed::Household(_) | Blamed::Person(_) | Blamed::Forum(_) => false,
         };
         let Some(law) = polity
             .laws

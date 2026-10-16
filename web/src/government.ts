@@ -34,6 +34,7 @@ export function statusText(l: Pick<LawLine, "status" | "outcome" | "meetsMinute"
   if (l.status === "lapsed") return "lapsed: no longer in force";
   if (l.status === "superseded") return "superseded by a later law";
   if (l.status === "carried") return "carried: the law it named is ended";
+  if (l.status === "struck down") return "struck down: a forum found it breaks a limit";
   if (l.status === "proposed") return `before the gathering on ${lawDayText(l.meetsMinute)}`;
   switch (l.outcome) {
     case "tied":

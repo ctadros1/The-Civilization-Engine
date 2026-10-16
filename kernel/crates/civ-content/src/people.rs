@@ -1331,6 +1331,12 @@ pub(crate) struct CrimeFile {
     pub strike_threshold: [f64; 2],
     pub hurt_days: [u16; 2],
     pub kill_share: f64,
+    /// Content API 111 (M7b slice BS).
+    pub recall_k: u32,
+    pub w_persuasive: f64,
+    pub w_binding: f64,
+    /// Content API 112 (M7b slice BT).
+    pub w_reading: f64,
 }
 
 impl CrimeFile {
@@ -1380,6 +1386,10 @@ impl CrimeFile {
             strike_threshold: self.strike_threshold,
             hurt_days: self.hurt_days,
             kill_share: self.kill_share,
+            recall_k: self.recall_k,
+            w_persuasive: self.w_persuasive,
+            w_binding: self.w_binding,
+            w_reading: self.w_reading,
         }
     }
 
@@ -1389,6 +1399,7 @@ impl CrimeFile {
             ("crime.due_days", self.due_days, 1, 3650),
             ("crime.rounds_per_night", self.rounds_per_night, 1, 24),
             ("crime.round_stops", self.round_stops, 1, 1000),
+            ("crime.recall_k", self.recall_k, 3, 8),
         ] {
             if !(lo..=hi).contains(&v) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
@@ -1438,6 +1449,9 @@ impl CrimeFile {
             ("crime.w_collect", self.w_collect, -100.0, 100.0),
             ("crime.w_harm", self.w_harm, 0.0, 100.0),
             ("crime.kill_share", self.kill_share, 0.0, 1.0),
+            ("crime.w_persuasive", self.w_persuasive, 0.0, 100.0),
+            ("crime.w_binding", self.w_binding, 0.0, 100.0),
+            ("crime.w_reading", self.w_reading, 0.0, 100.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

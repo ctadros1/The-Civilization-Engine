@@ -107,6 +107,11 @@ describe("takings in words", () => {
       notFound: 0,
       unheard: 0,
       encounters: [],
+      settled: 0,
+      withdrawn: 0,
+      challenges: 0,
+      struckDown: 0,
+      caseLines: [],
     };
     expect(totalsText(none)).toBe("Nobody has gone to take from another household's store.");
     expect(
@@ -115,7 +120,23 @@ describe("takings in words", () => {
       "5 attempts, 3 takings; 2 seen; 2 known to the household taken from; 1 demand to give back (1 met, 0 refused); 0 asks refused to those believed to have taken.",
     );
     expect(totalsText({ ...none, attempts: 2, takings: 2, cases: 2, found: 1, notFound: 1 })).toContain(
-      " 2 cases before the gathering: 1 found, 1 not found, 0 unheard.",
+      " 2 cases brought: 1 found, 1 not found, 0 unheard.",
+    );
+    // Wire 1.79 (M7b slice BU): settled and withdrawn, and challenges of laws under limits.
+    expect(
+      totalsText({
+        ...none,
+        attempts: 3,
+        takings: 3,
+        cases: 4,
+        found: 2,
+        settled: 1,
+        withdrawn: 1,
+        challenges: 1,
+        struckDown: 1,
+      }),
+    ).toContain(
+      " 4 cases brought: 2 found, 0 not found, 0 unheard, 1 settled, 1 withdrawn. 1 challenge of a law under a limit, 1 law struck down.",
     );
   });
 
@@ -182,6 +203,15 @@ describe("takings in words", () => {
       0,
       0,
       encounters,
+      1,
+      0,
+      1,
+      1,
+      W.Order.createCaseLinesVector(b, [
+        b.createString(
+          "Case 2: Rilla challenged a curfew before the elders, under the limit that no law may keep a household from its own work for more than 30 minutes of the longest day's light; the elders found that it breaks the limit, 5 for and 1 against: it binds no more.",
+        ),
+      ]),
     );
     b.finish(W.Response.createResponse(b, W.ResponseBody.Order, order));
     const body = M.decodeResponse(b.asUint8Array());
@@ -197,7 +227,13 @@ describe("takings in words", () => {
       refusals: 2,
       cases: 1,
       found: 1,
+      settled: 1,
+      withdrawn: 0,
+      challenges: 1,
+      struckDown: 1,
     });
+    expect(o.caseLines).toHaveLength(1);
+    expect(o.caseLines[0]).toContain("it binds no more");
     expect(o.encounters).toHaveLength(1);
     expect(o.encounters[0]).toContain("they let Bo take 4 days' food");
     expect(o.incidents[0]).toMatchObject({

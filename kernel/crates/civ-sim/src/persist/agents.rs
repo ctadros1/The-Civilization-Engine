@@ -119,8 +119,8 @@ use super::{
     SCHEMA_V97, SCHEMA_V98, SCHEMA_V99, SCHEMA_V100, SCHEMA_V101, SCHEMA_V102, SCHEMA_V103,
     SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
-    SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, finish, section,
-    single_chunk, unreadable,
+    SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
+    SCHEMA_V125, SCHEMA_V126, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -572,6 +572,12 @@ enum Schema {
     V123,
     /// M7a slice BQ: electoral alliances (`ElectionSave.alliances`).
     V124,
+    /// M7b slice BR: forums (`CaseSave.forum`).
+    V125,
+    /// M7b slice BS: precedent (`CaseSave.tags`, `departed`, `stance_precedent`).
+    V126,
+    /// M7b slice BT: limits and review (`CaseSave.challenge`, law status 6 struck down).
+    V127,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -710,7 +716,10 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V121 => Schema::V121,
         SCHEMA_V122 => Schema::V122,
         SCHEMA_V123 => Schema::V123,
-        SAVE_SCHEMA_VERSION => Schema::V124,
+        SCHEMA_V124 => Schema::V124,
+        SCHEMA_V125 => Schema::V125,
+        SCHEMA_V126 => Schema::V126,
+        SAVE_SCHEMA_VERSION => Schema::V127,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1100,24 +1109,32 @@ pub(super) fn decode<R: Read + Seek>(
                 "a non-fire claim names a fire".to_owned(),
             ));
         }
-        // A raid names a recorded encounter, a band seen a recorded band (schema 111).
+        // A raid names a recorded encounter, a band seen a recorded band (schema 111), a finding
+        // a recorded case (schema 126, M7b slice BS).
         let named = match c.kind {
-            civ_agents::word::ClaimKind::Raid => Some(
+            civ_agents::word::ClaimKind::Raid => Some((
                 c.event
                     .is_some_and(|id| people.order.clashes.iter().any(|x| x.id == id)),
-            ),
-            civ_agents::word::ClaimKind::BandSeen => Some(
+                Schema::V111,
+            )),
+            civ_agents::word::ClaimKind::BandSeen => Some((
                 c.event
                     .is_some_and(|id| people.order.bands.iter().any(|x| x.id == id)),
-            ),
+                Schema::V111,
+            )),
+            civ_agents::word::ClaimKind::Finding => Some((
+                c.event
+                    .is_some_and(|id| people.order.cases.iter().any(|x| x.id == id)),
+                Schema::V126,
+            )),
             _ => None,
         };
         match named {
-            Some(true) if schema >= Schema::V111 => {}
+            Some((true, since)) if schema >= since => {}
             None if c.event.is_none() => {}
             _ => {
                 return Err(LoadError::Malformed(format!(
-                    "claim {} names no recorded encounter or band",
+                    "claim {} names no recorded encounter, band or case",
                     c.id
                 )));
             }
@@ -1791,6 +1808,7 @@ fn law_status_code(s: civ_agents::polity::LawStatus) -> u8 {
         LawStatus::Lapsed => 3,
         LawStatus::Superseded => 4,
         LawStatus::Carried => 5,
+        LawStatus::StruckDown => 6,
     }
 }
 
@@ -1842,6 +1860,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::GaveWay => 16,
         IssueKind::Raided => 17,
         IssueKind::Holding => 18,
+        IssueKind::CasesWaiting => 19,
     }
 }
 
@@ -1945,6 +1964,7 @@ fn decode_polities(
                 3 => LawStatus::Lapsed,
                 4 => LawStatus::Superseded,
                 5 => LawStatus::Carried,
+                6 => LawStatus::StruckDown,
                 c => return Err(bad(format!("law {law} has status code {c}"))),
             };
             let issue = match l.issue() {
@@ -1967,6 +1987,7 @@ fn decode_polities(
                 16 => IssueKind::GaveWay,
                 17 => IssueKind::Raided,
                 18 => IssueKind::Holding,
+                19 => IssueKind::CasesWaiting,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -4323,7 +4344,10 @@ fn carried(
         | Schema::V121
         | Schema::V122
         | Schema::V123
-        | Schema::V124 => {
+        | Schema::V124
+        | Schema::V125
+        | Schema::V126
+        | Schema::V127 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4620,7 +4644,10 @@ fn decode_households(
             | Schema::V121
             | Schema::V122
             | Schema::V123
-            | Schema::V124 => {
+            | Schema::V124
+            | Schema::V125
+            | Schema::V126
+            | Schema::V127 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -4979,6 +5006,8 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let stances = fbb.create_vector(&stances);
+            let precedent: Vec<f32> = c.stances.iter().map(|r| r.precedent).collect();
+            let precedent = fbb.create_vector(&precedent);
             save::CaseSave::create(
                 &mut fbb,
                 &save::CaseSaveArgs {
@@ -4999,6 +5028,11 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
                     eligible: c.eligible,
                     stances: Some(stances),
                     exiled: c.exiled,
+                    forum: c.forum.map_or(0, PermanentId::get),
+                    challenge: c.challenge.map_or(0, PermanentId::get),
+                    tags: c.tags,
+                    departed: c.departed.unwrap_or(0),
+                    stance_precedent: Some(precedent),
                 },
             )
         })
@@ -5318,7 +5352,11 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
     for c in root.cases().iter().flatten() {
         let cid = c.id();
         let mut stances = Vec::new();
-        for r in c.stances().iter().flatten() {
+        let precedent: Vec<f32> = c
+            .stance_precedent()
+            .map(|v| v.iter().collect())
+            .unwrap_or_default();
+        for (i, r) in c.stances().iter().flatten().enumerate() {
             stances.push(civ_agents::crime::CaseStance {
                 person: required(r.person(), "someone at a hearing")?,
                 household: required(r.household(), "a household at a hearing")?,
@@ -5327,6 +5365,7 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
                 stake: r.stake(),
                 belief: r.belief(),
                 regard: r.regard(),
+                precedent: precedent.get(i).copied().unwrap_or(0.0),
             });
         }
         order.cases.push(Case {
@@ -5350,6 +5389,10 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
             eligible: c.eligible(),
             stances,
             exiled: c.exiled(),
+            forum: id_of(c.forum()),
+            challenge: id_of(c.challenge()),
+            tags: c.tags(),
+            departed: (c.departed() != 0).then_some(c.departed()),
         });
     }
     for a in root.amounts().iter().flatten() {
@@ -5544,7 +5587,11 @@ fn order_problems(order: &civ_agents::crime::Order) -> Vec<String> {
             s.officer, s.incident
         ));
     }
-    if let Some(c) = order.cases.iter().find(|c| !known(c.incident)) {
+    if let Some(c) = order
+        .cases
+        .iter()
+        .find(|c| c.challenge.is_none() && !known(c.incident))
+    {
         out.push(format!(
             "case {} names missing incident {}",
             c.id, c.incident

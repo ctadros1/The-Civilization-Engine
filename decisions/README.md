@@ -32,6 +32,7 @@ the milestone is too big and gets split.
 | [0023](0023-force-between-polities.md) | Force between polities: takings across the boundary, bands, encounters, enclosures, and a polity over several settlements | Accepted | M6c |
 | [0024](0024-seats-offices-and-elections.md) | Seats, offices and elections | Accepted | M7a |
 | [0025](0025-forums-precedent-and-review.md) | Forums, precedent and review | Accepted | M7b |
+| [0026](0026-organizations-privileges-and-trade-policy.md) | Organizations, privileges and trade policy | Accepted | M7c |
 
 ## Template
 

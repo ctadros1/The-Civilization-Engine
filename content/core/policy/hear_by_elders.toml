@@ -1,0 +1,29 @@
+# The elders hear cases (M7b slice BR, ADR-0025 §1). The eldest adult of each household of the
+# polity, none of the two households, hears each case brought under the law against taking or the
+# law against raiding, the evening after it is brought, and decides by two of every three who take
+# a side, half of them coming. Research 09-07 §2.2 and 09-02: councils of elders are among the
+# commonest forums before courts.
+kind = "policy"
+id = "core:policy/hear_by_elders"
+name = "Elders hear cases"
+description = "The elders of the households hear the cases brought under the laws against taking and raiding."
+does = "hear_cases"
+answers = ["cases_waiting"]
+question = "whether the elders should hear the cases brought"
+
+[forum]
+seat = "elders"
+hears = ["against_taking", "against_raiding"]
+# The elders lean toward the findings they remember of the same facts (content API 111, M7b
+# slice BS, ADR-0025 §2: authority as the forum's value).
+authority = "persuasive"
+# It may hear challenges of laws under limits in force (content API 112, M7b slice BT,
+# ADR-0025 §4: review is a power a law gives a forum).
+review = true
+quorum_share = 0.5
+pass = "two_thirds"
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 0.5
+"core:value/reciprocity" = 0.25

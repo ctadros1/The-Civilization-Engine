@@ -2342,3 +2342,58 @@ one prior was nudged and logged (`elections.w_evening 0.25 -> 1`, day 240). On d
 5 elected by the adults passed 65 to 0; eight stood, 63 of 66 came to poll, and five were seated by
 the block vote, split on the common store and on hearing cases. The label read the polity as a
 republic.
+
+## 2026-10-16 — BR: a forum by law
+
+**Built:** ADR-0025 §1. A `hear_cases` law names a forum (a hearer, a panel by lot or the elders)
+for the cases brought under the laws against taking and raiding; the case is heard by it the
+midnight after it is brought, a hearer alone and a panel or the elders by their own rule, nobody of
+the two households sitting. Before the sitting it may be settled (the accused offers back what is
+owed and the bringer accepts) or withdrawn (the loss was made good by demand). The *cases waiting*
+issue, the forum's forecast from a household's own cases and evenings, the observer's case words
+naming who heard it and the days to closure; save schema 125 (`Case.forum`), content API 110 and
+three core templates.
+
+**Evidence:** `tests/forum.rs` (a hearer alone the evening after; a panel and the elders without the
+two households; a hearer of a party or a forum ended leaves it to the gathering; settled and
+withdrawn; exact save and load); the forum's unit test; content validates.
+
+## 2026-10-16 — BS: precedent
+
+**Built:** ADR-0025 §2. Cases keep fact tags derived when heard; every finding is remembered as a
+claim by those who heard it and told as news; sitters recall up to five of those they hold, the
+most alike first; a forum's authority (informative, persuasive, binding; the template's, content
+API 111) sets how far a recalled finding moves a stance; a finding against an identical recalled
+one is recorded as a departure. A forum may be replaced by another, which is how its authority
+changes. Save schema 126.
+
+**Evidence:** `tests/forum.rs`: the hearer and the parties hold the finding; a second like case
+heard by an informative hearer who saw it is found, departing from the first, and by a binding
+hearer is kept to the first (-4 points of precedent); the forum unit test for precedent points.
+
+## 2026-10-16 — BT: limits and review
+
+**Built:** ADR-0025 §3-4. A limit is a law above laws, adopted through the amendment route and
+changed only by its own rule; its predicate is one the kernel reads (a curfew's hours against the
+year's light, a levy's share). A forum may be given review; where it and a limit are in force,
+those a breaching law costs weigh challenging it, and the forum, reading the law against the limit,
+may strike it down (`StruckDown`, wire 1.78). Content API 112, save schema 127.
+
+**Evidence:** `tests/review.rs`: a curfew from nine to five, with a daylight limit and the elders
+reviewing, is challenged by one it keeps home and struck down; a curfew from eleven to four, or a
+forum without review, sees no challenge; a challenge saves and loads exactly. The forum unit test
+reads curfews and levies against limits.
+
+## 2026-10-16 — BU: rulings carried out
+
+**Built:** ADR-0025 §5. A ruling is known person by person: one who knew a law struck down and has
+not heard the finding keeps it, within memory, in a curfew's hours and a levy alike. A norm that a
+forum's findings bind (`abide_by_findings`, content API 113), held apart from the gathering's,
+weighs toward meeting what a forum imposes and is learned at the hearth from those whose households
+met or refused it. A forum's findings are held against the forum, and such a grievance opens *cases
+waiting*. The dashboard's Justice row; wire 1.79's settled, withdrawn, challenges, struck down and
+the latest cases in words, shown in the Order and Government panels. The demo example `courts`.
+
+**Evidence:** `tests/review.rs` (a ruling known person by person: those who heard it no longer keep
+the curfew, those who knew the law and have not heard it do); `tests/forum.rs` (a forum's finding
+blamed on the forum; the norm's points); the dashboard's Justice unit test; `web/tests/order.test.ts`.

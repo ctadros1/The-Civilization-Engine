@@ -687,6 +687,41 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 113 (M7b slice BU, ADR-0025 §5) brings the norm that findings bind. A norm may
+`does = "abide_by_findings"`: its points weigh toward meeting what a forum's finding imposes, as
+`abide_by_laws` weighs toward meeting the gathering's, and its `[expect] share` and `tell_days`
+say how often companions at the hearth tell whether their household met what forums imposed on it,
+and for how long that is worth telling. The core adds `core:norm/findings_bind`.
+
+Content API 112 (M7b slice BT, ADR-0025 §3-4) brings limits and review. A policy may `does =
+"limit"` with a `[limit]` table: `predicate` (`daylight_work`, with `minutes`: the most of the
+longest day's light a curfew may cover, 1 to 720; or `levy_share`, with `share`: the most of a
+harvest a law may levy, above 0 and below 1) and `change` (`more_for` or `two_thirds`: the rule
+its own repeal is decided by). It answers the `overruled` issue and is weighed only as an amendment
+is. A `[forum]` table may add `review = true`: that forum hears challenges of laws in force under
+limits in force, brought by those a law costs. The people profile's `[crime]` table adds
+`w_reading`. The core adds `core:policy/limit_daylight_work` and `core:policy/limit_levy`, and
+gives review to the elders and to the hearer bound by findings.
+
+Content API 111 (M7b slice BS, ADR-0025 §2) brings precedent. A `[forum]` table may add
+`authority`: `informative` (the default: sitters follow no finding but as they believe it),
+`persuasive` or `binding`. The people profile's `[crime]` table adds `recall_k` (3 to 8: how
+many remembered findings a sitter recalls, those whose fact tags match the case's most, newest
+first), `w_persuasive` and `w_binding` (the points a recalled finding moves a sitter toward its
+direction, times the share of tags matched, under each authority). Every finding is remembered by
+those who heard it as a claim and told as news. The core makes the elders persuasive and adds
+`core:policy/hearer_by_precedent` (a hearer bound by findings).
+
+Content API 110 (M7b slice BR, ADR-0025 §1) brings forums. A policy may `does = "hear_cases"`
+with a `[forum]` table: `seat` (`holder`, one the body names, as an office; `panel`, `panel` of
+3 to 15 drawn by a keyed lot from the body's members for each sitting; or `elders`, the eldest
+adult of each household), `hears` (the kinds of law whose cases it hears: `against_taking`,
+`against_raiding`), and for a panel or the elders `quorum_share` (default 0.5) and `pass`
+(default `more_for`). It answers the `cases_waiting` issue. A case brought under a law it hears is
+heard by it the midnight after, nobody of the two households sitting; before then it may be
+settled or withdrawn. The core adds `core:policy/name_a_hearer`, `core:policy/hear_by_panel` and
+`core:policy/hear_by_elders`.
+
 Content API 109 (M7a slice BQ, ADR-0024 §6) prices the evenings a council saves. The people
 profile's `[elections]` table adds `w_evening`: the points an evening at the gathering costs one
 who comes. When a household judges a council by the decisions its members saw, it also counts,

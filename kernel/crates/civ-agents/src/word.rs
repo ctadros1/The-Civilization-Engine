@@ -47,11 +47,15 @@ pub enum ClaimKind {
     /// Someone stands in a council's election that polls at the settlement's hearth on a day, and
     /// says where they stand (M7a slice BP, ADR-0024 §4): `subject` is who stands.
     Candidacy = 11,
+    /// A case was found or not found at the settlement on a day (M7b slice BS, ADR-0025 §2): its
+    /// `event` is the case. Those who heard it hold it at first hand; others hear it as news; it
+    /// is remembered as long as takings are.
+    Finding = 12,
 }
 
 impl ClaimKind {
     /// Every kind, in code order.
-    pub const ALL: [ClaimKind; 12] = [
+    pub const ALL: [ClaimKind; 13] = [
         ClaimKind::Gathering,
         ClaimKind::Grievance,
         ClaimKind::Petition,
@@ -64,6 +68,7 @@ impl ClaimKind {
         ClaimKind::BandSeen,
         ClaimKind::Election,
         ClaimKind::Candidacy,
+        ClaimKind::Finding,
     ];
 
     /// Whether claims of this kind are news while they are held (a household's sickness, a
@@ -349,9 +354,10 @@ impl Word {
     }
 
     /// Lets go of what is no longer news on `today`: a gathering's call once its day has passed,
-    /// a grievance told more than `news_days` ago and not since, and sickness first seen or a
-    /// suspicion first held more than `sickness_days` ago; and of claims nobody holds.
-    pub fn prune(&mut self, today: i64, news_days: i64, sickness_days: i64) {
+    /// a grievance told more than `news_days` ago and not since, sickness first seen or a
+    /// suspicion first held more than `sickness_days` ago, and a finding made more than
+    /// `finding_days` ago; and of claims nobody holds.
+    pub fn prune(&mut self, today: i64, news_days: i64, sickness_days: i64, finding_days: i64) {
         let stale = |c: &Claim, last: i64| match c.kind {
             ClaimKind::Gathering
             | ClaimKind::Petition
@@ -362,6 +368,7 @@ impl Word {
             ClaimKind::Grievance => last + news_days < today,
             ClaimKind::Fire | ClaimKind::Raid | ClaimKind::BandSeen => c.day + news_days < today,
             ClaimKind::Sickness | ClaimKind::Suspicion => c.day + sickness_days < today,
+            ClaimKind::Finding => c.day + finding_days < today,
         };
         let claims = &self.claims;
         let find = |id: u32| {
@@ -452,6 +459,9 @@ pub enum Blamed {
     Household(PermanentId),
     /// A person.
     Person(PermanentId),
+    /// A forum, by the *hear cases* law that names it (M7b slice BU, ADR-0025 §5): grievances
+    /// over its findings blame it, not the body.
+    Forum(PermanentId),
 }
 
 impl Blamed {
@@ -462,6 +472,7 @@ impl Blamed {
             Blamed::Office(id) => (1, id.get()),
             Blamed::Household(id) => (2, id.get()),
             Blamed::Person(id) => (3, id.get()),
+            Blamed::Forum(id) => (4, id.get()),
         }
     }
 
@@ -473,6 +484,7 @@ impl Blamed {
             1 => Some(Blamed::Office(id)),
             2 => Some(Blamed::Household(id)),
             3 => Some(Blamed::Person(id)),
+            4 => Some(Blamed::Forum(id)),
             _ => None,
         }
     }
@@ -699,9 +711,9 @@ mod tests {
         assert_eq!((h[0].from, h[0].origin), (Some(id(5)), Some(id(5))));
         assert!(w.has_heard(id(5), c) && !w.has_heard(id(4), c));
         // A gathering's call is news until its day has passed.
-        w.prune(10, 60, 30);
+        w.prune(10, 60, 30, 365);
         assert!(w.has_heard(id(3), c));
-        w.prune(11, 60, 30);
+        w.prune(11, 60, 30, 365);
         assert!(!w.has_heard(id(3), c) && w.claim(c).is_none());
     }
 
@@ -726,9 +738,9 @@ mod tests {
         assert_eq!(w.sickness(id(20)).map(|c| c.id), Some(again));
         assert!(w.sickness(id(21)).is_none());
         // Thirty days after it was first seen it is still news; a day later it is let go.
-        w.prune(40, 60, 30);
+        w.prune(40, 60, 30, 365);
         assert!(w.has_heard(id(5), first));
-        w.prune(41, 60, 30);
+        w.prune(41, 60, 30, 365);
         assert!(!w.has_heard(id(5), first) && w.has_heard(id(5), again));
     }
 

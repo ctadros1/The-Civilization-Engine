@@ -2935,6 +2935,17 @@ export function bindUi(store: Store, actions: Actions): void {
     if (o && (state.incidentKind === 0 || state.incidentKind === 1)) {
       nodes.push(el("p", { className: "order-totals", text: totalsText(o) }));
       // Watchers come to take what a refused finding owed (wire 1.46).
+      // The latest cases and challenges (wire 1.79, M7b slice BU).
+      if (o.caseLines.length > 0) {
+        nodes.push(
+          el(
+            "details",
+            { className: "case-lines" },
+            el("summary", { text: `Cases (${o.caseLines.length}, the latest)` }),
+            el("ul", {}, ...o.caseLines.map((v) => el("li", { text: v }))),
+          ),
+        );
+      }
       if (o.encounters.length > 0) {
         nodes.push(el("ul", { className: "encounters" }, ...o.encounters.map((v) => el("li", { text: v }))));
       }

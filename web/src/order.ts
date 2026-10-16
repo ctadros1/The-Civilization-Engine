@@ -73,9 +73,15 @@ export function totalsText(o: OrderInfo): string {
   const seen = `${o.seen} seen`;
   const known = `${o.knownToVictims} known to the household taken from`;
   const demands = o.demands === 1 ? "1 demand" : `${o.demands} demands`;
+  const closedOtherwise =
+    o.settled + o.withdrawn === 0 ? "" : `, ${o.settled} settled, ${o.withdrawn} withdrawn`;
+  const challenges =
+    o.challenges === 0
+      ? ""
+      : ` ${o.challenges === 1 ? "1 challenge" : `${o.challenges} challenges`} of a law under a limit, ${o.struckDown === 1 ? "1 law" : `${o.struckDown} laws`} struck down.`;
   const cases =
     o.cases === 0
       ? ""
-      : ` ${o.cases === 1 ? "1 case" : `${o.cases} cases`} before the gathering: ${o.found} found, ${o.notFound} not found, ${o.unheard} unheard.`;
+      : ` ${o.cases === 1 ? "1 case" : `${o.cases} cases`} brought: ${o.found} found, ${o.notFound} not found, ${o.unheard} unheard${closedOtherwise}.${challenges}`;
   return `${attempts}, ${takings}; ${seen}; ${known}; ${demands} to give back (${o.met} met, ${o.refused} refused); ${o.refusals} asks refused to those believed to have taken.${cases}`;
 }

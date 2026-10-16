@@ -104,11 +104,19 @@ pub enum PolicyKind {
     /// and its residents become this polity's members. Passed, it is done at once and has run its
     /// course.
     Annex,
+    /// A forum (M7b slice BR, ADR-0025 §1): who hears the cases of the kinds of law its template
+    /// names, besides the gathering: one holder it names, a panel drawn by lot, or the elders.
+    HearCases,
+    /// A limit (M7b slice BT, ADR-0025 §3): a law above laws, forbidding laws whose fields meet a
+    /// predicate the kernel knows; adopted only through the custom's amendment route, and changed
+    /// only by its own rule. A law that breaches it still passes: it matters only when someone
+    /// challenges and a forum with review finds against the law.
+    Limit,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 19] = [
+    pub const ALL: [PolicyKind; 21] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -128,6 +136,8 @@ impl PolicyKind {
         PolicyKind::AgainstRaiding,
         PolicyKind::Enclose,
         PolicyKind::Annex,
+        PolicyKind::HearCases,
+        PolicyKind::Limit,
     ];
 
     /// The authored name.
@@ -152,6 +162,8 @@ impl PolicyKind {
             PolicyKind::AgainstRaiding => "against_raiding",
             PolicyKind::Enclose => "enclose",
             PolicyKind::Annex => "annex",
+            PolicyKind::HearCases => "hear_cases",
+            PolicyKind::Limit => "limit",
         }
     }
 
@@ -226,11 +238,14 @@ pub enum IssueKind {
     Raided,
     /// A band the polity's law sent holds another settlement (M6c slice BM; ADR-0023 §9).
     Holding,
+    /// A case a household of the settlement brought within memory was not heard, or was not
+    /// found (M7b slice BR, ADR-0025 §1): what a forum answers.
+    CasesWaiting,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 19] = [
+    pub const ALL: [IssueKind; 20] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -250,6 +265,7 @@ impl IssueKind {
         IssueKind::GaveWay,
         IssueKind::Raided,
         IssueKind::Holding,
+        IssueKind::CasesWaiting,
     ];
 
     /// The authored name.
@@ -274,6 +290,7 @@ impl IssueKind {
             IssueKind::GaveWay => "gave_way",
             IssueKind::Raided => "raided",
             IssueKind::Holding => "holding",
+            IssueKind::CasesWaiting => "cases_waiting",
         }
     }
 
@@ -311,6 +328,7 @@ impl IssueKind {
             IssueKind::GaveWay => "buildings they knew had given way",
             IssueKind::Raided => "people of another settlement took from households' stores",
             IssueKind::Holding => "a band of theirs held another settlement",
+            IssueKind::CasesWaiting => "a case they brought went unheard or was not found",
         }
     }
 }
@@ -417,6 +435,10 @@ pub struct PolicyDef {
     /// For an office (the store's keeper, the watch): how long it is held and how it is filled,
     /// when not until the holder dies or leaves and named by the body (M7a slice BN, ADR-0024 §2).
     pub tenure: Option<Tenure>,
+    /// For a forum: who sits and what it hears (M7b slice BR, ADR-0025 §1).
+    pub forum: Option<crate::forum::ForumDef>,
+    /// For a limit: what it forbids and the rule that changes it (M7b slice BT).
+    pub limit: Option<crate::forum::LimitDef>,
 }
 
 /// An office's tenure (M7a slice BN, ADR-0024 §2): a term of days, whether the one who held it
@@ -881,6 +903,9 @@ pub enum LawStatus {
     /// A repeal that passed (M4c slice AI, step two): the law it named is superseded, and the
     /// repeal itself asks and gives nothing.
     Carried,
+    /// A forum with review found it breaches a limit in force, on a challenge (M7b slice BT,
+    /// ADR-0025 §4): it no longer binds. The case that struck it names it.
+    StruckDown,
 }
 
 /// How a gathering's decision went. Codes are part of saves: append only.
@@ -1186,6 +1211,24 @@ pub fn law_words(
     if def.is_some_and(|d| d.kind == PolicyKind::Agreement) {
         return "an agreement with a neighbouring polity".to_owned();
     }
+    // A limit (M7b slice BT): what it forbids.
+    if let Some(l) = def
+        .filter(|d| d.kind == PolicyKind::Limit)
+        .and_then(|d| d.limit.as_ref())
+    {
+        return format!("a limit: {}", l.words());
+    }
+    // A forum (M7b slice BR): who hears which cases.
+    if let Some(f) = def
+        .filter(|d| d.kind == PolicyKind::HearCases)
+        .and_then(|d| d.forum.as_ref())
+    {
+        let heard = crate::forum::heard_words(f);
+        return match law.holder {
+            Some(h) => format!("{} to hear the cases brought under {heard}", name_of(h)),
+            None => format!("{} to hear the cases brought under {heard}", f.words()),
+        };
+    }
     // Without the site at hand (see [`Polity::words_of`]), only what it is.
     if def.is_some_and(|d| d.kind == PolicyKind::BuildCrossing) {
         return "a crossing over a stream its people wade, each household doing its share of the \
@@ -1320,6 +1363,8 @@ pub fn ending_words(
         Some(PolicyKind::AgainstRaiding) => "the law against raiding".to_owned(),
         Some(PolicyKind::Enclose) => "the work on a palisade".to_owned(),
         Some(PolicyKind::Annex) => "the taking in of a held settlement".to_owned(),
+        Some(PolicyKind::HearCases) => who("hearing of cases"),
+        Some(PolicyKind::Limit) => "a limit on laws".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -1406,7 +1451,10 @@ pub fn office_words(
 ) -> Vec<String> {
     let mut out = Vec::new();
     for (k, def) in policies.iter().enumerate() {
-        if !matches!(def.kind, PolicyKind::KeepStore | PolicyKind::KeepWatch) {
+        if !matches!(
+            def.kind,
+            PolicyKind::KeepStore | PolicyKind::KeepWatch | PolicyKind::HearCases
+        ) {
             continue;
         }
         // The last one named, still holding it or since gone.
@@ -1970,6 +2018,18 @@ impl Polity {
         self.laws.iter().find(|l| l.status == LawStatus::Proposed)
     }
 
+    /// The forum a *hear cases* law in force names, and that law (M7b slice BR, ADR-0025 §1):
+    /// one at a time.
+    pub fn forum<'a>(
+        &'a self,
+        policies: &'a [PolicyDef],
+    ) -> Option<(&'a Law, &'a crate::forum::ForumDef)> {
+        self.laws
+            .iter()
+            .filter(|l| l.status == LawStatus::InForce && l.kind == PolicyKind::HearCases)
+            .find_map(|l| Some((l, policies.get(usize::from(l.policy))?.forum.as_ref()?)))
+    }
+
     /// The one who keeps the store under their roof by a law in force, and that law.
     pub fn keeper(&self) -> Option<(PermanentId, &Law)> {
         self.office(PolicyKind::KeepStore)
@@ -2529,6 +2589,8 @@ pub(crate) mod tests {
             bears: Vec::new(),
             rule: None,
             tenure: None,
+            forum: None,
+            limit: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -2638,6 +2700,8 @@ pub(crate) mod tests {
             bears: Vec::new(),
             rule: None,
             tenure: None,
+            forum: None,
+            limit: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -2855,6 +2919,8 @@ pub(crate) mod tests {
             bears: Vec::new(),
             rule: None,
             tenure: None,
+            forum: None,
+            limit: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

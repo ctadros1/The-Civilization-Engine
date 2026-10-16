@@ -3105,19 +3105,124 @@ and M6a gives rivers a daily flow.
     - **BR**: a forum by law (*hear cases*: one holder, a panel by lot, or a membership; its
       own rule), the *cases waiting* issue, sittings the evening after a case is brought,
       settled and withdrawn closures, time to closure; the gathering stays the default.
+      - *As built (2026-10-16):* a `hear_cases` policy kind with a `[forum]` table (content API
+        110): its seat (`holder`, `panel` of 3 to 15, or `elders`), the kinds of law whose cases
+        it hears (`against_taking`, `against_raiding`), and for a panel or the elders a quorum
+        of those who sit and a pass rule. One forum is in force at a time. The core offers
+        `core:policy/name_a_hearer` (one named, alone), `core:policy/hear_by_panel` (five by
+        lot, more for than against) and `core:policy/hear_by_elders` (two thirds). A case
+        brought under a law it hears goes before it (`Case.forum`, save schema 125), never
+        before the gathering; a holder never hears a case their household is party to (the
+        gathering does). It sits the midnight after: the holder alone, finding only by standing
+        for a finding; a panel drawn by a lot keyed by world, polity and case from the body's
+        members; or the elders of the households; nobody of the two households sits. Each
+        sitter stands as a gathering's member would (belief, stake, regard); all who sit come.
+        A forum whose law ended before it sat sends the case back to the gathering. Before the
+        sitting a case before a forum may close otherwise: withdrawn when the household had back
+        all it said it lost by demand; settled when the accused's elder offers back what is
+        still owed (weighed as paying a demand, plus the weight of a finding by the case's
+        accounts) and the one who brought it accepts an offer at least the case's strength times
+        what is owed and its compensation (owed as restitution). The gathering's own cases keep
+        its procedure, so a world without a forum is unchanged. The *cases waiting* issue opens
+        when a case of the settlement went unheard or was not found within memory. A household
+        weighs a forum by its own cases the gathering heard within memory, re-heard as the forum
+        would (a holder as they stood there, else even odds; a panel or the elders as those who
+        came stood), a year of the difference, and the evenings its people spent hearing cases.
+        A holder lapses as any office. Time to closure is each case's days from brought to
+        closed (`Case::closure_days`), in the observer's case words. **Not yet built:** a
+        hearer's tenure or lot; the forum's own hearth and walk (sitters are called, not
+        walking); grievances against a forum (BU); counts of settled and withdrawn cases on the
+        wire (BU's justice counts).
     - **BS**: precedent: fact tags derived from saved cases (the gathering's since M4 count),
       findings held as claims, recall of up to k by sitters, authority (informative,
       persuasive, binding) as the forum's value, departures recorded.
+      - *As built (2026-10-16):* each case heard keeps six fact tags derived then from what it
+        holds (`Case.tags`, save schema 126: raiding or taking, the accused an outsider, close
+        kin of the household, more than one account, five days' food or more, found against
+        before). Every finding, the gathering's included, is a claim (`ClaimKind::Finding`, 12)
+        held at first hand by those who heard it and the two parties, told at home and the
+        hearth while news, and held for `crime.remember_days`; it dies with its holders. A sitter
+        recalls up to `crime.recall_k` (5) of the findings they hold, most tags matched then
+        newest; under a forum whose authority is persuasive they lean toward each recalled
+        finding's direction by `crime.w_persuasive` (1.0) points times the share of tags matched
+        (averaged), under a binding one by `crime.w_binding` (4.0); informative (the gathering,
+        and a forum so authored) adds nothing (`CaseStance.precedent`). A finding against the
+        newest recalled one of identical tags records `Case.departed` and says so in the
+        chronicle and the observer's case words. Authority is the forum template's
+        (`[forum] authority`, content API 111): the core's hearer and panel are informative, the
+        elders persuasive, and a new `core:policy/hearer_by_precedent` binding; a forum is
+        changed by a *hear cases* law that ends the one in force, weighed by all cases heard
+        within memory (a forum's included, evenings counted only for the gathering's). In the
+        test world the informative hearer who saw the second of two like takings found it,
+        departing from the first; bound by the first, they kept to it. **Not yet built:** an
+        admitted or denied tag (nobody admits); findings weighing a sponsor's forecast; a
+        forum's authority changed apart from its seat.
     - **BT**: limits and review: limit templates (daylight work, a levy's share) adopted by
       amendment with entrenchment, review as a power a forum's law grants, challenges by those
       a law binds and burdens, `StruckDown`, the gathering's answers as moves.
+      - *As built (2026-10-16):* a `limit` policy kind with a `[limit]` table (content API
+        112): a predicate from a closed set the kernel reads (`daylight_work`: a curfew may
+        cover at most `minutes` of the longest day's light, read each week of the year at the
+        content's latitude; `levy_share`: a law may levy at most `share`), and `change`, the rule
+        its own change is decided by (a repeal ending a limit is decided by it: entrenchment).
+        The core offers `core:policy/limit_daylight_work` (30 minutes, two thirds) and
+        `core:policy/limit_levy` (a quarter, two thirds). A limit is weighed only through the
+        amendment route, by one overruled or aggrieved, and only one forbidding a law in force:
+        each household judges it at half what ending the laws it forbids would bring it. A
+        breaching law still passes. A `[forum] review = true` forum (the core's elders and its
+        hearer bound by findings) may hear challenges: at each review, where such a forum and a
+        limit are in force, each adult whose household a bound law costs weighs U = p·V − C (V
+        its gain if the law ended, as ending it is weighed; p from the reading, an even chance
+        at the bound and certain at twice it; C `crime.report_cost` and their regard for the
+        law's sponsor), and the one with most to gain brings it (`Case.challenge`, save schema
+        127; no incident; the sponsor stands accused). The forum sits the midnight after: each
+        sitter weighs the reading (`crime.w_reading`, 2, times −1 to 1), their household's
+        gain, regard for the two, and recalled findings on challenges; found, the law is
+        `StruckDown` (law status 6, wire 1.78), not in force for anyone. In the test world, a
+        curfew from nine to five (55 minutes of June light at 48°) was challenged and struck
+        down by the elders. **Not yet built:** standing narrower than bearing a cost (any
+        household it costs may bring it); knowing of a ruling person by person (BU); a
+        challenger's p from findings they remember.
     - **BU**: rulings carried out and the demo: rulings known person by person, the *abide by
       findings* norm, grievances against a forum, the dashboard's justice counts, the observer's
       Cases and Government views, and the demo's struck-down curfew (time-boxed, NUDGEs logged).
-  - **M7c, trade laws, guilds and capture** (ADR when reached): duties and embargoes as laws,
-    organizations by shared stake, privileges and the barred, corruption and patronage as
-    specific choices; the demo's captured assembly (slices BV–BZ, from
-    `docs/briefs/m7-capture.md`).
+      - *As built (2026-10-16):* a ruling is known person by person: one who knew a law struck
+        down within `crime.remember_days`, and has not heard the finding that struck it (a
+        `Finding` claim, told as any), keeps it as if in force, in the curfew's hours and a
+        levy alike (`Population::still_keeps`). A new norm kind, `abide_by_findings` (content
+        API 113; the core's `core:norm/findings_bind`, held apart from the gathering's norm and
+        more weakly by founders), adds its points when a household weighs meeting what a forum's
+        finding imposes; the gathering's findings keep `AbideByLaws`. Companions at the hearth
+        tell whether their household met what forums imposed on it within the norm's
+        `tell_days`, and listeners learn their expectation from it. A forum's finding is held
+        against the forum, not the body (`Blamed::Forum`, grievance code 4): by the household
+        it found against, or the household taken from when it did not find. Such a grievance
+        unresolved opens the *cases waiting* issue, so the gathering may change or end the
+        forum. The dashboard gains a Justice row, reported and not graded: cases before the
+        gathering and before forums, found, not found, unheard, lapsed, settled and withdrawn,
+        challenges and the laws they struck down, departures, and mean days to closure. Wire
+        1.79 adds to the order view the counts settled, withdrawn, challenges and struck down,
+        and the latest 20 cases and challenges in the kernel's words (who brought what before
+        whom, how it closed and when); the observer's Order panel lists them and the
+        Government panel shows a law struck down as such. The demo is
+        `civ-sim --example courts` (below). **Not yet built:** appeal or rehearing; a forum per
+        settlement; standing narrower than bearing a cost; a challenger's chance from the
+        findings they remember.
+  - **M7c, trade laws, guilds and capture**
+    ([ADR-0026](decisions/0026-organizations-privileges-and-trade-policy.md)):
+    - **BV**: trade laws: duty and embargo, the *goods fetched elsewhere* issue, duties owed
+      from purchases at another settlement's door and paid in kind as a choice, the duty in the
+      replacement anchor, forecasts from each household's own records; first a probe of trade
+      volume and forecast sizes in lived worlds of three settlements.
+    - **BW**: organizations by stake: a faction kind founded from goods sold or resold, founding
+      by search, rules, dues, applications and refusals, recognition by law, the organization's
+      page.
+    - **BX**: privileges and the barred: licence and staple, breaches brought as cases, the
+      barred exit, the drag measures.
+    - **BY**: corruption and patronage: the keeper's diversion and relief by favour, the
+      collector, patron gifts and what a client owes.
+    - **BZ**: closure by amendment, capture diagnostics in sentences, the M7c demo (time-boxed,
+      NUDGEs logged).
   - **M7d, credit and money** (ADR when reached): loans in goods, pledges and default, keepers
     and store lending, money's worth to its holder, then metal, minting and debasement (slices
     CA–CE, from `docs/briefs/m7-money.md`).
@@ -4221,3 +4326,25 @@ One line each. Don't re-litigate without a reason written next to the entry.
   wait for M7d. **Plot guards:** no date, era or size makes a forum, a limit or a challenge
   likelier; no content limit may be aimed at curfews alone; a world without a *hear cases* law
   gives the same digests as before.
+- **M7c design (2026-10-16, plan §7):** from the capture brief (`docs/briefs/m7-capture.md`),
+  which reads 09-09, 09-10, 08-17, 08-12, 08-08, 08-13 and 08-18. **One ADR,**
+  [ADR-0026](decisions/0026-organizations-privileges-and-trade-policy.md) (organizations,
+  privileges and trade policy): duties and embargoes are laws whose taxable event is the
+  purchase at another settlement's door; organizations by stake are a kind of ADR-0017's
+  faction; a privilege (licence or staple) is a law naming an organization, breached by a posted
+  offer and brought as a case; the keeper's diversion, relief by favour, the collector and patron
+  gifts are corruption and patronage; closure is a run of amendments; capture and drag are derived
+  and measured. **Five slices** (§7): BV (trade laws, after a probe of volume), BW (organizations
+  by stake), BX (privileges and the barred), BY (corruption and patronage), BZ (closure, capture
+  diagnostics, the demo). **The brief's open questions, answered:** (1) the purchase at the
+  door; (2) duties in kind to the store until M7d; (3) a kind of faction; (4) members across
+  settlements, privileges per polity; (5) a duty may exempt resellers or a named organization's
+  members, a sponsor's vocabulary; (6) breaches are cases, heard by a forum whose law hears
+  privileges, else the gathering; (7) only gifts recorded as a patron's enter stances
+  (`w_owed`), so the general help balance stays unread; (8) open acclamation stays, no secret
+  ballot in M7; (9) relief by favour, recorded; (10) a staple or an exempting duty passed by a
+  body carried by members and those who owe them counts, and the demo says what happened;
+  (11) measure first: three settlements and fetching to resell, both existing; (12) nepotism is
+  measured against the kin share among the eligible. **Plot guards:** no authored
+  organization; no issue weighs toward a trade law; no meter enters a choice; a world without
+  any of the new records gives the same digests as before.

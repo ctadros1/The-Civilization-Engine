@@ -147,6 +147,18 @@ pub struct CrimeParams {
     pub hurt_days: [u16; 2],
     /// The chance a blow kills.
     pub kill_share: f64,
+    /// Remembered findings a sitter recalls at a hearing, at most (M7b slice BS, ADR-0025 §2: a
+    /// design prior, 3 to 8): those with the most fact tags matching the case's, newest first.
+    pub recall_k: u32,
+    /// Points toward the recalled findings' direction, by the share of tags each matches, under
+    /// a forum whose authority is persuasive (M7b slice BS).
+    pub w_persuasive: f64,
+    /// The same under a binding authority: a large weight that stake and regard can still
+    /// outweigh (ADR-0025 §2).
+    pub w_binding: f64,
+    /// Points toward finding against a challenged law for a clear breach of the limit, as a
+    /// sitter reads it (M7b slice BT): times the reading, -1 (clearly none) to 1 (clearly one).
+    pub w_reading: f64,
 }
 
 impl CrimeParams {
@@ -197,6 +209,10 @@ impl CrimeParams {
             strike_threshold: [1.0, 4.0],
             hurt_days: [3, 21],
             kill_share: 0.02,
+            recall_k: 5,
+            w_persuasive: 1.0,
+            w_binding: 4.0,
+            w_reading: 2.0,
         }
     }
 }
@@ -826,16 +842,24 @@ pub enum CaseStage {
     Unheard = 3,
     /// The household that brought it, or the accused, was no longer there to be heard.
     Lapsed = 4,
+    /// Before a forum sat, the accused's household offered back what was taken and the one who
+    /// brought it accepted (M7b slice BR, ADR-0025 §1): it is owed as restitution, unheard.
+    Settled = 5,
+    /// Before a forum sat, the one who brought it withdrew it: their household had back all it
+    /// said it lost (M7b slice BR).
+    Withdrawn = 6,
 }
 
 impl CaseStage {
     /// Every stage, in code order.
-    pub const ALL: [CaseStage; 5] = [
+    pub const ALL: [CaseStage; 7] = [
         CaseStage::Open,
         CaseStage::Found,
         CaseStage::NotFound,
         CaseStage::Unheard,
         CaseStage::Lapsed,
+        CaseStage::Settled,
+        CaseStage::Withdrawn,
     ];
 
     /// Its number in saves.
@@ -888,6 +912,48 @@ pub struct Case {
     pub stances: Vec<CaseStance>,
     /// The finding sent the accused from the valley.
     pub exiled: bool,
+    /// The *hear cases* law whose forum is to hear it, or heard it (M7b slice BR, ADR-0025 §1);
+    /// none for the gathering.
+    pub forum: Option<PermanentId>,
+    /// For a challenge (M7b slice BT, ADR-0025 §4): the limit in force the law `law` is said to
+    /// breach. A challenge has no incident; its accused is the law's sponsor.
+    pub challenge: Option<PermanentId>,
+    /// Its fact tags, derived when it was heard from what it holds (M7b slice BS, ADR-0025 §2):
+    /// see [`CaseTags`].
+    pub tags: u8,
+    /// The remembered finding of the same tags it went against, if it did (M7b slice BS).
+    pub departed: Option<u32>,
+}
+
+/// A case's fact tags (M7b slice BS, ADR-0025 §2): derived from what the case holds, never from
+/// the incident. Bits are part of saves: append only.
+#[derive(Debug)]
+pub struct CaseTags;
+
+impl CaseTags {
+    /// Brought under a law against raiding (else against taking).
+    pub const RAIDING: u8 = 1;
+    /// The accused lived in another settlement.
+    pub const OUTSIDER: u8 = 2;
+    /// The accused was close kin of someone of the household that brought it.
+    pub const KIN: u8 = 4;
+    /// More than one account behind it.
+    pub const ACCOUNTS: u8 = 8;
+    /// What it said was lost was five days or more of the household's food.
+    pub const LARGE: u8 = 16;
+    /// The accused had been found against before.
+    pub const AGAIN: u8 = 32;
+    /// How many tags there are.
+    pub const COUNT: u32 = 6;
+    /// A challenge of a law under a limit (M7b slice BT): compared only with challenges, whose
+    /// first tag is the levy predicate (else daylight work).
+    pub const CHALLENGE: u8 = 64;
+
+    /// The share of tags `a` and `b` agree on, 0 to 1.
+    pub fn matched(a: u8, b: u8) -> f64 {
+        let differ = ((a ^ b) & 0x3f).count_ones();
+        f64::from(Self::COUNT - differ) / f64::from(Self::COUNT)
+    }
 }
 
 /// One member's stance at a hearing, with what moved it (ADR-0015 §4).
@@ -906,9 +972,18 @@ pub struct CaseStance {
     pub belief: f32,
     /// Their regard for the one who brought it less their regard for the accused, points.
     pub regard: f32,
+    /// What the findings they recalled moved them, points (M7b slice BS): by the forum's
+    /// authority, nothing where it is informative.
+    pub precedent: f32,
 }
 
 impl Case {
+    /// Days from being brought to being closed (heard, settled, withdrawn or lapsed), once it is
+    /// (M7b slice BR: time to closure).
+    pub fn closure_days(&self) -> Option<i64> {
+        self.heard.map(|t| t.day_index() - self.opened)
+    }
+
     /// Who came, and how many supported and opposed a finding.
     pub fn counts(&self) -> (u32, u32, u32) {
         let n =

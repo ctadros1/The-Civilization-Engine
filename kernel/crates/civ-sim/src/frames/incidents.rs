@@ -347,9 +347,11 @@ fn closure_words(sim: &Sim, law: &Law) -> String {
             ),
             _ => format!("{proposed}; the gathering would not close it{on}: {tally}"),
         },
-        LawStatus::Lapsed | LawStatus::Superseded | LawStatus::Carried => format!(
-            "{proposed}; the gathering closed it{on} ({tally}), and the closing has since ended"
-        ),
+        LawStatus::Lapsed | LawStatus::Superseded | LawStatus::Carried | LawStatus::StruckDown => {
+            format!(
+                "{proposed}; the gathering closed it{on} ({tally}), and the closing has since ended"
+            )
+        }
     }
 }
 

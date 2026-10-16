@@ -45,13 +45,20 @@ fn hearth_chance(c: &Claim, day: i64, wp: &crate::word::WordParams) -> Option<f6
     } else if matches!(
         c.kind,
         ClaimKind::Fire | ClaimKind::Raid | ClaimKind::BandSeen
-    ) {
+    ) || fresh_finding(c, day, wp)
+    {
         Some(wp.share_routine)
     } else if c.kind.held_news() {
         Some(wp.share_sickness)
     } else {
         None
     }
+}
+
+/// Whether claim `c` is a finding still news on `day` (M7b slice BS): told for `news_days`, held
+/// for longer.
+fn fresh_finding(c: &Claim, day: i64, wp: &crate::word::WordParams) -> bool {
+    c.kind == ClaimKind::Finding && c.day + i64::from(wp.news_days) >= day
 }
 
 /// Whether claim `c` is a call still ahead on `day`: a gathering, a petition or a refusal.
@@ -234,15 +241,19 @@ impl Population {
         let day = ctx.now.day_index();
         let index = &self.index;
         self.word.let_go_of_gone(|p| index.contains_key(&p));
-        self.word
-            .prune(day, i64::from(wp.news_days), i64::from(wp.sickness_days));
+        self.word.prune(
+            day,
+            i64::from(wp.news_days),
+            i64::from(wp.sickness_days),
+            i64::from(ctx.params.crime.remember_days),
+        );
         // Each with what it is keyed by: never the claim's number, which unrelated claims move
         // (ADR-0016 §6).
         let ahead: Vec<(u32, u64)> = self
             .word
             .claims
             .iter()
-            .filter(|c| call_ahead(c, day) || c.kind.held_news())
+            .filter(|c| call_ahead(c, day) || c.kind.held_news() || fresh_finding(c, day, wp))
             .map(|c| (c.id, claim_key(c)))
             .collect();
         if ahead.is_empty() {
@@ -572,7 +583,10 @@ impl Population {
     ) {
         use crate::crime::CaseStage;
         let (now, params) = (ctx.now, ctx.params);
-        let body = Blamed::Body(self.polities[pi].id);
+        // A forum's finding blames the forum (M7b slice BU, ADR-0025 §5).
+        let body = c
+            .forum
+            .map_or(Blamed::Body(self.polities[pi].id), Blamed::Forum);
         let knows = |pop: &Population, p: PermanentId| {
             pop.polities[pi]
                 .laws

@@ -36454,6 +36454,11 @@ impl<'a> CaseSave<'a> {
   pub const VT_ELIGIBLE: ::flatbuffers::VOffsetT = 32;
   pub const VT_STANCES: ::flatbuffers::VOffsetT = 34;
   pub const VT_EXILED: ::flatbuffers::VOffsetT = 36;
+  pub const VT_FORUM: ::flatbuffers::VOffsetT = 38;
+  pub const VT_TAGS: ::flatbuffers::VOffsetT = 40;
+  pub const VT_DEPARTED: ::flatbuffers::VOffsetT = 42;
+  pub const VT_STANCE_PRECEDENT: ::flatbuffers::VOffsetT = 44;
+  pub const VT_CHALLENGE: ::flatbuffers::VOffsetT = 46;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -36465,6 +36470,8 @@ impl<'a> CaseSave<'a> {
     args: &'args CaseSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<CaseSave<'bldr>> {
     let mut builder = CaseSaveBuilder::new(_fbb);
+    builder.add_challenge(args.challenge);
+    builder.add_forum(args.forum);
     builder.add_heard_at(args.heard_at);
     builder.add_opened(args.opened);
     builder.add_accused_household(args.accused_household);
@@ -36473,12 +36480,15 @@ impl<'a> CaseSave<'a> {
     builder.add_accuser(args.accuser);
     builder.add_law(args.law);
     builder.add_settlement(args.settlement);
+    if let Some(x) = args.stance_precedent { builder.add_stance_precedent(x); }
+    builder.add_departed(args.departed);
     if let Some(x) = args.stances { builder.add_stances(x); }
     builder.add_eligible(args.eligible);
     if let Some(x) = args.leads { builder.add_leads(x); }
     builder.add_kcal(args.kcal);
     builder.add_incident(args.incident);
     builder.add_id(args.id);
+    builder.add_tags(args.tags);
     builder.add_exiled(args.exiled);
     builder.add_heard(args.heard);
     builder.add_stage(args.stage);
@@ -36605,6 +36615,41 @@ impl<'a> CaseSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(CaseSave::VT_EXILED, Some(false)).unwrap()}
   }
+  #[inline]
+  pub fn forum(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CaseSave::VT_FORUM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn tags(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(CaseSave::VT_TAGS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn departed(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CaseSave::VT_DEPARTED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn stance_precedent(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(CaseSave::VT_STANCE_PRECEDENT, None)}
+  }
+  #[inline]
+  pub fn challenge(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CaseSave::VT_CHALLENGE, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for CaseSave<'_> {
@@ -36630,6 +36675,11 @@ impl ::flatbuffers::Verifiable for CaseSave<'_> {
      .visit_field::<u32>("eligible", Self::VT_ELIGIBLE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CaseStanceSave>>>("stances", Self::VT_STANCES, false)?
      .visit_field::<bool>("exiled", Self::VT_EXILED, false)?
+     .visit_field::<u64>("forum", Self::VT_FORUM, false)?
+     .visit_field::<u8>("tags", Self::VT_TAGS, false)?
+     .visit_field::<u32>("departed", Self::VT_DEPARTED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("stance_precedent", Self::VT_STANCE_PRECEDENT, false)?
+     .visit_field::<u64>("challenge", Self::VT_CHALLENGE, false)?
      .finish();
     Ok(())
   }
@@ -36652,6 +36702,11 @@ pub struct CaseSaveArgs<'a> {
     pub eligible: u32,
     pub stances: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CaseStanceSave>>>,
     pub exiled: bool,
+    pub forum: u64,
+    pub tags: u8,
+    pub departed: u32,
+    pub stance_precedent: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub challenge: u64,
 }
 impl<'a> Default for CaseSaveArgs<'a> {
   #[inline]
@@ -36674,6 +36729,11 @@ impl<'a> Default for CaseSaveArgs<'a> {
       eligible: 0,
       stances: None,
       exiled: false,
+      forum: 0,
+      tags: 0,
+      departed: 0,
+      stance_precedent: None,
+      challenge: 0,
     }
   }
 }
@@ -36752,6 +36812,26 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CaseSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<bool>(CaseSave::VT_EXILED, exiled, false);
   }
   #[inline]
+  pub fn add_forum(&mut self, forum: u64) {
+    self.fbb_.push_slot::<u64>(CaseSave::VT_FORUM, forum, 0);
+  }
+  #[inline]
+  pub fn add_tags(&mut self, tags: u8) {
+    self.fbb_.push_slot::<u8>(CaseSave::VT_TAGS, tags, 0);
+  }
+  #[inline]
+  pub fn add_departed(&mut self, departed: u32) {
+    self.fbb_.push_slot::<u32>(CaseSave::VT_DEPARTED, departed, 0);
+  }
+  #[inline]
+  pub fn add_stance_precedent(&mut self, stance_precedent: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CaseSave::VT_STANCE_PRECEDENT, stance_precedent);
+  }
+  #[inline]
+  pub fn add_challenge(&mut self, challenge: u64) {
+    self.fbb_.push_slot::<u64>(CaseSave::VT_CHALLENGE, challenge, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CaseSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     CaseSaveBuilder {
@@ -36786,6 +36866,11 @@ impl ::core::fmt::Debug for CaseSave<'_> {
       ds.field("eligible", &self.eligible());
       ds.field("stances", &self.stances());
       ds.field("exiled", &self.exiled());
+      ds.field("forum", &self.forum());
+      ds.field("tags", &self.tags());
+      ds.field("departed", &self.departed());
+      ds.field("stance_precedent", &self.stance_precedent());
+      ds.field("challenge", &self.challenge());
       ds.finish()
   }
 }

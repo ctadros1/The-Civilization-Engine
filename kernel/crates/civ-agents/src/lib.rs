@@ -43,6 +43,7 @@ pub mod fire;
 pub mod firm;
 pub mod floods;
 pub mod fords;
+pub mod forum;
 pub mod found;
 pub mod history;
 pub mod ideology;

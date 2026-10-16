@@ -718,6 +718,16 @@ w_harm = 1.0
 strike_threshold = [1.0, 4.0]
 hurt_days = [3, 21]
 kill_share = 0.02
+# Precedent (content API 111, M7b slice BS, ADR-0025 §2): a sitter recalls up to `recall_k`
+# findings they remember (3 to 8), those whose fact tags match the case's most, newest first; under
+# a persuasive forum they lean toward those findings by `w_persuasive` points times the share of
+# tags matched, under a binding one by `w_binding`. Design priors: 09-07 §1.5 gives no weights.
+recall_k = 5
+w_persuasive = 1.0
+w_binding = 4.0
+# Review (content API 112, M7b slice BT, ADR-0025 §4): the points toward striking down a law a
+# sitter reads as clearly breaching a limit (times the reading, -1 to 1). A design prior.
+w_reading = 2.0
 
 [word]                           # word of mouth and grievances (M4c slice AE, ADR-0016); tuning values
 # A gathering is heard of by contact, never broadcast (research 09-16 §1.3: attendance and timing

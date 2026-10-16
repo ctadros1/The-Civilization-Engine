@@ -375,6 +375,12 @@ pub const SCHEMA_V121: u32 = 121;
 pub const SCHEMA_V122: u32 = 122;
 /// Seats shared among settlements, before electoral alliances.
 pub const SCHEMA_V123: u32 = 123;
+/// Electoral alliances, before forums.
+pub const SCHEMA_V124: u32 = 124;
+/// Forums, before precedent.
+pub const SCHEMA_V125: u32 = 125;
+/// Precedent, before limits and review.
+pub const SCHEMA_V126: u32 = 126;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

@@ -194,6 +194,19 @@ export function makeCouncilWorld(saves: string, seed = "1"): string {
   return done.stdout;
 }
 
+/** Makes the M7b demo's worlds with civ-sim's `courts` example (slow: it lives up to 900 days). */
+export function makeCourtsWorld(saves: string, seed = "1"): string {
+  const done = spawnSync(
+    "cargo",
+    [...["run", "--release", "--quiet", "-p", "civ-sim", "--example", "courts"], ...["--", saves, seed]],
+    { cwd: path.join(repo, "kernel"), encoding: "utf8", timeout: 7_200_000 },
+  );
+  if (done.status !== 0) {
+    throw new Error(`courts failed (${done.status}):\n${done.stdout}\n${done.stderr}`);
+  }
+  return done.stdout;
+}
+
 export interface Host {
   url: string;
   process: ChildProcess;

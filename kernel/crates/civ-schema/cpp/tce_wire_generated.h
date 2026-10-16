@@ -20587,7 +20587,12 @@ struct Order FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_FOUND = 28,
     VT_NOT_FOUND = 30,
     VT_UNHEARD = 32,
-    VT_ENCOUNTERS = 34
+    VT_ENCOUNTERS = 34,
+    VT_SETTLED = 36,
+    VT_WITHDRAWN = 38,
+    VT_CHALLENGES = 40,
+    VT_STRUCK_DOWN = 42,
+    VT_CASE_LINES = 44
   };
   int64_t minute() const {
     return GetField<int64_t>(VT_MINUTE, 0);
@@ -20637,6 +20642,21 @@ struct Order FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *encounters() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_ENCOUNTERS);
   }
+  uint32_t settled() const {
+    return GetField<uint32_t>(VT_SETTLED, 0);
+  }
+  uint32_t withdrawn() const {
+    return GetField<uint32_t>(VT_WITHDRAWN, 0);
+  }
+  uint32_t challenges() const {
+    return GetField<uint32_t>(VT_CHALLENGES, 0);
+  }
+  uint32_t struck_down() const {
+    return GetField<uint32_t>(VT_STRUCK_DOWN, 0);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *case_lines() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_CASE_LINES);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -20662,6 +20682,13 @@ struct Order FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_ENCOUNTERS) &&
            verifier.VerifyVector(encounters()) &&
            verifier.VerifyVectorOfStrings(encounters()) &&
+           VerifyField<uint32_t>(verifier, VT_SETTLED, 4) &&
+           VerifyField<uint32_t>(verifier, VT_WITHDRAWN, 4) &&
+           VerifyField<uint32_t>(verifier, VT_CHALLENGES, 4) &&
+           VerifyField<uint32_t>(verifier, VT_STRUCK_DOWN, 4) &&
+           VerifyOffset(verifier, VT_CASE_LINES) &&
+           verifier.VerifyVector(case_lines()) &&
+           verifier.VerifyVectorOfStrings(case_lines()) &&
            verifier.EndTable();
   }
 };
@@ -20718,6 +20745,21 @@ struct OrderBuilder {
   void add_encounters(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> encounters) {
     fbb_.AddOffset(Order::VT_ENCOUNTERS, encounters);
   }
+  void add_settled(uint32_t settled) {
+    fbb_.AddElement<uint32_t>(Order::VT_SETTLED, settled, 0);
+  }
+  void add_withdrawn(uint32_t withdrawn) {
+    fbb_.AddElement<uint32_t>(Order::VT_WITHDRAWN, withdrawn, 0);
+  }
+  void add_challenges(uint32_t challenges) {
+    fbb_.AddElement<uint32_t>(Order::VT_CHALLENGES, challenges, 0);
+  }
+  void add_struck_down(uint32_t struck_down) {
+    fbb_.AddElement<uint32_t>(Order::VT_STRUCK_DOWN, struck_down, 0);
+  }
+  void add_case_lines(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> case_lines) {
+    fbb_.AddOffset(Order::VT_CASE_LINES, case_lines);
+  }
   explicit OrderBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -20746,10 +20788,20 @@ inline ::flatbuffers::Offset<Order> CreateOrder(
     uint32_t found = 0,
     uint32_t not_found = 0,
     uint32_t unheard = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> encounters = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> encounters = 0,
+    uint32_t settled = 0,
+    uint32_t withdrawn = 0,
+    uint32_t challenges = 0,
+    uint32_t struck_down = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> case_lines = 0) {
   OrderBuilder builder_(_fbb);
   builder_.add_refusals(refusals);
   builder_.add_minute(minute);
+  builder_.add_case_lines(case_lines);
+  builder_.add_struck_down(struck_down);
+  builder_.add_challenges(challenges);
+  builder_.add_withdrawn(withdrawn);
+  builder_.add_settled(settled);
   builder_.add_encounters(encounters);
   builder_.add_unheard(unheard);
   builder_.add_not_found(not_found);
@@ -20789,10 +20841,16 @@ inline ::flatbuffers::Offset<Order> CreateOrderDirect(
     uint32_t found = 0,
     uint32_t not_found = 0,
     uint32_t unheard = 0,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *encounters = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *encounters = nullptr,
+    uint32_t settled = 0,
+    uint32_t withdrawn = 0,
+    uint32_t challenges = 0,
+    uint32_t struck_down = 0,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *case_lines = nullptr) {
   auto incidents__ = incidents ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::IncidentLine>>(*incidents) : 0;
   auto known__ = known ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::KnownLine>>(*known) : 0;
   auto encounters__ = encounters ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*encounters) : 0;
+  auto case_lines__ = case_lines ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*case_lines) : 0;
   return tce::wire::CreateOrder(
       _fbb,
       minute,
@@ -20810,7 +20868,12 @@ inline ::flatbuffers::Offset<Order> CreateOrderDirect(
       found,
       not_found,
       unheard,
-      encounters__);
+      encounters__,
+      settled,
+      withdrawn,
+      challenges,
+      struck_down,
+      case_lines__);
 }
 
 struct IncidentRow FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

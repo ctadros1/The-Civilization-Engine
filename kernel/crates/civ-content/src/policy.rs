@@ -85,6 +85,68 @@ pub(crate) struct PolicyFile {
     /// and the body names its holder.
     #[serde(default)]
     pub tenure: Option<TenureFile>,
+    /// For a forum (`hear_cases`, content API 110, M7b slice BR, ADR-0025 §1): who sits and what
+    /// it hears.
+    #[serde(default)]
+    pub forum: Option<ForumFile>,
+    /// For a limit (`limit`, content API 112, M7b slice BT): what it forbids.
+    #[serde(default)]
+    pub limit: Option<LimitFile>,
+}
+
+/// A forum's terms in a policy file (content API 110).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct ForumFile {
+    /// `holder` (one the body names), `panel` (drawn by lot for each sitting) or `elders`.
+    pub seat: String,
+    /// For a panel: how many are drawn (3 to 15).
+    #[serde(default)]
+    pub panel: u8,
+    /// The kinds of law whose cases it hears (`does` names).
+    pub hears: Vec<String>,
+    /// For a panel or the elders: the share of those who sit who must come (all who sit are
+    /// called) and the rule, as for a body.
+    #[serde(default = "half")]
+    pub quorum_share: f64,
+    #[serde(default = "more_for")]
+    pub pass: String,
+    /// How far its sitters follow remembered findings (content API 111, M7b slice BS):
+    /// `informative` (the default), `persuasive` or `binding`.
+    #[serde(default = "informative")]
+    pub authority: String,
+    /// Whether it may hear challenges of laws under limits in force (content API 112, M7b slice
+    /// BT).
+    #[serde(default)]
+    pub review: bool,
+}
+
+/// A limit's terms in a policy file (content API 112, M7b slice BT).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct LimitFile {
+    /// `daylight_work` or `levy_share`.
+    pub predicate: String,
+    /// For daylight work: minutes of the longest day's light a curfew may cover.
+    #[serde(default)]
+    pub minutes: f64,
+    /// For a levy: the largest share of a harvest a law may levy.
+    #[serde(default)]
+    pub share: f64,
+    /// The rule its change is decided by (`more_for` or `two_thirds`).
+    pub change: String,
+}
+
+fn informative() -> String {
+    "informative".to_owned()
+}
+
+fn half() -> f64 {
+    0.5
+}
+
+fn more_for() -> String {
+    "more_for".to_owned()
 }
 
 /// What a rule for building requires (M6b slice BH; ADR-0022 §12).
@@ -219,6 +281,36 @@ impl PolicyFile {
                 renewable: t.renewable,
                 by_lot: t.fill == "lot",
             }),
+            forum: self.forum.as_ref().and_then(|f| {
+                Some(civ_agents::forum::ForumDef {
+                    seat: civ_agents::forum::ForumSeat::from_name(&f.seat)?,
+                    panel: f.panel,
+                    hears: f
+                        .hears
+                        .iter()
+                        .filter_map(|h| PolicyKind::from_name(h))
+                        .collect(),
+                    rule: civ_agents::polity::Body {
+                        members: civ_agents::polity::Membership::Adults,
+                        quorum_share: f.quorum_share as f32,
+                        pass: civ_agents::polity::PassRule::from_name(&f.pass)?,
+                        seats: None,
+                    },
+                    authority: civ_agents::forum::Authority::from_name(&f.authority)?,
+                    review: f.review,
+                })
+            }),
+            limit: self.limit.as_ref().and_then(|l| {
+                let predicate = civ_agents::forum::Predicate::from_name(&l.predicate)?;
+                Some(civ_agents::forum::LimitDef {
+                    predicate,
+                    bound: match predicate {
+                        civ_agents::forum::Predicate::DaylightWork => l.minutes,
+                        civ_agents::forum::Predicate::LevyShare => l.share,
+                    },
+                    change: civ_agents::polity::PassRule::from_name(&l.change)?,
+                })
+            }),
         }
     }
 
@@ -314,6 +406,86 @@ impl PolicyFile {
                 ));
             }
         }
+        // A forum's terms (M7b slice BR): only for `hear_cases`, which must have them.
+        match (&self.forum, PolicyKind::from_name(&self.does)) {
+            (Some(f), Some(PolicyKind::HearCases)) => {
+                if civ_agents::forum::ForumSeat::from_name(&f.seat).is_none() {
+                    p.push(format!(
+                        "`forum.seat` must be `holder`, `panel` or `elders` (got `{}`)",
+                        f.seat
+                    ));
+                }
+                if f.seat == "panel" && !(3..=15).contains(&f.panel) {
+                    p.push(format!("`forum.panel` must be 3 to 15 (got {})", f.panel));
+                }
+                if f.hears.is_empty() {
+                    p.push("`forum.hears` must name at least one kind of law".to_owned());
+                }
+                for h in &f.hears {
+                    if !matches!(
+                        PolicyKind::from_name(h),
+                        Some(PolicyKind::AgainstTaking | PolicyKind::AgainstRaiding)
+                    ) {
+                        p.push(format!(
+                            "`forum.hears` names `{h}`; cases are brought under `against_taking` and `against_raiding`"
+                        ));
+                    }
+                }
+                if !(0.0..=1.0).contains(&f.quorum_share) {
+                    p.push("`forum.quorum_share` must be 0 to 1".to_owned());
+                }
+                if civ_agents::polity::PassRule::from_name(&f.pass).is_none() {
+                    p.push(format!("`forum.pass` names `{}`", f.pass));
+                }
+                if civ_agents::forum::Authority::from_name(&f.authority).is_none() {
+                    p.push(format!(
+                        "`forum.authority` must be `informative`, `persuasive` or `binding` (got \
+                         `{}`)",
+                        f.authority
+                    ));
+                }
+            }
+            (None, Some(PolicyKind::HearCases)) => {
+                p.push("a `hear_cases` template needs a `forum` table".to_owned());
+            }
+            (Some(_), _) => p.push("`forum` is for `does = \"hear_cases\"`".to_owned()),
+            (None, _) => {}
+        }
+        // A limit's terms (M7b slice BT): only for `limit`, which must have them.
+        match (&self.limit, PolicyKind::from_name(&self.does)) {
+            (Some(l), Some(PolicyKind::Limit)) => {
+                match civ_agents::forum::Predicate::from_name(&l.predicate) {
+                    Some(civ_agents::forum::Predicate::DaylightWork) => {
+                        if !(l.minutes.is_finite() && (1.0..=720.0).contains(&l.minutes)) {
+                            p.push(format!(
+                                "`limit.minutes` must be 1 to 720 (got {})",
+                                l.minutes
+                            ));
+                        }
+                    }
+                    Some(civ_agents::forum::Predicate::LevyShare) => {
+                        if !(l.share.is_finite() && l.share > 0.0 && l.share < 1.0) {
+                            p.push(format!(
+                                "`limit.share` must lie above 0 and below 1 (got {})",
+                                l.share
+                            ));
+                        }
+                    }
+                    None => p.push(format!(
+                        "`limit.predicate` must be `daylight_work` or `levy_share` (got `{}`)",
+                        l.predicate
+                    )),
+                }
+                if civ_agents::polity::PassRule::from_name(&l.change).is_none() {
+                    p.push(format!("`limit.change` names `{}`", l.change));
+                }
+            }
+            (None, Some(PolicyKind::Limit)) => {
+                p.push("a `limit` template needs a `limit` table".to_owned());
+            }
+            (Some(_), _) => p.push("`limit` is for `does = \"limit\"`".to_owned()),
+            (None, _) => {}
+        }
         if let Some(t) = &self.tenure {
             if !matches!(
                 PolicyKind::from_name(&self.does),
@@ -378,7 +550,9 @@ impl PolicyFile {
                 | PolicyKind::BuildingRule
                 | PolicyKind::SendBand
                 | PolicyKind::Enclose
-                | PolicyKind::Annex),
+                | PolicyKind::Annex
+                | PolicyKind::HearCases
+                | PolicyKind::Limit),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -429,7 +603,9 @@ impl PolicyFile {
                 | PolicyKind::BuildingRule
                 | PolicyKind::SendBand
                 | PolicyKind::Enclose
-                | PolicyKind::Annex,
+                | PolicyKind::Annex
+                | PolicyKind::HearCases
+                | PolicyKind::Limit,
             )
             | None => {}
         }
@@ -640,6 +816,8 @@ mod tests {
             bears: Default::default(),
             rule: None,
             tenure: None,
+            forum: None,
+            limit: None,
         }
     }
 
@@ -663,6 +841,8 @@ mod tests {
             relief_days: 0.0,
             rule: r,
             tenure: None,
+            forum: None,
+            limit: None,
             ..file()
         };
         let roofs = roofs_with(Some(rule("roofs_unburnt", 4.0)));
@@ -695,6 +875,8 @@ mod tests {
         let stray = PolicyFile {
             rule: Some(rule("roofs_unburnt", 4.0)),
             tenure: None,
+            forum: None,
+            limit: None,
             ..file()
         };
         assert!(

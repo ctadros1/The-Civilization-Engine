@@ -1036,7 +1036,14 @@ export interface StanceLine {
  * Where a law stands ("lapsed", wire 1.28: the one it named died or left; "carried", wire 1.44: a
  * repeal that passed, ending the law it named).
  */
-export type LawStatus = "proposed" | "in force" | "rejected" | "lapsed" | "superseded" | "carried";
+export type LawStatus =
+  | "proposed"
+  | "in force"
+  | "rejected"
+  | "lapsed"
+  | "superseded"
+  | "carried"
+  | "struck down";
 
 /** How a gathering decided. */
 export type LawOutcome = "passed" | "failed" | "tied" | "no quorum";
@@ -1297,6 +1304,13 @@ export interface OrderInfo {
    * newest first, in the kernel's words.
    */
   encounters: string[];
+  /** Wire 1.79 (M7b slice BU): cases settled and withdrawn, challenges and laws struck down. */
+  settled: number;
+  withdrawn: number;
+  challenges: number;
+  struckDown: number;
+  /** Wire 1.79: the latest cases and challenges in the kernel's words, newest first. */
+  caseLines: string[];
 }
 
 /** One good in a settlement's market (M3a slice I). Tallies fade by half every memory. */
@@ -4169,6 +4183,8 @@ const LAW_STATUSES: LawStatus[] = [
   "lapsed",
   "superseded",
   "carried",
+  // Wire 1.78 (M7b slice BT): a forum with review found it breaks a limit.
+  "struck down",
 ];
 const OUTCOMES: LawOutcome[] = ["passed", "failed", "tied", "no quorum"];
 
@@ -4391,6 +4407,11 @@ export function orderInfo(w: W.Order): OrderInfo {
     notFound: w.notFound(),
     unheard: w.unheard(),
     encounters: Array.from({ length: w.encountersLength() }, (_, k) => w.encounters(k) ?? ""),
+    settled: w.settled(),
+    withdrawn: w.withdrawn(),
+    challenges: w.challenges(),
+    struckDown: w.struckDown(),
+    caseLines: Array.from({ length: w.caseLinesLength() }, (_, k) => w.caseLines(k) ?? ""),
   };
 }
 

@@ -1,0 +1,36 @@
+# The norm that what a forum finds binds (M7b slice BU, ADR-0025 §5; research 09-04, 06-05). As the
+# gathering's norm is held, so is this one, apart from it: each person holds their own endorsement
+# of it, a belief of how many households meet what a finding imposes and a threshold on that
+# belief; together they add points for meeting what a forum's finding imposes. Someone may trust
+# the gathering and not its hearer, or the reverse. Founders hold it more weakly than the
+# gathering's (a forum is new to them); what they believe after is what they are told by those whose
+# households met or refused a finding. Every number is a design prior (06-05 §2.2), not an
+# estimate.
+kind = "norm"
+id = "core:norm/findings_bind"
+name = "findings bind"
+description = "What a forum finds binds the household it finds against: what it imposes is met."
+statement = "what a forum finds binds the household it finds against"
+does = "abide_by_findings"
+
+[endorse]
+mean = 0.0
+sd = 1.0
+heritability = 0.5
+
+[expect]
+prior = 0.6
+learn_rate = 0.1
+# The chance a companion at the hearth says whether their household met what a finding imposed on
+# it, a session; worth telling for a year.
+share = 0.002
+tell_days = 365
+
+[threshold]
+low = 0.2
+high = 0.9
+width = 0.1
+
+[weights]
+endorse = 1.0
+expect = 1.0

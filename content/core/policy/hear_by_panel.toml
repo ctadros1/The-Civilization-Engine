@@ -1,0 +1,26 @@
+# A panel drawn by lot (M7b slice BR, ADR-0025 §1). For each case brought under the law against
+# taking or the law against raiding, a lot keyed by the case draws five of the body's members,
+# nobody of the two households, who hear it the evening after it is brought and decide by more
+# for than against, half of them coming (all are called). Research 09-07 §1.3 and 09-14 §2: a
+# jury of peers by lot is one of the old answers to a forum one person or one faction holds.
+kind = "policy"
+id = "core:policy/hear_by_panel"
+name = "Panel by lot"
+description = "Five of the body drawn by lot for each case hear the cases brought under the laws against taking and raiding."
+does = "hear_cases"
+answers = ["cases_waiting"]
+question = "whether a few drawn by lot should hear the cases brought"
+
+[forum]
+seat = "panel"
+panel = 5
+hears = ["against_taking", "against_raiding"]
+# Those drawn follow no finding but as they believe it (content API 111, M7b slice BS).
+authority = "informative"
+quorum_share = 0.5
+pass = "more_for"
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 0.5
+"core:value/reciprocity" = 0.5  # each may be drawn in turn

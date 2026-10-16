@@ -687,6 +687,16 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 120 (M7d slice CB, ADR-0027 §3) brings pledges and answers at the due day. The
+`[credit]` table adds `field_recovery` (the share of a debt a lender believes the use of a field
+pledged recovers), `guarantor_regard` (the least regard a household's elder holds for a
+borrower's to stand its guarantor), `keep_days` (days of its food a debtor keeps back when it
+pays), `extension_days` and `max_extensions` (how far, and how often, a creditor puts the due day
+off), `extend_regard` (the least regard a creditor's elder holds for the debtor's to grant time),
+and `pay_base`, `w_pay_regard` and `w_pay_cost` (points toward paying at the due day over
+refusing: a base, regard for the creditor, and the share of the debtor's food the debt would
+take). `p_max` is now the believed loss, after what a pledge would recover.
+
 Content API 119 (M7d slice CA, ADR-0027 §1-2) brings loans in goods. The people profile adds a
 `[credit]` table: `review_days` (how often a household asks itself whether its food will last to
 its harvest), `least_days` (the least days of its food it borrows), `customary_increment` (the

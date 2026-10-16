@@ -231,13 +231,46 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
         credit.claims.iter().filter(|c| c.standing == st).count()
     };
     log.push(format!(
-        "  loans: {} asked, {} refused, {} made ({} open, {} repaid, {} defaulted)",
+        "  loans: {} asked, {} refused, {} made ({} open, {} repaid, {} defaulted, {} refused at \
+         the due day, {} lapsed)",
         credit.asked,
         credit.refused,
         credit.claims.len(),
         count(civ_agents::credit::Standing::Open),
         count(civ_agents::credit::Standing::Repaid),
         count(civ_agents::credit::Standing::Defaulted),
+        count(civ_agents::credit::Standing::Refused),
+        count(civ_agents::credit::Standing::Lapsed),
+    ));
+    // Pledges and what came of them (M7d slice CB).
+    let pledged = |code: u8| {
+        credit
+            .claims
+            .iter()
+            .filter(move |c| c.pledge.map(civ_agents::credit::Pledge::code) == Some(code))
+    };
+    log.push(format!(
+        "  pledges: {} against a field's use ({} taken), {} with a guarantor ({} called on, {} \
+         guarantor's claims); {} asked for time, {} granted",
+        pledged(1).count(),
+        pledged(1).filter(|c| c.taken.is_some()).count(),
+        pledged(2).count(),
+        credit
+            .claims
+            .iter()
+            .filter(|c| c.by_guarantor > 0.0)
+            .count(),
+        credit
+            .claims
+            .iter()
+            .filter(|c| c.recourse.is_some())
+            .count(),
+        credit.claims.iter().map(|c| u32::from(c.asks)).sum::<u32>(),
+        credit
+            .claims
+            .iter()
+            .map(|c| u32::from(c.extensions))
+            .sum::<u32>(),
     ));
     log.extend(laws_words(&sim).into_iter().map(|w| format!("  {w}")));
     for p in &sim.people().polities {

@@ -1445,3 +1445,22 @@ keep_return = 0.0
 lend_share = 0.5
 max_asked = 3
 grace_days = 30
+# Content API 120 (M7d slice CB, ADR-0027 §3). A lender that would refuse a loan bare weighs it
+# against the use of a field the borrower holds and works, believing it recovers `field_recovery`
+# of the debt (08-07 §2.3: recovery 20-80 %), and then with a guarantor: a household whose elder
+# regards the borrower's at least `guarantor_regard`. At the due day the debtor answers once:
+# `pay_base`, `w_pay_regard` for its elder's regard for the creditor's (0 to 1) and `w_pay_cost`
+# per share of the food it holds that the debt would take are points toward paying over refusing,
+# as a finding is met. One
+# that pays gives what it holds of the good beyond `keep_days` of its food; short, it asks for
+# time, which a creditor whose elder regards its elder at least `extend_regard` grants, moving the
+# due day on `extension_days`, up to `max_extensions` times. Design priors, unestimated.
+field_recovery = 0.5
+guarantor_regard = 0.3
+keep_days = 3.0
+extension_days = 30
+max_extensions = 1
+extend_regard = 0.0
+pay_base = 3.0
+w_pay_regard = 2.0
+w_pay_cost = 2.0

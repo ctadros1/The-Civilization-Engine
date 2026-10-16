@@ -16,7 +16,7 @@ use crate::params::{LandHolder, LandUse, RegimeDef, Succession};
 /// Whether a field can change hands at a review: between crops, with nothing waiting to be
 /// threshed and no work begun on its next crop, so a crop and the work put into it stay with the
 /// household that did it.
-fn between_crops(f: &Field) -> bool {
+pub(super) fn between_crops(f: &Field) -> bool {
     f.stage == FieldStage::Fallow && f.sheaves_kg <= 0.0 && f.work_h <= 0.0
 }
 

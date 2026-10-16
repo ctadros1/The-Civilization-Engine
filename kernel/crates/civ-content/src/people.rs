@@ -104,6 +104,16 @@ pub(crate) struct CreditFile {
     pub lend_share: f64,
     pub max_asked: u32,
     pub grace_days: u32,
+    // Pledges and answers at the due day (M7d slice CB; content API 120).
+    pub field_recovery: f64,
+    pub guarantor_regard: f64,
+    pub keep_days: f64,
+    pub extension_days: u32,
+    pub max_extensions: u32,
+    pub extend_regard: f64,
+    pub pay_base: f64,
+    pub w_pay_regard: f64,
+    pub w_pay_cost: f64,
 }
 
 impl CreditFile {
@@ -119,6 +129,15 @@ impl CreditFile {
             lend_share: self.lend_share,
             max_asked: self.max_asked,
             grace_days: self.grace_days,
+            field_recovery: self.field_recovery,
+            guarantor_regard: self.guarantor_regard,
+            keep_days: self.keep_days,
+            extension_days: self.extension_days,
+            max_extensions: self.max_extensions,
+            extend_regard: self.extend_regard,
+            pay_base: self.pay_base,
+            w_pay_regard: self.w_pay_regard,
+            w_pay_cost: self.w_pay_cost,
         }
     }
 
@@ -127,6 +146,8 @@ impl CreditFile {
             ("credit.review_days", self.review_days, 1, 365),
             ("credit.max_asked", self.max_asked, 1, 20),
             ("credit.grace_days", self.grace_days, 0, 365),
+            ("credit.extension_days", self.extension_days, 1, 365),
+            ("credit.max_extensions", self.max_extensions, 0, 10),
         ] {
             if !(lo..=hi).contains(&v) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));
@@ -145,6 +166,13 @@ impl CreditFile {
             ("credit.p_max", self.p_max, 0.0, 1.0),
             ("credit.keep_return", self.keep_return, -1.0, 10.0),
             ("credit.lend_share", self.lend_share, 0.0, 1.0),
+            ("credit.field_recovery", self.field_recovery, 0.0, 1.0),
+            ("credit.guarantor_regard", self.guarantor_regard, -1.0, 1.0),
+            ("credit.keep_days", self.keep_days, 0.0, 365.0),
+            ("credit.extend_regard", self.extend_regard, -1.0, 1.0),
+            ("credit.pay_base", self.pay_base, -20.0, 20.0),
+            ("credit.w_pay_regard", self.w_pay_regard, 0.0, 20.0),
+            ("credit.w_pay_cost", self.w_pay_cost, 0.0, 20.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

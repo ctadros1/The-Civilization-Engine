@@ -121,7 +121,7 @@ use super::{
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
-    SCHEMA_V132, finish, section, single_chunk, unreadable,
+    SCHEMA_V132, SCHEMA_V133, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -593,6 +593,8 @@ enum Schema {
     V132,
     /// Loans in goods (M7d slice CA: `Order.loans`, channels 21-22, tie acts 15-17).
     V133,
+    /// Pledges and answers at the due day (M7d slice CB: `Order.loan_terms`, loan standings 3-4).
+    V134,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -740,7 +742,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V130 => Schema::V130,
         SCHEMA_V131 => Schema::V131,
         SCHEMA_V132 => Schema::V132,
-        SAVE_SCHEMA_VERSION => Schema::V133,
+        SCHEMA_V133 => Schema::V133,
+        SAVE_SCHEMA_VERSION => Schema::V134,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -4435,7 +4438,8 @@ fn carried(
         | Schema::V130
         | Schema::V131
         | Schema::V132
-        | Schema::V133 => {
+        | Schema::V133
+        | Schema::V134 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4741,7 +4745,8 @@ fn decode_households(
             | Schema::V130
             | Schema::V131
             | Schema::V132
-            | Schema::V133 => {
+            | Schema::V133
+            | Schema::V134 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5315,6 +5320,30 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let loans = (!loans.is_empty()).then(|| fbb.create_vector(&loans));
+    // Their pledges, answers and remedies (schema 134, M7d slice CB).
+    let terms: Vec<save::LoanTermsSave> = credit
+        .claims
+        .iter()
+        .map(|c| {
+            let answer = match c.answer {
+                None => 0,
+                Some((true, _)) => 1,
+                Some((false, _)) => 2,
+            };
+            save::LoanTermsSave::new(
+                c.pledge.map_or(0, civ_agents::credit::Pledge::code),
+                answer,
+                c.asks,
+                c.extensions,
+                c.answer.map_or(0.0, |a| a.1),
+                c.pledge.map_or(0, |p| p.names().get()),
+                c.taken.unwrap_or(i64::MIN),
+                c.by_guarantor,
+                c.recourse.unwrap_or(0),
+            )
+        })
+        .collect();
+    let loan_terms = (!terms.is_empty()).then(|| fbb.create_vector(&terms));
     let root = save::Order::create(
         &mut fbb,
         &save::OrderArgs {
@@ -5335,6 +5364,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
             loans_next: credit.next,
             loans_asked: credit.asked,
             loans_refused: credit.refused,
+            loan_terms,
         },
     );
     finish(fbb, root)
@@ -5648,8 +5678,17 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
     }
     // Loans in goods (schema 133, M7d slice CA); a loan of a good the content no longer has is
     // dropped.
-    for l in root.loans().iter().flatten() {
+    let terms: Vec<&save::LoanTermsSave> = root.loan_terms().iter().flatten().collect();
+    if !terms.is_empty() && terms.len() != root.loans().map_or(0, |l| l.len()) {
+        return Err(bad(format!(
+            "{} loans and {} loan terms",
+            root.loans().map_or(0, |l| l.len()),
+            terms.len()
+        )));
+    }
+    for (k, l) in root.loans().iter().flatten().enumerate() {
         let id = l.id();
+        let t = terms.get(k);
         let Some(good) = saved_good(&goods, u32::from(l.good()), || format!("loan {id}"))? else {
             continue;
         };
@@ -5669,6 +5708,27 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
                 required(l.witness_a(), "a loan's witness")?,
                 required(l.witness_b(), "a loan's witness")?,
             ],
+            pledge: match t.map_or(0, |t| t.pledge_kind()) {
+                0 => None,
+                code => Some(
+                    civ_agents::credit::Pledge::from_code(
+                        code,
+                        PermanentId::from_raw(t.map_or(0, |t| t.pledge())),
+                    )
+                    .ok_or_else(|| bad(format!("loan {id} has a pledge of code {code}")))?,
+                ),
+            },
+            answer: match t.map_or(0, |t| t.answer()) {
+                0 => None,
+                1 => Some((true, t.map_or(0.0, |t| t.points()))),
+                2 => Some((false, t.map_or(0.0, |t| t.points()))),
+                code => return Err(bad(format!("loan {id} has answer code {code}"))),
+            },
+            asks: t.map_or(0, |t| t.asks()),
+            extensions: t.map_or(0, |t| t.extensions()),
+            taken: t.map(|t| t.taken()).filter(|&d| d != i64::MIN),
+            by_guarantor: t.map_or(0.0, |t| t.by_guarantor()),
+            recourse: t.map(|t| t.recourse()).filter(|&r| r != 0),
         });
     }
     order.credit.next = root.loans_next();

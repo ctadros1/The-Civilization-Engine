@@ -1964,6 +1964,9 @@ table Order {
   loans_next: uint (id: 14);
   loans_asked: ulong (id: 15);
   loans_refused: ulong (id: 16);
+  // Each loan's pledge, answer and remedies, in `loans`' order (schema 134, M7d slice CB);
+  // absent before, when a loan had none.
+  loan_terms: [LoanTermsSave] (id: 17);
 }
 
 // A loan in goods (schema 133): its number, the creditor and debtor households, the good (an
@@ -1982,6 +1985,23 @@ struct LoanSave {
   due: long;
   witness_a: ulong;
   witness_b: ulong;
+}
+
+// A loan's pledge, answer and remedies (schema 134, M7d slice CB): `pledge_kind` 0 none, 1 a
+// field's use, 2 a guarantor (`pledge` the field or household); `answer` 0 not yet, 1 meant to
+// pay, 2 refused, with its `points`; the asks for time made and granted; the day the pledge was
+// taken (`taken`, the least i64 when not); kilograms a guarantor paid; and for a guarantor's claim
+// on the debtor, the loan it paid on (0 none). Loan standings gain 3 refused and 4 lapsed.
+struct LoanTermsSave {
+  pledge_kind: ubyte;
+  answer: ubyte;
+  asks: ubyte;
+  extensions: ubyte;
+  points: float;
+  pledge: ulong;
+  taken: long;
+  by_guarantor: float;
+  recourse: uint;
 }
 
 // Section "word" (schema 35, M4c slice AE, ADR-0016): shared claims, who heard them, and the

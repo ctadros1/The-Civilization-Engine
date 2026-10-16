@@ -235,7 +235,7 @@ pub fn wealth_response(sim: &Sim) -> Vec<u8> {
 /// Mira's household 40 kg of grain, lent on 3 May of year 2, due on 9 September of year 2";
 /// "... repaid it"; "... did not repay 12 kg of it".
 pub fn loan_words(sim: &Sim, settlement: PermanentId) -> Vec<String> {
-    use civ_agents::credit::Standing;
+    use civ_agents::credit::{Pledge, Standing};
     let pop = &sim.people;
     let today = sim.now().day_index();
     let year = civ_core::time::DAYS_PER_YEAR;
@@ -277,12 +277,49 @@ pub fn loan_words(sim: &Sim, settlement: PermanentId) -> Vec<String> {
                 c.owed,
                 day(c.made),
             );
+            // What it was lent against, and on whose word (M7d slice CB).
+            let pledge = match c.pledge {
+                Some(Pledge::Field(_)) => ", against the use of a field".to_owned(),
+                Some(Pledge::Guarantor(g)) => format!(
+                    ", with {} standing guarantor",
+                    super::people::household_name(sim, g)
+                ),
+                None if c.recourse.is_some() => ", for what it paid as guarantor".to_owned(),
+                None => String::new(),
+            };
+            let base = format!("{base}{pledge}");
+            let remedy = || {
+                let mut out = String::new();
+                if c.by_guarantor > 0.0 {
+                    out.push_str(&format!("; its guarantor paid {:.0} kg", c.by_guarantor));
+                }
+                if matches!(c.pledge, Some(Pledge::Field(_))) && c.taken.is_some() {
+                    out.push_str(if c.left() > 1e-3 {
+                        "; the creditor works the field pledged until its crop pays the rest"
+                    } else {
+                        "; the crop of the field pledged paid it"
+                    });
+                }
+                out
+            };
             match c.standing {
+                Standing::Open if c.extensions > 0 => {
+                    format!("{base}, due on {} after time was granted", day(c.due))
+                }
                 Standing::Open => format!("{base}, due on {}", day(c.due)),
                 Standing::Repaid => format!("{base}, and repaid it"),
-                Standing::Defaulted => {
-                    format!("{base}, and did not repay {:.0} kg of it", c.left())
-                }
+                Standing::Defaulted if c.left() > 1e-3 => format!(
+                    "{base}, and had not repaid it when its days of grace ran out{}; \
+                     {:.0} kg are still owed",
+                    remedy(),
+                    c.left()
+                ),
+                Standing::Defaulted => format!(
+                    "{base}, and had not repaid it when its days of grace ran out{}",
+                    remedy()
+                ),
+                Standing::Refused => format!("{base}, and refused to repay it{}", remedy()),
+                Standing::Lapsed => format!("{base}, until a household of the two was no more"),
             }
         })
         .collect()

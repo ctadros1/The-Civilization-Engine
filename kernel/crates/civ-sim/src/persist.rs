@@ -393,6 +393,8 @@ pub const SCHEMA_V130: u32 = 130;
 pub const SCHEMA_V131: u32 = 131;
 /// Closed bodies, before loans.
 pub const SCHEMA_V132: u32 = 132;
+/// Loans, before pledges and answers at the due day.
+pub const SCHEMA_V133: u32 = 133;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

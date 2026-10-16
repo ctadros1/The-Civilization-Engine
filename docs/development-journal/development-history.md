@@ -2551,3 +2551,24 @@ or defaulted when grace runs out; a world with loans saves and loads exactly); t
 rate checked against the money brief's illustration. Lived: three villages of 40 for four years
 made 60 loans, 24 repaid, 18 defaulted, and held their numbers.
 
+## 2026-10-16 — CB1: pledges and answers at the due day
+
+**Built:** ADR-0027 §3, its first half. A lender that would refuse a loan may still lend against
+the use of a field the borrower holds, or with a guarantor whose elder thinks well of the
+borrower. At the due day the debtor answers once, as a finding is met: it pays what it can spare,
+asks for time when that is not all, or refuses. A loan refused, or unpaid when the days of grace
+run out, is remembered by the whole creditor household, and the pledge is taken: the guarantor
+pays and the debtor owes the guarantor in turn, or the creditor works the pledged field until its
+crop has paid the debt, and gives it back. Content API 120, save schema 134.
+
+**Fixed on the way:** the first answer weighed what was owed in days of food, which made every
+harvest-sized loan a coin toss for a household holding nothing; it now weighs the share of what
+the household holds that the debt would take, at most all of it.
+
+**Tested:** a debtor repays or defaults; one short asks for time, granted or not by regard; one
+unwilling refuses; a guarantor pays and holds a claim on the debtor; a pledged field is worked by
+the creditor from the day it lies between crops and goes back once paid; pledges and answers
+save and load exactly. Lived (three villages of 40, four years): 69 loans, 21 times asked for
+time and granted, 22 repaid, 15 defaulted, none refused at the due day, and not one pledge: no
+lender refused a loan bare.
+

@@ -5329,6 +5329,10 @@ impl Population {
                 _ => 0.0,
             };
             let kept = done.grain_kg * (1.0 - rent);
+            // A creditor working a field pledged to it counts what it keeps against the debt
+            // (M7d slice CB).
+            let field = ctx.land.fields[fi].id;
+            self.pledge_crop(ctx, field, household, crop.good, kept);
             self.levy(ctx, who, household, kept, crop.good);
             // And a faction the thresher belongs to its dues (M4c slice AH).
             self.pay_dues(ctx, who, household, kept, crop.good);

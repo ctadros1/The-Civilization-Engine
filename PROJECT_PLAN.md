@@ -3426,6 +3426,30 @@ and M6a gives rivers a daily flow.
         measured, never set. **Not yet built:** pledges, guarantors, answers at the due day and
         *debts heard* (CB); what a default teaches beyond the lender's elder; loans between
         settlements or by workshops.
+    - **CB1**: default and pledges: answers at the due day, time asked and granted, a field's use
+      and a guarantor as pledges, taken when a loan fails.
+      - *As built (2026-10-16):* content API 120, save schema 134 (wire unchanged: the wealth
+        panel's loan sentences say more). A lender that would refuse a loan bare weighs it against
+        the use of a field the borrower holds and works (believing it recovers `field_recovery` of
+        the debt, so the loss it believes is p(1 − R)), then with a guarantor: the household whose
+        elder regards the borrower's most, at least `guarantor_regard`, owing and guaranteeing
+        nothing; the loan is lost only if both fail. At the due day the debtor answers once, as a
+        finding is met: points toward paying from `pay_base`, its regard for the creditor and the
+        share of its food the debt would take; one that means to pay gives what it holds of the
+        good beyond `keep_days` of its food, and short, asks for time, which a creditor regarding
+        it at least `extend_regard` grants (`extension_days`, up to `max_extensions`). Refused, or
+        unpaid when grace runs out, every member of the creditor's household notes it of the
+        debtor's elder, and the creditor takes the pledge: the guarantor pays what it can spare of
+        the good and holds a claim on the debtor for it; the field pledged passes to the creditor
+        on the regime's lease the day it lies between crops, the crop it keeps counting against
+        the debt, and goes back once the debt is paid. Standings gain *refused* and *lapsed* (a
+        household of the two gone). **Measured** (`civ-sim --example capture`, seed 1, three
+        villages of 40, four years): 69 asks, none refused, 69 loans made, 22 repaid, 15
+        defaulted, none refused at the due day, 6 lapsed, 26 open; 21 debtors asked for time and
+        all were granted it; 137 people at the end. No pledge was ever given: at this regard and
+        these harvests no lender refused a loan bare, so pledges wait for leaner years or warier
+        priors. **Not yet built:** *debts heard* (CB2); wage arrears (CB3); labour-days owed to a
+        creditor; what a default teaches beyond the creditor's household.
 
 **M8: The growing city (v1).**
 - *Contents:*

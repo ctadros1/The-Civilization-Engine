@@ -120,7 +120,7 @@ use super::{
     SCHEMA_V104, SCHEMA_V105, SCHEMA_V106, SCHEMA_V107, SCHEMA_V108, SCHEMA_V109, SCHEMA_V110,
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
-    SCHEMA_V125, SCHEMA_V126, finish, section, single_chunk, unreadable,
+    SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -578,6 +578,8 @@ enum Schema {
     V126,
     /// M7b slice BT: limits and review (`CaseSave.challenge`, law status 6 struck down).
     V127,
+    /// Trade laws: the issue *goods fetched elsewhere* (M7c slice BV).
+    V128,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -719,7 +721,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V124 => Schema::V124,
         SCHEMA_V125 => Schema::V125,
         SCHEMA_V126 => Schema::V126,
-        SAVE_SCHEMA_VERSION => Schema::V127,
+        SCHEMA_V127 => Schema::V127,
+        SAVE_SCHEMA_VERSION => Schema::V128,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1861,6 +1864,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::Raided => 17,
         IssueKind::Holding => 18,
         IssueKind::CasesWaiting => 19,
+        IssueKind::FetchedElsewhere => 20,
     }
 }
 
@@ -1988,6 +1992,7 @@ fn decode_polities(
                 17 => IssueKind::Raided,
                 18 => IssueKind::Holding,
                 19 => IssueKind::CasesWaiting,
+                20 => IssueKind::FetchedElsewhere,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -3604,6 +3609,7 @@ fn decode_land(
             )
         }
     };
+    let floodplain = civ_world::WorldFloodplain::new(map, &civ_land::manning(&climatology));
     let mut land = Land {
         patches: Patches {
             cols: l.cols(),
@@ -3640,7 +3646,7 @@ fn decode_land(
         water: Default::default(),
         // Read from its own section (schema 74 on).
         wells: Default::default(),
-        floodplain: civ_world::WorldFloodplain::new(map, &civ_world::ManningParams::default()),
+        floodplain,
         reach_discharges: map.reaches.iter().map(|r| r.discharge_m3s).collect(),
         flood_depths: vec![0.0; map.cell_count()],
         flood_revision: 0,
@@ -4347,7 +4353,8 @@ fn carried(
         | Schema::V124
         | Schema::V125
         | Schema::V126
-        | Schema::V127 => {
+        | Schema::V127
+        | Schema::V128 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4647,7 +4654,8 @@ fn decode_households(
             | Schema::V124
             | Schema::V125
             | Schema::V126
-            | Schema::V127 => {
+            | Schema::V127
+            | Schema::V128 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

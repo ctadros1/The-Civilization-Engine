@@ -92,6 +92,21 @@ pub(crate) struct PolicyFile {
     /// For a limit (`limit`, content API 112, M7b slice BT): what it forbids.
     #[serde(default)]
     pub limit: Option<LimitFile>,
+    /// For a duty (`duty`, content API 114, M7c slice BV): what it is laid on. Its rates are its
+    /// `levy_shares`.
+    #[serde(default)]
+    pub duty: Option<DutyFile>,
+}
+
+/// A duty's terms in a policy file (content API 114, M7c slice BV).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct DutyFile {
+    /// The purpose of the goods it is laid on: `food`, `fuel`, `material`, `tool` or `store`.
+    pub purpose: String,
+    /// Whether households that offer such goods at home are spared it.
+    #[serde(default)]
+    pub exempt_sellers: bool,
 }
 
 /// A forum's terms in a policy file (content API 110).
@@ -300,6 +315,12 @@ impl PolicyFile {
                     review: f.review,
                 })
             }),
+            duty: self.duty.as_ref().and_then(|d| {
+                Some(civ_agents::polity::DutyDef {
+                    purpose: civ_agents::params::GoodUse::from_name(&d.purpose)?,
+                    exempt_sellers: d.exempt_sellers,
+                })
+            }),
             limit: self.limit.as_ref().and_then(|l| {
                 let predicate = civ_agents::forum::Predicate::from_name(&l.predicate)?;
                 Some(civ_agents::forum::LimitDef {
@@ -451,6 +472,23 @@ impl PolicyFile {
             (Some(_), _) => p.push("`forum` is for `does = \"hear_cases\"`".to_owned()),
             (None, _) => {}
         }
+        // A duty's terms (M7c slice BV): only for `duty`, which must have them.
+        match (&self.duty, PolicyKind::from_name(&self.does)) {
+            (Some(d), Some(PolicyKind::Duty)) => {
+                if civ_agents::params::GoodUse::from_name(&d.purpose).is_none() {
+                    p.push(format!(
+                        "`duty.purpose` must be `food`, `fuel`, `material`, `tool` or `store` \
+                         (got `{}`)",
+                        d.purpose
+                    ));
+                }
+            }
+            (None, Some(PolicyKind::Duty)) => {
+                p.push("a `duty` template needs a `duty` table".to_owned());
+            }
+            (Some(_), _) => p.push("`duty` is for `does = \"duty\"`".to_owned()),
+            (None, _) => {}
+        }
         // A limit's terms (M7b slice BT): only for `limit`, which must have them.
         match (&self.limit, PolicyKind::from_name(&self.does)) {
             (Some(l), Some(PolicyKind::Limit)) => {
@@ -512,6 +550,25 @@ impl PolicyFile {
             }
         }
         match PolicyKind::from_name(&self.does) {
+            // A duty's rates (M7c slice BV): shares of the goods bought, as a store's levy.
+            Some(PolicyKind::Duty) => {
+                if !(1..=8).contains(&self.levy_shares.len()) {
+                    p.push(format!(
+                        "`levy_shares` must hold 1 to 8 rates (got {})",
+                        self.levy_shares.len()
+                    ));
+                }
+                for &s in &self.levy_shares {
+                    if !(s.is_finite() && s > 0.0 && s < 1.0) {
+                        p.push(format!(
+                            "`levy_shares` must lie above 0 and below 1 (got {s})"
+                        ));
+                    }
+                }
+                if self.relief_days != 0.0 {
+                    p.push("a `duty` policy gives no relief: leave out `relief_days`".to_owned());
+                }
+            }
             Some(PolicyKind::CommonStore) => {
                 // Research 09-05 §2.3: a sponsor weighs three to eight levels; one is allowed.
                 if !(1..=8).contains(&self.levy_shares.len()) {
@@ -552,7 +609,8 @@ impl PolicyFile {
                 | PolicyKind::Enclose
                 | PolicyKind::Annex
                 | PolicyKind::HearCases
-                | PolicyKind::Limit),
+                | PolicyKind::Limit
+                | PolicyKind::Embargo),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -605,7 +663,8 @@ impl PolicyFile {
                 | PolicyKind::Enclose
                 | PolicyKind::Annex
                 | PolicyKind::HearCases
-                | PolicyKind::Limit,
+                | PolicyKind::Limit
+                | PolicyKind::Embargo,
             )
             | None => {}
         }
@@ -818,6 +877,7 @@ mod tests {
             tenure: None,
             forum: None,
             limit: None,
+            duty: None,
         }
     }
 
@@ -843,6 +903,7 @@ mod tests {
             tenure: None,
             forum: None,
             limit: None,
+            duty: None,
             ..file()
         };
         let roofs = roofs_with(Some(rule("roofs_unburnt", 4.0)));
@@ -877,6 +938,7 @@ mod tests {
             tenure: None,
             forum: None,
             limit: None,
+            duty: None,
             ..file()
         };
         assert!(

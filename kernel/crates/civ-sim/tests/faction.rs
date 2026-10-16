@@ -7,7 +7,6 @@
 
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::ledger::Channel;
 use civ_agents::polity::{Body, IssueKind, Law, LawStatus, Outcome, PolicyKind};
@@ -32,8 +31,10 @@ fn content() -> &'static ContentRegistry {
     })
 }
 
+/// A world of `seed`, of one identity whatever the run: the scheduler breaks ties by the world's
+/// identity, so a fresh one would make each run a different world.
 fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
-    Sim::create(
+    Sim::create_for_tests(
         &NewWorld {
             name: "Factions".to_owned(),
             seed,
@@ -45,8 +46,7 @@ fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
             regime_id: String::new(),
         },
         content,
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [3; 16],
     )
     .expect("generates")
 }
@@ -480,7 +480,11 @@ fn a_faction_petitions_the_gathering_and_those_who_heard_choose_whether_to_come(
 
 #[test]
 fn a_faction_against_the_keeper_petitions_for_another_and_the_gathering_weighs_both() {
-    let (mut sim, _, office) = aggrieved_at(7, true);
+    let seed: u64 = std::env::var("TCE_SEED")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(7);
+    let (mut sim, _, office) = aggrieved_at(seed, true);
     let (old, keeper) = office.expect("a keeper");
     let mut called = None;
     for _ in 0..80 {

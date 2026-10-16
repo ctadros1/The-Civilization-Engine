@@ -999,6 +999,18 @@ impl Population {
             self.convergence
                 .carry(month, settlement, market, d.good as u16, d.units);
             self.note_seen(buyer, market, seller, now.day_index());
+            // An embargo on these doors, broken (M7c slice BV); and the duties owed on what was
+            // bought.
+            if let Some((pi, li, _)) = self.embargo_on(ctx, who, buyer, market) {
+                let knew = self.polities[pi].laws[li].knows(who);
+                let c = &mut self.polities[pi].laws[li].compliance;
+                if knew {
+                    c.broken += 1;
+                } else {
+                    c.broken_unaware += 1;
+                }
+            }
+            self.pay_duties(ctx, who, buyer, market, d.good, d.units);
         }
     }
 
@@ -1065,7 +1077,9 @@ impl Population {
             if load <= 0.0 {
                 continue;
             }
-            let cost = f64::from(r.price) * pay + (2.0 * walk_h + trade_h) / load;
+            // A duty its polity lays on what it would bring home from there (M7c slice BV).
+            let duty = self.duty_rate(ctx, hh, g, r.market);
+            let cost = f64::from(r.price) * pay * (1.0 + duty) + (2.0 * walk_h + trade_h) / load;
             let w = r.weight(day, half);
             let believed = match own {
                 Some(o) => o - w * (o - cost).max(0.0),

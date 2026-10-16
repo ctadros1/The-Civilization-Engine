@@ -73,6 +73,109 @@ pub(super) struct Forecasts {
     /// The cases the gathering or a forum heard within memory (M7b slices BR, BS): what one
     /// weighing a forum judges it by.
     forum_cases: Vec<ForumCase>,
+    /// What a duty or an embargo would bring each household (M7c slice BV).
+    trade: TradeForecast,
+}
+
+/// What a household weighs a trade law by (M7c slice BV, ADR-0026 §1): its settlement's
+/// purchases at other settlements' doors within a year (the other markets' records), what a unit
+/// of each good bought is worth to each household, kcal, and which households offer goods of each
+/// purpose at home.
+#[derive(Default)]
+struct TradeForecast {
+    away: Vec<super::duties::BoughtAway>,
+    /// (household, good, kcal a unit), in household then good order.
+    unit: Vec<(PermanentId, usize, f64)>,
+    /// (household, purpose) for each purpose a household offers goods of at home.
+    sellers: Vec<(PermanentId, GoodUse)>,
+    /// Each good's purpose, by index in the catalog's goods.
+    purpose: Vec<GoodUse>,
+    households: usize,
+}
+
+impl TradeForecast {
+    fn unit(&self, h: PermanentId, good: usize) -> f64 {
+        self.unit
+            .binary_search_by_key(&(h, good), |u| (u.0, u.1))
+            .map_or(0.0, |i| self.unit[i].2)
+    }
+
+    fn sells(&self, h: PermanentId, purpose: GoodUse) -> bool {
+        self.sellers.contains(&(h, purpose))
+    }
+
+    fn sellers_of(&self, purpose: GoodUse) -> usize {
+        self.sellers.iter().filter(|s| s.1 == purpose).count()
+    }
+
+    /// What a duty of `rate` on goods of `purpose` would bring household `h` a year, kcal: what
+    /// its own purchases would owe (none when it is spared as one that offers such goods at
+    /// home), and, as one that offers them, its share of the buyers it expects back (others'
+    /// purchases at the rate, a design prior: the dearer by the duty, the more come home) at
+    /// its margin, and its share of what the store would take.
+    fn duty(
+        &self,
+        h: PermanentId,
+        rate: f64,
+        purpose: GoodUse,
+        exempt: bool,
+        margin: f64,
+    ) -> (f64, f64) {
+        let of = |b: &&super::duties::BoughtAway| self.purpose.get(b.good) == Some(&purpose);
+        let sells = self.sells(h, purpose);
+        let owes: f64 = if exempt && sells {
+            0.0
+        } else {
+            self.away
+                .iter()
+                .filter(of)
+                .filter(|b| b.household == h)
+                .map(|b| b.units * rate * self.unit(h, b.good))
+                .sum()
+        };
+        let back: f64 = if sells {
+            self.away
+                .iter()
+                .filter(of)
+                .filter(|b| b.household != h)
+                .map(|b| b.units * rate * self.unit(h, b.good) * margin)
+                .sum::<f64>()
+                / self.sellers_of(purpose).max(1) as f64
+        } else {
+            0.0
+        };
+        let taken: f64 = self
+            .away
+            .iter()
+            .filter(of)
+            .filter(|b| !(exempt && self.sells(b.household, purpose)))
+            .map(|b| b.units * rate * self.unit(h, b.good))
+            .sum::<f64>()
+            / self.households.max(1) as f64;
+        (back + taken, owes)
+    }
+
+    /// What an embargo on `market`'s doors would bring household `h` a year, kcal: the saving its
+    /// own purchases there made (at the market's margin, a design prior: what a buyer saves going
+    /// elsewhere is what a seller at home would take over its cost), and, as one that offers goods
+    /// of a purpose bought there, its share of the buyers who would come home.
+    fn embargo(&self, h: PermanentId, market: PermanentId, margin: f64) -> (f64, f64) {
+        let there = || self.away.iter().filter(move |b| b.market == market);
+        let lost: f64 = there()
+            .filter(|b| b.household == h)
+            .map(|b| b.units * self.unit(h, b.good) * margin)
+            .sum();
+        let back: f64 = there()
+            .filter(|b| b.household != h)
+            .filter_map(|b| {
+                let p = *self.purpose.get(b.good)?;
+                self.sells(h, p).then(|| {
+                    b.units * self.unit(h, b.good) * margin / self.sellers_of(p).max(1) as f64
+                })
+            })
+            .sum();
+        (back, lost)
+    }
 }
 
 /// A case the gathering heard within memory, as one weighing a forum sees it (M7b slice BR,
@@ -340,6 +443,27 @@ impl Forecasts {
                 } else {
                     -crate::polity::levy_cost(o, -net, pp)
                 }
+            }
+            // A duty or an embargo (M7c slice BV): what it brings back less what it costs, a year.
+            Some(PolicyKind::Duty) => {
+                let Some(d) = policies.get(usize::from(m.policy)).and_then(|d| d.duty) else {
+                    return 0.0;
+                };
+                let (gain, cost) = self.trade.duty(
+                    h,
+                    m.levy_share,
+                    d.purpose,
+                    d.exempt_sellers,
+                    params.market.margin,
+                );
+                crate::polity::kept_gain(o, gain, pp) - crate::polity::levy_cost(o, cost, pp)
+            }
+            Some(PolicyKind::Embargo) => {
+                let Some(at) = m.target else {
+                    return 0.0;
+                };
+                let (gain, cost) = self.trade.embargo(h, at, params.market.margin);
+                crate::polity::kept_gain(o, gain, pp) - crate::polity::levy_cost(o, cost, pp)
             }
             // An amendment's gain is judged from decisions seen, and an end to a law from that
             // law, kept (M4c slices AF, AI): neither forecasts anything of its own.
@@ -1197,6 +1321,7 @@ impl Population {
                 kcal / (households.len() + theirs).max(1) as f64
             }),
             forum_cases: self.forum_cases(ctx, pi),
+            trade: self.trade_forecast(ctx, pi, households),
         }
     }
 
@@ -1483,6 +1608,57 @@ impl Population {
     #[doc(hidden)]
     pub fn drew_at_for_tests(&mut self, person: PermanentId, household: PermanentId, cell: u32) {
         self.drew_at(person, household, cell);
+    }
+
+    /// What households `households` of polity `pi` weigh a trade law by (M7c slice BV): built
+    /// only when the content has one and its people bought elsewhere within a year.
+    fn trade_forecast(&self, ctx: &Ctx, pi: usize, households: &[PermanentId]) -> TradeForecast {
+        let has = ctx
+            .catalog
+            .policies
+            .iter()
+            .any(|d| matches!(d.kind, PolicyKind::Duty | PolicyKind::Embargo));
+        if !has {
+            return TradeForecast::default();
+        }
+        let away = self.bought_away(
+            self.polities[pi].settlement,
+            ctx.now.day_index() - DAYS_PER_YEAR,
+        );
+        if away.is_empty() {
+            return TradeForecast::default();
+        }
+        let mut goods: Vec<usize> = away.iter().map(|b| b.good).collect();
+        goods.sort_unstable();
+        goods.dedup();
+        let mut unit = Vec::new();
+        let mut sellers = Vec::new();
+        let mut hs = households.to_vec();
+        hs.sort_unstable();
+        for &h in &hs {
+            let Some(x) = self.household(h) else {
+                continue;
+            };
+            let costs = self.own_costs_of(ctx, x);
+            let hour = self.hour_kcal(ctx, x);
+            for &g in &goods {
+                if let Some(c) = costs.get(g).copied().flatten() {
+                    unit.push((h, g, c * hour));
+                }
+            }
+            for p in GoodUse::ALL {
+                if self.offers_at_home(ctx, h, p) {
+                    sellers.push((h, p));
+                }
+            }
+        }
+        TradeForecast {
+            away,
+            unit,
+            sellers,
+            purpose: ctx.catalog.goods.iter().map(|g| g.purpose).collect(),
+            households: hs.len(),
+        }
     }
 
     /// What an hour of household `hh`'s work brings it in food, kcal: of the foods it can get,
@@ -1815,6 +1991,10 @@ impl Population {
             })
         {
             issues.push(IssueKind::CasesWaiting);
+        }
+        // Its households offer at home what its people fetched elsewhere lately (M7c slice BV).
+        if self.fetched_elsewhere(ctx, pi, &households) {
+            issues.push(IssueKind::FetchedElsewhere);
         }
         let polity = &self.polities[pi];
         // A watch may have one more while takings continue (M4c slice AI: a watch of several):
@@ -2268,6 +2448,43 @@ impl Population {
                     PolicyKind::Curfew => {
                         for &hours in &def.hours {
                             moves.push(MoveOption { hours, ..blank });
+                        }
+                    }
+                    // A duty at each rate the template offers (M7c slice BV).
+                    PolicyKind::Duty => {
+                        for &share in &def.levy_shares {
+                            moves.push(MoveOption {
+                                levy_share: share,
+                                ..blank
+                            });
+                        }
+                    }
+                    // An embargo on the settlement its people bought most from within a year, of
+                    // those whose markets the deliberator's household holds a report of, and not
+                    // one the polity holds (M7c slice BV).
+                    PolicyKind::Embargo => {
+                        let settlement = self.polities[pi].settlement;
+                        let reports = self.reports.of(own);
+                        let mut by_market: Vec<(PermanentId, f64)> = Vec::new();
+                        for b in self.bought_away(settlement, day - DAYS_PER_YEAR) {
+                            if self.polities[pi].holds(Some(b.market))
+                                || !reports.iter().any(|r| r.market == b.market)
+                            {
+                                continue;
+                            }
+                            match by_market.iter_mut().find(|m| m.0 == b.market) {
+                                Some(m) => m.1 += b.units,
+                                None => by_market.push((b.market, b.units)),
+                            }
+                        }
+                        if let Some((at, _)) = by_market
+                            .into_iter()
+                            .max_by(|a, b| a.1.total_cmp(&b.1).then(b.0.cmp(&a.0)))
+                        {
+                            moves.push(MoveOption {
+                                target: Some(at),
+                                ..blank
+                            });
                         }
                     }
                     // An office filled by lot names nobody: the lot draws among those who put
@@ -3394,7 +3611,12 @@ impl Population {
     /// Whether `person` still keeps law `l`, struck down, as if it bound them (M7b slice BU,
     /// ADR-0025 §5: a ruling is known person by person): they knew the law, have not heard the
     /// finding that struck it, and it was struck within memory.
-    fn keeps_struck(&self, ctx: &Ctx, person: PermanentId, l: &crate::polity::Law) -> bool {
+    pub(super) fn keeps_struck(
+        &self,
+        ctx: &Ctx,
+        person: PermanentId,
+        l: &crate::polity::Law,
+    ) -> bool {
         self.still_keeps(
             person,
             l,
@@ -3736,5 +3958,53 @@ mod tests {
         assert!(!away_from_home(&[work], (110.0, 100.0), home));
         // A store beside the home is on its plot.
         assert!(!away_from_home(&[walk((115.0, 105.0)), work], home, home));
+    }
+
+    #[test]
+    fn a_trade_law_brings_sellers_back_buyers_and_costs_the_buyers_their_purchases() {
+        use super::super::duties::BoughtAway;
+        let id = |n: u64| PermanentId::from_raw(n).expect("nonzero");
+        let (buyer, seller, other, there) = (id(1), id(2), id(3), id(9));
+        // Two sickles (good 0, a tool) bought by the buyer's household at `there`, one by
+        // another's; a unit is worth 1,000 kcal to each; the seller offers tools at home.
+        let t = TradeForecast {
+            away: vec![
+                BoughtAway {
+                    household: buyer,
+                    market: there,
+                    good: 0,
+                    units: 2.0,
+                },
+                BoughtAway {
+                    household: other,
+                    market: there,
+                    good: 0,
+                    units: 1.0,
+                },
+            ],
+            unit: vec![(buyer, 0, 1000.0), (seller, 0, 1000.0), (other, 0, 1000.0)],
+            sellers: vec![(seller, GoodUse::Tool)],
+            purpose: vec![GoodUse::Tool],
+            households: 3,
+        };
+        // A duty of a quarter: the buyer owes 500 kcal and gets its share of what the store takes
+        // (750 / 3); the seller gets back a quarter of the three bought, at its margin of a fifth
+        // (150), and its share of the store.
+        let (gain, cost) = t.duty(buyer, 0.25, GoodUse::Tool, false, 0.2);
+        assert!((cost - 500.0).abs() < 1e-9 && (gain - 250.0).abs() < 1e-9);
+        let (gain, cost) = t.duty(seller, 0.25, GoodUse::Tool, false, 0.2);
+        assert!(cost == 0.0 && (gain - 400.0).abs() < 1e-9, "{gain}");
+        // Spared as one that offers tools, the seller would owe nothing on its own purchases.
+        assert_eq!(t.duty(seller, 0.25, GoodUse::Tool, true, 0.2).1, 0.0);
+        // On food, nothing.
+        assert_eq!(t.duty(buyer, 0.25, GoodUse::Food, false, 0.2), (0.0, 0.0));
+        // An embargo on `there` costs the buyer the saving on its two (at the margin); the seller
+        // gets the margin on all three back.
+        let (gain, cost) = t.embargo(buyer, there, 0.2);
+        assert!((cost - 400.0).abs() < 1e-9 && gain == 0.0);
+        let (gain, cost) = t.embargo(seller, there, 0.2);
+        assert!(cost == 0.0 && (gain - 600.0).abs() < 1e-9);
+        // Elsewhere, nothing.
+        assert_eq!(t.embargo(buyer, id(8), 0.2), (0.0, 0.0));
     }
 }

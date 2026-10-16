@@ -2397,3 +2397,37 @@ the latest cases in words, shown in the Order and Government panels. The demo ex
 **Evidence:** `tests/review.rs` (a ruling known person by person: those who heard it no longer keep
 the curfew, those who knew the law and have not heard it do); `tests/forum.rs` (a forum's finding
 blamed on the forum; the norm's points); the dashboard's Justice unit test; `web/tests/order.test.ts`.
+
+## 2026-10-16 — BV: trade laws
+
+**Built:** ADR-0026 §1. A duty on goods of a purpose bought at another settlement's door, owed to
+the store in kind at the purchase and paid or kept back as the levy is; an embargo on a named
+settlement's doors, kept or broken person by person as a curfew is; the duty in the replacement
+cost of goods from elsewhere; the issue *goods fetched elsewhere*; each household's forecast of
+either from the purchases and offers on record. Content API 114, save schema 128 (issue code 20),
+ledger channel `Duty` (19), reason `Embargo` (154).
+
+**Evidence:** `tests/trade_law.rs` (a duty on tools owed on sickles bought elsewhere, paid to the
+store or kept back; another polity's duty binds nobody of this one; an embargo known and kept turns
+the trip away, where the same scene without it buys; a world with a duty saves and loads exactly);
+the forecast's unit test (a duty and an embargo, for a buyer and a seller, by hand). The probe
+`civ-sim --example trade_laws` (three bands of 40, seed 1): 5 purchases between settlements in
+three years; once the issue opened, 6 duties and 3 embargoes proposed at Oakholt, a duty passed 3–0
+by a gathering of five and an embargo 2–0, and a duty 2–0 at Sedgebrook. Small volumes, small
+gatherings: the villages were already short of food, which is the next thing looked into.
+
+## 2026-10-16 — Rivers back in their banks
+
+**Found:** villages emptied in their second to fourth winter. A monthly ledger of one village's food
+showed the harvests were fine and the floods were not: bankfull had been set to 1.5 times each
+reach's mean flow, where the research's 1.4–1.5 was a recurrence in years, so the flashy daily rivers
+stood over their banks five to nine weeks a year and spoiled stores and seed on house floors.
+
+**Fixed:** each landscape's climatology now routes its 300 years of surplus through the runoff store
+and takes bankfull as the yearly peak reached once in 1.4 years (6.3 times the mean in the river
+valley). Days over bankfull fell from 36–66 a year to 0–19; the probe village of 40 lives six years at
+41–47 people. Seed 3's village still empties in its third year, after a flood of 27 times the
+mean flow put a metre of water in its homes: a rare flood, left to stand. No schema or content change: floodplains are derived when a world is made or loaded.
+
+**Evidence:** `weather::tests::bankfull_is_the_peak_flow_most_years_reach`; the flood, bank and
+crossing tests; the six-year probe of seeds 1 to 3.

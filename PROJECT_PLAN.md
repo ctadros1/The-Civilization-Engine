@@ -3214,6 +3214,41 @@ and M6a gives rivers a daily flow.
       from purchases at another settlement's door and paid in kind as a choice, the duty in the
       replacement anchor, forecasts from each household's own records; first a probe of trade
       volume and forecast sizes in lived worlds of three settlements.
+      - *As built (2026-10-16):* two policy kinds (content API 114). A *duty* (`does = "duty"`,
+        its rates the template's `levy_shares`, a `[duty]` table naming the `purpose` of the goods
+        it is laid on and whether households that offer such goods at home are spared,
+        `exempt_sellers`) is owed on goods a member's household buys at another settlement's door
+        (not one the polity holds): at the purchase, each duty in force on the good's purpose is
+        weighed as the levy is (the norms held, where the buyer stood on it, regard for its
+        sponsor, against what the share owed is worth to the household), and paid at once to the
+        store in kind on a new `Duty` channel (19), or kept back, counted in the law's compliance;
+        one who never heard of the law owes nothing they know of. An *embargo* (`does =
+        "embargo"`) names a settlement (the law's target): a member who knows it and would keep it
+        (the points the norms they hold, their stance and their regard give keeping a law, as a
+        curfew's) does not set out for its doors (`Reason::Embargo`, 154); a purchase there by one
+        who knows it counts as broken. A duty in force raises the replacement cost a household
+        reckons for goods it could fetch (ADR-0019 §5). The issue *goods fetched elsewhere* (issue
+        code 20, save schema 128) opens when a household of the settlement offers at home goods of
+        a purpose its people bought at another settlement's doors within a year (the trades that
+        market remembers) and holds a report of that market. The moves: a duty at each rate; an
+        embargo on the settlement its people bought most from, of those the proposer's household
+        knows. Each household forecasts a trade law from the purchases and offers on record: a
+        duty costs it the share owed on its own purchases (none if spared) and brings it, as one
+        that offers such goods, its share of the buyers it expects back (others' purchases at the
+        rate, a design prior) at the market's margin, and its share of what the store would take;
+        an embargo costs it the margin on what it bought there and brings a seller its share of the
+        buyers who would come home. The core offers `core:policy/duty_on_tools` (a tenth or a
+        quarter) and `core:policy/embargo`. A `levy_share` limit (M7b slice BT) binds a duty's rate
+        as it binds any law's. **The probe** (`civ-sim --example trade_laws`, three bands of 40 that
+        know each other's camps, seed 1, nothing set): 5 purchases between settlements in three
+        years (4 by Oakholt at Sedgebrook's doors in year 2, one back in year 3). Once the issue
+        opened, Oakholt's people proposed 6 duties and 3 embargoes in 23 weeks, most to gatherings
+        of one or two; a gathering of five passed a duty 3–0, and one of three an embargo 2–0, and
+        Sedgebrook's gathering passed a duty 2–0. The volume is small, so a trade law here answers
+        a handful of purchases; the villages then emptied in year 4 (a food shortfall found before
+        this slice, recorded in §9). **Not yet built:** a collector (BY), a duty paid in arrears or
+        brought as a case, an embargo on selling, duties exempting an organization's members
+        (BW).
     - **BW**: organizations by stake: a faction kind founded from goods sold or resold, founding
       by search, rules, dues, applications and refusals, recognition by law, the organization's
       page.
@@ -3860,7 +3895,7 @@ One line each. Don't re-litigate without a reason written next to the entry.
   Workspace tests (`simcheck`), clippy, content validation, web tests and all 10 smoke worlds pass.
 
 - **Floods and storms, as built (2026-10-13, M6b slice BF; ADR-0022 §8, §9):**
-  **Hydraulics & floodplain:** Reach hydraulic geometry with width, slope, and Manning roughness $n=0.035$; bankfull discharge $Q_{bf} = 1.5 \times Q_{mean}$ and stage $d_{bf} = (n Q_{bf} / (w S^{0.5}))^{0.6}$. Height Above Nearest Drainage (HAND) precomputed from D8 flow routing into reach compartments. Inundation extent and depth calculated using reach transit time ($L / V_{bf}$) and cumulative elevation-storage curves, ensuring mass conservation and natural overbank stage.
+  **Hydraulics & floodplain:** Reach hydraulic geometry with width, slope, and Manning roughness $n=0.035$; bankfull discharge $Q_{bf} = 1.5 \times Q_{mean}$ (corrected 2026-10-16: the landscape's 1.4-year flow, below) and stage $d_{bf} = (n Q_{bf} / (w S^{0.5}))^{0.6}$. Height Above Nearest Drainage (HAND) precomputed from D8 flow routing into reach compartments. Inundation extent and depth calculated using reach transit time ($L / V_{bf}$) and cumulative elevation-storage curves, ensuring mass conservation and natural overbank stage.
   **Fords & walkability:** Dynamic daily fordability based on river stage; wading threshold restricts deep cells ($>0.5\text{ m}$) from being walked into.
   **Impacts:** Water above floor spoils perishable/food floor goods at depth-dependent rates while preserving durables; wetness wears daub and mud brick; submerged crops track flood days; people evacuate flooded homes to dry kin homes or settlement hearth.
   **Storms & uplift:** Monthly wind gusts draw uplift loads ($q = \frac{1}{2}\rho V^2$); covering uplift capacity calibrated with material-specific thresholds (thatch $600 + 600 \times Q$, tile $1500 + 1000 \times (1 - \text{loss})$); torn coverings record storm damage incidents and episodes without triggering premature structural collapse.
@@ -4348,3 +4383,30 @@ One line each. Don't re-litigate without a reason written next to the entry.
   measured against the kin share among the eligible. **Plot guards:** no authored
   organization; no issue weighs toward a trade law; no meter enters a choice; a world without
   any of the new records gives the same digests as before.
+- **Rivers left their banks for weeks every year, fixed (2026-10-16, found while probing M7c
+  slice BV):** villages of 40 to 120 founders emptied in their second to fourth winter. **Measured:**
+  a monthly ledger of seed 1's food (river valley, a band of 40) showed harvests near plan
+  (about 477 days of food a person in year 2) but each wet season's flood spoiling 25–47 days of
+  food a person in a month, seed among it, so the next sowing shrank (55 then 43 days of seed),
+  harvests fell (477, 371, then less) and the village left in month 51. Eating was not the cause
+  (about 2,100 kcal a person a day once settled). **The cause:** bankfull discharge was 1.5 × each
+  reach's mean (as built in slice BF), a misreading of research 03-02 §2.1, where 1.4–1.5 is the
+  *recurrence in years* of the bankfull flood. Rivers by the day are flashy (seed 1's flow against
+  its mean: median 0.08, 90th percentile 2.4, yearly peaks 9–20), so 1.5 × the mean was passed on
+  36–66 days a year in river valley 1 and 2 and ria coast 1. **The fix:** each landscape's
+  climatology routes its 300 years of daily surplus as the world's water does (the ground's share
+  as an even base flow, the rest through the runoff store) and takes bankfull as the yearly peak
+  reached once in 1.4 years (`BANKFULL_RECURRENCE_YEARS`, the median of the Ohio sites):
+  6.3 × the mean in river valley, 5.3 × on the ria coast. Floodplains are derived, not saved, so
+  saved worlds take the new banks when loaded; no schema or content change. **After:** days
+  above bankfull 0–19 a year in the same worlds (most years have a short flood, as a 1.4-year
+  flood should); seed 1's band lives six years at 41–47 people with 340–600 days of food a
+  person, seed 2's at 46 with 720. Seed 3's still empties, in month 26: a high water peaking at
+  27 × the mean in its eleventh month stood up to a metre deep in its homes for days and took
+  about half the food on their floors (within the 03-07 depth-damage envelope: 0.33–0.49 of the
+  most at half a metre), on top of a thin first harvest. A rare flood, not a yearly one; left to
+  stand as the world's variance. `tests/levees.rs` raises its flood to 150 m³/s over bankfull,
+  not 100 over the natural flow, to keep one flood short of repaying a bank. Crossings scour at
+  the same bankfull and now stand longer. **Not changed:** a flooded floor's stores still spoil a
+  share a day while the water stands (ADR-0022 §9); the smoke runs 30 days, so nothing in the
+  routine checks would have caught this, and the long-run check stays the dashboard.

@@ -270,6 +270,17 @@ impl GoodUse {
     pub fn from_name(name: &str) -> Option<GoodUse> {
         GoodUse::ALL.into_iter().find(|u| u.name() == name)
     }
+
+    /// Goods of this use, in words: "tools" (M7c slice BV).
+    pub fn plural_words(self) -> &'static str {
+        match self {
+            GoodUse::Food => "food",
+            GoodUse::Fuel => "fuel",
+            GoodUse::Material => "materials",
+            GoodUse::Tool => "tools",
+            GoodUse::Store => "pots and stores",
+        }
+    }
 }
 
 /// How a good is eaten.

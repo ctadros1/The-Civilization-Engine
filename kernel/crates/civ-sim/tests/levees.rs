@@ -118,8 +118,11 @@ fn flooded_village() -> (Sim, PermanentId, usize) {
         .expect("the settlement")
         .hearth_m;
     let reach = reach_near(&sim, hearth);
-    let natural = sim.land().reach_discharges[reach];
-    sim.raise_river(reach, natural + 100.0, 6).expect("raise");
+    // A hundred and fifty cubic metres a second over what the reach holds within its banks:
+    // water deep enough at some homes that a bank is worth its work only if it comes often.
+    let bankfull = sim.land().floodplain.reaches[reach].bankfull_discharge_m3s as f32;
+    let natural = sim.land().reach_discharges[reach].max(bankfull);
+    sim.raise_river(reach, natural + 150.0, 6).expect("raise");
     sim.advance_minutes(7 * DAY).expect("advances");
     (sim, settlement, reach)
 }

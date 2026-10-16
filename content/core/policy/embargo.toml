@@ -1,0 +1,18 @@
+# An embargo (M7c slice BV, ADR-0026 §1): nobody of the polity may buy at the doors of the
+# settlement it names, the one its people bought most from within a year. Keeping it is each
+# person's choice, as a curfew's is (research 08-18 §1.2: evasion pays as far as it widens the
+# gap between lawful and unlawful returns); it carries no sanction in v0, and a breach is
+# counted, not brought. Whether anyone proposes it, and whether a gathering passes it, is
+# people's.
+kind = "policy"
+id = "core:policy/embargo"
+name = "Embargo"
+description = "Nobody may buy at the doors of the settlement it names."
+does = "embargo"
+answers = ["fetched_elsewhere"]
+question = "whether to forbid buying from the settlement our people buy most from"
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/autonomy" = -1.0
+"core:value/security" = 0.25

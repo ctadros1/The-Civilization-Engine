@@ -606,6 +606,7 @@ impl Land {
         let (low, high) = height_range(map);
         let stock_day = today - DAYS_PER_YEAR - 1;
         let weather = Weather::new(&params.weather, &climatology, low, high, stock_day + 1);
+        let floodplain = WorldFloodplain::new(map, &manning(&climatology));
         let mut land = Land {
             stocks: vec![vec![0.0; patches.len()]; params.resources.len()],
             patches,
@@ -627,7 +628,7 @@ impl Land {
             enclosures: enclosures::Enclosures::default(),
             water: Water::default(),
             wells: wells::Wells::default(),
-            floodplain: WorldFloodplain::new(map, &ManningParams::default()),
+            floodplain,
             reach_discharges: map.reaches.iter().map(|r| r.discharge_m3s).collect(),
             flood_depths: vec![0.0; map.cell_count()],
             flood_revision: 0,
@@ -651,7 +652,7 @@ impl Land {
 
     /// Derives the precomputed floodplain and river hydraulics from `map`.
     pub fn derive_floodplain(&mut self, map: &WorldMap, params: &LandParams) {
-        self.floodplain = WorldFloodplain::new(map, &ManningParams::default());
+        self.floodplain = WorldFloodplain::new(map, &manning(&self.climatology));
         let flow_factor = self.flow_factor(params);
         let reaches = map
             .reaches
@@ -1707,6 +1708,15 @@ pub struct RiverForcing {
     pub influence: u32,
 }
 
+/// The river hydraulics a landscape of `climatology` has: bankfull at its rivers' 1.4-year flow
+/// ([`Climatology::bankfull_flow_factor`]), the rest as [`ManningParams`] has them.
+pub fn manning(climatology: &Climatology) -> ManningParams {
+    ManningParams {
+        bankfull_factor: climatology.bankfull_flow_factor,
+        ..ManningParams::default()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1821,7 +1831,15 @@ mod tests {
 
     /// A test landscape's climatology, with the test crop.
     pub(crate) fn climatology(p: &LandParams, seed: u64) -> Climatology {
-        Climatology::new(&p.weather, &[fields::tests::crop()], 800.0, 48.0, 1, seed)
+        Climatology::new(
+            &p.weather,
+            &p.water,
+            &[fields::tests::crop()],
+            800.0,
+            48.0,
+            1,
+            seed,
+        )
     }
 
     /// Land on the test map, made on `today`.

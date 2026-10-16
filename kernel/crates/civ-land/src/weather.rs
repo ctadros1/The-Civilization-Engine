@@ -69,6 +69,9 @@ pub const SNOW_COVER_MM: f64 = 5.0;
 pub const EASE_DAYS: f64 = 30.0;
 /// Years of weather a [`Climatology`] is drawn from, after one year to settle.
 pub const CLIMATOLOGY_YEARS: usize = 300;
+/// The recurrence of a river's bankfull flow, years: the median of forty gauged sites (research
+/// 03-02 §2.1, "1.01–9.7; median 1.4"), taken for every reach.
+pub const BANKFULL_RECURRENCE_YEARS: f64 = 1.4;
 
 /// The months' names, January first, for the kernel's words.
 pub const MONTH_NAMES: [&str; 12] = [
@@ -440,6 +443,46 @@ pub struct Climatology {
     /// The long-run mean of the water exposed fuel holds, as a share of its dry mass (M6b slice
     /// BC): what an average day's dryness is.
     pub fuel_moisture_mean: f64,
+    /// The rivers' bankfull flow against their mean (ADR-0022 §11): the year's highest flow that
+    /// comes once in [`BANKFULL_RECURRENCE_YEARS`], of the climatology's years routed through the
+    /// landscape's runoff store with the ground's share as an even base flow.
+    pub bankfull_flow_factor: f64,
+}
+
+/// The flow, against the mean, that the year's highest reaches once in
+/// [`BANKFULL_RECURRENCE_YEARS`] (research 03-02 §2.1): `surpluses` a run of whole years of the
+/// reference soil's daily surplus, mm, of mean `mean_mm`, routed as the world's water routes it
+/// ([`crate::Water::day`]): the ground's share, `recharge_share`, comes back to the rivers as an
+/// even base flow at its mean, and the rest runs off through the runoff store. 1 when there is no
+/// surplus to measure.
+pub fn bankfull_flow_factor(surpluses: &[f64], mean_mm: f64, water: &crate::WaterParams) -> f64 {
+    let days = DAYS_PER_YEAR as usize;
+    if mean_mm <= 0.0 || surpluses.len() < days {
+        return 1.0;
+    }
+    let share = water.recharge_share.clamp(0.0, 1.0);
+    let k = water.recession_days.max(1e-3);
+    let keep = (-1.0 / k).exp();
+    // The store as the world starts it: holding what lets go the mean a day.
+    let mut store = mean_mm / ((1.0 / k).exp() - 1.0);
+    let mut peaks: Vec<f64> = surpluses
+        .chunks_exact(days)
+        .map(|year| {
+            let mut peak: f64 = 0.0;
+            for &s in year {
+                let held = store + s.max(0.0) * (1.0 - share) + mean_mm * share;
+                peak = peak.max(held * (1.0 - keep));
+                store = held * keep;
+            }
+            peak / mean_mm
+        })
+        .collect();
+    peaks.sort_by(f64::total_cmp);
+    // The peak exceeded in a share 1/T of years.
+    let at = (1.0 - 1.0 / BANKFULL_RECURRENCE_YEARS.max(1.0)) * (peaks.len() - 1) as f64;
+    let (lo, hi) = (at.floor() as usize, at.ceil() as usize);
+    let f = peaks[lo] + (peaks[hi] - peaks[lo]) * (at - lo as f64);
+    f.max(1.0)
 }
 
 /// The key of a landscape: its preset's id, hashed (FNV-1a).
@@ -551,9 +594,11 @@ pub fn root_zone_day(
 impl Climatology {
     /// The climatology of a landscape: `annual_mm` its mean annual precipitation, at
     /// `latitude_deg`, for a world of `seed`. Draws [`CLIMATOLOGY_YEARS`] years of its weather,
-    /// the same for every world of the landscape, with each crop sown on its typical day.
+    /// the same for every world of the landscape, with each crop sown on its typical day, and
+    /// routes their surplus as `water` has it to find the rivers' bankfull flow.
     pub fn new(
         params: &WeatherParams,
+        water: &crate::WaterParams,
         crops: &[CropParams],
         annual_mm: f64,
         latitude_deg: f64,
@@ -595,14 +640,15 @@ impl Climatology {
             month_snow_days: [0.0; 12],
             surplus_mm_per_day: 0.0,
             fuel_moisture_mean: 0.0,
+            bankfull_flow_factor: 1.0,
         };
-        c.measure(params, landscape);
+        c.measure(params, water, landscape);
         c
     }
 
     /// Draws the climatology's years, after one to settle, and sets the long-run means. The years
     /// are the landscape's, from a stream of their own, the same for every world.
-    fn measure(&mut self, params: &WeatherParams, landscape: u64) {
+    fn measure(&mut self, params: &WeatherParams, routing: &crate::WaterParams, landscape: u64) {
         let world = self.stream;
         self.stream = civ_core::rng::key(&[PURPOSE_CLIMATOLOGY, landscape]);
         let at = params.normals_at_m;
@@ -617,6 +663,8 @@ impl Climatology {
         let mut surplus = 0.0;
         let mut fuel = 0.0;
         let years = CLIMATOLOGY_YEARS as i64;
+        let mut surpluses: Vec<f64> =
+            Vec::with_capacity(CLIMATOLOGY_YEARS * DAYS_PER_YEAR as usize);
         for day in 0..(years + 1) * DAYS_PER_YEAR {
             let counted = day >= DAYS_PER_YEAR;
             let doy = day_of_year(day);
@@ -649,6 +697,7 @@ impl Climatology {
             }
             if counted {
                 surplus += water.surplus_mm;
+                surpluses.push(water.surplus_mm);
                 fuel += f64::from(w.today.fuel_moisture);
                 let m = month_of(day);
                 cover_sum[m] += w.cover_ease;
@@ -657,6 +706,8 @@ impl Climatology {
         }
         self.stream = world;
         self.surplus_mm_per_day = surplus / (years * DAYS_PER_YEAR) as f64;
+        self.bankfull_flow_factor =
+            bankfull_flow_factor(&surpluses, self.surplus_mm_per_day, routing);
         self.fuel_moisture_mean = fuel / (years * DAYS_PER_YEAR) as f64;
         for r in w.months.iter().filter(|r| r.year > 1) {
             let m = usize::from(r.month);
@@ -1382,7 +1433,15 @@ pub(crate) mod tests {
     }
 
     fn climate(seed: u64, landscape: u64) -> Climatology {
-        Climatology::new(&params(), &[crop()], 800.0, 48.0, landscape, seed)
+        Climatology::new(
+            &params(),
+            &crate::WaterParams::default(),
+            &[crop()],
+            800.0,
+            48.0,
+            landscape,
+            seed,
+        )
     }
 
     /// Lives `years` years of a world's weather from day 0, with a crop of the test kind sown
@@ -1993,5 +2052,33 @@ pub(crate) mod tests {
         assert!((p.roof_snow_share_at(45.0) - 0.4).abs() < 1e-12);
         assert_eq!(p.roof_snow_share_at(60.0), 0.0);
         assert_eq!(p.roof_snow_share_at(75.0), 0.0);
+    }
+
+    #[test]
+    fn bankfull_is_the_peak_flow_most_years_reach() {
+        let water = crate::WaterParams::default();
+        let days = DAYS_PER_YEAR as usize;
+        // An even surplus: the rivers never rise above their mean.
+        let even = vec![2.0; 10 * days];
+        assert!((bankfull_flow_factor(&even, 2.0, &water) - 1.0).abs() < 1e-9);
+        // One storm a year of 20 to 92 mm, dry between: bankfull is well above the mean.
+        let storms = |scale: f64| {
+            let mut s = vec![0.0; 10 * days];
+            for y in 0..10 {
+                s[y * days + 100] = scale * (20.0 + 8.0 * y as f64);
+            }
+            s
+        };
+        let flows = storms(1.0);
+        let mean = flows.iter().sum::<f64>() / flows.len() as f64;
+        let bf = bankfull_flow_factor(&flows, mean, &water);
+        assert!(bf > 1.5, "{bf}");
+        let wetter = storms(2.0);
+        let wetter_mean = wetter.iter().sum::<f64>() / wetter.len() as f64;
+        // The same storms, twice the size, against twice the mean: the same factor.
+        assert!((bankfull_flow_factor(&wetter, wetter_mean, &water) - bf).abs() < 1e-9);
+        // The landscape's own climatology finds a bankfull above the mean.
+        let c = climate(1, 1);
+        assert!(c.bankfull_flow_factor > 1.0, "{}", c.bankfull_flow_factor);
     }
 }

@@ -381,6 +381,8 @@ pub const SCHEMA_V124: u32 = 124;
 pub const SCHEMA_V125: u32 = 125;
 /// Precedent, before limits and review.
 pub const SCHEMA_V126: u32 = 126;
+/// Limits and review, before trade laws (issue code 20).
+pub const SCHEMA_V127: u32 = 127;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

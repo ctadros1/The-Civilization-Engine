@@ -1,0 +1,23 @@
+# A duty on tools (M7c slice BV, ADR-0026 §1): a member's household that buys tools at another
+# settlement's door owes the common store a share of them, paid at home in kind as the levy is,
+# or kept back. The taxable event is the purchase: nothing is in transit (ADR-0019 §3). Research
+# 08-12 §1.5: there is no safe universal premodern tariff; the rates are authored, not estimated
+# (08-13 §2.3 tests 2.5 to 20 % of declared value). Households that offer tools at home are not
+# spared; a sponsor who wanted them spared would need another template. Whether anyone proposes
+# it, at which rate, and whether a gathering passes it, is people's.
+kind = "policy"
+id = "core:policy/duty_on_tools"
+name = "Duty on tools"
+description = "Who buys tools at another settlement's door owes the common store a share of them."
+does = "duty"
+answers = ["fetched_elsewhere"]
+question = "whether to lay a duty on tools bought elsewhere"
+levy_shares = [0.1, 0.25]
+
+[duty]
+purpose = "tool"
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/autonomy" = -0.5
+"core:value/reciprocity" = 0.25

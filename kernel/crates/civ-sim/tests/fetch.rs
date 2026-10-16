@@ -901,11 +901,14 @@ fn a_month_of_trade_between_settlements_is_kept_on_record() {
             .any(|&(g, u)| usize::from(g) == sickle && u >= 1.0),
         "{carried:?}"
     );
-    // On the next month's first day the month is closed.
+    // On the next month's first day the month is closed. Nobody sets out again meanwhile (the
+    // twin's switch), so the market's latest month on record is the one closed.
+    sim.people_mut_for_tests().stop_trade_between = true;
     while civ_agents::market::month_of(sim.now()) == month {
         sim.advance_minutes(DAY).expect("advances");
     }
     sim.advance_minutes(DAY).expect("advances");
+    sim.people_mut_for_tests().stop_trade_between = false;
     let pair = (month, a.min(b), a.max(b));
     let gaps = sim
         .people()

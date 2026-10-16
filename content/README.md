@@ -687,6 +687,13 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 114 (M7c slice BV, ADR-0026 §1) brings trade laws. A policy may `does = "duty"`, its
+rates its `levy_shares` (above 0 and below 1) and a `[duty]` table: `purpose` (`food`, `fuel`,
+`material`, `tool` or `store`: the goods it is laid on) and `exempt_sellers` (households that offer
+such goods at home are spared it); or `does = "embargo"`, which takes nothing of its own: it names
+the settlement its people bought most from when proposed. Both answer the new issue
+`fetched_elsewhere`. The core adds `core:policy/duty_on_tools` and `core:policy/embargo`.
+
 Content API 113 (M7b slice BU, ADR-0025 §5) brings the norm that findings bind. A norm may
 `does = "abide_by_findings"`: its points weigh toward meeting what a forum's finding imposes, as
 `abide_by_laws` weighs toward meeting the gathering's, and its `[expect] share` and `tell_days`

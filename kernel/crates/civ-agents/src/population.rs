@@ -46,6 +46,7 @@ mod crossings;
 mod deposits;
 mod digging;
 mod ditches;
+mod duties;
 mod elections;
 mod enclosures;
 mod faction;
@@ -3384,13 +3385,18 @@ impl Population {
                 return Err(Reason::AnotherGoes);
             }
             // For its own need first; else an errand, to sell at home (M5b slice AQ).
-            hh_view
+            let trip = hh_view
                 .fetch
                 .get_or_init(|| {
                     self.best_fetch(ctx, &hh, &stores, reach)
                         .or_else(|| self.errand_trip(ctx, &hh, reach))
                 })
-                .ok_or(Reason::NoReport)
+                .ok_or(Reason::NoReport)?;
+            // Not to doors an embargo they keep forbids (M7c slice BV).
+            if me.is_some_and(|m| self.keeps_embargo(ctx, m, hh.id, trip.seller)) {
+                return Err(Reason::Embargo);
+            }
+            Ok(trip)
         };
         // Paid work at a workshop of another household (slice J).
         let session_min = catalog

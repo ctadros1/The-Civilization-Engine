@@ -112,11 +112,18 @@ pub enum PolicyKind {
     /// only by its own rule. A law that breaches it still passes: it matters only when someone
     /// challenges and a forum with review finds against the law.
     Limit,
+    /// A duty (M7c slice BV, ADR-0026 §1): a member's household that buys goods of its template's
+    /// purpose at another settlement's door owes the polity's store a share of them (the law's
+    /// levy share), paid at home in kind as the levy is, or kept back.
+    Duty,
+    /// An embargo (M7c slice BV, ADR-0026 §1): no member may buy at the doors of the settlement
+    /// it names (its target). Keeping it is each person's choice, as a curfew's is.
+    Embargo,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 21] = [
+    pub const ALL: [PolicyKind; 23] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -138,6 +145,8 @@ impl PolicyKind {
         PolicyKind::Annex,
         PolicyKind::HearCases,
         PolicyKind::Limit,
+        PolicyKind::Duty,
+        PolicyKind::Embargo,
     ];
 
     /// The authored name.
@@ -164,6 +173,8 @@ impl PolicyKind {
             PolicyKind::Annex => "annex",
             PolicyKind::HearCases => "hear_cases",
             PolicyKind::Limit => "limit",
+            PolicyKind::Duty => "duty",
+            PolicyKind::Embargo => "embargo",
         }
     }
 
@@ -241,11 +252,14 @@ pub enum IssueKind {
     /// A case a household of the settlement brought within memory was not heard, or was not
     /// found (M7b slice BR, ADR-0025 §1): what a forum answers.
     CasesWaiting,
+    /// A household of the settlement offers at home goods its people fetched from another
+    /// settlement lately (M7c slice BV, ADR-0026 §1): what a duty or an embargo answers.
+    FetchedElsewhere,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 20] = [
+    pub const ALL: [IssueKind; 21] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -266,6 +280,7 @@ impl IssueKind {
         IssueKind::Raided,
         IssueKind::Holding,
         IssueKind::CasesWaiting,
+        IssueKind::FetchedElsewhere,
     ];
 
     /// The authored name.
@@ -291,6 +306,7 @@ impl IssueKind {
             IssueKind::Raided => "raided",
             IssueKind::Holding => "holding",
             IssueKind::CasesWaiting => "cases_waiting",
+            IssueKind::FetchedElsewhere => "fetched_elsewhere",
         }
     }
 
@@ -329,6 +345,9 @@ impl IssueKind {
             IssueKind::Raided => "people of another settlement took from households' stores",
             IssueKind::Holding => "a band of theirs held another settlement",
             IssueKind::CasesWaiting => "a case they brought went unheard or was not found",
+            IssueKind::FetchedElsewhere => {
+                "people of theirs fetched from elsewhere goods their households offer at home"
+            }
         }
     }
 }
@@ -439,6 +458,31 @@ pub struct PolicyDef {
     pub forum: Option<crate::forum::ForumDef>,
     /// For a limit: what it forbids and the rule that changes it (M7b slice BT).
     pub limit: Option<crate::forum::LimitDef>,
+    /// For a duty: what it is laid on (M7c slice BV, ADR-0026 §1).
+    pub duty: Option<DutyDef>,
+}
+
+/// What a duty is laid on (M7c slice BV, ADR-0026 §1): goods of one purpose bought at another
+/// settlement's door, and whether households that offer such goods at home are spared it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DutyDef {
+    pub purpose: crate::params::GoodUse,
+    pub exempt_sellers: bool,
+}
+
+impl DutyDef {
+    /// What it is laid on, in words: "tools bought at another settlement's door".
+    pub fn words(&self) -> String {
+        format!(
+            "{} bought at another settlement's door{}",
+            self.purpose.plural_words(),
+            if self.exempt_sellers {
+                ", but by households that offer them at home"
+            } else {
+                ""
+            }
+        )
+    }
 }
 
 /// An office's tenure (M7a slice BN, ADR-0024 §2): a term of days, whether the one who held it
@@ -1211,6 +1255,22 @@ pub fn law_words(
     if def.is_some_and(|d| d.kind == PolicyKind::Agreement) {
         return "an agreement with a neighbouring polity".to_owned();
     }
+    // A duty or an embargo (M7c slice BV): what it is laid on, and on whom.
+    if let Some(d) = def
+        .filter(|d| d.kind == PolicyKind::Duty)
+        .and_then(|d| d.duty.as_ref())
+    {
+        return format!(
+            "a duty of {} of {}, owed to the common store",
+            share_text(f64::from(law.levy_share)),
+            d.words()
+        );
+    }
+    // Without the settlement at hand (see [`Polity::words_of`]), only what it forbids.
+    if def.is_some_and(|d| d.kind == PolicyKind::Embargo) {
+        return "an embargo: nobody of theirs may buy at the doors of another settlement"
+            .to_owned();
+    }
     // A limit (M7b slice BT): what it forbids.
     if let Some(l) = def
         .filter(|d| d.kind == PolicyKind::Limit)
@@ -1365,6 +1425,8 @@ pub fn ending_words(
         Some(PolicyKind::Annex) => "the taking in of a held settlement".to_owned(),
         Some(PolicyKind::HearCases) => who("hearing of cases"),
         Some(PolicyKind::Limit) => "a limit on laws".to_owned(),
+        Some(PolicyKind::Duty) => "the duty on goods bought elsewhere".to_owned(),
+        Some(PolicyKind::Embargo) => "the embargo".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -2591,6 +2653,7 @@ pub(crate) mod tests {
             tenure: None,
             forum: None,
             limit: None,
+            duty: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -2702,6 +2765,7 @@ pub(crate) mod tests {
             tenure: None,
             forum: None,
             limit: None,
+            duty: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -2921,6 +2985,7 @@ pub(crate) mod tests {
             tenure: None,
             forum: None,
             limit: None,
+            duty: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

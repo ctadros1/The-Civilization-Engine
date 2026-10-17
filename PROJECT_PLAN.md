@@ -3825,6 +3825,20 @@ and M6a gives rivers a daily flow.
         full detail 110.0 s against 114.4 s. Day 53 is still the slowest day of its month: half
         its samples are in `keep_company`, which weighs everyone at a gathering for each of them
         who keeps company (the square of a crowd), a cost the ordinary-day profile will rank.
+      - *Second change (2026-10-17): company at the hearth without weighing the crowd.* The
+        ordinary-day profile of 3×3,334 (107 samples of the main thread at Max) put about half the
+        day in deciding (no one search above a tenth), a seventh in starting work, most of that at
+        the hearth, and up to a fifth in route searches. Whoever keeps company there drew from
+        everyone present: each was looked up for their household and their tie to the one keeping
+        company, so a crowd cost its size for each of them. `keep_company` now finds those it
+        knows from its own ties (each looked up among those present, who are kept in id order),
+        leaves out its household's own by their places, and keeps those new to it as the places
+        it leaves out (`NewAtHearth`): a draw from the end of that list, as `Vec::swap_remove`
+        would make it, is followed by the few places refilled. **Checked in every test:** with
+        debug checks on, the known and the new are compared with the lists the old scan makes.
+        **Exact:** every section's digest but `meta` equal to the build before after 30 days of
+        3×1,000 and 10 days of 3×3,334, both modes. **Measured** (each run alone): 10 days of
+        3×3,334 at Max 228.3 s against 246.2 s (7 %); day 53 from its save 59.4 s against 61.6 s.
     - **CJ**: routing for the city: landmarks per region, the cache sized by population, reverse
       fields where they pay, a two-level overlay, bounds a faster mode cannot break.
     - **CK**: parallel preparation on a private bounded pool, digests equal at 1, 2, 4 and 8

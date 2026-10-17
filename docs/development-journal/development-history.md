@@ -2750,3 +2750,9 @@ old scan in every test. Every saved section is the same as before.
 three and ten thousand: the cost lies inside a settlement as it grows (crowds at the hearth,
 every buyer weighing every seller, longer walks), not in looking across settlements, as the
 scale brief had supposed. The index stays for when there are many settlements.
+
+## 2026-10-17 — CI, second change: company at the hearth without weighing the crowd
+
+**Faster, exactly:** keeping company at the hearth no longer looks at everyone there for each person
+who does; it starts from whom they know and draws strangers by place. Ordinary days of three towns
+of 3,334 are 7 % faster; every saved section is the same as before.

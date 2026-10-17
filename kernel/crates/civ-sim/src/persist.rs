@@ -399,6 +399,8 @@ pub const SCHEMA_V133: u32 = 133;
 pub const SCHEMA_V134: u32 = 134;
 /// Debts heard, before coin.
 pub const SCHEMA_V135: u32 = 135;
+/// Coin, before the mint.
+pub const SCHEMA_V136: u32 = 136;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

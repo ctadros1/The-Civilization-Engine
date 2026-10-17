@@ -57,13 +57,27 @@ impl Purse {
     }
 }
 
-/// Every issue struck and every purse (saved).
+/// Metal a household brought to a polity's mint, in its store and not yet struck (M7d slice CE2b):
+/// the pieces struck from it are the household's, less the mint law's fee.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Brought {
+    /// The polity whose mint it was brought to.
+    pub polity: PermanentId,
+    /// The household that brought it.
+    pub household: PermanentId,
+    /// Kilograms of the metal still to strike.
+    pub metal_kg: f64,
+}
+
+/// Every issue struck, every purse, and the metal brought to mints and waiting (saved).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Coinage {
     /// Issues, in the order struck.
     pub cohorts: Vec<Cohort>,
     /// Purses, by holder.
     pub purses: Vec<Purse>,
+    /// Metal brought to mints, in the order brought.
+    pub brought: Vec<Brought>,
 }
 
 impl Coinage {

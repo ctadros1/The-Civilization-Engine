@@ -2647,3 +2647,15 @@ every issue's count kept. Save schema 136; content API 126.
 
 **Lived:** nothing yet: no mint strikes coin until CE2b.
 
+## 2026-10-17 — CE2b: the mint
+
+**Built:** a village may name someone who knows how to cast copper to strike its coin. Its
+households bring the mint the copper they do not need, with firewood to melt it, but only when the
+coin they would get back is worth more to them than the copper; the keeper strikes it at home as
+the duty of the office, and each household gets its pieces back less a 3 % fee that the village's
+store keeps. Save schema 137; content API 127.
+
+**Lived:** nothing yet. Nobody makes copper unaided, and even with copper a household would not
+pay 3 % for coin that buys no more than its metal: the two minutes of weighing it saves on a
+kilogram are worth less. Coin begins to matter when a village pays in it (CE3).
+

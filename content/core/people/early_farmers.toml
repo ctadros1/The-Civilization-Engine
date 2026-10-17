@@ -355,6 +355,9 @@ recent_trades = 64
 # beyond that a unit is worth less to it (08-06 §2.3: desired transaction balances of 7-30 days of
 # forecast spending).
 money_days = 14.0
+# Striking the metal brought to a mint is worth this to its minter as the duty of their office
+# (content API 127), as carrying an agreement's payment is (`relations.carry_points`).
+strike_points = 12.0
 
 [firm]                           # household workshops (slice J, ADR-0006 §5); every value a tuning value
 # A workshop that sells nothing for this long is given up by its owners: a voluntary exit, not a

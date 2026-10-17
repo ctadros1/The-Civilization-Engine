@@ -537,6 +537,12 @@ pub enum MakeWorth {
         /// Kcal.
         kcal: f64,
     },
+    /// Work an office asks of its holder (M7d slice CE2b: striking the metal brought to the
+    /// mint they keep): what the duty is worth to them, decision points.
+    Office {
+        /// Decision points.
+        points: f64,
+    },
 }
 
 /// A recipe a person could work at home: how much of it, for how long, and what it is worth.
@@ -1965,6 +1971,7 @@ pub fn candidates(
                         let worth = kcal / (kcal + half.max(1.0));
                         term(&mut terms, Reason::Spoiling, w.w_food * worth);
                     }
+                    MakeWorth::Office { points } => term(&mut terms, Reason::Duty, points),
                     MakeWorth::Tool { tool, need } => {
                         term(&mut terms, Reason::Tools, w.w_tools * need.clamp(0.0, 1.0));
                         if blocked.contains(&tool) {

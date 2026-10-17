@@ -687,10 +687,20 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 127 (M7d slice CE2b, ADR-0027 §6) brings the mint. A policy may do `mint`, with a
+`[mint]` table: `recipe` (whose first input is a metal paid by weight and first output a coin),
+`mass_g` and `fineness` (each piece of the issues struck under it) and `fee` (the share of the
+pieces struck that the polity's store keeps, below 1); it answers the issue `weighed` (households
+paid or were paid in weighed metal lately) and names a keeper who knows the recipe's technique.
+The people profile's `[market]` adds `strike_points` (what striking is worth to the keeper as the
+duty of their office, 12). The core adds `core:policy/mint` (8 g pieces of pure copper, a 3 % fee),
+`core:recipe/strike_coin` and `core:activity/strike_coin` (2 hours and 5 kg of firewood a
+kilogram), and counts a piece of coin in about a second (`verify_h = 0.0003`).
+
 Content API 126 (M7d slice CE, ADR-0027 §6) brings coin. A good's `[money]` table may say `coin =
 true`: it is counted in pieces of issues a mint struck, each issue (issuer, day, grams a piece,
 fineness) kept apart in its holders' purses, payments moving the oldest issue first. The core adds
-`core:good/coin` (0.005 hours to count a piece). Nothing strikes coin yet.
+`core:good/coin` (0.005 hours to count a piece, a second from API 127). Nothing strikes coin yet.
 
 Content API 125 (M7d slice CD, ADR-0027 §5) brings money's worth. A good may have a `[money]`
 table, `verify_h` (hours a holder spends weighing and testing a unit): it is paid by weight, and a

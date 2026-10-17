@@ -61,11 +61,14 @@ pub enum Channel {
     Lent = 21,
     /// Goods a household repaid on what it was lent (M7d slice CA).
     Repaid = 22,
+    /// Metal, and the fuel to strike it, a household brought to its polity's mint (M7d slice
+    /// CE2b, ADR-0027 §6).
+    Mint = 23,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 22] = [
+    pub const ALL: [Channel; 23] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -88,6 +91,7 @@ impl Channel {
         Channel::Diverted,
         Channel::Lent,
         Channel::Repaid,
+        Channel::Mint,
     ];
 
     /// The channel with this code.
@@ -120,6 +124,7 @@ impl Channel {
             Channel::Diverted => "diverted",
             Channel::Lent => "lent",
             Channel::Repaid => "repaid",
+            Channel::Mint => "brought to the mint",
         }
     }
 }

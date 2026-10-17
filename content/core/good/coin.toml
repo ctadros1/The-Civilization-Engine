@@ -1,6 +1,7 @@
 # A struck piece of metal, counted (M7d slice CE, ADR-0027 §6): a polity's mint strikes it from
 # metal to the weight and fineness its law sets, and each issue is kept apart in its holders'
-# purses. Counting pieces takes little time (a tuning value).
+# purses. Counting a piece of a known issue takes about a second (a tuning value), so a kilogram
+# paid in 8 g pieces is counted in about two minutes against six for weighing and testing metal.
 kind = "good"
 id = "core:good/coin"
 name = "Coin"
@@ -13,5 +14,5 @@ shared = false
 reserve_for = ""
 
 [money]
-verify_h = 0.005
+verify_h = 0.0003
 coin = true

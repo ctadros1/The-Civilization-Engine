@@ -3588,6 +3588,38 @@ and M6a gives rivers a daily flow.
         yet housed no longer keeps every material it holds when the material is a money. The core
         adds `core:good/coin`. **Not measured:** nothing strikes coin yet (CE2b); tests strike
         some, pay with them, move some outside the ledger, and save and load exactly.
+    - **CE2b**: the mint.
+      - *As built (2026-10-17):* content API 127, save schema 137 (wire unchanged). A law may name
+        a mint's keeper (appended policy kind `mint`, a `[mint]` table naming the recipe struck by
+        and the weight, fineness and fee of the issues struck under it), one who knows the
+        recipe's technique, whom its proposer regards most; it answers the appended issue
+        `weighed` (a household of the settlement paid or was paid in weighed metal within its
+        market's memory), held for a term and filled by lot where its template says, and lapses
+        when its keeper dies, leaves or their term ends. A household forecasts it by the hours of
+        weighing its coin would save on the metal it pays and is paid a year, worth what its hours
+        bring in food; the keeper's household also counts the hours of striking. Under it, each
+        midnight, a household of the polity brings the mint the metal it holds beyond what it
+        keeps, with the fuel to strike it, when the pieces it would get back, less the fee, are
+        worth more to it than what it gives (research 08-06 §1.5): a piece is worth to it at least
+        the metal in it, at its own cost of the metal, and what coin bought in its remembered
+        purchases. The metal waits in the polity's store, counted as the household's (saved). The
+        keeper strikes it as the duty of their office (`strike_points`, scored as the watch's
+        rounds are), working the recipe at home: the pieces of the day's issue go to those who
+        brought the metal, oldest first, less the fee, which the store keeps in coin. Nobody else
+        strikes coin. The core's mint strikes 8 g pieces of pure copper at a 3 % fee (08-06 §2.1:
+        an early official conversion charge of 3 %), two hours and 5 kg of firewood a kilogram;
+        a piece is counted in about a second, so a kilogram paid in coin takes about two minutes
+        against six to weigh and test. **What follows:** with nothing yet bought with coin, a
+        household values a piece at its metal, and at a 3 % fee it never brings metal: the two
+        minutes saved on counting a kilogram are worth less than 3 % of a kilogram of copper made
+        at home (some 14 hours). Coin is struck only once it buys more than its metal, as when a
+        polity pays in it (CE3). **Not measured in a lived world:** none makes copper yet (CE1),
+        so no village weighs metal, the issue never arises and no mint is proposed; tests pass a
+        mint law, have a household that bought grain with coin bring 2 kg of copper (and 10 kg of
+        firewood), strike it into 250 pieces (242.5 to it, 7.5 to the store), and save and load
+        with the metal waiting; a keeper taught smelting strikes what was brought within days of
+        living. **Not yet built:** the words of the first issue in the chronicle and the
+        observer's view of coin (CE5).
 
 **M8: The growing city (v1).**
 - *Contents:*

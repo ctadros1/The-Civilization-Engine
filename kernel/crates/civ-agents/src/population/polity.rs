@@ -81,6 +81,15 @@ pub(super) struct Forecasts {
     /// The food the common store holds, kcal, and the households it serves (M7d slice CC):
     /// what lending from it could lend each.
     store_food: (f64, usize),
+    /// Kilograms of metal paid by weight each household paid or was paid a year (M7d slice
+    /// CE2b), by household id: the weighing a mint would save it.
+    weighed: Vec<(PermanentId, f64)>,
+    /// For each mint template, by index: the hours of weighing a kilogram paid in its coin saves,
+    /// and the hours striking a kilogram takes its keeper.
+    mints: Vec<(u16, f64, f64)>,
+    /// The settlement's adults and their households, by person id: whose household a keeper
+    /// named would work for the office.
+    adults: Vec<(PermanentId, PermanentId)>,
 }
 
 /// What a household weighs a trade law by (M7c slice BV, ADR-0026 §1): its settlement's
@@ -594,6 +603,35 @@ impl Forecasts {
                     .map_or((0.0, 0.0), |i| (self.debts[i].1, self.debts[i].2));
                 crate::polity::against_gain(o, to * share, from * share, pp)
             }
+            // A mint (M7d slice CE2b): the hours of weighing its coin would save the household on
+            // the metal it pays and is paid a year, worth what its hours bring in food; less, for
+            // the household of the keeper it names, the hours of striking as much metal as
+            // changes hands in the settlement a year.
+            Some(PolicyKind::Mint) => {
+                let Some(&(_, saved_h, strike_h)) = self.mints.iter().find(|x| x.0 == m.policy)
+                else {
+                    return 0.0;
+                };
+                let kcal = self
+                    .hour_kcal
+                    .binary_search_by_key(&h, |k| k.0)
+                    .map_or(0.0, |i| self.hour_kcal[i].1);
+                let kg = self
+                    .weighed
+                    .binary_search_by_key(&h, |k| k.0)
+                    .map_or(0.0, |i| self.weighed[i].1);
+                let keeper = m
+                    .nominee
+                    .and_then(|n| self.adults.binary_search_by_key(&n, |a| a.0).ok())
+                    .map(|i| self.adults[i].1);
+                let work = if keeper == Some(h) {
+                    self.weighed.iter().map(|w| w.1).sum::<f64>() / 2.0 * strike_h * kcal
+                } else {
+                    0.0
+                };
+                crate::polity::kept_gain(o, kg * saved_h * kcal, pp)
+                    - crate::polity::levy_cost(o, work, pp)
+            }
             // Lending from the store (M7d slice CC): what its short year would borrow, up to its
             // share of what the store lends, less the increment it would owe.
             Some(PolicyKind::LendFromStore) => {
@@ -946,6 +984,7 @@ impl Population {
             let office = match kind {
                 PolicyKind::KeepWatch => "keeps watch",
                 PolicyKind::HearCases => "hears cases",
+                PolicyKind::Mint => "strikes coin",
                 _ => "keeps the common store",
             };
             let words = format!(
@@ -1440,6 +1479,27 @@ impl Population {
             })
             .collect();
         let closures = self.closure_forecasts(ctx, pi, households, adults);
+        // A mint's forecast (M7d slice CE2b): what each template would save weighing, and what
+        // striking would ask of its keeper.
+        let mints: Vec<(u16, f64, f64)> = ctx
+            .catalog
+            .policies
+            .iter()
+            .enumerate()
+            .filter_map(|(k, d)| {
+                let m = d.mint?;
+                let r = ctx.catalog.recipes.get(m.recipe)?;
+                let per = r.inputs.first()?.1;
+                let strike_h = if per > 0.0 { r.unit_h / per } else { 0.0 };
+                Some((k as u16, Self::weighing_saved_h(ctx, &m), strike_h))
+            })
+            .collect();
+        let weighed = if mints.is_empty() {
+            Vec::new()
+        } else {
+            self.weighed_kg_year(ctx, households)
+        };
+        let weighing = weighed.iter().any(|w| w.1 > 0.0);
         let worn = self.worn_bank(ctx, pi, households.len());
         let rules = self.rule_forecasts(ctx, pi, households);
         Forecasts {
@@ -1451,7 +1511,12 @@ impl Population {
             watchers,
             claim,
             closures,
-            hour_kcal: if sites.is_empty() && well.is_none() && bank.is_none() && worn.is_none() {
+            hour_kcal: if sites.is_empty()
+                && well.is_none()
+                && bank.is_none()
+                && worn.is_none()
+                && !weighing
+            {
                 Vec::new()
             } else {
                 households
@@ -1496,6 +1561,13 @@ impl Population {
                 stock_kcal(&self.polities[pi].stores, &ctx.catalog.goods),
                 households.len(),
             ),
+            weighed,
+            mints,
+            adults: {
+                let mut a = adults.to_vec();
+                a.sort_unstable();
+                a
+            },
         }
     }
 
@@ -2269,6 +2341,10 @@ impl Population {
         if self.fetched_elsewhere(ctx, pi, &households) {
             issues.push(IssueKind::FetchedElsewhere);
         }
+        // A household of it paid or was paid in weighed metal lately (M7d slice CE2b).
+        if self.weighed_lately(ctx, &households) {
+            issues.push(IssueKind::Weighed);
+        }
         // A loan one of its households made was refused or left unpaid, and nothing was taken
         // for it nor a case brought (M7d slice CB).
         if households
@@ -2851,10 +2927,42 @@ impl Population {
                     }
                     // An office filled by lot names nobody: the lot draws among those who put
                     // their names in once it passes (M7a slice BN).
-                    PolicyKind::KeepStore | PolicyKind::KeepWatch
+                    PolicyKind::KeepStore | PolicyKind::KeepWatch | PolicyKind::Mint
                         if def.tenure.is_some_and(|t| t.by_lot) =>
                     {
                         moves.push(blank);
+                    }
+                    // A mint, its keeper whoever of the settlement who can work its recipe they
+                    // regard most, themselves first (M7d slice CE2b).
+                    PolicyKind::Mint => {
+                        let technique = def
+                            .mint
+                            .and_then(|m| ctx.catalog.recipes.get(m.recipe))
+                            .and_then(|r| r.technique);
+                        let barred = self.term_barred(pi, k, day, def);
+                        let pick = adults
+                            .iter()
+                            .map(|&(c, _)| c)
+                            .filter(|&c| Some(c) != barred)
+                            .filter(|&c| {
+                                self.person(c)
+                                    .is_some_and(|p| technique.is_none_or(|t| p.knows(t)))
+                            })
+                            .map(|c| {
+                                let r = if c == d {
+                                    1.0
+                                } else {
+                                    self.ties.regard(d, c, day, tp).clamp(0.0, 1.0)
+                                };
+                                (r, c)
+                            })
+                            .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
+                        if let Some((_, c)) = pick {
+                            moves.push(MoveOption {
+                                nominee: Some(c),
+                                ..blank
+                            });
+                        }
                     }
                     PolicyKind::KeepStore => {
                         let barred = self.term_barred(pi, k, day, def);
@@ -3670,7 +3778,10 @@ impl Population {
         };
         // An office held for a term is filled, by lot where its template says (M7a slice BN).
         if outcome == Outcome::Passed
-            && matches!(kind, PolicyKind::KeepStore | PolicyKind::KeepWatch)
+            && matches!(
+                kind,
+                PolicyKind::KeepStore | PolicyKind::KeepWatch | PolicyKind::Mint
+            )
         {
             self.fill_term(ctx, pi, law_id);
         }

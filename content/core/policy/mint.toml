@@ -1,0 +1,27 @@
+# The mint (M7d slice CE, ADR-0027 §6; research 08-06 §1.5-1.6): a law naming the one who strikes
+# coin for the polity, who must know how to work its recipe. A household of the polity may bring
+# metal (and the fuel to work it) to the mint, and gets back pieces of the day's issue, less the
+# law's fee, which the polity's store keeps in coin; it brings only when the pieces are worth more
+# to it than the metal it gives (08-06 §1.5: bullion is surrendered voluntarily only when minted
+# money's advantages exceed the fees). The minter strikes as their office asks, working the
+# recipe's hours. `mass_g` and `fineness` set each piece of the next issue; the fee is a share of
+# the pieces struck (08-06 §2.1: an early official conversion charge of 3 %). Tuning values;
+# whether anyone proposes a mint, whom, and whether a gathering passes it is people's.
+kind = "policy"
+id = "core:policy/mint"
+name = "Mint"
+description = "The one the gathering names strikes coin from the metal households bring, the store keeping a share."
+does = "mint"
+answers = ["weighed"]
+question = "whether the polity strikes coin from the metal its households bring"
+
+[mint]
+recipe = "core:recipe/strike_coin"
+mass_g = 8.0
+fineness = 1.0
+fee = 0.03
+
+# An authoring judgement, not a measurement.
+[bears]
+"core:value/security" = 0.5
+"core:value/reciprocity" = 0.5

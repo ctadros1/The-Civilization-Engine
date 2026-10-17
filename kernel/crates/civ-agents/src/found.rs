@@ -1720,6 +1720,7 @@ pub(crate) mod tests {
                 accept_want: 0.5,
                 recent_trades: 64,
                 money_days: 14.0,
+                strike_points: 12.0,
             },
             firm: crate::params::FirmParams {
                 idle_close_days: 180.0,

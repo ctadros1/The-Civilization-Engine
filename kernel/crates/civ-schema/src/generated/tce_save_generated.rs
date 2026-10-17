@@ -14132,6 +14132,165 @@ impl<'a> CoinIssueSave {
 
 }
 
+// struct BroughtSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct BroughtSave(pub [u8; 24]);
+impl Default for BroughtSave { 
+  fn default() -> Self { 
+    Self([0; 24])
+  }
+}
+impl ::core::fmt::Debug for BroughtSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("BroughtSave")
+      .field("polity", &self.polity())
+      .field("household", &self.household())
+      .field("metal_kg", &self.metal_kg())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for BroughtSave {}
+impl<'a> ::flatbuffers::Follow<'a> for BroughtSave {
+  type Inner = &'a BroughtSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a BroughtSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a BroughtSave {
+  type Inner = &'a BroughtSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<BroughtSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for BroughtSave {
+    type Output = BroughtSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const BroughtSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for BroughtSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> BroughtSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    polity: u64,
+    household: u64,
+    metal_kg: f64,
+  ) -> Self {
+    let mut s = Self([0; 24]);
+    s.set_polity(polity);
+    s.set_household(household);
+    s.set_metal_kg(metal_kg);
+    s
+  }
+
+  pub fn polity(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_polity(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn household(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_household(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn metal_kg(&self) -> f64 {
+    let mut mem = ::core::mem::MaybeUninit::<<f64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_metal_kg(&mut self, x: f64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct PurseSave, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -39530,6 +39689,7 @@ impl<'a> Order<'a> {
   pub const VT_LOAN_TERMS: ::flatbuffers::VOffsetT = 38;
   pub const VT_COIN_ISSUES: ::flatbuffers::VOffsetT = 40;
   pub const VT_PURSES: ::flatbuffers::VOffsetT = 42;
+  pub const VT_BROUGHT: ::flatbuffers::VOffsetT = 44;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -39543,6 +39703,7 @@ impl<'a> Order<'a> {
     let mut builder = OrderBuilder::new(_fbb);
     builder.add_loans_refused(args.loans_refused);
     builder.add_loans_asked(args.loans_asked);
+    if let Some(x) = args.brought { builder.add_brought(x); }
     if let Some(x) = args.purses { builder.add_purses(x); }
     if let Some(x) = args.coin_issues { builder.add_coin_issues(x); }
     if let Some(x) = args.loan_terms { builder.add_loan_terms(x); }
@@ -39705,6 +39866,13 @@ impl<'a> Order<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, PurseSave>>>(Order::VT_PURSES, None)}
   }
+  #[inline]
+  pub fn brought(&self) -> Option<::flatbuffers::Vector<'a, BroughtSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, BroughtSave>>>(Order::VT_BROUGHT, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Order<'_> {
@@ -39733,6 +39901,7 @@ impl ::flatbuffers::Verifiable for Order<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, LoanTermsSave>>>("loan_terms", Self::VT_LOAN_TERMS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, CoinIssueSave>>>("coin_issues", Self::VT_COIN_ISSUES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PurseSave>>>("purses", Self::VT_PURSES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, BroughtSave>>>("brought", Self::VT_BROUGHT, false)?
      .finish();
     Ok(())
   }
@@ -39758,6 +39927,7 @@ pub struct OrderArgs<'a> {
     pub loan_terms: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, LoanTermsSave>>>,
     pub coin_issues: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, CoinIssueSave>>>,
     pub purses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PurseSave>>>,
+    pub brought: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, BroughtSave>>>,
 }
 impl<'a> Default for OrderArgs<'a> {
   #[inline]
@@ -39783,6 +39953,7 @@ impl<'a> Default for OrderArgs<'a> {
       loan_terms: None,
       coin_issues: None,
       purses: None,
+      brought: None,
     }
   }
 }
@@ -39873,6 +40044,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OrderBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Order::VT_PURSES, purses);
   }
   #[inline]
+  pub fn add_brought(&mut self, brought: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , BroughtSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Order::VT_BROUGHT, brought);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OrderBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     OrderBuilder {
@@ -39910,6 +40085,7 @@ impl ::core::fmt::Debug for Order<'_> {
       ds.field("loan_terms", &self.loan_terms());
       ds.field("coin_issues", &self.coin_issues());
       ds.field("purses", &self.purses());
+      ds.field("brought", &self.brought());
       ds.finish()
   }
 }

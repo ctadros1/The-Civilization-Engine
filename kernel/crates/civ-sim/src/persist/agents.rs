@@ -121,7 +121,8 @@ use super::{
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
-    SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, finish, section, single_chunk, unreadable,
+    SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, finish, section, single_chunk,
+    unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -599,6 +600,8 @@ enum Schema {
     V135,
     /// Coin (M7d slice CE: `Order.coin_issues`, `Order.purses`).
     V136,
+    /// The mint (M7d slice CE2b: `Order.brought`, issue code 22).
+    V137,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -749,7 +752,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V133 => Schema::V133,
         SCHEMA_V134 => Schema::V134,
         SCHEMA_V135 => Schema::V135,
-        SAVE_SCHEMA_VERSION => Schema::V136,
+        SCHEMA_V136 => Schema::V136,
+        SAVE_SCHEMA_VERSION => Schema::V137,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1924,6 +1928,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::CasesWaiting => 19,
         IssueKind::FetchedElsewhere => 20,
         IssueKind::DebtsUnpaid => 21,
+        IssueKind::Weighed => 22,
     }
 }
 
@@ -2053,6 +2058,7 @@ fn decode_polities(
                 19 => IssueKind::CasesWaiting,
                 20 => IssueKind::FetchedElsewhere,
                 21 => IssueKind::DebtsUnpaid,
+                22 => IssueKind::Weighed,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -4449,7 +4455,8 @@ fn carried(
         | Schema::V133
         | Schema::V134
         | Schema::V135
-        | Schema::V136 => {
+        | Schema::V136
+        | Schema::V137 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4758,7 +4765,8 @@ fn decode_households(
             | Schema::V133
             | Schema::V134
             | Schema::V135
-            | Schema::V136 => {
+            | Schema::V136
+            | Schema::V137 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5377,6 +5385,13 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
         .collect();
     let coin_issues = (!issues.is_empty()).then(|| fbb.create_vector(&issues));
     let purses = (!purses.is_empty()).then(|| fbb.create_vector(&purses));
+    // Metal brought to mints (schema 137, M7d slice CE2b).
+    let brought: Vec<save::BroughtSave> = coinage
+        .brought
+        .iter()
+        .map(|b| save::BroughtSave::new(b.polity.get(), b.household.get(), b.metal_kg))
+        .collect();
+    let brought = (!brought.is_empty()).then(|| fbb.create_vector(&brought));
     let root = save::Order::create(
         &mut fbb,
         &save::OrderArgs {
@@ -5400,6 +5415,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
             loan_terms,
             coin_issues,
             purses,
+            brought,
         },
     );
     finish(fbb, root)
@@ -5790,6 +5806,14 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
                 counts: vec![(p.issue(), p.count())],
             }),
         }
+    }
+    // Metal brought to mints (schema 137); none before.
+    for b in root.brought().iter().flatten() {
+        order.coinage.brought.push(civ_agents::coin::Brought {
+            polity: required(b.polity(), "metal brought's polity")?,
+            household: required(b.household(), "metal brought's household")?,
+            metal_kg: b.metal_kg(),
+        });
     }
     let problems = order_problems(&order);
     if !problems.is_empty() {

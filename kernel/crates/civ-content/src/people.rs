@@ -2275,6 +2275,9 @@ pub(crate) struct Market {
     /// Content API 125 (M7d slice CD): a holder's desired balance of a weighed money, days of
     /// its spending in it.
     pub money_days: f64,
+    /// Content API 127 (M7d slice CE2b): what striking the metal brought to a mint is worth to
+    /// its minter as a duty, decision points.
+    pub strike_points: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2561,6 +2564,7 @@ impl PeopleFile {
                     accept_want: k.accept_want,
                     recent_trades: k.recent_trades as usize,
                     money_days: k.money_days,
+                    strike_points: k.strike_points,
                 }
             },
             firm: FirmParams {
@@ -3372,6 +3376,12 @@ impl PeopleFile {
         non_negative("market.money_min_trades", k.money_min_trades, &mut p);
         unit("market.accept_want", k.accept_want, &mut p);
         positive("market.money_days", k.money_days, &mut p);
+        if !(k.strike_points.is_finite() && (0.0..=100.0).contains(&k.strike_points)) {
+            p.push(format!(
+                "`market.strike_points` must be between 0 and 100 (got {})",
+                k.strike_points
+            ));
+        }
         if k.recent_trades == 0 || k.recent_trades > 1000 {
             p.push("`market.recent_trades` must be between 1 and 1000".to_owned());
         }

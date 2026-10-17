@@ -51,7 +51,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 126;
+pub const KERNEL_CONTENT_API: u32 = 127;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1056,6 +1056,29 @@ fn resolve(
                 missing(c, parsed, &d.rel, "bears", id);
             }
         }
+        // A mint's recipe takes a weighed metal first and makes a coin first (M7d slice CE).
+        if let Some(m) = &d.file.mint {
+            match recipes.iter().find(|r| r.id == m.recipe) {
+                None => missing(c, parsed, &d.rel, "mint.recipe", &m.recipe),
+                Some(r) => {
+                    let money = |g: Option<usize>| goods.get(g?)?.money.as_ref();
+                    let metal = money(r.inputs.first().map(|i| i.0));
+                    let coin = money(r.outputs.first().map(|o| o.0));
+                    if !metal.is_some_and(|m| !m.coin) || !coin.is_some_and(|m| m.coin) {
+                        c.push(
+                            "E3001",
+                            &d.rel,
+                            None,
+                            format!(
+                                "`mint.recipe` must name a recipe whose first input is a metal \
+                                 paid by weight and whose first output is a coin; `{}` is not",
+                                m.recipe
+                            ),
+                        );
+                    }
+                }
+            }
+        }
         // The technique a rule's sponsor must know (M6b slice BH).
         if let Some(t) = d.file.rule.as_ref().and_then(|r| r.needs.as_deref())
             && technique_index(t).is_none()
@@ -1066,7 +1089,13 @@ fn resolve(
     let mut policies: Vec<_> = parsed
         .policies
         .iter()
-        .map(|d| d.file.def(&value_index, &technique_index))
+        .map(|d| {
+            let mut def = d.file.def(&value_index, &technique_index);
+            def.mint = d
+                .file
+                .mint_def(&|id| recipes.iter().position(|r| r.id == id));
+            def
+        })
         .collect();
     policies.sort_by(|a, b| a.id.cmp(&b.id));
     let policy_index = |id: &str| policies.iter().position(|p| p.id == id);

@@ -1974,6 +1974,7 @@ table Order {
   // M7d slice CE, ADR-0027 §6); absent before, when no coin was struck.
   coin_issues: [CoinIssueSave] (id: 18);
   purses: [PurseSave] (id: 19);
+  brought: [BroughtSave] (id: 20);
 }
 
 // An issue of coin (schema 136): its number, the polity whose mint struck it, the day, grams a
@@ -1985,6 +1986,14 @@ struct CoinIssueSave {
   mass_g: float;
   fineness: float;
   count: double;
+}
+
+// Metal a household brought to a polity's mint and not yet struck (schema 137), in the order
+// brought: the polity, the household and the kilograms.
+struct BroughtSave {
+  polity: ulong;
+  household: ulong;
+  metal_kg: double;
 }
 
 // Pieces of one issue a holder holds (schema 136), by holder and issue.

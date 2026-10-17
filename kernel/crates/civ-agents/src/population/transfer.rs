@@ -137,16 +137,34 @@ impl Population {
         mass_g: f32,
         fineness: f32,
     ) -> bool {
+        self.put_struck(coin, issuer, holder, day, count, mass_g, fineness)
+    }
+
+    /// Strikes `count` pieces of coin good `coin` for `issuer` on `day` into `holder`'s stores
+    /// and purse, `mass_g` grams each at `fineness` (M7d slice CE). Returns `false`, striking
+    /// nothing, when `holder` holds nothing.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn put_struck(
+        &mut self,
+        coin: usize,
+        issuer: PermanentId,
+        holder: PermanentId,
+        day: i64,
+        count: f64,
+        mass_g: f32,
+        fineness: f32,
+    ) -> bool {
         let Some(h) = self.holder(holder) else {
             return false;
         };
-        let Some((stores, _)) = self.holder_goods(h) else {
+        let Some((stores, flows)) = self.holder_goods(h) else {
             return false;
         };
         if stores.len() <= coin {
             stores.resize(coin + 1, 0.0);
         }
         stores[coin] += count;
+        flows.add(Flow::Made, coin, count);
         self.order
             .coinage
             .strike(issuer, day, mass_g, fineness, count, holder);

@@ -139,11 +139,15 @@ pub enum PolicyKind {
     /// food before its harvest may borrow from the common store at the law's terms
     /// ([`LendingDef`]), repaid into it after the harvest. Relief stays a gift.
     LendFromStore,
+    /// A mint (M7d slice CE, ADR-0027 §6): the one the gathering names strikes coin, as its
+    /// template sets ([`MintDef`]), from the metal households of the polity bring, the polity's
+    /// store keeping the template's fee in coin. The law lapses when they die or leave.
+    Mint,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 27] = [
+    pub const ALL: [PolicyKind; 28] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -171,6 +175,7 @@ impl PolicyKind {
         PolicyKind::Privilege,
         PolicyKind::DebtsHeard,
         PolicyKind::LendFromStore,
+        PolicyKind::Mint,
     ];
 
     /// The authored name.
@@ -203,6 +208,7 @@ impl PolicyKind {
             PolicyKind::Privilege => "privilege",
             PolicyKind::DebtsHeard => "debts_heard",
             PolicyKind::LendFromStore => "lend_from_store",
+            PolicyKind::Mint => "mint",
         }
     }
 
@@ -286,11 +292,14 @@ pub enum IssueKind {
     /// A loan their household made was refused or left unpaid, and nothing was taken for it
     /// (M7d slice CB, ADR-0027 §3): what a law of debts heard answers.
     DebtsUnpaid,
+    /// A household of the settlement paid or was paid in weighed metal within its market's
+    /// memory (M7d slice CE, ADR-0027 §6): what a mint answers.
+    Weighed,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 22] = [
+    pub const ALL: [IssueKind; 23] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -313,6 +322,7 @@ impl IssueKind {
         IssueKind::CasesWaiting,
         IssueKind::FetchedElsewhere,
         IssueKind::DebtsUnpaid,
+        IssueKind::Weighed,
     ];
 
     /// The authored name.
@@ -340,6 +350,7 @@ impl IssueKind {
             IssueKind::CasesWaiting => "cases_waiting",
             IssueKind::FetchedElsewhere => "fetched_elsewhere",
             IssueKind::DebtsUnpaid => "debts_unpaid",
+            IssueKind::Weighed => "weighed",
         }
     }
 
@@ -382,6 +393,7 @@ impl IssueKind {
                 "people of theirs fetched from elsewhere goods their households offer at home"
             }
             IssueKind::DebtsUnpaid => "a loan their household made was not repaid",
+            IssueKind::Weighed => "their households weighed out metal to pay",
         }
     }
 }
@@ -500,6 +512,31 @@ pub struct PolicyDef {
     pub debts: Option<DebtsDef>,
     /// For lending from the store: its terms (M7d slice CC, ADR-0027 §4).
     pub lending: Option<LendingDef>,
+    /// For a mint: what it strikes (M7d slice CE, ADR-0027 §6).
+    pub mint: Option<MintDef>,
+}
+
+/// What a mint strikes (M7d slice CE, ADR-0027 §6; research 08-06 §1.5): its recipe (metal and
+/// fuel in, the coin good out), and each piece of the issues struck under the law.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MintDef {
+    /// The recipe struck by, by index in the catalog's recipes: its first input is the metal,
+    /// its first output the coin good.
+    pub recipe: usize,
+    /// Grams a piece weighs.
+    pub mass_g: f32,
+    /// The share of a piece that is the metal.
+    pub fineness: f32,
+    /// The share of the pieces struck from what a household brings that the polity's store
+    /// keeps.
+    pub fee: f32,
+}
+
+impl MintDef {
+    /// Kilograms of the metal in a piece.
+    pub fn metal_kg(&self) -> f64 {
+        f64::from(self.mass_g) * f64::from(self.fineness) / 1000.0
+    }
 }
 
 /// The terms the common store lends on under a law of lending from the store (M7d slice CC,
@@ -1600,6 +1637,18 @@ pub fn law_words(
             None => "someone to keep watch over the stores at night".to_owned(),
         };
     }
+    if let Some(m) = def
+        .filter(|d| d.kind == PolicyKind::Mint)
+        .and_then(|d| d.mint)
+    {
+        let who = law.holder.map_or_else(|| "someone".to_owned(), name_of);
+        return format!(
+            "{who} to strike coin of {} g from the metal households bring, the store keeping {} \
+             of what is struck{instead}",
+            m.mass_g,
+            share_text(f64::from(m.fee))
+        );
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::Curfew) {
         return format!(
             "a curfew: nobody may be away from home from {}:00 to {}:00, but the watch at its \
@@ -1658,6 +1707,7 @@ pub fn ending_words(
         Some(PolicyKind::Privilege) => "the privilege of an organization".to_owned(),
         Some(PolicyKind::DebtsHeard) => "the hearing of debts".to_owned(),
         Some(PolicyKind::LendFromStore) => "the lending from the store".to_owned(),
+        Some(PolicyKind::Mint) => who("striking of coin"),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -1746,7 +1796,10 @@ pub fn office_words(
     for (k, def) in policies.iter().enumerate() {
         if !matches!(
             def.kind,
-            PolicyKind::KeepStore | PolicyKind::KeepWatch | PolicyKind::HearCases
+            PolicyKind::KeepStore
+                | PolicyKind::KeepWatch
+                | PolicyKind::HearCases
+                | PolicyKind::Mint
         ) {
             continue;
         }
@@ -2347,6 +2400,11 @@ impl Polity {
             .filter_map(|l| Some((l.holder?, l)))
     }
 
+    /// The one who strikes coin by a law in force, and that law (M7d slice CE).
+    pub fn minter(&self) -> Option<(PermanentId, &Law)> {
+        self.office(PolicyKind::Mint)
+    }
+
     /// The holder of the office a law of kind `kind` in force names, and that law.
     fn office(&self, kind: PolicyKind) -> Option<(PermanentId, &Law)> {
         self.laws
@@ -2892,6 +2950,7 @@ pub(crate) mod tests {
             privilege: None,
             debts: None,
             lending: None,
+            mint: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -3007,6 +3066,7 @@ pub(crate) mod tests {
             privilege: None,
             debts: None,
             lending: None,
+            mint: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -3230,6 +3290,7 @@ pub(crate) mod tests {
             privilege: None,
             debts: None,
             lending: None,
+            mint: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

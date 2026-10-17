@@ -108,6 +108,24 @@ pub(crate) struct PolicyFile {
     /// For lending from the store (`lend_from_store`, content API 123, M7d slice CC): its terms.
     #[serde(default)]
     pub lending: Option<LendingFile>,
+    /// For a mint (`mint`, content API 127, M7d slice CE): what it strikes.
+    #[serde(default)]
+    pub mint: Option<MintFile>,
+}
+
+/// A mint's terms in a policy file (content API 127, M7d slice CE): the recipe it strikes by
+/// (its first input the metal, its first output the coin good), and each piece of its issues.
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct MintFile {
+    /// The recipe, by content id.
+    pub recipe: String,
+    /// Grams a piece weighs.
+    pub mass_g: f64,
+    /// The share of a piece that is the metal.
+    pub fineness: f64,
+    /// The share of the pieces struck from what a household brings that the polity keeps.
+    pub fee: f64,
 }
 
 /// A law of lending from the store's terms in a policy file (content API 123, M7d slice CC).
@@ -295,6 +313,20 @@ fn named() -> String {
 }
 
 impl PolicyFile {
+    /// A mint's terms, its recipe found by `recipe_index` (M7d slice CE).
+    pub fn mint_def(
+        &self,
+        recipe_index: &dyn Fn(&str) -> Option<usize>,
+    ) -> Option<civ_agents::polity::MintDef> {
+        let m = self.mint.as_ref()?;
+        Some(civ_agents::polity::MintDef {
+            recipe: recipe_index(&m.recipe)?,
+            mass_g: m.mass_g as f32,
+            fineness: m.fineness as f32,
+            fee: m.fee as f32,
+        })
+    }
+
     /// The compiled template (call after [`PolicyFile::problems`] found none, and with every
     /// value `bears` names defined: `value_index` finds it).
     pub fn def(
@@ -365,6 +397,8 @@ impl PolicyFile {
                     review: f.review,
                 })
             }),
+            // The recipe is resolved apart ([`PolicyFile::mint_def`]).
+            mint: None,
             lending: self
                 .lending
                 .as_ref()
@@ -589,6 +623,34 @@ impl PolicyFile {
             (Some(_), _) => p.push("`lending` is for `does = \"lend_from_store\"`".to_owned()),
             (None, _) => {}
         }
+        // A mint's terms (M7d slice CE): only for `mint`, which must have them.
+        match (&self.mint, PolicyKind::from_name(&self.does)) {
+            (Some(m), Some(PolicyKind::Mint)) => {
+                if !(m.mass_g.is_finite() && m.mass_g > 0.0 && m.mass_g <= 1000.0) {
+                    p.push(format!(
+                        "`mint.mass_g` must be above 0 and at most 1000 (got {})",
+                        m.mass_g
+                    ));
+                }
+                if !(m.fineness.is_finite() && m.fineness > 0.0 && m.fineness <= 1.0) {
+                    p.push(format!(
+                        "`mint.fineness` must be above 0 and at most 1 (got {})",
+                        m.fineness
+                    ));
+                }
+                if !(m.fee.is_finite() && (0.0..1.0).contains(&m.fee)) {
+                    p.push(format!(
+                        "`mint.fee` must be at least 0 and below 1 (got {})",
+                        m.fee
+                    ));
+                }
+            }
+            (None, Some(PolicyKind::Mint)) => {
+                p.push("a `mint` template needs a `mint` table".to_owned());
+            }
+            (Some(_), _) => p.push("`mint` is for `does = \"mint\"`".to_owned()),
+            (None, _) => {}
+        }
         // A law of debts heard's terms (M7d slice CB): only for `debts_heard`, which must have
         // them.
         match (&self.debts, PolicyKind::from_name(&self.does)) {
@@ -762,7 +824,8 @@ impl PolicyFile {
                 | PolicyKind::Embargo
                 | PolicyKind::Recognize
                 | PolicyKind::DebtsHeard
-                | PolicyKind::LendFromStore),
+                | PolicyKind::LendFromStore
+                | PolicyKind::Mint),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -822,7 +885,8 @@ impl PolicyFile {
                 | PolicyKind::Embargo
                 | PolicyKind::Recognize
                 | PolicyKind::DebtsHeard
-                | PolicyKind::LendFromStore,
+                | PolicyKind::LendFromStore
+                | PolicyKind::Mint,
             )
             | None => {}
         }
@@ -1042,6 +1106,7 @@ mod tests {
             privilege: None,
             debts: None,
             lending: None,
+            mint: None,
         }
     }
 
@@ -1071,6 +1136,7 @@ mod tests {
             privilege: None,
             debts: None,
             lending: None,
+            mint: None,
             ..file()
         };
         let roofs = roofs_with(Some(rule("roofs_unburnt", 4.0)));
@@ -1109,6 +1175,7 @@ mod tests {
             privilege: None,
             debts: None,
             lending: None,
+            mint: None,
             ..file()
         };
         assert!(
@@ -1289,5 +1356,46 @@ mod tests {
         let mut g = file();
         g.pass = vec!["more_for".to_owned()];
         assert_eq!(g.problems().len(), 1);
+    }
+    #[test]
+    fn a_mint_needs_its_table_within_bounds_and_only_a_mint_has_one() {
+        let mint = |fee: f64| PolicyFile {
+            does: "mint".to_owned(),
+            answers: vec!["weighed".to_owned()],
+            levy_shares: Vec::new(),
+            relief_days: 0.0,
+            mint: Some(MintFile {
+                recipe: "core:recipe/strike_coin".to_owned(),
+                mass_g: 8.0,
+                fineness: 1.0,
+                fee,
+            }),
+            ..file()
+        };
+        assert!(
+            mint(0.03).problems().is_empty(),
+            "{:?}",
+            mint(0.03).problems()
+        );
+        assert!(mint(1.0).problems().iter().any(|p| p.contains("mint.fee")));
+        let bare = PolicyFile {
+            mint: None,
+            ..mint(0.03)
+        };
+        assert!(
+            bare.problems()
+                .iter()
+                .any(|p| p.contains("needs a `mint` table"))
+        );
+        let stray = PolicyFile {
+            mint: mint(0.03).mint,
+            ..file()
+        };
+        assert!(stray.problems().iter().any(|p| p.contains("`mint` is for")));
+        let d = mint(0.03)
+            .mint_def(&|id| (id == "core:recipe/strike_coin").then_some(4))
+            .expect("resolved");
+        assert_eq!(d.recipe, 4);
+        assert!((d.metal_kg() - 0.008).abs() < 1e-9);
     }
 }

@@ -64,6 +64,7 @@ mod levees;
 mod life;
 mod loads;
 mod market;
+mod mint;
 mod moving;
 mod norm;
 mod opinion;
@@ -3528,6 +3529,38 @@ impl Population {
             if speed <= 0.0 {
                 return Err((Reason::TooYoung, None));
             }
+            // Coin is struck only by a mint's keeper, from the metal brought to it (M7d slice
+            // CE2b): the polity's store holds the metal and fuel, the duty is worth the office's
+            // points.
+            if out_good.money.as_ref().is_some_and(|m| m.coin) {
+                let Some((_, _, kg)) = person
+                    .and_then(|p| self.mint_work(ctx, p.id))
+                    .filter(|w| a.recipe == Some(w.1.recipe))
+                else {
+                    return Err((Reason::NotNeeded, None));
+                };
+                if let Some(&t) = r
+                    .tools
+                    .iter()
+                    .find(|&&t| free_tools.get(t).copied().unwrap_or(0.0) < decide::MIN_TOOL)
+                {
+                    return Err((Reason::NoTool, Some(t)));
+                }
+                let per = r.inputs.first().map_or(1.0, |i| i.1).max(1e-9);
+                let units = (kg / per).min(make::units_in(r, f64::from(a.max_minutes), speed));
+                if units.is_nan() || units <= 1e-6 {
+                    return Err((Reason::NoInputs, None));
+                }
+                return Ok(MakeOption {
+                    units,
+                    minutes: make::minutes_for(r, units, speed),
+                    worth: MakeWorth::Office {
+                        points: params.market.strike_points,
+                    },
+                    firm: None,
+                    site: None,
+                });
+            }
             let have = |g: usize| make::available(&stores, goods, g, reserve_ok, protected);
             let from_inputs = make::units_from_inputs(r, &have);
             // What making it is worth, and how much of it is wanted.
@@ -4899,7 +4932,44 @@ impl Population {
         let protected =
             farm::protected_seed(self.fields_of(ctx.land, household), &ctx.catalog.crops);
         let hours = f64::from(minutes) / 60.0;
-        let units = make::units_in(recipe, f64::from(minutes), speed);
+        let mut units = make::units_in(recipe, f64::from(minutes), speed);
+        // Coin is struck from the metal brought to the mint the worker keeps, in the polity's
+        // store, and nobody else strikes it (M7d slice CE2b).
+        let coin = recipe
+            .outputs
+            .first()
+            .and_then(|&(g, _)| goods.get(g))
+            .and_then(|g| g.money.as_ref())
+            .is_some_and(|m| m.coin);
+        if coin {
+            let Some((pi, mint, kg)) = self
+                .mint_work(ctx, p.id)
+                .filter(|w| def.recipe == Some(w.1.recipe))
+            else {
+                return;
+            };
+            let per = recipe.inputs.first().map_or(1.0, |i| i.1).max(1e-9);
+            units = units.min(kg / per);
+            self.strike(ctx, pi, &mint, units);
+            if let Some(x) = self
+                .hh_index
+                .get(&household)
+                .and_then(|&hd| self.households.get_mut(hd))
+            {
+                let members = x.members.len().max(1);
+                x.settle_stores(now, goods, &|d| fuel_per_day(params, members, d));
+                x.stores.resize(goods.len(), 0.0);
+                let before = x.stores.clone();
+                make::wear(&mut x.stores, goods, &recipe.tools, hours);
+                x.flows
+                    .add_changes(&before, &x.stores, Flow::Made, Flow::Worn);
+            }
+            if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
+                let next = s.practised(p.skill(k), hours);
+                p.set_skill(k, next);
+            }
+            return;
+        }
         if let Some(x) = self
             .hh_index
             .get(&household)
@@ -6154,6 +6224,8 @@ impl Population {
         self.review_offers(ctx, day);
         // Households whose day it is weigh borrowing, and loans due are paid (M7d slice CA).
         self.credit_day(ctx, day);
+        // Households bring metal to their polity's mint (M7d slice CE2b).
+        self.bring_to_mints(ctx);
         self.reconcile_coin(ctx);
         // A workshop whose firm closed goes to another firm of its household that has none.
         self.hand_on_workshops(ctx.land, ctx.catalog);

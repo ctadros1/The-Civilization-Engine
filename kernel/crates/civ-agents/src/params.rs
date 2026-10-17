@@ -1599,6 +1599,9 @@ pub struct MarketParams {
     /// what it holds beyond is worth less to it (M7d slice CD, ADR-0027 §5; research 08-06
     /// §2.3: 7-30 days).
     pub money_days: f64,
+    /// What striking the metal brought to a mint is worth to its minter as the duty of their
+    /// office, decision points (M7d slice CE2b), as carrying an agreement's payment is.
+    pub strike_points: f64,
 }
 
 /// Household workshops (slice J, ADR-0006 §5).

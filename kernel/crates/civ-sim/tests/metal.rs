@@ -404,3 +404,252 @@ fn coin_moves_issue_by_issue_is_found_again_and_saves_exactly() {
     loaded.advance_minutes(2 * DAY).expect("lives");
     same(&sim, &loaded);
 }
+
+/// Polity `h`'s settlement's: a mint law in force naming `minter`, of the core template (M7d slice
+/// CE2b). Returns the polity's id.
+fn mint_in_force(sim: &mut Sim, h: PermanentId, minter: PermanentId) -> PermanentId {
+    use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome};
+    let policy = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.id == "core:policy/mint")
+        .expect("the core content has a mint");
+    let id = sim.allocate_id_for_tests();
+    let now = sim.now();
+    let pop = sim.people_mut_for_tests();
+    let at = pop
+        .household(h)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = pop
+        .polities
+        .iter()
+        .position(|p| p.settlement == at)
+        .expect("a polity");
+    pop.polities[pi].laws.push(Law {
+        id,
+        policy: policy as u16,
+        kind: civ_agents::polity::PolicyKind::Mint,
+        levy_share: 0.0,
+        holder: Some(minter),
+        relief_days: 0.0,
+        sanction: Default::default(),
+        hours: (0, 0),
+        status: LawStatus::InForce,
+        sponsor: minter,
+        proposed: now,
+        issue: IssueKind::Weighed,
+        meets_day: now.day_index(),
+        decided: Some(now),
+        outcome: Some(Outcome::Passed),
+        eligible: 1,
+        stances: Vec::new(),
+        known: Vec::new(),
+        compliance: Default::default(),
+        watch: Default::default(),
+        body: None,
+        ends: None,
+        agreement: None,
+        target: None,
+    });
+    pop.polities[pi].id
+}
+
+/// The scene for the mint: a household `hh` of a settlement with a polity holding 2 kg of copper
+/// and fuel to spare, and a grown member `minter` of another household of it.
+fn mint_scene(seed: u64) -> (Sim, PermanentId, PermanentId) {
+    let mut sim = world(seed);
+    // A polity is founded at the first midnight.
+    sim.advance_minutes(DAY).expect("lives");
+    let now = sim.now();
+    let (hh, settlement) = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .filter(|x| x.settlement.is_some())
+        .max_by_key(|x| (x.members.len(), x.id))
+        .map(|x| (x.id, x.settlement.expect("settled")))
+        .expect("a household");
+    let minter = sim
+        .people()
+        .people
+        .iter()
+        .map(|(_, p)| p)
+        .filter(|p| p.household != hh && p.age_years(now) >= 18.0)
+        .filter(|p| {
+            sim.people()
+                .household(p.household)
+                .is_some_and(|x| x.settlement == Some(settlement))
+        })
+        .map(|p| p.id)
+        .min()
+        .expect("another grown member");
+    let [copper, firewood] = ["copper", "firewood"].map(|g| good(&sim, &format!("core:good/{g}")));
+    let n = sim.rules().catalog.goods.len();
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == hh {
+            x.stores.resize(x.stores.len().max(n), 0.0);
+            x.stores[copper] = 2.0;
+            x.stores[firewood] += 300.0;
+        }
+    }
+    (sim, hh, minter)
+}
+
+/// `hh` remembers paying `pieces` of coin for 100 kg of grain today, from another household.
+fn bought_with_coin(sim: &mut Sim, hh: PermanentId, pieces: f32) {
+    let [coin, grain] = ["coin", "grain"].map(|g| good(sim, &format!("core:good/{g}")));
+    let settlement = sim
+        .people()
+        .household(hh)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let seller = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x.id)
+        .find(|&id| id != hh)
+        .expect("another household");
+    let n = sim.rules().catalog.goods.len();
+    let now = sim.now();
+    let pop = sim.people_mut_for_tests();
+    if !pop.markets.iter().any(|m| m.settlement == settlement) {
+        pop.markets.push(civ_agents::market::Market::new(
+            settlement,
+            n,
+            now.day_index(),
+        ));
+    }
+    let market = pop
+        .markets
+        .iter_mut()
+        .find(|m| m.settlement == settlement)
+        .expect("market");
+    market.recent.push_back(civ_agents::ledger::Trade {
+        at: now,
+        seller,
+        buyer: hh,
+        good: grain as u16,
+        units: 100.0,
+        payment: coin as u16,
+        paid: pieces,
+        channel: civ_agents::ledger::Channel::Sale,
+        from: None,
+    });
+}
+
+#[test]
+fn the_mint_law_strikes_copper_by_its_recipe_with_a_fee() {
+    let sim = world(3);
+    let catalog = &sim.rules().catalog;
+    let d = catalog
+        .policies
+        .iter()
+        .find(|d| d.id == "core:policy/mint")
+        .expect("a mint template");
+    assert_eq!(d.kind, civ_agents::polity::PolicyKind::Mint);
+    let m = d.mint.expect("its terms");
+    let r = &catalog.recipes[m.recipe];
+    assert_eq!(r.id, "core:recipe/strike_coin");
+    assert_eq!(catalog.goods[r.inputs[0].0].id, "core:good/copper");
+    assert_eq!(catalog.goods[r.outputs[0].0].id, "core:good/coin");
+    assert!((m.metal_kg() - 0.008).abs() < 1e-9);
+    assert!(m.fee > 0.0 && m.fee < 0.1);
+    assert!(d.answers.contains(&civ_agents::polity::IssueKind::Weighed));
+}
+
+#[test]
+fn nobody_brings_metal_for_coin_worth_no_more_than_its_metal() {
+    let (mut sim, hh, minter) = mint_scene(3);
+    mint_in_force(&mut sim, hh, minter);
+    let copper = good(&sim, "core:good/copper");
+    sim.with_ctx_for_tests(|pop, ctx| pop.bring_to_mints_for_tests(ctx));
+    assert!(sim.people().order.coinage.brought.is_empty());
+    let x = sim.people().household(hh).expect("household");
+    assert!(
+        (x.stores[copper] - 2.0).abs() < 1e-9,
+        "its copper stays home"
+    );
+}
+
+#[test]
+fn households_bring_metal_when_coin_buys_more_and_the_mint_strikes_it() {
+    use civ_sim::persist;
+    let (mut sim, hh, minter) = mint_scene(3);
+    let polity = mint_in_force(&mut sim, hh, minter);
+    let [copper, firewood, coin] =
+        ["copper", "firewood", "coin"].map(|g| good(&sim, &format!("core:good/{g}")));
+    // Coin has bought it grain: a piece is worth more to it than the copper in one.
+    bought_with_coin(&mut sim, hh, 50.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.bring_to_mints_for_tests(ctx));
+    let brought = sim.people().order.coinage.brought.clone();
+    assert_eq!(brought.len(), 1, "it brought its copper");
+    assert_eq!((brought[0].polity, brought[0].household), (polity, hh));
+    let kg = brought[0].metal_kg;
+    assert!((kg - 2.0).abs() < 1e-9, "all its copper: {kg}");
+    let x = sim.people().household(hh).expect("household");
+    assert!(x.stores[copper] < 1e-9);
+    let store = |sim: &Sim, g: usize| {
+        sim.people()
+            .polities
+            .iter()
+            .find(|p| p.id == polity)
+            .map_or(0.0, |p| p.stores.get(g).copied().unwrap_or(0.0))
+    };
+    assert!((store(&sim, copper) - 2.0).abs() < 1e-9);
+    assert!(
+        (store(&sim, firewood) - 10.0).abs() < 1e-6,
+        "with 5 kg of fuel a kg"
+    );
+    // Saved with the metal waiting, it loads the same.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "mint").expect("saves");
+    let loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().order.coinage, sim.people().order.coinage);
+    // The minter strikes it: 250 pieces of 8 g, the polity keeping 3 %.
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.strike_mint_for_tests(ctx, polity, 10.0)));
+    let coinage = &sim.people().order.coinage;
+    assert!(coinage.brought.is_empty(), "all of it struck");
+    assert_eq!(coinage.cohorts.len(), 1);
+    let issue = &coinage.cohorts[0];
+    assert_eq!(issue.issuer, polity);
+    assert!((issue.count - 250.0).abs() < 1e-6, "{}", issue.count);
+    let theirs = coinage.purse(hh).expect("its purse").total();
+    let kept = coinage.purse(polity).expect("the store's purse").total();
+    assert!((theirs - 242.5).abs() < 1e-6, "{theirs}");
+    assert!((kept - 7.5).abs() < 1e-6, "{kept}");
+    let x = sim.people().household(hh).expect("household");
+    assert!((x.stores[coin] - 242.5).abs() < 1e-6);
+    assert!((store(&sim, coin) - 7.5).abs() < 1e-6);
+    assert!(store(&sim, copper) < 1e-9 && store(&sim, firewood) < 1e-6);
+}
+
+#[test]
+fn a_minter_strikes_the_metal_brought_as_the_day_goes() {
+    let (mut sim, hh, minter) = mint_scene(3);
+    sim.introduce_technique(minter, "core:technique/copper_smelting", false)
+        .expect("introduced");
+    let polity = mint_in_force(&mut sim, hh, minter);
+    bought_with_coin(&mut sim, hh, 50.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.bring_to_mints_for_tests(ctx));
+    assert!(!sim.people().order.coinage.brought.is_empty());
+    let mut struck = false;
+    for _ in 0..10 {
+        sim.advance_minutes(DAY).expect("advances");
+        if !sim.people().order.coinage.cohorts.is_empty() {
+            struck = true;
+            break;
+        }
+    }
+    assert!(struck, "the minter struck coin within ten days");
+    let issue = &sim.people().order.coinage.cohorts[0];
+    assert_eq!(issue.issuer, polity);
+    assert!(sim.people().order.coinage.purse(hh).is_some());
+}

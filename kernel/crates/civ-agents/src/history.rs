@@ -371,7 +371,7 @@ impl Reason {
             Reason::WouldNotTake => "would not take what is not theirs",
             Reason::NothingToTake => "no store within reach to take from",
             Reason::TurnedBackLately => "turned back from a store lately",
-            Reason::Duty => "the watch they keep",
+            Reason::Duty => "the duty of their office",
             Reason::NoWatch => "no watch of theirs to keep now",
             Reason::Curfew => "a curfew forbids being away from home now",
             Reason::Petition => "the petition at the hearth",

@@ -4755,6 +4755,7 @@ impl Population {
                     ctx.land
                         .wear
                         .walk(&cells, now.day_index(), &ctx.land_params.paths);
+                    ctx.land.ways.walked(&cells, now.day_index());
                     self.look_for_deposits(ctx, who, household, &trip.points);
                 }
             }

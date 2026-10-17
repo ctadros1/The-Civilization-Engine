@@ -49,6 +49,9 @@ test("a village shows the trails its people wore", async ({ page }) => {
     expect(at, "a trail near the settlement").not.toBeNull();
     await page.mouse.move(box.x + at![0]!, box.y + at![1]!);
     await expect(page.locator("#readout")).toContainText("a trail");
+    // Worn ground is not a way: nobody has worked on one, so there is none to draw (M8b slice CM).
+    expect(await page.evaluate(() => window.__TCE__.state().waysRev)).toBe(0);
+    expect((await page.evaluate(() => window.__TCE__.map())).ways).toEqual([]);
     if (shots) await page.screenshot({ path: `${shots}/trails.png` });
   } finally {
     await host.stop();

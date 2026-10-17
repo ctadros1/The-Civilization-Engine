@@ -54360,6 +54360,532 @@ impl ::core::fmt::Debug for FloodsSave<'_> {
       ds.finish()
   }
 }
+pub enum WaySegmentSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WaySegmentSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WaySegmentSave<'a> {
+  type Inner = WaySegmentSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WaySegmentSave<'a> {
+  pub const VT_CELLS: ::flatbuffers::VOffsetT = 4;
+  pub const VT_CORRIDOR_M: ::flatbuffers::VOffsetT = 6;
+  pub const VT_BUILT_M: ::flatbuffers::VOffsetT = 8;
+  pub const VT_USABLE_M: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SURFACE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_KEEPER: ::flatbuffers::VOffsetT = 14;
+  pub const VT_KEEPER_ID: ::flatbuffers::VOffsetT = 16;
+  pub const VT_KEPT: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WaySegmentSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WaySegmentSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<WaySegmentSave<'bldr>> {
+    let mut builder = WaySegmentSaveBuilder::new(_fbb);
+    builder.add_kept(args.kept);
+    builder.add_keeper_id(args.keeper_id);
+    builder.add_usable_m(args.usable_m);
+    builder.add_built_m(args.built_m);
+    builder.add_corridor_m(args.corridor_m);
+    if let Some(x) = args.cells { builder.add_cells(x); }
+    builder.add_keeper(args.keeper);
+    builder.add_surface(args.surface);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn cells(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(WaySegmentSave::VT_CELLS, None)}
+  }
+  #[inline]
+  pub fn corridor_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WaySegmentSave::VT_CORRIDOR_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn built_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WaySegmentSave::VT_BUILT_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn usable_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WaySegmentSave::VT_USABLE_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn surface(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WaySegmentSave::VT_SURFACE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn keeper(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WaySegmentSave::VT_KEEPER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn keeper_id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WaySegmentSave::VT_KEEPER_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn kept(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(WaySegmentSave::VT_KEPT, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WaySegmentSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("cells", Self::VT_CELLS, false)?
+     .visit_field::<f32>("corridor_m", Self::VT_CORRIDOR_M, false)?
+     .visit_field::<f32>("built_m", Self::VT_BUILT_M, false)?
+     .visit_field::<f32>("usable_m", Self::VT_USABLE_M, false)?
+     .visit_field::<u8>("surface", Self::VT_SURFACE, false)?
+     .visit_field::<u8>("keeper", Self::VT_KEEPER, false)?
+     .visit_field::<u64>("keeper_id", Self::VT_KEEPER_ID, false)?
+     .visit_field::<i64>("kept", Self::VT_KEPT, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WaySegmentSaveArgs<'a> {
+    pub cells: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub corridor_m: f32,
+    pub built_m: f32,
+    pub usable_m: f32,
+    pub surface: u8,
+    pub keeper: u8,
+    pub keeper_id: u64,
+    pub kept: i64,
+}
+impl<'a> Default for WaySegmentSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WaySegmentSaveArgs {
+      cells: None,
+      corridor_m: 0.0,
+      built_m: 0.0,
+      usable_m: 0.0,
+      surface: 0,
+      keeper: 0,
+      keeper_id: 0,
+      kept: 0,
+    }
+  }
+}
+
+pub struct WaySegmentSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WaySegmentSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_cells(&mut self, cells: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WaySegmentSave::VT_CELLS, cells);
+  }
+  #[inline]
+  pub fn add_corridor_m(&mut self, corridor_m: f32) {
+    self.fbb_.push_slot::<f32>(WaySegmentSave::VT_CORRIDOR_M, corridor_m, 0.0);
+  }
+  #[inline]
+  pub fn add_built_m(&mut self, built_m: f32) {
+    self.fbb_.push_slot::<f32>(WaySegmentSave::VT_BUILT_M, built_m, 0.0);
+  }
+  #[inline]
+  pub fn add_usable_m(&mut self, usable_m: f32) {
+    self.fbb_.push_slot::<f32>(WaySegmentSave::VT_USABLE_M, usable_m, 0.0);
+  }
+  #[inline]
+  pub fn add_surface(&mut self, surface: u8) {
+    self.fbb_.push_slot::<u8>(WaySegmentSave::VT_SURFACE, surface, 0);
+  }
+  #[inline]
+  pub fn add_keeper(&mut self, keeper: u8) {
+    self.fbb_.push_slot::<u8>(WaySegmentSave::VT_KEEPER, keeper, 0);
+  }
+  #[inline]
+  pub fn add_keeper_id(&mut self, keeper_id: u64) {
+    self.fbb_.push_slot::<u64>(WaySegmentSave::VT_KEEPER_ID, keeper_id, 0);
+  }
+  #[inline]
+  pub fn add_kept(&mut self, kept: i64) {
+    self.fbb_.push_slot::<i64>(WaySegmentSave::VT_KEPT, kept, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WaySegmentSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WaySegmentSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WaySegmentSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WaySegmentSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WaySegmentSave");
+      ds.field("cells", &self.cells());
+      ds.field("corridor_m", &self.corridor_m());
+      ds.field("built_m", &self.built_m());
+      ds.field("usable_m", &self.usable_m());
+      ds.field("surface", &self.surface());
+      ds.field("keeper", &self.keeper());
+      ds.field("keeper_id", &self.keeper_id());
+      ds.field("kept", &self.kept());
+      ds.finish()
+  }
+}
+pub enum WayLineSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WayLineSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WayLineSave<'a> {
+  type Inner = WayLineSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WayLineSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_BEGUN: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SEGMENTS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_MODES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_TRIPS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_TRIPS_DAY: ::flatbuffers::VOffsetT = 14;
+  pub const VT_RANK: ::flatbuffers::VOffsetT = 16;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WayLineSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WayLineSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<WayLineSave<'bldr>> {
+    let mut builder = WayLineSaveBuilder::new(_fbb);
+    builder.add_trips_day(args.trips_day);
+    builder.add_begun(args.begun);
+    builder.add_id(args.id);
+    builder.add_trips(args.trips);
+    if let Some(x) = args.segments { builder.add_segments(x); }
+    builder.add_rank(args.rank);
+    builder.add_modes(args.modes);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WayLineSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn begun(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(WayLineSave::VT_BEGUN, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn segments(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WaySegmentSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WaySegmentSave>>>>(WayLineSave::VT_SEGMENTS, None)}
+  }
+  #[inline]
+  pub fn modes(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WayLineSave::VT_MODES, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn trips(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WayLineSave::VT_TRIPS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn trips_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(WayLineSave::VT_TRIPS_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn rank(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WayLineSave::VT_RANK, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WayLineSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<i64>("begun", Self::VT_BEGUN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WaySegmentSave>>>>("segments", Self::VT_SEGMENTS, false)?
+     .visit_field::<u8>("modes", Self::VT_MODES, false)?
+     .visit_field::<f32>("trips", Self::VT_TRIPS, false)?
+     .visit_field::<i64>("trips_day", Self::VT_TRIPS_DAY, false)?
+     .visit_field::<u8>("rank", Self::VT_RANK, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WayLineSaveArgs<'a> {
+    pub id: u64,
+    pub begun: i64,
+    pub segments: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WaySegmentSave<'a>>>>>,
+    pub modes: u8,
+    pub trips: f32,
+    pub trips_day: i64,
+    pub rank: u8,
+}
+impl<'a> Default for WayLineSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WayLineSaveArgs {
+      id: 0,
+      begun: 0,
+      segments: None,
+      modes: 0,
+      trips: 0.0,
+      trips_day: 0,
+      rank: 0,
+    }
+  }
+}
+
+pub struct WayLineSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WayLineSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(WayLineSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_begun(&mut self, begun: i64) {
+    self.fbb_.push_slot::<i64>(WayLineSave::VT_BEGUN, begun, 0);
+  }
+  #[inline]
+  pub fn add_segments(&mut self, segments: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WaySegmentSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WayLineSave::VT_SEGMENTS, segments);
+  }
+  #[inline]
+  pub fn add_modes(&mut self, modes: u8) {
+    self.fbb_.push_slot::<u8>(WayLineSave::VT_MODES, modes, 0);
+  }
+  #[inline]
+  pub fn add_trips(&mut self, trips: f32) {
+    self.fbb_.push_slot::<f32>(WayLineSave::VT_TRIPS, trips, 0.0);
+  }
+  #[inline]
+  pub fn add_trips_day(&mut self, trips_day: i64) {
+    self.fbb_.push_slot::<i64>(WayLineSave::VT_TRIPS_DAY, trips_day, 0);
+  }
+  #[inline]
+  pub fn add_rank(&mut self, rank: u8) {
+    self.fbb_.push_slot::<u8>(WayLineSave::VT_RANK, rank, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WayLineSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WayLineSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WayLineSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WayLineSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WayLineSave");
+      ds.field("id", &self.id());
+      ds.field("begun", &self.begun());
+      ds.field("segments", &self.segments());
+      ds.field("modes", &self.modes());
+      ds.field("trips", &self.trips());
+      ds.field("trips_day", &self.trips_day());
+      ds.field("rank", &self.rank());
+      ds.finish()
+  }
+}
+pub enum WaysSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WaysSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WaysSave<'a> {
+  type Inner = WaysSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WaysSave<'a> {
+  pub const VT_LIST: ::flatbuffers::VOffsetT = 4;
+  pub const VT_REVISION: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WaysSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WaysSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<WaysSave<'bldr>> {
+    let mut builder = WaysSaveBuilder::new(_fbb);
+    builder.add_revision(args.revision);
+    if let Some(x) = args.list { builder.add_list(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn list(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WayLineSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WayLineSave>>>>(WaysSave::VT_LIST, None)}
+  }
+  #[inline]
+  pub fn revision(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WaysSave::VT_REVISION, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WaysSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WayLineSave>>>>("list", Self::VT_LIST, false)?
+     .visit_field::<u32>("revision", Self::VT_REVISION, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WaysSaveArgs<'a> {
+    pub list: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WayLineSave<'a>>>>>,
+    pub revision: u32,
+}
+impl<'a> Default for WaysSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WaysSaveArgs {
+      list: None,
+      revision: 0,
+    }
+  }
+}
+
+pub struct WaysSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WaysSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_list(&mut self, list: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WayLineSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WaysSave::VT_LIST, list);
+  }
+  #[inline]
+  pub fn add_revision(&mut self, revision: u32) {
+    self.fbb_.push_slot::<u32>(WaysSave::VT_REVISION, revision, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WaysSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WaysSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WaysSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WaysSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WaysSave");
+      ds.field("list", &self.list());
+      ds.field("revision", &self.revision());
+      ds.finish()
+  }
+}
 }  // pub mod save
 }  // pub mod tce
 

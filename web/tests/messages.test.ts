@@ -318,6 +318,7 @@ describe("decoders", () => {
       earthworksRev: 0,
       weatherRev: 0,
       crossingsRev: 0,
+      waysRev: 0,
       waterRev: 0,
       incidentsRev: 0,
       bands: [],
@@ -1192,6 +1193,53 @@ describe("decoders", () => {
     });
     const query = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getCrossings()));
     expect(query.bodyType()).toBe(W.QueryBody.GetCrossings);
+  });
+
+  it("decodes the ways people worked on, and builds their query", () => {
+    const b = new flatbuffers.Builder(256);
+    const points = W.WaySegmentInfo.createPointsVector(b, [4, 4, 76, 4]);
+    const surface = b.createString("cleared ground");
+    const keeper = b.createString("Ada's household");
+    const segment = W.WaySegmentInfo.createWaySegmentInfo(b, points, 4, 1.5, 1.5, surface, 0.8, 0.05, keeper);
+    const segments = W.WayInfo.createSegmentsVector(b, [segment]);
+    const rankName = b.createString("lane");
+    const words = b.createString("Lane of 72 m, 1.5 m wide at most; begun in year 1.");
+    const info = W.WayInfo.createWayInfo(b, 61n, 0, rankName, 1, 3, segments, words);
+    const list = W.Ways.createWaysVector(b, [info]);
+    const ways = W.Ways.createWays(b, 5n, list);
+    const body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Ways, ways)));
+    expect(body.kind).toBe("ways");
+    if (body.kind !== "ways") return;
+    expect(body.ways).toEqual({
+      rev: 5,
+      ways: [
+        {
+          id: 61,
+          rank: 0,
+          rankName: "lane",
+          modes: 1,
+          tripsADay: 3,
+          segments: [
+            {
+              points: [
+                [4, 4],
+                [76, 4],
+              ],
+              corridorM: 4,
+              builtM: 1.5,
+              usableM: 1.5,
+              surface: "cleared ground",
+              condition: expect.closeTo(0.8, 5) as number,
+              grade: expect.closeTo(0.05, 5) as number,
+              keeper: "Ada's household",
+            },
+          ],
+          words: "Lane of 72 m, 1.5 m wide at most; begun in year 1.",
+        },
+      ],
+    });
+    const query = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getWays()));
+    expect(query.bodyType()).toBe(W.QueryBody.GetWays);
   });
 
   it("decodes the wells, springs and places drawn at today, and builds their query", () => {

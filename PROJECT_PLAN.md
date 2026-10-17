@@ -3925,6 +3925,37 @@ and M6a gives rivers a daily flow.
     only; goods in transit; a law to build a way, grading as an earthwork.
     - **CM**: ways as records: identity, segments, three widths, keeper, wear held while kept,
       the derived hierarchy, saves, `GetWays` and the Ways layer.
+      - *As built (2026-10-17).* A way (`civ_land::ways`) is a saved line record: an identity,
+        the day work on it began, the modes it serves (walking; handcarts reserved for CP), its
+        trips and an ordered list of segments, each a run of map cells with its corridor, built
+        and usable widths, a surface (cleared ground, shaped earth, gravel, a timber causeway;
+        codes append only), a keeper (nobody, a household or a polity) and the day it was last
+        laid or kept. A segment's **condition** is whole on that day and fades at the wear's own
+        half-life (120 days); before each month's survey every way holds its cells' wear at no
+        less than its condition (`Wear::hold`), so a kept way walks at full and an untended one
+        fades as a trail does, and routes see it only through the survey, as they see trails.
+        Each walk counts one trip along every way it used, remembered over about 90 days
+        (`e^(−age/90)`). Its **rank** is derived at the survey and never read by behaviour: a way
+        between settlements when its ends lie within 400 m of two settlements' hearths, else a
+        main way from 4.5 m usable or 100 trips a day, a street from 2.5 m or 20, else a lane
+        (design priors, after research 11-12 §1.2's carriageway widths). A segment's steepest
+        grade is worked out from the ground for the observer and for CP's carts. **Nothing makes
+        a way yet:** the works that lay one are CQ's, and there is no god tool that builds (the
+        observer does not build); the tests lay ways by hand. **Exact:** a world with no ways
+        holds nothing and counts nothing; the bench's 3×1,000 digests over 30 days, Detailed and
+        Max, are those before the slice in every section but the new one. **Boundary:** saves
+        schema 140 (the `ways` section; 139 still loads with none), wire 1.84 (`GetWays`, the
+        `Ways` response with each segment's centre line, widths, surface, condition, grade and
+        keeper in words, and `ways_rev` in the snapshot), content API unchanged. **Observer:**
+        a Ways layer drawn under the rivers at each stretch's usable width, coloured by surface
+        and fainter as its condition falls, a higher rank a little bolder; the readout names the
+        way, its rank, length, width and use, and the stretch's surface, corridor, keeper and
+        condition. **Tested:** the record's codes, trips once a way per walk and their fading,
+        holds where ways meet, rank by what a way joins, build and use and its use forgotten,
+        a segment's grade; in a village a kept way's cells walk at its condition after the
+        survey, its walkers counted, its identity kept, and it saves and goes on alike; a
+        schema-139 save loads with no way; the host reads ways with their words; the web decodes
+        them, draws and finds them; the end-to-end test sees no way in a fresh world.
     - **CN**: bottlenecks for walkers: crossings and gates as facilities, trips as legs,
       first-come passage with waiting space, waits remembered, the Traffic lens, wait incidents.
     - **CO**: boats: the dugout, navigability by stage, directed speeds, landings and handling,

@@ -405,6 +405,8 @@ pub const SCHEMA_V136: u32 = 136;
 pub const SCHEMA_V137: u32 = 137;
 /// Pay for common work, before the chronicle of coin struck.
 pub const SCHEMA_V138: u32 = 138;
+/// The chronicle of coin struck, before ways.
+pub const SCHEMA_V139: u32 = 139;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

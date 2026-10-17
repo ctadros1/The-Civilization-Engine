@@ -163,8 +163,13 @@ bandsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+waysRev():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 50);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startSnapshot(builder:flatbuffers.Builder) {
-  builder.startObject(23);
+  builder.startObject(24);
 }
 
 static addWorld(builder:flatbuffers.Builder, worldOffset:flatbuffers.Offset) {
@@ -293,6 +298,10 @@ static createBandsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[])
 
 static startBandsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
+}
+
+static addWaysRev(builder:flatbuffers.Builder, waysRev:bigint) {
+  builder.addFieldInt64(23, waysRev, BigInt('0'));
 }
 
 static endSnapshot(builder:flatbuffers.Builder):flatbuffers.Offset {

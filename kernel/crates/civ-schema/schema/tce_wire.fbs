@@ -411,6 +411,9 @@ table Snapshot {
   incidents_rev: ulong (id: 21);
   // Wire 1.74 (M6c slice BJ): the bands not yet home or dispersed.
   bands: [BandBrief] (id: 22);
+  // Wire 1.84 (M8b slice CM): changes whenever a way is begun or changed and at each month's
+  // survey while there are any (0 = no way yet). Fetch them with GetWays when it differs.
+  ways_rev: ulong (id: 23);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -735,7 +738,10 @@ table GetStorm {
   id: uint (id: 0);
 }
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak, GetCoverage, GetConflagration, GetFlood, GetStorm }
+// Wire 1.84 (M8b slice CM; ADR-0029 §9): every way people have worked on.
+table GetWays {}
+
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak, GetCoverage, GetConflagration, GetFlood, GetStorm, GetWays }
 
 table Query {
   body: QueryBody (id: 1);
@@ -2670,7 +2676,41 @@ table Coverage {
   summary: [string] (id: 8);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo, Coverage, ConflagrationInfo, FloodInfo, StormInfo }
+// Wire 1.84 (M8b slice CM; ADR-0029 §1, §9): one stretch of a way: its centre line, metres from
+// the map's north-west corner, as x, y pairs; its corridor, built and usable widths, metres; its
+// surface in words; its condition today, 0-1; its steepest grade, rise over run; who keeps it, in
+// words ("" for nobody).
+table WaySegmentInfo {
+  points: [float] (id: 0);
+  corridor_m: float (id: 1);
+  built_m: float (id: 2);
+  usable_m: float (id: 3);
+  surface: string (id: 4);
+  condition: float (id: 5);
+  grade: float (id: 6);
+  keeper: string (id: 7);
+}
+
+// Wire 1.84: a way: its rank as last surveyed (0 a lane, 1 a street, 2 a main way, 3 a way
+// between settlements) and its name; `modes` bits (1 walking, 2 handcarts); its trips a day over
+// about the last 90 days; its stretches in order; and the way in words.
+table WayInfo {
+  id: ulong (id: 0);
+  rank: ubyte (id: 1);
+  rank_name: string (id: 2);
+  modes: ubyte (id: 3);
+  trips_a_day: float (id: 4);
+  segments: [WaySegmentInfo] (id: 5);
+  words: string (id: 6);
+}
+
+// Wire 1.84: every way, in the order begun.
+table Ways {
+  rev: ulong (id: 0);
+  ways: [WayInfo] (id: 1);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo, Coverage, ConflagrationInfo, FloodInfo, StormInfo, Ways }
 
 table Response {
   body: ResponseBody (id: 1);

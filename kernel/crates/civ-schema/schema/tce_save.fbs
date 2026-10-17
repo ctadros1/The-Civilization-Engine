@@ -3219,3 +3219,36 @@ table FloodsSave {
   river_forcings: [RiverForcingSave] (id: 6);
   storm_checks: [StormCheckSave] (id: 7);
 }
+
+// Ways people have worked on (schema 140, M8b slice CM; ADR-0029 §1). A stretch of one: the
+// cells it runs through in order along the way; its corridor, built and usable widths, metres;
+// `surface` 0 cleared ground, 1 shaped earth, 2 gravel, 3 a timber causeway; `keeper` 0 nobody,
+// 1 a household, 2 a polity, `keeper_id` its id; `kept` the day it was last laid or kept.
+table WaySegmentSave {
+  cells: [uint] (id: 0);
+  corridor_m: float (id: 1);
+  built_m: float (id: 2);
+  usable_m: float (id: 3);
+  surface: ubyte (id: 4);
+  keeper: ubyte (id: 5);
+  keeper_id: ulong (id: 6);
+  kept: long (id: 7);
+}
+
+// A way: the day work on it began; `modes` bits (1 walking, 2 handcarts); its trips, faded as of
+// `trips_day`; `rank` as last surveyed, 0 a lane, 1 a street, 2 a main way, 3 a way between
+// settlements.
+table WayLineSave {
+  id: ulong (id: 0);
+  begun: long (id: 1);
+  segments: [WaySegmentSave] (id: 2);
+  modes: ubyte (id: 3);
+  trips: float (id: 4);
+  trips_day: long (id: 5);
+  rank: ubyte (id: 6);
+}
+
+table WaysSave {
+  list: [WayLineSave] (id: 0);
+  revision: uint (id: 1);
+}

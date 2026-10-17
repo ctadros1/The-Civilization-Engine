@@ -365,6 +365,33 @@ impl Wear {
         }
     }
 
+    /// Holds the wear of each listed cell at no less than its level on `day` (ADR-0029 §1: a kept
+    /// way's ground), making it trail where that reaches `trail_at`.
+    pub fn hold(&mut self, cells: &[(u32, f32)], day: i64, params: &PathParams) {
+        let at = params.trail_at as f32;
+        for &(cell, level) in cells {
+            if cell >= self.width * self.height || level <= 0.0 {
+                continue;
+            }
+            let (t, local) = self.locate(cell as usize);
+            let k = match self.slot.get(&t) {
+                Some(&k) => k,
+                None => {
+                    self.tiles.push(WearTile::new(t, day));
+                    self.slot.insert(t, self.tiles.len() - 1);
+                    self.tiles.len() - 1
+                }
+            };
+            let tile = &mut self.tiles[k];
+            tile.bring_to(day, params);
+            let w = &mut tile.wear[local];
+            *w = w.max(level.min(1.0));
+            if *w >= at {
+                tile.set_trail(local, true);
+            }
+        }
+    }
+
     /// Brings every tile up to `day`, forgets faded tiles, rebuilds the routing view and traces
     /// the trails.
     pub fn survey(&mut self, day: i64, params: &PathParams) {

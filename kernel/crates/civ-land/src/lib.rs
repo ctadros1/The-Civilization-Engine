@@ -31,6 +31,7 @@ pub mod fields;
 pub mod paths;
 pub mod soil;
 pub mod water;
+pub mod ways;
 pub mod weather;
 pub mod wells;
 
@@ -395,6 +396,8 @@ pub struct Land {
     pub crossings: crossings::Crossings,
     /// Enclosures, in the order begun (M6c slice BK, ADR-0023 §6). Saved.
     pub enclosures: enclosures::Enclosures,
+    /// Ways people have worked on, in the order begun (M8b slice CM, ADR-0029 §1). Saved.
+    pub ways: ways::Ways,
     /// Water under the ground and the rivers' runoff store (M6a slice AY, ADR-0021 §1–§2): the
     /// heads and the store saved, the aquifer derived.
     pub water: Water,
@@ -625,6 +628,7 @@ impl Land {
             ditch_flows: Vec::new(),
             ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
             crossings: crossings::Crossings::default(),
+            ways: ways::Ways::default(),
             enclosures: enclosures::Enclosures::default(),
             water: Water::default(),
             wells: wells::Wells::default(),
@@ -859,6 +863,7 @@ impl Land {
 
     pub fn problems(&self, map: &WorldMap, habitats: usize, next_id: u64) -> Vec<String> {
         let mut out = self.crossings.problems();
+        out.extend(self.ways.problems(map.width * map.height));
         out.extend(self.water.problems());
         out.extend(self.wells.problems(usize::MAX));
         let p = &self.patches;

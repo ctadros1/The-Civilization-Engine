@@ -15,6 +15,7 @@ import * as M from "./net/messages.js";
 import { Store, initialState, mergeEvents } from "./state.js";
 import { bindUi } from "./ui.js";
 import { bankWords, flowWords, springWords } from "./water.js";
+import { wayWords } from "./ways.js";
 import { legend, lensId, type LensLayer } from "./coverage.js";
 import { seasonOf } from "./weather.js";
 
@@ -83,6 +84,7 @@ const client = new HostClient(socketUrl(), {
     void syncDeposits();
     void syncEarthworks();
     void syncCrossings();
+    void syncWays();
     void syncWater();
     void syncLens();
     void refreshPerson(false);
@@ -296,6 +298,36 @@ async function syncCrossings(): Promise<void> {
     crossingsBusy = false;
   }
   if (ok) void syncCrossings();
+}
+
+/** `world:revision` of the ways on the map. */
+let waysKey = "";
+let waysBusy = false;
+
+/** Fetches the ways when one was begun or changed, or a month's survey ranked them again. */
+async function syncWays(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const key = world && s.waysRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.waysRev}` : "";
+  if (key === waysKey || waysBusy) return;
+  if (!key) {
+    waysKey = "";
+    map.setWays(null);
+    return;
+  }
+  waysBusy = true;
+  let ok = false;
+  try {
+    const info = await client.ways();
+    waysKey = key;
+    map.setWays(info);
+    ok = true;
+  } catch (e) {
+    console.warn(`tce: the ways could not be read: ${String(e)}`);
+  } finally {
+    waysBusy = false;
+  }
+  if (ok) void syncWays();
 }
 
 /** `world:revision` of the water on the map. */
@@ -1168,6 +1200,7 @@ map.onPointer = (info: PointerInfo | null) => {
   const deposit = info.deposit ? ` · ${depositWords(info.deposit, store.state.welcome?.goods ?? [])}` : "";
   const earthwork = info.earthwork ? ` · ${info.earthwork.words}` : "";
   const crossing = info.crossing ? ` · ${info.crossing.words}` : "";
+  const way = info.way && !info.crossing ? ` · ${wayWords(info.way.way, info.way.segment)}` : "";
   const flowing =
     (info.water === "river" || info.water === "lake") && info.flow !== null ? `, ${flowWords(info.flow)}` : "";
   const home = info.home ? ` · ${info.home.name}: ${info.home.words.join("; ")}` : "";
@@ -1180,7 +1213,7 @@ map.onPointer = (info: PointerInfo | null) => {
         : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${flowing}${home}${crossing}${source}${path}${field}${building}${earthwork}${deposit}`;
+    `${height} · ${info.water ?? ""}${flowing}${home}${crossing}${way}${source}${path}${field}${building}${earthwork}${deposit}`;
 };
 
 const scaleBar = byId("scalebar-bar");
@@ -1453,6 +1486,7 @@ const hooks = {
       depositsRev: s.snapshot?.depositsRev ?? 0,
       earthworksRev: s.snapshot?.earthworksRev ?? 0,
       crossingsRev: s.snapshot?.crossingsRev ?? 0,
+      waysRev: s.snapshot?.waysRev ?? 0,
       waterRev: s.snapshot?.waterRev ?? 0,
       weatherRev: s.snapshot?.weatherRev ?? 0,
       weather: s.weather

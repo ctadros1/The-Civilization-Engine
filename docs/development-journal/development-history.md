@@ -2801,3 +2801,16 @@ keeper. The first ways of carrying more than a person can are the dugout on the 
 handcart on a way; there are no beasts until animals are designed properly. People wait only where
 something narrow makes them wait, at a bridge, a gate or a landing, and nothing they carry ever
 vanishes in a jam.
+
+## 2026-10-17 — CM: ways as records
+
+**Built:** a way is now a thing with a name of its own: the stretches someone worked on, how wide
+each is reserved, built and usable, its surface, who keeps it and when it was last kept. A kept
+way's ground stays as worn as its upkeep, so people walk it at full speed; left alone it fades as
+a path does. Each way counts the walks along it and, once a month, is called a lane, a street, a
+main way or a way between settlements from what it joins, how it is built and how much it is used.
+That name is only shown. The map draws ways and says what each is.
+
+**Not yet:** nothing lays a way. Clearing, widening and grading are CQ's work, by households and
+by law; until then a world with no ways lives exactly as before, which the digests show.
+

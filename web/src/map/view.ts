@@ -26,6 +26,7 @@ import { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js
 import { buildingAt, buildingMarks, type Mark } from "../buildings.js";
 import { homeAt, lensMarks, type LensLayer } from "../coverage.js";
 import { crossingAt, crossingEnds, crossingLook } from "../crossings.js";
+import { wayAt, wayLook } from "../ways.js";
 import { depositAt, depositLook } from "../deposits.js";
 import { DITCH_COLOUR, PALISADE_COLOUR, changedTiles, detailTilesOver, earthworkAt, earthworkLook, sectorLook } from "../earthworks.js";
 import { fieldAt, fieldLook } from "../fields.js";
@@ -42,6 +43,9 @@ import {
   type CoverageInfo,
   type CrossingInfo,
   type CrossingsInfo,
+  type WayInfo,
+  type WaySegmentInfo,
+  type WaysInfo,
   type DepositInfo,
   type EarthworkInfo,
   type EarthworksInfo,
@@ -105,6 +109,8 @@ export interface PointerInfo {
   earthwork: EarthworkInfo | null;
   /** The crossing under the pointer, if any (M5c slice AW). */
   crossing: CrossingInfo | null;
+  /** The way under the pointer and the stretch of it, if any (M8b slice CM). */
+  way: { way: WayInfo; segment: WaySegmentInfo } | null;
   /** The well, spring or place at the water's edge drawn at today under the pointer, if any, and
    * the rivers' flow today against their mean (null before the water is read; M6a slice AY). */
   well: WellInfo | null;
@@ -243,6 +249,9 @@ export class MapView {
   private deposits: DepositInfo[] = [];
   private readonly earthworksLayer = new Graphics();
   private earthworks: EarthworkInfo[] = [];
+  private readonly waysLayer = new Graphics();
+  private ways: WayInfo[] = [];
+  private wayScale = 0;
   private readonly crossingsLayer = new Graphics();
   private crossings: CrossingInfo[] = [];
   private crossingScale = 0;
@@ -299,6 +308,7 @@ export class MapView {
       this.detail,
       this.wornLayer,
       this.trailsLayer,
+      this.waysLayer,
       this.rivers,
       this.fieldsLayer,
       this.depositsLayer,
@@ -358,6 +368,8 @@ export class MapView {
     this.earthworksLayer.clear();
     this.crossings = [];
     this.crossingsLayer.clear();
+    this.ways = [];
+    this.waysLayer.clear();
     this.water = null;
     this.waterLayer.clear();
     this.lens = null;
@@ -464,6 +476,33 @@ export class MapView {
       this.groundSeen.clear();
     }
     if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** The ways people have worked on, as the host last listed them (null for none). */
+  setWays(info: WaysInfo | null): void {
+    this.ways = info?.ways ?? [];
+    this.drawWays();
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** Each stretch of a way along its centre line at its usable width, never thinner than about two
+   * pixels, so a lane shows at any zoom. */
+  private drawWays(): void {
+    const g = this.waysLayer;
+    g.clear();
+    this.wayScale = this.scale;
+    const pxM = 1 / Math.max(this.scale, 1e-6);
+    for (const w of this.ways) {
+      for (const s of w.segments) {
+        const [first, ...rest] = s.points;
+        if (!first) continue;
+        const look = wayLook(s, w.rank);
+        g.moveTo(first[0], first[1]);
+        if (rest.length === 0) g.lineTo(first[0] + 0.01, first[1]);
+        for (const [x, y] of rest) g.lineTo(x, y);
+        g.stroke({ width: Math.max(look.widthM, 2 * pxM), color: look.colour, alpha: look.alpha, cap: "round", join: "round" });
+      }
+    }
   }
 
   /** The crossings over water, as the host last listed them (null for none). */
@@ -1026,6 +1065,7 @@ export class MapView {
       deposit: depositAt(this.deposits, xM, yM),
       earthwork: earthworkAt(this.earthworks, xM, yM),
       crossing: crossingAt(this.crossings, xM, yM, 4 / this.scale),
+      way: wayAt(this.ways, xM, yM, 3 / this.scale),
       well: wellAt(this.water?.wells ?? [], xM, yM, 3 / this.scale),
       spring: springAt(this.water?.springs ?? [], xM, yM, 4 / this.scale),
       bank: bankAt(this.water?.banks ?? [], xM, yM, 4 / this.scale),
@@ -1045,6 +1085,9 @@ export class MapView {
       }
       if (this.trailScale === 0 || Math.abs(Math.log(scale / this.trailScale)) > 0.15) {
         this.drawTrails();
+      }
+      if (this.ways.length > 0 && Math.abs(Math.log(scale / this.wayScale)) > 0.15) {
+        this.drawWays();
       }
       if (this.crossings.length > 0 && Math.abs(Math.log(scale / this.crossingScale)) > 0.15) {
         this.drawCrossings();
@@ -1242,6 +1285,16 @@ export class MapView {
       earthworks: this.earthworks.length,
       bankSegments: this.earthworks.filter((w) => w.bank).map((w) => ({ id: w.id, ...w.bank!, words: w.words })),
       platforms: this.earthworks.map((w) => ({ x: w.x + w.w / 2, y: w.y + w.h / 2, done: w.done })),
+      // M8b slice CM: ways, where each runs, its rank and its stretches' condition.
+      ways: this.ways.map((w) => ({
+        id: w.id,
+        rank: w.rank,
+        rankName: w.rankName,
+        x: w.segments[0]?.points[0]?.[0] ?? 0,
+        y: w.segments[0]?.points[0]?.[1] ?? 0,
+        segments: w.segments.length,
+        words: w.words,
+      })),
       // M5c slice AW: crossings over water, where each lies and how far along it is.
       crossings: this.crossings.map((c) => ({
         x: (c.ax + c.bx) / 2,

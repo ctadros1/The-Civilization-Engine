@@ -831,10 +831,10 @@ pub struct CommandBodyUnionTableOffset {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_QUERY_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_QUERY_BODY: u8 = 29;
+pub const ENUM_MAX_QUERY_BODY: u8 = 30;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 30] = [
+pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 31] = [
   QueryBody::NONE,
   QueryBody::GetRaster,
   QueryBody::GetHydrography,
@@ -865,6 +865,7 @@ pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 30] = [
   QueryBody::GetConflagration,
   QueryBody::GetFlood,
   QueryBody::GetStorm,
+  QueryBody::GetWays,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -902,9 +903,10 @@ impl QueryBody {
   pub const GetConflagration: Self = Self(27);
   pub const GetFlood: Self = Self(28);
   pub const GetStorm: Self = Self(29);
+  pub const GetWays: Self = Self(30);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 29;
+  pub const ENUM_MAX: u8 = 30;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::GetRaster,
@@ -936,6 +938,7 @@ impl QueryBody {
     Self::GetConflagration,
     Self::GetFlood,
     Self::GetStorm,
+    Self::GetWays,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -970,6 +973,7 @@ impl QueryBody {
       Self::GetConflagration => Some("GetConflagration"),
       Self::GetFlood => Some("GetFlood"),
       Self::GetStorm => Some("GetStorm"),
+      Self::GetWays => Some("GetWays"),
       _ => None,
     }
   }
@@ -1409,10 +1413,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for BookKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RESPONSE_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RESPONSE_BODY: u8 = 30;
+pub const ENUM_MAX_RESPONSE_BODY: u8 = 31;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 31] = [
+pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 32] = [
   ResponseBody::NONE,
   ResponseBody::Ack,
   ResponseBody::RasterTile,
@@ -1444,6 +1448,7 @@ pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 31] = [
   ResponseBody::ConflagrationInfo,
   ResponseBody::FloodInfo,
   ResponseBody::StormInfo,
+  ResponseBody::Ways,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1482,9 +1487,10 @@ impl ResponseBody {
   pub const ConflagrationInfo: Self = Self(28);
   pub const FloodInfo: Self = Self(29);
   pub const StormInfo: Self = Self(30);
+  pub const Ways: Self = Self(31);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 30;
+  pub const ENUM_MAX: u8 = 31;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::Ack,
@@ -1517,6 +1523,7 @@ impl ResponseBody {
     Self::ConflagrationInfo,
     Self::FloodInfo,
     Self::StormInfo,
+    Self::Ways,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1552,6 +1559,7 @@ impl ResponseBody {
       Self::ConflagrationInfo => Some("ConflagrationInfo"),
       Self::FloodInfo => Some("FloodInfo"),
       Self::StormInfo => Some("StormInfo"),
+      Self::Ways => Some("Ways"),
       _ => None,
     }
   }
@@ -7523,6 +7531,7 @@ impl<'a> Snapshot<'a> {
   pub const VT_WATER_REV: ::flatbuffers::VOffsetT = 44;
   pub const VT_INCIDENTS_REV: ::flatbuffers::VOffsetT = 46;
   pub const VT_BANDS: ::flatbuffers::VOffsetT = 48;
+  pub const VT_WAYS_REV: ::flatbuffers::VOffsetT = 50;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7534,6 +7543,7 @@ impl<'a> Snapshot<'a> {
     args: &'args SnapshotArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Snapshot<'bldr>> {
     let mut builder = SnapshotBuilder::new(_fbb);
+    builder.add_ways_rev(args.ways_rev);
     builder.add_incidents_rev(args.incidents_rev);
     builder.add_water_rev(args.water_rev);
     builder.add_crossings_rev(args.crossings_rev);
@@ -7722,6 +7732,13 @@ impl<'a> Snapshot<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BandBrief>>>>(Snapshot::VT_BANDS, None)}
   }
+  #[inline]
+  pub fn ways_rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Snapshot::VT_WAYS_REV, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Snapshot<'_> {
@@ -7753,6 +7770,7 @@ impl ::flatbuffers::Verifiable for Snapshot<'_> {
      .visit_field::<u64>("water_rev", Self::VT_WATER_REV, false)?
      .visit_field::<u64>("incidents_rev", Self::VT_INCIDENTS_REV, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BandBrief>>>>("bands", Self::VT_BANDS, false)?
+     .visit_field::<u64>("ways_rev", Self::VT_WAYS_REV, false)?
      .finish();
     Ok(())
   }
@@ -7781,6 +7799,7 @@ pub struct SnapshotArgs<'a> {
     pub water_rev: u64,
     pub incidents_rev: u64,
     pub bands: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BandBrief<'a>>>>>,
+    pub ways_rev: u64,
 }
 impl<'a> Default for SnapshotArgs<'a> {
   #[inline]
@@ -7809,6 +7828,7 @@ impl<'a> Default for SnapshotArgs<'a> {
       water_rev: 0,
       incidents_rev: 0,
       bands: None,
+      ways_rev: 0,
     }
   }
 }
@@ -7911,6 +7931,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SnapshotBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Snapshot::VT_BANDS, bands);
   }
   #[inline]
+  pub fn add_ways_rev(&mut self, ways_rev: u64) {
+    self.fbb_.push_slot::<u64>(Snapshot::VT_WAYS_REV, ways_rev, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SnapshotBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SnapshotBuilder {
@@ -7951,6 +7975,7 @@ impl ::core::fmt::Debug for Snapshot<'_> {
       ds.field("water_rev", &self.water_rev());
       ds.field("incidents_rev", &self.incidents_rev());
       ds.field("bands", &self.bands());
+      ds.field("ways_rev", &self.ways_rev());
       ds.finish()
   }
 }
@@ -13890,6 +13915,84 @@ impl ::core::fmt::Debug for GetStorm<'_> {
       ds.finish()
   }
 }
+pub enum GetWaysOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetWays<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetWays<'a> {
+  type Inner = GetWays<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetWays<'a> {
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetWays { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    _args: &'args GetWaysArgs
+  ) -> ::flatbuffers::WIPOffset<GetWays<'bldr>> {
+    let mut builder = GetWaysBuilder::new(_fbb);
+    builder.finish()
+  }
+
+}
+
+impl ::flatbuffers::Verifiable for GetWays<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetWaysArgs {
+}
+impl<'a> Default for GetWaysArgs {
+  #[inline]
+  fn default() -> Self {
+    GetWaysArgs {
+    }
+  }
+}
+
+pub struct GetWaysBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetWaysBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetWaysBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetWaysBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetWays<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetWays<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetWays");
+      ds.finish()
+  }
+}
 pub enum QueryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -14374,6 +14477,21 @@ impl<'a> Query<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_ways(&self) -> Option<GetWays<'a>> {
+    if self.body_type() == QueryBody::GetWays {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetWays::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Query<'_> {
@@ -14413,6 +14531,7 @@ impl ::flatbuffers::Verifiable for Query<'_> {
           QueryBody::GetConflagration => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetConflagration>>("QueryBody::GetConflagration", pos),
           QueryBody::GetFlood => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetFlood>>("QueryBody::GetFlood", pos),
           QueryBody::GetStorm => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetStorm>>("QueryBody::GetStorm", pos),
+          QueryBody::GetWays => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetWays>>("QueryBody::GetWays", pos),
           _ => Ok(()),
         }
      })?
@@ -14665,6 +14784,13 @@ impl ::core::fmt::Debug for Query<'_> {
         },
         QueryBody::GetStorm => {
           if let Some(x) = self.body_as_get_storm() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetWays => {
+          if let Some(x) = self.body_as_get_ways() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -37074,6 +37200,532 @@ impl ::core::fmt::Debug for Coverage<'_> {
       ds.finish()
   }
 }
+pub enum WaySegmentInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WaySegmentInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WaySegmentInfo<'a> {
+  type Inner = WaySegmentInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WaySegmentInfo<'a> {
+  pub const VT_POINTS: ::flatbuffers::VOffsetT = 4;
+  pub const VT_CORRIDOR_M: ::flatbuffers::VOffsetT = 6;
+  pub const VT_BUILT_M: ::flatbuffers::VOffsetT = 8;
+  pub const VT_USABLE_M: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SURFACE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_CONDITION: ::flatbuffers::VOffsetT = 14;
+  pub const VT_GRADE: ::flatbuffers::VOffsetT = 16;
+  pub const VT_KEEPER: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WaySegmentInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WaySegmentInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<WaySegmentInfo<'bldr>> {
+    let mut builder = WaySegmentInfoBuilder::new(_fbb);
+    if let Some(x) = args.keeper { builder.add_keeper(x); }
+    builder.add_grade(args.grade);
+    builder.add_condition(args.condition);
+    if let Some(x) = args.surface { builder.add_surface(x); }
+    builder.add_usable_m(args.usable_m);
+    builder.add_built_m(args.built_m);
+    builder.add_corridor_m(args.corridor_m);
+    if let Some(x) = args.points { builder.add_points(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn points(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(WaySegmentInfo::VT_POINTS, None)}
+  }
+  #[inline]
+  pub fn corridor_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WaySegmentInfo::VT_CORRIDOR_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn built_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WaySegmentInfo::VT_BUILT_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn usable_m(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WaySegmentInfo::VT_USABLE_M, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn surface(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WaySegmentInfo::VT_SURFACE, None)}
+  }
+  #[inline]
+  pub fn condition(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WaySegmentInfo::VT_CONDITION, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn grade(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WaySegmentInfo::VT_GRADE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn keeper(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WaySegmentInfo::VT_KEEPER, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WaySegmentInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("points", Self::VT_POINTS, false)?
+     .visit_field::<f32>("corridor_m", Self::VT_CORRIDOR_M, false)?
+     .visit_field::<f32>("built_m", Self::VT_BUILT_M, false)?
+     .visit_field::<f32>("usable_m", Self::VT_USABLE_M, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("surface", Self::VT_SURFACE, false)?
+     .visit_field::<f32>("condition", Self::VT_CONDITION, false)?
+     .visit_field::<f32>("grade", Self::VT_GRADE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("keeper", Self::VT_KEEPER, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WaySegmentInfoArgs<'a> {
+    pub points: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub corridor_m: f32,
+    pub built_m: f32,
+    pub usable_m: f32,
+    pub surface: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub condition: f32,
+    pub grade: f32,
+    pub keeper: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for WaySegmentInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WaySegmentInfoArgs {
+      points: None,
+      corridor_m: 0.0,
+      built_m: 0.0,
+      usable_m: 0.0,
+      surface: None,
+      condition: 0.0,
+      grade: 0.0,
+      keeper: None,
+    }
+  }
+}
+
+pub struct WaySegmentInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WaySegmentInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_points(&mut self, points: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WaySegmentInfo::VT_POINTS, points);
+  }
+  #[inline]
+  pub fn add_corridor_m(&mut self, corridor_m: f32) {
+    self.fbb_.push_slot::<f32>(WaySegmentInfo::VT_CORRIDOR_M, corridor_m, 0.0);
+  }
+  #[inline]
+  pub fn add_built_m(&mut self, built_m: f32) {
+    self.fbb_.push_slot::<f32>(WaySegmentInfo::VT_BUILT_M, built_m, 0.0);
+  }
+  #[inline]
+  pub fn add_usable_m(&mut self, usable_m: f32) {
+    self.fbb_.push_slot::<f32>(WaySegmentInfo::VT_USABLE_M, usable_m, 0.0);
+  }
+  #[inline]
+  pub fn add_surface(&mut self, surface: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WaySegmentInfo::VT_SURFACE, surface);
+  }
+  #[inline]
+  pub fn add_condition(&mut self, condition: f32) {
+    self.fbb_.push_slot::<f32>(WaySegmentInfo::VT_CONDITION, condition, 0.0);
+  }
+  #[inline]
+  pub fn add_grade(&mut self, grade: f32) {
+    self.fbb_.push_slot::<f32>(WaySegmentInfo::VT_GRADE, grade, 0.0);
+  }
+  #[inline]
+  pub fn add_keeper(&mut self, keeper: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WaySegmentInfo::VT_KEEPER, keeper);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WaySegmentInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WaySegmentInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WaySegmentInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WaySegmentInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WaySegmentInfo");
+      ds.field("points", &self.points());
+      ds.field("corridor_m", &self.corridor_m());
+      ds.field("built_m", &self.built_m());
+      ds.field("usable_m", &self.usable_m());
+      ds.field("surface", &self.surface());
+      ds.field("condition", &self.condition());
+      ds.field("grade", &self.grade());
+      ds.field("keeper", &self.keeper());
+      ds.finish()
+  }
+}
+pub enum WayInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WayInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WayInfo<'a> {
+  type Inner = WayInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WayInfo<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_RANK: ::flatbuffers::VOffsetT = 6;
+  pub const VT_RANK_NAME: ::flatbuffers::VOffsetT = 8;
+  pub const VT_MODES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_TRIPS_A_DAY: ::flatbuffers::VOffsetT = 12;
+  pub const VT_SEGMENTS: ::flatbuffers::VOffsetT = 14;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 16;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WayInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WayInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<WayInfo<'bldr>> {
+    let mut builder = WayInfoBuilder::new(_fbb);
+    builder.add_id(args.id);
+    if let Some(x) = args.words { builder.add_words(x); }
+    if let Some(x) = args.segments { builder.add_segments(x); }
+    builder.add_trips_a_day(args.trips_a_day);
+    if let Some(x) = args.rank_name { builder.add_rank_name(x); }
+    builder.add_modes(args.modes);
+    builder.add_rank(args.rank);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WayInfo::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn rank(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WayInfo::VT_RANK, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn rank_name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WayInfo::VT_RANK_NAME, None)}
+  }
+  #[inline]
+  pub fn modes(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(WayInfo::VT_MODES, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn trips_a_day(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WayInfo::VT_TRIPS_A_DAY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn segments(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WaySegmentInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WaySegmentInfo>>>>(WayInfo::VT_SEGMENTS, None)}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WayInfo::VT_WORDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WayInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u8>("rank", Self::VT_RANK, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("rank_name", Self::VT_RANK_NAME, false)?
+     .visit_field::<u8>("modes", Self::VT_MODES, false)?
+     .visit_field::<f32>("trips_a_day", Self::VT_TRIPS_A_DAY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WaySegmentInfo>>>>("segments", Self::VT_SEGMENTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WayInfoArgs<'a> {
+    pub id: u64,
+    pub rank: u8,
+    pub rank_name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub modes: u8,
+    pub trips_a_day: f32,
+    pub segments: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WaySegmentInfo<'a>>>>>,
+    pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for WayInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WayInfoArgs {
+      id: 0,
+      rank: 0,
+      rank_name: None,
+      modes: 0,
+      trips_a_day: 0.0,
+      segments: None,
+      words: None,
+    }
+  }
+}
+
+pub struct WayInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WayInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(WayInfo::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_rank(&mut self, rank: u8) {
+    self.fbb_.push_slot::<u8>(WayInfo::VT_RANK, rank, 0);
+  }
+  #[inline]
+  pub fn add_rank_name(&mut self, rank_name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WayInfo::VT_RANK_NAME, rank_name);
+  }
+  #[inline]
+  pub fn add_modes(&mut self, modes: u8) {
+    self.fbb_.push_slot::<u8>(WayInfo::VT_MODES, modes, 0);
+  }
+  #[inline]
+  pub fn add_trips_a_day(&mut self, trips_a_day: f32) {
+    self.fbb_.push_slot::<f32>(WayInfo::VT_TRIPS_A_DAY, trips_a_day, 0.0);
+  }
+  #[inline]
+  pub fn add_segments(&mut self, segments: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WaySegmentInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WayInfo::VT_SEGMENTS, segments);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WayInfo::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WayInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WayInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WayInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WayInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WayInfo");
+      ds.field("id", &self.id());
+      ds.field("rank", &self.rank());
+      ds.field("rank_name", &self.rank_name());
+      ds.field("modes", &self.modes());
+      ds.field("trips_a_day", &self.trips_a_day());
+      ds.field("segments", &self.segments());
+      ds.field("words", &self.words());
+      ds.finish()
+  }
+}
+pub enum WaysOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Ways<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Ways<'a> {
+  type Inner = Ways<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Ways<'a> {
+  pub const VT_REV: ::flatbuffers::VOffsetT = 4;
+  pub const VT_WAYS: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Ways { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WaysArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Ways<'bldr>> {
+    let mut builder = WaysBuilder::new(_fbb);
+    builder.add_rev(args.rev);
+    if let Some(x) = args.ways { builder.add_ways(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Ways::VT_REV, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ways(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WayInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WayInfo>>>>(Ways::VT_WAYS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Ways<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("rev", Self::VT_REV, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WayInfo>>>>("ways", Self::VT_WAYS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WaysArgs<'a> {
+    pub rev: u64,
+    pub ways: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WayInfo<'a>>>>>,
+}
+impl<'a> Default for WaysArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    WaysArgs {
+      rev: 0,
+      ways: None,
+    }
+  }
+}
+
+pub struct WaysBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WaysBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_rev(&mut self, rev: u64) {
+    self.fbb_.push_slot::<u64>(Ways::VT_REV, rev, 0);
+  }
+  #[inline]
+  pub fn add_ways(&mut self, ways: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WayInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Ways::VT_WAYS, ways);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WaysBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WaysBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Ways<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Ways<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Ways");
+      ds.field("rev", &self.rev());
+      ds.field("ways", &self.ways());
+      ds.finish()
+  }
+}
 pub enum ResponseOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -37573,6 +38225,21 @@ impl<'a> Response<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_ways(&self) -> Option<Ways<'a>> {
+    if self.body_type() == ResponseBody::Ways {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Ways::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Response<'_> {
@@ -37613,6 +38280,7 @@ impl ::flatbuffers::Verifiable for Response<'_> {
           ResponseBody::ConflagrationInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ConflagrationInfo>>("ResponseBody::ConflagrationInfo", pos),
           ResponseBody::FloodInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FloodInfo>>("ResponseBody::FloodInfo", pos),
           ResponseBody::StormInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<StormInfo>>("ResponseBody::StormInfo", pos),
+          ResponseBody::Ways => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Ways>>("ResponseBody::Ways", pos),
           _ => Ok(()),
         }
      })?
@@ -37872,6 +38540,13 @@ impl ::core::fmt::Debug for Response<'_> {
         },
         ResponseBody::StormInfo => {
           if let Some(x) = self.body_as_storm_info() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::Ways => {
+          if let Some(x) = self.body_as_ways() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

@@ -560,6 +560,10 @@ impl Engine {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::crossings::crossings_response(&w.sim)),
             },
+            Request::GetWays => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::ways::ways_response(&w.sim)),
+            },
             Request::GetWater => match &self.world {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::water::water_response(&w.sim)),
@@ -2058,6 +2062,75 @@ mod tests {
                 .iter()
                 .all(|w| !w.words().unwrap_or_default().is_empty())
         );
+    }
+
+    #[test]
+    fn the_ways_are_read_with_their_stretches_rank_and_keeper() {
+        use civ_land::ways::{Keeper, Rank, Segment, Surface, WALK, Way};
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetWays)),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Ways");
+        let read = |h: &mut Harness| {
+            let Reply::Response(payload) = h.ask(Request::GetWays) else {
+                panic!("the ways are read");
+            };
+            payload
+        };
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let list = response.body_as_ways().expect("ways");
+        assert_eq!(list.rev(), 0);
+        assert_eq!(list.ways().map_or(0, |l| l.len()), 0);
+        // A lane of ten cells eastward, cleared by the first household today, laid by hand.
+        let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+        let household = sim
+            .people()
+            .households
+            .iter()
+            .map(|(_, x)| x.id)
+            .min()
+            .expect("a household");
+        let id = sim.allocate_id_for_tests();
+        let (w, today) = (sim.map().width, sim.now().day_index());
+        let cells: Vec<u32> = (0..10).map(|k| 40 * w + 40 + k).collect();
+        sim.land_mut_for_tests().ways.add(Way {
+            id,
+            begun: today,
+            segments: vec![Segment {
+                cells,
+                corridor_m: 4.0,
+                built_m: 1.5,
+                usable_m: 1.5,
+                surface: Surface::Cleared,
+                keeper: Keeper::Household(household),
+                kept: today,
+            }],
+            modes: WALK,
+            trips: 0.0,
+            trips_day: today,
+            rank: Rank::Lane,
+        });
+        let rev = frames::ways::ways_rev(sim);
+        assert_ne!(rev, 0);
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let list = response.body_as_ways().expect("ways");
+        assert_eq!(list.rev(), rev);
+        let way = list.ways().expect("a list").get(0);
+        assert_eq!((way.id(), way.rank(), way.modes()), (id.get(), 0, 1));
+        assert_eq!(way.rank_name(), Some("lane"));
+        let words = way.words().unwrap_or_default();
+        assert!(words.starts_with("Lane of 72 m, 1.5 m wide"), "{words}");
+        let s = way.segments().expect("its stretches").get(0);
+        // A straight line keeps only its ends.
+        assert_eq!(s.points().map_or(0, |p| p.len()), 4);
+        assert_eq!((s.usable_m(), s.corridor_m()), (1.5, 4.0));
+        assert_eq!(s.surface(), Some("cleared ground"));
+        assert!((s.condition() - 1.0).abs() < 1e-6);
+        assert!(s.keeper().unwrap_or_default().ends_with("'s household"));
     }
 
     #[test]

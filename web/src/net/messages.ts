@@ -387,6 +387,9 @@ export interface Snapshot {
   /** Wire 1.60: changes whenever a crossing is begun, worked on, opens, rots or gives way (0 =
    * none). Fetch the crossings with GetCrossings. */
   crossingsRev: number;
+  /** Wire 1.84: changes whenever a way is begun or changed, and at each month's survey while there
+   * are any (0 = none). Fetch the ways with GetWays. */
+  waysRev: number;
   /** Wire 1.61: changes whenever a well is begun, dug deeper, opens, rots, is relined, given up or
    * falls in, and with each day lived while the world has wells or springs (0 = neither). Fetch
    * them with GetWater. */
@@ -1745,6 +1748,42 @@ export interface CrossingsInfo {
   crossings: CrossingInfo[];
 }
 
+/** One stretch of a way (wire 1.84, M8b slice CM; ADR-0029 §1). */
+export interface WaySegmentInfo {
+  /** Its centre line, metres from the map's north-west corner. */
+  points: [number, number][];
+  /** The corridor reserved for it, the width built and the width usable today, metres. */
+  corridorM: number;
+  builtM: number;
+  usableM: number;
+  /** Its surface in words: "cleared ground", "gravel". */
+  surface: string;
+  /** Its condition today, 0–1, and its steepest grade, rise over run. */
+  condition: number;
+  grade: number;
+  /** Who keeps it, in words ("" for nobody). */
+  keeper: string;
+}
+
+/** A way people have worked on (wire 1.84). */
+export interface WayInfo {
+  id: number;
+  /** 0 a lane, 1 a street, 2 a main way, 3 a way between settlements: derived, shown only. */
+  rank: number;
+  rankName: string;
+  /** Bits: 1 walking, 2 handcarts. */
+  modes: number;
+  tripsADay: number;
+  segments: WaySegmentInfo[];
+  /** In the kernel's words: "Street of 240 m, 3.0 m wide at most; begun in year 2." */
+  words: string;
+}
+
+export interface WaysInfo {
+  rev: number;
+  ways: WayInfo[];
+}
+
 /** A well (wire 1.61, M6a slice AY; ADR-0021 §3). */
 export interface WellInfo {
   id: number;
@@ -1897,6 +1936,7 @@ export type ResponseBody =
   | { kind: "deposits"; deposits: DepositsInfo }
   | { kind: "earthworks"; earthworks: EarthworksInfo }
   | { kind: "crossings"; crossings: CrossingsInfo }
+  | { kind: "ways"; ways: WaysInfo }
   | { kind: "water"; water: WaterInfo }
   | { kind: "weather"; weather: WeatherReport }
   | { kind: "standing"; standing: StandingInfo }
@@ -2383,6 +2423,12 @@ export function getCrossings(): Uint8Array {
   return query(b, W.QueryBody.GetCrossings, W.GetCrossings.endGetCrossings(b));
 }
 
+export function getWays(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetWays.startGetWays(b);
+  return query(b, W.QueryBody.GetWays, W.GetWays.endGetWays(b));
+}
+
 /** A page of incidents (wire 1.64): `settlement` 0 for every one, `kind` 0 for every kind. */
 export function getIncidents(settlement: number, kind: number, before: IncidentKey | null, limit: number): Uint8Array {
   const b = new flatbuffers.Builder(64);
@@ -2687,6 +2733,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     earthworksRev: Number(s.earthworksRev()),
     weatherRev: Number(s.weatherRev()),
     crossingsRev: Number(s.crossingsRev()),
+    waysRev: Number(s.waysRev()),
     waterRev: Number(s.waterRev()),
     incidentsRev: Number(s.incidentsRev()),
     bands: bandBriefs(s),
@@ -2766,6 +2813,41 @@ function crossings(w: W.Crossings): CrossingsInfo {
     });
   }
   return { rev: Number(w.rev()), crossings: list };
+}
+
+function ways(w: W.Ways): WaysInfo {
+  const list: WayInfo[] = [];
+  for (let i = 0; i < w.waysLength(); i++) {
+    const v = w.ways(i);
+    if (!v) continue;
+    const segments: WaySegmentInfo[] = [];
+    for (let j = 0; j < v.segmentsLength(); j++) {
+      const s = v.segments(j);
+      if (!s) continue;
+      const points: [number, number][] = [];
+      for (let k = 0; k + 1 < s.pointsLength(); k += 2) points.push([s.points(k) ?? 0, s.points(k + 1) ?? 0]);
+      segments.push({
+        points,
+        corridorM: s.corridorM(),
+        builtM: s.builtM(),
+        usableM: s.usableM(),
+        surface: s.surface() ?? "",
+        condition: s.condition(),
+        grade: s.grade(),
+        keeper: s.keeper() ?? "",
+      });
+    }
+    list.push({
+      id: Number(v.id()),
+      rank: v.rank(),
+      rankName: v.rankName() ?? "",
+      modes: v.modes(),
+      tripsADay: v.tripsADay(),
+      segments,
+      words: v.words() ?? "",
+    });
+  }
+  return { rev: Number(w.rev()), ways: list };
 }
 
 function coverageSource(v: W.CoverageSource): CoverageSource {
@@ -4555,6 +4637,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Crossings()) as W.Crossings | null;
       if (!f) break;
       return { kind: "crossings", crossings: crossings(f) };
+    }
+    case W.ResponseBody.Ways: {
+      const f = r.body(new W.Ways()) as W.Ways | null;
+      if (!f) break;
+      return { kind: "ways", ways: ways(f) };
     }
     case W.ResponseBody.Incidents: {
       const f = r.body(new W.Incidents()) as W.Incidents | null;

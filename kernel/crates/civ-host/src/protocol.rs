@@ -211,6 +211,8 @@ pub enum Request {
     GetOrder,
     /// Every crossing over water (wire 1.60).
     GetCrossings,
+    /// Every way people have worked on (wire 1.84, ADR-0029 §9).
+    GetWays,
     /// The wells, springs and water drawn today (wire 1.61).
     GetWater,
     /// A page of incidents of every kind, newest first (wire 1.64, ADR-0015 §8).
@@ -676,6 +678,7 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                 wire::QueryBody::GetGovernment => Ok(Request::GetGovernment),
                 wire::QueryBody::GetOrder => Ok(Request::GetOrder),
                 wire::QueryBody::GetCrossings => Ok(Request::GetCrossings),
+                wire::QueryBody::GetWays => Ok(Request::GetWays),
                 wire::QueryBody::GetWater => Ok(Request::GetWater),
                 wire::QueryBody::GetIncidents => {
                     let b = query
@@ -973,6 +976,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
         .sim
         .map_or(0, civ_sim::frames::crossings::crossings_rev);
     let water_rev = parts.sim.map_or(0, civ_sim::frames::water::water_rev);
+    let ways_rev = parts.sim.map_or(0, civ_sim::frames::ways::ways_rev);
     let incidents_rev = parts
         .sim
         .map_or(0, civ_sim::frames::incidents::incidents_rev);
@@ -1032,6 +1036,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             water_rev,
             incidents_rev,
             bands,
+            ways_rev,
         },
     );
     finish(fbb, root)

@@ -122,7 +122,7 @@ use super::{
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
-    finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V139, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -189,6 +189,8 @@ pub const SECTION_PLACES: SectionTag = SectionTag::new("places");
 pub const SECTION_RELATIONS: SectionTag = SectionTag::new("relation");
 /// Section: crossings over water (schema 68, M5c slice AW).
 pub const SECTION_CROSSINGS: SectionTag = SectionTag::new("crossing");
+/// Section: ways people have worked on (schema 140, M8b slice CM).
+pub const SECTION_WAYS: SectionTag = SectionTag::new("ways");
 /// Section: wells (schema 74, M6a slice AY, step three).
 pub const SECTION_WELLS: SectionTag = SectionTag::new("wells");
 /// Section: infections (schema 75, M6a slice AZ).
@@ -302,6 +304,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         section(SECTION_CONTAGION, 0, encode_contagion(&sim.people, rules)),
         section(SECTION_FIRES, 0, encode_fires(&sim.people)),
         section(SECTION_FLOODS, 0, encode_floods(&sim.land, &sim.people)),
+        section(SECTION_WAYS, 0, encode_ways(&sim.land)),
     ]
 }
 
@@ -606,6 +609,8 @@ enum Schema {
     V138,
     /// Coin struck in the chronicle (M7d slice CE5: chronicle code 61).
     V139,
+    /// Ways (M8b slice CM: the `ways` section).
+    V140,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -759,7 +764,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V136 => Schema::V136,
         SCHEMA_V137 => Schema::V137,
         SCHEMA_V138 => Schema::V138,
-        SAVE_SCHEMA_VERSION => Schema::V139,
+        SCHEMA_V139 => Schema::V139,
+        SAVE_SCHEMA_VERSION => Schema::V140,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1006,6 +1012,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V68 {
         let bytes = single_chunk(reader, SECTION_CROSSINGS)?;
         (land.crossings, people.fords, land.enclosures) = decode_crossings(&bytes, rules, map)?;
+    }
+    // Ways (schema 140); before, none.
+    if schema >= Schema::V140 {
+        let bytes = single_chunk(reader, SECTION_WAYS)?;
+        land.ways = decode_ways(&bytes, map)?;
     }
     // Wells (schema 74); before, none.
     if schema >= Schema::V74 {
@@ -3741,6 +3752,8 @@ fn decode_land(
         // Read from its own section (schema 68 on).
         crossings: Default::default(),
         enclosures: Default::default(),
+        // Read from its own section (schema 140 on).
+        ways: Default::default(),
         // The heads and the store below (schema 72 on); the aquifer derived.
         water: Default::default(),
         // Read from its own section (schema 74 on).
@@ -4462,7 +4475,8 @@ fn carried(
         | Schema::V136
         | Schema::V137
         | Schema::V138
-        | Schema::V139 => {
+        | Schema::V139
+        | Schema::V140 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4774,7 +4788,8 @@ fn decode_households(
             | Schema::V136
             | Schema::V137
             | Schema::V138
-            | Schema::V139 => {
+            | Schema::V139
+            | Schema::V140 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -10516,6 +10531,102 @@ fn encode_wells(land: &Land, rules: &Rules) -> Vec<u8> {
         },
     );
     finish(fbb, root)
+}
+
+/// The ways section (schema 140).
+fn encode_ways(land: &Land) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let list: Vec<_> = land
+        .ways
+        .list
+        .iter()
+        .map(|w| {
+            let segments: Vec<_> = w
+                .segments
+                .iter()
+                .map(|s| {
+                    let cells = fbb.create_vector(&s.cells);
+                    let (keeper, keeper_id) = s.keeper.code();
+                    save::WaySegmentSave::create(
+                        &mut fbb,
+                        &save::WaySegmentSaveArgs {
+                            cells: Some(cells),
+                            corridor_m: s.corridor_m,
+                            built_m: s.built_m,
+                            usable_m: s.usable_m,
+                            surface: s.surface.code(),
+                            keeper,
+                            keeper_id,
+                            kept: s.kept,
+                        },
+                    )
+                })
+                .collect();
+            let segments = fbb.create_vector(&segments);
+            save::WayLineSave::create(
+                &mut fbb,
+                &save::WayLineSaveArgs {
+                    id: w.id.get(),
+                    begun: w.begun,
+                    segments: Some(segments),
+                    modes: w.modes,
+                    trips: w.trips,
+                    trips_day: w.trips_day,
+                    rank: w.rank.code(),
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let root = save::WaysSave::create(
+        &mut fbb,
+        &save::WaysSaveArgs {
+            list: Some(list),
+            revision: land.ways.revision(),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// The ways saved in `bytes`. One with an unknown surface, keeper or rank, a cell off the map,
+/// or widths out of order is malformed.
+fn decode_ways(bytes: &[u8], map: &WorldMap) -> Result<civ_land::ways::Ways, LoadError> {
+    use civ_land::ways::{Keeper, Rank, Segment, Surface, Way, Ways};
+    let root = section_root::<save::WaysSave>(bytes).map_err(|e| unreadable(SECTION_WAYS, &e))?;
+    let mut list = Vec::new();
+    for w in root.list().iter().flatten() {
+        let id = required(w.id(), "a way")?;
+        let bad = |what: &str| LoadError::Malformed(format!("way {id} has {what}"));
+        let mut segments = Vec::new();
+        for s in w.segments().iter().flatten() {
+            segments.push(Segment {
+                cells: s.cells().map(|c| c.iter().collect()).unwrap_or_default(),
+                corridor_m: s.corridor_m(),
+                built_m: s.built_m(),
+                usable_m: s.usable_m(),
+                surface: Surface::from_code(s.surface())
+                    .ok_or_else(|| bad(&format!("surface code {}", s.surface())))?,
+                keeper: Keeper::from_code(s.keeper(), s.keeper_id())
+                    .ok_or_else(|| bad(&format!("keeper code {}", s.keeper())))?,
+                kept: s.kept(),
+            });
+        }
+        list.push(Way {
+            id,
+            begun: w.begun(),
+            segments,
+            modes: w.modes(),
+            trips: w.trips(),
+            trips_day: w.trips_day(),
+            rank: Rank::from_code(w.rank())
+                .ok_or_else(|| bad(&format!("rank code {}", w.rank())))?,
+        });
+    }
+    let ways = Ways::with_revision(list, root.revision());
+    if let Some(p) = ways.problems(map.width * map.height).into_iter().next() {
+        return Err(LoadError::Malformed(p));
+    }
+    Ok(ways)
 }
 
 /// The wells saved in `bytes`. A well of a system the loaded content no longer has is dropped;

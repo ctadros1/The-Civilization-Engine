@@ -310,6 +310,13 @@ export class HostClient {
     return body.earthworks;
   }
 
+  /** Every way people have worked on (wire 1.84). */
+  async ways(): Promise<M.WaysInfo> {
+    const body = await this.query(M.getWays());
+    if (body.kind !== "ways") throw new HostError("internal", "expected ways");
+    return body.ways;
+  }
+
   async crossings(): Promise<M.CrossingsInfo> {
     const body = await this.query(M.getCrossings());
     if (body.kind !== "crossings") throw new HostError("internal", "expected crossings");

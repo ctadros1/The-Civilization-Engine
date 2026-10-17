@@ -1592,7 +1592,13 @@ impl Sim {
                     Cadence::Month => {
                         advance.months += 1;
                         // People plan their routes on the paths as they stand this month.
-                        land.wear.survey(at.day_index(), &rules.land.paths);
+                        // Kept ways hold their ground before it is surveyed (ADR-0029 §1).
+                        let day = at.day_index();
+                        let holds = land.ways.holds(day, &rules.land.paths);
+                        land.wear.hold(&holds, day, &rules.land.paths);
+                        land.wear.survey(day, &rules.land.paths);
+                        land.ways
+                            .survey(day, &land.settlements, map.width, map.cell_size_m);
                         people.note_trails(land, at);
                     }
                     Cadence::Year => {

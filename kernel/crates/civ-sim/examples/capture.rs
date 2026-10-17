@@ -16,6 +16,12 @@
 //! With `TCE_SMELT_DAY=<day>` set, the observer introduces copper smelting on that day to the
 //! grown members of the largest household of the first village (the knowledge tool; logged as
 //! `INTRODUCED`), for the M7d demo's metal (ADR-0027 §6); the world's metal is tallied at the end.
+//! The run is then the M7d demo: it looks for the steps of credit and coin (`MONEY_STEPS`) in
+//! place of capture's, and nudges, if nobody has lent by its time box, only ADR-0027 §7's priors:
+//! the trust a lender gives a stranger (`credit.p_prior`) and the customary increment
+//! (`credit.customary_increment`), never a loan, a mint or a piece of coin. At the end it tallies
+//! the coin: issues, metal brought, coin paid by stores and in levies, foreign pieces held, each
+//! village's coin in the wealth panel's words, and the chronicle's entries of coin struck.
 //!
 //! ```sh
 //! cargo run --release -p civ-sim --example capture -- <saves folder> [seed]
@@ -23,7 +29,6 @@
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::polity::{LawStatus, Membership, PolicyKind};
 use civ_sim::{NewWorld, SPEED_MAX, Sim, persist};
@@ -57,6 +62,35 @@ struct Nudge {
     to: f64,
     set: fn(&mut civ_agents::params::PeopleParams, f64) -> f64,
 }
+
+/// The steps of credit and coin the M7d demo looks for, in order (with `TCE_SMELT_DAY` set).
+const MONEY_STEPS: [&str; 5] = [
+    "a loan made",
+    "copper smelted",
+    "a mint in force",
+    "coin struck",
+    "coin paid from a common store or in a levy",
+];
+
+/// The M7d demo's nudges: lending priors only (ADR-0027 §7).
+const MONEY_NUDGES: [Nudge; 2] = [
+    Nudge {
+        day: 360,
+        step: 0,
+        what: "the chance a lender believes a loan to a stranger will not be repaid",
+        prior: "credit.p_prior",
+        to: 0.1,
+        set: |p, v| std::mem::replace(&mut p.credit.p_prior, v),
+    },
+    Nudge {
+        day: 540,
+        step: 0,
+        what: "the increment a lender asks at the least, a share of what it lent",
+        prior: "credit.customary_increment",
+        to: 0.33,
+        set: |p, v| std::mem::replace(&mut p.credit.customary_increment, v),
+    },
+];
 
 const NUDGES: [Nudge; 2] = [
     Nudge {
@@ -154,6 +188,104 @@ fn laws_words(sim: &Sim) -> Vec<String> {
     out
 }
 
+/// Which of `MONEY_STEPS` the world has reached.
+fn money_reached(sim: &Sim) -> [bool; 5] {
+    use civ_agents::ledger::Channel;
+    let pop = sim.people();
+    let goods = &sim.rules().catalog.goods;
+    let at = |id: &str| goods.iter().position(|g| g.id == id);
+    let held = |g: Option<usize>| {
+        g.is_some_and(|g| {
+            pop.households
+                .iter()
+                .any(|(_, x)| x.stores.get(g).is_some_and(|&v| v > 1e-6))
+                || pop
+                    .polities
+                    .iter()
+                    .any(|p| p.stores.get(g).is_some_and(|&v| v > 1e-6))
+        })
+    };
+    let coin = at("core:good/coin");
+    let paid = |c: Channel| coin.is_some_and(|g| pop.transfers.get(c, g) > 0.0);
+    [
+        !pop.order.credit.claims.is_empty(),
+        held(at("core:good/copper")) || held(at("core:good/copper_axe")),
+        pop.polities.iter().any(|p| p.minter().is_some()),
+        !pop.order.coinage.cohorts.is_empty(),
+        paid(Channel::Wage) || paid(Channel::Levy),
+    ]
+}
+
+/// The world's coin, in words: what was struck, brought and paid, foreign pieces held, each
+/// village's coin as the wealth panel says it, and the chronicle's entries of coin struck.
+fn coin_words(sim: &Sim) -> Vec<String> {
+    use civ_agents::ledger::Channel;
+    let pop = sim.people();
+    let goods = &sim.rules().catalog.goods;
+    let at = |id: &str| goods.iter().position(|g| g.id == id);
+    let coinage = &pop.order.coinage;
+    let moved = |c: Channel, g: Option<usize>| g.map_or(0.0, |g| pop.transfers.get(c, g));
+    let (copper, coin) = (at("core:good/copper"), at("core:good/coin"));
+    let mut issuers: Vec<_> = coinage.cohorts.iter().map(|c| c.issuer).collect();
+    issuers.sort_unstable();
+    issuers.dedup();
+    let mut out = vec![
+        format!(
+            "  coin: {} issues struck by {} mints, {:.0} pieces in being; {:.2} kg of copper \
+             brought to a mint, {:.2} kg waiting there",
+            coinage.cohorts.len(),
+            issuers.len(),
+            coinage.cohorts.iter().fold(0.0, |a, c| a + c.count),
+            moved(Channel::Mint, copper),
+            coinage.brought.iter().fold(0.0, |a, b| a + b.metal_kg),
+        ),
+        format!(
+            "  coin paid: {:.0} pieces as wages or pay for common work, {:.0} pieces in levies",
+            moved(Channel::Wage, coin),
+            moved(Channel::Levy, coin),
+        ),
+    ];
+    // Pieces a household holds of an issue not its own polity's.
+    let foreign: f64 = pop
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .filter_map(|x| {
+            let home = pop.polities.iter().find(|p| p.holds(x.settlement))?.id;
+            let purse = coinage.purse(x.id)?;
+            Some(
+                purse
+                    .counts
+                    .iter()
+                    .filter(|&&(id, _)| coinage.cohort(id).is_some_and(|c| c.issuer != home))
+                    .map(|&(_, n)| n)
+                    .sum::<f64>(),
+            )
+        })
+        .fold(0.0, |a, n| a + n);
+    out.push(format!("  foreign pieces households hold: {foreign:.0}"));
+    let mut villages: Vec<_> = pop
+        .households
+        .iter()
+        .filter_map(|(_, x)| x.settlement)
+        .collect();
+    villages.sort_unstable();
+    villages.dedup();
+    for v in villages {
+        for w in civ_sim::frames::wealth::coin_words(sim, v) {
+            out.push(format!("  coin at village {v}: {w}"));
+        }
+    }
+    for e in pop
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == civ_agents::ChronicleKind::CoinStruck)
+    {
+        out.push(format!("  day {}: {}", e.at.day_index(), e.name));
+    }
+    out
+}
+
 /// Lives one world from `seed`: what happened, in words.
 fn make(saves: &Path, seed: u64) -> Result<String, String> {
     let root = civ_content::find_content_root(Path::new(env!("CARGO_MANIFEST_DIR")))
@@ -161,7 +293,7 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
     let content = civ_content::load(&root)
         .registry
         .ok_or("the content does not load: run `civ-host content validate`")?;
-    let mut sim = Sim::create(
+    let mut sim = Sim::create_for_tests(
         &NewWorld {
             name: NAME.to_owned(),
             seed,
@@ -173,8 +305,9 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
             regime_id: String::new(),
         },
         &content,
-        &mut |_| {},
-        &AtomicBool::new(false),
+        // A fixed identity, so the demo lives the same life every run (an identity orders the
+        // events of an instant).
+        [7; 16],
     )
     .map_err(|e| e.to_string())?;
     sim.set_speed(SPEED_MAX).map_err(|e| e.to_string())?;
@@ -182,11 +315,18 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
     let world_dir = saves.join(persist::world_dir_name(sim.meta()));
     let dir = SaveDir::create(world_dir, civ_schema::SAVE_EXTENSION).map_err(|e| e.to_string())?;
     let mut log = vec![format!("world (seed {seed}):")];
-    let mut nudged = [false; NUDGES.len()];
-    let mut first = [None::<i64>; STEPS.len()];
     let smelt_day: Option<i64> = std::env::var("TCE_SMELT_DAY")
         .ok()
         .and_then(|d| d.parse().ok());
+    // With smelting introduced, the run is the M7d demo.
+    let money = smelt_day.is_some();
+    let (steps, nudges): (&[&str], &[Nudge]) = if money {
+        (&MONEY_STEPS, &MONEY_NUDGES)
+    } else {
+        (&STEPS, &NUDGES)
+    };
+    let mut nudged = vec![false; nudges.len()];
+    let mut first = vec![None::<i64>; steps.len()];
     let mut day = 0;
     while day < MAX_DAYS {
         sim.advance_minutes(DAY).map_err(|e| e.to_string())?;
@@ -200,8 +340,12 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
             log.push(format!("day {today}: the valley is empty"));
             break;
         }
-        let now = reached(&sim);
-        for (i, step) in STEPS.iter().enumerate() {
+        let now = if money {
+            money_reached(&sim).to_vec()
+        } else {
+            reached(&sim).to_vec()
+        };
+        for (i, step) in steps.iter().enumerate() {
             if now[i] && first[i].is_none() {
                 log.push(format!("day {today}: {step}"));
                 first[i] = Some(day);
@@ -210,7 +354,7 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
         if smelt_day == Some(day) {
             log.extend(introduce_smelting(&mut sim)?);
         }
-        for (n, done) in NUDGES.iter().zip(nudged.iter_mut()) {
+        for (n, done) in nudges.iter().zip(nudged.iter_mut()) {
             if *done || day < n.day || first[n.step].is_some() {
                 continue;
             }
@@ -220,7 +364,7 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
             let was = (n.set)(&mut rules.people, n.to);
             log.push(format!(
                 "day {today}: NUDGE ({}): {} days lived and not yet {}; {} {was} -> {}",
-                n.what, n.day, STEPS[n.step], n.prior, n.to
+                n.what, n.day, steps[n.step], n.prior, n.to
             ));
             *done = true;
         }
@@ -339,6 +483,9 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
             .count(),
     ));
     log.extend(metal_words(&sim));
+    if money {
+        log.extend(coin_words(&sim));
+    }
     log.extend(laws_words(&sim).into_iter().map(|w| format!("  {w}")));
     for p in &sim.people().polities {
         let label = civ_sim::labels::label_of(&sim, p);
@@ -350,8 +497,8 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
     let saved = persist::save(&mut sim, &dir, SaveKind::Manual, "After the years")
         .map_err(|e| e.to_string())?;
     log.push(format!("saved {}", saved.path.display()));
-    let steps = first.iter().filter(|f| f.is_some()).count();
-    log.push(format!("reached {steps} of {} steps", STEPS.len()));
+    let got = first.iter().filter(|f| f.is_some()).count();
+    log.push(format!("reached {got} of {} steps", steps.len()));
     Ok(log.join("\n"))
 }
 

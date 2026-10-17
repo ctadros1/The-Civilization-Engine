@@ -75,8 +75,20 @@ loansLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+coin(index: number):string
+coin(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+coin(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+coinLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startSettlementWealth(builder:flatbuffers.Builder) {
-  builder.startObject(6);
+  builder.startObject(7);
 }
 
 static addSettlement(builder:flatbuffers.Builder, settlement:bigint) {
@@ -136,6 +148,22 @@ static createLoansVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[])
 }
 
 static startLoansVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addCoin(builder:flatbuffers.Builder, coinOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(6, coinOffset, 0);
+}
+
+static createCoinVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startCoinVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 

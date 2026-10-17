@@ -295,6 +295,7 @@ impl Population {
             owed.push((b.household, take));
         }
         self.order.coinage.brought.retain(|b| b.metal_kg > 1e-9);
+        self.chronicle_struck(ctx, pi, def, kg / mk);
         let day = ctx.now.day_index();
         let fee = f64::from(def.fee);
         let mut kept = 0.0;
@@ -309,6 +310,76 @@ impl Population {
         if kept > 0.0 {
             self.put_struck(coin, polity, polity, day, kept, def.mass_g, def.fineness);
         }
+    }
+
+    /// The chronicle's words when polity `pi`'s mint strikes `pieces` under `def` and its last
+    /// issue, if any, was of other terms: its first coin, or a lighter, heavier or baser one.
+    fn chronicle_struck(&mut self, ctx: &Ctx, pi: usize, def: &MintDef, pieces: f64) {
+        let polity = self.polities[pi].id;
+        let last = self
+            .order
+            .coinage
+            .cohorts
+            .iter()
+            .rev()
+            .find(|c| c.issuer == polity)
+            .map(|c| (c.mass_g, c.fineness));
+        if last == Some((def.mass_g, def.fineness)) {
+            return;
+        }
+        let settlement = self.polities[pi].settlement;
+        let (place, name) = ctx
+            .land
+            .settlements
+            .iter()
+            .find(|s| s.id == settlement)
+            .map_or((None, String::new()), |s| {
+                (Some(s.hearth_m), s.name.clone())
+            });
+        let keeper = self.polities[pi].minter().map(|(h, _)| h);
+        let who = keeper.map_or("The mint".to_owned(), |h| {
+            format!("{}, keeper of the mint,", self.name_of(h))
+        });
+        let metal = ctx
+            .catalog
+            .recipes
+            .get(def.recipe)
+            .and_then(|r| r.inputs.first())
+            .and_then(|&(g, _)| ctx.catalog.goods.get(g))
+            .map_or("metal".to_owned(), |g| g.name.to_lowercase());
+        let terms = format!(
+            "{:.0} g pieces of {metal}{}",
+            def.mass_g,
+            if def.fineness < 1.0 {
+                format!(", {:.0} % fine", f64::from(def.fineness) * 100.0)
+            } else {
+                String::new()
+            }
+        );
+        let words = match last {
+            None => format!(
+                "{who} struck the first coin at {name}: {pieces:.0} {terms}, a {:.0} % fee kept.",
+                f64::from(def.fee) * 100.0
+            ),
+            Some((mass, fine)) => format!(
+                "{who} struck coin of new terms at {name}: {pieces:.0} {terms}, where the last \
+                 were {mass:.0} g{}.",
+                if fine < 1.0 {
+                    format!(", {:.0} % fine", f64::from(fine) * 100.0)
+                } else {
+                    String::new()
+                }
+            ),
+        };
+        self.chronicle_push(
+            ctx.now,
+            ChronicleKind::CoinStruck,
+            keeper.into_iter().collect(),
+            Some(settlement),
+            place,
+            pieces,
+            words,
+        );
     }
 
     /// For tests: the minter of polity `polity` strikes `units` of its mint's recipe.

@@ -2695,3 +2695,18 @@ API 131.
 
 **Lived:** nothing yet.
 
+## 2026-10-17 — CE5: the M7d demo, and M7 implemented
+
+**Built:** the chronicle now records a village's first coin and any coin struck to new terms, and
+the wealth panel tells each village's coin in sentences: its mint, the pieces struck, metal
+waiting, the store's pieces and whose coin its households hold. Save schema 139, wire 1.83.
+
+**Lived:** three villages of 40 for four years, two seeds, with copper smelting taught to one
+household in each. Both lent and borrowed grain within their first year, with no nudge: 84 loans
+in all, 54 of them from common stores, more than a third defaulted, some brought before the
+gathering. A rerun of the first seed lived a different life, which found the old flake of the
+polity test: a new world drew its identity, and so its tie-breaks, at random; tests and this demo
+now make worlds of a fixed identity. Nobody smelted copper. The households taught to smelt still had plenty of stone axes,
+and a household makes a tool only when it runs short, so no copper was made, no metal was weighed,
+and no mint was ever proposed. Credit comes from need; coin waits on metal; metal waits on tools
+wearing out. That closes M7d, and with it M7.

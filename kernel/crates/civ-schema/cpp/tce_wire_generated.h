@@ -15831,7 +15831,8 @@ struct SettlementWealth FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_NOW = 8,
     VT_HOUSEHOLDS = 10,
     VT_HISTORY = 12,
-    VT_LOANS = 14
+    VT_LOANS = 14,
+    VT_COIN = 16
   };
   uint64_t settlement() const {
     return GetField<uint64_t>(VT_SETTLEMENT, 0);
@@ -15851,6 +15852,9 @@ struct SettlementWealth FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *loans() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_LOANS);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *coin() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_COIN);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -15868,6 +15872,9 @@ struct SettlementWealth FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_LOANS) &&
            verifier.VerifyVector(loans()) &&
            verifier.VerifyVectorOfStrings(loans()) &&
+           VerifyOffset(verifier, VT_COIN) &&
+           verifier.VerifyVector(coin()) &&
+           verifier.VerifyVectorOfStrings(coin()) &&
            verifier.EndTable();
   }
 };
@@ -15894,6 +15901,9 @@ struct SettlementWealthBuilder {
   void add_loans(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> loans) {
     fbb_.AddOffset(SettlementWealth::VT_LOANS, loans);
   }
+  void add_coin(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coin) {
+    fbb_.AddOffset(SettlementWealth::VT_COIN, coin);
+  }
   explicit SettlementWealthBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -15912,9 +15922,11 @@ inline ::flatbuffers::Offset<SettlementWealth> CreateSettlementWealth(
     ::flatbuffers::Offset<tce::wire::WealthSpread> now = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::HouseholdWealth>>> households = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::WealthSpread>>> history = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> loans = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> loans = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> coin = 0) {
   SettlementWealthBuilder builder_(_fbb);
   builder_.add_settlement(settlement);
+  builder_.add_coin(coin);
   builder_.add_loans(loans);
   builder_.add_history(history);
   builder_.add_households(households);
@@ -15935,11 +15947,13 @@ inline ::flatbuffers::Offset<SettlementWealth> CreateSettlementWealthDirect(
     ::flatbuffers::Offset<tce::wire::WealthSpread> now = 0,
     const std::vector<::flatbuffers::Offset<tce::wire::HouseholdWealth>> *households = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::WealthSpread>> *history = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *loans = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *loans = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *coin = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto households__ = households ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::HouseholdWealth>>(*households) : 0;
   auto history__ = history ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::WealthSpread>>(*history) : 0;
   auto loans__ = loans ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*loans) : 0;
+  auto coin__ = coin ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*coin) : 0;
   return tce::wire::CreateSettlementWealth(
       _fbb,
       settlement,
@@ -15947,7 +15961,8 @@ inline ::flatbuffers::Offset<SettlementWealth> CreateSettlementWealthDirect(
       now,
       households__,
       history__,
-      loans__);
+      loans__,
+      coin__);
 }
 
 struct Wealth FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

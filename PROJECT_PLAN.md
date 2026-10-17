@@ -3692,6 +3692,38 @@ and M6a gives rivers a daily flow.
         paying with a newer foreign issue before its own older one and valuing a piece at 90 % of
         the copper in it less the weighing. **Not yet built:** the exchange rate the observer would
         derive from such takings (CE5's demo reads it if a world comes to it).
+    - **CE5**: the M7d demo, time-boxed, nudges logged.
+      - *As built (2026-10-17):* save schema 139 (chronicle code 61), wire 1.83 (content unchanged).
+        **The chronicle** records a polity's mint striking its first coin, and coin of other terms
+        than the last it struck (lighter, heavier or baser), naming the keeper, the pieces and
+        their weight; more of the same coin is not news. **The observer:** the wealth panel says
+        each village's coin in sentences (`SettlementWealth.coin`): where it is a polity's seat,
+        who keeps the mint and on what terms, each kind of piece struck there with its days, metal
+        waiting to be struck and the common store's pieces; then what its households hold, by whose
+        issue, another polity's marked as taken by weight at its discount. **The M7d demo**
+        (`civ-sim --example capture` with `TCE_SMELT_DAY=30`, `demos/m7d/m7d-demo.txt`): three
+        villages of 40, four years, of a fixed identity so each run lives the same life, the
+        observer teaching copper smelting to the grown members of one household on day 90; the run
+        looks for a loan, copper smelted, a mint, coin struck and
+        coin paid from a store or in a levy, and may nudge only ADR-0027 §7's lending priors (a
+        lender's trust in a stranger, the customary increment) if nobody has lent by day 360 or
+        540. Neither nudge was needed: seed 1's first loan came on day 234 and seed 2's on day 219;
+        over four years seed 1 made 60 loans (43 from the common store; 18 repaid, 18 defaulted, 6
+        refused at the due day, 20 granted time, 6 debts brought and found) and seed 2 made 24 (11
+        from the store; 9 repaid, 12 defaulted, 1 refused, 12 granted time; 11 debts brought, 2
+        found, 9 unheard or lapsed). Nobody smelted: the taught village knew 1 of 7 ore bodies
+        (seed 1) or none of 8 (seed 2), and its households held 18.7 and 19.3 stone axes between
+        them, so none needed a new axe, none made copper, no
+        village weighed metal, and no mint, coin, pay in coin or levy in coin arose. The outcome
+        recorded is ADR-0027's "without metal in a world, there is no coin": credit comes from
+        need within a year, coin waits on metal, and metal waits on tools wearing out. Tests show
+        the mint's first issue in the chronicle and the panel's words, saved and loaded.
+        **Not yet built:** metal sought for its own sake (ornament, store of value) before tools
+        wear out; coin in a lived world.
+    - **M7d closed (2026-10-17):** credit in goods, pledges, default and debts heard, keepers and
+      store lending, money's worth to its holder, metal, the mint, pay and levies in coin,
+      assay, debasement and foreign coin are built; the demo lived credit and recorded that coin
+      did not come. With M7a-M7d, M7 is implemented; M8 is next.
 
 **M8: The growing city (v1).**
 - *Contents:*
@@ -4857,4 +4889,14 @@ One line each. Don't re-litigate without a reason written next to the entry.
     and per-thread search caches keyed by grid, and the one threaded search (landmarks) writes
     each job's result by its index. **Still not found:** what the suite run differs in (its other
     test binaries run before it, not beside it); next, keep the failing run's digests.
+  - *Found, 2026-10-17 (slice CE5):* not load at all. A world made by `Sim::create` draws a
+    fresh identity from the OS each run, and the identity seeds the scheduler's tie-breaks (the
+    order of an instant's events), so one seed lives a different life each run; the M7d demo's
+    seed 1, run twice, made its first loan on day 234 and on day 229. The polity test, and 26
+    other test files, made their worlds that way, so each run of the suite drew new lives and this
+    scene's gathering sometimes decided outside its 30 days. **Fixed:** every test now makes its
+    world with a fixed identity (`Sim::create_for_tests`, as the newer tests already did), and so
+    does the capture example; a world's own identity still orders its own life, and the
+    observer's new worlds keep a fresh one. The other demo examples keep `Sim::create`, so their
+    recorded runs are each one draw among many.
 

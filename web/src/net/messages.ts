@@ -1585,6 +1585,12 @@ export interface SettlementWealth {
    * a year, newest first, in the kernel's words.
    */
   loans: string[];
+  /**
+   * Wire 1.83 (M7d slice CE): its coin in the kernel's words: the mint where it is a polity's
+   * seat, each kind of piece struck there, metal waiting and the store's pieces, then what its
+   * households hold by whose issue. Empty where there is no coin.
+   */
+  coin: string[];
 }
 
 export interface WealthInfo {
@@ -3859,6 +3865,7 @@ function wealth(w: W.Wealth): WealthInfo {
       households,
       history,
       loans: Array.from({ length: s.loansLength() }, (_, k) => s.loans(k) ?? ""),
+      coin: Array.from({ length: s.coinLength() }, (_, k) => s.coin(k) ?? ""),
     });
   }
   return { rev: Number(w.rev()), regimeName: w.regimeName() ?? "", settlements };

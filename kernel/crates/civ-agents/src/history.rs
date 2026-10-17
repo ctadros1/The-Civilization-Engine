@@ -858,6 +858,10 @@ pub enum ChronicleKind {
     /// Two factions' organizers agreed an alliance for an election (M7a slice BQ): `people` the
     /// two organizers.
     AllianceMade,
+    /// A polity's mint struck its first coin, or coin of other terms than the last it struck (M7d
+    /// slice CE, ADR-0027 §6): `people` is its keeper, `settlement` the polity's seat, `place` its
+    /// hearth, `number` the pieces struck, and `name` the sentence.
+    CoinStruck,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1515,7 +1519,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::LotDrawn
         | ChronicleKind::ElectionCalled
         | ChronicleKind::ElectionHeld
-        | ChronicleKind::AllianceMade => {
+        | ChronicleKind::AllianceMade
+        | ChronicleKind::CoinStruck => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

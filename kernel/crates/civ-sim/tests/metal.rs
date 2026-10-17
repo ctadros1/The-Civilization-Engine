@@ -988,3 +988,96 @@ fn foreign_coin_goes_first_and_is_taken_by_weight_at_a_discount() {
         "{w} against {copper_h}"
     );
 }
+
+#[test]
+fn the_first_coin_struck_is_chronicled_and_the_wealth_panel_tells_the_coin() {
+    use civ_agents::ChronicleKind;
+    let (mut sim, hh, minter) = mint_scene(3);
+    let settlement = sim
+        .people()
+        .household(hh)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    // No mint and no coin: the panel says nothing of it.
+    assert!(civ_sim::frames::wealth::coin_words(&sim, settlement).is_empty());
+    let polity = mint_in_force(&mut sim, hh, minter);
+    bought_with_coin(&mut sim, hh, 50.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.bring_to_mints_for_tests(ctx));
+    let words = civ_sim::frames::wealth::coin_words(&sim, settlement);
+    assert!(
+        words
+            .iter()
+            .any(|w| w.contains("keeps the mint, striking 8 g pieces of copper at a 3 % fee")),
+        "{words:?}"
+    );
+    assert!(
+        words
+            .iter()
+            .any(|w| w.contains("2.0 kg of metal waits at the mint")),
+        "{words:?}"
+    );
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.strike_mint_for_tests(ctx, polity, 10.0)));
+    let struck = |sim: &Sim| {
+        sim.people()
+            .chronicle
+            .iter()
+            .filter(|e| e.kind == ChronicleKind::CoinStruck)
+            .cloned()
+            .collect::<Vec<_>>()
+    };
+    let entries = struck(&sim);
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].people, vec![minter]);
+    assert!((entries[0].number - 250.0).abs() < 1e-6);
+    assert!(
+        entries[0].name.contains("struck the first coin")
+            && entries[0].name.contains("250 8 g pieces of copper"),
+        "{}",
+        entries[0].name
+    );
+    let words = civ_sim::frames::wealth::coin_words(&sim, settlement);
+    assert!(
+        words
+            .iter()
+            .any(|w| w.starts_with("250 pieces of 8 g struck here on")),
+        "{words:?}"
+    );
+    assert!(
+        words
+            .iter()
+            .any(|w| w.starts_with("The common store holds")),
+        "{words:?}"
+    );
+    assert!(
+        words
+            .iter()
+            .any(|w| w.starts_with("Its households hold") && w.contains("'s issue")),
+        "{words:?}"
+    );
+    // More of the same coin is not news.
+    let copper = good(&sim, "core:good/copper");
+    for (_, x) in sim.people_mut_for_tests().households.iter_mut() {
+        if x.id == hh {
+            x.stores[copper] = 1.0;
+        }
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.bring_to_mints_for_tests(ctx));
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.strike_mint_for_tests(ctx, polity, 10.0)));
+    // Struck the same day, the pieces join that day's issue.
+    let cohorts = &sim.people().order.coinage.cohorts;
+    assert_eq!(cohorts.len(), 1);
+    assert!(
+        (cohorts[0].count - 375.0).abs() < 1e-6,
+        "{}",
+        cohorts[0].count
+    );
+    assert_eq!(struck(&sim).len(), 1);
+    // The entry is saved and loaded as it was.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved = civ_sim::persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "coin")
+        .expect("saves");
+    let loaded = civ_sim::persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(struck(&loaded), struck(&sim));
+}

@@ -1690,6 +1690,12 @@ table SettlementWealth {
   // owes Mira's household 40 kg of grain, lent on 3 May of year 2, due on 9 September of year
   // 2").
   loans: [string] (id: 5);
+  // Wire 1.83 (M7d slice CE, ADR-0027 §6): its coin, in the kernel's words: where it is a
+  // polity's seat, who keeps the mint and on what terms, each kind of piece struck there, metal
+  // waiting to be struck and what the common store holds; then what its households hold, by whose
+  // issue ("Its households hold 243 pieces: 200 of Ashford's issue, 43 of Bree's, taken by weight
+  // 10 % off"). Empty where there is no coin.
+  coin: [string] (id: 6);
 }
 
 table Wealth {

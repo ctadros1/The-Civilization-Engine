@@ -1,0 +1,209 @@
+# The M7d demo (civ-sim --example capture with TCE_SMELT_DAY=30, seeds 1-2, 2026-10-17): three
+# villages of 40, four years each, of a fixed identity (each run lives the same life), copper
+# smelting taught by the observer on day 90, and the lending priors it may nudge logged. <saves>
+# stands for this run's scratch folder.
+
+world (seed 1):
+day 90: INTRODUCED (observer): copper smelting to Nell of household 13
+day 90: INTRODUCED (observer): copper smelting to Belo of household 13
+day 90: INTRODUCED (observer): copper smelting to Kellan of household 13
+day 180: 121 people
+day 234: a loan made
+day 300: 120 people
+day 420: 123 people
+day 540: 127 people
+day 660: 128 people
+day 780: 128 people
+day 900: 131 people
+day 1020: 130 people
+day 1140: 127 people
+day 1260: 130 people
+day 1380: 130 people
+day 1500: 129 people
+lived 1440 days, to day 1500; 129 people
+  purchases at another settlement's door its markets still remember: 0
+  loans: 60 asked, 0 refused, 60 made (18 open, 18 repaid, 18 defaulted, 6 refused at the due day, 0 lapsed)
+  loans from the common store: 43
+  pledges: 0 against a field's use (0 taken), 0 with a guarantor (0 called on, 0 guarantor's claims); 20 asked for time, 20 granted
+  wages owed by workshops: 0 (0 paid, 0 unpaid when due)
+  debts brought: 6 (6 found, 0 not found, 0 unheard or lapsed)
+  metal at village 1: 3 know smelting; knows 1 of 7 ore bodies; 0.0 kg ore, 0.00 kg copper, 0.00 copper axes, 18.72 stone axes
+  metal at village 51: 0 know smelting; knows 1 of 7 ore bodies; 0.0 kg ore, 0.00 kg copper, 0.00 copper axes, 21.95 stone axes
+  metal at village 100: 0 know smelting; knows 2 of 7 ore bodies; 0.0 kg ore, 0.00 kg copper, 0.00 copper axes, 16.00 stone axes
+  coin: 0 issues struck by 0 mints, 0 pieces in being; 0.00 kg of copper brought to a mint, 0.00 kg waiting there
+  coin paid: 0 pieces as wages or pay for common work, 0 pieces in levies
+  foreign pieces households hold: 0
+  Seat a council proposed on day 241 by Soren: Superseded (26 for, 0 against, 26 came)
+  Lending from the store proposed on day 276 by Wil: Rejected (2 for, 0 against, 3 came)
+  Seat a council proposed on day 283 by Abran: Superseded (5 for, 0 against, 5 came)
+  Lending from the store proposed on day 290 by Bram: InForce (2 for, 1 against, 5 came)
+  Seat a council proposed on day 325 by Aud: Superseded (3 for, 0 against, 3 came)
+  Debts heard, with time proposed on day 661 by Wil: InForce (3 for, 2 against, 5 came)
+  Seat a council proposed on day 668 by Orla: Superseded (5 for, 0 against, 5 came)
+  Amend the custom proposed on day 675 by Orla: Superseded (3 for, 2 against, 5 came)
+  Seat a council proposed on day 1291 by Brannoc: Superseded (23 for, 0 against, 24 came)
+  Seat a council proposed on day 1480 by Kellan: InForce (3 for, 0 against, 3 came)
+  Seat a council proposed on day 108 by Runa: Superseded (21 for, 0 against, 23 came)
+  Seat a council proposed on day 262 by Runa: Superseded (3 for, 0 against, 3 came)
+  Lending from the store proposed on day 276 by Gala: InForce (3 for, 1 against, 5 came)
+  Seat a council proposed on day 297 by Kellan: Superseded (5 for, 0 against, 5 came)
+  Duty on tools proposed on day 556 by Moss: InForce (4 for, 0 against, 5 came)
+  Duty on tools, collected proposed on day 563 by Fara: InForce (3 for, 2 against, 5 came)
+  Embargo proposed on day 570 by Orla: Rejected (0 for, 0 against, 1 came)
+  Embargo proposed on day 577 by Fara: Rejected (0 for, 0 against, 0 came)
+  Debts heard, with time proposed on day 696 by Runa: Rejected (0 for, 0 against, 0 came)
+  Debts heard, with time proposed on day 703 by Brannoc: Rejected (3 for, 0 against, 4 came)
+  Seat a council proposed on day 710 by Dunmar: Rejected (3 for, 0 against, 4 came)
+  Debts heard proposed on day 717 by Runa: InForce (4 for, 1 against, 5 came)
+  Embargo proposed on day 724 by Lark: InForce (4 for, 0 against, 5 came)
+  Seat a council proposed on day 731 by Kellan: Superseded (5 for, 0 against, 5 came)
+  Amend the custom proposed on day 1235 by Runa: Superseded (5 for, 0 against, 5 came)
+  Seat a council proposed on day 1249 by Gala: Superseded (28 for, 0 against, 29 came)
+  Seat a council proposed on day 1298 by Elva: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 1319 by Fenn: Rejected (3 for, 0 against, 4 came)
+  Seat a council proposed on day 1340 by Lark: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 1382 by Abran: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 1389 by Abran: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 1431 by Iver: InForce (5 for, 0 against, 5 came)
+  Lending from the store proposed on day 269 by Jask: InForce (15 for, 2 against, 24 came)
+  Seat a council proposed on day 276 by Pirra: Superseded (24 for, 0 against, 24 came)
+  Seat a council proposed on day 311 by Brisa: Rejected (4 for, 0 against, 4 came)
+  Seat a council proposed on day 479 by Brisa: Rejected (4 for, 0 against, 4 came)
+  Seat a council proposed on day 486 by Brisa: Superseded (4 for, 0 against, 5 came)
+  Seat a council proposed on day 584 by Aud: InForce (4 for, 0 against, 5 came)
+  Debts heard, with time proposed on day 675 by Una: Rejected (3 for, 0 against, 3 came)
+  Debts heard, with time proposed on day 682 by Ulmer: Rejected (2 for, 0 against, 3 came)
+  Debts heard, with time proposed on day 738 by Dessa: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 745 by Dessa: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 759 by Dessa: Rejected (1 for, 0 against, 1 came)
+  Debts heard, with time proposed on day 766 by Aud: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 773 by Aud: Rejected (1 for, 0 against, 1 came)
+  Debts heard, with time proposed on day 794 by Ulla: Rejected (1 for, 0 against, 1 came)
+  Debts heard proposed on day 822 by Ulla: Rejected (1 for, 0 against, 1 came)
+  Debts heard proposed on day 829 by Ulla: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 857 by Hesta: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 864 by Hesta: Rejected (1 for, 0 against, 1 came)
+  Debts heard proposed on day 878 by Aud: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 885 by Aud: Rejected (1 for, 0 against, 1 came)
+  Debts heard, with time proposed on day 906 by Emmer: Rejected (1 for, 0 against, 1 came)
+  Debts heard proposed on day 913 by Dessa: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 920 by Dessa: Rejected (1 for, 0 against, 1 came)
+  Debts heard proposed on day 927 by Hal: Rejected (1 for, 0 against, 1 came)
+  Debts heard, with time proposed on day 934 by Hal: Rejected (0 for, 0 against, 0 came)
+  Debts heard, with time proposed on day 948 by Ulla: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 969 by Emmer: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 976 by Emmer: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 983 by Emmer: Rejected (0 for, 0 against, 0 came)
+  Seat a council proposed on day 997 by Hal: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 1018 by Hal: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 1025 by Hal: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 1032 by Hal: Rejected (1 for, 0 against, 1 came)
+  Debts heard, with time proposed on day 1060 by Pirra: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 1095 by Hal: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 1102 by Hal: Rejected (2 for, 0 against, 2 came)
+  Debts heard proposed on day 1123 by Pirra: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 1137 by Emmer: Rejected (2 for, 0 against, 2 came)
+  Debts heard proposed on day 1144 by Emmer: Rejected (2 for, 0 against, 2 came)
+  Debts heard, with time proposed on day 1165 by Pirra: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 1193 by Hesta: Rejected (0 for, 0 against, 0 came)
+  Seat a council proposed on day 1200 by Hal: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 1207 by Hal: Rejected (3 for, 0 against, 3 came)
+  Seat a council proposed on day 1256 by Hal: Rejected (2 for, 0 against, 2 came)
+  Debts heard proposed on day 1263 by Hal: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 1291 by Emmer: Rejected (1 for, 0 against, 1 came)
+  Debts heard proposed on day 1305 by Aud: Rejected (3 for, 0 against, 3 came)
+  Debts heard proposed on day 1333 by Ulla: Rejected (1 for, 0 against, 1 came)
+  Debts heard, with time proposed on day 1340 by Ulla: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 1347 by Ulmer: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 1396 by Ulmer: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 1410 by Ulmer: Rejected (1 for, 0 against, 1 came)
+  Debts heard proposed on day 1438 by Gwen: Rejected (1 for, 0 against, 1 came)
+  Debts heard proposed on day 1459 by Gwen: Rejected (1 for, 0 against, 1 came)
+  label: Republic (A council of 5, elected by the adults for 360 days. Those who sit in its council decide by acclamation: more for than against carries it, and a tie fails; half of them must come.)
+  label: Republic (A council of 5, elected by the adults for 360 days. Those who sit in its council decide by acclamation: more for than against carries it, and a tie fails; half of them must come.)
+  label: Oligarchic republic (A council of 9, drawn by lot from the elders for 360 days. Those who sit in its council decide by acclamation: more for than against carries it, and a tie fails; half of them must come.)
+saved <saves>/three-fords-07070707/g0000000001-manual.tcesave
+reached 1 of 5 steps
+
+world (seed 2):
+day 90: INTRODUCED (observer): copper smelting to Dwyn of household 22
+day 90: INTRODUCED (observer): copper smelting to Arrel of household 22
+day 90: INTRODUCED (observer): copper smelting to Ulric of household 22
+day 90: INTRODUCED (observer): copper smelting to Aud of household 22
+day 180: 125 people
+day 219: a loan made
+day 300: 129 people
+day 420: 126 people
+day 540: 129 people
+day 660: 127 people
+day 780: 128 people
+day 900: 128 people
+day 1020: 130 people
+day 1140: 128 people
+day 1260: 131 people
+day 1380: 132 people
+day 1500: 134 people
+lived 1440 days, to day 1500; 134 people
+  purchases at another settlement's door its markets still remember: 0
+  loans: 24 asked, 0 refused, 24 made (2 open, 9 repaid, 12 defaulted, 1 refused at the due day, 0 lapsed)
+  loans from the common store: 11
+  pledges: 0 against a field's use (0 taken), 0 with a guarantor (0 called on, 0 guarantor's claims); 12 asked for time, 12 granted
+  wages owed by workshops: 0 (0 paid, 0 unpaid when due)
+  debts brought: 11 (2 found, 0 not found, 9 unheard or lapsed)
+  metal at village 1: 5 know smelting; knows 0 of 8 ore bodies; 0.0 kg ore, 0.00 kg copper, 0.00 copper axes, 19.26 stone axes
+  metal at village 52: 0 know smelting; knows 0 of 8 ore bodies; 0.0 kg ore, 0.00 kg copper, 0.00 copper axes, 18.61 stone axes
+  metal at village 102: 0 know smelting; knows 0 of 8 ore bodies; 0.0 kg ore, 0.00 kg copper, 0.00 copper axes, 20.04 stone axes
+  coin: 0 issues struck by 0 mints, 0 pieces in being; 0.00 kg of copper brought to a mint, 0.00 kg waiting there
+  coin paid: 0 pieces as wages or pay for common work, 0 pieces in levies
+  foreign pieces households hold: 0
+  Seat a council proposed on day 101 by Brisa: Superseded (23 for, 0 against, 25 came)
+  Lending from the store proposed on day 248 by Dwyn: Rejected (1 for, 1 against, 4 came)
+  Seat a council proposed on day 269 by Dwyn: Superseded (4 for, 0 against, 4 came)
+  Lending from the store proposed on day 276 by Ciel: InForce (3 for, 0 against, 4 came)
+  Amend the custom proposed on day 290 by Caddor: Superseded (5 for, 0 against, 5 came)
+  Seat a council proposed on day 549 by Halla: Superseded (24 for, 0 against, 24 came)
+  Seat a council proposed on day 584 by Dwyn: Rejected (2 for, 0 against, 2 came)
+  Seat a council proposed on day 598 by Caddor: Superseded (4 for, 0 against, 4 came)
+  Amend the custom proposed on day 612 by Caddor: Superseded (4 for, 0 against, 4 came)
+  Seat a council proposed on day 626 by Brisa: Superseded (24 for, 0 against, 24 came)
+  Debts heard proposed on day 647 by Brisa: InForce (3 for, 0 against, 3 came)
+  Amend the custom proposed on day 654 by Brisa: Superseded (2 for, 1 against, 3 came)
+  Seat a council proposed on day 661 by Brisa: Superseded (24 for, 0 against, 24 came)
+  Seat a council proposed on day 703 by Kellan: Superseded (5 for, 0 against, 5 came)
+  Seat a council proposed on day 745 by Caddor: Superseded (4 for, 0 against, 4 came)
+  Seat a council proposed on day 766 by Aud: Superseded (4 for, 0 against, 4 came)
+  Seat a council proposed on day 808 by Elva: Superseded (3 for, 0 against, 3 came)
+  Seat a council proposed on day 843 by Ulla: Rejected (1 for, 0 against, 2 came)
+  Seat a council proposed on day 850 by Elin: Superseded (3 for, 0 against, 3 came)
+  Seat a council proposed on day 864 by Halla: Superseded (3 for, 0 against, 3 came)
+  Seat a council proposed on day 892 by Dwyn: Superseded (4 for, 0 against, 5 came)
+  Seat a council proposed on day 913 by Halla: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 948 by Aud: Rejected (3 for, 0 against, 3 came)
+  Seat a council proposed on day 955 by Aud: Rejected (3 for, 0 against, 3 came)
+  Seat a council proposed on day 983 by Ciel: Superseded (5 for, 0 against, 5 came)
+  Seat a council proposed on day 1004 by Piers: Rejected (4 for, 0 against, 4 came)
+  Seat a council proposed on day 1018 by Aud: Rejected (4 for, 0 against, 4 came)
+  Seat a council proposed on day 1081 by Kellan: Superseded (5 for, 0 against, 5 came)
+  Seat a council proposed on day 1095 by Halla: Rejected (3 for, 0 against, 3 came)
+  Seat a council proposed on day 1102 by Halla: Rejected (3 for, 0 against, 3 came)
+  Seat a council proposed on day 1109 by Aud: Rejected (4 for, 0 against, 4 came)
+  Seat a council proposed on day 1116 by Aud: Rejected (3 for, 0 against, 4 came)
+  Seat a council proposed on day 1165 by Aud: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 1193 by Elva: Rejected (1 for, 0 against, 1 came)
+  Seat a council proposed on day 1200 by Caddor: Superseded (6 for, 0 against, 6 came)
+  Seat a council proposed on day 1242 by Piers: Superseded (3 for, 0 against, 3 came)
+  Seat a council proposed on day 1389 by Dwyn: InForce (5 for, 0 against, 5 came)
+  Lending from the store proposed on day 269 by Dara: InForce (20 for, 3 against, 26 came)
+  Seat a council proposed on day 283 by Rowan: InForce (26 for, 0 against, 26 came)
+  Seat a council proposed on day 227 by Isla: Superseded (23 for, 0 against, 23 came)
+  Seat a council proposed on day 248 by Delia: Rejected (1 for, 0 against, 1 came)
+  Lending from the store proposed on day 311 by Ilmer: InForce (3 for, 0 against, 4 came)
+  Debts heard proposed on day 647 by Odessa: Superseded (5 for, 0 against, 5 came)
+  Debts heard, with time proposed on day 654 by Odessa: InForce (5 for, 0 against, 5 came)
+  Amend the custom proposed on day 661 by Ash: Superseded (4 for, 1 against, 5 came)
+  Seat a council proposed on day 675 by Isla: InForce (23 for, 0 against, 23 came)
+  label: Republic (A council of 5, elected by the adults for 360 days. Those who sit in its council decide by acclamation: more for than against carries it, and a tie fails; half of them must come.)
+  label: Republic (A council of 5, elected by the adults for 360 days. Those who sit in its council decide by acclamation: more for than against carries it, and a tie fails; half of them must come.)
+  label: Republic (A council of 5, elected by the adults for 360 days. Those who sit in its council decide by acclamation: more for than against carries it, and a tie fails; half of them must come.)
+saved <saves>/three-fords-07070707/g0000000002-manual.tcesave
+reached 1 of 5 steps

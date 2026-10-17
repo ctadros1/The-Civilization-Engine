@@ -2170,6 +2170,13 @@ export function bindUi(store: Store, actions: Actions): void {
           el("ul", { className: "loans" }, ...s.loans.map((v) => el("li", { text: v }))),
         );
       }
+      // Its coin (wire 1.83, M7d slice CE).
+      if (s.coin.length > 0) {
+        block.append(
+          el("h4", { text: "Coin" }),
+          el("ul", { className: "coin" }, ...s.coin.map((v) => el("li", { text: v }))),
+        );
+      }
       if (s.households.length > HOUSEHOLDS_SHOWN) {
         block.append(
           el("p", {

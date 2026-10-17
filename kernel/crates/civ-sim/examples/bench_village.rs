@@ -176,10 +176,12 @@ fn main() {
         "leisure" => sim.set_approximations(civ_sim::Approximations {
             leisure_blocks: true,
             household_view: false,
+            views_by_party: false,
         }),
         "view" => sim.set_approximations(civ_sim::Approximations {
             leisure_blocks: false,
             household_view: true,
+            views_by_party: true,
         }),
         other => panic!("--only leisure or view, not {other}"),
     }
@@ -215,6 +217,9 @@ fn main() {
     // the landmarks' own threads are not counted).
     let mut days_ms: Vec<f64> = Vec::with_capacity(a.days as usize);
     let cells_before = civ_world::nav::cells_searched();
+    let searches_before = civ_world::nav::searches();
+    let counts_before = sim.people().route_counts;
+    let views_before = sim.people().view_counts;
     for day in 1..=a.days {
         let t = Instant::now();
         if day > a.profile_after && a.profile_after > 0 {
@@ -601,6 +606,22 @@ fn main() {
         year,
         (civ_world::nav::cells_searched() - cells_before) as f64 / 1e6 / f64::from(a.days.max(1)),
         peak_memory()
+    );
+    let counts = sim.people().route_counts;
+    let days = f64::from(a.days.max(1));
+    println!(
+        "routes: {:.0} searches a day; the cache cleared {} times and full {} times",
+        (civ_world::nav::searches() - searches_before) as f64 / days,
+        counts.0 - counts_before.0,
+        counts.1 - counts_before.1,
+    );
+    let views = sim.people().view_counts;
+    println!(
+        "views: {:.0} decisions a day found their household's view kept, {:.0} found none; \
+         every view let go {:.0} times a day",
+        (views.0 - views_before.0) as f64 / days,
+        (views.1 - views_before.1) as f64 / days,
+        (views.2 - views_before.2) as f64 / days,
     );
 }
 

@@ -35,6 +35,13 @@ pub(super) struct TakeTarget {
     regard: f64,
 }
 
+impl TakeTarget {
+    /// The household taken from.
+    pub(super) fn household(&self) -> PermanentId {
+        self.household
+    }
+}
+
 /// One hungry household's best store at home and among the homes of settlements it has seen
 /// (M6c slice BI's probe): kcal a load would carry and the ranking cost, walk minutes plus the
 /// asking weight of regard. Measurement only.

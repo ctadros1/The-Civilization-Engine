@@ -2756,3 +2756,21 @@ scale brief had supposed. The index stays for when there are many settlements.
 **Faster, exactly:** keeping company at the hearth no longer looks at everyone there for each person
 who does; it starts from whom they know and draws strangers by place. Ordinary days of three towns
 of 3,334 are 7 % faster; every saved section is the same as before.
+
+## 2026-10-17 — CJ: routing measured, the route cache sized by the people
+
+**Measured:** three towns of 3,334 plan about 5,400 new walks a day, each search looking at about
+4,600 cells; the cache of routes already found was never cleared and filled once in ten days.
+Routing is about an eighth of a day, not the large share the scale brief expected.
+
+**Built:** the cache grows with the number of people, so a city does not keep forgetting its
+walks. Nothing that happens changes. Bounds per region and an overlay wait for roads and faster
+ways of travelling (M8b).
+
+## 2026-10-17 — CL, first part: when goods move, only those concerned think again
+
+**Faster, approximately:** in Accelerated mode a household keeps its view of its options through
+the day. Every trade or gift anywhere used to make every household think again; now only the two
+parties, and those whose plans named one of them, do. Ten days of three towns of 3,334 are 8 %
+faster, and the statistical check that Accelerated mode lives like Detailed mode still passes,
+though its villages are too small to test this change hard.

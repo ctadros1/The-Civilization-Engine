@@ -3841,10 +3841,42 @@ and M6a gives rivers a daily flow.
         3×3,334 at Max 228.3 s against 246.2 s (7 %); day 53 from its save 59.4 s against 61.6 s.
     - **CJ**: routing for the city: landmarks per region, the cache sized by population, reverse
       fields where they pay, a two-level overlay, bounds a faster mode cannot break.
+      - *As built, measured first (2026-10-17):* the bench now counts route searches and how
+        often the route cache was cleared (a new survey of the paths or a change in the walking
+        grid) or full (`civ_world::nav::searches`, `Population::route_counts`). 3×3,334 at Max,
+        10 days: 5,411 searches a day expanding 25.0 M cells (about 4,600 each), the cache never
+        cleared and full once; 3×1,000, 30 days: 640 a day, 2.2 M cells, never cleared or full.
+        So the cache keeps what is walked again, and the searches are walks not taken before:
+        routing is about an eighth of an ordinary day (the ordinary-day profile's 13 % of
+        samples in `route_with`), and bounds kept per region could at best take part of that.
+        **Built:** the cache's generations hold at least eight routes for each person living,
+        above 50,000 (a 30k world would otherwise turn it over within days); a route found again
+        is the route let go, so this changes nothing that happens (every section's digest but
+        `meta` equal after 10 days of 3×3,334, both modes). **Deferred, with this evidence:**
+        landmarks per region, reverse fields and a two-level overlay, until M8b's ways and modes
+        make walks longer and faster; the bound a faster mode cannot break is M8b's to build
+        before any mode lands (ADR-0028 §4).
     - **CK**: parallel preparation on a private bounded pool, digests equal at 1, 2, 4 and 8
       workers.
     - **CL**: Accelerated at scale: views cleared by party, built at midnight, one sampler from
       the profile, Gate B fixtures at scale.
+      - *First part, as built (2026-10-17): views let go by party.* Measured first (the bench
+        now counts it, `Population::view_counts`): at Max, 3×3,334, a day's decisions found
+        their household's view kept 64,128 times and found none 49,804 times, and every view was
+        let go 103 times a day (each gift, trade, fetch, paid work or taking anywhere). Now, when
+        goods move, only the views of the two parties and of households whose kept choice names
+        one of them (the seller it would buy from, the household it would ask or take from, the
+        workshop it would work for) are let go; the rest keep theirs until midnight or their own
+        next consequential step (ADR-0028 §6). It is a declared approximation of Accelerated mode
+        (`Approximations::views_by_party`, on at Accelerated, off in Detailed; `civ-host
+        consistency --without-views-by-party` to see what it changes). **Measured:** 84,335
+        views kept against 29,645 worked out afresh a day; 10 days of 3×3,334 at Max 214.6 s
+        against 233.9 s (8 %). **Gate B passed** (20 runs, every aggregate within its
+        tolerance, the largest difference walking at −5.0 % against 9 %). **Not yet, and said
+        plainly:** Gate B's two fixtures are villages of 43 and 44 with no takings, so they test
+        this approximation weakly; the fixtures of several settlements and one at 10k that
+        ADR-0028 §6 asks for, with tolerances fixed before any result, wait for a nightly budget
+        that can hold them (a 3×1,000 fixture's three years would take hours a run).
   - **M8b, ways, modes and traffic** (designed when reached, from `docs/briefs/m8-transport.md`):
     ways as saved records once worked or reserved, with widths and a derived hierarchy; modes
     from a technique and a made object (handcart and dugout first; pack animals and carts wait on

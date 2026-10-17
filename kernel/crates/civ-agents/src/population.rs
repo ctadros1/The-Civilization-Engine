@@ -115,8 +115,9 @@ fn keep_route(
     old: &mut FastMap<(u32, u32), Option<CachedRoute>>,
     key: (u32, u32),
     route: Option<CachedRoute>,
+    max: usize,
 ) {
-    if routes.len() >= ROUTE_CACHE_MAX {
+    if routes.len() >= max {
         *old = std::mem::take(routes);
     }
     routes.insert(key, route);
@@ -138,9 +139,13 @@ const WAIT_AFTER_FAILURE_MIN: u32 = 10;
 /// Cells beyond the ground people have walked that route searches are bounded by landmarks
 /// over ([`civ_world::nav::NavGrid::landmarks`]): half a wear tile, 256 m on 8 m cells.
 const LANDMARK_MARGIN_CELLS: usize = 32;
-/// Most routes the route cache keeps in each of its two generations: when the newer is full it
-/// becomes the older, and the older is let go.
+/// Fewest routes the route cache keeps in each of its two generations: when the newer is full it
+/// becomes the older, and the older is let go. A route found again is the route let go (the same
+/// paths, the same search), so its size changes how fast the world lives, never what happens.
 const ROUTE_CACHE_MAX: usize = 50_000;
+/// ...and routes kept a generation for each person living, above that (M8a slice CJ: three
+/// settlements of 3,334 search about 5,400 new routes a day).
+const ROUTE_CACHE_PER_PERSON: usize = 8;
 /// Farthest a household moves its home from where it stands to find clear ground to build on,
 /// metres (a tuning value).
 const HOME_SHIFT_M: f64 = 30.0;
@@ -202,6 +207,10 @@ pub struct Approximations {
     /// work, gather, dig and farm) is kept from its first decision after midnight until midnight
     /// or its next consequential step, instead of being worked out at every decision.
     pub household_view: bool,
+    /// When goods move between households (a gift, a trade, paid work, a fetch, a taking), only
+    /// the views of the two parties and of households whose kept choice names one of them are
+    /// let go, not every household's (M8a slice CL, ADR-0028 §6). Only with `household_view`.
+    pub views_by_party: bool,
 }
 
 impl Approximations {
@@ -209,11 +218,13 @@ impl Approximations {
     pub const NONE: Approximations = Approximations {
         leisure_blocks: false,
         household_view: false,
+        views_by_party: false,
     };
     /// Every approximation Accelerated mode declares.
     pub const ACCELERATED: Approximations = Approximations {
         leisure_blocks: true,
         household_view: true,
+        views_by_party: true,
     };
 }
 
@@ -452,6 +463,13 @@ pub struct Population {
     /// The paths survey and crossings the routes were planned on
     /// ([`civ_land::Land::route_revision`]).
     routes_rev: u64,
+    /// Times the route cache was cleared for a new revision of the paths, and times it was full
+    /// and began a new generation (M8a slice CJ's measurement). Not saved.
+    pub route_counts: (u64, u64),
+    /// Decisions in Accelerated mode that found their household's view kept and that found
+    /// none, and the times every view was let go after goods moved between households (M8a slice
+    /// CL's measurement). Not saved.
+    pub view_counts: (u64, u64, u64),
     /// Lower bounds for route searches on the paths as surveyed ([`NavGrid::landmarks`]),
     /// built at the first search after a survey once people have walked anywhere. Derived.
     landmarks: Option<Option<std::sync::Arc<civ_world::nav::Landmarks>>>,
@@ -1672,6 +1690,30 @@ impl Population {
         self.views.remove(&household);
     }
 
+    /// Goods moved between household `household` and the party its step was with (`with`): the
+    /// two of them, and every household whose kept view names either (as the seller it would buy
+    /// from, the household it would ask or take from, the workshop it would work for), see their
+    /// options afresh; the rest keep theirs (M8a slice CL, ADR-0028 §6).
+    fn views_moved(&mut self, household: PermanentId, with: Target) {
+        let (other, firm) = match with {
+            Target::Household(x) => (Some(x), None),
+            Target::Firm(f) => (self.firm(f).map(|x| x.owner), Some(f)),
+            _ => (None, None),
+        };
+        let party = |id: PermanentId| id == household || Some(id) == other || Some(id) == firm;
+        self.views.retain(|&hh, view| {
+            fn kept<T>(cell: &Option<Option<T>>) -> Option<&T> {
+                cell.as_ref().and_then(Option::as_ref)
+            }
+            !(party(hh)
+                || kept(&view.trade).is_some_and(|o| party(o.seller))
+                || kept(&view.fetch).is_some_and(|o| party(o.seller))
+                || kept(&view.giver).is_some_and(|g| party(g.household))
+                || kept(&view.job).is_some_and(|j| party(j.firm))
+                || kept(&view.take).is_some_and(|t| party(t.household())))
+        });
+    }
+
     /// Every household sees its options afresh at its next decision: after the observer has
     /// changed the world, or the approximations made have changed.
     pub fn forget_views(&mut self) {
@@ -2827,7 +2869,13 @@ impl Population {
         // The household's view of its options: kept in Accelerated mode, worked out afresh at
         // each decision otherwise (ADR-0011 §4).
         let hh_view = if ctx.approx.household_view {
-            self.views.remove(&hh_id).unwrap_or_default()
+            let kept = self.views.remove(&hh_id);
+            if kept.is_some() {
+                self.view_counts.0 += 1;
+            } else {
+                self.view_counts.1 += 1;
+            }
+            kept.unwrap_or_default()
         } else {
             HouseholdView::default()
         }
@@ -4378,6 +4426,7 @@ impl Population {
     fn start_walk(&mut self, ctx: &mut Ctx, h: Handle<Person>, to: (f32, f32)) -> bool {
         let now = ctx.now;
         let params = ctx.params;
+        let cache_max = ROUTE_CACHE_MAX.max(ROUTE_CACHE_PER_PERSON * self.people.len());
         let Some(p) = self.people.get_mut(h) else {
             return false;
         };
@@ -4387,6 +4436,7 @@ impl Population {
         let wear = &ctx.land.wear;
         let revision = ctx.land.route_revision(ctx.nav.travel_revision());
         if revision != self.routes_rev {
+            self.route_counts.0 += 1;
             self.routes.clear();
             self.routes_old.clear();
             self.landmarks = None;
@@ -4402,7 +4452,13 @@ impl Population {
         } else {
             let key = (from_cell as u32, to_cell as u32);
             if let Some(known) = self.routes_old.remove(&key) {
-                keep_route(&mut self.routes, &mut self.routes_old, key, known);
+                keep_route(
+                    &mut self.routes,
+                    &mut self.routes_old,
+                    key,
+                    known,
+                    cache_max,
+                );
             }
             let cached = match self.routes.get(&key) {
                 Some(known) => known.clone(),
@@ -4443,7 +4499,14 @@ impl Population {
                         ))),
                         RouteResult::Unreachable | RouteResult::BudgetExhausted => None,
                     };
-                    keep_route(&mut self.routes, &mut self.routes_old, key, found.clone());
+                    self.route_counts.1 += u64::from(self.routes.len() >= cache_max);
+                    keep_route(
+                        &mut self.routes,
+                        &mut self.routes_old,
+                        key,
+                        found.clone(),
+                        cache_max,
+                    );
                     found
                 }
             };
@@ -4961,7 +5024,12 @@ impl Population {
                 | Behavior::Fetch
                 | Behavior::Hire
                 | Behavior::Take => {
-                    self.views.clear();
+                    self.view_counts.2 += 1;
+                    if ctx.approx.views_by_party {
+                        self.views_moved(household, act_target);
+                    } else {
+                        self.views.clear();
+                    }
                 }
                 _ => {}
             }

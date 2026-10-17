@@ -87,9 +87,16 @@ pub fn cells_searched() -> u64 {
     CELLS_SEARCHED.with(std::cell::Cell::get)
 }
 
-/// Adds a search's expanded cells to [`cells_searched`].
+/// Route searches run on this thread, counted: what a benchmark reads beside
+/// [`cells_searched`].
+pub fn searches() -> u64 {
+    SEARCHES.with(std::cell::Cell::get)
+}
+
+/// Adds a search's expanded cells to [`cells_searched`], and the search to [`searches`].
 fn count_searched(cells: usize) {
     CELLS_SEARCHED.with(|c| c.set(c.get() + cells as u64));
+    SEARCHES.with(|c| c.set(c.get() + 1));
 }
 
 /// Landmarks round the area people walk ([`NavGrid::landmarks`]).
@@ -370,6 +377,8 @@ const DENSE_SCORES_MAX_CELLS: usize = 1 << 22;
 thread_local! {
     /// Cells route searches on this thread have looked at ([`cells_searched`]).
     static CELLS_SEARCHED: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    /// Route searches on this thread ([`searches`]).
+    static SEARCHES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
     static DENSE_SCORES: RefCell<DenseScores> = RefCell::new(DenseScores::default());
     static STEP_SPEEDS: RefCell<StepSpeeds> = RefCell::new(StepSpeeds::default());
 }

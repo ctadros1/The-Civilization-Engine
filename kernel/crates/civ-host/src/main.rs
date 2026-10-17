@@ -282,6 +282,10 @@ struct ConsistencyArgs {
     /// the gate.
     #[arg(long)]
     without_household_view: bool,
+    /// Accelerated runs that let every household's view go when goods move, not only the
+    /// parties': to see what the approximation changes, not the gate.
+    #[arg(long)]
+    without_views_by_party: bool,
     /// Also write the report as JSON to this file.
     #[arg(long)]
     json: Option<PathBuf>,
@@ -691,6 +695,7 @@ fn run_consistency(args: ConsistencyArgs) -> anyhow::Result<ExitCode> {
             approximations: civ_sim::Approximations {
                 leisure_blocks: !args.without_leisure_blocks,
                 household_view: !args.without_household_view,
+                views_by_party: !args.without_views_by_party,
             },
         },
         dir.path(),

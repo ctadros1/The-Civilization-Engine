@@ -401,6 +401,8 @@ pub const SCHEMA_V134: u32 = 134;
 pub const SCHEMA_V135: u32 = 135;
 /// Coin, before the mint.
 pub const SCHEMA_V136: u32 = 136;
+/// The mint, before pay for common work.
+pub const SCHEMA_V137: u32 = 137;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

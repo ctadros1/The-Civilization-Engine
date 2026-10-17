@@ -687,6 +687,12 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 128 (M7d slice CE3a, ADR-0027 §6) brings the polity's first spending. A policy may do
+`pay_work`, with a `[pay]` table: `good` (a money) and `per_hour` (units of it the store pays for
+each hour a household gives to the polity's crossing, well, flood bank or palisade, as far as the
+store holds it); it answers the issue `coin_idle` (the store holds money while a law asks for
+common work). The core adds `core:policy/pay_work` (8 pieces of coin an hour).
+
 Content API 127 (M7d slice CE2b, ADR-0027 §6) brings the mint. A policy may do `mint`, with a
 `[mint]` table: `recipe` (whose first input is a metal paid by weight and first output a coin),
 `mass_g` and `fineness` (each piece of the issues struck under it) and `fee` (the share of the

@@ -852,6 +852,8 @@ impl Population {
                 return;
             }
             self.polities[pi].give_to_bank(law, household, used as f32);
+            self.work_given
+                .push((self.polities[pi].id, household, used));
             if seg.mend_need(&work) != (0.0, 0.0) {
                 return;
             }
@@ -895,6 +897,8 @@ impl Population {
             return;
         }
         self.polities[pi].give_to_bank(law, household, (dug * per_m3) as f32);
+        self.work_given
+            .push((self.polities[pi].id, household, dug * per_m3));
         let done = ctx
             .land
             .earthworks

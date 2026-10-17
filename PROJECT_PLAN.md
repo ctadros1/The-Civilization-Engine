@@ -3620,6 +3620,25 @@ and M6a gives rivers a daily flow.
         with the metal waiting; a keeper taught smelting strikes what was brought within days of
         living. **Not yet built:** the words of the first issue in the chronicle and the
         observer's view of coin (CE5).
+    - **CE3, split (2026-10-17):** **CE3a** the store paying money for the hours households give
+      to the polity's common works; **CE3b** a levy that may name coin.
+    - **CE3a**: pay for common work.
+      - *As built (2026-10-17):* content API 128, save schema 138 (issue code 23; wire unchanged).
+        A law of pay for common work (appended policy kind `pay_work`, a `[pay]` table naming the
+        money and the units an hour) answers the appended issue `coin_idle` (the polity's store
+        holds money while a law of it asks for work on a crossing, a well, a bank or a palisade).
+        Under it each hour a household gives to the polity's common works is paid from the store,
+        through the ledger, at the law's rate, as far as the store holds the money; hours it
+        cannot pay for go unpaid and are forgotten. The hours are gathered where each work counts
+        what a household gave and paid as the event ends, so nothing waits across a save. A
+        household forecasts the law by its even share of the money the store holds, at what a
+        unit is worth to it in hours, at what its hours bring in food. The core pays 8 pieces of
+        coin an hour (64 g of copper, about an hour of the whole work of making copper). **Not
+        yet built:** pay as a reason to choose the work (a household works its share as before,
+        and is paid for it; work beyond the share is not drawn by the pay); a levy in coin
+        (CE3b). **Not measured in a lived world:** no store holds coin until a mint strikes it and
+        keeps its fee, which nobody brings metal for yet; a test fills a store with 20 pieces and
+        pays 16 for two hours and the 4 left for two more, purse to purse.
 
 **M8: The growing city (v1).**
 - *Contents:*
@@ -4777,4 +4796,12 @@ One line each. Don't re-litigate without a reason written next to the entry.
   load-dependent outcome would mean something read from time, scheduling or unordered iteration
   reaches a decision. **Not yet investigated:** reproduce under load and bisect the first day the
   digests differ; fix the source, never the test.
+  - *Again, 2026-10-17 (slice CE3a's chain):* the same test failed the same way in the full
+    suite. Time-boxed: alone it passed in 12 s; four filtered copies at once under six spinning
+    processes passed (about 40 s each), and three copies of the whole file (its six tests in
+    parallel) under the same load passed (about 122 s each). The kernel reads no clock (no
+    `Instant` or `SystemTime` outside the host), has no process-wide state but a grid id counter
+    and per-thread search caches keyed by grid, and the one threaded search (landmarks) writes
+    each job's result by its index. **Still not found:** what the suite run differs in (its other
+    test binaries run before it, not beside it); next, keep the failing run's digests.
 

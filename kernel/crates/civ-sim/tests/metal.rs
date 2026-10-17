@@ -408,14 +408,32 @@ fn coin_moves_issue_by_issue_is_found_again_and_saves_exactly() {
 /// Polity `h`'s settlement's: a mint law in force naming `minter`, of the core template (M7d slice
 /// CE2b). Returns the polity's id.
 fn mint_in_force(sim: &mut Sim, h: PermanentId, minter: PermanentId) -> PermanentId {
+    law_in_force(sim, h, "core:policy/mint", Some(minter), minter)
+}
+
+/// Polity `h`'s settlement's: a law of core template `template` in force, naming `holder` and
+/// proposed by `sponsor`. Returns the polity's id.
+fn law_in_force(
+    sim: &mut Sim,
+    h: PermanentId,
+    template: &str,
+    holder: Option<PermanentId>,
+    sponsor: PermanentId,
+) -> PermanentId {
     use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome};
     let policy = sim
         .rules()
         .catalog
         .policies
         .iter()
-        .position(|d| d.id == "core:policy/mint")
-        .expect("the core content has a mint");
+        .position(|d| d.id == template)
+        .expect("the core content has the template");
+    let kind = sim.rules().catalog.policies[policy].kind;
+    let issue = sim.rules().catalog.policies[policy]
+        .answers
+        .first()
+        .copied()
+        .unwrap_or(IssueKind::FoodShort);
     let id = sim.allocate_id_for_tests();
     let now = sim.now();
     let pop = sim.people_mut_for_tests();
@@ -431,16 +449,16 @@ fn mint_in_force(sim: &mut Sim, h: PermanentId, minter: PermanentId) -> Permanen
     pop.polities[pi].laws.push(Law {
         id,
         policy: policy as u16,
-        kind: civ_agents::polity::PolicyKind::Mint,
+        kind,
         levy_share: 0.0,
-        holder: Some(minter),
+        holder,
         relief_days: 0.0,
         sanction: Default::default(),
         hours: (0, 0),
         status: LawStatus::InForce,
-        sponsor: minter,
+        sponsor,
         proposed: now,
-        issue: IssueKind::Weighed,
+        issue,
         meets_day: now.day_index(),
         decided: Some(now),
         outcome: Some(Outcome::Passed),
@@ -652,4 +670,71 @@ fn a_minter_strikes_the_metal_brought_as_the_day_goes() {
     let issue = &sim.people().order.coinage.cohorts[0];
     assert_eq!(issue.issuer, polity);
     assert!(sim.people().order.coinage.purse(hh).is_some());
+}
+
+#[test]
+fn the_store_pays_coin_for_hours_given_to_common_work_as_far_as_it_holds_it() {
+    let (mut sim, hh, minter) = mint_scene(3);
+    let coin = good(&sim, "core:good/coin");
+    let held = |sim: &Sim, h: PermanentId| -> f64 {
+        sim.people()
+            .household(h)
+            .map_or(0.0, |x| x.stores.get(coin).copied().unwrap_or(0.0))
+    };
+    let polity = sim
+        .people()
+        .polities
+        .iter()
+        .find(|p| {
+            sim.people()
+                .household(hh)
+                .is_some_and(|x| p.holds(x.settlement))
+        })
+        .map(|p| p.id)
+        .expect("a polity");
+    let today = sim.now().day_index();
+    // The store holds 20 pieces of its own issue.
+    assert!(
+        sim.people_mut_for_tests()
+            .strike_for_tests(coin, polity, polity, today, 20.0, 8.0, 1.0)
+    );
+    // Without the law, nothing is paid.
+    sim.with_ctx_for_tests(|pop, ctx| pop.work_given_for_tests(ctx, polity, hh, 2.0));
+    assert!(held(&sim, hh) < 1e-9);
+    law_in_force(&mut sim, hh, "core:policy/pay_work", None, minter);
+    // Two hours at eight pieces an hour.
+    sim.with_ctx_for_tests(|pop, ctx| pop.work_given_for_tests(ctx, polity, hh, 2.0));
+    assert!((held(&sim, hh) - 16.0).abs() < 1e-9, "{}", held(&sim, hh));
+    let purse = |sim: &Sim, h: PermanentId| {
+        sim.people()
+            .order
+            .coinage
+            .purse(h)
+            .map_or(0.0, |p| p.total())
+    };
+    assert!(
+        (purse(&sim, hh) - 16.0).abs() < 1e-9,
+        "the pieces moved purse to purse"
+    );
+    assert!((purse(&sim, polity) - 4.0).abs() < 1e-9);
+    // Two more hours: the store pays the four pieces it has left.
+    sim.with_ctx_for_tests(|pop, ctx| pop.work_given_for_tests(ctx, polity, hh, 2.0));
+    assert!((held(&sim, hh) - 20.0).abs() < 1e-9);
+    assert!(sim.people().order.coinage.purse(polity).is_none());
+}
+
+#[test]
+fn pay_for_common_work_names_coin_and_answers_money_held_idle() {
+    let sim = world(3);
+    let catalog = &sim.rules().catalog;
+    let d = catalog
+        .policies
+        .iter()
+        .find(|d| d.id == "core:policy/pay_work")
+        .expect("a pay template");
+    assert_eq!(d.kind, civ_agents::polity::PolicyKind::PayWork);
+    let pay = d.pay.expect("its rate");
+    assert_eq!(catalog.goods[pay.good].id, "core:good/coin");
+    assert!(pay.per_hour > 0.0);
+    assert!(d.answers.contains(&civ_agents::polity::IssueKind::CoinIdle));
 }

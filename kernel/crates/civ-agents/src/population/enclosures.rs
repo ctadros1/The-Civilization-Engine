@@ -332,6 +332,7 @@ impl Population {
             let (used, closed) = e.mend(hours as f32, mend_loss);
             if used > 0.0 {
                 e.add_share(household, used);
+                self.work_given.push((e.owner, household, f64::from(used)));
             }
             if closed {
                 ctx.land.enclosures.changed();
@@ -346,6 +347,7 @@ impl Population {
         }
         e.work_h += done;
         e.add_share(household, done);
+        self.work_given.push((e.owner, household, f64::from(done)));
         let standing = e.standing();
         let whole = e.whole();
         if whole {

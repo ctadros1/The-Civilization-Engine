@@ -143,11 +143,15 @@ pub enum PolicyKind {
     /// template sets ([`MintDef`]), from the metal households of the polity bring, the polity's
     /// store keeping the template's fee in coin. The law lapses when they die or leave.
     Mint,
+    /// Pay for common work (M7d slice CE3a, ADR-0027 §6: the polity's first spending): the
+    /// polity's store pays the good its template names ([`PayDef`]), so much an hour, to each
+    /// household for the hours it gives to the polity's works, as far as the store holds it.
+    PayWork,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 28] = [
+    pub const ALL: [PolicyKind; 29] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -176,6 +180,7 @@ impl PolicyKind {
         PolicyKind::DebtsHeard,
         PolicyKind::LendFromStore,
         PolicyKind::Mint,
+        PolicyKind::PayWork,
     ];
 
     /// The authored name.
@@ -209,6 +214,7 @@ impl PolicyKind {
             PolicyKind::DebtsHeard => "debts_heard",
             PolicyKind::LendFromStore => "lend_from_store",
             PolicyKind::Mint => "mint",
+            PolicyKind::PayWork => "pay_work",
         }
     }
 
@@ -295,11 +301,14 @@ pub enum IssueKind {
     /// A household of the settlement paid or was paid in weighed metal within its market's
     /// memory (M7d slice CE, ADR-0027 §6): what a mint answers.
     Weighed,
+    /// The polity's store holds money while a law of its asks households to work on its common
+    /// works (M7d slice CE3a): what paying for that work answers.
+    CoinIdle,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 23] = [
+    pub const ALL: [IssueKind; 24] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -323,6 +332,7 @@ impl IssueKind {
         IssueKind::FetchedElsewhere,
         IssueKind::DebtsUnpaid,
         IssueKind::Weighed,
+        IssueKind::CoinIdle,
     ];
 
     /// The authored name.
@@ -351,6 +361,7 @@ impl IssueKind {
             IssueKind::FetchedElsewhere => "fetched_elsewhere",
             IssueKind::DebtsUnpaid => "debts_unpaid",
             IssueKind::Weighed => "weighed",
+            IssueKind::CoinIdle => "coin_idle",
         }
     }
 
@@ -394,6 +405,7 @@ impl IssueKind {
             }
             IssueKind::DebtsUnpaid => "a loan their household made was not repaid",
             IssueKind::Weighed => "their households weighed out metal to pay",
+            IssueKind::CoinIdle => "the store held money while their common work wanted hands",
         }
     }
 }
@@ -514,6 +526,18 @@ pub struct PolicyDef {
     pub lending: Option<LendingDef>,
     /// For a mint: what it strikes (M7d slice CE, ADR-0027 §6).
     pub mint: Option<MintDef>,
+    /// For pay for common work: what an hour is paid (M7d slice CE3a).
+    pub pay: Option<PayDef>,
+}
+
+/// What the store pays for an hour given to the polity's common works under a law of pay for
+/// common work (M7d slice CE3a, ADR-0027 §6).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PayDef {
+    /// The good paid, by index in the catalog's goods: a money.
+    pub good: usize,
+    /// Units of it an hour.
+    pub per_hour: f32,
 }
 
 /// What a mint strikes (M7d slice CE, ADR-0027 §6; research 08-06 §1.5): its recipe (metal and
@@ -1649,6 +1673,15 @@ pub fn law_words(
             share_text(f64::from(m.fee))
         );
     }
+    if let Some(p) = def
+        .filter(|d| d.kind == PolicyKind::PayWork)
+        .and_then(|d| d.pay)
+    {
+        return format!(
+            "pay from the store, {} an hour, for the hours households give to the common works",
+            p.per_hour
+        );
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::Curfew) {
         return format!(
             "a curfew: nobody may be away from home from {}:00 to {}:00, but the watch at its \
@@ -1708,6 +1741,7 @@ pub fn ending_words(
         Some(PolicyKind::DebtsHeard) => "the hearing of debts".to_owned(),
         Some(PolicyKind::LendFromStore) => "the lending from the store".to_owned(),
         Some(PolicyKind::Mint) => who("striking of coin"),
+        Some(PolicyKind::PayWork) => "the pay for common work".to_owned(),
         Some(PolicyKind::Repeal) | None => "a law".to_owned(),
     }
 }
@@ -2951,6 +2985,7 @@ pub(crate) mod tests {
             debts: None,
             lending: None,
             mint: None,
+            pay: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -3067,6 +3102,7 @@ pub(crate) mod tests {
             debts: None,
             lending: None,
             mint: None,
+            pay: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -3291,6 +3327,7 @@ pub(crate) mod tests {
             debts: None,
             lending: None,
             mint: None,
+            pay: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

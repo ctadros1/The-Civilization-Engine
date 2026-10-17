@@ -6,10 +6,15 @@
 //! as theirs. The minter strikes it as their office asks, working the mint's recipe at home: the
 //! pieces of the day's issue go to those who brought the metal, oldest first, less the fee, which
 //! the polity's store keeps in coin.
+//!
+//! A polity spends what its store holds of money first on its common works (M7d slice CE3a):
+//! under a law of pay for common work, each hour a household gives to the polity's crossing,
+//! well, bank or palisade is paid from the store, at the law's rate, as far as the store holds the
+//! money the law names.
 
 use super::*;
 use crate::coin::Brought;
-use crate::polity::MintDef;
+use crate::polity::{LawStatus, MintDef, PolicyKind};
 
 /// Least metal a household brings at once, kilograms.
 const LEAST_BROUGHT_KG: f64 = 0.05;
@@ -317,5 +322,125 @@ impl Population {
         };
         self.strike(ctx, pi, &def, units);
         true
+    }
+    /// The money a law of pay for common work in force in polity `pi` pays, and its rate.
+    pub(super) fn work_pay_of(&self, ctx: &Ctx, pi: usize) -> Option<crate::polity::PayDef> {
+        self.polities.get(pi)?.laws.iter().find_map(|l| {
+            if l.status != LawStatus::InForce || l.kind != PolicyKind::PayWork {
+                return None;
+            }
+            ctx.catalog.policies.get(usize::from(l.policy))?.pay
+        })
+    }
+
+    /// Pays for the hours households gave to polities' common works since the last call, under
+    /// each polity's law of pay for common work, as far as its store holds the money; hours
+    /// unpaid for are forgotten.
+    pub(super) fn pay_for_work_given(&mut self, ctx: &Ctx) {
+        if self.work_given.is_empty() {
+            return;
+        }
+        let given = std::mem::take(&mut self.work_given);
+        for (polity, household, hours) in given {
+            self.pay_for_work(ctx, polity, household, hours);
+        }
+    }
+
+    /// Household `household` gave `hours` to a common work of polity `polity`: the store pays it
+    /// the law's rate for them, as far as it holds the money.
+    fn pay_for_work(&mut self, ctx: &Ctx, polity: PermanentId, household: PermanentId, hours: f64) {
+        if hours.is_nan() || hours <= 0.0 {
+            return;
+        }
+        let Some(pi) = self.polities.iter().position(|p| p.id == polity) else {
+            return;
+        };
+        let Some(pay) = self.work_pay_of(ctx, pi) else {
+            return;
+        };
+        let held = self.polities[pi]
+            .stores
+            .get(pay.good)
+            .copied()
+            .unwrap_or(0.0);
+        let amount = (f64::from(pay.per_hour) * hours).min(held);
+        if amount <= 1e-9 || self.household(household).is_none() {
+            return;
+        }
+        let leg = Leg {
+            from: polity,
+            to: household,
+            good: pay.good,
+            amount,
+        };
+        self.transfer(
+            ctx.now,
+            ctx.params,
+            &ctx.catalog.goods,
+            &[leg],
+            Channel::Wage,
+        );
+    }
+
+    /// For tests: household `household` gave `hours` to a common work of polity `polity`, paid
+    /// for at once.
+    #[doc(hidden)]
+    pub fn work_given_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        polity: PermanentId,
+        household: PermanentId,
+        hours: f64,
+    ) {
+        self.work_given.push((polity, household, hours));
+        self.pay_for_work_given(ctx);
+    }
+    /// What each of `households` would be paid a year under each template of pay for common
+    /// work, kcal, by template index then household (M7d slice CE3a): its even share of the
+    /// money polity `pi`'s store holds, at what a unit is worth to it in hours, at what its hours
+    /// bring in food. None while the store holds none.
+    pub(super) fn pay_forecasts(
+        &self,
+        ctx: &Ctx,
+        pi: usize,
+        households: &[PermanentId],
+    ) -> Vec<(u16, Vec<(PermanentId, f64)>)> {
+        let goods = &ctx.catalog.goods;
+        let mut out = Vec::new();
+        for (k, d) in ctx.catalog.policies.iter().enumerate() {
+            let Some(pay) = d.pay else {
+                continue;
+            };
+            let held = self.polities[pi]
+                .stores
+                .get(pay.good)
+                .copied()
+                .unwrap_or(0.0);
+            if held <= 1e-9 || households.is_empty() {
+                continue;
+            }
+            let each = held / households.len() as f64;
+            let kcal: Vec<(PermanentId, f64)> = households
+                .iter()
+                .filter_map(|&h| {
+                    let hh = self.household(h)?;
+                    let stores = stores_now(hh, ctx.now, ctx.params, goods);
+                    let costs = self.own_costs_of(ctx, hh);
+                    let worth = self
+                        .pay_worth(
+                            ctx,
+                            hh,
+                            pay.good,
+                            costs.get(pay.good).copied().flatten(),
+                            stores.get(pay.good).copied().unwrap_or(0.0) + each,
+                            &costs,
+                        )
+                        .unwrap_or(0.0);
+                    Some((h, each * worth * self.hour_kcal(ctx, hh)))
+                })
+                .collect();
+            out.push((k as u16, kcal));
+        }
+        out
     }
 }

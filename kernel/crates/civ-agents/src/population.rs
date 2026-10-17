@@ -576,6 +576,10 @@ pub struct Population {
     /// The demo's twin harness (ADR-0019 §8): purchases between settlements are stopped. Set in
     /// memory by a host command or a test, never by content or a save.
     pub stop_trade_between: bool,
+    /// Hours households gave to polities' common works since the last event was handled
+    /// (polity, household, hours): paid for under a law of pay for common work as each event
+    /// ends (M7d slice CE3a), so never held across a save.
+    pub(crate) work_given: Vec<(PermanentId, PermanentId, f64)>,
     /// The buildings of other settlements each person has seen, newest first, until their
     /// household's next taste review (M5b slice AR).
     pub seen_away: BTreeMap<PermanentId, Vec<PermanentId>>,
@@ -1528,6 +1532,7 @@ impl Population {
             AgentEvent::BandLook => self.band_look(ctx),
             AgentEvent::Gates => self.keep_gates(ctx),
         }
+        self.pay_for_work_given(ctx);
     }
 
     /// Sends `id` walking to `to` at once, as a step of their activity would (tests): `false`
@@ -6053,6 +6058,7 @@ impl Population {
     }
 
     pub fn on_day(&mut self, ctx: &mut Ctx) {
+        self.pay_for_work_given(ctx);
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         // Gates are opened at first light and kept at dusk (M6c slice BK).
         self.schedule_gates(ctx);
@@ -6237,6 +6243,8 @@ impl Population {
         if !self.influences.waves.is_empty() {
             crate::found::wave_arrivals(self, ctx);
         }
+        // Hours given to common works today are paid for (M7d slice CE3a).
+        self.pay_for_work_given(ctx);
     }
 }
 

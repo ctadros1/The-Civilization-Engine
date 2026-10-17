@@ -90,6 +90,10 @@ pub(super) struct Forecasts {
     /// The settlement's adults and their households, by person id: whose household a keeper
     /// named would work for the office.
     adults: Vec<(PermanentId, PermanentId)>,
+    /// What each household would be paid a year under a law of pay for common work, kcal, by
+    /// template index and then household id (M7d slice CE3a): its share of the money the store
+    /// holds, at what a unit is worth to it in hours, at what its hours bring in food.
+    pay: Vec<(u16, Vec<(PermanentId, f64)>)>,
 }
 
 /// What a household weighs a trade law by (M7c slice BV, ADR-0026 §1): its settlement's
@@ -631,6 +635,17 @@ impl Forecasts {
                 };
                 crate::polity::kept_gain(o, kg * saved_h * kcal, pp)
                     - crate::polity::levy_cost(o, work, pp)
+            }
+            // Pay for common work (M7d slice CE3a): the household's share of the money the store
+            // holds, as it values it.
+            Some(PolicyKind::PayWork) => {
+                let kcal = self
+                    .pay
+                    .iter()
+                    .find(|p| p.0 == m.policy)
+                    .and_then(|p| p.1.iter().find(|x| x.0 == h))
+                    .map_or(0.0, |x| x.1);
+                crate::polity::kept_gain(o, kcal, pp)
             }
             // Lending from the store (M7d slice CC): what its short year would borrow, up to its
             // share of what the store lends, less the increment it would owe.
@@ -1563,6 +1578,7 @@ impl Population {
             ),
             weighed,
             mints,
+            pay: self.pay_forecasts(ctx, pi, households),
             adults: {
                 let mut a = adults.to_vec();
                 a.sort_unstable();
@@ -2341,6 +2357,24 @@ impl Population {
         if self.fetched_elsewhere(ctx, pi, &households) {
             issues.push(IssueKind::FetchedElsewhere);
         }
+        // Its store holds money while a law of its asks for common work (M7d slice CE3a).
+        let money_held = self.polities[pi].stores.iter().enumerate().any(|(g, &kg)| {
+            kg > 1e-9 && ctx.catalog.goods.get(g).is_some_and(|d| d.money.is_some())
+        });
+        let common_work = self.polities[pi].laws.iter().any(|l| {
+            l.status == LawStatus::InForce
+                && matches!(
+                    l.kind,
+                    PolicyKind::BuildCrossing
+                        | PolicyKind::DigWell
+                        | PolicyKind::BuildBank
+                        | PolicyKind::KeepBank
+                        | PolicyKind::Enclose
+                )
+        });
+        if money_held && common_work {
+            issues.push(IssueKind::CoinIdle);
+        }
         // A household of it paid or was paid in weighed metal lately (M7d slice CE2b).
         if self.weighed_lately(ctx, &households) {
             issues.push(IssueKind::Weighed);
@@ -2815,6 +2849,8 @@ impl Population {
                     }
                     // Lending from the store (M7d slice CC): one law, its terms the template's.
                     PolicyKind::LendFromStore => moves.push(blank),
+                    // Pay for common work (M7d slice CE3a): one law, its rate the template's.
+                    PolicyKind::PayWork => moves.push(blank),
                     // Debts heard (M7d slice CB): one law, its remedy the template's; it
                     // replaces a law of debts heard of another template in force.
                     PolicyKind::DebtsHeard => {

@@ -2659,3 +2659,11 @@ store keeps. Save schema 137; content API 127.
 pay 3 % for coin that buys no more than its metal: the two minutes of weighing it saves on a
 kilogram are worth less. Coin begins to matter when a village pays in it (CE3).
 
+## 2026-10-17 — CE3a: pay for common work
+
+**Built:** a village's first spending. Under a law of pay for common work, its store pays each
+household coin for every hour it gives to the village's bridge, well, flood bank or palisade, eight
+pieces an hour, as long as the store has coin left. Save schema 138; content API 128.
+
+**Lived:** nothing yet: no store holds coin until a mint strikes some and keeps its fee.
+

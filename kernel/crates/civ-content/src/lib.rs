@@ -51,7 +51,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 127;
+pub const KERNEL_CONTENT_API: u32 = 128;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1056,6 +1056,22 @@ fn resolve(
                 missing(c, parsed, &d.rel, "bears", id);
             }
         }
+        // Pay for common work names a money (M7d slice CE3a).
+        if let Some(pay) = &d.file.pay {
+            match good_index(&pay.good) {
+                None => missing(c, parsed, &d.rel, "pay.good", &pay.good),
+                Some(g) if goods[g].money.is_none() => c.push(
+                    "E3001",
+                    &d.rel,
+                    None,
+                    format!(
+                        "`pay.good` must name a money (a good with a `[money]` table); `{}` is not",
+                        pay.good
+                    ),
+                ),
+                Some(_) => {}
+            }
+        }
         // A mint's recipe takes a weighed metal first and makes a coin first (M7d slice CE).
         if let Some(m) = &d.file.mint {
             match recipes.iter().find(|r| r.id == m.recipe) {
@@ -1094,6 +1110,7 @@ fn resolve(
             def.mint = d
                 .file
                 .mint_def(&|id| recipes.iter().position(|r| r.id == id));
+            def.pay = d.file.pay_def(&good_index);
             def
         })
         .collect();

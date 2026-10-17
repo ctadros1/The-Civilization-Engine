@@ -111,6 +111,21 @@ pub(crate) struct PolicyFile {
     /// For a mint (`mint`, content API 127, M7d slice CE): what it strikes.
     #[serde(default)]
     pub mint: Option<MintFile>,
+    /// For pay for common work (`pay_work`, content API 128, M7d slice CE3a): what an hour is
+    /// paid.
+    #[serde(default)]
+    pub pay: Option<PayFile>,
+}
+
+/// What an hour given to the common works is paid in a policy file (content API 128, M7d slice
+/// CE3a).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct PayFile {
+    /// The good paid, by content id: a money.
+    pub good: String,
+    /// Units of it an hour.
+    pub per_hour: f64,
 }
 
 /// A mint's terms in a policy file (content API 127, M7d slice CE): the recipe it strikes by
@@ -327,6 +342,18 @@ impl PolicyFile {
         })
     }
 
+    /// What an hour of common work is paid, its good found by `good_index` (M7d slice CE3a).
+    pub fn pay_def(
+        &self,
+        good_index: &dyn Fn(&str) -> Option<usize>,
+    ) -> Option<civ_agents::polity::PayDef> {
+        let p = self.pay.as_ref()?;
+        Some(civ_agents::polity::PayDef {
+            good: good_index(&p.good)?,
+            per_hour: p.per_hour as f32,
+        })
+    }
+
     /// The compiled template (call after [`PolicyFile::problems`] found none, and with every
     /// value `bears` names defined: `value_index` finds it).
     pub fn def(
@@ -397,8 +424,10 @@ impl PolicyFile {
                     review: f.review,
                 })
             }),
-            // The recipe is resolved apart ([`PolicyFile::mint_def`]).
+            // The recipe and the good are resolved apart ([`PolicyFile::mint_def`],
+            // [`PolicyFile::pay_def`]).
             mint: None,
+            pay: None,
             lending: self
                 .lending
                 .as_ref()
@@ -651,6 +680,22 @@ impl PolicyFile {
             (Some(_), _) => p.push("`mint` is for `does = \"mint\"`".to_owned()),
             (None, _) => {}
         }
+        // Pay for common work (M7d slice CE3a): only for `pay_work`, which must have it.
+        match (&self.pay, PolicyKind::from_name(&self.does)) {
+            (Some(pay), Some(PolicyKind::PayWork)) => {
+                if !(pay.per_hour.is_finite() && pay.per_hour > 0.0 && pay.per_hour <= 1000.0) {
+                    p.push(format!(
+                        "`pay.per_hour` must be above 0 and at most 1000 (got {})",
+                        pay.per_hour
+                    ));
+                }
+            }
+            (None, Some(PolicyKind::PayWork)) => {
+                p.push("a `pay_work` template needs a `pay` table".to_owned());
+            }
+            (Some(_), _) => p.push("`pay` is for `does = \"pay_work\"`".to_owned()),
+            (None, _) => {}
+        }
         // A law of debts heard's terms (M7d slice CB): only for `debts_heard`, which must have
         // them.
         match (&self.debts, PolicyKind::from_name(&self.does)) {
@@ -825,7 +870,8 @@ impl PolicyFile {
                 | PolicyKind::Recognize
                 | PolicyKind::DebtsHeard
                 | PolicyKind::LendFromStore
-                | PolicyKind::Mint),
+                | PolicyKind::Mint
+                | PolicyKind::PayWork),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -886,7 +932,8 @@ impl PolicyFile {
                 | PolicyKind::Recognize
                 | PolicyKind::DebtsHeard
                 | PolicyKind::LendFromStore
-                | PolicyKind::Mint,
+                | PolicyKind::Mint
+                | PolicyKind::PayWork,
             )
             | None => {}
         }
@@ -1107,6 +1154,7 @@ mod tests {
             debts: None,
             lending: None,
             mint: None,
+            pay: None,
         }
     }
 
@@ -1137,6 +1185,7 @@ mod tests {
             debts: None,
             lending: None,
             mint: None,
+            pay: None,
             ..file()
         };
         let roofs = roofs_with(Some(rule("roofs_unburnt", 4.0)));
@@ -1176,6 +1225,7 @@ mod tests {
             debts: None,
             lending: None,
             mint: None,
+            pay: None,
             ..file()
         };
         assert!(

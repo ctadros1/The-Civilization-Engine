@@ -121,8 +121,8 @@ use super::{
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
-    SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, finish, section, single_chunk,
-    unreadable,
+    SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, finish, section,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -602,6 +602,8 @@ enum Schema {
     V136,
     /// The mint (M7d slice CE2b: `Order.brought`, issue code 22).
     V137,
+    /// Pay for common work (M7d slice CE3a: issue code 23).
+    V138,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -753,7 +755,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V134 => Schema::V134,
         SCHEMA_V135 => Schema::V135,
         SCHEMA_V136 => Schema::V136,
-        SAVE_SCHEMA_VERSION => Schema::V137,
+        SCHEMA_V137 => Schema::V137,
+        SAVE_SCHEMA_VERSION => Schema::V138,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1929,6 +1932,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::FetchedElsewhere => 20,
         IssueKind::DebtsUnpaid => 21,
         IssueKind::Weighed => 22,
+        IssueKind::CoinIdle => 23,
     }
 }
 
@@ -2059,6 +2063,7 @@ fn decode_polities(
                 20 => IssueKind::FetchedElsewhere,
                 21 => IssueKind::DebtsUnpaid,
                 22 => IssueKind::Weighed,
+                23 => IssueKind::CoinIdle,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -4456,7 +4461,8 @@ fn carried(
         | Schema::V134
         | Schema::V135
         | Schema::V136
-        | Schema::V137 => {
+        | Schema::V137
+        | Schema::V138 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4766,7 +4772,8 @@ fn decode_households(
             | Schema::V134
             | Schema::V135
             | Schema::V136
-            | Schema::V137 => {
+            | Schema::V137
+            | Schema::V138 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

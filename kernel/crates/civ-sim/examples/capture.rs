@@ -137,6 +137,7 @@ fn laws_words(sim: &Sim) -> Vec<String> {
                     | PolicyKind::DebtsHeard
                     | PolicyKind::LendFromStore
                     | PolicyKind::Mint
+                    | PolicyKind::PayWork
             )
         }) {
             let (present, support, oppose) = l.counts();

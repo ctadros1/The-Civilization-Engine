@@ -3781,6 +3781,34 @@ and M6a gives rivers a daily flow.
         (next, with the day-53 fix in, so its cost does not dominate).
     - **CG**: local searches, exactly: settlement indexes walked in today's scan order, with
       debug checks; the growth exponent from 1k to 10k.
+      - *As built (2026-10-17):* each settlement's households are kept in an index in the
+        household table's own order (`Population::households_in`), kept in step where households
+        are added (`insert_household`) and taken away (`take_household`, now the one way out,
+        used by every death, merge and move) and rebuilt on load; households a test changes by
+        hand (through `people_mut_for_tests`) are indexed again before the world next advances,
+        which the suite's debug checks caught on its first run. Fourteen searches walk their
+        own settlement's households instead of every household: sellers and offers on the market
+        (`find_deal`, `for_sale`, `plan_errand`), givers (`best_giver`), targets of a taking
+        (its own settlement's and those its members have seen, merged in table order), the
+        gate's keeper, techniques seen worked and whether what a technique made remains, the
+        fed share, a polity's crops, the household that takes in children left alone, the
+        dashboard's food-days measure, taste and the style clocks. A partner is sought among the members of the settlement's households
+        and those one holds a tie with elsewhere, the candidates sorted by id as before.
+        **Checked in every test:** with debug checks on (the suite's profile), each walk of the
+        index first asserts it lists exactly the households a scan finds, in its order, and the
+        partner search asserts its candidates equal the scan's. **Exact:** every section's
+        digest but `meta` equal to the build before after 30 days of 3×1,000 and 10 days of
+        3×3,334, at Max and in full detail. **Measured, and what it shows:** no change in speed
+        beyond noise (10 days of 3×3,334 at Max 253.5 s against 250.9 s, each run alone). The
+        growth exponent, 10 days at Max on the 2,048-cell valley with three settlements: 774,
+        3,307 and 25,354 ms a day at 1,000, 3,000 and 10,000 people (before: 763, 3,268 and
+        25,092), 1.32 from 1k to 3k, 1.69 from 3k to 10k, 1.51 over the whole range, the same
+        as before to the second decimal. The brief's estimate for this lever (1.8–2.6× at 10k)
+        assumed the cost above linear came from searches over the whole world; it does not. It
+        comes from within a settlement as it grows: a crowd at the hearth weighed by each who
+        keeps company there, a buyer weighing every seller of its own market (kept, ADR-0028
+        §2), route searches over a larger walked ground. The index stays: it keeps searches
+        local when settlements multiply (M9), at no measurable cost now.
     - **CH**: the host and frames at scale: Max lived in chunks within a day, people on the delta
       stream, batched drawing in the web observer.
     - **CI**: constant factors from the profile, exact, time-boxed.

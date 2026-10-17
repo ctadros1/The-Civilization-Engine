@@ -47,10 +47,9 @@ impl Population {
                 Some(style::band_way(rules, seed, s.id))
             } else {
                 style::mean_taste(
-                    self.households
-                        .iter()
-                        .filter(|(_, h)| h.settlement == Some(s.id) && !h.members.is_empty())
-                        .map(|(_, h)| &h.taste),
+                    self.households_in(s.id)
+                        .filter(|h| !h.members.is_empty())
+                        .map(|h| &h.taste),
                 )
             };
             if let Some(way) = way {
@@ -105,10 +104,9 @@ impl Population {
     ) -> style::Clocks {
         let since = now.minutes() - DAYS_PER_YEAR * MINUTES_PER_DAY;
         let taste = style::Spread::of(
-            self.households
-                .iter()
-                .filter(|(_, h)| h.settlement == Some(s) && !h.members.is_empty())
-                .map(|(_, h)| h.taste),
+            self.households_in(s)
+                .filter(|h| !h.members.is_empty())
+                .map(|h| h.taste),
         );
         let mut new = Vec::new();
         let mut stock = Vec::new();

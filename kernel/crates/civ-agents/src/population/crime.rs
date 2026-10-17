@@ -128,12 +128,11 @@ impl Population {
         // within the same reach.
         let seen = self.homes_seen_elsewhere(hh.id, settlement);
         let mut found: Vec<TakeTarget> = Vec::new();
-        for (_, x) in self.households.iter() {
-            if x.id == hh.id
-                || x.members.is_empty()
-                || x.settlement
-                    .is_none_or(|s| s != settlement && !seen.contains(&s))
-            {
+        let places: Vec<PermanentId> = std::iter::once(settlement)
+            .chain(seen.iter().copied())
+            .collect();
+        for x in self.households_in_any(&places) {
+            if x.id == hh.id || x.members.is_empty() {
                 continue;
             }
             let stores = stores_now(x, now, params, goods);
@@ -376,8 +375,8 @@ impl Population {
             return (own as f32, f32::NAN);
         };
         let (mut more, mut others) = (0.0, 0u32);
-        for (_, y) in self.households.iter() {
-            if y.id == hh || y.settlement != Some(settlement) || y.members.is_empty() {
+        for y in self.households_in(settlement) {
+            if y.id == hh || y.members.is_empty() {
                 continue;
             }
             let d = days(y);

@@ -278,10 +278,7 @@ impl Population {
     /// body's reserve), as anyone living there sees.
     fn fed_share(&self, ctx: &Ctx, settlement: PermanentId) -> f64 {
         let (mut all, mut fed) = (0u32, 0u32);
-        for (_, x) in self.households.iter() {
-            if x.settlement != Some(settlement) {
-                continue;
-            }
+        for x in self.households_in(settlement) {
             for p in x.members.iter().filter_map(|&m| self.person(m)) {
                 all += 1;
                 if !may_eat_reserve(p, ctx.now, ctx.params) {
@@ -457,9 +454,7 @@ impl Population {
             .learn(id, left, day, PlaceHow::Lived, None);
         self.leanings.remove(&from);
         // The household they leave: its workshops close and its ground and home stand empty.
-        if let Some(hd) = self.hh_index.remove(&from)
-            && let Some(gone) = self.households.remove(hd)
-        {
+        if let Some(gone) = self.take_household(from) {
             self.homes_moved += 1;
             self.flows_gone.absorb(&gone.flows);
         }

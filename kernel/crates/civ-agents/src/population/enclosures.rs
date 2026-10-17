@@ -536,10 +536,9 @@ impl Population {
     /// The household of settlement `settlement` whose home is nearest point `at`, the gate's
     /// keeper (ADR-0023 §6: otherwise the nearest household).
     fn gate_keeper(&self, settlement: PermanentId, at: (f32, f32)) -> Option<PermanentId> {
-        self.households
-            .iter()
-            .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
-            .map(|(_, x)| ((x.home.0 - at.0).hypot(x.home.1 - at.1), x.id))
+        self.households_in(settlement)
+            .filter(|x| !x.members.is_empty())
+            .map(|x| ((x.home.0 - at.0).hypot(x.home.1 - at.1), x.id))
             .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)))
             .map(|k| k.1)
     }

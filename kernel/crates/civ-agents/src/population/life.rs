@@ -817,9 +817,7 @@ impl Population {
             }
         }
         self.settle_household(ctx, household);
-        if let Some(hd) = self.hh_index.remove(&household)
-            && let Some(mut gone) = self.households.remove(hd)
-        {
+        if let Some(mut gone) = self.take_household(household) {
             self.homes_moved += 1;
             self.known_places.forget(household);
             self.reports.forget(household);
@@ -990,8 +988,8 @@ impl Population {
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         let grown = params.family.independent_age;
         let mut best: Option<(f64, PermanentId)> = None;
-        for (_, x) in self.households.iter() {
-            if x.id == household || x.settlement != Some(settlement) || x.members.is_empty() {
+        for x in self.households_in(settlement) {
+            if x.id == household || x.members.is_empty() {
                 continue;
             }
             let has_adult = x
@@ -1057,10 +1055,7 @@ impl Population {
         self.reports.bring(from, to, home);
         self.known_places.forget(from);
         self.reports.forget(from);
-        let Some(hd) = self.hh_index.remove(&from) else {
-            return;
-        };
-        let Some(gone) = self.households.remove(hd) else {
+        let Some(gone) = self.take_household(from) else {
             return;
         };
         self.homes_moved += 1;
@@ -1180,9 +1175,7 @@ impl Population {
             Some(to) => self.merge_household(ctx, household, to, false, ResidenceWhy::TakenIn),
             None => {
                 self.settle_household(ctx, household);
-                if let Some(hd) = self.hh_index.remove(&household)
-                    && let Some(mut gone) = self.households.remove(hd)
-                {
+                if let Some(mut gone) = self.take_household(household) {
                     self.homes_moved += 1;
                     self.known_places.forget(household);
                     self.reports.forget(household);
@@ -1282,14 +1275,13 @@ impl Population {
         let settlement = self.household(me.household)?.settlement;
         let my_age = me.age_years(now);
         let day = now.day_index();
-        let mut candidates: Vec<(PermanentId, f64)> = Vec::new();
-        for (_, q) in self.people.iter() {
+        let consider = |q: &Person| -> Option<(PermanentId, f64)> {
             if q.sex == me.sex || q.partner.is_some() {
-                continue;
+                return None;
             }
             let age = q.age_years(now);
             if !fam.seeks_at(q.sex, age) {
-                continue;
+                return None;
             }
             // Those of their own settlement, and of another the one they hold a tie with (M5a
             // slice AM; research 04-08 §1.1: the pool is those one has met).
@@ -1298,22 +1290,56 @@ impl Population {
                 && (theirs.flatten().is_none()
                     || self.ties.known(id, q.id, day, &ctx.params.ties) <= 0.0)
             {
-                continue;
+                return None;
             }
             let (woman, man) = if me.sex == Sex::Female {
                 (my_age, age)
             } else {
                 (age, my_age)
             };
-            let Some(score) = couple_score(fam, woman, man) else {
-                continue;
-            };
+            let score = couple_score(fam, woman, man)?;
             if too_close(&self.records, id, q.id, fam.kin_exclusion_generations) {
-                continue;
+                return None;
             }
-            candidates.push((q.id, score));
-        }
+            Some((q.id, score))
+        };
+        // Whom to weigh: the members of their settlement's households and those they hold a tie
+        // with elsewhere (M8a slice CG, ADR-0028 §2), every one `consider` could take; everyone
+        // when they have no settlement. The order does not matter: they are sorted by id.
+        let mut candidates: Vec<(PermanentId, f64)> = match settlement {
+            Some(s) => {
+                let elsewhere = self.ties.of(id).iter().filter_map(|t| {
+                    let q = self.person(t.to)?;
+                    let theirs = self.household(q.household)?.settlement?;
+                    (theirs != s).then_some(q)
+                });
+                self.households_in(s)
+                    .flat_map(|x| x.members.iter())
+                    .filter_map(|&m| self.person(m))
+                    .chain(elsewhere)
+                    .filter_map(consider)
+                    .collect()
+            }
+            None => self
+                .people
+                .iter()
+                .filter_map(|(_, q)| consider(q))
+                .collect(),
+        };
         candidates.sort_by_key(|c| c.0);
+        #[cfg(debug_assertions)]
+        {
+            let mut scan: Vec<(PermanentId, f64)> = self
+                .people
+                .iter()
+                .filter_map(|(_, q)| consider(q))
+                .collect();
+            scan.sort_by_key(|c| c.0);
+            assert_eq!(
+                candidates, scan,
+                "the partners {id} could find are out of step"
+            );
+        }
         let scores: Vec<f64> = candidates.iter().map(|c| c.1).collect();
         pick_softmax(&scores, rng.next_f64()).map(|i| candidates[i].0)
     }

@@ -434,6 +434,13 @@ pub struct Population {
     pub next_trip: u64,
     index: FastMap<PermanentId, Handle<Person>>,
     hh_index: FastMap<PermanentId, Handle<Household>>,
+    /// Each settlement's households, in the table's order (M8a slice CG, ADR-0028 §2): a search
+    /// walks its own settlement's, in the order a scan of every household would find them.
+    /// Derived, kept in step where households are added and taken away.
+    settled: BTreeMap<PermanentId, BTreeSet<Handle<Household>>>,
+    /// Whether households may have been changed by hand since `settled` was last built
+    /// ([`Population::forget_derived`]): it is built again before the world next advances.
+    settled_stale: bool,
     homes: FastMap<PermanentId, HomeField>,
     /// The kinds of place gathering trips go to.
     places: Vec<Places>,
@@ -1009,10 +1016,102 @@ impl Population {
     /// Adds a household.
     pub fn insert_household(&mut self, h: Household) -> Handle<Household> {
         self.homes_moved += 1;
-        let id = h.id;
+        let (id, settlement) = (h.id, h.settlement);
         let handle = self.households.insert(h);
         self.hh_index.insert(id, handle);
+        if let Some(s) = settlement {
+            self.settled.entry(s).or_default().insert(handle);
+        }
         handle
+    }
+
+    /// Builds the settlement index from the households as they are.
+    fn build_settled(&mut self) {
+        self.settled.clear();
+        for (h, x) in self.households.iter() {
+            if let Some(s) = x.settlement {
+                self.settled.entry(s).or_default().insert(h);
+            }
+        }
+        self.settled_stale = false;
+    }
+
+    /// Builds the settlement index again if households may have been changed by hand since it
+    /// was built (as tests do, after [`Population::forget_derived`]). The world calls it before
+    /// each advance.
+    pub fn refresh_settled(&mut self) {
+        if self.settled_stale {
+            self.build_settled();
+        }
+    }
+
+    /// Takes household `id` away, with its place in the indexes.
+    pub(crate) fn take_household(&mut self, id: PermanentId) -> Option<Household> {
+        let hd = self.hh_index.remove(&id)?;
+        let gone = self.households.remove(hd)?;
+        if let Some(s) = gone.settlement
+            && let Some(set) = self.settled.get_mut(&s)
+        {
+            set.remove(&hd);
+            if set.is_empty() {
+                self.settled.remove(&s);
+            }
+        }
+        Some(gone)
+    }
+
+    /// The households of settlement `s`, in the order a scan of every household finds them
+    /// (M8a slice CG, ADR-0028 §2). Checked against that scan whenever debug checks are on.
+    pub(crate) fn households_in(&self, s: PermanentId) -> impl Iterator<Item = &Household> + '_ {
+        #[cfg(debug_assertions)]
+        self.check_settled(&[s]);
+        self.settled
+            .get(&s)
+            .into_iter()
+            .flatten()
+            .filter_map(|&h| self.households.get(h))
+    }
+
+    /// The households of any of `settlements`, in the order a scan of every household finds
+    /// them.
+    pub(crate) fn households_in_any(&self, settlements: &[PermanentId]) -> Vec<&Household> {
+        #[cfg(debug_assertions)]
+        self.check_settled(settlements);
+        let mut handles: Vec<Handle<Household>> = settlements
+            .iter()
+            .filter_map(|s| self.settled.get(s))
+            .flatten()
+            .copied()
+            .collect();
+        handles.sort_unstable();
+        handles.dedup();
+        handles
+            .into_iter()
+            .filter_map(|h| self.households.get(h))
+            .collect()
+    }
+
+    /// Panics unless the settlement index lists, for each of `settlements`, exactly the
+    /// households a scan finds, in its order.
+    #[cfg(debug_assertions)]
+    fn check_settled(&self, settlements: &[PermanentId]) {
+        for &s in settlements {
+            let scan: Vec<Handle<Household>> = self
+                .households
+                .iter()
+                .filter(|(_, x)| x.settlement == Some(s))
+                .map(|(h, _)| h)
+                .collect();
+            let index: Vec<Handle<Household>> = self
+                .settled
+                .get(&s)
+                .map(|set| set.iter().copied().collect())
+                .unwrap_or_default();
+            assert_eq!(
+                index, scan,
+                "the households of settlement {s} are out of step"
+            );
+        }
     }
 
     /// Adds a living person (their record must be added separately).
@@ -1027,6 +1126,7 @@ impl Population {
     pub fn rebuild_indexes(&mut self) {
         self.index = self.people.iter().map(|(h, p)| (p.id, h)).collect();
         self.hh_index = self.households.iter().map(|(h, x)| (x.id, h)).collect();
+        self.build_settled();
         self.homes.clear();
         self.places.clear();
         self.routes.clear();
@@ -1590,6 +1690,7 @@ impl Population {
         self.known_pruned.clear();
         self.fields_moved();
         self.children_indexed = usize::MAX;
+        self.settled_stale = true;
     }
 
     /// Starts a person's life in the simulation: they decide what to do first.
@@ -2591,8 +2692,8 @@ impl Population {
         }
         let reach = &self.homes.get(&field_key)?.reach;
         let mut found: Vec<GiverOption> = Vec::new();
-        for (_, x) in self.households.iter() {
-            if x.id == hh.id || x.settlement != Some(settlement) {
+        for x in self.households_in(settlement) {
+            if x.id == hh.id {
                 continue;
             }
             let kcal = spare_food_kcal(x, now, params, goods).min(want);

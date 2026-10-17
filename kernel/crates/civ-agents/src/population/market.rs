@@ -924,17 +924,17 @@ impl Population {
         let settlement = hh.settlement?;
         let here = |s: Option<PermanentId>| only.is_some() || s == Some(settlement);
         // Its neighbours' offers, and those of the workshops among them (at their owners'
-        // homes), not its own.
-        let sellers: Vec<Seller> = self
-            .households
-            .iter()
-            .map(|(_, x)| x)
-            .filter(|x| {
-                x.id != hh.id
-                    && here(x.settlement)
-                    && !x.offers.is_empty()
-                    && only.is_none_or(|s| s == x.id)
-            })
+        // homes), not its own: the one seller's at its door, else its settlement's.
+        let one = only.and_then(|s| self.household(s));
+        let near = only
+            .is_none()
+            .then(|| self.households_in(settlement))
+            .into_iter()
+            .flatten();
+        let sellers: Vec<Seller> = one
+            .into_iter()
+            .chain(near)
+            .filter(|x| x.id != hh.id && !x.offers.is_empty())
             .map(|x| Seller {
                 id: x.id,
                 at: x.home,
@@ -1782,8 +1782,8 @@ impl Population {
                         }
                     }
                 };
-                for (_, x) in self.households.iter() {
-                    if x.id != hh.id && x.settlement == Some(home) {
+                for x in self.households_in(home) {
+                    if x.id != hh.id {
                         add(&x.offers);
                     }
                 }
@@ -2026,10 +2026,7 @@ impl Population {
         // What is wanted of each tool: wants nobody met, and what sold lately when none is on
         // offer now.
         let on_offer = |t: usize| {
-            self.households
-                .iter()
-                .map(|(_, x)| x)
-                .filter(|x| x.settlement == Some(settlement))
+            self.households_in(settlement)
                 .flat_map(|x| x.offers.iter())
                 .chain(
                     self.firms

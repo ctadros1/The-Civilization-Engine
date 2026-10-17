@@ -1501,6 +1501,8 @@ impl Sim {
         if minutes <= 0 {
             return Ok(Advance::default());
         }
+        // Households changed by hand in a test are indexed again before anyone looks.
+        self.people.refresh_settled();
         let target = self.now().plus_minutes(minutes);
         let mut advance = Advance {
             minutes,

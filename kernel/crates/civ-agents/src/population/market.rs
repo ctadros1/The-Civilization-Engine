@@ -187,6 +187,98 @@ impl Population {
             })
     }
 
+    /// What a unit of good `p` is worth to household `hh`, holding `held` of it, as a payment,
+    /// hours of its own work: its own cost (`own`); or, for a good paid by weight as money (M7d
+    /// slice CD, ADR-0027 §5), the greater of that and what a unit bought in its purchases its
+    /// markets remember, at its own costs (`costs`) of what it bought and faded by the markets'
+    /// memory, less the hours of verifying it. Beyond its desired balance, `money_days` of its
+    /// spending in it, what a unit buys is worth less to it, as stores beyond a target are
+    /// (target ÷ held). The quantity of money reaches prices only by this belief.
+    pub(crate) fn pay_worth(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        p: usize,
+        own: Option<f64>,
+        held: f64,
+        costs: &[Option<f64>],
+    ) -> Option<f64> {
+        let Some(money) = ctx.catalog.goods.get(p).and_then(|g| g.money.as_ref()) else {
+            return own;
+        };
+        let mp = &ctx.params.market;
+        let today = ctx.now.day_index();
+        let (mut bought_h, mut paid) = (0.0, 0.0);
+        for t in self
+            .markets
+            .iter()
+            .flat_map(|m| m.recent.iter())
+            .filter(|t| t.buyer == hh.id && usize::from(t.payment) == p && t.paid > 0.0)
+        {
+            let Some(c) = costs.get(usize::from(t.good)).copied().flatten() else {
+                continue;
+            };
+            let age = (today - t.at.day_index()).max(0) as f64;
+            let w = 0.5f64.powf(age / mp.memory_days.max(1e-6));
+            bought_h += w * c * f64::from(t.units);
+            paid += w * f64::from(t.paid);
+        }
+        // Units spent a day: the faded payments over the memory's mean age.
+        let per_day = paid * std::f64::consts::LN_2 / mp.memory_days.max(1e-6);
+        let desired = mp.money_days * per_day;
+        let scale = if held > desired {
+            desired / held.max(1e-9)
+        } else {
+            1.0
+        };
+        let bought = (paid > 1e-9).then(|| bought_h / paid * scale);
+        let worth = match (own, bought) {
+            (Some(a), Some(b)) => Some(a.max(b)),
+            (a, b) => a.or(b),
+        };
+        worth.map(|v| v - money.verify_h).filter(|&v| v > 0.0)
+    }
+
+    /// What a unit of good `p` is worth as a payment to household `household` holding `held` of
+    /// it ([`Population::pay_worth`]): for tests and probes.
+    #[doc(hidden)]
+    pub fn pay_worth_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        p: usize,
+        held: f64,
+    ) -> Option<f64> {
+        let hh = self.household(household)?;
+        let costs = self.own_costs_of(ctx, hh);
+        self.pay_worth(ctx, hh, p, costs.get(p).copied().flatten(), held, &costs)
+    }
+
+    /// `costs` with every good paid by weight as money valued as a payment by household `hh`
+    /// holding `stores` ([`Population::pay_worth`]); other goods as they are.
+    pub(crate) fn pay_costs(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        stores: &[f64],
+        costs: Vec<Option<f64>>,
+    ) -> Vec<Option<f64>> {
+        let goods = &ctx.catalog.goods;
+        if goods.iter().all(|g| g.money.is_none()) {
+            return costs;
+        }
+        (0..costs.len())
+            .map(|p| {
+                if goods.get(p).is_some_and(|g| g.money.is_some()) {
+                    let held = stores.get(p).copied().unwrap_or(0.0).max(0.0);
+                    self.pay_worth(ctx, hh, p, costs[p], held, &costs)
+                } else {
+                    costs[p]
+                }
+            })
+            .collect()
+    }
+
     /// The recipe household `household` would make tool `t` by, and its own costs of every good
     /// (M7d slice CE): for tests and probes.
     #[doc(hidden)]
@@ -420,7 +512,9 @@ impl Population {
                 continue;
             };
             let stores = stores_now(hh, now, params, goods);
-            let costs = self.own_costs_of(ctx, hh);
+            let own = self.own_costs_of(ctx, hh);
+            // A money paid by weight is worth what it buys (M7d slice CD).
+            let costs = self.pay_costs(ctx, hh, &stores, own);
             let holding = self.holding_of(ctx, hh, &stores);
             let held = |g: usize| stores.get(g).copied().unwrap_or(0.0).max(0.0);
             // What it can spare.
@@ -814,7 +908,8 @@ impl Population {
                 {
                     continue;
                 }
-                let Some(pay_cost) = costs().get(p).copied().flatten() else {
+                let own_pay = costs().get(p).copied().flatten();
+                let Some(pay_cost) = self.pay_worth(ctx, hh, p, own_pay, held(p), costs()) else {
                     continue;
                 };
                 let pay_h = paid * pay_cost * holding.want.get(p).copied().unwrap_or(0.0);

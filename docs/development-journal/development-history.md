@@ -2629,3 +2629,12 @@ its axes never wore below what it keeps. Copper waits on tools wearing out. A wa
 only when its makings can be got, after a first build could have left a household choosing a
 copper axe it had no ore for.
 
+## 2026-10-17 — CD: money's worth for weighed metal
+
+**Built:** ADR-0027 §5 for weighed metal. Copper is paid by weight: a holder values a kilogram at
+what a kilogram bought in its remembered purchases, in its own hours, less the weighing, and holds
+beyond about two weeks of its spending in it are worth less to it. The belief is read from trades
+the markets already save, so saves did not change. Content API 125.
+
+**Lived:** nothing yet: no world makes copper without the observer's help, so nobody pays with it.
+

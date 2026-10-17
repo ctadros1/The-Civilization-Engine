@@ -10,3 +10,9 @@ sheltered_half_life_days = 0.0
 eaten = "never"
 shared = false
 reserve_for = ""
+
+[money]
+# Paid by weight (M7d slice CD): a holder weighs and tests a kilogram in a tenth of an hour before
+# taking it (research 08-06 §1.3 counts what verifying a payment costs; the figure is a tuning
+# value).
+verify_h = 0.1

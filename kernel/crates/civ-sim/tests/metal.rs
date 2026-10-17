@@ -254,3 +254,69 @@ fn nobody_holds_copper_where_nobody_knows_how_to_smelt() {
         );
     }
 }
+
+#[test]
+fn weighed_copper_is_worth_what_it_bought_and_less_beyond_a_balance() {
+    let mut sim = world(3);
+    let goods = ["copper", "grain", "firewood"].map(|g| good(&sim, &format!("core:good/{g}")));
+    let [copper, grain, firewood] = goods;
+    let (hh, settlement) = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .find_map(|x| x.settlement.map(|s| (x.id, s)))
+        .expect("a household");
+    let seller = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x.id)
+        .find(|&id| id != hh)
+        .expect("another household");
+    let worth = |sim: &mut Sim, p: usize, held: f64| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.pay_worth_for_tests(ctx, hh, p, held))
+    };
+    // Nobody who cannot smelt has a use for copper, and none has bought with it.
+    assert_eq!(worth(&mut sim, copper, 0.0), None);
+    let grain_h = worth(&mut sim, grain, 0.0).expect("grain has a cost");
+    let wood_before = worth(&mut sim, firewood, 0.0);
+    // It paid 2 kg of copper for 100 kg of grain today.
+    let n = sim.rules().catalog.goods.len();
+    let now = sim.now();
+    let pop = sim.people_mut_for_tests();
+    if !pop.markets.iter().any(|m| m.settlement == settlement) {
+        pop.markets.push(civ_agents::market::Market::new(
+            settlement,
+            n,
+            now.day_index(),
+        ));
+    }
+    let market = pop
+        .markets
+        .iter_mut()
+        .find(|m| m.settlement == settlement)
+        .expect("market");
+    market.recent.push_back(civ_agents::ledger::Trade {
+        at: now,
+        seller,
+        buyer: hh,
+        good: grain as u16,
+        units: 100.0,
+        payment: copper as u16,
+        paid: 2.0,
+        channel: civ_agents::ledger::Channel::Sale,
+        from: None,
+    });
+    // A kilogram bought 50 kg of grain, less the tenth of an hour of weighing it.
+    let w = worth(&mut sim, copper, 0.0).expect("now worth what it bought");
+    assert!(
+        (w - (grain_h * 50.0 - 0.1)).abs() < 1e-6,
+        "{w} against {grain_h}"
+    );
+    // Holding far more than its spending wants, a kilogram is worth less to it.
+    let flush = worth(&mut sim, copper, 50.0).expect("still worth something");
+    assert!(flush < w * 0.1, "{flush} against {w}");
+    // A good not paid by weight is valued as before.
+    assert_eq!(worth(&mut sim, firewood, 0.0), wood_before);
+}

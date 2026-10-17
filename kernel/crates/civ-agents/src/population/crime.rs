@@ -1523,6 +1523,7 @@ mod tests {
 
     fn good(name: &str, kcal_per_kg: f64, kept_back: bool) -> GoodDef {
         GoodDef {
+            money: None,
             id: name.into(),
             name: name.into(),
             purpose: GoodUse::Food,

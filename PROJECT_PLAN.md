@@ -3546,9 +3546,28 @@ and M6a gives rivers a daily flow.
         138 people at the end. A first build that let the way be chosen by an ore cost believed
         for places never seen could leave a household without the makings of either axe; the
         rule above, and a test, close that.
-        **Not yet built:** money's worth for weighed metal (CD); a mint, cohorts and purses, polity
-        spending and a levy in coin, debasement, foreign coin (CE2-CE4); ore or copper brought home
-        as pigment or ornament before anyone smelts.
+        **Not yet built:** a mint, cohorts and purses, polity spending and a levy in coin,
+        debasement, foreign coin (CE2-CE4); ore or copper brought home as pigment or ornament
+        before anyone smelts.
+    - **CD**: money's worth to its holder, for weighed metal (coin comes with the mint).
+      - *As built (2026-10-17):* content API 125 (saves and wire unchanged: the belief is read
+        from the purchases a market already remembers). A good with a `[money]` table is paid by
+        weight. A household values a unit of it, as a seller setting its terms and as a buyer
+        weighing what it pays, at the greater of its own cost and what a unit bought in its
+        remembered purchases, at its own costs of what it bought, faded by the market's
+        `memory_days`, less the hours of weighing and testing it (`verify_h`). Beyond
+        `money_days` (14) of its spending in it, what a unit buys is worth less to it, by
+        balance ÷ held, the stores rule: this is the only way the quantity of a money reaches
+        prices (ADR-0027 §5). Copper is the core's weighed money (0.1 hours a kilogram).
+        Inferred commodity money (grain, firewood) keeps its own-cost valuation. **Not
+        measured in a lived world:** none makes copper yet (CE1), so nothing pays with it and
+        no world values anything differently; a test sets a purchase in copper and checks the
+        worth it gives and the fall beyond the balance. A seller accepts copper only when it
+        wants it or when copper is its market's money, as before. **A flake seen on the way:** the
+        chain's first browser run failed `reports.spec.ts` (the inspector's prices heard
+        elsewhere) after 1.1 minutes under load; alone it passed in 15 seconds and a full rerun
+        passed 26 of 26. Nothing in the slice touches what it reads. **Not yet built:** coin
+        (CE2); acceptance by those with no use for metal before it is their market's money.
 
 **M8: The growing city (v1).**
 - *Contents:*

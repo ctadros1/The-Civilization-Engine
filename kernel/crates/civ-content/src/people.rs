@@ -2272,6 +2272,9 @@ pub(crate) struct Market {
     pub money_min_trades: f64,
     pub accept_want: f64,
     pub recent_trades: u32,
+    /// Content API 125 (M7d slice CD): a holder's desired balance of a weighed money, days of
+    /// its spending in it.
+    pub money_days: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2557,6 +2560,7 @@ impl PeopleFile {
                     money_min_trades: k.money_min_trades,
                     accept_want: k.accept_want,
                     recent_trades: k.recent_trades as usize,
+                    money_days: k.money_days,
                 }
             },
             firm: FirmParams {
@@ -3367,6 +3371,7 @@ impl PeopleFile {
         unit("market.money_share", k.money_share, &mut p);
         non_negative("market.money_min_trades", k.money_min_trades, &mut p);
         unit("market.accept_want", k.accept_want, &mut p);
+        positive("market.money_days", k.money_days, &mut p);
         if k.recent_trades == 0 || k.recent_trades > 1000 {
             p.push("`market.recent_trades` must be between 1 and 1000".to_owned());
         }

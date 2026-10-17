@@ -687,6 +687,13 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 125 (M7d slice CD, ADR-0027 §5) brings money's worth. A good may have a `[money]`
+table, `verify_h` (hours a holder spends weighing and testing a unit): it is paid by weight, and a
+holder values a unit at the greater of its own cost and what a unit bought in its purchases its
+markets remember, at its own costs and faded by the market's `memory_days`, less `verify_h`;
+beyond `money_days` of its spending in it (the people profile's `[market]`, 14), what a unit buys is
+worth less to it, by balance ÷ held. The core gives copper `[money]` (0.1 hours a kilogram).
+
 Content API 124 (M7d slice CE, ADR-0027 §6) brings metal. A tool's `[tool]` table may name
 `serves`, another tool (one that serves for none) whose work it does as well: work that needs
 that tool may be done with this one, the longest-lived at hand is worn first, and a household

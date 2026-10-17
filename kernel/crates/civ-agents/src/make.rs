@@ -392,6 +392,7 @@ mod tests {
 
     fn good(id: &str, purpose: GoodUse, kcal: f64, eaten: Eaten) -> GoodDef {
         GoodDef {
+            money: None,
             id: id.into(),
             name: id.into(),
             purpose,

@@ -1237,6 +1237,7 @@ pub(crate) mod tests {
 
     fn goods() -> Vec<GoodDef> {
         let good = |id: &str| GoodDef {
+            money: None,
             id: id.into(),
             name: id.into(),
             purpose: GoodUse::Material,
@@ -1511,6 +1512,7 @@ pub(crate) mod tests {
     fn pots_are_wanted_for_food_on_floors_under_a_roof_and_add_no_room() {
         use crate::params::{Eaten, StoreDef};
         let good = |id: &str, purpose, kcal, half, sheltered| GoodDef {
+            money: None,
             id: id.to_owned(),
             name: id.to_owned(),
             purpose,
@@ -1646,6 +1648,7 @@ pub(crate) mod tests {
             upkeep: crate::params::Upkeep::default(),
         };
         let good = |id: &str| GoodDef {
+            money: None,
             id: id.into(),
             name: id.into(),
             purpose: GoodUse::Material,

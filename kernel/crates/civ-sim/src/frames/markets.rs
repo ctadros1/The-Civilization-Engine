@@ -702,6 +702,7 @@ mod tests {
 
     fn good(name: &str, tool: bool) -> GoodDef {
         GoodDef {
+            money: None,
             id: format!("core:good/{}", name.to_lowercase()),
             name: name.into(),
             purpose: if tool { GoodUse::Tool } else { GoodUse::Food },

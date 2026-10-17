@@ -197,6 +197,7 @@ mod tests {
 
     fn goods() -> Vec<GoodDef> {
         let good = |id: &str, purpose| GoodDef {
+            money: None,
             id: id.into(),
             name: id.into(),
             purpose,

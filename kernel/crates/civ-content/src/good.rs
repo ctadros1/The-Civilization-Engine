@@ -1,7 +1,7 @@
 //! Goods (`kind = "good"`): things people carry home and keep, with how they keep. What anyone
 //! gathers, stores or eats is decided by people at run time.
 
-use civ_agents::params::{Eaten, GoodDef, GoodFire, GoodUse, StoreDef, ToolDef};
+use civ_agents::params::{Eaten, GoodDef, GoodFire, GoodUse, MoneyDef, StoreDef, ToolDef};
 use civ_agents::structure::Timber;
 use serde::Deserialize;
 
@@ -36,6 +36,9 @@ pub(crate) struct GoodFile {
     pub store: Option<StoreFile>,
     /// How it burns (content API 81; M6b slice BC): absent for a good fire does not touch.
     pub fire: Option<FireFile>,
+    /// Content API 125 (M7d slice CD): it is paid by weight as money.
+    #[serde(default)]
+    pub money: Option<Money>,
 }
 
 /// How a good burns (M6b slice BC; ADR-0022 §4, §5).
@@ -68,6 +71,12 @@ pub(crate) struct TimberFile {
     pub stiffness_gpa: f64,
     pub creep: f64,
     pub sustained: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Money {
+    pub verify_h: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -110,6 +119,9 @@ impl GoodFile {
             }),
             store: self.store.as_ref().map(|t| StoreDef {
                 keeps_kg: t.keeps_kg,
+            }),
+            money: self.money.as_ref().map(|m| MoneyDef {
+                verify_h: m.verify_h,
             }),
             fire: self.fire.as_ref().map(|f| GoodFire {
                 catch_kw_m2: f.catch_kw_m2,

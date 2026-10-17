@@ -328,6 +328,14 @@ pub struct ToolDef {
     pub serves: Option<usize>,
 }
 
+/// What a good paid by weight as money adds to being a good (M7d slice CD, ADR-0027 §5).
+#[derive(Clone, Debug, PartialEq)]
+pub struct MoneyDef {
+    /// Hours a holder spends weighing and testing a unit before it takes it (research 08-06
+    /// §1.3: what verifying it costs).
+    pub verify_h: f64,
+}
+
 /// What a store good adds to being a good (M3b slice Q): the room each one gives.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StoreDef {
@@ -364,6 +372,9 @@ pub struct GoodDef {
     /// For a store (a pot): the room each one gives.
     pub store: Option<StoreDef>,
     /// How it burns (M6b slice BC; content API 81): `None` for a good fire does not touch.
+    /// It is paid by weight as money (M7d slice CD): its worth to a holder is what a unit
+    /// bought in its recent purchases.
+    pub money: Option<MoneyDef>,
     pub fire: Option<GoodFire>,
 }
 
@@ -1581,6 +1592,10 @@ pub struct MarketParams {
     pub accept_want: f64,
     /// Trades a market keeps in its list of the latest.
     pub recent_trades: usize,
+    /// A holder's desired balance of a weighed money (metal, coin), days of its spending in it:
+    /// what it holds beyond is worth less to it (M7d slice CD, ADR-0027 §5; research 08-06
+    /// §2.3: 7-30 days).
+    pub money_days: f64,
 }
 
 /// Household workshops (slice J, ADR-0006 §5).

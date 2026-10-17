@@ -25,7 +25,7 @@ use civ_core::SimTime;
 
 use civ_content::ContentRegistry;
 use civ_schema::{SAVE_EXTENSION, wire};
-use civ_sim::{NewWorld, Sim, SimError, frames, persist};
+use civ_sim::{Mode, NewWorld, Sim, SimError, frames, persist};
 use civ_world::GenError;
 use commons_persist::{SaveDir, SaveKind};
 use tokio::sync::{broadcast, oneshot, watch};
@@ -44,6 +44,10 @@ const HISTORY: usize = 200;
 /// Share of each tick spent living the world on while running ahead; the rest keeps the observer
 /// answered.
 const RUN_AHEAD_SHARE: f64 = 0.8;
+/// Simulated minutes an Accelerated day is lived in at a call, so commands are answered within
+/// a tick however long a day takes (ADR-0028 §5; an engineering choice: about half a second a
+/// chunk at ten thousand people on the container).
+const ACCELERATED_CHUNK_MINUTES: i64 = 30;
 /// Longest run ahead asked for at once, simulated minutes (a hundred years).
 const MAX_RUN_AHEAD_MINUTES: i64 = 100 * civ_core::time::MINUTES_PER_YEAR;
 
@@ -200,6 +204,25 @@ struct World {
     dir: SaveDir,
     last_autosave: Instant,
     last_autosave_unix_ms: i64,
+    /// A pause asked for during an Accelerated day, which stops the clock at its midnight
+    /// (ADR-0011 §2).
+    pause_at_midnight: bool,
+}
+
+impl World {
+    /// Whether the world stands where Accelerated mode may stop, publish and save: anywhere in
+    /// Detailed mode, at a midnight in Accelerated (ADR-0011 §2).
+    fn at_rest(&self) -> bool {
+        self.sim.mode() != Mode::Accelerated || self.sim.now().minute_of_day() == 0
+    }
+
+    /// Lives an Accelerated day begun to its midnight, where it may be saved.
+    fn finish_day(&mut self) -> Result<(), SimError> {
+        if !self.at_rest() {
+            self.sim.advance_to_midnight()?;
+        }
+        Ok(())
+    }
 }
 
 struct Task {
@@ -799,6 +822,14 @@ impl Engine {
         let Some(world) = self.world.as_mut() else {
             return no_world();
         };
+        if let Err(e) = world.finish_day() {
+            let text = format!("Saving failed: {e}");
+            self.fail(text.clone());
+            return Reply::Error(wire::ErrorCode::Internal, text);
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
         match persist::save(&mut world.sim, &world.dir, SaveKind::Manual, &label) {
             Ok(published) => {
                 let file = session::relative(&self.config.saves_root, &published.path);
@@ -831,8 +862,14 @@ impl Engine {
         if let Err(e) = world.sim.set_speed(speed) {
             return Reply::Error(wire::ErrorCode::BadRequest, e.to_string());
         }
-        world.sim.set_paused(paused);
         self.urgent = true;
+        // An Accelerated day begun is lived to its midnight, where the clock stops.
+        if paused && !world.sim.paused() && !world.at_rest() {
+            world.pause_at_midnight = true;
+            return ack("Pausing at midnight");
+        }
+        world.pause_at_midnight = false;
+        world.sim.set_paused(paused);
         ack(if paused { "Paused" } else { "Running" })
     }
 
@@ -948,6 +985,7 @@ impl Engine {
             dir,
             last_autosave: Instant::now(),
             last_autosave_unix_ms: 0,
+            pause_at_midnight: false,
         });
         self.epoch = self.epoch.wrapping_add(1);
         self.recovery = None;
@@ -994,6 +1032,13 @@ impl Engine {
             return;
         };
         world.last_autosave = Instant::now();
+        if let Err(e) = world.finish_day() {
+            self.fail(format!("Autosave failed: {e}"));
+            return;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return;
+        };
         match persist::save(&mut world.sim, &world.dir, SaveKind::Autosave, label) {
             Ok(published) => {
                 world.last_autosave_unix_ms = commons_persist::now_unix_ms();
@@ -1034,7 +1079,10 @@ impl Engine {
         let step = real.min(MAX_STEP).as_secs_f64();
         let mut advance = civ_sim::Advance::default();
         loop {
-            match world.sim.advance_real(step) {
+            match world
+                .sim
+                .advance_real_in_chunks(step, ACCELERATED_CHUNK_MINUTES)
+            {
                 Ok(a) => {
                     advance.minutes += a.minutes;
                     advance.days += a.days;
@@ -1052,12 +1100,20 @@ impl Engine {
                 break;
             }
         }
-        if advance.minutes > 0 {
+        // Accelerated mode publishes and saves only at a midnight (ADR-0011 §2); a pause asked
+        // for during the day takes effect there.
+        let at_rest = world.at_rest();
+        if at_rest && world.pause_at_midnight {
+            world.pause_at_midnight = false;
+            world.sim.set_paused(true);
+            self.urgent = true;
+        }
+        if advance.minutes > 0 && at_rest {
             self.changed = true;
         }
         let due =
             advance.months > 0 || world.last_autosave.elapsed() >= self.config.autosave_interval;
-        if due && world.sim.is_dirty() {
+        if due && at_rest && world.sim.is_dirty() {
             self.autosave("Autosave");
         }
     }
@@ -1828,6 +1884,63 @@ mod tests {
             })),
             Some(wire::ErrorCode::BadRequest)
         );
+    }
+
+    #[test]
+    fn at_max_a_pause_asked_for_during_a_day_takes_effect_at_its_midnight() {
+        let mut h = Harness::new(None, None);
+        h.create("Chunks");
+        let world = h.engine.world.as_mut().expect("a world");
+        world.sim.set_paused(false);
+        world.sim.set_speed(civ_sim::SPEED_MAX).expect("Max");
+        // Accelerated from the next midnight; then partway through a day, as the host's chunks
+        // leave it.
+        world.sim.advance_to_midnight().expect("advances");
+        assert_eq!(world.sim.mode(), Mode::Accelerated);
+        world
+            .sim
+            .advance_real_in_chunks(0.001, ACCELERATED_CHUNK_MINUTES)
+            .expect("advances");
+        assert_eq!(
+            world.sim.now().minute_of_day(),
+            ACCELERATED_CHUNK_MINUTES,
+            "a chunk into the day"
+        );
+        let reply = h.ask(Request::SetClock {
+            paused: true,
+            speed: civ_sim::SPEED_MAX,
+        });
+        assert!(matches!(&reply, Reply::Response(_)), "{reply:?}");
+        let world = h.engine.world.as_ref().expect("a world");
+        assert!(
+            world.pause_at_midnight,
+            "the pause waits for the day's midnight"
+        );
+        assert!(!world.sim.paused(), "the day is lived on to its midnight");
+        for _ in 0..10_000 {
+            if h.engine.world.as_ref().is_some_and(|w| w.sim.paused()) {
+                break;
+            }
+            h.engine.tick(h.engine.config.tick);
+        }
+        let world = h.engine.world.as_ref().expect("a world");
+        assert!(world.sim.paused(), "the clock stops");
+        assert_eq!(world.sim.now().minute_of_day(), 0, "at the day's midnight");
+        // A save asked for during a day is made at its midnight.
+        let world = h.engine.world.as_mut().expect("a world");
+        world.sim.set_paused(false);
+        world
+            .sim
+            .advance_real_in_chunks(0.001, ACCELERATED_CHUNK_MINUTES)
+            .expect("advances");
+        assert!(matches!(
+            h.ask(Request::SaveWorld {
+                label: "Midday".to_owned()
+            }),
+            Reply::Response(_)
+        ));
+        let world = h.engine.world.as_ref().expect("a world");
+        assert_eq!(world.sim.now().minute_of_day(), 0, "saved at the midnight");
     }
 
     #[test]

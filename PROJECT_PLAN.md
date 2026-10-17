@@ -3811,6 +3811,21 @@ and M6a gives rivers a daily flow.
         local when settlements multiply (M9), at no measurable cost now.
     - **CH**: the host and frames at scale: Max lived in chunks within a day, people on the delta
       stream, batched drawing in the web observer.
+      - *First part, as built (2026-10-17): Max lived in chunks.* The host lived an Accelerated
+        day in one call, so at ten thousand people a command waited out the day (about 21 s, a
+        gathering's day a minute). `Sim::advance_real_in_chunks` lives an Accelerated day at most
+        `ACCELERATED_CHUNK_MINUTES` (30) a call, and the host's tick stops between chunks within
+        its budget, so requests are answered between them: a 48th of a day, about 0.45 s on an
+        ordinary 10k day and 1.2 s on the day of a gathering (averages from the days' measured
+        times, not a worst chunk measured). ADR-0011 §2 holds: frames and autosaves are made
+        only at a midnight; a pause asked for during a day is acknowledged at once ("Pausing at
+        midnight") and stops the clock at the day's midnight; a save asked for during a day
+        lives the day out first. `Sim::advance_real` keeps its contract (Max lives a day each
+        call). **Tested:** three days at Max lived in 48 chunks of 30 minutes each are the same,
+        section for section, as the days lived whole; at Max a pause asked for 30 minutes into a
+        day waits, the clock stopping at the day's midnight, and a save asked for mid-day is
+        made there. **Not yet:** people on the delta stream and batched drawing (CH's second
+        part).
     - **CI**: constant factors from the profile, exact, time-boxed.
       - *First change (2026-10-17): who heard what, kept by holder.* Day 53 of CF's 3×3,334 world
         was a memory copy: every claim heard (word of a gathering, ADR-0016 §3) was inserted into

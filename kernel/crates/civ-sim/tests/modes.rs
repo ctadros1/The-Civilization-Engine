@@ -209,6 +209,39 @@ fn an_accelerated_clock_lives_a_day_at_a_time_and_stops_at_midnight() {
     assert_eq!(sim.mode(), Mode::Accelerated);
 }
 
+#[test]
+fn an_accelerated_day_lived_in_chunks_is_the_day_lived_whole() {
+    // The host lives Max a chunk at a time to stay responsive (ADR-0028 §5): a day so lived is
+    // the same, section for section, and the clock still stops only at its midnight.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let start = founded(dir.path());
+    let mut whole = load(&start);
+    whole.set_paused(false);
+    whole.set_speed(SPEED_MAX).expect("Max");
+    let mut chunked = load(&start);
+    chunked.set_paused(false);
+    chunked.set_speed(SPEED_MAX).expect("Max");
+    for _ in 0..3 {
+        assert_eq!(whole.advance_real(0.001).expect("ok").days, 1);
+        let mut calls = 0;
+        loop {
+            let a = chunked.advance_real_in_chunks(0.001, 30).expect("ok");
+            calls += 1;
+            assert!(
+                a.minutes <= 30,
+                "a chunk is at most 30 minutes: {}",
+                a.minutes
+            );
+            if chunked.now().minute_of_day() == 0 {
+                break;
+            }
+        }
+        assert_eq!(calls, MINUTES_PER_DAY / 30, "a day is lived in 48 chunks");
+        assert_eq!(chunked.now(), whole.now());
+    }
+    assert_same("three days at Max, whole and in chunks", &whole, &chunked);
+}
+
 /// Lives `days` days at `speed`, a real second a call (whole minutes of each in Detailed mode).
 fn live_at(sim: &mut Sim, speed: f32, days: i64) {
     sim.set_speed(speed).expect("a speed");

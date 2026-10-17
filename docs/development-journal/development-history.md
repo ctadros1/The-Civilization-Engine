@@ -2774,3 +2774,10 @@ the day. Every trade or gift anywhere used to make every household think again; 
 parties, and those whose plans named one of them, do. Ten days of three towns of 3,334 are 8 %
 faster, and the statistical check that Accelerated mode lives like Detailed mode still passes,
 though its villages are too small to test this change hard.
+
+## 2026-10-17 — CH, first part: Max lived in chunks
+
+**Responsive at scale:** at the fastest speed the host used to live a whole day before answering
+anything, which at ten thousand people meant waiting twenty seconds or more. It now lives the day
+half an hour at a time and answers between; a pause asked for during a day takes effect at its
+midnight, where Accelerated mode may stop, and is acknowledged at once.

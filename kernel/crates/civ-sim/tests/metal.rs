@@ -320,3 +320,87 @@ fn weighed_copper_is_worth_what_it_bought_and_less_beyond_a_balance() {
     // A good not paid by weight is valued as before.
     assert_eq!(worth(&mut sim, firewood, 0.0), wood_before);
 }
+
+#[test]
+fn coin_moves_issue_by_issue_is_found_again_and_saves_exactly() {
+    use civ_sim::persist;
+    let mut sim = world(3);
+    let coin = good(&sim, "core:good/coin");
+    let ids: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x.id)
+        .take(3)
+        .collect();
+    let (a, b, c) = (ids[0], ids[1], ids[2]);
+    let issuer = PermanentId::from_raw(999_999).expect("an issuer");
+    let today = sim.now().day_index();
+    // Ten fine pieces, then ten of a later, baser issue, all to `a`.
+    let pop = sim.people_mut_for_tests();
+    assert!(pop.strike_for_tests(coin, issuer, a, today, 10.0, 8.0, 0.95));
+    assert!(pop.strike_for_tests(coin, issuer, a, today + 1, 10.0, 8.0, 0.75));
+    let purse = |sim: &Sim, h: PermanentId| -> Vec<(u32, f64)> {
+        sim.people()
+            .order
+            .coinage
+            .purse(h)
+            .map(|p| p.counts.clone())
+            .unwrap_or_default()
+    };
+    let held = |sim: &Sim, h: PermanentId| {
+        sim.people()
+            .household(h)
+            .map_or(0.0, |x| x.stores.get(coin).copied().unwrap_or(0.0))
+    };
+    // A payment of twelve moves the older issue first.
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, a, b, coin, 12.0)));
+    assert_eq!(purse(&sim, b), vec![(1, 10.0), (2, 2.0)]);
+    assert_eq!(purse(&sim, a), vec![(2, 8.0)]);
+    assert!((held(&sim, a) - 8.0).abs() < 1e-9 && (held(&sim, b) - 12.0).abs() < 1e-9);
+    // Four pieces go from `b` to `c` by a path the ledger does not see; at midnight they are
+    // found again, every issue's count kept.
+    {
+        let pop = sim.people_mut_for_tests();
+        for (_, x) in pop.households.iter_mut() {
+            if x.id == b {
+                x.stores[coin] -= 4.0;
+            } else if x.id == c {
+                x.stores.resize(x.stores.len().max(coin + 1), 0.0);
+                x.stores[coin] += 4.0;
+            }
+        }
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.reconcile_coin_for_tests(ctx));
+    let total = |sim: &Sim| -> f64 {
+        sim.people()
+            .order
+            .coinage
+            .purses
+            .iter()
+            .map(|p| p.total())
+            .sum()
+    };
+    assert!((total(&sim) - 20.0).abs() < 1e-9, "every piece counted");
+    assert!((purse(&sim, c).iter().map(|&(_, n)| n).sum::<f64>() - 4.0).abs() < 1e-9);
+    assert!((purse(&sim, b).iter().map(|&(_, n)| n).sum::<f64>() - 8.0).abs() < 1e-9);
+    // Saved and loaded, the world is the same and lives the same.
+    let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+    let saves =
+        commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+    let saved =
+        persist::save(&mut sim, &saves, commons_persist::SaveKind::Manual, "coin").expect("saves");
+    let mut loaded = persist::load(&saved.path, content()).expect("loads");
+    assert_eq!(loaded.people().order.coinage, sim.people().order.coinage);
+    let same = |x: &Sim, y: &Sim| {
+        let (x, y) = (persist::encode_sections(x), persist::encode_sections(y));
+        assert_eq!(x.len(), y.len());
+        for (p, q) in x.iter().zip(&y) {
+            assert!(p.bytes == q.bytes, "section `{}` differs", p.tag);
+        }
+    };
+    same(&sim, &loaded);
+    sim.advance_minutes(2 * DAY).expect("lives");
+    loaded.advance_minutes(2 * DAY).expect("lives");
+    same(&sim, &loaded);
+}

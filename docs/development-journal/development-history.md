@@ -2638,3 +2638,12 @@ the markets already save, so saves did not change. Content API 125.
 
 **Lived:** nothing yet: no world makes copper without the observer's help, so nobody pays with it.
 
+## 2026-10-17 — CE2a: coin, its issues and purses
+
+**Built:** the record coin needs before any mint. A piece of coin belongs to an issue (who struck
+it, when, how heavy and how fine), and every holder's purse counts its pieces of each issue.
+Payments move them issue by issue; anything else that moves coin is found again at midnight with
+every issue's count kept. Save schema 136; content API 126.
+
+**Lived:** nothing yet: no mint strikes coin until CE2b.
+

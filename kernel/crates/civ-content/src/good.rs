@@ -77,6 +77,9 @@ pub(crate) struct TimberFile {
 #[serde(deny_unknown_fields)]
 pub(crate) struct Money {
     pub verify_h: f64,
+    /// Content API 126 (M7d slice CE): counted in pieces of issues a mint struck.
+    #[serde(default)]
+    pub coin: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -122,6 +125,7 @@ impl GoodFile {
             }),
             money: self.money.as_ref().map(|m| MoneyDef {
                 verify_h: m.verify_h,
+                coin: m.coin,
             }),
             fire: self.fire.as_ref().map(|f| GoodFire {
                 catch_kw_m2: f.catch_kw_m2,

@@ -334,6 +334,9 @@ pub struct MoneyDef {
     /// Hours a holder spends weighing and testing a unit before it takes it (research 08-06
     /// §1.3: what verifying it costs).
     pub verify_h: f64,
+    /// It is counted in pieces of issues a mint struck (coin), whose purses are kept (M7d
+    /// slice CE); else it is weighed (metal).
+    pub coin: bool,
 }
 
 /// What a store good adds to being a good (M3b slice Q): the room each one gives.

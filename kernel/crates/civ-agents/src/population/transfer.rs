@@ -52,6 +52,107 @@ impl Population {
             .map(Holder::Due)
     }
 
+    /// Puts every purse right by what its holder holds of each coin good (M7d slice CE): coin
+    /// moved by a path other than [`Population::transfer`] (a household dividing its stores, a
+    /// store's levy) is found again in whoever holds it, each issue's count conserved.
+    pub(super) fn reconcile_coin(&mut self, ctx: &crate::Ctx) {
+        let goods = &ctx.catalog.goods;
+        let coins: Vec<usize> = (0..goods.len())
+            .filter(|&g| goods[g].money.as_ref().is_some_and(|m| m.coin))
+            .collect();
+        if coins.is_empty() || self.order.coinage.cohorts.is_empty() {
+            return;
+        }
+        let at = |s: &Vec<f64>| {
+            coins
+                .iter()
+                .map(|&g| s.get(g).copied().unwrap_or(0.0))
+                .sum::<f64>()
+        };
+        let mut held: Vec<(PermanentId, f64)> = Vec::new();
+        held.extend(self.households.iter().map(|(_, x)| (x.id, at(&x.stores))));
+        held.extend(
+            self.firms
+                .iter()
+                .filter(|f| f.is_open())
+                .map(|f| (f.id, at(&f.stores))),
+        );
+        held.extend(self.polities.iter().map(|p| (p.id, at(&p.stores))));
+        held.extend(self.factions.list.iter().map(|f| (f.id, at(&f.stores))));
+        held.extend(self.agreements.dues.iter().map(|d| (d.id, at(&d.stores))));
+        held.retain(|&(_, n)| n > 0.0);
+        held.sort_unstable_by_key(|&(id, _)| id);
+        let holders: Vec<PermanentId> = held.iter().map(|&(id, _)| id).collect();
+        let lookup = |id: PermanentId| {
+            held.binary_search_by_key(&id, |&(i, _)| i)
+                .map_or(0.0, |i| held[i].1)
+        };
+        self.order.coinage.reconcile(&holders, &lookup);
+    }
+
+    /// Moves `amount` of `good` from one holder to another through the ledger, as a gift: for
+    /// tests.
+    #[doc(hidden)]
+    pub fn transfer_for_tests(
+        &mut self,
+        ctx: &crate::Ctx,
+        from: PermanentId,
+        to: PermanentId,
+        good: usize,
+        amount: f64,
+    ) -> bool {
+        let legs = [Leg {
+            from,
+            to,
+            good,
+            amount,
+        }];
+        self.transfer(
+            ctx.now,
+            ctx.params,
+            &ctx.catalog.goods,
+            &legs,
+            Channel::Gift,
+        )
+    }
+
+    /// Puts every purse right by what its holder holds (see [`Population::reconcile_coin`]): for
+    /// tests.
+    #[doc(hidden)]
+    pub fn reconcile_coin_for_tests(&mut self, ctx: &crate::Ctx) {
+        self.reconcile_coin(ctx);
+    }
+
+    /// Strikes `count` pieces of coin good `coin` for `issuer` into `holder`'s stores and purse,
+    /// `mass_g` grams each at `fineness`: for tests, until a mint strikes them (M7d slice CE).
+    #[doc(hidden)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn strike_for_tests(
+        &mut self,
+        coin: usize,
+        issuer: PermanentId,
+        holder: PermanentId,
+        day: i64,
+        count: f64,
+        mass_g: f32,
+        fineness: f32,
+    ) -> bool {
+        let Some(h) = self.holder(holder) else {
+            return false;
+        };
+        let Some((stores, _)) = self.holder_goods(h) else {
+            return false;
+        };
+        if stores.len() <= coin {
+            stores.resize(coin + 1, 0.0);
+        }
+        stores[coin] += count;
+        self.order
+            .coinage
+            .strike(issuer, day, mass_g, fineness, count, holder);
+        true
+    }
+
     /// Brings a holder's stores up to `now`: a household's spoil and burn, a firm's spoil (under
     /// its owners' roof when they have one), a polity's spoil (under no roof).
     fn settle_holder(&mut self, h: Holder, now: SimTime, params: &PeopleParams, goods: &[GoodDef]) {
@@ -184,6 +285,10 @@ impl Population {
                 flows.add(Flow::Received, l.good, moved);
             }
             self.transfers.add(channel, l.good, moved);
+            // Coin moves issue by issue, the payer giving the oldest first (M7d slice CE).
+            if goods[l.good].money.as_ref().is_some_and(|m| m.coin) {
+                self.order.coinage.give(l.from, l.to, moved, &|_| 0.0);
+            }
         }
         true
     }

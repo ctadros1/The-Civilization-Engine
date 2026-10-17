@@ -3568,6 +3568,26 @@ and M6a gives rivers a daily flow.
         elsewhere) after 1.1 minutes under load; alone it passed in 15 seconds and a full rerun
         passed 26 of 26. Nothing in the slice touches what it reads. **Not yet built:** coin
         (CE2); acceptance by those with no use for metal before it is their market's money.
+    - **CE2-CE5, split (2026-10-17):** ADR-0027 §6's coin in four landable steps. **CE2a**
+      coin, issues and purses (the record and its movement); **CE2b** the mint: a law naming
+      an office to mint, a recipe striking metal into an issue, households bringing metal for
+      coin less the law's fee; **CE3** the polity spending coin on shares of its public works,
+      and a levy that may name coin; **CE4** debasement as a mint law, assay by those who know
+      smelting, the payer giving the issue worth least to it, foreign coin by weight; **CE5**
+      the M7d demo, time-boxed, nudges logged.
+    - **CE2a**: coin, its issues and purses.
+      - *As built (2026-10-17):* content API 126, save schema 136 (wire unchanged). A good whose
+        `[money]` says `coin = true` is counted in pieces of issues: each issue (issuer, day,
+        grams a piece, fineness, pieces struck) is saved, and every holder of coin (household,
+        workshop, polity's store, faction, payment owed) has a purse counting its pieces of each
+        issue. A payment through the ledger moves pieces issue by issue, the oldest first (the
+        payer's own choice of what to give waits for CE4's worth by issue). Coin moved by any
+        other path is put right at midnight: a purse counting more than its holder holds gives
+        the excess up, every issue alike, and a holder holding more than its purse counts takes
+        the pieces no purse counts, oldest first, so each issue's count is kept. A household not
+        yet housed no longer keeps every material it holds when the material is a money. The core
+        adds `core:good/coin`. **Not measured:** nothing strikes coin yet (CE2b); tests strike
+        some, pay with them, move some outside the ledger, and save and load exactly.
 
 **M8: The growing city (v1).**
 - *Contents:*

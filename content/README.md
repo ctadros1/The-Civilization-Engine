@@ -687,6 +687,11 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 126 (M7d slice CE, ADR-0027 §6) brings coin. A good's `[money]` table may say `coin =
+true`: it is counted in pieces of issues a mint struck, each issue (issuer, day, grams a piece,
+fineness) kept apart in its holders' purses, payments moving the oldest issue first. The core adds
+`core:good/coin` (0.005 hours to count a piece). Nothing strikes coin yet.
+
 Content API 125 (M7d slice CD, ADR-0027 §5) brings money's worth. A good may have a `[money]`
 table, `verify_h` (hours a holder spends weighing and testing a unit): it is paid by weight, and a
 holder values a unit at the greater of its own cost and what a unit bought in its purchases its

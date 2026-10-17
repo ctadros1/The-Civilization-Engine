@@ -1,0 +1,17 @@
+# A struck piece of metal, counted (M7d slice CE, ADR-0027 §6): a polity's mint strikes it from
+# metal to the weight and fineness its law sets, and each issue is kept apart in its holders'
+# purses. Counting pieces takes little time (a tuning value).
+kind = "good"
+id = "core:good/coin"
+name = "Coin"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""
+
+[money]
+verify_h = 0.005
+coin = true

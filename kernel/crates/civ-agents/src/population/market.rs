@@ -463,7 +463,8 @@ impl Population {
             if d.purpose == GoodUse::Fuel {
                 keep[g] = params.household.fuel_target_days * fuel_day;
             }
-            if d.purpose == GoodUse::Material && !housed {
+            // What it builds with stays while it is not housed; a money is not built with.
+            if d.purpose == GoodUse::Material && !housed && d.money.is_none() {
                 keep[g] = keep[g].max(held(g));
             }
             if d.purpose != GoodUse::Food || d.kept_back() {

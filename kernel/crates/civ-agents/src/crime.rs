@@ -692,6 +692,8 @@ pub struct Order {
     pub clashes: Vec<crate::war::Clash>,
     /// Loans in goods between households (M7d slice CA, ADR-0027 §1).
     pub credit: crate::credit::Credit,
+    /// Coin issues and purses (M7d slice CE, ADR-0027 §6).
+    pub coinage: crate::coin::Coinage,
     /// Asks refused because the giver believed the asker took (a counter, not saved).
     pub refusals: u64,
 }

@@ -1970,6 +1970,28 @@ table Order {
   // Each loan's pledge, answer and remedies, in `loans`' order (schema 134, M7d slice CB);
   // absent before, when a loan had none.
   loan_terms: [LoanTermsSave] (id: 17);
+  // Coin issues struck, in the order struck, and every holder's pieces of each issue (schema 136,
+  // M7d slice CE, ADR-0027 §6); absent before, when no coin was struck.
+  coin_issues: [CoinIssueSave] (id: 18);
+  purses: [PurseSave] (id: 19);
+}
+
+// An issue of coin (schema 136): its number, the polity whose mint struck it, the day, grams a
+// piece and its fineness, and the pieces struck and still in being.
+struct CoinIssueSave {
+  id: uint;
+  issuer: ulong;
+  day: long;
+  mass_g: float;
+  fineness: float;
+  count: double;
+}
+
+// Pieces of one issue a holder holds (schema 136), by holder and issue.
+struct PurseSave {
+  holder: ulong;
+  issue: uint;
+  count: double;
 }
 
 // A loan in goods (schema 133): its number, the creditor and debtor households, the good (an

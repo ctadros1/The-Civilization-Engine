@@ -121,7 +121,7 @@ use super::{
     SCHEMA_V111, SCHEMA_V112, SCHEMA_V113, SCHEMA_V114, SCHEMA_V115, SCHEMA_V116, SCHEMA_V117,
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
-    SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, finish, section, single_chunk, unreadable,
+    SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, finish, section, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -597,6 +597,8 @@ enum Schema {
     V134,
     /// Debts heard (M7d slice CB: `CaseSave.loan`, obligation kind 4, issue code 21).
     V135,
+    /// Coin (M7d slice CE: `Order.coin_issues`, `Order.purses`).
+    V136,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -746,7 +748,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V132 => Schema::V132,
         SCHEMA_V133 => Schema::V133,
         SCHEMA_V134 => Schema::V134,
-        SAVE_SCHEMA_VERSION => Schema::V135,
+        SCHEMA_V135 => Schema::V135,
+        SAVE_SCHEMA_VERSION => Schema::V136,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -4445,7 +4448,8 @@ fn carried(
         | Schema::V132
         | Schema::V133
         | Schema::V134
-        | Schema::V135 => {
+        | Schema::V135
+        | Schema::V136 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4753,7 +4757,8 @@ fn decode_households(
             | Schema::V132
             | Schema::V133
             | Schema::V134
-            | Schema::V135 => {
+            | Schema::V135
+            | Schema::V136 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5352,6 +5357,26 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
         })
         .collect();
     let loan_terms = (!terms.is_empty()).then(|| fbb.create_vector(&terms));
+    // Coin issues and purses (schema 136, M7d slice CE).
+    let coinage = &order.coinage;
+    let issues: Vec<save::CoinIssueSave> = coinage
+        .cohorts
+        .iter()
+        .map(|c| {
+            save::CoinIssueSave::new(c.id, c.issuer.get(), c.day, c.mass_g, c.fineness, c.count)
+        })
+        .collect();
+    let purses: Vec<save::PurseSave> = coinage
+        .purses
+        .iter()
+        .flat_map(|p| {
+            p.counts
+                .iter()
+                .map(move |&(issue, n)| save::PurseSave::new(p.holder.get(), issue, n))
+        })
+        .collect();
+    let coin_issues = (!issues.is_empty()).then(|| fbb.create_vector(&issues));
+    let purses = (!purses.is_empty()).then(|| fbb.create_vector(&purses));
     let root = save::Order::create(
         &mut fbb,
         &save::OrderArgs {
@@ -5373,6 +5398,8 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
             loans_asked: credit.asked,
             loans_refused: credit.refused,
             loan_terms,
+            coin_issues,
+            purses,
         },
     );
     finish(fbb, root)
@@ -5743,6 +5770,27 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
     order.credit.next = root.loans_next();
     order.credit.asked = root.loans_asked();
     order.credit.refused = root.loans_refused();
+    // Coin issues and purses (schema 136); none before.
+    for c in root.coin_issues().iter().flatten() {
+        order.coinage.cohorts.push(civ_agents::coin::Cohort {
+            id: c.id(),
+            issuer: required(c.issuer(), "a coin issue's issuer")?,
+            day: c.day(),
+            mass_g: c.mass_g(),
+            fineness: c.fineness(),
+            count: c.count(),
+        });
+    }
+    for p in root.purses().iter().flatten() {
+        let holder = required(p.holder(), "a purse's holder")?;
+        match order.coinage.purses.last_mut() {
+            Some(last) if last.holder == holder => last.counts.push((p.issue(), p.count())),
+            _ => order.coinage.purses.push(civ_agents::coin::Purse {
+                holder,
+                counts: vec![(p.issue(), p.count())],
+            }),
+        }
+    }
     let problems = order_problems(&order);
     if !problems.is_empty() {
         return Err(LoadError::Invalid(problems));

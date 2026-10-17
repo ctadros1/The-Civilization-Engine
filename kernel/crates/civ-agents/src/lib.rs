@@ -29,6 +29,7 @@ pub mod agreements;
 pub mod bridge;
 pub mod build;
 pub mod caution;
+pub mod coin;
 pub mod condition;
 pub mod contagion;
 pub mod convergence;

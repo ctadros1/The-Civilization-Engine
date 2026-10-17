@@ -2793,3 +2793,11 @@ that took 28 minutes now takes one. The host stays responsive at that size.
 growing settlement, which no exact speed-up of this kind removes; the target will be amended at
 M8's end to what the kernel reaches, and cities of tens of thousands wait for M9's aggregate
 detail.
+
+## 2026-10-17 — M8b designed: ways, modes and traffic
+
+**Decided:** a path becomes a way only when someone works on it, and then it has a name and a
+keeper. The first ways of carrying more than a person can are the dugout on the river and the
+handcart on a way; there are no beasts until animals are designed properly. People wait only where
+something narrow makes them wait, at a bridge, a gate or a landing, and nothing they carry ever
+vanishes in a jam.

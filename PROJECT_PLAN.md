@@ -3918,11 +3918,25 @@ and M6a gives rivers a daily flow.
     M8's end with M8b–M8d in, as ADR-0028 §1 sets it, and amended there to the figure reached,
     with this record as its evidence; the route to cities of tens of thousands is M9's aggregate
     detail, not a faster kernel at full detail.
-  - **M8b, ways, modes and traffic** (designed when reached, from `docs/briefs/m8-transport.md`):
-    ways as saved records once worked or reserved, with widths and a derived hierarchy; modes
-    from a technique and a made object (handcart and dugout first; pack animals and carts wait on
-    a husbandry design); boats on reaches by the day's stage; congestion at bottlenecks only;
-    goods in transit; a law to build a way, grading as an earthwork.
+  - **M8b, ways, modes and traffic** ([ADR-0029](decisions/0029-ways-modes-and-traffic.md), from
+    `docs/briefs/m8-transport.md`): ways as saved records once worked or reserved, with widths and
+    a derived hierarchy; modes from a technique and a made object (handcart and dugout; no beasts
+    until a husbandry design); boats on reaches by the day's stage; congestion at bottlenecks
+    only; goods in transit; a law to build a way, grading as an earthwork.
+    - **CM**: ways as records: identity, segments, three widths, keeper, wear held while kept,
+      the derived hierarchy, saves, `GetWays` and the Ways layer.
+    - **CN**: bottlenecks for walkers: crossings and gates as facilities, trips as legs,
+      first-come passage with waiting space, waits remembered, the Traffic lens, wait incidents.
+    - **CO**: boats: the dugout, navigability by stage, directed speeds, landings and handling,
+      consignments in transit, ferrying one's own across; fishing, fetching and owed goods by
+      boat.
+    - **CP**: handcarts on ways: the wheel technique and handcart, passability by width, grade and
+      deck, the way graph with door legs, mode choice by the complete chain, clearance and
+      turning back.
+    - **CQ**: works on ways: recorded losses, household works and `build_way`, laying, widening,
+      passing places, cart crossings, landings, grading as an earthwork, upkeep by law, tolls.
+    - **CR**: where to live weighs the walk; the dashboard's travel time by occupation and
+      purpose, mode shares and waits.
   - **M8c, planning and land** (designed when reached, from `docs/briefs/m8-planning.md`): site
     choice as a decision whose savings are recorded (land value derived, never read); the home
     reach that caps a settlement's footprint; a plan as a law that reserves ground; allotment by
@@ -5027,6 +5041,25 @@ One line each. Don't re-litigate without a reason written next to the entry.
   which the content has none of: M8b builds the handcart and the dugout, and a husbandry design
   is recorded as a gap before draught animals. **Bench, not yet clean:** the last measurement
   (slice BD, 1,447.4 s a year for 3×1,000) predates M6c and M7; slice CF measures again.
+- **M8b design (2026-10-17, plan §7):** from the transport brief (`docs/briefs/m8-transport.md`),
+  one ADR, [ADR-0029](decisions/0029-ways-modes-and-traffic.md). **The brief's open questions,
+  answered:** (1) no beasts in M8: pack animals and ox carts wait for a husbandry design, and the
+  only wheels are hand-pulled; (2) wet ground does not slow walkers in M8 (it would change every
+  world; with drainage); (3) congestion is queues at bottlenecks, not time-bucketed edge
+  capacity; (4) Accelerated mode lives the same events, cohorts only as a declared approximation
+  if they cost too much; (5) a trail becomes a way only when someone works on it; (6) a way
+  carries its own grade profile and routing's ground is unchanged; (7) upkeep only by law, a
+  frontage duty one bundle a law may name; (8) consignments for boats, carts and trips past the
+  day, a porter's hand load within a day staying in the hand; (9) the demo's port town needs a
+  navigable trunk river and dugouts, not sail; (10) payload priors where the reports' tables
+  overlap (handcart 150 kg, dugout 400 kg), marked as design priors; (11) tolls in M8 on the
+  duty machinery, late; vehicle classes and time windows later; (12) the dashboard measures
+  waits by place, person-trips and tonne-km by mode, and travel time by occupation and purpose,
+  with no tolerance until a run is seen. **Order:** ways first (the records every other slice
+  stands on), then bottlenecks for walkers (they exist today at crossings and gates), boats
+  (within reach of today's techniques, and the river is where loads first pay), handcarts on
+  ways, works on ways, and where to live last. Plan §5.4's transport row is amended by the ADR.
+
 - **M7b design (2026-10-16, plan §7):** from the courts brief (`docs/briefs/m7-courts.md`),
   which reads 09-07, 09-06, 09-02, 09-05, 09-04, 06-05 and 06-09. **One ADR,**
   [ADR-0025](decisions/0025-forums-precedent-and-review.md) (forums, precedent and review):

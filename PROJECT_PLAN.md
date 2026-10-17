@@ -3873,6 +3873,12 @@ and M6a gives rivers a daily flow.
         before any mode lands (ADR-0028 §4).
     - **CK**: parallel preparation on a private bounded pool, digests equal at 1, 2, 4 and 8
       workers.
+      - *Measured, not built (2026-10-17):* the work ADR-0028 §3 lets run in parallel is the
+        pure work at midnight and after a survey, and in the ordinary-day profile of 3×3,334
+        (107 samples) the day's turn (`on_day`) and the walking grid's refresh were 0.9 % each:
+        a pool could win at most about 2 %, for the cost of a pool kept exact at four sizes.
+        Decisions, about half the day, stay serial by the contract. Built when M8b–M8d add
+        midnight work worth it, or M9 makes settlements side by side.
     - **CL**: Accelerated at scale: views cleared by party, built at midnight, one sampler from
       the profile, Gate B fixtures at scale.
       - *First part, as built (2026-10-17): views let go by party.* Measured first (the bench
@@ -3892,6 +3898,26 @@ and M6a gives rivers a daily flow.
         this approximation weakly; the fixtures of several settlements and one at 10k that
         ADR-0028 §6 asks for, with tolerances fixed before any result, wait for a nightly budget
         that can hold them (a 3×1,000 fixture's three years would take hours a run).
+  - *M8a closed (2026-10-17):* built and landed: CF (the baseline), CG (households indexed by
+    settlement, exact), CI (who heard what kept by holder; company at the hearth without weighing
+    the crowd, both exact), CJ (routing measured; the route cache sized by the people, exact), CL's
+    first part (views let go by party, an approximation Gate B passed) and CH's first part (Max
+    lived in chunks). **Where 10k stands on the container:** 3×3,334 at Max, ten days from
+    founding, 21.5 s a day against 22.8 s in CF's run of the same days (6 %; ten days' timings
+    vary a few per cent from run to run; day 53, the gathering, 59 s against 1,691 s), 0.0047
+    years a minute; the gate needs 0.164 s a day, about
+    130× from here. The growth exponent from 1k to 10k is 1.5 (1.7 from 3k to 10k), and what is
+    left above linear lies inside a settlement as it grows: the decisions themselves (about half
+    the day), routes over a larger walked ground (an eighth) and company at the hearth. No lever
+    M8a was given reaches that: the brief's estimates for settlement indexes (1.8–2.6×) and
+    routing (1.1–2×) assumed costs that the measurements did not find, and parallel preparation
+    has 2 % to work on. **Deferred, each with its evidence above:** CH's second part (people on
+    the delta stream and batched drawing, needed when worlds of thousands are offered, which
+    ADR-0028 §7 holds back until the gate is met), CJ's bounds per region and overlay (with M8b's
+    ways), CK's pool, and CL's sampler and Gate B fixtures at scale. **The gate:** measured at
+    M8's end with M8b–M8d in, as ADR-0028 §1 sets it, and amended there to the figure reached,
+    with this record as its evidence; the route to cities of tens of thousands is M9's aggregate
+    detail, not a faster kernel at full detail.
   - **M8b, ways, modes and traffic** (designed when reached, from `docs/briefs/m8-transport.md`):
     ways as saved records once worked or reserved, with widths and a derived hierarchy; modes
     from a technique and a made object (handcart and dugout first; pack animals and carts wait on

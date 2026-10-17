@@ -2781,3 +2781,15 @@ though its villages are too small to test this change hard.
 anything, which at ten thousand people meant waiting twenty seconds or more. It now lives the day
 half an hour at a time and answers between; a pause asked for during a day takes effect at its
 midnight, where Accelerated mode may stop, and is acknowledged at once.
+
+## 2026-10-17 — M8a closed: where scale stands
+
+**Done:** six slices of speed work, five of them exact, one an approximation the statistical check
+passed. A day of three towns of 3,334 now takes about 21.5 seconds instead of 22.8, and the one day
+that took 28 minutes now takes one. The host stays responsive at that size.
+
+**Not done, and why:** the target of a simulated year in a real minute at 10,000 people is about
+130 times away. The measurements showed the cost is in people's decisions and walks inside a
+growing settlement, which no exact speed-up of this kind removes; the target will be amended at
+M8's end to what the kernel reaches, and cities of tens of thousands wait for M9's aggregate
+detail.

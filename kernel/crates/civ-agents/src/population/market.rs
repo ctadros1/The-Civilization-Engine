@@ -217,6 +217,14 @@ impl Population {
             self.assayed_worth(hh, money, costs)
                 .map(|v| v - money.verify_h)
                 .filter(|&v| v > 0.0)
+        } else if money.coin {
+            // One who cannot assay takes another polity's pieces, which it pays with first, by
+            // weight at the coin's discount, less weighing them, unless what they bought says
+            // more (M7d slice CE4c).
+            match self.foreign_worth(ctx, hh, money, costs) {
+                Some(f) => Some(raw.map_or(f, |r| r.max(f))),
+                None => raw,
+            }
         } else {
             raw
         };
@@ -228,6 +236,41 @@ impl Population {
             (Some(r), Some(f)) => Some(r.max(f)),
             (r, f) => r.or(f),
         }
+    }
+
+    /// What a piece of another polity's issue is worth by weight to household `hh`, which cannot
+    /// assay it, in hours, when it holds such pieces (M7d slice CE4c): the metal in the lightest it
+    /// holds, at what the metal is worth to it (its own cost, or what metal bought it), less the
+    /// coin's foreign discount and the hours of weighing it.
+    pub(crate) fn foreign_worth(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        money: &crate::params::MoneyDef,
+        costs: &[Option<f64>],
+    ) -> Option<f64> {
+        let coinage = &self.order.coinage;
+        let home = self.home_issuer(hh.id);
+        let kg = coinage
+            .purse(hh.id)?
+            .counts
+            .iter()
+            .filter_map(|&(i, _)| coinage.cohort(i))
+            .filter(|c| Some(c.issuer) != home)
+            .map(|c| c.metal_kg())
+            .reduce(f64::min)?;
+        let metal = money.metal?;
+        let held = hh.stores.get(metal).copied().unwrap_or(0.0);
+        let metal_h = self.pay_worth_raw(
+            ctx,
+            hh,
+            metal,
+            costs.get(metal).copied().flatten(),
+            held,
+            costs,
+        )?;
+        let w = kg * metal_h * (1.0 - money.foreign_discount) - money.foreign_assay_h;
+        (w > 0.0).then_some(w)
     }
 
     /// What a piece of coin `money` is worth to household `hh`, which can assay it, in hours: the

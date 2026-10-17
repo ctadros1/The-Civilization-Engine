@@ -3679,6 +3679,19 @@ and M6a gives rivers a daily flow.
         older issue and, taught to smelt, with the lighter, valuing a piece at the copper in its
         lightest, and a lighter mint striking 333 pieces from two kilograms. The mint's place
         taken by another is not tested apart from the gathering that would pass it.
+    - **CE4c**: foreign coin by weight.
+      - *As built (2026-10-17):* content API 131 (saves and wire unchanged). A household that
+        cannot assay pays with pieces of another polity's issue first (then its own, oldest
+        first), and while it holds such pieces takes them by weight: the metal in the lightest it
+        holds, at what the metal is worth to it (its own cost, or what metal bought it), less the
+        coin's foreign discount and the hours of weighing a piece, which stand in for counting
+        it; what pieces bought it, if more, wins once they have bought (ADR-0027 §6: foreign coin
+        valued by weight at a discount, less assay, until used). The core takes a tenth off and
+        0.02 hours. One who can assay values every issue by its metal (CE4a). **Not measured in a
+        lived world:** no world mints, so none holds another's coin; a test shows a household
+        paying with a newer foreign issue before its own older one and valuing a piece at 90 % of
+        the copper in it less the weighing. **Not yet built:** the exchange rate the observer would
+        derive from such takings (CE5's demo reads it if a world comes to it).
 
 **M8: The growing city (v1).**
 - *Contents:*

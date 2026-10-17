@@ -86,6 +86,13 @@ pub(crate) struct Money {
     /// Content API 130 (M7d slice CE4a): for coin, the technique whose knowers assay a piece.
     #[serde(default)]
     pub assay: Option<String>,
+    /// Content API 131 (M7d slice CE4c): for coin, the share off the metal's worth a foreign
+    /// piece is taken at by one who cannot assay it.
+    #[serde(default)]
+    pub foreign_discount: f64,
+    /// Content API 131 (M7d slice CE4c): hours to weigh and test a foreign piece.
+    #[serde(default)]
+    pub foreign_assay_h: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -135,6 +142,8 @@ impl GoodFile {
                 // Resolved once the goods and techniques are known (`civ_content::compile`).
                 metal: None,
                 assay: None,
+                foreign_discount: m.foreign_discount,
+                foreign_assay_h: m.foreign_assay_h,
             }),
             fire: self.fire.as_ref().map(|f| GoodFire {
                 catch_kw_m2: f.catch_kw_m2,
@@ -146,6 +155,22 @@ impl GoodFile {
     /// Range problems, as messages.
     pub fn problems(&self) -> Vec<String> {
         let mut p = Vec::new();
+        if let Some(m) = &self.money {
+            for (name, v) in [
+                ("money.verify_h", m.verify_h),
+                ("money.foreign_assay_h", m.foreign_assay_h),
+            ] {
+                if !(v.is_finite() && (0.0..=100.0).contains(&v)) {
+                    p.push(format!("`{name}` must be between 0 and 100 (got {v})"));
+                }
+            }
+            if !(m.foreign_discount.is_finite() && (0.0..1.0).contains(&m.foreign_discount)) {
+                p.push(format!(
+                    "`money.foreign_discount` must be at least 0 and below 1 (got {})",
+                    m.foreign_discount
+                ));
+            }
+        }
         if let Some(f) = &self.fire {
             if !(f.catch_kw_m2.is_finite() && (0.0..=500.0).contains(&f.catch_kw_m2)) {
                 p.push(format!(

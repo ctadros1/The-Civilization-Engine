@@ -20,3 +20,9 @@ coin = true
 # 130, M7d slice CE4a, ADR-0027 §6), and value it by that.
 metal = "core:good/copper"
 assay = "core:technique/copper_smelting"
+# A piece of another polity's issue is taken by weight, by one who cannot assay it, at a tenth less
+# than its copper, less a few minutes of weighing it, until what such pieces buy teaches otherwise
+# (content API 131, M7d slice CE4c, ADR-0027 §6; research 08-06 §1.8: a changer's spread; a tuning
+# value).
+foreign_discount = 0.1
+foreign_assay_h = 0.02

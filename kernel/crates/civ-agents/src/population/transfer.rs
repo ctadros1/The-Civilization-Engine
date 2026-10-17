@@ -52,6 +52,24 @@ impl Population {
             .map(Holder::Due)
     }
 
+    /// The polity whose own issues coin `holder` holds are (M7d slice CE4c): a household's or a
+    /// workshop's polity where it lives, or a polity's store itself.
+    pub(crate) fn home_issuer(&self, holder: PermanentId) -> Option<PermanentId> {
+        if self.polities.iter().any(|p| p.id == holder) {
+            return Some(holder);
+        }
+        let settlement = match self.household(holder) {
+            Some(x) => x.settlement,
+            None => self
+                .firms
+                .iter()
+                .find(|f| f.id == holder)
+                .and_then(|f| self.household(f.owner))
+                .and_then(|x| x.settlement),
+        }?;
+        self.polity_of(settlement).map(|pi| self.polities[pi].id)
+    }
+
     /// Whether someone of household `holder` knows technique `assay` (a coin's assay, M7d slice
     /// CE4a): one who can tell how much metal a piece holds. No household, or no assay, cannot.
     pub(crate) fn assays(&self, holder: PermanentId, assay: Option<usize>) -> bool {
@@ -318,18 +336,27 @@ impl Population {
             self.transfers.add(channel, l.good, moved);
             // Coin moves issue by issue, the payer giving the oldest first (M7d slice CE).
             if let Some(m) = goods[l.good].money.as_ref().filter(|m| m.coin) {
-                // A payer who can assay gives the pieces holding least metal first; others count
-                // them all alike, the oldest first (M7d slice CE4a).
-                let metal: Vec<(u32, f64)> = if self.assays(l.from, m.assay) {
-                    self.order
-                        .coinage
-                        .cohorts
-                        .iter()
-                        .map(|c| (c.id, c.metal_kg()))
-                        .collect()
-                } else {
-                    Vec::new()
-                };
+                // A payer who can assay gives the pieces holding least metal first (M7d slice
+                // CE4a); others give another polity's pieces first, then count them all alike, the
+                // oldest first (M7d slice CE4c).
+                let home = self.home_issuer(l.from);
+                let assays = self.assays(l.from, m.assay);
+                let metal: Vec<(u32, f64)> = self
+                    .order
+                    .coinage
+                    .cohorts
+                    .iter()
+                    .map(|c| {
+                        let w = if assays {
+                            c.metal_kg()
+                        } else if Some(c.issuer) == home {
+                            1.0
+                        } else {
+                            0.0
+                        };
+                        (c.id, w)
+                    })
+                    .collect();
                 let worth = |issue: u32| {
                     metal
                         .binary_search_by_key(&issue, |x| x.0)

@@ -687,6 +687,12 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 131 (M7d slice CE4c, ADR-0027 §6) brings foreign coin. A coin's `[money]` may give a
+`foreign_discount` (below 1) and `foreign_assay_h`: one who cannot assay pays with another polity's
+pieces first and takes them by weight, the metal in the lightest it holds at what the metal is
+worth to it, less the discount and the hours of weighing a piece, unless what pieces bought it says
+more. The core's coin: a tenth off, 0.02 hours. `[money]` hours and the discount are now checked.
+
 Content API 130 (M7d slices CE4a-b, ADR-0027 §6) brings assay and debasement. A coin good's
 `[money]` may name the `metal` it is struck of and the technique (`assay`) whose knowers can tell
 how much metal a piece holds: a household with such a member values coin by the metal in the

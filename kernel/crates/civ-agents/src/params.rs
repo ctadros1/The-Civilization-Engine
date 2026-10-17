@@ -342,6 +342,12 @@ pub struct MoneyDef {
     /// For coin: the technique whose knowers can tell how much metal a piece holds, by index in
     /// the catalog's techniques (M7d slice CE4a, ADR-0027 §6: those who know smelting assay).
     pub assay: Option<usize>,
+    /// For coin: the share off what the metal in a piece of another polity's issue is worth that
+    /// one who cannot assay takes it at (M7d slice CE4c, ADR-0027 §6: foreign coin by weight at a
+    /// discount).
+    pub foreign_discount: f64,
+    /// For coin: hours one who cannot assay spends weighing and testing a foreign piece.
+    pub foreign_assay_h: f64,
 }
 
 /// What a store good adds to being a good (M3b slice Q): the room each one gives.

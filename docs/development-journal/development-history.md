@@ -2687,3 +2687,11 @@ count and none to those who weigh. Content API 130.
 
 **Lived:** nothing yet: no world mints yet.
 
+## 2026-10-17 — CE4c: foreign coin by weight
+
+**Built:** coin struck by another village is taken by weight, at a tenth less than its copper and
+less a few minutes of weighing, by those who cannot assay it, and is the first they spend. Content
+API 131.
+
+**Lived:** nothing yet.
+

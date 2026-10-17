@@ -905,3 +905,86 @@ fn a_lighter_mint_strikes_more_pieces_from_the_same_metal() {
     let theirs = coinage.purse(hh).expect("its purse").total();
     assert!((theirs - 2.0 / 0.006 * 0.97).abs() < 1e-6, "{theirs}");
 }
+
+#[test]
+fn foreign_coin_goes_first_and_is_taken_by_weight_at_a_discount() {
+    let (mut sim, hh, minter) = mint_scene(3);
+    let [coin, copper, grain] =
+        ["coin", "copper", "grain"].map(|g| good(&sim, &format!("core:good/{g}")));
+    let other = sim
+        .people()
+        .person(minter)
+        .map(|p| p.household)
+        .expect("the minter's household");
+    let home = sim
+        .people()
+        .polities
+        .iter()
+        .find(|p| {
+            sim.people()
+                .household(hh)
+                .is_some_and(|x| p.holds(x.settlement))
+        })
+        .map(|p| p.id)
+        .expect("its polity");
+    let abroad = PermanentId::from_raw(999_999).expect("another polity");
+    let today = sim.now().day_index();
+    // Its own polity's pieces, then later ones of another's.
+    let pop = sim.people_mut_for_tests();
+    assert!(pop.strike_for_tests(coin, home, hh, today, 10.0, 8.0, 1.0));
+    assert!(pop.strike_for_tests(coin, abroad, hh, today + 1, 10.0, 8.0, 1.0));
+    // It paid 2 kg of copper for 100 kg of grain today: copper is worth what that bought it.
+    let settlement = sim
+        .people()
+        .household(hh)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let n = sim.rules().catalog.goods.len();
+    let now = sim.now();
+    let pop = sim.people_mut_for_tests();
+    if !pop.markets.iter().any(|m| m.settlement == settlement) {
+        pop.markets.push(civ_agents::market::Market::new(
+            settlement,
+            n,
+            now.day_index(),
+        ));
+    }
+    let market = pop
+        .markets
+        .iter_mut()
+        .find(|m| m.settlement == settlement)
+        .expect("market");
+    market.recent.push_back(civ_agents::ledger::Trade {
+        at: now,
+        seller: other,
+        buyer: hh,
+        good: grain as u16,
+        units: 100.0,
+        payment: copper as u16,
+        paid: 2.0,
+        channel: civ_agents::ledger::Channel::Sale,
+        from: None,
+    });
+    // Nobody of it can assay: it pays with the other polity's pieces first, though they are newer.
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, hh, other, coin, 4.0)));
+    let got = sim
+        .people()
+        .order
+        .coinage
+        .purse(other)
+        .map(|p| p.counts.clone())
+        .unwrap_or_default();
+    assert_eq!(got, vec![(2, 4.0)]);
+    // And it takes a piece at the copper in a foreign one, a tenth off, less weighing it (which
+    // stands in for counting it).
+    let worth = |sim: &mut Sim, p: usize, held: f64| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.pay_worth_for_tests(ctx, hh, p, held))
+    };
+    // Copper at the 2 kg it holds (beyond its spending's balance, worth less a kilogram).
+    let copper_h = worth(&mut sim, copper, 2.0).expect("copper bought it grain");
+    let w = worth(&mut sim, coin, 0.0).expect("a foreign piece is worth its copper");
+    assert!(
+        (w - (0.008 * copper_h * 0.9 - 0.02)).abs() < 1e-9,
+        "{w} against {copper_h}"
+    );
+}

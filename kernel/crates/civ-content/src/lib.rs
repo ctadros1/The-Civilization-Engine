@@ -51,7 +51,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 129;
+pub const KERNEL_CONTENT_API: u32 = 130;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1236,6 +1236,37 @@ fn resolve(
         }
     }
     diseases.sort_by(|a, b| a.id.cmp(&b.id));
+    // A coin's metal and the technique that assays it (M7d slice CE4a).
+    let mut resolved: Vec<(usize, Option<usize>, Option<usize>)> = Vec::new();
+    for d in &parsed.goods {
+        let Some(m) = &d.file.money else {
+            continue;
+        };
+        let Some(g) = good_index(&d.file.id) else {
+            continue;
+        };
+        let metal = m.metal.as_deref().and_then(|id| {
+            let i = good_index(id);
+            if i.is_none() {
+                missing(c, parsed, &d.rel, "money.metal", id);
+            }
+            i
+        });
+        let assay = m.assay.as_deref().and_then(|id| {
+            let i = technique_index(id);
+            if i.is_none() {
+                missing(c, parsed, &d.rel, "money.assay", id);
+            }
+            i
+        });
+        resolved.push((g, metal, assay));
+    }
+    for (g, metal, assay) in resolved {
+        if let Some(m) = goods[g].money.as_mut() {
+            m.metal = metal;
+            m.assay = assay;
+        }
+    }
     let catalog = Catalog {
         activities,
         goods,

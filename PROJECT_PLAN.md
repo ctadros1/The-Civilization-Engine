@@ -3657,6 +3657,28 @@ and M6a gives rivers a daily flow.
         piece at half a kilogram's grain under the law, and pay five kilograms owed with ten
         pieces, purse to purse. **Not yet built:** a household seeking coin to pay its levy (it
         pays in coin only what it holds).
+    - **CE4, split (2026-10-17):** **CE4a** assay (worth by the metal in a piece, the payer giving
+      what is worth least to it); **CE4b** debasement as a mint law; **CE4c** foreign coin by
+      weight.
+    - **CE4a-b**: assay and debasement.
+      - *As built (2026-10-17):* content API 130 (saves and wire unchanged). A coin good names the
+        metal it is struck of and the technique whose knowers assay it (the core: copper, and
+        those who know smelting). A household with such a member values coin by the metal in the
+        pieces it would pay with (its lightest issue, or with none the newest struck), at its own
+        cost of the metal, or at the levy's floor if that is more, and not by what pieces bought;
+        and it pays with the pieces holding least metal first (research 08-06 §1.7: choose among
+        eligible holdings by opportunity cost). One that cannot assay counts pieces alike, values
+        them by what they bought, and pays with the oldest first. A mint template of other terms
+        passed while a mint is in force takes that mint's place (the old law superseded; pieces
+        already struck keep their weight). In the forecast, a household that counts pieces also
+        expects what the pieces it would get back for the metal it pays and is paid a year have
+        bought it, so a lighter coin, more pieces for the same metal, looks better to it; one that
+        assays sees no more metal. The core adds `core:policy/mint_light`, 6 g pieces (08-06
+        §1.6: a quarter less metal a unit, about a third more units). **Not measured in a lived
+        world:** no world mints yet; tests show a household that cannot assay paying with the
+        older issue and, taught to smelt, with the lighter, valuing a piece at the copper in its
+        lightest, and a lighter mint striking 333 pieces from two kilograms. The mint's place
+        taken by another is not tested apart from the gathering that would pass it.
 
 **M8: The growing city (v1).**
 - *Contents:*

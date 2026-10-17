@@ -443,4 +443,46 @@ impl Population {
         }
         out
     }
+    /// What a piece of the coin a mint template strikes is worth to each of `households` that
+    /// counts pieces rather than assaying them, hours, by household id (M7d slice CE4b): what
+    /// pieces bought it, as it remembers; 0 for one that can assay.
+    pub(super) fn count_piece_worths(
+        &self,
+        ctx: &Ctx,
+        households: &[PermanentId],
+        mints: &[(u16, f64, f64, f64)],
+    ) -> Vec<(PermanentId, f64)> {
+        let goods = &ctx.catalog.goods;
+        let Some(coin) = mints.iter().find_map(|&(k, ..)| {
+            let m = ctx.catalog.policies.get(usize::from(k))?.mint?;
+            ctx.catalog
+                .recipes
+                .get(m.recipe)?
+                .outputs
+                .first()
+                .map(|o| o.0)
+        }) else {
+            return Vec::new();
+        };
+        let Some(money) = goods.get(coin).and_then(|g| g.money.as_ref()) else {
+            return Vec::new();
+        };
+        let mut out: Vec<(PermanentId, f64)> = households
+            .iter()
+            .filter_map(|&h| {
+                let hh = self.household(h)?;
+                if self.assays(h, money.assay) {
+                    return Some((h, 0.0));
+                }
+                let costs = self.own_costs_of(ctx, hh);
+                let held = hh.stores.get(coin).copied().unwrap_or(0.0);
+                let w = self
+                    .pay_worth_raw(ctx, hh, coin, None, held, &costs)
+                    .unwrap_or(0.0);
+                Some((h, w))
+            })
+            .collect();
+        out.sort_unstable_by_key(|x| x.0);
+        out
+    }
 }

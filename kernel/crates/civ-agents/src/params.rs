@@ -337,6 +337,11 @@ pub struct MoneyDef {
     /// It is counted in pieces of issues a mint struck (coin), whose purses are kept (M7d
     /// slice CE); else it is weighed (metal).
     pub coin: bool,
+    /// For coin: the metal it is struck of, by index in the catalog's goods (M7d slice CE4a).
+    pub metal: Option<usize>,
+    /// For coin: the technique whose knowers can tell how much metal a piece holds, by index in
+    /// the catalog's techniques (M7d slice CE4a, ADR-0027 §6: those who know smelting assay).
+    pub assay: Option<usize>,
 }
 
 /// What a store good adds to being a good (M3b slice Q): the room each one gives.

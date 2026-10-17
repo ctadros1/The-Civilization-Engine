@@ -2677,3 +2677,13 @@ Content API 129.
 
 **Lived:** nothing yet: nobody makes copper unaided.
 
+## 2026-10-17 — CE4a-b: assay and debasement
+
+**Built:** those who know how to smelt can tell how much copper a coin holds. They value coin by
+its copper and pay with the lightest pieces they have, as Gresham's law has it; everyone else
+counts pieces alike and pays with the oldest. A village may also replace its mint with one that
+strikes lighter pieces, a third more from the same copper, which looks like a gain to those who
+count and none to those who weigh. Content API 130.
+
+**Lived:** nothing yet: no world mints yet.
+

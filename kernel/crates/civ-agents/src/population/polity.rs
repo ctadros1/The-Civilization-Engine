@@ -85,8 +85,12 @@ pub(super) struct Forecasts {
     /// CE2b), by household id: the weighing a mint would save it.
     weighed: Vec<(PermanentId, f64)>,
     /// For each mint template, by index: the hours of weighing a kilogram paid in its coin saves,
-    /// and the hours striking a kilogram takes its keeper.
-    mints: Vec<(u16, f64, f64)>,
+    /// the hours striking a kilogram takes its keeper, and the pieces a household gets back for a
+    /// kilogram it brings (M7d slice CE4b).
+    mints: Vec<(u16, f64, f64, f64)>,
+    /// What a piece is worth to each household that counts pieces rather than assaying them,
+    /// hours, by household id (M7d slice CE4b): what it bought; 0 for one that assays.
+    count_piece_h: Vec<(PermanentId, f64)>,
     /// The settlement's adults and their households, by person id: whose household a keeper
     /// named would work for the office.
     adults: Vec<(PermanentId, PermanentId)>,
@@ -612,7 +616,8 @@ impl Forecasts {
             // the household of the keeper it names, the hours of striking as much metal as
             // changes hands in the settlement a year.
             Some(PolicyKind::Mint) => {
-                let Some(&(_, saved_h, strike_h)) = self.mints.iter().find(|x| x.0 == m.policy)
+                let Some(&(_, saved_h, strike_h, pieces)) =
+                    self.mints.iter().find(|x| x.0 == m.policy)
                 else {
                     return 0.0;
                 };
@@ -633,7 +638,14 @@ impl Forecasts {
                 } else {
                     0.0
                 };
-                crate::polity::kept_gain(o, kg * saved_h * kcal, pp)
+                // One that counts pieces expects what the pieces it would get back for its metal
+                // have bought it (M7d slice CE4b): a lighter coin gives it more of them.
+                let piece_h = self
+                    .count_piece_h
+                    .binary_search_by_key(&h, |k| k.0)
+                    .map_or(0.0, |i| self.count_piece_h[i].1);
+                let counted = kg / 2.0 * pieces * piece_h;
+                crate::polity::kept_gain(o, (kg * saved_h + counted) * kcal, pp)
                     - crate::polity::levy_cost(o, work, pp)
             }
             // Pay for common work (M7d slice CE3a): the household's share of the money the store
@@ -1496,7 +1508,7 @@ impl Population {
         let closures = self.closure_forecasts(ctx, pi, households, adults);
         // A mint's forecast (M7d slice CE2b): what each template would save weighing, and what
         // striking would ask of its keeper.
-        let mints: Vec<(u16, f64, f64)> = ctx
+        let mints: Vec<(u16, f64, f64, f64)> = ctx
             .catalog
             .policies
             .iter()
@@ -1506,7 +1518,12 @@ impl Population {
                 let r = ctx.catalog.recipes.get(m.recipe)?;
                 let per = r.inputs.first()?.1;
                 let strike_h = if per > 0.0 { r.unit_h / per } else { 0.0 };
-                Some((k as u16, Self::weighing_saved_h(ctx, &m), strike_h))
+                let pieces = if m.metal_kg() > 0.0 {
+                    (1.0 - f64::from(m.fee)) / m.metal_kg()
+                } else {
+                    0.0
+                };
+                Some((k as u16, Self::weighing_saved_h(ctx, &m), strike_h, pieces))
             })
             .collect();
         let weighed = if mints.is_empty() {
@@ -1515,6 +1532,11 @@ impl Population {
             self.weighed_kg_year(ctx, households)
         };
         let weighing = weighed.iter().any(|w| w.1 > 0.0);
+        let count_piece_h = if weighing {
+            self.count_piece_worths(ctx, households, &mints)
+        } else {
+            Vec::new()
+        };
         let worn = self.worn_bank(ctx, pi, households.len());
         let rules = self.rule_forecasts(ctx, pi, households);
         Forecasts {
@@ -1578,6 +1600,7 @@ impl Population {
             ),
             weighed,
             mints,
+            count_piece_h,
             pay: self.pay_forecasts(ctx, pi, households),
             adults: {
                 let mut a = adults.to_vec();
@@ -3014,9 +3037,16 @@ impl Population {
                                 (r, c)
                             })
                             .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)));
+                        // Another mint's terms replace the one in force (M7d slice CE4b).
+                        let ends = self.polities[pi]
+                            .laws
+                            .iter()
+                            .find(|l| l.kind == PolicyKind::Mint && l.status == LawStatus::InForce)
+                            .map(|l| l.id);
                         if let Some((_, c)) = pick {
                             moves.push(MoveOption {
                                 nominee: Some(c),
+                                ends,
                                 ..blank
                             });
                         }

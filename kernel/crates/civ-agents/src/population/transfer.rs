@@ -52,6 +52,19 @@ impl Population {
             .map(Holder::Due)
     }
 
+    /// Whether someone of household `holder` knows technique `assay` (a coin's assay, M7d slice
+    /// CE4a): one who can tell how much metal a piece holds. No household, or no assay, cannot.
+    pub(crate) fn assays(&self, holder: PermanentId, assay: Option<usize>) -> bool {
+        let Some(t) = assay else {
+            return false;
+        };
+        self.household(holder).is_some_and(|x| {
+            x.members
+                .iter()
+                .any(|&m| self.person(m).is_some_and(|p| p.knows(t)))
+        })
+    }
+
     /// Puts every purse right by what its holder holds of each coin good (M7d slice CE): coin
     /// moved by a path other than [`Population::transfer`] (a household dividing its stores, a
     /// store's levy) is found again in whoever holds it, each issue's count conserved.
@@ -304,8 +317,25 @@ impl Population {
             }
             self.transfers.add(channel, l.good, moved);
             // Coin moves issue by issue, the payer giving the oldest first (M7d slice CE).
-            if goods[l.good].money.as_ref().is_some_and(|m| m.coin) {
-                self.order.coinage.give(l.from, l.to, moved, &|_| 0.0);
+            if let Some(m) = goods[l.good].money.as_ref().filter(|m| m.coin) {
+                // A payer who can assay gives the pieces holding least metal first; others count
+                // them all alike, the oldest first (M7d slice CE4a).
+                let metal: Vec<(u32, f64)> = if self.assays(l.from, m.assay) {
+                    self.order
+                        .coinage
+                        .cohorts
+                        .iter()
+                        .map(|c| (c.id, c.metal_kg()))
+                        .collect()
+                } else {
+                    Vec::new()
+                };
+                let worth = |issue: u32| {
+                    metal
+                        .binary_search_by_key(&issue, |x| x.0)
+                        .map_or(0.0, |i| metal[i].1)
+                };
+                self.order.coinage.give(l.from, l.to, moved, &worth);
             }
         }
         true

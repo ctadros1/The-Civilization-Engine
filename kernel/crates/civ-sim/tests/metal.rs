@@ -831,3 +831,77 @@ fn a_household_pays_its_levy_in_coin_worth_less_to_it_than_the_grain() {
     let x = sim.people().household(hh).expect("household");
     assert!(x.stores[coin] < 1e-9);
 }
+
+#[test]
+fn one_who_can_assay_pays_with_the_lightest_coin_and_values_it_by_its_metal() {
+    let (mut sim, hh, minter) = mint_scene(3);
+    let [coin, copper] = ["coin", "copper"].map(|g| good(&sim, &format!("core:good/{g}")));
+    let other = sim
+        .people()
+        .person(minter)
+        .map(|p| p.household)
+        .expect("the minter's household");
+    let issuer = PermanentId::from_raw(999_999).expect("an issuer");
+    let today = sim.now().day_index();
+    // Ten full pieces, then ten lighter ones of a later issue, all to `hh`.
+    let pop = sim.people_mut_for_tests();
+    assert!(pop.strike_for_tests(coin, issuer, hh, today, 10.0, 8.0, 1.0));
+    assert!(pop.strike_for_tests(coin, issuer, hh, today + 1, 10.0, 6.0, 1.0));
+    let got = |sim: &Sim| -> Vec<(u32, f64)> {
+        sim.people()
+            .order
+            .coinage
+            .purse(other)
+            .map(|p| p.counts.clone())
+            .unwrap_or_default()
+    };
+    // Nobody of it can assay: it counts them alike and gives the older first.
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, hh, other, coin, 4.0)));
+    assert_eq!(got(&sim), vec![(1, 4.0)]);
+    // Taught to smelt, it gives the lighter issue first.
+    let grown: Vec<PermanentId> = sim
+        .people()
+        .household(hh)
+        .map(|x| x.members.clone())
+        .unwrap_or_default();
+    for p in grown {
+        let _ = sim.introduce_technique(p, "core:technique/copper_smelting", false);
+    }
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.transfer_for_tests(ctx, hh, other, coin, 4.0)));
+    assert_eq!(got(&sim), vec![(1, 4.0), (2, 4.0)]);
+    // And it values a piece by the copper in the lightest it holds, at its own cost of copper.
+    let worth = |sim: &mut Sim, p: usize| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.pay_worth_for_tests(ctx, hh, p, 0.0))
+    };
+    let copper_h = worth(&mut sim, copper).expect("copper has a cost to a smelter") + 0.1;
+    let w = worth(&mut sim, coin).expect("a piece is worth its copper");
+    assert!(
+        (w - (0.006 * copper_h - 0.0003)).abs() < 1e-9,
+        "{w} against {copper_h}"
+    );
+}
+
+#[test]
+fn a_lighter_mint_strikes_more_pieces_from_the_same_metal() {
+    let (mut sim, hh, minter) = mint_scene(3);
+    let light = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .find(|d| d.id == "core:policy/mint_light")
+        .and_then(|d| d.mint)
+        .expect("a lighter mint");
+    assert!((light.metal_kg() - 0.006).abs() < 1e-9);
+    let polity = law_in_force(&mut sim, hh, "core:policy/mint_light", Some(minter), minter);
+    bought_with_coin(&mut sim, hh, 50.0);
+    sim.with_ctx_for_tests(|pop, ctx| pop.bring_to_mints_for_tests(ctx));
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.strike_mint_for_tests(ctx, polity, 10.0)));
+    let coinage = &sim.people().order.coinage;
+    let issue = coinage.cohorts.first().expect("an issue");
+    assert!((issue.mass_g - 6.0).abs() < 1e-6);
+    // Two kilograms make 333 pieces, a third more than 250.
+    assert!((issue.count - 2.0 / 0.006).abs() < 1e-6, "{}", issue.count);
+    let theirs = coinage.purse(hh).expect("its purse").total();
+    assert!((theirs - 2.0 / 0.006 * 0.97).abs() < 1e-6, "{theirs}");
+}

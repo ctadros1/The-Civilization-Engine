@@ -211,6 +211,15 @@ impl Population {
         let Some(money) = ctx.catalog.goods.get(p).and_then(|g| g.money.as_ref()) else {
             return raw;
         };
+        // One who can assay a coin values it by the metal in the pieces it would pay with, at its
+        // own cost of the metal, not by what it bought (M7d slice CE4a, ADR-0027 §6).
+        let raw = if money.coin && self.assays(hh.id, money.assay) {
+            self.assayed_worth(hh, money, costs)
+                .map(|v| v - money.verify_h)
+                .filter(|&v| v > 0.0)
+        } else {
+            raw
+        };
         let floor = self
             .levy_floor(ctx, hh, p, held, costs)
             .map(|f| f - money.verify_h)
@@ -219,6 +228,28 @@ impl Population {
             (Some(r), Some(f)) => Some(r.max(f)),
             (r, f) => r.or(f),
         }
+    }
+
+    /// What a piece of coin `money` is worth to household `hh`, which can assay it, in hours: the
+    /// metal in the piece it would pay with (of the issues its purse holds, the one holding least;
+    /// with none, the newest struck), at its own cost of the metal (M7d slice CE4a).
+    pub(crate) fn assayed_worth(
+        &self,
+        hh: &Household,
+        money: &crate::params::MoneyDef,
+        costs: &[Option<f64>],
+    ) -> Option<f64> {
+        let metal_h = costs.get(money.metal?).copied().flatten()?;
+        let coinage = &self.order.coinage;
+        let kg = match coinage.purse(hh.id) {
+            Some(p) => p
+                .counts
+                .iter()
+                .filter_map(|&(i, _)| coinage.cohort(i).map(|c| c.metal_kg()))
+                .reduce(f64::min)?,
+            None => coinage.cohorts.last()?.metal_kg(),
+        };
+        Some(kg * metal_h)
     }
 
     /// What a unit of money `p` pays for, in hours, under a common store in force where `hh`

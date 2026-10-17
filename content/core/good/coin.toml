@@ -16,3 +16,7 @@ reserve_for = ""
 [money]
 verify_h = 0.0003
 coin = true
+# Struck of copper; those who know how to smelt it can tell how much a piece holds (content API
+# 130, M7d slice CE4a, ADR-0027 §6), and value it by that.
+metal = "core:good/copper"
+assay = "core:technique/copper_smelting"

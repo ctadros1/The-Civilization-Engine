@@ -80,6 +80,12 @@ pub(crate) struct Money {
     /// Content API 126 (M7d slice CE): counted in pieces of issues a mint struck.
     #[serde(default)]
     pub coin: bool,
+    /// Content API 130 (M7d slice CE4a): for coin, the metal it is struck of, by content id.
+    #[serde(default)]
+    pub metal: Option<String>,
+    /// Content API 130 (M7d slice CE4a): for coin, the technique whose knowers assay a piece.
+    #[serde(default)]
+    pub assay: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -126,6 +132,9 @@ impl GoodFile {
             money: self.money.as_ref().map(|m| MoneyDef {
                 verify_h: m.verify_h,
                 coin: m.coin,
+                // Resolved once the goods and techniques are known (`civ_content::compile`).
+                metal: None,
+                assay: None,
             }),
             fire: self.fire.as_ref().map(|f| GoodFire {
                 catch_kw_m2: f.catch_kw_m2,

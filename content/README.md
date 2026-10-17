@@ -687,6 +687,15 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 130 (M7d slices CE4a-b, ADR-0027 §6) brings assay and debasement. A coin good's
+`[money]` may name the `metal` it is struck of and the technique (`assay`) whose knowers can tell
+how much metal a piece holds: a household with such a member values coin by the metal in the
+pieces it would pay with, at its own cost of the metal (or the levy's floor, if higher), and pays
+with the pieces holding least metal first; others count pieces alike and pay with the oldest. A
+second `mint` template may strike other terms: passed while a mint is in force, it takes that
+mint's place. The core's coin is struck of copper and assayed by those who know smelting; the core
+adds `core:policy/mint_light` (6 g pieces).
+
 Content API 129 (M7d slice CE3b, ADR-0027 §6) brings a levy in coin. A `common_store` policy may
 have a `[medium]` table: `good` (a money) and `per_kg` (units of it that pay for a kilogram of the
 grain owed). A household that holds some pays its levy in it when what a unit would otherwise bring

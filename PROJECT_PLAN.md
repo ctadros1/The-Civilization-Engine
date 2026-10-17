@@ -3784,6 +3784,19 @@ and M6a gives rivers a daily flow.
     - **CH**: the host and frames at scale: Max lived in chunks within a day, people on the delta
       stream, batched drawing in the web observer.
     - **CI**: constant factors from the profile, exact, time-boxed.
+      - *First change (2026-10-17): who heard what, kept by holder.* Day 53 of CF's 3×3,334 world
+        was a memory copy: every claim heard (word of a gathering, ADR-0016 §3) was inserted into
+        one vector kept in (holder, claim) order, so each new hearing moved everything after it.
+        `Word.heard` is now a `HeardBook`: a list per holder, each kept in claim order, with a
+        count of all of them. It iterates in the same (holder, claim) order, so saves are the
+        same bytes; a save whose hearings are out of order is refused on load, as before.
+        **Exact:** every section's digest but `meta` (which holds the wall-clock time a world was
+        made) equal after 30 days of 3×1,000 at Max and in full detail, and after 10 days of
+        3×3,334 in both. **Measured:** day 53 lived again from the save of day 52 took 66.2 s
+        (1,691 s before, 25.5× less); 30 days of 3×1,000 at Max 89.5 s against 93.2 s (4 %), in
+        full detail 110.0 s against 114.4 s. Day 53 is still the slowest day of its month: half
+        its samples are in `keep_company`, which weighs everyone at a gathering for each of them
+        who keeps company (the square of a crowd), a cost the ordinary-day profile will rank.
     - **CJ**: routing for the city: landmarks per region, the cache sized by population, reverse
       fields where they pay, a two-level overlay, bounds a faster mode cannot break.
     - **CK**: parallel preparation on a private bounded pool, digests equal at 1, 2, 4 and 8

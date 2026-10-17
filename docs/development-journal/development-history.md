@@ -2732,3 +2732,10 @@ inserted into one long sorted list. That is fixed next.
 
 **Fixed:** a world of 10,000 saved but could not be loaded, because one section held more records
 than the save format's checker allows by default. The checker's limit now grows with the section.
+
+## 2026-10-17 — CI, first change: who heard what, kept by holder
+
+**Fixed (speed, exactly):** the 27-minute day is now 66 seconds. Who had heard which claim was one
+long sorted list, and word of a gathering reaching thousands moved most of it for each hearing;
+it is now a short list for each person. Every saved section is the same, byte for byte, after a
+month of three villages and ten days of three towns of 3,334, in both modes.

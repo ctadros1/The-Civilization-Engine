@@ -159,13 +159,78 @@ pub struct Heard {
     pub origin: Option<PermanentId>,
 }
 
+/// Who heard what (ADR-0016 §3), kept by holder, each holder's in claim order (M8a slice CI): a
+/// new hearing goes among its holder's few records instead of shifting everyone's after it, which
+/// cost millions of moves a hearing once word of a gathering reached thousands (slice CF). Read
+/// whole, it goes in (holder, claim) order, as the one sorted list it replaced did.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct HeardBook {
+    by: std::collections::BTreeMap<PermanentId, Vec<Heard>>,
+    len: usize,
+}
+
+impl HeardBook {
+    /// How many hearings there are.
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Whether nobody has heard anything.
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Every hearing, in (holder, claim) order.
+    pub fn iter(&self) -> impl Iterator<Item = &Heard> + Clone {
+        self.by.values().flatten()
+    }
+
+    /// What `holder` has heard, in claim order.
+    pub fn of(&self, holder: PermanentId) -> &[Heard] {
+        self.by.get(&holder).map_or(&[], Vec::as_slice)
+    }
+
+    /// Keeps the hearings `keep` holds to.
+    pub fn retain(&mut self, mut keep: impl FnMut(&Heard) -> bool) {
+        for list in self.by.values_mut() {
+            list.retain(&mut keep);
+        }
+        self.by.retain(|_, list| !list.is_empty());
+        self.len = self.by.values().map(Vec::len).sum();
+    }
+
+    /// Appends `h`, which must come after every hearing held in (holder, claim) order (as a save
+    /// lists them); returns false, appending nothing, when it does not.
+    pub fn push(&mut self, h: Heard) -> bool {
+        if let Some((&holder, list)) = self.by.last_key_value() {
+            let last = list.last().map_or(0, |x| x.claim);
+            if (h.holder, h.claim) <= (holder, last) {
+                return false;
+            }
+        }
+        self.by.entry(h.holder).or_default().push(h);
+        self.len += 1;
+        true
+    }
+}
+
+impl<'a> IntoIterator for &'a HeardBook {
+    type Item = &'a Heard;
+    type IntoIter =
+        std::iter::Flatten<std::collections::btree_map::Values<'a, PermanentId, Vec<Heard>>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.by.values().flatten()
+    }
+}
+
 /// What people have heard (ADR-0016 §3).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Word {
     /// The claims, by number.
     pub claims: Vec<Claim>,
-    /// Who heard what, in (holder, claim) order.
-    pub heard: Vec<Heard>,
+    /// Who heard what, by holder (see [`HeardBook`]).
+    pub heard: HeardBook,
     /// What each holds against whom, in (holder, made) order.
     pub grievances: Vec<Grievance>,
     /// The sources each suspects, in (holder, source) order (M6a slice BA).
@@ -307,7 +372,8 @@ impl Word {
     /// Whether `holder` has heard claim `claim`.
     pub fn has_heard(&self, holder: PermanentId, claim: u32) -> bool {
         self.heard
-            .binary_search_by(|h| (h.holder, h.claim).cmp(&(holder, claim)))
+            .of(holder)
+            .binary_search_by_key(&claim, |h| h.claim)
             .is_ok()
     }
 
@@ -321,16 +387,15 @@ impl Word {
         from: Option<PermanentId>,
         origin: Option<PermanentId>,
     ) -> bool {
-        match self
-            .heard
-            .binary_search_by(|h| (h.holder, h.claim).cmp(&(holder, claim)))
-        {
+        let list = self.heard.by.entry(holder).or_default();
+        match list.binary_search_by_key(&claim, |h| h.claim) {
             Ok(i) => {
-                self.heard[i].last = self.heard[i].last.max(day);
+                list[i].last = list[i].last.max(day);
                 false
             }
             Err(i) => {
-                self.heard.insert(
+                self.heard.len += 1;
+                list.insert(
                     i,
                     Heard {
                         holder,
@@ -348,9 +413,7 @@ impl Word {
 
     /// What `holder` has heard, in claim order.
     pub fn heard_by(&self, holder: PermanentId) -> &[Heard] {
-        let from = self.heard.partition_point(|h| h.holder < holder);
-        let to = self.heard.partition_point(|h| h.holder <= holder);
-        &self.heard[from..to]
+        self.heard.of(holder)
     }
 
     /// Lets go of what is no longer news on `today`: a gathering's call once its day has passed,

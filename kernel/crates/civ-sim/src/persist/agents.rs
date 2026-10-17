@@ -8235,21 +8235,17 @@ fn decode_word(bytes: &[u8]) -> Result<civ_agents::word::Word, LoadError> {
         return Err(bad("claims are out of order".to_owned()));
     }
     for h in root.heard().iter().flatten() {
-        word.heard.push(Heard {
+        let heard = Heard {
             holder: required(h.holder(), "a hearer")?,
             claim: h.claim(),
             first: h.first(),
             last: h.last(),
             from: id(h.from()),
             origin: id(h.origin()),
-        });
-    }
-    if !word
-        .heard
-        .windows(2)
-        .all(|w| (w[0].holder, w[0].claim) < (w[1].holder, w[1].claim))
-    {
-        return Err(bad("what people heard is out of order".to_owned()));
+        };
+        if !word.heard.push(heard) {
+            return Err(bad("what people heard is out of order".to_owned()));
+        }
     }
     for g in root.grievances().iter().flatten() {
         word.grievances.push(Grievance {

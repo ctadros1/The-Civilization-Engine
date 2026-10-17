@@ -225,8 +225,9 @@ fn only_those_who_heard_a_gathering_is_called_come_to_it() {
     assert!(what.starts_with("a gathering meets on "), "{what}");
     assert!(line.from_name().is_some_and(|n| !n.is_empty()));
     let word = &sim.people().word;
+    let heard: Vec<_> = word.heard.iter().collect();
     assert!(
-        word.heard
+        heard
             .windows(2)
             .all(|w| (w[0].holder, w[0].claim) < (w[1].holder, w[1].claim))
     );

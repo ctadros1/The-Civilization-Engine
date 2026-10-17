@@ -2611,3 +2611,21 @@ harvest. Relief stays a gift. Content API 123; saves unchanged (the store is the
 **Lived:** with nothing nudged about lending, 51 of the 67 loans of the M7c demo's world in four
 years came from a common store; 26 were repaid and 9 defaulted.
 
+## 2026-10-17 — CC2 deferred; CE1: metal as content
+
+**Measured first:** custody (ADR-0027 §4) answers a household holding more than its roof keeps.
+In about 40,000 household-days of seeds 1 and 2 none did, so custody, keepers' lending and runs
+wait for stores beyond a village's roofs.
+
+**Built:** copper. A tool may serve for another (a copper axe for an axe): the work takes either,
+the longer-lived wears first, and a household makes whichever way costs it fewer of its own hours
+for each hour of use, the copper and ore that way needs included. Ore is picked on uplands or dug
+from rare bodies; smelting is found by kiln-firers with ore at home, or taught. Content API 124;
+saves and wire unchanged; worlds where nobody smelts are as before.
+
+**Lived:** the observer taught smelting to one household of the M7c demo's world. In four years it
+chose the copper axe as its way, its village knew an ore body 2 km off, and still none was cast:
+its axes never wore below what it keeps. Copper waits on tools wearing out. A way is now chosen
+only when its makings can be got, after a first build could have left a household choosing a
+copper axe it had no ore for.
+

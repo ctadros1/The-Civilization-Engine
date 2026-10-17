@@ -13,6 +13,10 @@
 //! `MAX_DAYS` at most, and ends early if its people are gone; it is saved at the end ("After the
 //! years"). Nudged priors live only in this run: a loaded world takes its content's.
 //!
+//! With `TCE_SMELT_DAY=<day>` set, the observer introduces copper smelting on that day to the
+//! grown members of the largest household of the first village (the knowledge tool; logged as
+//! `INTRODUCED`), for the M7d demo's metal (ADR-0027 §6); the world's metal is tallied at the end.
+//!
 //! ```sh
 //! cargo run --release -p civ-sim --example capture -- <saves folder> [seed]
 //! ```
@@ -178,6 +182,9 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
     let mut log = vec![format!("world (seed {seed}):")];
     let mut nudged = [false; NUDGES.len()];
     let mut first = [None::<i64>; STEPS.len()];
+    let smelt_day: Option<i64> = std::env::var("TCE_SMELT_DAY")
+        .ok()
+        .and_then(|d| d.parse().ok());
     let mut day = 0;
     while day < MAX_DAYS {
         sim.advance_minutes(DAY).map_err(|e| e.to_string())?;
@@ -197,6 +204,9 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
                 log.push(format!("day {today}: {step}"));
                 first[i] = Some(day);
             }
+        }
+        if smelt_day == Some(day) {
+            log.extend(introduce_smelting(&mut sim)?);
         }
         for (n, done) in NUDGES.iter().zip(nudged.iter_mut()) {
             if *done || day < n.day || first[n.step].is_some() {
@@ -326,6 +336,7 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
             ))
             .count(),
     ));
+    log.extend(metal_words(&sim));
     log.extend(laws_words(&sim).into_iter().map(|w| format!("  {w}")));
     for p in &sim.people().polities {
         let label = civ_sim::labels::label_of(&sim, p);
@@ -340,4 +351,108 @@ fn make(saves: &Path, seed: u64) -> Result<String, String> {
     let steps = first.iter().filter(|f| f.is_some()).count();
     log.push(format!("reached {steps} of {} steps", STEPS.len()));
     Ok(log.join("\n"))
+}
+
+/// The observer's introduction of copper smelting to the grown members of the largest household
+/// of the first village (the knowledge tool), in words.
+fn introduce_smelting(sim: &mut Sim) -> Result<Vec<String>, String> {
+    let now = sim.now();
+    let first = sim
+        .people()
+        .households
+        .iter()
+        .filter_map(|(_, x)| x.settlement)
+        .min()
+        .ok_or("nobody lives in a village")?;
+    let hh = sim
+        .people()
+        .households
+        .iter()
+        .map(|(_, x)| x)
+        .filter(|x| x.settlement == Some(first))
+        .max_by_key(|x| (x.members.len(), std::cmp::Reverse(x.id)))
+        .map(|x| x.id)
+        .ok_or("the village has no household")?;
+    let grown: Vec<_> = sim
+        .people()
+        .people
+        .iter()
+        .map(|(_, p)| p)
+        .filter(|p| p.household == hh && p.age_years(now) >= 16.0)
+        .map(|p| p.id)
+        .collect();
+    let mut out = Vec::new();
+    for p in grown {
+        sim.introduce_technique(p, "core:technique/copper_smelting", false)?;
+        out.push(format!(
+            "day {}: INTRODUCED (observer): copper smelting to {} of household {hh}",
+            now.day_index(),
+            sim.people().name_of(p)
+        ));
+    }
+    Ok(out)
+}
+
+/// The world's metal, by village: who knows how to smelt, and what is held of ore, copper and
+/// axes of each kind.
+fn metal_words(sim: &Sim) -> Vec<String> {
+    let goods = &sim.rules().catalog.goods;
+    let at = |id: &str| goods.iter().position(|g| g.id == id);
+    let (Some(ore), Some(copper), Some(cast), Some(axe)) = (
+        at("core:good/copper_ore"),
+        at("core:good/copper"),
+        at("core:good/copper_axe"),
+        at("core:good/axe"),
+    ) else {
+        return Vec::new();
+    };
+    let Some(smelting) = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/copper_smelting")
+    else {
+        return Vec::new();
+    };
+    let pop = sim.people();
+    let mut villages: Vec<_> = pop
+        .households
+        .iter()
+        .filter_map(|(_, x)| x.settlement)
+        .collect();
+    villages.sort_unstable();
+    villages.dedup();
+    let mut out = Vec::new();
+    for v in villages {
+        let held = |g: usize| -> f64 {
+            pop.households
+                .iter()
+                .map(|(_, x)| x)
+                .filter(|x| x.settlement == Some(v))
+                .map(|x| x.stores.get(g).copied().unwrap_or(0.0))
+                .sum()
+        };
+        let knowers = pop
+            .people
+            .iter()
+            .filter(|(_, p)| p.knows(smelting))
+            .filter(|(_, p)| pop.household(p.household).and_then(|x| x.settlement) == Some(v))
+            .count();
+        let bodies: Vec<_> = sim
+            .land()
+            .deposits
+            .iter()
+            .filter(|d| usize::from(d.body.good) == ore)
+            .collect();
+        let known = bodies.iter().filter(|d| pop.knows_deposit(v, d.id)).count();
+        out.push(format!(
+            "  metal at village {v}: {knowers} know smelting; knows {known} of {} ore bodies; {:.1} \
+             kg ore, {:.2} kg copper, {:.2} copper axes, {:.2} stone axes",
+            bodies.len(),
+            held(ore),
+            held(copper),
+            held(cast),
+            held(axe)
+        ));
+    }
+    out
 }

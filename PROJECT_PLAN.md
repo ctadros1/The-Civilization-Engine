@@ -3509,6 +3509,46 @@ and M6a gives rivers a daily flow.
         force in two villages; 136 people at the end. **Not yet built:** the keeper carrying the
         store's loans (they are the store's, not the keeper's); custody, keepers lending deposits
         and runs (CC2).
+    - **CC2**: custody for a fee, keepers lending deposits, runs.
+      - *Deferred (2026-10-17), measured before building:* custody answers a household holding
+        more than its roofed room keeps (ADR-0027 §4). A probe of seeds 1 and 2, three villages
+        of 40 for 720 days, counted about 40,000 household-days: on none did a household hold more
+        than its roof kept, and households went unsheltered only in the first weeks, while their
+        homes were going up. Nobody would deposit, so no keeper would lend and no run could come.
+        Custody, keepers' lending and runs wait for stores beyond a household's room (towns, M8,
+        or harvests larger than a village's roofs); ADR-0027 §4 stands as decided.
+    - **CE1**: metal as content: copper ore at upland patches and in rare bodies, a smelting
+      technique, copper metal, and a copper axe that does an axe's work.
+      - *As built (2026-10-17):* content API 124 (saves and wire unchanged: metal is goods). A
+        tool's `[tool]` table may name `serves`, a tool whose work it does as well. Work that needs
+        an axe may be done with a copper axe, the longest-lived tool at hand is worn first, demand
+        is recorded for the work (an axe), and a copper axe on offer answers it. A household
+        needing an axe makes it whichever way it can work costs fewer of its own hours for each
+        hour of use (its own costs, as a seller's ask is anchored), never by a way whose cost it
+        cannot tell; a material such a way needs that it makes itself (copper) is made for the
+        tool, and what that is made of (ore, firewood) is gathered and dug for it. The core's
+        copper (research 03-05 §1.1, 07-05 §2-3): ore picked from oxidized upland patches at 5 kg
+        an hour or dug from rare bodies (0.2 a km², 300 kg of ore a cubic metre at 15 hours);
+        smelting at 6 hours, 20 kg of ore (8 % copper, 60 % recovered) and 40 kg of firewood a
+        kilogram; a copper axe cast from a kilogram in 5 hours, lasting 600 hours against a stone
+        axe's 200. Smelting (technique `copper_smelting`, practised as pottery) is found by those
+        who fire kilns with ore and fuel at home; founders do not bring it, and nothing brings ore
+        home before smelting is known, so a lived world gains it only by contact or the
+        knowledge tool. Without it nobody holds copper, and a world is as before. A way counts only if the household can get its makings: held, from a patch it has worked
+        or a deposit its settlement knows, or made of such things; one it believes cheap but
+        cannot get the makings of is no way, and it makes stone axes. **Measured**
+        (`civ-sim --example capture` with `TCE_SMELT_DAY=30`, seed 1, three villages of 40, four
+        years): the observer taught smelting to the three grown members of one household on day
+        90; at the end four people of that village knew it, the village knew one of the world's
+        seven ore bodies (2.1 km from them) and the copper axe was the way they would make an
+        axe, yet none was cast: their axes had worn only to 1.83, and a household makes a tool
+        only when it falls below what it wants and a spare. Copper waits on tools wearing out.
+        138 people at the end. A first build that let the way be chosen by an ore cost believed
+        for places never seen could leave a household without the makings of either axe; the
+        rule above, and a test, close that.
+        **Not yet built:** money's worth for weighed metal (CD); a mint, cohorts and purses, polity
+        spending and a levy in coin, debasement, foreign coin (CE2-CE4); ore or copper brought home
+        as pigment or ornament before anyone smelts.
 
 **M8: The growing city (v1).**
 - *Contents:*

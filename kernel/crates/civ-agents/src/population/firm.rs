@@ -607,8 +607,8 @@ impl Population {
                 continue;
             };
             if recipe.tools.iter().any(|&t| {
-                let held = owner.stores.get(t).copied().unwrap_or(0.0);
-                make::in_use(&catalog.goods, t, held) < crate::decide::MIN_TOOL
+                let held = |g: usize| owner.stores.get(g).copied().unwrap_or(0.0);
+                make::tools_for(&catalog.goods, t, &held) < crate::decide::MIN_TOOL
             }) {
                 continue;
             }

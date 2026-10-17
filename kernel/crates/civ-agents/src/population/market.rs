@@ -147,6 +147,67 @@ impl Population {
         m
     }
 
+    /// Whether household `hh`, holding `stores`, can work recipe `r` as a way to a tool (M7d
+    /// slice CE): someone in it knows its technique, and each input it is short of comes from a
+    /// place it knows (a patch it has worked, a deposit its settlement knows) or is made, by a
+    /// recipe it knows, of inputs it holds or knows where to find. A way it believes cheap but
+    /// cannot get the makings of is no way.
+    pub(crate) fn can_work_way(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        stores: &[f64],
+        r: &crate::params::RecipeDef,
+    ) -> bool {
+        let catalog = ctx.catalog;
+        let knows = |t: usize| self.household_knows(&hh.members, t);
+        let held = |g: usize| stores.get(g).copied().unwrap_or(0.0);
+        let found = |g: usize| {
+            hh.known.iter().any(|k| {
+                ctx.land_params
+                    .resources
+                    .get(usize::from(k.resource))
+                    .is_some_and(|res| res.good == g)
+            }) || hh.settlement.is_some_and(|s| {
+                ctx.land
+                    .deposits
+                    .iter()
+                    .any(|d| usize::from(d.body.good) == g && self.knows_deposit(s, d.id))
+            })
+        };
+        let gets = |g: usize, amount: f64| held(g) >= amount - 1e-9 || found(g);
+        r.technique.is_none_or(&knows)
+            && r.inputs.iter().all(|&(g, amount)| {
+                gets(g, amount)
+                    || catalog.recipes.iter().any(|m| {
+                        m.technique.is_none_or(&knows)
+                            && m.outputs.iter().any(|&(o, a)| o == g && a > 0.0)
+                            && m.inputs.iter().all(|&(i, a)| gets(i, a))
+                    })
+            })
+    }
+
+    /// The recipe household `household` would make tool `t` by, and its own costs of every good
+    /// (M7d slice CE): for tests and probes.
+    #[doc(hidden)]
+    pub fn tool_way_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+        t: usize,
+    ) -> (Option<String>, Vec<Option<f64>>) {
+        let Some(hh) = self.household(household) else {
+            return (None, Vec::new());
+        };
+        let stores = stores_now(hh, ctx.now, ctx.params, &ctx.catalog.goods);
+        let costs = self.own_costs_of(ctx, hh);
+        let can_work = |r: &crate::params::RecipeDef| self.can_work_way(ctx, hh, &stores, r);
+        let way = make::way_to_tool(ctx.catalog, t, &can_work, &|| costs.clone())
+            .and_then(|r| ctx.catalog.recipes.get(r))
+            .map(|r| r.id.clone());
+        (way, costs)
+    }
+
     /// What a household's goods cost it, hours of its own work per unit, at its best member's
     /// skills and from what it knows of the land.
     pub(crate) fn own_costs_of(&self, ctx: &Ctx, hh: &Household) -> Vec<Option<f64>> {
@@ -249,20 +310,46 @@ impl Population {
             .collect();
         let knows = |t: usize| self.household_knows(&hh.members, t);
         let wants = make::tool_wants_for(catalog, &ages, params.family.independent_age, &knows);
+        let can_work = |r: &crate::params::RecipeDef| self.can_work_way(ctx, hh, stores, r);
+        let costs_once = std::cell::OnceCell::new();
+        let costs = || {
+            costs_once
+                .get_or_init(|| self.own_costs_of(ctx, hh))
+                .clone()
+        };
         for (t, &w) in wants.iter().enumerate() {
             if w <= 0.0 {
                 continue;
             }
             keep[t] = w + make::SPARE_TOOL;
-            if make::tool_need(w, held(t)) > 0.0
-                && let Some(r) = catalog
-                    .recipes
-                    .iter()
-                    .find(|r| r.outputs.iter().any(|&(g, _)| g == t))
+            // The tools that serve for it are kept as it is (M7d slice CE).
+            for s in make::serving(goods, t).skip(1) {
+                keep[s] = keep[t];
+            }
+            let held_all: f64 = make::serving(goods, t).map(held).sum();
+            if make::tool_need(w, held_all) > 0.0
+                && let Some(r) = make::way_to_tool(catalog, t, &can_work, &costs)
+                    .and_then(|r| catalog.recipes.get(r))
             {
                 for &(g, amount) in &r.inputs {
                     if let Some(k) = keep.get_mut(g) {
                         *k += amount;
+                    }
+                    // What it makes that material of, as far as it is short of it.
+                    let short = (amount - held(g)).max(0.0);
+                    let made = catalog.recipes.iter().find_map(|m| {
+                        m.outputs
+                            .iter()
+                            .find(|&&(o, a)| o == g && a > 0.0)
+                            .filter(|_| short > 0.0 && can_work(m))
+                            .map(|&(_, a)| (m, a))
+                    });
+                    if let Some((m, per_unit)) = made {
+                        for &(i, a) in &m.inputs {
+                            if let Some(k) = keep.get_mut(i) {
+                                *k += a * short / per_unit;
+                            }
+                        }
                     }
                 }
             }
@@ -396,12 +483,16 @@ impl Population {
                 .collect();
             let mut wanted: Vec<(usize, f64, f64)> = Vec::new();
             for (t, d) in goods.iter().enumerate() {
-                if d.tool.is_none() || offered_here.contains(&t) {
+                // Demand is for the work: recorded for a tool, not for those that serve for it,
+                // and not while any of them is offered (M7d slice CE).
+                if d.tool.as_ref().is_none_or(|x| x.serves.is_some())
+                    || make::serving(goods, t).any(|g| offered_here.contains(&g))
+                {
                     continue;
                 }
                 let wants =
                     (holding.keep.get(t).copied().unwrap_or(0.0) - make::SPARE_TOOL).max(0.0);
-                let need = make::tool_need(wants, held(t));
+                let need = make::tool_need(wants, make::serving(goods, t).map(held).sum());
                 if need > 0.0
                     && let Some(c) = costs.get(t).copied().flatten()
                 {
@@ -682,7 +773,8 @@ impl Population {
                 // food it is short of (what one person carries, no more than it is short).
                 let (units, worth, own_h) = if d.tool.is_some() {
                     let wanted = (holding.keep[g] - make::SPARE_TOOL).max(0.0);
-                    let need = make::tool_need(wanted, held(g));
+                    let all = make::serving(goods, make::served(goods, g)).map(held).sum();
+                    let need = make::tool_need(wanted, all);
                     let units = f64::from(o.units).min(1.0);
                     if need <= 0.0 || units < MIN_OFFER_TOOL - 1e-6 {
                         continue;
@@ -1708,14 +1800,23 @@ impl Population {
                 )
                 .any(|o| usize::from(o.good) == t)
         };
+        // A tool that serves for another answers the demand for that one (M7d slice CE).
         let wanted: Vec<(usize, f64, f64)> = goods
             .iter()
             .enumerate()
-            .filter(|(t, d)| d.tool.is_some() && tool_need.get(*t).copied().unwrap_or(0.0) <= 0.0)
+            .filter(|(t, d)| {
+                d.tool.is_some()
+                    && tool_need
+                        .get(make::served(goods, *t))
+                        .copied()
+                        .unwrap_or(0.0)
+                        <= 0.0
+            })
             .filter_map(|(t, _)| {
-                let unmet = market.unmet.get(t).copied().unwrap_or(0.0);
+                let u = make::served(goods, t);
+                let unmet = market.unmet.get(u).copied().unwrap_or(0.0);
                 let sold = market.sold.get(t).copied().unwrap_or(0.0);
-                let (units, worth) = match market.unmet_worth(t) {
+                let (units, worth) = match market.unmet_worth(u) {
                     Some(worth) => (unmet, worth),
                     None if sold > 0.1 && !on_offer(t) => (sold, market.price_h(t)?),
                     None => return None,

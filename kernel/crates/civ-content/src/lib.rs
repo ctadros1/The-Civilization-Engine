@@ -51,7 +51,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 123;
+pub const KERNEL_CONTENT_API: u32 = 124;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -649,6 +649,42 @@ fn resolve(
                 format!("`reserve_for` must name another food; `{from}` is not one"),
             ),
             Some(fi) => goods[gi].reserve_for = Some(fi),
+        }
+    }
+    // A tool that serves for another names a tool other than itself, one that serves for none.
+    let serves_of = |id: &str| {
+        parsed
+            .goods
+            .iter()
+            .find(|o| o.file.id == id)
+            .and_then(|o| o.file.tool.as_ref())
+            .map_or("", |t| t.serves.as_str())
+    };
+    for d in &parsed.goods {
+        let from = serves_of(&d.file.id);
+        if from.is_empty() {
+            continue;
+        }
+        let Some(gi) = ids.iter().position(|i| *i == d.file.id) else {
+            continue;
+        };
+        match ids.iter().position(|i| i == from) {
+            None => missing(c, parsed, &d.rel, "tool.serves", from),
+            Some(fi) if fi == gi || goods[fi].tool.is_none() || !serves_of(from).is_empty() => {
+                c.push(
+                    "E3001",
+                    &d.rel,
+                    None,
+                    format!(
+                        "`tool.serves` must name another tool that serves for none; `{from}` is not one"
+                    ),
+                )
+            }
+            Some(fi) => {
+                if let Some(t) = goods[gi].tool.as_mut() {
+                    t.serves = Some(fi);
+                }
+            }
         }
     }
     let good_index = |id: &str| goods.iter().position(|g| g.id == id);

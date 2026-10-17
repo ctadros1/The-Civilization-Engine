@@ -1,0 +1,19 @@
+# Picking copper minerals out of a weathered patch where they show green on the surface (research
+# 03-05 §1.1; tuning starting points). Only done while the household needs ore for something it
+# makes.
+kind = "activity"
+id = "core:activity/gather_ore"
+name = "Gather ore"
+doing = "picking ore"
+behavior = "gather"
+resource = "copper_ore"
+par = 3.0
+min_age_years = 12.0
+max_age_years = 70.0
+min_minutes = 30
+max_minutes = 180
+daylight_only = true
+max_walk_minutes = 90
+technique = ""
+tools = []
+rate = 1.0

@@ -715,6 +715,7 @@ mod tests {
                 life_h: 300.0,
                 per_worker: 1.0,
                 fixed: false,
+                serves: None,
             }),
             timber: None,
             store: None,

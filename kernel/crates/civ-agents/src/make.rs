@@ -34,6 +34,14 @@ pub fn tool_wants_for(
 ) -> Vec<f64> {
     let youngest = tool_ages(catalog, known);
     tool_wants(&catalog.goods, &|t| {
+        // A tool that serves for another is wanted as that one is (M7d slice CE).
+        if catalog.goods[t]
+            .tool
+            .as_ref()
+            .is_some_and(|x| x.serves.is_some())
+        {
+            return None;
+        }
         let from = match youngest.get(t).copied().unwrap_or(ToolAge::NoWork) {
             ToolAge::From(age) => age,
             ToolAge::NoWork => grown,
@@ -119,6 +127,87 @@ pub fn tool_need(wanted: f64, held: f64) -> f64 {
     } else {
         (wanted + SPARE_TOOL - held.max(0.0)).clamp(0.0, 1.0)
     }
+}
+
+/// Tool `t` and the tools that serve for it (a copper axe for an axe), by good index, `t` first.
+pub fn serving(goods: &[GoodDef], t: usize) -> impl Iterator<Item = usize> + '_ {
+    std::iter::once(t).chain(
+        goods
+            .iter()
+            .enumerate()
+            .filter(move |(g, d)| *g != t && d.tool.as_ref().is_some_and(|x| x.serves == Some(t)))
+            .map(|(g, _)| g),
+    )
+}
+
+/// The tool good `g` serves for, if it serves for one; else `g` itself.
+pub fn served(goods: &[GoodDef], g: usize) -> usize {
+    goods
+        .get(g)
+        .and_then(|d| d.tool.as_ref())
+        .and_then(|t| t.serves)
+        .unwrap_or(g)
+}
+
+/// The recipe, by index, a household makes tool `t` by (M7d slice CE): `t`'s first recipe, or
+/// a recipe of a tool that serves for it which the household can work (`can_work`), whichever
+/// costs it least of its own hours (`costs`, hours a unit, asked only when there is a choice)
+/// for each hour of use. A way whose cost it cannot tell is never chosen over `t`'s own.
+pub fn way_to_tool(
+    catalog: &crate::params::Catalog,
+    t: usize,
+    can_work: &dyn Fn(&RecipeDef) -> bool,
+    costs: &dyn Fn() -> Vec<Option<f64>>,
+) -> Option<usize> {
+    let makes = |r: &RecipeDef, g: usize| r.outputs.iter().any(|&(o, _)| o == g);
+    let own = catalog.recipes.iter().position(|r| makes(r, t));
+    let others: Vec<(usize, usize)> = serving(&catalog.goods, t)
+        .skip(1)
+        .filter_map(|g| {
+            catalog
+                .recipes
+                .iter()
+                .position(|r| makes(r, g) && can_work(r))
+                .map(|r| (g, r))
+        })
+        .collect();
+    if others.is_empty() {
+        return own;
+    }
+    let costs = costs();
+    let per_hour = |g: usize| {
+        let life = life_of(&catalog.goods, g);
+        costs
+            .get(g)
+            .copied()
+            .flatten()
+            .filter(|_| life > 0.0)
+            .map(|c| c / life)
+    };
+    let mut best = own.map(|r| (r, per_hour(t)));
+    for (g, r) in others {
+        let Some(h) = per_hour(g) else {
+            continue;
+        };
+        if best.is_none_or(|(_, b)| b.is_none_or(|b| h < b)) {
+            best = Some((r, Some(h)));
+        }
+    }
+    best.map(|(r, _)| r)
+}
+
+/// Hours of use a standard tool of `g` lasts (0 for no tool).
+pub fn life_of(goods: &[GoodDef], g: usize) -> f64 {
+    goods
+        .get(g)
+        .and_then(|d| d.tool.as_ref())
+        .map_or(0.0, |t| t.life_h)
+}
+
+/// Standard tools at hand for work that needs tool `t`: in use of its own and of every tool that
+/// serves for it, from what is held of each (`held`).
+pub fn tools_for(goods: &[GoodDef], t: usize, held: &dyn Fn(usize) -> f64) -> f64 {
+    serving(goods, t).map(|g| in_use(goods, g, held(g))).sum()
 }
 
 /// How much of tool `good`, of which `held` standard tools are at hand, does its work: all of it,
@@ -277,6 +366,15 @@ pub fn apply(
 /// and a tool worn out is gone.
 pub fn wear(stores: &mut [f64], goods: &[GoodDef], tools: &[usize], hours: f64) {
     for &t in tools {
+        // The work is done with the longest-lived of the tools at hand that do it (M7d slice CE).
+        let t = serving(goods, t)
+            .filter(|&g| in_use(goods, g, stores.get(g).copied().unwrap_or(0.0)) > 1e-9)
+            .max_by(|&a, &b| {
+                life_of(goods, a)
+                    .total_cmp(&life_of(goods, b))
+                    .then(b.cmp(&a))
+            })
+            .unwrap_or(t);
         if let (Some(def), Some(s)) = (
             goods.get(t).and_then(|g| g.tool.as_ref()),
             stores.get_mut(t),
@@ -319,12 +417,14 @@ mod tests {
             life_h: 100.0,
             per_worker: 0.5,
             fixed: false,
+            serves: None,
         });
         let mut oven = good("oven", GoodUse::Tool, 0.0, Eaten::Never);
         oven.tool = Some(ToolDef {
             life_h: 1000.0,
             per_worker: 0.0,
             fixed: true,
+            serves: None,
         });
         vec![
             good("grain", GoodUse::Food, 3340.0, Eaten::Never),
@@ -507,5 +607,91 @@ mod tests {
             (stores[5] - 1.4).abs() < 1e-12,
             "a master's quern lasts longer"
         );
+    }
+
+    fn recipe(id: &str, out: usize, inputs: Vec<(usize, f64)>, unit_h: f64) -> RecipeDef {
+        RecipeDef {
+            id: id.to_owned(),
+            name: id.to_owned(),
+            inputs,
+            outputs: vec![(out, 1.0)],
+            session_inputs: Vec::new(),
+            unit_h,
+            session_h: 0.0,
+            max_units: 1.0,
+            tools: Vec::new(),
+            skill: None,
+            technique: None,
+        }
+    }
+
+    /// Stone (0), an axe (1, 200 hours) and a copper axe (2, 600 hours) serving for it.
+    fn axes() -> crate::params::Catalog {
+        let mut stone = good("stone", GoodUse::Material, 0.0, Eaten::Never);
+        stone.tool = None;
+        let mut axe = good("axe", GoodUse::Tool, 0.0, Eaten::Never);
+        axe.tool = Some(ToolDef {
+            life_h: 200.0,
+            per_worker: 0.5,
+            fixed: false,
+            serves: None,
+        });
+        let mut copper = good("copper_axe", GoodUse::Tool, 0.0, Eaten::Never);
+        copper.tool = Some(ToolDef {
+            life_h: 600.0,
+            per_worker: 0.5,
+            fixed: false,
+            serves: Some(1),
+        });
+        crate::params::Catalog {
+            goods: vec![stone, axe, copper],
+            recipes: vec![
+                recipe("make_axe", 1, vec![(0, 1.5)], 15.0),
+                recipe("cast_axe", 2, Vec::new(), 20.0),
+            ],
+            ..crate::params::Catalog::default()
+        }
+    }
+
+    #[test]
+    fn a_tool_serving_for_another_does_its_work_and_is_worn_first() {
+        let c = axes();
+        assert_eq!(serving(&c.goods, 1).collect::<Vec<_>>(), vec![1, 2]);
+        assert_eq!(served(&c.goods, 2), 1);
+        let held = [0.0, 0.5, 1.0];
+        assert!((tools_for(&c.goods, 1, &|g| held[g]) - 1.5).abs() < 1e-12);
+        // Work needing an axe wears the copper axe, the longer-lived, while one is at hand.
+        let mut stores = held.to_vec();
+        wear(&mut stores, &c.goods, &[1], 60.0);
+        assert!((stores[1] - 0.5).abs() < 1e-12, "the stone axe is not used");
+        assert!(
+            (stores[2] - 0.9).abs() < 1e-12,
+            "the copper axe wears by 60/600"
+        );
+        // And the stone axe once no copper axe is left.
+        let mut stores = vec![0.0, 0.5, 0.0];
+        wear(&mut stores, &c.goods, &[1], 20.0);
+        assert!((stores[1] - 0.4).abs() < 1e-12);
+        // A tool serving for another is not wanted for itself.
+        let wants = tool_wants_for(&c, &[30.0, 30.0], 16.0, &|_| true);
+        assert_eq!(wants[2], 0.0);
+    }
+
+    #[test]
+    fn a_household_makes_a_tool_the_way_that_costs_it_least_for_each_hour_of_use() {
+        let c = axes();
+        let yes = |_: &RecipeDef| true;
+        // A stone axe at 16 hours for 200 hours' use; a copper axe at 30 hours for 600.
+        let costs = || vec![Some(1.0 / 1.5), Some(16.0), Some(30.0)];
+        assert_eq!(way_to_tool(&c, 1, &yes, &costs), Some(1), "the copper axe");
+        // Dearer for each hour of use, or of a cost it cannot tell: its own way.
+        let dear = || vec![Some(1.0 / 1.5), Some(16.0), Some(60.0)];
+        assert_eq!(way_to_tool(&c, 1, &yes, &dear), Some(0));
+        let unknown = || vec![Some(1.0 / 1.5), Some(16.0), None];
+        assert_eq!(way_to_tool(&c, 1, &yes, &unknown), Some(0));
+        // A way it cannot work is never weighed, and its costs never asked.
+        let no = |r: &RecipeDef| r.id != "cast_axe";
+        let never = || -> Vec<Option<f64>> { panic!("costs asked with no choice") };
+        assert_eq!(way_to_tool(&c, 1, &no, &never), Some(0));
     }
 }

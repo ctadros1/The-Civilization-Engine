@@ -323,6 +323,9 @@ pub struct ToolDef {
     pub per_worker: f64,
     /// It stays where it was made (an oven): never carried off.
     pub fixed: bool,
+    /// The tool whose work it does as well, by good index (a copper axe for an axe): work that
+    /// needs that tool may be done with this one (M7d slice CE).
+    pub serves: Option<usize>,
 }
 
 /// What a store good adds to being a good (M3b slice Q): the room each one gives.

@@ -3001,6 +3001,17 @@ impl Population {
                 }
             })
             .collect();
+        // A tool that serves for another counts toward the work that needs that one.
+        for (g, d) in goods.iter().enumerate() {
+            if let Some(t) = d.tool.as_ref().and_then(|x| x.serves)
+                && t != g
+            {
+                let more = free_tools.get(g).copied().unwrap_or(0.0);
+                if let Some(f) = free_tools.get_mut(t) {
+                    *f += more;
+                }
+            }
+        }
         let held_tools = free_tools.clone();
         for m in &hh.members {
             let Some(q) = self.person(*m).filter(|q| Some(q.id) != me) else {
@@ -3020,7 +3031,7 @@ impl Population {
         }
         let held_of = |g: usize| stores.get(g).copied().unwrap_or(0.0).max(0.0);
         let tool_need: Vec<f64> = (0..goods.len())
-            .map(|g| make::tool_need(wants[g], held_of(g)))
+            .map(|g| make::tool_need(wants[g], make::serving(goods, g).map(held_of).sum()))
             .collect();
         // Pots: as many more as would keep the food that lies anywhere but a raised floor or a
         // pot, and the food the next would keep over the store horizon (M3b slice Q).
@@ -3045,25 +3056,70 @@ impl Population {
         let for_sale = self.for_sale(ctx, &hh, &stores, &tool_need);
         let mut tool_material = vec![0.0; goods.len()];
         let mut tool_material_blocked = vec![false; goods.len()];
+        // How each tool it needs is made: its own recipe, or a tool that serves for it that costs
+        // fewer of its hours for each hour of use (M7d slice CE). And the materials those ways
+        // need that it makes itself (copper for a copper axe): the tool each is for, and how
+        // much of it.
+        let can_work = |r: &crate::params::RecipeDef| self.can_work_way(ctx, &hh, &stores, r);
+        let costs_once = OnceCell::new();
+        let costs = || {
+            costs_once
+                .get_or_init(|| self.own_costs_of(ctx, &hh))
+                .clone()
+        };
+        let ways: Vec<Option<usize>> = (0..goods.len())
+            .map(|t| {
+                if goods[t].tool.is_none() {
+                    None
+                } else if goods[t].tool.as_ref().is_some_and(|x| x.serves.is_some()) {
+                    catalog
+                        .recipes
+                        .iter()
+                        .position(|r| r.outputs.iter().any(|&(g, _)| g == t))
+                } else {
+                    make::way_to_tool(catalog, t, &can_work, &costs)
+                }
+            })
+            .collect();
+        let mut made_for: Vec<Option<(usize, f64)>> = vec![None; goods.len()];
         for (t, need) in tool_need.iter().enumerate() {
             if *need <= 0.0 && for_sale.get(t).copied().unwrap_or(0.0) <= 0.0 {
                 continue;
             }
-            let Some(r) = catalog
-                .recipes
-                .iter()
-                .find(|r| r.outputs.iter().any(|(g, _)| *g == t))
-            else {
+            let Some(r) = ways[t].and_then(|r| catalog.recipes.get(r)) else {
                 continue;
             };
+            let blocked = make::tools_for(goods, t, &held_of) < decide::MIN_TOOL;
             for &(g, amount) in &r.inputs {
+                let short = (amount - held_of(g)).max(0.0);
                 if let Some(m) = tool_material.get_mut(g) {
-                    *m += (amount - held_of(g)).max(0.0);
+                    *m += short;
                 }
-                if make::in_use(goods, t, held_of(t)) < decide::MIN_TOOL
-                    && let Some(b) = tool_material_blocked.get_mut(g)
-                {
+                if blocked && let Some(b) = tool_material_blocked.get_mut(g) {
                     *b = true;
+                }
+                // A material it makes itself, and what that is made of.
+                let Some((made, per_unit)) = catalog.recipes.iter().find_map(|m| {
+                    m.outputs
+                        .iter()
+                        .find(|&&(o, _)| o == g)
+                        .filter(|_| short > 0.0 && can_work(m))
+                        .map(|&(_, a)| (m, a))
+                }) else {
+                    continue;
+                };
+                if per_unit <= 0.0 {
+                    continue;
+                }
+                made_for[g] = Some((t, *need));
+                let units = short / per_unit;
+                for &(i, a) in &made.inputs {
+                    if let Some(m) = tool_material.get_mut(i) {
+                        *m += (a * units - held_of(i)).max(0.0);
+                    }
+                    if blocked && let Some(b) = tool_material_blocked.get_mut(i) {
+                        *b = true;
+                    }
                 }
             }
         }
@@ -3476,10 +3532,20 @@ impl Population {
             let from_inputs = make::units_from_inputs(r, &have);
             // What making it is worth, and how much of it is wanted.
             let (worth, wanted) = if let Some(_tool) = &out_good.tool {
-                let need = tool_need.get(out).copied().unwrap_or(0.0);
+                // Its need is the need of the tool it serves for, made the way the household
+                // makes that one (M7d slice CE).
+                let served = make::served(goods, out);
+                let need = tool_need.get(served).copied().unwrap_or(0.0);
                 let sale = for_sale.get(out).copied().unwrap_or(0.0);
-                if need > 0.0 {
-                    (MakeWorth::Tool { tool: out, need }, 1.0)
+                let way = ways
+                    .get(served)
+                    .copied()
+                    .flatten()
+                    .and_then(|w| catalog.recipes.get(w));
+                if need > 0.0 && way.is_some_and(|w| std::ptr::eq(w, r)) {
+                    (MakeWorth::Tool { tool: served, need }, 1.0)
+                } else if need > 0.0 && sale <= 0.0 {
+                    return Err((Reason::BetterWay, None));
                 } else if sale > 0.0 {
                     (MakeWorth::Sale { share: sale }, 1.0)
                 } else {
@@ -3522,6 +3588,19 @@ impl Population {
                     return Err((Reason::NotNeeded, None));
                 }
                 (MakeWorth::Preserve { kcal: kcal * made }, want / made)
+            } else if let Some((tool, need)) = made_for.get(out).copied().flatten() {
+                // A material it makes for a tool it needs (copper for a copper axe): as much as
+                // that way is short of.
+                let per_unit = r
+                    .outputs
+                    .iter()
+                    .find(|&&(g, _)| g == out)
+                    .map_or(0.0, |&(_, amount)| amount);
+                let short = tool_material.get(out).copied().unwrap_or(0.0);
+                if per_unit <= 0.0 || short <= 0.0 {
+                    return Err((Reason::NotNeeded, None));
+                }
+                (MakeWorth::Tool { tool, need }, short / per_unit)
             } else if out_good.purpose == GoodUse::Food {
                 let per_unit: f64 = r
                     .outputs

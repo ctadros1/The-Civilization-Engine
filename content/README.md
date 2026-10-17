@@ -687,6 +687,19 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 124 (M7d slice CE, ADR-0027 §6) brings metal. A tool's `[tool]` table may name
+`serves`, another tool (one that serves for none) whose work it does as well: work that needs
+that tool may be done with this one, the longest-lived at hand is worn first, and a household
+needing that tool makes whichever of the ways it can work costs fewer of its own hours for each
+hour of use; a material such a way needs that the household makes itself is made for it. The
+core adds copper: `core:good/copper_ore` (picked from upland surface patches, resource
+`copper_ore`, and dug from rare bodies at deposits), `core:good/copper`, `core:good/copper_axe`
+(serving for `core:good/axe`, 600 hours), the technique `core:technique/copper_smelting`
+(practised as pottery) (found by those who fire kilns with ore and fuel at home;
+founders do not bring it), the recipes `smelt_copper` (20 kg of ore and 40 kg of firewood a
+kilogram) and `cast_copper_axe`, and the activities `gather_ore`, `dig_ore`, `smelt_copper` and
+`cast_copper_axe`.
+
 Content API 123 (M7d slice CC, ADR-0027 §4) brings lending from the store. A policy may `does =
 "lend_from_store"` with a `[lending]` table: `increment` (what is owed on a loan beyond what was
 lent, a share of it) and `share` (the most of the food the store holds it lends at once). The core

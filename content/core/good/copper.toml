@@ -1,0 +1,12 @@
+# Copper metal, smelted from its ore (research 07-05 §3.2, M2) and weighed by the kilogram. It
+# keeps, and is cast into tools (M3) or, once a mint is lawful, struck into coin (ADR-0027 §6).
+kind = "good"
+id = "core:good/copper"
+name = "Copper"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

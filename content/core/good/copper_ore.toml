@@ -1,0 +1,13 @@
+# Oxidized copper minerals, picked out of a weathered patch or dug from a body (research 03-05
+# §1.1: weathering turns near-surface copper into conspicuous green and blue minerals; a selected
+# patch holds 2-10 % copper). It keeps.
+kind = "good"
+id = "core:good/copper_ore"
+name = "Copper ore"
+purpose = "material"
+kcal_per_kg = 0.0
+half_life_days = 0.0
+sheltered_half_life_days = 0.0
+eaten = "never"
+shared = false
+reserve_for = ""

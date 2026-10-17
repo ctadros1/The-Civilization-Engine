@@ -76,6 +76,8 @@ pub(crate) struct Tool {
     pub life_h: f64,
     pub per_worker: f64,
     pub fixed: bool,
+    #[serde(default)]
+    pub serves: String,
 }
 
 impl GoodFile {
@@ -97,6 +99,7 @@ impl GoodFile {
                 life_h: t.life_h,
                 per_worker: t.per_worker,
                 fixed: t.fixed,
+                serves: None,
             }),
             timber: self.timber.as_ref().map(|t| Timber {
                 bending_pa: t.bending_mpa * 1e6,

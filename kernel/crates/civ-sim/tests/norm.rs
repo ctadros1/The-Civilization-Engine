@@ -5,7 +5,6 @@
 
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::polity::{Law, LawStatus, Outcome, PolicyKind};
 use civ_content::ContentRegistry;
@@ -28,7 +27,7 @@ fn content() -> &'static ContentRegistry {
 }
 
 fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
-    Sim::create(
+    Sim::create_for_tests(
         &NewWorld {
             name: "Norms".to_owned(),
             seed,
@@ -40,8 +39,7 @@ fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
             regime_id: String::new(),
         },
         content,
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates")
 }

@@ -4,7 +4,6 @@
 
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::build::plot_clear;
 use civ_agents::history::ChronicleKind;
@@ -26,7 +25,7 @@ fn content() -> &'static ContentRegistry {
 }
 
 fn world(seed: u64) -> Sim {
-    Sim::create(
+    Sim::create_for_tests(
         &NewWorld {
             name: "Deposits".to_owned(),
             seed,
@@ -38,8 +37,7 @@ fn world(seed: u64) -> Sim {
             regime_id: String::new(),
         },
         content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates")
 }

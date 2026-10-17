@@ -5,7 +5,6 @@
 
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::ChronicleKind;
 use civ_agents::history::FOUND_FIRST_ANYWHERE;
@@ -42,7 +41,7 @@ fn quick_drying(needs: Option<&str>) -> ContentRegistry {
 }
 
 fn world(content: &ContentRegistry, seed: u64) -> Sim {
-    Sim::create(
+    Sim::create_for_tests(
         &NewWorld {
             name: "Finds".to_owned(),
             seed,
@@ -54,8 +53,7 @@ fn world(content: &ContentRegistry, seed: u64) -> Sim {
             regime_id: String::new(),
         },
         content,
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates")
 }

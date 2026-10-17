@@ -5,7 +5,6 @@
 
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::crime::CaseStage;
 use civ_agents::polity::{IssueKind, Law, LawStatus, Outcome as Decided};
@@ -39,7 +38,7 @@ fn nudge(sim: &mut Sim) {
 }
 
 fn world(seed: u64) -> Sim {
-    let mut sim = Sim::create(
+    let mut sim = Sim::create_for_tests(
         &NewWorld {
             name: "Review".to_owned(),
             seed,
@@ -51,8 +50,7 @@ fn world(seed: u64) -> Sim {
             regime_id: String::new(),
         },
         content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates");
     sim.advance_minutes(2 * DAY).expect("advances");

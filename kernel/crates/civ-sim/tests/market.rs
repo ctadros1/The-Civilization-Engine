@@ -4,7 +4,6 @@
 
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::ledger::Channel;
 use civ_agents::market::{Market, Offer};
@@ -26,7 +25,7 @@ fn content() -> &'static ContentRegistry {
 }
 
 fn new_world(seed: u64) -> Sim {
-    Sim::create(
+    Sim::create_for_tests(
         &NewWorld {
             name: "Market".to_owned(),
             seed,
@@ -38,8 +37,7 @@ fn new_world(seed: u64) -> Sim {
             regime_id: String::new(),
         },
         content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates")
 }

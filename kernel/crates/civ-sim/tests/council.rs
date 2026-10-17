@@ -10,7 +10,6 @@
 
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::ChronicleKind;
 use civ_agents::polity::{Body, CustomVersion, Membership, PassRule};
@@ -34,7 +33,7 @@ fn content() -> &'static ContentRegistry {
 }
 
 fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
-    Sim::create(
+    Sim::create_for_tests(
         &NewWorld {
             name: "Council".to_owned(),
             seed,
@@ -46,8 +45,7 @@ fn world_with(content: &ContentRegistry, seed: u64) -> Sim {
             regime_id: String::new(),
         },
         content,
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates")
 }

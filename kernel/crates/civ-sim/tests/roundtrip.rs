@@ -3,7 +3,6 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_content::ContentRegistry;
 use civ_grammar::Stage;
@@ -94,7 +93,7 @@ fn fixture() -> &'static Fixture {
             .prefix("roundtrip-")
             .tempdir_in(tmp)
             .expect("temp dir");
-        let mut sim = Sim::create(
+        let mut sim = Sim::create_for_tests(
             &NewWorld {
                 name: "Test Valley".to_owned(),
                 seed: 5,
@@ -106,8 +105,7 @@ fn fixture() -> &'static Fixture {
                 regime_id: String::new(),
             },
             content(),
-            &mut |_| {},
-            &AtomicBool::new(false),
+            [7; 16],
         )
         .expect("generates");
         sim.advance_minutes(3 * 24 * 60 + 7).expect("advances");
@@ -270,7 +268,7 @@ fn a_loaded_map_equals_a_regenerated_one() {
     // Generation is deterministic on one build, so the saved world can be compared with a fresh
     // one from the same seed, including the derived drainage rebuilt on load.
     let loaded = load_first();
-    let fresh = Sim::create(
+    let fresh = Sim::create_for_tests(
         &NewWorld {
             name: "Again".to_owned(),
             seed: 5,
@@ -282,8 +280,7 @@ fn a_loaded_map_equals_a_regenerated_one() {
             regime_id: String::new(),
         },
         content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates");
     assert!(
@@ -1241,7 +1238,7 @@ fn a_save_without_its_wear_section_is_refused() {
 
 #[test]
 fn worn_ground_and_its_trails_survive_a_save_and_load() {
-    let mut sim = Sim::create(
+    let mut sim = Sim::create_for_tests(
         &NewWorld {
             name: "Trodden".to_owned(),
             seed: 5,
@@ -1253,8 +1250,7 @@ fn worn_ground_and_its_trails_survive_a_save_and_load() {
             regime_id: String::new(),
         },
         content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates");
     // Past two monthly surveys.
@@ -1316,8 +1312,7 @@ fn slice_c_saves_load_without_buildings_and_build_again() {
     assert!(migrated.is_dirty(), "the migration is new state");
     assert!(migrated.land().buildings.is_empty() && migrated.land().plots.is_empty());
     assert_eq!(migrated.land().fields, fixture().first_fields);
-    // Households begin their homes again within days: the fixture's world has a fresh identity
-    // each run, and on some its first day goes to other work.
+    // Households begin their homes again within days (a first day may go to other work).
     for _ in 0..30 {
         migrated
             .advance_minutes(24 * 60)
@@ -1834,7 +1829,7 @@ fn the_clock_runs_only_when_unpaused() {
 
 #[test]
 fn unknown_presets_are_refused() {
-    let result = Sim::create(
+    let result = Sim::create_for_tests(
         &NewWorld {
             name: String::new(),
             seed: 1,
@@ -1846,8 +1841,7 @@ fn unknown_presets_are_refused() {
             regime_id: String::new(),
         },
         content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     );
     assert!(matches!(result, Err(civ_sim::SimError::UnknownPreset(_))));
 }

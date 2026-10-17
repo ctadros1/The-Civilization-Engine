@@ -5,7 +5,6 @@
 
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::build::{self, Shape};
 use civ_agents::fire::{Kindled, Stage};
@@ -45,13 +44,7 @@ fn world_spec(seed: u64) -> NewWorld {
 }
 
 fn world(seed: u64) -> Sim {
-    Sim::create(
-        &world_spec(seed),
-        content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
-    )
-    .expect("generates")
+    Sim::create_for_tests(&world_spec(seed), content(), [7; 16]).expect("generates")
 }
 
 fn hut_def() -> &'static BuildingDef {

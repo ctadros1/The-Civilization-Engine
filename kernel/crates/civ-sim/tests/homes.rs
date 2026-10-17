@@ -5,7 +5,6 @@
 
 use std::path::Path;
 use std::sync::OnceLock;
-use std::sync::atomic::AtomicBool;
 
 use civ_agents::build::{self, HomeNeed, Shape, StoreNeed};
 use civ_content::ContentRegistry;
@@ -225,7 +224,7 @@ fn a_frame_home_stands_where_it_is_designed_with_its_door_toward_the_hearth() {
 }
 
 fn world(seed: u64) -> Sim {
-    Sim::create(
+    Sim::create_for_tests(
         &NewWorld {
             name: "Homes".to_owned(),
             seed,
@@ -237,8 +236,7 @@ fn world(seed: u64) -> Sim {
             regime_id: String::new(),
         },
         content(),
-        &mut |_| {},
-        &AtomicBool::new(false),
+        [7; 16],
     )
     .expect("generates")
 }

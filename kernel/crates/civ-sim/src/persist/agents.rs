@@ -122,7 +122,7 @@ use super::{
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
-    SCHEMA_V139, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V139, SCHEMA_V140, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -189,6 +189,8 @@ pub const SECTION_PLACES: SectionTag = SectionTag::new("places");
 pub const SECTION_RELATIONS: SectionTag = SectionTag::new("relation");
 /// Section: crossings over water (schema 68, M5c slice AW).
 pub const SECTION_CROSSINGS: SectionTag = SectionTag::new("crossing");
+/// Section: turn-taking at bottlenecks (schema 141, M8b slice CN).
+pub const SECTION_TRAFFIC: SectionTag = SectionTag::new("traffic");
 /// Section: ways people have worked on (schema 140, M8b slice CM).
 pub const SECTION_WAYS: SectionTag = SectionTag::new("ways");
 /// Section: wells (schema 74, M6a slice AY, step three).
@@ -305,6 +307,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         section(SECTION_FIRES, 0, encode_fires(&sim.people)),
         section(SECTION_FLOODS, 0, encode_floods(&sim.land, &sim.people)),
         section(SECTION_WAYS, 0, encode_ways(&sim.land)),
+        section(SECTION_TRAFFIC, 0, encode_traffic(&sim.people.traffic)),
     ]
 }
 
@@ -611,6 +614,9 @@ enum Schema {
     V139,
     /// Ways (M8b slice CM: the `ways` section).
     V140,
+    /// Bottlenecks for walkers (M8b slice CN: the `traffic` section, a trip's next bottleneck,
+    /// event kind 5).
+    V141,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -765,7 +771,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V137 => Schema::V137,
         SCHEMA_V138 => Schema::V138,
         SCHEMA_V139 => Schema::V139,
-        SAVE_SCHEMA_VERSION => Schema::V140,
+        SCHEMA_V140 => Schema::V140,
+        SAVE_SCHEMA_VERSION => Schema::V141,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1012,6 +1019,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V68 {
         let bytes = single_chunk(reader, SECTION_CROSSINGS)?;
         (land.crossings, people.fords, land.enclosures) = decode_crossings(&bytes, rules, map)?;
+    }
+    // Turn-taking at bottlenecks (schema 141); before, nobody had taken a turn.
+    if schema >= Schema::V141 {
+        let bytes = single_chunk(reader, SECTION_TRAFFIC)?;
+        people.traffic = decode_traffic(&bytes)?;
     }
     // Ways (schema 140); before, none.
     if schema >= Schema::V140 {
@@ -3961,6 +3973,25 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
         let points: Vec<save::Point> = t.points.iter().map(|&q| point(q)).collect();
         let points = fbb.create_vector(&points);
         let minutes = fbb.create_vector(&t.minutes);
+        let ahead = t.ahead.map(|pd| {
+            let (kind, id, sector) = pd.ahead.facility.code();
+            save::TripAheadSave::create(
+                fbb,
+                &save::TripAheadSaveArgs {
+                    kind,
+                    id,
+                    sector,
+                    dir: pd.dir,
+                    x: pd.ahead.at.0,
+                    y: pd.ahead.at.1,
+                    at_min: pd.ahead.at_min,
+                    seg: pd.ahead.seg as u32,
+                    ix: pd.ahead.inside.0,
+                    iy: pd.ahead.inside.1,
+                    headway_s: pd.headway_s,
+                },
+            )
+        });
         save::Trip::create(
             fbb,
             &save::TripArgs {
@@ -3969,6 +4000,7 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
                 depart: t.depart.minutes(),
                 points: Some(points),
                 minutes: Some(minutes),
+                ahead,
             },
         )
     });
@@ -4163,6 +4195,23 @@ fn decode_people(
                 .map(|v| v.iter().map(|q| (q.x(), q.y())).collect())
                 .unwrap_or_default(),
             minutes: t.minutes().map(|v| v.iter().collect()).unwrap_or_default(),
+            ahead: t.ahead().and_then(|a| {
+                Some(civ_agents::traffic::Pending {
+                    ahead: civ_agents::traffic::Ahead {
+                        facility: civ_agents::traffic::Facility::from_code(
+                            a.kind(),
+                            a.id(),
+                            a.sector(),
+                        )?,
+                        at: (a.x(), a.y()),
+                        at_min: a.at_min(),
+                        seg: a.seg() as usize,
+                        inside: (a.ix(), a.iy()),
+                    },
+                    dir: a.dir(),
+                    headway_s: a.headway_s(),
+                })
+            }),
         });
         people.push(Person {
             id: person_id,
@@ -4476,7 +4525,8 @@ fn carried(
         | Schema::V137
         | Schema::V138
         | Schema::V139
-        | Schema::V140 => {
+        | Schema::V140
+        | Schema::V141 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4789,7 +4839,8 @@ fn decode_households(
             | Schema::V137
             | Schema::V138
             | Schema::V139
-            | Schema::V140 => {
+            | Schema::V140
+            | Schema::V141 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -7924,16 +7975,21 @@ fn encode_events(sim: &Sim) -> Vec<u8> {
         .pending_events()
         .into_iter()
         .map(|e| {
-            let (kind, person, version) = match e.event {
+            let (kind, person, version, trip) = match e.event {
                 SimEvent::Agent(AgentEvent::Step { person, version }) => {
-                    (save::EventKind::AgentStep, person.get(), version)
+                    (save::EventKind::AgentStep, person.get(), version, 0)
                 }
-                SimEvent::Agent(AgentEvent::Fire) => (save::EventKind::FireStep, 0, 0),
+                SimEvent::Agent(AgentEvent::Fire) => (save::EventKind::FireStep, 0, 0, 0),
                 SimEvent::Agent(AgentEvent::Ignite { building }) => {
-                    (save::EventKind::Ignite, building.get(), 0)
+                    (save::EventKind::Ignite, building.get(), 0, 0)
                 }
-                SimEvent::Agent(AgentEvent::BandLook) => (save::EventKind::BandLook, 0, 0),
-                SimEvent::Agent(AgentEvent::Gates) => (save::EventKind::Gates, 0, 0),
+                SimEvent::Agent(AgentEvent::BandLook) => (save::EventKind::BandLook, 0, 0, 0),
+                SimEvent::Agent(AgentEvent::Gates) => (save::EventKind::Gates, 0, 0, 0),
+                SimEvent::Agent(AgentEvent::Pass {
+                    person,
+                    version,
+                    trip,
+                }) => (save::EventKind::Pass, person.get(), version, trip),
             };
             save::PendingEvent::create(
                 &mut fbb,
@@ -7945,6 +8001,7 @@ fn encode_events(sim: &Sim) -> Vec<u8> {
                     kind,
                     person,
                     version,
+                    trip,
                 },
             )
         })
@@ -7975,6 +8032,11 @@ fn decode_events(bytes: &[u8]) -> Result<Vec<PendingEvent<SimEvent>>, LoadError>
             }),
             save::EventKind::BandLook => SimEvent::Agent(AgentEvent::BandLook),
             save::EventKind::Gates => SimEvent::Agent(AgentEvent::Gates),
+            save::EventKind::Pass => SimEvent::Agent(AgentEvent::Pass {
+                person: required(e.person(), "a passage's walker")?,
+                version: e.version(),
+                trip: e.trip(),
+            }),
             other => {
                 return Err(LoadError::Incompatible(format!(
                     "a pending event is of kind {}, which this build does not know",
@@ -10531,6 +10593,125 @@ fn encode_wells(land: &Land, rules: &Rules) -> Vec<u8> {
         },
     );
     finish(fbb, root)
+}
+
+/// The traffic section (schema 141).
+fn encode_traffic(t: &civ_agents::traffic::Traffic) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let servers: Vec<_> = t
+        .servers
+        .iter()
+        .map(|s| {
+            let (kind, id, sector) = s.facility.code();
+            let slots = fbb.create_vector(&s.slots);
+            save::TrafficServerSave::create(
+                &mut fbb,
+                &save::TrafficServerSaveArgs {
+                    kind,
+                    id,
+                    sector,
+                    dir: s.dir,
+                    slots: Some(slots),
+                },
+            )
+        })
+        .collect();
+    let servers = fbb.create_vector(&servers);
+    let tallies: Vec<_> = t
+        .tallies
+        .iter()
+        .map(|x| {
+            let (kind, id, sector) = x.facility.code();
+            let passages = fbb.create_vector(&x.passages);
+            let waited = fbb.create_vector(&x.waited_min);
+            save::TrafficTallySave::create(
+                &mut fbb,
+                &save::TrafficTallySaveArgs {
+                    kind,
+                    id,
+                    sector,
+                    day: x.day,
+                    passages: Some(passages),
+                    waited_min: Some(waited),
+                    held_short: x.held_short,
+                    longest_min: x.longest_min,
+                    longest_day: x.longest_day,
+                },
+            )
+        })
+        .collect();
+    let tallies = fbb.create_vector(&tallies);
+    let waits: Vec<save::TrafficWaitSave> = t
+        .waits
+        .iter()
+        .flat_map(|(h, list)| {
+            list.iter().map(move |w| {
+                let (kind, id, sector) = w.facility.code();
+                save::TrafficWaitSave::new(h.get(), id, w.day, w.minutes, w.waits, sector, kind)
+            })
+        })
+        .collect();
+    let waits = fbb.create_vector(&waits);
+    let root = save::TrafficSave::create(
+        &mut fbb,
+        &save::TrafficSaveArgs {
+            servers: Some(servers),
+            tallies: Some(tallies),
+            waits: Some(waits),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// The turn-taking saved in `bytes`. A facility of an unknown kind, a tally without its 24
+/// hours, or a record out of order is malformed.
+fn decode_traffic(bytes: &[u8]) -> Result<civ_agents::traffic::Traffic, LoadError> {
+    use civ_agents::traffic::{Facility, Server, Tally, Traffic, WaitHeld};
+    let root =
+        section_root::<save::TrafficSave>(bytes).map_err(|e| unreadable(SECTION_TRAFFIC, &e))?;
+    let facility = |kind: u8, id: u64, sector: u16| {
+        Facility::from_code(kind, id, sector).ok_or_else(|| {
+            LoadError::Malformed(format!("a bottleneck of kind {kind} numbered {id}"))
+        })
+    };
+    let hours = |v: Option<flatbuffers::Vector<'_, f32>>| -> Result<[f32; 24], LoadError> {
+        let v: Vec<f32> = v.map(|v| v.iter().collect()).unwrap_or_default();
+        v.try_into().map_err(|_| {
+            LoadError::Malformed("a bottleneck's tally is not by hour of the day".to_owned())
+        })
+    };
+    let mut t = Traffic::default();
+    for s in root.servers().iter().flatten() {
+        t.servers.push(Server {
+            facility: facility(s.kind(), s.id(), s.sector())?,
+            dir: s.dir(),
+            slots: s.slots().map(|v| v.iter().collect()).unwrap_or_default(),
+        });
+    }
+    for x in root.tallies().iter().flatten() {
+        t.tallies.push(Tally {
+            facility: facility(x.kind(), x.id(), x.sector())?,
+            day: x.day(),
+            passages: hours(x.passages())?,
+            waited_min: hours(x.waited_min())?,
+            held_short: x.held_short(),
+            longest_min: x.longest_min(),
+            longest_day: x.longest_day(),
+        });
+    }
+    for w in root.waits().iter().flatten() {
+        let household = required(w.household(), "a wait's household")?;
+        t.waits.entry(household).or_default().push(WaitHeld {
+            facility: facility(w.kind(), w.id(), w.sector())?,
+            minutes: w.minutes(),
+            waits: w.waits(),
+            day: w.day(),
+        });
+    }
+    if let Some(p) = t.problems().into_iter().next() {
+        return Err(LoadError::Malformed(p));
+    }
+    Ok(t)
 }
 
 /// The ways section (schema 140).

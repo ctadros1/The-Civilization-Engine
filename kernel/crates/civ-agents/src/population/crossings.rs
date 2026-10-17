@@ -230,6 +230,7 @@ impl Population {
         let hh = &self.hh_index;
         self.fords
             .forget(day, half, LEAST_WADES, |h| hh.contains_key(&h));
+        self.forget_traffic(ctx, day);
         if ctx.catalog.bridges.is_empty() {
             return;
         }

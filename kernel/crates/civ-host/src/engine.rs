@@ -1739,6 +1739,11 @@ impl Engine {
     }
 
     fn publish_if_due(&mut self) {
+        // Accelerated mode publishes only at a midnight (ADR-0011 §2): what changed or is urgent
+        // partway through a day waits for its midnight, the day lived on to it.
+        if self.world.as_ref().is_some_and(|w| !w.at_rest()) {
+            return;
+        }
         if self.urgent || (self.changed && self.last_publish.elapsed() >= SNAPSHOT_INTERVAL) {
             self.publish();
         }
@@ -1945,6 +1950,79 @@ mod tests {
         ));
         let world = h.engine.world.as_ref().expect("a world");
         assert_eq!(world.sim.now().minute_of_day(), 0, "saved at the midnight");
+    }
+
+    #[test]
+    fn at_max_a_paced_speed_chosen_during_a_day_takes_effect_at_its_midnight() {
+        let mut h = Harness::new(None, None);
+        h.create("Slower");
+        let world = h.engine.world.as_mut().expect("a world");
+        world.sim.set_paused(false);
+        world.sim.set_speed(civ_sim::SPEED_MAX).expect("Max");
+        world.sim.advance_to_midnight().expect("advances");
+        world
+            .sim
+            .advance_real_in_chunks(0.001, ACCELERATED_CHUNK_MINUTES)
+            .expect("advances");
+        let day = world.sim.now().day_index();
+        assert_ne!(world.sim.now().minute_of_day(), 0, "partway through a day");
+        assert!(matches!(
+            h.ask(Request::SetClock {
+                paused: false,
+                speed: 10.0,
+            }),
+            Reply::Response(_)
+        ));
+        // The day is lived on to its midnight in chunks, as at Max, not at ten times real time.
+        for _ in 0..100 {
+            if h.engine.world.as_ref().expect("a world").sim.mode() == Mode::Detailed {
+                break;
+            }
+            h.engine.tick(h.engine.config.tick);
+        }
+        let world = h.engine.world.as_ref().expect("a world");
+        assert_eq!(world.sim.mode(), Mode::Detailed, "10x from the midnight");
+        assert_eq!(world.sim.now().day_index(), day + 1, "that day's midnight");
+    }
+
+    #[test]
+    fn at_max_nothing_is_published_partway_through_a_day() {
+        let mut h = Harness::new(None, None);
+        h.create("Midday");
+        let world = h.engine.world.as_mut().expect("a world");
+        world.sim.set_paused(false);
+        world.sim.set_speed(civ_sim::SPEED_MAX).expect("Max");
+        world.sim.advance_to_midnight().expect("advances");
+        world
+            .sim
+            .advance_real_in_chunks(0.001, ACCELERATED_CHUNK_MINUTES)
+            .expect("advances");
+        assert_ne!(world.sim.now().minute_of_day(), 0, "partway through a day");
+        // A midnight's change not yet published, and something urgent, partway through the day.
+        h.engine.publish();
+        let before = h.engine.snapshot_rx.borrow().sim_time;
+        h.engine.changed = true;
+        h.engine.urgent = true;
+        h.engine.last_publish = Instant::now() - 2 * SNAPSHOT_INTERVAL;
+        let world = h.engine.world.as_mut().expect("a world");
+        world
+            .sim
+            .advance_real_in_chunks(0.001, ACCELERATED_CHUNK_MINUTES)
+            .expect("advances");
+        h.engine.publish_if_due();
+        assert_eq!(h.engine.snapshot_rx.borrow().sim_time, before, "held");
+        assert!(
+            h.engine.changed && h.engine.urgent,
+            "and kept for the midnight"
+        );
+        let world = h.engine.world.as_mut().expect("a world");
+        world.sim.advance_to_midnight().expect("advances");
+        h.engine.publish_if_due();
+        let published = h.engine.snapshot_rx.borrow().sim_time;
+        assert!(
+            published > before && published % (24 * 60) == 0,
+            "{published}"
+        );
     }
 
     #[test]

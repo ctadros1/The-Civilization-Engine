@@ -3958,6 +3958,48 @@ and M6a gives rivers a daily flow.
         them, draws and finds them; the end-to-end test sees no way in a fresh world.
     - **CN**: bottlenecks for walkers: crossings and gates as facilities, trips as legs,
       first-come passage with waiting space, waits remembered, the Traffic lens, wait incidents.
+      - *First part, as built (2026-10-17): passage at facilities.* A **facility** is an open
+        crossing's deck or an open gate in a standing palisade (`civ_agents::traffic`). It passes
+        walkers through **files** of 0.6 m, each a walker every 1.39 s (Weidmann's peak of
+        1.2 people a metre a second, research 12-05 §2.1); a deck under 1.2 m (every log
+        footbridge, 0.4-1.0 m) is one file shared by both directions, a wider passage gives each
+        direction half its files, and a gate is a 2.5 m doorway in its 20 m sector (a design
+        prior), two files each way. A walk is planned free-flow as before; when it passes a
+        facility, its arrival at the approach is an event (`AgentEvent::Pass`, saved as kind 5),
+        found by sampling the walk every half cell as its cells are. There the walker takes the
+        first slot at or after their arrival second that is a headway from every slot the
+        facility gave in its last two minutes: events fall on whole minutes, so arrivals within a
+        minute are taken in the events' keyed order, and fitting each into the first gap keeps
+        one taken a little later from waiting behind one who came after them unless their slots
+        overlap; no slot is earlier than its walker's arrival, so unused capacity never
+        accumulates (12-06 §7.3). A wait of a minute or more holds the walker at the approach
+        (two vertices there, the wait between) and re-times the rest of the walk as a new
+        revision of the trip (ADR-0003 §2; the observer already fetches a trip again when its
+        revision changes); the walker's household remembers it, by facility, fading as wades do.
+        More than 10 walkers ahead (`APPROACH_SPACE`) and the next stands short of the
+        approach: counted, never dropped. Each facility tallies its passages and minutes waited
+        by hour of the day, fading over about 30 days. **What it comes to:** a village of 30
+        inside a whole palisade with two gates passed them 746 times in three days and waited
+        0.33 s a passage on average (those who set off together step through one behind
+        another), never a minute; made slow on purpose (a walker every five minutes each way,
+        a test setting never saved), its walkers waited, their trips were re-timed, their
+        households held the waits, nobody vanished, every walk still ended, and it saved and
+        went on alike. **Exact:** a world with no open crossing and no enclosure schedules
+        nothing new; the bench's 3×1,000 digests over 30 days, Detailed and Max, are CM's in
+        every section but the new one. **Boundary:** saves schema 141 (the `traffic` section, a
+        trip's next bottleneck, the event kind; 140 still loads with nobody having taken a
+        turn), no wire or content change yet. **Not yet:** the Traffic lens and wait incidents
+        (the second part); remembered waits read by any choice (CQ's works and CP's mode choice
+        read them; route choice on the walking grid does not); Accelerated cohorts (not needed:
+        the same events are lived). **Found on the way:** at Max, a midnight's change that waited
+        out the snapshot interval could be published partway through the next day (CH's tick
+        marked the change only at a midnight, but the publishing came later); the end-to-end
+        speeds test caught it once CN's events moved the timing, and the host now holds every
+        snapshot of an Accelerated world until it stands at a midnight. The same test then found
+        the second half: a paced speed chosen partway through an Accelerated day (CH lets Max stop
+        between chunks) left the rest of that day creeping at the paced speed, which at 10× is up
+        to 2.4 hours; an Accelerated day begun is now lived to its midnight in chunks whatever
+        speed was chosen since, and the paced speed takes effect there (ADR-0011 §2).
     - **CO**: boats: the dugout, navigability by stage, directed speeds, landings and handling,
       consignments in transit, ferrying one's own across; fishing, fetching and owed goods by
       boat.

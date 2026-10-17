@@ -1421,15 +1421,16 @@ impl ::flatbuffers::SimpleToVerifyInSlice for TradeChannel {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_EVENT_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_EVENT_KIND: u8 = 4;
+pub const ENUM_MAX_EVENT_KIND: u8 = 5;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_EVENT_KIND: [EventKind; 5] = [
+pub const ENUM_VALUES_EVENT_KIND: [EventKind; 6] = [
   EventKind::AgentStep,
   EventKind::FireStep,
   EventKind::Ignite,
   EventKind::BandLook,
   EventKind::Gates,
+  EventKind::Pass,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1442,15 +1443,17 @@ impl EventKind {
   pub const Ignite: Self = Self(2);
   pub const BandLook: Self = Self(3);
   pub const Gates: Self = Self(4);
+  pub const Pass: Self = Self(5);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 4;
+  pub const ENUM_MAX: u8 = 5;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::AgentStep,
     Self::FireStep,
     Self::Ignite,
     Self::BandLook,
     Self::Gates,
+    Self::Pass,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1460,6 +1463,7 @@ impl EventKind {
       Self::Ignite => Some("Ignite"),
       Self::BandLook => Some("BandLook"),
       Self::Gates => Some("Gates"),
+      Self::Pass => Some("Pass"),
       _ => None,
     }
   }
@@ -20369,6 +20373,293 @@ impl<'a> StormCheckSave {
 
 }
 
+// struct TrafficWaitSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct TrafficWaitSave(pub [u8; 40]);
+impl Default for TrafficWaitSave { 
+  fn default() -> Self { 
+    Self([0; 40])
+  }
+}
+impl ::core::fmt::Debug for TrafficWaitSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("TrafficWaitSave")
+      .field("household", &self.household())
+      .field("id", &self.id())
+      .field("day", &self.day())
+      .field("minutes", &self.minutes())
+      .field("waits", &self.waits())
+      .field("sector", &self.sector())
+      .field("kind", &self.kind())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for TrafficWaitSave {}
+impl<'a> ::flatbuffers::Follow<'a> for TrafficWaitSave {
+  type Inner = &'a TrafficWaitSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a TrafficWaitSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a TrafficWaitSave {
+  type Inner = &'a TrafficWaitSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<TrafficWaitSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for TrafficWaitSave {
+    type Output = TrafficWaitSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const TrafficWaitSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for TrafficWaitSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> TrafficWaitSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    household: u64,
+    id: u64,
+    day: i64,
+    minutes: f32,
+    waits: f32,
+    sector: u16,
+    kind: u8,
+  ) -> Self {
+    let mut s = Self([0; 40]);
+    s.set_household(household);
+    s.set_id(id);
+    s.set_day(day);
+    s.set_minutes(minutes);
+    s.set_waits(waits);
+    s.set_sector(sector);
+    s.set_kind(kind);
+    s
+  }
+
+  pub fn household(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_household(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn id(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_id(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn day(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_day(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn minutes(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[24..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_minutes(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[24..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn waits(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[28..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_waits(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[28..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn sector(&self) -> u16 {
+    let mut mem = ::core::mem::MaybeUninit::<<u16 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[32..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_sector(&mut self, x: u16) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[32..].as_mut_ptr(),
+        ::core::mem::size_of::<<u16 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn kind(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[34..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_kind(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[34..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 pub enum ParamOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -24165,6 +24456,272 @@ impl ::core::fmt::Debug for Activity<'_> {
       ds.finish()
   }
 }
+pub enum TripAheadSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TripAheadSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TripAheadSave<'a> {
+  type Inner = TripAheadSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TripAheadSave<'a> {
+  pub const VT_KIND: ::flatbuffers::VOffsetT = 4;
+  pub const VT_ID: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SECTOR: ::flatbuffers::VOffsetT = 8;
+  pub const VT_DIR: ::flatbuffers::VOffsetT = 10;
+  pub const VT_X: ::flatbuffers::VOffsetT = 12;
+  pub const VT_Y: ::flatbuffers::VOffsetT = 14;
+  pub const VT_AT_MIN: ::flatbuffers::VOffsetT = 16;
+  pub const VT_SEG: ::flatbuffers::VOffsetT = 18;
+  pub const VT_IX: ::flatbuffers::VOffsetT = 20;
+  pub const VT_IY: ::flatbuffers::VOffsetT = 22;
+  pub const VT_HEADWAY_S: ::flatbuffers::VOffsetT = 24;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TripAheadSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TripAheadSaveArgs
+  ) -> ::flatbuffers::WIPOffset<TripAheadSave<'bldr>> {
+    let mut builder = TripAheadSaveBuilder::new(_fbb);
+    builder.add_id(args.id);
+    builder.add_headway_s(args.headway_s);
+    builder.add_iy(args.iy);
+    builder.add_ix(args.ix);
+    builder.add_seg(args.seg);
+    builder.add_at_min(args.at_min);
+    builder.add_y(args.y);
+    builder.add_x(args.x);
+    builder.add_sector(args.sector);
+    builder.add_dir(args.dir);
+    builder.add_kind(args.kind);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn kind(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(TripAheadSave::VT_KIND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TripAheadSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn sector(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(TripAheadSave::VT_SECTOR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn dir(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(TripAheadSave::VT_DIR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn x(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TripAheadSave::VT_X, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn y(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TripAheadSave::VT_Y, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn at_min(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TripAheadSave::VT_AT_MIN, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn seg(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(TripAheadSave::VT_SEG, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn ix(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TripAheadSave::VT_IX, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn iy(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TripAheadSave::VT_IY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn headway_s(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TripAheadSave::VT_HEADWAY_S, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TripAheadSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u8>("kind", Self::VT_KIND, false)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u16>("sector", Self::VT_SECTOR, false)?
+     .visit_field::<u8>("dir", Self::VT_DIR, false)?
+     .visit_field::<f32>("x", Self::VT_X, false)?
+     .visit_field::<f32>("y", Self::VT_Y, false)?
+     .visit_field::<f32>("at_min", Self::VT_AT_MIN, false)?
+     .visit_field::<u32>("seg", Self::VT_SEG, false)?
+     .visit_field::<f32>("ix", Self::VT_IX, false)?
+     .visit_field::<f32>("iy", Self::VT_IY, false)?
+     .visit_field::<f32>("headway_s", Self::VT_HEADWAY_S, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TripAheadSaveArgs {
+    pub kind: u8,
+    pub id: u64,
+    pub sector: u16,
+    pub dir: u8,
+    pub x: f32,
+    pub y: f32,
+    pub at_min: f32,
+    pub seg: u32,
+    pub ix: f32,
+    pub iy: f32,
+    pub headway_s: f32,
+}
+impl<'a> Default for TripAheadSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    TripAheadSaveArgs {
+      kind: 0,
+      id: 0,
+      sector: 0,
+      dir: 0,
+      x: 0.0,
+      y: 0.0,
+      at_min: 0.0,
+      seg: 0,
+      ix: 0.0,
+      iy: 0.0,
+      headway_s: 0.0,
+    }
+  }
+}
+
+pub struct TripAheadSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TripAheadSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_kind(&mut self, kind: u8) {
+    self.fbb_.push_slot::<u8>(TripAheadSave::VT_KIND, kind, 0);
+  }
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(TripAheadSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_sector(&mut self, sector: u16) {
+    self.fbb_.push_slot::<u16>(TripAheadSave::VT_SECTOR, sector, 0);
+  }
+  #[inline]
+  pub fn add_dir(&mut self, dir: u8) {
+    self.fbb_.push_slot::<u8>(TripAheadSave::VT_DIR, dir, 0);
+  }
+  #[inline]
+  pub fn add_x(&mut self, x: f32) {
+    self.fbb_.push_slot::<f32>(TripAheadSave::VT_X, x, 0.0);
+  }
+  #[inline]
+  pub fn add_y(&mut self, y: f32) {
+    self.fbb_.push_slot::<f32>(TripAheadSave::VT_Y, y, 0.0);
+  }
+  #[inline]
+  pub fn add_at_min(&mut self, at_min: f32) {
+    self.fbb_.push_slot::<f32>(TripAheadSave::VT_AT_MIN, at_min, 0.0);
+  }
+  #[inline]
+  pub fn add_seg(&mut self, seg: u32) {
+    self.fbb_.push_slot::<u32>(TripAheadSave::VT_SEG, seg, 0);
+  }
+  #[inline]
+  pub fn add_ix(&mut self, ix: f32) {
+    self.fbb_.push_slot::<f32>(TripAheadSave::VT_IX, ix, 0.0);
+  }
+  #[inline]
+  pub fn add_iy(&mut self, iy: f32) {
+    self.fbb_.push_slot::<f32>(TripAheadSave::VT_IY, iy, 0.0);
+  }
+  #[inline]
+  pub fn add_headway_s(&mut self, headway_s: f32) {
+    self.fbb_.push_slot::<f32>(TripAheadSave::VT_HEADWAY_S, headway_s, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TripAheadSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TripAheadSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TripAheadSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TripAheadSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TripAheadSave");
+      ds.field("kind", &self.kind());
+      ds.field("id", &self.id());
+      ds.field("sector", &self.sector());
+      ds.field("dir", &self.dir());
+      ds.field("x", &self.x());
+      ds.field("y", &self.y());
+      ds.field("at_min", &self.at_min());
+      ds.field("seg", &self.seg());
+      ds.field("ix", &self.ix());
+      ds.field("iy", &self.iy());
+      ds.field("headway_s", &self.headway_s());
+      ds.finish()
+  }
+}
 pub enum TripOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -24186,6 +24743,7 @@ impl<'a> Trip<'a> {
   pub const VT_DEPART: ::flatbuffers::VOffsetT = 8;
   pub const VT_POINTS: ::flatbuffers::VOffsetT = 10;
   pub const VT_MINUTES: ::flatbuffers::VOffsetT = 12;
+  pub const VT_AHEAD: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -24199,6 +24757,7 @@ impl<'a> Trip<'a> {
     let mut builder = TripBuilder::new(_fbb);
     builder.add_depart(args.depart);
     builder.add_id(args.id);
+    if let Some(x) = args.ahead { builder.add_ahead(x); }
     if let Some(x) = args.minutes { builder.add_minutes(x); }
     if let Some(x) = args.points { builder.add_points(x); }
     builder.add_rev(args.rev);
@@ -24241,6 +24800,13 @@ impl<'a> Trip<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(Trip::VT_MINUTES, None)}
   }
+  #[inline]
+  pub fn ahead(&self) -> Option<TripAheadSave<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<TripAheadSave>>(Trip::VT_AHEAD, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Trip<'_> {
@@ -24254,6 +24820,7 @@ impl ::flatbuffers::Verifiable for Trip<'_> {
      .visit_field::<i64>("depart", Self::VT_DEPART, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, Point>>>("points", Self::VT_POINTS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("minutes", Self::VT_MINUTES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<TripAheadSave>>("ahead", Self::VT_AHEAD, false)?
      .finish();
     Ok(())
   }
@@ -24264,6 +24831,7 @@ pub struct TripArgs<'a> {
     pub depart: i64,
     pub points: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, Point>>>,
     pub minutes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub ahead: Option<::flatbuffers::WIPOffset<TripAheadSave<'a>>>,
 }
 impl<'a> Default for TripArgs<'a> {
   #[inline]
@@ -24274,6 +24842,7 @@ impl<'a> Default for TripArgs<'a> {
       depart: 0,
       points: None,
       minutes: None,
+      ahead: None,
     }
   }
 }
@@ -24304,6 +24873,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TripBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Trip::VT_MINUTES, minutes);
   }
   #[inline]
+  pub fn add_ahead(&mut self, ahead: ::flatbuffers::WIPOffset<TripAheadSave<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<TripAheadSave>>(Trip::VT_AHEAD, ahead);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TripBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TripBuilder {
@@ -24326,6 +24899,7 @@ impl ::core::fmt::Debug for Trip<'_> {
       ds.field("depart", &self.depart());
       ds.field("points", &self.points());
       ds.field("minutes", &self.minutes());
+      ds.field("ahead", &self.ahead());
       ds.finish()
   }
 }
@@ -42664,6 +43238,7 @@ impl<'a> PendingEvent<'a> {
   pub const VT_KIND: ::flatbuffers::VOffsetT = 12;
   pub const VT_PERSON: ::flatbuffers::VOffsetT = 14;
   pub const VT_VERSION: ::flatbuffers::VOffsetT = 16;
+  pub const VT_TRIP: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -42675,6 +43250,7 @@ impl<'a> PendingEvent<'a> {
     args: &'args PendingEventArgs
   ) -> ::flatbuffers::WIPOffset<PendingEvent<'bldr>> {
     let mut builder = PendingEventBuilder::new(_fbb);
+    builder.add_trip(args.trip);
     builder.add_person(args.person);
     builder.add_seq(args.seq);
     builder.add_tiebreak(args.tiebreak);
@@ -42735,6 +43311,13 @@ impl<'a> PendingEvent<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(PendingEvent::VT_VERSION, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn trip(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PendingEvent::VT_TRIP, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PendingEvent<'_> {
@@ -42750,6 +43333,7 @@ impl ::flatbuffers::Verifiable for PendingEvent<'_> {
      .visit_field::<EventKind>("kind", Self::VT_KIND, false)?
      .visit_field::<u64>("person", Self::VT_PERSON, false)?
      .visit_field::<u32>("version", Self::VT_VERSION, false)?
+     .visit_field::<u64>("trip", Self::VT_TRIP, false)?
      .finish();
     Ok(())
   }
@@ -42762,6 +43346,7 @@ pub struct PendingEventArgs {
     pub kind: EventKind,
     pub person: u64,
     pub version: u32,
+    pub trip: u64,
 }
 impl<'a> Default for PendingEventArgs {
   #[inline]
@@ -42774,6 +43359,7 @@ impl<'a> Default for PendingEventArgs {
       kind: EventKind::AgentStep,
       person: 0,
       version: 0,
+      trip: 0,
     }
   }
 }
@@ -42812,6 +43398,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PendingEventBuilder<'a, 'b, A
     self.fbb_.push_slot::<u32>(PendingEvent::VT_VERSION, version, 0);
   }
   #[inline]
+  pub fn add_trip(&mut self, trip: u64) {
+    self.fbb_.push_slot::<u64>(PendingEvent::VT_TRIP, trip, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PendingEventBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PendingEventBuilder {
@@ -42836,6 +43426,7 @@ impl ::core::fmt::Debug for PendingEvent<'_> {
       ds.field("kind", &self.kind());
       ds.field("person", &self.person());
       ds.field("version", &self.version());
+      ds.field("trip", &self.trip());
       ds.finish()
   }
 }
@@ -54883,6 +55474,532 @@ impl ::core::fmt::Debug for WaysSave<'_> {
     let mut ds = f.debug_struct("WaysSave");
       ds.field("list", &self.list());
       ds.field("revision", &self.revision());
+      ds.finish()
+  }
+}
+pub enum TrafficServerSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TrafficServerSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TrafficServerSave<'a> {
+  type Inner = TrafficServerSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TrafficServerSave<'a> {
+  pub const VT_KIND: ::flatbuffers::VOffsetT = 4;
+  pub const VT_ID: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SECTOR: ::flatbuffers::VOffsetT = 8;
+  pub const VT_DIR: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SLOTS: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TrafficServerSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TrafficServerSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<TrafficServerSave<'bldr>> {
+    let mut builder = TrafficServerSaveBuilder::new(_fbb);
+    builder.add_id(args.id);
+    if let Some(x) = args.slots { builder.add_slots(x); }
+    builder.add_sector(args.sector);
+    builder.add_dir(args.dir);
+    builder.add_kind(args.kind);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn kind(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(TrafficServerSave::VT_KIND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TrafficServerSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn sector(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(TrafficServerSave::VT_SECTOR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn dir(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(TrafficServerSave::VT_DIR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn slots(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(TrafficServerSave::VT_SLOTS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TrafficServerSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u8>("kind", Self::VT_KIND, false)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u16>("sector", Self::VT_SECTOR, false)?
+     .visit_field::<u8>("dir", Self::VT_DIR, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("slots", Self::VT_SLOTS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TrafficServerSaveArgs<'a> {
+    pub kind: u8,
+    pub id: u64,
+    pub sector: u16,
+    pub dir: u8,
+    pub slots: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+}
+impl<'a> Default for TrafficServerSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TrafficServerSaveArgs {
+      kind: 0,
+      id: 0,
+      sector: 0,
+      dir: 0,
+      slots: None,
+    }
+  }
+}
+
+pub struct TrafficServerSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TrafficServerSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_kind(&mut self, kind: u8) {
+    self.fbb_.push_slot::<u8>(TrafficServerSave::VT_KIND, kind, 0);
+  }
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(TrafficServerSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_sector(&mut self, sector: u16) {
+    self.fbb_.push_slot::<u16>(TrafficServerSave::VT_SECTOR, sector, 0);
+  }
+  #[inline]
+  pub fn add_dir(&mut self, dir: u8) {
+    self.fbb_.push_slot::<u8>(TrafficServerSave::VT_DIR, dir, 0);
+  }
+  #[inline]
+  pub fn add_slots(&mut self, slots: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TrafficServerSave::VT_SLOTS, slots);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TrafficServerSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TrafficServerSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TrafficServerSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TrafficServerSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TrafficServerSave");
+      ds.field("kind", &self.kind());
+      ds.field("id", &self.id());
+      ds.field("sector", &self.sector());
+      ds.field("dir", &self.dir());
+      ds.field("slots", &self.slots());
+      ds.finish()
+  }
+}
+pub enum TrafficTallySaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TrafficTallySave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TrafficTallySave<'a> {
+  type Inner = TrafficTallySave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TrafficTallySave<'a> {
+  pub const VT_KIND: ::flatbuffers::VOffsetT = 4;
+  pub const VT_ID: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SECTOR: ::flatbuffers::VOffsetT = 8;
+  pub const VT_DAY: ::flatbuffers::VOffsetT = 10;
+  pub const VT_PASSAGES: ::flatbuffers::VOffsetT = 12;
+  pub const VT_WAITED_MIN: ::flatbuffers::VOffsetT = 14;
+  pub const VT_HELD_SHORT: ::flatbuffers::VOffsetT = 16;
+  pub const VT_LONGEST_MIN: ::flatbuffers::VOffsetT = 18;
+  pub const VT_LONGEST_DAY: ::flatbuffers::VOffsetT = 20;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TrafficTallySave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TrafficTallySaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<TrafficTallySave<'bldr>> {
+    let mut builder = TrafficTallySaveBuilder::new(_fbb);
+    builder.add_longest_day(args.longest_day);
+    builder.add_day(args.day);
+    builder.add_id(args.id);
+    builder.add_longest_min(args.longest_min);
+    builder.add_held_short(args.held_short);
+    if let Some(x) = args.waited_min { builder.add_waited_min(x); }
+    if let Some(x) = args.passages { builder.add_passages(x); }
+    builder.add_sector(args.sector);
+    builder.add_kind(args.kind);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn kind(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(TrafficTallySave::VT_KIND, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TrafficTallySave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn sector(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(TrafficTallySave::VT_SECTOR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(TrafficTallySave::VT_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn passages(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(TrafficTallySave::VT_PASSAGES, None)}
+  }
+  #[inline]
+  pub fn waited_min(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(TrafficTallySave::VT_WAITED_MIN, None)}
+  }
+  #[inline]
+  pub fn held_short(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TrafficTallySave::VT_HELD_SHORT, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn longest_min(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(TrafficTallySave::VT_LONGEST_MIN, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn longest_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(TrafficTallySave::VT_LONGEST_DAY, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TrafficTallySave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u8>("kind", Self::VT_KIND, false)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u16>("sector", Self::VT_SECTOR, false)?
+     .visit_field::<i64>("day", Self::VT_DAY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("passages", Self::VT_PASSAGES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("waited_min", Self::VT_WAITED_MIN, false)?
+     .visit_field::<f32>("held_short", Self::VT_HELD_SHORT, false)?
+     .visit_field::<f32>("longest_min", Self::VT_LONGEST_MIN, false)?
+     .visit_field::<i64>("longest_day", Self::VT_LONGEST_DAY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TrafficTallySaveArgs<'a> {
+    pub kind: u8,
+    pub id: u64,
+    pub sector: u16,
+    pub day: i64,
+    pub passages: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub waited_min: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub held_short: f32,
+    pub longest_min: f32,
+    pub longest_day: i64,
+}
+impl<'a> Default for TrafficTallySaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TrafficTallySaveArgs {
+      kind: 0,
+      id: 0,
+      sector: 0,
+      day: 0,
+      passages: None,
+      waited_min: None,
+      held_short: 0.0,
+      longest_min: 0.0,
+      longest_day: 0,
+    }
+  }
+}
+
+pub struct TrafficTallySaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TrafficTallySaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_kind(&mut self, kind: u8) {
+    self.fbb_.push_slot::<u8>(TrafficTallySave::VT_KIND, kind, 0);
+  }
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(TrafficTallySave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_sector(&mut self, sector: u16) {
+    self.fbb_.push_slot::<u16>(TrafficTallySave::VT_SECTOR, sector, 0);
+  }
+  #[inline]
+  pub fn add_day(&mut self, day: i64) {
+    self.fbb_.push_slot::<i64>(TrafficTallySave::VT_DAY, day, 0);
+  }
+  #[inline]
+  pub fn add_passages(&mut self, passages: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TrafficTallySave::VT_PASSAGES, passages);
+  }
+  #[inline]
+  pub fn add_waited_min(&mut self, waited_min: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TrafficTallySave::VT_WAITED_MIN, waited_min);
+  }
+  #[inline]
+  pub fn add_held_short(&mut self, held_short: f32) {
+    self.fbb_.push_slot::<f32>(TrafficTallySave::VT_HELD_SHORT, held_short, 0.0);
+  }
+  #[inline]
+  pub fn add_longest_min(&mut self, longest_min: f32) {
+    self.fbb_.push_slot::<f32>(TrafficTallySave::VT_LONGEST_MIN, longest_min, 0.0);
+  }
+  #[inline]
+  pub fn add_longest_day(&mut self, longest_day: i64) {
+    self.fbb_.push_slot::<i64>(TrafficTallySave::VT_LONGEST_DAY, longest_day, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TrafficTallySaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TrafficTallySaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TrafficTallySave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TrafficTallySave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TrafficTallySave");
+      ds.field("kind", &self.kind());
+      ds.field("id", &self.id());
+      ds.field("sector", &self.sector());
+      ds.field("day", &self.day());
+      ds.field("passages", &self.passages());
+      ds.field("waited_min", &self.waited_min());
+      ds.field("held_short", &self.held_short());
+      ds.field("longest_min", &self.longest_min());
+      ds.field("longest_day", &self.longest_day());
+      ds.finish()
+  }
+}
+pub enum TrafficSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TrafficSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TrafficSave<'a> {
+  type Inner = TrafficSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TrafficSave<'a> {
+  pub const VT_SERVERS: ::flatbuffers::VOffsetT = 4;
+  pub const VT_TALLIES: ::flatbuffers::VOffsetT = 6;
+  pub const VT_WAITS: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TrafficSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TrafficSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<TrafficSave<'bldr>> {
+    let mut builder = TrafficSaveBuilder::new(_fbb);
+    if let Some(x) = args.waits { builder.add_waits(x); }
+    if let Some(x) = args.tallies { builder.add_tallies(x); }
+    if let Some(x) = args.servers { builder.add_servers(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn servers(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TrafficServerSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TrafficServerSave>>>>(TrafficSave::VT_SERVERS, None)}
+  }
+  #[inline]
+  pub fn tallies(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TrafficTallySave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TrafficTallySave>>>>(TrafficSave::VT_TALLIES, None)}
+  }
+  #[inline]
+  pub fn waits(&self) -> Option<::flatbuffers::Vector<'a, TrafficWaitSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TrafficWaitSave>>>(TrafficSave::VT_WAITS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TrafficSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TrafficServerSave>>>>("servers", Self::VT_SERVERS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TrafficTallySave>>>>("tallies", Self::VT_TALLIES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TrafficWaitSave>>>("waits", Self::VT_WAITS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TrafficSaveArgs<'a> {
+    pub servers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TrafficServerSave<'a>>>>>,
+    pub tallies: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TrafficTallySave<'a>>>>>,
+    pub waits: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TrafficWaitSave>>>,
+}
+impl<'a> Default for TrafficSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TrafficSaveArgs {
+      servers: None,
+      tallies: None,
+      waits: None,
+    }
+  }
+}
+
+pub struct TrafficSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TrafficSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_servers(&mut self, servers: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<TrafficServerSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TrafficSave::VT_SERVERS, servers);
+  }
+  #[inline]
+  pub fn add_tallies(&mut self, tallies: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<TrafficTallySave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TrafficSave::VT_TALLIES, tallies);
+  }
+  #[inline]
+  pub fn add_waits(&mut self, waits: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TrafficWaitSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TrafficSave::VT_WAITS, waits);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TrafficSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TrafficSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TrafficSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TrafficSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TrafficSave");
+      ds.field("servers", &self.servers());
+      ds.field("tallies", &self.tallies());
+      ds.field("waits", &self.waits());
       ds.finish()
   }
 }

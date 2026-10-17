@@ -126,6 +126,8 @@ pub struct Trip {
     pub points: Vec<(f32, f32)>,
     /// Minutes after departure at each vertex.
     pub minutes: Vec<f32>,
+    /// The next bottleneck it reaches, if any (M8b slice CN, ADR-0029 §4).
+    pub ahead: Option<crate::traffic::Pending>,
 }
 
 impl Trip {
@@ -1241,6 +1243,7 @@ mod tests {
             depart: SimTime::from_minutes(100),
             points: vec![(0.0, 0.0), (10.0, 0.0), (10.0, 20.0)],
             minutes: vec![0.0, 1.0, 3.0],
+            ahead: None,
         };
         assert_eq!(trip.position_at(90.0), (0.0, 0.0));
         assert_eq!(trip.position_at(100.5), (5.0, 0.0));

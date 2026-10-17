@@ -251,8 +251,8 @@ fn save_load_save_keeps_every_section_digest() {
     // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 35 land, field, plot, building,
     // wear, market, firm, wealth, knowledge, deposits, earth, ties, polity, order, word, opinion,
     // norms, values, creeds, factions, influence, places, relation, crossing, wells, sickness,
-    // pathogen, fires, floods, ways and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 36);
+    // pathogen, fires, floods, ways, traffic and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 37);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -2370,6 +2370,23 @@ fn a_schema_68_save_loads_with_no_wade_remembered() {
     let mut loaded = persist::load(&path, content()).expect("a schema-68 save loads");
     assert!(loaded.people().fords.households.is_empty());
     assert!(loaded.land().crossings.list.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_140_save_loads_with_nobody_having_taken_a_turn() {
+    // A schema-140 save, from before bottlenecks for walkers (M8b slice CN): no facility had
+    // passed anyone and no walk was bound for one.
+    let sim = load_first();
+    assert!(sim.people().traffic.tallies.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V140;
+    let path = republish("slice-cm", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-140 save loads");
+    assert_eq!(
+        loaded.people().traffic,
+        civ_agents::traffic::Traffic::default()
+    );
     loaded.advance_minutes(24 * 60).expect("goes on");
 }
 

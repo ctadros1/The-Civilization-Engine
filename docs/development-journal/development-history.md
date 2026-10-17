@@ -2814,3 +2814,14 @@ That name is only shown. The map draws ways and says what each is.
 **Not yet:** nothing lays a way. Clearing, widening and grading are CQ's work, by households and
 by law; until then a world with no ways lives exactly as before, which the digests show.
 
+## 2026-10-17 — CN, first part: taking turns at bridges and gates
+
+**Built:** a log footbridge takes walkers one at a time, about one every one and a half seconds,
+and a gate in a palisade a few at a time each way. Someone who reaches one while others are
+passing waits their turn; a wait of a minute or more shows on their walk and their household
+remembers it. Nobody vanishes in a crowd and nobody is skipped.
+
+**What it comes to:** a village of thirty never waits a minute at its gates; those who leave
+together step through one behind another. Made slow on purpose in a test, people queued, waited
+and still got where they were going.
+

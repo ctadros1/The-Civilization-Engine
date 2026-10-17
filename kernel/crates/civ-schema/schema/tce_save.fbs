@@ -287,12 +287,32 @@ table Activity {
   target_id: ulong (id: 9);
 }
 
+// Schema 141 (M8b slice CN, ADR-0029 §4): the next bottleneck a walk reaches. `kind` 0 a
+// crossing (`id` its id), 1 a gate (`id` its enclosure, `sector` its sector); `dir` the way it
+// is passed (2 one file shared both ways); where its approach is reached, metres, and when,
+// minutes after setting off; the polyline point after which; a point just inside it; and the
+// seconds between walkers that way.
+table TripAheadSave {
+  kind: ubyte (id: 0);
+  id: ulong (id: 1);
+  sector: ushort (id: 2);
+  dir: ubyte (id: 3);
+  x: float (id: 4);
+  y: float (id: 5);
+  at_min: float (id: 6);
+  seg: uint (id: 7);
+  ix: float (id: 8);
+  iy: float (id: 9);
+  headway_s: float (id: 10);
+}
+
 table Trip {
   id: ulong (id: 0);
   rev: uint (id: 1);
   depart: long (id: 2);
   points: [Point] (id: 3);
   minutes: [float] (id: 4);
+  ahead: TripAheadSave (id: 5);
 }
 
 enum Sex : ubyte { Female = 0, Male = 1 }
@@ -2330,7 +2350,7 @@ table FactionsSave {
 // Schema 88 (M6b slice BC): FireStep, a minute of every fire burning, pending whenever one burns.
 // Schema 89 (M6b slice BD): Ignite, a home's fires in use may escape (`person` holds the
 // building's id).
-enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3, Gates = 4 }
+enum EventKind : ubyte { AgentStep = 0, FireStep = 1, Ignite = 2, BandLook = 3, Gates = 4, Pass = 5 }
 
 table PendingEvent {
   at: long (id: 0);
@@ -2340,6 +2360,8 @@ table PendingEvent {
   kind: EventKind (id: 4);
   person: ulong (id: 5);
   version: uint (id: 6);
+  // Schema 141: the trip a Pass event belongs to.
+  trip: ulong (id: 7);
 }
 
 table PendingEvents {
@@ -3251,4 +3273,46 @@ table WayLineSave {
 table WaysSave {
   list: [WayLineSave] (id: 0);
   revision: uint (id: 1);
+}
+
+// Turn-taking at bottlenecks (schema 141, M8b slice CN; ADR-0029 §4). A facility as in
+// `TripAheadSave` (`kind`, `id`, `sector`); a direction of one that has passed someone lately
+// and the slots it gave in its memory, seconds from the calendar origin, in order.
+table TrafficServerSave {
+  kind: ubyte (id: 0);
+  id: ulong (id: 1);
+  sector: ushort (id: 2);
+  dir: ubyte (id: 3);
+  slots: [double] (id: 4);
+}
+
+// A facility's passages and minutes waited by hour of the day (24 each), fading, as of `day`; the
+// walkers who stood short of its approach; its longest wait remembered and the day of it.
+table TrafficTallySave {
+  kind: ubyte (id: 0);
+  id: ulong (id: 1);
+  sector: ushort (id: 2);
+  day: long (id: 3);
+  passages: [float] (id: 4);
+  waited_min: [float] (id: 5);
+  held_short: float (id: 6);
+  longest_min: float (id: 7);
+  longest_day: long (id: 8);
+}
+
+// What a household holds of its waits at a facility: minutes and times, fading, as of `day`.
+struct TrafficWaitSave {
+  household: ulong;
+  id: ulong;
+  day: long;
+  minutes: float;
+  waits: float;
+  sector: ushort;
+  kind: ubyte;
+}
+
+table TrafficSave {
+  servers: [TrafficServerSave] (id: 0);
+  tallies: [TrafficTallySave] (id: 1);
+  waits: [TrafficWaitSave] (id: 2);
 }

@@ -1493,9 +1493,12 @@ impl Sim {
         chunk: i64,
     ) -> Result<Advance, SimError> {
         let day_minutes = civ_core::time::MINUTES_PER_DAY;
+        // An Accelerated day begun is lived to its midnight whatever speed was chosen since
+        // (ADR-0011 §2): a paced speed takes effect there.
+        let day_begun = self.mode == Mode::Accelerated && self.now().minute_of_day() != 0;
         if self.paused
             || !(real_seconds.is_finite() && real_seconds > 0.0)
-            || Mode::of_speed(self.speed) != Mode::Accelerated
+            || (Mode::of_speed(self.speed) != Mode::Accelerated && !day_begun)
         {
             return self.advance_real(real_seconds);
         }

@@ -407,6 +407,8 @@ pub const SCHEMA_V137: u32 = 137;
 pub const SCHEMA_V138: u32 = 138;
 /// The chronicle of coin struck, before ways.
 pub const SCHEMA_V139: u32 = 139;
+/// Ways, before bottlenecks for walkers.
+pub const SCHEMA_V140: u32 = 140;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

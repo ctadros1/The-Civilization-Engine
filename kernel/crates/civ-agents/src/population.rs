@@ -39,6 +39,7 @@ use crate::person::{
     fuel_kg, reserve_food_kcal, stock_kcal,
 };
 
+mod bottlenecks;
 mod cases;
 mod contagion;
 mod crime;
@@ -192,6 +193,14 @@ pub enum AgentEvent {
     /// Gates are kept (M6c slice BK, step three): at first light each is opened, and at dusk the
     /// household nearest each chooses whether to shut it for the night.
     Gates,
+    /// A walker reaches a bottleneck on their walk (M8b slice CN, ADR-0029 §4).
+    Pass {
+        /// Who.
+        person: PermanentId,
+        /// The activity version and the trip it belongs to.
+        version: u32,
+        trip: u64,
+    },
 }
 
 /// The approximations the kernel makes as it advances (ADR-0011 §4), each on or off on its own.
@@ -625,6 +634,13 @@ pub struct Population {
     pub agreements: crate::agreements::Agreements,
     /// The river cells each household's people wade (M5c slice AW, step two).
     pub fords: crate::fords::Fords,
+    /// Turn-taking at bottlenecks, their tallies and the waits households hold (M8b slice CN,
+    /// ADR-0029 §4).
+    pub traffic: crate::traffic::Traffic,
+    /// Each cell a facility lies on, with it and its passage width, in cell order, and the
+    /// crossings' and enclosures' revisions it stands for. Derived.
+    facilities: Vec<(u32, crate::traffic::Facility, f32)>,
+    facilities_rev: Option<(u32, u32)>,
 }
 
 /// A building a household would begin: its design (which says where it stands), what each stage
@@ -1366,6 +1382,7 @@ impl Population {
         out.extend(self.polity_views.problems());
         out.extend(self.claims_heard.problems());
         out.extend(self.fords.problems());
+        out.extend(self.traffic.problems());
         out.extend(self.agreements.problems());
         for (&p, seen) in &self.seen_away {
             if self.person(p).is_none() {
@@ -1649,6 +1666,21 @@ impl Population {
             AgentEvent::Ignite { building } => self.ignite(ctx, building),
             AgentEvent::BandLook => self.band_look(ctx),
             AgentEvent::Gates => self.keep_gates(ctx),
+            AgentEvent::Pass {
+                person,
+                version,
+                trip,
+            } => {
+                let Some(&h) = self.index.get(&person) else {
+                    return;
+                };
+                let live = self.people.get(h).is_some_and(|p| {
+                    p.act.version == version && p.trip.as_ref().map(|t| t.id) == Some(trip)
+                });
+                if live {
+                    self.reach_bottleneck(ctx, h);
+                }
+            }
         }
         self.pay_for_work_given(ctx);
     }
@@ -4555,6 +4587,7 @@ impl Population {
             depart: now,
             points,
             minutes,
+            ahead: None,
         };
         settle(p, now, params);
         p.burn_kcal_min = burn_rate(p, now, params, params.energy.walk_par);
@@ -4565,6 +4598,11 @@ impl Population {
         p.act.step_ends = now.plus_minutes(duration as i64);
         let (id, version, ends) = (p.id, p.act.version, p.act.step_ends);
         ctx.schedule_step(ends, id, version);
+        // Its first bottleneck, if it passes one (M8b slice CN).
+        if !ctx.land.crossings.list.is_empty() || !ctx.land.enclosures.list.is_empty() {
+            self.facilities_now(ctx);
+            self.schedule_pass(ctx, h, 0.0, None);
+        }
         if let Some((household, points)) = seen {
             self.see_places(ctx, household, &points);
         }

@@ -3751,6 +3751,34 @@ and M6a gives rivers a daily flow.
     local to a settlement and exact, the boundary carrying a city.
     - **CF**: the baseline at scale: fixtures of 3×1,000, 3×3,334 and one of 10k, per-day
       counters and a profile, measured on the container; no engine change.
+      - *As built (2026-10-17):* the bench (`civ-sim --example bench_village`) makes every world
+        with one fixed identity, so a seed lives the same life each run, and ends with a scale
+        line: each day's wall time at p50, p95 and worst, simulated years a real minute at the
+        mean, cells route searches on the main thread expanded a day (the landmarks' own threads
+        not counted), peak memory, and a save's size and time. **Measured** on the four-core
+        container, at Max with ADR-0011's approximations, seed 2, every run alone on the machine:
+        3×1,000 on 1,024 cells, a whole first year: 1,996.5 s (slice BD's 1,447.4 s grown 38 % by
+        M6c and M7), days at p50 5.1 s, p95 8.3 s, worst 41.9 s, 0.030 years a minute, 2.3 M route
+        cells a day, 551 MB. 3×3,334 on 2,048 cells, 60 days: p50 29.4 s, p95 45.4 s, 0.0029
+        years a minute at the mean, 16.1 M route cells a day, 1.79 GB, a save of 77.8 MB in 3.0 s;
+        one day, the 53rd, took 1,601 s (1,691 s lived again from a save of day 52). One settlement
+        of 10,000 on 2,048 cells, 30 days: p50 44.9 s, p95 50.2 s, 0.0040 years a minute, 8.3 M
+        route cells a day, 1.01 GB (its people hold 129 fields between them: the home reach caps
+        what one settlement can farm, so it times a settlement, not a city). The gate (ADR-0028
+        §1) is one year a minute at 10k: these are 250–340× from it. **What day 53 was:** the
+        main thread's stack sampled every five seconds through the day (326 samples, gdb) was in
+        `keep_company` for 79 % and in `Word::hear` under the polity's day for 17 %, the innermost
+        frame a memory copy: who heard which claim is one vector kept in (holder, claim) order,
+        and each new hearing is an insert that shifts everything after it. When word of a
+        gathering reaches thousands at once, millions of records move for each one heard. That is
+        the first change of CI (constant factors), ahead of the indexes of CG. **Found and fixed:**
+        the 10k world saved but did not load. Its receipts section held more tables than the
+        flatbuffers verifier allows by default (a million); every section is now verified with a
+        limit of a table per four bytes of the section, which no section can exceed and a file
+        cannot use to make the verifier run beyond its size (a test reads 1.1 million tables that
+        the default refuses, and refuses the same bytes cut short). The 10k save of day 52, 64.5
+        MB, loads in 6.1 s. **Not measured:** the target PC; a profile of an ordinary 10k day
+        (next, with the day-53 fix in, so its cost does not dominate).
     - **CG**: local searches, exactly: settlement indexes walked in today's scan order, with
       debug checks; the growth exponent from 1k to 10k.
     - **CH**: the host and frames at scale: Max lived in chunks within a day, people on the delta

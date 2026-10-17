@@ -122,7 +122,7 @@ use super::{
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
-    finish, section, single_chunk, unreadable,
+    finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -1042,7 +1042,7 @@ pub(super) fn decode<R: Read + Seek>(
         }
         land.reach_discharges = r;
         if schema >= Schema::V95 {
-            let root = flatbuffers::root::<save::FloodsSave>(&bytes)
+            let root = section_root::<save::FloodsSave>(&bytes)
                 .map_err(|e| unreadable(SECTION_FLOODS, &e))?;
             for f in root.river_forcings().iter().flatten() {
                 if f.reach() as usize >= map.reaches.len()
@@ -1066,7 +1066,7 @@ pub(super) fn decode<R: Read + Seek>(
             }
         }
         if schema >= Schema::V96 {
-            let root = flatbuffers::root::<save::FloodsSave>(&bytes)
+            let root = section_root::<save::FloodsSave>(&bytes)
                 .map_err(|e| unreadable(SECTION_FLOODS, &e))?;
             for c in root.storm_checks().iter().flatten() {
                 let building = required(c.building(), "a storm evaluation")?;
@@ -1954,8 +1954,7 @@ fn decode_polities(
         Body, Compliance, CustomVersion, Gathering, IssueKind, Law, LawStatus, Membership, Outcome,
         PassRule, Polity, Stance, StanceRecord,
     };
-    let root =
-        flatbuffers::root::<save::Polities>(bytes).map_err(|e| unreadable(SECTION_POLITY, &e))?;
+    let root = section_root::<save::Polities>(bytes).map_err(|e| unreadable(SECTION_POLITY, &e))?;
     let goods = good_map(&read_strings(root.goods()), rules);
     let policies: Vec<Option<u16>> = read_strings(root.policies())
         .iter()
@@ -2850,8 +2849,7 @@ fn encode_earth(land: &Land) -> Vec<u8> {
 }
 
 fn decode_earth(bytes: &[u8], land: &mut Land, schema: Schema) -> Result<(), LoadError> {
-    let root =
-        flatbuffers::root::<save::Earth>(bytes).map_err(|e| unreadable(SECTION_EARTH, &e))?;
+    let root = section_root::<save::Earth>(bytes).map_err(|e| unreadable(SECTION_EARTH, &e))?;
     for w in root.works().iter().flatten() {
         let kind = match w.kind() {
             0 => civ_land::earth::EarthKind::Platform,
@@ -3110,7 +3108,7 @@ fn decode_ties(
     LoadError,
 > {
     use civ_agents::ties::{Act, Reason, Tie, Ties};
-    let root = flatbuffers::root::<save::Ties>(bytes).map_err(|e| unreadable(SECTION_TIES, &e))?;
+    let root = section_root::<save::Ties>(bytes).map_err(|e| unreadable(SECTION_TIES, &e))?;
     let mut by_holder: std::collections::BTreeMap<PermanentId, Vec<Tie>> = Default::default();
     for r in root.ties().iter().flatten() {
         let (Some(holder), Some(to)) = (
@@ -3244,7 +3242,7 @@ fn decode_deposits(
     rules: &Rules,
 ) -> Result<(Vec<Deposit>, Vec<DepositKnown>), LoadError> {
     let root =
-        flatbuffers::root::<save::Deposits>(bytes).map_err(|e| unreadable(SECTION_DEPOSITS, &e))?;
+        section_root::<save::Deposits>(bytes).map_err(|e| unreadable(SECTION_DEPOSITS, &e))?;
     let goods: Vec<Option<usize>> = read_strings(root.goods())
         .iter()
         .map(|id| rules.catalog.good_index(id))
@@ -3645,7 +3643,7 @@ fn decode_land(
     climatology: Climatology,
     seed: u64,
 ) -> Result<Land, LoadError> {
-    let l = flatbuffers::root::<save::Land>(bytes).map_err(|e| unreadable(SECTION_LAND, &e))?;
+    let l = section_root::<save::Land>(bytes).map_err(|e| unreadable(SECTION_LAND, &e))?;
     let n = l.cols() as usize * l.rows() as usize;
     let habitats = read_strings(l.habitats());
     let catch_all = rules.land.habitats.len().saturating_sub(1) as u8;
@@ -3828,8 +3826,7 @@ fn encode_settlements(settlements: &[Settlement]) -> Vec<u8> {
 }
 
 fn decode_settlements(bytes: &[u8]) -> Result<Vec<Settlement>, LoadError> {
-    let s = flatbuffers::root::<save::Settlements>(bytes)
-        .map_err(|e| unreadable(SECTION_SETTLE, &e))?;
+    let s = section_root::<save::Settlements>(bytes).map_err(|e| unreadable(SECTION_SETTLE, &e))?;
     s.settlements()
         .iter()
         .flatten()
@@ -4058,8 +4055,7 @@ fn decode_people(
     schema: Schema,
     homes: &Population,
 ) -> Result<DecodedPeople, LoadError> {
-    let root =
-        flatbuffers::root::<save::People>(bytes).map_err(|e| unreadable(SECTION_PEOPLE, &e))?;
+    let root = section_root::<save::People>(bytes).map_err(|e| unreadable(SECTION_PEOPLE, &e))?;
     let map = activity_map(&read_strings(root.activities()), rules);
     let goods = good_map(&read_strings(root.goods()), rules);
     // Skills by saved index, in the loaded content; a skill it no longer has is forgotten.
@@ -4620,7 +4616,7 @@ fn decode_households(
     now: SimTime,
 ) -> Result<Vec<Household>, LoadError> {
     let root =
-        flatbuffers::root::<save::Households>(bytes).map_err(|e| unreadable(SECTION_HOUSES, &e))?;
+        section_root::<save::Households>(bytes).map_err(|e| unreadable(SECTION_HOUSES, &e))?;
     let goods = good_map(&read_strings(root.goods()), rules);
     let resources: Vec<Option<u16>> = read_strings(root.resources())
         .iter()
@@ -5440,8 +5436,7 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
         Belief, Case, CaseStage, Choice, Incident, Obligation, Order, Outcome, Owed, Response,
         Source, Standing,
     };
-    let root =
-        flatbuffers::root::<save::Order>(bytes).map_err(|e| unreadable(SECTION_ORDER, &e))?;
+    let root = section_root::<save::Order>(bytes).map_err(|e| unreadable(SECTION_ORDER, &e))?;
     let goods = good_map(&read_strings(root.goods()), rules);
     let bad = |what: String| LoadError::Malformed(what);
     let mut order = Order::default();
@@ -6183,8 +6178,7 @@ type DecodedHistory = (
 );
 
 fn decode_history(bytes: &[u8]) -> Result<DecodedHistory, LoadError> {
-    let root =
-        flatbuffers::root::<save::History>(bytes).map_err(|e| unreadable(SECTION_HISTORY, &e))?;
+    let root = section_root::<save::History>(bytes).map_err(|e| unreadable(SECTION_HISTORY, &e))?;
     let mut records = BTreeMap::new();
     for r in root.records().iter().flatten() {
         let rid = required(r.id(), "a person record")?;
@@ -6446,7 +6440,7 @@ fn decode_receipt(
 
 fn decode_receipts(bytes: &[u8], rules: &Rules, pop: &mut Population) -> Result<(), LoadError> {
     let root =
-        flatbuffers::root::<save::Receipts>(bytes).map_err(|e| unreadable(SECTION_RECEIPTS, &e))?;
+        section_root::<save::Receipts>(bytes).map_err(|e| unreadable(SECTION_RECEIPTS, &e))?;
     let map = activity_map(&read_strings(root.activities()), rules);
     let handles: HashMap<PermanentId, _> = pop.people.iter().map(|(h, p)| (p.id, h)).collect();
     for entry in root.people().iter().flatten() {
@@ -6579,8 +6573,7 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
 }
 
 fn decode_fields(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<Vec<Field>, LoadError> {
-    let root =
-        flatbuffers::root::<save::Fields>(bytes).map_err(|e| unreadable(SECTION_FIELDS, &e))?;
+    let root = section_root::<save::Fields>(bytes).map_err(|e| unreadable(SECTION_FIELDS, &e))?;
     let crops: Vec<Option<u16>> = read_strings(root.crops())
         .iter()
         .map(|id| rules.catalog.crop_index(id).map(|i| i as u16))
@@ -6744,8 +6737,7 @@ fn encode_plots(plots: &[Plot]) -> Vec<u8> {
 }
 
 fn decode_plots(bytes: &[u8]) -> Result<Vec<Plot>, LoadError> {
-    let root =
-        flatbuffers::root::<save::Plots>(bytes).map_err(|e| unreadable(SECTION_PLOTS, &e))?;
+    let root = section_root::<save::Plots>(bytes).map_err(|e| unreadable(SECTION_PLOTS, &e))?;
     let mut out = Vec::new();
     for p in root.plots().iter().flatten() {
         let id = required(p.id(), "a plot")?;
@@ -6933,8 +6925,7 @@ fn decode_condition(
 }
 
 fn decode_buildings(bytes: &[u8], schema: Schema) -> Result<Vec<Building>, LoadError> {
-    let root =
-        flatbuffers::root::<save::Builds>(bytes).map_err(|e| unreadable(SECTION_BUILDS, &e))?;
+    let root = section_root::<save::Builds>(bytes).map_err(|e| unreadable(SECTION_BUILDS, &e))?;
     let mut out = Vec::new();
     for b in root.buildings().iter().flatten() {
         let id = required(b.id(), "a building")?;
@@ -7113,7 +7104,7 @@ fn encode_wear(wear: &Wear) -> Vec<u8> {
 /// The worn ground of a save on `day`. A save from before schema 23 kept each tile faded to the
 /// day saved and rounded, and no routing view: that is drawn again when the world is put together.
 fn decode_wear(bytes: &[u8], map: &WorldMap, day: i64) -> Result<Wear, LoadError> {
-    let w = flatbuffers::root::<save::Wear>(bytes).map_err(|e| unreadable(SECTION_WEAR, &e))?;
+    let w = section_root::<save::Wear>(bytes).map_err(|e| unreadable(SECTION_WEAR, &e))?;
     let (cells, words) = (
         civ_land::paths::TILE_CELLS,
         civ_land::paths::TILE_CELLS / 64,
@@ -7276,8 +7267,7 @@ fn encode_markets(pop: &Population, goods: &[&str]) -> Vec<u8> {
 }
 
 fn decode_markets(bytes: &[u8], rules: &Rules) -> Result<Vec<Market>, LoadError> {
-    let root =
-        flatbuffers::root::<save::Markets>(bytes).map_err(|e| unreadable(SECTION_MARKET, &e))?;
+    let root = section_root::<save::Markets>(bytes).map_err(|e| unreadable(SECTION_MARKET, &e))?;
     let goods = good_map(&read_strings(root.goods()), rules);
     let catalog_goods = rules.catalog.goods.len();
     let mut out = Vec::new();
@@ -7515,8 +7505,7 @@ fn decode_offers<'a>(
 }
 
 fn decode_firms(bytes: &[u8], rules: &Rules) -> Result<Vec<Firm>, LoadError> {
-    let root =
-        flatbuffers::root::<save::Firms>(bytes).map_err(|e| unreadable(SECTION_FIRMS, &e))?;
+    let root = section_root::<save::Firms>(bytes).map_err(|e| unreadable(SECTION_FIRMS, &e))?;
     let goods = good_map(&read_strings(root.goods()), rules);
     let activities = activity_map(&read_strings(root.activities()), rules);
     let catalog_goods = rules.catalog.goods.len();
@@ -7671,8 +7660,7 @@ fn encode_wealth(pop: &Population) -> Vec<u8> {
 }
 
 fn decode_wealth(bytes: &[u8]) -> Result<Vec<WealthYear>, LoadError> {
-    let root =
-        flatbuffers::root::<save::Wealth>(bytes).map_err(|e| unreadable(SECTION_WEALTH, &e))?;
+    let root = section_root::<save::Wealth>(bytes).map_err(|e| unreadable(SECTION_WEALTH, &e))?;
     let mut out = Vec::new();
     for y in root.years().iter().flatten() {
         out.push(WealthYear {
@@ -7780,8 +7768,7 @@ fn encode_knowledge(pop: &Population, techniques: &[&str]) -> Vec<u8> {
 /// What each settlement has seen of each technique's buildings (schema 18), from the knowledge
 /// section. A technique the loaded content no longer has drops out.
 fn decode_trust(bytes: &[u8], rules: &Rules) -> Result<Vec<Trust>, LoadError> {
-    let root =
-        flatbuffers::root::<save::Knowledge>(bytes).map_err(|e| unreadable(SECTION_KNOW, &e))?;
+    let root = section_root::<save::Knowledge>(bytes).map_err(|e| unreadable(SECTION_KNOW, &e))?;
     let ids: Vec<Option<usize>> = read_strings(root.techniques())
         .iter()
         .map(|id| rules.catalog.technique_index(id))
@@ -7827,8 +7814,7 @@ fn decode_trust(bytes: &[u8], rules: &Rules) -> Result<Vec<Trust>, LoadError> {
 
 /// Fire caution (schema 94); malformed or repeated records are refused.
 fn decode_fire_trust(bytes: &[u8]) -> Result<Vec<FireTrust>, LoadError> {
-    let root =
-        flatbuffers::root::<save::Knowledge>(bytes).map_err(|e| unreadable(SECTION_KNOW, &e))?;
+    let root = section_root::<save::Knowledge>(bytes).map_err(|e| unreadable(SECTION_KNOW, &e))?;
     let mut out: Vec<FireTrust> = Vec::new();
     for t in root.fire_trust().iter().flatten() {
         let (losses, years) = (t.losses(), t.years());
@@ -7860,8 +7846,7 @@ fn decode_fire_trust(bytes: &[u8]) -> Result<Vec<FireTrust>, LoadError> {
 }
 
 fn decode_knowledge(bytes: &[u8], rules: &Rules) -> Result<Vec<KnowledgeEvent>, LoadError> {
-    let root =
-        flatbuffers::root::<save::Knowledge>(bytes).map_err(|e| unreadable(SECTION_KNOW, &e))?;
+    let root = section_root::<save::Knowledge>(bytes).map_err(|e| unreadable(SECTION_KNOW, &e))?;
     let ids: Vec<Option<usize>> = read_strings(root.techniques())
         .iter()
         .map(|id| rules.catalog.technique_index(id))
@@ -7960,8 +7945,8 @@ fn encode_events(sim: &Sim) -> Vec<u8> {
 }
 
 fn decode_events(bytes: &[u8]) -> Result<Vec<PendingEvent<SimEvent>>, LoadError> {
-    let root = flatbuffers::root::<save::PendingEvents>(bytes)
-        .map_err(|e| unreadable(SECTION_EVENTS, &e))?;
+    let root =
+        section_root::<save::PendingEvents>(bytes).map_err(|e| unreadable(SECTION_EVENTS, &e))?;
     let mut out = Vec::new();
     for e in root.events().iter().flatten() {
         let event = match e.kind() {
@@ -8036,8 +8021,8 @@ fn encode_opinion(opinion: &civ_agents::opinion::Opinion, rules: &Rules) -> Vec<
 /// from scratch if it asks one again.
 fn decode_opinion(bytes: &[u8], rules: &Rules) -> Result<civ_agents::opinion::Opinion, LoadError> {
     use civ_agents::opinion::{Opinion, Position};
-    let root = flatbuffers::root::<save::OpinionSave>(bytes)
-        .map_err(|e| unreadable(SECTION_OPINION, &e))?;
+    let root =
+        section_root::<save::OpinionSave>(bytes).map_err(|e| unreadable(SECTION_OPINION, &e))?;
     let map: Vec<Option<u16>> = read_strings(root.policies())
         .iter()
         .map(|id| {
@@ -8197,8 +8182,7 @@ fn decode_word(bytes: &[u8]) -> Result<civ_agents::word::Word, LoadError> {
     use civ_agents::word::{
         Blamed, Claim, ClaimKind, Counts, Grievance, Grieved, Heard, Suspicion, Word, Wrong,
     };
-    let root =
-        flatbuffers::root::<save::WordSave>(bytes).map_err(|e| unreadable(SECTION_WORD, &e))?;
+    let root = section_root::<save::WordSave>(bytes).map_err(|e| unreadable(SECTION_WORD, &e))?;
     let bad = |what: String| LoadError::Malformed(what);
     let mut word = Word {
         next: root.next(),
@@ -8357,8 +8341,7 @@ fn encode_norms(norms: &civ_agents::norm::Norms, rules: &Rules) -> Vec<u8> {
 /// it names it again.
 fn decode_norms(bytes: &[u8], rules: &Rules) -> Result<civ_agents::norm::Norms, LoadError> {
     use civ_agents::norm::{LevyAct, NormState, Norms};
-    let root =
-        flatbuffers::root::<save::NormsSave>(bytes).map_err(|e| unreadable(SECTION_NORMS, &e))?;
+    let root = section_root::<save::NormsSave>(bytes).map_err(|e| unreadable(SECTION_NORMS, &e))?;
     let map: Vec<Option<u16>> = read_strings(root.norms())
         .iter()
         .map(|id| {
@@ -8448,7 +8431,7 @@ fn encode_values(values: &civ_agents::values::Values, rules: &Rules) -> Vec<u8> 
 fn decode_values(bytes: &[u8], rules: &Rules) -> Result<civ_agents::values::Values, LoadError> {
     use civ_agents::values::{Held, Values};
     let root =
-        flatbuffers::root::<save::ValuesSave>(bytes).map_err(|e| unreadable(SECTION_VALUES, &e))?;
+        section_root::<save::ValuesSave>(bytes).map_err(|e| unreadable(SECTION_VALUES, &e))?;
     let map: Vec<Option<u16>> = read_strings(root.values())
         .iter()
         .map(|id| {
@@ -8533,7 +8516,7 @@ fn decode_ideologies(
     rules: &Rules,
 ) -> Result<civ_agents::ideology::Ideologies, LoadError> {
     use civ_agents::ideology::{Holding, Ideologies};
-    let root = flatbuffers::root::<save::IdeologiesSave>(bytes)
+    let root = section_root::<save::IdeologiesSave>(bytes)
         .map_err(|e| unreadable(SECTION_IDEOLOGIES, &e))?;
     let map: Vec<Option<u16>> = read_strings(root.ideologies())
         .iter()
@@ -8810,8 +8793,8 @@ fn decode_factions(
         RevoltEnd, Side, Why,
     };
     use civ_agents::polity::{Body, Membership, PassRule};
-    let root = flatbuffers::root::<save::FactionsSave>(bytes)
-        .map_err(|e| unreadable(SECTION_FACTIONS, &e))?;
+    let root =
+        section_root::<save::FactionsSave>(bytes).map_err(|e| unreadable(SECTION_FACTIONS, &e))?;
     let goods = good_map(&read_strings(root.goods()), rules);
     let bad = |m: String| LoadError::Malformed(m);
     let mut list = Vec::new();
@@ -9433,7 +9416,7 @@ struct PlacesDecoded {
 fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError> {
     use civ_agents::places::{Contact, Contacts, KnownPlace, PlaceHow, Places};
     let root =
-        flatbuffers::root::<save::PlacesSave>(bytes).map_err(|e| unreadable(SECTION_PLACES, &e))?;
+        section_root::<save::PlacesSave>(bytes).map_err(|e| unreadable(SECTION_PLACES, &e))?;
     let mut contacts = Contacts::default();
     for c in root.contacts().iter().flatten() {
         let (Some(from), Some(to)) = (
@@ -9960,7 +9943,7 @@ type Relations = (
 
 fn decode_relations(bytes: &[u8], rules: &Rules) -> Result<Relations, LoadError> {
     use civ_agents::views::{DOMAINS, View, ViewAct, ViewReason, Views};
-    let root = flatbuffers::root::<save::RelationsSave>(bytes)
+    let root = section_root::<save::RelationsSave>(bytes)
         .map_err(|e| unreadable(SECTION_RELATIONS, &e))?;
     let prior = rules.people.relations.prior as f32;
     let mut out = Views::default();
@@ -10328,7 +10311,7 @@ fn decode_crossings(
     LoadError,
 > {
     use civ_land::crossings::{Collapse, Crossing, CrossingOwner, CrossingState, Crossings};
-    let root = flatbuffers::root::<save::CrossingsSave>(bytes)
+    let root = section_root::<save::CrossingsSave>(bytes)
         .map_err(|e| unreadable(SECTION_CROSSINGS, &e))?;
     let cells_on_map = u64::from(map.width) * u64::from(map.height);
     let mut list = Vec::new();
@@ -10547,8 +10530,7 @@ fn decode_wells(
     map: &WorldMap,
 ) -> Result<civ_land::wells::Wells, LoadError> {
     use civ_land::wells::{Well, WellState, Wells};
-    let root =
-        flatbuffers::root::<save::WellsSave>(bytes).map_err(|e| unreadable(SECTION_WELLS, &e))?;
+    let root = section_root::<save::WellsSave>(bytes).map_err(|e| unreadable(SECTION_WELLS, &e))?;
     let cells_on_map = u64::from(map.width) * u64::from(map.height);
     let mut list = Vec::new();
     for w in root.list().iter().flatten() {
@@ -10946,8 +10928,7 @@ fn decode_fires(bytes: &[u8], schema: Schema) -> Result<civ_agents::fire::Fires,
         Conflagration, Fire, Fires, Hearth, Ignition, Kindled, Knew, Noticed, Salvaged, Stripped,
         Thrown, Weighed,
     };
-    let root =
-        flatbuffers::root::<save::FiresSave>(bytes).map_err(|e| unreadable(SECTION_FIRES, &e))?;
+    let root = section_root::<save::FiresSave>(bytes).map_err(|e| unreadable(SECTION_FIRES, &e))?;
     let at = |m: i64| (m >= 0).then(|| SimTime::from_minutes(m));
     let mut out = Fires::default();
     for f in root.fires().iter().flatten() {
@@ -11246,7 +11227,7 @@ fn decode_floods(
 ) -> Result<(civ_agents::floods::Floods, u32, Option<Vec<f32>>), LoadError> {
     use civ_agents::floods::{FloodEpisode, Floods, HighWater, StormDamage, StormEpisode};
     let root =
-        flatbuffers::root::<save::FloodsSave>(bytes).map_err(|e| unreadable(SECTION_FLOODS, &e))?;
+        section_root::<save::FloodsSave>(bytes).map_err(|e| unreadable(SECTION_FLOODS, &e))?;
     let at = |m: i64| (m >= 0).then(|| SimTime::from_minutes(m));
     let mut out = Floods::default();
     for hw in root.high_waters().iter().flatten() {
@@ -11451,8 +11432,8 @@ fn decode_sickness(
     rules: &Rules,
 ) -> Result<civ_agents::sickness::Sickness, LoadError> {
     use civ_agents::sickness::{Acquired, Care, Course, Episode, Outbreak, Outcome, Sickness};
-    let root = flatbuffers::root::<save::SicknessSave>(bytes)
-        .map_err(|e| unreadable(SECTION_SICKNESS, &e))?;
+    let root =
+        section_root::<save::SicknessSave>(bytes).map_err(|e| unreadable(SECTION_SICKNESS, &e))?;
     let mut list = Vec::new();
     for e in root.episodes().iter().flatten() {
         let Some(disease) = rules
@@ -11614,7 +11595,7 @@ fn decode_contagion(
     rules: &Rules,
 ) -> Result<civ_agents::contagion::Contagion, LoadError> {
     use civ_agents::contagion::{Contagion, How, Move, Transit};
-    let root = flatbuffers::root::<save::ContagionSave>(bytes)
+    let root = section_root::<save::ContagionSave>(bytes)
         .map_err(|e| unreadable(SECTION_CONTAGION, &e))?;
     let map: Vec<Option<u16>> = read_strings(root.diseases())
         .iter()
@@ -11761,7 +11742,7 @@ fn decode_influences(
     rules: &Rules,
 ) -> Result<civ_agents::influence::Influences, LoadError> {
     use civ_agents::influence::{Influence, InfluenceKind, Influences, Wave};
-    let root = flatbuffers::root::<save::InfluencesSave>(bytes)
+    let root = section_root::<save::InfluencesSave>(bytes)
         .map_err(|e| unreadable(SECTION_INFLUENCE, &e))?;
     let map: Vec<Option<u32>> = read_strings(root.ideologies())
         .iter()
@@ -11909,7 +11890,7 @@ mod tests {
             carry_water_l: 4.0,
             ..Default::default()
         });
-        let p = flatbuffers::root::<save::Person>(&bytes).expect("decodes");
+        let p = section_root::<save::Person>(&bytes).expect("decodes");
         let load = carried(&p, &[], &rules, Schema::V2, who).expect("migrates");
         let g = rules.people.band.provisions_good;
         assert_eq!(load.good, Some(g as u16));
@@ -11919,7 +11900,7 @@ mod tests {
 
         // Nothing carried stays nothing.
         let bytes = person(&save::PersonArgs::default());
-        let p = flatbuffers::root::<save::Person>(&bytes).expect("decodes");
+        let p = section_root::<save::Person>(&bytes).expect("decodes");
         let load = carried(&p, &[], &rules, Schema::V2, who).expect("migrates");
         assert_eq!(load, Load::default());
     }
@@ -11933,7 +11914,7 @@ mod tests {
             carry_kg: 12.0,
             ..Default::default()
         });
-        let p = flatbuffers::root::<save::Person>(&bytes).expect("decodes");
+        let p = section_root::<save::Person>(&bytes).expect("decodes");
         let load = carried(&p, &[Some(0), None], &rules, Schema::V3, who).expect("decodes");
         assert_eq!(load, Load::default());
         let load = carried(&p, &[Some(0), Some(3)], &rules, Schema::V3, who).expect("decodes");

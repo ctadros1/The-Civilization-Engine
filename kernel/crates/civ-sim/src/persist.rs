@@ -585,8 +585,7 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
     let info = reader.info().clone();
 
     let meta_bytes = single_chunk(&mut reader, SECTION_META)?;
-    let meta =
-        flatbuffers::root::<save::Meta>(&meta_bytes).map_err(|e| unreadable(SECTION_META, &e))?;
+    let meta = section_root::<save::Meta>(&meta_bytes).map_err(|e| unreadable(SECTION_META, &e))?;
     let (width, height) = (meta.width(), meta.height());
     if !(1..=MAX_SIDE).contains(&width) || !(1..=MAX_SIDE).contains(&height) {
         return Err(LoadError::Malformed(format!(
@@ -619,8 +618,8 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
     let (cell_size_m, sea_level_m) = (meta.cell_size_m(), meta.sea_level_m());
 
     let clock_bytes = single_chunk(&mut reader, SECTION_CLOCK)?;
-    let clock = flatbuffers::root::<save::Clock>(&clock_bytes)
-        .map_err(|e| unreadable(SECTION_CLOCK, &e))?;
+    let clock =
+        section_root::<save::Clock>(&clock_bytes).map_err(|e| unreadable(SECTION_CLOCK, &e))?;
     if clock.minute() != info.sim_time {
         return Err(LoadError::Malformed(
             "the header's time disagrees with the clock section".to_owned(),
@@ -648,7 +647,7 @@ pub fn load(path: &Path, content: &ContentRegistry) -> Result<Sim, LoadError> {
     };
 
     let content_bytes = single_chunk(&mut reader, SECTION_CONTENT)?;
-    let saved_content = flatbuffers::root::<save::Content>(&content_bytes)
+    let saved_content = section_root::<save::Content>(&content_bytes)
         .map_err(|e| unreadable(SECTION_CONTENT, &e))?;
     let saved_fingerprint: [u8; 32] = saved_content
         .fingerprint()
@@ -796,7 +795,7 @@ pub fn describe(path: &Path, content: &ContentRegistry) -> SaveSummary {
         return summary;
     }
     let name = single_chunk(&mut reader, SECTION_META).and_then(|bytes| {
-        flatbuffers::root::<save::Meta>(&bytes)
+        section_root::<save::Meta>(&bytes)
             .map(|meta| meta.world_name().unwrap_or_default().to_owned())
             .map_err(|e| unreadable(SECTION_META, &e))
     });
@@ -1059,6 +1058,22 @@ fn encode_tile(map: &WorldMap, layer: save::Layer, tile: Tile) -> Vec<u8> {
     finish(fbb, root)
 }
 
+/// A section's root, verified with a limit on its tables scaled to its size: one section of a
+/// world of thousands holds more than the verifier's default million tables (M8a slice CF: a
+/// 3×3,334 world's receipts), and a table takes at least four bytes, so `len / 4` bounds them
+/// without trusting the file.
+pub(crate) fn section_root<'a, T>(bytes: &'a [u8]) -> Result<T::Inner, InvalidFlatbuffer>
+where
+    T: 'a + flatbuffers::Follow<'a> + flatbuffers::Verifiable,
+{
+    let defaults = flatbuffers::VerifierOptions::default();
+    let opts = flatbuffers::VerifierOptions {
+        max_tables: defaults.max_tables.max(bytes.len() / 4),
+        ..defaults
+    };
+    flatbuffers::root_with_opts::<T>(&opts, bytes)
+}
+
 fn unreadable(tag: SectionTag, e: &InvalidFlatbuffer) -> LoadError {
     LoadError::Malformed(format!("section `{tag}` does not decode: {e}"))
 }
@@ -1125,7 +1140,7 @@ fn read_raster<R: Read + Seek>(
     for (chunk, tile) in chunks.iter().zip(&expected) {
         check_version(tag, chunk.version)?;
         let decoded =
-            flatbuffers::root::<save::RasterTile>(&chunk.bytes).map_err(|e| unreadable(tag, &e))?;
+            section_root::<save::RasterTile>(&chunk.bytes).map_err(|e| unreadable(tag, &e))?;
         let found = Tile {
             x0: decoded.x0(),
             y0: decoded.y0(),
@@ -1159,8 +1174,7 @@ fn read_raster<R: Read + Seek>(
 type Hydro = (Vec<Lake>, Vec<RiverReach>, Vec<Inflow>);
 
 fn decode_hydro(bytes: &[u8]) -> Result<Hydro, LoadError> {
-    let hydro =
-        flatbuffers::root::<save::Hydro>(bytes).map_err(|e| unreadable(SECTION_HYDRO, &e))?;
+    let hydro = section_root::<save::Hydro>(bytes).map_err(|e| unreadable(SECTION_HYDRO, &e))?;
     let bad = |what: String| LoadError::Malformed(format!("section `hydro`: {what}"));
 
     let mut lakes = Vec::new();
@@ -1230,6 +1244,39 @@ fn decode_hydro(bytes: &[u8]) -> Result<Hydro, LoadError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_section_of_more_than_a_million_tables_is_read() {
+        // A 3×3,334 world's receipts held more tables than the verifier allows by default
+        // (M8a slice CF); a section is verified with a limit scaled to its size instead.
+        let mut fbb = FlatBufferBuilder::new();
+        let people: Vec<_> = (0..1_100_000u64)
+            .map(|person| {
+                save::PersonReceipts::create(
+                    &mut fbb,
+                    &save::PersonReceiptsArgs {
+                        person,
+                        receipts: None,
+                    },
+                )
+            })
+            .collect();
+        let people = fbb.create_vector(&people);
+        let root = save::Receipts::create(
+            &mut fbb,
+            &save::ReceiptsArgs {
+                activities: None,
+                people: Some(people),
+            },
+        );
+        fbb.finish(root, None);
+        let bytes = fbb.finished_data();
+        assert!(flatbuffers::root::<save::Receipts>(bytes).is_err());
+        let read = section_root::<save::Receipts>(bytes).expect("read");
+        assert_eq!(read.people().map(|p| p.len()), Some(1_100_000));
+        // A file claiming more tables than its bytes could hold is still refused.
+        assert!(section_root::<save::Receipts>(&bytes[..bytes.len() / 2]).is_err());
+    }
 
     #[test]
     fn tiles_cover_a_map_exactly_once() {

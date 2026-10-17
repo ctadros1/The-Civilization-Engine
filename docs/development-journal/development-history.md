@@ -2721,3 +2721,14 @@ times beyond the kernel today, and its cost grows faster than its people, so the
 gated, and 50,000 waits for M9's lower detail. Three things the plan assumed are recorded as
 gaps: the demo's planned capital names an outcome, homes cannot yet spread over a city's ground,
 and carts need animals the content does not have.
+
+## 2026-10-17 — CF: the baseline at scale
+
+**Measured:** a year of three villages of a thousand now takes 33 minutes at Max, 38 % more than
+before M6c and M7 landed. Three settlements of 3,334 live a day in about 30 seconds, one of 10,000
+in about 45: 250 to 340 times short of M8's gate of a year a minute. One day of the three
+settlements took 27 minutes: word of a gathering spreading to thousands at once, each hearing
+inserted into one long sorted list. That is fixed next.
+
+**Fixed:** a world of 10,000 saved but could not be loaded, because one section held more records
+than the save format's checker allows by default. The checker's limit now grows with the section.

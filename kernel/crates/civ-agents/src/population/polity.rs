@@ -4285,6 +4285,15 @@ impl Population {
                 self.norms.note_levy(household, day, false);
                 continue;
             }
+            // Part or all of it in the money the law takes, when the household holds some and
+            // its other uses are worth less to it than the grain (M7d slice CE3b).
+            let in_money = self.levy_in_money(ctx, pi, li, household, grain, owed);
+            let owed = owed - in_money;
+            if in_money > 0.0 && owed <= 1e-9 {
+                self.polities[pi].laws[li].compliance.complied += 1;
+                self.norms.note_levy(household, day, true);
+                continue;
+            }
             let held = self
                 .household(household)
                 .and_then(|x| x.stores.get(grain))
@@ -4298,6 +4307,10 @@ impl Population {
                 good: grain,
                 amount: paid,
             };
+            if in_money > 0.0 && paid <= 1e-9 {
+                self.polities[pi].laws[li].compliance.complied += 1;
+                self.norms.note_levy(household, day, true);
+            }
             if paid > 1e-9 && self.transfer(now, params, goods, &[leg], Channel::Levy) {
                 let c = &mut self.polities[pi].laws[li].compliance;
                 c.complied += 1;
@@ -4315,6 +4328,95 @@ impl Population {
                 }
             }
         }
+    }
+
+    /// Household `household` pays what it can of `owed` kilograms of grain levied under law `li`
+    /// of polity `pi` in the money the law's template takes (M7d slice CE3b), at its rate, when
+    /// it holds some and what a unit would otherwise bring it ([`Population::pay_worth_raw`]) is
+    /// worth less than the grain it pays for: the payer gives what is worth least to it. Returns
+    /// the kilograms of grain paid for so.
+    fn levy_in_money(
+        &mut self,
+        ctx: &Ctx,
+        pi: usize,
+        li: usize,
+        household: PermanentId,
+        grain: usize,
+        owed: f64,
+    ) -> f64 {
+        let Some(m) = ctx
+            .catalog
+            .policies
+            .get(usize::from(self.polities[pi].laws[li].policy))
+            .and_then(|d| d.medium)
+        else {
+            return 0.0;
+        };
+        let per_kg = f64::from(m.per_kg);
+        let Some(hh) = self.household(household) else {
+            return 0.0;
+        };
+        let held = hh.stores.get(m.good).copied().unwrap_or(0.0).max(0.0);
+        if held <= 1e-9 || per_kg <= 0.0 || owed <= 1e-9 {
+            return 0.0;
+        }
+        let costs = self.own_costs_of(ctx, hh);
+        let grain_h = costs.get(grain).copied().flatten().unwrap_or(0.0);
+        let unit_h = self
+            .pay_worth_raw(
+                ctx,
+                hh,
+                m.good,
+                costs.get(m.good).copied().flatten(),
+                held,
+                &costs,
+            )
+            .unwrap_or(0.0);
+        if unit_h * per_kg >= grain_h {
+            return 0.0;
+        }
+        let units = (owed * per_kg).min(held);
+        let leg = Leg {
+            from: household,
+            to: self.polities[pi].id,
+            good: m.good,
+            amount: units,
+        };
+        if !self.transfer(
+            ctx.now,
+            ctx.params,
+            &ctx.catalog.goods,
+            &[leg],
+            Channel::Levy,
+        ) {
+            return 0.0;
+        }
+        let kg = units / per_kg;
+        self.polities[pi].laws[li].compliance.levied_kg += kg;
+        kg
+    }
+
+    /// For tests: household `household` pays `owed` kilograms of grain levied under polity
+    /// `polity`'s common store `law` in its money, as far as it would (M7d slice CE3b).
+    #[doc(hidden)]
+    pub fn levy_in_money_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        polity: PermanentId,
+        law: PermanentId,
+        household: PermanentId,
+        owed: f64,
+    ) -> f64 {
+        let Some(pi) = self.polities.iter().position(|p| p.id == polity) else {
+            return 0.0;
+        };
+        let Some(li) = self.polities[pi].laws.iter().position(|l| l.id == law) else {
+            return 0.0;
+        };
+        let Some(grain) = ctx.catalog.crops.get(ctx.params.farm.crop).map(|c| c.good) else {
+            return 0.0;
+        };
+        self.levy_in_money(ctx, pi, li, household, grain, owed)
     }
 
     /// The common store of `hh`'s settlement as somewhere to ask for food (ADR-0013 §4), when a

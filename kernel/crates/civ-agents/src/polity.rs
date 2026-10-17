@@ -528,6 +528,19 @@ pub struct PolicyDef {
     pub mint: Option<MintDef>,
     /// For pay for common work: what an hour is paid (M7d slice CE3a).
     pub pay: Option<PayDef>,
+    /// For a common store: a money its levy may be paid in, and at what rate (M7d slice CE3b).
+    pub medium: Option<MediumDef>,
+}
+
+/// A money a common store's levy may be paid in, in place of grain (M7d slice CE3b, ADR-0027 §6;
+/// research 08-06 §1.4: an obligation's acceptable media and conversion schedule, stored
+/// explicitly).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MediumDef {
+    /// The money, by index in the catalog's goods.
+    pub good: usize,
+    /// Units of it that pay for a kilogram of the grain owed.
+    pub per_kg: f32,
 }
 
 /// What the store pays for an hour given to the polity's common works under a law of pay for
@@ -2986,6 +2999,7 @@ pub(crate) mod tests {
             lending: None,
             mint: None,
             pay: None,
+            medium: None,
         };
         let policies = [
             def(PolicyKind::CommonStore, "Common store"),
@@ -3103,6 +3117,7 @@ pub(crate) mod tests {
             lending: None,
             mint: None,
             pay: None,
+            medium: None,
         }];
         let mut polity = Polity::found(pid(1), pid(2), SimTime::ZERO, &params());
         polity.laws.push(Law {
@@ -3328,6 +3343,7 @@ pub(crate) mod tests {
             lending: None,
             mint: None,
             pay: None,
+            medium: None,
         }];
         assert!(
             law_words(&law, &policies, &|_| "Ada".to_owned())

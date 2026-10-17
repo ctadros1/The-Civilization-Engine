@@ -2667,3 +2667,13 @@ pieces an hour, as long as the store has coin left. Save schema 138; content API
 
 **Lived:** nothing yet: no store holds coin until a mint strikes some and keeps its fee.
 
+## 2026-10-17 — CE3b: a levy in coin
+
+**Built:** a village's common store may take its levy in coin, two pieces for each kilogram of
+grain owed. A household holding coin pays with it when it has no better use for the coin, and
+because the store takes it, a piece is worth half a kilogram of grain to anyone under that law,
+more than the copper in it. So a household with copper to spare would now bring it to a mint.
+Content API 129.
+
+**Lived:** nothing yet: nobody makes copper unaided.
+

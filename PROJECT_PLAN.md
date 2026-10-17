@@ -3639,6 +3639,24 @@ and M6a gives rivers a daily flow.
         (CE3b). **Not measured in a lived world:** no store holds coin until a mint strikes it and
         keeps its fee, which nobody brings metal for yet; a test fills a store with 20 pieces and
         pays 16 for two hours and the 4 left for two more, purse to purse.
+    - **CE3b**: a levy in coin.
+      - *As built (2026-10-17):* content API 129 (saves and wire unchanged). A common store's
+        template may name a money its levy is paid in and the units that pay for a kilogram of the
+        grain owed (research 08-06 §1.4: an obligation's acceptable media and its conversion
+        schedule, stored explicitly). A household that holds some, and knows the law, pays its
+        levy in it, as far as it holds it, when what a unit would otherwise bring it (what it
+        bought, CD) is worth less than the grain it pays for: the payer gives what is worth least
+        to it; the rest in grain as before. Under such a law in force a unit is worth to its holder
+        at least the grain it pays for, at the household's own cost of grain, less as it holds
+        more than the levy could take of it (a tenth of its grain at a tenth's levy): an
+        authority's acceptance makes a medium more useful (08-06 §1.4). The core's common store
+        takes coin at two pieces (16 g of copper) a kilogram. **What follows:** under the core
+        store a piece is worth half a kilogram of grain to a household, more than the copper in it,
+        so a household with copper to spare now brings it to a mint (CE2b) when one is in force.
+        **Not measured in a lived world:** nobody makes copper unaided yet (CE1); tests value a
+        piece at half a kilogram's grain under the law, and pay five kilograms owed with ten
+        pieces, purse to purse. **Not yet built:** a household seeking coin to pay its levy (it
+        pays in coin only what it holds).
 
 **M8: The growing city (v1).**
 - *Contents:*

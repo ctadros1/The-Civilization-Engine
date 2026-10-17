@@ -194,7 +194,76 @@ impl Population {
     /// memory, less the hours of verifying it. Beyond its desired balance, `money_days` of its
     /// spending in it, what a unit buys is worth less to it, as stores beyond a target are
     /// (target ÷ held). The quantity of money reaches prices only by this belief.
+    ///
+    /// A money its polity's common store takes for its levy is worth to it at least the grain a
+    /// unit pays for, as far as the levy could take it (M7d slice CE3b; research 08-06 §1.4: an
+    /// authority makes a medium more useful by accepting it for obligations it enforces).
     pub(crate) fn pay_worth(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        p: usize,
+        own: Option<f64>,
+        held: f64,
+        costs: &[Option<f64>],
+    ) -> Option<f64> {
+        let raw = self.pay_worth_raw(ctx, hh, p, own, held, costs);
+        let Some(money) = ctx.catalog.goods.get(p).and_then(|g| g.money.as_ref()) else {
+            return raw;
+        };
+        let floor = self
+            .levy_floor(ctx, hh, p, held, costs)
+            .map(|f| f - money.verify_h)
+            .filter(|&f| f > 0.0);
+        match (raw, floor) {
+            (Some(r), Some(f)) => Some(r.max(f)),
+            (r, f) => r.or(f),
+        }
+    }
+
+    /// What a unit of money `p` pays for, in hours, under a common store in force where `hh`
+    /// lives whose levy its people know may be paid in it: the grain it pays for, at the
+    /// household's own cost of grain, less as it holds more than the levy could take of it (its
+    /// share of the grain the household holds) (M7d slice CE3b).
+    pub(crate) fn levy_floor(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        p: usize,
+        held: f64,
+        costs: &[Option<f64>],
+    ) -> Option<f64> {
+        let pi = self.polity_of(hh.settlement?)?;
+        let grain = ctx.catalog.crops.get(ctx.params.farm.crop)?.good;
+        let grain_h = costs.get(grain).copied().flatten()?;
+        let grain_held = hh.stores.get(grain).copied().unwrap_or(0.0).max(0.0);
+        self.polities[pi]
+            .laws
+            .iter()
+            .filter(|l| {
+                l.status == crate::polity::LawStatus::InForce
+                    && l.kind == crate::polity::PolicyKind::CommonStore
+            })
+            .filter(|l| l.levy_share > 0.0 && hh.members.iter().any(|&m| l.knows(m)))
+            .filter_map(|l| {
+                let m = ctx.catalog.policies.get(usize::from(l.policy))?.medium?;
+                if m.good != p || m.per_kg <= 0.0 {
+                    return None;
+                }
+                let per_kg = f64::from(m.per_kg);
+                let usable = f64::from(l.levy_share) * grain_held * per_kg;
+                let scale = if held > usable {
+                    usable / held.max(1e-9)
+                } else {
+                    1.0
+                };
+                Some(grain_h / per_kg * scale)
+            })
+            .reduce(f64::max)
+    }
+
+    /// [`Population::pay_worth`] without what a levy taking the money adds: what it bought.
+    pub(crate) fn pay_worth_raw(
         &self,
         ctx: &Ctx,
         hh: &Household,

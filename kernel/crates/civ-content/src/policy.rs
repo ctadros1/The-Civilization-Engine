@@ -115,6 +115,21 @@ pub(crate) struct PolicyFile {
     /// paid.
     #[serde(default)]
     pub pay: Option<PayFile>,
+    /// For a common store (`common_store`, content API 129, M7d slice CE3b): a money its levy
+    /// may be paid in.
+    #[serde(default)]
+    pub medium: Option<MediumFile>,
+}
+
+/// A money a common store's levy may be paid in, in a policy file (content API 129, M7d slice
+/// CE3b).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct MediumFile {
+    /// The money, by content id.
+    pub good: String,
+    /// Units of it that pay for a kilogram of the grain owed.
+    pub per_kg: f64,
 }
 
 /// What an hour given to the common works is paid in a policy file (content API 128, M7d slice
@@ -354,6 +369,19 @@ impl PolicyFile {
         })
     }
 
+    /// The money a common store's levy may be paid in, its good found by `good_index` (M7d slice
+    /// CE3b).
+    pub fn medium_def(
+        &self,
+        good_index: &dyn Fn(&str) -> Option<usize>,
+    ) -> Option<civ_agents::polity::MediumDef> {
+        let m = self.medium.as_ref()?;
+        Some(civ_agents::polity::MediumDef {
+            good: good_index(&m.good)?,
+            per_kg: m.per_kg as f32,
+        })
+    }
+
     /// The compiled template (call after [`PolicyFile::problems`] found none, and with every
     /// value `bears` names defined: `value_index` finds it).
     pub fn def(
@@ -424,10 +452,11 @@ impl PolicyFile {
                     review: f.review,
                 })
             }),
-            // The recipe and the good are resolved apart ([`PolicyFile::mint_def`],
-            // [`PolicyFile::pay_def`]).
+            // The recipe and the goods are resolved apart ([`PolicyFile::mint_def`],
+            // [`PolicyFile::pay_def`], [`PolicyFile::medium_def`]).
             mint: None,
             pay: None,
+            medium: None,
             lending: self
                 .lending
                 .as_ref()
@@ -678,6 +707,19 @@ impl PolicyFile {
                 p.push("a `mint` template needs a `mint` table".to_owned());
             }
             (Some(_), _) => p.push("`mint` is for `does = \"mint\"`".to_owned()),
+            (None, _) => {}
+        }
+        // A money the levy may be paid in (M7d slice CE3b): only for `common_store`.
+        match (&self.medium, PolicyKind::from_name(&self.does)) {
+            (Some(m), Some(PolicyKind::CommonStore)) => {
+                if !(m.per_kg.is_finite() && m.per_kg > 0.0 && m.per_kg <= 10000.0) {
+                    p.push(format!(
+                        "`medium.per_kg` must be above 0 and at most 10000 (got {})",
+                        m.per_kg
+                    ));
+                }
+            }
+            (Some(_), _) => p.push("`medium` is for `does = \"common_store\"`".to_owned()),
             (None, _) => {}
         }
         // Pay for common work (M7d slice CE3a): only for `pay_work`, which must have it.
@@ -1155,6 +1197,7 @@ mod tests {
             lending: None,
             mint: None,
             pay: None,
+            medium: None,
         }
     }
 
@@ -1186,6 +1229,7 @@ mod tests {
             lending: None,
             mint: None,
             pay: None,
+            medium: None,
             ..file()
         };
         let roofs = roofs_with(Some(rule("roofs_unburnt", 4.0)));
@@ -1226,6 +1270,7 @@ mod tests {
             lending: None,
             mint: None,
             pay: None,
+            medium: None,
             ..file()
         };
         assert!(

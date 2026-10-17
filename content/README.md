@@ -687,6 +687,13 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 129 (M7d slice CE3b, ADR-0027 §6) brings a levy in coin. A `common_store` policy may
+have a `[medium]` table: `good` (a money) and `per_kg` (units of it that pay for a kilogram of the
+grain owed). A household that holds some pays its levy in it when what a unit would otherwise bring
+it is worth less than the grain it pays for; and under such a law in force, which its people know,
+a unit is worth to its holder at least the grain it pays for, less as it holds more than the levy
+could take of it. The core's common store takes coin at two pieces a kilogram.
+
 Content API 128 (M7d slice CE3a, ADR-0027 §6) brings the polity's first spending. A policy may do
 `pay_work`, with a `[pay]` table: `good` (a money) and `per_hour` (units of it the store pays for
 each hour a household gives to the polity's crossing, well, flood bank or palisade, as far as the

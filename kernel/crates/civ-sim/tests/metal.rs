@@ -738,3 +738,96 @@ fn pay_for_common_work_names_coin_and_answers_money_held_idle() {
     assert!(pay.per_hour > 0.0);
     assert!(d.answers.contains(&civ_agents::polity::IssueKind::CoinIdle));
 }
+
+/// Polity `hh`'s settlement's: the core common store in force at a tenth of each harvest, known to
+/// `hh`'s members (M7d slice CE3b). Returns the polity's id and the law's.
+fn common_store_in_force(sim: &mut Sim, hh: PermanentId) -> (PermanentId, PermanentId) {
+    let sponsor = sim
+        .people()
+        .household(hh)
+        .and_then(|x| x.members.first().copied())
+        .expect("a member");
+    let polity = law_in_force(sim, hh, "core:policy/common_store", None, sponsor);
+    let members = sim
+        .people()
+        .household(hh)
+        .map(|x| x.members.clone())
+        .unwrap_or_default();
+    let day = sim.now().day_index();
+    let pop = sim.people_mut_for_tests();
+    let p = pop
+        .polities
+        .iter_mut()
+        .find(|p| p.id == polity)
+        .expect("polity");
+    let law = p
+        .laws
+        .iter_mut()
+        .rev()
+        .find(|l| l.kind == civ_agents::polity::PolicyKind::CommonStore)
+        .expect("the law");
+    law.levy_share = 0.1;
+    for m in members {
+        law.learn(m, day);
+    }
+    (polity, law.id)
+}
+
+#[test]
+fn under_a_levy_that_takes_coin_a_piece_is_worth_the_grain_it_pays_for() {
+    let (mut sim, hh, _) = mint_scene(3);
+    let [coin, grain] = ["coin", "grain"].map(|g| good(&sim, &format!("core:good/{g}")));
+    let worth = |sim: &mut Sim, p: usize, held: f64| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.pay_worth_for_tests(ctx, hh, p, held))
+    };
+    // Nothing yet makes a piece worth anything to it.
+    assert_eq!(worth(&mut sim, coin, 0.0), None);
+    let grain_h = worth(&mut sim, grain, 0.0).expect("grain has a cost");
+    common_store_in_force(&mut sim, hh);
+    let per_kg = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .find(|d| d.id == "core:policy/common_store")
+        .and_then(|d| d.medium)
+        .expect("the core store takes coin")
+        .per_kg;
+    let verify = sim.rules().catalog.goods[coin]
+        .money
+        .as_ref()
+        .expect("coin is money")
+        .verify_h;
+    let w = worth(&mut sim, coin, 0.0).expect("now worth the grain it pays for");
+    assert!(
+        (w - (grain_h / f64::from(per_kg) - verify)).abs() < 1e-9,
+        "{w} against {grain_h}"
+    );
+    // Far more than the levy could take of it is worth less a piece.
+    assert!(worth(&mut sim, coin, 1.0e6).unwrap_or(0.0) < w * 0.01);
+}
+
+#[test]
+fn a_household_pays_its_levy_in_coin_worth_less_to_it_than_the_grain() {
+    let (mut sim, hh, _) = mint_scene(3);
+    let coin = good(&sim, "core:good/coin");
+    let (polity, law) = common_store_in_force(&mut sim, hh);
+    let today = sim.now().day_index();
+    assert!(
+        sim.people_mut_for_tests()
+            .strike_for_tests(coin, polity, hh, today, 20.0, 8.0, 1.0)
+    );
+    // Five kilograms owed: ten pieces pay for them.
+    let kg =
+        sim.with_ctx_for_tests(|pop, ctx| pop.levy_in_money_for_tests(ctx, polity, law, hh, 5.0));
+    assert!((kg - 5.0).abs() < 1e-9, "{kg}");
+    let coinage = &sim.people().order.coinage;
+    assert!((coinage.purse(hh).expect("its purse").total() - 10.0).abs() < 1e-9);
+    assert!((coinage.purse(polity).expect("the store's").total() - 10.0).abs() < 1e-9);
+    // Twenty more kilograms: it pays the ten pieces it has left, for five of them.
+    let kg =
+        sim.with_ctx_for_tests(|pop, ctx| pop.levy_in_money_for_tests(ctx, polity, law, hh, 20.0));
+    assert!((kg - 5.0).abs() < 1e-9, "{kg}");
+    let x = sim.people().household(hh).expect("household");
+    assert!(x.stores[coin] < 1e-9);
+}

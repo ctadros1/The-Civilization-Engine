@@ -394,7 +394,7 @@ The Civilization Engine/
 | M3 | 200–500 | 1 |
 | M4 | 1–2k | 1 |
 | M5–M7 | 3–8k total | 2–3 |
-| M8 (v1) | 10–50k total | 2–3 (up to 5) |
+| M8 (v1) | 10k gated, 30k measured (ADR-0028) | 2–3 (up to 5) |
 | M9+ | 100k+ via aggregate LOD | 10–30 |
 
 ### 4.4 Time, tick rate, speed modes
@@ -3744,6 +3744,38 @@ and M6a gives rivers a daily flow.
   traffic, in the same world.
 - *Proves:* v1 is complete.
 - *Defers:* everything in the §1 NOT list.
+- *Split (2026-10-17, §9 "M8 design"):* four parts, each with its own part of the demo, as M5–M7
+  were split; the scale gate is amended by [ADR-0028](decisions/0028-scale-and-the-m8-gate.md):
+  10k people at ≥1 year a minute gated, the demo's city measured, 50k moved to M9.
+  - **M8a, scale** ([ADR-0028](decisions/0028-scale-and-the-m8-gate.md)): the kernel's cost kept
+    local to a settlement and exact, the boundary carrying a city.
+    - **CF**: the baseline at scale: fixtures of 3×1,000, 3×3,334 and one of 10k, per-day
+      counters and a profile, measured on the container; no engine change.
+    - **CG**: local searches, exactly: settlement indexes walked in today's scan order, with
+      debug checks; the growth exponent from 1k to 10k.
+    - **CH**: the host and frames at scale: Max lived in chunks within a day, people on the delta
+      stream, batched drawing in the web observer.
+    - **CI**: constant factors from the profile, exact, time-boxed.
+    - **CJ**: routing for the city: landmarks per region, the cache sized by population, reverse
+      fields where they pay, a two-level overlay, bounds a faster mode cannot break.
+    - **CK**: parallel preparation on a private bounded pool, digests equal at 1, 2, 4 and 8
+      workers.
+    - **CL**: Accelerated at scale: views cleared by party, built at midnight, one sampler from
+      the profile, Gate B fixtures at scale.
+  - **M8b, ways, modes and traffic** (designed when reached, from `docs/briefs/m8-transport.md`):
+    ways as saved records once worked or reserved, with widths and a derived hierarchy; modes
+    from a technique and a made object (handcart and dugout first; pack animals and carts wait on
+    a husbandry design); boats on reaches by the day's stage; congestion at bottlenecks only;
+    goods in transit; a law to build a way, grading as an earthwork.
+  - **M8c, planning and land** (designed when reached, from `docs/briefs/m8-planning.md`): site
+    choice as a decision whose savings are recorded (land value derived, never read); the home
+    reach that caps a settlement's footprint; a plan as a law that reserves ground; allotment by
+    an office; compliance; zoning by allowed use and nuisance.
+  - **M8d, buildings and earthquakes, and the M8 demo** (designed when reached, from
+    `docs/briefs/m8-building.md`): frame grammar v3 (up to 4 storeys, style traits live);
+    techniques that open structural systems rather than caps; a lateral margin; the earthquake
+    as the observer's tool acting through margins; buildings a polity raises; the M8 demo, time-
+    boxed, nudges logged; the gate measured with M8b–M8d in.
 
 **Post-v1 (ordered, not sized):**
 - **M9, Aggregate LOD & scale:** cohort model, 10–30 settlements, 100k+
@@ -4804,6 +4836,41 @@ One line each. Don't re-litigate without a reason written next to the entry.
   date or era makes a council likelier; the smoke's finding that villages of about 50 never
   amend may stand as a result. The demo names two outcomes (a captured assembly's tariff, a
   struck-down curfew); each part's demo shows what its world reached, nudging only priors.
+- **M8 design (2026-10-17, plan §7):** from four briefs (`docs/briefs/m8-scale.md`,
+  `m8-transport.md`, `m8-planning.md`, `m8-building.md`), which read 01-01, 01-02, 01-03, 01-04,
+  01-08, 01-11, 14-02, 14-03, 12-05, 12-06, 10-07, 07-08, 11-12, 14-13, 10-04, 10-05, 08-19,
+  10-08, 08-11, 11-02, 11-03, 11-05, 11-06, 11-09, 11-10, 11-13 and 03-07. **M8 is split in four**
+  (§7), as M5–M7 were: M8a scale, M8b ways, modes and traffic, M8c planning and land, M8d
+  buildings and earthquakes with the demo. **Scale first**, because every other part has to run at
+  a city's size and because cost today grows faster than the people (exponents 1.5–1.7: six
+  searches scan the world and filter by settlement); then ways, since planning reserves corridors
+  and land value needs travel times; then planning, since tall buildings need land worth building
+  up for; buildings and the demo last. **One ADR now,**
+  [ADR-0028](decisions/0028-scale-and-the-m8-gate.md) (scale and the gate); M8b–M8d are designed
+  when reached, one ADR each expected. **The gate, amended:** the scale brief's arithmetic puts
+  10k at a year a minute 150–190× from today's extrapolated cost and 50k 880–1,400×, against
+  levers of about 7–140× and 15–470×; M8 gates 10k (three settlements of about 3,334 on the
+  default map, a whole second year at Max) on the target PC, measures the demo's 30k, and moves
+  50k to M9's aggregate LOD. If 10k misses after M8a's time-boxed slices, the gate is amended to the
+  figure reached, with evidence. **The briefs' open questions, answered where M8a needs them.**
+  *Scale brief:* (1) 10k is gated, 30k measured, 50k M9's. (2) Measured headless on the target
+  PC; this container measures every slice, the target's number is the owner's to run and is
+  marked not yet measured until then. (3) Three settlements of about 3,334, the second year whole.
+  (4) ADR-0011's approximations and those ADR-0028 §6 adds under Gate B. (5) Tie-breaks keyed by
+  event identity wait for M9's settlements side by side. (6) No lightweight settlements in M8.
+  (7) The web observer is M8's measure of drawing at 60 fps; Unreal's on its own track. (8) Pause
+  is answered within a tick at Max (the host lives a day in chunks). (9) A buyer weighs every
+  seller, as built. (10) The appearance seed waits for Unreal. *Transport, planning and building
+  briefs:* answered when their parts are designed; three of their findings bear on the order and
+  are recorded now. **The demo names its outcome:** plan §7's "a 30k-person planned capital next
+  to an organic port town" is a world's shape, not something the engine may author; M8d designs
+  it as worlds founded large enough for a city (setup, as ADR-0018's founding groups are), where a
+  plan law may or may not pass, time-boxed with nudges of priors logged. **Homes cannot reach a
+  city's ground:** a home is placed within `HOME_REACH_SECONDS` (300 s) of the hearth, about 28 ha,
+  some 2,800 people at 100 a hectare; M8c must lift it. **Pack animals and carts need livestock**,
+  which the content has none of: M8b builds the handcart and the dugout, and a husbandry design
+  is recorded as a gap before draught animals. **Bench, not yet clean:** the last measurement
+  (slice BD, 1,447.4 s a year for 3×1,000) predates M6c and M7; slice CF measures again.
 - **M7b design (2026-10-16, plan §7):** from the courts brief (`docs/briefs/m7-courts.md`),
   which reads 09-07, 09-06, 09-02, 09-05, 09-04, 06-05 and 06-09. **One ADR,**
   [ADR-0025](decisions/0025-forums-precedent-and-review.md) (forums, precedent and review):

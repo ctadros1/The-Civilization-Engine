@@ -26,8 +26,12 @@ plan wins. Check a brief's citations against the reports before relying on one.
 | [m7-capture.md](m7-capture.md) | M7 | Duties and embargoes as laws, guilds as factions of a shared stake, privileges, corruption and patronage as specific choices, capture as amendments |
 | [m7-courts.md](m7-courts.md) | M7 | Forums named by law, procedure, precedent as the saved case, limits and judicial review, carrying out rulings |
 | [m7-money.md](m7-money.md) | M7 | Credit in goods, pledges and defaults, keepers and store lending, money's worth to its holder, metal, minting and debasement |
+| [m8-scale.md](m8-scale.md) | M8a | The gap measured, local searches made exact, constant factors, routing for a city, parallel and exact, Accelerated at scale, the host and crowds |
+| [m8-transport.md](m8-transport.md) | M8b | Ways as records, modes from techniques, boats on reaches, congestion at bottlenecks, goods in transit, ways as public works, grading |
+| [m8-planning.md](m8-planning.md) | M8c | Plans as laws, land assembly, allotment, compliance, zoning by use and nuisance, land value from what is paid |
+| [m8-building.md](m8-building.md) | M8d | Frame grammar v3, techniques that open structural systems, lateral margins, earthquakes as an observer tool, buildings a polity raises |
 
 The M4 briefs were written on 2026-10-07 for the M4 design (plan §9, "M4a design"); the M5
 briefs on 2026-10-09 for the M5 design (plan §9, "M5 design"); the M6 briefs on 2026-10-10 for
-the M6 design (plan §9, "M6 design"); the M7 briefs on 2026-10-15 for the M7 design. The M5 briefs' bridges (in the settlements brief) are
+the M6 design (plan §9, "M6 design"); the M7 briefs on 2026-10-15 for the M7 design; the M8 briefs on 2026-10-17 for the M8 design (plan §9, "M8 design"). The M5 briefs' bridges (in the settlements brief) are
 designed with M5c's works.

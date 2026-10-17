@@ -34,6 +34,7 @@ the milestone is too big and gets split.
 | [0025](0025-forums-precedent-and-review.md) | Forums, precedent and review | Accepted | M7b |
 | [0026](0026-organizations-privileges-and-trade-policy.md) | Organizations, privileges and trade policy | Accepted | M7c |
 | [0027](0027-claims-and-coin.md) | Claims and coin | Accepted | M7d |
+| [0028](0028-scale-and-the-m8-gate.md) | Scale and the M8 gate | Accepted | M8a |
 
 ## Template
 

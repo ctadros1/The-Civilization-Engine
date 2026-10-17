@@ -2710,3 +2710,14 @@ now make worlds of a fixed identity. Nobody smelted copper. The households taugh
 and a household makes a tool only when it runs short, so no copper was made, no metal was weighed,
 and no mint was ever proposed. Credit comes from need; coin waits on metal; metal waits on tools
 wearing out. That closes M7d, and with it M7.
+
+## 2026-10-17 — The M8 design
+
+**Decided:** M8, the growing city, is split in four: scale first, then ways and carts and boats,
+then planning and land, then taller buildings and earthquakes with the demo. Four briefs read the
+research and the code. The plan's gate of 50,000 people at a year a minute is several hundred
+times beyond the kernel today, and its cost grows faster than its people, so the gate becomes
+10,000 people at a year a minute, measured on the owner's PC; the demo's city is measured, not
+gated, and 50,000 waits for M9's lower detail. Three things the plan assumed are recorded as
+gaps: the demo's planned capital names an outcome, homes cannot yet spread over a city's ground,
+and carts need animals the content does not have.

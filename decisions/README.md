@@ -36,6 +36,7 @@ the milestone is too big and gets split.
 | [0027](0027-claims-and-coin.md) | Claims and coin | Accepted | M7d |
 | [0028](0028-scale-and-the-m8-gate.md) | Scale and the M8 gate | Accepted | M8a |
 | [0029](0029-ways-modes-and-traffic.md) | Ways, modes and traffic | Accepted | M8b |
+| [0030](0030-planning-and-land.md) | Planning and land | Accepted | M8c |
 
 ## Template
 

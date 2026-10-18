@@ -4406,10 +4406,27 @@ and M6a gives rivers a daily flow.
         w_walk`). **Not yet:** the walk a household would have there from where it would live
         (it weighs what that place's people walk now), distance beside time, and the tally in
         the observer.
-  - **M8c, planning and land** (designed when reached, from `docs/briefs/m8-planning.md`): site
-    choice as a decision whose savings are recorded (land value derived, never read); the home
-    reach that caps a settlement's footprint; a plan as a law that reserves ground; allotment by
-    an office; compliance; zoning by allowed use and nuisance.
+  - **M8c, planning and land** ([ADR-0030](decisions/0030-planning-and-land.md), from
+    `docs/briefs/m8-planning.md`): site choice as a decision whose savings are recorded (land
+    value derived, never read); the home reach that caps a settlement's footprint; a plan as a
+    law that reserves ground; allotment by an office; compliance; zoning by allowed use and
+    nuisance. Slices:
+    - **CS, where a household builds, as a choice:** candidate plots scored in hours a year
+      (walks to where its people go, levelling, fees, expected sanction), the receipt kept with
+      the plot, the reach replaced by the household's own; new baselines; a plot's "why here".
+    - **CT, the plan law and its reservations:** `Plan`, a pure layout function and its first
+      operations, 3–8 alternatives, forecasts in hours, the issues *no ground*, *a way built
+      over* and *new ground*, versions, keepers avoiding reserved ground, encroachments recorded,
+      the reservation layers.
+    - **CU, land assembly and allotment:** clauses and answers for every touched claim, the
+      channels `GroundFee`, `GroundRent` and `Compensation`, the keeper's office, phases, the four
+      allocation rules, ground rent as an obligation, build by.
+    - **CV, compliance and cases:** expected sanction, sightings, cases under a plan, forums,
+      remedies (fine, removal, regularisation), the backlog.
+    - **CW, use and nuisance rules:** district uses and two rule templates (worked fires from
+      homes, middens from wells).
+    - **CX, land value and density:** the derived map (paid, reckoned, nothing recorded), the
+      Land row, a bench of the largest settlement M8 lives.
   - **M8d, buildings and earthquakes, and the M8 demo** (designed when reached, from
     `docs/briefs/m8-building.md`): frame grammar v3 (up to 4 storeys, style traits live);
     techniques that open structural systems rather than caps; a lateral margin; the earthquake
@@ -5528,6 +5545,26 @@ One line each. Don't re-litigate without a reason written next to the entry.
   stands on), then bottlenecks for walkers (they exist today at crossings and gates), boats
   (within reach of today's techniques, and the river is where loads first pay), handcarts on
   ways, works on ways, and where to live last. Plan §5.4's transport row is amended by the ADR.
+- **M8c design (2026-10-18, plan §7):** from the planning brief (`docs/briefs/m8-planning.md`),
+  one ADR, [ADR-0030](decisions/0030-planning-and-land.md). **The brief's open questions,
+  answered:** (1) one `Plan` kind whose templates compose operations (an orthogonal
+  subdivision, public sites, an extent, an orientation rule), further operations appended as
+  vocabulary; (2) no sale or lease of land in M8, ADR-0007 standing, so land value shows in
+  fees, ground rent, compensation and households' receipts; (3) *taken* is offered, for ground
+  reserved once its crop is in, at the cost of a grievance, and no clause ever clears a standing
+  home; (4) site choice changes every world, and its slice records new baselines; (5) the
+  household's own walk reckoning replaces `HOME_REACH_SECONDS`, out to the walk it accepts to a
+  field; (6) a keeper is a new office per plan with a tenure; (7) removal is a remedy, only for a
+  building begun after the plan on its reserved ground; (8) zoning in M8 is district uses on a
+  plan and two nuisance rules, dimensional districts after v1; (9) a plan needs laying out by
+  cord and stake, a technique like any other; (10) no settlement is founded under a plan: the
+  demo's planned capital must pass by law in a world founded large (M8d), or not at all; (11) the
+  Land row shows densities with denominators, payments by channel, plans' shares and reckoned
+  values by walk, with no tolerance until a run is seen. **Order:** site choice first (every
+  later slice needs a household to compare plots, and it lifts the reach), then the plan law and
+  its reservations, assembly and allotment, compliance, use and nuisance rules, and land value
+  and density last. **Height** moves to M8d with grammar v3's storeys, as a household's choice
+  in hours; plan §5.1's "how tall (land value, tech)" is amended by the ADR.
 
 - **M7b design (2026-10-16, plan §7):** from the courts brief (`docs/briefs/m7-courts.md`),
   which reads 09-07, 09-06, 09-02, 09-05, 09-04, 06-05 and 06-09. **One ADR,**

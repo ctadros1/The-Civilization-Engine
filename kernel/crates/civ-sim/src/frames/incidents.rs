@@ -10,6 +10,7 @@
 mod fire;
 mod flood;
 mod storm;
+mod waits;
 
 pub use fire::{building_fire, building_words, conflagration_response};
 pub use flood::flood_response;
@@ -55,6 +56,8 @@ pub const FLOOD: u8 = 7;
 pub const STORM_DAMAGE: u8 = 8;
 /// A storm episode (wire 1.69, ADR-0022 §13).
 pub const STORM: u8 = 9;
+/// A wait worth telling at a crossing or a gate (wire 1.85, ADR-0029 §9).
+pub const WAIT: u8 = 10;
 
 /// Rows a page carries when none is asked, and at most.
 const DEFAULT_ROWS: usize = 50;
@@ -689,6 +692,7 @@ pub fn incidents_rev(sim: &Sim) -> u64 {
         && fires.list.is_empty()
         && floods.high_waters.is_empty()
         && floods.storm_damages.is_empty()
+        && pop.traffic.long_waits.is_empty()
     {
         return 0;
     }
@@ -756,6 +760,7 @@ pub fn incidents_rev(sim: &Sim) -> u64 {
         floods.storm_episodes.len(),
     )
         .hash(&mut h);
+    pop.traffic.long_waits.last().map(|w| w.id).hash(&mut h);
     h.finish().max(1)
 }
 
@@ -785,6 +790,7 @@ pub fn incidents_response(
     totals.insert(FIRE, [0; 4]);
     totals.insert(HIGH_WATER, [0; 4]);
     totals.insert(STORM_DAMAGE, [0; 4]);
+    totals.insert(WAIT, [0; 4]);
     for (at, i) in pop.order.incidents.iter().enumerate() {
         if !in_scope(taking_settlement(sim, i)) {
             continue;
@@ -855,6 +861,17 @@ pub fn incidents_response(
             keys.push(((x.time.minutes(), STORM_DAMAGE, x.id), at));
         }
     }
+    for (at, w) in pop.traffic.long_waits.iter().enumerate() {
+        if !in_scope(w.settlement) {
+            continue;
+        }
+        let t = totals.entry(WAIT).or_default();
+        t[0] += 1;
+        t[1] += 1;
+        if kind == 0 || kind == WAIT {
+            keys.push(((w.time.minutes(), WAIT, w.id), at));
+        }
+    }
     keys.sort_unstable_by_key(|k| std::cmp::Reverse(k.0));
     let start = before.map_or(0, |k| keys.partition_point(|&(key, _)| key >= k));
     let end = (start + limit).min(keys.len());
@@ -873,6 +890,7 @@ pub fn incidents_response(
                 FIRE => fire::fire_row(sim, &pop.fires.list[at]),
                 HIGH_WATER => flood::high_water_row(sim, &pop.floods.high_waters[at]),
                 STORM_DAMAGE => storm::storm_damage_row(sim, &pop.floods.storm_damages[at]),
+                WAIT => waits::wait_row(sim, &pop.traffic.long_waits[at]),
                 _ => illness_row(&f, &pop.sickness.episodes()[at]).0,
             };
             put_row(&mut fbb, sim, &row)
@@ -1323,6 +1341,7 @@ pub fn incident_response(sim: &Sim, kind: u8, id: u32) -> Option<Vec<u8>> {
         STORM_DAMAGE => {
             storm::storm_damage_page(sim, pop.floods.storm_damages.iter().find(|sd| sd.id == id)?)
         }
+        WAIT => waits::wait_page(sim, pop.traffic.long_waits.iter().find(|w| w.id == id)?),
         _ => return None,
     };
     let mut fbb = FlatBufferBuilder::new();

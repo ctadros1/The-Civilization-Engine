@@ -2825,3 +2825,13 @@ remembers it. Nobody vanishes in a crowd and nobody is skipped.
 together step through one behind another. Made slow on purpose in a test, people queued, waited
 and still got where they were going.
 
+## 2026-10-17 — CN, second part: where people wait
+
+**Built:** the map's lenses now include Traffic: every bridge and gate that passed anyone in the
+last month, how many passed and how long they waited, hour by hour, and the longest wait still
+remembered. Anyone who waits a quarter of an hour or more becomes an incident, with how many
+were ahead of them.
+
+**What it comes to:** a fresh village shows its gates with waits under a second; only when made
+slow on purpose do quarter-hour waits appear, and each reads as who waited, where and behind how
+many.

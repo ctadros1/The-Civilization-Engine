@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { NONE_COLOUR, REACH_BANDS, homeAt, kindColour, legend, lensMarks, reachBand } from "../src/coverage.js";
-import type { CoverageHome, CoverageInfo, CoverageSource } from "../src/net/messages.js";
+import {
+  NONE_COLOUR,
+  REACH_BANDS,
+  TRAFFIC_CLASSES,
+  homeAt,
+  kindColour,
+  legend,
+  lensId,
+  lensMarks,
+  placeAt,
+  reachBand,
+  trafficClass,
+} from "../src/coverage.js";
+import type { CoverageHome, CoverageInfo, CoveragePlace, CoverageSource } from "../src/net/messages.js";
 
 function source(kind: number, x: number, minutes: number | null, days = 0): CoverageSource {
   return { name: `source ${kind}`, x, y: 0, kind, minutes, days };
@@ -25,6 +37,7 @@ const info: CoverageInfo = {
   limitMin: 60,
   days: 30,
   summary: ["Could reach: of 3 homes, …", "Did come: in the past 30 days, of 3 homes, …"],
+  places: [],
 };
 
 describe("the Water lens", () => {
@@ -81,5 +94,56 @@ describe("the Water lens", () => {
     expect(came.lines[1]).toBe("Period: the past 30 days, today included");
     expect(came.classes.map((c) => c.label)).toContain("another's well");
     expect(came.counts).toBe("Did come: in the past 30 days, of 3 homes, …");
+  });
+});
+
+function place(x: number, passages: number, waitedMin: number): CoveragePlace {
+  return {
+    name: `gate ${x}`,
+    x,
+    y: 0,
+    settlement: 1,
+    passages,
+    waitedMin,
+    heldShort: 0,
+    longestMin: waitedMin > 0 ? 1 : 0,
+    hourPassages: new Array<number>(24).fill(0),
+    hourWaitS: new Array<number>(24).fill(0),
+    words: [`${passages} passages`],
+  };
+}
+
+describe("the Traffic lens", () => {
+  const traffic: CoverageInfo = {
+    ...info,
+    lens: 3,
+    title: "Traffic",
+    scope: "Ashford: 3 crossings and gates that passed anyone lately",
+    periods: ["about the last 30 days, each passage fading", "by the hour of the day it was reached"],
+    denominator: "passages: each walker through a crossing or gate once",
+    homes: [],
+    summary: ["3 crossings and gates passed 700 walkers …", "Nobody waited a minute at any."],
+    places: [place(0, 600, 3), place(100, 90, 0), place(200, 10, 20)],
+  };
+
+  it("is lens 3 and classes each place by its wait a passage, hollow where nobody waited", () => {
+    expect(lensId("traffic")).toBe(3);
+    expect(trafficClass(traffic.places[0]!)).toBe(0);
+    expect(trafficClass(traffic.places[2]!)).toBe(3);
+    const marks = lensMarks(traffic, "traffic");
+    expect(marks).toHaveLength(3);
+    expect(marks[1]).toMatchObject({ type: "home", x: 100, hollow: true });
+    expect(marks[2]).toMatchObject({ colour: TRAFFIC_CLASSES[3]!.colour, hollow: false });
+    expect(lensMarks(traffic, "reach")).toHaveLength(0);
+  });
+
+  it("finds the place under the pointer and names its scope, period and counts", () => {
+    expect(placeAt(traffic, 98, 0, 5)?.name).toBe("gate 100");
+    expect(placeAt(traffic, 50, 0, 5)).toBeNull();
+    const l = legend(traffic, "traffic");
+    expect(l.title).toBe("Traffic");
+    expect(l.lines[0]).toContain("crossings and gates");
+    expect(l.classes).toHaveLength(TRAFFIC_CLASSES.length + 1);
+    expect(l.counts).toContain("Nobody waited a minute");
   });
 });

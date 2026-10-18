@@ -11,6 +11,7 @@ use std::sync::OnceLock;
 use civ_agents::traffic::Facility;
 use civ_content::ContentRegistry;
 use civ_land::enclosures::{Enclosure, ring};
+use civ_schema::{flatbuffers, wire};
 use civ_sim::{NewWorld, Sim, persist};
 
 const PRESET: &str = "core:worldgen/river_valley";
@@ -192,5 +193,45 @@ fn a_village_passes_its_gates_without_waiting_and_made_slow_its_walkers_queue_an
         "every walk still ends"
     );
     assert!(sim.people().traffic.problems().is_empty());
+    // Waits of a quarter of an hour or more are told as incidents.
+    let long = &sim.people().traffic.long_waits;
+    assert!(!long.is_empty(), "some waited a quarter of an hour");
+    assert!(long.iter().all(|w| w.minutes >= 15.0));
+    let payload = civ_sim::frames::incidents::incidents_response(
+        &sim,
+        None,
+        civ_sim::frames::incidents::WAIT,
+        None,
+        0,
+    );
+    let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+    let rows = response
+        .body_as_incidents()
+        .and_then(|i| i.rows())
+        .expect("rows");
+    assert!(!rows.is_empty());
+    let words = rows.get(0).happened().unwrap_or_default().to_owned();
+    assert!(
+        words.starts_with("waited ") && words.contains("a gate of"),
+        "{words}"
+    );
+    // The Traffic lens: the gates, busiest first, with their passages and waits by hour.
+    let payload = civ_sim::frames::traffic::lens_response(&sim, None);
+    let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+    let lens = response.body_as_coverage().expect("coverage");
+    assert_eq!(lens.lens(), civ_sim::frames::traffic::TRAFFIC);
+    let places = lens.places().expect("places");
+    assert!(!places.is_empty());
+    let first = places.get(0);
+    assert_eq!(first.hour_passages().map_or(0, |v| v.len()), 24);
+    assert!(first.passages() > 0.0 && first.waited_min() > 0.0);
+    assert!(
+        places
+            .iter()
+            .zip(places.iter().skip(1))
+            .all(|(a, b)| a.passages() >= b.passages())
+    );
+    let summary = lens.summary().expect("summary").get(0);
+    assert!(summary.contains("crossings and gates passed"), "{summary}");
     saves_and_goes_on_alike(&mut sim, DAY / 2);
 }

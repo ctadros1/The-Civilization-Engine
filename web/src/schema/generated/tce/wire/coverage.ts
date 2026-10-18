@@ -5,6 +5,7 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { CoverageHome } from '../../tce/wire/coverage-home.js';
+import { CoveragePlace } from '../../tce/wire/coverage-place.js';
 
 
 export class Coverage {
@@ -95,8 +96,18 @@ summaryLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+places(index: number, obj?:CoveragePlace):CoveragePlace|null {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? (obj || new CoveragePlace()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+placesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startCoverage(builder:flatbuffers.Builder) {
-  builder.startObject(9);
+  builder.startObject(10);
 }
 
 static addLens(builder:flatbuffers.Builder, lens:number) {
@@ -171,12 +182,28 @@ static startSummaryVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addPlaces(builder:flatbuffers.Builder, placesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(9, placesOffset, 0);
+}
+
+static createPlacesVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startPlacesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endCoverage(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createCoverage(builder:flatbuffers.Builder, lens:number, titleOffset:flatbuffers.Offset, scopeOffset:flatbuffers.Offset, periodsOffset:flatbuffers.Offset, denominatorOffset:flatbuffers.Offset, homesOffset:flatbuffers.Offset, limitMin:number, days:number, summaryOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createCoverage(builder:flatbuffers.Builder, lens:number, titleOffset:flatbuffers.Offset, scopeOffset:flatbuffers.Offset, periodsOffset:flatbuffers.Offset, denominatorOffset:flatbuffers.Offset, homesOffset:flatbuffers.Offset, limitMin:number, days:number, summaryOffset:flatbuffers.Offset, placesOffset:flatbuffers.Offset):flatbuffers.Offset {
   Coverage.startCoverage(builder);
   Coverage.addLens(builder, lens);
   Coverage.addTitle(builder, titleOffset);
@@ -187,6 +214,7 @@ static createCoverage(builder:flatbuffers.Builder, lens:number, titleOffset:flat
   Coverage.addLimitMin(builder, limitMin);
   Coverage.addDays(builder, days);
   Coverage.addSummary(builder, summaryOffset);
+  Coverage.addPlaces(builder, placesOffset);
   return Coverage.endCoverage(builder);
 }
 }

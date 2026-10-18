@@ -718,7 +718,7 @@ table GetOutbreak {
 // layers, *could reach* and *did come*, for the homes of one settlement (0: every settlement).
 table GetCoverage {
   settlement: ulong (id: 0);
-  // 1: water; 2: help at a fire.
+  // 1: water; 2: help at a fire; 3 (wire 1.85): traffic at crossings and gates.
   lens: ubyte (id: 1);
 }
 
@@ -2659,6 +2659,24 @@ table CoverageHome {
 
 // A lens's homes, with what the lens shows and over what (15-01 §3.1: title, scope, period,
 // denominator), and its counts in words.
+// Wire 1.85 (M8b slice CN; ADR-0029 §9): a bottleneck on the Traffic lens: a crossing or a gate,
+// in words, where it is, the settlement it is by (0 none), its passages and minutes waited over
+// about the last 30 days (each fading), those who stood short of its approach, its longest wait
+// remembered, minutes; its passages by hour of the day and the seconds waited a passage by hour
+// (24 each); and lines in words.
+table CoveragePlace {
+  name: string (id: 0);
+  at: Vec2 (id: 1);
+  settlement: ulong (id: 2);
+  passages: float (id: 3);
+  waited_min: float (id: 4);
+  held_short: float (id: 5);
+  longest_min: float (id: 6);
+  hour_passages: [float] (id: 7);
+  hour_wait_s: [float] (id: 8);
+  words: [string] (id: 9);
+}
+
 table Coverage {
   lens: ubyte (id: 0);
   title: string (id: 1);
@@ -2674,6 +2692,8 @@ table Coverage {
   // Each layer's counts in words: "Could reach: of 42 homes, 30 have water within a minute's
   // walk, ...", "Did come: ...".
   summary: [string] (id: 8);
+  // Wire 1.85: the Traffic lens's bottlenecks (lens 3), busiest first.
+  places: [CoveragePlace] (id: 9);
 }
 
 // Wire 1.84 (M8b slice CM; ADR-0029 §1, §9): one stretch of a way: its centre line, metres from

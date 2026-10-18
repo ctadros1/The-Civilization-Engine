@@ -556,6 +556,9 @@ struct FireHelpBuilder;
 struct CoverageHome;
 struct CoverageHomeBuilder;
 
+struct CoveragePlace;
+struct CoveragePlaceBuilder;
+
 struct Coverage;
 struct CoverageBuilder;
 
@@ -23581,6 +23584,179 @@ inline ::flatbuffers::Offset<CoverageHome> CreateCoverageHomeDirect(
       fire_help);
 }
 
+struct CoveragePlace FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef CoveragePlaceBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_NAME = 4,
+    VT_AT = 6,
+    VT_SETTLEMENT = 8,
+    VT_PASSAGES = 10,
+    VT_WAITED_MIN = 12,
+    VT_HELD_SHORT = 14,
+    VT_LONGEST_MIN = 16,
+    VT_HOUR_PASSAGES = 18,
+    VT_HOUR_WAIT_S = 20,
+    VT_WORDS = 22
+  };
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
+  }
+  const tce::wire::Vec2 *at() const {
+    return GetStruct<const tce::wire::Vec2 *>(VT_AT);
+  }
+  uint64_t settlement() const {
+    return GetField<uint64_t>(VT_SETTLEMENT, 0);
+  }
+  float passages() const {
+    return GetField<float>(VT_PASSAGES, 0.0f);
+  }
+  float waited_min() const {
+    return GetField<float>(VT_WAITED_MIN, 0.0f);
+  }
+  float held_short() const {
+    return GetField<float>(VT_HELD_SHORT, 0.0f);
+  }
+  float longest_min() const {
+    return GetField<float>(VT_LONGEST_MIN, 0.0f);
+  }
+  const ::flatbuffers::Vector<float> *hour_passages() const {
+    return GetPointer<const ::flatbuffers::Vector<float> *>(VT_HOUR_PASSAGES);
+  }
+  const ::flatbuffers::Vector<float> *hour_wait_s() const {
+    return GetPointer<const ::flatbuffers::Vector<float> *>(VT_HOUR_WAIT_S);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *words() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_WORDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_NAME) &&
+           verifier.VerifyString(name()) &&
+           VerifyField<tce::wire::Vec2>(verifier, VT_AT, 4) &&
+           VerifyField<uint64_t>(verifier, VT_SETTLEMENT, 8) &&
+           VerifyField<float>(verifier, VT_PASSAGES, 4) &&
+           VerifyField<float>(verifier, VT_WAITED_MIN, 4) &&
+           VerifyField<float>(verifier, VT_HELD_SHORT, 4) &&
+           VerifyField<float>(verifier, VT_LONGEST_MIN, 4) &&
+           VerifyOffset(verifier, VT_HOUR_PASSAGES) &&
+           verifier.VerifyVector(hour_passages()) &&
+           VerifyOffset(verifier, VT_HOUR_WAIT_S) &&
+           verifier.VerifyVector(hour_wait_s()) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyVector(words()) &&
+           verifier.VerifyVectorOfStrings(words()) &&
+           verifier.EndTable();
+  }
+};
+
+struct CoveragePlaceBuilder {
+  typedef CoveragePlace Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
+    fbb_.AddOffset(CoveragePlace::VT_NAME, name);
+  }
+  void add_at(const tce::wire::Vec2 *at) {
+    fbb_.AddStruct(CoveragePlace::VT_AT, at);
+  }
+  void add_settlement(uint64_t settlement) {
+    fbb_.AddElement<uint64_t>(CoveragePlace::VT_SETTLEMENT, settlement, 0);
+  }
+  void add_passages(float passages) {
+    fbb_.AddElement<float>(CoveragePlace::VT_PASSAGES, passages, 0.0f);
+  }
+  void add_waited_min(float waited_min) {
+    fbb_.AddElement<float>(CoveragePlace::VT_WAITED_MIN, waited_min, 0.0f);
+  }
+  void add_held_short(float held_short) {
+    fbb_.AddElement<float>(CoveragePlace::VT_HELD_SHORT, held_short, 0.0f);
+  }
+  void add_longest_min(float longest_min) {
+    fbb_.AddElement<float>(CoveragePlace::VT_LONGEST_MIN, longest_min, 0.0f);
+  }
+  void add_hour_passages(::flatbuffers::Offset<::flatbuffers::Vector<float>> hour_passages) {
+    fbb_.AddOffset(CoveragePlace::VT_HOUR_PASSAGES, hour_passages);
+  }
+  void add_hour_wait_s(::flatbuffers::Offset<::flatbuffers::Vector<float>> hour_wait_s) {
+    fbb_.AddOffset(CoveragePlace::VT_HOUR_WAIT_S, hour_wait_s);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> words) {
+    fbb_.AddOffset(CoveragePlace::VT_WORDS, words);
+  }
+  explicit CoveragePlaceBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<CoveragePlace> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<CoveragePlace>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<CoveragePlace> CreateCoveragePlace(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0,
+    const tce::wire::Vec2 *at = nullptr,
+    uint64_t settlement = 0,
+    float passages = 0.0f,
+    float waited_min = 0.0f,
+    float held_short = 0.0f,
+    float longest_min = 0.0f,
+    ::flatbuffers::Offset<::flatbuffers::Vector<float>> hour_passages = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<float>> hour_wait_s = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> words = 0) {
+  CoveragePlaceBuilder builder_(_fbb);
+  builder_.add_settlement(settlement);
+  builder_.add_words(words);
+  builder_.add_hour_wait_s(hour_wait_s);
+  builder_.add_hour_passages(hour_passages);
+  builder_.add_longest_min(longest_min);
+  builder_.add_held_short(held_short);
+  builder_.add_waited_min(waited_min);
+  builder_.add_passages(passages);
+  builder_.add_at(at);
+  builder_.add_name(name);
+  return builder_.Finish();
+}
+
+struct CoveragePlace::Traits {
+  using type = CoveragePlace;
+  static auto constexpr Create = CreateCoveragePlace;
+};
+
+inline ::flatbuffers::Offset<CoveragePlace> CreateCoveragePlaceDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const char *name = nullptr,
+    const tce::wire::Vec2 *at = nullptr,
+    uint64_t settlement = 0,
+    float passages = 0.0f,
+    float waited_min = 0.0f,
+    float held_short = 0.0f,
+    float longest_min = 0.0f,
+    const std::vector<float> *hour_passages = nullptr,
+    const std::vector<float> *hour_wait_s = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *words = nullptr) {
+  auto name__ = name ? _fbb.CreateString(name) : 0;
+  auto hour_passages__ = hour_passages ? _fbb.CreateVector<float>(*hour_passages) : 0;
+  auto hour_wait_s__ = hour_wait_s ? _fbb.CreateVector<float>(*hour_wait_s) : 0;
+  auto words__ = words ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*words) : 0;
+  return tce::wire::CreateCoveragePlace(
+      _fbb,
+      name__,
+      at,
+      settlement,
+      passages,
+      waited_min,
+      held_short,
+      longest_min,
+      hour_passages__,
+      hour_wait_s__,
+      words__);
+}
+
 struct Coverage FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef CoverageBuilder Builder;
   struct Traits;
@@ -23593,7 +23769,8 @@ struct Coverage FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_HOMES = 14,
     VT_LIMIT_MIN = 16,
     VT_DAYS = 18,
-    VT_SUMMARY = 20
+    VT_SUMMARY = 20,
+    VT_PLACES = 22
   };
   uint8_t lens() const {
     return GetField<uint8_t>(VT_LENS, 0);
@@ -23622,6 +23799,9 @@ struct Coverage FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *summary() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_SUMMARY);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CoveragePlace>> *places() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CoveragePlace>> *>(VT_PLACES);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -23643,6 +23823,9 @@ struct Coverage FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_SUMMARY) &&
            verifier.VerifyVector(summary()) &&
            verifier.VerifyVectorOfStrings(summary()) &&
+           VerifyOffset(verifier, VT_PLACES) &&
+           verifier.VerifyVector(places()) &&
+           verifier.VerifyVectorOfTables(places()) &&
            verifier.EndTable();
   }
 };
@@ -23678,6 +23861,9 @@ struct CoverageBuilder {
   void add_summary(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> summary) {
     fbb_.AddOffset(Coverage::VT_SUMMARY, summary);
   }
+  void add_places(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CoveragePlace>>> places) {
+    fbb_.AddOffset(Coverage::VT_PLACES, places);
+  }
   explicit CoverageBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -23699,8 +23885,10 @@ inline ::flatbuffers::Offset<Coverage> CreateCoverage(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CoverageHome>>> homes = 0,
     float limit_min = 0.0f,
     uint16_t days = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> summary = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> summary = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::CoveragePlace>>> places = 0) {
   CoverageBuilder builder_(_fbb);
+  builder_.add_places(places);
   builder_.add_summary(summary);
   builder_.add_limit_min(limit_min);
   builder_.add_homes(homes);
@@ -23728,13 +23916,15 @@ inline ::flatbuffers::Offset<Coverage> CreateCoverageDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::CoverageHome>> *homes = nullptr,
     float limit_min = 0.0f,
     uint16_t days = 0,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *summary = nullptr) {
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *summary = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::CoveragePlace>> *places = nullptr) {
   auto title__ = title ? _fbb.CreateString(title) : 0;
   auto scope__ = scope ? _fbb.CreateString(scope) : 0;
   auto periods__ = periods ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*periods) : 0;
   auto denominator__ = denominator ? _fbb.CreateString(denominator) : 0;
   auto homes__ = homes ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::CoverageHome>>(*homes) : 0;
   auto summary__ = summary ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*summary) : 0;
+  auto places__ = places ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::CoveragePlace>>(*places) : 0;
   return tce::wire::CreateCoverage(
       _fbb,
       lens,
@@ -23745,7 +23935,8 @@ inline ::flatbuffers::Offset<Coverage> CreateCoverageDirect(
       homes__,
       limit_min,
       days,
-      summary__);
+      summary__,
+      places__);
 }
 
 struct WaySegmentInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

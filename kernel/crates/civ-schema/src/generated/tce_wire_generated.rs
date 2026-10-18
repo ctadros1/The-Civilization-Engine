@@ -36968,6 +36968,255 @@ impl ::core::fmt::Debug for CoverageHome<'_> {
       ds.finish()
   }
 }
+pub enum CoveragePlaceOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct CoveragePlace<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for CoveragePlace<'a> {
+  type Inner = CoveragePlace<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> CoveragePlace<'a> {
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 4;
+  pub const VT_AT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_PASSAGES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_WAITED_MIN: ::flatbuffers::VOffsetT = 12;
+  pub const VT_HELD_SHORT: ::flatbuffers::VOffsetT = 14;
+  pub const VT_LONGEST_MIN: ::flatbuffers::VOffsetT = 16;
+  pub const VT_HOUR_PASSAGES: ::flatbuffers::VOffsetT = 18;
+  pub const VT_HOUR_WAIT_S: ::flatbuffers::VOffsetT = 20;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 22;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    CoveragePlace { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CoveragePlaceArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<CoveragePlace<'bldr>> {
+    let mut builder = CoveragePlaceBuilder::new(_fbb);
+    builder.add_settlement(args.settlement);
+    if let Some(x) = args.words { builder.add_words(x); }
+    if let Some(x) = args.hour_wait_s { builder.add_hour_wait_s(x); }
+    if let Some(x) = args.hour_passages { builder.add_hour_passages(x); }
+    builder.add_longest_min(args.longest_min);
+    builder.add_held_short(args.held_short);
+    builder.add_waited_min(args.waited_min);
+    builder.add_passages(args.passages);
+    if let Some(x) = args.at { builder.add_at(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(CoveragePlace::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn at(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(CoveragePlace::VT_AT, None)}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CoveragePlace::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn passages(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CoveragePlace::VT_PASSAGES, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn waited_min(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CoveragePlace::VT_WAITED_MIN, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn held_short(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CoveragePlace::VT_HELD_SHORT, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn longest_min(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(CoveragePlace::VT_LONGEST_MIN, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn hour_passages(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(CoveragePlace::VT_HOUR_PASSAGES, None)}
+  }
+  #[inline]
+  pub fn hour_wait_s(&self) -> Option<::flatbuffers::Vector<'a, f32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f32>>>(CoveragePlace::VT_HOUR_WAIT_S, None)}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(CoveragePlace::VT_WORDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for CoveragePlace<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<Vec2>("at", Self::VT_AT, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<f32>("passages", Self::VT_PASSAGES, false)?
+     .visit_field::<f32>("waited_min", Self::VT_WAITED_MIN, false)?
+     .visit_field::<f32>("held_short", Self::VT_HELD_SHORT, false)?
+     .visit_field::<f32>("longest_min", Self::VT_LONGEST_MIN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("hour_passages", Self::VT_HOUR_PASSAGES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("hour_wait_s", Self::VT_HOUR_WAIT_S, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("words", Self::VT_WORDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CoveragePlaceArgs<'a> {
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub at: Option<&'a Vec2>,
+    pub settlement: u64,
+    pub passages: f32,
+    pub waited_min: f32,
+    pub held_short: f32,
+    pub longest_min: f32,
+    pub hour_passages: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub hour_wait_s: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
+    pub words: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+}
+impl<'a> Default for CoveragePlaceArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CoveragePlaceArgs {
+      name: None,
+      at: None,
+      settlement: 0,
+      passages: 0.0,
+      waited_min: 0.0,
+      held_short: 0.0,
+      longest_min: 0.0,
+      hour_passages: None,
+      hour_wait_s: None,
+      words: None,
+    }
+  }
+}
+
+pub struct CoveragePlaceBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CoveragePlaceBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CoveragePlace::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_at(&mut self, at: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(CoveragePlace::VT_AT, at);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(CoveragePlace::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_passages(&mut self, passages: f32) {
+    self.fbb_.push_slot::<f32>(CoveragePlace::VT_PASSAGES, passages, 0.0);
+  }
+  #[inline]
+  pub fn add_waited_min(&mut self, waited_min: f32) {
+    self.fbb_.push_slot::<f32>(CoveragePlace::VT_WAITED_MIN, waited_min, 0.0);
+  }
+  #[inline]
+  pub fn add_held_short(&mut self, held_short: f32) {
+    self.fbb_.push_slot::<f32>(CoveragePlace::VT_HELD_SHORT, held_short, 0.0);
+  }
+  #[inline]
+  pub fn add_longest_min(&mut self, longest_min: f32) {
+    self.fbb_.push_slot::<f32>(CoveragePlace::VT_LONGEST_MIN, longest_min, 0.0);
+  }
+  #[inline]
+  pub fn add_hour_passages(&mut self, hour_passages: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CoveragePlace::VT_HOUR_PASSAGES, hour_passages);
+  }
+  #[inline]
+  pub fn add_hour_wait_s(&mut self, hour_wait_s: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CoveragePlace::VT_HOUR_WAIT_S, hour_wait_s);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CoveragePlace::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CoveragePlaceBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CoveragePlaceBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<CoveragePlace<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for CoveragePlace<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("CoveragePlace");
+      ds.field("name", &self.name());
+      ds.field("at", &self.at());
+      ds.field("settlement", &self.settlement());
+      ds.field("passages", &self.passages());
+      ds.field("waited_min", &self.waited_min());
+      ds.field("held_short", &self.held_short());
+      ds.field("longest_min", &self.longest_min());
+      ds.field("hour_passages", &self.hour_passages());
+      ds.field("hour_wait_s", &self.hour_wait_s());
+      ds.field("words", &self.words());
+      ds.finish()
+  }
+}
 pub enum CoverageOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -36993,6 +37242,7 @@ impl<'a> Coverage<'a> {
   pub const VT_LIMIT_MIN: ::flatbuffers::VOffsetT = 16;
   pub const VT_DAYS: ::flatbuffers::VOffsetT = 18;
   pub const VT_SUMMARY: ::flatbuffers::VOffsetT = 20;
+  pub const VT_PLACES: ::flatbuffers::VOffsetT = 22;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -37004,6 +37254,7 @@ impl<'a> Coverage<'a> {
     args: &'args CoverageArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Coverage<'bldr>> {
     let mut builder = CoverageBuilder::new(_fbb);
+    if let Some(x) = args.places { builder.add_places(x); }
     if let Some(x) = args.summary { builder.add_summary(x); }
     builder.add_limit_min(args.limit_min);
     if let Some(x) = args.homes { builder.add_homes(x); }
@@ -37080,6 +37331,13 @@ impl<'a> Coverage<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(Coverage::VT_SUMMARY, None)}
   }
+  #[inline]
+  pub fn places(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CoveragePlace<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CoveragePlace>>>>(Coverage::VT_PLACES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Coverage<'_> {
@@ -37097,6 +37355,7 @@ impl ::flatbuffers::Verifiable for Coverage<'_> {
      .visit_field::<f32>("limit_min", Self::VT_LIMIT_MIN, false)?
      .visit_field::<u16>("days", Self::VT_DAYS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("summary", Self::VT_SUMMARY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CoveragePlace>>>>("places", Self::VT_PLACES, false)?
      .finish();
     Ok(())
   }
@@ -37111,6 +37370,7 @@ pub struct CoverageArgs<'a> {
     pub limit_min: f32,
     pub days: u16,
     pub summary: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub places: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CoveragePlace<'a>>>>>,
 }
 impl<'a> Default for CoverageArgs<'a> {
   #[inline]
@@ -37125,6 +37385,7 @@ impl<'a> Default for CoverageArgs<'a> {
       limit_min: 0.0,
       days: 0,
       summary: None,
+      places: None,
     }
   }
 }
@@ -37171,6 +37432,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CoverageBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Coverage::VT_SUMMARY, summary);
   }
   #[inline]
+  pub fn add_places(&mut self, places: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<CoveragePlace<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Coverage::VT_PLACES, places);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CoverageBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     CoverageBuilder {
@@ -37197,6 +37462,7 @@ impl ::core::fmt::Debug for Coverage<'_> {
       ds.field("limit_min", &self.limit_min());
       ds.field("days", &self.days());
       ds.field("summary", &self.summary());
+      ds.field("places", &self.places());
       ds.finish()
   }
 }

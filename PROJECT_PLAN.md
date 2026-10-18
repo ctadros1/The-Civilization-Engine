@@ -4000,6 +4000,25 @@ and M6a gives rivers a daily flow.
         between chunks) left the rest of that day creeping at the paced speed, which at 10× is up
         to 2.4 hours; an Accelerated day begun is now lived to its midnight in chunks whatever
         speed was chosen since, and the paced speed takes effect there (ADR-0011 §2).
+      - *Second part, as built (2026-10-17): the Traffic lens and wait incidents.* The
+        coverage request's lens 3 is **Traffic** (`frames::traffic`): each crossing and gate
+        that passed anyone in about the last 30 days, busiest first, with its name, where it is,
+        the settlement it serves (a gate's enclosure's, a crossing's nearest hearth), its faded
+        passages, minutes waited, those held short of its approach and its longest wait still
+        in memory, and its passages and mean wait by hour of the day (research 12-05 §4.1:
+        congestion shows as delay concentrated at places and times). It is derived when asked,
+        never saved, and nothing in the world reads it. The observer's lens picker has Traffic:
+        each place a mark coloured by its mean wait a passage (under a second, ten, a minute, a
+        minute or more), its lines on pointing. A wait of a quarter of an hour or more
+        (`LONG_WAIT_MIN`) is kept as a **wait incident** (kind 10): who, their household and
+        settlement, the facility, when, how long and how many were ahead; the newest 1,000 are
+        kept and saved (an additive field of the `traffic` section, so saves stay at schema
+        141 and an older 141 save loads with none). **What it comes to:** in the slowed test
+        village the gates show busiest first with 24 hours of passages, and its quarter-hour
+        waits read as "waited N minutes to pass a gate of …'s palisade, k walkers ahead
+        of them". **Boundary:** wire 1.85 (`CoveragePlace`, `Coverage.places`), saves 141
+        unchanged in number, no content change. **Not yet:** anything reading the waits
+        (CQ, CP).
     - **CO**: boats: the dugout, navigability by stage, directed speeds, landings and handling,
       consignments in transit, ferrying one's own across; fishing, fetching and owed goods by
       boat.

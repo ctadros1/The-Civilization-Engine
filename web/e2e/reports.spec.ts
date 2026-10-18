@@ -11,12 +11,14 @@ const NAME = "Prices Heard";
 
 test("the inspector lists the prices a household has heard of in another settlement", async ({ page }) => {
   const saves = tempSaves();
-  // River valley seed 1, two groups of 30 that know where the other camped, lived 100 days. The
-  // first visit between them comes in the third month (in every world identity tried), and the
-  // visitor's companions at the hearth tell what their households offer.
+  // River valley seed 1, two groups of 30 that know where the other camped, lived 150 days. Their
+  // first visit between them comes in the third month or later, and one visit need not bring word
+  // of prices (2 of 6 world identities held none at day 100, 2026-10-18); by day 150 each of 8
+  // identities tried had four visits, and the visitors' companions at the hearth had told twelve
+  // households what theirs offer.
   makeWorld(saves, [
     ...["--seed", "1", "--size", "768", "--band", "30", "--neighbour", "30", "--known"],
-    ...["--days", "100", "--name", NAME],
+    ...["--days", "150", "--name", NAME],
   ]);
   const host = await startHost(saves);
   try {

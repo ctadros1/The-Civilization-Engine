@@ -10652,12 +10652,35 @@ fn encode_traffic(t: &civ_agents::traffic::Traffic) -> Vec<u8> {
         })
         .collect();
     let waits = fbb.create_vector(&waits);
+    let long_waits: Vec<save::TrafficLongWaitSave> = t
+        .long_waits
+        .iter()
+        .map(|w| {
+            let (kind, id, sector) = w.facility.code();
+            save::TrafficLongWaitSave::new(
+                w.person.get(),
+                w.household.get(),
+                w.settlement.map_or(0, PermanentId::get),
+                id,
+                w.time.minutes(),
+                w.id,
+                w.at.0,
+                w.at.1,
+                w.minutes,
+                w.ahead,
+                sector,
+                kind,
+            )
+        })
+        .collect();
+    let long_waits = (!long_waits.is_empty()).then(|| fbb.create_vector(&long_waits));
     let root = save::TrafficSave::create(
         &mut fbb,
         &save::TrafficSaveArgs {
             servers: Some(servers),
             tallies: Some(tallies),
             waits: Some(waits),
+            long_waits,
         },
     );
     finish(fbb, root)
@@ -10706,6 +10729,19 @@ fn decode_traffic(bytes: &[u8]) -> Result<civ_agents::traffic::Traffic, LoadErro
             minutes: w.minutes(),
             waits: w.waits(),
             day: w.day(),
+        });
+    }
+    for w in root.long_waits().iter().flatten() {
+        t.long_waits.push(civ_agents::traffic::LongWait {
+            id: w.wait_id(),
+            person: required(w.person(), "a long wait's walker")?,
+            household: required(w.household(), "a long wait's household")?,
+            settlement: PermanentId::from_raw(w.settlement()),
+            facility: facility(w.kind(), w.id(), w.sector())?,
+            at: (w.x(), w.y()),
+            time: time(w.time()),
+            minutes: w.minutes(),
+            ahead: w.ahead(),
         });
     }
     if let Some(p) = t.problems().into_iter().next() {

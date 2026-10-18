@@ -1892,6 +1892,25 @@ export interface CoverageHome {
 }
 
 /** A lens's homes with its legend's parts (15-01 §3.1): title, scope, period, denominator. */
+/** A bottleneck on the Traffic lens (wire 1.85, M8b slice CN; ADR-0029 §9). */
+export interface CoveragePlace {
+  /** In words: "Ada's household's log footbridge", "a gate of Ashford's palisade". */
+  name: string;
+  x: number;
+  y: number;
+  settlement: number;
+  /** Its passages and minutes waited over about the last 30 days, each fading; those who stood
+   * short of its approach; its longest wait remembered, minutes. */
+  passages: number;
+  waitedMin: number;
+  heldShort: number;
+  longestMin: number;
+  /** By hour of the day (24 each): passages, and seconds waited a passage. */
+  hourPassages: number[];
+  hourWaitS: number[];
+  words: string[];
+}
+
 export interface CoverageInfo {
   lens: number;
   title: string;
@@ -1905,6 +1924,8 @@ export interface CoverageInfo {
   /** The period of *did come*, days. */
   days: number;
   summary: string[];
+  /** The Traffic lens's bottlenecks (lens 3), busiest first. */
+  places: CoveragePlace[];
 }
 
 export interface EarthworksInfo {
@@ -2902,6 +2923,31 @@ function coverage(c: W.Coverage): CoverageInfo {
   }
   const summary: string[] = [];
   for (let i = 0; i < c.summaryLength(); i++) summary.push(c.summary(i));
+  const places: CoveragePlace[] = [];
+  for (let i = 0; i < c.placesLength(); i++) {
+    const p = c.places(i);
+    if (!p) continue;
+    const at = p.at();
+    const hourPassages: number[] = [];
+    for (let j = 0; j < p.hourPassagesLength(); j++) hourPassages.push(p.hourPassages(j) ?? 0);
+    const hourWaitS: number[] = [];
+    for (let j = 0; j < p.hourWaitSLength(); j++) hourWaitS.push(p.hourWaitS(j) ?? 0);
+    const words: string[] = [];
+    for (let j = 0; j < p.wordsLength(); j++) words.push(p.words(j));
+    places.push({
+      name: p.name() ?? "",
+      x: at?.x() ?? 0,
+      y: at?.y() ?? 0,
+      settlement: Number(p.settlement()),
+      passages: p.passages(),
+      waitedMin: p.waitedMin(),
+      heldShort: p.heldShort(),
+      longestMin: p.longestMin(),
+      hourPassages,
+      hourWaitS,
+      words,
+    });
+  }
   const periods: string[] = [];
   for (let i = 0; i < c.periodsLength(); i++) periods.push(c.periods(i));
   return {
@@ -2914,6 +2960,7 @@ function coverage(c: W.Coverage): CoverageInfo {
     limitMin: c.limitMin(),
     days: c.days(),
     summary,
+    places,
   };
 }
 

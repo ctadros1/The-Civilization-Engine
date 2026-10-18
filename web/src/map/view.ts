@@ -24,7 +24,7 @@
 import { Application, Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 
 import { buildingAt, buildingMarks, type Mark } from "../buildings.js";
-import { homeAt, lensMarks, type LensLayer } from "../coverage.js";
+import { homeAt, lensMarks, placeAt, type LensLayer } from "../coverage.js";
 import { crossingAt, crossingEnds, crossingLook } from "../crossings.js";
 import { wayAt, wayLook } from "../ways.js";
 import { depositAt, depositLook } from "../deposits.js";
@@ -40,6 +40,7 @@ import {
   type BuildingInfo,
   type Clock,
   type CoverageHome,
+  type CoveragePlace,
   type CoverageInfo,
   type CrossingInfo,
   type CrossingsInfo,
@@ -120,6 +121,8 @@ export interface PointerInfo {
   /** The home under the pointer while a lens is shown, with what the lens reads of it (M6a slice
    * BB, step three). */
   home: CoverageHome | null;
+  /** The crossing or gate under the pointer on the Traffic lens, if any (M8b slice CN). */
+  place: CoveragePlace | null;
   /** The worn ground under the pointer, if any. */
   path: { wear: number; trail: boolean } | null;
 }
@@ -1071,6 +1074,7 @@ export class MapView {
       bank: bankAt(this.water?.banks ?? [], xM, yM, 4 / this.scale),
       flow: this.water?.flow ?? null,
       home: homeAt(this.lens, xM, yM, 5 / this.scale),
+      place: placeAt(this.lens, xM, yM, 5 / this.scale),
       path: pathAt(this.paths, cellX, cellY),
     };
   }

@@ -3311,8 +3311,27 @@ struct TrafficWaitSave {
   kind: ubyte;
 }
 
+// A wait worth telling (M8b slice CN): its number, the walker, their household and settlement
+// (0 none), the facility (as in `TripAheadSave`), where and when they reached it, minutes from the
+// calendar origin, the minutes they waited and the walkers ahead of them.
+struct TrafficLongWaitSave {
+  person: ulong;
+  household: ulong;
+  settlement: ulong;
+  id: ulong;
+  time: long;
+  wait_id: uint;
+  x: float;
+  y: float;
+  minutes: float;
+  ahead: uint;
+  sector: ushort;
+  kind: ubyte;
+}
+
 table TrafficSave {
   servers: [TrafficServerSave] (id: 0);
   tallies: [TrafficTallySave] (id: 1);
   waits: [TrafficWaitSave] (id: 2);
+  long_waits: [TrafficLongWaitSave] (id: 3);
 }

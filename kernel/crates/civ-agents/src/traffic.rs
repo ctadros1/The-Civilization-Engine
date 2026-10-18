@@ -23,7 +23,7 @@
 
 use std::collections::BTreeMap;
 
-use civ_core::PermanentId;
+use civ_core::{PermanentId, SimTime};
 
 use crate::uses::fading;
 
@@ -43,6 +43,11 @@ pub const TALLY_MEMORY_DAYS: f64 = 30.0;
 pub const SHARED: u8 = 2;
 /// Seconds in a minute.
 const MINUTE_S: f64 = 60.0;
+/// A wait worth telling as an incident, minutes (a design prior: a quarter of an hour stood at a
+/// bridge is remembered and told; a village of 30 never waits so long).
+pub const LONG_WAIT_MIN: f32 = 15.0;
+/// Long waits kept, the newest.
+pub const MOST_LONG_WAITS: usize = 1000;
 /// Seconds of slots a facility keeps behind the latest arrival: twice the events' minute.
 pub const SLOT_MEMORY_S: f64 = 2.0 * MINUTE_S;
 
@@ -191,6 +196,22 @@ pub struct WaitHeld {
     pub day: i64,
 }
 
+/// A wait worth telling: a walker who stood [`LONG_WAIT_MIN`] or more at a facility.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LongWait {
+    pub id: u32,
+    pub person: PermanentId,
+    pub household: PermanentId,
+    pub settlement: Option<PermanentId>,
+    pub facility: Facility,
+    /// Where and when they reached it.
+    pub at: (f32, f32),
+    pub time: SimTime,
+    pub minutes: f32,
+    /// Walkers ahead of them when they came.
+    pub ahead: u32,
+}
+
 /// Every facility's turn-taking, tallies and the waits households hold.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Traffic {
@@ -200,6 +221,8 @@ pub struct Traffic {
     pub tallies: Vec<Tally>,
     /// The waits each household holds, in facility order.
     pub waits: BTreeMap<PermanentId, Vec<WaitHeld>>,
+    /// Waits worth telling, oldest first, the newest [`MOST_LONG_WAITS`] kept.
+    pub long_waits: Vec<LongWait>,
     /// Seconds between walkers in place of each facility's own, for tests that need a queue. Not
     /// saved; never set in a world.
     pub test_headway_s: Option<f64>,
@@ -314,6 +337,17 @@ impl Traffic {
         }
     }
 
+    /// A wait worth telling: numbered after the last, the oldest let go beyond
+    /// [`MOST_LONG_WAITS`].
+    pub fn long_wait(&mut self, mut wait: LongWait) {
+        wait.id = self.long_waits.last().map_or(1, |w| w.id + 1);
+        self.long_waits.push(wait);
+        if self.long_waits.len() > MOST_LONG_WAITS {
+            let extra = self.long_waits.len() - MOST_LONG_WAITS;
+            self.long_waits.drain(..extra);
+        }
+    }
+
     /// What `household` holds of its waits, faded to `day`, in facility order.
     pub fn held(
         &self,
@@ -394,6 +428,14 @@ impl Traffic {
             {
                 out.push("a traffic tally is malformed".to_owned());
             }
+        }
+        if self.long_waits.windows(2).any(|w| w[0].id >= w[1].id)
+            || self
+                .long_waits
+                .iter()
+                .any(|w| !(w.minutes.is_finite() && w.minutes >= 0.0))
+        {
+            out.push("long waits are out of order or malformed".to_owned());
         }
         for list in self.waits.values() {
             if list.windows(2).any(|w| w[0].facility >= w[1].facility) {

@@ -446,10 +446,11 @@ function renderLegend(): void {
   counts.className = "lens-counts";
   counts.textContent = l.counts;
   box.append(counts);
-  if (lensInfo.homes.length === 0) {
+  if (lensLayer === "traffic" ? lensInfo.places.length === 0 : lensInfo.homes.length === 0) {
     const none = document.createElement("p");
     none.className = "lens-empty";
-    none.textContent = "No home stands here yet.";
+    none.textContent =
+      lensLayer === "traffic" ? "No crossing or gate has passed anyone lately." : "No home stands here yet.";
     box.append(none);
   }
 }
@@ -1204,6 +1205,7 @@ map.onPointer = (info: PointerInfo | null) => {
   const flowing =
     (info.water === "river" || info.water === "lake") && info.flow !== null ? `, ${flowWords(info.flow)}` : "";
   const home = info.home ? ` · ${info.home.name}: ${info.home.words.join("; ")}` : "";
+  const place = info.place ? ` · ${info.place.name}: ${info.place.words.join("; ")}` : "";
   const source = info.well
     ? ` · ${info.well.words}${info.well.fouled ? ` · ${info.well.fouled}` : ""}`
     : info.spring
@@ -1213,7 +1215,7 @@ map.onPointer = (info: PointerInfo | null) => {
         : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${flowing}${home}${crossing}${way}${source}${path}${field}${building}${earthwork}${deposit}`;
+    `${height} · ${info.water ?? ""}${flowing}${home}${place}${crossing}${way}${source}${path}${field}${building}${earthwork}${deposit}`;
 };
 
 const scaleBar = byId("scalebar-bar");

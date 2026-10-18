@@ -50,7 +50,7 @@ pub fn crossings_rev(sim: &Sim) -> u64 {
 }
 
 /// Whose a crossing is, as a possessive: "Ada's household's", "Ashford's", "a".
-fn whose(sim: &Sim, c: &Crossing) -> String {
+pub(super) fn whose(sim: &Sim, c: &Crossing) -> String {
     match c.owner {
         CrossingOwner::Household(h) => eldest_name(sim, h)
             .map_or_else(|| "a".to_owned(), |name| format!("{name}'s household's")),

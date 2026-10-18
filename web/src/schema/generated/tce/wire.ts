@@ -26,6 +26,7 @@ export { ConflagrationInfo } from './wire/conflagration-info.js';
 export { ConflagrationRow } from './wire/conflagration-row.js';
 export { Coverage } from './wire/coverage.js';
 export { CoverageHome } from './wire/coverage-home.js';
+export { CoveragePlace } from './wire/coverage-place.js';
 export { CoverageSource } from './wire/coverage-source.js';
 export { CropInfo } from './wire/crop-info.js';
 export { CrossingInfo } from './wire/crossing-info.js';

@@ -144,7 +144,7 @@ impl Population {
         let Some((pd, depart)) = p.trip.as_ref().and_then(|t| Some((t.ahead?, t.depart))) else {
             return;
         };
-        let household = p.household;
+        let (who, household) = (p.id, p.household);
         let at_s = (depart.minutes() as f64 + f64::from(pd.ahead.at_min)) * 60.0;
         let day = now.day_index();
         let hour = ((at_s / 3600.0).floor() as i64).rem_euclid(24) as usize;
@@ -162,6 +162,21 @@ impl Population {
             let half = ctx.params.places.use_half_life_days;
             self.traffic
                 .waited(household, pd.ahead.facility, waited, day, half);
+            if waited >= traffic::LONG_WAIT_MIN {
+                let settlement = self.household(household).and_then(|x| x.settlement);
+                let time = depart.plus_minutes(pd.ahead.at_min.floor() as i64);
+                self.traffic.long_wait(traffic::LongWait {
+                    id: 0,
+                    person: who,
+                    household,
+                    settlement,
+                    facility: pd.ahead.facility,
+                    at: pd.ahead.at,
+                    time,
+                    minutes: waited,
+                    ahead: passage.ahead,
+                });
+            }
             let Some(p) = self.people.get_mut(h) else {
                 return;
             };

@@ -2,10 +2,10 @@
 // map at a time, read per home, with its legend naming its scope, period and denominator
 // (research 15-01 §3.1). The kernel measures and words everything; this only colours and places.
 
-import type { CoverageHome, CoverageInfo, CoverageSource } from "./net/messages.js";
+import type { CoverageHome, CoverageInfo, CoveragePlace, CoverageSource } from "./net/messages.js";
 
 /** The lens's layers: none, *could reach*, *did come*. */
-export type LensLayer = "" | "reach" | "came" | "help-now" | "help-came";
+export type LensLayer = "" | "reach" | "came" | "help-now" | "help-came" | "traffic";
 
 export const LENS_LAYERS: { value: LensLayer; label: string }[] = [
   { value: "", label: "No lens" },
@@ -13,10 +13,42 @@ export const LENS_LAYERS: { value: LensLayer; label: string }[] = [
   { value: "came", label: "Water: did come" },
   { value: "help-now", label: "Help at a fire: now" },
   { value: "help-came", label: "Help at a fire: did come" },
+  { value: "traffic", label: "Traffic: waits at crossings and gates" },
 ];
 
 /** The kernel lens a layer uses. */
-export function lensId(layer: LensLayer): number { return layer.startsWith("help-") ? 2 : 1; }
+export function lensId(layer: LensLayer): number {
+  return layer === "traffic" ? 3 : layer.startsWith("help-") ? 2 : 1;
+}
+
+/** The Traffic lens's classes, by the seconds waited a passage (M8b slice CN, ADR-0029 §9). */
+export const TRAFFIC_CLASSES: { maxS: number; label: string; colour: number }[] = [
+  { maxS: 1, label: "under a second a passage", colour: 0x2f9e5a },
+  { maxS: 10, label: "under ten seconds a passage", colour: 0xa6c93a },
+  { maxS: 60, label: "under a minute a passage", colour: 0xe0a030 },
+  { maxS: Infinity, label: "a minute or more a passage", colour: 0xd0502a },
+];
+
+/** The class of a place on the Traffic lens: its index in `TRAFFIC_CLASSES`. */
+export function trafficClass(p: CoveragePlace): number {
+  const perS = p.passages > 0 ? (p.waitedMin * 60) / p.passages : 0;
+  const i = TRAFFIC_CLASSES.findIndex((c) => perS < c.maxS);
+  return i < 0 ? TRAFFIC_CLASSES.length - 1 : i;
+}
+
+/** The place the pointer is on: the nearest within `slackM` of the point. */
+export function placeAt(info: CoverageInfo | null, xM: number, yM: number, slackM: number): CoveragePlace | null {
+  let best: CoveragePlace | null = null;
+  let bestD = slackM;
+  for (const p of info?.places ?? []) {
+    const d = Math.hypot(p.x - xM, p.y - yM);
+    if (d <= bestD) {
+      bestD = d;
+      best = p;
+    }
+  }
+  return best;
+}
 
 const HELP_NOW = [
   { label: "route search inconclusive", colour: 0x8a8a8a, hollow: true },
@@ -82,6 +114,14 @@ export type LensMark =
 export function lensMarks(info: CoverageInfo, layer: LensLayer): LensMark[] {
   const out: LensMark[] = [];
   if (!layer || info.lens !== lensId(layer)) return out;
+  if (layer === "traffic") {
+    // Each place a disc, coloured by its wait a passage; hollow when nobody waited at all.
+    for (const p of info.places) {
+      const c = TRAFFIC_CLASSES[trafficClass(p)]!;
+      out.push({ type: "home", x: p.x, y: p.y, colour: c.colour, hollow: p.waitedMin <= 0 });
+    }
+    return out;
+  }
   if (layer.startsWith("help-")) {
     const actual = layer === "help-came";
     const classes = actual ? HELP_CAME : HELP_NOW;
@@ -148,6 +188,17 @@ export function legend(
   info: CoverageInfo,
   layer: Exclude<LensLayer, "">,
 ): { title: string; lines: string[]; classes: { label: string; colour: number; hollow: boolean }[]; counts: string } {
+  if (layer === "traffic") {
+    return {
+      title: info.title,
+      lines: [`Scope: ${info.scope}`, `Period: ${info.periods[0] ?? ""}`, `Per: ${info.denominator}`],
+      classes: [
+        ...TRAFFIC_CLASSES.map((c) => ({ label: c.label, colour: c.colour, hollow: false })),
+        { label: "nobody waited at all", colour: TRAFFIC_CLASSES[0]!.colour, hollow: true },
+      ],
+      counts: info.summary.filter((l) => l).join(" "),
+    };
+  }
   if (layer.startsWith("help-")) {
     const actual = layer === "help-came";
     const index = actual ? 1 : 0;

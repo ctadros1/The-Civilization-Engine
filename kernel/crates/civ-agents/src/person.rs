@@ -96,8 +96,14 @@ pub enum Step {
         /// The bank cell to draw the boat up at.
         to: u32,
     },
-    /// Load a boat at a bank, or unload it (`unload`) and carry the load up (ADR-0029 §5:
-    /// handling is people's work).
+    /// Pull the household's cart from where it stands to the door at `to`, by the quickest way
+    /// for its wheels today with what it carries (M8b slice CP, ADR-0029 §7).
+    Haul {
+        /// The door, metres.
+        to: (f32, f32),
+    },
+    /// Load a boat at a bank or a cart at a door, or unload it (`unload`) and carry the load up
+    /// (ADR-0029 §5: handling is people's work).
     Handle {
         /// How long.
         minutes: u32,

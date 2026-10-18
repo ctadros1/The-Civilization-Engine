@@ -130,11 +130,130 @@ impl crate::Land {
     }
 }
 
-/// The ground a cart routes over: elevations row by row, the map's width and height in cells,
-/// and metres a cell.
+/// The height a deck over water cell `cell` of `map` lies at, metres: the highest dry ground
+/// beside it, where its members bear (the cell's own when none is).
+pub fn deck_height(map: &civ_world::WorldMap, cell: u32) -> f32 {
+    let (w, h) = (i64::from(map.width), i64::from(map.height));
+    let (x, y) = (i64::from(cell) % w, i64::from(cell) / w);
+    let mut best: Option<f32> = None;
+    for dy in -1..=1 {
+        for dx in -1..=1 {
+            let (nx, ny) = (x + dx, y + dy);
+            if (dx, dy) == (0, 0) || nx < 0 || ny < 0 || nx >= w || ny >= h {
+                continue;
+            }
+            let n = (ny * w + nx) as usize;
+            if map.water.get(n) == Some(&WATER_LAND) {
+                let z = map.elevation[n];
+                best = Some(best.map_or(z, |b: f32| b.max(z)));
+            }
+        }
+    }
+    best.unwrap_or_else(|| map.elevation[cell as usize])
+}
+
+/// The farthest a cart is pushed off what takes its wheels, from a door to the nearest cell that
+/// does, metres (M8b slice CP; ADR-0029 §7's grid legs from door to way): across a yard, at a
+/// trail's resistance on the level (a design prior: about five cells).
+pub const DOOR_LEG_M: f64 = 40.0;
+
+impl crate::Land {
+    /// The cells of `map` an open crossing's deck lies over, ascending, each at
+    /// [`deck_height`].
+    pub fn cart_decks(&self, map: &civ_world::WorldMap) -> Vec<(u32, f32)> {
+        let mut decks: Vec<(u32, f32)> = self
+            .crossings
+            .list
+            .iter()
+            .filter(|c| c.open())
+            .flat_map(|c| c.cells.iter().map(|&cell| (cell, deck_height(map, cell))))
+            .collect();
+        decks.sort_unstable_by_key(|&(c, _)| c);
+        decks.dedup_by_key(|&mut (c, _)| c);
+        decks
+    }
+
+    /// The ground of `map` as a cart routes over it, with the decks `decks` over its water.
+    pub fn cart_terrain<'a>(
+        &'a self,
+        map: &'a civ_world::WorldMap,
+        decks: &'a [(u32, f32)],
+    ) -> Terrain<'a> {
+        Terrain {
+            elevation: &map.elevation,
+            water: &map.water,
+            decks,
+            width: map.width,
+            height: map.height,
+            cell_m: f64::from(map.cell_size_m),
+        }
+    }
+
+    /// The cell nearest `at` (metres) that takes `wheels`, within [`DOOR_LEG_M`], and the metres
+    /// to its centre: where a cart joins the ground it can go on from a door. Ties go to the
+    /// lower cell.
+    pub fn cart_door(
+        &self,
+        map: &civ_world::WorldMap,
+        at: (f32, f32),
+        wheels: &Wheels,
+    ) -> Option<(u32, f64)> {
+        let cell_m = f64::from(map.cell_size_m);
+        let reach = (DOOR_LEG_M / cell_m).ceil() as i64 + 1;
+        let (cx, cy) = (
+            (f64::from(at.0) / cell_m).floor() as i64,
+            (f64::from(at.1) / cell_m).floor() as i64,
+        );
+        let (w, h) = (i64::from(map.width), i64::from(map.height));
+        let mut best: Option<(f64, u32)> = None;
+        for y in (cy - reach).max(0)..=(cy + reach).min(h - 1) {
+            for x in (cx - reach).max(0)..=(cx + reach).min(w - 1) {
+                let c = (y * w + x) as u32;
+                let centre = ((x as f64 + 0.5) * cell_m, (y as f64 + 0.5) * cell_m);
+                let d = (centre.0 - f64::from(at.0)).hypot(centre.1 - f64::from(at.1));
+                if d > DOOR_LEG_M || self.cart_resistance(map, c, wheels).is_none() {
+                    continue;
+                }
+                if best.is_none_or(|(b, bc)| d < b || (d == b && c < bc)) {
+                    best = Some((d, c));
+                }
+            }
+        }
+        best.map(|(d, c)| (c, d))
+    }
+
+    /// The quickest way for `wheels` from the door at `from` to the door at `to` (metres): the
+    /// legs from each door to the ground the cart can go on, pushed at a trail's resistance on
+    /// the level, and the way between; its cells, the seconds and the metres.
+    pub fn cart_way(
+        &self,
+        map: &civ_world::WorldMap,
+        wheels: &Wheels,
+        from: (f32, f32),
+        to: (f32, f32),
+    ) -> Option<(CartRoute, f64)> {
+        let (a, leg_a) = self.cart_door(map, from, wheels)?;
+        let (b, leg_b) = self.cart_door(map, to, wheels)?;
+        let res = |c: u32| self.cart_resistance(map, c, wheels);
+        let decks = self.cart_decks(map);
+        let route = self
+            .cart_terrain(map, &decks)
+            .route(wheels, &res, &[a], &[b])?;
+        let leg_v = wheels.speed(wheels.trail_c, 0.0)?;
+        let legs_s = (leg_a + leg_b) / leg_v;
+        Some((route, legs_s))
+    }
+}
+
+/// The ground a cart routes over: elevations and water classes row by row, the decks over water,
+/// the map's width and height in cells, and metres a cell.
 #[derive(Clone, Copy, Debug)]
 pub struct Terrain<'a> {
     pub elevation: &'a [f32],
+    pub water: &'a [u8],
+    /// The cells a deck lies over, ascending, with the height it lies at: a cart on a crossing
+    /// is at its deck's height, not the water's.
+    pub decks: &'a [(u32, f32)],
     pub width: u32,
     pub height: u32,
     pub cell_m: f64,
@@ -175,9 +294,17 @@ impl PartialOrd for Open {
 }
 
 impl Terrain<'_> {
+    /// The height a cart is at on cell `c`, metres: its deck's over water, else the ground's.
+    fn height(&self, c: u32) -> Option<f64> {
+        match self.decks.binary_search_by_key(&c, |&(d, _)| d) {
+            Ok(i) => Some(f64::from(self.decks[i].1)),
+            Err(_) => self.elevation.get(c as usize).copied().map(f64::from),
+        }
+    }
+
     /// The cells a cart may step to from `cell`, with the metres of each step: its eight
-    /// neighbours, a diagonal only where both cells beside it take the wheels too, so a cart
-    /// never squeezes between two it cannot go on.
+    /// neighbours, a diagonal only where neither cell beside it is water its wheels cannot cross,
+    /// so a cart never squeezes between two cells of a stream (as walkers do not, M5c slice AW).
     fn steps(&self, cell: u32, resistance: &dyn Fn(u32) -> Option<f64>) -> Vec<(u32, f64)> {
         let (w, h) = (i64::from(self.width), i64::from(self.height));
         let (x, y) = (i64::from(cell) % w, i64::from(cell) / w);
@@ -201,7 +328,11 @@ impl Terrain<'_> {
                 continue;
             }
             if dx != 0 && dy != 0 {
-                let side = |c: Option<u32>| c.and_then(resistance).is_some();
+                let side = |c: Option<u32>| {
+                    c.is_some_and(|c| {
+                        self.water.get(c as usize) == Some(&WATER_LAND) || resistance(c).is_some()
+                    })
+                };
                 if !(side(at(dx, 0)) && side(at(0, dy))) {
                     continue;
                 }
@@ -222,8 +353,7 @@ impl Terrain<'_> {
         (b, cb): (u32, f64),
         metres: f64,
     ) -> Option<f64> {
-        let za = f64::from(*self.elevation.get(a as usize)?);
-        let zb = f64::from(*self.elevation.get(b as usize)?);
+        let (za, zb) = (self.height(a)?, self.height(b)?);
         let v = wheels.speed(0.5 * (ca + cb), (zb - za) / metres)?;
         (v > 0.0).then(|| metres / v)
     }
@@ -444,8 +574,11 @@ mod tests {
     #[test]
     fn a_cart_goes_round_a_ridge_too_steep_to_climb_where_a_light_one_goes_over() {
         let (z, w, h) = ridge();
+        let dry = vec![WATER_LAND; z.len()];
         let terrain = Terrain {
             elevation: &z,
+            water: &dry,
+            decks: &[],
             width: w,
             height: h,
             cell_m: 8.0,
@@ -484,8 +617,11 @@ mod tests {
         // A straight way 30 cells long climbing 0.24 m a cell (3 %).
         let (w, h) = (30u32, 1u32);
         let z: Vec<f32> = (0..w).map(|x| 0.24 * x as f32).collect();
+        let dry = vec![WATER_LAND; z.len()];
         let terrain = Terrain {
             elevation: &z,
+            water: &dry,
+            decks: &[],
             width: w,
             height: h,
             cell_m: 8.0,
@@ -517,8 +653,11 @@ mod tests {
         };
         let z: Vec<f32> = (0..w * h).map(|_| (next() % 100) as f32 * 0.012).collect();
         let open: Vec<bool> = (0..w * h).map(|_| next() % 5 != 0).collect();
+        let dry = vec![WATER_LAND; z.len()];
         let terrain = Terrain {
             elevation: &z,
+            water: &dry,
+            decks: &[],
             width: w,
             height: h,
             cell_m: 8.0,

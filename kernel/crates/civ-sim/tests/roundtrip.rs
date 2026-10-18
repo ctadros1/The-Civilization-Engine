@@ -248,11 +248,11 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 39 land, field, plot, building,
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 40 land, field, plot, building,
     // wear, market, firm, wealth, knowledge, deposits, earth, ties, polity, order, word, opinion,
     // norms, values, creeds, factions, influence, places, relation, crossing, wells, sickness,
-    // pathogen, fires, floods, ways, traffic, boats, consignments and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 39);
+    // pathogen, fires, floods, ways, traffic, boats, carts, consignments and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 40);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -2370,6 +2370,41 @@ fn a_schema_68_save_loads_with_no_wade_remembered() {
     let mut loaded = persist::load(&path, content()).expect("a schema-68 save loads");
     assert!(loaded.people().fords.households.is_empty());
     assert!(loaded.land().crossings.list.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_144_save_loads_with_no_cart() {
+    // A schema-144 save, from before carts (M8b slice CP, second part): nobody had one, so none
+    // is read from it.
+    let mut sim = load_first();
+    let id = sim.allocate_id_for_tests();
+    let owner = sim
+        .people()
+        .households
+        .iter()
+        .next()
+        .expect("a household")
+        .1
+        .id;
+    let land = sim.land_mut_for_tests();
+    land.carts.list.push(civ_land::boats::Boat {
+        id,
+        vehicle: 0,
+        owner,
+        at: 0,
+        made: 0,
+        wear: 0.0,
+        labour_h: 0.0,
+        work_h: 0.0,
+        saves_h_year: 0.0,
+        crew: (0, 0),
+    });
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V144;
+    let path = republish("slice-cp1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-144 save loads");
+    assert!(loaded.land().carts.list.is_empty());
     loaded.advance_minutes(24 * 60).expect("goes on");
 }
 

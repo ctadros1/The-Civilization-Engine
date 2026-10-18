@@ -4140,6 +4140,36 @@ and M6a gives rivers a daily flow.
         digests are CO's but the content's own. **Boundary:** content API 135, no saves or wire
         change. **Not yet:** the wheel technique and the handcart in the core, making one,
         errands by cart and the door legs, clearance, and the observer's view (the next parts).
+      - *Second part, as built (2026-10-18): errands by handcart.* **The core's handcart**
+        (`core:vehicle/handcart`) carries 150 kg where 07-08 §2.1's 80-180 kg and 12-05 §2.3's
+        150-300 kg overlap, 40 kg of its own, 0.9 m across, pulled by one person at some 200 N
+        and 75 W (design priors); nobody makes one yet. **A cart is a household's thing**, kept
+        apart from its boats (`Land.carts`, saved in a section of its own), standing at a cell.
+        **The door legs:** a cart is pushed from where it stands to the nearest cell wheels take,
+        at most 40 m away (`DOOR_LEG_M`), and from the last to the door it goes to; a deck stands
+        level with the highest dry ground beside it, so a cart rolls onto a bridge rather than
+        down into the river bed. **An errand by cart** is weighed at a household's review with the
+        others: the cart pulled empty there and loaded back by the quickest way for its wheels,
+        the door legs pushed, its load lifted at the seller's door and set down at home at the
+        vehicle's handling rate, and a cart's load in place of one carried; the household takes
+        whichever way brings it most for the hours, as with a boat (ADR-0029 §3). Someone of the
+        household pulls the cart there (`Step::Haul`), buys, loads, pulls it home with the goods
+        in transit (still the household's), and unloads; the cart stands at the door again, and
+        the trails it went on are worn as a walk wears them. A cart no wheels can take from where
+        it stands is left there and the rest is walked home. **What it comes to:** in the
+        two-settlement scene a household whose handcart stands at its door, told of toolstone at
+        the other camp and laid a way and decks for wheels between, planned the errand by cart (a
+        cart's load of 150 kg, 88 minutes of travel, 15 minutes to load and as long to unload)
+        over a 20 kg walk; someone pulled the cart there, the load came home in transit and into
+        the store, and the cart stood at the door. Saved and loaded mid-haul, the world went on
+        alike. **Exact:** with the handcart in the core and nobody holding one, the bench's
+        village of three settlements, 30 days in both modes, has the same digests as the first
+        part's in every section but the content's own, and an empty carts section beside them.
+        **Boundary:** saves schema 145 (the carts
+        section; the step `Haul`; an errand's way by cart: its cart and its travel, load and
+        unload minutes), content API 135 still, no wire change (the inspector says "pulling the
+        household's handcart"). **Not yet:** the wheel technique and making a handcart by choice,
+        clearance and turning back, and the observer's view of carts (the next part).
     - **CQ**: works on ways: recorded losses, household works and `build_way`, laying, widening,
       passing places, cart crossings, landings, grading as an earthwork, upkeep by law, tolls.
     - **CR**: where to live weighs the walk; the dashboard's travel time by occupation and

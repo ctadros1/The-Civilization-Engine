@@ -461,6 +461,17 @@ pub struct TradeOption {
     /// The way by the household's boat, when it goes by water (M8b slice CO); `walk_min` is then
     /// half the travel there and back.
     pub by_boat: Option<BoatLegs>,
+    /// The way by the household's cart, when it goes by cart (M8b slice CP); `walk_min` is then
+    /// half the travel there and back.
+    pub by_cart: Option<CartLegs>,
+}
+
+/// A trip's handling by cart (M8b slice CP): the minutes its load takes to load at the seller's
+/// door and to unload at home.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CartLegs {
+    pub load_min: u32,
+    pub unload_min: u32,
 }
 
 /// A trip's legs by boat (M8b slice CO): the banks the boat is drawn up at, at home and by the
@@ -1478,7 +1489,25 @@ pub fn candidates(
                         },
                         Step::Walk { to: f.home },
                     ],
-                    None => vec![Step::Walk { to: t.at }, work, Step::Walk { to: f.home }],
+                    None => match t.by_cart {
+                        // Home to the cart, pulled to the seller's door, loaded there, pulled
+                        // home and unloaded.
+                        Some(c) => vec![
+                            Step::Walk { to: f.home },
+                            Step::Haul { to: t.at },
+                            work,
+                            Step::Handle {
+                                minutes: c.load_min,
+                                unload: false,
+                            },
+                            Step::Haul { to: f.home },
+                            Step::Handle {
+                                minutes: c.unload_min,
+                                unload: true,
+                            },
+                        ],
+                        None => vec![Step::Walk { to: t.at }, work, Step::Walk { to: f.home }],
+                    },
                 };
                 let target = if t.firm {
                     Target::Firm(t.seller)

@@ -51,6 +51,13 @@ struct BoatWay {
     payload_kg: f64,
     handling_kg_min: f64,
 }
+/// A way by cart to a seller's door and back, as an errand prices it: the hours there and back,
+/// and the cart's load and handling.
+struct CartWay {
+    travel_h: f64,
+    payload_kg: f64,
+    handling_kg_min: f64,
+}
 /// Least a food stays good for to be offered, days: food that keeps (grain), not food made to
 /// be eaten soon (bread).
 const OFFER_FOOD_HALF_LIFE_DAYS: f64 = 365.0;
@@ -1157,6 +1164,7 @@ impl Population {
             good: d.good,
             worth: d.worth,
             by_boat: None,
+            by_cart: None,
         })
     }
 
@@ -1195,13 +1203,14 @@ impl Population {
         // Nothing for its own need: one on an errand buys to sell at home (M5b slice AQ,
         // ADR-0019 §6), or says why it could not.
         let mut missed = None;
-        // An errand by boat carries what it buys to sell in a consignment (M8b slice CO).
-        let by_boat = self
+        // An errand by boat or cart carries what it buys to sell in a consignment (M8b slices
+        // CO and CP), in the boat or cart.
+        let vehicle = self
             .reports
             .errands
             .get(&buyer)
             .filter(|e| e.seller == seller)
-            .and_then(|e| e.by_boat);
+            .and_then(|e| e.by_boat.map(|b| b.boat).or(e.by_cart.map(|c| c.cart)));
         let mut for_resale = false;
         if away && deal.is_none() && !self.stop_trade_between {
             match self.resale_at(ctx, hh, &stores, seller) {
@@ -1255,14 +1264,14 @@ impl Population {
             }
             return;
         };
-        // Bought to sell at home on an errand by boat: into a load in transit, carried by `who`
-        // in the boat (ADR-0029 §3); otherwise into the buyer's store at the door (ADR-0019 §3).
-        let consigned = match by_boat.filter(|_| away && for_resale) {
-            Some(b) => {
+        // Bought to sell at home on an errand by boat or cart: into a load in transit, carried by
+        // `who` in it (ADR-0029 §3); otherwise into the buyer's store at the door (ADR-0019 §3).
+        let consigned = match vehicle.filter(|_| away && for_resale) {
+            Some(vehicle) => {
                 let id = ctx.ids.allocate();
                 let c = crate::consignments::Consignment::new(
                     id,
-                    (buyer, who, b.boat),
+                    (buyer, who, vehicle),
                     (market, settlement),
                     now,
                     goods.len(),
@@ -1757,6 +1766,7 @@ impl Population {
             good: d.good,
             worth: d.worth,
             by_boat: None,
+            by_cart: None,
         })
     }
 
@@ -1934,7 +1944,7 @@ impl Population {
             let on_foot = (walk_h * 60.0 <= f64::from(fetch.max_walk_minutes))
                 .then(|| priced(carry, 2.0 * walk_h, 0.0))
                 .flatten()
-                .map(|o| (o, None));
+                .map(|o| (o, None, None));
             // By the household's boat (M8b slice CO, ADR-0029 §3): hours against hours, the
             // whole chain (to the boat, the water both ways, from the landing to the door,
             // handling at each end) against the walk, a boat's load against a hand load.
@@ -1962,7 +1972,26 @@ impl Population {
                             load_min: (units * load_h * 60.0) as f32,
                             unload_min: (units * unload_h * 60.0) as f32,
                         };
-                        ((units, net, share), Some(way))
+                        ((units, net, share), Some(way), None)
+                    })
+                });
+            // By the household's cart (M8b slice CP, ADR-0029 §3): the cart pulled empty to the
+            // door and loaded back, pushed between each door and the ground it goes on, and
+            // each kilogram loaded at the seller's door and unloaded at home.
+            let by_cart = (!tool)
+                .then(|| self.cart_way(ctx, hh, at))
+                .flatten()
+                .filter(|(_, w)| w.travel_h * 30.0 <= f64::from(fetch.max_walk_minutes))
+                .and_then(|(cart, w)| {
+                    let handle_h = 1.0 / (w.handling_kg_min * 60.0);
+                    priced(w.payload_kg, w.travel_h, 2.0 * handle_h).map(|(units, net, share)| {
+                        let way = crate::reports::ByCart {
+                            cart,
+                            travel_min: (w.travel_h * 60.0) as f32,
+                            load_min: (units * handle_h * 60.0) as f32,
+                            unload_min: (units * handle_h * 60.0) as f32,
+                        };
+                        ((units, net, share), None, Some(way))
                     })
                 });
             // By a boat it could make: the hours it would keep beyond what the walk keeps.
@@ -1974,14 +2003,15 @@ impl Population {
                     .and_then(|v| self.way_by_water(ctx, hh, v, c.bank, at, pace))
                     .and_then(|w| afloat(&w))
             {
-                let walked = on_foot.map_or(0.0, |((u, n, _), _)| u * n);
+                let walked = on_foot.map_or(0.0, |((u, n, _), _, _)| u * n);
                 gain_h = gain_h.max((units * net - walked) * home_h);
             }
-            let chosen = match (on_foot, by_boat) {
-                (Some(a), Some(b)) => Some(if b.0.1 > a.0.1 + 1e-9 { b } else { a }),
-                (a, b) => a.or(b),
-            };
-            let Some(((units, net, share), way)) = chosen else {
+            // The way it keeps the largest share by; the walk, then the boat, on a tie.
+            let chosen = [on_foot, by_boat, by_cart]
+                .into_iter()
+                .flatten()
+                .reduce(|a, b| if b.0.1 > a.0.1 + 1e-9 { b } else { a });
+            let Some(((units, net, share), way, cart_way)) = chosen else {
                 continue;
             };
             if best_net.is_none_or(|b| net > b + 1e-9) {
@@ -1997,6 +2027,7 @@ impl Population {
                     share: share as f32,
                     day,
                     by_boat: way,
+                    by_cart: cart_way,
                 });
             }
         }
@@ -2017,6 +2048,40 @@ impl Population {
         let v = ctx.catalog.vehicles.get(usize::from(b.vehicle))?;
         self.way_by_water(ctx, hh, v, b.at, at, pace)
             .map(|w| (b.id, w))
+    }
+
+    /// The way by household `hh`'s cart, standing at its door, to a seller's door at `at` and
+    /// back (M8b slice CP): pulled empty there and with a full load back, by today's quickest
+    /// ways for its wheels; None without a cart at the door, or a way either way.
+    fn cart_way(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        at: (f32, f32),
+    ) -> Option<(PermanentId, CartWay)> {
+        let door = cell_of(ctx.map, hh.home) as u32;
+        let c = ctx.land.carts.made_of(hh.id).find(|c| c.at == door)?;
+        let v = ctx
+            .catalog
+            .vehicles
+            .get(usize::from(c.vehicle))
+            .filter(|v| v.mode == crate::params::VehicleMode::Cart)?;
+        let walk = ctx.params.nav.tobler_ms(0.0);
+        let (there, there_legs) = ctx
+            .land
+            .cart_way(ctx.map, &v.wheels(0.0, walk), hh.home, at)?;
+        let (back, back_legs) =
+            ctx.land
+                .cart_way(ctx.map, &v.wheels(v.payload_kg, walk), at, hh.home)?;
+        let travel_h = (there.seconds + there_legs + back.seconds + back_legs) / 3600.0;
+        Some((
+            c.id,
+            CartWay {
+                travel_h,
+                payload_kg: v.payload_kg,
+                handling_kg_min: v.handling_kg_min,
+            },
+        ))
     }
 
     /// The way by a boat of vehicle `v` drawn up at bank `from` to the bank nearest a seller's
@@ -2099,6 +2164,23 @@ impl Population {
                 None,
             ),
         };
+        // By cart (M8b slice CP): only while the cart still stands at the door; its travel as
+        // planned, half of it each way.
+        let (walk_min, by_cart) = match e.by_cart {
+            Some(c) => {
+                let door = cell_of(ctx.map, hh.home) as u32;
+                ctx.land
+                    .carts
+                    .made_of(hh.id)
+                    .find(|x| x.id == c.cart && x.at == door)?;
+                let legs = crate::decide::CartLegs {
+                    load_min: c.load_min.ceil().max(1.0) as u32,
+                    unload_min: c.unload_min.ceil().max(1.0) as u32,
+                };
+                (f64::from(c.travel_min) / 2.0, Some(legs))
+            }
+            None => (walk_min, None),
+        };
         Some(TradeOption {
             seller: e.seller,
             firm: e.firm,
@@ -2109,6 +2191,7 @@ impl Population {
                 share: f64::from(e.share),
             },
             by_boat,
+            by_cart,
         })
     }
 
@@ -2142,10 +2225,16 @@ impl Population {
         };
         let tool = d.tool.is_some();
         let least = if tool { MIN_OFFER_TOOL } else { MIN_OFFER_KG };
-        // A boat's load on an errand by boat (M8b slice CO), a hand load otherwise.
-        let carry = e
+        // A boat's or cart's load on an errand by boat or cart (M8b slices CO and CP), a hand
+        // load otherwise.
+        let vehicle = e
             .by_boat
             .and_then(|b| ctx.land.boats.list.iter().find(|x| x.id == b.boat))
+            .or_else(|| {
+                e.by_cart
+                    .and_then(|c| ctx.land.carts.list.iter().find(|x| x.id == c.cart))
+            });
+        let carry = vehicle
             .and_then(|b| ctx.catalog.vehicles.get(usize::from(b.vehicle)))
             .map_or(params.household.carry_kg, |v| v.payload_kg);
         let held = |g: usize| stores.get(g).copied().unwrap_or(0.0).max(0.0);

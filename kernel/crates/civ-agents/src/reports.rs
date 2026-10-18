@@ -160,6 +160,20 @@ pub struct Errand {
     pub day: i64,
     /// Its way by boat, when the household means to take its boat (M8b slice CO).
     pub by_boat: Option<ByBoat>,
+    /// Its way by cart, when the household means to take its cart (M8b slice CP).
+    pub by_cart: Option<ByCart>,
+}
+
+/// An errand's way by cart (M8b slice CP; ADR-0029 §3): the household's cart, which stands at
+/// its door; the minutes of travel there and back as planned (the cart pulled empty there and
+/// loaded back, and pushed between each door and the ground it goes on), and the minutes its load
+/// takes to load at the seller's door and to unload at home.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ByCart {
+    pub cart: PermanentId,
+    pub travel_min: f32,
+    pub load_min: f32,
+    pub unload_min: f32,
 }
 
 /// An errand's way by boat (M8b slice CO; ADR-0029 §3): the household's boat, the bank it is

@@ -3,8 +3,10 @@
 //! it takes, and could make one, begins one on the bank nearest home where the water carries it,
 //! and its people work on it there by choice until its labour is done; paddling the household's
 //! boat from the bank where it is drawn up to another by the quickest way by water today, the
-//! boat drawn up where it lands; and unloading a load in transit into the household's store once
-//! the boat is home. A trip afloat wears no ground and passes no crossing or gate.
+//! boat drawn up where it lands; pulling the household's cart from its door to another and back
+//! by the quickest way for its wheels with what it carries (M8b slice CP); and unloading a load in
+//! transit into the household's store once the boat or cart is home. A trip afloat wears no
+//! ground and passes no crossing or gate; a cart's wears the ground as a walk does.
 
 use super::*;
 use crate::decide::BoatFacts;
@@ -90,8 +92,97 @@ impl Population {
         true
     }
 
-    /// No way by water from here today: the rest of what `h` meant to do is the walk home; the
-    /// boat stays where it is drawn up.
+    /// Sets out pulling the household's cart from where `h` stands to the door at `to`
+    /// ([`Step::Haul`], M8b slice CP): false where no cart of the household stands here, or no way
+    /// for its wheels, with what `h` carries in it, is open today.
+    pub(super) fn start_haul(&mut self, ctx: &mut Ctx, h: Handle<Person>, to: (f32, f32)) -> bool {
+        let (now, params) = (ctx.now, ctx.params);
+        let Some(p) = self.people.get(h) else {
+            return false;
+        };
+        let (household, pos, who) = (p.household, p.pos, p.id);
+        let here = cell_of(ctx.map, pos) as u32;
+        let Some(v) = ctx
+            .land
+            .carts
+            .list
+            .iter()
+            .find(|c| c.owner == household && c.at == here && c.made())
+            .and_then(|c| ctx.catalog.vehicles.get(usize::from(c.vehicle)))
+        else {
+            return false;
+        };
+        // What it carries: the load in transit its puller has in it.
+        let load: f64 = self
+            .consignments
+            .iter()
+            .filter(|c| c.carrier == who)
+            .map(|c| c.stores.iter().sum::<f64>())
+            .sum();
+        let wheels = v.wheels(load, params.nav.tobler_ms(0.0));
+        let Some((route, _)) = ctx.land.cart_way(ctx.map, &wheels, pos, to) else {
+            return false;
+        };
+        let Some(leg_v) = wheels.speed(wheels.trail_c, 0.0) else {
+            return false;
+        };
+        let centre = |c: u32| cell_centre(ctx.map, c as usize);
+        let apart = |a: (f32, f32), b: (f32, f32)| f64::from((a.0 - b.0).hypot(a.1 - b.1));
+        // Pushed from the door to the ground it goes on, along it, and on to the door.
+        let mut points = vec![pos];
+        let mut minutes = vec![0.0f32];
+        let first = centre(route.cells[0]);
+        let off_s = apart(pos, first) / leg_v;
+        for (&c, s) in route.cells.iter().zip(&route.at_s) {
+            points.push(centre(c));
+            minutes.push(((off_s + s) / 60.0) as f32);
+        }
+        let last = *points.last().unwrap_or(&pos);
+        let total_s = off_s + route.seconds + apart(last, to) / leg_v;
+        points.push(to);
+        minutes.push((total_s / 60.0) as f32);
+        let duration = (total_s / 60.0).ceil().max(1.0);
+        let Some(p) = self.people.get_mut(h) else {
+            return false;
+        };
+        self.next_trip += 1;
+        let trip = Trip {
+            id: self.next_trip,
+            rev: 0,
+            depart: now,
+            points,
+            minutes,
+            ahead: None,
+            afloat: false,
+        };
+        settle(p, now, params);
+        p.burn_kcal_min = burn_rate(p, now, params, params.energy.walk_par);
+        p.asleep = false;
+        p.company = 0.0;
+        p.trip = Some(trip);
+        p.act.step_started = now;
+        p.act.step_ends = now.plus_minutes(duration as i64);
+        let (id, version, ends) = (p.id, p.act.version, p.act.step_ends);
+        ctx.schedule_step(ends, id, version);
+        true
+    }
+
+    /// Someone of `household` pulled its cart from cell `from` to cell `to`: it stands there now.
+    pub(super) fn hauled(ctx: &mut Ctx, household: PermanentId, (from, to): (u32, u32)) {
+        if let Some(c) = ctx
+            .land
+            .carts
+            .list
+            .iter_mut()
+            .find(|c| c.owner == household && c.at == from && c.made())
+        {
+            c.at = to;
+            ctx.land.carts.changed();
+        }
+    }
+
+    /// No way by water or for wheels from here today: the rest of what `h` meant to do is the
+    /// walk home; the boat or cart stays where it is.
     pub(super) fn cannot_paddle(&mut self, h: Handle<Person>) {
         let home = self
             .people

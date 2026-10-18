@@ -262,11 +262,11 @@ table Settlements {
 // or 4294967295 the household's store), `id` the building it is thrown on.
 enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16, Bank = 17, Ditch = 18, Enclosure = 19, Boat = 20 }
 
-enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3, Paddle = 4, Handle = 5 }
+enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3, Paddle = 4, Handle = 5, Haul = 6 }
 
 table Step {
   kind: StepKind (id: 0);
-  // Walk destination.
+  // Walk destination; schema 145 (M8b slice CP): a haul's door.
   to: Point (id: 1);
   // Work or wait length.
   minutes: uint (id: 2);
@@ -3115,6 +3115,10 @@ table ErrandSave {
   travel_min: float (id: 14);
   load_min: float (id: 15);
   unload_min: float (id: 16);
+  // Schema 145 (M8b slice CP): its way by cart, if any: the cart (the minutes above are then
+  // its travel, its loading at the seller's door and its unloading at home).
+  by_cart: bool (id: 17);
+  cart: ulong (id: 18);
 }
 
 // A good offered in both of a pair of settlements at a month's end (schema 57).

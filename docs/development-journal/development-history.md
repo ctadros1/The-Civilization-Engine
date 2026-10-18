@@ -2886,3 +2886,19 @@ one in ten is more than one person can manage with a full load.
 **What it comes to:** a loaded handcart goes round a steep ridge by the level pass, while an
 empty one goes straight over. Nobody has a cart yet; making one, and choosing it for an errand,
 come next.
+
+## 2026-10-18 — CP, second part: fetching by handcart
+
+**Built:** the core now has a handcart, which carries 150 kg, seven times what a person carries
+home. A household with one weighs an errand three ways, on foot, by boat or by cart, counting the
+cart pulled there empty and back loaded along the ways wheels can take, the pushes between each
+door and the way, and the loading and unloading. When the cart wins, someone pulls it to the
+seller, buys a cart's load, and pulls it home with the goods in transit until they are unloaded.
+
+**Found on the way:** a bridge's deck was taken to lie at the level of the river bed, so a cart
+would have had to drop down into the river and climb out again. A deck now sits level with the
+higher bank.
+
+**What it comes to:** a household with a cart at its door, and a way laid to the other camp, sent
+for 150 kg of stone in about an hour and a half of pulling, where on foot it would have brought
+20 kg. Nobody makes a cart yet; that comes next.

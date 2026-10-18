@@ -4465,6 +4465,14 @@ impl Population {
                     // No boat here, or no way by water today: home on foot instead.
                     self.cannot_paddle(h);
                 }
+                Step::Haul { to } => {
+                    if self.start_haul(ctx, h, to) {
+                        return;
+                    }
+                    // No cart here, or no way for its wheels today: home on foot instead, the
+                    // cart and what is in it left where they are.
+                    self.cannot_paddle(h);
+                }
                 Step::Handle { minutes, .. } => {
                     self.start_work(ctx, h, minutes, None);
                     return;
@@ -5084,13 +5092,32 @@ impl Population {
                     }
                 }
             }
+            Some(Step::Haul { to }) => {
+                p.pos = to;
+                if let Some(trip) = p.trip.take() {
+                    let map = ctx.map;
+                    let mut cells =
+                        cells_along(&trip.points, map.cell_size_m, map.width, map.height);
+                    cells.retain(|&c| map.water[c as usize] == WATER_LAND);
+                    ctx.land
+                        .wear
+                        .walk(&cells, now.day_index(), &ctx.land_params.paths);
+                    ctx.land.ways.walked(&cells, now.day_index());
+                    if let Some(&from) = trip.points.first() {
+                        let from = cell_of(map, from) as u32;
+                        Self::hauled(ctx, household, (from, cell_of(map, to) as u32));
+                    }
+                }
+            }
             Some(Step::Handle { unload: true, .. }) => self.unloaded(ctx, who),
             Some(Step::Wait { .. } | Step::Deposit | Step::Handle { .. }) | None => {}
         }
         // The time the step took.
         let took = (now.minutes() - started.minutes()).max(0) as f64;
         match step {
-            Some(Step::Walk { .. } | Step::Paddle { .. }) => self.time_use.walking += took,
+            Some(Step::Walk { .. } | Step::Paddle { .. } | Step::Haul { .. }) => {
+                self.time_use.walking += took
+            }
             Some(Step::Wait { .. } | Step::Handle { .. }) => self.time_use.waiting += took,
             Some(Step::Work { .. }) => {
                 let b = def.as_ref().map(|d| d.behavior);

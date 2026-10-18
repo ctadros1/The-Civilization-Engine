@@ -164,6 +164,8 @@ fn a_cart_keeps_to_the_trails_people_wore_by_the_quickest_way() {
     );
     let terrain = Terrain {
         elevation: &map.elevation,
+        water: &map.water,
+        decks: &[],
         width: map.width,
         height: map.height,
         cell_m: f64::from(map.cell_size_m),

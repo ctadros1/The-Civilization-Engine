@@ -357,16 +357,17 @@ impl ::flatbuffers::SimpleToVerifyInSlice for TargetKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_STEP_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_STEP_KIND: u8 = 5;
+pub const ENUM_MAX_STEP_KIND: u8 = 6;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_STEP_KIND: [StepKind; 6] = [
+pub const ENUM_VALUES_STEP_KIND: [StepKind; 7] = [
   StepKind::Walk,
   StepKind::Work,
   StepKind::Deposit,
   StepKind::Wait,
   StepKind::Paddle,
   StepKind::Handle,
+  StepKind::Haul,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -380,9 +381,10 @@ impl StepKind {
   pub const Wait: Self = Self(3);
   pub const Paddle: Self = Self(4);
   pub const Handle: Self = Self(5);
+  pub const Haul: Self = Self(6);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 5;
+  pub const ENUM_MAX: u8 = 6;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Walk,
     Self::Work,
@@ -390,6 +392,7 @@ impl StepKind {
     Self::Wait,
     Self::Paddle,
     Self::Handle,
+    Self::Haul,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -400,6 +403,7 @@ impl StepKind {
       Self::Wait => Some("Wait"),
       Self::Paddle => Some("Paddle"),
       Self::Handle => Some("Handle"),
+      Self::Haul => Some("Haul"),
       _ => None,
     }
   }
@@ -53185,6 +53189,8 @@ impl<'a> ErrandSave<'a> {
   pub const VT_TRAVEL_MIN: ::flatbuffers::VOffsetT = 32;
   pub const VT_LOAD_MIN: ::flatbuffers::VOffsetT = 34;
   pub const VT_UNLOAD_MIN: ::flatbuffers::VOffsetT = 36;
+  pub const VT_BY_CART: ::flatbuffers::VOffsetT = 38;
+  pub const VT_CART: ::flatbuffers::VOffsetT = 40;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -53196,6 +53202,7 @@ impl<'a> ErrandSave<'a> {
     args: &'args ErrandSaveArgs
   ) -> ::flatbuffers::WIPOffset<ErrandSave<'bldr>> {
     let mut builder = ErrandSaveBuilder::new(_fbb);
+    builder.add_cart(args.cart);
     builder.add_boat(args.boat);
     builder.add_day(args.day);
     builder.add_seller(args.seller);
@@ -53211,6 +53218,7 @@ impl<'a> ErrandSave<'a> {
     builder.add_units(args.units);
     builder.add_payment(args.payment);
     builder.add_good(args.good);
+    builder.add_by_cart(args.by_cart);
     builder.add_by_boat(args.by_boat);
     builder.add_firm(args.firm);
     builder.finish()
@@ -53336,6 +53344,20 @@ impl<'a> ErrandSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(ErrandSave::VT_UNLOAD_MIN, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn by_cart(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(ErrandSave::VT_BY_CART, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn cart(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ErrandSave::VT_CART, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ErrandSave<'_> {
@@ -53361,6 +53383,8 @@ impl ::flatbuffers::Verifiable for ErrandSave<'_> {
      .visit_field::<f32>("travel_min", Self::VT_TRAVEL_MIN, false)?
      .visit_field::<f32>("load_min", Self::VT_LOAD_MIN, false)?
      .visit_field::<f32>("unload_min", Self::VT_UNLOAD_MIN, false)?
+     .visit_field::<bool>("by_cart", Self::VT_BY_CART, false)?
+     .visit_field::<u64>("cart", Self::VT_CART, false)?
      .finish();
     Ok(())
   }
@@ -53383,6 +53407,8 @@ pub struct ErrandSaveArgs {
     pub travel_min: f32,
     pub load_min: f32,
     pub unload_min: f32,
+    pub by_cart: bool,
+    pub cart: u64,
 }
 impl<'a> Default for ErrandSaveArgs {
   #[inline]
@@ -53405,6 +53431,8 @@ impl<'a> Default for ErrandSaveArgs {
       travel_min: 0.0,
       load_min: 0.0,
       unload_min: 0.0,
+      by_cart: false,
+      cart: 0,
     }
   }
 }
@@ -53483,6 +53511,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ErrandSaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<f32>(ErrandSave::VT_UNLOAD_MIN, unload_min, 0.0);
   }
   #[inline]
+  pub fn add_by_cart(&mut self, by_cart: bool) {
+    self.fbb_.push_slot::<bool>(ErrandSave::VT_BY_CART, by_cart, false);
+  }
+  #[inline]
+  pub fn add_cart(&mut self, cart: u64) {
+    self.fbb_.push_slot::<u64>(ErrandSave::VT_CART, cart, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ErrandSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ErrandSaveBuilder {
@@ -53517,6 +53553,8 @@ impl ::core::fmt::Debug for ErrandSave<'_> {
       ds.field("travel_min", &self.travel_min());
       ds.field("load_min", &self.load_min());
       ds.field("unload_min", &self.unload_min());
+      ds.field("by_cart", &self.by_cart());
+      ds.field("cart", &self.cart());
       ds.finish()
   }
 }

@@ -1,0 +1,39 @@
+# A handcart (M8b slice CP; ADR-0029 §2; research 07-08 L11, §2.1; 12-05 §2.3): a small two-wheeled
+# box on an axle, pulled by one person. Its wheels and axle are a woodworker's fitted work (07-08
+# L05: accurate woodworking and bearings, human or animal traction); the wheel technique it needs
+# arrives with making one. What it carries, weighs and takes are design priors where the reports
+# give ranges, not figures.
+kind = "vehicle"
+id = "core:vehicle/handcart"
+name = "Handcart"
+mode = "cart"
+technique = ""
+skill = "core:skill/woodworking"
+tool = "core:good/axe"
+good = "core:good/timber"
+# Boards, two solid wheels and an axle: some 60 kg of timber (a design prior).
+material_kg = 60.0
+# Fitting wheels to an axle and a box to them: a design prior of about five eight-hour days.
+labour_h = 40.0
+crew = 2
+# 07-08 §2.1: a handcart or wheelbarrow carries 80-180 kg; 12-05 §2.3 has an early handcart at
+# 150-300 kg: 150 kg where they overlap.
+payload_kg = 150.0
+# Its running width, wheel to wheel (a design prior inside a footpath's tread).
+width_m = 0.9
+# A timber cart kept dry lasts some years, its wheels the first to go (a design prior).
+life_years = 8.0
+# Loading and unloading are people's work, as for a boat (ADR-0029 §5; 12-05 §2.3: 5-20 kg a
+# worker-minute).
+handling_kg_min = 10.0
+# Its own mass (a design prior: the timber of its making, less what is cut away).
+tare_kg = 40.0
+# 10-07 §1.2's illustration: C = 0.02 on a made way; a worn trail, rutted and uneven, a design
+# prior of 0.05 (07-08 §1.1 gives no figure for worn earth).
+way_resistance = 0.02
+trail_resistance = 0.05
+# One person's sustained pull and power at a walk (design priors: some 200 N and 75 W).
+pull_n = 200.0
+power_w = 75.0
+# The steepest grade down one person can hold a loaded handcart back on (a design prior: 15 %).
+brake_grade = 0.15

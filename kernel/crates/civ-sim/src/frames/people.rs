@@ -1075,11 +1075,17 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
                 format!("walking to {place} ({what})")
             }
         }
-        // By the household's boat (M8b slice CO).
+        // By the household's boat (M8b slice CO) or cart (M8b slice CP).
         Some(Step::Paddle { .. }) => format!("paddling the household's boat ({what})"),
-        Some(Step::Handle { unload: false, .. }) => format!("loading the boat ({what})"),
-        Some(Step::Handle { unload: true, .. }) => {
-            format!("unloading the boat and carrying the load up ({what})")
+        Some(Step::Haul { .. }) => format!("pulling the household's handcart ({what})"),
+        Some(Step::Handle { unload, .. }) => {
+            let cart = p.act.steps.iter().any(|s| matches!(s, Step::Haul { .. }));
+            match (unload, cart) {
+                (false, false) => format!("loading the boat ({what})"),
+                (true, false) => format!("unloading the boat and carrying the load up ({what})"),
+                (false, true) => format!("loading the handcart ({what})"),
+                (true, true) => format!("unloading the handcart ({what})"),
+            }
         }
         Some(Step::Work { .. }) => {
             let at_home =

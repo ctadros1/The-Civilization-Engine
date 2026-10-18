@@ -692,7 +692,10 @@ cart names `tare_kg` (its own mass), `way_resistance` and `trail_resistance` (ro
 on a way that serves carts and on a worn trail; research 10-07 §1.2 illustrates 0.02), `pull_n`
 and `power_w` (its puller's most and sustained), and `brake_grade` (the steepest grade down they
 can hold it back on). A boat's `draft_m`, `paddle_m_s` and `slack_share` are a boat's only: each
-mode refuses the other's fields. The core has no cart yet.
+mode refuses the other's fields. The core's `core:vehicle/handcart` (M8b slice CP, second part)
+carries 150 kg, weighs 40 kg and is 0.9 m across, pulled at 200 N and 75 W, its resistances 0.02
+on a way and 0.05 on a worn trail, braked down 15 % at most (design priors where the reports give
+ranges); it loads at a boat's 10 kg a minute. Nobody makes one yet.
 
 Content API 134 (M8b slice CO, third part) brings the activity behaviour `boat`: work on a boat
 the household is making, on the bank where it will be drawn up, until its vehicle's `labour_h` is

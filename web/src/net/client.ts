@@ -310,6 +310,13 @@ export class HostClient {
     return body.earthworks;
   }
 
+  /** Every boat and cart (wire 1.86). */
+  async vehicles(): Promise<M.VehiclesInfo> {
+    const body = await this.query(M.getVehicles());
+    if (body.kind !== "vehicles") throw new HostError("internal", "expected vehicles");
+    return body.vehicles;
+  }
+
   /** Every way people have worked on (wire 1.84). */
   async ways(): Promise<M.WaysInfo> {
     const body = await this.query(M.getWays());

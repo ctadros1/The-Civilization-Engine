@@ -85,6 +85,7 @@ const client = new HostClient(socketUrl(), {
     void syncEarthworks();
     void syncCrossings();
     void syncWays();
+    void syncVehicles();
     void syncWater();
     void syncLens();
     void refreshPerson(false);
@@ -328,6 +329,37 @@ async function syncWays(): Promise<void> {
     waysBusy = false;
   }
   if (ok) void syncWays();
+}
+
+/** `world:revision` of the boats and carts on the map. */
+let vehiclesKey = "";
+let vehiclesBusy = false;
+
+/** Fetches the boats and carts when one was begun, worked on, made, moved, taken out or brought
+ * in, or the goods aboard one changed. */
+async function syncVehicles(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const key = world && s.vehiclesRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.vehiclesRev}` : "";
+  if (key === vehiclesKey || vehiclesBusy) return;
+  if (!key) {
+    vehiclesKey = "";
+    map.setVehicles(null);
+    return;
+  }
+  vehiclesBusy = true;
+  let ok = false;
+  try {
+    const info = await client.vehicles();
+    vehiclesKey = key;
+    map.setVehicles(info);
+    ok = true;
+  } catch (e) {
+    console.warn(`tce: the boats and carts could not be read: ${String(e)}`);
+  } finally {
+    vehiclesBusy = false;
+  }
+  if (ok) void syncVehicles();
 }
 
 /** `world:revision` of the water on the map. */
@@ -1202,6 +1234,7 @@ map.onPointer = (info: PointerInfo | null) => {
   const earthwork = info.earthwork ? ` · ${info.earthwork.words}` : "";
   const crossing = info.crossing ? ` · ${info.crossing.words}` : "";
   const way = info.way && !info.crossing ? ` · ${wayWords(info.way.way, info.way.segment)}` : "";
+  const vehicle = info.vehicle ? ` · ${info.vehicle.words}` : "";
   const flowing =
     (info.water === "river" || info.water === "lake") && info.flow !== null ? `, ${flowWords(info.flow)}` : "";
   const home = info.home ? ` · ${info.home.name}: ${info.home.words.join("; ")}` : "";
@@ -1215,7 +1248,7 @@ map.onPointer = (info: PointerInfo | null) => {
         : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${flowing}${home}${place}${crossing}${way}${source}${path}${field}${building}${earthwork}${deposit}`;
+    `${height} · ${info.water ?? ""}${flowing}${home}${place}${vehicle}${crossing}${way}${source}${path}${field}${building}${earthwork}${deposit}`;
 };
 
 const scaleBar = byId("scalebar-bar");
@@ -1489,6 +1522,7 @@ const hooks = {
       earthworksRev: s.snapshot?.earthworksRev ?? 0,
       crossingsRev: s.snapshot?.crossingsRev ?? 0,
       waysRev: s.snapshot?.waysRev ?? 0,
+      vehiclesRev: s.snapshot?.vehiclesRev ?? 0,
       waterRev: s.snapshot?.waterRev ?? 0,
       weatherRev: s.snapshot?.weatherRev ?? 0,
       weather: s.weather

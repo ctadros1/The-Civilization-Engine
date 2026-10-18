@@ -27,6 +27,7 @@ import { buildingAt, buildingMarks, type Mark } from "../buildings.js";
 import { homeAt, lensMarks, placeAt, type LensLayer } from "../coverage.js";
 import { crossingAt, crossingEnds, crossingLook } from "../crossings.js";
 import { wayAt, wayLook } from "../ways.js";
+import { vehicleAt, vehicleLook, vehiclePosition } from "../vehicles.js";
 import { depositAt, depositLook } from "../deposits.js";
 import { DITCH_COLOUR, PALISADE_COLOUR, changedTiles, detailTilesOver, earthworkAt, earthworkLook, sectorLook } from "../earthworks.js";
 import { fieldAt, fieldLook } from "../fields.js";
@@ -47,6 +48,8 @@ import {
   type WayInfo,
   type WaySegmentInfo,
   type WaysInfo,
+  type VehicleInfo,
+  type VehiclesInfo,
   type DepositInfo,
   type EarthworkInfo,
   type EarthworksInfo,
@@ -112,6 +115,8 @@ export interface PointerInfo {
   crossing: CrossingInfo | null;
   /** The way under the pointer and the stretch of it, if any (M8b slice CM). */
   way: { way: WayInfo; segment: WaySegmentInfo } | null;
+  /** The boat or cart under the pointer, if any (M8b slice CP). */
+  vehicle: VehicleInfo | null;
   /** The well, spring or place at the water's edge drawn at today under the pointer, if any, and
    * the rivers' flow today against their mean (null before the water is read; M6a slice AY). */
   well: WellInfo | null;
@@ -254,6 +259,7 @@ export class MapView {
   private earthworks: EarthworkInfo[] = [];
   private readonly waysLayer = new Graphics();
   private ways: WayInfo[] = [];
+  private vehicles: VehicleInfo[] = [];
   private wayScale = 0;
   private readonly crossingsLayer = new Graphics();
   private crossings: CrossingInfo[] = [];
@@ -373,6 +379,7 @@ export class MapView {
     this.crossingsLayer.clear();
     this.ways = [];
     this.waysLayer.clear();
+    this.vehicles = [];
     this.water = null;
     this.waterLayer.clear();
     this.lens = null;
@@ -479,6 +486,46 @@ export class MapView {
       this.groundSeen.clear();
     }
     if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** The boats and carts, as the host last listed them (null for none). They are drawn with the
+   * people, each frame, so one out moves with whoever has it. */
+  setVehicles(info: VehiclesInfo | null): void {
+    this.vehicles = info?.vehicles ?? [];
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** Where each person is drawn now, metres, by their id. */
+  private positionsById(): Map<number, [number, number]> {
+    const positions = this.drawnPositions();
+    const out = new Map<number, [number, number]>();
+    for (const [i, p] of this.people.entries()) out.set(p.id, positions[i]!);
+    return out;
+  }
+
+  /** Each boat as a hull about 6 m long and each cart as a box on two wheels about 2 m long, never
+   * smaller than a few pixels, where it stands or beside whoever has it out. */
+  private drawVehicles(g: Graphics, positions: Map<number, [number, number]>, pxM: number): void {
+    for (const v of this.vehicles) {
+      const [x, y] = vehiclePosition(v, positions);
+      const look = vehicleLook(v);
+      if (look.boat) {
+        const half = Math.max(3, 5 * pxM);
+        const beam = Math.max(0.5, 1.6 * pxM);
+        g.poly([x - half, y, x - half * 0.6, y - beam, x + half * 0.6, y - beam, x + half, y, x + half * 0.6, y + beam, x - half * 0.6, y + beam])
+          .fill({ color: look.colour, alpha: look.alpha })
+          .stroke({ width: pxM, color: 0x14181b, alpha: 0.8 * look.alpha });
+      } else {
+        const half = Math.max(1, 3.5 * pxM);
+        const tall = Math.max(0.5, 2.2 * pxM);
+        g.rect(x - half, y - tall, 2 * half, 2 * tall)
+          .fill({ color: look.colour, alpha: look.alpha })
+          .stroke({ width: pxM, color: 0x14181b, alpha: 0.8 * look.alpha });
+        for (const dx of [-half * 0.55, half * 0.55]) {
+          g.circle(x + dx, y + tall, Math.max(0.3, 1.2 * pxM)).fill({ color: 0x2b2118, alpha: look.alpha });
+        }
+      }
+    }
   }
 
   /** The ways people have worked on, as the host last listed them (null for none). */
@@ -733,10 +780,16 @@ export class MapView {
   private drawPeople(): void {
     const g = this.peopleLayer;
     g.clear();
-    if (this.people.length === 0) return;
+    if (this.people.length === 0 && this.vehicles.length === 0) return;
     const pxM = 1 / this.scale;
     const positions = this.drawnPositions();
     let selectedAt: [number, number, number] | null = null;
+    // Boats and carts (M8b slice CP) beneath the people, so whoever has one out is drawn over it.
+    if (this.vehicles.length > 0) {
+      const byId = new Map<number, [number, number]>();
+      for (const [i, p] of this.people.entries()) byId.set(p.id, positions[i]!);
+      this.drawVehicles(g, byId, pxM);
+    }
     // Each band out (wire 1.74): a line from each who goes with it to the home it goes to, and a
     // ring there; a band still to muster is drawn faint.
     if (this.bands.length > 0) {
@@ -1069,6 +1122,8 @@ export class MapView {
       earthwork: earthworkAt(this.earthworks, xM, yM),
       crossing: crossingAt(this.crossings, xM, yM, 4 / this.scale),
       way: wayAt(this.ways, xM, yM, 3 / this.scale),
+      vehicle:
+        this.vehicles.length > 0 ? vehicleAt(this.vehicles, this.positionsById(), xM, yM, 6 / this.scale) : null,
       well: wellAt(this.water?.wells ?? [], xM, yM, 3 / this.scale),
       spring: springAt(this.water?.springs ?? [], xM, yM, 4 / this.scale),
       bank: bankAt(this.water?.banks ?? [], xM, yM, 4 / this.scale),
@@ -1289,6 +1344,14 @@ export class MapView {
       earthworks: this.earthworks.length,
       bankSegments: this.earthworks.filter((w) => w.bank).map((w) => ({ id: w.id, ...w.bank!, words: w.words })),
       platforms: this.earthworks.map((w) => ({ x: w.x + w.w / 2, y: w.y + w.h / 2, done: w.done })),
+      // M8b slice CP: boats and carts, where each is drawn, how far made and who has it out.
+      vehicles: (() => {
+        const positions = this.positionsById();
+        return this.vehicles.map((v) => {
+          const [x, y] = vehiclePosition(v, positions);
+          return { id: v.id, mode: v.mode, x, y, made: v.made, outWith: v.outWith, loadKg: v.loadKg, words: v.words };
+        });
+      })(),
       // M8b slice CM: ways, where each runs, its rank and its stretches' condition.
       ways: this.ways.map((w) => ({
         id: w.id,

@@ -2931,3 +2931,12 @@ waits, as they remember waits at bridges and gates.
 without waiting, one turned back at its door, and one waited for both oncoming carts before
 heading home.
 
+## 2026-10-18 — CP, fifth part: boats and carts on the map
+
+**Built:** the observer now shows boats and carts. Each is drawn where it stands, or beside
+whoever has it out, moving with them. One still being made is drawn faint, and one wears paler
+with age. Pointing at one says whose it is, how far it is made and what it carries.
+
+**What it comes to:** you can watch a household's cart go to a neighbour's door and come back
+loaded. Nothing in the simulation changed for this; the map only reads what is already there.
+

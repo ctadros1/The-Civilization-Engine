@@ -560,6 +560,10 @@ impl Engine {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::crossings::crossings_response(&w.sim)),
             },
+            Request::GetVehicles => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::vehicles::vehicles_response(&w.sim)),
+            },
             Request::GetWays => match &self.world {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::ways::ways_response(&w.sim)),
@@ -2209,6 +2213,95 @@ mod tests {
         assert_eq!(s.surface(), Some("cleared ground"));
         assert!((s.condition() - 1.0).abs() < 1e-6);
         assert!(s.keeper().unwrap_or_default().ends_with("'s household"));
+    }
+
+    #[test]
+    fn the_boats_and_carts_are_read_with_whose_they_are_and_how_far_made() {
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetVehicles)),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Vehicles");
+        let read = |h: &mut Harness| {
+            let Reply::Response(payload) = h.ask(Request::GetVehicles) else {
+                panic!("the vehicles are read");
+            };
+            payload
+        };
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let list = response.body_as_vehicles().expect("vehicles");
+        assert_eq!(list.rev(), 0);
+        assert_eq!(list.vehicles().map_or(0, |l| l.len()), 0);
+        // A dugout made and half worn, and a handcart 12 hours into its 40, both of the first
+        // household and at its door.
+        let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+        let household = sim
+            .people()
+            .households
+            .iter()
+            .map(|(_, x)| x.id)
+            .min()
+            .expect("a household");
+        let door = civ_agents::population::cell_of(
+            sim.map(),
+            sim.people().household(household).expect("it").home,
+        ) as u32;
+        let index = |sim: &civ_sim::Sim, id: &str| {
+            sim.rules().catalog.vehicle_index(id).expect("in the core") as u16
+        };
+        let (dugout, handcart) = (
+            index(sim, "core:vehicle/dugout"),
+            index(sim, "core:vehicle/handcart"),
+        );
+        let (boat, cart) = (sim.allocate_id_for_tests(), sim.allocate_id_for_tests());
+        let today = sim.now().day_index();
+        let one = |id, vehicle, wear, labour_h, work_h| civ_land::boats::Boat {
+            id,
+            vehicle,
+            owner: household,
+            at: door,
+            made: today,
+            wear,
+            labour_h,
+            work_h,
+            saves_h_year: 0.0,
+            crew: (0, 0),
+        };
+        let land = sim.land_mut_for_tests();
+        land.boats.list.push(one(boat, dugout, 0.5, 0.0, 0.0));
+        land.boats.changed();
+        land.carts.list.push(one(cart, handcart, 0.0, 40.0, 12.0));
+        land.carts.changed();
+        let rev = frames::vehicles::vehicles_rev(sim);
+        assert_ne!(rev, 0);
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let list = response.body_as_vehicles().expect("vehicles");
+        assert_eq!(list.rev(), rev);
+        let all = list.vehicles().expect("a list");
+        assert_eq!(all.len(), 2);
+        let (b, c) = (all.get(0), all.get(1));
+        assert_eq!(
+            (b.id(), b.mode(), b.name()),
+            (boat.get(), 0, Some("Dugout"))
+        );
+        assert_eq!((c.id(), c.mode()), (cart.get(), 1));
+        assert_eq!((b.made(), b.out_with(), b.load_kg()), (1.0, 0, 0.0));
+        assert!((c.made() - 0.3).abs() < 1e-6 && b.wear() == 0.5);
+        assert_eq!(b.owner(), household.get());
+        let words = |v: wire::VehicleInfo| v.words().unwrap_or_default().to_owned();
+        assert!(
+            words(b).ends_with("dugout, made in year 1, half worn"),
+            "{}",
+            words(b)
+        );
+        assert!(
+            words(c).ends_with("handcart, being made: 12 of 40 hours' work done"),
+            "{}",
+            words(c)
+        );
     }
 
     #[test]

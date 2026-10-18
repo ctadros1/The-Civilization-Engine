@@ -319,6 +319,7 @@ describe("decoders", () => {
       weatherRev: 0,
       crossingsRev: 0,
       waysRev: 0,
+      vehiclesRev: 0,
       waterRev: 0,
       incidentsRev: 0,
       bands: [],

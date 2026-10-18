@@ -29,6 +29,7 @@ import { SaveList } from '../../tce/wire/save-list.js';
 import { Standing } from '../../tce/wire/standing.js';
 import { StormInfo } from '../../tce/wire/storm-info.js';
 import { Trips } from '../../tce/wire/trips.js';
+import { Vehicles } from '../../tce/wire/vehicles.js';
 import { Water } from '../../tce/wire/water.js';
 import { Ways } from '../../tce/wire/ways.js';
 import { Wealth } from '../../tce/wire/wealth.js';
@@ -67,13 +68,14 @@ export enum ResponseBody {
   ConflagrationInfo = 28,
   FloodInfo = 29,
   StormInfo = 30,
-  Ways = 31
+  Ways = 31,
+  Vehicles = 32
 }
 
 export function unionToResponseBody(
   type: ResponseBody,
-  accessor: (obj:Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Markets|Order|OutbreakInfo|Paths|PersonInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Water|Ways|Wealth|WeatherReport) => Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Markets|Order|OutbreakInfo|Paths|PersonInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Water|Ways|Wealth|WeatherReport|null
-): Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Markets|Order|OutbreakInfo|Paths|PersonInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Water|Ways|Wealth|WeatherReport|null {
+  accessor: (obj:Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Markets|Order|OutbreakInfo|Paths|PersonInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Vehicles|Water|Ways|Wealth|WeatherReport) => Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Markets|Order|OutbreakInfo|Paths|PersonInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Vehicles|Water|Ways|Wealth|WeatherReport|null
+): Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Markets|Order|OutbreakInfo|Paths|PersonInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Vehicles|Water|Ways|Wealth|WeatherReport|null {
   switch(ResponseBody[type]) {
     case 'NONE': return null; 
     case 'Ack': return accessor(new Ack())! as Ack;
@@ -107,15 +109,16 @@ export function unionToResponseBody(
     case 'FloodInfo': return accessor(new FloodInfo())! as FloodInfo;
     case 'StormInfo': return accessor(new StormInfo())! as StormInfo;
     case 'Ways': return accessor(new Ways())! as Ways;
+    case 'Vehicles': return accessor(new Vehicles())! as Vehicles;
     default: return null;
   }
 }
 
 export function unionListToResponseBody(
   type: ResponseBody, 
-  accessor: (index: number, obj:Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Markets|Order|OutbreakInfo|Paths|PersonInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Water|Ways|Wealth|WeatherReport) => Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Markets|Order|OutbreakInfo|Paths|PersonInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Water|Ways|Wealth|WeatherReport|null, 
+  accessor: (index: number, obj:Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Markets|Order|OutbreakInfo|Paths|PersonInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Vehicles|Water|Ways|Wealth|WeatherReport) => Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Markets|Order|OutbreakInfo|Paths|PersonInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Vehicles|Water|Ways|Wealth|WeatherReport|null, 
   index: number
-): Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Markets|Order|OutbreakInfo|Paths|PersonInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Water|Ways|Wealth|WeatherReport|null {
+): Ack|Buildings|Chronicle|ConflagrationInfo|Coverage|Crossings|Deposits|Earthworks|Fields|FirmInfo|Firms|FloodInfo|Government|Hydrography|IncidentInfo|Incidents|Knowledge|Markets|Order|OutbreakInfo|Paths|PersonInfo|RasterTile|SaveList|Standing|StormInfo|Trips|Vehicles|Water|Ways|Wealth|WeatherReport|null {
   switch(ResponseBody[type]) {
     case 'NONE': return null; 
     case 'Ack': return accessor(index, new Ack())! as Ack;
@@ -149,6 +152,7 @@ export function unionListToResponseBody(
     case 'FloodInfo': return accessor(index, new FloodInfo())! as FloodInfo;
     case 'StormInfo': return accessor(index, new StormInfo())! as StormInfo;
     case 'Ways': return accessor(index, new Ways())! as Ways;
+    case 'Vehicles': return accessor(index, new Vehicles())! as Vehicles;
     default: return null;
   }
 }

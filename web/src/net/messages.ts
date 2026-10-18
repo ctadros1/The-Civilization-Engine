@@ -390,6 +390,9 @@ export interface Snapshot {
   /** Wire 1.84: changes whenever a way is begun or changed, and at each month's survey while there
    * are any (0 = none). Fetch the ways with GetWays. */
   waysRev: number;
+  /** Wire 1.86: changes whenever a boat or a cart is begun, worked on, made, moved or gone, taken
+   * out or brought in, or the goods aboard one change (0 = none yet). Fetch them with GetVehicles. */
+  vehiclesRev: number;
   /** Wire 1.61: changes whenever a well is begun, dug deeper, opens, rots, is relined, given up or
    * falls in, and with each day lived while the world has wells or springs (0 = neither). Fetch
    * them with GetWater. */
@@ -1784,6 +1787,34 @@ export interface WaysInfo {
   ways: WayInfo[];
 }
 
+/** A boat or a cart (wire 1.86, M8b slices CO and CP; ADR-0029 §3). */
+export interface VehicleInfo {
+  id: number;
+  /** 0 a boat, 1 a cart. */
+  mode: number;
+  /** Its content name: "Dugout". */
+  name: string;
+  /** The household it is of, and that household in words: "Ada's household". */
+  owner: number;
+  ownerName: string;
+  /** Where it stands, metres from the map's north-west corner. */
+  x: number;
+  y: number;
+  /** How far it is made, 0–1 (1 made), and its wear, 0–1. */
+  made: number;
+  wear: number;
+  /** Who of its household has it out now (0 for nobody), and the goods aboard, kg. */
+  outWith: number;
+  loadKg: number;
+  /** In the kernel's words: "Ada's household's dugout, made in year 2; out with Bo, 40 kg aboard". */
+  words: string;
+}
+
+export interface VehiclesInfo {
+  rev: number;
+  vehicles: VehicleInfo[];
+}
+
 /** A well (wire 1.61, M6a slice AY; ADR-0021 §3). */
 export interface WellInfo {
   id: number;
@@ -1958,6 +1989,7 @@ export type ResponseBody =
   | { kind: "earthworks"; earthworks: EarthworksInfo }
   | { kind: "crossings"; crossings: CrossingsInfo }
   | { kind: "ways"; ways: WaysInfo }
+  | { kind: "vehicles"; vehicles: VehiclesInfo }
   | { kind: "water"; water: WaterInfo }
   | { kind: "weather"; weather: WeatherReport }
   | { kind: "standing"; standing: StandingInfo }
@@ -2450,6 +2482,12 @@ export function getWays(): Uint8Array {
   return query(b, W.QueryBody.GetWays, W.GetWays.endGetWays(b));
 }
 
+export function getVehicles(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetVehicles.startGetVehicles(b);
+  return query(b, W.QueryBody.GetVehicles, W.GetVehicles.endGetVehicles(b));
+}
+
 /** A page of incidents (wire 1.64): `settlement` 0 for every one, `kind` 0 for every kind. */
 export function getIncidents(settlement: number, kind: number, before: IncidentKey | null, limit: number): Uint8Array {
   const b = new flatbuffers.Builder(64);
@@ -2755,6 +2793,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     weatherRev: Number(s.weatherRev()),
     crossingsRev: Number(s.crossingsRev()),
     waysRev: Number(s.waysRev()),
+    vehiclesRev: Number(s.vehiclesRev()),
     waterRev: Number(s.waterRev()),
     incidentsRev: Number(s.incidentsRev()),
     bands: bandBriefs(s),
@@ -2869,6 +2908,29 @@ function ways(w: W.Ways): WaysInfo {
     });
   }
   return { rev: Number(w.rev()), ways: list };
+}
+
+function vehicles(w: W.Vehicles): VehiclesInfo {
+  const list: VehicleInfo[] = [];
+  for (let i = 0; i < w.vehiclesLength(); i++) {
+    const v = w.vehicles(i);
+    if (!v) continue;
+    list.push({
+      id: Number(v.id()),
+      mode: v.mode(),
+      name: v.name() ?? "",
+      owner: Number(v.owner()),
+      ownerName: v.ownerName() ?? "",
+      x: v.x(),
+      y: v.y(),
+      made: v.made(),
+      wear: v.wear(),
+      outWith: Number(v.outWith()),
+      loadKg: v.loadKg(),
+      words: v.words() ?? "",
+    });
+  }
+  return { rev: Number(w.rev()), vehicles: list };
 }
 
 function coverageSource(v: W.CoverageSource): CoverageSource {
@@ -4689,6 +4751,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Ways()) as W.Ways | null;
       if (!f) break;
       return { kind: "ways", ways: ways(f) };
+    }
+    case W.ResponseBody.Vehicles: {
+      const f = r.body(new W.Vehicles()) as W.Vehicles | null;
+      if (!f) break;
+      return { kind: "vehicles", vehicles: vehicles(f) };
     }
     case W.ResponseBody.Incidents: {
       const f = r.body(new W.Incidents()) as W.Incidents | null;

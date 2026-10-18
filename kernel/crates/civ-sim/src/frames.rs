@@ -43,6 +43,7 @@ pub mod people;
 pub mod sickness;
 pub mod standing;
 pub mod traffic;
+pub mod vehicles;
 pub mod water;
 pub mod ways;
 pub mod wealth;

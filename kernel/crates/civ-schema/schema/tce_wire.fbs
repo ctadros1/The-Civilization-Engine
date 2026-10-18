@@ -414,6 +414,10 @@ table Snapshot {
   // Wire 1.84 (M8b slice CM): changes whenever a way is begun or changed and at each month's
   // survey while there are any (0 = no way yet). Fetch them with GetWays when it differs.
   ways_rev: ulong (id: 23);
+  // Wire 1.86 (M8b slice CP): changes whenever a boat or a cart is begun, worked on, made, moved
+  // or gone, taken out or brought in, or the goods aboard one change (0 = no boat or cart yet).
+  // Fetch them with GetVehicles when it differs.
+  vehicles_rev: ulong (id: 24);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -740,8 +744,10 @@ table GetStorm {
 
 // Wire 1.84 (M8b slice CM; ADR-0029 §9): every way people have worked on.
 table GetWays {}
+// Wire 1.86: every boat and cart.
+table GetVehicles {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak, GetCoverage, GetConflagration, GetFlood, GetStorm, GetWays }
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak, GetCoverage, GetConflagration, GetFlood, GetStorm, GetWays, GetVehicles }
 
 table Query {
   body: QueryBody (id: 1);
@@ -2730,7 +2736,33 @@ table Ways {
   ways: [WayInfo] (id: 1);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo, Coverage, ConflagrationInfo, FloodInfo, StormInfo, Ways }
+// Wire 1.86 (M8b slices CO and CP): a boat or a cart: its mode (0 a boat, 1 a cart) and its
+// content name ("Dugout"); the household it is of and that household in words ("Ada's
+// household"); where it stands, metres from the map's north-west corner; how far it is made, 0-1
+// (1 made); its wear, 0-1; who of its household has it out now (0 for nobody) and the goods
+// aboard, kg; and the vehicle in words.
+table VehicleInfo {
+  id: ulong (id: 0);
+  mode: ubyte (id: 1);
+  name: string (id: 2);
+  owner: ulong (id: 3);
+  owner_name: string (id: 4);
+  x: float (id: 5);
+  y: float (id: 6);
+  made: float (id: 7);
+  wear: float (id: 8);
+  out_with: ulong (id: 9);
+  load_kg: float (id: 10);
+  words: string (id: 11);
+}
+
+// Wire 1.86: every boat, then every cart, each in the order begun.
+table Vehicles {
+  rev: ulong (id: 0);
+  vehicles: [VehicleInfo] (id: 1);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo, Coverage, ConflagrationInfo, FloodInfo, StormInfo, Ways, Vehicles }
 
 table Response {
   body: ResponseBody (id: 1);

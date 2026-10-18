@@ -831,10 +831,10 @@ pub struct CommandBodyUnionTableOffset {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_QUERY_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_QUERY_BODY: u8 = 30;
+pub const ENUM_MAX_QUERY_BODY: u8 = 31;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 31] = [
+pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 32] = [
   QueryBody::NONE,
   QueryBody::GetRaster,
   QueryBody::GetHydrography,
@@ -866,6 +866,7 @@ pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 31] = [
   QueryBody::GetFlood,
   QueryBody::GetStorm,
   QueryBody::GetWays,
+  QueryBody::GetVehicles,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -904,9 +905,10 @@ impl QueryBody {
   pub const GetFlood: Self = Self(28);
   pub const GetStorm: Self = Self(29);
   pub const GetWays: Self = Self(30);
+  pub const GetVehicles: Self = Self(31);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 30;
+  pub const ENUM_MAX: u8 = 31;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::GetRaster,
@@ -939,6 +941,7 @@ impl QueryBody {
     Self::GetFlood,
     Self::GetStorm,
     Self::GetWays,
+    Self::GetVehicles,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -974,6 +977,7 @@ impl QueryBody {
       Self::GetFlood => Some("GetFlood"),
       Self::GetStorm => Some("GetStorm"),
       Self::GetWays => Some("GetWays"),
+      Self::GetVehicles => Some("GetVehicles"),
       _ => None,
     }
   }
@@ -1413,10 +1417,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for BookKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RESPONSE_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RESPONSE_BODY: u8 = 31;
+pub const ENUM_MAX_RESPONSE_BODY: u8 = 32;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 32] = [
+pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 33] = [
   ResponseBody::NONE,
   ResponseBody::Ack,
   ResponseBody::RasterTile,
@@ -1449,6 +1453,7 @@ pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 32] = [
   ResponseBody::FloodInfo,
   ResponseBody::StormInfo,
   ResponseBody::Ways,
+  ResponseBody::Vehicles,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1488,9 +1493,10 @@ impl ResponseBody {
   pub const FloodInfo: Self = Self(29);
   pub const StormInfo: Self = Self(30);
   pub const Ways: Self = Self(31);
+  pub const Vehicles: Self = Self(32);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 31;
+  pub const ENUM_MAX: u8 = 32;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::Ack,
@@ -1524,6 +1530,7 @@ impl ResponseBody {
     Self::FloodInfo,
     Self::StormInfo,
     Self::Ways,
+    Self::Vehicles,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1560,6 +1567,7 @@ impl ResponseBody {
       Self::FloodInfo => Some("FloodInfo"),
       Self::StormInfo => Some("StormInfo"),
       Self::Ways => Some("Ways"),
+      Self::Vehicles => Some("Vehicles"),
       _ => None,
     }
   }
@@ -7532,6 +7540,7 @@ impl<'a> Snapshot<'a> {
   pub const VT_INCIDENTS_REV: ::flatbuffers::VOffsetT = 46;
   pub const VT_BANDS: ::flatbuffers::VOffsetT = 48;
   pub const VT_WAYS_REV: ::flatbuffers::VOffsetT = 50;
+  pub const VT_VEHICLES_REV: ::flatbuffers::VOffsetT = 52;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7543,6 +7552,7 @@ impl<'a> Snapshot<'a> {
     args: &'args SnapshotArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Snapshot<'bldr>> {
     let mut builder = SnapshotBuilder::new(_fbb);
+    builder.add_vehicles_rev(args.vehicles_rev);
     builder.add_ways_rev(args.ways_rev);
     builder.add_incidents_rev(args.incidents_rev);
     builder.add_water_rev(args.water_rev);
@@ -7739,6 +7749,13 @@ impl<'a> Snapshot<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Snapshot::VT_WAYS_REV, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn vehicles_rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Snapshot::VT_VEHICLES_REV, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Snapshot<'_> {
@@ -7771,6 +7788,7 @@ impl ::flatbuffers::Verifiable for Snapshot<'_> {
      .visit_field::<u64>("incidents_rev", Self::VT_INCIDENTS_REV, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BandBrief>>>>("bands", Self::VT_BANDS, false)?
      .visit_field::<u64>("ways_rev", Self::VT_WAYS_REV, false)?
+     .visit_field::<u64>("vehicles_rev", Self::VT_VEHICLES_REV, false)?
      .finish();
     Ok(())
   }
@@ -7800,6 +7818,7 @@ pub struct SnapshotArgs<'a> {
     pub incidents_rev: u64,
     pub bands: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BandBrief<'a>>>>>,
     pub ways_rev: u64,
+    pub vehicles_rev: u64,
 }
 impl<'a> Default for SnapshotArgs<'a> {
   #[inline]
@@ -7829,6 +7848,7 @@ impl<'a> Default for SnapshotArgs<'a> {
       incidents_rev: 0,
       bands: None,
       ways_rev: 0,
+      vehicles_rev: 0,
     }
   }
 }
@@ -7935,6 +7955,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SnapshotBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Snapshot::VT_WAYS_REV, ways_rev, 0);
   }
   #[inline]
+  pub fn add_vehicles_rev(&mut self, vehicles_rev: u64) {
+    self.fbb_.push_slot::<u64>(Snapshot::VT_VEHICLES_REV, vehicles_rev, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SnapshotBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SnapshotBuilder {
@@ -7976,6 +8000,7 @@ impl ::core::fmt::Debug for Snapshot<'_> {
       ds.field("incidents_rev", &self.incidents_rev());
       ds.field("bands", &self.bands());
       ds.field("ways_rev", &self.ways_rev());
+      ds.field("vehicles_rev", &self.vehicles_rev());
       ds.finish()
   }
 }
@@ -13993,6 +14018,84 @@ impl ::core::fmt::Debug for GetWays<'_> {
       ds.finish()
   }
 }
+pub enum GetVehiclesOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetVehicles<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetVehicles<'a> {
+  type Inner = GetVehicles<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetVehicles<'a> {
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetVehicles { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    _args: &'args GetVehiclesArgs
+  ) -> ::flatbuffers::WIPOffset<GetVehicles<'bldr>> {
+    let mut builder = GetVehiclesBuilder::new(_fbb);
+    builder.finish()
+  }
+
+}
+
+impl ::flatbuffers::Verifiable for GetVehicles<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetVehiclesArgs {
+}
+impl<'a> Default for GetVehiclesArgs {
+  #[inline]
+  fn default() -> Self {
+    GetVehiclesArgs {
+    }
+  }
+}
+
+pub struct GetVehiclesBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetVehiclesBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetVehiclesBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetVehiclesBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetVehicles<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetVehicles<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetVehicles");
+      ds.finish()
+  }
+}
 pub enum QueryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -14492,6 +14595,21 @@ impl<'a> Query<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_vehicles(&self) -> Option<GetVehicles<'a>> {
+    if self.body_type() == QueryBody::GetVehicles {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetVehicles::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Query<'_> {
@@ -14532,6 +14650,7 @@ impl ::flatbuffers::Verifiable for Query<'_> {
           QueryBody::GetFlood => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetFlood>>("QueryBody::GetFlood", pos),
           QueryBody::GetStorm => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetStorm>>("QueryBody::GetStorm", pos),
           QueryBody::GetWays => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetWays>>("QueryBody::GetWays", pos),
+          QueryBody::GetVehicles => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetVehicles>>("QueryBody::GetVehicles", pos),
           _ => Ok(()),
         }
      })?
@@ -14791,6 +14910,13 @@ impl ::core::fmt::Debug for Query<'_> {
         },
         QueryBody::GetWays => {
           if let Some(x) = self.body_as_get_ways() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetVehicles => {
+          if let Some(x) = self.body_as_get_vehicles() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -37992,6 +38118,402 @@ impl ::core::fmt::Debug for Ways<'_> {
       ds.finish()
   }
 }
+pub enum VehicleInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct VehicleInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for VehicleInfo<'a> {
+  type Inner = VehicleInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> VehicleInfo<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_MODE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_NAME: ::flatbuffers::VOffsetT = 8;
+  pub const VT_OWNER: ::flatbuffers::VOffsetT = 10;
+  pub const VT_OWNER_NAME: ::flatbuffers::VOffsetT = 12;
+  pub const VT_X: ::flatbuffers::VOffsetT = 14;
+  pub const VT_Y: ::flatbuffers::VOffsetT = 16;
+  pub const VT_MADE: ::flatbuffers::VOffsetT = 18;
+  pub const VT_WEAR: ::flatbuffers::VOffsetT = 20;
+  pub const VT_OUT_WITH: ::flatbuffers::VOffsetT = 22;
+  pub const VT_LOAD_KG: ::flatbuffers::VOffsetT = 24;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 26;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    VehicleInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args VehicleInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<VehicleInfo<'bldr>> {
+    let mut builder = VehicleInfoBuilder::new(_fbb);
+    builder.add_out_with(args.out_with);
+    builder.add_owner(args.owner);
+    builder.add_id(args.id);
+    if let Some(x) = args.words { builder.add_words(x); }
+    builder.add_load_kg(args.load_kg);
+    builder.add_wear(args.wear);
+    builder.add_made(args.made);
+    builder.add_y(args.y);
+    builder.add_x(args.x);
+    if let Some(x) = args.owner_name { builder.add_owner_name(x); }
+    if let Some(x) = args.name { builder.add_name(x); }
+    builder.add_mode(args.mode);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(VehicleInfo::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn mode(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(VehicleInfo::VT_MODE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(VehicleInfo::VT_NAME, None)}
+  }
+  #[inline]
+  pub fn owner(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(VehicleInfo::VT_OWNER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn owner_name(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(VehicleInfo::VT_OWNER_NAME, None)}
+  }
+  #[inline]
+  pub fn x(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(VehicleInfo::VT_X, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn y(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(VehicleInfo::VT_Y, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn made(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(VehicleInfo::VT_MADE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn wear(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(VehicleInfo::VT_WEAR, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn out_with(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(VehicleInfo::VT_OUT_WITH, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn load_kg(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(VehicleInfo::VT_LOAD_KG, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(VehicleInfo::VT_WORDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for VehicleInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<u8>("mode", Self::VT_MODE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("name", Self::VT_NAME, false)?
+     .visit_field::<u64>("owner", Self::VT_OWNER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("owner_name", Self::VT_OWNER_NAME, false)?
+     .visit_field::<f32>("x", Self::VT_X, false)?
+     .visit_field::<f32>("y", Self::VT_Y, false)?
+     .visit_field::<f32>("made", Self::VT_MADE, false)?
+     .visit_field::<f32>("wear", Self::VT_WEAR, false)?
+     .visit_field::<u64>("out_with", Self::VT_OUT_WITH, false)?
+     .visit_field::<f32>("load_kg", Self::VT_LOAD_KG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct VehicleInfoArgs<'a> {
+    pub id: u64,
+    pub mode: u8,
+    pub name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub owner: u64,
+    pub owner_name: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub x: f32,
+    pub y: f32,
+    pub made: f32,
+    pub wear: f32,
+    pub out_with: u64,
+    pub load_kg: f32,
+    pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for VehicleInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    VehicleInfoArgs {
+      id: 0,
+      mode: 0,
+      name: None,
+      owner: 0,
+      owner_name: None,
+      x: 0.0,
+      y: 0.0,
+      made: 0.0,
+      wear: 0.0,
+      out_with: 0,
+      load_kg: 0.0,
+      words: None,
+    }
+  }
+}
+
+pub struct VehicleInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> VehicleInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(VehicleInfo::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_mode(&mut self, mode: u8) {
+    self.fbb_.push_slot::<u8>(VehicleInfo::VT_MODE, mode, 0);
+  }
+  #[inline]
+  pub fn add_name(&mut self, name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(VehicleInfo::VT_NAME, name);
+  }
+  #[inline]
+  pub fn add_owner(&mut self, owner: u64) {
+    self.fbb_.push_slot::<u64>(VehicleInfo::VT_OWNER, owner, 0);
+  }
+  #[inline]
+  pub fn add_owner_name(&mut self, owner_name: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(VehicleInfo::VT_OWNER_NAME, owner_name);
+  }
+  #[inline]
+  pub fn add_x(&mut self, x: f32) {
+    self.fbb_.push_slot::<f32>(VehicleInfo::VT_X, x, 0.0);
+  }
+  #[inline]
+  pub fn add_y(&mut self, y: f32) {
+    self.fbb_.push_slot::<f32>(VehicleInfo::VT_Y, y, 0.0);
+  }
+  #[inline]
+  pub fn add_made(&mut self, made: f32) {
+    self.fbb_.push_slot::<f32>(VehicleInfo::VT_MADE, made, 0.0);
+  }
+  #[inline]
+  pub fn add_wear(&mut self, wear: f32) {
+    self.fbb_.push_slot::<f32>(VehicleInfo::VT_WEAR, wear, 0.0);
+  }
+  #[inline]
+  pub fn add_out_with(&mut self, out_with: u64) {
+    self.fbb_.push_slot::<u64>(VehicleInfo::VT_OUT_WITH, out_with, 0);
+  }
+  #[inline]
+  pub fn add_load_kg(&mut self, load_kg: f32) {
+    self.fbb_.push_slot::<f32>(VehicleInfo::VT_LOAD_KG, load_kg, 0.0);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(VehicleInfo::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> VehicleInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    VehicleInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<VehicleInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for VehicleInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("VehicleInfo");
+      ds.field("id", &self.id());
+      ds.field("mode", &self.mode());
+      ds.field("name", &self.name());
+      ds.field("owner", &self.owner());
+      ds.field("owner_name", &self.owner_name());
+      ds.field("x", &self.x());
+      ds.field("y", &self.y());
+      ds.field("made", &self.made());
+      ds.field("wear", &self.wear());
+      ds.field("out_with", &self.out_with());
+      ds.field("load_kg", &self.load_kg());
+      ds.field("words", &self.words());
+      ds.finish()
+  }
+}
+pub enum VehiclesOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Vehicles<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Vehicles<'a> {
+  type Inner = Vehicles<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Vehicles<'a> {
+  pub const VT_REV: ::flatbuffers::VOffsetT = 4;
+  pub const VT_VEHICLES: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Vehicles { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args VehiclesArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Vehicles<'bldr>> {
+    let mut builder = VehiclesBuilder::new(_fbb);
+    builder.add_rev(args.rev);
+    if let Some(x) = args.vehicles { builder.add_vehicles(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Vehicles::VT_REV, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn vehicles(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<VehicleInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<VehicleInfo>>>>(Vehicles::VT_VEHICLES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Vehicles<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("rev", Self::VT_REV, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<VehicleInfo>>>>("vehicles", Self::VT_VEHICLES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct VehiclesArgs<'a> {
+    pub rev: u64,
+    pub vehicles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<VehicleInfo<'a>>>>>,
+}
+impl<'a> Default for VehiclesArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    VehiclesArgs {
+      rev: 0,
+      vehicles: None,
+    }
+  }
+}
+
+pub struct VehiclesBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> VehiclesBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_rev(&mut self, rev: u64) {
+    self.fbb_.push_slot::<u64>(Vehicles::VT_REV, rev, 0);
+  }
+  #[inline]
+  pub fn add_vehicles(&mut self, vehicles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<VehicleInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Vehicles::VT_VEHICLES, vehicles);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> VehiclesBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    VehiclesBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Vehicles<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Vehicles<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Vehicles");
+      ds.field("rev", &self.rev());
+      ds.field("vehicles", &self.vehicles());
+      ds.finish()
+  }
+}
 pub enum ResponseOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -38506,6 +39028,21 @@ impl<'a> Response<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_vehicles(&self) -> Option<Vehicles<'a>> {
+    if self.body_type() == ResponseBody::Vehicles {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Vehicles::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Response<'_> {
@@ -38547,6 +39084,7 @@ impl ::flatbuffers::Verifiable for Response<'_> {
           ResponseBody::FloodInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FloodInfo>>("ResponseBody::FloodInfo", pos),
           ResponseBody::StormInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<StormInfo>>("ResponseBody::StormInfo", pos),
           ResponseBody::Ways => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Ways>>("ResponseBody::Ways", pos),
+          ResponseBody::Vehicles => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Vehicles>>("ResponseBody::Vehicles", pos),
           _ => Ok(()),
         }
      })?
@@ -38813,6 +39351,13 @@ impl ::core::fmt::Debug for Response<'_> {
         },
         ResponseBody::Ways => {
           if let Some(x) = self.body_as_ways() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::Vehicles => {
+          if let Some(x) = self.body_as_vehicles() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

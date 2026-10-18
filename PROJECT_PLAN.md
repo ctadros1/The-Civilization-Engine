@@ -4226,6 +4226,23 @@ and M6a gives rivers a daily flow.
         content or wire change. **Not yet:** unloading to porters at a stretch, walkers giving
         way to carts, households choosing by what they remember of waits, and the observer's
         view of carts and boats.
+      - *Fifth part, as built (2026-10-18): the observer's view of boats and carts* (wire 1.86).
+        `GetVehicles` lists every boat, then every cart: whose it is, where it stands, how far
+        it is made and its wear, who of its household has it out now (someone whose step in
+        progress is a paddle or a haul begun where it stands) and the goods aboard (its
+        consignments in transit), with the vehicle in the kernel's words ("Ada's household's
+        dugout, made in year 2, a tenth worn; out with Bo, 40 kg aboard"; "…handcart, being
+        made: 12 of 40 hours' work done"). The snapshot's `vehicles_rev` changes when any of
+        that does, and is 0 while the world has never had one; it is worked out from the world
+        as it stands, so the simulation is untouched. **On the map:** a boat is a hull about
+        6 m long, a cart a box on two wheels, each never smaller than a few pixels, faint while
+        being made and fading as it wears; one out is drawn beside whoever has it, frame by
+        frame, under them; the pointer's readout says what it is. **Tests:** the host reads a
+        made dugout and a handcart 12 hours into its 40 with their words; the web's look,
+        position and picking; the e2e finds none in a new world. **Boundary:** wire 1.86
+        (`GetVehicles`, `Vehicles`, `VehicleInfo`, `vehicles_rev`); no saves or content
+        change. **Not yet:** a cart of a household that is gone, repair, unloading to porters,
+        walkers giving way to carts, and choices made by remembered waits.
     - **CQ**: works on ways: recorded losses, household works and `build_way`, laying, widening,
       passing places, cart crossings, landings, grading as an earthwork, upkeep by law, tolls.
     - **CR**: where to live weighs the walk; the dashboard's travel time by occupation and

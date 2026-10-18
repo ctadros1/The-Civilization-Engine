@@ -4494,6 +4494,22 @@ and M6a gives rivers a daily flow.
       operations, 3–8 alternatives, forecasts in hours, the issues *no ground*, *a way built
       over* and *new ground*, versions, keepers avoiding reserved ground, encroachments recorded,
       the reservation layers.
+      - *First part, as built (2026-10-18): the layout* (ADR-0030 §2: "a pure function in
+        `civ-land` lays a template over the ground as it is"). `civ_land::plans::lay_grid` lays
+        M8's first operation, an orthogonal subdivision: a grid of blocks along and across an
+        axis, streets of one width between and round them (in stretches of a block's side and
+        the crossings between), each block cut into two rows of parcels back to back at the
+        template's frontage and depth, and the block at the origin kept as a square if the
+        template says so. A caller's check refuses ground (water, too steep, a claim the layout
+        bends round), and what lies on it is left out and counted; the layout returned is what
+        a law will save. **Not as the ADR:** a grid runs east and west or north and south only,
+        since plots are axis-aligned rectangles; "an orientation rule (toward the hearth, the
+        river or a cardinal line)" becomes a choice between the two axes. **What it comes to**
+        (the tests): 3 by 3 blocks of 80 by 40 m with 6 m streets lay 128 parcels of 10 by 20 m
+        and a square, the streets taking 24% of the 264 by 144 m it covers (10-04 §5.6's 19.1%
+        is an endless grid's; the border streets add the rest), nothing overlapping; turned
+        north and south it is the same grid; refused ground leaves its parcels and streets out.
+        **Boundary:** nothing yet calls it; no saves, content or wire change.
     - **CU, land assembly and allotment:** clauses and answers for every touched claim, the
       channels `GroundFee`, `GroundRent` and `Compensation`, the keeper's office, phases, the four
       allocation rules, ground rent as an obligation, build by.

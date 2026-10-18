@@ -32,6 +32,7 @@ pub mod earth;
 pub mod enclosures;
 pub mod fields;
 pub mod paths;
+pub mod plans;
 pub mod soil;
 pub mod water;
 pub mod ways;

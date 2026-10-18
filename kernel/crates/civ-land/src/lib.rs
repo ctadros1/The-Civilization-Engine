@@ -24,6 +24,7 @@ pub mod banks;
 pub mod boating;
 pub mod boats;
 pub mod buildings;
+pub mod carting;
 pub mod crossings;
 pub mod deposits;
 pub mod ditches;

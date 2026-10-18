@@ -4118,6 +4118,28 @@ and M6a gives rivers a daily flow.
     - **CP**: handcarts on ways: the wheel technique and handcart, passability by width, grade and
       deck, the way graph with door legs, mode choice by the complete chain, clearance and
       turning back.
+      - *First part, as built (2026-10-18): wheels on the land.* **A cart** is a vehicle of the
+        appended mode `cart` (content API 135), with fields of its own: its tare, rolling
+        resistance on a way that serves carts and on a worn trail, the most its puller pulls,
+        their sustained power, and the steepest grade they can hold it back on; a boat's water and
+        paddling fields are a boat's only, and each mode refuses the other's. **Where wheels go**
+        (`civ_land::carting`): on a way that serves carts and is as wide as the cart, on a worn
+        trail no narrower than a trail's tread (1.2 m, the top of research 10-07 §2.4's 0.6-1.2 m
+        footpath), or across an open crossing whose deck (its members side by side) is as wide as
+        it; never across open ground, through water, or over a log footbridge (two 20 cm logs are
+        0.4 m). **The pull** is `M·g·(C + s)` (10-07 §1.2), so at C = 0.02 a 5 % climb takes 3.5
+        times the level pull; a cart goes where that is within its puller's pull, at their power
+        over it and never faster than they walk, and down nothing steeper than they can brake on.
+        **The quickest way for a cart** is a directed search on the cells that take it (a
+        diagonal only where both cells beside it do), checked against a Bellman-Ford oracle
+        (ADR-0029 §7). **What it comes to:** a loaded handcart of the brief's priors (190 kg,
+        0.9 m, 200 N, 75 W) goes at a walk on the level, at 0.58 m/s up 5 %, not at all up 10 %,
+        round a 15 % ridge by a level pass where an empty one goes over, and slower up a 3 % way
+        than down it; in a village lived two months it keeps to the trails its people wore, by
+        the same times the oracle finds. **Exact:** nothing yet makes or uses a cart; the bench's
+        digests are CO's but the content's own. **Boundary:** content API 135, no saves or wire
+        change. **Not yet:** the wheel technique and the handcart in the core, making one,
+        errands by cart and the door legs, clearance, and the observer's view (the next parts).
     - **CQ**: works on ways: recorded losses, household works and `build_way`, laying, widening,
       passing places, cart crossings, landings, grading as an earthwork, upkeep by law, tolls.
     - **CR**: where to live weighs the walk; the dashboard's travel time by occupation and

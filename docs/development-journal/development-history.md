@@ -2874,3 +2874,15 @@ on it, no more than three at once, until it is done and drawn up ready.
 **What it comes to:** a household of five beside deep water, whose neighbours wanted stone, made
 its dugout in seventeen days and then sent its errands by water. A village with no reason to go
 far by boat makes none.
+
+## 2026-10-18 — CP, first part: where wheels go
+
+**Built:** the engine now knows what a cart needs from the ground. It goes on a worn trail or a
+way wide enough for it, over a bridge only if the deck is as wide as the cart, and never over a
+log laid for walkers or across rough ground. Pulling it uphill takes more the steeper it gets: a
+gentle slope of one in twenty takes three and a half times the pull of the level, and a slope of
+one in ten is more than one person can manage with a full load.
+
+**What it comes to:** a loaded handcart goes round a steep ridge by the level pass, while an
+empty one goes straight over. Nobody has a cart yet; making one, and choosing it for an errand,
+come next.

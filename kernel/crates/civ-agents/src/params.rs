@@ -855,6 +855,8 @@ impl Catalog {
 pub enum VehicleMode {
     /// On water, paddled.
     Boat,
+    /// On wheels, pulled by a person (M8b slice CP).
+    Cart,
 }
 
 impl VehicleMode {
@@ -862,12 +864,17 @@ impl VehicleMode {
     pub fn name(self) -> &'static str {
         match self {
             VehicleMode::Boat => "boat",
+            VehicleMode::Cart => "cart",
         }
     }
 
     /// The mode named `name`, if any.
     pub fn from_name(name: &str) -> Option<VehicleMode> {
-        (name == "boat").then_some(VehicleMode::Boat)
+        match name {
+            "boat" => Some(VehicleMode::Boat),
+            "cart" => Some(VehicleMode::Cart),
+            _ => None,
+        }
     }
 }
 
@@ -905,9 +912,34 @@ pub struct VehicleDef {
     /// The share of a reach's mean velocity it meets going upstream, keeping to the slack water
     /// along the banks (ADR-0029 §5 as amended).
     pub slack_share: f64,
+    /// A cart's own mass, kilograms (M8b slice CP; 0 for a boat).
+    pub tare_kg: f64,
+    /// A cart's rolling resistance on a way that serves carts, and on a worn trail.
+    pub way_resistance: f64,
+    pub trail_resistance: f64,
+    /// The most a person pulling a cart can pull, newtons, and their sustained power, watts.
+    pub pull_n: f64,
+    pub power_w: f64,
+    /// The steepest grade down, rise over run, a cart's puller can hold it back on.
+    pub brake_grade: f64,
 }
 
 impl VehicleDef {
+    /// How the ground sees a cart of this vehicle carrying `load_kg`, pulled by someone who walks
+    /// at `walk_m_s` (M8b slice CP).
+    pub fn wheels(&self, load_kg: f64, walk_m_s: f64) -> civ_land::carting::Wheels {
+        civ_land::carting::Wheels {
+            mass_kg: self.tare_kg + load_kg.max(0.0),
+            width_m: self.width_m,
+            way_c: self.way_resistance,
+            trail_c: self.trail_resistance,
+            pull_n: self.pull_n,
+            power_w: self.power_w,
+            walk_m_s,
+            brake_grade: self.brake_grade,
+        }
+    }
+
     /// How the river sees it.
     pub fn hull(&self) -> civ_land::boating::Hull {
         civ_land::boating::Hull {

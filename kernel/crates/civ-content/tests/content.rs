@@ -68,7 +68,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 134
+kernel_content_api = 135
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -1956,5 +1956,109 @@ fn bank_erosion_priors_refuse_invalid_and_unknown_fields() {
             ("land/temperate_valley.toml", &broken),
         ]);
         assert!(!report.diagnostics.is_empty(), "{replacement}");
+    }
+}
+
+/// A handcart's file (M8b slice CP), for the vehicle tests: no technique, skill or tool, so it
+/// loads beside the real goods alone.
+const HANDCART: &str = r#"
+kind = "vehicle"
+id = "core:vehicle/test_handcart"
+name = "Handcart"
+mode = "cart"
+technique = ""
+skill = ""
+tool = ""
+good = "core:good/timber"
+material_kg = 60.0
+labour_h = 40.0
+crew = 2
+payload_kg = 150.0
+width_m = 0.9
+life_years = 8.0
+handling_kg_min = 10.0
+tare_kg = 40.0
+way_resistance = 0.02
+trail_resistance = 0.05
+pull_n = 200.0
+power_w = 75.0
+brake_grade = 0.15
+"#;
+
+#[test]
+fn a_cart_names_its_mass_resistances_and_puller_and_no_boat_fields() {
+    let preset = real_preset();
+    let dugout = real("vehicle/dugout.toml");
+    let report = load_fixture(&[
+        ("worldgen/river_valley.toml", &preset),
+        ("vehicle/dugout.toml", &dugout),
+        ("vehicle/test_handcart.toml", HANDCART),
+    ]);
+    assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
+    let catalog = &report.registry.expect("loads").catalog;
+    let cart = catalog
+        .vehicles
+        .iter()
+        .find(|v| v.id == "core:vehicle/test_handcart")
+        .expect("the handcart");
+    assert_eq!(cart.mode, civ_agents::params::VehicleMode::Cart);
+    let w = cart.wheels(150.0, 1.3);
+    assert_eq!((w.mass_kg, w.width_m, w.pull_n), (190.0, 0.9, 200.0));
+    assert_eq!((w.way_c, w.trail_c, w.brake_grade), (0.02, 0.05, 0.15));
+    let boat = catalog
+        .vehicles
+        .iter()
+        .find(|v| v.id == "core:vehicle/dugout")
+        .expect("the dugout");
+    assert_eq!(
+        (boat.mode, boat.tare_kg),
+        (civ_agents::params::VehicleMode::Boat, 0.0)
+    );
+    // Each mode's fields are its own: a cart with a draft, a boat with a puller, or a cart
+    // without one, is refused and says why.
+    for (file, from, to, says) in [
+        (
+            HANDCART,
+            "brake_grade = 0.15",
+            "brake_grade = 0.15\ndraft_m = 0.3",
+            "`draft_m` is a boat's",
+        ),
+        (HANDCART, "pull_n = 200.0\n", "", "`pull_n` must be between"),
+        (
+            dugout.as_str(),
+            "slack_share = 0.4",
+            "slack_share = 0.4\npull_n = 200.0",
+            "`pull_n` is a cart's",
+        ),
+        (
+            dugout.as_str(),
+            "mode = \"boat\"",
+            "mode = \"sledge\"",
+            "`boat` or `cart`",
+        ),
+    ] {
+        let broken = file.replacen(from, to, 1);
+        assert_ne!(broken, file, "the edit applies");
+        let (path, other) = if file == HANDCART {
+            (
+                "vehicle/test_handcart.toml",
+                ("vehicle/dugout.toml", dugout.as_str()),
+            )
+        } else {
+            (
+                "vehicle/dugout.toml",
+                ("vehicle/test_handcart.toml", HANDCART),
+            )
+        };
+        let report = load_fixture(&[
+            ("worldgen/river_valley.toml", &preset),
+            (path, &broken),
+            other,
+        ]);
+        assert!(
+            report.diagnostics.iter().any(|d| d.message.contains(says)),
+            "{says}: {:?}",
+            report.diagnostics
+        );
     }
 }

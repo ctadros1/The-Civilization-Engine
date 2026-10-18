@@ -687,6 +687,13 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 135 (M8b slice CP) appends the vehicle mode `cart`: wheels pulled by a person. A
+cart names `tare_kg` (its own mass), `way_resistance` and `trail_resistance` (rolling resistance
+on a way that serves carts and on a worn trail; research 10-07 §1.2 illustrates 0.02), `pull_n`
+and `power_w` (its puller's most and sustained), and `brake_grade` (the steepest grade down they
+can hold it back on). A boat's `draft_m`, `paddle_m_s` and `slack_share` are a boat's only: each
+mode refuses the other's fields. The core has no cart yet.
+
 Content API 134 (M8b slice CO, third part) brings the activity behaviour `boat`: work on a boat
 the household is making, on the bank where it will be drawn up, until its vehicle's `labour_h` is
 done, no more than its `crew` at once in a day. The core adds `core:activity/work_with_wood_on_dugout`

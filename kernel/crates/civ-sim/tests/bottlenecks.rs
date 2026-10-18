@@ -278,3 +278,71 @@ fn a_bands_days_of_travel_are_counted_by_occupation_and_purpose() {
     assert!(adults > 0);
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
 }
+
+#[test]
+fn where_people_go_from_home_is_held_by_place_and_finds_their_fields_and_the_hearth() {
+    // M8c slice CS, first part: each walk out of a home's door is a trip to the place it goes,
+    // held by the walker, fading; nothing reads it yet. In a village's first days its people go
+    // from home to their own fields and to the hearth.
+    let mut sim = village(3);
+    sim.advance_minutes(5 * DAY).expect("lives");
+    let (w, cs) = (sim.map().width, sim.map().cell_size_m);
+    let hearth = sim.land().settlements[0].hearth_m;
+    let people = sim.people();
+    let travel = &people.travel;
+    assert!(
+        travel.goings.len() >= 15,
+        "{} hold goings",
+        travel.goings.len()
+    );
+    let near_rect = |c: (f32, f32), r: &civ_land::RectCm| {
+        let (x, y) = ((c.0 * 100.0) as i32, (c.1 * 100.0) as i32);
+        let dx = (r.x - x).max(x - (r.x + r.w)).max(0);
+        let dy = (r.y - y).max(y - (r.y + r.h)).max(0);
+        (dx as f32).hypot(dy as f32) <= 1600.0
+    };
+    let mut to_hearth = 0;
+    let mut farmers = std::collections::BTreeSet::new();
+    let mut to_fields = std::collections::BTreeSet::new();
+    for (p, g) in &travel.goings {
+        let person = people.person(*p).expect("a living walker");
+        let household = person.household;
+        let fields: Vec<_> = sim
+            .land()
+            .fields
+            .iter()
+            .filter(|f| f.household == household)
+            .map(|f| f.rect)
+            .collect();
+        if !fields.is_empty() {
+            farmers.insert(household);
+        }
+        let centres: Vec<_> =
+            g.to.iter()
+                .map(|&(place, _)| civ_agents::travel::going_centre(place, w, cs))
+                .collect();
+        to_hearth += usize::from(
+            centres
+                .iter()
+                .any(|c| (c.0 - hearth.0).hypot(c.1 - hearth.1) <= 16.0),
+        );
+        if centres
+            .iter()
+            .any(|&c| fields.iter().any(|r| near_rect(c, r)))
+        {
+            to_fields.insert(household);
+        }
+    }
+    assert!(
+        2 * to_hearth >= travel.goings.len(),
+        "{to_hearth} of {} went to the hearth",
+        travel.goings.len()
+    );
+    assert!(!farmers.is_empty());
+    assert_eq!(
+        to_fields, farmers,
+        "every farming household went to its fields"
+    );
+    assert!(people.problems(u64::MAX, usize::MAX).is_empty());
+    saves_and_goes_on_alike(&mut sim, DAY / 2);
+}

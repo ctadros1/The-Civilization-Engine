@@ -2374,6 +2374,21 @@ fn a_schema_68_save_loads_with_no_wade_remembered() {
 }
 
 #[test]
+fn a_schema_153_save_loads_and_goes_on() {
+    // A schema-153 save, from before people's trips from home were held (M8c slice CS, first
+    // part): it loads holding none, and holds them from the next walk out of a door.
+    let mut sim = load_first();
+    sim.people_mut_for_tests().travel.goings.clear();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V153;
+    let path = republish("slice-cr2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-153 save loads");
+    assert_eq!(loaded.people().travel, sim.people().travel);
+    loaded.advance_minutes(24 * 60).expect("goes on");
+    assert!(!loaded.people().travel.goings.is_empty());
+}
+
+#[test]
 fn a_schema_152_save_loads_and_goes_on() {
     // A schema-152 save, from before households held their days of travel (M8b slice CR, second
     // part): it loads holding none, and holds them from its next midnight.

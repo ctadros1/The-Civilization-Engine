@@ -124,6 +124,66 @@ pub struct HouseholdTravel {
     pub day: i64,
 }
 
+/// The side of the blocks the places someone goes from home are counted by, in map cells (two
+/// 8 m cells: a field, a door, a source a few steps wide count as one place).
+pub const GOING_BLOCK_CELLS: u32 = 2;
+/// The most places someone's goings hold: past it the least gone to is let go.
+pub const MOST_GOINGS: usize = 16;
+/// Trips to a place, faded, below which it is let go.
+pub const LEAST_GOING: f32 = 0.05;
+
+/// The block of [`GOING_BLOCK_CELLS`] a side that map cell `cell` of a map `width` cells wide
+/// lies in, as a place someone goes.
+pub fn going_place(cell: u32, width: u32) -> u32 {
+    let b = GOING_BLOCK_CELLS;
+    (cell / width / b) * width.div_ceil(b) + (cell % width) / b
+}
+
+/// The centre of place `place` ([`going_place`]) on a map `width` cells wide of cells
+/// `cell_size_m` a side, metres.
+pub fn going_centre(place: u32, width: u32, cell_size_m: f32) -> (f32, f32) {
+    let b = GOING_BLOCK_CELLS;
+    let per_row = width.div_ceil(b);
+    let side = b as f32 * cell_size_m;
+    (
+        ((place % per_row) as f32 + 0.5) * side,
+        ((place / per_row) as f32 + 0.5) * side,
+    )
+}
+
+/// Where someone has gone from home (M8c slice CS, first part; ADR-0030 §1): the trips they set
+/// off on from their household's home, by the place they went to ([`going_place`]), fading at
+/// the places' half-life, as of `day`. What a household about to build weighs (the second part).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Goings {
+    pub day: i64,
+    /// Trips, faded, by place, in place order.
+    pub to: Vec<(u32, f32)>,
+}
+
+impl Goings {
+    /// Faded to `day` at `half_life_days`, letting go of places below [`LEAST_GOING`].
+    fn fade_to(&mut self, day: i64, half_life_days: f64) {
+        if day <= self.day {
+            return;
+        }
+        let f = crate::uses::fading(day - self.day, half_life_days);
+        for t in &mut self.to {
+            t.1 *= f;
+        }
+        self.to.retain(|t| t.1 >= LEAST_GOING);
+        self.day = day;
+    }
+
+    /// The trips to each place a year, at `half_life_days`, as of `day`.
+    pub fn per_year(&self, day: i64, half_life_days: f64) -> impl Iterator<Item = (u32, f64)> + '_ {
+        let f = f64::from(crate::uses::fading(day - self.day, half_life_days));
+        self.to
+            .iter()
+            .map(move |&(p, t)| (p, crate::uses::per_year(f64::from(t) * f, half_life_days)))
+    }
+}
+
 /// The world's travel tally (M8b slice CR, first part).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Travel {
@@ -134,9 +194,36 @@ pub struct Travel {
     /// What each household holds of its members' days of travel, by household (the second
     /// part): what the residence review weighs.
     pub households: BTreeMap<PermanentId, HouseholdTravel>,
+    /// Where each person has gone from home, by person (M8c slice CS, first part).
+    pub goings: BTreeMap<PermanentId, Goings>,
 }
 
 impl Travel {
+    /// `person` set off from home on `day` for place `place` ([`going_place`]): one trip more
+    /// there, what they hold fading at `half_life_days`, and the place least gone to let go past
+    /// [`MOST_GOINGS`] (the lowest-numbered among equals is kept).
+    pub fn went(&mut self, person: PermanentId, place: u32, day: i64, half_life_days: f64) {
+        let g = self.goings.entry(person).or_insert(Goings {
+            day,
+            to: Vec::new(),
+        });
+        g.fade_to(day, half_life_days);
+        match g.to.binary_search_by_key(&place, |t| t.0) {
+            Ok(i) => g.to[i].1 += 1.0,
+            Err(i) => g.to.insert(i, (place, 1.0)),
+        }
+        if g.to.len() > MOST_GOINGS {
+            let least =
+                g.to.iter()
+                    .enumerate()
+                    .min_by(|a, b| a.1.1.total_cmp(&b.1.1).then(b.0.cmp(&a.0)))
+                    .map(|(i, _)| i);
+            if let Some(i) = least {
+                g.to.remove(i);
+            }
+        }
+    }
+
     /// `person` of `settlement` set off in `year` for `purpose` (a behaviour's code) by `mode`,
     /// on a trip of `minutes`.
     pub fn trip(
@@ -249,6 +336,13 @@ impl Travel {
         }) {
             out.push("a household's days of travel are malformed".to_owned());
         }
+        if self.goings.values().any(|g| {
+            g.to.len() > MOST_GOINGS
+                || g.to.windows(2).any(|w| w[0].0 >= w[1].0)
+                || g.to.iter().any(|t| !(t.1.is_finite() && t.1 > 0.0))
+        }) {
+            out.push("where someone goes from home is malformed".to_owned());
+        }
         for ((year, s), y) in &self.years {
             let bad = |t: &Tally| !(t.minutes.is_finite() && t.minutes >= 0.0);
             if y.purposes.values().any(bad)
@@ -327,6 +421,37 @@ mod tests {
         );
         assert_eq!(t.household_daily_minutes(home), None);
         assert!((t.settlement_daily_minutes(s).expect("counted") - 62.0 / 3.0).abs() < 1e-9);
+        assert!(t.problems().is_empty());
+    }
+
+    #[test]
+    fn where_someone_goes_from_home_is_held_by_place_fading_and_the_least_let_go() {
+        let mut t = Travel::default();
+        let a = id(2);
+        // Two cells of one block are one place; the map is 101 cells wide.
+        let (w, field) = (101, 3 * 101 + 4);
+        assert_eq!(going_place(field, w), going_place(field + 1, w));
+        assert_ne!(going_place(field, w), going_place(field + 2, w));
+        let c = going_centre(going_place(field, w), w, 8.0);
+        assert_eq!(c, (40.0, 24.0));
+        let place = going_place(field, w);
+        t.went(a, place, 10, 180.0);
+        t.went(a, place, 10, 180.0);
+        // Half a half-life later the two trips are worth 2/sqrt(2), and one more is added.
+        t.went(a, place, 100, 180.0);
+        let g = &t.goings[&a];
+        assert_eq!(g.day, 100);
+        assert!((g.to[0].1 - (1.0 + 2.0 / 2f32.sqrt())).abs() < 1e-5);
+        // Past the most places held, the least gone to goes, the higher-numbered among equals.
+        for p in 1000..1000 + MOST_GOINGS as u32 {
+            t.went(a, p, 100, 180.0);
+        }
+        let g = &t.goings[&a];
+        assert_eq!(g.to.len(), MOST_GOINGS);
+        assert_eq!(g.to[0].0, place);
+        assert!(!g.to.iter().any(|x| x.0 == 1000 + MOST_GOINGS as u32 - 1));
+        let year: f64 = g.per_year(100, 180.0).map(|(_, n)| n).sum();
+        assert!(year > 0.0);
         assert!(t.problems().is_empty());
     }
 }

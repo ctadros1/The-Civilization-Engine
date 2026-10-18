@@ -433,6 +433,8 @@ pub const SCHEMA_V150: u32 = 150;
 pub const SCHEMA_V151: u32 = 151;
 /// Travel measured, before households held their days of travel.
 pub const SCHEMA_V152: u32 = 152;
+/// Households' days of travel, before where people go from home.
+pub const SCHEMA_V153: u32 = 153;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

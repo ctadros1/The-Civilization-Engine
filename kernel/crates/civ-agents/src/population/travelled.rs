@@ -7,8 +7,37 @@ use crate::travel::{Mode, Occupation};
 /// The age below which someone's travel is the young's, years (a design prior, the age activities
 /// begin to ask hard work at).
 const YOUNG_YEARS: f64 = 14.0;
+/// Within this of their household's home, metres, a walk sets off from home (a home's plot is a
+/// few metres a side, and its door faces the hearth).
+const FROM_HOME_M: f32 = 12.0;
 
 impl Population {
+    /// The person `h` has just set off on a walk: one that leaves their household's home for
+    /// somewhere beyond it is a trip from home to that place (M8c slice CS, first part).
+    pub(super) fn count_going(&mut self, ctx: &Ctx, h: Handle<Person>) {
+        let Some(p) = self.people.get(h) else {
+            return;
+        };
+        let Some(home) = self.household(p.household).map(|x| x.home) else {
+            return;
+        };
+        let Some((from, to)) = p
+            .trip
+            .as_ref()
+            .and_then(|t| Some((*t.points.first()?, *t.points.last()?)))
+        else {
+            return;
+        };
+        let near = |a: (f32, f32)| (a.0 - home.0).hypot(a.1 - home.1) <= FROM_HOME_M;
+        if !near(from) || near(to) {
+            return;
+        }
+        let place = crate::travel::going_place(cell_of(ctx.map, to) as u32, ctx.map.width);
+        let (who, day) = (p.id, ctx.now.day_index());
+        let half = ctx.params.places.use_half_life_days;
+        self.travel.went(who, place, day, half);
+    }
+
     /// The person `h` set off by `mode` on a trip of `minutes`, for the activity they
     /// are about: counted in their settlement's year, if they have one.
     pub(super) fn count_trip(&mut self, ctx: &Ctx, h: Handle<Person>, mode: Mode, minutes: f32) {
@@ -85,5 +114,8 @@ impl Population {
         // A household gone takes what it held of its days with it.
         let hh = &self.hh_index;
         self.travel.households.retain(|h, _| hh.contains_key(h));
+        // Someone gone takes where they went with them.
+        let people = &self.index;
+        self.travel.goings.retain(|p, _| people.contains_key(p));
     }
 }

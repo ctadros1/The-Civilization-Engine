@@ -4661,6 +4661,7 @@ impl Population {
         let (id, version, ends) = (p.id, p.act.version, p.act.step_ends);
         ctx.schedule_step(ends, id, version);
         self.count_trip(ctx, h, crate::travel::Mode::Walk, duration);
+        self.count_going(ctx, h);
         // Its first bottleneck, if it passes one (M8b slice CN).
         if !ctx.land.crossings.list.is_empty() || !ctx.land.enclosures.list.is_empty() {
             self.facilities_now(ctx);

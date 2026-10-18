@@ -3001,3 +3001,13 @@ days held about half an hour of travel, others' nearly an hour, and every trip w
 it weighs moving to another settlement, it counts its own day's travel against what people
 there travel: an hour a day more than people there tips it a little toward going, as food
 others seem to have does.
+
+## 2026-10-18 — M8b closed; M8c designed; CS, first part: where people go from home
+
+**Built:** M8b is closed, and M8c (planning and land) is designed in ADR-0030. Its first slice
+makes where a household builds a choice, and that choice needs to know where its people go. So
+each walk out of a home's door now counts as a trip to the place it ends, and each person holds
+those trips, fading over months, for the places they go most. Nothing reads them yet.
+
+**What it comes to:** in a new village's first days, people's trips from home went to the
+hearth, to their own fields some 400 m out, and to the places they gather and draw water.

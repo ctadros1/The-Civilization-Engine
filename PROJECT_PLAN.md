@@ -4427,6 +4427,20 @@ and M6a gives rivers a daily flow.
     - **CS, where a household builds, as a choice:** candidate plots scored in hours a year
       (walks to where its people go, levelling, fees, expected sanction), the receipt kept with
       the plot, the reach replaced by the household's own; new baselines; a plot's "why here".
+      - *First part, as built (2026-10-18): where people go from home* (ADR-0030 §1: a
+        candidate's hours are its members' walks "to the places they go … each weighed by the
+        trips the household made there"). Each walk that sets off within 12 m of its walker's
+        home for somewhere beyond is a trip from home to the place it goes: the block of two map
+        cells a side (16 m) it ends in. Each person holds their trips by place, fading at the
+        places' half-life as the households' days of travel do, the sixteen places most gone to
+        kept; someone who dies or leaves takes theirs with them. Nothing reads it yet. **What it
+        comes to** (the test): in a village's first five days most of its people went from home
+        to the hearth, and every household with fields had someone go to them; the probe's
+        holdings were the hearth, a place by it, the household's fields some 400 m out and the
+        gathering and water places between. **Exact:** nothing reads it, so every world lives as before: the bench's village of three settlements, 30 days in both modes, kept every count and every section's digest CR's second part had but the traffic section's (which now carries the goings) and the save header's, with days as long within the runs' spread (4.79 s against 4.68 at days 21–30). **Boundary:** saves schema
+        154 (the traffic section's goings); no content or wire change. **Not yet:** walks by
+        cart or boat, and trips that start elsewhere (a field to the hearth), which the second
+        part's reckoning does not count from home.
     - **CT, the plan law and its reservations:** `Plan`, a pure layout function and its first
       operations, 3–8 alternatives, forecasts in hours, the issues *no ground*, *a way built
       over* and *new ground*, versions, keepers avoiding reserved ground, encroachments recorded,

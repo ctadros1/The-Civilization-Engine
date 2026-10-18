@@ -4048,6 +4048,42 @@ and M6a gives rivers a daily flow.
         (CO's next parts: consignments and fetching by boat, then making one by choice,
         ferrying one's own across, fishing and owed goods by boat, and the observer's view);
         lakes and the sea as water a boat uses.
+      - *Second part, as built (2026-10-18): fetching by boat and goods in transit.* **Mode
+        choice, hours against hours** (ADR-0029 §3): a household that owns a boat prices an
+        errand to resell (M5b slice AQ) both ways at its review and keeps the cheaper a unit. On
+        foot it is a hand load and the walk there and back; by boat it is the whole chain: the
+        walk to the boat and back, the water there and back by today's quickest ways (both must
+        be open), the walk from the landing (the bank nearest the door where a boat floats today,
+        within 3 km) to the door and back, and, for each kilogram, loading and unloading at the
+        vehicle's rate and carrying it a hand load at a time between the door and the boat at each
+        end. Tools stay weightless, as they were. **The trip** is new steps: walk to the boat,
+        paddle (`Step::Paddle`, a trip afloat that wears no ground and passes no crossing or
+        gate), walk to the door, trade, walk back, load (`Step::Handle`), paddle home, unload and
+        carry up, walk home; the boat is drawn up where it lands. With no way by water at
+        departure, or the boat gone, the rest is the walk home. **Goods in transit**: what is
+        bought to resell on an errand by boat goes from the seller into a consignment, a ledger
+        holder of its own (owned by the household, carried by one person in one boat, spoiling in
+        the open), and into the household's store when it is unloaded at home (channel `Carried`);
+        a load the boat cannot bring home stays, still owned. **Found on the way:** measured
+        against the reach's mean velocity alone, every generated river was closed upstream (the
+        river valley's trunk runs at 1.1-3 m/s on slopes of 0.2-5 %, past a paddler's 1.2 m/s),
+        so ADR-0029 §5 is amended: upstream a boat keeps to the slack water along the banks and
+        meets a share of the mean (`slack_share`, the dugout's 0.4). **What it comes to:** in
+        river valley 4 a household whose camp is 40 m from water a dugout floats on, given a
+        dugout and told of toolstone a kilogram for a kilogram of grain in the other camp, where
+        its neighbours want more than anyone offers, planned the errand by boat: 261 kg (13 hand
+        loads) for 141 minutes of travel, 810 minutes carrying the load the 1.5 km from the door
+        to the boat and loading it, and 50 minutes unloading and carrying it up at home. Someone
+        went by water, bought it all, it was afloat in a consignment and then in the store, the
+        boat was drawn up at home again, the ledger balanced, and it saved and went on alike. In
+        world 10, whose camps lie 2.5 km and 5.7 km from water a dugout floats on, the same
+        household walks. **Exact:** a world with no boat prices no boat chain; the bench's
+        digests are part one's in every section but content and the new one. **Boundary:** saves
+        schema 143 (the paddle and handling steps, trips afloat, an errand's way by boat, the
+        `consigns` section), content API 133 (`handling_kg_min`, `slack_share`), ledger channel
+        24, no wire change (the inspector says "paddling the household's boat"). **Not yet:**
+        anyone making a boat (the third part), boats for one's own purchases, fishing, ferrying
+        and owed goods, loads left afloat fetched again, and the observer's view of boats.
     - **CP**: handcarts on ways: the wheel technique and handcart, passability by width, grade and
       deck, the way graph with door legs, mode choice by the complete chain, clearance and
       turning back.

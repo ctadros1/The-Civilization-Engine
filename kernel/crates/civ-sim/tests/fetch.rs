@@ -1339,3 +1339,166 @@ fn nobody_fetches_to_sell_what_their_neighbours_do_not_want_or_the_twin_stops() 
     );
     assert_eq!(went(&sim), trips, "nobody went");
 }
+
+/// `seller` offers 600 kg of toolstone for grain, a kilogram for a kilogram.
+fn offer_stone(sim: &mut Sim, seller: PermanentId, stone: usize, grain: usize) {
+    let h = sim
+        .people_mut_for_tests()
+        .households
+        .iter_mut()
+        .map(|(_, h)| h)
+        .find(|h| h.id == seller)
+        .expect("seller");
+    h.offers.retain(|o| usize::from(o.good) != stone);
+    h.offers.push(civ_agents::market::Offer {
+        good: stone as u16,
+        payment: grain as u16,
+        price: 1.0,
+        units: 600.0,
+        ask_h: 0.5,
+    });
+}
+
+/// The scene's buyer with a dugout drawn up at the bank nearest its home, and the seller with
+/// toolstone on offer for grain, a kilogram for a kilogram; the buyer's neighbours want more
+/// toolstone than a person carries, and nobody offers it (M8b slice CO, ADR-0029 §3).
+fn boat_scene() -> (Scene, usize, PermanentId) {
+    // World 4: one camp beside water a dugout floats on, the other a mile and a half from it.
+    let mut sc = scene_in(4);
+    let (a, seller, buyer) = (sc.a, sc.seller, sc.buyer);
+    let sim = &mut sc.sim;
+    let stone = good(sim, "core:good/toolstone");
+    let grain = good(sim, "core:good/grain");
+    let home = sim.people().household(buyer).expect("buyer").home;
+    let dugout = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/dugout")
+        .expect("a dugout");
+    let land = sim.land();
+    let hull = sim.rules().catalog.vehicles[dugout].hull();
+    let (hyd, q) = (&land.floodplain.reaches, &land.reach_discharges);
+    let bank = land
+        .rivers
+        .nearest_bank(home, 5_000.0, |c| {
+            land.rivers.floats(sim.map(), c, hyd, q, hull)
+        })
+        .expect("a bank near home where a dugout floats");
+    let boat = sim.allocate_id_for_tests();
+    let made = sim.now().day_index();
+    let land = sim.land_mut_for_tests();
+    land.boats.list.push(civ_land::boats::Boat {
+        id: boat,
+        vehicle: dugout as u16,
+        owner: buyer,
+        at: bank,
+        made,
+        wear: 0.0,
+    });
+    land.boats.changed();
+    set(sim, seller, &[("core:good/toolstone", 900.0)]);
+    offer_stone(sim, seller, stone, grain);
+    let rules = sim.rules_mut_for_tests().expect("rules of its own");
+    rules.people.decision.w_walk_hour = 0.5;
+    rules.people.reports.share_told = 0.0;
+    plant_reports(sim, buyer, seller, stone);
+    let day = sim.now().day_index();
+    let pop = sim.people_mut_for_tests();
+    let goods = pop
+        .markets
+        .first()
+        .map_or(0, |m| m.sold.len())
+        .max(stone + 1);
+    if !pop.markets.iter().any(|m| m.settlement == a) {
+        pop.markets
+            .push(civ_agents::market::Market::new(a, goods, day));
+    }
+    pop.markets
+        .iter_mut()
+        .find(|m| m.settlement == a)
+        .expect("the buyer's market")
+        .record_unmet(stone, 300.0, 300.0 * 2.0);
+    (sc, stone, boat)
+}
+
+#[test]
+fn a_household_with_a_boat_fetches_a_boat_load_by_water_carried_home_in_transit() {
+    let (sc, stone, boat) = boat_scene();
+    let Scene {
+        mut sim,
+        a,
+        b,
+        seller,
+        buyer,
+        ..
+    } = sc;
+    let carry = sim.rules().people.household.carry_kg;
+    let bank = sim.land().boats.list[0].at;
+    // At its review it weighs the trip both ways, and the boat brings far more for the hours.
+    past_review(&mut sim, buyer);
+    let errand = *sim
+        .people()
+        .reports
+        .errands
+        .get(&buyer)
+        .expect("an errand is planned");
+    let way = errand.by_boat.expect("by boat");
+    assert_eq!((errand.seller, errand.market, way.boat), (seller, b, boat));
+    assert_eq!((way.from, usize::from(errand.good)), (bank, stone));
+    assert!(
+        f64::from(errand.units) > carry * 2.0,
+        "a boat's load: {errand:?}"
+    );
+    // Saved and loaded, it is the same errand, and the world goes on alike.
+    saves_and_goes_on_alike(&mut sim, 60);
+    let since = sim.now();
+    let held_before = sim.people().household(buyer).expect("buyer").stores[stone];
+    // Someone paddles there, buys a boat's load, and it is in transit until it is unloaded at
+    // home; the boat is drawn up where it was again.
+    let mut afloat_load = 0.0f64;
+    let mut paddled = false;
+    let mut trade = None;
+    let grain = good(&sim, "core:good/grain");
+    for _ in 0..7 * 24 * 6 {
+        // The seller keeps offering toolstone until it is bought.
+        if trade.is_none() {
+            offer_stone(&mut sim, seller, stone, grain);
+        }
+        sim.advance_minutes(10).expect("advances");
+        paddled |= sim
+            .people()
+            .people
+            .iter()
+            .any(|(_, p)| p.trip.as_ref().is_some_and(|t| t.afloat));
+        for c in &sim.people().consignments {
+            assert_eq!((c.owner, c.boat, c.from, c.to), (buyer, boat, b, a));
+            afloat_load = afloat_load.max(c.stores[stone]);
+        }
+        trade = trade.or_else(|| {
+            bought_by(&sim, b, a)
+                .into_iter()
+                .find(|t| t.buyer == buyer && t.at > since)
+        });
+        if trade.is_some() && sim.people().consignments.is_empty() && afloat_load > 0.0 {
+            break;
+        }
+    }
+    assert!(paddled, "someone went by water");
+    let trade = trade.expect("the errand was run");
+    assert_eq!((trade.seller, usize::from(trade.good)), (seller, stone));
+    assert!(f64::from(trade.units) > carry * 2.0, "{trade:?}");
+    assert!(
+        afloat_load > carry * 2.0,
+        "carried in transit: {afloat_load}"
+    );
+    assert!(sim.people().consignments.is_empty(), "unloaded at home");
+    let held = sim.people().household(buyer).expect("buyer").stores[stone];
+    assert!(
+        held - held_before > carry * 2.0,
+        "the load is in the store: {held_before} then {held}"
+    );
+    // The boat is home, someone of the household is not afloat.
+    assert_eq!(sim.land().boats.list[0].at, bank);
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    saves_and_goes_on_alike(&mut sim, 60);
+}

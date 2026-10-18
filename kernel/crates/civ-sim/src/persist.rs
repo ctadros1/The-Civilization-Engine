@@ -411,6 +411,8 @@ pub const SCHEMA_V139: u32 = 139;
 pub const SCHEMA_V140: u32 = 140;
 /// Bottlenecks for walkers, before boats.
 pub const SCHEMA_V141: u32 = 141;
+/// Boats, before goods in transit by boat.
+pub const SCHEMA_V142: u32 = 142;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

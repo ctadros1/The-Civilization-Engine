@@ -2847,3 +2847,18 @@ years.
 
 **Not yet:** nobody makes, owns or uses one. That is the next part's work, with loads carried by
 boat and the trips that choose it.
+
+## 2026-10-18 — CO, second part: fetching by boat
+
+**Built:** a household with a boat now weighs an errand both ways: walking with one load, or
+taking the boat, which carries far more but means walking to it, paddling, and carrying every
+load between the boat and the door at each end. When the boat wins, someone paddles off, buys a
+boat's load, and it travels as goods in transit, still the household's, until it is unloaded at
+home.
+
+**Found on the way:** the generated rivers are steep and fast, faster than anyone can paddle
+against, so no boat could ever come back upstream. Paddlers keep to the slack water near the
+banks, and now boats do too.
+
+**What it comes to:** a camp beside deep water fetched 261 kg of stone by boat, thirteen hand
+loads, in one long day; a camp two and a half kilometres from deep water still walks.

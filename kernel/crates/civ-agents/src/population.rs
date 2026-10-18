@@ -39,6 +39,7 @@ use crate::person::{
     fuel_kg, reserve_food_kcal, stock_kcal,
 };
 
+mod boating;
 mod bottlenecks;
 mod cases;
 mod contagion;
@@ -637,6 +638,10 @@ pub struct Population {
     /// Turn-taking at bottlenecks, their tallies and the waits households hold (M8b slice CN,
     /// ADR-0029 §4).
     pub traffic: crate::traffic::Traffic,
+    /// Goods in transit by boat (M8b slice CO, ADR-0029 §3), in the order loaded.
+    pub consignments: Vec<crate::consignments::Consignment>,
+    /// What the counters of consignments since unloaded saw: counters, never saved.
+    pub consigned_flows: crate::person::Flows,
     /// Each cell a facility lies on, with it and its passage width, in cell order, and the
     /// crossings' and enclosures' revisions it stands for. Derived.
     facilities: Vec<(u32, crate::traffic::Facility, f32)>,
@@ -1280,6 +1285,11 @@ impl Population {
         for d in &self.agreements.dues {
             all.absorb(&d.flows);
         }
+        // And loads in transit by boat (M8b slice CO).
+        for c in &self.consignments {
+            all.absorb(&c.flows);
+        }
+        all.absorb(&self.consigned_flows);
         all
     }
 
@@ -1293,7 +1303,8 @@ impl Population {
             .map(|(_, h)| &h.stores)
             .chain(self.firms.iter().map(|f| &f.stores))
             .chain(self.polities.iter().map(|p| &p.stores))
-            .chain(self.agreements.dues.iter().map(|d| &d.stores));
+            .chain(self.agreements.dues.iter().map(|d| &d.stores))
+            .chain(self.consignments.iter().map(|c| &c.stores));
         for s in stores {
             if out.len() < s.len() {
                 out.resize(s.len(), 0.0);
@@ -4438,6 +4449,17 @@ impl Population {
                     self.start_work(ctx, h, minutes, behavior);
                     return;
                 }
+                Step::Paddle { to } => {
+                    if self.start_paddle(ctx, h, to) {
+                        return;
+                    }
+                    // No boat here, or no way by water today: home on foot instead.
+                    self.cannot_paddle(h);
+                }
+                Step::Handle { minutes, .. } => {
+                    self.start_work(ctx, h, minutes, None);
+                    return;
+                }
                 Step::Wait { minutes } => {
                     // One with a band holding a settlement waits there asleep (M6c slice BM).
                     let band = self.people.get(h).is_some_and(|p| {
@@ -4588,6 +4610,7 @@ impl Population {
             points,
             minutes,
             ahead: None,
+            afloat: false,
         };
         settle(p, now, params);
         p.burn_kcal_min = burn_rate(p, now, params, params.energy.walk_par);
@@ -5033,13 +5056,23 @@ impl Population {
                 }
                 _ => {}
             },
-            Some(Step::Wait { .. } | Step::Deposit) | None => {}
+            Some(Step::Paddle { to }) => {
+                p.pos = civ_land::boating::RiverGraph::centre(&ctx.land.rivers, to);
+                if let Some(trip) = p.trip.take() {
+                    let from = trip.points.first().map(|&at| cell_of(ctx.map, at) as u32);
+                    if let Some(from) = from {
+                        Self::paddled(ctx, household, (from, to));
+                    }
+                }
+            }
+            Some(Step::Handle { unload: true, .. }) => self.unloaded(ctx, who),
+            Some(Step::Wait { .. } | Step::Deposit | Step::Handle { .. }) | None => {}
         }
         // The time the step took.
         let took = (now.minutes() - started.minutes()).max(0) as f64;
         match step {
-            Some(Step::Walk { .. }) => self.time_use.walking += took,
-            Some(Step::Wait { .. }) => self.time_use.waiting += took,
+            Some(Step::Walk { .. } | Step::Paddle { .. }) => self.time_use.walking += took,
+            Some(Step::Wait { .. } | Step::Handle { .. }) => self.time_use.waiting += took,
             Some(Step::Work { .. }) => {
                 let b = def.as_ref().map(|d| d.behavior);
                 if let Some(i) = b.and_then(|b| Behavior::ALL.iter().position(|&x| x == b))

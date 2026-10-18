@@ -1061,6 +1061,12 @@ pub fn doing(sim: &Sim, p: &Person) -> String {
                 format!("walking to {place} ({what})")
             }
         }
+        // By the household's boat (M8b slice CO).
+        Some(Step::Paddle { .. }) => format!("paddling the household's boat ({what})"),
+        Some(Step::Handle { unload: false, .. }) => format!("loading the boat ({what})"),
+        Some(Step::Handle { unload: true, .. }) => {
+            format!("unloading the boat and carrying the load up ({what})")
+        }
         Some(Step::Work { .. }) => {
             let at_home =
                 home.is_some_and(|h| (h.0 - p.pos.0).abs() < 1.0 && (h.1 - p.pos.1).abs() < 1.0);

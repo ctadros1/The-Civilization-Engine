@@ -53,13 +53,7 @@ fn dugout(sim: &Sim) -> (usize, Hull) {
         .vehicle_index("core:vehicle/dugout")
         .expect("the core has a dugout");
     let v = &sim.rules().catalog.vehicles[i];
-    (
-        i,
-        Hull {
-            draft_m: v.draft_m,
-            paddle_m_s: v.paddle_m_s,
-        },
-    )
+    (i, v.hull())
 }
 
 #[test]

@@ -895,6 +895,22 @@ pub struct VehicleDef {
     pub width_m: f64,
     /// Years it lasts.
     pub life_years: f64,
+    /// Kilograms a person loads or unloads a minute (ADR-0029 §5: handling is people's work).
+    pub handling_kg_min: f64,
+    /// The share of a reach's mean velocity it meets going upstream, keeping to the slack water
+    /// along the banks (ADR-0029 §5 as amended).
+    pub slack_share: f64,
+}
+
+impl VehicleDef {
+    /// How the river sees it.
+    pub fn hull(&self) -> civ_land::boating::Hull {
+        civ_land::boating::Hull {
+            draft_m: self.draft_m,
+            paddle_m_s: self.paddle_m_s,
+            slack_share: self.slack_share,
+        }
+    }
 }
 
 impl VehicleDef {

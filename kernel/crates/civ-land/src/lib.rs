@@ -409,6 +409,8 @@ pub struct Land {
     pub wells: wells::Wells,
     /// River hydraulics and precomputed floodplain storage curves (M6b slice BF). Derived.
     pub floodplain: WorldFloodplain,
+    /// The rivers as a graph a boat goes on, and their banks (M8b slice CO). Derived.
+    pub rivers: boating::RiverGraph,
     /// Today's discharge per reach, m³/s. Derived.
     pub reach_discharges: Vec<f32>,
     /// Today's flood depth per map cell, metres. Derived.
@@ -638,6 +640,7 @@ impl Land {
             water: Water::default(),
             wells: wells::Wells::default(),
             floodplain,
+            rivers: boating::RiverGraph::new(map),
             reach_discharges: map.reaches.iter().map(|r| r.discharge_m3s).collect(),
             flood_depths: vec![0.0; map.cell_count()],
             flood_revision: 0,

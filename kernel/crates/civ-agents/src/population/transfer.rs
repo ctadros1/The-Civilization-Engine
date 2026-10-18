@@ -29,6 +29,7 @@ enum Holder {
     Polity(usize),
     Faction(usize),
     Due(usize),
+    Consignment(usize),
 }
 
 impl Population {
@@ -45,11 +46,13 @@ impl Population {
         if let Some(i) = self.factions.list.iter().position(|f| f.id == id) {
             return Some(Holder::Faction(i));
         }
-        self.agreements
-            .dues
+        if let Some(i) = self.agreements.dues.iter().position(|d| d.id == id) {
+            return Some(Holder::Due(i));
+        }
+        self.consignments
             .iter()
-            .position(|d| d.id == id)
-            .map(Holder::Due)
+            .position(|c| c.id == id)
+            .map(Holder::Consignment)
     }
 
     /// The polity whose own issues coin `holder` holds are (M7d slice CE4c): a household's or a
@@ -111,6 +114,7 @@ impl Population {
         held.extend(self.polities.iter().map(|p| (p.id, at(&p.stores))));
         held.extend(self.factions.list.iter().map(|f| (f.id, at(&f.stores))));
         held.extend(self.agreements.dues.iter().map(|d| (d.id, at(&d.stores))));
+        held.extend(self.consignments.iter().map(|c| (c.id, at(&c.stores))));
         held.retain(|&(_, n)| n > 0.0);
         held.sort_unstable_by_key(|&(id, _)| id);
         let holders: Vec<PermanentId> = held.iter().map(|&(id, _)| id).collect();
@@ -244,6 +248,12 @@ impl Population {
                     d.stores.resize(goods.len(), 0.0);
                 }
             }
+            Holder::Consignment(i) => {
+                if let Some(c) = self.consignments.get_mut(i) {
+                    c.settle_stores(now, goods);
+                    c.stores.resize(goods.len(), 0.0);
+                }
+            }
         }
     }
 
@@ -268,6 +278,10 @@ impl Population {
                 .dues
                 .get_mut(i)
                 .map(|d| (&mut d.stores, &mut d.flows)),
+            Holder::Consignment(i) => self
+                .consignments
+                .get_mut(i)
+                .map(|c| (&mut c.stores, &mut c.flows)),
         }
     }
 
@@ -314,6 +328,7 @@ impl Population {
                     Holder::Polity(i) => self.polities.get(i).map(|p| &p.stores),
                     Holder::Faction(i) => self.factions.list.get(i).map(|f| &f.stores),
                     Holder::Due(i) => self.agreements.dues.get(i).map(|d| &d.stores),
+                    Holder::Consignment(i) => self.consignments.get(i).map(|c| &c.stores),
                 })
                 .and_then(|s| s.get(good))
                 .copied()

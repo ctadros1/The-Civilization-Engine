@@ -441,6 +441,22 @@ pub struct TradeOption {
     pub good: usize,
     /// What it brings the household.
     pub worth: TradeWorth,
+    /// The way by the household's boat, when it goes by water (M8b slice CO); `walk_min` is then
+    /// half the travel there and back.
+    pub by_boat: Option<BoatLegs>,
+}
+
+/// A trip's legs by boat (M8b slice CO): the banks the boat is drawn up at, at home and by the
+/// seller, where they are, and the minutes its load takes to carry to the boat and load there,
+/// and to unload and carry up at home.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BoatLegs {
+    pub from: u32,
+    pub to: u32,
+    pub from_at: (f32, f32),
+    pub to_at: (f32, f32),
+    pub load_min: u32,
+    pub unload_min: u32,
 }
 
 /// What a purchase, or a wage, brings the household that gets it.
@@ -1418,13 +1434,31 @@ pub fn candidates(
                     Reason::Walking,
                     -w.w_walk_hour * 2.0 * t.walk_min / 60.0,
                 );
-                let steps = vec![
-                    Step::Walk { to: t.at },
-                    Step::Work {
-                        minutes: def.min_minutes.max(1),
-                    },
-                    Step::Walk { to: f.home },
-                ];
+                let work = Step::Work {
+                    minutes: def.min_minutes.max(1),
+                };
+                let steps = match t.by_boat {
+                    // To the boat, down or up the river, to the door; back to the boat, load
+                    // it, home by water, unload and carry the load up, and home.
+                    Some(b) => vec![
+                        Step::Walk { to: b.from_at },
+                        Step::Paddle { to: b.to },
+                        Step::Walk { to: t.at },
+                        work,
+                        Step::Walk { to: b.to_at },
+                        Step::Handle {
+                            minutes: b.load_min,
+                            unload: false,
+                        },
+                        Step::Paddle { to: b.from },
+                        Step::Handle {
+                            minutes: b.unload_min,
+                            unload: true,
+                        },
+                        Step::Walk { to: f.home },
+                    ],
+                    None => vec![Step::Walk { to: t.at }, work, Step::Walk { to: f.home }],
+                };
                 let target = if t.firm {
                     Target::Firm(t.seller)
                 } else {

@@ -158,6 +158,22 @@ pub struct Errand {
     pub share: f32,
     /// The day it was planned.
     pub day: i64,
+    /// Its way by boat, when the household means to take its boat (M8b slice CO).
+    pub by_boat: Option<ByBoat>,
+}
+
+/// An errand's way by boat (M8b slice CO; ADR-0029 §3): the household's boat, the bank it is
+/// drawn up at and the bank by the seller it is paddled to; the minutes of travel there and back
+/// (walks to and from the boat at each end and the water both ways) as planned, and the minutes
+/// its load takes to carry from the door to the boat and load, and to unload and carry up home.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ByBoat {
+    pub boat: PermanentId,
+    pub from: u32,
+    pub to: u32,
+    pub travel_min: f32,
+    pub load_min: f32,
+    pub unload_min: f32,
 }
 
 /// Every household's price reports, each household's by market, good and payment: at most one

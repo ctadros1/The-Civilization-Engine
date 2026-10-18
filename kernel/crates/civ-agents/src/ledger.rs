@@ -64,11 +64,13 @@ pub enum Channel {
     /// Metal, and the fuel to strike it, a household brought to its polity's mint (M7d slice
     /// CE2b, ADR-0027 §6).
     Mint = 23,
+    /// A load in transit unloaded into its owner's store (M8b slice CO, ADR-0029 §3).
+    Carried = 24,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 23] = [
+    pub const ALL: [Channel; 24] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -92,6 +94,7 @@ impl Channel {
         Channel::Lent,
         Channel::Repaid,
         Channel::Mint,
+        Channel::Carried,
     ];
 
     /// The channel with this code.
@@ -125,6 +128,7 @@ impl Channel {
             Channel::Lent => "lent",
             Channel::Repaid => "repaid",
             Channel::Mint => "brought to the mint",
+            Channel::Carried => "carried home",
         }
     }
 }

@@ -88,6 +88,19 @@ pub enum Step {
         /// How long.
         minutes: u32,
     },
+    /// Paddle the household's boat from the bank where one stands to bank cell `to`, by the
+    /// quickest way by water today (M8b slice CO, ADR-0029 §5).
+    Paddle {
+        /// The bank cell to draw the boat up at.
+        to: u32,
+    },
+    /// Load a boat at a bank, or unload it (`unload`) and carry the load up (ADR-0029 §5:
+    /// handling is people's work).
+    Handle {
+        /// How long.
+        minutes: u32,
+        unload: bool,
+    },
 }
 
 /// What a person is doing: an authored activity broken into steps. Every scheduled event carries
@@ -128,6 +141,9 @@ pub struct Trip {
     pub minutes: Vec<f32>,
     /// The next bottleneck it reaches, if any (M8b slice CN, ADR-0029 §4).
     pub ahead: Option<crate::traffic::Pending>,
+    /// Gone by boat on the water, not walked (M8b slice CO): it wears no ground and passes no
+    /// crossing or gate.
+    pub afloat: bool,
 }
 
 impl Trip {
@@ -1244,6 +1260,7 @@ mod tests {
             points: vec![(0.0, 0.0), (10.0, 0.0), (10.0, 20.0)],
             minutes: vec![0.0, 1.0, 3.0],
             ahead: None,
+            afloat: false,
         };
         assert_eq!(trip.position_at(90.0), (0.0, 0.0));
         assert_eq!(trip.position_at(100.5), (5.0, 0.0));

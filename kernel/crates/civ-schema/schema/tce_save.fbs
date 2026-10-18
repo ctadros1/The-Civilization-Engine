@@ -262,7 +262,7 @@ table Settlements {
 // or 4294967295 the household's store), `id` the building it is thrown on.
 enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16, Bank = 17, Ditch = 18, Enclosure = 19 }
 
-enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3 }
+enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3, Paddle = 4, Handle = 5 }
 
 table Step {
   kind: StepKind (id: 0);
@@ -270,6 +270,9 @@ table Step {
   to: Point (id: 1);
   // Work or wait length.
   minutes: uint (id: 2);
+  // Schema 143 (M8b slice CO): a paddle's bank cell; a handling's unloading.
+  cell: uint (id: 3);
+  unload: bool (id: 4);
 }
 
 table Activity {
@@ -313,6 +316,8 @@ table Trip {
   points: [Point] (id: 3);
   minutes: [float] (id: 4);
   ahead: TripAheadSave (id: 5);
+  // Schema 143 (M8b slice CO): gone by boat.
+  afloat: bool (id: 6);
 }
 
 enum Sex : ubyte { Female = 0, Male = 1 }
@@ -3100,6 +3105,16 @@ table ErrandSave {
   home_h: float (id: 7);
   share: float (id: 8);
   day: long (id: 9);
+  // Schema 143 (M8b slice CO): its way by boat, if any: the boat, the banks it is paddled from
+  // and to, the minutes of travel, and of carrying its load to the boat and loading it, and of
+  // unloading and carrying it up at home.
+  by_boat: bool (id: 10);
+  boat: ulong (id: 11);
+  boat_from: uint (id: 12);
+  boat_to: uint (id: 13);
+  travel_min: float (id: 14);
+  load_min: float (id: 15);
+  unload_min: float (id: 16);
 }
 
 // A good offered in both of a pair of settlements at a month's end (schema 57).
@@ -3290,6 +3305,30 @@ table BoatSave {
 table BoatsSave {
   list: [BoatSave] (id: 0);
   revision: uint (id: 1);
+}
+
+// Goods in transit (schema 143, M8b slice CO; ADR-0029 §3): each load's owner household, carrier
+// and boat, the settlements it is from and bound for, when it was loaded and when what it holds
+// was last brought up to date, and what it holds by good content id.
+table ConsignedGoodSave {
+  good: string (id: 0);
+  amount: double (id: 1);
+}
+
+table ConsignmentSave {
+  id: ulong (id: 0);
+  owner: ulong (id: 1);
+  carrier: ulong (id: 2);
+  boat: ulong (id: 3);
+  from: ulong (id: 4);
+  to: ulong (id: 5);
+  made: long (id: 6);
+  stores_at: long (id: 7);
+  goods: [ConsignedGoodSave] (id: 8);
+}
+
+table ConsignmentsSave {
+  list: [ConsignmentSave] (id: 0);
 }
 
 // Turn-taking at bottlenecks (schema 141, M8b slice CN; ADR-0029 §4). A facility as in

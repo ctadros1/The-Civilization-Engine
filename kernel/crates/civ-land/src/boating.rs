@@ -2,8 +2,10 @@
 //! use today, its speed over the ground along each, and the quickest way by water between two
 //! places, directed. A reach is navigable today where its stage at today's discharge exceeds the
 //! hull's draft; downstream a boat goes at its paddlers' speed plus the reach's mean velocity,
-//! upstream at their speed less it, and not at all where that is not positive. Low water closes
-//! reaches and high water speeds or stops them by the day's discharge, never by a calendar.
+//! upstream at their speed less the current it meets keeping to the slack water along the banks
+//! (a share of the mean, ADR-0029 §5 as amended), and not at all where that is not positive. Low
+//! water closes reaches and high water speeds or stops them by the day's discharge, never by a
+//! calendar.
 //! Lakes and the sea are not yet water a boat uses.
 
 use std::cmp::Ordering;
@@ -19,6 +21,8 @@ pub struct Hull {
     pub draft_m: f64,
     /// Metres a second through still water.
     pub paddle_m_s: f64,
+    /// The share of a reach's mean velocity it meets going upstream along the banks.
+    pub slack_share: f64,
 }
 
 /// A reach's mean velocity at discharge `q_m3s`, metres a second: the discharge over the wetted
@@ -51,7 +55,7 @@ pub fn going(rh: &ReachHydraulics, q_m3s: f64, hull: Hull) -> Going {
     let velocity_m_s = velocity(rh, q_m3s);
     let deep = stage_m > hull.draft_m;
     let down = hull.paddle_m_s + velocity_m_s;
-    let up = hull.paddle_m_s - velocity_m_s;
+    let up = hull.paddle_m_s - velocity_m_s * hull.slack_share;
     Going {
         stage_m,
         velocity_m_s,
@@ -79,6 +83,9 @@ pub struct RiverGraph {
     edges: Vec<Edge>,
     /// For each node, the edges touching it (either end), by index.
     touching: Vec<Vec<u32>>,
+    /// Land cells beside a river cell, where a boat can be drawn up or left: ascending.
+    banks: Vec<u32>,
+    cell_m: f32,
     width: u32,
     height: u32,
 }
@@ -88,6 +95,8 @@ pub struct RiverGraph {
 pub struct RiverRoute {
     /// River cells from the one boarded to the one left, in order.
     pub cells: Vec<u32>,
+    /// Seconds afloat on reaching each of `cells`, from 0.
+    pub at_s: Vec<f64>,
     /// Seconds afloat.
     pub seconds: f64,
     /// Metres afloat.
@@ -178,10 +187,25 @@ impl RiverGraph {
             touching[e.from as usize].push(i as u32);
             touching[e.to as usize].push(i as u32);
         }
+        let h = map.height as usize;
+        let mut banks: Vec<u32> = nodes
+            .iter()
+            .flat_map(|&c| {
+                grid::D8
+                    .iter()
+                    .filter_map(move |&o| grid::neighbor(w, h, c as usize, o))
+            })
+            .filter(|&c| map.water.get(c) == Some(&WATER_LAND))
+            .map(|c| c as u32)
+            .collect();
+        banks.sort_unstable();
+        banks.dedup();
         RiverGraph {
             nodes,
             edges,
             touching,
+            banks,
+            cell_m: map.cell_size_m,
             width: map.width,
             height: map.height,
         }
@@ -200,6 +224,63 @@ impl RiverGraph {
     /// Whether the map has no river.
     pub fn is_empty(&self) -> bool {
         self.nodes.is_empty()
+    }
+
+    /// The land cells beside a river, ascending.
+    pub fn banks(&self) -> &[u32] {
+        &self.banks
+    }
+
+    /// The centre of cell `c`, metres.
+    pub fn centre(&self, c: u32) -> (f32, f32) {
+        let w = self.width as usize;
+        (
+            ((c as usize % w) as f32 + 0.5) * self.cell_m,
+            ((c as usize / w) as f32 + 0.5) * self.cell_m,
+        )
+    }
+
+    /// Whether a boat of `hull` floats today beside bank `bank`: a river cell it can be boarded
+    /// into is on a reach deep enough at today's discharges `q` (by reach, with hydraulics
+    /// `hyd`).
+    pub fn floats(
+        &self,
+        map: &WorldMap,
+        bank: u32,
+        hyd: &[ReachHydraulics],
+        q: &[f32],
+        hull: Hull,
+    ) -> bool {
+        self.boarding(map, bank).iter().any(|&c| {
+            self.nodes.binary_search(&c).is_ok_and(|i| {
+                self.touching[i].iter().any(|&e| {
+                    let r = self.edges[e as usize].reach as usize;
+                    match (hyd.get(r), q.get(r)) {
+                        (Some(rh), Some(&q)) => going(rh, f64::from(q), hull).down_m_s.is_some(),
+                        _ => false,
+                    }
+                })
+            })
+        })
+    }
+
+    /// The bank nearest `at` within `within_m` metres that `keep` accepts, ties to the lower
+    /// cell.
+    pub fn nearest_bank(
+        &self,
+        at: (f32, f32),
+        within_m: f32,
+        keep: impl Fn(u32) -> bool,
+    ) -> Option<u32> {
+        let d = |c: u32| {
+            let p = self.centre(c);
+            (p.0 - at.0).hypot(p.1 - at.1)
+        };
+        self.banks
+            .iter()
+            .copied()
+            .filter(|&c| d(c) <= within_m && keep(c))
+            .min_by(|&a, &b| d(a).total_cmp(&d(b)).then(a.cmp(&b)))
     }
 
     /// The river cells a boat can be boarded into from land cell `bank`: its D8 neighbours that
@@ -276,7 +357,7 @@ impl RiverGraph {
                 continue;
             }
             if targets.contains(&node) {
-                return Some(self.path(node, &came, seconds));
+                return Some(self.path(node, &came, &best, seconds));
             }
             for &ei in &self.touching[node as usize] {
                 let e = self.edges[ei as usize];
@@ -300,18 +381,28 @@ impl RiverGraph {
         None
     }
 
-    fn path(&self, end: u32, came: &[Option<(u32, u32)>], seconds: f64) -> RiverRoute {
+    fn path(
+        &self,
+        end: u32,
+        came: &[Option<(u32, u32)>],
+        best: &[f64],
+        seconds: f64,
+    ) -> RiverRoute {
         let mut cells = vec![self.nodes[end as usize]];
+        let mut at_s = vec![best[end as usize]];
         let mut metres = 0.0;
         let mut at = end;
         while let Some((prev, ei)) = came[at as usize] {
             metres += self.edges[ei as usize].metres;
             cells.push(self.nodes[prev as usize]);
+            at_s.push(best[prev as usize]);
             at = prev;
         }
         cells.reverse();
+        at_s.reverse();
         RiverRoute {
             cells,
+            at_s,
             seconds,
             metres,
         }

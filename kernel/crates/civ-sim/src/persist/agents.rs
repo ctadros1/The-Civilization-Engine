@@ -122,7 +122,8 @@ use super::{
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
-    SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, finish, section, section_root,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -195,6 +196,8 @@ pub const SECTION_TRAFFIC: SectionTag = SectionTag::new("traffic");
 pub const SECTION_WAYS: SectionTag = SectionTag::new("ways");
 /// Section: boats (schema 142, M8b slice CO).
 pub const SECTION_BOATS: SectionTag = SectionTag::new("boats");
+/// Section: goods in transit by boat (schema 143, M8b slice CO).
+pub const SECTION_CONSIGNMENTS: SectionTag = SectionTag::new("consigns");
 /// Section: wells (schema 74, M6a slice AY, step three).
 pub const SECTION_WELLS: SectionTag = SectionTag::new("wells");
 /// Section: infections (schema 75, M6a slice AZ).
@@ -310,6 +313,11 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         section(SECTION_FLOODS, 0, encode_floods(&sim.land, &sim.people)),
         section(SECTION_WAYS, 0, encode_ways(&sim.land)),
         section(SECTION_BOATS, 0, encode_boats(&sim.land, &sim.rules)),
+        section(
+            SECTION_CONSIGNMENTS,
+            0,
+            encode_consignments(&sim.people, &sim.rules),
+        ),
         section(SECTION_TRAFFIC, 0, encode_traffic(&sim.people.traffic)),
     ]
 }
@@ -622,6 +630,9 @@ enum Schema {
     V141,
     /// Boats (M8b slice CO: the `boats` section).
     V142,
+    /// Goods in transit by boat (M8b slice CO: paddle and handling steps, trips afloat, an
+    /// errand's way by boat, the `consignments` section).
+    V143,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -778,7 +789,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V139 => Schema::V139,
         SCHEMA_V140 => Schema::V140,
         SCHEMA_V141 => Schema::V141,
-        SAVE_SCHEMA_VERSION => Schema::V142,
+        SCHEMA_V142 => Schema::V142,
+        SAVE_SCHEMA_VERSION => Schema::V143,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1035,6 +1047,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V142 {
         let bytes = single_chunk(reader, SECTION_BOATS)?;
         land.boats = decode_boats(&bytes, rules, map)?;
+    }
+    // Goods in transit (schema 143); before, none.
+    if schema >= Schema::V143 {
+        let bytes = single_chunk(reader, SECTION_CONSIGNMENTS)?;
+        people.consignments = decode_consignments(&bytes, rules)?;
     }
     // Ways (schema 140); before, none.
     if schema >= Schema::V140 {
@@ -3784,6 +3801,7 @@ fn decode_land(
         // Read from its own section (schema 74 on).
         wells: Default::default(),
         floodplain,
+        rivers: civ_land::boating::RiverGraph::new(map),
         reach_discharges: map.reaches.iter().map(|r| r.discharge_m3s).collect(),
         flood_depths: vec![0.0; map.cell_count()],
         flood_revision: 0,
@@ -3949,11 +3967,16 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
         .steps
         .iter()
         .map(|s| {
-            let (kind, to, minutes) = match *s {
-                Step::Walk { to } => (save::StepKind::Walk, to, 0),
-                Step::Work { minutes } => (save::StepKind::Work, (0.0, 0.0), minutes),
-                Step::Deposit => (save::StepKind::Deposit, (0.0, 0.0), 0),
-                Step::Wait { minutes } => (save::StepKind::Wait, (0.0, 0.0), minutes),
+            let none = (0.0, 0.0);
+            let (kind, to, minutes, cell, unload) = match *s {
+                Step::Walk { to } => (save::StepKind::Walk, to, 0, 0, false),
+                Step::Work { minutes } => (save::StepKind::Work, none, minutes, 0, false),
+                Step::Deposit => (save::StepKind::Deposit, none, 0, 0, false),
+                Step::Wait { minutes } => (save::StepKind::Wait, none, minutes, 0, false),
+                Step::Paddle { to } => (save::StepKind::Paddle, none, 0, to, false),
+                Step::Handle { minutes, unload } => {
+                    (save::StepKind::Handle, none, minutes, 0, unload)
+                }
             };
             save::Step::create(
                 fbb,
@@ -3961,6 +3984,8 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
                     kind,
                     to: Some(&point(to)),
                     minutes,
+                    cell,
+                    unload,
                 },
             )
         })
@@ -4014,6 +4039,7 @@ fn encode_person<'a>(fbb: &mut FlatBufferBuilder<'a>, p: &Person) -> WIPOffset<s
                 points: Some(points),
                 minutes: Some(minutes),
                 ahead,
+                afloat: t.afloat,
             },
         )
     });
@@ -4162,6 +4188,11 @@ fn decode_people(
                 save::StepKind::Wait => Step::Wait {
                     minutes: s.minutes(),
                 },
+                save::StepKind::Paddle => Step::Paddle { to: s.cell() },
+                save::StepKind::Handle => Step::Handle {
+                    minutes: s.minutes(),
+                    unload: s.unload(),
+                },
                 other => {
                     return Err(LoadError::Malformed(format!(
                         "person {person_id} has a step of kind {}",
@@ -4208,6 +4239,7 @@ fn decode_people(
                 .map(|v| v.iter().map(|q| (q.x(), q.y())).collect())
                 .unwrap_or_default(),
             minutes: t.minutes().map(|v| v.iter().collect()).unwrap_or_default(),
+            afloat: t.afloat(),
             ahead: t.ahead().and_then(|a| {
                 Some(civ_agents::traffic::Pending {
                     ahead: civ_agents::traffic::Ahead {
@@ -4540,7 +4572,8 @@ fn carried(
         | Schema::V139
         | Schema::V140
         | Schema::V141
-        | Schema::V142 => {
+        | Schema::V142
+        | Schema::V143 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4855,7 +4888,8 @@ fn decode_households(
             | Schema::V139
             | Schema::V140
             | Schema::V141
-            | Schema::V142 => {
+            | Schema::V142
+            | Schema::V143 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -9350,6 +9384,13 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
                     home_h: e.home_h,
                     share: e.share,
                     day: e.day,
+                    by_boat: e.by_boat.is_some(),
+                    boat: e.by_boat.map_or(0, |b| b.boat.get()),
+                    boat_from: e.by_boat.map_or(0, |b| b.from),
+                    boat_to: e.by_boat.map_or(0, |b| b.to),
+                    travel_min: e.by_boat.map_or(0.0, |b| b.travel_min),
+                    load_min: e.by_boat.map_or(0.0, |b| b.load_min),
+                    unload_min: e.by_boat.map_or(0.0, |b| b.unload_min),
                 },
             )
         })
@@ -9647,6 +9688,18 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
                 home_h: e.home_h(),
                 share: e.share(),
                 day: e.day(),
+                by_boat: if e.by_boat() {
+                    Some(civ_agents::reports::ByBoat {
+                        boat: required(e.boat(), "an errand's boat")?,
+                        from: e.boat_from(),
+                        to: e.boat_to(),
+                        travel_min: e.travel_min(),
+                        load_min: e.load_min(),
+                        unload_min: e.unload_min(),
+                    })
+                } else {
+                    None
+                },
             },
         );
     }
@@ -10818,6 +10871,90 @@ fn encode_ways(land: &Land) -> Vec<u8> {
         },
     );
     finish(fbb, root)
+}
+
+fn encode_consignments(people: &Population, rules: &Rules) -> Vec<u8> {
+    let goods = &rules.catalog.goods;
+    let mut fbb = FlatBufferBuilder::new();
+    let list: Vec<_> = people
+        .consignments
+        .iter()
+        .map(|c| {
+            let held: Vec<_> = c
+                .stores
+                .iter()
+                .enumerate()
+                .filter(|&(_, &x)| x != 0.0)
+                .filter_map(|(g, &amount)| {
+                    let good = fbb.create_string(&goods.get(g)?.id);
+                    Some(save::ConsignedGoodSave::create(
+                        &mut fbb,
+                        &save::ConsignedGoodSaveArgs {
+                            good: Some(good),
+                            amount,
+                        },
+                    ))
+                })
+                .collect();
+            let held = fbb.create_vector(&held);
+            save::ConsignmentSave::create(
+                &mut fbb,
+                &save::ConsignmentSaveArgs {
+                    id: c.id.get(),
+                    owner: c.owner.get(),
+                    carrier: c.carrier.get(),
+                    boat: c.boat.get(),
+                    from: c.from.get(),
+                    to: c.to.get(),
+                    made: c.made.minutes(),
+                    stores_at: c.stores_at.minutes(),
+                    goods: Some(held),
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let root =
+        save::ConsignmentsSave::create(&mut fbb, &save::ConsignmentsSaveArgs { list: Some(list) });
+    finish(fbb, root)
+}
+
+/// The loads in transit saved in `bytes`. A good the loaded content no longer has is let go.
+fn decode_consignments(
+    bytes: &[u8],
+    rules: &Rules,
+) -> Result<Vec<civ_agents::consignments::Consignment>, LoadError> {
+    use civ_agents::consignments::Consignment;
+    let goods = &rules.catalog.goods;
+    let root = section_root::<save::ConsignmentsSave>(bytes)
+        .map_err(|e| unreadable(SECTION_CONSIGNMENTS, &e))?;
+    let mut out = Vec::new();
+    for c in root.list().iter().flatten() {
+        let id = required(c.id(), "a load in transit")?;
+        let mut load = Consignment::new(
+            id,
+            (
+                required(c.owner(), "a load's owner")?,
+                required(c.carrier(), "a load's carrier")?,
+                required(c.boat(), "a load's boat")?,
+            ),
+            (
+                required(c.from(), "a load's origin")?,
+                required(c.to(), "a load's destination")?,
+            ),
+            SimTime::from_minutes(c.made()),
+            goods.len(),
+        );
+        load.stores_at = SimTime::from_minutes(c.stores_at());
+        for g in c.goods().iter().flatten() {
+            let name = g.good().unwrap_or("");
+            if let Some(i) = goods.iter().position(|d| d.id == name) {
+                load.stores[i] = g.amount();
+            }
+        }
+        out.push(load);
+    }
+    Ok(out)
 }
 
 fn encode_boats(land: &Land, rules: &Rules) -> Vec<u8> {

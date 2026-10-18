@@ -43,6 +43,11 @@ pub(crate) struct VehicleFile {
     pub width_m: f64,
     /// Years it lasts before it is past use.
     pub life_years: f64,
+    /// Kilograms a person loads or unloads a minute (content API 133).
+    pub handling_kg_min: f64,
+    /// The share of a reach's mean velocity it meets going upstream along the banks (content API
+    /// 133).
+    pub slack_share: f64,
 }
 
 impl VehicleFile {
@@ -77,6 +82,8 @@ impl VehicleFile {
             paddle_m_s: self.paddle_m_s,
             width_m: self.width_m,
             life_years: self.life_years,
+            handling_kg_min: self.handling_kg_min,
+            slack_share: self.slack_share,
         }
     }
 
@@ -95,6 +102,8 @@ impl VehicleFile {
             ("paddle_m_s", self.paddle_m_s, 0.1, 10.0),
             ("width_m", self.width_m, 0.1, 50.0),
             ("life_years", self.life_years, 0.1, 500.0),
+            ("handling_kg_min", self.handling_kg_min, 0.1, 1000.0),
+            ("slack_share", self.slack_share, 0.0, 1.0),
         ] {
             if !(v.is_finite() && (lo..=hi).contains(&v)) {
                 p.push(format!("`{name}` must be between {lo} and {hi} (got {v})"));

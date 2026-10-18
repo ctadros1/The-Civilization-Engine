@@ -31,6 +31,7 @@ pub mod build;
 pub mod caution;
 pub mod coin;
 pub mod condition;
+pub mod consignments;
 pub mod contagion;
 pub mod convergence;
 pub mod count;

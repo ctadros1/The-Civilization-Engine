@@ -687,6 +687,12 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 133 (M8b slice CO, second part) brings a vehicle's `handling_kg_min` (kilograms a
+person loads or unloads a minute; ADR-0029 §5: handling is people's work, 12-05 §2.3's 5-20) and
+`slack_share` (the share of a reach's mean velocity it meets going upstream along the banks,
+ADR-0029 §5 as amended). The core's dugout handles 10 kg a minute and meets 0.4 of the mean
+upstream: design priors, marked in its file.
+
 Content API 132 (M8b slice CO, ADR-0029 §2) brings vehicles: a new content kind (`kind =
 "vehicle"`, files under `vehicle/`), a made thing that carries more than a person can. It names
 its `mode` (`boat`, the only one yet), the `technique` and `skill` its makers need and practise

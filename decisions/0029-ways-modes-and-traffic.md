@@ -96,6 +96,15 @@ no boat and no domestic animal. M8a measured routing as about an eighth of a day
   design prior near 10 kg a worker-minute).
 - A boat at a bank is the first way across a river too big to wade. Its owner carries their own
   household; carrying others for a fee waits for an agreement design.
+- *Amended (2026-10-18, M8b slice CO, second part):* upstream a boat keeps to the slack water
+  along the banks, where it meets a share of the reach's mean velocity (a content prior per
+  vehicle, `slack_share`; the dugout's 0.4); downstream it rides the mean. Measured against the
+  mean alone, every generated river was closed upstream: the river valley's trunk falls 0.2-5 %
+  and runs at 1.1-3 m/s at its mean flow, past any paddler's 1.2 m/s, so no boat could ever be
+  brought back. With the share, 9 of 12 river valley worlds and 9 of 12 ria coast worlds tried
+  have a way by water both ways between the banks nearest their two camps (in one, both camps'
+  nearest bank is the same), the slower way from about as long to nine times the faster, and
+  the steepest reaches stay closed.
 
 ### 6. Works on ways
 

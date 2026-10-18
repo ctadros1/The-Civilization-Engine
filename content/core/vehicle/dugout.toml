@@ -27,3 +27,10 @@ paddle_m_s = 1.2
 width_m = 0.7
 # A dugout kept wet and drawn up lasts years, one left to dry cracks (a design prior).
 life_years = 12.0
+# Loading and unloading are people's work (ADR-0029 §5): 12-05 §2.3 gives 5-20 kg a
+# worker-minute; a design prior of 10.
+handling_kg_min = 10.0
+# Upstream a boat keeps to the slack water along the banks, where the current is a share of the
+# reach's mean (ADR-0029 §5 as amended): near-bank velocities are commonly well under half the
+# mean in a channel's cross-section; a design prior.
+slack_share = 0.4

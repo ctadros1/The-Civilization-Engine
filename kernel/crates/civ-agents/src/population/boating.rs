@@ -262,7 +262,7 @@ impl Population {
         let day = ctx.now.day_index();
         let half = ctx.params.places.use_half_life_days;
         // Each stretch: the point it is waited for at (the one before its first cell), the wait.
-        let mut stops: Vec<(usize, f64, u32, u32)> = Vec::new();
+        let mut stops: Vec<(usize, f64, u32, u32, u32)> = Vec::new();
         let mut shift = 0.0;
         let mut i = 0;
         while i < cells.len() {
@@ -312,7 +312,7 @@ impl Population {
                     );
                     self.traffic.lost(
                         household,
-                        run[0],
+                        run[run.len() / 2],
                         traffic::Cause::Width,
                         (wait / 3600.0) as f32,
                         day,
@@ -324,13 +324,13 @@ impl Population {
                     .iter()
                     .filter(|o| !o.same_way && o.leave_s > enter_s)
                     .count() as u32;
-                stops.push((i, wait, run[0], met));
+                stops.push((i, wait, run[0], run[run.len() / 2], met));
                 shift += wait;
             }
             i = j + 1;
         }
         let settlement = self.household(household).and_then(|x| x.settlement);
-        for (added, &(i, wait, cell, met)) in stops.iter().enumerate() {
+        for (added, &(i, wait, cell, middle, met)) in stops.iter().enumerate() {
             let k = i + 1 + added;
             let (at, at_min) = (points[k - 1], minutes[k - 1]);
             let waited = (wait / 60.0) as f32;
@@ -343,7 +343,7 @@ impl Population {
             self.traffic.waited(household, facility, waited, day, half);
             self.traffic.lost(
                 household,
-                cell,
+                middle,
                 traffic::Cause::Width,
                 waited / 60.0,
                 day,

@@ -969,6 +969,18 @@ pub fn describe_target(
                 None => "a boat".to_owned(),
             },
         },
+        // A passing place a household is clearing (M8b slice CQ, second part): "a passing place
+        // east of home".
+        Target::Way(id) => match sim.land.ways.list.iter().find(|w| w.id == id) {
+            Some(w) => match w.segments.first().and_then(|s| s.cells.first()) {
+                Some(&c) if (c as usize) < sim.map.water.len() => {
+                    let at = civ_agents::population::cell_centre(&sim.map, c as usize);
+                    format!("a passing place {} of home", bearing(home, at))
+                }
+                _ => "a passing place".to_owned(),
+            },
+            None => "a passing place".to_owned(),
+        },
     }
 }
 

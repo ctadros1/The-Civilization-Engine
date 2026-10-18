@@ -94,6 +94,9 @@ pub struct Facts {
     /// The cart their household is making at its door, if any (M8b slice CP, third part): as a
     /// boat's, its place the door.
     pub cart: Option<BoatFacts>,
+    /// The passing place their household is making on its carts' way, if any (M8b slice CQ,
+    /// second part): as a boat's, its place the stretch it widens.
+    pub way: Option<BoatFacts>,
     /// The irrigation ditch their household is digging to its field, if any (M6b slice BG).
     pub ditch: Option<DitchFacts>,
     /// The palisade their polity is raising, if they may work on it (M6c slice BK).
@@ -891,6 +894,11 @@ pub fn candidates(
         }
         // And work on a cart to all but those whose household is making one (M8b slice CP).
         if def.behavior == Behavior::Cart && f.cart.is_none() {
+            continue;
+        }
+        // And work on a passing place to all but those whose household is making one (M8b slice
+        // CQ).
+        if def.behavior == Behavior::Way && f.way.is_none() {
             continue;
         }
         // And work on a well to all but those whose household is digging or relining one (M6a
@@ -1826,6 +1834,26 @@ pub fn candidates(
                     Err(why) => excluded.push((id, why)),
                 }
             }
+            Behavior::Way => {
+                // Clear and level ground at the passing place the household is making (M8b
+                // slice CQ, second part), as on its boat: each hour worth the waiting the place
+                // spares it over its life.
+                let Some(c) = f.way else {
+                    continue;
+                };
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: c.saves_per_hour,
+                    duty: 0.0,
+                    full: c.full,
+                };
+                match session_at_site(def, w, f, &site, Reason::Way, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Way(c.boat), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
+                }
+            }
             Behavior::Well => {
                 // Work on the household's well (M6a slice AY, step three), as on its crossing.
                 let Some(c) = f.well else {
@@ -2368,6 +2396,7 @@ mod tests {
             levee: None,
             boat: None,
             cart: None,
+            way: None,
             enclosure: None,
             ditch: None,
             band: None,

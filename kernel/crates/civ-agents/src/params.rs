@@ -105,11 +105,15 @@ pub enum Behavior {
     /// Work at home on the cart the household is making (M8b slice CP, third part): the
     /// activity's numbers, the vehicle's labour.
     Cart,
+    /// Walk to the passing place the household is making on its carts' way, clear and level
+    /// ground there, and walk home (M8b slice CQ, second part): the activity's numbers, the
+    /// work's own labour.
+    Way,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 36] = [
+    pub const ALL: [Behavior; 37] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -146,6 +150,7 @@ impl Behavior {
         Behavior::Poll,
         Behavior::Boat,
         Behavior::Cart,
+        Behavior::Way,
     ];
 
     /// The authored name of a behavior.
@@ -187,6 +192,7 @@ impl Behavior {
             Behavior::Poll => "poll",
             Behavior::Boat => "boat",
             Behavior::Cart => "cart",
+            Behavior::Way => "way",
         }
     }
 

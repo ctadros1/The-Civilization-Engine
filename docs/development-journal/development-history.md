@@ -2952,3 +2952,13 @@ a way, widening one, or easing a slope.
 rises, and a loaded one only a second or two, too little to remember. The test makes the
 puller far weaker so the climbs show.
 
+## 2026-10-18 — CQ, second part: passing places
+
+**Built:** a household whose carts keep waiting where a trail is too narrow for two clears a
+passing place halfway along: a short stretch widened to two carts' width. It weighs the waiting
+the place would spare it over ten years against the hours of digging. If the place is worth it,
+its people walk out and clear it, a few hours at a time, until two carts can pass there.
+
+**What it comes to:** one cart turning back is not enough to make anyone dig. A household that
+turned back twenty times cleared its passing place within a few days.
+

@@ -65,6 +65,9 @@ pub enum Target {
     /// A boat, by its permanent id: the one being made (M8b slice CO, third part); or a cart
     /// being made, by its own (M8b slice CP, third part).
     Boat(PermanentId),
+    /// A way a household is working on, by its permanent id: a passing place being cleared (M8b
+    /// slice CQ, second part).
+    Way(PermanentId),
 }
 
 /// Water for a fire drawn from the household's store at home, not a source (see

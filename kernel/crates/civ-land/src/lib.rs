@@ -177,6 +177,8 @@ pub struct LandParams {
     pub banks: banks::BankParams,
     /// Irrigation ditches' hydraulics (M6b slice BG).
     pub ditches: ditches::DitchParams,
+    /// What works on ways take (M8b slice CQ).
+    pub way_works: ways::WayWorkParams,
     /// How what people shed moves through the ground and water (ADR-0021 §4).
     pub contamination: ContaminationParams,
 }
@@ -1843,6 +1845,7 @@ mod tests {
             water: WaterParams::default(),
             banks: banks::BankParams::default(),
             ditches: ditches::DitchParams::default(),
+            way_works: ways::WayWorkParams::default(),
             contamination: ContaminationParams::default(),
         }
     }

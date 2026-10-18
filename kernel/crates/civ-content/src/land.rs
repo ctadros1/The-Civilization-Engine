@@ -47,6 +47,19 @@ pub(crate) struct LandFile {
     /// defaults hold.
     #[serde(default)]
     pub ditches: Option<DitchFile>,
+    /// What works on ways take (content API 137). A profile may leave it out: then the defaults
+    /// hold.
+    #[serde(default)]
+    pub way_works: Option<WayWorksFile>,
+}
+
+/// What works on ways take (content API 137): see [`civ_land::ways::WayWorkParams`].
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct WayWorksFile {
+    pub passing_width_m: f32,
+    pub clear_h_m2: f64,
+    pub passing_life_years: f64,
 }
 
 /// Irrigation ditch hydraulics (content API 91): see [`civ_land::ditches::DitchParams`].
@@ -692,6 +705,14 @@ impl LandFile {
                     min_gradient: d.min_gradient,
                 },
             ),
+            way_works: self.way_works.as_ref().map_or_else(
+                civ_land::ways::WayWorkParams::default,
+                |w| civ_land::ways::WayWorkParams {
+                    passing_width_m: w.passing_width_m,
+                    clear_h_m2: w.clear_h_m2,
+                    passing_life_years: w.passing_life_years,
+                },
+            ),
         })
     }
 
@@ -812,6 +833,18 @@ impl LandFile {
         }
         if !(w.wear_half_life_days.is_finite() && w.wear_half_life_days >= 1.0) {
             p.push("`paths.wear_half_life_days` must be at least 1".to_owned());
+        }
+        if let Some(v) = &self.way_works {
+            if !(v.passing_width_m.is_finite() && (1.0..=10.0).contains(&v.passing_width_m)) {
+                p.push("`way_works.passing_width_m` must be 1 to 10".to_owned());
+            }
+            if !(v.clear_h_m2.is_finite() && v.clear_h_m2 > 0.0 && v.clear_h_m2 <= 10.0) {
+                p.push("`way_works.clear_h_m2` must be above 0 and at most 10".to_owned());
+            }
+            if !(v.passing_life_years.is_finite() && (1.0..=100.0).contains(&v.passing_life_years))
+            {
+                p.push("`way_works.passing_life_years` must be 1 to 100".to_owned());
+            }
         }
         if !(w.trail_until > 0.0 && w.trail_until <= w.trail_at && w.trail_at < 1.0) {
             p.push(

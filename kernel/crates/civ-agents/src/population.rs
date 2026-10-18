@@ -72,6 +72,7 @@ mod norm;
 mod opinion;
 mod payments;
 mod war;
+mod way_works;
 pub use crime::TakeProbe;
 pub use payments::Burden;
 mod credit;
@@ -3105,6 +3106,7 @@ impl Population {
             levee: self.levee_facts(ctx, &hh, p.id, field_key, dark),
             boat: self.boat_facts(ctx, &hh, field_key, dark),
             cart: self.cart_facts(ctx, &hh, dark),
+            way: self.way_facts(ctx, &hh, dark),
             enclosure: self.enclosure_facts(ctx, &hh, p.id, field_key, dark),
             ditch: self.ditch_facts(ctx, &hh, field_key, dark),
             band: band_facts,
@@ -4778,6 +4780,7 @@ impl Population {
                 | Behavior::Bridge
                 | Behavior::Boat
                 | Behavior::Cart
+                | Behavior::Way
                 | Behavior::Well
                 | Behavior::Levee
                 | Behavior::Palisade
@@ -5033,6 +5036,15 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.crossing_work(ctx, (h, who), household, crossing, hours);
+                    }
+                }
+                Some(Behavior::Way) => {
+                    if let Target::Way(way) = p.act.target {
+                        let rate = def.as_ref().map_or(1.0, |d| d.rate);
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let household = p.household;
+                        Self::way_work(ctx, household, way, hours);
                     }
                 }
                 Some(Behavior::Boat | Behavior::Cart) => {

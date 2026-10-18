@@ -295,8 +295,8 @@ impl Cause {
 }
 
 /// What a household holds of the hours its trips lost at a site of a way, by cause: the hours and
-/// the times, fading, as of `day`. The site is the cell the trouble begins at: a climb's first
-/// cell, a single-cart stretch's.
+/// the times, fading, as of `day`. The site is a climb's first cell, and a single-cart stretch's
+/// middle cell, where a passing place would split it (M8b slice CQ, second part).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Loss {
     pub cell: u32,

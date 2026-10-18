@@ -687,6 +687,13 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 137 (M8b slice CQ, second part) brings the activity behaviour `way`: walk to the passing
+place the household is making on its carts' way, clear and level ground there, and walk home, the
+work's own labour (the land profile's `[way_works]`: `passing_width_m`, the width it is cleared to;
+`clear_h_m2`, hours a square metre; `passing_life_years`, the years a household reckons it lasts;
+optional, with defaults of 2.0, 0.34 and 10). The core adds
+`core:activity/work_with_wooden_spade_on_passing_place` (from 14, one to four hours a session).
+
 Content API 136 (M8b slice CP, third part) brings the activity behaviour `cart`: work at home on a
 cart the household is making at its door, until its vehicle's `labour_h` is done, no more than its
 `crew` at once in a day; the cart's `material_kg` of its `good` comes out of the store as it is

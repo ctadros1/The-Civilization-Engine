@@ -123,7 +123,7 @@ use super::{
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
-    SCHEMA_V146, SCHEMA_V147, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -647,6 +647,8 @@ enum Schema {
     V147,
     /// Losses on ways (M8b slice CQ, first part: the traffic section's losses).
     V148,
+    /// Passing places (M8b slice CQ, second part: a way as an activity's target).
+    V149,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -809,7 +811,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V145 => Schema::V145,
         SCHEMA_V146 => Schema::V146,
         SCHEMA_V147 => Schema::V147,
-        SAVE_SCHEMA_VERSION => Schema::V148,
+        SCHEMA_V148 => Schema::V148,
+        SAVE_SCHEMA_VERSION => Schema::V149,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -3470,6 +3473,7 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::Ditch(d) => (save::TargetKind::Ditch, 0, d.get()),
         Target::Enclosure(e) => (save::TargetKind::Enclosure, 0, e.get()),
         Target::Boat(b) => (save::TargetKind::Boat, 0, b.get()),
+        Target::Way(w) => (save::TargetKind::Way, 0, w.get()),
     }
 }
 
@@ -3514,6 +3518,7 @@ fn target_of(
         save::TargetKind::Ditch => Target::Ditch(required(id, "a ditch target")?),
         save::TargetKind::Enclosure => Target::Enclosure(required(id, "a palisade target")?),
         save::TargetKind::Boat => Target::Boat(required(id, "a boat target")?),
+        save::TargetKind::Way => Target::Way(required(id, "a way target")?),
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -4607,7 +4612,8 @@ fn carried(
         | Schema::V145
         | Schema::V146
         | Schema::V147
-        | Schema::V148 => {
+        | Schema::V148
+        | Schema::V149 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4928,7 +4934,8 @@ fn decode_households(
             | Schema::V145
             | Schema::V146
             | Schema::V147
-            | Schema::V148 => {
+            | Schema::V148
+            | Schema::V149 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

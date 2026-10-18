@@ -148,6 +148,30 @@ pub const MAIN_WAY_TRIPS: f32 = 100.0;
 /// Trips a day over its memory from which a way is a street (a design prior).
 pub const STREET_TRIPS: f32 = 20.0;
 
+/// What works on ways take (M8b slice CQ; ADR-0029 §6; research 10-07 §2.2, §2.4). Authored in
+/// content.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WayWorkParams {
+    /// The width a passing place is cleared to, metres: two carts side by side, with room.
+    pub passing_width_m: f32,
+    /// Hours of a capable adult's work a square metre of ground takes to clear and level.
+    pub clear_h_m2: f64,
+    /// Years a household reckons a passing place lasts when weighing whether to make one.
+    pub passing_life_years: f64,
+}
+
+impl Default for WayWorkParams {
+    /// A 2 m passing place; 0.34 h a square metre, ILO's 3.5 m³ a worker-day in medium soil over
+    /// a 0.15 m cut (research 10-07 §2.2); ten years (design priors).
+    fn default() -> Self {
+        Self {
+            passing_width_m: 2.0,
+            clear_h_m2: 0.34,
+            passing_life_years: 10.0,
+        }
+    }
+}
+
 /// One stretch of a way with one surface, set of widths and keeper.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Segment {

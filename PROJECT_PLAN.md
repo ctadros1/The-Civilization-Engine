@@ -4262,9 +4262,37 @@ and M6a gives rivers a daily flow.
         hauled at exactly what it cost. **Exact:** a world with no cart lives as before: the
         bench's village of three settlements, 30 days in both modes, has every section's digest
         and every count CP's fourth part had, the save header's (its schema) aside.
-        **Boundary:** saves schema 148 (the traffic section's losses), no content or wire change. **Not yet:** the hours lost for want of a crossing
-        a cart can take (the cart way fails without saying where); the losses read by any
-        choice (the works in the parts to come); the observer's view of them.
+        **Boundary:** saves schema 148 (the traffic section's losses), no content or wire
+        change. **Not yet:** the hours lost for want of a crossing a cart can take (the cart way
+        fails without saying where); the losses read by any choice (the works in the parts to
+        come); the observer's view of them.
+      - *Second part, as built (2026-10-18): a household makes a passing place where its carts
+        wait* (ADR-0029 §6; research 10-07 §1.6: "opposing carts cannot pass" is answered first
+        by passing places). A stretch's waits are now held by its middle cell, where a passing
+        place would split it. **Weighing:** once a year, on a day keyed to it, a household
+        holding such waits weighs a passing place at each such stretch within its work's walk
+        of home where no way runs yet: what it would spare is half the waits there a year
+        (`PASSING_SPARES`, a design prior: the stretch split in two), over the ten years it
+        reckons the place lasts; what it takes is clearing and levelling the strip that widens
+        the trail's 1.2 m tread to 2 m, at 0.34 hours a square metre (ILO's 3.5 m³ a
+        worker-day in medium soil over a 0.15 m cut, 10-07 §2.2; the land profile's
+        `[way_works]`). Where the first is more it begins the best one: a way of one cell,
+        kept by it, its built width the tread's. **The work:** its people walk there and clear
+        it by choice (a new `way` behaviour and `work_with_wooden_spade_on_passing_place`),
+        each hour worth the waiting it spares, the built and usable width growing with each
+        hour until it is two carts wide; one at a time. **What it comes to** (the test scene,
+        the doors joined by a worn trail): a household whose cart turned back twenty times at
+        the trail's single-cart stretch began a passing place at its middle, cleared it in a
+        few days, and two carts then pass there; one turning back alone was not worth the
+        clearing (each hour of it would have spared about two hours of waiting, below what
+        its other work was worth). **Exact:** a world where no cart waits lives as before: the bench's village of three
+        settlements, 30 days in both modes, has every count the first part's had, and every
+        section's digest but the content's and those carrying the activity dictionary (people,
+        receipts, workshops), the save header's aside. **Boundary:** saves schema 149
+        (a way as an activity's target), content API 137 (the `way` behaviour, `[way_works]`).
+        **Not yet:** widening or laying a stretch of a way already laid, keeping a passing
+        place (it fades as any way does), a polity's `build_way`, and the observer's view of
+        losses.
     - **CR**: where to live weighs the walk; the dashboard's travel time by occupation and
       purpose, mode shares and waits.
   - **M8c, planning and land** (designed when reached, from `docs/briefs/m8-planning.md`): site

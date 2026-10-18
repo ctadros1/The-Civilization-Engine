@@ -423,6 +423,8 @@ pub const SCHEMA_V145: u32 = 145;
 pub const SCHEMA_V146: u32 = 146;
 /// Carts meeting by clearance, before households' losses on ways.
 pub const SCHEMA_V147: u32 = 147;
+/// Losses on ways, before passing places.
+pub const SCHEMA_V148: u32 = 148;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

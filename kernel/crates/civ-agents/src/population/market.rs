@@ -10,7 +10,6 @@ use civ_core::time::{DAYS_PER_YEAR, SimTime};
 use civ_land::LandParams;
 use civ_world::nav::TravelField;
 
-use super::boating::BoatItCouldMake;
 use super::{Ctx, Population, cell_of, fuel_per_day, stores_now};
 use crate::condition;
 use crate::decide::{TradeOption, TradeWorth};
@@ -70,6 +69,15 @@ pub(crate) struct Holding {
     pub keep: Vec<f64>,
     pub want: Vec<f64>,
     pub spare_years: f64,
+}
+
+/// A vehicle a household could make that would keep it `gain_h` hours beyond the walk's on the
+/// best errand it weighed (M8b slice CO, third part; slice CP, third part): its catalog index and
+/// the cell it would be made at (a boat's bank, a cart's door).
+struct VehicleWish {
+    vehicle: usize,
+    at: u32,
+    gain_h: f64,
 }
 
 /// A seller a buyer could go to: its id, where it is, its offers, whether it is a workshop, how
@@ -765,19 +773,19 @@ impl Population {
             }
             // What it might fetch from elsewhere to sell at home (M5b slice AQ, ADR-0019 §6).
             let (errand, wish) = self.plan_errand(ctx, hh, &stores, &costs, &holding, &offered);
-            // A boat it could make that would save it more over its life than making it takes
-            // (M8b slice CO, third part): an errand a review, the hours it would keep beyond the
-            // walk's on the best of them.
-            if let Some((could, gain_h)) = wish {
-                let saves_h_year = gain_h * DAYS_PER_YEAR as f64 / review_days as f64;
+            // A boat or cart it could make that would save it more over its life than making
+            // it takes (M8b slice CO, third part; slice CP, third part): an errand a review, the
+            // hours it would keep beyond the walk's on the best of them.
+            for w in wish {
+                let saves_h_year = w.gain_h * DAYS_PER_YEAR as f64 / review_days as f64;
                 if ctx
                     .catalog
                     .vehicles
-                    .get(could.vehicle)
+                    .get(w.vehicle)
                     .is_some_and(|v| saves_h_year * v.life_years > v.labour_h)
                 {
                     self.boat_wishes
-                        .push((id, could.vehicle, could.bank, saves_h_year as f32));
+                        .push((id, w.vehicle, w.at, saves_h_year as f32));
                 }
             }
             // A privilege that binds it, kept, withdraws the offers it covers, and one who keeps
@@ -1812,10 +1820,10 @@ impl Population {
         costs: &[Option<f64>],
         holding: &Holding,
         offered: &[(usize, f64)],
-    ) -> (Option<Errand>, Option<(BoatItCouldMake, f64)>) {
+    ) -> (Option<Errand>, Vec<VehicleWish>) {
         let reports = self.reports.of(hh.id);
         if reports.is_empty() {
-            return (None, None);
+            return (None, Vec::new());
         }
         let Some(fetch) = ctx
             .catalog
@@ -1823,16 +1831,16 @@ impl Population {
             .iter()
             .find(|a| a.behavior == crate::params::Behavior::Fetch)
         else {
-            return (None, None);
+            return (None, Vec::new());
         };
         let Some((home, market)) = hh.settlement.and_then(|s| Some((s, self.market(s)?))) else {
-            return (None, None);
+            return (None, Vec::new());
         };
         let (params, goods, day) = (ctx.params, &ctx.catalog.goods, ctx.now.day_index());
         let mp = &params.market;
         let pace = params.nav.tobler_ms(0.0) * params.nav.offtrail_factor;
         if pace <= 0.0 {
-            return (None, None);
+            return (None, Vec::new());
         }
         let trade_h = f64::from(fetch.min_minutes) / 60.0;
         let memory = mp.memory_days.max(1e-6);
@@ -1881,6 +1889,9 @@ impl Population {
         // one would keep it beyond the walk on any errand.
         let could = self.boat_it_could_make(ctx, hh, stores);
         let mut gain_h = 0.0f64;
+        // And a cart it could make at its door (M8b slice CP, third part), likewise.
+        let could_cart = self.cart_it_could_make(ctx, hh, stores);
+        let mut cart_gain_h = 0.0f64;
         for r in reports.iter().filter(|r| r.market != home && r.units > 0.0) {
             let (g, p) = (usize::from(r.good), usize::from(r.payment));
             let (Some(d), Some(pd)) = (goods.get(g), goods.get(p)) else {
@@ -1978,13 +1989,18 @@ impl Population {
             // By the household's cart (M8b slice CP, ADR-0029 §3): the cart pulled empty to the
             // door and loaded back, pushed between each door and the ground it goes on, and
             // each kilogram loaded at the seller's door and unloaded at home.
+            let wheeled = |w: &CartWay| {
+                let handle_h = 1.0 / (w.handling_kg_min * 60.0);
+                (w.travel_h * 30.0 <= f64::from(fetch.max_walk_minutes))
+                    .then(|| priced(w.payload_kg, w.travel_h, 2.0 * handle_h))
+                    .flatten()
+                    .map(|o| (o, handle_h))
+            };
             let by_cart = (!tool)
                 .then(|| self.cart_way(ctx, hh, at))
                 .flatten()
-                .filter(|(_, w)| w.travel_h * 30.0 <= f64::from(fetch.max_walk_minutes))
                 .and_then(|(cart, w)| {
-                    let handle_h = 1.0 / (w.handling_kg_min * 60.0);
-                    priced(w.payload_kg, w.travel_h, 2.0 * handle_h).map(|(units, net, share)| {
+                    wheeled(&w).map(|((units, net, share), handle_h)| {
                         let way = crate::reports::ByCart {
                             cart,
                             travel_min: (w.travel_h * 60.0) as f32,
@@ -2005,6 +2021,18 @@ impl Population {
             {
                 let walked = on_foot.map_or(0.0, |((u, n, _), _, _)| u * n);
                 gain_h = gain_h.max((units * net - walked) * home_h);
+            }
+            // By a cart it could make: likewise.
+            if let Some(v) = could_cart.filter(|_| !tool)
+                && let Some(((units, net, _), _)) = ctx
+                    .catalog
+                    .vehicles
+                    .get(v)
+                    .and_then(|v| self.way_by_wheels(ctx, hh, v, at))
+                    .and_then(|w| wheeled(&w))
+            {
+                let walked = on_foot.map_or(0.0, |((u, n, _), _, _)| u * n);
+                cart_gain_h = cart_gain_h.max((units * net - walked) * home_h);
             }
             // The way it keeps the largest share by; the walk, then the boat, on a tie.
             let chosen = [on_foot, by_boat, by_cart]
@@ -2031,7 +2059,26 @@ impl Population {
                 });
             }
         }
-        (best, could.filter(|_| gain_h > 0.0).map(|c| (c, gain_h)))
+        let door = cell_of(ctx.map, hh.home) as u32;
+        let wishes = could
+            .filter(|_| gain_h > 0.0)
+            .map(|c| VehicleWish {
+                vehicle: c.vehicle,
+                at: c.bank,
+                gain_h,
+            })
+            .into_iter()
+            .chain(
+                could_cart
+                    .filter(|_| cart_gain_h > 0.0)
+                    .map(|vehicle| VehicleWish {
+                        vehicle,
+                        at: door,
+                        gain_h: cart_gain_h,
+                    }),
+            )
+            .collect();
+        (best, wishes)
     }
 
     /// The way by household `hh`'s boat to the bank nearest a seller's door at `at`, open both
@@ -2061,11 +2108,22 @@ impl Population {
     ) -> Option<(PermanentId, CartWay)> {
         let door = cell_of(ctx.map, hh.home) as u32;
         let c = ctx.land.carts.made_of(hh.id).find(|c| c.at == door)?;
-        let v = ctx
-            .catalog
-            .vehicles
-            .get(usize::from(c.vehicle))
-            .filter(|v| v.mode == crate::params::VehicleMode::Cart)?;
+        let v = ctx.catalog.vehicles.get(usize::from(c.vehicle))?;
+        self.way_by_wheels(ctx, hh, v, at).map(|w| (c.id, w))
+    }
+
+    /// The way by a cart of vehicle `v` standing at household `hh`'s door, as
+    /// [`Population::cart_way`] finds it.
+    fn way_by_wheels(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        v: &crate::params::VehicleDef,
+        at: (f32, f32),
+    ) -> Option<CartWay> {
+        if v.mode != crate::params::VehicleMode::Cart {
+            return None;
+        }
         let walk = ctx.params.nav.tobler_ms(0.0);
         let (there, there_legs) = ctx
             .land
@@ -2074,14 +2132,11 @@ impl Population {
             ctx.land
                 .cart_way(ctx.map, &v.wheels(v.payload_kg, walk), at, hh.home)?;
         let travel_h = (there.seconds + there_legs + back.seconds + back_legs) / 3600.0;
-        Some((
-            c.id,
-            CartWay {
-                travel_h,
-                payload_kg: v.payload_kg,
-                handling_kg_min: v.handling_kg_min,
-            },
-        ))
+        Some(CartWay {
+            travel_h,
+            payload_kg: v.payload_kg,
+            handling_kg_min: v.handling_kg_min,
+        })
     }
 
     /// The way by a boat of vehicle `v` drawn up at bank `from` to the bank nearest a seller's
@@ -2391,7 +2446,7 @@ impl Population {
         out
     }
 
-    fn household_mut_by_id(&mut self, id: PermanentId) -> Option<&mut Household> {
+    pub(super) fn household_mut_by_id(&mut self, id: PermanentId) -> Option<&mut Household> {
         let hd = *self.hh_index.get(&id)?;
         self.households.get_mut(hd)
     }

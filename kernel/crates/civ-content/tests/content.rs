@@ -24,7 +24,8 @@ fn real(path: &str) -> String {
         .replace("\r\n", "\n")
 }
 
-/// The real people, land, names, activity, good, crop, building, recipe, skill and regime files
+/// The real people, land, names, activity, good, crop, building, recipe, skill, regime, technique,
+/// well, disease and vehicle files
 /// (`(path in the pack, body)`), which every world needs; fixtures add presets and override files.
 fn people_files() -> Vec<(String, String)> {
     let mut out = Vec::new();
@@ -44,6 +45,8 @@ fn people_files() -> Vec<(String, String)> {
         "well",
         // Cholera names fluid replacement as a treatment, which nothing else gates.
         "disease",
+        // The handcart names wheels on an axle, which nothing else gates.
+        "vehicle",
     ] {
         let mut paths: Vec<_> = std::fs::read_dir(repo_content().join("core").join(dir))
             .expect("real content directory")
@@ -68,7 +71,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 135
+kernel_content_api = 136
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.

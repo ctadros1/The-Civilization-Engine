@@ -91,6 +91,9 @@ pub struct Facts {
     /// The boat their household is making, if it is within their reach (M8b slice CO, third
     /// part).
     pub boat: Option<BoatFacts>,
+    /// The cart their household is making at its door, if any (M8b slice CP, third part): as a
+    /// boat's, its place the door.
+    pub cart: Option<BoatFacts>,
     /// The irrigation ditch their household is digging to its field, if any (M6b slice BG).
     pub ditch: Option<DitchFacts>,
     /// The palisade their polity is raising, if they may work on it (M6c slice BK).
@@ -884,6 +887,10 @@ pub fn candidates(
         }
         // And work on a boat to all but those whose household is making one (M8b slice CO).
         if def.behavior == Behavior::Boat && f.boat.is_none() {
+            continue;
+        }
+        // And work on a cart to all but those whose household is making one (M8b slice CP).
+        if def.behavior == Behavior::Cart && f.cart.is_none() {
             continue;
         }
         // And work on a well to all but those whose household is digging or relining one (M6a
@@ -1800,6 +1807,25 @@ pub fn candidates(
                     Err(why) => excluded.push((id, why)),
                 }
             }
+            Behavior::Cart => {
+                // Work at the door on the cart the household is making (M8b slice CP, third
+                // part), as on its boat; the vehicle is a target as a boat being made is.
+                let Some(c) = f.cart else {
+                    continue;
+                };
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: c.saves_per_hour,
+                    duty: 0.0,
+                    full: c.full,
+                };
+                match session_at_site(def, w, f, &site, Reason::Cart, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Boat(c.boat), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
+                }
+            }
             Behavior::Well => {
                 // Work on the household's well (M6a slice AY, step three), as on its crossing.
                 let Some(c) = f.well else {
@@ -2341,6 +2367,7 @@ mod tests {
             well: None,
             levee: None,
             boat: None,
+            cart: None,
             enclosure: None,
             ditch: None,
             band: None,

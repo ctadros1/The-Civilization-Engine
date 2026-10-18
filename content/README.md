@@ -687,6 +687,16 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 136 (M8b slice CP, third part) brings the activity behaviour `cart`: work at home on a
+cart the household is making at its door, until its vehicle's `labour_h` is done, no more than its
+`crew` at once in a day; the cart's `material_kg` of its `good` comes out of the store as it is
+begun. The core adds `core:technique/wheel_and_axle` (research 07-08 L05, L11: needs jointed
+framing and the shaping of wood, tried in building and boat work with timber, E50 50,000 hours, a
+far technique), which `core:vehicle/handcart` now needs, and
+`core:activity/work_with_wood_on_handcart` (from 14, two to four hours a session; tuning values).
+A technique that no activity, building, well or treatment gates but a vehicle's making is learnt
+at home from the age of that work.
+
 Content API 135 (M8b slice CP) appends the vehicle mode `cart`: wheels pulled by a person. A
 cart names `tare_kg` (its own mass), `way_resistance` and `trail_resistance` (rolling resistance
 on a way that serves carts and on a worn trail; research 10-07 §1.2 illustrates 0.02), `pull_n`
@@ -695,7 +705,7 @@ can hold it back on). A boat's `draft_m`, `paddle_m_s` and `slack_share` are a b
 mode refuses the other's fields. The core's `core:vehicle/handcart` (M8b slice CP, second part)
 carries 150 kg, weighs 40 kg and is 0.9 m across, pulled at 200 N and 75 W, its resistances 0.02
 on a way and 0.05 on a worn trail, braked down 15 % at most (design priors where the reports give
-ranges); it loads at a boat's 10 kg a minute. Nobody makes one yet.
+ranges); it loads at a boat's 10 kg a minute. Its makers need wheels on an axle (the third part).
 
 Content API 134 (M8b slice CO, third part) brings the activity behaviour `boat`: work on a boat
 the household is making, on the bank where it will be drawn up, until its vehicle's `labour_h` is

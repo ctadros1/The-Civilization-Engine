@@ -102,11 +102,14 @@ pub enum Behavior {
     /// Walk to the bank where the household is making a boat, work on it, and walk home (M8b
     /// slice CO, third part): the activity's numbers, the vehicle's labour.
     Boat,
+    /// Work at home on the cart the household is making (M8b slice CP, third part): the
+    /// activity's numbers, the vehicle's labour.
+    Cart,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 35] = [
+    pub const ALL: [Behavior; 36] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -142,6 +145,7 @@ impl Behavior {
         Behavior::Palisade,
         Behavior::Poll,
         Behavior::Boat,
+        Behavior::Cart,
     ];
 
     /// The authored name of a behavior.
@@ -182,6 +186,7 @@ impl Behavior {
             Behavior::Palisade => "palisade",
             Behavior::Poll => "poll",
             Behavior::Boat => "boat",
+            Behavior::Cart => "cart",
         }
     }
 
@@ -1163,7 +1168,7 @@ impl Catalog {
     /// The youngest age at which anyone does work that technique `t` gates, years: the age a
     /// child brought up with it learns it (ADR-0008 §4). Building programs are worked by the
     /// `build` activities, well systems by the `well` ones, and a disease's treatments by the
-    /// `tend` ones.
+    /// `tend` ones; a technique no work gates but a vehicle's making, by that work.
     pub fn work_age(&self, t: usize) -> Option<f64> {
         let builds = self.buildings.iter().any(|b| b.technique == Some(t));
         let digs = self.wells.iter().any(|w| w.technique == Some(t));
@@ -1171,16 +1176,32 @@ impl Catalog {
             .diseases
             .iter()
             .any(|d| d.treatments.iter().any(|&(x, _)| x == t));
-        self.activities
-            .iter()
-            .filter(|a| {
-                self.technique_of(a) == Some(t)
-                    || (builds && a.behavior == Behavior::Build)
-                    || (digs && a.behavior == Behavior::Well)
-                    || (treats && a.behavior == Behavior::Tend)
+        let age = |gates: &dyn Fn(&ActivityDef) -> bool| {
+            self.activities
+                .iter()
+                .filter(|a| gates(a))
+                .map(|a| a.min_age_years)
+                .reduce(f64::min)
+        };
+        age(&|a| {
+            self.technique_of(a) == Some(t)
+                || (builds && a.behavior == Behavior::Build)
+                || (digs && a.behavior == Behavior::Well)
+                || (treats && a.behavior == Behavior::Tend)
+        })
+        .or_else(|| {
+            // A technique only a vehicle's making needs is learnt for the work on one (M8b slice
+            // CP, third part): wheels on an axle for a cart.
+            let makes = |mode: VehicleMode| {
+                self.vehicles
+                    .iter()
+                    .any(|v| v.mode == mode && v.technique == Some(t))
+            };
+            let (boats, carts) = (makes(VehicleMode::Boat), makes(VehicleMode::Cart));
+            age(&|a| {
+                (boats && a.behavior == Behavior::Boat) || (carts && a.behavior == Behavior::Cart)
             })
-            .map(|a| a.min_age_years)
-            .reduce(f64::min)
+        })
     }
 
     /// The tools an activity needs: its own, or its recipe's, each once (its own first, in no

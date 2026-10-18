@@ -4170,6 +4170,36 @@ and M6a gives rivers a daily flow.
         unload minutes), content API 135 still, no wire change (the inspector says "pulling the
         household's handcart"). **Not yet:** the wheel technique and making a handcart by choice,
         clearance and turning back, and the observer's view of carts (the next part).
+      - *Third part, as built (2026-10-18): making a handcart by choice.* **Wheels on an axle**
+        (`core:technique/wheel_and_axle`; research 07-08 L05, L11) needs jointed framing and the
+        shaping of wood (the fitting skill solid wheels on a true axle take), is tried toward in
+        building and boat work with timber, and is far (E50 50,000 qualified hours): in practice
+        it comes from elsewhere, as the observer's introduction. The handcart needs it. **A cart
+        it could make** is weighed as a boat is (CO's third part): a household with no cart, one
+        of whose people knows the technique, that holds an axe and the cart's 60 kg of timber,
+        prices each report also by a cart at its door, and where the hours a year that saves
+        over the cart's life are more than making one takes, begins one there; the timber comes
+        out of its store as it is begun (a dugout's trunk is felled where it is worked). Each
+        vehicle is weighed against the walk, not against the other: a household beside deep
+        water with neighbours wanting stone may begin both. **Its people work on it at the door**
+        by choice (a new `cart` behaviour and `core:activity/work_with_wood_on_handcart`), at
+        most the vehicle's crew of two a day, until its labour is done; then it is made, the
+        chronicle says so (`CartMade`), and errands go by it. A technique that no other work
+        gates is learnt at home for the work on a vehicle (from 14 for a cart). **What it comes
+        to:** the scene's household, its member taught jointed framing and wheels on an axle,
+        with an axe and timber beside what its building took, planned its errand on foot, found a
+        cart would keep it some 200 hours an errand beyond the walk, began one that day and made
+        it (the test's 8 hours of labour; the content's is 40, some five days for two), and then
+        planned its errand by the cart it made. Saved and loaded while the cart was being made,
+        it went on alike. **Exact:** a world where nobody knows wheels on an axle lives as before:
+        the bench's village of three settlements, 30 days in both modes, has the same time use,
+        ties and every other count as the second part's, and the same digests in every section
+        but those that carry the dictionaries of activity and technique ids (people, receipts,
+        workshops, knowledge) and the content's own. **Boundary:** saves schema 146 (the
+        chronicle's cart made; a cart being made is a target as a boat being made is), content
+        API 136 (the `cart` behaviour), no wire change (the inspector says "working on the
+        household's handcart"). **Not yet:** clearance and turning back, a cart of a household
+        that is gone, repair, and the observer's view of carts and boats.
     - **CQ**: works on ways: recorded losses, household works and `build_way`, laying, widening,
       passing places, cart crossings, landings, grading as an earthwork, upkeep by law, tolls.
     - **CR**: where to live weighs the walk; the dashboard's travel time by occupation and

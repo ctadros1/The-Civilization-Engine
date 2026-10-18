@@ -417,6 +417,8 @@ pub const SCHEMA_V142: u32 = 142;
 pub const SCHEMA_V143: u32 = 143;
 /// Boats being made, before carts.
 pub const SCHEMA_V144: u32 = 144;
+/// Carts, before carts being made.
+pub const SCHEMA_V145: u32 = 145;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

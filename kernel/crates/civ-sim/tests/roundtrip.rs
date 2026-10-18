@@ -2374,6 +2374,19 @@ fn a_schema_68_save_loads_with_no_wade_remembered() {
 }
 
 #[test]
+fn a_schema_145_save_loads_and_goes_on() {
+    // A schema-145 save, from before carts were made by choice (M8b slice CP, third part): its
+    // chronicle holds no cart made, and it loads as it was.
+    let sim = load_first();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V145;
+    let path = republish("slice-cp2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-145 save loads");
+    assert_eq!(loaded.land().carts.list, sim.land().carts.list);
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_144_save_loads_with_no_cart() {
     // A schema-144 save, from before carts (M8b slice CP, second part): nobody had one, so none
     // is read from it.

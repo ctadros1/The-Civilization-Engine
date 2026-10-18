@@ -1,0 +1,21 @@
+# Work on a cart the household is making at its door (M8b slice CP, third part; ADR-0029 §2;
+# research 07-08 L05, L11): shaping planks into wheels, boring and fitting them to an axle and
+# building the box on it, from timber taken from the store when the cart was begun. Work at
+# home, lighter than felling a trunk; effort, ages and session lengths are tuning values as for
+# a boat. The work a cart takes is its vehicle's. Its id sorts after every older activity's:
+# activities are kept in id order.
+kind = "activity"
+id = "core:activity/work_with_wood_on_handcart"
+name = "Work on a cart"
+doing = "making a cart"
+behavior = "cart"
+par = 3.5
+min_age_years = 14.0
+max_age_years = 65.0
+min_minutes = 60
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 10
+technique = ""
+tools = ["core:good/axe"]
+rate = 1.0

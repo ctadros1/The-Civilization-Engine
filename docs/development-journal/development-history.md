@@ -2902,3 +2902,19 @@ higher bank.
 **What it comes to:** a household with a cart at its door, and a way laid to the other camp, sent
 for 150 kg of stone in about an hour and a half of pulling, where on foot it would have brought
 20 kg. Nobody makes a cart yet; that comes next.
+
+## 2026-10-18 — CP, third part: making a handcart
+
+**Built:** carts now need a technique, wheels on an axle, which takes fitted woodwork and is
+rarely found by trying: in practice someone brings it. A household that knows it, holds an axe
+and has the timber asks, as it plans an errand, what a cart would bring. When the cart would
+save more than it takes to make, it begins one at its door, the timber comes out of its store,
+and two of its people at a time work on it until it is done.
+
+**Found on the way:** a technique learnt at home is learnt from the age of the work it opens,
+and the new technique opened none but the cart's own making, so nobody could have learnt it as
+a child. Such a technique is now learnt for the work of making the vehicle.
+
+**What it comes to:** a household taught the technique made its handcart and sent its next
+errand by it. A world where nobody knows wheels on an axle makes no carts.
+

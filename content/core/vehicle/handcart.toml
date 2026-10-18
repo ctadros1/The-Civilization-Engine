@@ -1,13 +1,13 @@
 # A handcart (M8b slice CP; ADR-0029 §2; research 07-08 L11, §2.1; 12-05 §2.3): a small two-wheeled
 # box on an axle, pulled by one person. Its wheels and axle are a woodworker's fitted work (07-08
-# L05: accurate woodworking and bearings, human or animal traction); the wheel technique it needs
-# arrives with making one. What it carries, weighs and takes are design priors where the reports
+# L05: accurate woodworking and bearings, human or animal traction): its makers need wheels on an
+# axle (`core:technique/wheel_and_axle`). What it carries, weighs and takes are design priors where the reports
 # give ranges, not figures.
 kind = "vehicle"
 id = "core:vehicle/handcart"
 name = "Handcart"
 mode = "cart"
-technique = ""
+technique = "core:technique/wheel_and_axle"
 skill = "core:skill/woodworking"
 tool = "core:good/axe"
 good = "core:good/timber"

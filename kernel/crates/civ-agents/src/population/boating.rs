@@ -282,23 +282,76 @@ impl Population {
         Some(BoatItCouldMake { vehicle, bank })
     }
 
+    /// The cart household `hh`, holding `stores`, could make, if any (M8b slice CP, third part):
+    /// while it has none, made or being made, the first cart vehicle a member knows the technique
+    /// of, whose tool it holds and whose material it has in store, made at its door. None without
+    /// work on a cart in the content.
+    pub(super) fn cart_it_could_make(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        stores: &[f64],
+    ) -> Option<usize> {
+        if ctx.land.carts.of(hh.id).next().is_some()
+            || !ctx
+                .catalog
+                .activities
+                .iter()
+                .any(|a| a.behavior == Behavior::Cart)
+        {
+            return None;
+        }
+        let held = |g: usize| stores.get(g).copied().unwrap_or(0.0);
+        ctx.catalog.vehicles.iter().position(|d| {
+            d.mode == crate::params::VehicleMode::Cart
+                && d.technique
+                    .is_none_or(|t| self.household_knows(&hh.members, t))
+                && d.tool.is_none_or(|t| held(t) >= crate::decide::MIN_TOOL)
+                && held(d.good) >= d.material_kg
+        })
+    }
+
     /// The households that found, planning an errand, that a boat would save them more walking
     /// over its life than making it takes begin one where they meant to (M8b slice CO, third
     /// part), unless they have one by now.
     pub(super) fn begin_boats(&mut self, ctx: &mut Ctx) {
         let day = ctx.now.day_index();
         for (household, vehicle, bank, saves_h_year) in std::mem::take(&mut self.boat_wishes) {
-            if ctx.land.boats.of(household).next().is_some() {
-                continue;
-            }
             let Some(def) = ctx.catalog.vehicles.get(vehicle) else {
                 continue;
             };
-            if f64::from(saves_h_year) * def.life_years <= def.labour_h {
+            let cart = def.mode == crate::params::VehicleMode::Cart;
+            let list = if cart {
+                &ctx.land.carts
+            } else {
+                &ctx.land.boats
+            };
+            if list.of(household).next().is_some()
+                || f64::from(saves_h_year) * def.life_years <= def.labour_h
+            {
                 continue;
             }
+            // A cart's timber comes out of the household's store as it is begun (M8b slice CP,
+            // third part): boards and an axle shaped at home, not a trunk felled where it is
+            // worked.
+            if cart {
+                let (g, kg) = (def.good, def.material_kg);
+                let Some(x) = self.household_mut_by_id(household) else {
+                    continue;
+                };
+                if x.stores.get(g).copied().unwrap_or(0.0) < kg {
+                    continue;
+                }
+                x.stores[g] -= kg;
+                x.flows.add(Flow::Used, g, kg);
+            }
             let id = ctx.ids.allocate();
-            ctx.land.boats.list.push(Boat {
+            let list = if cart {
+                &mut ctx.land.carts
+            } else {
+                &mut ctx.land.boats
+            };
+            list.list.push(Boat {
                 id,
                 vehicle: vehicle as u16,
                 owner: household,
@@ -310,7 +363,7 @@ impl Population {
                 saves_h_year,
                 crew: (0, 0),
             });
-            ctx.land.boats.changed();
+            list.changed();
         }
     }
 
@@ -346,10 +399,39 @@ impl Population {
         })
     }
 
-    /// Someone sets off to work on boat `boat`: one of its crew today.
+    /// The cart household `x` is making at its door, if it is light (M8b slice CP, third part):
+    /// as [`Population::boat_facts`], the walk the one from home to where it stands.
+    pub(super) fn cart_facts(&self, ctx: &Ctx, x: &Household, dark: bool) -> Option<BoatFacts> {
+        if dark {
+            return None;
+        }
+        let c = ctx.land.carts.of(x.id).find(|c| !c.made())?;
+        let def = ctx.catalog.vehicles.get(usize::from(c.vehicle))?;
+        let at = cell_centre(ctx.map, c.at as usize);
+        let pace = ctx.params.nav.tobler_ms(0.0).max(1e-6);
+        let metres = f64::from((at.0 - x.home.0).hypot(at.1 - x.home.1));
+        Some(BoatFacts {
+            boat: c.id,
+            at,
+            walk_min: metres / pace / 60.0,
+            left_h: f64::from(c.labour_h - c.work_h).max(0.0),
+            saves_per_hour: f64::from(c.saves_h_year) * def.life_years
+                / f64::from(c.labour_h).max(1.0),
+            full: c.crew.0 == ctx.now.day_index() && u32::from(c.crew.1) >= def.crew,
+        })
+    }
+
+    /// Someone sets off to work on boat `boat`, or on the cart of that id: one of its crew today.
     pub(super) fn joined_boat_crew(ctx: &mut Ctx, boat: PermanentId) {
         let day = ctx.now.day_index();
-        if let Some(b) = ctx.land.boats.list.iter_mut().find(|b| b.id == boat) {
+        let land = &mut *ctx.land;
+        if let Some(b) = land
+            .boats
+            .list
+            .iter_mut()
+            .chain(land.carts.list.iter_mut())
+            .find(|b| b.id == boat)
+        {
             if b.crew.0 != day {
                 b.crew = (day, 0);
             }
@@ -357,11 +439,11 @@ impl Population {
         }
     }
 
-    /// `hours` of a capable adult's work by `who` (handle and id) of `household` on the boat
-    /// `boat` it is making (M8b slice CO, third part): they count toward its labour, and they
-    /// practise its vehicle's skill. The trunk is felled where it is worked, so nothing is taken
-    /// from the store. Once its labour is done it is made, on the day it is, and the chronicle
-    /// says so.
+    /// `hours` of a capable adult's work by `who` (handle and id) of `household` on the boat or
+    /// cart `boat` it is making (M8b slice CO, third part; slice CP, third part): they count
+    /// toward its labour, and they practise its vehicle's skill. A boat's trunk is felled where
+    /// it is worked; a cart's timber was taken from the store when it was begun. Once its labour
+    /// is done it is made, on the day it is, and the chronicle says so.
     pub(super) fn boat_work(
         &mut self,
         ctx: &mut Ctx,
@@ -370,26 +452,26 @@ impl Population {
         boat: PermanentId,
         hours: f64,
     ) {
-        let Some(i) = ctx
-            .land
-            .boats
-            .list
-            .iter()
-            .position(|b| b.id == boat && b.owner == household && !b.made())
-        else {
-            return;
+        let making = |b: &Boat| b.id == boat && b.owner == household && !b.made();
+        let (cart, i) = match ctx.land.boats.list.iter().position(making) {
+            Some(i) => (false, i),
+            None => match ctx.land.carts.list.iter().position(making) {
+                Some(i) => (true, i),
+                None => return,
+            },
         };
-        let Some(def) = ctx
-            .catalog
-            .vehicles
-            .get(usize::from(ctx.land.boats.list[i].vehicle))
-        else {
+        let list = if cart {
+            &mut ctx.land.carts
+        } else {
+            &mut ctx.land.boats
+        };
+        let Some(def) = ctx.catalog.vehicles.get(usize::from(list.list[i].vehicle)) else {
             return;
         };
         let skill = def
             .skill
             .and_then(|k| ctx.catalog.skills.get(k).map(|s| (k, s)));
-        let b = &mut ctx.land.boats.list[i];
+        let b = &mut list.list[i];
         let left = f64::from(b.labour_h - b.work_h).max(0.0);
         let done = hours.clamp(0.0, left);
         b.work_h += done as f32;
@@ -402,22 +484,29 @@ impl Population {
         let now = ctx.now;
         b.work_h = b.labour_h;
         b.made = now.day_index();
-        let at = ctx.land.rivers.centre(b.at);
-        ctx.land.boats.changed();
+        let cell = b.at;
+        list.changed();
         let name = def.name.to_lowercase();
         let settlement = self.household(household).and_then(|x| x.settlement);
-        let sentence = format!(
-            "{}'s household finished a {name} and drew it up on the bank, ready for the water.",
-            self.name_of(who)
-        );
-        self.chronicle_push(
-            now,
-            ChronicleKind::BoatMade,
-            vec![who],
-            settlement,
-            Some(at),
-            0.0,
-            sentence,
-        );
+        let (kind, at, sentence) = if cart {
+            (
+                ChronicleKind::CartMade,
+                cell_centre(ctx.map, cell as usize),
+                format!(
+                    "{}'s household finished a {name} and stood it at the door, ready to load.",
+                    self.name_of(who)
+                ),
+            )
+        } else {
+            (
+                ChronicleKind::BoatMade,
+                ctx.land.rivers.centre(cell),
+                format!(
+                    "{}'s household finished a {name} and drew it up on the bank, ready for the water.",
+                    self.name_of(who)
+                ),
+            )
+        };
+        self.chronicle_push(now, kind, vec![who], settlement, Some(at), 0.0, sentence);
     }
 }

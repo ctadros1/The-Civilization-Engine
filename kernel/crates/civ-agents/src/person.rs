@@ -62,7 +62,8 @@ pub enum Target {
     Ditch(PermanentId),
     /// A palisade, by its enclosure's permanent id: the one raised (M6c slice BK).
     Enclosure(PermanentId),
-    /// A boat, by its permanent id: the one being made (M8b slice CO, third part).
+    /// A boat, by its permanent id: the one being made (M8b slice CO, third part); or a cart
+    /// being made, by its own (M8b slice CP, third part).
     Boat(PermanentId),
 }
 

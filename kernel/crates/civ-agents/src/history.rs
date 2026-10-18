@@ -205,6 +205,9 @@ pub enum Reason {
     /// The carrying a boat the household is making would save its people over the boat's life,
     /// for the work this session puts into it (M8b slice CO, third part).
     Boat = 155,
+    /// The carrying a cart the household is making would save its people over the cart's life,
+    /// for the work this session puts into it (M8b slice CP, third part).
+    Cart = 156,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -216,7 +219,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 89] = [
+    pub const ALL: [Reason; 90] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -306,6 +309,7 @@ impl Reason {
         Reason::Campaign,
         Reason::Embargo,
         Reason::Boat,
+        Reason::Cart,
     ];
 
     /// The reason with this code.
@@ -407,6 +411,7 @@ impl Reason {
             Reason::Campaign => "telling the hearth that they stand, and where",
             Reason::Embargo => "an embargo they keep forbids buying there",
             Reason::Boat => "the carrying a boat would save",
+            Reason::Cart => "the carrying a cart would save",
         }
     }
 }
@@ -871,6 +876,9 @@ pub enum ChronicleKind {
     /// it, `settlement` the household's, `place` the bank where it is drawn up, and `name` the
     /// sentence.
     BoatMade,
+    /// A household finished making a cart (M8b slice CP, third part): `people` is who finished
+    /// it, `settlement` the household's, `place` its door, and `name` the sentence.
+    CartMade,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1530,7 +1538,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::ElectionHeld
         | ChronicleKind::AllianceMade
         | ChronicleKind::CoinStruck
-        | ChronicleKind::BoatMade => {
+        | ChronicleKind::BoatMade
+        | ChronicleKind::CartMade => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

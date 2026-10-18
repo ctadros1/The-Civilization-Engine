@@ -954,7 +954,20 @@ pub fn describe_target(
                 let at = sim.land.rivers.centre(b.at);
                 format!("the {name} on the bank {} of home", bearing(home, at))
             }
-            None => "a boat".to_owned(),
+            // A cart being made at the door (M8b slice CP, third part): "the household's
+            // handcart".
+            None => match sim.land.carts.list.iter().find(|c| c.id == id) {
+                Some(c) => {
+                    let name = sim
+                        .rules
+                        .catalog
+                        .vehicles
+                        .get(usize::from(c.vehicle))
+                        .map_or_else(|| "cart".to_owned(), |v| v.name.to_lowercase());
+                    format!("the household's {name}")
+                }
+                None => "a boat".to_owned(),
+            },
         },
     }
 }

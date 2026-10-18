@@ -3090,6 +3090,7 @@ impl Population {
             well: self.well_facts(ctx, &hh, p.id, dark),
             levee: self.levee_facts(ctx, &hh, p.id, field_key, dark),
             boat: self.boat_facts(ctx, &hh, field_key, dark),
+            cart: self.cart_facts(ctx, &hh, dark),
             enclosure: self.enclosure_facts(ctx, &hh, p.id, field_key, dark),
             ditch: self.ditch_facts(ctx, &hh, field_key, dark),
             band: band_facts,
@@ -4762,6 +4763,7 @@ impl Population {
                 | Behavior::Carry
                 | Behavior::Bridge
                 | Behavior::Boat
+                | Behavior::Cart
                 | Behavior::Well
                 | Behavior::Levee
                 | Behavior::Palisade
@@ -5019,7 +5021,7 @@ impl Population {
                         self.crossing_work(ctx, (h, who), household, crossing, hours);
                     }
                 }
-                Some(Behavior::Boat) => {
+                Some(Behavior::Boat | Behavior::Cart) => {
                     if let Target::Boat(boat) = p.act.target {
                         let rate = def.as_ref().map_or(1.0, |d| d.rate);
                         let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;

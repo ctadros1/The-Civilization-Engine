@@ -970,15 +970,26 @@ pub fn describe_target(
             },
         },
         // A passing place a household is clearing (M8b slice CQ, second part): "a passing place
-        // east of home".
+        // east of home"; or a way it is laying on worn trail (the fourth part): "a way laid east
+        // of home".
         Target::Way(id) => match sim.land.ways.list.iter().find(|w| w.id == id) {
-            Some(w) => match w.segments.first().and_then(|s| s.cells.first()) {
-                Some(&c) if (c as usize) < sim.map.water.len() => {
-                    let at = civ_agents::population::cell_centre(&sim.map, c as usize);
-                    format!("a passing place {} of home", bearing(home, at))
+            Some(w) => {
+                let what =
+                    if w.segments.first().is_some_and(|s| {
+                        s.corridor_m <= civ_land::carting::TRAIL_TREAD_M as f32 + 1e-3
+                    }) {
+                        "a way laid"
+                    } else {
+                        "a passing place"
+                    };
+                match w.segments.first().and_then(|s| s.cells.first()) {
+                    Some(&c) if (c as usize) < sim.map.water.len() => {
+                        let at = civ_agents::population::cell_centre(&sim.map, c as usize);
+                        format!("{what} {} of home", bearing(home, at))
+                    }
+                    _ => what.to_owned(),
                 }
-                _ => "a passing place".to_owned(),
-            },
+            }
             None => "a passing place".to_owned(),
         },
     }

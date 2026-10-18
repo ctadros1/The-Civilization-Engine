@@ -123,7 +123,7 @@ use super::{
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
-    SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, finish, section, section_root,
+    SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, finish, section, section_root,
     single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
@@ -651,6 +651,7 @@ enum Schema {
     /// Passing places (M8b slice CQ, second part: a way as an activity's target).
     V149,
     V150,
+    V151,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -815,7 +816,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V147 => Schema::V147,
         SCHEMA_V148 => Schema::V148,
         SCHEMA_V149 => Schema::V149,
-        SAVE_SCHEMA_VERSION => Schema::V150,
+        SCHEMA_V150 => Schema::V150,
+        SAVE_SCHEMA_VERSION => Schema::V151,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -4666,7 +4668,8 @@ fn carried(
         | Schema::V147
         | Schema::V148
         | Schema::V149
-        | Schema::V150 => {
+        | Schema::V150
+        | Schema::V151 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4989,7 +4992,8 @@ fn decode_households(
             | Schema::V147
             | Schema::V148
             | Schema::V149
-            | Schema::V150 => {
+            | Schema::V150
+            | Schema::V151 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

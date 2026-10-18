@@ -173,6 +173,21 @@ impl Population {
                 );
             }
         }
+        // And what its worn trail cost beyond a way laid there, cell by cell, where the haul's
+        // whole of it is worth remembering (M8b slice CQ, fourth part).
+        let roughs = ctx.land.cart_roughs(ctx.map, &wheels, &route.cells);
+        if roughs.iter().map(|r| r.1).sum::<f64>() >= traffic::LEAST_LOSS_S {
+            for (cell, s) in roughs {
+                self.traffic.lost(
+                    household,
+                    cell,
+                    traffic::Cause::Rough,
+                    (s / 3600.0) as f32,
+                    day,
+                    half,
+                );
+            }
+        }
         let duration = (total_s / 60.0).ceil().max(1.0);
         let Some(p) = self.people.get_mut(h) else {
             return false;

@@ -265,6 +265,9 @@ pub enum Cause {
     /// A stretch too narrow for two carts: waiting there for one coming the other way, or the
     /// wait a cart turned back from.
     Width,
+    /// Worn trail where no way is laid: the pull its roughness took beyond what a way's would
+    /// (M8b slice CQ, fourth part).
+    Rough,
 }
 
 impl Cause {
@@ -273,6 +276,7 @@ impl Cause {
         match self {
             Cause::Grade => 0,
             Cause::Width => 1,
+            Cause::Rough => 2,
         }
     }
 
@@ -281,6 +285,7 @@ impl Cause {
         match code {
             0 => Some(Cause::Grade),
             1 => Some(Cause::Width),
+            2 => Some(Cause::Rough),
             _ => None,
         }
     }
@@ -290,13 +295,15 @@ impl Cause {
         match self {
             Cause::Grade => "the climb",
             Cause::Width => "too narrow for two carts",
+            Cause::Rough => "rough trail where no way is laid",
         }
     }
 }
 
 /// What a household holds of the hours its trips lost at a site of a way, by cause: the hours and
-/// the times, fading, as of `day`. The site is a climb's first cell, and a single-cart stretch's
-/// middle cell, where a passing place would split it (M8b slice CQ, second part).
+/// the times, fading, as of `day`. The site is a climb's first cell, a single-cart stretch's
+/// middle cell, where a passing place would split it (M8b slice CQ, second part), and each cell
+/// of worn trail a haul went over, where a way laid would ease it (the fourth part).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Loss {
     pub cell: u32,

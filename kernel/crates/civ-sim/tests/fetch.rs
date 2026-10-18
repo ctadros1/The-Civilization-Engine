@@ -2282,6 +2282,174 @@ fn a_household_remembers_what_the_climbs_on_its_carts_way_cost_where_each_begins
     saves_and_goes_on_alike(&mut sim, 60);
 }
 
+#[test]
+fn a_household_lays_a_way_where_its_carts_drag_on_worn_trail_and_its_carts_then_roll_easier() {
+    use civ_agents::traffic::Cause;
+    let (sc, _stone) = wheels_scene();
+    let Scene {
+        mut sim,
+        seller,
+        buyer,
+        ..
+    } = sc;
+    // The way between the two doors is a worn trail: nobody has laid a way there.
+    let today = sim.now().day_index();
+    {
+        let paths = sim.rules().land.paths;
+        let land = sim.land_mut_for_tests();
+        let cells: Vec<(u32, f32)> = land
+            .ways
+            .list
+            .iter()
+            .flat_map(|w| w.segments.iter().flat_map(|s| s.cells.iter().copied()))
+            .map(|c| (c, 1.0))
+            .collect();
+        land.ways = Default::default();
+        land.wear.hold(&cells, today, &paths);
+        land.wear.survey(today, &paths);
+    }
+    let handcart = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    let home = |sim: &Sim, h: PermanentId| sim.people().household(h).expect("household").home;
+    let (from, to) = (home(&sim, buyer), home(&sim, seller));
+    let who = sim.people().household(buyer).expect("buyer").members[0];
+    let door = civ_agents::population::cell_of(sim.map(), from) as u32;
+    let id = sim.allocate_id_for_tests();
+    {
+        let land = sim.land_mut_for_tests();
+        land.carts.list.push(civ_land::boats::Boat {
+            id,
+            vehicle: handcart as u16,
+            owner: buyer,
+            at: door,
+            made: today,
+            wear: 0.0,
+            labour_h: 0.0,
+            work_h: 0.0,
+            saves_h_year: 0.0,
+            crew: (0, 0),
+        });
+        land.carts.changed();
+    }
+    if let Some((_, p)) = sim
+        .people_mut_for_tests()
+        .people
+        .iter_mut()
+        .find(|(_, p)| p.id == who)
+    {
+        p.pos = from;
+    }
+    // A weak puller, so the trail's roughness costs the cart what a load would cost a strong one.
+    sim.rules_mut_for_tests()
+        .expect("rules of its own")
+        .catalog
+        .vehicles[handcart]
+        .power_w /= 20.0;
+    let walk = sim.rules().people.nav.tobler_ms(0.0);
+    let wheels = sim.rules().catalog.vehicles[handcart].wheels(0.0, walk);
+    let (route, _) = sim
+        .land()
+        .cart_way(sim.map(), &wheels, from, to)
+        .expect("a way for wheels");
+    let roughs = sim.land().cart_roughs(sim.map(), &wheels, &route.cells);
+    assert!(roughs.len() > 3, "{roughs:?}");
+    // Each haul over it is remembered cell by cell, at what each cell cost beyond a way. A
+    // season's hauls: a few would not repay the clearing as well as the household's other work.
+    let hauls = 150;
+    for _ in 0..hauls {
+        assert!(sim.with_ctx_for_tests(|pop, ctx| pop.haul_for_tests(ctx, who, to)));
+    }
+    let half = sim.rules().people.places.use_half_life_days;
+    let held: Vec<(u32, f32)> = sim
+        .people()
+        .traffic
+        .losses_held(buyer, today, half)
+        .filter(|l| l.cause == Cause::Rough)
+        .map(|l| (l.cell, l.hours))
+        .collect();
+    assert_eq!(held.len(), roughs.len(), "{held:?} against {roughs:?}");
+    for ((c, h), (cc, s)) in held.iter().zip(&roughs) {
+        assert_eq!(c, cc);
+        let want = f64::from(hauls) * s / 3600.0;
+        assert!(
+            (f64::from(*h) - want).abs() < 1e-3 * want,
+            "{h} against {want}"
+        );
+    }
+    // At its review the household lays a way over the near part of that trail, marked out for
+    // now: a tread wide once cleared.
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_way_work_for_tests(ctx, buyer));
+    let way = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| {
+            w.segments
+                .iter()
+                .any(|s| s.keeper == civ_land::ways::Keeper::Household(buyer))
+        })
+        .cloned()
+        .expect("a way laid");
+    let s = &way.segments[0];
+    assert!(!s.cells.is_empty());
+    assert!(
+        s.cells.iter().all(|c| roughs.iter().any(|r| r.0 == *c)),
+        "{s:?}"
+    );
+    assert!(
+        (s.corridor_m - 1.2).abs() < 1e-6 && s.built_m < 0.1,
+        "{s:?}"
+    );
+    // Saved and loaded while it is being laid, the world goes on alike.
+    saves_and_goes_on_alike(&mut sim, 60);
+    // Its people clear it until it is a tread wide.
+    let mut worked = false;
+    for _ in 0..200 * 24 * 6 {
+        sim.advance_minutes(10).expect("advances");
+        worked |= sim.people().people.iter().any(|(_, p)| {
+            p.household == buyer && p.act.target == civ_agents::person::Target::Way(way.id)
+        });
+        let done = sim
+            .land()
+            .ways
+            .list
+            .iter()
+            .find(|w| w.id == way.id)
+            .is_some_and(|w| w.segments[0].built_m + 1e-3 >= w.segments[0].corridor_m);
+        if done {
+            break;
+        }
+    }
+    assert!(worked, "someone of the household worked on it");
+    let laid = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| w.id == way.id)
+        .cloned()
+        .expect("the way");
+    assert!((laid.segments[0].usable_m - 1.2).abs() < 1e-3, "{laid:?}");
+    // The cart rolls there now as on a way, and its trail costs nothing there beyond one.
+    for &c in &laid.segments[0].cells {
+        let (res, _) = sim
+            .land()
+            .cart_going(sim.map(), c, &wheels)
+            .expect("wheels go there");
+        assert!((res - wheels.way_c).abs() < 1e-9, "{c}: {res}");
+    }
+    let after = sim.land().cart_roughs(sim.map(), &wheels, &route.cells);
+    assert!(
+        after.iter().all(|r| !laid.segments[0].cells.contains(&r.0)),
+        "{after:?}"
+    );
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+}
+
 /// [`wheels_scene`] with the way between the two doors a worn trail no way is laid on, each
 /// household a handcart at its door, and the buyer's cart turned back `turns` times at the
 /// trail's single-cart stretch by the seller's on it: the scene, the handcart's index, and the

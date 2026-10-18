@@ -57,6 +57,9 @@ const PURPOSE_WAY_REVIEW: u64 = 0x7761_7977_6f72_6b72; // "wayworkr"
 /// The share of the waits at a single-cart stretch a passing place at its middle spares: the
 /// stretch split in two, a cart waits for one coming the other way on half of it (a design prior).
 pub const PASSING_SPARES: f64 = 0.5;
+/// The width a way laid on worn trail is marked out at before any of its ground is cleared,
+/// metres (M8b slice CQ, fourth part): no wheels take it so narrow.
+pub const LAID_FROM_M: f32 = 0.05;
 
 impl Population {
     /// The way household `household` is working on: one it keeps whose built width is short of
@@ -116,7 +119,8 @@ impl Population {
         }
     }
 
-    /// Household `household` weighs a passing place now, whatever its day of the year: for tests.
+    /// Household `household` weighs its works on ways now, whatever its day of the year: for
+    /// tests.
     #[doc(hidden)]
     pub fn review_way_work_for_tests(&mut self, ctx: &mut Ctx, household: PermanentId) {
         let day = ctx.now.day_index();
@@ -124,8 +128,9 @@ impl Population {
     }
 
     /// Household `household` weighs a passing place at each single-cart stretch where it holds
-    /// waits, and begins the one whose saving most exceeds its work, if any does: one at a time,
-    /// and none where a way already runs.
+    /// waits, and laying a way over the worn trail its loaded carts drag on near home, and begins
+    /// the one whose saving most exceeds its work, if any does: one at a time, and none where a
+    /// way already runs.
     fn review_way_work(&mut self, ctx: &mut Ctx, household: PermanentId, day: i64) {
         let Some(x) = self.household(household) else {
             return;
@@ -164,10 +169,66 @@ impl Population {
                 best = Some((l.cell, gain));
             }
         }
-        let Some((cell, _)) = best else {
-            return;
-        };
-        Self::lay_passing_place(ctx, cell, Keeper::Household(household), day);
+        // Or its approach: each cell of worn trail within the work's walk where it holds what
+        // its loaded carts lost to the trail's roughness, and no way runs, whose roughness spared
+        // over the years it reckons a way lasts is more than clearing a trail's tread there takes
+        // (M8b slice CQ, fourth part).
+        let lay_h = f64::from(civ_land::carting::TRAIL_TREAD_M as f32)
+            * f64::from(ctx.map.cell_size_m)
+            * works.clear_h_m2;
+        let mut approach: Vec<u32> = Vec::new();
+        let mut approach_gain = 0.0;
+        for l in self.traffic.losses_held(household, day, half) {
+            if l.cause != traffic::Cause::Rough || ctx.land.ways.at(l.cell).next().is_some() {
+                continue;
+            }
+            let at = cell_centre(ctx.map, l.cell as usize);
+            let walk_min = f64::from((at.0 - home.0).hypot(at.1 - home.1)) / pace / 60.0;
+            if walk_min > f64::from(act.max_walk_minutes) {
+                continue;
+            }
+            let gain =
+                crate::uses::per_year(f64::from(l.hours), half) * works.passing_life_years - lay_h;
+            if gain > 0.0 {
+                approach.push(l.cell);
+                approach_gain += gain;
+            }
+        }
+        match best {
+            Some((cell, gain)) if gain >= approach_gain => {
+                Self::lay_passing_place(ctx, cell, Keeper::Household(household), day);
+            }
+            _ if !approach.is_empty() => {
+                Self::lay_approach(ctx, approach, Keeper::Household(household), day);
+            }
+            _ => {}
+        }
+    }
+
+    /// Lays a way on worn trail over `cells` (ascending), kept by `keeper` (M8b slice CQ, fourth
+    /// part): one segment of cleared ground, marked out for now, to be cleared as wide as a
+    /// trail's tread. Returns its id.
+    fn lay_approach(ctx: &mut Ctx, cells: Vec<u32>, keeper: Keeper, day: i64) -> PermanentId {
+        let tread = civ_land::carting::TRAIL_TREAD_M as f32;
+        let id = ctx.ids.allocate();
+        ctx.land.ways.add(Way {
+            id,
+            begun: day,
+            segments: vec![Segment {
+                cells,
+                corridor_m: tread,
+                built_m: LAID_FROM_M,
+                usable_m: LAID_FROM_M,
+                surface: Surface::Cleared,
+                keeper,
+                kept: day,
+            }],
+            modes: WALK | CART,
+            trips: 0.0,
+            trips_day: day,
+            rank: Rank::Lane,
+        });
+        id
     }
 
     /// Lays a passing place at `cell`, kept by `keeper`: a way of one cell, its built width the
@@ -340,13 +401,31 @@ impl Population {
             let s = w.segments.first()?;
             let cell = *s.cells.first()?;
             let metres = f64::from(ctx.map.cell_size_m) * s.cells.len() as f64;
-            let labour_h = f64::from(s.corridor_m - civ_land::carting::TRAIL_TREAD_M as f32)
-                .max(0.1)
-                * metres
-                * works.clear_h_m2;
-            let saved_h = self.width_hours_a_year(ctx, x.id, cell, ctx.now.day_index())
-                * PASSING_SPARES
-                * works.passing_life_years;
+            let tread = civ_land::carting::TRAIL_TREAD_M as f32;
+            let day = ctx.now.day_index();
+            // A way laid on trail is cleared from nothing to a tread's width, sparing the
+            // roughness its carts lost on each of its cells; a passing place is widened from the
+            // tread, sparing half the waits at its cell.
+            let (labour_h, saved_h) = if s.corridor_m <= tread + 1e-3 {
+                let half = ctx.params.places.use_half_life_days;
+                let rough: f64 = self
+                    .traffic
+                    .losses_held(x.id, day, half)
+                    .filter(|l| l.cause == traffic::Cause::Rough && s.cells.contains(&l.cell))
+                    .map(|l| crate::uses::per_year(f64::from(l.hours), half))
+                    .sum();
+                (
+                    f64::from(tread) * metres * works.clear_h_m2,
+                    rough * works.passing_life_years,
+                )
+            } else {
+                (
+                    f64::from(s.corridor_m - tread).max(0.1) * metres * works.clear_h_m2,
+                    self.width_hours_a_year(ctx, x.id, cell, day)
+                        * PASSING_SPARES
+                        * works.passing_life_years,
+                )
+            };
             let (at, walk_min) = walk_of(cell);
             return Some(WayFacts {
                 way: w.id,

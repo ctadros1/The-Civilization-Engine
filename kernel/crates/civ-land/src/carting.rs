@@ -160,6 +160,19 @@ impl crate::Land {
 }
 
 impl crate::Land {
+    /// The worn trail on the way `cells` for `wheels` on `map` today, as [`Terrain::roughs`]
+    /// finds it.
+    pub fn cart_roughs(
+        &self,
+        map: &civ_world::WorldMap,
+        wheels: &Wheels,
+        cells: &[u32],
+    ) -> Vec<(u32, f64)> {
+        let res = |c: u32| self.cart_resistance(map, c, wheels);
+        let decks = self.cart_decks(map);
+        self.cart_terrain(map, &decks).roughs(wheels, &res, cells)
+    }
+
     /// The climbs on the way `cells` for `wheels` on `map` today, as [`Terrain::climbs`] finds
     /// them.
     pub fn cart_climbs(
@@ -438,6 +451,46 @@ impl Terrain<'_> {
         }
         out.extend(open);
         out
+    }
+
+    /// The worn trail along `cells`, a way for `wheels` (M8b slice CQ, fourth part; ADR-0029
+    /// §6): each cell of it a step goes over, with the seconds the steps there cost beyond what
+    /// they would on a way laid there (at its rolling resistance, the grade the same), in cell
+    /// order. A step on a way or a deck at both ends costs nothing beyond.
+    pub fn roughs(
+        &self,
+        wheels: &Wheels,
+        resistance: &dyn Fn(u32) -> Option<f64>,
+        cells: &[u32],
+    ) -> Vec<(u32, f64)> {
+        let mut by: std::collections::BTreeMap<u32, f64> = std::collections::BTreeMap::new();
+        let w = i64::from(self.width);
+        for pair in cells.windows(2) {
+            let (a, b) = (pair[0], pair[1]);
+            let (Some(ca), Some(cb)) = (resistance(a), resistance(b)) else {
+                continue;
+            };
+            let way = wheels.way_c;
+            if ca <= way && cb <= way {
+                continue;
+            }
+            let (dx, dy) = (
+                i64::from(a) % w - i64::from(b) % w,
+                i64::from(a) / w - i64::from(b) / w,
+            );
+            let metres = self.cell_m * ((dx * dx + dy * dy) as f64).sqrt();
+            if metres <= 0.0 {
+                continue;
+            }
+            let at = self.step_s(wheels, (a, ca), (b, cb), metres);
+            let laid = self.step_s(wheels, (a, way), (b, way), metres);
+            if let (Some(at), Some(laid)) = (at, laid)
+                && at - laid > 1e-9
+            {
+                *by.entry(if ca > way { a } else { b }).or_default() += at - laid;
+            }
+        }
+        by.into_iter().collect()
     }
 
     fn step_s(

@@ -2973,3 +2973,14 @@ polity lays the place out and each household is asked its share.
 **What it comes to:** in the test scene the buyer's turnings back raised the issue, someone
 proposed the law naming the stretch's middle, and once it was in force the households' shares
 cleared it to two carts' width.
+
+## 2026-10-18 — CQ, fourth part: laying a way on worn trail
+
+**Built:** a cart rolls much harder on a worn trail than on a laid way. Each haul now records,
+cell by cell, the seconds the trail cost it beyond a way. At its yearly review a household
+weighs laying a way of cleared ground over that trail near home against the hours of clearing,
+and if it is worth it, its people clear it a few hours at a time.
+
+**What it comes to:** with a weak puller hauling a season's loads, a household laid about 2.5 km
+of way and cleared it in under four months. Thirty hauls were not enough: the household marked a
+shorter way out but never chose to clear it over its other work.

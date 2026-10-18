@@ -4323,6 +4323,35 @@ and M6a gives rivers a daily flow.
         138 (`build_way`, `carts_wait`); no wire change: the law reads in the government panel
         as any law does. **Not yet:** a chronicle entry when it is done, keeping one by law,
         laying or widening a longer stretch, and the observer's view of losses.
+      - *Fourth part, as built (2026-10-18): a household lays a way where its carts drag on
+        worn trail* (ADR-0029 §6: "a household works on its own approach"; "a work may lay a
+        segment"). **The loss:** a cart rolls far harder on worn trail than on a way laid for
+        wheels (the handcart's rolling resistance 0.05 against 0.02), so a loaded or weakly
+        pulled cart is slower there. As a haul sets off, each cell of worn trail its steps go
+        over is held with the seconds they cost there beyond what a way laid there would
+        (`Terrain::roughs`, the grade the same; `traffic::Cause::Rough`, code 2), where the
+        haul's whole of it reaches half a minute (`LEAST_LOSS_S`). **Weighing:** at the same
+        yearly review as a passing place, a household weighs laying a way over each such cell
+        within its work's walk of home and no way yet: what it would spare, the roughness a year
+        over the ten years it reckons a way lasts, against clearing a trail's tread there
+        (1.2 m × the cell, at the `[way_works]` hours a square metre). It lays the cells that
+        repay it as one way of cleared ground, kept by it, marked out at 5 cm (`LAID_FROM_M`:
+        no wheels take it so narrow), unless a passing place would gain it more. **The work:**
+        the same `way` behaviour and activity (renamed "Clear ground for a way"), its built and
+        usable width growing with each hour to the tread's; each hour worth the roughness the
+        whole way would spare over the work it takes. **What it comes to** (the test scene, the
+        doors joined by a worn trail, the cart's puller a twentieth as strong so the trail's
+        roughness shows): a hundred and fifty hauls left their household holding a loss at each
+        of the trail's 412 cells; it laid a way over the 319 within its walk (about 2.5 km and
+        a thousand hours of clearing), cleared it in 111 days, and its cart then rolls there as
+        on a way, the trail costing it nothing beyond one there. Thirty hauls laid 59 cells
+        nobody chose to clear: each hour of it would have spared barely more than an hour,
+        less than its other work was worth. **Exact:** a world where no cart hauls lives as before: the bench's village of three
+        settlements, 30 days in both modes, has every count and every section's digest the third
+        part's had, but the content's (the activity's new name) and the save header's. **Boundary:** saves
+        schema 151 (the new cause in the traffic section's losses); no content API or wire
+        change. **Not yet:** a polity laying a way, laying past a household's walk, other
+        surfaces (shaped earth, gravel, a causeway), and the observer's view of losses.
     - **CR**: where to live weighs the walk; the dashboard's travel time by occupation and
       purpose, mode shares and waits.
   - **M8c, planning and land** (designed when reached, from `docs/briefs/m8-planning.md`): site

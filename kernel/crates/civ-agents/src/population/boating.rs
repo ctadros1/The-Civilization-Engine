@@ -90,6 +90,7 @@ impl Population {
         p.act.step_ends = now.plus_minutes(duration as i64);
         let (id, version, ends) = (p.id, p.act.version, p.act.step_ends);
         ctx.schedule_step(ends, id, version);
+        self.count_trip(ctx, h, crate::travel::Mode::Boat, duration as f32);
         true
     }
 
@@ -211,6 +212,7 @@ impl Population {
         p.act.step_ends = now.plus_minutes(duration as i64);
         let (id, version, ends) = (p.id, p.act.version, p.act.step_ends);
         ctx.schedule_step(ends, id, version);
+        self.count_trip(ctx, h, crate::travel::Mode::Cart, duration as f32);
         true
     }
 
@@ -356,6 +358,7 @@ impl Population {
             }
             let facility = traffic::Facility::Narrows(cell);
             self.traffic.waited(household, facility, waited, day, half);
+            self.count_wait(ctx, household, who, waited, false);
             self.traffic.lost(
                 household,
                 middle,

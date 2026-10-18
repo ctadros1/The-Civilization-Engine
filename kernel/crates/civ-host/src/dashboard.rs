@@ -163,6 +163,8 @@ pub struct WorldRun {
     /// Visits between its settlements over the run, the hours visitors spent at the hearths they
     /// went to, and marriages between them (M5a slice AM).
     pub contacts: (u32, f64, u32),
+    /// Its travel over the run, all settlements together (M8b slice CR, first part).
+    pub travel: TravelSeen,
     /// People who came to live in another of its settlements over the run, by why (slice AN).
     pub between: Between,
     /// Each pair of its settlements, by name, as the price convergence row judges it (M5b slice
@@ -865,6 +867,165 @@ impl CrimeSeen {
     }
 }
 
+/// A world's travel over a run, all its settlements and years together (M8b slice CR, first
+/// part; see [`civ_agents::travel`]).
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct TravelSeen {
+    /// Residents' days by occupation (in [`civ_agents::travel::Occupation::ALL`] order) and band
+    /// of the day's travel.
+    pub days: Vec<Vec<u32>>,
+    /// Residents' minutes of travel by occupation.
+    pub minutes: Vec<f64>,
+    /// Trips and their minutes by purpose, in words, most minutes first.
+    pub purposes: Vec<(String, u32, f64)>,
+    /// Trips and their minutes by mode (in [`civ_agents::travel::Mode::ALL`] order).
+    pub modes: Vec<(u32, f64)>,
+    /// Waits at bottlenecks and their minutes.
+    pub waits: (u32, f64),
+}
+
+impl TravelSeen {
+    /// What `travel` held, all settlements and years together.
+    pub fn of(travel: &civ_agents::travel::Travel) -> TravelSeen {
+        use civ_agents::travel::{BANDS, Mode, Occupation};
+        let mut seen = TravelSeen {
+            days: vec![vec![0; BANDS]; Occupation::ALL.len()],
+            minutes: vec![0.0; Occupation::ALL.len()],
+            modes: vec![(0, 0.0); Mode::ALL.len()],
+            ..TravelSeen::default()
+        };
+        let mut purposes: BTreeMap<u8, (u32, f64)> = BTreeMap::new();
+        for y in travel.years.values() {
+            for (o, row) in y.days.iter().enumerate() {
+                for (b, n) in row.iter().enumerate() {
+                    seen.days[o][b] += n;
+                }
+                seen.minutes[o] += y.minutes[o];
+            }
+            for (&code, t) in &y.purposes {
+                let e = purposes.entry(code).or_default();
+                e.0 += t.trips;
+                e.1 += t.minutes;
+            }
+            for (m, t) in y.modes.iter().enumerate() {
+                seen.modes[m].0 += t.trips;
+                seen.modes[m].1 += t.minutes;
+            }
+            seen.waits.0 += y.waits.trips;
+            seen.waits.1 += y.waits.minutes;
+        }
+        seen.purposes = purposes
+            .into_iter()
+            .map(|(code, (trips, minutes))| {
+                let name = civ_agents::params::Behavior::ALL
+                    .get(usize::from(code))
+                    .map_or("other", |b| b.name());
+                (name.to_owned(), trips, minutes)
+            })
+            .collect();
+        seen.purposes
+            .sort_by(|a, b| b.2.total_cmp(&a.2).then(a.0.cmp(&b.0)));
+        seen
+    }
+
+    fn join(&mut self, o: &TravelSeen) {
+        if self.days.is_empty() {
+            *self = o.clone();
+            return;
+        }
+        for (a, b) in self.days.iter_mut().zip(&o.days) {
+            for (x, y) in a.iter_mut().zip(b) {
+                *x += y;
+            }
+        }
+        for (a, b) in self.minutes.iter_mut().zip(&o.minutes) {
+            *a += b;
+        }
+        for (a, b) in self.modes.iter_mut().zip(&o.modes) {
+            a.0 += b.0;
+            a.1 += b.1;
+        }
+        for (name, trips, minutes) in &o.purposes {
+            match self.purposes.iter_mut().find(|p| &p.0 == name) {
+                Some(p) => {
+                    p.1 += trips;
+                    p.2 += minutes;
+                }
+                None => self.purposes.push((name.clone(), *trips, *minutes)),
+            }
+        }
+        self.purposes
+            .sort_by(|a, b| b.2.total_cmp(&a.2).then(a.0.cmp(&b.0)));
+        self.waits.0 += o.waits.0;
+        self.waits.1 += o.waits.1;
+    }
+
+    /// In words: each occupation's median and mean day of travel, the purposes most minutes went
+    /// to, the modes' shares of trips, and the waits.
+    pub fn words(&self) -> String {
+        use civ_agents::travel::{DAY_BANDS_MIN, Mode, Occupation};
+        let band = |b: usize| match b {
+            0 => "none".to_owned(),
+            b if b >= DAY_BANDS_MIN.len() => format!("{:.0} min or more", DAY_BANDS_MIN[b - 1]),
+            1 => format!("under {:.0} min", DAY_BANDS_MIN[1]),
+            b => format!("{:.0}–{:.0} min", DAY_BANDS_MIN[b - 1], DAY_BANDS_MIN[b]),
+        };
+        let mut parts = Vec::new();
+        for (o, occ) in Occupation::ALL.iter().enumerate() {
+            let row = &self.days[o];
+            let all: u32 = row.iter().sum();
+            if all == 0 {
+                continue;
+            }
+            let mut acc = 0;
+            let median = row
+                .iter()
+                .position(|&n| {
+                    acc += n;
+                    2 * acc >= all
+                })
+                .unwrap_or(0);
+            parts.push(format!(
+                "{}: a median day {}, {:.0} min on average",
+                occ.name(),
+                band(median),
+                self.minutes[o] / f64::from(all)
+            ));
+        }
+        let all_minutes: f64 = self.purposes.iter().map(|p| p.2).sum();
+        if all_minutes > 0.0 {
+            let top: Vec<String> = self
+                .purposes
+                .iter()
+                .take(4)
+                .map(|(n, _, m)| format!("{n} {:.0}%", 100.0 * m / all_minutes))
+                .collect();
+            parts.push(format!("travel time by purpose {}", top.join(", ")));
+        }
+        let trips: u32 = self.modes.iter().map(|m| m.0).sum();
+        if trips > 0 {
+            let shares: Vec<String> = Mode::ALL
+                .iter()
+                .zip(&self.modes)
+                .filter(|(_, m)| m.0 > 0)
+                .map(|(mode, m)| {
+                    format!(
+                        "{} {:.1}%",
+                        mode.name(),
+                        100.0 * f64::from(m.0) / f64::from(trips)
+                    )
+                })
+                .collect();
+            parts.push(format!("trips {}", shares.join(", ")));
+        }
+        parts.push(format!(
+            "{} waits at bottlenecks, {:.0} min in all",
+            self.waits.0, self.waits.1
+        ));
+        parts.join("; ")
+    }
+}
+
 /// One row of §4.7.
 #[derive(Clone, Debug, Serialize)]
 pub struct Row {
@@ -1164,6 +1325,7 @@ fn live(sim: &mut Sim, years: u32, saves: Option<&Path>, world: &mut WorldRun) {
             (v + c.visits, h + c.minutes as f64 / 60.0, m + c.marriages)
         });
     world.between = Between::of(sim);
+    world.travel = TravelSeen::of(&sim.people().travel);
     let name = |id| {
         sim.land()
             .settlements
@@ -1225,7 +1387,31 @@ pub fn grade(worlds: &[WorldRun], years: u32) -> Vec<Row> {
         fires(worlds),
         floods(worlds),
         regimes(worlds),
+        travel(worlds),
     ]
+}
+
+/// Daily travel by occupation and purpose, mode shares and waits (M8b slice CR, first part; the
+/// transport brief §1.7: "measured, never capped"), all worlds together: reported, never graded,
+/// 12-05 §2.3's 45–90 minutes a day a check to read it against.
+fn travel(worlds: &[WorldRun]) -> Row {
+    let row = Row::new(
+        "Travel",
+        "daily travel time by occupation and purpose, mode shares, waits",
+        "reported",
+    )
+    .source("ADR-0029 §9; research 12-05 §2.3, §4.1");
+    let mut all = TravelSeen::default();
+    for w in worlds {
+        all.join(&w.travel);
+    }
+    let days: u32 = all.days.iter().flatten().sum();
+    let text = if days == 0 {
+        "no day of travel was counted".to_owned()
+    } else {
+        format!("reported, not graded: {}", all.words())
+    };
+    row.graded(Grade::Gray, text)
 }
 
 /// Settlements' sizes at the end, reported and not graded: 10-01 §4 and 10-02 §5 warn against
@@ -2580,7 +2766,7 @@ mod tests {
         // Only population and the accounts are graded, both worlds keep their bands and no
         // settlement's accounts failed: a pass, but no grey row counts as one.
         assert!(dashboard.passed());
-        assert_eq!(dashboard.summary(), "2 passed, 16 not yet applicable");
+        assert_eq!(dashboard.summary(), "2 passed, 17 not yet applicable");
     }
 
     #[test]

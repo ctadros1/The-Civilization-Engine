@@ -21382,6 +21382,292 @@ impl<'a> TrafficLossSave {
 
 }
 
+// struct TravelTallySave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct TravelTallySave(pub [u8; 16]);
+impl Default for TravelTallySave { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for TravelTallySave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("TravelTallySave")
+      .field("minutes", &self.minutes())
+      .field("trips", &self.trips())
+      .field("code", &self.code())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for TravelTallySave {}
+impl<'a> ::flatbuffers::Follow<'a> for TravelTallySave {
+  type Inner = &'a TravelTallySave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a TravelTallySave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a TravelTallySave {
+  type Inner = &'a TravelTallySave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<TravelTallySave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for TravelTallySave {
+    type Output = TravelTallySave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const TravelTallySave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for TravelTallySave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> TravelTallySave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    minutes: f64,
+    trips: u32,
+    code: u8,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_minutes(minutes);
+    s.set_trips(trips);
+    s.set_code(code);
+    s
+  }
+
+  pub fn minutes(&self) -> f64 {
+    let mut mem = ::core::mem::MaybeUninit::<<f64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_minutes(&mut self, x: f64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn trips(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_trips(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn code(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[12..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_code(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[12..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct TravelTodaySave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct TravelTodaySave(pub [u8; 16]);
+impl Default for TravelTodaySave { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for TravelTodaySave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("TravelTodaySave")
+      .field("person", &self.person())
+      .field("minutes", &self.minutes())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for TravelTodaySave {}
+impl<'a> ::flatbuffers::Follow<'a> for TravelTodaySave {
+  type Inner = &'a TravelTodaySave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a TravelTodaySave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a TravelTodaySave {
+  type Inner = &'a TravelTodaySave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<TravelTodaySave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for TravelTodaySave {
+    type Output = TravelTodaySave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const TravelTodaySave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for TravelTodaySave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> TravelTodaySave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    person: u64,
+    minutes: f32,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_person(person);
+    s.set_minutes(minutes);
+    s
+  }
+
+  pub fn person(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_person(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn minutes(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_minutes(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 pub enum ParamOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -57817,6 +58103,221 @@ impl ::core::fmt::Debug for TrafficTallySave<'_> {
       ds.finish()
   }
 }
+pub enum TravelYearSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TravelYearSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for TravelYearSave<'a> {
+  type Inner = TravelYearSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> TravelYearSave<'a> {
+  pub const VT_YEAR: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_PURPOSES: ::flatbuffers::VOffsetT = 8;
+  pub const VT_MODES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_WAITS_TRIPS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_WAITS_MINUTES: ::flatbuffers::VOffsetT = 14;
+  pub const VT_DAYS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_MINUTES: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    TravelYearSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args TravelYearSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<TravelYearSave<'bldr>> {
+    let mut builder = TravelYearSaveBuilder::new(_fbb);
+    builder.add_waits_minutes(args.waits_minutes);
+    builder.add_settlement(args.settlement);
+    builder.add_year(args.year);
+    if let Some(x) = args.minutes { builder.add_minutes(x); }
+    if let Some(x) = args.days { builder.add_days(x); }
+    builder.add_waits_trips(args.waits_trips);
+    if let Some(x) = args.modes { builder.add_modes(x); }
+    if let Some(x) = args.purposes { builder.add_purposes(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn year(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(TravelYearSave::VT_YEAR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TravelYearSave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn purposes(&self) -> Option<::flatbuffers::Vector<'a, TravelTallySave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TravelTallySave>>>(TravelYearSave::VT_PURPOSES, None)}
+  }
+  #[inline]
+  pub fn modes(&self) -> Option<::flatbuffers::Vector<'a, TravelTallySave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TravelTallySave>>>(TravelYearSave::VT_MODES, None)}
+  }
+  #[inline]
+  pub fn waits_trips(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(TravelYearSave::VT_WAITS_TRIPS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn waits_minutes(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(TravelYearSave::VT_WAITS_MINUTES, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn days(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(TravelYearSave::VT_DAYS, None)}
+  }
+  #[inline]
+  pub fn minutes(&self) -> Option<::flatbuffers::Vector<'a, f64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, f64>>>(TravelYearSave::VT_MINUTES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for TravelYearSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("year", Self::VT_YEAR, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TravelTallySave>>>("purposes", Self::VT_PURPOSES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TravelTallySave>>>("modes", Self::VT_MODES, false)?
+     .visit_field::<u32>("waits_trips", Self::VT_WAITS_TRIPS, false)?
+     .visit_field::<f64>("waits_minutes", Self::VT_WAITS_MINUTES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("days", Self::VT_DAYS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f64>>>("minutes", Self::VT_MINUTES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TravelYearSaveArgs<'a> {
+    pub year: i64,
+    pub settlement: u64,
+    pub purposes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TravelTallySave>>>,
+    pub modes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TravelTallySave>>>,
+    pub waits_trips: u32,
+    pub waits_minutes: f64,
+    pub days: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub minutes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f64>>>,
+}
+impl<'a> Default for TravelYearSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TravelYearSaveArgs {
+      year: 0,
+      settlement: 0,
+      purposes: None,
+      modes: None,
+      waits_trips: 0,
+      waits_minutes: 0.0,
+      days: None,
+      minutes: None,
+    }
+  }
+}
+
+pub struct TravelYearSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TravelYearSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_year(&mut self, year: i64) {
+    self.fbb_.push_slot::<i64>(TravelYearSave::VT_YEAR, year, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(TravelYearSave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_purposes(&mut self, purposes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TravelTallySave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TravelYearSave::VT_PURPOSES, purposes);
+  }
+  #[inline]
+  pub fn add_modes(&mut self, modes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TravelTallySave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TravelYearSave::VT_MODES, modes);
+  }
+  #[inline]
+  pub fn add_waits_trips(&mut self, waits_trips: u32) {
+    self.fbb_.push_slot::<u32>(TravelYearSave::VT_WAITS_TRIPS, waits_trips, 0);
+  }
+  #[inline]
+  pub fn add_waits_minutes(&mut self, waits_minutes: f64) {
+    self.fbb_.push_slot::<f64>(TravelYearSave::VT_WAITS_MINUTES, waits_minutes, 0.0);
+  }
+  #[inline]
+  pub fn add_days(&mut self, days: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TravelYearSave::VT_DAYS, days);
+  }
+  #[inline]
+  pub fn add_minutes(&mut self, minutes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TravelYearSave::VT_MINUTES, minutes);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TravelYearSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    TravelYearSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<TravelYearSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for TravelYearSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("TravelYearSave");
+      ds.field("year", &self.year());
+      ds.field("settlement", &self.settlement());
+      ds.field("purposes", &self.purposes());
+      ds.field("modes", &self.modes());
+      ds.field("waits_trips", &self.waits_trips());
+      ds.field("waits_minutes", &self.waits_minutes());
+      ds.field("days", &self.days());
+      ds.field("minutes", &self.minutes());
+      ds.finish()
+  }
+}
 pub enum TrafficSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -57838,6 +58339,8 @@ impl<'a> TrafficSave<'a> {
   pub const VT_WAITS: ::flatbuffers::VOffsetT = 8;
   pub const VT_LONG_WAITS: ::flatbuffers::VOffsetT = 10;
   pub const VT_LOSSES: ::flatbuffers::VOffsetT = 12;
+  pub const VT_TRAVEL_YEARS: ::flatbuffers::VOffsetT = 14;
+  pub const VT_TRAVEL_TODAY: ::flatbuffers::VOffsetT = 16;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -57849,6 +58352,8 @@ impl<'a> TrafficSave<'a> {
     args: &'args TrafficSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<TrafficSave<'bldr>> {
     let mut builder = TrafficSaveBuilder::new(_fbb);
+    if let Some(x) = args.travel_today { builder.add_travel_today(x); }
+    if let Some(x) = args.travel_years { builder.add_travel_years(x); }
     if let Some(x) = args.losses { builder.add_losses(x); }
     if let Some(x) = args.long_waits { builder.add_long_waits(x); }
     if let Some(x) = args.waits { builder.add_waits(x); }
@@ -57893,6 +58398,20 @@ impl<'a> TrafficSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TrafficLossSave>>>(TrafficSave::VT_LOSSES, None)}
   }
+  #[inline]
+  pub fn travel_years(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TravelYearSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TravelYearSave>>>>(TrafficSave::VT_TRAVEL_YEARS, None)}
+  }
+  #[inline]
+  pub fn travel_today(&self) -> Option<::flatbuffers::Vector<'a, TravelTodaySave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TravelTodaySave>>>(TrafficSave::VT_TRAVEL_TODAY, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for TrafficSave<'_> {
@@ -57906,6 +58425,8 @@ impl ::flatbuffers::Verifiable for TrafficSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TrafficWaitSave>>>("waits", Self::VT_WAITS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TrafficLongWaitSave>>>("long_waits", Self::VT_LONG_WAITS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TrafficLossSave>>>("losses", Self::VT_LOSSES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TravelYearSave>>>>("travel_years", Self::VT_TRAVEL_YEARS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TravelTodaySave>>>("travel_today", Self::VT_TRAVEL_TODAY, false)?
      .finish();
     Ok(())
   }
@@ -57916,6 +58437,8 @@ pub struct TrafficSaveArgs<'a> {
     pub waits: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TrafficWaitSave>>>,
     pub long_waits: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TrafficLongWaitSave>>>,
     pub losses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TrafficLossSave>>>,
+    pub travel_years: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TravelYearSave<'a>>>>>,
+    pub travel_today: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TravelTodaySave>>>,
 }
 impl<'a> Default for TrafficSaveArgs<'a> {
   #[inline]
@@ -57926,6 +58449,8 @@ impl<'a> Default for TrafficSaveArgs<'a> {
       waits: None,
       long_waits: None,
       losses: None,
+      travel_years: None,
+      travel_today: None,
     }
   }
 }
@@ -57956,6 +58481,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TrafficSaveBuilder<'a, 'b, A>
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TrafficSave::VT_LOSSES, losses);
   }
   #[inline]
+  pub fn add_travel_years(&mut self, travel_years: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<TravelYearSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TrafficSave::VT_TRAVEL_YEARS, travel_years);
+  }
+  #[inline]
+  pub fn add_travel_today(&mut self, travel_today: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TravelTodaySave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TrafficSave::VT_TRAVEL_TODAY, travel_today);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TrafficSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TrafficSaveBuilder {
@@ -57978,6 +58511,8 @@ impl ::core::fmt::Debug for TrafficSave<'_> {
       ds.field("waits", &self.waits());
       ds.field("long_waits", &self.long_waits());
       ds.field("losses", &self.losses());
+      ds.field("travel_years", &self.travel_years());
+      ds.field("travel_today", &self.travel_today());
       ds.finish()
   }
 }

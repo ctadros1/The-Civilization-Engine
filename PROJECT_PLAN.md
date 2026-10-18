@@ -4352,8 +4352,39 @@ and M6a gives rivers a daily flow.
         schema 151 (the new cause in the traffic section's losses); no content API or wire
         change. **Not yet:** a polity laying a way, laying past a household's walk, other
         surfaces (shaped earth, gravel, a causeway), and the observer's view of losses.
+      - *Closed (2026-10-18), time-boxed:* the four parts answer the losses the first records
+        (grade, width, rough trail) by household works and a polity's law. The slice's other
+        works wait, each with what would call for it: widening a laid way along its length (a
+        stretch's waits beyond a passing place's reach), a polity laying a way (the rough losses
+        of many households, as `build_way` pools waits), a crossing that takes wheels and the
+        cart's loss for want of one (carts that cannot reach a seller across a stream), landings
+        (boats' handling at a bank), grading as an earthwork (ADR-0010's appended kind; the
+        climbs the first part records, rare in the village's ground), upkeep by law (a kept way
+        holds its cells' wear; nothing yet fades a built width), and tolls (the duty machinery,
+        ADR-0026). NUDGE: none; no outcome was tuned toward.
     - **CR**: where to live weighs the walk; the dashboard's travel time by occupation and
       purpose, mode shares and waits.
+      - *First part, as built (2026-10-18): travel measured* (ADR-0029 §9; the transport brief
+        §1.7: "measured, never capped"; research 12-05 §4.1). A tally the world keeps and
+        nothing reads to choose (`civ_agents::travel`): each trip as it sets off, by purpose (the
+        behaviour of the activity it is for) and by mode, with its planned minutes; each wait at
+        a bottleneck (a walker's lengthens their day, a cart's at a narrows is already in its
+        trip); and at midnight each resident's day of travel, in bands (none, under 15, 15–30,
+        30–45, 45–60, 60–90, 90–120 and 120 minutes or more), by what their household lives by
+        (a workshop it keeps open, else fields it holds, else neither) and the young apart;
+        by settlement and year. **The dashboard's Travel row** reports it, never graded, beside
+        12-05 §2.3's 45–90 minutes a day as a check. **What it comes to** (the dashboard's five
+        river-valley worlds, one year): farming and workshop households' adults a median day of
+        15–30 minutes (31 and 27 on average), the others' 45–60 (52), the young's under 15
+        (6); farming took 36% of the travel time, gathering 20%, company 17% and water 16%;
+        every trip on foot, and no wait. Short of 12-05's range for the farmers: a band of a few
+        households lives beside its fields. **Exact:** nothing reads it, so every world lives as before: the bench's village of three
+        settlements, 30 days in both modes, has every count and every section's digest CQ's
+        fourth part had, but the traffic section's (which now carries the tally) and the save
+        header's, and a day about as long (3.95 s against 3.92). **Boundary:** saves
+        schema 152 (the traffic section's travel); no content or wire change. **Not yet:** where
+        to live weighing the walk (the second part), distance beside time, and the tally in the
+        observer.
   - **M8c, planning and land** (designed when reached, from `docs/briefs/m8-planning.md`): site
     choice as a decision whose savings are recorded (land value derived, never read); the home
     reach that caps a settlement's footprint; a plan as a law that reserves ground; allotment by

@@ -235,3 +235,46 @@ fn a_village_passes_its_gates_without_waiting_and_made_slow_its_walkers_queue_an
     assert!(summary.contains("crossings and gates passed"), "{summary}");
     saves_and_goes_on_alike(&mut sim, DAY / 2);
 }
+
+#[test]
+fn a_bands_days_of_travel_are_counted_by_occupation_and_purpose() {
+    // M8b slice CR, first part: each resident's day counted at midnight in its band, the trips
+    // they set off on counted by purpose and mode.
+    use civ_agents::travel::{BANDS, Mode, Occupation};
+    let mut sim = village(3);
+    let start = sim.now().minutes();
+    let to_midnight = 24 * 60 - start.rem_euclid(24 * 60);
+    sim.advance_minutes(to_midnight + 3 * 24 * 60)
+        .expect("lives");
+    let settlement = sim.land().settlements[0].id;
+    let travel = &sim.people().travel;
+    let years: Vec<_> = travel
+        .years
+        .iter()
+        .filter(|((_, s), _)| *s == settlement)
+        .map(|(_, y)| y)
+        .collect();
+    assert!(!years.is_empty());
+    let days: u32 = years.iter().flat_map(|y| y.days.iter().flatten()).sum();
+    // Four midnights passed: the first day's, partly lived, and three whole days; each counts
+    // everyone living in the settlement then, about thirty people.
+    assert!((4 * 20..=4 * 40).contains(&days), "{days} person-days");
+    let walked: u32 = years
+        .iter()
+        .map(|y| y.modes[Mode::Walk as usize].trips)
+        .sum();
+    assert!(walked > 30, "{walked} trips on foot");
+    assert!(years.iter().any(|y| !y.purposes.is_empty()));
+    // Someone of working age travelled a fair part of a day, and the young are counted apart.
+    let adults: u32 = years
+        .iter()
+        .flat_map(|y| y.days[Occupation::Other as usize][1..BANDS].iter())
+        .chain(
+            years
+                .iter()
+                .flat_map(|y| y.days[Occupation::Fields as usize][1..BANDS].iter()),
+        )
+        .sum();
+    assert!(adults > 0);
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+}

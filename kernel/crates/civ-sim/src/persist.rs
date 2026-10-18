@@ -429,6 +429,8 @@ pub const SCHEMA_V148: u32 = 148;
 pub const SCHEMA_V149: u32 = 149;
 /// A polity's passing places, before losses to worn trail.
 pub const SCHEMA_V150: u32 = 150;
+/// Losses to worn trail, before travel measured.
+pub const SCHEMA_V151: u32 = 151;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

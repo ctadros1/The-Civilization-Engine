@@ -162,6 +162,7 @@ impl Population {
             let half = ctx.params.places.use_half_life_days;
             self.traffic
                 .waited(household, pd.ahead.facility, waited, day, half);
+            self.count_wait(ctx, household, who, waited, true);
             if waited >= traffic::LONG_WAIT_MIN {
                 let settlement = self.household(household).and_then(|x| x.settlement);
                 let time = depart.plus_minutes(pd.ahead.at_min.floor() as i64);

@@ -2374,6 +2374,21 @@ fn a_schema_68_save_loads_with_no_wade_remembered() {
 }
 
 #[test]
+fn a_schema_151_save_loads_and_goes_on() {
+    // A schema-151 save, from before travel was measured (M8b slice CR, first part): it loads
+    // with none counted, and counts from then on.
+    let mut sim = load_first();
+    sim.people_mut_for_tests().travel = Default::default();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V151;
+    let path = republish("slice-cq4", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-151 save loads");
+    assert_eq!(loaded.people().travel, Default::default());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+    assert!(!loaded.people().travel.years.is_empty());
+}
+
+#[test]
 fn a_schema_150_save_loads_and_goes_on() {
     // A schema-150 save, from before households held what worn trail cost their carts (M8b slice
     // CQ, fourth part): it loads holding no such loss.

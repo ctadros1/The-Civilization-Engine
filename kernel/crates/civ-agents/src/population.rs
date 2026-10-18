@@ -102,6 +102,7 @@ pub use loads::{
 mod taste;
 mod ties;
 mod transfer;
+mod travelled;
 mod trust;
 
 use knowledge::Gate;
@@ -643,6 +644,9 @@ pub struct Population {
     /// Turn-taking at bottlenecks, their tallies and the waits households hold (M8b slice CN,
     /// ADR-0029 §4).
     pub traffic: crate::traffic::Traffic,
+    /// Travel measured (M8b slice CR, first part): trips by purpose and mode, waits, and
+    /// residents' days of travel, by settlement and year. Nothing reads it to choose.
+    pub travel: crate::travel::Travel,
     /// Goods in transit by boat (M8b slice CO, ADR-0029 §3), in the order loaded.
     pub consignments: Vec<crate::consignments::Consignment>,
     /// What the counters of consignments since unloaded saw: counters, never saved.
@@ -1399,6 +1403,7 @@ impl Population {
         out.extend(self.claims_heard.problems());
         out.extend(self.fords.problems());
         out.extend(self.traffic.problems());
+        out.extend(self.travel.problems());
         out.extend(self.agreements.problems());
         for (&p, seen) in &self.seen_away {
             if self.person(p).is_none() {
@@ -4655,6 +4660,7 @@ impl Population {
         p.act.step_ends = now.plus_minutes(duration as i64);
         let (id, version, ends) = (p.id, p.act.version, p.act.step_ends);
         ctx.schedule_step(ends, id, version);
+        self.count_trip(ctx, h, crate::travel::Mode::Walk, duration);
         // Its first bottleneck, if it passes one (M8b slice CN).
         if !ctx.land.crossings.list.is_empty() || !ctx.land.enclosures.list.is_empty() {
             self.facilities_now(ctx);
@@ -6374,6 +6380,7 @@ impl Population {
 
     pub fn on_day(&mut self, ctx: &mut Ctx) {
         self.pay_for_work_given(ctx);
+        self.close_travel_day(ctx);
         let (now, params, goods) = (ctx.now, ctx.params, &ctx.catalog.goods);
         // Gates are opened at first light and kept at dusk (M6c slice BK).
         self.schedule_gates(ctx);

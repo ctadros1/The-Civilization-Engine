@@ -75,6 +75,7 @@ pub mod style;
 pub mod suspicion;
 pub mod ties;
 pub mod traffic;
+pub mod travel;
 pub mod uses;
 pub mod value;
 pub mod values;

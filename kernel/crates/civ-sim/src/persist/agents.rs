@@ -123,8 +123,8 @@ use super::{
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
-    SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, finish, section, section_root,
-    single_chunk, unreadable,
+    SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, finish, section,
+    section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -322,7 +322,11 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
             0,
             encode_consignments(&sim.people, &sim.rules),
         ),
-        section(SECTION_TRAFFIC, 0, encode_traffic(&sim.people.traffic)),
+        section(
+            SECTION_TRAFFIC,
+            0,
+            encode_traffic(&sim.people.traffic, &sim.people.travel),
+        ),
     ]
 }
 
@@ -652,6 +656,7 @@ enum Schema {
     V149,
     V150,
     V151,
+    V152,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -817,7 +822,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V148 => Schema::V148,
         SCHEMA_V149 => Schema::V149,
         SCHEMA_V150 => Schema::V150,
-        SAVE_SCHEMA_VERSION => Schema::V151,
+        SCHEMA_V151 => Schema::V151,
+        SAVE_SCHEMA_VERSION => Schema::V152,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1068,7 +1074,7 @@ pub(super) fn decode<R: Read + Seek>(
     // Turn-taking at bottlenecks (schema 141); before, nobody had taken a turn.
     if schema >= Schema::V141 {
         let bytes = single_chunk(reader, SECTION_TRAFFIC)?;
-        people.traffic = decode_traffic(&bytes)?;
+        (people.traffic, people.travel) = decode_traffic(&bytes)?;
     }
     // Boats (schema 142); before, none.
     if schema >= Schema::V142 {
@@ -4669,7 +4675,8 @@ fn carried(
         | Schema::V148
         | Schema::V149
         | Schema::V150
-        | Schema::V151 => {
+        | Schema::V151
+        | Schema::V152 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4993,7 +5000,8 @@ fn decode_households(
             | Schema::V148
             | Schema::V149
             | Schema::V150
-            | Schema::V151 => {
+            | Schema::V151
+            | Schema::V152 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -10796,7 +10804,10 @@ fn encode_wells(land: &Land, rules: &Rules) -> Vec<u8> {
 }
 
 /// The traffic section (schema 141).
-fn encode_traffic(t: &civ_agents::traffic::Traffic) -> Vec<u8> {
+fn encode_traffic(
+    t: &civ_agents::traffic::Traffic,
+    travel: &civ_agents::travel::Travel,
+) -> Vec<u8> {
     let mut fbb = FlatBufferBuilder::new();
     let servers: Vec<_> = t
         .servers
@@ -10884,6 +10895,44 @@ fn encode_traffic(t: &civ_agents::traffic::Traffic) -> Vec<u8> {
         })
         .collect();
     let losses = (!losses.is_empty()).then(|| fbb.create_vector(&losses));
+    // Travel measured (schema 152).
+    let rows = |map: &mut dyn Iterator<Item = (u8, civ_agents::travel::Tally)>| {
+        map.map(|(code, t)| save::TravelTallySave::new(t.minutes, t.trips, code))
+            .collect::<Vec<_>>()
+    };
+    let years: Vec<_> = travel
+        .years
+        .iter()
+        .map(|(&(year, settlement), y)| {
+            let purposes = rows(&mut y.purposes.iter().map(|(&c, &t)| (c, t)));
+            let modes = rows(&mut y.modes.iter().enumerate().map(|(c, &t)| (c as u8, t)));
+            let days: Vec<u32> = y.days.iter().flatten().copied().collect();
+            let purposes = fbb.create_vector(&purposes);
+            let modes = fbb.create_vector(&modes);
+            let days = fbb.create_vector(&days);
+            let minutes = fbb.create_vector(&y.minutes);
+            save::TravelYearSave::create(
+                &mut fbb,
+                &save::TravelYearSaveArgs {
+                    year,
+                    settlement: settlement.get(),
+                    purposes: Some(purposes),
+                    modes: Some(modes),
+                    waits_trips: y.waits.trips,
+                    waits_minutes: y.waits.minutes,
+                    days: Some(days),
+                    minutes: Some(minutes),
+                },
+            )
+        })
+        .collect();
+    let travel_years = (!years.is_empty()).then(|| fbb.create_vector(&years));
+    let today: Vec<save::TravelTodaySave> = travel
+        .today
+        .iter()
+        .map(|(p, &m)| save::TravelTodaySave::new(p.get(), m))
+        .collect();
+    let travel_today = (!today.is_empty()).then(|| fbb.create_vector(&today));
     let root = save::TrafficSave::create(
         &mut fbb,
         &save::TrafficSaveArgs {
@@ -10892,6 +10941,8 @@ fn encode_traffic(t: &civ_agents::traffic::Traffic) -> Vec<u8> {
             waits: Some(waits),
             long_waits,
             losses,
+            travel_years,
+            travel_today,
         },
     );
     finish(fbb, root)
@@ -10899,7 +10950,9 @@ fn encode_traffic(t: &civ_agents::traffic::Traffic) -> Vec<u8> {
 
 /// The turn-taking saved in `bytes`. A facility of an unknown kind, a tally without its 24
 /// hours, or a record out of order is malformed.
-fn decode_traffic(bytes: &[u8]) -> Result<civ_agents::traffic::Traffic, LoadError> {
+fn decode_traffic(
+    bytes: &[u8],
+) -> Result<(civ_agents::traffic::Traffic, civ_agents::travel::Travel), LoadError> {
     use civ_agents::traffic::{Facility, Server, Tally, Traffic, WaitHeld};
     let root =
         section_root::<save::TrafficSave>(bytes).map_err(|e| unreadable(SECTION_TRAFFIC, &e))?;
@@ -10973,7 +11026,60 @@ fn decode_traffic(bytes: &[u8]) -> Result<civ_agents::traffic::Traffic, LoadErro
     if let Some(p) = t.problems().into_iter().next() {
         return Err(LoadError::Malformed(p));
     }
-    Ok(t)
+    // Travel measured (schema 152); before, none.
+    let mut travel = civ_agents::travel::Travel::default();
+    for y in root.travel_years().iter().flatten() {
+        let settlement = required(y.settlement(), "a year of travel's settlement")?;
+        let mut year = civ_agents::travel::TravelYear::default();
+        for r in y.purposes().iter().flatten() {
+            year.purposes.insert(
+                r.code(),
+                civ_agents::travel::Tally {
+                    trips: r.trips(),
+                    minutes: r.minutes(),
+                },
+            );
+        }
+        let modes: Vec<_> = y.modes().iter().flatten().collect();
+        let days: Vec<u32> = y.days().map(|v| v.iter().collect()).unwrap_or_default();
+        let minutes: Vec<f64> = y.minutes().map(|v| v.iter().collect()).unwrap_or_default();
+        if modes.len() != year.modes.len()
+            || days.len() != year.days.len() * civ_agents::travel::BANDS
+            || minutes.len() != year.minutes.len()
+        {
+            return Err(LoadError::Malformed(format!(
+                "settlement {settlement}'s year {} of travel is not by mode, occupation and band",
+                y.year()
+            )));
+        }
+        for (slot, r) in year.modes.iter_mut().zip(&modes) {
+            *slot = civ_agents::travel::Tally {
+                trips: r.trips(),
+                minutes: r.minutes(),
+            };
+        }
+        for (row, chunk) in year
+            .days
+            .iter_mut()
+            .zip(days.chunks(civ_agents::travel::BANDS))
+        {
+            row.copy_from_slice(chunk);
+        }
+        year.minutes.copy_from_slice(&minutes);
+        year.waits = civ_agents::travel::Tally {
+            trips: y.waits_trips(),
+            minutes: y.waits_minutes(),
+        };
+        travel.years.insert((y.year(), settlement), year);
+    }
+    for d in root.travel_today().iter().flatten() {
+        let person = required(d.person(), "a day of travel's walker")?;
+        travel.today.insert(person, d.minutes());
+    }
+    if let Some(p) = travel.problems().into_iter().next() {
+        return Err(LoadError::Malformed(p));
+    }
+    Ok((t, travel))
 }
 
 /// The ways section (schema 140).

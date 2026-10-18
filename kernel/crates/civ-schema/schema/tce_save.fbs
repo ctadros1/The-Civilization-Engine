@@ -3423,6 +3423,33 @@ struct TrafficLossSave {
   cause: ubyte;
 }
 
+// Travel measured (schema 152, M8b slice CR, first part): trips or waits and their minutes, by
+// the code of what they are counted under (a behaviour's for a purpose, a mode's).
+struct TravelTallySave {
+  minutes: double;
+  trips: uint;
+  code: ubyte;
+}
+
+// A settlement's year of travel: its trips by purpose and by mode, its waits, and its residents'
+// days by occupation (4) and band of the day's travel (8), with their minutes by occupation.
+table TravelYearSave {
+  year: long (id: 0);
+  settlement: ulong (id: 1);
+  purposes: [TravelTallySave] (id: 2);
+  modes: [TravelTallySave] (id: 3);
+  waits_trips: uint (id: 4);
+  waits_minutes: double (id: 5);
+  days: [uint] (id: 6);
+  minutes: [double] (id: 7);
+}
+
+// Someone's minutes of travel so far today.
+struct TravelTodaySave {
+  person: ulong;
+  minutes: float;
+}
+
 table TrafficSave {
   servers: [TrafficServerSave] (id: 0);
   tallies: [TrafficTallySave] (id: 1);
@@ -3430,4 +3457,7 @@ table TrafficSave {
   long_waits: [TrafficLongWaitSave] (id: 3);
   // Schema 148.
   losses: [TrafficLossSave] (id: 4);
+  // Schema 152 (M8b slice CR, first part): travel measured; absent before.
+  travel_years: [TravelYearSave] (id: 5);
+  travel_today: [TravelTodaySave] (id: 6);
 }

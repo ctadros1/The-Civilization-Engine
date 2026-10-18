@@ -1304,6 +1304,8 @@ fn legacy_fire_word_state(s: &mut Sim) {
     let word = &mut s.people_mut_for_tests().word;
     word.claims.retain(|c| !ids.contains(&c.id));
     word.heard.retain(|h| !ids.contains(&h.claim));
+    // Nor did a save that old hold travel measured (schema 152).
+    s.people_mut_for_tests().travel = Default::default();
 }
 
 #[test]

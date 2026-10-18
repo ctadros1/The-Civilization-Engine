@@ -2984,3 +2984,13 @@ and if it is worth it, its people clear it a few hours at a time.
 **What it comes to:** with a weak puller hauling a season's loads, a household laid about 2.5 km
 of way and cleared it in under four months. Thirty hauls were not enough: the household marked a
 shorter way out but never chose to clear it over its other work.
+
+## 2026-10-18 — CQ closed; CR, first part: travel measured
+
+**Built:** slice CQ is closed with four works on ways; the rest wait for a world that needs
+them. The world now counts its travel as it happens: every trip by what it is for and how it
+goes, every wait at a bottleneck, and each resident's day of travel by what their household
+lives by. Nothing reads the count to choose; the dashboard reports it.
+
+**What it comes to:** over a year in the dashboard's five worlds, farmers' and workshop-keepers'
+days held about half an hour of travel, others' nearly an hour, and every trip was on foot.

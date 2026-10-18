@@ -58,6 +58,9 @@ pub enum Facility {
     Crossing(PermanentId),
     /// An open gate: its enclosure and the sector it is.
     Gate { enclosure: PermanentId, sector: u16 },
+    /// A stretch of ground wheels take one at a time, by the cell a cart waited before (M8b slice
+    /// CP, fourth part): where a cart met another coming the other way.
+    Narrows(u32),
 }
 
 impl Facility {
@@ -66,21 +69,58 @@ impl Facility {
         match self {
             Facility::Crossing(id) => (0, id.get(), 0),
             Facility::Gate { enclosure, sector } => (1, enclosure.get(), sector),
+            Facility::Narrows(cell) => (2, u64::from(cell), 0),
         }
     }
 
     /// The facility with code `code`.
     pub fn from_code(kind: u8, id: u64, sector: u16) -> Option<Facility> {
-        let id = PermanentId::from_raw(id)?;
         match kind {
-            0 => Some(Facility::Crossing(id)),
+            0 => Some(Facility::Crossing(PermanentId::from_raw(id)?)),
             1 => Some(Facility::Gate {
-                enclosure: id,
+                enclosure: PermanentId::from_raw(id)?,
                 sector,
             }),
+            2 => u32::try_from(id).ok().map(Facility::Narrows),
             _ => None,
         }
     }
+}
+
+/// The longest a cart leaving its own door waits at a single-cart stretch before its puller
+/// turns back, minutes (a design prior: a quarter-hour's wait is a cart sent another day; ADR-0029
+/// §4). Away from home a cart waits however long it takes: its people want it home.
+pub const TURN_BACK_MIN: f64 = 15.0;
+
+/// Another cart's time on a single-cart stretch, seconds from the calendar origin: when it comes
+/// onto it, when it leaves, and whether it goes through it the same way.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct OnStretch {
+    pub enter_s: f64,
+    pub leave_s: f64,
+    pub same_way: bool,
+}
+
+/// Seconds a cart that would be on a single-cart stretch from `enter_s` to `leave_s` waits at its
+/// near end (M8b slice CP, fourth part; ADR-0029 §4): until every cart on it coming the other way
+/// that it would meet there has left it. Carts going the same way follow one another and are not
+/// waited for. Waiting may bring another oncoming cart onto the stretch before it is clear: that
+/// one is waited for too.
+pub fn clearance_wait_s(enter_s: f64, leave_s: f64, others: &[OnStretch]) -> f64 {
+    let mut wait = 0.0;
+    for _ in 0..=others.len() {
+        let (e, l) = (enter_s + wait, leave_s + wait);
+        let clear = others
+            .iter()
+            .filter(|o| !o.same_way && o.enter_s < l && o.leave_s > e)
+            .map(|o| o.leave_s)
+            .reduce(f64::max);
+        match clear {
+            Some(c) if c > e => wait = c - enter_s,
+            _ => break,
+        }
+    }
+    wait
 }
 
 /// How a passage `width_m` wide is walked: whether its one file is shared by both directions, and
@@ -552,6 +592,33 @@ mod tests {
 
     fn id(n: u64) -> PermanentId {
         PermanentId::from_raw(n).expect("non-zero")
+    }
+
+    #[test]
+    fn a_cart_waits_at_a_single_cart_stretch_for_those_coming_the_other_way_until_it_is_clear() {
+        let other = |enter_s, leave_s, same_way| OnStretch {
+            enter_s,
+            leave_s,
+            same_way,
+        };
+        // Nobody on it: no wait.
+        assert_eq!(clearance_wait_s(100.0, 160.0, &[]), 0.0);
+        // One coming the other way, on it from 90 to 200: wait until it leaves.
+        assert_eq!(
+            clearance_wait_s(100.0, 160.0, &[other(90.0, 200.0, false)]),
+            100.0
+        );
+        // One going the same way is followed, not waited for.
+        assert_eq!(
+            clearance_wait_s(100.0, 160.0, &[other(90.0, 200.0, true)]),
+            0.0
+        );
+        // One that has left before, or comes after, is not met.
+        let apart = [other(10.0, 99.0, false), other(161.0, 220.0, false)];
+        assert_eq!(clearance_wait_s(100.0, 160.0, &apart), 0.0);
+        // Waiting for the first brings the second onto it before it is clear: both are waited for.
+        let two = [other(90.0, 200.0, false), other(230.0, 300.0, false)];
+        assert_eq!(clearance_wait_s(100.0, 160.0, &two), 200.0);
     }
 
     #[test]

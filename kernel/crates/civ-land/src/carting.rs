@@ -77,19 +77,37 @@ impl Wheels {
         way_m: Option<f64>,
         trail: bool,
     ) -> Option<f64> {
+        self.going(water, deck_m, way_m, trail).map(|(c, _)| c)
+    }
+
+    /// The rolling resistance and the width they go in, metres, as [`Wheels::resistance`] finds
+    /// them: a deck's, a way's, or a trail's tread.
+    pub fn going(
+        &self,
+        water: u8,
+        deck_m: Option<f64>,
+        way_m: Option<f64>,
+        trail: bool,
+    ) -> Option<(f64, f64)> {
         match water {
-            WATER_RIVER => deck_m.filter(|&d| d >= self.width_m).map(|_| self.way_c),
-            WATER_LAND => {
-                if way_m.is_some_and(|w| w >= self.width_m) {
-                    Some(self.way_c)
-                } else if trail && TRAIL_TREAD_M >= self.width_m {
-                    Some(self.trail_c)
-                } else {
-                    None
+            WATER_RIVER => deck_m
+                .filter(|&d| d >= self.width_m)
+                .map(|d| (self.way_c, d)),
+            WATER_LAND => match way_m.filter(|&w| w >= self.width_m) {
+                Some(w) => Some((self.way_c, w)),
+                None if trail && TRAIL_TREAD_M >= self.width_m => {
+                    Some((self.trail_c, TRAIL_TREAD_M))
                 }
-            }
+                None => None,
+            },
             _ => None,
         }
+    }
+
+    /// Whether a cell they go in `room_m` wide takes them one at a time (M8b slice CP, fourth
+    /// part; ADR-0029 §4): narrower than two of them side by side.
+    pub fn single_file(&self, room_m: f64) -> bool {
+        room_m < 2.0 * self.width_m
     }
 }
 
@@ -104,6 +122,17 @@ impl crate::Land {
         cell: u32,
         wheels: &Wheels,
     ) -> Option<f64> {
+        self.cart_going(map, cell, wheels).map(|(c, _)| c)
+    }
+
+    /// The rolling resistance cell `cell` of `map` gives `wheels` today and the width they go in
+    /// there, metres, if they can go on it (see [`crate::Land::cart_resistance`]).
+    pub fn cart_going(
+        &self,
+        map: &civ_world::WorldMap,
+        cell: u32,
+        wheels: &Wheels,
+    ) -> Option<(f64, f64)> {
         let water = *map.water.get(cell as usize)?;
         let deck_m = if water == WATER_RIVER {
             self.crossings.open_at(cell).map(|i| {
@@ -126,7 +155,7 @@ impl crate::Land {
             })
             .reduce(f64::max);
         let trail = self.wear.is_trail(cell as usize);
-        wheels.resistance(water, deck_m, way_m, trail)
+        wheels.going(water, deck_m, way_m, trail)
     }
 }
 

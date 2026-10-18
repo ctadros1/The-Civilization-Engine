@@ -4200,6 +4200,32 @@ and M6a gives rivers a daily flow.
         API 136 (the `cart` behaviour), no wire change (the inspector says "working on the
         household's handcart"). **Not yet:** clearance and turning back, a cart of a household
         that is gone, repair, and the observer's view of carts and boats.
+      - *Fourth part, as built (2026-10-18): carts meet by clearance* (ADR-0029 §4, amended).
+        Where a cart's way is narrower than two carts side by side (a way's usable width under
+        twice the cart's, and every worn trail for the 0.9 m handcart), the cells in a row make
+        a **single-cart stretch**. As a cart sets off, each stretch on its route is checked
+        against the hauls already under way: a cart pulled through it the other way, there when
+        this one would be, is waited for at the cell before it until it has left
+        (`traffic::clearance_wait_s`); carts going the same way follow one another. A wait that
+        brings another oncoming cart onto the stretch waits for that one too. The wait is put
+        into the haul as a stop there. **Turning back:** a cart leaving its own door that would
+        wait more than a quarter-hour (`TURN_BACK_MIN`, a design prior) is not taken; its
+        puller goes about the errand on foot. Away from home a cart waits however long it takes.
+        **Remembered:** each wait of a minute or more is held by the household at that stretch
+        (a new facility kind, the narrows, with the walkers' waits at crossings and gates, fading
+        as they do), the wait a cart turned back from too, and one of a quarter-hour or more is
+        told as a long wait on the Traffic lens ("a stretch too narrow for two carts"). **What it
+        comes to** (the test scene, a way narrowed to 1.5 m): of four carts set off at once, the
+        seller's going to the buyer's door and the buyer's following it went without a wait; the
+        buyer's at its own door would have met both and turned back, its household holding the
+        wait; the seller's second, at the buyer's door, waited for both and got home after them.
+        Saved and loaded with the waits held, it went on alike. **Exact:** a world with no cart lives as before: the bench's village of three
+        settlements, 30 days in both modes, has every section's digest and every count the third
+        part's had, the save header's (its schema) aside.
+        **Boundary:** saves schema 147 (facility kind 2 in the held waits and long waits), no
+        content or wire change. **Not yet:** unloading to porters at a stretch, walkers giving
+        way to carts, households choosing by what they remember of waits, and the observer's
+        view of carts and boats.
     - **CQ**: works on ways: recorded losses, household works and `build_way`, laying, widening,
       passing places, cart crossings, landings, grading as an earthwork, upkeep by law, tolls.
     - **CR**: where to live weighs the walk; the dashboard's travel time by occupation and

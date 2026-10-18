@@ -2058,3 +2058,123 @@ fn a_household_that_finds_a_cart_would_save_it_more_than_it_takes_makes_one_and_
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
     saves_and_goes_on_alike(&mut sim, 60);
 }
+
+#[test]
+fn carts_meet_by_clearance_where_a_way_is_too_narrow_for_two() {
+    use civ_agents::traffic::Facility;
+    let (sc, _stone) = wheels_scene();
+    let Scene {
+        mut sim,
+        seller,
+        buyer,
+        ..
+    } = sc;
+    // The way from the buyer's door to the seller's is narrowed below two carts' width.
+    {
+        let land = sim.land_mut_for_tests();
+        for w in &mut land.ways.list {
+            for s in &mut w.segments {
+                s.usable_m = 1.5;
+            }
+        }
+        land.ways.changed();
+    }
+    let handcart = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart") as u16;
+    let home = |sim: &Sim, h: PermanentId| sim.people().household(h).expect("household").home;
+    let (buyer_door, seller_door) = (home(&sim, buyer), home(&sim, seller));
+    let members = |sim: &Sim, h: PermanentId| {
+        sim.people()
+            .household(h)
+            .expect("household")
+            .members
+            .clone()
+    };
+    let (sellers, buyers) = (members(&sim, seller), members(&sim, buyer));
+    assert!(sellers.len() >= 2 && buyers.len() >= 2, "two of each");
+    // Four carts: one of each household at each door, each with one of its people beside it.
+    let today = sim.now().day_index();
+    let put = |sim: &mut Sim, owner: PermanentId, who: PermanentId, at: (f32, f32)| {
+        let cell = civ_agents::population::cell_of(sim.map(), at) as u32;
+        let id = sim.allocate_id_for_tests();
+        let land = sim.land_mut_for_tests();
+        land.carts.list.push(civ_land::boats::Boat {
+            id,
+            vehicle: handcart,
+            owner,
+            at: cell,
+            made: today,
+            wear: 0.0,
+            labour_h: 0.0,
+            work_h: 0.0,
+            saves_h_year: 0.0,
+            crew: (0, 0),
+        });
+        land.carts.changed();
+        let pop = sim.people_mut_for_tests();
+        if let Some((_, p)) = pop.people.iter_mut().find(|(_, p)| p.id == who) {
+            p.pos = at;
+        }
+    };
+    put(&mut sim, seller, sellers[0], seller_door);
+    put(&mut sim, buyer, buyers[0], seller_door);
+    put(&mut sim, buyer, buyers[1], buyer_door);
+    put(&mut sim, seller, sellers[1], buyer_door);
+    let held = |sim: &Sim, h: PermanentId| -> f32 {
+        sim.people()
+            .traffic
+            .waits
+            .get(&h)
+            .map(|l| {
+                l.iter()
+                    .filter(|w| matches!(w.facility, Facility::Narrows(_)))
+                    .map(|w| w.minutes)
+                    .sum()
+            })
+            .unwrap_or(0.0)
+    };
+    let haul = |sim: &mut Sim, who: PermanentId, to: (f32, f32)| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.haul_for_tests(ctx, who, to))
+    };
+    let ends = |sim: &Sim, who: PermanentId| {
+        let p = sim
+            .people()
+            .people
+            .iter()
+            .find(|(_, p)| p.id == who)
+            .map(|(_, p)| p)
+            .expect("person");
+        let t = p.trip.as_ref().expect("a trip");
+        f64::from(t.duration_minutes())
+    };
+    // The seller's cart sets off for the buyer's door with nobody on the way: no wait.
+    assert!(haul(&mut sim, sellers[0], buyer_door));
+    assert_eq!(held(&sim, seller), 0.0);
+    // The buyer's cart at the seller's door follows it the same way: no wait either.
+    assert!(haul(&mut sim, buyers[0], buyer_door));
+    assert_eq!(held(&sim, buyer), 0.0);
+    let follower = ends(&sim, buyers[0]);
+    // The buyer's cart at its own door would meet both coming the other way and wait longer than
+    // a quarter-hour: its puller turns back, and the household remembers the wait it would have had.
+    assert!(!haul(&mut sim, buyers[1], seller_door));
+    let would = held(&sim, buyer);
+    assert!(
+        f64::from(would) > civ_agents::traffic::TURN_BACK_MIN,
+        "turned back: {would}"
+    );
+    // The seller's cart at the buyer's door, away from its own, waits at the stretch until both
+    // have left it, and goes on after: it gets home after the follower got to the buyer's door.
+    assert!(haul(&mut sim, sellers[1], seller_door));
+    let waited = held(&sim, seller);
+    assert!(
+        f64::from(waited) > civ_agents::traffic::TURN_BACK_MIN,
+        "{waited}"
+    );
+    assert!(ends(&sim, sellers[1]) > follower + f64::from(waited) * 0.5);
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    // Saved and loaded with the waits held, the world goes on alike.
+    saves_and_goes_on_alike(&mut sim, 60);
+}

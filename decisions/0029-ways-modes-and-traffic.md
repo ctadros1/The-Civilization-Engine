@@ -84,6 +84,12 @@ no boat and no domestic animal. M8a measured routing as about an eighth of a day
   lost. Nothing despawns or is delivered unseen.
 - Plan §5.4's time-bucketed edge capacity is not built: queues at bottlenecks set elapsed time,
   and what households remember of waits informs their next choice.
+- *Amended (2026-10-18, M8b slice CP, fourth part):* a cart's meeting is settled as it sets off,
+  against the hauls already under way: a single-cart stretch is a run of cells narrower than two
+  carts (a worn trail's 1.2 m tread always is, for the 0.9 m handcart), and the passing place is
+  the cell before it. A cart turns back only at its own door, when the wait would pass a
+  quarter-hour; away from home it waits however long it takes, so no cart is stranded away from
+  its people. Unloading to porters at a stretch is not built.
 
 ### 5. Boats on reaches
 

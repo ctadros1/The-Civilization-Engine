@@ -10,6 +10,7 @@
 
 use super::*;
 use crate::decide::BoatFacts;
+use crate::traffic;
 use civ_land::boats::Boat;
 
 /// A boat a household could make: its vehicle (catalog index) and the bank cell it would be
@@ -138,9 +139,25 @@ impl Population {
             minutes.push(((off_s + s) / 60.0) as f32);
         }
         let last = *points.last().unwrap_or(&pos);
-        let total_s = off_s + route.seconds + apart(last, to) / leg_v;
+        let mut total_s = off_s + route.seconds + apart(last, to) / leg_v;
         points.push(to);
         minutes.push((total_s / 60.0) as f32);
+        // Carts meet by clearance (M8b slice CP, fourth part).
+        let door = self
+            .household(household)
+            .map(|x| cell_of(ctx.map, x.home) as u32);
+        let Some(waited_s) = self.wait_at_narrows(
+            ctx,
+            h,
+            &wheels,
+            &route.cells,
+            &mut points,
+            &mut minutes,
+            door == Some(here),
+        ) else {
+            return false;
+        };
+        total_s += waited_s;
         let duration = (total_s / 60.0).ceil().max(1.0);
         let Some(p) = self.people.get_mut(h) else {
             return false;
@@ -165,6 +182,156 @@ impl Population {
         let (id, version, ends) = (p.id, p.act.version, p.act.step_ends);
         ctx.schedule_step(ends, id, version);
         true
+    }
+
+    /// Carts meet by clearance (M8b slice CP, fourth part; ADR-0029 §4). Along `cells`, the cart
+    /// route `h` is to pull its cart by (`points` and `minutes` the haul as planned free-flow, its
+    /// door legs first and last), each run of cells too narrow for two carts is a single-cart
+    /// stretch: a cart already pulled through it the other way, there when this one would be, is
+    /// waited for at its near end until it is clear ([`traffic::clearance_wait_s`]), the wait put
+    /// into the haul as a stop there. The household remembers each wait of a minute or more at that
+    /// stretch, and a long one is told. The seconds waited in all; or none, the cart not taken, where
+    /// it leaves its own door (`from_door`) and would wait longer than [`traffic::TURN_BACK_MIN`]
+    /// at one stretch: its puller turns back.
+    #[allow(clippy::too_many_arguments)]
+    fn wait_at_narrows(
+        &mut self,
+        ctx: &mut Ctx,
+        h: Handle<Person>,
+        wheels: &civ_land::carting::Wheels,
+        cells: &[u32],
+        points: &mut Vec<(f32, f32)>,
+        minutes: &mut Vec<f32>,
+        from_door: bool,
+    ) -> Option<f64> {
+        let narrow: Vec<bool> = cells
+            .iter()
+            .map(|&c| {
+                ctx.land
+                    .cart_going(ctx.map, c, wheels)
+                    .is_some_and(|(_, room)| wheels.single_file(room))
+            })
+            .collect();
+        if !narrow.contains(&true) {
+            return Some(0.0);
+        }
+        // The other hauls under way: each the cells of its points and their times, seconds.
+        let hauls: Vec<(Vec<u32>, Vec<f64>)> = self
+            .people
+            .iter()
+            .filter(|&(k, _)| k != h)
+            .filter(|(_, p)| {
+                matches!(
+                    p.act.steps.get(p.act.step as usize),
+                    Some(Step::Haul { .. })
+                )
+            })
+            .filter_map(|(_, p)| p.trip.as_ref())
+            .map(|t| {
+                let at = t.depart.minutes() as f64 * 60.0;
+                (
+                    t.points
+                        .iter()
+                        .map(|&q| cell_of(ctx.map, q) as u32)
+                        .collect(),
+                    t.minutes
+                        .iter()
+                        .map(|&m| at + f64::from(m) * 60.0)
+                        .collect(),
+                )
+            })
+            .collect();
+        let p = self.people.get(h)?;
+        let (who, household) = (p.id, p.household);
+        let now_s = ctx.now.minutes() as f64 * 60.0;
+        let day = ctx.now.day_index();
+        let half = ctx.params.places.use_half_life_days;
+        // Each stretch: the point it is waited for at (the one before its first cell), the wait.
+        let mut stops: Vec<(usize, f64, u32, u32)> = Vec::new();
+        let mut shift = 0.0;
+        let mut i = 0;
+        while i < cells.len() {
+            if !narrow[i] {
+                i += 1;
+                continue;
+            }
+            let mut j = i;
+            while j + 1 < cells.len() && narrow[j + 1] {
+                j += 1;
+            }
+            let run = &cells[i..=j];
+            // Points: 0 the start, 1..=n the cells, n + 1 the end.
+            let enter_s = now_s + f64::from(minutes[i + 1]) * 60.0 + shift;
+            let leave_s = now_s + f64::from(minutes[j + 2]) * 60.0 + shift;
+            let after = cell_of(ctx.map, points[j + 2]) as u32;
+            let place = |c: u32| run.iter().position(|&x| x == c);
+            let others: Vec<traffic::OnStretch> = hauls
+                .iter()
+                .filter_map(|(pc, pt)| {
+                    let first = pc.iter().position(|&c| place(c).is_some())?;
+                    let last = pc.iter().rposition(|&c| place(c).is_some())?;
+                    let (a, b) = (place(pc[first])?, place(pc[last])?);
+                    let same_way = if a != b {
+                        a < b
+                    } else {
+                        first == 0 || pc[first - 1] != after
+                    };
+                    Some(traffic::OnStretch {
+                        enter_s: pt[first],
+                        leave_s: pt[(last + 1).min(pt.len() - 1)],
+                        same_way,
+                    })
+                })
+                .collect();
+            let wait = traffic::clearance_wait_s(enter_s, leave_s, &others);
+            if wait >= 60.0 {
+                if from_door && wait > traffic::TURN_BACK_MIN * 60.0 {
+                    // Turned back at its own door: the wait it would have had is remembered.
+                    self.traffic.waited(
+                        household,
+                        traffic::Facility::Narrows(run[0]),
+                        (wait / 60.0) as f32,
+                        day,
+                        half,
+                    );
+                    return None;
+                }
+                let met = others
+                    .iter()
+                    .filter(|o| !o.same_way && o.leave_s > enter_s)
+                    .count() as u32;
+                stops.push((i, wait, run[0], met));
+                shift += wait;
+            }
+            i = j + 1;
+        }
+        let settlement = self.household(household).and_then(|x| x.settlement);
+        for (added, &(i, wait, cell, met)) in stops.iter().enumerate() {
+            let k = i + 1 + added;
+            let (at, at_min) = (points[k - 1], minutes[k - 1]);
+            let waited = (wait / 60.0) as f32;
+            points.insert(k, at);
+            minutes.insert(k, at_min + waited);
+            for m in &mut minutes[k + 1..] {
+                *m += waited;
+            }
+            let facility = traffic::Facility::Narrows(cell);
+            self.traffic.waited(household, facility, waited, day, half);
+            if waited >= traffic::LONG_WAIT_MIN {
+                self.traffic.long_wait(traffic::LongWait {
+                    id: 0,
+                    person: who,
+                    household,
+                    settlement,
+                    facility,
+                    at,
+                    time: ctx.now.plus_minutes(at_min.floor() as i64),
+                    minutes: waited,
+                    ahead: met,
+                });
+            }
+        }
+        Some(shift)
     }
 
     /// Someone of `household` pulled its cart from cell `from` to cell `to`: it stands there now.

@@ -2918,3 +2918,16 @@ a child. Such a technique is now learnt for the work of making the vehicle.
 **What it comes to:** a household taught the technique made its handcart and sent its next
 errand by it. A world where nobody knows wheels on an axle makes no carts.
 
+## 2026-10-18 — CP, fourth part: carts meet by clearance
+
+**Built:** a handcart needs 1.8 m to pass another, and a worn trail is narrower than that. Where
+a cart's way is too narrow for two, a cart setting off waits at the near end for any cart
+already coming the other way, until it has passed. Carts going the same way just follow. A cart
+leaving its own door that would wait more than a quarter-hour stays home, and its puller walks
+instead; away from home a cart always waits, so none is left stranded. Households remember these
+waits, as they remember waits at bridges and gates.
+
+**What it comes to:** in the test, four carts set off at once on a narrowed way. Two went
+without waiting, one turned back at its door, and one waited for both oncoming carts before
+heading home.
+

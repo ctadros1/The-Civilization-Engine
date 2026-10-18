@@ -245,5 +245,7 @@ fn direction(ctx: &Ctx, ahead: &Ahead) -> u8 {
                 let cross = (s.b.0 - s.a.0) * (p.1 - s.a.1) - (s.b.1 - s.a.1) * (p.0 - s.a.0);
                 u8::from(cross < 0.0)
             }),
+        // No walker takes turns at a narrows: carts do (see the boating module).
+        Facility::Narrows(_) => 0,
     }
 }

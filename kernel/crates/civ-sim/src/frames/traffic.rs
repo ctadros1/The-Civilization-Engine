@@ -46,6 +46,7 @@ pub fn facility_name(sim: &Sim, f: Facility) -> String {
                 || "a gate in a palisade".to_owned(),
                 |s| format!("a gate of {}'s palisade", s.name),
             ),
+        Facility::Narrows(_) => "a stretch too narrow for two carts".to_owned(),
     }
 }
 
@@ -68,6 +69,8 @@ pub fn facility_at(sim: &Sim, f: Facility) -> Option<(f32, f32)> {
             let s = e.sectors.get(usize::from(sector))?;
             Some(((s.a.0 + s.b.0) / 2.0, (s.a.1 + s.b.1) / 2.0))
         }
+        Facility::Narrows(cell) => ((cell as usize) < sim.map.water.len())
+            .then(|| civ_agents::population::cell_centre(&sim.map, cell as usize)),
     }
 }
 
@@ -81,7 +84,7 @@ fn facility_settlement(sim: &Sim, f: Facility, at: (f32, f32)) -> Option<Permane
             .iter()
             .find(|e| e.id == enclosure)
             .map(|e| e.settlement),
-        Facility::Crossing(_) => {
+        Facility::Crossing(_) | Facility::Narrows(_) => {
             let d = |s: &civ_land::Settlement| (s.hearth_m.0 - at.0).hypot(s.hearth_m.1 - at.1);
             sim.land
                 .settlements

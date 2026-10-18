@@ -1710,6 +1710,20 @@ impl Population {
         self.start_walk(ctx, h, to)
     }
 
+    /// Sends `id` pulling their household's cart that stands where they are to `to` at once, as a
+    /// step of their activity would (tests): `false` when they cannot set off, or turn back.
+    #[doc(hidden)]
+    pub fn haul_for_tests(&mut self, ctx: &mut Ctx, id: PermanentId, to: (f32, f32)) -> bool {
+        let Some(&h) = self.index.get(&id) else {
+            return false;
+        };
+        if let Some(p) = self.people.get_mut(h) {
+            p.act.steps = vec![Step::Haul { to }];
+            p.act.step = 0;
+        }
+        self.start_haul(ctx, h, to)
+    }
+
     /// Drops a person's activity so they decide again when an event of the returned version
     /// fires (used when a loaded world's content no longer has their activity). The caller
     /// schedules that event.

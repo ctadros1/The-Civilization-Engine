@@ -4406,6 +4406,19 @@ and M6a gives rivers a daily flow.
         w_walk`). **Not yet:** the walk a household would have there from where it would live
         (it weighs what that place's people walk now), distance beside time, and the tally in
         the observer.
+  - *M8b closed (2026-10-18):* built and landed: CM (ways as records), CN (walkers take turns
+    at bottlenecks), CO's three parts (the river for boats, errands by boat with goods in
+    transit, making a dugout by choice), CP's five parts (where wheels go, errands by handcart,
+    the wheel technique, carts meeting by clearance, the observer's boats and carts), CQ's four
+    parts (losses recorded where ways are poor, a household's passing place, `build_way` for
+    the polity's, a household's laid approach) and CR's two (travel measured, where to live
+    weighs the walk). Each part kept a world without its thing on the previous part's counts
+    and digests, as recorded with it. **Deferred, each with its reason in its part's entry:**
+    ferrying, fishing and owed goods by boat (CO); widening, cart crossings, landings, grading as
+    an earthwork, upkeep by law and tolls (CQ); the walk from where a household would live,
+    distance beside time and the tally in the observer (CR); and M8a's routing bounds per
+    region, which nothing yet needs, since nobody's walks grew longer or faster than M8a
+    measured. No beasts: pack animals and ox carts wait for a husbandry design (ADR-0029).
   - **M8c, planning and land** ([ADR-0030](decisions/0030-planning-and-land.md), from
     `docs/briefs/m8-planning.md`): site choice as a decision whose savings are recorded (land
     value derived, never read); the home reach that caps a settlement's footprint; a plan as a

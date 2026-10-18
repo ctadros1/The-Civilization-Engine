@@ -2862,3 +2862,15 @@ banks, and now boats do too.
 
 **What it comes to:** a camp beside deep water fetched 261 kg of stone by boat, thirteen hand
 loads, in one long day; a camp two and a half kilometres from deep water still walks.
+
+## 2026-10-18 — CO, third part: making a dugout
+
+**Built:** a household with no boat now also asks, as it plans an errand, what a boat would
+bring. If it knows how to make one, holds an axe, and the river near home is deep enough, it
+weighs the hours a boat's load would save against the two hundred hours of felling and
+hollowing a trunk. When the boat wins, it begins one on the bank, and its people choose to work
+on it, no more than three at once, until it is done and drawn up ready.
+
+**What it comes to:** a household of five beside deep water, whose neighbours wanted stone, made
+its dugout in seventeen days and then sent its errands by water. A village with no reason to go
+far by boat makes none.

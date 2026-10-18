@@ -197,10 +197,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for Terminus {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_TARGET_KIND: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_TARGET_KIND: u8 = 19;
+pub const ENUM_MAX_TARGET_KIND: u8 = 20;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 20] = [
+pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 21] = [
   TargetKind::None,
   TargetKind::Home,
   TargetKind::Hearth,
@@ -221,6 +221,7 @@ pub const ENUM_VALUES_TARGET_KIND: [TargetKind; 20] = [
   TargetKind::Bank,
   TargetKind::Ditch,
   TargetKind::Enclosure,
+  TargetKind::Boat,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -248,9 +249,10 @@ impl TargetKind {
   pub const Bank: Self = Self(17);
   pub const Ditch: Self = Self(18);
   pub const Enclosure: Self = Self(19);
+  pub const Boat: Self = Self(20);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 19;
+  pub const ENUM_MAX: u8 = 20;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::None,
     Self::Home,
@@ -272,6 +274,7 @@ impl TargetKind {
     Self::Bank,
     Self::Ditch,
     Self::Enclosure,
+    Self::Boat,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -296,6 +299,7 @@ impl TargetKind {
       Self::Bank => Some("Bank"),
       Self::Ditch => Some("Ditch"),
       Self::Enclosure => Some("Enclosure"),
+      Self::Boat => Some("Boat"),
       _ => None,
     }
   }
@@ -56124,6 +56128,11 @@ impl<'a> BoatSave<'a> {
   pub const VT_AT: ::flatbuffers::VOffsetT = 10;
   pub const VT_MADE: ::flatbuffers::VOffsetT = 12;
   pub const VT_WEAR: ::flatbuffers::VOffsetT = 14;
+  pub const VT_LABOUR_H: ::flatbuffers::VOffsetT = 16;
+  pub const VT_WORK_H: ::flatbuffers::VOffsetT = 18;
+  pub const VT_SAVES_H_YEAR: ::flatbuffers::VOffsetT = 20;
+  pub const VT_CREW_DAY: ::flatbuffers::VOffsetT = 22;
+  pub const VT_CREW: ::flatbuffers::VOffsetT = 24;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -56135,12 +56144,17 @@ impl<'a> BoatSave<'a> {
     args: &'args BoatSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<BoatSave<'bldr>> {
     let mut builder = BoatSaveBuilder::new(_fbb);
+    builder.add_crew_day(args.crew_day);
     builder.add_made(args.made);
     builder.add_owner(args.owner);
     builder.add_id(args.id);
+    builder.add_saves_h_year(args.saves_h_year);
+    builder.add_work_h(args.work_h);
+    builder.add_labour_h(args.labour_h);
     builder.add_wear(args.wear);
     builder.add_at(args.at);
     if let Some(x) = args.vehicle { builder.add_vehicle(x); }
+    builder.add_crew(args.crew);
     builder.finish()
   }
 
@@ -56187,6 +56201,41 @@ impl<'a> BoatSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(BoatSave::VT_WEAR, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn labour_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(BoatSave::VT_LABOUR_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn work_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(BoatSave::VT_WORK_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn saves_h_year(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(BoatSave::VT_SAVES_H_YEAR, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn crew_day(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(BoatSave::VT_CREW_DAY, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn crew(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(BoatSave::VT_CREW, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BoatSave<'_> {
@@ -56201,6 +56250,11 @@ impl ::flatbuffers::Verifiable for BoatSave<'_> {
      .visit_field::<u32>("at", Self::VT_AT, false)?
      .visit_field::<i64>("made", Self::VT_MADE, false)?
      .visit_field::<f32>("wear", Self::VT_WEAR, false)?
+     .visit_field::<f32>("labour_h", Self::VT_LABOUR_H, false)?
+     .visit_field::<f32>("work_h", Self::VT_WORK_H, false)?
+     .visit_field::<f32>("saves_h_year", Self::VT_SAVES_H_YEAR, false)?
+     .visit_field::<i64>("crew_day", Self::VT_CREW_DAY, false)?
+     .visit_field::<u8>("crew", Self::VT_CREW, false)?
      .finish();
     Ok(())
   }
@@ -56212,6 +56266,11 @@ pub struct BoatSaveArgs<'a> {
     pub at: u32,
     pub made: i64,
     pub wear: f32,
+    pub labour_h: f32,
+    pub work_h: f32,
+    pub saves_h_year: f32,
+    pub crew_day: i64,
+    pub crew: u8,
 }
 impl<'a> Default for BoatSaveArgs<'a> {
   #[inline]
@@ -56223,6 +56282,11 @@ impl<'a> Default for BoatSaveArgs<'a> {
       at: 0,
       made: 0,
       wear: 0.0,
+      labour_h: 0.0,
+      work_h: 0.0,
+      saves_h_year: 0.0,
+      crew_day: 0,
+      crew: 0,
     }
   }
 }
@@ -56257,6 +56321,26 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BoatSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(BoatSave::VT_WEAR, wear, 0.0);
   }
   #[inline]
+  pub fn add_labour_h(&mut self, labour_h: f32) {
+    self.fbb_.push_slot::<f32>(BoatSave::VT_LABOUR_H, labour_h, 0.0);
+  }
+  #[inline]
+  pub fn add_work_h(&mut self, work_h: f32) {
+    self.fbb_.push_slot::<f32>(BoatSave::VT_WORK_H, work_h, 0.0);
+  }
+  #[inline]
+  pub fn add_saves_h_year(&mut self, saves_h_year: f32) {
+    self.fbb_.push_slot::<f32>(BoatSave::VT_SAVES_H_YEAR, saves_h_year, 0.0);
+  }
+  #[inline]
+  pub fn add_crew_day(&mut self, crew_day: i64) {
+    self.fbb_.push_slot::<i64>(BoatSave::VT_CREW_DAY, crew_day, 0);
+  }
+  #[inline]
+  pub fn add_crew(&mut self, crew: u8) {
+    self.fbb_.push_slot::<u8>(BoatSave::VT_CREW, crew, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BoatSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BoatSaveBuilder {
@@ -56280,6 +56364,11 @@ impl ::core::fmt::Debug for BoatSave<'_> {
       ds.field("at", &self.at());
       ds.field("made", &self.made());
       ds.field("wear", &self.wear());
+      ds.field("labour_h", &self.labour_h());
+      ds.field("work_h", &self.work_h());
+      ds.field("saves_h_year", &self.saves_h_year());
+      ds.field("crew_day", &self.crew_day());
+      ds.field("crew", &self.crew());
       ds.finish()
   }
 }

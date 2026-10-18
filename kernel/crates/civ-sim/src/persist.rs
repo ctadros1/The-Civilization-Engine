@@ -413,6 +413,8 @@ pub const SCHEMA_V140: u32 = 140;
 pub const SCHEMA_V141: u32 = 141;
 /// Boats, before goods in transit by boat.
 pub const SCHEMA_V142: u32 = 142;
+/// Goods in transit by boat, before boats being made.
+pub const SCHEMA_V143: u32 = 143;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

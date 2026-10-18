@@ -615,6 +615,10 @@ pub struct Population {
     /// (polity, household, hours): paid for under a law of pay for common work as each event
     /// ends (M7d slice CE3a), so never held across a save.
     pub(crate) work_given: Vec<(PermanentId, PermanentId, f64)>,
+    /// The households whose review today found a boat worth making (household, vehicle, bank
+    /// cell, hours of walking a year it would save): begun as the day's reviews end (M8b slice
+    /// CO, third part), so never held across a save.
+    pub(crate) boat_wishes: Vec<(PermanentId, usize, u32, f32)>,
     /// The buildings of other settlements each person has seen, newest first, until their
     /// household's next taste review (M5b slice AR).
     pub seen_away: BTreeMap<PermanentId, Vec<PermanentId>>,
@@ -3085,6 +3089,7 @@ impl Population {
             crossing: self.crossing_facts(ctx, &hh, p.id, field_key, dark),
             well: self.well_facts(ctx, &hh, p.id, dark),
             levee: self.levee_facts(ctx, &hh, p.id, field_key, dark),
+            boat: self.boat_facts(ctx, &hh, field_key, dark),
             enclosure: self.enclosure_facts(ctx, &hh, p.id, field_key, dark),
             ditch: self.ditch_facts(ctx, &hh, field_key, dark),
             band: band_facts,
@@ -4342,6 +4347,10 @@ impl Population {
             }
             x.crew.1 = x.crew.1.saturating_add(1);
         }
+        // And so is someone who sets off to work on a boat (M8b slice CO, third part).
+        if let Target::Boat(b) = target {
+            Self::joined_boat_crew(ctx, b);
+        }
         // And so is someone who sets off to work on a well (M6a slice AY, step three).
         if let Target::Well(w) = target
             && catalog
@@ -4744,6 +4753,7 @@ impl Population {
                 | Behavior::Watch
                 | Behavior::Carry
                 | Behavior::Bridge
+                | Behavior::Boat
                 | Behavior::Well
                 | Behavior::Levee
                 | Behavior::Palisade
@@ -4999,6 +5009,15 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.crossing_work(ctx, (h, who), household, crossing, hours);
+                    }
+                }
+                Some(Behavior::Boat) => {
+                    if let Target::Boat(boat) = p.act.target {
+                        let rate = def.as_ref().map_or(1.0, |d| d.rate);
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let (who, household) = (p.id, p.household);
+                        self.boat_work(ctx, (h, who), household, boat, hours);
                     }
                 }
                 Some(Behavior::Well) => {
@@ -6469,6 +6488,9 @@ impl Population {
         self.record_convergence(ctx);
         // Households whose day it is review what they offer and on what terms.
         self.review_offers(ctx, day);
+        // Those that found a boat would save them more walking over its life than making it
+        // takes begin one (M8b slice CO, third part).
+        self.begin_boats(ctx);
         // Households whose day it is weigh borrowing, and loans due are paid (M7d slice CA).
         self.credit_day(ctx, day);
         // Households bring metal to their polity's mint (M7d slice CE2b).

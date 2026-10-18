@@ -260,7 +260,7 @@ table Settlements {
 // People.techniques (in a decision receipt, into the content's techniques when it was saved).
 // Douse (schema 91, M6b slice BD, step three): `index` where the water is drawn (a source's cell,
 // or 4294967295 the household's store), `id` the building it is thrown on.
-enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16, Bank = 17, Ditch = 18, Enclosure = 19 }
+enum TargetKind : ubyte { None = 0, Home = 1, Hearth = 2, Patch = 3, Water = 4, Field = 5, NewField = 6, Household = 7, Building = 8, NewBuilding = 9, Firm = 10, NewFirm = 11, Technique = 12, Deposit = 13, Crossing = 14, Well = 15, Douse = 16, Bank = 17, Ditch = 18, Enclosure = 19, Boat = 20 }
 
 enum StepKind : ubyte { Walk = 0, Work = 1, Deposit = 2, Wait = 3, Paddle = 4, Handle = 5 }
 
@@ -3300,6 +3300,14 @@ table BoatSave {
   at: uint (id: 3);
   made: long (id: 4);
   wear: float (id: 5);
+  // Schema 144 (M8b slice CO, third part): its labour and the work done on it (a boat saved
+  // before has neither: it is made), the hours of walking a year it was expected to save, and
+  // the day of the last session begun on it and how many began one then.
+  labour_h: float (id: 6);
+  work_h: float (id: 7);
+  saves_h_year: float (id: 8);
+  crew_day: long (id: 9);
+  crew: ubyte (id: 10);
 }
 
 table BoatsSave {

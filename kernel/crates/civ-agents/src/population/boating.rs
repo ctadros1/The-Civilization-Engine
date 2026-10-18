@@ -1,9 +1,21 @@
-//! Boats people take (M8b slice CO; ADR-0029 §3, §5): paddling the household's boat from the bank
-//! where it is drawn up to another by the quickest way by water today, the boat drawn up where it
-//! lands; and unloading a load in transit into the household's store once the boat is home. A
-//! trip afloat wears no ground and passes no crossing or gate.
+//! Boats people make and take (M8b slice CO; ADR-0029 §2, §3, §5): a household that found, in
+//! planning an errand, that a boat would save it more walking over the boat's life than making
+//! it takes, and could make one, begins one on the bank nearest home where the water carries it,
+//! and its people work on it there by choice until its labour is done; paddling the household's
+//! boat from the bank where it is drawn up to another by the quickest way by water today, the
+//! boat drawn up where it lands; and unloading a load in transit into the household's store once
+//! the boat is home. A trip afloat wears no ground and passes no crossing or gate.
 
 use super::*;
+use crate::decide::BoatFacts;
+use civ_land::boats::Boat;
+
+/// A boat a household could make: its vehicle (catalog index) and the bank cell it would be
+/// drawn up at.
+pub(super) struct BoatItCouldMake {
+    pub vehicle: usize,
+    pub bank: u32,
+}
 
 impl Population {
     /// Sets out by boat from the bank `h` stands at to bank cell `to` ([`Step::Paddle`]): false
@@ -20,7 +32,7 @@ impl Population {
             .boats
             .list
             .iter()
-            .find(|b| b.owner == household && b.at == from)
+            .find(|b| b.owner == household && b.at == from && b.made())
             .and_then(|b| ctx.catalog.vehicles.get(usize::from(b.vehicle)))
             .map(crate::params::VehicleDef::hull)
         else {
@@ -101,7 +113,7 @@ impl Population {
             .boats
             .list
             .iter_mut()
-            .find(|b| b.owner == household && b.at == from)
+            .find(|b| b.owner == household && b.at == from && b.made())
         {
             b.at = to;
             ctx.land.boats.changed();
@@ -139,5 +151,182 @@ impl Population {
                 self.consigned_flows.absorb(&c.flows);
             }
         }
+    }
+
+    /// The boat household `hh`, holding `stores`, could make, if any (M8b slice CO, third part):
+    /// while it has none, made or being made, of the first boat vehicle a member knows the
+    /// technique of and whose tool it holds, drawn up at the bank nearest home where the water
+    /// carries one today, within the walk the work allows. None without work on a boat in the
+    /// content.
+    pub(super) fn boat_it_could_make(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        stores: &[f64],
+    ) -> Option<BoatItCouldMake> {
+        if ctx.land.boats.of(hh.id).next().is_some() {
+            return None;
+        }
+        let work = ctx
+            .catalog
+            .activities
+            .iter()
+            .find(|a| a.behavior == Behavior::Boat)?;
+        let (vehicle, def) = ctx.catalog.vehicles.iter().enumerate().find(|(_, d)| {
+            d.mode == crate::params::VehicleMode::Boat
+                && d.technique
+                    .is_none_or(|t| self.household_knows(&hh.members, t))
+                && d.tool.is_none_or(|t| {
+                    stores.get(t).copied().unwrap_or(0.0) >= crate::decide::MIN_TOOL
+                })
+        })?;
+        let params = ctx.params;
+        let pace = params.nav.tobler_ms(0.0) * params.nav.offtrail_factor;
+        let within = (f64::from(work.max_walk_minutes) * 60.0 * pace)
+            .min(f64::from(super::market::LANDING_WALK_M)) as f32;
+        let (rivers, hull) = (&ctx.land.rivers, def.hull());
+        let (hyd, q) = (&ctx.land.floodplain.reaches, &ctx.land.reach_discharges);
+        let bank =
+            rivers.nearest_bank(hh.home, within, |c| rivers.floats(ctx.map, c, hyd, q, hull))?;
+        Some(BoatItCouldMake { vehicle, bank })
+    }
+
+    /// The households that found, planning an errand, that a boat would save them more walking
+    /// over its life than making it takes begin one where they meant to (M8b slice CO, third
+    /// part), unless they have one by now.
+    pub(super) fn begin_boats(&mut self, ctx: &mut Ctx) {
+        let day = ctx.now.day_index();
+        for (household, vehicle, bank, saves_h_year) in std::mem::take(&mut self.boat_wishes) {
+            if ctx.land.boats.of(household).next().is_some() {
+                continue;
+            }
+            let Some(def) = ctx.catalog.vehicles.get(vehicle) else {
+                continue;
+            };
+            if f64::from(saves_h_year) * def.life_years <= def.labour_h {
+                continue;
+            }
+            let id = ctx.ids.allocate();
+            ctx.land.boats.list.push(Boat {
+                id,
+                vehicle: vehicle as u16,
+                owner: household,
+                at: bank,
+                made: day,
+                wear: 0.0,
+                labour_h: def.labour_h as f32,
+                work_h: 0.0,
+                saves_h_year,
+                crew: (0, 0),
+            });
+            ctx.land.boats.changed();
+        }
+    }
+
+    /// The boat household `x` is making, if its bank is within reach of home (`field_key`'s
+    /// walk) and it is light (M8b slice CO, third part): where, the walk there, the work left,
+    /// the walking each hour of its making saves the household over its life, and whether as
+    /// many as may work on it at once have begun today.
+    pub(super) fn boat_facts(
+        &self,
+        ctx: &Ctx,
+        x: &Household,
+        field_key: PermanentId,
+        dark: bool,
+    ) -> Option<BoatFacts> {
+        if dark {
+            return None;
+        }
+        let b = ctx.land.boats.of(x.id).find(|b| !b.made())?;
+        let def = ctx.catalog.vehicles.get(usize::from(b.vehicle))?;
+        let secs = self
+            .homes
+            .get(&field_key)?
+            .reach
+            .seconds_to(b.at as usize)?;
+        Some(BoatFacts {
+            boat: b.id,
+            at: ctx.land.rivers.centre(b.at),
+            walk_min: f64::from(secs) / 60.0,
+            left_h: f64::from(b.labour_h - b.work_h).max(0.0),
+            saves_per_hour: f64::from(b.saves_h_year) * def.life_years
+                / f64::from(b.labour_h).max(1.0),
+            full: b.crew.0 == ctx.now.day_index() && u32::from(b.crew.1) >= def.crew,
+        })
+    }
+
+    /// Someone sets off to work on boat `boat`: one of its crew today.
+    pub(super) fn joined_boat_crew(ctx: &mut Ctx, boat: PermanentId) {
+        let day = ctx.now.day_index();
+        if let Some(b) = ctx.land.boats.list.iter_mut().find(|b| b.id == boat) {
+            if b.crew.0 != day {
+                b.crew = (day, 0);
+            }
+            b.crew.1 = b.crew.1.saturating_add(1);
+        }
+    }
+
+    /// `hours` of a capable adult's work by `who` (handle and id) of `household` on the boat
+    /// `boat` it is making (M8b slice CO, third part): they count toward its labour, and they
+    /// practise its vehicle's skill. The trunk is felled where it is worked, so nothing is taken
+    /// from the store. Once its labour is done it is made, on the day it is, and the chronicle
+    /// says so.
+    pub(super) fn boat_work(
+        &mut self,
+        ctx: &mut Ctx,
+        (h, who): (Handle<Person>, PermanentId),
+        household: PermanentId,
+        boat: PermanentId,
+        hours: f64,
+    ) {
+        let Some(i) = ctx
+            .land
+            .boats
+            .list
+            .iter()
+            .position(|b| b.id == boat && b.owner == household && !b.made())
+        else {
+            return;
+        };
+        let Some(def) = ctx
+            .catalog
+            .vehicles
+            .get(usize::from(ctx.land.boats.list[i].vehicle))
+        else {
+            return;
+        };
+        let skill = def
+            .skill
+            .and_then(|k| ctx.catalog.skills.get(k).map(|s| (k, s)));
+        let b = &mut ctx.land.boats.list[i];
+        let left = f64::from(b.labour_h - b.work_h).max(0.0);
+        let done = hours.clamp(0.0, left);
+        b.work_h += done as f32;
+        if let (Some((k, s)), Some(p)) = (skill, self.people.get_mut(h)) {
+            p.set_skill(k, s.practised(p.skill(k), done));
+        }
+        if !b.made() {
+            return;
+        }
+        let now = ctx.now;
+        b.work_h = b.labour_h;
+        b.made = now.day_index();
+        let at = ctx.land.rivers.centre(b.at);
+        ctx.land.boats.changed();
+        let name = def.name.to_lowercase();
+        let settlement = self.household(household).and_then(|x| x.settlement);
+        let sentence = format!(
+            "{}'s household finished a {name} and drew it up on the bank, ready for the water.",
+            self.name_of(who)
+        );
+        self.chronicle_push(
+            now,
+            ChronicleKind::BoatMade,
+            vec![who],
+            settlement,
+            Some(at),
+            0.0,
+            sentence,
+        );
     }
 }

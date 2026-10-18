@@ -2374,6 +2374,48 @@ fn a_schema_68_save_loads_with_no_wade_remembered() {
 }
 
 #[test]
+fn a_schema_143_save_loads_with_every_boat_made() {
+    // A schema-143 save, from before boats were made by choice (M8b slice CO, third part): every
+    // boat was given whole, so none is being made: one half made then is whole now.
+    let mut sim = load_first();
+    let id = sim.allocate_id_for_tests();
+    let owner = sim
+        .people()
+        .households
+        .iter()
+        .next()
+        .expect("a household")
+        .1
+        .id;
+    let land = sim.land_mut_for_tests();
+    land.boats.list.push(civ_land::boats::Boat {
+        id,
+        vehicle: 0,
+        owner,
+        at: 0,
+        made: 0,
+        wear: 0.0,
+        labour_h: 200.0,
+        work_h: 50.0,
+        saves_h_year: 30.0,
+        crew: (0, 0),
+    });
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V143;
+    let path = republish("slice-co2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-143 save loads");
+    let b = loaded
+        .land()
+        .boats
+        .list
+        .iter()
+        .find(|b| b.id == id)
+        .expect("the boat");
+    assert!(b.made() && b.labour_h == 0.0 && b.work_h == 0.0, "{b:?}");
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_142_save_loads_with_nothing_in_transit() {
     // A schema-142 save, from before goods in transit by boat (M8b slice CO, second part): no
     // load was afloat and no walk went by water.

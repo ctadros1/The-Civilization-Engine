@@ -62,6 +62,8 @@ pub enum Target {
     Ditch(PermanentId),
     /// A palisade, by its enclosure's permanent id: the one raised (M6c slice BK).
     Enclosure(PermanentId),
+    /// A boat, by its permanent id: the one being made (M8b slice CO, third part).
+    Boat(PermanentId),
 }
 
 /// Water for a fire drawn from the household's store at home, not a source (see

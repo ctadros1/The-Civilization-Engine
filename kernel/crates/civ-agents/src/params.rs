@@ -99,11 +99,14 @@ pub enum Behavior {
     /// Go to the hearth on an election's polling day to name one's choices (M7a slice BO,
     /// ADR-0024 §3): only for one of its electorate who heard of it, once.
     Poll,
+    /// Walk to the bank where the household is making a boat, work on it, and walk home (M8b
+    /// slice CO, third part): the activity's numbers, the vehicle's labour.
+    Boat,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 34] = [
+    pub const ALL: [Behavior; 35] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -138,6 +141,7 @@ impl Behavior {
         Behavior::Band,
         Behavior::Palisade,
         Behavior::Poll,
+        Behavior::Boat,
     ];
 
     /// The authored name of a behavior.
@@ -177,6 +181,7 @@ impl Behavior {
             Behavior::Band => "band",
             Behavior::Palisade => "palisade",
             Behavior::Poll => "poll",
+            Behavior::Boat => "boat",
         }
     }
 

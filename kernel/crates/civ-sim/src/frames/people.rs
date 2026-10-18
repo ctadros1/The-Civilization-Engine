@@ -942,6 +942,20 @@ pub fn describe_target(
             }
             None => "a palisade".to_owned(),
         },
+        // A boat being made (M8b slice CO): "the dugout on the bank north of home".
+        Target::Boat(id) => match sim.land.boats.list.iter().find(|b| b.id == id) {
+            Some(b) => {
+                let name = sim
+                    .rules
+                    .catalog
+                    .vehicles
+                    .get(usize::from(b.vehicle))
+                    .map_or_else(|| "boat".to_owned(), |v| v.name.to_lowercase());
+                let at = sim.land.rivers.centre(b.at);
+                format!("the {name} on the bank {} of home", bearing(home, at))
+            }
+            None => "a boat".to_owned(),
+        },
     }
 }
 

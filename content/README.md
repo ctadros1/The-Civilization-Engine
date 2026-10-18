@@ -687,6 +687,12 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 134 (M8b slice CO, third part) brings the activity behaviour `boat`: work on a boat
+the household is making, on the bank where it will be drawn up, until its vehicle's `labour_h` is
+done, no more than its `crew` at once in a day. The core adds `core:activity/work_with_wood_on_dugout`
+(heavy work with an axe, as work on a crossing is; its sessions and effort are tuning values as
+there). The trunk is felled where it is worked, so nothing is taken from the store.
+
 Content API 133 (M8b slice CO, second part) brings a vehicle's `handling_kg_min` (kilograms a
 person loads or unloads a minute; ADR-0029 §5: handling is people's work, 12-05 §2.3's 5-20) and
 `slack_share` (the share of a reach's mean velocity it meets going upstream along the banks,

@@ -230,6 +230,10 @@ fn a_boat_belongs_to_a_household_stands_at_a_bank_ages_and_is_gone_when_spent() 
         at: bank,
         made,
         wear: 0.0,
+        labour_h: 0.0,
+        work_h: 0.0,
+        saves_h_year: 0.0,
+        crew: (0, 0),
     });
     land.boats.changed();
     assert_eq!(sim.land().boats.of(owner).count(), 1);

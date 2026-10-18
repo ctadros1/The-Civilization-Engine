@@ -1359,17 +1359,9 @@ fn offer_stone(sim: &mut Sim, seller: PermanentId, stone: usize, grain: usize) {
     });
 }
 
-/// The scene's buyer with a dugout drawn up at the bank nearest its home, and the seller with
-/// toolstone on offer for grain, a kilogram for a kilogram; the buyer's neighbours want more
-/// toolstone than a person carries, and nobody offers it (M8b slice CO, ADR-0029 §3).
-fn boat_scene() -> (Scene, usize, PermanentId) {
-    // World 4: one camp beside water a dugout floats on, the other a mile and a half from it.
-    let mut sc = scene_in(4);
-    let (a, seller, buyer) = (sc.a, sc.seller, sc.buyer);
-    let sim = &mut sc.sim;
-    let stone = good(sim, "core:good/toolstone");
-    let grain = good(sim, "core:good/grain");
-    let home = sim.people().household(buyer).expect("buyer").home;
+/// The bank nearest household `h`'s home where a dugout floats today, and the dugout's index.
+fn bank_near_home(sim: &Sim, h: PermanentId) -> (u32, usize) {
+    let home = sim.people().household(h).expect("household").home;
     let dugout = sim
         .rules()
         .catalog
@@ -1384,18 +1376,19 @@ fn boat_scene() -> (Scene, usize, PermanentId) {
             land.rivers.floats(sim.map(), c, hyd, q, hull)
         })
         .expect("a bank near home where a dugout floats");
-    let boat = sim.allocate_id_for_tests();
-    let made = sim.now().day_index();
-    let land = sim.land_mut_for_tests();
-    land.boats.list.push(civ_land::boats::Boat {
-        id: boat,
-        vehicle: dugout as u16,
-        owner: buyer,
-        at: bank,
-        made,
-        wear: 0.0,
-    });
-    land.boats.changed();
+    (bank, dugout)
+}
+
+/// The scene's seller with toolstone on offer for grain, a kilogram for a kilogram; the buyer's
+/// neighbours want more toolstone than a person carries, and nobody offers it (M8b slice CO,
+/// ADR-0029 §3). World 4: one camp beside water a dugout floats on, the other a mile and a half
+/// from it.
+fn stone_scene() -> (Scene, usize) {
+    let mut sc = scene_in(4);
+    let (a, seller, buyer) = (sc.a, sc.seller, sc.buyer);
+    let sim = &mut sc.sim;
+    let stone = good(sim, "core:good/toolstone");
+    let grain = good(sim, "core:good/grain");
     set(sim, seller, &[("core:good/toolstone", 900.0)]);
     offer_stone(sim, seller, stone, grain);
     let rules = sim.rules_mut_for_tests().expect("rules of its own");
@@ -1418,6 +1411,31 @@ fn boat_scene() -> (Scene, usize, PermanentId) {
         .find(|m| m.settlement == a)
         .expect("the buyer's market")
         .record_unmet(stone, 300.0, 300.0 * 2.0);
+    (sc, stone)
+}
+
+/// The stone scene with the buyer's dugout drawn up at the bank nearest its home.
+fn boat_scene() -> (Scene, usize, PermanentId) {
+    let (mut sc, stone) = stone_scene();
+    let buyer = sc.buyer;
+    let sim = &mut sc.sim;
+    let (bank, dugout) = bank_near_home(sim, buyer);
+    let boat = sim.allocate_id_for_tests();
+    let made = sim.now().day_index();
+    let land = sim.land_mut_for_tests();
+    land.boats.list.push(civ_land::boats::Boat {
+        id: boat,
+        vehicle: dugout as u16,
+        owner: buyer,
+        at: bank,
+        made,
+        wear: 0.0,
+        labour_h: 0.0,
+        work_h: 0.0,
+        saves_h_year: 0.0,
+        crew: (0, 0),
+    });
+    land.boats.changed();
     (sc, stone, boat)
 }
 
@@ -1499,6 +1517,127 @@ fn a_household_with_a_boat_fetches_a_boat_load_by_water_carried_home_in_transit(
     );
     // The boat is home, someone of the household is not afloat.
     assert_eq!(sim.land().boats.list[0].at, bank);
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+    saves_and_goes_on_alike(&mut sim, 60);
+}
+
+#[test]
+fn a_household_that_finds_a_boat_would_save_it_more_than_it_takes_makes_one_and_fetches_by_it() {
+    let (sc, stone) = stone_scene();
+    let Scene {
+        mut sim,
+        seller,
+        buyer,
+        ..
+    } = sc;
+    let (bank, dugout) = bank_near_home(&sim, buyer);
+    // A smaller labour than the content's, so the test runs in days, not weeks.
+    let rules = sim.rules_mut_for_tests().expect("rules of its own");
+    rules.catalog.vehicles[dugout].labour_h = 24.0;
+    set(&mut sim, buyer, &[("core:good/axe", 2.0)]);
+    let grain = good(&sim, "core:good/grain");
+    // At its review it plans the errand on foot, and finds a boat would bring far more.
+    assert!(sim.land().boats.list.is_empty());
+    past_review(&mut sim, buyer);
+    let errand = *sim
+        .people()
+        .reports
+        .errands
+        .get(&buyer)
+        .expect("an errand is planned");
+    assert!(errand.by_boat.is_none(), "no boat yet: {errand:?}");
+    let begun = sim.land().boats.list.clone();
+    assert_eq!(begun.len(), 1, "a boat begun");
+    let b = &begun[0];
+    assert_eq!(
+        (b.owner, b.at, usize::from(b.vehicle)),
+        (buyer, bank, dugout)
+    );
+    assert!(!b.made() && b.work_h == 0.0 && (b.labour_h - 24.0).abs() < 1e-3);
+    assert!(
+        f64::from(b.saves_h_year) * sim.rules().catalog.vehicles[dugout].life_years > 24.0,
+        "worth more than it takes: {b:?}"
+    );
+    let boat = b.id;
+    // Saved and loaded while it is being made, the world goes on alike.
+    saves_and_goes_on_alike(&mut sim, 60);
+    // Its people work on it until it is made; then the chronicle says so.
+    let mut worked = false;
+    for _ in 0..40 * 24 * 6 {
+        offer_stone(&mut sim, seller, stone, grain);
+        sim.advance_minutes(10).expect("advances");
+        worked |= sim.people().people.iter().any(|(_, p)| {
+            p.household == buyer && p.act.target == civ_agents::person::Target::Boat(boat)
+        });
+        if sim
+            .land()
+            .boats
+            .list
+            .iter()
+            .any(|b| b.id == boat && b.made())
+        {
+            break;
+        }
+    }
+    assert!(worked, "someone of the household worked on it");
+    let made = sim
+        .land()
+        .boats
+        .list
+        .iter()
+        .find(|b| b.id == boat)
+        .expect("the boat");
+    assert!(made.made(), "made: {made:?}");
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|e| e.kind == civ_agents::ChronicleKind::BoatMade),
+        "the chronicle tells it"
+    );
+    // No second one is begun.
+    assert_eq!(sim.land().boats.of(buyer).count(), 1);
+    // An errand it plans once the water carries the boat both ways goes by the boat it made,
+    // its neighbours wanting toolstone as they did (what it fetched on foot meanwhile is sold or
+    // put by).
+    let a = sim
+        .people()
+        .household(buyer)
+        .and_then(|x| x.settlement)
+        .expect("home");
+    let mut by_boat = None;
+    for _ in 0..12 {
+        set(&mut sim, buyer, &[("core:good/toolstone", 0.0)]);
+        if let Some((_, x)) = sim
+            .people_mut_for_tests()
+            .households
+            .iter_mut()
+            .find(|(_, x)| x.id == buyer)
+        {
+            x.offers.retain(|o| usize::from(o.good) != stone);
+        }
+        sim.people_mut_for_tests()
+            .markets
+            .iter_mut()
+            .find(|m| m.settlement == a)
+            .expect("the buyer's market")
+            .record_unmet(stone, 300.0, 300.0 * 2.0);
+        past_review(&mut sim, buyer);
+        by_boat = sim
+            .people()
+            .reports
+            .errands
+            .get(&buyer)
+            .and_then(|e| e.by_boat);
+        if by_boat.is_some() {
+            break;
+        }
+    }
+    assert_eq!(
+        by_boat.map(|w| w.boat),
+        Some(boat),
+        "an errand by the boat it made"
+    );
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
     saves_and_goes_on_alike(&mut sim, 60);
 }

@@ -122,7 +122,7 @@ use super::{
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
-    SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, finish, section, section_root,
+    SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, finish, section, section_root,
     single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
@@ -633,6 +633,8 @@ enum Schema {
     /// Goods in transit by boat (M8b slice CO: paddle and handling steps, trips afloat, an
     /// errand's way by boat, the `consignments` section).
     V143,
+    /// Boats being made (M8b slice CO: a boat's labour, work and crew, a boat as a target).
+    V144,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -790,7 +792,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V140 => Schema::V140,
         SCHEMA_V141 => Schema::V141,
         SCHEMA_V142 => Schema::V142,
-        SAVE_SCHEMA_VERSION => Schema::V143,
+        SCHEMA_V143 => Schema::V143,
+        SAVE_SCHEMA_VERSION => Schema::V144,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1046,7 +1049,7 @@ pub(super) fn decode<R: Read + Seek>(
     // Boats (schema 142); before, none.
     if schema >= Schema::V142 {
         let bytes = single_chunk(reader, SECTION_BOATS)?;
-        land.boats = decode_boats(&bytes, rules, map)?;
+        land.boats = decode_boats(&bytes, rules, map, schema)?;
     }
     // Goods in transit (schema 143); before, none.
     if schema >= Schema::V143 {
@@ -3445,6 +3448,7 @@ fn target_parts(t: Target) -> (save::TargetKind, u32, u64) {
         Target::Bank(b) => (save::TargetKind::Bank, 0, b.get()),
         Target::Ditch(d) => (save::TargetKind::Ditch, 0, d.get()),
         Target::Enclosure(e) => (save::TargetKind::Enclosure, 0, e.get()),
+        Target::Boat(b) => (save::TargetKind::Boat, 0, b.get()),
     }
 }
 
@@ -3488,6 +3492,7 @@ fn target_of(
         save::TargetKind::Bank => Target::Bank(required(id, "a bank target")?),
         save::TargetKind::Ditch => Target::Ditch(required(id, "a ditch target")?),
         save::TargetKind::Enclosure => Target::Enclosure(required(id, "a palisade target")?),
+        save::TargetKind::Boat => Target::Boat(required(id, "a boat target")?),
         other => {
             return Err(LoadError::Malformed(format!(
                 "an activity has target kind {}",
@@ -4573,7 +4578,8 @@ fn carried(
         | Schema::V140
         | Schema::V141
         | Schema::V142
-        | Schema::V143 => {
+        | Schema::V143
+        | Schema::V144 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4889,7 +4895,8 @@ fn decode_households(
             | Schema::V140
             | Schema::V141
             | Schema::V142
-            | Schema::V143 => {
+            | Schema::V143
+            | Schema::V144 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -6099,6 +6106,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::ElectionHeld => 59,
         ChronicleKind::AllianceMade => 60,
         ChronicleKind::CoinStruck => 61,
+        ChronicleKind::BoatMade => 62,
     }
 }
 
@@ -6165,6 +6173,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         59 => Some(ChronicleKind::ElectionHeld),
         60 => Some(ChronicleKind::AllianceMade),
         61 => Some(ChronicleKind::CoinStruck),
+        62 => Some(ChronicleKind::BoatMade),
         _ => None,
     }
 }
@@ -10979,6 +10988,11 @@ fn encode_boats(land: &Land, rules: &Rules) -> Vec<u8> {
                     at: b.at,
                     made: b.made,
                     wear: b.wear,
+                    labour_h: b.labour_h,
+                    work_h: b.work_h,
+                    saves_h_year: b.saves_h_year,
+                    crew_day: b.crew.0,
+                    crew: b.crew.1,
                 },
             )
         })
@@ -11000,6 +11014,7 @@ fn decode_boats(
     bytes: &[u8],
     rules: &Rules,
     map: &WorldMap,
+    schema: Schema,
 ) -> Result<civ_land::boats::Boats, LoadError> {
     use civ_land::boats::{Boat, Boats};
     let root = section_root::<save::BoatsSave>(bytes).map_err(|e| unreadable(SECTION_BOATS, &e))?;
@@ -11015,6 +11030,8 @@ fn decode_boats(
                 "boat {id} stands off the map"
             )));
         }
+        // Before schema 144 every boat was given whole: none was being made.
+        let making = schema >= Schema::V144;
         list.push(Boat {
             id,
             vehicle: vehicle as u16,
@@ -11022,6 +11039,14 @@ fn decode_boats(
             at: b.at(),
             made: b.made(),
             wear: b.wear(),
+            labour_h: if making { b.labour_h() } else { 0.0 },
+            work_h: if making { b.work_h() } else { 0.0 },
+            saves_h_year: if making { b.saves_h_year() } else { 0.0 },
+            crew: if making {
+                (b.crew_day(), b.crew())
+            } else {
+                (0, 0)
+            },
         });
     }
     let boats = Boats::from_saved(list, root.revision());

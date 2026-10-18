@@ -88,6 +88,9 @@ pub struct Facts {
     pub well: Option<WellFacts>,
     /// The flood bank their polity is building, if they may work on it (M6b slice BG).
     pub levee: Option<LeveeFacts>,
+    /// The boat their household is making, if it is within their reach (M8b slice CO, third
+    /// part).
+    pub boat: Option<BoatFacts>,
     /// The irrigation ditch their household is digging to its field, if any (M6b slice BG).
     pub ditch: Option<DitchFacts>,
     /// The palisade their polity is raising, if they may work on it (M6c slice BK).
@@ -183,6 +186,20 @@ pub struct CrossingFacts {
     pub saves_per_hour: f64,
     pub duty: f64,
     /// As many as there is room for have begun work on it today (M5c slice AX).
+    pub full: bool,
+}
+
+/// A boat someone's household is making on the bank where it will be drawn up (M8b slice CO,
+/// third part; ADR-0029 §2): where, the walk there from home, the hours of a capable adult's work
+/// it still takes, the hours of walking each hour of that work saves the household over the
+/// boat's life, and whether as many as may work on it at once have begun today.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BoatFacts {
+    pub boat: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub left_h: f64,
+    pub saves_per_hour: f64,
     pub full: bool,
 }
 
@@ -852,6 +869,10 @@ pub fn candidates(
         // So is work on a crossing to all but those whose household is building one (M5c slice
         // AW).
         if def.behavior == Behavior::Bridge && f.crossing.is_none() {
+            continue;
+        }
+        // And work on a boat to all but those whose household is making one (M8b slice CO).
+        if def.behavior == Behavior::Boat && f.boat.is_none() {
             continue;
         }
         // And work on a well to all but those whose household is digging or relining one (M6a
@@ -1731,6 +1752,25 @@ pub fn candidates(
                     Err(why) => excluded.push((id, why)),
                 }
             }
+            Behavior::Boat => {
+                // Work on the boat the household is making (M8b slice CO, third part), as on its
+                // crossing: each hour worth the walking the boat saves it over its life.
+                let Some(c) = f.boat else {
+                    continue;
+                };
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: c.saves_per_hour,
+                    duty: 0.0,
+                    full: c.full,
+                };
+                match session_at_site(def, w, f, &site, Reason::Boat, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Boat(c.boat), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
+                }
+            }
             Behavior::Well => {
                 // Work on the household's well (M6a slice AY, step three), as on its crossing.
                 let Some(c) = f.well else {
@@ -2271,6 +2311,7 @@ mod tests {
             crossing: None,
             well: None,
             levee: None,
+            boat: None,
             enclosure: None,
             ditch: None,
             band: None,

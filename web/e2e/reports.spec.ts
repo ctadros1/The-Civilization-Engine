@@ -40,8 +40,12 @@ test("the inspector lists the prices a household has heard of in another settlem
       await page.getByRole("button", { name: "Pause" }).click();
     }
 
-    // Someone whose household has heard of prices elsewhere.
+    // Someone whose household has heard of prices elsewhere. The people arrive apart from the
+    // settlements: under a loaded run of the whole suite they may not have when both settlements
+    // have (2026-10-18), so wait for the two groups of thirty.
+    await page.waitForFunction(() => window.__TCE__.briefs().length >= 50, undefined, { timeout: 60_000 });
     const ids = (await page.evaluate(() => window.__TCE__.briefs())).map((b) => b.id);
+    console.log(`people to look through: ${ids.length}`);
     let heard: string[] = [];
     for (const id of ids) {
       await page.evaluate((x) => window.__TCE__.select(x), id);

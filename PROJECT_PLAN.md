@@ -4084,6 +4084,37 @@ and M6a gives rivers a daily flow.
         24, no wire change (the inspector says "paddling the household's boat"). **Not yet:**
         anyone making a boat (the third part), boats for one's own purchases, fishing, ferrying
         and owed goods, loads left afloat fetched again, and the observer's view of boats.
+      - *Third part, as built (2026-10-18): making a dugout by choice.* **The choice**: a
+        household with no boat, made or being made, that could make one (a member knows its
+        vehicle's technique, the household holds its tool, and the water carries one today at a
+        bank within the work's 30-minute walk of home) prices, as it plans an errand to resell at
+        its review, each report also by the boat it would have there: the hours a boat load keeps
+        it beyond what the walk keeps. The best of them, taken as one errand a review, is the
+        hours a year the boat would save; where that over the vehicle's life is more than making
+        one takes, the household begins one on that bank (`Boat.labour_h`, `work_h`,
+        `saves_h_year`). **The work** is a new behaviour, `boat` (content API 134; the core's
+        `work_with_wood_on_dugout`, heavy work with an axe, as work on a crossing is): weighed as
+        work on a crossing, each hour of it worth the hours it saves over the boat's life for each
+        hour of its making, no more than the vehicle's `crew` at once in a day; it practises the
+        vehicle's skill. The trunk is felled where it is worked, so nothing is taken from the
+        store. Once its labour is done the boat is made on that day, starts to age, and the
+        chronicle says so (`BoatMade`); only a made boat is paddled or planned for. **What it
+        comes to:** in river valley 4 the household of five whose camp is 40 m from water a
+        dugout floats on, told of toolstone in the other camp that its neighbours want, planned
+        the errand on foot, found the boat would keep it some 350 hours an errand beyond the walk
+        (the test's neighbours value the stone at two hours a kilogram), began a dugout that day,
+        and made it in 17 days, at most three working on it a day (the content's 200 hours, some
+        25 person-days, as its prior says); an errand planned once the water carried the boat both
+        ways went by it. Saved and loaded while it was being made, it went on alike. **Exact:** a
+        world where no household finds a boat worth making lives as before: the bench's village of
+        three settlements, 30 days in both modes, with the content's new activity or without it,
+        has the same time use, ties and every other count, and the same digests in every section
+        but those that carry the dictionary of activity ids (people, receipts, workshops) and the
+        content's own; nobody began a boat there. **Boundary:** saves schema 144 (a boat's labour, work, expected saving
+        and crew, a boat as a target; boats in older saves were given whole and load made),
+        content API 134, no wire change (the inspector says "the dugout on the bank north of
+        home"). **Not yet:** a boat of a household that is gone (it stays where it is),
+        repairing or replacing a boat, and the observer's view of boats.
     - **CP**: handcarts on ways: the wheel technique and handcart, passability by width, grade and
       deck, the way graph with door legs, mode choice by the complete chain, clearance and
       turning back.

@@ -202,6 +202,9 @@ pub enum Reason {
     /// Excluded: an embargo they keep forbids buying at the doors the trip would go to (M7c slice
     /// BV, ADR-0026 §1).
     Embargo = 154,
+    /// The carrying a boat the household is making would save its people over the boat's life,
+    /// for the work this session puts into it (M8b slice CO, third part).
+    Boat = 155,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -213,7 +216,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 88] = [
+    pub const ALL: [Reason; 89] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -302,6 +305,7 @@ impl Reason {
         Reason::NoPoll,
         Reason::Campaign,
         Reason::Embargo,
+        Reason::Boat,
     ];
 
     /// The reason with this code.
@@ -402,6 +406,7 @@ impl Reason {
             Reason::NoPoll => "no election they heard of polls now",
             Reason::Campaign => "telling the hearth that they stand, and where",
             Reason::Embargo => "an embargo they keep forbids buying there",
+            Reason::Boat => "the carrying a boat would save",
         }
     }
 }
@@ -862,6 +867,10 @@ pub enum ChronicleKind {
     /// slice CE, ADR-0027 §6): `people` is its keeper, `settlement` the polity's seat, `place` its
     /// hearth, `number` the pieces struck, and `name` the sentence.
     CoinStruck,
+    /// A household finished making a boat (M8b slice CO, third part): `people` is who finished
+    /// it, `settlement` the household's, `place` the bank where it is drawn up, and `name` the
+    /// sentence.
+    BoatMade,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1520,7 +1529,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::ElectionCalled
         | ChronicleKind::ElectionHeld
         | ChronicleKind::AllianceMade
-        | ChronicleKind::CoinStruck => {
+        | ChronicleKind::CoinStruck
+        | ChronicleKind::BoatMade => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

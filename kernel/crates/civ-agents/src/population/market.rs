@@ -10,6 +10,7 @@ use civ_core::time::{DAYS_PER_YEAR, SimTime};
 use civ_land::LandParams;
 use civ_world::nav::TravelField;
 
+use super::boating::BoatItCouldMake;
 use super::{Ctx, Population, cell_of, fuel_per_day, stores_now};
 use crate::condition;
 use crate::decide::{TradeOption, TradeWorth};
@@ -40,7 +41,6 @@ pub(crate) const LANDING_WALK_M: f32 = 3_000.0;
 
 /// A way by boat to a seller's door, as an errand prices it.
 struct BoatWay {
-    boat: PermanentId,
     from: u32,
     to: u32,
     /// Hours to the boat and back, by water there and back, and from the landing to the door and
@@ -757,7 +757,22 @@ impl Population {
                 }
             }
             // What it might fetch from elsewhere to sell at home (M5b slice AQ, ADR-0019 §6).
-            let errand = self.plan_errand(ctx, hh, &stores, &costs, &holding, &offered);
+            let (errand, wish) = self.plan_errand(ctx, hh, &stores, &costs, &holding, &offered);
+            // A boat it could make that would save it more over its life than making it takes
+            // (M8b slice CO, third part): an errand a review, the hours it would keep beyond the
+            // walk's on the best of them.
+            if let Some((could, gain_h)) = wish {
+                let saves_h_year = gain_h * DAYS_PER_YEAR as f64 / review_days as f64;
+                if ctx
+                    .catalog
+                    .vehicles
+                    .get(could.vehicle)
+                    .is_some_and(|v| saves_h_year * v.life_years > v.labour_h)
+                {
+                    self.boat_wishes
+                        .push((id, could.vehicle, could.bank, saves_h_year as f32));
+                }
+            }
             // A privilege that binds it, kept, withdraws the offers it covers, and one who keeps
             // a staple fetches no such goods to sell (M7c slice BX).
             let (rows, staples) = self.keep_privileges(ctx, id, rows);
@@ -1787,23 +1802,27 @@ impl Population {
         costs: &[Option<f64>],
         holding: &Holding,
         offered: &[(usize, f64)],
-    ) -> Option<Errand> {
+    ) -> (Option<Errand>, Option<(BoatItCouldMake, f64)>) {
         let reports = self.reports.of(hh.id);
         if reports.is_empty() {
-            return None;
+            return (None, None);
         }
-        let fetch = ctx
+        let Some(fetch) = ctx
             .catalog
             .activities
             .iter()
-            .find(|a| a.behavior == crate::params::Behavior::Fetch)?;
-        let home = hh.settlement?;
-        let market = self.market(home)?;
+            .find(|a| a.behavior == crate::params::Behavior::Fetch)
+        else {
+            return (None, None);
+        };
+        let Some((home, market)) = hh.settlement.and_then(|s| Some((s, self.market(s)?))) else {
+            return (None, None);
+        };
         let (params, goods, day) = (ctx.params, &ctx.catalog.goods, ctx.now.day_index());
         let mp = &params.market;
         let pace = params.nav.tobler_ms(0.0) * params.nav.offtrail_factor;
         if pace <= 0.0 {
-            return None;
+            return (None, None);
         }
         let trade_h = f64::from(fetch.min_minutes) / 60.0;
         let memory = mp.memory_days.max(1e-6);
@@ -1848,6 +1867,10 @@ impl Population {
             })
         };
         let (mut best, mut best_net): (Option<Errand>, Option<f64>) = (None, None);
+        // A boat it has none of but could make (M8b slice CO, third part), and the most hours
+        // one would keep it beyond the walk on any errand.
+        let could = self.boat_it_could_make(ctx, hh, stores);
+        let mut gain_h = 0.0f64;
         for r in reports.iter().filter(|r| r.market != home && r.units > 0.0) {
             let (g, p) = (usize::from(r.good), usize::from(r.payment));
             let (Some(d), Some(pd)) = (goods.get(g), goods.get(p)) else {
@@ -1915,30 +1938,45 @@ impl Population {
             // By the household's boat (M8b slice CO, ADR-0029 §3): hours against hours, the
             // whole chain (to the boat, the water both ways, from the landing to the door,
             // handling at each end) against the walk, a boat's load against a hand load.
+            // Each kilogram is loaded and unloaded, and carried a hand load at a time between
+            // the door and the boat at each end, there and back.
+            let afloat = |w: &BoatWay| {
+                let handle_h = 1.0 / (w.handling_kg_min * 60.0);
+                let load_h = handle_h + 2.0 * w.far_walk_h / carry;
+                let unload_h = handle_h + 2.0 * w.home_walk_h / carry;
+                (w.travel_h * 30.0 <= f64::from(fetch.max_walk_minutes))
+                    .then(|| priced(w.payload_kg, w.travel_h, load_h + unload_h))
+                    .flatten()
+                    .map(|o| (o, load_h, unload_h))
+            };
             let by_boat = (!tool)
                 .then(|| self.boat_way(ctx, hh, at, pace))
                 .flatten()
-                .filter(|w| w.travel_h * 30.0 <= f64::from(fetch.max_walk_minutes))
-                .and_then(|w| {
-                    // Each kilogram is loaded and unloaded, and carried a hand load at a time
-                    // between the door and the boat at each end, there and back.
-                    let handle_h = 1.0 / (w.handling_kg_min * 60.0);
-                    let load_h = handle_h + 2.0 * w.far_walk_h / carry;
-                    let unload_h = handle_h + 2.0 * w.home_walk_h / carry;
-                    priced(w.payload_kg, w.travel_h, load_h + unload_h).map(
-                        |(units, net, share)| {
-                            let way = crate::reports::ByBoat {
-                                boat: w.boat,
-                                from: w.from,
-                                to: w.to,
-                                travel_min: (w.travel_h * 60.0) as f32,
-                                load_min: (units * load_h * 60.0) as f32,
-                                unload_min: (units * unload_h * 60.0) as f32,
-                            };
-                            ((units, net, share), Some(way))
-                        },
-                    )
+                .and_then(|(boat, w)| {
+                    afloat(&w).map(|((units, net, share), load_h, unload_h)| {
+                        let way = crate::reports::ByBoat {
+                            boat,
+                            from: w.from,
+                            to: w.to,
+                            travel_min: (w.travel_h * 60.0) as f32,
+                            load_min: (units * load_h * 60.0) as f32,
+                            unload_min: (units * unload_h * 60.0) as f32,
+                        };
+                        ((units, net, share), Some(way))
+                    })
                 });
+            // By a boat it could make: the hours it would keep beyond what the walk keeps.
+            if let Some(c) = could.as_ref().filter(|_| !tool)
+                && let Some(((units, net, _), _, _)) = ctx
+                    .catalog
+                    .vehicles
+                    .get(c.vehicle)
+                    .and_then(|v| self.way_by_water(ctx, hh, v, c.bank, at, pace))
+                    .and_then(|w| afloat(&w))
+            {
+                let walked = on_foot.map_or(0.0, |((u, n, _), _)| u * n);
+                gain_h = gain_h.max((units * net - walked) * home_h);
+            }
             let chosen = match (on_foot, by_boat) {
                 (Some(a), Some(b)) => Some(if b.0.1 > a.0.1 + 1e-9 { b } else { a }),
                 (a, b) => a.or(b),
@@ -1962,36 +2000,56 @@ impl Population {
                 });
             }
         }
-        best
+        (best, could.filter(|_| gain_h > 0.0).map(|c| (c, gain_h)))
     }
 
     /// The way by household `hh`'s boat to the bank nearest a seller's door at `at`, open both
     /// ways by water today (M8b slice CO): None without a boat, a bank within
     /// [`LANDING_WALK_M`] of the door, or a way there and back. Walks are at `pace`.
-    fn boat_way(&self, ctx: &Ctx, hh: &Household, at: (f32, f32), pace: f64) -> Option<BoatWay> {
-        let b = ctx.land.boats.of(hh.id).next()?;
+    fn boat_way(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        at: (f32, f32),
+        pace: f64,
+    ) -> Option<(PermanentId, BoatWay)> {
+        let b = ctx.land.boats.made_of(hh.id).next()?;
         let v = ctx.catalog.vehicles.get(usize::from(b.vehicle))?;
+        self.way_by_water(ctx, hh, v, b.at, at, pace)
+            .map(|w| (b.id, w))
+    }
+
+    /// The way by a boat of vehicle `v` drawn up at bank `from` to the bank nearest a seller's
+    /// door at `at`, as [`Population::boat_way`] finds it.
+    fn way_by_water(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+        v: &crate::params::VehicleDef,
+        from: u32,
+        at: (f32, f32),
+        pace: f64,
+    ) -> Option<BoatWay> {
         let hull = v.hull();
         let rivers = &ctx.land.rivers;
         let (hyd, q) = (&ctx.land.floodplain.reaches, &ctx.land.reach_discharges);
         // Where the water carries a boat today, nearest the door.
         let to = rivers.nearest_bank(at, LANDING_WALK_M, |c| {
-            c != b.at && rivers.floats(ctx.map, c, hyd, q, hull)
+            c != from && rivers.floats(ctx.map, c, hyd, q, hull)
         })?;
-        let home_cells = rivers.boarding(ctx.map, b.at);
+        let home_cells = rivers.boarding(ctx.map, from);
         let far_cells = rivers.boarding(ctx.map, to);
         let there = rivers.route(hyd, q, hull, &home_cells, &far_cells)?;
         let back = rivers.route(hyd, q, hull, &far_cells, &home_cells)?;
         let walk_h =
             |a: (f32, f32), z: (f32, f32)| f64::from((a.0 - z.0).hypot(a.1 - z.1)) / pace / 3600.0;
         let (home_walk_h, far_walk_h) = (
-            walk_h(hh.home, rivers.centre(b.at)),
+            walk_h(hh.home, rivers.centre(from)),
             walk_h(rivers.centre(to), at),
         );
         let travel_h = 2.0 * (home_walk_h + far_walk_h) + (there.seconds + back.seconds) / 3600.0;
         Some(BoatWay {
-            boat: b.id,
-            from: b.at,
+            from,
             to,
             travel_h,
             home_walk_h,
@@ -2023,7 +2081,7 @@ impl Population {
             Some(b) => {
                 ctx.land
                     .boats
-                    .of(hh.id)
+                    .made_of(hh.id)
                     .find(|x| x.id == b.boat && x.at == b.from)?;
                 let rivers = &ctx.land.rivers;
                 let legs = crate::decide::BoatLegs {

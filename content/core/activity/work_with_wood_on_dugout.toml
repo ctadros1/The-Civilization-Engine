@@ -1,0 +1,20 @@
+# Work on a boat the household is making (M8b slice CO, third part; ADR-0029 §2; research 07-08
+# §2.1): felling a trunk on the bank, shaping and hollowing it with axes and controlled burning,
+# all labour where the boat will be drawn up. Heavy work, as building a crossing is; effort, ages
+# and session lengths are tuning values as there. The work a boat takes is its vehicle's. Its id
+# sorts after every older activity's: activities are kept in id order.
+kind = "activity"
+id = "core:activity/work_with_wood_on_dugout"
+name = "Work on a boat"
+doing = "making a boat"
+behavior = "boat"
+par = 4.5
+min_age_years = 12.0
+max_age_years = 65.0
+min_minutes = 60
+max_minutes = 240
+daylight_only = true
+max_walk_minutes = 30
+technique = ""
+tools = ["core:good/axe"]
+rate = 1.0

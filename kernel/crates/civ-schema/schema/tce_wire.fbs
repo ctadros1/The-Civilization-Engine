@@ -1379,6 +1379,10 @@ table BuildingInfo {
   fire: ubyte (id: 45);
   fire_id: uint (id: 46);
   fire_words: string (id: 47);
+  // Wire 1.87 (M8c slice CS, third part; ADR-0030 §1): why its household chose its plot, from
+  // the plot's receipt ("chosen over 5 others: 34 hours less walking and levelling over five
+  // years than the next best"); empty where nothing was weighed (built before plots kept why).
+  site: string (id: 48);
 }
 
 table Buildings {

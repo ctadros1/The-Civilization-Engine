@@ -3025,3 +3025,9 @@ built before anyone had been anywhere. The first trial let homes drift toward a 
 settlement people traded with. That is a move between settlements, so homes now stay within a
 field's walk of their own hearth. A second catch: a world saved halfway through a day chose
 differently once loaded, so the day's trips now count from the next midnight.
+
+## 2026-10-18 — CS, third part: why here
+
+**Built:** a building's readout in the observer now ends with why its household chose that
+spot: how many other sites it weighed, and how many hours of walking and levelling it saved
+over the next best. Slice CS is closed.

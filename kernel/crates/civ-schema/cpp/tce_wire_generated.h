@@ -13074,7 +13074,8 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_STYLE_FROM = 92,
     VT_FIRE = 94,
     VT_FIRE_ID = 96,
-    VT_FIRE_WORDS = 98
+    VT_FIRE_WORDS = 98,
+    VT_SITE = 100
   };
   uint64_t id() const {
     return GetField<uint64_t>(VT_ID, 0);
@@ -13220,6 +13221,9 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::String *fire_words() const {
     return GetPointer<const ::flatbuffers::String *>(VT_FIRE_WORDS);
   }
+  const ::flatbuffers::String *site() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_SITE);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -13291,6 +13295,8 @@ struct BuildingInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint32_t>(verifier, VT_FIRE_ID, 4) &&
            VerifyOffset(verifier, VT_FIRE_WORDS) &&
            verifier.VerifyString(fire_words()) &&
+           VerifyOffset(verifier, VT_SITE) &&
+           verifier.VerifyString(site()) &&
            verifier.EndTable();
   }
 };
@@ -13443,6 +13449,9 @@ struct BuildingInfoBuilder {
   void add_fire_words(::flatbuffers::Offset<::flatbuffers::String> fire_words) {
     fbb_.AddOffset(BuildingInfo::VT_FIRE_WORDS, fire_words);
   }
+  void add_site(::flatbuffers::Offset<::flatbuffers::String> site) {
+    fbb_.AddOffset(BuildingInfo::VT_SITE, site);
+  }
   explicit BuildingInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -13503,7 +13512,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
     uint64_t style_from = 0,
     uint8_t fire = 0,
     uint32_t fire_id = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> fire_words = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> fire_words = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> site = 0) {
   BuildingInfoBuilder builder_(_fbb);
   builder_.add_style_from(style_from);
   builder_.add_firm(firm);
@@ -13511,6 +13521,7 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfo(
   builder_.add_settlement(settlement);
   builder_.add_household(household);
   builder_.add_id(id);
+  builder_.add_site(site);
   builder_.add_fire_words(fire_words);
   builder_.add_fire_id(fire_id);
   builder_.add_style(style);
@@ -13610,7 +13621,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
     uint64_t style_from = 0,
     uint8_t fire = 0,
     uint32_t fire_id = 0,
-    const char *fire_words = nullptr) {
+    const char *fire_words = nullptr,
+    const char *site = nullptr) {
   auto program__ = program ? _fbb.CreateString(program) : 0;
   auto stage_name__ = stage_name ? _fbb.CreateString(stage_name) : 0;
   auto outline__ = outline ? _fbb.CreateVectorOfStructs<tce::wire::Vec2>(*outline) : 0;
@@ -13630,6 +13642,7 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
   auto upkeep__ = upkeep ? _fbb.CreateString(upkeep) : 0;
   auto style__ = style ? _fbb.CreateString(style) : 0;
   auto fire_words__ = fire_words ? _fbb.CreateString(fire_words) : 0;
+  auto site__ = site ? _fbb.CreateString(site) : 0;
   return tce::wire::CreateBuildingInfo(
       _fbb,
       id,
@@ -13679,7 +13692,8 @@ inline ::flatbuffers::Offset<BuildingInfo> CreateBuildingInfoDirect(
       style_from,
       fire,
       fire_id,
-      fire_words__);
+      fire_words__,
+      site__);
 }
 
 struct Buildings FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

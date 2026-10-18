@@ -576,6 +576,10 @@ export interface BuildingInfo {
   fire: BuildingFire;
   fireId: number;
   fireWords: string;
+  /** Wire 1.87 (M8c slice CS): why its household chose its plot, in words rendered by the kernel
+   * ("chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best");
+   * empty where nothing was weighed. */
+  site: string;
 }
 
 /** How a building stands to its latest fire (wire 1.68). */
@@ -3748,6 +3752,7 @@ function buildings(f: W.Buildings): { rev: number; buildings: BuildingInfo[] } {
       fire: BUILDING_FIRES[x.fire()] ?? "none",
       fireId: x.fireId(),
       fireWords: x.fireWords() ?? "",
+      site: x.site() ?? "",
     });
   }
   return { rev: Number(f.rev()), buildings: out };

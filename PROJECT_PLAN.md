@@ -4482,6 +4482,14 @@ and M6a gives rivers a daily flow.
         receipts; the traffic section's trips of the day), content API 140 (`[build]
         site_years`). **Not yet:** the observer's "why here" (the third part), walks by route,
         stores and workshops as choices.
+      - *Third part, as built (2026-10-18): why here, in the observer* (ADR-0030 §8: "a plot's
+        page says why it was chosen"). The building inspector's line ends with what its plot's
+        receipt says, in the kernel's words: "chosen over 5 others: 34 hours less walking and
+        levelling over 5 years than the next best", "chosen over 1 other, about as good as the
+        next best over 5 years", or "built where its household first looked for ground"; nothing
+        for a plot from before receipts. **Boundary:** wire 1.87 (`BuildingInfo.site`); no saves
+        or content change. **Not yet:** what was paid for it (with plans' fees, slice CU) and the
+        land map of receipts (slice CX). Slice CS is closed.
     - **CT, the plan law and its reservations:** `Plan`, a pure layout function and its first
       operations, 3–8 alternatives, forecasts in hours, the issues *no ground*, *a way built
       over* and *new ground*, versions, keepers avoiding reserved ground, encroachments recorded,

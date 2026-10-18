@@ -66,6 +66,7 @@ function hut(over: Partial<BuildingInfo> = {}): BuildingInfo {
     fire: "none",
     fireId: 0,
     fireWords: "",
+    site: "",
     ...over,
   };
 }
@@ -233,6 +234,16 @@ describe("buildings on the map", () => {
     expect([look.posts, look.roofAlpha]).toEqual([20, 0]);
     const marks = buildingMarks(ruin);
     expect(marks.some((m) => m.kind === "circle" && m.r > 1)).toBe(false);
+  });
+
+  it("says why its household built a home where it stands (wire 1.87)", () => {
+    const chosen = hut({
+      stage: 5,
+      roofed: true,
+      site: "chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best",
+    });
+    expect(buildingWords(chosen)).toMatch(/; chosen over 5 others: 34 hours less walking/);
+    expect(buildingWords(hut({ stage: 5, roofed: true }))).not.toMatch(/chosen over/);
   });
 
   it("glow while they burn, show charred once burnt out, and say so in the readout", () => {

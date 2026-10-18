@@ -21523,6 +21523,7 @@ impl<'a> BuildingInfo<'a> {
   pub const VT_FIRE: ::flatbuffers::VOffsetT = 94;
   pub const VT_FIRE_ID: ::flatbuffers::VOffsetT = 96;
   pub const VT_FIRE_WORDS: ::flatbuffers::VOffsetT = 98;
+  pub const VT_SITE: ::flatbuffers::VOffsetT = 100;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -21540,6 +21541,7 @@ impl<'a> BuildingInfo<'a> {
     builder.add_settlement(args.settlement);
     builder.add_household(args.household);
     builder.add_id(args.id);
+    if let Some(x) = args.site { builder.add_site(x); }
     if let Some(x) = args.fire_words { builder.add_fire_words(x); }
     builder.add_fire_id(args.fire_id);
     if let Some(x) = args.style { builder.add_style(x); }
@@ -21922,6 +21924,13 @@ impl<'a> BuildingInfo<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_FIRE_WORDS, None)}
   }
+  #[inline]
+  pub fn site(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInfo::VT_SITE, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
@@ -21978,6 +21987,7 @@ impl ::flatbuffers::Verifiable for BuildingInfo<'_> {
      .visit_field::<u8>("fire", Self::VT_FIRE, false)?
      .visit_field::<u32>("fire_id", Self::VT_FIRE_ID, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("fire_words", Self::VT_FIRE_WORDS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("site", Self::VT_SITE, false)?
      .finish();
     Ok(())
   }
@@ -22031,6 +22041,7 @@ pub struct BuildingInfoArgs<'a> {
     pub fire: u8,
     pub fire_id: u32,
     pub fire_words: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub site: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for BuildingInfoArgs<'a> {
   #[inline]
@@ -22084,6 +22095,7 @@ impl<'a> Default for BuildingInfoArgs<'a> {
       fire: 0,
       fire_id: 0,
       fire_words: None,
+      site: None,
     }
   }
 }
@@ -22286,6 +22298,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingInfoBuilder<'a, 'b, A
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_FIRE_WORDS, fire_words);
   }
   #[inline]
+  pub fn add_site(&mut self, site: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInfo::VT_SITE, site);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingInfoBuilder {
@@ -22351,6 +22367,7 @@ impl ::core::fmt::Debug for BuildingInfo<'_> {
       ds.field("fire", &self.fire());
       ds.field("fire_id", &self.fire_id());
       ds.field("fire_words", &self.fire_words());
+      ds.field("site", &self.site());
       ds.finish()
   }
 }

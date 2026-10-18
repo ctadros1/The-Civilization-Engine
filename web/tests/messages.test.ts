@@ -654,6 +654,7 @@ describe("decoders", () => {
     const upkeep = b.createString("mending the covering, 40% done");
     const style = b.createString("roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut");
     const fireWords = b.createString("fully involved since 02:15, set alight by the observer (one recorded influence)");
+    const site = b.createString("chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best");
     const group = W.GroupInfo.createGroupInfo(
       b,
       0x0700,
@@ -705,6 +706,7 @@ describe("decoders", () => {
     W.BuildingInfo.addFire(b, 2);
     W.BuildingInfo.addFireId(b, 3);
     W.BuildingInfo.addFireWords(b, fireWords);
+    W.BuildingInfo.addSite(b, site);
     const info = W.BuildingInfo.endBuildingInfo(b);
     const list = W.Buildings.createBuildingsVector(b, [info]);
     const buildings = W.Buildings.createBuildings(b, 77n, list);
@@ -776,6 +778,7 @@ describe("decoders", () => {
           fire: "involved",
           fireId: 3,
           fireWords: "fully involved since 02:15, set alight by the observer (one recorded influence)",
+          site: "chosen over 5 others: 34 hours less walking and levelling over 5 years than the next best",
         },
       ],
     });

@@ -123,7 +123,7 @@ use super::{
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
-    SCHEMA_V146, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V146, SCHEMA_V147, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -645,6 +645,8 @@ enum Schema {
     /// Carts meeting by clearance (M8b slice CP, fourth part: waits held at a narrows, facility
     /// kind 2).
     V147,
+    /// Losses on ways (M8b slice CQ, first part: the traffic section's losses).
+    V148,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -806,7 +808,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V144 => Schema::V144,
         SCHEMA_V145 => Schema::V145,
         SCHEMA_V146 => Schema::V146,
-        SAVE_SCHEMA_VERSION => Schema::V147,
+        SCHEMA_V147 => Schema::V147,
+        SAVE_SCHEMA_VERSION => Schema::V148,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -4603,7 +4606,8 @@ fn carried(
         | Schema::V144
         | Schema::V145
         | Schema::V146
-        | Schema::V147 => {
+        | Schema::V147
+        | Schema::V148 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4923,7 +4927,8 @@ fn decode_households(
             | Schema::V144
             | Schema::V145
             | Schema::V146
-            | Schema::V147 => {
+            | Schema::V147
+            | Schema::V148 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -10804,6 +10809,16 @@ fn encode_traffic(t: &civ_agents::traffic::Traffic) -> Vec<u8> {
         })
         .collect();
     let long_waits = (!long_waits.is_empty()).then(|| fbb.create_vector(&long_waits));
+    let losses: Vec<save::TrafficLossSave> = t
+        .losses
+        .iter()
+        .flat_map(|(h, list)| {
+            list.iter().map(move |l| {
+                save::TrafficLossSave::new(h.get(), l.day, l.cell, l.hours, l.times, l.cause.code())
+            })
+        })
+        .collect();
+    let losses = (!losses.is_empty()).then(|| fbb.create_vector(&losses));
     let root = save::TrafficSave::create(
         &mut fbb,
         &save::TrafficSaveArgs {
@@ -10811,6 +10826,7 @@ fn encode_traffic(t: &civ_agents::traffic::Traffic) -> Vec<u8> {
             tallies: Some(tallies),
             waits: Some(waits),
             long_waits,
+            losses,
         },
     );
     finish(fbb, root)
@@ -10873,6 +10889,21 @@ fn decode_traffic(bytes: &[u8]) -> Result<civ_agents::traffic::Traffic, LoadErro
             minutes: w.minutes(),
             ahead: w.ahead(),
         });
+    }
+    for l in root.losses().iter().flatten() {
+        let household = required(l.household(), "a way loss's household")?;
+        let cause = civ_agents::traffic::Cause::from_code(l.cause())
+            .ok_or_else(|| LoadError::Malformed(format!("a way loss of cause {}", l.cause())))?;
+        t.losses
+            .entry(household)
+            .or_default()
+            .push(civ_agents::traffic::Loss {
+                cell: l.cell(),
+                cause,
+                hours: l.hours(),
+                times: l.times(),
+                day: l.day(),
+            });
     }
     if let Some(p) = t.problems().into_iter().next() {
         return Err(LoadError::Malformed(p));

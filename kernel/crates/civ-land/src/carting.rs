@@ -159,6 +159,21 @@ impl crate::Land {
     }
 }
 
+impl crate::Land {
+    /// The climbs on the way `cells` for `wheels` on `map` today, as [`Terrain::climbs`] finds
+    /// them.
+    pub fn cart_climbs(
+        &self,
+        map: &civ_world::WorldMap,
+        wheels: &Wheels,
+        cells: &[u32],
+    ) -> Vec<(u32, f64)> {
+        let decks = self.cart_decks(map);
+        let res = |c: u32| self.cart_resistance(map, c, wheels);
+        self.cart_terrain(map, &decks).climbs(wheels, &res, cells)
+    }
+}
+
 /// The height a deck over water cell `cell` of `map` lies at, metres: the highest dry ground
 /// beside it, where its members bear (the cell's own when none is).
 pub fn deck_height(map: &civ_world::WorldMap, cell: u32) -> f32 {
@@ -375,6 +390,56 @@ impl Terrain<'_> {
 
     /// Seconds for `wheels` to go one step of `metres` from `a` to `b`, on the mean of their
     /// rolling resistances (`ca`, `cb`), at the grade between them; `None` where it cannot.
+    /// The seconds `wheels` take from cell `a` to the neighbouring cell `b` at the grade between
+    /// them, and on the level, at their rolling resistances `ca` and `cb`: None where they cannot
+    /// make the step.
+    fn step_and_level_s(
+        &self,
+        wheels: &Wheels,
+        (a, ca): (u32, f64),
+        (b, cb): (u32, f64),
+    ) -> Option<(f64, f64)> {
+        let w = i64::from(self.width);
+        let (dx, dy) = (
+            i64::from(a) % w - i64::from(b) % w,
+            i64::from(a) / w - i64::from(b) / w,
+        );
+        let metres = self.cell_m * ((dx * dx + dy * dy) as f64).sqrt();
+        if metres <= 0.0 {
+            return None;
+        }
+        let at = self.step_s(wheels, (a, ca), (b, cb), metres)?;
+        let level = wheels.speed(0.5 * (ca + cb), 0.0)?;
+        (level > 0.0).then(|| (at, metres / level))
+    }
+
+    /// The climbs along `cells`, a way for `wheels` (M8b slice CQ, first part; ADR-0029 §6): each
+    /// run of steps they are slower on than they would be on the level, by its first cell, and the
+    /// seconds it costs beyond the level. A step down is never a loss.
+    pub fn climbs(
+        &self,
+        wheels: &Wheels,
+        resistance: &dyn Fn(u32) -> Option<f64>,
+        cells: &[u32],
+    ) -> Vec<(u32, f64)> {
+        let mut out = Vec::new();
+        let mut open: Option<(u32, f64)> = None;
+        for w in cells.windows(2) {
+            let (a, b) = (w[0], w[1]);
+            let lost = resistance(a)
+                .zip(resistance(b))
+                .and_then(|(ca, cb)| self.step_and_level_s(wheels, (a, ca), (b, cb)))
+                .map_or(0.0, |(at, level)| at - level);
+            if lost > 1e-9 {
+                open = Some(open.map_or((a, lost), |(c, s)| (c, s + lost)));
+            } else if let Some(o) = open.take() {
+                out.push(o);
+            }
+        }
+        out.extend(open);
+        out
+    }
+
     fn step_s(
         &self,
         wheels: &Wheels,
@@ -639,6 +704,38 @@ mod tests {
         };
         let over = terrain.route(&light, &all, &[from], &[to]).expect("over");
         assert!(over.metres < route.metres);
+    }
+
+    #[test]
+    fn a_climb_costs_its_extra_pull_by_its_first_cell_and_a_descent_costs_nothing() {
+        // A row of six cells, 10 m apart: level, then up 0.5 m a cell for two steps, level, then
+        // down, then up one step.
+        let elevation = vec![0.0, 0.0, 0.5, 1.0, 1.0, 0.5, 1.0];
+        let water = vec![WATER_LAND; 7];
+        let terrain = Terrain {
+            elevation: &elevation,
+            water: &water,
+            decks: &[],
+            width: 7,
+            height: 1,
+            cell_m: 10.0,
+        };
+        let w = cart();
+        let res = |_| Some(w.way_c);
+        let cells: Vec<u32> = (0..7).collect();
+        let climbs = terrain.climbs(&w, &res, &cells);
+        assert_eq!(climbs.len(), 2, "{climbs:?}");
+        let (first, second) = (climbs[0], climbs[1]);
+        assert_eq!((first.0, second.0), (1, 5));
+        // Each step up 0.5 m in 10 m costs what a 5 % grade does beyond the level.
+        let up = w.speed(w.way_c, 0.05).expect("climbs it");
+        let level = w.speed(w.way_c, 0.0).expect("on the level");
+        let step = 10.0 / up - 10.0 / level;
+        assert!(step > 0.0);
+        assert!((first.1 - 2.0 * step).abs() < 1e-9 && (second.1 - step).abs() < 1e-9);
+        // The level and the way down cost nothing; nor does a way with no climb.
+        assert!(terrain.climbs(&w, &res, &[0, 1]).is_empty());
+        assert!(terrain.climbs(&w, &res, &[3, 4, 5]).is_empty());
     }
 
     #[test]

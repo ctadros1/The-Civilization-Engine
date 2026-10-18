@@ -158,6 +158,21 @@ impl Population {
             return false;
         };
         total_s += waited_s;
+        // What the climbs on it cost beyond the level is remembered where each begins (M8b slice
+        // CQ, first part).
+        let (day, half) = (now.day_index(), params.places.use_half_life_days);
+        for (cell, s) in ctx.land.cart_climbs(ctx.map, &wheels, &route.cells) {
+            if s >= traffic::LEAST_LOSS_S {
+                self.traffic.lost(
+                    household,
+                    cell,
+                    traffic::Cause::Grade,
+                    (s / 3600.0) as f32,
+                    day,
+                    half,
+                );
+            }
+        }
         let duration = (total_s / 60.0).ceil().max(1.0);
         let Some(p) = self.people.get_mut(h) else {
             return false;
@@ -286,11 +301,20 @@ impl Population {
             let wait = traffic::clearance_wait_s(enter_s, leave_s, &others);
             if wait >= 60.0 {
                 if from_door && wait > traffic::TURN_BACK_MIN * 60.0 {
-                    // Turned back at its own door: the wait it would have had is remembered.
+                    // Turned back at its own door: the wait it would have had is remembered,
+                    // and as the way's loss there.
                     self.traffic.waited(
                         household,
                         traffic::Facility::Narrows(run[0]),
                         (wait / 60.0) as f32,
+                        day,
+                        half,
+                    );
+                    self.traffic.lost(
+                        household,
+                        run[0],
+                        traffic::Cause::Width,
+                        (wait / 3600.0) as f32,
                         day,
                         half,
                     );
@@ -317,6 +341,14 @@ impl Population {
             }
             let facility = traffic::Facility::Narrows(cell);
             self.traffic.waited(household, facility, waited, day, half);
+            self.traffic.lost(
+                household,
+                cell,
+                traffic::Cause::Width,
+                waited / 60.0,
+                day,
+                half,
+            );
             if waited >= traffic::LONG_WAIT_MIN {
                 self.traffic.long_wait(traffic::LongWait {
                     id: 0,

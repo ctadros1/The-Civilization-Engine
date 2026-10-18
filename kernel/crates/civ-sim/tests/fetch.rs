@@ -2174,7 +2174,110 @@ fn carts_meet_by_clearance_where_a_way_is_too_narrow_for_two() {
         "{waited}"
     );
     assert!(ends(&sim, sellers[1]) > follower + f64::from(waited) * 0.5);
+    // Each household holds those waits as the way's losses there too (M8b slice CQ), in hours.
+    let lost = |sim: &Sim, h: PermanentId| -> f32 {
+        let day = sim.now().day_index();
+        sim.people()
+            .traffic
+            .losses_held(h, day, sim.rules().people.places.use_half_life_days)
+            .filter(|l| l.cause == civ_agents::traffic::Cause::Width)
+            .map(|l| l.hours)
+            .sum()
+    };
+    assert!((lost(&sim, buyer) - would / 60.0).abs() < 1e-3);
+    assert!((lost(&sim, seller) - waited / 60.0).abs() < 1e-3);
     assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
     // Saved and loaded with the waits held, the world goes on alike.
+    saves_and_goes_on_alike(&mut sim, 60);
+}
+
+#[test]
+fn a_household_remembers_what_the_climbs_on_its_carts_way_cost_where_each_begins() {
+    use civ_agents::traffic::{Cause, LEAST_LOSS_S};
+    let (sc, _stone) = wheels_scene();
+    let Scene {
+        mut sim,
+        seller,
+        buyer,
+        ..
+    } = sc;
+    let handcart = sim
+        .rules()
+        .catalog
+        .vehicle_index("core:vehicle/handcart")
+        .expect("a handcart");
+    let home = |sim: &Sim, h: PermanentId| sim.people().household(h).expect("household").home;
+    let (from, to) = (home(&sim, buyer), home(&sim, seller));
+    let who = sim
+        .people()
+        .household(buyer)
+        .expect("buyer")
+        .members
+        .first()
+        .copied()
+        .expect("a member");
+    let door = civ_agents::population::cell_of(sim.map(), from) as u32;
+    let today = sim.now().day_index();
+    let id = sim.allocate_id_for_tests();
+    {
+        let land = sim.land_mut_for_tests();
+        land.carts.list.push(civ_land::boats::Boat {
+            id,
+            vehicle: handcart as u16,
+            owner: buyer,
+            at: door,
+            made: today,
+            wear: 0.0,
+            labour_h: 0.0,
+            work_h: 0.0,
+            saves_h_year: 0.0,
+            crew: (0, 0),
+        });
+        land.carts.changed();
+    }
+    if let Some((_, p)) = sim
+        .people_mut_for_tests()
+        .people
+        .iter_mut()
+        .find(|(_, p)| p.id == who)
+    {
+        p.pos = from;
+    }
+    // A weak puller, so the village's small rises cost the cart what a steep hill would cost a
+    // strong one.
+    let rules = sim.rules_mut_for_tests().expect("rules of its own");
+    rules.catalog.vehicles[handcart].power_w /= 20.0;
+    // The climbs on the way the empty cart will take, as the haul will find them.
+    let walk = sim.rules().people.nav.tobler_ms(0.0);
+    let wheels = sim.rules().catalog.vehicles[handcart].wheels(0.0, walk);
+    let (route, _) = sim
+        .land()
+        .cart_way(sim.map(), &wheels, from, to)
+        .expect("a way for wheels");
+    // Held in cell order.
+    let mut climbs: Vec<(u32, f64)> = sim
+        .land()
+        .cart_climbs(sim.map(), &wheels, &route.cells)
+        .into_iter()
+        .filter(|&(_, s)| s >= LEAST_LOSS_S)
+        .collect();
+    climbs.sort_by_key(|&(c, _)| c);
+    assert!(!climbs.is_empty(), "the way climbs somewhere");
+    assert!(sim.with_ctx_for_tests(|pop, ctx| pop.haul_for_tests(ctx, who, to)));
+    let day = sim.now().day_index();
+    let half = sim.rules().people.places.use_half_life_days;
+    let held: Vec<(u32, f32)> = sim
+        .people()
+        .traffic
+        .losses_held(buyer, day, half)
+        .filter(|l| l.cause == Cause::Grade)
+        .map(|l| (l.cell, l.hours))
+        .collect();
+    assert_eq!(held.len(), climbs.len(), "{held:?} against {climbs:?}");
+    for ((c, h), (cc, s)) in held.iter().zip(&climbs) {
+        assert_eq!(c, cc);
+        assert!((f64::from(*h) - s / 3600.0).abs() < 1e-6);
+    }
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
     saves_and_goes_on_alike(&mut sim, 60);
 }

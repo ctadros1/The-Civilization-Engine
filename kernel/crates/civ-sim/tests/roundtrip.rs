@@ -2374,6 +2374,19 @@ fn a_schema_68_save_loads_with_no_wade_remembered() {
 }
 
 #[test]
+fn a_schema_147_save_loads_and_goes_on() {
+    // A schema-147 save, from before households held the hours their trips lost on ways (M8b
+    // slice CQ, first part): it loads holding none.
+    let sim = load_first();
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V147;
+    let path = republish("slice-cp4", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-147 save loads");
+    assert_eq!(loaded.people().traffic, sim.people().traffic);
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_146_save_loads_and_goes_on() {
     // A schema-146 save, from before carts met by clearance (M8b slice CP, fourth part): no
     // household holds a wait at a narrows, and it loads as it was.

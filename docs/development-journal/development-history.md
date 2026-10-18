@@ -2940,3 +2940,15 @@ with age. Pointing at one says whose it is, how far it is made and what it carri
 **What it comes to:** you can watch a household's cart go to a neighbour's door and come back
 loaded. Nothing in the simulation changed for this; the map only reads what is already there.
 
+## 2026-10-18 — CQ, first part: what poor ways cost
+
+**Built:** households now remember where their carts lose time. A climb costs a cart more than
+level ground, and a stretch too narrow for two makes it wait or turn back. Each household keeps,
+for each place, how many hours it lost there, and the memory fades over time as other
+remembered troubles do. This is what a household or a village will later weigh before laying
+a way, widening one, or easing a slope.
+
+**Found on the way:** the test village's ground is gentle. An empty cart loses nothing on its
+rises, and a loaded one only a second or two, too little to remember. The test makes the
+puller far weaker so the climbs show.
+

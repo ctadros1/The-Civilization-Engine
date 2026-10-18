@@ -4245,6 +4245,26 @@ and M6a gives rivers a daily flow.
         walkers giving way to carts, and choices made by remembered waits.
     - **CQ**: works on ways: recorded losses, household works and `build_way`, laying, widening,
       passing places, cart crossings, landings, grading as an earthwork, upkeep by law, tolls.
+      - *First part, as built (2026-10-18): what poor ways cost, remembered where it happens*
+        (ADR-0029 §6; the transport brief §1.8). A household now holds, by site and cause, the
+        hours its carts' trips lost where ways are poor, fading by the wades' half-life and let
+        go of below half a time, as walkers' waits are (`traffic::Loss`). **The climb:** as a
+        haul sets off, each run of steps its cart is slower on than it would be on the level
+        (`Terrain::climbs`: the time at the step's grade less the time at none, with the same
+        rolling resistance) is a climb, held by its first cell with the seconds it costs beyond
+        the level, where those reach half a minute (`LEAST_LOSS_S`, a design prior: a rise
+        nobody notices is not a loss). A way down is never a loss: a cart is held to a walk on
+        the level, so it gains nothing going down. **The width:** each wait at a single-cart
+        stretch is held there too, and the wait a cart turned back from. **What it comes to:**
+        the village's rises are small: an empty handcart loses nothing on them, and a loaded
+        one under two seconds a climb, below what is remembered. The test gives the cart a
+        puller a twentieth as strong, and its household then holds each climb on the way it
+        hauled at exactly what it cost. **Exact:** a world with no cart lives as before: the
+        bench's village of three settlements, 30 days in both modes, has every section's digest
+        and every count CP's fourth part had, the save header's (its schema) aside.
+        **Boundary:** saves schema 148 (the traffic section's losses), no content or wire change. **Not yet:** the hours lost for want of a crossing
+        a cart can take (the cart way fails without saying where); the losses read by any
+        choice (the works in the parts to come); the observer's view of them.
     - **CR**: where to live weighs the walk; the dashboard's travel time by occupation and
       purpose, mode shares and waits.
   - **M8c, planning and land** (designed when reached, from `docs/briefs/m8-planning.md`): site

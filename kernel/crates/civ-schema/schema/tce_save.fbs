@@ -3397,9 +3397,22 @@ struct TrafficLongWaitSave {
   kind: ubyte;
 }
 
+// What a household holds of the hours its trips lost at a site of a way (M8b slice CQ): the cell,
+// the cause (0 a climb, 1 too narrow for two carts), hours and times, fading, as of `day`.
+struct TrafficLossSave {
+  household: ulong;
+  day: long;
+  cell: uint;
+  hours: float;
+  times: float;
+  cause: ubyte;
+}
+
 table TrafficSave {
   servers: [TrafficServerSave] (id: 0);
   tallies: [TrafficTallySave] (id: 1);
   waits: [TrafficWaitSave] (id: 2);
   long_waits: [TrafficLongWaitSave] (id: 3);
+  // Schema 148.
+  losses: [TrafficLossSave] (id: 4);
 }

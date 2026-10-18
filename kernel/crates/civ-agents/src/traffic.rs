@@ -252,6 +252,60 @@ pub struct LongWait {
     pub ahead: u32,
 }
 
+/// The least a climb must cost a haul beyond the level to be remembered, seconds (a design prior:
+/// half a minute; a rise nobody notices is not a loss).
+pub const LEAST_LOSS_S: f64 = 30.0;
+
+/// What a poor stretch of way cost a cart (M8b slice CQ, first part; ADR-0029 §6). Codes are part
+/// of saves: append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Cause {
+    /// A climb: the pull it took beyond what the level would.
+    Grade,
+    /// A stretch too narrow for two carts: waiting there for one coming the other way, or the
+    /// wait a cart turned back from.
+    Width,
+}
+
+impl Cause {
+    /// Its code in saves.
+    pub fn code(self) -> u8 {
+        match self {
+            Cause::Grade => 0,
+            Cause::Width => 1,
+        }
+    }
+
+    /// The cause with code `code`.
+    pub fn from_code(code: u8) -> Option<Cause> {
+        match code {
+            0 => Some(Cause::Grade),
+            1 => Some(Cause::Width),
+            _ => None,
+        }
+    }
+
+    /// In words.
+    pub fn name(self) -> &'static str {
+        match self {
+            Cause::Grade => "the climb",
+            Cause::Width => "too narrow for two carts",
+        }
+    }
+}
+
+/// What a household holds of the hours its trips lost at a site of a way, by cause: the hours and
+/// the times, fading, as of `day`. The site is the cell the trouble begins at: a climb's first
+/// cell, a single-cart stretch's.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Loss {
+    pub cell: u32,
+    pub cause: Cause,
+    pub hours: f32,
+    pub times: f32,
+    pub day: i64,
+}
+
 /// Every facility's turn-taking, tallies and the waits households hold.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Traffic {
@@ -263,6 +317,9 @@ pub struct Traffic {
     pub waits: BTreeMap<PermanentId, Vec<WaitHeld>>,
     /// Waits worth telling, oldest first, the newest [`MOST_LONG_WAITS`] kept.
     pub long_waits: Vec<LongWait>,
+    /// The hours each household's trips lost where ways are poor (M8b slice CQ), in cell and
+    /// cause order.
+    pub losses: BTreeMap<PermanentId, Vec<Loss>>,
     /// Seconds between walkers in place of each facility's own, for tests that need a queue. Not
     /// saved; never set in a world.
     pub test_headway_s: Option<f64>,
@@ -377,6 +434,67 @@ impl Traffic {
         }
     }
 
+    /// A trip of `household` lost `hours` to `cause` at the way's site `cell` on `day`.
+    pub fn lost(
+        &mut self,
+        household: PermanentId,
+        cell: u32,
+        cause: Cause,
+        hours: f32,
+        day: i64,
+        half_life_days: f64,
+    ) {
+        if !(hours > 0.0 && hours.is_finite()) {
+            return;
+        }
+        let list = self.losses.entry(household).or_default();
+        match list.binary_search_by_key(&(cell, cause), |l| (l.cell, l.cause)) {
+            Ok(i) => {
+                let l = &mut list[i];
+                if day > l.day {
+                    let f = fading(day - l.day, half_life_days);
+                    l.hours *= f;
+                    l.times *= f;
+                    l.day = day;
+                }
+                l.hours += hours;
+                l.times += 1.0;
+            }
+            Err(i) => list.insert(
+                i,
+                Loss {
+                    cell,
+                    cause,
+                    hours,
+                    times: 1.0,
+                    day,
+                },
+            ),
+        }
+    }
+
+    /// What `household` holds of the hours its trips lost, faded to `day`, in cell and cause order.
+    pub fn losses_held(
+        &self,
+        household: PermanentId,
+        day: i64,
+        half_life_days: f64,
+    ) -> impl Iterator<Item = Loss> + '_ {
+        self.losses
+            .get(&household)
+            .into_iter()
+            .flatten()
+            .map(move |l| {
+                let f = fading(day - l.day, half_life_days);
+                Loss {
+                    hours: l.hours * f,
+                    times: l.times * f,
+                    day: day.max(l.day),
+                    ..*l
+                }
+            })
+    }
+
     /// A wait worth telling: numbered after the last, the oldest let go beyond
     /// [`MOST_LONG_WAITS`].
     pub fn long_wait(&mut self, mut wait: LongWait) {
@@ -433,11 +551,37 @@ impl Traffic {
             list.retain(|w| w.waits * fading(day - w.day, half_life_days) >= least);
             !list.is_empty()
         });
+        self.losses.retain(|&h, list| {
+            if !keep(h) {
+                return false;
+            }
+            list.retain(|l| l.times * fading(day - l.day, half_life_days) >= least);
+            !list.is_empty()
+        });
     }
 
     /// What is wrong with the record, for the invariant checks.
     pub fn problems(&self) -> Vec<String> {
         let mut out = Vec::new();
+        for (h, list) in &self.losses {
+            if list.is_empty()
+                || list
+                    .windows(2)
+                    .any(|w| (w[0].cell, w[0].cause) >= (w[1].cell, w[1].cause))
+            {
+                out.push(format!(
+                    "household {h}'s way losses are empty, out of order or repeated"
+                ));
+            }
+            if list
+                .iter()
+                .any(|l| !(l.hours.is_finite() && l.hours >= 0.0 && l.times > 0.0))
+            {
+                out.push(format!(
+                    "household {h} holds a way loss that is not a number of hours"
+                ));
+            }
+        }
         if self
             .servers
             .windows(2)
@@ -592,6 +736,38 @@ mod tests {
 
     fn id(n: u64) -> PermanentId {
         PermanentId::from_raw(n).expect("non-zero")
+    }
+
+    #[test]
+    fn a_household_holds_the_hours_lost_at_a_site_by_cause_fading_as_waits_do() {
+        let mut t = Traffic::default();
+        let h = id(3);
+        t.lost(h, 40, Cause::Grade, 0.5, 10, 60.0);
+        t.lost(h, 40, Cause::Grade, 0.25, 10, 60.0);
+        t.lost(h, 40, Cause::Width, 0.2, 10, 60.0);
+        t.lost(h, 12, Cause::Grade, 0.1, 10, 60.0);
+        // Nothing, or not a number, is not a loss.
+        t.lost(h, 50, Cause::Grade, 0.0, 10, 60.0);
+        t.lost(h, 50, Cause::Grade, f32::NAN, 10, 60.0);
+        let held: Vec<Loss> = t.losses_held(h, 10, 60.0).collect();
+        assert_eq!(
+            held.iter().map(|l| (l.cell, l.cause)).collect::<Vec<_>>(),
+            vec![(12, Cause::Grade), (40, Cause::Grade), (40, Cause::Width)]
+        );
+        assert!((held[1].hours - 0.75).abs() < 1e-6 && held[1].times == 2.0);
+        // A half-life later, half of it is held.
+        let later: Vec<Loss> = t.losses_held(h, 70, 60.0).collect();
+        assert!((later[1].hours - 0.375).abs() < 1e-4, "{later:?}");
+        assert!(t.problems().is_empty());
+        // Forgetting lets go of what has faded below the least, and of households no more.
+        t.forget(0.0, 70 + 600, 60.0, 0.5, |_| true);
+        assert!(t.losses.is_empty());
+        t.lost(h, 40, Cause::Grade, 0.5, 10, 60.0);
+        t.forget(0.0, 10, 60.0, 0.5, |_| false);
+        assert!(t.losses.is_empty());
+        for c in [Cause::Grade, Cause::Width] {
+            assert_eq!(Cause::from_code(c.code()), Some(c));
+        }
     }
 
     #[test]

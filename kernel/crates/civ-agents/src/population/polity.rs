@@ -3613,15 +3613,19 @@ impl Population {
             };
             // So is a limit (M7b slice BT).
             let limit = |m: &MoveOption| limit_gains.iter().any(|l| l.0 == m.policy);
-            moves.retain(|m| (m.body.is_none() && !further(m) && !limit(m)) || m.own_gain > 0.0);
-            // Of the plans they laid, they put forward the one they reckon best for their
-            // household and those who regard them, the first among equals (M8c slice CT, second
-            // part; ADR-0030 §2), as one move.
+            // So is a plan (M8c slice CT, second part): proposed for what its sponsor expects it
+            // to bring them.
             let plan = |m: &MoveOption| {
                 policies
                     .get(usize::from(m.policy))
                     .is_some_and(|x| x.kind == PolicyKind::Plan)
             };
+            moves.retain(|m| {
+                (m.body.is_none() && !further(m) && !limit(m) && !plan(m)) || m.own_gain > 0.0
+            });
+            // Of the plans they laid, they put forward the one they reckon best for their
+            // household and those who regard them, the first among equals (ADR-0030 §2), as one
+            // move.
             let reckoned =
                 |m: &MoveOption| m.support * (m.own_gain + pp.w_followers * m.followers_gain);
             if let Some(best) = moves

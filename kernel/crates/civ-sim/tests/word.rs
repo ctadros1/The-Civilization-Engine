@@ -87,6 +87,17 @@ fn a_store(sim: &mut Sim, known: &[PermanentId]) -> PermanentId {
     let id = PermanentId::from_raw(sim.ids().peek_next() + 1_000_000).expect("non-zero");
     let pop = sim.people_mut_for_tests();
     let p = &mut pop.polities[0];
+    // A plan the village put forward meanwhile (M8c slice CT) is set aside: this stages a law
+    // of its own before an empty gathering.
+    p.laws.retain(|l| l.kind != PolicyKind::Plan);
+    let kept: Vec<PermanentId> = p.laws.iter().map(|l| l.id).collect();
+    p.plans.retain(|(law, _)| kept.contains(law));
+    if p.gathering
+        .as_ref()
+        .is_some_and(|g| g.law.is_some_and(|l| !kept.contains(&l)))
+    {
+        p.gathering = None;
+    }
     assert!(p.laws.is_empty(), "the village has no law of its own yet");
     p.laws.push(Law {
         id,

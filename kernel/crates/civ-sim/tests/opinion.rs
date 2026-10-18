@@ -235,6 +235,17 @@ fn how_far_talk_moved_someone_weighs_in_their_stance_and_the_record_says_so() {
         pop.households.iter().map(|(_, h)| (h.id, 0.0)).collect();
     stakes.sort_by_key(|s| s.0);
     let p = &mut pop.polities[0];
+    // A plan the village put forward meanwhile (M8c slice CT) is set aside: this stages a law
+    // of its own before an empty gathering.
+    p.laws.retain(|l| l.kind != PolicyKind::Plan);
+    let kept: Vec<PermanentId> = p.laws.iter().map(|l| l.id).collect();
+    p.plans.retain(|(law, _)| kept.contains(law));
+    if p.gathering
+        .as_ref()
+        .is_some_and(|g| g.law.is_some_and(|l| !kept.contains(&l)))
+    {
+        p.gathering = None;
+    }
     assert!(
         p.laws.is_empty() && p.gathering.is_none(),
         "nothing before it yet"

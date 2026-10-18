@@ -650,21 +650,33 @@ fn slice_l_saves_load_with_what_founders_bring() {
     let (catalog, params) = (&migrated.rules().catalog, &migrated.rules().people);
     let now = migrated.now();
     for t in 0..catalog.techniques.len() {
-        let founders = params.knowledge.founders.iter().any(|&(x, _)| x == t);
+        let share = params
+            .knowledge
+            .founders
+            .iter()
+            .find(|f| f.0 == t)
+            .map_or(0.0, |f| f.1);
         let age = civ_agents::knowledge::knowing_age(catalog, t, params.family.independent_age)
             .expect("gates work");
         for (_, p) in migrated.people().people.iter() {
-            assert_eq!(
-                p.knows(t),
-                founders && p.age_years(now) >= age,
-                "{}",
-                p.given
-            );
+            let may = share > 0.0 && p.age_years(now) >= age;
+            // What every founder brings, every founder of its age knows; what only some bring
+            // (laying out by cord and stake, M8c slice CT), only those of its age may.
+            if share >= 1.0 {
+                assert_eq!(p.knows(t), may, "{}", p.given);
+            } else {
+                assert!(!p.knows(t) || may, "{}", p.given);
+            }
         }
     }
     let settlements = migrated.land().settlements.len();
     let records = &migrated.people().knowledge;
-    assert_eq!(records.len(), params.knowledge.founders.len() * settlements);
+    let founders = params.knowledge.founders.len();
+    assert!(
+        (settlements * (founders - 1)..=settlements * founders).contains(&records.len()),
+        "{}",
+        records.len()
+    );
     assert!(records.iter().all(|e| e.at == now
         && e.kind
             == civ_agents::knowledge::KnowledgeEventKind::Known(

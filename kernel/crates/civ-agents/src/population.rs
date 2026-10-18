@@ -3106,7 +3106,7 @@ impl Population {
             levee: self.levee_facts(ctx, &hh, p.id, field_key, dark),
             boat: self.boat_facts(ctx, &hh, field_key, dark),
             cart: self.cart_facts(ctx, &hh, dark),
-            way: self.way_facts(ctx, &hh, dark),
+            way: self.way_facts(ctx, &hh, p.id, dark),
             enclosure: self.enclosure_facts(ctx, &hh, p.id, field_key, dark),
             ditch: self.ditch_facts(ctx, &hh, field_key, dark),
             band: band_facts,
@@ -5044,7 +5044,7 @@ impl Population {
                         let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let household = p.household;
-                        Self::way_work(ctx, household, way, hours);
+                        self.way_work(ctx, household, way, hours);
                     }
                 }
                 Some(Behavior::Boat | Behavior::Cart) => {

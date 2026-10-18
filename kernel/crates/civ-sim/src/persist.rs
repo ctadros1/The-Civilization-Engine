@@ -425,6 +425,8 @@ pub const SCHEMA_V146: u32 = 146;
 pub const SCHEMA_V147: u32 = 147;
 /// Losses on ways, before passing places.
 pub const SCHEMA_V148: u32 = 148;
+/// Passing places a household makes, before a polity's.
+pub const SCHEMA_V149: u32 = 149;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

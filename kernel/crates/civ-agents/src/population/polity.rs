@@ -57,6 +57,9 @@ pub(super) struct Forecasts {
     pub(super) bank: Option<super::levees::PublicBank>,
     /// A bank the polity built that wants mending and that no law keeps, if any (M6b slice BG).
     pub(super) worn: Option<super::levees::WornBank>,
+    /// Where the settlement's people could clear a passing place together, if anywhere (M8b
+    /// slice CQ, third part).
+    pub(super) way: Option<super::way_works::PublicWay>,
     /// The palisade the settlement's people could raise round their hearth together, if any
     /// (M6c slice BK).
     pub(super) enclosure: Option<super::enclosures::PublicEnclosure>,
@@ -423,6 +426,21 @@ impl Forecasts {
             // remembers no such loss gains nothing and pays its share (research 12-08 §1.2).
             Some(PolicyKind::BuildBank) => {
                 let Some(p) = self.bank.as_ref() else {
+                    return 0.0;
+                };
+                let kcal = self
+                    .hour_kcal
+                    .binary_search_by_key(&h, |k| k.0)
+                    .map_or(0.0, |i| self.hour_kcal[i].1);
+                let saved = p.saves_of(h) * kcal;
+                let owed = p.share_h() / p.life.max(1e-9) * kcal;
+                crate::polity::kept_gain(o, saved, pp) - crate::polity::levy_cost(o, owed, pp)
+            }
+            // A passing place cleared together (M8b slice CQ, third part), as a bank: the food a
+            // year the waiting it would spare the household could bring, less what its share of
+            // the work, spread over the place's life, could.
+            Some(PolicyKind::BuildWay) => {
+                let Some(p) = self.way.as_ref() else {
                     return 0.0;
                 };
                 let kcal = self
@@ -1444,7 +1462,28 @@ impl Population {
         let bank = self.public_bank(ctx, settlement, households);
         let mut fc = self.forecasts_with(ctx, pi, households, adults, sites, well, bank);
         self.with_enclosure(ctx, &mut fc, settlement, households);
+        let way = self.public_way(ctx, settlement, households);
+        self.with_way(ctx, &mut fc, way, households);
         fc
+    }
+
+    /// Adds to forecasts `fc` the passing place `way` the settlement's people could clear
+    /// together (M8b slice CQ, third part), with what an hour of each household's work brings it
+    /// if it was not reckoned already.
+    fn with_way(
+        &self,
+        ctx: &Ctx,
+        fc: &mut Forecasts,
+        way: Option<super::way_works::PublicWay>,
+        households: &[PermanentId],
+    ) {
+        fc.way = way;
+        if fc.way.is_some() && fc.hour_kcal.is_empty() {
+            fc.hour_kcal = households
+                .iter()
+                .filter_map(|&h| Some((h, self.hour_kcal(ctx, self.household(h)?))))
+                .collect();
+        }
     }
 
     /// Adds to forecasts `fc` the palisade settlement `settlement`'s people could raise round
@@ -1565,6 +1604,7 @@ impl Population {
             well,
             bank,
             worn,
+            way: None,
             enclosure: None,
             rules,
             band_load: {
@@ -2331,6 +2371,23 @@ impl Population {
         // BH).
         let burned_homes = self.burned_homes(&households);
         let gave_way_homes = self.gave_way_homes(&households);
+        // Where they could clear a passing place together, and the households whose carts
+        // waited at a stretch one cart wide within memory (M8b slice CQ, third part).
+        let way = self.public_way(ctx, settlement, &households);
+        let carts_waited: Vec<PermanentId> = if way.is_some() {
+            let half = params.places.use_half_life_days;
+            households
+                .iter()
+                .copied()
+                .filter(|&h| {
+                    self.traffic
+                        .losses_held(h, day, half)
+                        .any(|l| l.cause == crate::traffic::Cause::Width)
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
         let mut issues = self.issues(
             ctx,
             settlement,
@@ -2354,6 +2411,11 @@ impl Population {
         // A band its law sent holds another settlement (M6c slice BM).
         if self.held_by(pi).is_some() {
             issues.push(IssueKind::Holding);
+        }
+        // Its carts wait where a passing place cleared together would repay its work (M8b slice
+        // CQ, third part).
+        if way.is_some() {
+            issues.push(IssueKind::CartsWait);
         }
         // A case one of its households brought went unheard, or was not found, within memory
         // (M7b slice BR, ADR-0025 §1).
@@ -2393,6 +2455,7 @@ impl Population {
                         | PolicyKind::BuildBank
                         | PolicyKind::KeepBank
                         | PolicyKind::Enclose
+                        | PolicyKind::BuildWay
                 )
         });
         if money_held && common_work {
@@ -2456,6 +2519,11 @@ impl Population {
                 if d.kind == PolicyKind::BuildBank {
                     return true;
                 }
+                // Another passing place once none is being cleared (M8b slice CQ, third part:
+                // `public_way` holds to one at a time).
+                if d.kind == PolicyKind::BuildWay {
+                    return true;
+                }
                 // A keeping, of a bank no law in force keeps (M6b slice BG: `worn_bank`).
                 if d.kind == PolicyKind::KeepBank {
                     return true;
@@ -2516,6 +2584,7 @@ impl Population {
         // What each household expects, to forecast what a move would bring it.
         let mut fc = self.forecasts_with(ctx, pi, &households, &adults, sites, well, bank);
         self.with_enclosure(ctx, &mut fc, settlement, &households);
+        self.with_way(ctx, &mut fc, way, &households);
         let outlooks = &fc.outlooks;
         // Who could keep the store: adults whose household is under a roof.
         let roofed: Vec<PermanentId> = adults
@@ -2558,6 +2627,9 @@ impl Population {
                             .chain(&flooded_homes)
                             .chain(&burned_homes)
                             .chain(&gave_way_homes)
+                            // And households whose carts waited where a passing place would
+                            // repay its work (M8b slice CQ, third part).
+                            .chain(&carts_waited)
                             .filter_map(|&h| self.elder_of(h, now, params)),
                     )
                     // And whoever holds that a source sickens (M6a slice BA).
@@ -3112,6 +3184,17 @@ impl Population {
                             });
                         }
                     }
+                    // A passing place, where the settlement's people could clear one together
+                    // (M8b slice CQ, third part), named by its cell.
+                    PolicyKind::BuildWay => {
+                        if let Some(p) = &fc.way {
+                            moves.push(MoveOption {
+                                site: Some(p.cell),
+                                target: None,
+                                ..blank
+                            });
+                        }
+                    }
                     // A palisade round the hearth (M6c slice BK), named by the hearth's cell.
                     PolicyKind::Enclose => {
                         if let Some(p) = &fc.enclosure {
@@ -3401,6 +3484,7 @@ impl Population {
                                 .or_else(|| self.polities[pi].kept_bank_of(l.id).map(|k| k.1))
                                 .map(|s| super::levees::bank_cell(ctx.map, &s))
                                 == m.site
+                            || self.polities[pi].way_site_of(l.id).map(|s| s.cell) == m.site
                     })
                     .filter(|l| {
                         l.decided
@@ -3558,6 +3642,38 @@ impl Population {
                     polity.bank_saves.push((id, h, saves as f32));
                 }
                 polity.bank_saves.sort_unstable_by_key(|s| (s.0, s.1));
+            }
+        }
+        // A passing place names its cell, as the settlement's people would clear it now, and
+        // keeps what each household reckoned it would spare it (M8b slice CQ, third part).
+        if def.kind == PolicyKind::BuildWay
+            && let Some(cell) = m.site
+        {
+            let settlement = self.polities[pi].settlement;
+            let mut households: Vec<PermanentId> = self
+                .households
+                .iter()
+                .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
+                .map(|(_, x)| x.id)
+                .collect();
+            households.sort_unstable();
+            if let Some(p) = self
+                .public_way(ctx, settlement, &households)
+                .filter(|p| p.cell == cell)
+            {
+                let polity = &mut self.polities[pi];
+                polity.ways.push((
+                    id,
+                    crate::polity::WaySite {
+                        cell,
+                        labour_h: p.labour_h,
+                        work: None,
+                    },
+                ));
+                for &(h, saves) in &p.saves {
+                    polity.way_saves.push((id, h, saves as f32));
+                }
+                polity.way_saves.sort_unstable_by_key(|s| (s.0, s.1));
             }
         }
         // A palisade names its line, as the settlement's people would raise it now, and keeps
@@ -3870,6 +3986,10 @@ impl Population {
         // A bank passed is begun at once, the polity's (M6b slice BG).
         if outcome == Outcome::Passed && kind == PolicyKind::BuildBank {
             self.begin_public_bank(ctx, pi, law_id);
+        }
+        // A passing place passed is laid out at once, the polity's (M8b slice CQ, third part).
+        if outcome == Outcome::Passed && kind == PolicyKind::BuildWay {
+            self.begin_public_way(ctx, pi, law_id);
         }
         // A palisade passed is laid out at once, the polity's (M6c slice BK).
         if outcome == Outcome::Passed && kind == PolicyKind::Enclose {

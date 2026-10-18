@@ -687,6 +687,15 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 138 (M8b slice CQ, third part) brings the policy kind `build_way` and the issue
+`carts_wait`: where carts of the settlement's households wait at stretches of trail one cart wide,
+and a passing place cleared together at a stretch's middle would spare them more waiting over its
+life (the land profile's `passing_life_years`) than its work, the polity may clear it, each
+household asked an equal share; it levies nothing. The core adds
+`core:policy/yours_to_clear_a_passing_place`; it asks no question, so it enters no monthly
+opinion, and its id sorts after every earlier template's, so their indices, which key opinion's
+draws, are unchanged.
+
 Content API 137 (M8b slice CQ, second part) brings the activity behaviour `way`: walk to the passing
 place the household is making on its carts' way, clear and level ground there, and walk home, the
 work's own labour (the land profile's `[way_works]`: `passing_width_m`, the width it is cleared to;

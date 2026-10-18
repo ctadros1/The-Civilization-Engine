@@ -2962,3 +2962,14 @@ its people walk out and clear it, a few hours at a time, until two carts can pas
 **What it comes to:** one cart turning back is not enough to make anyone dig. A household that
 turned back twenty times cleared its passing place within a few days.
 
+## 2026-10-18 — CQ, third part: passing places by law
+
+**Built:** where carts of several households wait at the same narrow stretch, the waiting may be
+worth a passing place to all of them together though to none alone. The settlement's gathering
+can now have the polity clear one by law, as it builds a flood bank: each household weighs what
+the place would spare it against its equal share of the digging, and once the law passes the
+polity lays the place out and each household is asked its share.
+
+**What it comes to:** in the test scene the buyer's turnings back raised the issue, someone
+proposed the law naming the stretch's middle, and once it was in force the households' shares
+cleared it to two carts' width.

@@ -96,7 +96,7 @@ pub struct Facts {
     pub cart: Option<BoatFacts>,
     /// The passing place their household is making on its carts' way, if any (M8b slice CQ,
     /// second part): as a boat's, its place the stretch it widens.
-    pub way: Option<BoatFacts>,
+    pub way: Option<WayFacts>,
     /// The irrigation ditch their household is digging to its field, if any (M6b slice BG).
     pub ditch: Option<DitchFacts>,
     /// The palisade their polity is raising, if they may work on it (M6c slice BK).
@@ -206,6 +206,22 @@ pub struct BoatFacts {
     pub walk_min: f64,
     pub left_h: f64,
     pub saves_per_hour: f64,
+    pub full: bool,
+}
+
+/// A passing place someone's household is making, or one their polity is clearing under a law
+/// they know of (M8b slice CQ): where its work is done, the walk there from home, the hours of
+/// work it still takes, the hours of waiting each hour of that work spares the household over the
+/// place's life, and, for a polity's while the household has not given the share asked of it,
+/// what keeping to the gathering's word is worth (0 for its own).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WayFacts {
+    pub way: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub left_h: f64,
+    pub saves_per_hour: f64,
+    pub duty: f64,
     pub full: bool,
 }
 
@@ -1836,8 +1852,9 @@ pub fn candidates(
             }
             Behavior::Way => {
                 // Clear and level ground at the passing place the household is making (M8b
-                // slice CQ, second part), as on its boat: each hour worth the waiting the place
-                // spares it over its life.
+                // slice CQ, second part), as on its boat, or at the one its polity is clearing
+                // (the third part), as on a flood bank built together: each hour worth the
+                // waiting the place spares it over its life.
                 let Some(c) = f.way else {
                     continue;
                 };
@@ -1846,11 +1863,11 @@ pub fn candidates(
                     walk_min: c.walk_min,
                     left_h: c.left_h,
                     saves_per_hour: c.saves_per_hour,
-                    duty: 0.0,
+                    duty: c.duty,
                     full: c.full,
                 };
                 match session_at_site(def, w, f, &site, Reason::Way, &mut terms) {
-                    Ok(steps) => out.push(finish(id, Target::Way(c.boat), terms, steps)),
+                    Ok(steps) => out.push(finish(id, Target::Way(c.way), terms, steps)),
                     Err(why) => excluded.push((id, why)),
                 }
             }

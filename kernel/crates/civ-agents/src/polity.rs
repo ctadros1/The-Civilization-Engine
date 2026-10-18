@@ -147,11 +147,16 @@ pub enum PolicyKind {
     /// polity's store pays the good its template names ([`PayDef`]), so much an hour, to each
     /// household for the hours it gives to the polity's works, as far as the store holds it.
     PayWork,
+    /// A way built together (M8b slice CQ, third part; ADR-0029 §6): a passing place cleared at
+    /// the middle of a single-cart stretch where the settlement's carts wait for each other, as a
+    /// flood bank is built together: its site where those waits would repay the work over the
+    /// place's life, equal shares of the work, payable by `pay_work`.
+    BuildWay,
 }
 
 impl PolicyKind {
     /// Every kind, in code order.
-    pub const ALL: [PolicyKind; 29] = [
+    pub const ALL: [PolicyKind; 30] = [
         PolicyKind::CommonStore,
         PolicyKind::KeepStore,
         PolicyKind::AgainstTaking,
@@ -181,6 +186,7 @@ impl PolicyKind {
         PolicyKind::LendFromStore,
         PolicyKind::Mint,
         PolicyKind::PayWork,
+        PolicyKind::BuildWay,
     ];
 
     /// The authored name.
@@ -215,6 +221,7 @@ impl PolicyKind {
             PolicyKind::LendFromStore => "lend_from_store",
             PolicyKind::Mint => "mint",
             PolicyKind::PayWork => "pay_work",
+            PolicyKind::BuildWay => "build_way",
         }
     }
 
@@ -304,11 +311,16 @@ pub enum IssueKind {
     /// The polity's store holds money while a law of its asks households to work on its common
     /// works (M7d slice CE3a): what paying for that work answers.
     CoinIdle,
+    /// Carts of the settlement's households wait for each other at a stretch of trail one cart
+    /// wide, as they remember, and a passing place cleared there together would spare them more
+    /// waiting over its life than its work (M8b slice CQ, third part), as fords make a crossing
+    /// an issue.
+    CartsWait,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 24] = [
+    pub const ALL: [IssueKind; 25] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -333,6 +345,7 @@ impl IssueKind {
         IssueKind::DebtsUnpaid,
         IssueKind::Weighed,
         IssueKind::CoinIdle,
+        IssueKind::CartsWait,
     ];
 
     /// The authored name.
@@ -362,6 +375,7 @@ impl IssueKind {
             IssueKind::DebtsUnpaid => "debts_unpaid",
             IssueKind::Weighed => "weighed",
             IssueKind::CoinIdle => "coin_idle",
+            IssueKind::CartsWait => "carts_wait",
         }
     }
 
@@ -406,6 +420,9 @@ impl IssueKind {
             IssueKind::DebtsUnpaid => "a loan their household made was not repaid",
             IssueKind::Weighed => "their households weighed out metal to pay",
             IssueKind::CoinIdle => "the store held money while their common work wanted hands",
+            IssueKind::CartsWait => {
+                "their carts waited for each other where the way is one cart wide"
+            }
         }
     }
 }
@@ -1607,6 +1624,12 @@ pub fn law_words(
                 work"
             .to_owned();
     }
+    // Without the site at hand (see [`Polity::words_of`]), only what it is.
+    if def.is_some_and(|d| d.kind == PolicyKind::BuildWay) {
+        return "a passing place cleared together where carts wait, each household doing its share \
+                of the work"
+            .to_owned();
+    }
     if def.is_some_and(|d| d.kind == PolicyKind::Annex) {
         return "taking in the settlement a band of theirs holds".to_owned();
     }
@@ -1739,6 +1762,7 @@ pub fn ending_words(
         Some(PolicyKind::CloseSource) => "the closing of a source of water".to_owned(),
         Some(PolicyKind::DigWell) => "the work on a well".to_owned(),
         Some(PolicyKind::BuildBank) => "the work on a flood bank".to_owned(),
+        Some(PolicyKind::BuildWay) => "the work on a passing place".to_owned(),
         Some(PolicyKind::KeepBank) => "the keeping of a flood bank".to_owned(),
         Some(PolicyKind::BuildingRule) => "the rule for building".to_owned(),
         Some(PolicyKind::SendBand) => "the band sent by law".to_owned(),
@@ -2013,6 +2037,15 @@ pub struct Polity {
     /// What each household reckoned, when it was proposed, a law's palisade would keep it a year,
     /// in hours of its work (law, household, hours), by law then household.
     pub enclosure_saves: Vec<(PermanentId, PermanentId, f32)>,
+    /// Where each law to clear a passing place would clear it, by law (M8b slice CQ, third
+    /// part).
+    pub ways: Vec<(PermanentId, WaySite)>,
+    /// What each household reckoned, when it was proposed, a law's passing place would spare it
+    /// a year, hours of waiting (law, household, hours), by law then household.
+    pub way_saves: Vec<(PermanentId, PermanentId, f32)>,
+    /// The hours each household has given to a law's passing place (law, household, hours), by
+    /// law then household.
+    pub way_given: Vec<(PermanentId, PermanentId, f32)>,
     /// The settlements it holds besides its seat (`settlement`), in the order taken (M6c slice
     /// BM, ADR-0023 §9): their residents are its members too.
     pub held: Vec<HeldSettlement>,
@@ -2101,6 +2134,16 @@ impl EnclosureSite {
     pub fn length_m(&self) -> f64 {
         std::f64::consts::TAU * f64::from(self.radius_m)
     }
+}
+
+/// Where a law would clear a passing place (M8b slice CQ, third part; ADR-0029 §6): the cell
+/// at the middle of the single-cart stretch, the hours of work clearing it would take, and, once
+/// begun, the way it is.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WaySite {
+    pub cell: u32,
+    pub labour_h: f64,
+    pub work: Option<PermanentId>,
 }
 
 /// Where a law would build a flood bank (M6b slice BG; ADR-0022 §11): the reach whose water it
@@ -2233,6 +2276,9 @@ impl Polity {
             bank_keeps: Vec::new(),
             enclosures: Vec::new(),
             enclosure_saves: Vec::new(),
+            ways: Vec::new(),
+            way_saves: Vec::new(),
+            way_given: Vec::new(),
             held: Vec::new(),
             ended: None,
             terms: Vec::new(),
@@ -2353,6 +2399,38 @@ impl Polity {
         {
             Ok(i) => self.bank_given[i].2 += hours,
             Err(i) => self.bank_given.insert(i, (law, household, hours)),
+        }
+    }
+
+    /// Where law `law` would clear a passing place, if it is one that would (M8b slice CQ, third
+    /// part).
+    pub fn way_site_of(&self, law: PermanentId) -> Option<WaySite> {
+        self.ways.iter().find(|w| w.0 == law).map(|w| w.1)
+    }
+
+    /// What household `household` reckoned law `law`'s passing place would spare it a year,
+    /// hours.
+    pub fn way_saves_of(&self, law: PermanentId, household: PermanentId) -> f32 {
+        self.way_saves
+            .binary_search_by_key(&(law, household), |s| (s.0, s.1))
+            .map_or(0.0, |i| self.way_saves[i].2)
+    }
+
+    /// The hours household `household` has given to law `law`'s passing place.
+    pub fn way_given_by(&self, law: PermanentId, household: PermanentId) -> f32 {
+        self.way_given
+            .binary_search_by_key(&(law, household), |s| (s.0, s.1))
+            .map_or(0.0, |i| self.way_given[i].2)
+    }
+
+    /// Household `household` gives `hours` more to law `law`'s passing place.
+    pub fn give_to_way(&mut self, law: PermanentId, household: PermanentId, hours: f32) {
+        match self
+            .way_given
+            .binary_search_by_key(&(law, household), |s| (s.0, s.1))
+        {
+            Ok(i) => self.way_given[i].2 += hours,
+            Err(i) => self.way_given.insert(i, (law, household, hours)),
         }
     }
 
@@ -2527,6 +2605,16 @@ impl Polity {
                  its share of {:.0} hours of work",
                 site.length_m(),
                 site.height_m,
+                site.labour_h
+            );
+        }
+        // A passing place says the work it asks (M8b slice CQ, third part).
+        if kind == Some(PolicyKind::BuildWay)
+            && let Some(site) = self.way_site_of(law.id)
+        {
+            return format!(
+                "a passing place cleared where carts wait, each household doing its share of {:.0} \
+                 hours of work",
                 site.labour_h
             );
         }

@@ -2282,8 +2282,11 @@ fn a_household_remembers_what_the_climbs_on_its_carts_way_cost_where_each_begins
     saves_and_goes_on_alike(&mut sim, 60);
 }
 
-#[test]
-fn a_household_makes_a_passing_place_where_its_carts_wait_and_two_carts_then_pass_there() {
+/// [`wheels_scene`] with the way between the two doors a worn trail no way is laid on, each
+/// household a handcart at its door, and the buyer's cart turned back `turns` times at the
+/// trail's single-cart stretch by the seller's on it: the scene, the handcart's index, and the
+/// stretch's middle cell, where the buyer's household holds the waits.
+fn carts_wait_scene(turns: usize) -> (Sim, PermanentId, PermanentId, usize, u32) {
     use civ_agents::traffic::Cause;
     let (sc, _stone) = wheels_scene();
     let Scene {
@@ -2354,7 +2357,7 @@ fn a_household_makes_a_passing_place_where_its_carts_wait_and_two_carts_then_pas
     // door, and its household holds the wait at the stretch's middle. It happens again and
     // again: one turning back is not worth a day's clearing, a season of them is.
     assert!(haul(&mut sim, s0, buyer_door));
-    for _ in 0..20 {
+    for _ in 0..turns {
         assert!(!haul(&mut sim, b0, seller_door), "turned back");
     }
     let half = sim.rules().people.places.use_half_life_days;
@@ -2367,6 +2370,12 @@ fn a_household_makes_a_passing_place_where_its_carts_wait_and_two_carts_then_pas
         .collect();
     assert_eq!(held.len(), 1, "{held:?}");
     let middle = held[0].0;
+    (sim, buyer, seller, handcart, middle)
+}
+
+#[test]
+fn a_household_makes_a_passing_place_where_its_carts_wait_and_two_carts_then_pass_there() {
+    let (mut sim, buyer, _seller, handcart, middle) = carts_wait_scene(20);
     // At its review the household begins a passing place there, a trail's tread wide for now.
     sim.with_ctx_for_tests(|pop, ctx| pop.review_way_work_for_tests(ctx, buyer));
     let way = sim
@@ -2421,6 +2430,183 @@ fn a_household_makes_a_passing_place_where_its_carts_wait_and_two_carts_then_pas
         .expect("the passing place");
     assert!((made.segments[0].usable_m - 2.0).abs() < 1e-3, "{made:?}");
     // Two carts pass there now: the stretch is no longer one for a single cart at its middle.
+    let walk = sim.rules().people.nav.tobler_ms(0.0);
+    let wheels = sim.rules().catalog.vehicles[handcart].wheels(0.0, walk);
+    let (_, room) = sim
+        .land()
+        .cart_going(sim.map(), middle, &wheels)
+        .expect("wheels go there");
+    assert!(!wheels.single_file(room), "{room}");
+    assert!(sim.people().problems(u64::MAX, usize::MAX).is_empty());
+}
+
+#[test]
+fn a_passing_place_the_gathering_asks_for_is_cleared_by_the_households_shares_of_its_work() {
+    use civ_agents::polity::{IssueKind, LawStatus, Outcome, PolicyKind};
+    let (mut sim, buyer, _seller, handcart, middle) = carts_wait_scene(20);
+    let settlement = sim
+        .people()
+        .household(buyer)
+        .and_then(|x| x.settlement)
+        .expect("the buyer's settlement");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    // The settlement's people could clear a passing place together where the buyer's cart
+    // waited: the strip that widens the trail to two carts, sparing the buyer's household half
+    // its waits there.
+    let (cell, labour_h, saves) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.public_way_for_tests(ctx, settlement))
+        .expect("a passing place to clear together");
+    assert_eq!(cell, middle);
+    assert!((1.0..100.0).contains(&labour_h), "{labour_h}");
+    assert_eq!(saves.len(), 1, "{saves:?}");
+    assert_eq!(saves[0].0, buyer);
+    // A law to clear it would bring the buyer's household more than any other of the
+    // settlement's, which would only give its share of the work.
+    let gains = sim.with_ctx_for_tests(|pop, ctx| {
+        pop.site_gains_for_tests(ctx, settlement, PolicyKind::BuildWay, middle)
+    });
+    let gain = |h: PermanentId| gains.iter().find(|g| g.0 == h).expect("weighed").1;
+    assert!(gains.len() >= 2, "{gains:?}");
+    assert!(
+        gains.iter().all(|g| g.0 == buyer || g.1 < gain(buyer)),
+        "{gains:?}"
+    );
+    // Someone proposes that the polity clear it, for its carts waited there: the law names its
+    // cell and keeps what each household reckoned it would spare it.
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    let mut proposed = None;
+    for _ in 0..12 {
+        {
+            let pop = sim.people_mut_for_tests();
+            pop.polities[pi].gathering = None;
+            for l in &mut pop.polities[pi].laws {
+                if l.status == LawStatus::Proposed {
+                    l.status = LawStatus::Rejected;
+                }
+            }
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+        match sim.people().polities[pi].agenda().cloned() {
+            Some(l) if l.kind == PolicyKind::BuildWay => {
+                proposed = Some(l);
+                break;
+            }
+            Some(_) => continue,
+            None => break,
+        }
+    }
+    let law = proposed.expect("a passing place proposed");
+    assert_eq!(law.issue, IssueKind::CartsWait);
+    let id = law.id;
+    let site = sim.people().polities[pi]
+        .way_site_of(id)
+        .expect("its site recorded");
+    assert_eq!((site.cell, site.work), (middle, None));
+    assert!(sim.people().polities[pi].way_saves_of(id, buyer) > 0.0);
+    // The gathering passed it: a law in force, known to every adult of the settlement; the
+    // polity lays it out.
+    let adults: Vec<PermanentId> = sim
+        .people()
+        .people
+        .iter()
+        .filter(|(_, p)| {
+            p.age_years(sim.now()) >= 16.0
+                && sim
+                    .people()
+                    .household(p.household)
+                    .is_some_and(|x| x.settlement == Some(settlement))
+        })
+        .map(|(_, p)| p.id)
+        .collect();
+    {
+        let today = sim.now().day_index();
+        let pop = sim.people_mut_for_tests();
+        pop.every_adult_deliberates = false;
+        let p = &mut pop.polities[pi];
+        p.gathering = None;
+        let l = p.laws.iter_mut().find(|l| l.id == id).expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Outcome::Passed);
+        l.known = adults.iter().map(|&a| (a, today)).collect();
+    }
+    let words = sim.people().polities[pi].words_of(
+        &sim.people().polities[pi]
+            .laws
+            .last()
+            .expect("the law")
+            .clone(),
+        &sim.rules().catalog.policies,
+        &|_| String::new(),
+    );
+    assert!(words.contains("passing place"), "{words}");
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_public_way_for_tests(ctx, pi, id));
+    let polity = sim.people().polities[pi].id;
+    let way = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| {
+            w.segments
+                .iter()
+                .any(|s| s.keeper == civ_land::ways::Keeper::Polity(polity))
+        })
+        .cloned()
+        .expect("the polity's passing place laid out");
+    assert_eq!(way.segments[0].cells, vec![middle]);
+    assert_eq!(
+        sim.people().polities[pi]
+            .way_site_of(id)
+            .and_then(|s| s.work),
+        Some(way.id)
+    );
+    // No second one while it is being cleared, by the polity or the household.
+    assert!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.public_way_for_tests(ctx, settlement))
+            .is_none()
+    );
+    sim.with_ctx_for_tests(|pop, ctx| pop.review_way_work_for_tests(ctx, buyer));
+    assert_eq!(sim.land().ways.list.len(), 1);
+    // Saved and loaded while it is being cleared, the world goes on alike.
+    saves_and_goes_on_alike(&mut sim, 60);
+    // Its people give their households' shares as they choose, until it is two carts wide.
+    for _ in 0..30 * 24 * 6 {
+        sim.advance_minutes(10).expect("advances");
+        let done = sim
+            .land()
+            .ways
+            .list
+            .iter()
+            .find(|w| w.id == way.id)
+            .is_some_and(|w| w.segments[0].built_m + 1e-3 >= w.segments[0].corridor_m);
+        if done {
+            break;
+        }
+    }
+    let made = sim
+        .land()
+        .ways
+        .list
+        .iter()
+        .find(|w| w.id == way.id)
+        .cloned()
+        .expect("the passing place");
+    let given = sim.people().polities[pi].way_given.clone();
+    assert!(
+        (made.segments[0].usable_m - 2.0).abs() < 1e-3,
+        "{made:?}, {given:?}"
+    );
+    let total: f32 = given.iter().filter(|g| g.0 == id).map(|g| g.2).sum();
+    assert!(
+        (f64::from(total) - labour_h).abs() < 0.05 * labour_h,
+        "{total} of {labour_h}: {given:?}"
+    );
+    // Two carts pass there now.
     let walk = sim.rules().people.nav.tobler_ms(0.0);
     let wheels = sim.rules().catalog.vehicles[handcart].wheels(0.0, walk);
     let (_, room) = sim

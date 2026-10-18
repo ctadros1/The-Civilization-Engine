@@ -36556,6 +36556,9 @@ impl<'a> PolitySave<'a> {
   pub const VT_SEATED: ::flatbuffers::VOffsetT = 66;
   pub const VT_ELECTIONS: ::flatbuffers::VOffsetT = 68;
   pub const VT_PATRON_GIFTS: ::flatbuffers::VOffsetT = 70;
+  pub const VT_WAYS: ::flatbuffers::VOffsetT = 72;
+  pub const VT_WAY_SAVES: ::flatbuffers::VOffsetT = 74;
+  pub const VT_WAY_GIVEN: ::flatbuffers::VOffsetT = 76;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -36575,6 +36578,9 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.way_given { builder.add_way_given(x); }
+    if let Some(x) = args.way_saves { builder.add_way_saves(x); }
+    if let Some(x) = args.ways { builder.add_ways(x); }
     if let Some(x) = args.patron_gifts { builder.add_patron_gifts(x); }
     if let Some(x) = args.elections { builder.add_elections(x); }
     if let Some(x) = args.seated { builder.add_seated(x); }
@@ -36843,6 +36849,27 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, PatronGiftSave>>>(PolitySave::VT_PATRON_GIFTS, None)}
   }
+  #[inline]
+  pub fn ways(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WaySiteSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WaySiteSave>>>>(PolitySave::VT_WAYS, None)}
+  }
+  #[inline]
+  pub fn way_saves(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>(PolitySave::VT_WAY_SAVES, None)}
+  }
+  #[inline]
+  pub fn way_given(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>(PolitySave::VT_WAY_GIVEN, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -36885,6 +36912,9 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, SeatSave>>>("seated", Self::VT_SEATED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ElectionSave>>>>("elections", Self::VT_ELECTIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PatronGiftSave>>>("patron_gifts", Self::VT_PATRON_GIFTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<WaySiteSave>>>>("ways", Self::VT_WAYS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>("way_saves", Self::VT_WAY_SAVES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>("way_given", Self::VT_WAY_GIVEN, false)?
      .finish();
     Ok(())
   }
@@ -36924,6 +36954,9 @@ pub struct PolitySaveArgs<'a> {
     pub seated: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, SeatSave>>>,
     pub elections: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ElectionSave<'a>>>>>,
     pub patron_gifts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PatronGiftSave>>>,
+    pub ways: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<WaySiteSave<'a>>>>>,
+    pub way_saves: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>>>,
+    pub way_given: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -36963,6 +36996,9 @@ impl<'a> Default for PolitySaveArgs<'a> {
       seated: None,
       elections: None,
       patron_gifts: None,
+      ways: None,
+      way_saves: None,
+      way_given: None,
     }
   }
 }
@@ -37109,6 +37145,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_PATRON_GIFTS, patron_gifts);
   }
   #[inline]
+  pub fn add_ways(&mut self, ways: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<WaySiteSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_WAYS, ways);
+  }
+  #[inline]
+  pub fn add_way_saves(&mut self, way_saves: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<BankShareSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_WAY_SAVES, way_saves);
+  }
+  #[inline]
+  pub fn add_way_given(&mut self, way_given: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<BankShareSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_WAY_GIVEN, way_given);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -37160,6 +37208,9 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("seated", &self.seated());
       ds.field("elections", &self.elections());
       ds.field("patron_gifts", &self.patron_gifts());
+      ds.field("ways", &self.ways());
+      ds.field("way_saves", &self.way_saves());
+      ds.field("way_given", &self.way_given());
       ds.finish()
   }
 }
@@ -37952,6 +38003,153 @@ impl ::core::fmt::Debug for HeldSettlementSave<'_> {
       ds.field("since", &self.since());
       ds.field("how", &self.how());
       ds.field("from", &self.from());
+      ds.finish()
+  }
+}
+pub enum WaySiteSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct WaySiteSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for WaySiteSave<'a> {
+  type Inner = WaySiteSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> WaySiteSave<'a> {
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 4;
+  pub const VT_CELL: ::flatbuffers::VOffsetT = 6;
+  pub const VT_LABOUR_H: ::flatbuffers::VOffsetT = 8;
+  pub const VT_WORK: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    WaySiteSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args WaySiteSaveArgs
+  ) -> ::flatbuffers::WIPOffset<WaySiteSave<'bldr>> {
+    let mut builder = WaySiteSaveBuilder::new(_fbb);
+    builder.add_work(args.work);
+    builder.add_labour_h(args.labour_h);
+    builder.add_law(args.law);
+    builder.add_cell(args.cell);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WaySiteSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn cell(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(WaySiteSave::VT_CELL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn labour_h(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(WaySiteSave::VT_LABOUR_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn work(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(WaySiteSave::VT_WORK, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for WaySiteSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<u32>("cell", Self::VT_CELL, false)?
+     .visit_field::<f64>("labour_h", Self::VT_LABOUR_H, false)?
+     .visit_field::<u64>("work", Self::VT_WORK, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct WaySiteSaveArgs {
+    pub law: u64,
+    pub cell: u32,
+    pub labour_h: f64,
+    pub work: u64,
+}
+impl<'a> Default for WaySiteSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    WaySiteSaveArgs {
+      law: 0,
+      cell: 0,
+      labour_h: 0.0,
+      work: 0,
+    }
+  }
+}
+
+pub struct WaySiteSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WaySiteSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(WaySiteSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_cell(&mut self, cell: u32) {
+    self.fbb_.push_slot::<u32>(WaySiteSave::VT_CELL, cell, 0);
+  }
+  #[inline]
+  pub fn add_labour_h(&mut self, labour_h: f64) {
+    self.fbb_.push_slot::<f64>(WaySiteSave::VT_LABOUR_H, labour_h, 0.0);
+  }
+  #[inline]
+  pub fn add_work(&mut self, work: u64) {
+    self.fbb_.push_slot::<u64>(WaySiteSave::VT_WORK, work, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WaySiteSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    WaySiteSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<WaySiteSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for WaySiteSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("WaySiteSave");
+      ds.field("law", &self.law());
+      ds.field("cell", &self.cell());
+      ds.field("labour_h", &self.labour_h());
+      ds.field("work", &self.work());
       ds.finish()
   }
 }

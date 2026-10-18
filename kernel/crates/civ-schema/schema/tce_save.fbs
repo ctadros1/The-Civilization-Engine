@@ -1456,6 +1456,11 @@ table PolitySave {
   // Schema 131 (M7c slice BY): gifts its sponsors gave before its gatherings, oldest first,
   // within memory; absent before.
   patron_gifts: [PatronGiftSave] (id: 33);
+  // Schema 150 (M8b slice CQ, third part): where its laws would clear passing places, what each
+  // household reckoned they would spare it a year, and the hours each has given; absent before.
+  ways: [WaySiteSave] (id: 34);
+  way_saves: [BankShareSave] (id: 35);
+  way_given: [BankShareSave] (id: 36);
 }
 
 // A gift a sponsor's household gave another's before the gathering on the sponsor's law (schema
@@ -1570,6 +1575,16 @@ table HeldSettlementSave {
   since: long (id: 1);
   how: ubyte (id: 2);
   from: ulong (id: 3);
+}
+
+// Where a law would clear a passing place (schema 150, M8b slice CQ, third part): the cell at
+// the middle of the single-cart stretch, the hours clearing it would take, and its way once begun
+// (0 before).
+table WaySiteSave {
+  law: ulong (id: 0);
+  cell: uint (id: 1);
+  labour_h: double (id: 2);
+  work: ulong (id: 3);
 }
 
 // Where a law would raise a palisade (schema 114, M6c slice BK): the point its ring is drawn

@@ -123,7 +123,8 @@ use super::{
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
-    SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, finish, section, section_root,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -649,6 +650,7 @@ enum Schema {
     V148,
     /// Passing places (M8b slice CQ, second part: a way as an activity's target).
     V149,
+    V150,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -812,7 +814,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V146 => Schema::V146,
         SCHEMA_V147 => Schema::V147,
         SCHEMA_V148 => Schema::V148,
-        SAVE_SCHEMA_VERSION => Schema::V149,
+        SCHEMA_V149 => Schema::V149,
+        SAVE_SCHEMA_VERSION => Schema::V150,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1680,6 +1683,26 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 .collect();
             let enclosures = (!enclosures.is_empty()).then(|| fbb.create_vector(&enclosures));
             let enclosure_saves = bank_share_rows(&mut fbb, &p.enclosure_saves);
+            // Where its laws would clear passing places, what each household reckoned they
+            // would spare it, and the hours given (schema 150).
+            let ways: Vec<_> = p
+                .ways
+                .iter()
+                .map(|&(law, s)| {
+                    save::WaySiteSave::create(
+                        &mut fbb,
+                        &save::WaySiteSaveArgs {
+                            law: law.get(),
+                            cell: s.cell,
+                            labour_h: s.labour_h,
+                            work: s.work.map_or(0, PermanentId::get),
+                        },
+                    )
+                })
+                .collect();
+            let ways = (!ways.is_empty()).then(|| fbb.create_vector(&ways));
+            let way_saves = bank_share_rows(&mut fbb, &p.way_saves);
+            let way_given = bank_share_rows(&mut fbb, &p.way_given);
             // The settlements it holds besides its seat, and its end (schema 118).
             let held: Vec<_> = p
                 .held
@@ -1913,6 +1936,9 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     seated,
                     elections,
                     patron_gifts,
+                    ways,
+                    way_saves,
+                    way_given,
                 },
             )
         })
@@ -2014,6 +2040,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::DebtsUnpaid => 21,
         IssueKind::Weighed => 22,
         IssueKind::CoinIdle => 23,
+        IssueKind::CartsWait => 24,
     }
 }
 
@@ -2144,6 +2171,7 @@ fn decode_polities(
                 21 => IssueKind::DebtsUnpaid,
                 22 => IssueKind::Weighed,
                 23 => IssueKind::CoinIdle,
+                24 => IssueKind::CartsWait,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -2560,6 +2588,27 @@ fn decode_polities(
             ));
         }
         let enclosure_saves = bank_shares(p.enclosure_saves(), "a palisade's reckoned saving")?;
+        // Passing places (schema 150, M8b slice CQ, third part).
+        let mut ways = Vec::new();
+        for w in p.ways().iter().flatten() {
+            let law = law_of(w.law(), "a passing place")?;
+            let ok = w.labour_h().is_finite() && w.labour_h() > 0.0;
+            if !ok || ways.iter().any(|x: &(PermanentId, _)| x.0 == law) {
+                return Err(bad(format!(
+                    "polity {id} has a passing place's site malformed"
+                )));
+            }
+            ways.push((
+                law,
+                civ_agents::polity::WaySite {
+                    cell: w.cell(),
+                    labour_h: w.labour_h(),
+                    work: PermanentId::from_raw(w.work()),
+                },
+            ));
+        }
+        let way_saves = bank_shares(p.way_saves(), "a passing place's reckoned saving")?;
+        let way_given = bank_shares(p.way_given(), "hours given to a passing place")?;
         // The settlements it holds besides its seat, and its end (schema 118); before, its seat
         // alone, still deciding.
         let mut held = Vec::new();
@@ -2772,6 +2821,9 @@ fn decode_polities(
             seated,
             elections,
             patron_gifts,
+            ways,
+            way_saves,
+            way_given,
         });
     }
     Ok(out)
@@ -4613,7 +4665,8 @@ fn carried(
         | Schema::V146
         | Schema::V147
         | Schema::V148
-        | Schema::V149 => {
+        | Schema::V149
+        | Schema::V150 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4935,7 +4988,8 @@ fn decode_households(
             | Schema::V146
             | Schema::V147
             | Schema::V148
-            | Schema::V149 => {
+            | Schema::V149
+            | Schema::V150 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

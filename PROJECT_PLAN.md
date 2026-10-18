@@ -4293,6 +4293,36 @@ and M6a gives rivers a daily flow.
         **Not yet:** widening or laying a stretch of a way already laid, keeping a passing
         place (it fades as any way does), a polity's `build_way`, and the observer's view of
         losses.
+      - *Third part, as built (2026-10-18): a passing place cleared together by law*
+        (ADR-0029 §6: "a polity builds by an appended `build_way` policy, shaped as
+        `build_crossing` and `build_bank` are"). **The issue:** at its weekly review a polity
+        finds where its settlement's households hold waits at single-cart stretches no way runs
+        on yet, sums at each what a passing place would spare them (half the waits a year each,
+        over the ten years they reckon it lasts) and, where that most exceeds the clearing's
+        work, has the issue `carts_wait` (code 24); one at a time, none while it is clearing one.
+        The households whose carts waited deliberate. **The law:** a new kind, `build_way`, and
+        the core's `core:policy/yours_to_clear_a_passing_place` (its id sorts last, so opinion's
+        draws keep their keys). A household weighs it as a flood bank: the food a year the
+        waiting it would spare could bring, less its equal share of the work over the place's
+        life; one whose carts never wait there gains nothing and is still asked its share. The
+        proposal names the cell and keeps each household's reckoning; passed, the polity lays
+        out a one-cell way it keeps, its built width the tread's. **The work:** the same `way`
+        behaviour, now offered for the polity's passing place to anyone who knows the law in
+        force, each hour worth what their household reckoned it would spare it and, while it has
+        not given its share, what keeping to the gathering's word is worth; hours given are kept
+        by law and household and count as work for the polity (`pay_work` pays them). **What it
+        comes to** (the second part's scene): the buyer's household's twenty turnings back made
+        the issue; a proposal named the stretch's middle and kept the buyer's reckoning; passed,
+        the place was cleared by the households' shares to two carts' width, the hours given
+        summing to its work, and two carts then pass there; neither the polity nor the household
+        began a second while it was being cleared. **Exact:** a world where no cart waits lives as before: the bench's village of three
+        settlements, 30 days in both modes, has every count the second part's had, and every
+        section's digest but the content's and those carrying the policy dictionary (polity,
+        opinion, factions), the save header's aside. **Boundary:**
+        saves schema 150 (the polity's passing places, reckonings and hours given), content API
+        138 (`build_way`, `carts_wait`); no wire change: the law reads in the government panel
+        as any law does. **Not yet:** a chronicle entry when it is done, keeping one by law,
+        laying or widening a longer stretch, and the observer's view of losses.
     - **CR**: where to live weighs the walk; the dashboard's travel time by occupation and
       purpose, mode shares and waits.
   - **M8c, planning and land** (designed when reached, from `docs/briefs/m8-planning.md`): site

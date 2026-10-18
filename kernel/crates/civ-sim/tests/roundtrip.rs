@@ -2374,6 +2374,21 @@ fn a_schema_68_save_loads_with_no_wade_remembered() {
 }
 
 #[test]
+fn a_schema_149_save_loads_and_goes_on() {
+    // A schema-149 save, from before polities cleared passing places (M8b slice CQ, third part):
+    // no law names one, and it loads as it was.
+    let sim = load_first();
+    assert!(sim.people().polities.iter().all(|p| p.ways.is_empty()));
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V149;
+    let path = republish("slice-cq2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-149 save loads");
+    assert!(loaded.people().polities.iter().all(|p| p.ways.is_empty()));
+    assert_eq!(loaded.land().ways, sim.land().ways);
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_148_save_loads_and_goes_on() {
     // A schema-148 save, from before households made passing places (M8b slice CQ, second part):
     // nobody works on a way, and it loads as it was.

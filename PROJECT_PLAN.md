@@ -4548,12 +4548,15 @@ and M6a gives rivers a daily flow.
         founders' share left out of the content, the bench's village of three settlements, 30
         days, keeps every count and every section's digest CS's second part had but the polity
         section's (which now carries what each polity saw of its ground), the save header's and
-        the content's. With the core's plan in, a plan is proposed within the first weeks (a probe
-        of an earlier build: two of the three polities on day 66, answering a trail built over,
-        every household's stake slightly against, as any law may be put forward under the
-        deliberator's draw), and the world departs from there. **New baselines:** 602 fields and
-        625 buildings against 609 and 625 (deterministic mode; 599 and 625 against 604 and 625 at
-        Max), the same people, and a day as long (3.90 s against 3.95, 3.08 at Max against 2.97). **Tests:** the plan's six origins over a village of the second day (five laid, the
+        the content's. With the core's plan in, the bench's first ten days keep every count CS's
+        second part had; then someone a plan would serve puts one forward and the world departs
+        from there. **Plans are put forward by those they would serve,** as amendments and limits
+        are: under the deliberator's draw alone, plans came before villages a month old with every
+        household's stake against them. **New baselines:** 606 fields and 625 buildings against
+        609 and 625 (deterministic mode; 605 and 625 against 604 and 625 at Max), the same people.
+        The container was replaced during the slice and is faster: the same first ten days took
+        2.55 s a day against 3.25, and the 30 days 3.11 s against 3.95 (2.42 at Max against
+        2.97), so a day's cost is compared within a machine from here. **Tests:** the plan's six origins over a village of the second day (five laid, the
         square refused at a hearth its homes stand round, none on a plot or a field, every
         household owing the same share and none yet gaining, all being housed), a proposal kept as
         laid, a second as its next version replacing the first, both and what the polity saw saved

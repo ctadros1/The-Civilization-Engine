@@ -99,6 +99,7 @@ pub use loads::{
     DIES_IN_RUIN, DIES_UNDER_FLOOR, DIES_UNDER_ROOF, LIVE_PA, SNOW_TOLD_PA, SPILLED,
     snow_on_roof_pa, storm_pa,
 };
+mod plans;
 mod siting;
 mod taste;
 mod ties;
@@ -667,6 +668,14 @@ struct NewHome {
     firm: Option<PermanentId>,
     /// Why a home's plot was chosen among others (M8c slice CS).
     receipt: Option<civ_land::SiteReceipt>,
+}
+
+/// Why a household begins no building (M8c slice CT): nothing it would build, or a home it would
+/// build and no clear ground for it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Unbuilt {
+    Nothing,
+    NoGround,
 }
 
 /// What a household builds: the building under way (or the one it would begin), the work left on
@@ -2251,6 +2260,16 @@ impl Population {
             Some((seen, site)) if *seen == day => site.clone(),
             _ => {
                 let site = self.new_building(ctx, hh, hearth, field_key, labour_per_day, home);
+                // A home it meant to build and found no clear ground for (M8c slice CT).
+                if site.as_ref().err() == Some(&Unbuilt::NoGround) {
+                    self.see_ground(
+                        ctx,
+                        hh.settlement,
+                        hh.id,
+                        crate::polity::IssueKind::NoGround,
+                    );
+                }
+                let site = site.ok();
                 self.home_sites.insert(hh.id, (day, site.clone()));
                 site
             }
@@ -2282,7 +2301,7 @@ impl Population {
         field_key: PermanentId,
         labour_per_day: f64,
         home: Option<f64>,
-    ) -> Option<NewHome> {
+    ) -> Result<NewHome, Unbuilt> {
         let catalog = ctx.catalog;
         let day = ctx.now.day_index();
         let programs = self.home_programs(ctx, &hh.members);
@@ -2540,8 +2559,13 @@ impl Population {
         // store, while goods are lost for want of room, and a workshop for each firm that has more
         // at work than its home has room for, before more floor. A home's door faces the hearth;
         // a store's or a workshop's, its household's home.
+        // A home it means to build and finds no ground for is told apart (M8c slice CT).
+        let home_on_ground = |c: Option<(usize, build::Shape)>, first: bool| {
+            let c = c.ok_or(Unbuilt::Nothing)?;
+            choose_home(c, first).ok_or(Unbuilt::NoGround)
+        };
         match home {
-            None => home_choice(None).and_then(|c| choose_home(c, true)),
+            None => home_on_ground(home_choice(None), true),
             Some(current) => self
                 .storehouse_plan(ctx, hh, labour_per_day, day)
                 .and_then(|c| site(c, Some(hh.home), None, HOME_SHIFT_M))
@@ -2550,7 +2574,8 @@ impl Population {
                         .into_iter()
                         .find_map(|(c, firm)| site(c, Some(hh.home), Some(firm), HOME_SHIFT_M))
                 })
-                .or_else(|| home_choice(Some(current)).and_then(|c| choose_home(c, false))),
+                .ok_or(Unbuilt::Nothing)
+                .or_else(|_| home_on_ground(home_choice(Some(current)), false)),
         }
     }
 
@@ -2817,6 +2842,13 @@ impl Population {
                     && b.standing()
                     && ctx.catalog.is_dwelling(&b.spec.program)
             });
+        // What its polity sees of the ground it takes (M8c slice CT).
+        self.ground_taken(
+            ctx,
+            household,
+            &rect,
+            def.use_ == civ_land::PlotUse::Dwelling,
+        );
         let (plot, id) = (ctx.ids.allocate(), ctx.ids.allocate());
         ctx.land.plots.push(Plot {
             id: plot,

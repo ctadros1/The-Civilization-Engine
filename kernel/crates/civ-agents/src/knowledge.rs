@@ -44,7 +44,14 @@ pub fn knowing_age(catalog: &Catalog, t: usize, grown_at: f64) -> Option<f64> {
     if let Some((from, _)) = upbringing_ages(catalog, t, grown_at) {
         return Some(from);
     }
-    Some(catalog.work_age(t)?.max(grown_at))
+    Some(work_age(catalog, t, grown_at)?.max(grown_at))
+}
+
+/// The youngest age of technique `t`'s work; for one that gates no work but a law its sponsor
+/// must know (M8c slice CT: laying out by cord and stake), the age of growing up `grown_at`.
+fn work_age(catalog: &Catalog, t: usize, grown_at: f64) -> Option<f64> {
+    catalog.techniques.get(t)?;
+    Some(catalog.work_age(t).unwrap_or(grown_at))
 }
 
 /// Years before growing up in which a child learns at home the techniques of work first done
@@ -57,7 +64,7 @@ pub const UPBRINGING_LEAD_YEARS: f64 = 1.0;
 /// So all of a household's work is learnt at home before anyone leaves it to keep their own.
 pub fn upbringing_ages(catalog: &Catalog, t: usize, grown_at: f64) -> Option<(f64, f64)> {
     catalog.techniques.get(t).filter(|d| d.upbringing)?;
-    let work = catalog.work_age(t)?;
+    let work = work_age(catalog, t, grown_at)?;
     Some((
         work.min(grown_at - UPBRINGING_LEAD_YEARS).max(0.0),
         grown_at,

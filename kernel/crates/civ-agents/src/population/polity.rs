@@ -60,6 +60,8 @@ pub(super) struct Forecasts {
     /// Where the settlement's people could clear a passing place together, if anywhere (M8b
     /// slice CQ, third part).
     pub(super) way: Option<super::way_works::PublicWay>,
+    /// The plans a sponsor could put forward, if it weighs one (M8c slice CT, second part).
+    pub(super) plans: Vec<super::plans::PublicPlan>,
     /// The palisade the settlement's people could raise round their hearth together, if any
     /// (M6c slice BK).
     pub(super) enclosure: Option<super::enclosures::PublicEnclosure>,
@@ -450,6 +452,27 @@ impl Forecasts {
                 let saved = p.saves_of(h) * kcal;
                 let owed = p.share_h() / p.life.max(1e-9) * kcal;
                 crate::polity::kept_gain(o, saved, pp) - crate::polity::levy_cost(o, owed, pp)
+            }
+            // A plan (M8c slice CT, second part): the food a year the walking its best parcel
+            // would save the household could bring, against the ground it would take now if it
+            // means to build, less what its share of staking the parcels out, over a home's
+            // years, could. Named by its code; a household that means to build nothing gains
+            // nothing and still owes its share.
+            Some(PolicyKind::Plan) => {
+                let Some(p) = self
+                    .plans
+                    .iter()
+                    .find(|p| p.policy == m.policy && Some(p.code) == m.site)
+                else {
+                    return 0.0;
+                };
+                let kcal = self
+                    .hour_kcal
+                    .binary_search_by_key(&h, |k| k.0)
+                    .map_or(0.0, |i| self.hour_kcal[i].1);
+                let (saved, owed) = p.gain_of(h);
+                crate::polity::kept_gain(o, saved.max(0.0) * kcal, pp)
+                    - crate::polity::levy_cost(o, (owed + (-saved).max(0.0)) * kcal, pp)
             }
             // A bank kept (M6b slice BG), as a bank built: the food a year the losses the
             // household reckoned the bank keeps out could bring, less what its share of mending
@@ -1486,6 +1509,25 @@ impl Population {
         }
     }
 
+    /// Adds to forecasts `fc` the plans `plans` a sponsor could put forward (M8c slice CT, second
+    /// part), with what an hour of each household's work brings it if it was not reckoned
+    /// already.
+    fn with_plans(
+        &self,
+        ctx: &Ctx,
+        fc: &mut Forecasts,
+        plans: Vec<super::plans::PublicPlan>,
+        households: &[PermanentId],
+    ) {
+        fc.plans = plans;
+        if !fc.plans.is_empty() && fc.hour_kcal.is_empty() {
+            fc.hour_kcal = households
+                .iter()
+                .filter_map(|&h| Some((h, self.hour_kcal(ctx, self.household(h)?))))
+                .collect();
+        }
+    }
+
     /// Adds to forecasts `fc` the palisade settlement `settlement`'s people could raise round
     /// their hearth (M6c slice BK), with what an hour of each household's work brings it if it
     /// was not reckoned already.
@@ -1605,6 +1647,7 @@ impl Population {
             bank,
             worn,
             way: None,
+            plans: Vec::new(),
             enclosure: None,
             rules,
             band_load: {
@@ -2417,6 +2460,10 @@ impl Population {
         if way.is_some() {
             issues.push(IssueKind::CartsWait);
         }
+        // What it saw of its ground within memory (M8c slice CT, second part): a household that
+        // found no ground for its home, a trail built over, a home beyond the built edge.
+        let (ground, ground_homes) = self.ground_issues(ctx, pi, settlement);
+        issues.extend(ground);
         // A case one of its households brought went unheard, or was not found, within memory
         // (M7b slice BR, ADR-0025 §1).
         let remember = day - i64::from(params.crime.remember_days);
@@ -2532,6 +2579,11 @@ impl Population {
                 if d.kind == PolicyKind::Enclose {
                     return true;
                 }
+                // A plan, or a new version of the one in force, at most every so often (M8c slice
+                // CT, second part; ADR-0030 §2).
+                if d.kind == PolicyKind::Plan {
+                    return !self.plan_lately(pi, day);
+                }
                 // One forum at a time (M7b slice BR): another may replace the one in force (M7b
                 // slice BS: its seat or its authority changed by a law).
                 if d.kind == PolicyKind::HearCases {
@@ -2585,6 +2637,13 @@ impl Population {
         let mut fc = self.forecasts_with(ctx, pi, &households, &adults, sites, well, bank);
         self.with_enclosure(ctx, &mut fc, settlement, &households);
         self.with_way(ctx, &mut fc, way, &households);
+        // The plans a sponsor could lay, for each plan template open (M8c slice CT, second part).
+        let plans: Vec<super::plans::PublicPlan> = open
+            .iter()
+            .filter(|(k, _)| ctx.catalog.policies[usize::from(*k)].kind == PolicyKind::Plan)
+            .flat_map(|&(k, _)| self.public_plans(ctx, pi, settlement, &households, k))
+            .collect();
+        self.with_plans(ctx, &mut fc, plans, &households);
         let outlooks = &fc.outlooks;
         // Who could keep the store: adults whose household is under a roof.
         let roofed: Vec<PermanentId> = adults
@@ -2656,6 +2715,23 @@ impl Population {
         deliberators.sort_unstable();
         deliberators.dedup();
         deliberators.retain(|d| members.binary_search_by_key(d, |m| m.0).is_ok());
+        // And the elders of households whose building raised a plan's issue (M8c slice CT,
+        // second part), who weigh a plan alone unless something else reached them.
+        let plan_only: Vec<PermanentId> = if self.every_adult_deliberates || founding.is_some() {
+            Vec::new()
+        } else {
+            let mut v: Vec<PermanentId> = ground_homes
+                .iter()
+                .filter_map(|&h| self.elder_of(h, now, params))
+                .filter(|e| deliberators.binary_search(e).is_err())
+                .filter(|e| members.binary_search_by_key(e, |m| m.0).is_ok())
+                .collect();
+            v.sort_unstable();
+            v.dedup();
+            v
+        };
+        deliberators.extend(&plan_only);
+        deliberators.sort_unstable();
         let tp = &params.ties;
         // What its gatherings decided within memory (M4c slice AF): each law and case, with the
         // stances taken there (open acclamation: those who came saw them), and who each kind of
@@ -3195,6 +3271,22 @@ impl Population {
                             });
                         }
                     }
+                    // A plan, put forward only by someone who knows how to lay ground out (M8c
+                    // slice CT, second part; ADR-0030 §2): each layout laid, named by its code.
+                    // Proposed, it replaces the plan in force, if one is, as its next version.
+                    PolicyKind::Plan => {
+                        let knows = def.plan.as_ref().is_some_and(|g| {
+                            g.needs
+                                .is_none_or(|t| self.person(d).is_some_and(|p| p.knows(t)))
+                        });
+                        for p in fc.plans.iter().filter(|p| p.policy == k && knows) {
+                            moves.push(MoveOption {
+                                site: Some(p.code),
+                                target: None,
+                                ..blank
+                            });
+                        }
+                    }
                     // A palisade round the hearth (M6c slice BK), named by the hearth's cell.
                     PolicyKind::Enclose => {
                         if let Some(p) = &fc.enclosure {
@@ -3409,6 +3501,13 @@ impl Population {
                 }
             }
             let sitters_of = |b: &Body| sat.iter().find(|x| x.0 == *b).map(|x| x.1.as_slice());
+            if plan_only.binary_search(&d).is_ok() {
+                moves.retain(|m| {
+                    policies
+                        .get(usize::from(m.policy))
+                        .is_some_and(|x| x.kind == PolicyKind::Plan)
+                });
+            }
             let gain_for = |m: &MoveOption, h: PermanentId| match (m.body, m.ends) {
                 (Some(b), _) => amend_gain(&b, sitters_of(&b), h, &seen_d),
                 (None, Some(_)) => -held(m, h),
@@ -3485,6 +3584,11 @@ impl Population {
                                 .map(|s| super::levees::bank_cell(ctx.map, &s))
                                 == m.site
                             || self.polities[pi].way_site_of(l.id).map(|s| s.cell) == m.site
+                            || self.polities[pi].plan_of(l.id).and_then(|p| {
+                                p.layout
+                                    .axis
+                                    .map(|a| super::plans::plan_code(ctx.map, p.layout.origin, a))
+                            }) == m.site
                     })
                     .filter(|l| {
                         l.decided
@@ -3510,6 +3614,30 @@ impl Population {
             // So is a limit (M7b slice BT).
             let limit = |m: &MoveOption| limit_gains.iter().any(|l| l.0 == m.policy);
             moves.retain(|m| (m.body.is_none() && !further(m) && !limit(m)) || m.own_gain > 0.0);
+            // Of the plans they laid, they put forward the one they reckon best for their
+            // household and those who regard them, the first among equals (M8c slice CT, second
+            // part; ADR-0030 §2), as one move.
+            let plan = |m: &MoveOption| {
+                policies
+                    .get(usize::from(m.policy))
+                    .is_some_and(|x| x.kind == PolicyKind::Plan)
+            };
+            let reckoned =
+                |m: &MoveOption| m.support * (m.own_gain + pp.w_followers * m.followers_gain);
+            if let Some(best) = moves
+                .iter()
+                .enumerate()
+                .filter(|(_, m)| plan(m))
+                .min_by(|a, b| reckoned(b.1).total_cmp(&reckoned(a.1)).then(a.0.cmp(&b.0)))
+                .map(|(i, _)| i)
+            {
+                let mut i = 0;
+                moves.retain(|m| {
+                    let keep = !plan(m) || i == best;
+                    i += 1;
+                    keep
+                });
+            }
             let u =
                 Rng64::from_key(&[ctx.seed, PURPOSE_DELIBERATE, d.get(), day as u64]).next_f64();
             let choice = deliberator.choose(&moves, u);
@@ -3552,6 +3680,18 @@ impl Population {
         let def = &ctx.catalog.policies[usize::from(m.policy)];
         let id = ctx.ids.allocate();
         let meets = day + i64::from(pp.notice_days.max(1));
+        // A plan replaces the plan in force, if one is (M8c slice CT, second part: a new version).
+        let ends = m.ends.or_else(|| {
+            (def.kind == PolicyKind::Plan)
+                .then(|| {
+                    self.polities[pi]
+                        .laws
+                        .iter()
+                        .find(|l| l.kind == PolicyKind::Plan && l.status == LawStatus::InForce)
+                        .map(|l| l.id)
+                })
+                .flatten()
+        });
         let law = Law {
             id,
             policy: m.policy,
@@ -3574,7 +3714,7 @@ impl Population {
             compliance: Default::default(),
             watch: Default::default(),
             body: m.body,
-            ends: m.ends,
+            ends,
             agreement: None,
             target: m.target,
         };
@@ -3642,6 +3782,45 @@ impl Population {
                     polity.bank_saves.push((id, h, saves as f32));
                 }
                 polity.bank_saves.sort_unstable_by_key(|s| (s.0, s.1));
+            }
+        }
+        // A plan keeps its layout as the sponsor laid it now, its version one more than the
+        // polity's plans passed before (M8c slice CT, second part).
+        if def.kind == PolicyKind::Plan
+            && let Some(code) = m.site
+        {
+            let settlement = self.polities[pi].settlement;
+            let mut households: Vec<PermanentId> = self
+                .households
+                .iter()
+                .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
+                .map(|(_, x)| x.id)
+                .collect();
+            households.sort_unstable();
+            if let Some(p) = self
+                .public_plans(ctx, pi, settlement, &households, m.policy)
+                .into_iter()
+                .find(|p| p.code == code)
+            {
+                let polity = &mut self.polities[pi];
+                let passed = polity
+                    .plans
+                    .iter()
+                    .filter(|(law, _)| {
+                        polity
+                            .laws
+                            .iter()
+                            .any(|l| l.id == *law && l.outcome == Some(Outcome::Passed))
+                    })
+                    .count();
+                polity.plans.push((
+                    id,
+                    crate::polity::PlanLaid {
+                        version: passed as u16 + 1,
+                        grid: p.grid,
+                        layout: p.layout,
+                    },
+                ));
             }
         }
         // A passing place names its cell, as the settlement's people would clear it now, and

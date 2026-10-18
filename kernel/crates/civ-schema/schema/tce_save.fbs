@@ -1466,6 +1466,70 @@ table PolitySave {
   ways: [WaySiteSave] (id: 34);
   way_saves: [BankShareSave] (id: 35);
   way_given: [BankShareSave] (id: 36);
+  // Schema 156 (M8c slice CT, second part): the plans its laws lay, as realised when proposed,
+  // and what it saw of its settlements' ground within memory, oldest first; absent before.
+  plans: [PlanSave] (id: 37);
+  ground_seen: [GroundSeenSave] (id: 38);
+}
+
+// A plan a law lays (schema 156, M8c slice CT, second part; ADR-0030 §2): its version, its
+// origin (metres) and axis (0 east and west, 1 north and south), the grid laid (a block's sides
+// along and across, a parcel's frontage and depth, the streets' width, metres; blocks along and
+// across; whether the origin block is a square), and the layout as realised, in integer
+// centimetres from the map's north-west corner: street stretches and crossings, public sites (use
+// 0: a square), parcels with their block, and how many of each the ground refused.
+table PlanSave {
+  law: ulong (id: 0);
+  version: ushort (id: 1);
+  origin_x: float (id: 2);
+  origin_y: float (id: 3);
+  axis: ubyte (id: 4);
+  block_along: float (id: 5);
+  block_across: float (id: 6);
+  frontage: float (id: 7);
+  depth: float (id: 8);
+  street: float (id: 9);
+  blocks_along: ubyte (id: 10);
+  blocks_across: ubyte (id: 11);
+  square: bool (id: 12);
+  streets: [PlanRectSave] (id: 13);
+  sites: [PlanSiteSave] (id: 14);
+  parcels: [PlanParcelSave] (id: 15);
+  refused_streets: uint (id: 16);
+  refused_sites: uint (id: 17);
+  refused_parcels: uint (id: 18);
+}
+
+struct PlanRectSave {
+  x: int;
+  y: int;
+  w: int;
+  h: int;
+}
+
+struct PlanSiteSave {
+  x: int;
+  y: int;
+  w: int;
+  h: int;
+  kind: ubyte;
+}
+
+struct PlanParcelSave {
+  x: int;
+  y: int;
+  w: int;
+  h: int;
+  block: ushort;
+}
+
+// What a polity saw of its settlements' ground (schema 156): the day, the settlement, the
+// household, and the issue it raises, by its code in `IssueKind::ALL`.
+struct GroundSeenSave {
+  day: long;
+  settlement: ulong;
+  household: ulong;
+  issue: ubyte;
 }
 
 // A gift a sponsor's household gave another's before the gathering on the sponsor's law (schema

@@ -521,6 +521,7 @@ impl Population {
         });
         let labour = self.labour_per_day(&hh.members, ctx.now, ctx.params);
         self.new_building(ctx, &hh, hearth, hh.id, labour, None)
+            .ok()
             .map(|n| n.spec)
     }
 

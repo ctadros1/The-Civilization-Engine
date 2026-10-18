@@ -63,6 +63,25 @@ fn founders_know_their_work_and_the_settlement_records_what_they_brought() {
             continue;
         }
         let age = knowing_age(catalog, t, params.family.independent_age).expect("gates work");
+        // What only some founders bring (laying out by cord and stake, M8c slice CT), only
+        // those of its age may know.
+        let share = params
+            .knowledge
+            .founders
+            .iter()
+            .find(|f| f.0 == t)
+            .map_or(0.0, |f| f.1);
+        if share < 1.0 {
+            assert!(
+                sim.people()
+                    .people
+                    .iter()
+                    .all(|(_, p)| !p.knows(t) || p.age_years(now) >= age),
+                "{}",
+                def.name
+            );
+            continue;
+        }
         for (_, p) in sim.people().people.iter() {
             assert_eq!(
                 p.knows(t),
@@ -85,7 +104,13 @@ fn founders_know_their_work_and_the_settlement_records_what_they_brought() {
         .iter()
         .filter(|e| e.kind == KnowledgeEventKind::Known(KnowSource::Founder))
         .count();
-    assert_eq!(brought, founders.len(), "one record each");
+    // One record each of what the settlement's founders brought.
+    let known = founders
+        .iter()
+        .filter(|&&t| sim.people().known_in(settlement, t))
+        .count();
+    assert_eq!(brought, known, "one record each");
+    assert!(known >= founders.len() - 1);
 }
 
 #[test]

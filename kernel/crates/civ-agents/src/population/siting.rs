@@ -49,14 +49,16 @@ impl Population {
             .settlements
             .iter()
             .find(|s| Some(s.id) == hh.settlement)?;
-        let site = self.new_building(
-            ctx,
-            hh,
-            Some(settlement.hearth_m),
-            settlement.id,
-            24.0,
-            None,
-        )?;
+        let site = self
+            .new_building(
+                ctx,
+                hh,
+                Some(settlement.hearth_m),
+                settlement.id,
+                24.0,
+                None,
+            )
+            .ok()?;
         Some((crate::build::centre_m(&site.spec), site.receipt))
     }
 }

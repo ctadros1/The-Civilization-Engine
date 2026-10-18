@@ -2374,6 +2374,29 @@ fn a_schema_68_save_loads_with_no_wade_remembered() {
 }
 
 #[test]
+fn a_schema_155_save_loads_and_goes_on() {
+    // A schema-155 save, from before polities kept their plans and what they saw of their ground
+    // (M8c slice CT, second part): it loads with none, and goes on.
+    let mut sim = load_first();
+    for p in &mut sim.people_mut_for_tests().polities {
+        p.plans.clear();
+        p.ground_seen.clear();
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V155;
+    let path = republish("slice-cs2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-155 save loads");
+    assert!(
+        loaded
+            .people()
+            .polities
+            .iter()
+            .all(|p| p.plans.is_empty() && p.ground_seen.is_empty())
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_154_save_loads_and_goes_on() {
     // A schema-154 save, from before plots kept why they were chosen (M8c slice CS, second
     // part): its plots load with no receipt, and it goes on.

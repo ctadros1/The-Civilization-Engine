@@ -124,7 +124,7 @@ use super::{
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
-    SCHEMA_V153, SCHEMA_V154, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -660,6 +660,7 @@ enum Schema {
     V153,
     V154,
     V155,
+    V156,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -829,7 +830,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V152 => Schema::V152,
         SCHEMA_V153 => Schema::V153,
         SCHEMA_V154 => Schema::V154,
-        SAVE_SCHEMA_VERSION => Schema::V155,
+        SCHEMA_V155 => Schema::V155,
+        SAVE_SCHEMA_VERSION => Schema::V156,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1717,6 +1719,80 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
             let ways = (!ways.is_empty()).then(|| fbb.create_vector(&ways));
             let way_saves = bank_share_rows(&mut fbb, &p.way_saves);
             let way_given = bank_share_rows(&mut fbb, &p.way_given);
+            // The plans its laws lay, as realised, and what it saw of its ground (schema 156).
+            let plans: Vec<_> = p
+                .plans
+                .iter()
+                .map(|(law, plan)| {
+                    let l = &plan.layout;
+                    let rect = |r: &civ_land::RectCm| save::PlanRectSave::new(r.x, r.y, r.w, r.h);
+                    let streets: Vec<_> = l.streets.iter().map(rect).collect();
+                    let streets = fbb.create_vector(&streets);
+                    let sites: Vec<_> = l
+                        .sites
+                        .iter()
+                        .map(|t| {
+                            save::PlanSiteSave::new(
+                                t.rect.x,
+                                t.rect.y,
+                                t.rect.w,
+                                t.rect.h,
+                                t.use_.code(),
+                            )
+                        })
+                        .collect();
+                    let sites = fbb.create_vector(&sites);
+                    let parcels: Vec<_> = l
+                        .parcels
+                        .iter()
+                        .map(|q| {
+                            save::PlanParcelSave::new(
+                                q.rect.x, q.rect.y, q.rect.w, q.rect.h, q.block,
+                            )
+                        })
+                        .collect();
+                    let parcels = fbb.create_vector(&parcels);
+                    let g = &plan.grid;
+                    save::PlanSave::create(
+                        &mut fbb,
+                        &save::PlanSaveArgs {
+                            law: law.get(),
+                            version: plan.version,
+                            origin_x: l.origin.0,
+                            origin_y: l.origin.1,
+                            axis: l.axis.map_or(0, civ_land::plans::Axis::code),
+                            block_along: g.block_m.0,
+                            block_across: g.block_m.1,
+                            frontage: g.parcel_m.0,
+                            depth: g.parcel_m.1,
+                            street: g.street_m,
+                            blocks_along: g.blocks.0,
+                            blocks_across: g.blocks.1,
+                            square: g.square,
+                            streets: Some(streets),
+                            sites: Some(sites),
+                            parcels: Some(parcels),
+                            refused_streets: l.refused.streets,
+                            refused_sites: l.refused.sites,
+                            refused_parcels: l.refused.parcels,
+                        },
+                    )
+                })
+                .collect();
+            let plans = (!plans.is_empty()).then(|| fbb.create_vector(&plans));
+            let ground_seen: Vec<_> = p
+                .ground_seen
+                .iter()
+                .map(|g| {
+                    save::GroundSeenSave::new(
+                        g.day,
+                        g.settlement.get(),
+                        g.household.get(),
+                        issue_code(g.issue),
+                    )
+                })
+                .collect();
+            let ground_seen = (!ground_seen.is_empty()).then(|| fbb.create_vector(&ground_seen));
             // The settlements it holds besides its seat, and its end (schema 118).
             let held: Vec<_> = p
                 .held
@@ -1953,6 +2029,8 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     ways,
                     way_saves,
                     way_given,
+                    plans,
+                    ground_seen,
                 },
             )
         })
@@ -2055,6 +2133,9 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::Weighed => 22,
         IssueKind::CoinIdle => 23,
         IssueKind::CartsWait => 24,
+        IssueKind::NoGround => 25,
+        IssueKind::WayBuiltOver => 26,
+        IssueKind::NewGround => 27,
     }
 }
 
@@ -2186,6 +2267,9 @@ fn decode_polities(
                 22 => IssueKind::Weighed,
                 23 => IssueKind::CoinIdle,
                 24 => IssueKind::CartsWait,
+                25 => IssueKind::NoGround,
+                26 => IssueKind::WayBuiltOver,
+                27 => IssueKind::NewGround,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -2623,6 +2707,92 @@ fn decode_polities(
         }
         let way_saves = bank_shares(p.way_saves(), "a passing place's reckoned saving")?;
         let way_given = bank_shares(p.way_given(), "hours given to a passing place")?;
+        // Plans (schema 156, M8c slice CT, second part).
+        let mut plans = Vec::new();
+        for s in p.plans().iter().flatten() {
+            let law = law_of(s.law(), "a plan")?;
+            let malformed = || bad(format!("polity {id} has a plan malformed"));
+            let axis = civ_land::plans::Axis::from_code(s.axis()).ok_or_else(malformed)?;
+            let rect = |x: i32, y: i32, w: i32, h: i32| civ_land::RectCm { x, y, w, h };
+            let mut sites = Vec::new();
+            for t in s.sites().iter().flatten() {
+                sites.push(civ_land::plans::Site {
+                    rect: rect(t.x(), t.y(), t.w(), t.h()),
+                    use_: civ_land::plans::SiteUse::from_code(t.kind()).ok_or_else(malformed)?,
+                });
+            }
+            let grid = civ_land::plans::Grid {
+                block_m: (s.block_along(), s.block_across()),
+                parcel_m: (s.frontage(), s.depth()),
+                street_m: s.street(),
+                blocks: (s.blocks_along(), s.blocks_across()),
+                square: s.square(),
+            };
+            let finite = [
+                s.origin_x(),
+                s.origin_y(),
+                grid.block_m.0,
+                grid.block_m.1,
+                grid.parcel_m.0,
+                grid.parcel_m.1,
+                grid.street_m,
+            ]
+            .iter()
+            .all(|v| v.is_finite());
+            if !finite || s.version() == 0 || plans.iter().any(|x: &(PermanentId, _)| x.0 == law) {
+                return Err(malformed());
+            }
+            plans.push((
+                law,
+                civ_agents::polity::PlanLaid {
+                    version: s.version(),
+                    grid,
+                    layout: civ_land::plans::Layout {
+                        origin: (s.origin_x(), s.origin_y()),
+                        axis: Some(axis),
+                        streets: s
+                            .streets()
+                            .iter()
+                            .flatten()
+                            .map(|r| rect(r.x(), r.y(), r.w(), r.h()))
+                            .collect(),
+                        sites,
+                        parcels: s
+                            .parcels()
+                            .iter()
+                            .flatten()
+                            .map(|q| civ_land::plans::Parcel {
+                                rect: rect(q.x(), q.y(), q.w(), q.h()),
+                                block: q.block(),
+                            })
+                            .collect(),
+                        refused: civ_land::plans::Refused {
+                            streets: s.refused_streets(),
+                            sites: s.refused_sites(),
+                            parcels: s.refused_parcels(),
+                        },
+                    },
+                },
+            ));
+        }
+        let mut ground_seen = Vec::new();
+        for g in p.ground_seen().iter().flatten() {
+            let (Some(settlement), Some(household), Some(&issue)) = (
+                PermanentId::from_raw(g.settlement()),
+                PermanentId::from_raw(g.household()),
+                civ_agents::polity::IssueKind::ALL
+                    .get(usize::from(g.issue()))
+                    .filter(|&&k| issue_code(k) == g.issue()),
+            ) else {
+                return Err(bad(format!("polity {id} saw its ground malformed")));
+            };
+            ground_seen.push(civ_agents::polity::GroundSeen {
+                day: g.day(),
+                settlement,
+                household,
+                issue,
+            });
+        }
         // The settlements it holds besides its seat, and its end (schema 118); before, its seat
         // alone, still deciding.
         let mut held = Vec::new();
@@ -2838,6 +3008,8 @@ fn decode_polities(
             ways,
             way_saves,
             way_given,
+            plans,
+            ground_seen,
         });
     }
     Ok(out)
@@ -4685,7 +4857,8 @@ fn carried(
         | Schema::V152
         | Schema::V153
         | Schema::V154
-        | Schema::V155 => {
+        | Schema::V155
+        | Schema::V156 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5013,7 +5186,8 @@ fn decode_households(
             | Schema::V152
             | Schema::V153
             | Schema::V154
-            | Schema::V155 => {
+            | Schema::V155
+            | Schema::V156 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

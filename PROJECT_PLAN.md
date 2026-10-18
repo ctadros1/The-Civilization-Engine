@@ -4510,6 +4510,57 @@ and M6a gives rivers a daily flow.
         is an endless grid's; the border streets add the rest), nothing overlapping; turned
         north and south it is the same grid; refused ground leaves its parcels and streets out.
         **Boundary:** nothing yet calls it; no saves, content or wire change.
+      - *Second part, as built (2026-10-18): the plan law* (ADR-0030 §2). `PolicyKind::Plan` is
+        appended, with the issues `no_ground`, `way_built_over` and `new_ground`. A polity sees its
+        settlements' ground as it is taken: a household meaning to build a home that finds no clear
+        ground for it within its search, a building begun on a worn trail, a home farther from the
+        hearth than every plot its households hold (kept within the crime profile's memory, once a
+        day each). Each raises its issue, which opens a plan move, and `burned` does too by
+        authoring. A template's `[plan]` table gives its grid, the extents in blocks it may lay,
+        smallest first, the hours staking a parcel takes and the technique its sponsor must know:
+        the core's *Plan of streets and parcels* lays 80 by 40 m blocks of 10 by 20 m parcels
+        between 6 m streets round a square, from one block to 3 by 3, with laying out by cord and
+        stake, a technique one founder in ten brings and children learn at home. A sponsor who
+        knows it lays the grid at the hearth along both axes and at the built edge to each side
+        along it (up to six layouts, those with no parcel left out), at the least extent whose
+        parcels would house twice the households it remembers wanting ground and those without a
+        home, each by `lay_grid` over the ground as it is (clear as a plot must be, and no steeper
+        than levelling by hand allows). Each household weighs each layout in hours a year over the
+        content's `site_years`: the walking its best parcel would save it against the plot it
+        would take now, if it means to build (all of it, from the edge of its reach, if it found
+        no ground), or would cost it if the plan keeps that plot open; less its equal share of
+        staking the parcels. The deliberator chooses among them as among any moves; the one put
+        forward, the one the sponsor reckons best for its household and those who regard it (one
+        move, not one for each layout: six moves would have put a plan forward twice as often
+        under the deliberator's draw), is kept with the law as laid, versioned one more than the polity's plans passed
+        before, and a plan proposed while one is in force replaces it when passed. At most one plan
+        is weighed every 60 days. The elders of households whose building raised an issue weigh a
+        plan, and only a plan, unless something else reached them (a first build let them weigh
+        every move, and worlds changed through laws that had nothing to do with plans). Adoption builds nothing, and in force a plan does not yet
+        reserve (the third part). **Not as the ADR:** sized by the households remembered wanting
+        ground and those without a home, not by arrivals and new households, which nothing records
+        yet; one grid per template (other grids are other templates), so the menu a sponsor chooses
+        from is the extent and the six origins; no landing as an origin; fees, ground rent, field
+        ground lost and walks a corridor lengthens are not counted (no allotment yet, and the
+        ground check bends a layout round every claim, so it takes no field); `no_ground` is raised
+        by finding none, not by taking a plot "far worse than it wanted". **What it comes to:**
+        **exact without a plan:** with the plan's template, technique and
+        founders' share left out of the content, the bench's village of three settlements, 30
+        days, keeps every count and every section's digest CS's second part had but the polity
+        section's (which now carries what each polity saw of its ground), the save header's and
+        the content's. With the core's plan in, a plan is proposed within the first weeks (a probe
+        of an earlier build: two of the three polities on day 66, answering a trail built over,
+        every household's stake slightly against, as any law may be put forward under the
+        deliberator's draw), and the world departs from there. **New baselines:** 602 fields and
+        625 buildings against 609 and 625 (deterministic mode; 599 and 625 against 604 and 625 at
+        Max), the same people, and a day as long (3.90 s against 3.95, 3.08 at Max against 2.97). **Tests:** the plan's six origins over a village of the second day (five laid, the
+        square refused at a hearth its homes stand round, none on a plot or a field, every
+        household owing the same share and none yet gaining, all being housed), a proposal kept as
+        laid, a second as its next version replacing the first, both and what the polity saw saved
+        and gone on alike; a schema-155 save loads. **Boundary:** saves schema 156 (the polity's
+        plans and what it saw of its ground), content API 141 (`plan`, the three issues,
+        `core:technique/laying_out`, `core:policy/yours_to_plan_the_ground`; a technique a law's
+        sponsor must know counts as gating work); no wire change.
     - **CU, land assembly and allotment:** clauses and answers for every touched claim, the
       channels `GroundFee`, `GroundRent` and `Compensation`, the keeper's office, phases, the four
       allocation rules, ground rent as an obligation, build by.

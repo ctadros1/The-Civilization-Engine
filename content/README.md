@@ -1490,3 +1490,13 @@ Content API 140 (M8c slice CS, second part) brings the people profile's `[build]
 (required, positive): the years over which a household about to build a home reckons a plot's
 walking, its members' walks a year from there to where they go times these, beside the levelling
 the plot needs once. The core sets it at 5.
+
+Content API 141 (M8c slice CT, second part) brings the policy kind `plan` (ADR-0030 §2) with its
+`[plan]` table: an orthogonal grid's block sides along and across (`block_m`), a parcel's
+frontage and depth (`parcel_m`, the depth at most half a block's width), the streets' width
+(`street_m`), the extents in blocks a sponsor chooses among, smallest first (`extents`, 1 to 8 of
+1 to 16 blocks each way), whether the origin block is kept as a square (`square`), the hours
+staking out a parcel takes (`stake_hours`), and the technique a sponsor must know (`needs`). It
+brings the issues `no_ground`, `way_built_over` and `new_ground`, the core's
+`core:technique/laying_out` (laying out by cord and stake, which one founder in ten brings) and
+its template `core:policy/yours_to_plan_the_ground`. A technique a law's sponsor must know counts as gating work (E3005).

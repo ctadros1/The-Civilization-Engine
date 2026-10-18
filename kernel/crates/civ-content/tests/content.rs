@@ -63,6 +63,11 @@ fn people_files() -> Vec<(String, String)> {
             out.push((rel.clone(), real(&rel)));
         }
     }
+    // The plan law names laying out by cord and stake, which nothing else gates; without the
+    // values it bears on, which these fixtures leave out.
+    let plan = real("policy/yours_to_plan_the_ground.toml");
+    let plan = plan.split("\n[bears]").next().unwrap_or(&plan).to_owned();
+    out.push(("policy/yours_to_plan_the_ground.toml".to_owned(), plan));
     out
 }
 
@@ -71,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 140
+kernel_content_api = 141
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -234,13 +239,15 @@ fn the_repository_content_is_clean() {
         .iter()
         .map(|&(t, _)| c.techniques[t].id.as_str())
         .collect();
-    assert_eq!(founders.len(), 14);
+    assert_eq!(founders.len(), 15);
     assert!(founders.contains(&"core:technique/pottery"));
     assert!(founders.contains(&"core:technique/oven_baking"));
     assert!(founders.contains(&"core:technique/manuring"));
     assert!(founders.contains(&"core:technique/well_digging"));
     assert!(founders.contains(&"core:technique/rubble_walling"));
     assert!(founders.contains(&"core:technique/mud_brick"));
+    // Laying out by cord and stake, by a few founders (M8c slice CT).
+    assert!(founders.contains(&"core:technique/laying_out"));
     // The timber-lined well (M6a slice AY, step three): its diggers need well digging.
     let well = &c.wells[c.well_index("core:well/timber_lined").expect("the well")];
     assert_eq!(

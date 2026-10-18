@@ -409,3 +409,125 @@ fn a_household_builds_its_home_where_its_people_s_walks_cost_least_and_keeps_why
         "nearer its field: {after:?} against {before:?}, the field at {field:?}"
     );
 }
+
+#[test]
+fn a_plan_is_laid_three_to_eight_ways_over_clear_ground_kept_as_laid_and_versioned() {
+    // M8c slice CT, second part (ADR-0030 §2): a sponsor lays the plan's grid at the hearth along
+    // both axes and at the built edge to each side, over the ground as it is, and each household
+    // weighs each layout; the one put forward is kept with the law as it was laid, a later plan
+    // replacing it as its next version; both, and what the polity saw of its ground, survive a
+    // save.
+    use civ_agents::polity::{GroundSeen, IssueKind, LawStatus, Outcome, PolicyKind};
+    let mut sim = village(3);
+    sim.advance_minutes(2 * DAY).expect("lives");
+    let settlement = sim.land().settlements[0].id;
+    let hearth = sim.land().settlements[0].hearth_m;
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let plans = sim.with_ctx_for_tests(|pop, ctx| pop.plans_for_tests(ctx, settlement));
+    assert!((3..=8).contains(&plans.len()), "{}", plans.len());
+    let at_hearth = plans.iter().filter(|p| p.0.origin == hearth).count();
+    assert_eq!(at_hearth, 2, "both axes at the hearth");
+    let households = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+        .count();
+    for (layout, gains) in &plans {
+        assert!(!layout.parcels.is_empty());
+        // Over clear ground only: no parcel, street or square on a plot or a field.
+        let claims: Vec<_> = sim
+            .land()
+            .plots
+            .iter()
+            .map(|p| p.rect)
+            .chain(sim.land().fields.iter().map(|f| f.rect))
+            .collect();
+        let laid = layout
+            .parcels
+            .iter()
+            .map(|p| p.rect)
+            .chain(layout.streets.iter().copied())
+            .chain(layout.sites.iter().map(|s| s.rect));
+        for r in laid {
+            assert!(claims.iter().all(|c| !c.near(&r, 0)), "{r:?} on a claim");
+        }
+        // Every household weighs it and owes the same share of the staking.
+        assert_eq!(gains.len(), households);
+        let owed = gains[0].2;
+        assert!(owed > 0.0);
+        assert!(
+            gains
+                .iter()
+                .all(|g| (g.2 - owed).abs() < 1e-9 && g.1 >= 0.0)
+        );
+    }
+    // What the polity saw of its ground raises the plan's issues.
+    let day = sim.now().minutes() / DAY;
+    let household = sim
+        .people()
+        .households
+        .iter()
+        .find(|(_, x)| x.settlement == Some(settlement))
+        .map(|(_, x)| x.id)
+        .expect("a household");
+    sim.people_mut_for_tests().polities[pi].see_ground(GroundSeen {
+        day,
+        settlement,
+        household,
+        issue: IssueKind::NoGround,
+    });
+    // Someone puts the first forward: the law keeps the layout as laid, the polity's first plan.
+    let sponsor = sim
+        .people()
+        .household(household)
+        .and_then(|x| x.members.first().copied())
+        .expect("a sponsor");
+    let first = sim
+        .with_ctx_for_tests(|pop, ctx| {
+            pop.propose_plan_for_tests(ctx, settlement, sponsor, 0, IssueKind::NoGround)
+        })
+        .expect("a plan proposed");
+    let polity = &sim.people().polities[pi];
+    let laid = polity.plan_of(first).expect("its plan kept");
+    assert_eq!(laid.version, 1);
+    assert_eq!(laid.layout, plans[0].0);
+    let law = polity.laws.iter().find(|l| l.id == first).expect("the law");
+    assert_eq!(
+        (law.kind, law.issue),
+        (PolicyKind::Plan, IssueKind::NoGround)
+    );
+    let words = polity.words_of(law, &sim.rules().catalog.policies, &|_| String::new());
+    assert!(words.contains("version 1"), "{words}");
+    // Passed, it is in force; a later plan replaces it as the second version.
+    {
+        let pop = sim.people_mut_for_tests();
+        let l = pop.polities[pi].law_mut(first).expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Outcome::Passed);
+        pop.polities[pi].gathering = None;
+    }
+    assert_eq!(sim.people().polities[pi].plans_in_force().count(), 1);
+    let second = sim
+        .with_ctx_for_tests(|pop, ctx| {
+            pop.propose_plan_for_tests(ctx, settlement, sponsor, 1, IssueKind::NoGround)
+        })
+        .expect("a second plan proposed");
+    let polity = &sim.people().polities[pi];
+    assert_eq!(polity.plan_of(second).map(|p| p.version), Some(2));
+    assert_eq!(
+        polity
+            .laws
+            .iter()
+            .find(|l| l.id == second)
+            .and_then(|l| l.ends),
+        Some(first)
+    );
+    assert!(!polity.ground_seen.is_empty());
+    saves_and_goes_on_alike(&mut sim, DAY);
+}

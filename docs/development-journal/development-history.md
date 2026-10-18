@@ -3031,3 +3031,21 @@ differently once loaded, so the day's trips now count from the next midnight.
 **Built:** a building's readout in the observer now ends with why its household chose that
 spot: how many other sites it weighed, and how many hours of walking and levelling it saved
 over the next best. Slice CS is closed.
+
+## 2026-10-18 — CT, first and second parts: a plan laid over the ground, as a law
+
+**Built:** the kernel can now lay a plan over the ground: a grid of blocks with streets of one
+width between and round them, each block cut into two rows of parcels, and a square at the
+middle. Anything that would fall on water, steep ground or someone's plot or field is left out
+and counted. A plan is now a kind of law. Its village notices three troubles: a household that
+found nowhere clear to build its home, a building put up on a worn trail, and a home built
+farther out than any before it. When one of those is fresh in memory, someone who knows how to
+lay ground out with cord and stakes (one founder in ten does) can lay the plan up to six ways:
+at the hearth, either way round, and at the village's edge on each side. Each household works
+out what each would save or cost it in hours, and the one put forward is kept with the law
+exactly as laid. A later plan becomes the next version. Passing a plan builds nothing, and it
+does not yet keep anyone off its streets.
+
+**What it comes to:** in a village two days old, five of the six layouts fit; the square at the
+hearth never does, because the first homes stand round it. Nobody gains yet, since everyone
+already has a home to live in.

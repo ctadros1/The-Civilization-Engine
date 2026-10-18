@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 140;
+pub const KERNEL_CONTENT_API: u32 = 141;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -82,7 +82,7 @@ pub enum Severity {
 /// | E3002 | The `kind` is unknown, or missing |
 /// | E3003 | Not exactly one world-generation preset is marked `default = true` |
 /// | E3004 | Not exactly one people profile, or not exactly one land profile |
-/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment |
+/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know |
 /// | E3006 | Techniques' prerequisites form a cycle |
 /// | E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it |
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -1120,6 +1120,12 @@ fn resolve(
         {
             missing(c, parsed, &d.rel, "rule.needs", t);
         }
+        // And a plan's (M8c slice CT).
+        if let Some(t) = d.file.plan.as_ref().and_then(|g| g.needs.as_deref())
+            && technique_index(t).is_none()
+        {
+            missing(c, parsed, &d.rel, "plan.needs", t);
+        }
     }
     let mut policies: Vec<_> = parsed
         .policies
@@ -1398,6 +1404,11 @@ fn knowledge_problems(
             || catalog.bridges.iter().any(|b| b.technique == Some(t))
             || catalog.vehicles.iter().any(|v| v.technique == Some(t))
             || catalog.wells.iter().any(|w| w.technique == Some(t))
+            // Or a law its sponsor must know it to put forward (M8c slice CT).
+            || catalog.policies.iter().any(|p| {
+                p.plan.as_ref().is_some_and(|g| g.needs == Some(t))
+                    || p.rule.as_ref().is_some_and(|r| r.needs == Some(t))
+            })
             || parsed
                 .diseases
                 .iter()
@@ -1409,7 +1420,7 @@ fn knowledge_problems(
                 &rel_of(&def.id),
                 None,
                 format!(
-                    "technique `{}` gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment",
+                    "technique `{}` gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment, nor any law as what its sponsor must know",
                     def.id
                 ),
             );

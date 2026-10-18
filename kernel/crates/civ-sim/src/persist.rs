@@ -437,6 +437,8 @@ pub const SCHEMA_V152: u32 = 152;
 pub const SCHEMA_V153: u32 = 153;
 /// Where people go from home, before plots kept why they were chosen.
 pub const SCHEMA_V154: u32 = 154;
+/// Plots' receipts, before polities kept their plans and what they saw of their ground.
+pub const SCHEMA_V155: u32 = 155;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

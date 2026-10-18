@@ -24,12 +24,14 @@ pub(crate) struct PolicyFile {
     /// What the kernel does under it: `common_store`, `keep_store`, `against_taking`,
     /// `keep_watch`, `curfew`, `amend_body` or `repeal` (content API 49), `claim_place` (59),
     /// `agreement` (62), `build_crossing` (67), `close_source` or `dig_well` (M6a), or
-    /// `build_bank` (88) or `keep_bank` (90), or `building_rule` (93), or `build_way` (138).
+    /// `build_bank` (88) or `keep_bank` (90), or `building_rule` (93), or `build_way` (138), or
+    /// `plan` (141).
     pub does: String,
     /// The issues it answers: `food_short`, `store_unkept`, `takings`, `overruled`, `petition`,
     /// `founding` (content API 49), `outsiders` (59), `claimed_from_us`, `terms_sought` (61) or
     /// `fords` (67), `sickness`, `source_suspected` or `water_far` (M6a), `flooded` (88),
-    /// `bank_worn` (90), `burned` (93) or `carts_wait` (138).
+    /// `bank_worn` (90), `burned` (93) or `carts_wait` (138), `no_ground`, `way_built_over` or
+    /// `new_ground` (141).
     pub answers: Vec<String>,
     /// For a common store: the shares of threshed grain a sponsor may propose for the levy.
     #[serde(default)]
@@ -119,6 +121,35 @@ pub(crate) struct PolicyFile {
     /// may be paid in.
     #[serde(default)]
     pub medium: Option<MediumFile>,
+    /// For a plan (`plan`, content API 141, M8c slice CT): its grid.
+    #[serde(default)]
+    pub plan: Option<PlanFile>,
+}
+
+/// A plan's grid in a policy file (content API 141, M8c slice CT; ADR-0030 §2): an orthogonal
+/// subdivision, metres.
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct PlanFile {
+    /// A block's sides: along its long side, and across.
+    pub block_m: [f64; 2],
+    /// A parcel's frontage on the block's long side, and its depth (at most half the block's
+    /// width).
+    pub parcel_m: [f64; 2],
+    /// Every street's width.
+    pub street_m: f64,
+    /// The extents a sponsor chooses among, blocks along and across, smallest first: the least
+    /// whose parcels would house the households its members remember forming or arriving, twice
+    /// over, else the largest.
+    pub extents: Vec<[u8; 2]>,
+    /// Whether the block at the origin is kept as a square.
+    #[serde(default)]
+    pub square: bool,
+    /// Hours staking out one parcel takes, as each household reckons its share.
+    pub stake_hours: f64,
+    /// The technique a sponsor must know to put it forward.
+    #[serde(default)]
+    pub needs: Option<String>,
 }
 
 /// A money a common store's levy may be paid in, in a policy file (content API 129, M7d slice
@@ -457,6 +488,18 @@ impl PolicyFile {
             mint: None,
             pay: None,
             medium: None,
+            plan: self.plan.as_ref().map(|g| civ_agents::polity::PlanDef {
+                grid: civ_land::plans::Grid {
+                    block_m: (g.block_m[0] as f32, g.block_m[1] as f32),
+                    parcel_m: (g.parcel_m[0] as f32, g.parcel_m[1] as f32),
+                    street_m: g.street_m as f32,
+                    blocks: g.extents.first().map_or((1, 1), |e| (e[0], e[1])),
+                    square: g.square,
+                },
+                extents: g.extents.iter().map(|e| (e[0], e[1])).collect(),
+                stake_h: g.stake_hours as f32,
+                needs: g.needs.as_deref().and_then(technique_index),
+            }),
             lending: self
                 .lending
                 .as_ref()
@@ -709,6 +752,54 @@ impl PolicyFile {
             (Some(_), _) => p.push("`mint` is for `does = \"mint\"`".to_owned()),
             (None, _) => {}
         }
+        // A plan's grid (M8c slice CT): only for `plan`, which must have one.
+        match (&self.plan, PolicyKind::from_name(&self.does)) {
+            (Some(g), Some(PolicyKind::Plan)) => {
+                let metres = |m: f64, lo: f64, hi: f64| m.is_finite() && (lo..=hi).contains(&m);
+                if !(metres(g.block_m[0], 4.0, 400.0) && metres(g.block_m[1], 4.0, 400.0)) {
+                    p.push(format!(
+                        "`plan.block_m` must be 4 to 400 m each way (got {:?})",
+                        g.block_m
+                    ));
+                }
+                if !(metres(g.parcel_m[0], 2.0, g.block_m[0])
+                    && metres(g.parcel_m[1], 2.0, g.block_m[1] / 2.0))
+                {
+                    p.push(format!(
+                        "`plan.parcel_m` must be 2 m or more, its frontage no more than a block's \
+                         length and its depth no more than half a block's width (got {:?})",
+                        g.parcel_m
+                    ));
+                }
+                if !metres(g.street_m, 1.0, 60.0) {
+                    p.push(format!(
+                        "`plan.street_m` must be 1 to 60 m (got {})",
+                        g.street_m
+                    ));
+                }
+                if !(1..=8).contains(&g.extents.len())
+                    || g.extents
+                        .iter()
+                        .any(|e| !(1..=16).contains(&e[0]) || !(1..=16).contains(&e[1]))
+                {
+                    p.push(
+                        "`plan.extents` must hold 1 to 8 extents of 1 to 16 blocks each way"
+                            .to_owned(),
+                    );
+                }
+                if !metres(g.stake_hours, 0.0, 100.0) {
+                    p.push(format!(
+                        "`plan.stake_hours` must be 0 to 100 (got {})",
+                        g.stake_hours
+                    ));
+                }
+            }
+            (None, Some(PolicyKind::Plan)) => {
+                p.push("a `plan` template needs a `plan` table".to_owned());
+            }
+            (Some(_), _) => p.push("`plan` is for `does = \"plan\"`".to_owned()),
+            (None, _) => {}
+        }
         // A money the levy may be paid in (M7d slice CE3b): only for `common_store`.
         match (&self.medium, PolicyKind::from_name(&self.does)) {
             (Some(m), Some(PolicyKind::CommonStore)) => {
@@ -914,7 +1005,8 @@ impl PolicyFile {
                 | PolicyKind::LendFromStore
                 | PolicyKind::Mint
                 | PolicyKind::PayWork
-                | PolicyKind::BuildWay),
+                | PolicyKind::BuildWay
+                | PolicyKind::Plan),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -977,7 +1069,8 @@ impl PolicyFile {
                 | PolicyKind::LendFromStore
                 | PolicyKind::Mint
                 | PolicyKind::PayWork
-                | PolicyKind::BuildWay,
+                | PolicyKind::BuildWay
+                | PolicyKind::Plan,
             )
             | None => {}
         }
@@ -1200,6 +1293,7 @@ mod tests {
             mint: None,
             pay: None,
             medium: None,
+            plan: None,
         }
     }
 

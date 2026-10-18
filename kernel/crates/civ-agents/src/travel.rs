@@ -115,6 +115,15 @@ impl TravelYear {
     }
 }
 
+/// What a household holds of its members' days of travel (M8b slice CR, second part): their
+/// minutes and the member-days they came to, both fading at the places' half-life, as of `day`.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct HouseholdTravel {
+    pub minutes: f64,
+    pub days: f64,
+    pub day: i64,
+}
+
 /// The world's travel tally (M8b slice CR, first part).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Travel {
@@ -122,6 +131,9 @@ pub struct Travel {
     pub years: BTreeMap<(i64, PermanentId), TravelYear>,
     /// Each person's minutes of travel so far today, by person.
     pub today: BTreeMap<PermanentId, f32>,
+    /// What each household holds of its members' days of travel, by household (the second
+    /// part): what the residence review weighs.
+    pub households: BTreeMap<PermanentId, HouseholdTravel>,
 }
 
 impl Travel {
@@ -169,21 +181,61 @@ impl Travel {
         }
     }
 
-    /// The day of `year` is over: each of `residents` (person, settlement, occupation) has their
-    /// day's travel counted in its band, and the day's minutes begin again.
+    /// The day `day` of `year` is over: each of `residents` (person, household, settlement,
+    /// occupation) has their day's travel counted in its band and held by their household, fading
+    /// at `half_life_days`, and the day's minutes begin again.
     pub fn close_day(
         &mut self,
         year: i64,
-        residents: impl IntoIterator<Item = (PermanentId, PermanentId, Occupation)>,
+        day: i64,
+        half_life_days: f64,
+        residents: impl IntoIterator<Item = (PermanentId, PermanentId, PermanentId, Occupation)>,
     ) {
-        for (person, settlement, occupation) in residents {
+        for (person, household, settlement, occupation) in residents {
             let minutes = self.today.get(&person).copied().unwrap_or(0.0);
             let band = DAY_BANDS_MIN.iter().filter(|&&e| minutes >= e).count();
             let y = self.years.entry((year, settlement)).or_default();
             y.days[occupation as usize][band] += 1;
             y.minutes[occupation as usize] += f64::from(minutes);
+            let h = self.households.entry(household).or_insert(HouseholdTravel {
+                day,
+                ..HouseholdTravel::default()
+            });
+            if day > h.day {
+                let f = f64::from(crate::uses::fading(day - h.day, half_life_days));
+                h.minutes *= f;
+                h.days *= f;
+                h.day = day;
+            }
+            h.minutes += f64::from(minutes);
+            h.days += 1.0;
         }
         self.today.clear();
+    }
+
+    /// The minutes a day household `household`'s members travel, as it holds them: none until it
+    /// holds a week of member-days.
+    pub fn household_daily_minutes(&self, household: PermanentId) -> Option<f64> {
+        self.households
+            .get(&household)
+            .filter(|h| h.days >= 7.0)
+            .map(|h| h.minutes / h.days)
+    }
+
+    /// The minutes a day settlement `settlement`'s residents have travelled, over every year
+    /// counted: none without a day counted.
+    pub fn settlement_daily_minutes(&self, settlement: PermanentId) -> Option<f64> {
+        let (minutes, days) = self
+            .years
+            .iter()
+            .filter(|((_, s), _)| *s == settlement)
+            .fold((0.0, 0u64), |(m, d), (_, y)| {
+                (
+                    m + y.minutes.iter().sum::<f64>(),
+                    d + y.days.iter().flatten().map(|&n| u64::from(n)).sum::<u64>(),
+                )
+            });
+        (days > 0).then(|| minutes / days as f64)
     }
 
     /// What is wrong with the tally, for the invariant checks.
@@ -191,6 +243,11 @@ impl Travel {
         let mut out = Vec::new();
         if self.today.values().any(|m| !(m.is_finite() && *m >= 0.0)) {
             out.push("a day's travel is malformed".to_owned());
+        }
+        if self.households.values().any(|h| {
+            !(h.minutes.is_finite() && h.minutes >= 0.0 && h.days.is_finite() && h.days >= 0.0)
+        }) {
+            out.push("a household's days of travel are malformed".to_owned());
         }
         for ((year, s), y) in &self.years {
             let bad = |t: &Tally| !(t.minutes.is_finite() && t.minutes >= 0.0);
@@ -224,12 +281,15 @@ mod tests {
         t.trip(0, s, a, 4, Mode::Walk, 30.0);
         t.waited(0, s, a, 2.0, true);
         t.trip(0, s, b, 7, Mode::Cart, 10.0);
+        let home = id(9);
         t.close_day(
             0,
+            5,
+            180.0,
             [
-                (a, s, Occupation::Fields),
-                (b, s, Occupation::Fields),
-                (id(4), s, Occupation::Young),
+                (a, home, s, Occupation::Fields),
+                (b, home, s, Occupation::Fields),
+                (id(4), home, s, Occupation::Young),
             ],
         );
         let y = &t.years[&(0, s)];
@@ -256,6 +316,17 @@ mod tests {
         assert!((y.minutes[Occupation::Fields as usize] - 62.0).abs() < 1e-9);
         assert_eq!(y.median_band(Occupation::Fields), Some(1));
         assert!(t.today.is_empty());
+        // The household holds its three member-days, too few yet to say what its days are.
+        assert_eq!(
+            t.households[&home],
+            HouseholdTravel {
+                minutes: 62.0,
+                days: 3.0,
+                day: 5
+            }
+        );
+        assert_eq!(t.household_daily_minutes(home), None);
+        assert!((t.settlement_daily_minutes(s).expect("counted") - 62.0 / 3.0).abs() < 1e-9);
         assert!(t.problems().is_empty());
     }
 }

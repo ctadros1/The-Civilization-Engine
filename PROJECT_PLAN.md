@@ -4385,6 +4385,27 @@ and M6a gives rivers a daily flow.
         schema 152 (the traffic section's travel); no content or wire change. **Not yet:** where
         to live weighing the walk (the second part), distance beside time, and the tally in the
         observer.
+      - *Second part, as built (2026-10-18): where to live weighs the walk* (the transport brief
+        §1.7: "the yearly residence review adds the household's recorded hours walking … beside
+        what it weighs now"). Each household now holds its members' days of travel, minutes and
+        member-days, fading at the places' half-life, as the tally counts them at midnight; one
+        gone takes them with it. At its residence review (ADR-0018 §5) a household weighs, for
+        each place it knows, the minutes a day its members travel, once it holds a week of
+        member-days, less the minutes a day that place's residents have travelled, as a share of a
+        16-hour waking day, at `[moving] w_walk` (4 points, a design prior set as `w_fed`): an
+        hour a day more than people there counts a quarter point toward going. Nothing else in
+        the review changes, and a place whose residents' days are not yet counted weighs nothing
+        for it. **What it comes to** (the test): a household holding two hours a day against an
+        hour and a half for every other place's people finds each worth exactly `w_walk` × 30/960
+        more; holding three days, nothing. **Exact:** it changes only a residence review's weighing, so a world where none comes out
+        otherwise lives as before: the bench's village of three settlements, 30 days in both
+        modes, kept every count, and every section's digest the first part had but the content's
+        (`w_walk`), the traffic section's (the households' days) and the save header's; no move
+        it weighed in those days turned on the walk. **Boundary:** saves schema
+        153 (the traffic section's households' days of travel), content API 139 (`[moving]
+        w_walk`). **Not yet:** the walk a household would have there from where it would live
+        (it weighs what that place's people walk now), distance beside time, and the tally in
+        the observer.
   - **M8c, planning and land** (designed when reached, from `docs/briefs/m8-planning.md`): site
     choice as a decision whose savings are recorded (land value derived, never read); the home
     reach that caps a settlement's footprint; a plan as a law that reserves ground; allotment by

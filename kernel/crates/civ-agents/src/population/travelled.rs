@@ -62,7 +62,7 @@ impl Population {
         let mut farms: Vec<PermanentId> = ctx.land.fields.iter().map(|f| f.household).collect();
         farms.sort_unstable();
         farms.dedup();
-        let residents: Vec<(PermanentId, PermanentId, Occupation)> = self
+        let residents: Vec<(PermanentId, PermanentId, PermanentId, Occupation)> = self
             .people
             .iter()
             .filter_map(|(_, p)| {
@@ -76,9 +76,14 @@ impl Population {
                 } else {
                     Occupation::Other
                 };
-                Some((p.id, settlement, occupation))
+                Some((p.id, p.household, settlement, occupation))
             })
             .collect();
-        self.travel.close_day(year, residents);
+        let half = ctx.params.places.use_half_life_days;
+        self.travel
+            .close_day(year, yesterday.day_index(), half, residents);
+        // A household gone takes what it held of its days with it.
+        let hh = &self.hh_index;
+        self.travel.households.retain(|h, _| hh.contains_key(h));
     }
 }

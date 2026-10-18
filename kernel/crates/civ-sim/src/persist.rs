@@ -431,6 +431,8 @@ pub const SCHEMA_V149: u32 = 149;
 pub const SCHEMA_V150: u32 = 150;
 /// Losses to worn trail, before travel measured.
 pub const SCHEMA_V151: u32 = 151;
+/// Travel measured, before households held their days of travel.
+pub const SCHEMA_V152: u32 = 152;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

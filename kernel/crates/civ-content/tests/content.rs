@@ -71,7 +71,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 138
+kernel_content_api = 139
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.

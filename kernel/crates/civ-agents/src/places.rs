@@ -387,6 +387,10 @@ pub struct MovingParams {
     /// For the raids its members heard of on a settlement (M6c slice BJ, ADR-0023 §10), counted
     /// `n / (1 + n)`: those believed here against those believed there.
     pub w_raids: f64,
+    /// For the minutes a day its members travel, as it holds them, less what a resident of the
+    /// place has travelled a day, as a share of a waking day (M8b slice CR, second part; the
+    /// transport brief §1.7: "where to live weighs the walk").
+    pub w_walk: f64,
 }
 
 impl MovingParams {
@@ -402,6 +406,7 @@ impl MovingParams {
             reviews: 2,
             w_sickness: 3.0,
             w_raids: 3.0,
+            w_walk: 4.0,
         }
     }
 }

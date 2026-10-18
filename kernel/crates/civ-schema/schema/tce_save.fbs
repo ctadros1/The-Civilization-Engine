@@ -3450,6 +3450,15 @@ struct TravelTodaySave {
   minutes: float;
 }
 
+// What a household holds of its members' days of travel (schema 153): their minutes and the
+// member-days they came to, fading, as of `day`.
+struct TravelHouseholdSave {
+  minutes: double;
+  days: double;
+  household: ulong;
+  day: long;
+}
+
 table TrafficSave {
   servers: [TrafficServerSave] (id: 0);
   tallies: [TrafficTallySave] (id: 1);
@@ -3460,4 +3469,6 @@ table TrafficSave {
   // Schema 152 (M8b slice CR, first part): travel measured; absent before.
   travel_years: [TravelYearSave] (id: 5);
   travel_today: [TravelTodaySave] (id: 6);
+  // Schema 153 (M8b slice CR, second part); absent before.
+  travel_households: [TravelHouseholdSave] (id: 7);
 }

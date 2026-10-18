@@ -745,6 +745,62 @@ fn sickness_a_household_believes_at_home_weighs_toward_every_place_it_knows() {
 }
 
 #[test]
+fn the_travel_a_household_holds_weighs_toward_a_place_whose_people_travel_less() {
+    // M8b slice CR, second part (the transport brief §1.7: "where to live weighs the walk"): its
+    // members travelling two hours a day, as it holds them, against an hour and a half a day for
+    // a resident of every place it knows, makes each worth `w_walk` times half an hour of a
+    // 16-hour waking day more; holding too little of its days, nothing.
+    let mut sim = world_knowing(3, 50, &[50], true).expect("generates");
+    let a = sim.land().settlements[0].id;
+    let (household, _) = household_of(&sim, a);
+    let worth =
+        |sim: &mut Sim| sim.with_ctx_for_tests(|pop, ctx| pop.move_worth_for_tests(ctx, household));
+    let others: Vec<_> = sim
+        .land()
+        .settlements
+        .iter()
+        .map(|s| s.id)
+        .filter(|&s| s != a)
+        .collect();
+    let today = sim.now().day_index();
+    {
+        let travel = &mut sim.people_mut_for_tests().travel;
+        *travel = Default::default();
+        for &s in &others {
+            let y = travel.years.entry((0, s)).or_default();
+            y.days[civ_agents::travel::Occupation::Fields as usize][5] = 10;
+            y.minutes[civ_agents::travel::Occupation::Fields as usize] = 900.0;
+        }
+        travel.households.insert(
+            household,
+            civ_agents::travel::HouseholdTravel {
+                minutes: 3.0 * 120.0,
+                days: 3.0,
+                day: today,
+            },
+        );
+    }
+    let few = worth(&mut sim);
+    assert!(!few.is_empty(), "it knows another place");
+    sim.people_mut_for_tests()
+        .travel
+        .households
+        .get_mut(&household)
+        .map(|h| {
+            h.minutes = 30.0 * 120.0;
+            h.days = 30.0;
+        })
+        .expect("held");
+    let after = worth(&mut sim);
+    let w = sim.rules().people.moving.w_walk;
+    assert!(w > 0.0);
+    for ((s, x), (t, y)) in few.iter().zip(&after) {
+        assert_eq!(s, t);
+        assert!((y - x - w * 30.0 / 960.0).abs() < 1e-9, "{x} then {y}");
+    }
+}
+
+#[test]
 fn raids_heard_of_at_home_weigh_toward_elsewhere_and_raids_there_against_it() {
     // M6c slice BJ, step two (ADR-0023 §10): two raids its members heard of on their own
     // settlement make every other place it knows worth `w_raids` times 2/3 more; one heard of on

@@ -1068,6 +1068,12 @@ w_sickness = 3.0
 # on their own settlement sets a household weighing where to live at once; a move the raids alone
 # tipped is recorded as fled. A design prior, set as `w_sickness` (05-06 §5.1: safety).
 w_raids = 3.0
+# Travel (M8b slice CR, second part; the transport brief §1.7: "where to live weighs the walk"):
+# `w_walk` for the minutes a day its members travel, as the household holds them over the places'
+# half-life (a week of member-days at least), less what a resident of the place has travelled a
+# day, as a share of a 16-hour waking day. A design prior, set as `w_fed`: members who travel an
+# hour a day more than people there count it a quarter point toward going.
+w_walk = 4.0
 
 [founding]                       # founding a settlement of their own (M5a slice AO); design priors
 # At the same review, a household also weighs founding a settlement with others at a site a member

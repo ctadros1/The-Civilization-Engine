@@ -21668,6 +21668,197 @@ impl<'a> TravelTodaySave {
 
 }
 
+// struct TravelHouseholdSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct TravelHouseholdSave(pub [u8; 32]);
+impl Default for TravelHouseholdSave { 
+  fn default() -> Self { 
+    Self([0; 32])
+  }
+}
+impl ::core::fmt::Debug for TravelHouseholdSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("TravelHouseholdSave")
+      .field("minutes", &self.minutes())
+      .field("days", &self.days())
+      .field("household", &self.household())
+      .field("day", &self.day())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for TravelHouseholdSave {}
+impl<'a> ::flatbuffers::Follow<'a> for TravelHouseholdSave {
+  type Inner = &'a TravelHouseholdSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a TravelHouseholdSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a TravelHouseholdSave {
+  type Inner = &'a TravelHouseholdSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<TravelHouseholdSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for TravelHouseholdSave {
+    type Output = TravelHouseholdSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const TravelHouseholdSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for TravelHouseholdSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> TravelHouseholdSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    minutes: f64,
+    days: f64,
+    household: u64,
+    day: i64,
+  ) -> Self {
+    let mut s = Self([0; 32]);
+    s.set_minutes(minutes);
+    s.set_days(days);
+    s.set_household(household);
+    s.set_day(day);
+    s
+  }
+
+  pub fn minutes(&self) -> f64 {
+    let mut mem = ::core::mem::MaybeUninit::<<f64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_minutes(&mut self, x: f64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn days(&self) -> f64 {
+    let mut mem = ::core::mem::MaybeUninit::<<f64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_days(&mut self, x: f64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<f64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn household(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_household(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn day(&self) -> i64 {
+    let mut mem = ::core::mem::MaybeUninit::<<i64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[24..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_day(&mut self, x: i64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[24..].as_mut_ptr(),
+        ::core::mem::size_of::<<i64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 pub enum ParamOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -58341,6 +58532,7 @@ impl<'a> TrafficSave<'a> {
   pub const VT_LOSSES: ::flatbuffers::VOffsetT = 12;
   pub const VT_TRAVEL_YEARS: ::flatbuffers::VOffsetT = 14;
   pub const VT_TRAVEL_TODAY: ::flatbuffers::VOffsetT = 16;
+  pub const VT_TRAVEL_HOUSEHOLDS: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -58352,6 +58544,7 @@ impl<'a> TrafficSave<'a> {
     args: &'args TrafficSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<TrafficSave<'bldr>> {
     let mut builder = TrafficSaveBuilder::new(_fbb);
+    if let Some(x) = args.travel_households { builder.add_travel_households(x); }
     if let Some(x) = args.travel_today { builder.add_travel_today(x); }
     if let Some(x) = args.travel_years { builder.add_travel_years(x); }
     if let Some(x) = args.losses { builder.add_losses(x); }
@@ -58412,6 +58605,13 @@ impl<'a> TrafficSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TravelTodaySave>>>(TrafficSave::VT_TRAVEL_TODAY, None)}
   }
+  #[inline]
+  pub fn travel_households(&self) -> Option<::flatbuffers::Vector<'a, TravelHouseholdSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TravelHouseholdSave>>>(TrafficSave::VT_TRAVEL_HOUSEHOLDS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for TrafficSave<'_> {
@@ -58427,6 +58627,7 @@ impl ::flatbuffers::Verifiable for TrafficSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TrafficLossSave>>>("losses", Self::VT_LOSSES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<TravelYearSave>>>>("travel_years", Self::VT_TRAVEL_YEARS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TravelTodaySave>>>("travel_today", Self::VT_TRAVEL_TODAY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TravelHouseholdSave>>>("travel_households", Self::VT_TRAVEL_HOUSEHOLDS, false)?
      .finish();
     Ok(())
   }
@@ -58439,6 +58640,7 @@ pub struct TrafficSaveArgs<'a> {
     pub losses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TrafficLossSave>>>,
     pub travel_years: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<TravelYearSave<'a>>>>>,
     pub travel_today: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TravelTodaySave>>>,
+    pub travel_households: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TravelHouseholdSave>>>,
 }
 impl<'a> Default for TrafficSaveArgs<'a> {
   #[inline]
@@ -58451,6 +58653,7 @@ impl<'a> Default for TrafficSaveArgs<'a> {
       losses: None,
       travel_years: None,
       travel_today: None,
+      travel_households: None,
     }
   }
 }
@@ -58489,6 +58692,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TrafficSaveBuilder<'a, 'b, A>
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TrafficSave::VT_TRAVEL_TODAY, travel_today);
   }
   #[inline]
+  pub fn add_travel_households(&mut self, travel_households: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TravelHouseholdSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TrafficSave::VT_TRAVEL_HOUSEHOLDS, travel_households);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TrafficSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TrafficSaveBuilder {
@@ -58513,6 +58720,7 @@ impl ::core::fmt::Debug for TrafficSave<'_> {
       ds.field("losses", &self.losses());
       ds.field("travel_years", &self.travel_years());
       ds.field("travel_today", &self.travel_today());
+      ds.field("travel_households", &self.travel_households());
       ds.finish()
   }
 }

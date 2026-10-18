@@ -687,6 +687,11 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
 
+Content API 139 (M8b slice CR, second part) brings the people profile's `[moving] w_walk`
+(required; 0 to 100 points): what moving is worth for the minutes a day a household's members
+travel, as it holds them, less what a resident of the place weighed has travelled a day, as a
+share of a 16-hour waking day. The core sets it at 4, as `w_fed`.
+
 Content API 138 (M8b slice CQ, third part) brings the policy kind `build_way` and the issue
 `carts_wait`: where carts of the settlement's households wait at stretches of trail one cart wide,
 and a passing place cleared together at a stretch's middle would spare them more waiting over its

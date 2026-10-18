@@ -2994,3 +2994,10 @@ lives by. Nothing reads the count to choose; the dashboard reports it.
 
 **What it comes to:** over a year in the dashboard's five worlds, farmers' and workshop-keepers'
 days held about half an hour of travel, others' nearly an hour, and every trip was on foot.
+
+## 2026-10-18 — CR, second part: where to live weighs the walk
+
+**Built:** each household now remembers how long its members spend travelling each day. When
+it weighs moving to another settlement, it counts its own day's travel against what people
+there travel: an hour a day more than people there tips it a little toward going, as food
+others seem to have does.

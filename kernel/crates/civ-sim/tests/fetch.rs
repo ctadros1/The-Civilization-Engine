@@ -1368,6 +1368,20 @@ fn offer_stone(sim: &mut Sim, seller: PermanentId, stone: usize, grain: usize) {
     });
 }
 
+/// `seller` offers its toolstone and nothing else: a buyer at its door with a need of its own it
+/// could meet there buys for that and not for its errand (M5b slice AQ).
+fn only_stone(sim: &mut Sim, seller: PermanentId, stone: usize) {
+    if let Some(h) = sim
+        .people_mut_for_tests()
+        .households
+        .iter_mut()
+        .map(|(_, h)| h)
+        .find(|h| h.id == seller)
+    {
+        h.offers.retain(|o| usize::from(o.good) == stone);
+    }
+}
+
 /// The bank nearest household `h`'s home where a dugout floats today, and the dugout's index.
 fn bank_near_home(sim: &Sim, h: PermanentId) -> (u32, usize) {
     let home = sim.people().household(h).expect("household").home;
@@ -1487,9 +1501,10 @@ fn a_household_with_a_boat_fetches_a_boat_load_by_water_carried_home_in_transit(
     let mut trade = None;
     let grain = good(&sim, "core:good/grain");
     for _ in 0..7 * 24 * 6 {
-        // The seller keeps offering toolstone until it is bought.
+        // The seller keeps offering toolstone, and only that, until it is bought.
         if trade.is_none() {
             offer_stone(&mut sim, seller, stone, grain);
+            only_stone(&mut sim, seller, stone);
         }
         sim.advance_minutes(10).expect("advances");
         paddled |= sim
@@ -1501,10 +1516,11 @@ fn a_household_with_a_boat_fetches_a_boat_load_by_water_carried_home_in_transit(
             assert_eq!((c.owner, c.boat, c.from, c.to), (buyer, boat, b, a));
             afloat_load = afloat_load.max(c.stores[stone]);
         }
+        // The errand's own trade: what else the household buys meanwhile is its own business.
         trade = trade.or_else(|| {
             bought_by(&sim, b, a)
                 .into_iter()
-                .find(|t| t.buyer == buyer && t.at > since)
+                .find(|t| t.buyer == buyer && t.at > since && usize::from(t.good) == stone)
         });
         if trade.is_some() && sim.people().consignments.is_empty() && afloat_load > 0.0 {
             break;

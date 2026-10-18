@@ -99,6 +99,7 @@ pub use loads::{
     DIES_IN_RUIN, DIES_UNDER_FLOOR, DIES_UNDER_ROOF, LIVE_PA, SNOW_TOLD_PA, SPILLED,
     snow_on_roof_pa, storm_pa,
 };
+mod siting;
 mod taste;
 mod ties;
 mod transfer;
@@ -664,6 +665,8 @@ struct NewHome {
     spec: BuildingSpec,
     stages: Vec<StageNeeds>,
     firm: Option<PermanentId>,
+    /// Why a home's plot was chosen among others (M8c slice CS).
+    receipt: Option<civ_land::SiteReceipt>,
 }
 
 /// What a household builds: the building under way (or the one it would begin), the work left on
@@ -2323,11 +2326,12 @@ impl Population {
             Vec::new()
         };
         // Where `choice` would stand, its door toward `toward`, if there is clear ground for it
-        // within `max_m` of its home: keeping the rule its builders keep, if there is ground for
+        // within `max_m` of `from`: keeping the rule its builders keep, if there is ground for
         // that, else as they would without it.
         let site_kept = |(p, shape): (usize, build::Shape),
                          toward: Option<(f32, f32)>,
                          firm: Option<PermanentId>,
+                         from: (f32, f32),
                          max_m: f64,
                          obey_rules: bool| {
             let program = &catalog.buildings[p];
@@ -2437,31 +2441,107 @@ impl Population {
                 }
             };
             let spec = build::home_site(
-                ctx.land, ctx.map, ctx.nav, program, &design_at, hh.home, hearth, max_m, &levelling,
+                ctx.land, ctx.map, ctx.nav, program, &design_at, from, hearth, max_m, &levelling,
             )?;
             let stages = build::stage_needs(&spec, program)?;
-            Some(NewHome { spec, stages, firm })
+            // The levelling it needs, hours: a slope's cut, half the plot to a quarter of its
+            // drop on the mean, as the platform takes it (ADR-0010 §2).
+            let rect = build::plot_rect(&spec, program);
+            let area_m2 = f64::from(rect.w) * f64::from(rect.h) / 1e4;
+            let level_h = levelling(&rect).unwrap_or(0.0) * area_m2 / 8.0 * lev.h_per_m3;
+            Some((
+                NewHome {
+                    spec,
+                    stages,
+                    firm,
+                    receipt: None,
+                },
+                level_h,
+            ))
+        };
+        let site_levelled = |choice: (usize, build::Shape),
+                             toward: Option<(f32, f32)>,
+                             firm: Option<PermanentId>,
+                             from: (f32, f32),
+                             max_m: f64| {
+            site_kept(choice, toward, firm, from, max_m, true).or_else(|| {
+                kept_rules
+                    .any()
+                    .then(|| site_kept(choice, toward, firm, from, max_m, false))
+                    .flatten()
+            })
         };
         let site = |choice: (usize, build::Shape),
                     toward: Option<(f32, f32)>,
                     firm: Option<PermanentId>,
                     max_m: f64| {
-            site_kept(choice, toward, firm, max_m, true).or_else(|| {
-                kept_rules
-                    .any()
-                    .then(|| site_kept(choice, toward, firm, max_m, false))
-                    .flatten()
-            })
+            site_levelled(choice, toward, firm, hh.home, max_m).map(|s| s.0)
+        };
+        // A home's plot is a choice (M8c slice CS, ADR-0030 §1): sought about the points its
+        // people's walks suggest, each found weighed by its walks over the content's years and
+        // its levelling, the cheapest taken with its receipt. About its old point first, farther
+        // afield for a first home when nothing is clear near.
+        let places = self.goings_of(ctx, hh);
+        let speed = ctx.nav.params().top_speed_ms().max(0.1);
+        let years = ctx.params.build.site_years;
+        let choose_home = |choice: (usize, build::Shape), first: bool| {
+            let anchors = siting::site_anchors(hh.home, &places);
+            let mut found: Vec<(f64, NewHome)> = Vec::new();
+            for (i, &from) in anchors.iter().enumerate() {
+                let Some((home, level_h)) = site_levelled(choice, hearth, None, from, HOME_SHIFT_M)
+                    .or_else(|| {
+                        (first && i == 0)
+                            .then(|| site_levelled(choice, hearth, None, from, FIRST_HOME_SHIFT_M))
+                            .flatten()
+                    })
+                else {
+                    continue;
+                };
+                let at = build::centre_m(&home.spec);
+                if found.iter().any(|(_, f)| build::centre_m(&f.spec) == at) {
+                    continue;
+                }
+                // Beyond its old point, no farther from the hearth than the walk it accepts to a
+                // field: a home elsewhere is a move between settlements, weighed apart.
+                let near_hearth = reach.is_none_or(|r| {
+                    r.seconds_to(cell_of(ctx.map, at))
+                        .is_some_and(|s| f64::from(s) <= ctx.params.farm.max_walk_minutes * 60.0)
+                });
+                if i > 0 && !near_hearth {
+                    continue;
+                }
+                let hours = years * siting::walk_hours_year(at, &places, speed) + level_h;
+                found.push((hours, home));
+            }
+            // The cheapest, the first found among equals.
+            let best = found
+                .iter()
+                .enumerate()
+                .min_by(|a, b| a.1.0.total_cmp(&b.1.0).then(a.0.cmp(&b.0)))
+                .map(|(i, _)| i)?;
+            let hours = found[best].0;
+            let next = found
+                .iter()
+                .enumerate()
+                .filter(|&(i, _)| i != best)
+                .map(|(_, f)| f.0)
+                .fold(None, |m: Option<f64>, h| Some(m.map_or(h, |m| m.min(h))))
+                .unwrap_or(hours);
+            let weighed = found.len() as u16;
+            let (_, mut home) = found.swap_remove(best);
+            home.receipt = Some(civ_land::SiteReceipt {
+                weighed,
+                hours: hours as f32,
+                next_hours: next as f32,
+            });
+            Some(home)
         };
         // A first home before anything, farther afield if there is no clear ground near; then a
         // store, while goods are lost for want of room, and a workshop for each firm that has more
         // at work than its home has room for, before more floor. A home's door faces the hearth;
         // a store's or a workshop's, its household's home.
         match home {
-            None => home_choice(None).and_then(|c| {
-                site(c, hearth, None, HOME_SHIFT_M)
-                    .or_else(|| site(c, hearth, None, FIRST_HOME_SHIFT_M))
-            }),
+            None => home_choice(None).and_then(|c| choose_home(c, true)),
             Some(current) => self
                 .storehouse_plan(ctx, hh, labour_per_day, day)
                 .and_then(|c| site(c, Some(hh.home), None, HOME_SHIFT_M))
@@ -2470,9 +2550,7 @@ impl Population {
                         .into_iter()
                         .find_map(|(c, firm)| site(c, Some(hh.home), Some(firm), HOME_SHIFT_M))
                 })
-                .or_else(|| {
-                    home_choice(Some(current)).and_then(|c| site(c, hearth, None, HOME_SHIFT_M))
-                }),
+                .or_else(|| home_choice(Some(current)).and_then(|c| choose_home(c, false))),
         }
     }
 
@@ -2746,6 +2824,7 @@ impl Population {
             rect,
             use_: def.use_,
             since: ctx.now,
+            receipt: site.receipt,
         });
         // Its builders' taste followed the building that moved it most (M3b slice R).
         let style_from = self.household(household).and_then(|h| h.admired);

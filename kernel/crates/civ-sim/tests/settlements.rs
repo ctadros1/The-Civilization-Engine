@@ -1680,6 +1680,7 @@ fn households_that_come_to_a_hearth_together_spread_about_it_and_build_beyond_a_
                         rect,
                         use_: civ_land::PlotUse::Store,
                         since: now,
+                        receipt: None,
                     });
                 }
             }

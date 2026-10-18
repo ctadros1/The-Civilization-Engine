@@ -124,7 +124,7 @@ use super::{
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
-    SCHEMA_V153, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V153, SCHEMA_V154, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -659,6 +659,7 @@ enum Schema {
     V152,
     V153,
     V154,
+    V155,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -827,7 +828,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V151 => Schema::V151,
         SCHEMA_V152 => Schema::V152,
         SCHEMA_V153 => Schema::V153,
-        SAVE_SCHEMA_VERSION => Schema::V154,
+        SCHEMA_V154 => Schema::V154,
+        SAVE_SCHEMA_VERSION => Schema::V155,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -4682,7 +4684,8 @@ fn carried(
         | Schema::V151
         | Schema::V152
         | Schema::V153
-        | Schema::V154 => {
+        | Schema::V154
+        | Schema::V155 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5009,7 +5012,8 @@ fn decode_households(
             | Schema::V151
             | Schema::V152
             | Schema::V153
-            | Schema::V154 => {
+            | Schema::V154
+            | Schema::V155 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -6966,6 +6970,9 @@ fn encode_plots(plots: &[Plot]) -> Vec<u8> {
                         PlotUse::Work => save::PlotUse::Work,
                     },
                     since: p.since.minutes(),
+                    receipt_weighed: p.receipt.map_or(0, |r| r.weighed),
+                    receipt_hours: p.receipt.map_or(0.0, |r| r.hours),
+                    receipt_next: p.receipt.map_or(0.0, |r| r.next_hours),
                 },
             )
         })
@@ -7002,6 +7009,11 @@ fn decode_plots(bytes: &[u8]) -> Result<Vec<Plot>, LoadError> {
             },
             use_,
             since: time(p.since()),
+            receipt: (p.receipt_weighed() > 0).then(|| civ_land::SiteReceipt {
+                weighed: p.receipt_weighed(),
+                hours: p.receipt_hours(),
+                next_hours: p.receipt_next(),
+            }),
         });
     }
     Ok(out)
@@ -10956,6 +10968,12 @@ fn encode_traffic(
         })
         .collect();
     let travel_goings = (!goings.is_empty()).then(|| fbb.create_vector(&goings));
+    let today: Vec<save::TravelGoingTodaySave> = travel
+        .going_today
+        .iter()
+        .map(|&(p, place)| save::TravelGoingTodaySave::new(p.get(), place))
+        .collect();
+    let travel_going_today = (!today.is_empty()).then(|| fbb.create_vector(&today));
     let root = save::TrafficSave::create(
         &mut fbb,
         &save::TrafficSaveArgs {
@@ -10968,6 +10986,7 @@ fn encode_traffic(
             travel_today,
             travel_households,
             travel_goings,
+            travel_going_today,
         },
     );
     finish(fbb, root)
@@ -11127,6 +11146,10 @@ fn decode_traffic(
             )));
         }
         goings.to.push((g.place(), g.trips()));
+    }
+    for g in root.travel_going_today().iter().flatten() {
+        let person = required(g.person(), "a trip from home today")?;
+        travel.going_today.push((person, g.place()));
     }
     if let Some(p) = travel.problems().into_iter().next() {
         return Err(LoadError::Malformed(p));

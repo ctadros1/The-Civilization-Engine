@@ -3011,3 +3011,17 @@ those trips, fading over months, for the places they go most. Nothing reads them
 
 **What it comes to:** in a new village's first days, people's trips from home went to the
 hearth, to their own fields some 400 m out, and to the places they gather and draw water.
+
+## 2026-10-18 — CS, second part: where a household builds a home is a choice
+
+**Built:** a household about to build a home now looks for clear ground near its old spot, at
+the point that would make its people's walks shortest, and partway toward the places they go
+most. It counts each plot's cost in hours of walking over five years, plus the levelling the
+plot needs, and takes the cheapest. The plot keeps a note of what it weighed. Homes may now go
+as far from the hearth as people will walk to a field, not just five minutes' walk.
+
+**What it comes to:** in small villages most homes still stand by the hearth, because they were
+built before anyone had been anywhere. The first trial let homes drift toward a neighbouring
+settlement people traded with. That is a move between settlements, so homes now stay within a
+field's walk of their own hearth. A second catch: a world saved halfway through a day chose
+differently once loaded, so the day's trips now count from the next midnight.

@@ -1791,6 +1791,10 @@ pub struct BuildParams {
     /// People who can work at a craft at once in a household's home, beside living there: a firm
     /// that has more working for it at once builds a workshop.
     pub home_work_places: u32,
+    /// Years over which a household reckons what a plot for a home would cost it in walking
+    /// (M8c slice CS, ADR-0030 §1): its members' walks a year from there to where they go, times
+    /// these, beside the levelling it would take once.
+    pub site_years: f64,
     /// How unevenly the parts of a building are made, by a novice and by a master builder: a
     /// group's quality is one less this times the size of a normal draw (ADR-0009 §6).
     pub quality_spread: [f64; 2],

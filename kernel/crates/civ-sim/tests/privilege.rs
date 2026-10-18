@@ -252,9 +252,11 @@ fn a_licence_binds_those_outside_its_organization_who_keep_it_or_break_it() {
     // does.
     let mut sc = scene();
     let law = licence(&mut sc.sim, sc.a, sc.org, FINE, true);
+    // Until the seller has weighed it: others who come to offer sickles weigh it too.
     for _ in 0..10 {
         let c = the_law(&sc.sim, law).compliance;
-        if c.complied + c.broken > 0 {
+        let offers = offers_sickles(&sc.sim, sc.seller, sc.sickle);
+        if c.broken > 0 || (c.complied > 0 && !offers) {
             break;
         }
         sc.sim.advance_minutes(DAY).expect("advances");
@@ -288,12 +290,14 @@ fn a_member_brings_a_breach_seen_at_a_door_and_it_is_heard() {
     let mut sc = scene();
     // Nobody heard of it, so the seller keeps offering.
     let law = licence(&mut sc.sim, sc.a, sc.org, FINE, false);
+    // The case against the seller: others who come to offer sickles may be brought too.
+    let seller = sc.seller;
     let case = |sim: &Sim| {
         sim.people()
             .order
             .cases
             .iter()
-            .find(|c| c.law == law)
+            .find(|c| c.law == law && c.accused_household == seller)
             .cloned()
     };
     for _ in 0..40 {
@@ -303,7 +307,6 @@ fn a_member_brings_a_breach_seen_at_a_door_and_it_is_heard() {
         sc.sim.advance_minutes(DAY).expect("advances");
     }
     let c = case(&sc.sim).expect("a member brought the breach");
-    assert_eq!(c.accused_household, sc.seller);
     assert_eq!(c.incident, 0);
     assert!(
         sc.sim

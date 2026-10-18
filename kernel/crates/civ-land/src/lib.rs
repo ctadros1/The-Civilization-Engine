@@ -40,7 +40,7 @@ pub mod wells;
 
 pub use buildings::{
     BuildWork, Building, BuildingState, GroupCondition, GroupState, MATERIAL_SLACK_KG, MendWork,
-    Plot, PlotUse, Repair, STAGE_DONE_SLACK_H, workable_h,
+    Plot, PlotUse, Repair, STAGE_DONE_SLACK_H, SiteReceipt, workable_h,
 };
 pub use fields::{
     Allowance, CropParams, Field, FieldStage, FieldTask, Lease, Party, RectCm, WorkDone,

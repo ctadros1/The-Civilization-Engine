@@ -2037,6 +2037,8 @@ pub(crate) struct Build {
     pub store_horizon_days: f64,
     /// People who can work at a craft at once in a home, beside living there.
     pub home_work_places: u32,
+    /// Years over which a household reckons a home plot's walking (content API 140).
+    pub site_years: f64,
     /// How unevenly a novice and a master make the parts of a building.
     pub quality_spread: [f64; 2],
     /// How builders answer the failures their settlement has seen.
@@ -2489,6 +2491,7 @@ impl PeopleFile {
                 programs,
                 store_horizon_days: self.build.store_horizon_days,
                 home_work_places: self.build.home_work_places,
+                site_years: self.build.site_years,
                 quality_spread: self.build.quality_spread,
                 levelling: civ_agents::params::Levelling {
                     from_m: self.build.levelling.from_m,
@@ -3169,6 +3172,7 @@ impl PeopleFile {
             self.build.store_horizon_days,
             &mut p,
         );
+        positive("build.site_years", self.build.site_years, &mut p);
         let [novice, master] = self.build.quality_spread;
         if !(master >= 0.0 && master <= novice && novice < 1.0) {
             p.push(format!(

@@ -4441,6 +4441,47 @@ and M6a gives rivers a daily flow.
         154 (the traffic section's goings); no content or wire change. **Not yet:** walks by
         cart or boat, and trips that start elsewhere (a field to the hearth), which the second
         part's reckoning does not count from home.
+      - *Second part, as built (2026-10-18): where a household builds a home is a choice*
+        (ADR-0030 §1). A household about to begin a home (its first, or a larger one) seeks
+        clear ground, as `build::home_site` always has, about several points: its old point
+        first (where it would have built before), then the point whose walks to the places its
+        members go from home sum least (Weiszfeld's weighted median of the first part's
+        goings), then halfway from there to each of the six places they go most, points closer
+        than 8 m being one. Each plot found is weighed in hours: its members' walks a year from
+        there to where they go and back, at the pace people walk off trails as the residence
+        review reckons it (straight-line, not routed), times `[build] site_years` (5, a design
+        prior: a hut stands about that long), and the levelling it needs once (a quarter of its
+        drop over half its area, at the levelling's hours a cubic metre). It takes the cheapest,
+        the first found among equals, and the plot keeps its receipt: how many were weighed and
+        the hours of the chosen and of the next best. A household whose people have gone
+        nowhere from home yet seeks about its old point alone, and builds where it would have.
+        **The reach:** beyond its old point, no plot farther from the hearth than the walk it
+        accepts to a field (`[farm] max_walk_minutes`); `HOME_REACH_SECONDS` now places only a
+        new household's old point and a founding's camps. A first probe bounded by the walk any
+        activity allows built homes most of the way to a neighbouring settlement its people
+        traded with: a home elsewhere is a move, weighed apart by the residence review.
+        **Exact on the day:** the goings a household weighs are held at midnight, so its choice
+        is the same all day and across a save; the first build kept the day's trips in place as
+        they happened, and a world saved mid-day chose differently once loaded (caught by the
+        save-and-go-on tests). **Not as the ADR's priors:** up to eight points sought about
+        rather than 16–32 plots (each costs a ring search of designs); stores and workshops still
+        go beside the home; walks by straight line. **Tests moved with it** (where homes stand
+        changes who needs what when): a diffusion helper waits for the households it began with,
+        the licence tests wait for their seller's own weighing and find the case against it, and
+        the boat test's seller offers toolstone alone (a buyer at a door with a need of its own
+        it can meet there buys for that, not its errand: M5b's rule). **What it comes to:** in a village's first year
+        (two worlds of some thirty people) the founding homes went up before anyone had gone
+        anywhere from home, so only the one new home each world built weighed others: one chose
+        a plot 0.1 hour better than the next, the other 65 hours better over its five years;
+        every home stood within 22 m of the hearth. The bench's three settlements of 1,000
+        built their first month's homes much as before. **New baselines:** the bench's village of
+        three settlements, 30 days, now ends with 609 fields and 625 buildings against 604 and
+        623 (deterministic mode; 604 and 625 against 598 and 623 at Max), the same people, and
+        a day as long (3.95 s against 4.00, 2.97 at Max against 3.04); every later slice keeps a
+        world without a plan on these. **Boundary:** saves schema 155 (plots'
+        receipts; the traffic section's trips of the day), content API 140 (`[build]
+        site_years`). **Not yet:** the observer's "why here" (the third part), walks by route,
+        stores and workshops as choices.
     - **CT, the plan law and its reservations:** `Plan`, a pure layout function and its first
       operations, 3–8 alternatives, forecasts in hours, the issues *no ground*, *a way built
       over* and *new ground*, versions, keepers avoiding reserved ground, encroachments recorded,

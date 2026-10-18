@@ -435,6 +435,8 @@ pub const SCHEMA_V151: u32 = 151;
 pub const SCHEMA_V152: u32 = 152;
 /// Households' days of travel, before where people go from home.
 pub const SCHEMA_V153: u32 = 153;
+/// Where people go from home, before plots kept why they were chosen.
+pub const SCHEMA_V154: u32 = 154;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

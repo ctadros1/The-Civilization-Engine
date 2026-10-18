@@ -1485,3 +1485,8 @@ its absence does not make an authored material a universal fireproof building.
 More techniques (each only with the work behind it), more building programs and grammars, style
 primitives, offices beyond the storekeeper and further policies, service capability ladders, all
 as the milestones in the plan introduce them (§5, §7).
+
+Content API 140 (M8c slice CS, second part) brings the people profile's `[build] site_years`
+(required, positive): the years over which a household about to build a home reckons a plot's
+walking, its members' walks a year from there to where they go times these, beside the levelling
+the plot needs once. The core sets it at 5.

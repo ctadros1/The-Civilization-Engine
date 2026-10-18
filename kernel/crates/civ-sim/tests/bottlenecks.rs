@@ -346,3 +346,66 @@ fn where_people_go_from_home_is_held_by_place_and_finds_their_fields_and_the_hea
     assert!(people.problems(u64::MAX, usize::MAX).is_empty());
     saves_and_goes_on_alike(&mut sim, DAY / 2);
 }
+
+#[test]
+fn a_household_builds_its_home_where_its_people_s_walks_cost_least_and_keeps_why() {
+    // M8c slice CS, second part (ADR-0030 §1): a household about to build a home weighs plots
+    // about its old point and toward where its people go, in hours of walking over the content's
+    // years and levelling, and takes the cheapest; the plot keeps the receipt. Its people having
+    // gone nowhere, it seeks about its old point alone, as before.
+    let mut sim = village(3);
+    sim.advance_minutes(2 * DAY).expect("lives");
+    let mut farmers: Vec<_> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.members.len() >= 2)
+        .filter_map(|(_, x)| {
+            let f = sim.land().fields.iter().find(|f| f.household == x.id)?;
+            let c = (
+                (f.rect.x + f.rect.w / 2) as f32 / 100.0,
+                (f.rect.y + f.rect.h / 2) as f32 / 100.0,
+            );
+            Some((x.id, x.home, c, x.members.clone()))
+        })
+        .collect();
+    farmers.sort_by_key(|f| f.0);
+    let (household, home, field, members) = farmers.first().cloned().expect("a farming household");
+    let d = |a: (f32, f32), b: (f32, f32)| (a.0 - b.0).hypot(a.1 - b.1);
+    assert!(d(home, field) > 100.0, "its field lies off from home");
+    for m in &members {
+        sim.people_mut_for_tests().travel.goings.remove(m);
+    }
+    let site = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.home_site_for_tests(ctx, household))
+            .expect("clear ground")
+    };
+    let (before, receipt) = site(&mut sim);
+    let receipt = receipt.expect("a receipt");
+    assert_eq!(receipt.weighed, 1);
+    assert_eq!(receipt.hours, receipt.next_hours);
+    assert!(
+        d(before, home) < 40.0,
+        "about its old point: {before:?} {home:?}"
+    );
+    // Its people go to their field daily from home.
+    let (w, day) = (sim.map().width, sim.now().minutes() / DAY);
+    let cs = sim.map().cell_size_m;
+    let cell = (field.1 / cs) as u32 * w + (field.0 / cs) as u32;
+    let place = civ_agents::travel::going_place(cell, w);
+    let half = sim.rules().people.places.use_half_life_days;
+    for m in &members {
+        for _ in 0..30 {
+            sim.people_mut_for_tests().travel.went(*m, place);
+        }
+    }
+    sim.people_mut_for_tests().travel.hold_goings(day, half);
+    let (after, receipt) = site(&mut sim);
+    let receipt = receipt.expect("a receipt");
+    assert!(receipt.weighed > 1, "{receipt:?}");
+    assert!(receipt.next_hours > receipt.hours, "{receipt:?}");
+    assert!(
+        d(after, field) + 50.0 < d(before, field),
+        "nearer its field: {after:?} against {before:?}, the field at {field:?}"
+    );
+}

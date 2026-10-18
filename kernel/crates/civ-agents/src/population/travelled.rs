@@ -33,9 +33,8 @@ impl Population {
             return;
         }
         let place = crate::travel::going_place(cell_of(ctx.map, to) as u32, ctx.map.width);
-        let (who, day) = (p.id, ctx.now.day_index());
-        let half = ctx.params.places.use_half_life_days;
-        self.travel.went(who, place, day, half);
+        let who = p.id;
+        self.travel.went(who, place);
     }
 
     /// The person `h` set off by `mode` on a trip of `minutes`, for the activity they
@@ -111,6 +110,9 @@ impl Population {
         let half = ctx.params.places.use_half_life_days;
         self.travel
             .close_day(year, yesterday.day_index(), half, residents);
+        // The day's trips from home are held, so where a household builds weighs the same all
+        // the next day (M8c slice CS).
+        self.travel.hold_goings(yesterday.day_index(), half);
         // A household gone takes what it held of its days with it.
         let hh = &self.hh_index;
         self.travel.households.retain(|h, _| hh.contains_key(h));

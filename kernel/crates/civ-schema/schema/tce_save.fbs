@@ -736,6 +736,11 @@ table Plot {
   h_cm: int (id: 5);
   purpose: PlotUse (id: 6);
   since: long (id: 7);
+  // Schema 155 (M8c slice CS, second part): why its household chose it among others: how many it
+  // weighed (0: no receipt), and the hours the chosen and the next best would cost it.
+  receipt_weighed: ushort (id: 8);
+  receipt_hours: float (id: 9);
+  receipt_next: float (id: 10);
 }
 
 table Plots {
@@ -3468,6 +3473,12 @@ struct TravelGoingSave {
   trips: float;
 }
 
+// A trip from home set off on today (schema 155): held at midnight.
+struct TravelGoingTodaySave {
+  person: ulong;
+  place: uint;
+}
+
 table TrafficSave {
   servers: [TrafficServerSave] (id: 0);
   tallies: [TrafficTallySave] (id: 1);
@@ -3482,4 +3493,6 @@ table TrafficSave {
   travel_households: [TravelHouseholdSave] (id: 7);
   // Schema 154 (M8c slice CS, first part); absent before.
   travel_goings: [TravelGoingSave] (id: 8);
+  // Schema 155 (M8c slice CS, second part); absent before (a save's trips of its day go uncounted).
+  travel_going_today: [TravelGoingTodaySave] (id: 9);
 }

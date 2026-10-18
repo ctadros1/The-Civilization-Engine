@@ -194,15 +194,31 @@ pub struct Travel {
     /// What each household holds of its members' days of travel, by household (the second
     /// part): what the residence review weighs.
     pub households: BTreeMap<PermanentId, HouseholdTravel>,
-    /// Where each person has gone from home, by person (M8c slice CS, first part).
+    /// Where each person has gone from home, by person (M8c slice CS, first part), as of the
+    /// last midnight: what a household building today weighs, the same all day.
     pub goings: BTreeMap<PermanentId, Goings>,
+    /// The trips from home set off on today, in order, by person and place: held at midnight
+    /// (M8c slice CS, second part).
+    pub going_today: Vec<(PermanentId, u32)>,
 }
 
 impl Travel {
-    /// `person` set off from home on `day` for place `place` ([`going_place`]): one trip more
-    /// there, what they hold fading at `half_life_days`, and the place least gone to let go past
-    /// [`MOST_GOINGS`] (the lowest-numbered among equals is kept).
-    pub fn went(&mut self, person: PermanentId, place: u32, day: i64, half_life_days: f64) {
+    /// `person` set off from home today for place `place` ([`going_place`]): held at midnight
+    /// ([`Travel::hold_goings`]).
+    pub fn went(&mut self, person: PermanentId, place: u32) {
+        self.going_today.push((person, place));
+    }
+
+    /// The day `day` is over: each trip from home set off on it is one trip more to its place
+    /// for its walker, what they hold fading at `half_life_days`, and the place least gone to let
+    /// go past [`MOST_GOINGS`] (the lowest-numbered among equals is kept).
+    pub fn hold_goings(&mut self, day: i64, half_life_days: f64) {
+        for (person, place) in std::mem::take(&mut self.going_today) {
+            self.hold_going(person, place, day, half_life_days);
+        }
+    }
+
+    fn hold_going(&mut self, person: PermanentId, place: u32, day: i64, half_life_days: f64) {
         let g = self.goings.entry(person).or_insert(Goings {
             day,
             to: Vec::new(),
@@ -435,17 +451,22 @@ mod tests {
         let c = going_centre(going_place(field, w), w, 8.0);
         assert_eq!(c, (40.0, 24.0));
         let place = going_place(field, w);
-        t.went(a, place, 10, 180.0);
-        t.went(a, place, 10, 180.0);
+        t.went(a, place);
+        t.went(a, place);
+        // Nothing is held until the day is over.
+        assert!(t.goings.is_empty());
+        t.hold_goings(10, 180.0);
         // Half a half-life later the two trips are worth 2/sqrt(2), and one more is added.
-        t.went(a, place, 100, 180.0);
+        t.went(a, place);
+        t.hold_goings(100, 180.0);
         let g = &t.goings[&a];
         assert_eq!(g.day, 100);
         assert!((g.to[0].1 - (1.0 + 2.0 / 2f32.sqrt())).abs() < 1e-5);
         // Past the most places held, the least gone to goes, the higher-numbered among equals.
         for p in 1000..1000 + MOST_GOINGS as u32 {
-            t.went(a, p, 100, 180.0);
+            t.went(a, p);
         }
+        t.hold_goings(100, 180.0);
         let g = &t.goings[&a];
         assert_eq!(g.to.len(), MOST_GOINGS);
         assert_eq!(g.to[0].0, place);

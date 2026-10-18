@@ -1811,6 +1811,7 @@ pub(crate) mod tests {
                 programs: vec![0],
                 store_horizon_days: 1095.0,
                 home_work_places: 2,
+                site_years: 5.0,
                 quality_spread: [0.3, 0.1],
                 levelling: crate::params::Levelling {
                     from_m: 0.4,

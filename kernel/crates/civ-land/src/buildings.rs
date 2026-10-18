@@ -53,6 +53,20 @@ pub struct Plot {
     pub use_: PlotUse,
     /// When it was claimed.
     pub since: SimTime,
+    /// Why its household chose it, where it weighed others (M8c slice CS, ADR-0030 §1).
+    pub receipt: Option<SiteReceipt>,
+}
+
+/// What a household reckoned when it chose a plot for a home among others (ADR-0030 §1): how many
+/// it weighed, and the hours over its reckoning's years the chosen and the next best would cost
+/// it, its members' walks to where they go and the levelling. The difference is what the plot is
+/// worth to that household; nobody else reads it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SiteReceipt {
+    pub weighed: u16,
+    pub hours: f32,
+    /// The next best's hours; the chosen's own when it was the only one.
+    pub next_hours: f32,
 }
 
 /// How a component group of a building stands (ADR-0009 §4).

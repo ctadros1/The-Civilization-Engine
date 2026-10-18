@@ -43,7 +43,7 @@ CI runs the validator. Diagnostics have stable codes:
 | E3002 | Unknown or missing `kind` |
 | E3003 | Not exactly one world-generation preset has `default = true` |
 | E3004 | Not exactly one people profile, or not exactly one land profile |
-| E3005 | A technique gates no work: no recipe, activity, building program, bridge or well system names it |
+| E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it |
 | E3006 | Techniques' prerequisites form a cycle |
 | E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it (research 07-03 §6's bootstrap test) |
 
@@ -686,6 +686,21 @@ standing (`w_sit`, `w_standing`, `sit_cost`, `stand_temperature`), a voter's wei
 `w_household`, `w_counsel`, `w_self`, `vote_scale`) and the points of coming to poll (`poll_base`,
 `w_poll_stake`). The core adds `core:policy/seat_a_council` (councils of 5 or 9 for 360 days, by
 election or by lot, quorum half, more for than against).
+
+Content API 132 (M8b slice CO, ADR-0029 §2) brings vehicles: a new content kind (`kind =
+"vehicle"`, files under `vehicle/`), a made thing that carries more than a person can. It names
+its `mode` (`boat`, the only one yet), the `technique` and `skill` its makers need and practise
+and a `tool` they work with (a good with `[tool]`; each may be empty), the `good` it is made
+from and `material_kg` of it, `labour_h` and the `crew` who may work on one at once, its
+`payload_kg`, the `draft_m` it needs loaded, its paddlers' `paddle_m_s` through still water, its
+beam `width_m` and its `life_years`. Using one needs no technique; a technique a vehicle names
+gates work (E3005). A boat made of one is a record of its own, not a good in a store: it belongs
+to a household and stands at the bank where it was left. A reach carries it where its stage at
+the day's discharge is above its draft, at its paddlers' speed plus the reach's mean velocity
+downstream and less it upstream. The core's `core:vehicle/dugout` (research 07-08 W02) carries
+400 kg at a 0.3 m draft and 1.2 m/s, is made with an axe by `core:technique/wood_shaping` in 200
+hours from a 1,300 kg trunk, and lasts 12 years: design priors inside 07-08 §2.1's ranges, each
+marked in its file.
 
 Content API 131 (M7d slice CE4c, ADR-0027 §6) brings foreign coin. A coin's `[money]` may give a
 `foreign_discount` (below 1) and `foreign_assay_h`: one who cannot assay pays with another polity's

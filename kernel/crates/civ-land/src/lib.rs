@@ -21,6 +21,8 @@
 #![forbid(unsafe_code)]
 
 pub mod banks;
+pub mod boating;
+pub mod boats;
 pub mod buildings;
 pub mod crossings;
 pub mod deposits;
@@ -398,6 +400,8 @@ pub struct Land {
     pub enclosures: enclosures::Enclosures,
     /// Ways people have worked on, in the order begun (M8b slice CM, ADR-0029 §1). Saved.
     pub ways: ways::Ways,
+    /// Boats, oldest first (M8b slice CO, ADR-0029 §2). Saved.
+    pub boats: boats::Boats,
     /// Water under the ground and the rivers' runoff store (M6a slice AY, ADR-0021 §1–§2): the
     /// heads and the store saved, the aquifer derived.
     pub water: Water,
@@ -629,6 +633,7 @@ impl Land {
             ground: earth::GroundDelta::new(map.width, map.height, map.cell_size_m),
             crossings: crossings::Crossings::default(),
             ways: ways::Ways::default(),
+            boats: boats::Boats::default(),
             enclosures: enclosures::Enclosures::default(),
             water: Water::default(),
             wells: wells::Wells::default(),

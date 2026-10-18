@@ -2835,3 +2835,15 @@ were ahead of them.
 **What it comes to:** a fresh village shows its gates with waits under a second; only when made
 slow on purpose do quarter-hour waits appear, and each reads as who waited, where and behind how
 many.
+
+## 2026-10-18 — CO, first part: a river a boat can use
+
+**Built:** the engine now knows what a dugout is: hollowed from one trunk with stone axes, it
+carries about 400 kg and needs 30 cm of water under it. It knows where the river is deep enough
+for one today, how much faster the current carries it downstream than its paddlers can push it
+upstream, and the quickest way by water from one bank to another. A boat is a thing of its own:
+it belongs to a household, lies at the bank where it was left, and wears out after about twelve
+years.
+
+**Not yet:** nobody makes, owns or uses one. That is the next part's work, with loads carried by
+boat and the trips that choose it.

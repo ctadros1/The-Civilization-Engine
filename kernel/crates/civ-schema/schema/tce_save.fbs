@@ -3275,6 +3275,23 @@ table WaysSave {
   revision: uint (id: 1);
 }
 
+// Boats (schema 142, M8b slice CO; ADR-0029 §2): each of a vehicle by content id, the household
+// it belongs to, the land cell beside the river where it is drawn up, the day it was made and
+// the share of its life spent.
+table BoatSave {
+  id: ulong (id: 0);
+  vehicle: string (id: 1);
+  owner: ulong (id: 2);
+  at: uint (id: 3);
+  made: long (id: 4);
+  wear: float (id: 5);
+}
+
+table BoatsSave {
+  list: [BoatSave] (id: 0);
+  revision: uint (id: 1);
+}
+
 // Turn-taking at bottlenecks (schema 141, M8b slice CN; ADR-0029 §4). A facility as in
 // `TripAheadSave` (`kind`, `id`, `sector`); a direction of one that has passed someone lately
 // and the slots it gave in its memory, seconds from the calendar origin, in order.

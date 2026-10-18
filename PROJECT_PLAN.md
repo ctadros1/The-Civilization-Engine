@@ -4022,6 +4022,32 @@ and M6a gives rivers a daily flow.
     - **CO**: boats: the dugout, navigability by stage, directed speeds, landings and handling,
       consignments in transit, ferrying one's own across; fishing, fetching and owed goods by
       boat.
+      - *First part, as built (2026-10-18): the river for boats and the dugout as a thing.* A
+        **vehicle** is a content kind (content API 132): its mode (`boat` only), what making one
+        takes (technique, skill, tool, good and kilograms of it, hours and crew) and its spec
+        (payload, loaded draft, paddlers' still-water speed, beam, life). The core's dugout
+        (07-08 W02) carries 400 kg at a 0.3 m draft and 1.2 m/s, takes 200 hours with an axe by
+        `wood_shaping` from a 1,300 kg trunk, and lasts 12 years: design priors inside 07-08
+        §2.1's ranges. **The river for boats** (`civ_land::boating`): a reach is navigable today
+        where Manning's stage at today's discharge is above the hull's draft; its mean velocity is
+        the discharge over the wetted section; a boat goes downstream at its paddlers' speed plus
+        that and upstream at it less, not at all where that is not positive (ADR-0029 §5). The
+        rivers are a graph of river cells (each step along a reach, and from a reach's last cell
+        into the one it joins), and the quickest way by water between two places is found on it,
+        directed and keyed to the day's discharges, and checked against a Bellman-Ford oracle
+        (ADR-0029 §7). **A boat** is a record of its own (`Land.boats`): of a vehicle, belonging
+        to a household, drawn up at a land cell beside the river, made on a day and ageing a day
+        of its life each day until it is past use and gone. **What it comes to:** on river
+        valley 1 the trunk floats a dugout and is quicker down than up by the same metres; 40
+        pairs of cells on reaches deep enough today agree with the oracle, 9 of them joined
+        (the rest cut by shallow links or a current too strong to paddle against); at a
+        ten-thousandth of the day's flow, and for a hull drawing 50 m, there is no way at all.
+        **Exact:** a world with no boat ages nothing and its digests are CN's in every other
+        section. **Boundary:** saves schema 142 (the `boats` section; 141 loads with none),
+        content API 132, no wire change. **Not yet:** anyone making, owning or using a boat
+        (CO's next parts: consignments and fetching by boat, then making one by choice,
+        ferrying one's own across, fishing and owed goods by boat, and the observer's view);
+        lakes and the sea as water a boat uses.
     - **CP**: handcarts on ways: the wheel technique and handcart, passability by width, grade and
       deck, the way graph with door legs, mode choice by the complete chain, clearance and
       turning back.

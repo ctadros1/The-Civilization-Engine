@@ -45,13 +45,14 @@ mod regime;
 mod skill;
 mod technique;
 mod value;
+mod vehicle;
 mod well;
 mod worldgen;
 
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 131;
+pub const KERNEL_CONTENT_API: u32 = 132;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -81,7 +82,7 @@ pub enum Severity {
 /// | E3002 | The `kind` is unknown, or missing |
 /// | E3003 | Not exactly one world-generation preset is marked `default = true` |
 /// | E3004 | Not exactly one people profile, or not exactly one land profile |
-/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge or well system names it, nor any disease as a treatment |
+/// | E3005 | A technique gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment |
 /// | E3006 | Techniques' prerequisites form a cycle |
 /// | E3007 | A recipe can never be worked: an input or tool comes only from recipes that need it |
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -417,6 +418,7 @@ struct Parsed {
     values: Vec<Def<value::ValueFile>>,
     ideologies: Vec<Def<ideology::IdeologyFile>>,
     bridges: Vec<Def<bridge::BridgeFile>>,
+    vehicles: Vec<Def<vehicle::VehicleFile>>,
     wells: Vec<Def<well::WellFile>>,
     diseases: Vec<Def<disease::DiseaseFile>>,
     /// Files declaring `kind = "people"`, parsed or not (so a broken profile is not also
@@ -1196,6 +1198,49 @@ fn resolve(
         }
     }
     bridges.sort_by(|a, b| a.id.cmp(&b.id));
+    // Vehicles (M8b slice CO): a known mode, a good to make one of, and a tool that is one.
+    let mut vehicles = Vec::new();
+    for d in &parsed.vehicles {
+        let good = good_index(&d.file.good);
+        if good.is_none() {
+            missing(c, parsed, &d.rel, "good", &d.file.good);
+        }
+        let resolve =
+            |c: &mut Collector, what: &str, id: &str, index: &dyn Fn(&str) -> Option<usize>| {
+                if id.is_empty() {
+                    Some(None)
+                } else {
+                    let i = index(id);
+                    if i.is_none() {
+                        missing(c, parsed, &d.rel, what, id);
+                    }
+                    i.map(Some)
+                }
+            };
+        let technique = resolve(c, "technique", &d.file.technique, &technique_index);
+        let skill = resolve(c, "skill", &d.file.skill, &skill_index);
+        let tool = resolve(c, "tool", &d.file.tool, &good_index);
+        if let Some(Some(t)) = tool
+            && goods[t].tool.is_none()
+        {
+            c.push(
+                "E3001",
+                &d.rel,
+                None,
+                format!(
+                    "`tool` must name a good with `[tool]`; `{}` has none",
+                    d.file.tool
+                ),
+            );
+        }
+        if let (Some(mode), Some(g), Some(t), Some(k), Some(tool)) =
+            (d.file.mode(), good, technique, skill, tool)
+            && tool.is_none_or(|t| goods[t].tool.is_some())
+        {
+            vehicles.push(d.file.def(mode, g, t, k, tool));
+        }
+    }
+    vehicles.sort_by(|a, b| a.id.cmp(&b.id));
     // Well systems (M6a slice AY, step three).
     let mut wells = Vec::new();
     for d in &parsed.wells {
@@ -1281,6 +1326,7 @@ fn resolve(
         values,
         ideologies,
         bridges,
+        vehicles,
         wells,
         diseases,
     };
@@ -1350,6 +1396,7 @@ fn knowledge_problems(
             || catalog.recipes.iter().any(|r| r.technique == Some(t))
             || catalog.buildings.iter().any(|b| b.technique == Some(t))
             || catalog.bridges.iter().any(|b| b.technique == Some(t))
+            || catalog.vehicles.iter().any(|v| v.technique == Some(t))
             || catalog.wells.iter().any(|w| w.technique == Some(t))
             || parsed
                 .diseases
@@ -1362,7 +1409,7 @@ fn knowledge_problems(
                 &rel_of(&def.id),
                 None,
                 format!(
-                    "technique `{}` gates no work: no recipe, activity, building program, bridge or well system names it, nor any disease as a treatment",
+                    "technique `{}` gates no work: no recipe, activity, building program, bridge, vehicle or well system names it, nor any disease as a treatment",
                     def.id
                 ),
             );
@@ -1492,6 +1539,7 @@ fn parsed_tables(parsed: &Parsed) -> Vec<(&str, &toml::Table)> {
     all.extend(tables(&parsed.values, |f| &f.id));
     all.extend(tables(&parsed.ideologies, |f| &f.id));
     all.extend(tables(&parsed.bridges, |f| &f.id));
+    all.extend(tables(&parsed.vehicles, |f| &f.id));
     all.extend(tables(&parsed.wells, |f| &f.id));
     all.extend(tables(&parsed.diseases, |f| &f.id));
     all
@@ -1563,7 +1611,7 @@ fn range_problems(c: &mut Collector, rel: &str, problems: Vec<String>) {
     }
 }
 
-const KINDS: [&str; 19] = [
+const KINDS: [&str; 20] = [
     worldgen::KIND,
     people::KIND,
     land::KIND,
@@ -1581,6 +1629,7 @@ const KINDS: [&str; 19] = [
     value::KIND,
     ideology::KIND,
     bridge::KIND,
+    vehicle::KIND,
     well::KIND,
     disease::KIND,
 ];
@@ -1754,6 +1803,16 @@ fn compile_file(
             if check_identity(c, pack, rel, &file.id, bridge::ID_KIND, seen_ids) {
                 range_problems(c, rel, file.problems());
                 parsed.bridges.push(def(rel, pack, file, table));
+            }
+        }
+        vehicle::KIND => {
+            let Some(file) = parse::<vehicle::VehicleFile>(c, rel, source) else {
+                return;
+            };
+            debug_assert_eq!(file.kind, vehicle::KIND, "dispatched on kind");
+            if check_identity(c, pack, rel, &file.id, vehicle::ID_KIND, seen_ids) {
+                range_problems(c, rel, file.problems());
+                parsed.vehicles.push(def(rel, pack, file, table));
             }
         }
         disease::KIND => {

@@ -248,11 +248,11 @@ fn save_load_save_keeps_every_section_digest() {
     )
     .expect("saves again");
     assert_eq!(digests(&fx.first.chunks), digests(&again.chunks));
-    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 35 land, field, plot, building,
+    // 4 single-chunk world sections, 4 rasters of 2×2 tiles, 38 land, field, plot, building,
     // wear, market, firm, wealth, knowledge, deposits, earth, ties, polity, order, word, opinion,
     // norms, values, creeds, factions, influence, places, relation, crossing, wells, sickness,
-    // pathogen, fires, floods, ways, traffic and people sections.
-    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 37);
+    // pathogen, fires, floods, ways, traffic, boats and people sections.
+    assert_eq!(again.chunks.len(), 4 + 4 * 4 + 38);
     assert!(loaded.people().living() > 0, "the founding band was saved");
 
     let info = commons_persist::SnapshotReader::open_file(&again.path, Default::default())
@@ -2370,6 +2370,19 @@ fn a_schema_68_save_loads_with_no_wade_remembered() {
     let mut loaded = persist::load(&path, content()).expect("a schema-68 save loads");
     assert!(loaded.people().fords.households.is_empty());
     assert!(loaded.land().crossings.list.is_empty());
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
+fn a_schema_141_save_loads_with_no_boat() {
+    // A schema-141 save, from before boats (M8b slice CO): nobody had one.
+    let sim = load_first();
+    assert!(sim.land().boats.list.is_empty());
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V141;
+    let path = republish("slice-cn", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-141 save loads");
+    assert_eq!(loaded.land().boats, civ_land::boats::Boats::default());
     loaded.advance_minutes(24 * 60).expect("goes on");
 }
 

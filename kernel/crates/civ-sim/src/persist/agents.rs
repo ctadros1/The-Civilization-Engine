@@ -122,7 +122,7 @@ use super::{
     SCHEMA_V118, SCHEMA_V119, SCHEMA_V120, SCHEMA_V121, SCHEMA_V122, SCHEMA_V123, SCHEMA_V124,
     SCHEMA_V125, SCHEMA_V126, SCHEMA_V127, SCHEMA_V128, SCHEMA_V129, SCHEMA_V130, SCHEMA_V131,
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
-    SCHEMA_V139, SCHEMA_V140, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -193,6 +193,8 @@ pub const SECTION_CROSSINGS: SectionTag = SectionTag::new("crossing");
 pub const SECTION_TRAFFIC: SectionTag = SectionTag::new("traffic");
 /// Section: ways people have worked on (schema 140, M8b slice CM).
 pub const SECTION_WAYS: SectionTag = SectionTag::new("ways");
+/// Section: boats (schema 142, M8b slice CO).
+pub const SECTION_BOATS: SectionTag = SectionTag::new("boats");
 /// Section: wells (schema 74, M6a slice AY, step three).
 pub const SECTION_WELLS: SectionTag = SectionTag::new("wells");
 /// Section: infections (schema 75, M6a slice AZ).
@@ -307,6 +309,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         section(SECTION_FIRES, 0, encode_fires(&sim.people)),
         section(SECTION_FLOODS, 0, encode_floods(&sim.land, &sim.people)),
         section(SECTION_WAYS, 0, encode_ways(&sim.land)),
+        section(SECTION_BOATS, 0, encode_boats(&sim.land, &sim.rules)),
         section(SECTION_TRAFFIC, 0, encode_traffic(&sim.people.traffic)),
     ]
 }
@@ -617,6 +620,8 @@ enum Schema {
     /// Bottlenecks for walkers (M8b slice CN: the `traffic` section, a trip's next bottleneck,
     /// event kind 5).
     V141,
+    /// Boats (M8b slice CO: the `boats` section).
+    V142,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -772,7 +777,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V138 => Schema::V138,
         SCHEMA_V139 => Schema::V139,
         SCHEMA_V140 => Schema::V140,
-        SAVE_SCHEMA_VERSION => Schema::V141,
+        SCHEMA_V141 => Schema::V141,
+        SAVE_SCHEMA_VERSION => Schema::V142,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1024,6 +1030,11 @@ pub(super) fn decode<R: Read + Seek>(
     if schema >= Schema::V141 {
         let bytes = single_chunk(reader, SECTION_TRAFFIC)?;
         people.traffic = decode_traffic(&bytes)?;
+    }
+    // Boats (schema 142); before, none.
+    if schema >= Schema::V142 {
+        let bytes = single_chunk(reader, SECTION_BOATS)?;
+        land.boats = decode_boats(&bytes, rules, map)?;
     }
     // Ways (schema 140); before, none.
     if schema >= Schema::V140 {
@@ -3766,6 +3777,8 @@ fn decode_land(
         enclosures: Default::default(),
         // Read from its own section (schema 140 on).
         ways: Default::default(),
+        // Read from its own section (schema 142 on).
+        boats: Default::default(),
         // The heads and the store below (schema 72 on); the aquifer derived.
         water: Default::default(),
         // Read from its own section (schema 74 on).
@@ -4526,7 +4539,8 @@ fn carried(
         | Schema::V138
         | Schema::V139
         | Schema::V140
-        | Schema::V141 => {
+        | Schema::V141
+        | Schema::V142 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -4840,7 +4854,8 @@ fn decode_households(
             | Schema::V138
             | Schema::V139
             | Schema::V140
-            | Schema::V141 => {
+            | Schema::V141
+            | Schema::V142 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -10803,6 +10818,80 @@ fn encode_ways(land: &Land) -> Vec<u8> {
         },
     );
     finish(fbb, root)
+}
+
+fn encode_boats(land: &Land, rules: &Rules) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let list: Vec<_> = land
+        .boats
+        .list
+        .iter()
+        .map(|b| {
+            let vehicle = rules
+                .catalog
+                .vehicles
+                .get(usize::from(b.vehicle))
+                .map_or("", |v| v.id.as_str());
+            let vehicle = fbb.create_string(vehicle);
+            save::BoatSave::create(
+                &mut fbb,
+                &save::BoatSaveArgs {
+                    id: b.id.get(),
+                    vehicle: Some(vehicle),
+                    owner: b.owner.get(),
+                    at: b.at,
+                    made: b.made,
+                    wear: b.wear,
+                },
+            )
+        })
+        .collect();
+    let list = fbb.create_vector(&list);
+    let root = save::BoatsSave::create(
+        &mut fbb,
+        &save::BoatsSaveArgs {
+            list: Some(list),
+            revision: land.boats.revision(),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// The boats saved in `bytes`. One of a vehicle the loaded content no longer has is dropped; one
+/// at a cell off the map, or out of order, is malformed.
+fn decode_boats(
+    bytes: &[u8],
+    rules: &Rules,
+    map: &WorldMap,
+) -> Result<civ_land::boats::Boats, LoadError> {
+    use civ_land::boats::{Boat, Boats};
+    let root = section_root::<save::BoatsSave>(bytes).map_err(|e| unreadable(SECTION_BOATS, &e))?;
+    let cells_on_map = u64::from(map.width) * u64::from(map.height);
+    let mut list = Vec::new();
+    for b in root.list().iter().flatten() {
+        let id = required(b.id(), "a boat")?;
+        let Some(vehicle) = rules.catalog.vehicle_index(b.vehicle().unwrap_or("")) else {
+            continue;
+        };
+        if u64::from(b.at()) >= cells_on_map {
+            return Err(LoadError::Malformed(format!(
+                "boat {id} stands off the map"
+            )));
+        }
+        list.push(Boat {
+            id,
+            vehicle: vehicle as u16,
+            owner: required(b.owner(), "a boat's owner")?,
+            at: b.at(),
+            made: b.made(),
+            wear: b.wear(),
+        });
+    }
+    let boats = Boats::from_saved(list, root.revision());
+    if let Some(p) = boats.problems().into_iter().next() {
+        return Err(LoadError::Malformed(p));
+    }
+    Ok(boats)
 }
 
 /// The ways saved in `bytes`. One with an unknown surface, keeper or rank, a cell off the map,

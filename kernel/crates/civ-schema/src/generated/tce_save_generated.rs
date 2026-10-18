@@ -55924,6 +55924,300 @@ impl ::core::fmt::Debug for WaysSave<'_> {
       ds.finish()
   }
 }
+pub enum BoatSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct BoatSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for BoatSave<'a> {
+  type Inner = BoatSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> BoatSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_VEHICLE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_OWNER: ::flatbuffers::VOffsetT = 8;
+  pub const VT_AT: ::flatbuffers::VOffsetT = 10;
+  pub const VT_MADE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_WEAR: ::flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    BoatSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args BoatSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<BoatSave<'bldr>> {
+    let mut builder = BoatSaveBuilder::new(_fbb);
+    builder.add_made(args.made);
+    builder.add_owner(args.owner);
+    builder.add_id(args.id);
+    builder.add_wear(args.wear);
+    builder.add_at(args.at);
+    if let Some(x) = args.vehicle { builder.add_vehicle(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(BoatSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn vehicle(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BoatSave::VT_VEHICLE, None)}
+  }
+  #[inline]
+  pub fn owner(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(BoatSave::VT_OWNER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn at(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(BoatSave::VT_AT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn made(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(BoatSave::VT_MADE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn wear(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(BoatSave::VT_WEAR, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for BoatSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("id", Self::VT_ID, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("vehicle", Self::VT_VEHICLE, false)?
+     .visit_field::<u64>("owner", Self::VT_OWNER, false)?
+     .visit_field::<u32>("at", Self::VT_AT, false)?
+     .visit_field::<i64>("made", Self::VT_MADE, false)?
+     .visit_field::<f32>("wear", Self::VT_WEAR, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct BoatSaveArgs<'a> {
+    pub id: u64,
+    pub vehicle: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub owner: u64,
+    pub at: u32,
+    pub made: i64,
+    pub wear: f32,
+}
+impl<'a> Default for BoatSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    BoatSaveArgs {
+      id: 0,
+      vehicle: None,
+      owner: 0,
+      at: 0,
+      made: 0,
+      wear: 0.0,
+    }
+  }
+}
+
+pub struct BoatSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BoatSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u64) {
+    self.fbb_.push_slot::<u64>(BoatSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_vehicle(&mut self, vehicle: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BoatSave::VT_VEHICLE, vehicle);
+  }
+  #[inline]
+  pub fn add_owner(&mut self, owner: u64) {
+    self.fbb_.push_slot::<u64>(BoatSave::VT_OWNER, owner, 0);
+  }
+  #[inline]
+  pub fn add_at(&mut self, at: u32) {
+    self.fbb_.push_slot::<u32>(BoatSave::VT_AT, at, 0);
+  }
+  #[inline]
+  pub fn add_made(&mut self, made: i64) {
+    self.fbb_.push_slot::<i64>(BoatSave::VT_MADE, made, 0);
+  }
+  #[inline]
+  pub fn add_wear(&mut self, wear: f32) {
+    self.fbb_.push_slot::<f32>(BoatSave::VT_WEAR, wear, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BoatSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    BoatSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<BoatSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for BoatSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("BoatSave");
+      ds.field("id", &self.id());
+      ds.field("vehicle", &self.vehicle());
+      ds.field("owner", &self.owner());
+      ds.field("at", &self.at());
+      ds.field("made", &self.made());
+      ds.field("wear", &self.wear());
+      ds.finish()
+  }
+}
+pub enum BoatsSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct BoatsSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for BoatsSave<'a> {
+  type Inner = BoatsSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> BoatsSave<'a> {
+  pub const VT_LIST: ::flatbuffers::VOffsetT = 4;
+  pub const VT_REVISION: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    BoatsSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args BoatsSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<BoatsSave<'bldr>> {
+    let mut builder = BoatsSaveBuilder::new(_fbb);
+    builder.add_revision(args.revision);
+    if let Some(x) = args.list { builder.add_list(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn list(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BoatSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BoatSave>>>>(BoatsSave::VT_LIST, None)}
+  }
+  #[inline]
+  pub fn revision(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(BoatsSave::VT_REVISION, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for BoatsSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BoatSave>>>>("list", Self::VT_LIST, false)?
+     .visit_field::<u32>("revision", Self::VT_REVISION, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct BoatsSaveArgs<'a> {
+    pub list: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BoatSave<'a>>>>>,
+    pub revision: u32,
+}
+impl<'a> Default for BoatsSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    BoatsSaveArgs {
+      list: None,
+      revision: 0,
+    }
+  }
+}
+
+pub struct BoatsSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BoatsSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_list(&mut self, list: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<BoatSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BoatsSave::VT_LIST, list);
+  }
+  #[inline]
+  pub fn add_revision(&mut self, revision: u32) {
+    self.fbb_.push_slot::<u32>(BoatsSave::VT_REVISION, revision, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BoatsSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    BoatsSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<BoatsSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for BoatsSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("BoatsSave");
+      ds.field("list", &self.list());
+      ds.field("revision", &self.revision());
+      ds.finish()
+  }
+}
 pub enum TrafficServerSaveOffset {}
 #[derive(Copy, Clone, PartialEq)]
 

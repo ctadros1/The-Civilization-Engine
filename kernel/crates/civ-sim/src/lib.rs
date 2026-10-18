@@ -1565,6 +1565,13 @@ impl Sim {
                         advance.days += 1;
                         // The day that just ended is complete.
                         land.advance_to_day(&rules.land, map, at.day_index() - 1);
+                        // Boats age a day; those past use are gone (M8b slice CO).
+                        let vehicles = &rules.catalog.vehicles;
+                        land.boats.age(|v| {
+                            vehicles
+                                .get(usize::from(v))
+                                .map_or(1.0, civ_agents::params::VehicleDef::life_days)
+                        });
                         refresh_nav(nav, map, rules, land);
                         let mut ctx = Ctx {
                             now: at,

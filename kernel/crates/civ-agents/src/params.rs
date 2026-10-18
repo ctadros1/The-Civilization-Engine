@@ -657,6 +657,9 @@ pub struct Catalog {
     /// Bridge systems, in content id order (M5c slice AW). Crossings refer to them by index,
     /// saves by content id.
     pub bridges: Vec<BridgeDef>,
+    /// Vehicles, in content id order (M8b slice CO). Boats refer to them by index, saves by
+    /// content id.
+    pub vehicles: Vec<VehicleDef>,
     /// Well systems, in content id order (M6a slice AY, step three). Wells refer to them by
     /// index, saves by content id.
     pub wells: Vec<WellDef>,
@@ -718,6 +721,11 @@ impl WellDef {
 }
 
 impl Catalog {
+    /// The index of the vehicle with content id `id`, if any.
+    pub fn vehicle_index(&self, id: &str) -> Option<usize> {
+        self.vehicles.iter().position(|v| v.id == id)
+    }
+
     /// The well system with content id `id`, by index.
     pub fn well_index(&self, id: &str) -> Option<usize> {
         self.wells.iter().position(|w| w.id == id)
@@ -834,6 +842,65 @@ impl Catalog {
     /// The disease with content id `id`, by index.
     pub fn disease_index(&self, id: &str) -> Option<usize> {
         self.diseases.iter().position(|d| d.id == id)
+    }
+}
+
+/// How a vehicle goes (M8b slice CO; ADR-0029 §2), by its name in content.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum VehicleMode {
+    /// On water, paddled.
+    Boat,
+}
+
+impl VehicleMode {
+    /// Its name in content.
+    pub fn name(self) -> &'static str {
+        match self {
+            VehicleMode::Boat => "boat",
+        }
+    }
+
+    /// The mode named `name`, if any.
+    pub fn from_name(name: &str) -> Option<VehicleMode> {
+        (name == "boat").then_some(VehicleMode::Boat)
+    }
+}
+
+/// A vehicle (M8b slice CO; ADR-0029 §2): a made thing that carries more than a person can.
+/// Using one needs no technique; making one does.
+#[derive(Clone, Debug, PartialEq)]
+pub struct VehicleDef {
+    pub id: String,
+    pub name: String,
+    pub mode: VehicleMode,
+    /// The technique its makers need, by index, if any.
+    pub technique: Option<usize>,
+    /// The skill its makers practise, by index, if any.
+    pub skill: Option<usize>,
+    /// A tool its makers need, by good index, if any.
+    pub tool: Option<usize>,
+    /// The good it is made from, by index, and how many kilograms of it one takes.
+    pub good: usize,
+    pub material_kg: f64,
+    /// Hours of work to make one, and how many may work on one at once.
+    pub labour_h: f64,
+    pub crew: u32,
+    /// What it carries besides its crew, kilograms.
+    pub payload_kg: f64,
+    /// Water it needs under it loaded, metres.
+    pub draft_m: f64,
+    /// Its paddlers' speed through still water, metres a second.
+    pub paddle_m_s: f64,
+    /// Its beam, metres.
+    pub width_m: f64,
+    /// Years it lasts.
+    pub life_years: f64,
+}
+
+impl VehicleDef {
+    /// Days it lasts, at 365.25 a year.
+    pub fn life_days(&self) -> f64 {
+        self.life_years * 365.25
     }
 }
 

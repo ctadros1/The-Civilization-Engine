@@ -1267,3 +1267,250 @@ fn a_plan_s_parcels_go_by_lot_for_a_fee_or_by_its_keeper_s_regard() {
         .retain(|p| !fake.contains(&p.id));
     saves_and_goes_on_alike(&mut sim, DAY);
 }
+
+#[test]
+fn a_plan_takes_the_fields_under_it_or_pays_their_holders_who_may_refuse() {
+    // M8c slice CU, fifth part (ADR-0030 §4): a template names what a plan does with the fields
+    // under the ground it reserves. Taken, a field is reserved without consent, its standing crop
+    // left to come in, and its holder aggrieved; paid, the store offers its holder goods a hectare,
+    // which it takes if they would make what breaking like ground would take, or refuses, the
+    // field left out; one the settlement holds is reserved at once. A reserved field that lies
+    // idle keeps no ground from being built on.
+    use civ_agents::polity::{FieldClause, IssueKind, LawStatus, Outcome, PolicyKind};
+    use civ_agents::word::Wrong;
+    use civ_core::PermanentId;
+    use civ_land::{Field, FieldStage, Party, RectCm};
+    let mut sim = village(3);
+    sim.advance_minutes(2 * DAY).expect("lives");
+    let settlement = sim.land().settlements[0].id;
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let plan_policy = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.kind == PolicyKind::Plan)
+        .expect("the plan template");
+    let grain = sim
+        .rules()
+        .catalog
+        .good_index("core:good/grain")
+        .expect("grain");
+    let set_clause = |sim: &mut Sim, fields: FieldClause, pay: Option<(usize, f32)>| {
+        let rules = sim.rules_mut_for_tests().expect("rules of its own");
+        let plan = rules.catalog.policies[plan_policy]
+            .plan
+            .as_mut()
+            .expect("a plan");
+        plan.fields = fields;
+        plan.pay = pay;
+    };
+    set_clause(&mut sim, FieldClause::Taken, None);
+    let homes: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+        .map(|(_, x)| x.id)
+        .collect();
+    let keeper = sim
+        .people()
+        .household(homes[0])
+        .map(|x| x.members[0])
+        .expect("a sponsor");
+    let law = sim
+        .with_ctx_for_tests(|pop, ctx| {
+            pop.propose_plan_for_tests(ctx, settlement, keeper, 0, IssueKind::NoGround)
+        })
+        .expect("a plan put forward");
+    let now = sim.now();
+    {
+        let pop = sim.people_mut_for_tests();
+        let l = pop.polities[pi].law_mut(law).expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Outcome::Passed);
+        l.decided = Some(now);
+        pop.polities[pi].gathering = None;
+    }
+    let polity = &sim.people().polities[pi];
+    let words = polity.words_of(
+        polity.laws.iter().find(|l| l.id == law).expect("the law"),
+        &sim.rules().catalog.policies,
+        &|_| String::new(),
+    );
+    assert!(words.contains("taking the fields under it"), "{words}");
+    let parcels: Vec<RectCm> = sim.people().polities[pi]
+        .plan_of(law)
+        .expect("its plan")
+        .layout
+        .parcels
+        .iter()
+        .map(|q| q.rect)
+        .collect();
+    assert!(parcels.len() >= 6, "{} parcels", parcels.len());
+    // A field laid on parcel `i`, held by `holder`, at `stage`.
+    let lay = |sim: &mut Sim, i: usize, holder: Party, user: PermanentId, stage: FieldStage| {
+        let id = sim.allocate_id_for_tests();
+        let r = parcels[i];
+        sim.land_mut_for_tests().fields.push(Field {
+            id,
+            household: user,
+            holder,
+            lease: None,
+            rect: RectCm {
+                x: r.x + 100,
+                y: r.y + 100,
+                w: r.w - 200,
+                h: r.h - 200,
+            },
+            crop: 0,
+            stage,
+            stage_since: civ_core::SimTime::ZERO,
+            work_h: 0.0,
+            tended_h: 0.0,
+            ground: 1.0,
+            clear_h_per_ha: 0.0,
+            broken: true,
+            sown_day: 0,
+            sheaves_kg: 0.0,
+            harvests: 1,
+            water_mm: 0.0,
+            need_mm: 0.0,
+            got_mm: 0.0,
+            soil: civ_land::FieldSoil::default(),
+            last_flood_depth_cm: 0,
+            submerged_days: 0,
+            reserved: None,
+        });
+        id
+    };
+    let field = |sim: &Sim, id: PermanentId| -> Field {
+        sim.land()
+            .fields
+            .iter()
+            .find(|f| f.id == id)
+            .expect("the field")
+            .clone()
+    };
+    let clear = |sim: &mut Sim, r: RectCm| {
+        sim.with_ctx_for_tests(|_, ctx| {
+            civ_agents::build::plot_clear(&*ctx.land, ctx.map, ctx.nav, &r)
+        })
+    };
+    let mine = Party::Household(homes[1]);
+    // A parcel still clear (the plan may lie over real fields too), and the others far from it.
+    let first = (0..parcels.len())
+        .find(|&i| clear(&mut sim, parcels[i]))
+        .expect("a clear parcel");
+    let idle = lay(&mut sim, first, mine, homes[1], FieldStage::Fallow);
+    let far = |i: usize| {
+        let (cx, cy) = parcels[first].centre_m();
+        let mut order: Vec<usize> = (0..parcels.len()).filter(|&k| k != first).collect();
+        order.sort_by(|&a, &b| {
+            let d = |k: usize| {
+                let (x, y) = parcels[k].centre_m();
+                (x - cx).hypot(y - cy)
+            };
+            d(b).total_cmp(&d(a)).then(a.cmp(&b))
+        });
+        order[i]
+    };
+    let growing = lay(&mut sim, far(0), mine, homes[1], FieldStage::Sown);
+    let common = lay(
+        &mut sim,
+        far(1),
+        Party::Settlement(settlement),
+        homes[2],
+        FieldStage::Fallow,
+    );
+    assert!(!clear(&mut sim, parcels[first]), "a field keeps its ground");
+    // Taken, the next day: every field under it reserved, its holder aggrieved.
+    sim.advance_minutes(DAY).expect("lives");
+    for id in [idle, growing, common] {
+        assert_eq!(field(&sim, id).reserved, Some(law), "{id:?}");
+    }
+    let members = sim
+        .people()
+        .household(homes[1])
+        .expect("it")
+        .members
+        .clone();
+    assert!(
+        sim.people()
+            .word
+            .grievances
+            .iter()
+            .any(|g| g.wrong == Wrong::GroundTaken && g.law == law && members.contains(&g.holder)),
+        "the holder aggrieved"
+    );
+    // The idle one keeps no ground now; the growing one does until its crop comes in.
+    assert!(
+        clear(&mut sim, parcels[first]),
+        "a reserved idle field keeps no ground"
+    );
+    assert!(!clear(&mut sim, parcels[far(0)]), "a crop still stands");
+    // Paid: the store offers its holder goods a hectare.
+    {
+        let stores = &mut sim.people_mut_for_tests().polities[pi].stores;
+        if stores.len() <= grain {
+            stores.resize(grain + 1, 0.0);
+        }
+        stores[grain] = 10_000.0;
+    }
+    let held = |sim: &Sim, h: PermanentId| sim.people().household(h).expect("it").stores[grain];
+    let in_store = |sim: &Sim| sim.people().polities[pi].stores[grain];
+    // Too little: refused, left out and not asked again.
+    set_clause(&mut sim, FieldClause::Paid, Some((grain, 0.01)));
+    let cheap = lay(
+        &mut sim,
+        3,
+        Party::Household(homes[2]),
+        homes[2],
+        FieldStage::Fallow,
+    );
+    sim.advance_minutes(DAY).expect("lives");
+    assert_eq!(field(&sim, cheap).reserved, None);
+    let refused = &sim.people().polities[pi]
+        .plan_of(law)
+        .expect("its plan")
+        .refused_fields;
+    assert_eq!(refused, &vec![cheap]);
+    // Enough: taken, the store paying its holder.
+    set_clause(&mut sim, FieldClause::Paid, Some((grain, 20_000.0)));
+    let dear = lay(
+        &mut sim,
+        4,
+        Party::Household(homes[2]),
+        homes[2],
+        FieldStage::Fallow,
+    );
+    let area = {
+        let f = field(&sim, dear);
+        f.area_ha()
+    };
+    let (store_before, held_before) = (in_store(&sim), held(&sim, homes[2]));
+    sim.advance_minutes(DAY).expect("lives");
+    assert_eq!(field(&sim, dear).reserved, Some(law));
+    assert_eq!(field(&sim, cheap).reserved, None, "not asked again");
+    let paid = 20_000.0 * area;
+    assert!(
+        // The store gives out other things the same day too.
+        store_before - in_store(&sim) >= paid - 1e-3,
+        "{store_before} {} {paid}",
+        in_store(&sim)
+    );
+    assert!(held(&sim, homes[2]) > held_before + paid * 0.9);
+    let polity = &sim.people().polities[pi];
+    let words = polity.words_of(
+        polity.laws.iter().find(|l| l.id == law).expect("the law"),
+        &sim.rules().catalog.policies,
+        &|_| String::new(),
+    );
+    assert!(words.contains("paying for the fields under it"), "{words}");
+    saves_and_goes_on_alike(&mut sim, DAY);
+}

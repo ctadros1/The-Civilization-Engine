@@ -666,6 +666,36 @@ impl Population {
         }
     }
 
+    /// A plan, law `law` of polity `pi`, took a field of household `household` without its
+    /// consent, `harm` days of its food a year lost (M8c slice CU, fifth part; ADR-0030 §4: the
+    /// holder blames the gathering): its grown members hold it against the gathering, whether or
+    /// not they had heard of the law.
+    pub(super) fn grieve_ground_taken(
+        &mut self,
+        ctx: &Ctx,
+        pi: usize,
+        law: PermanentId,
+        household: PermanentId,
+        harm: f64,
+    ) {
+        if harm <= 0.0 {
+            return;
+        }
+        let (now, params) = (ctx.now, ctx.params);
+        let body = Blamed::Body(self.polities[pi].id);
+        for m in self.grown_of(household, now, params) {
+            self.grieve(
+                ctx,
+                m,
+                Grieved::Extraction,
+                body,
+                law,
+                harm,
+                Wrong::GroundTaken,
+            );
+        }
+    }
+
     /// Household `debtor` refused what a finding under law `law` imposed for household
     /// `beneficiary`, `left_kcal` of it unpaid (ADR-0016 §2): the beneficiary's grown members who
     /// know the law hold it against the debtor's household. One that could not pay is not blamed.

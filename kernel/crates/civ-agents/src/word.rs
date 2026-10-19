@@ -591,11 +591,14 @@ pub enum Wrong {
     PassedOver = 11,
     /// A duty's collector asked their household a payment to assess less (M7c slice BY).
     Extorted = 12,
+    /// A plan of their polity took a field of their household without consent (M8c slice CU,
+    /// ADR-0030 §4).
+    GroundTaken = 13,
 }
 
 impl Wrong {
     /// Every event, in code order.
-    pub const ALL: [Wrong; 13] = [
+    pub const ALL: [Wrong; 14] = [
         Wrong::StoreEmpty,
         Wrong::FoundAgainst,
         Wrong::NotFound,
@@ -609,6 +612,7 @@ impl Wrong {
         Wrong::TurnedAway,
         Wrong::PassedOver,
         Wrong::Extorted,
+        Wrong::GroundTaken,
     ];
 
     /// Its number in saves.
@@ -652,6 +656,7 @@ impl Wrong {
                 "the store's keeper passed over their household's ask for those they favour"
             }
             Wrong::Extorted => "a duty's collector asked their household a payment to assess less",
+            Wrong::GroundTaken => "a plan of the gathering took a field of their household",
         }
     }
 }

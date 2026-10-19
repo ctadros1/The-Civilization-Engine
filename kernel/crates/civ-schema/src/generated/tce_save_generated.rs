@@ -31346,6 +31346,7 @@ impl<'a> Field<'a> {
   pub const VT_RECORD: ::flatbuffers::VOffsetT = 62;
   pub const VT_LAST_FLOOD_DEPTH_CM: ::flatbuffers::VOffsetT = 64;
   pub const VT_SUBMERGED_DAYS: ::flatbuffers::VOffsetT = 66;
+  pub const VT_RESERVED: ::flatbuffers::VOffsetT = 68;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -31357,6 +31358,7 @@ impl<'a> Field<'a> {
     args: &'args FieldArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Field<'bldr>> {
     let mut builder = FieldBuilder::new(_fbb);
+    builder.add_reserved(args.reserved);
     builder.add_lease_until(args.lease_until);
     builder.add_lease_since(args.lease_since);
     builder.add_holder(args.holder);
@@ -31617,6 +31619,13 @@ impl<'a> Field<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u16>(Field::VT_SUBMERGED_DAYS, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn reserved(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Field::VT_RESERVED, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Field<'_> {
@@ -31657,6 +31666,7 @@ impl ::flatbuffers::Verifiable for Field<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, HarvestRecord>>>("record", Self::VT_RECORD, false)?
      .visit_field::<u16>("last_flood_depth_cm", Self::VT_LAST_FLOOD_DEPTH_CM, false)?
      .visit_field::<u16>("submerged_days", Self::VT_SUBMERGED_DAYS, false)?
+     .visit_field::<u64>("reserved", Self::VT_RESERVED, false)?
      .finish();
     Ok(())
   }
@@ -31694,6 +31704,7 @@ pub struct FieldArgs<'a> {
     pub record: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, HarvestRecord>>>,
     pub last_flood_depth_cm: u16,
     pub submerged_days: u16,
+    pub reserved: u64,
 }
 impl<'a> Default for FieldArgs<'a> {
   #[inline]
@@ -31731,6 +31742,7 @@ impl<'a> Default for FieldArgs<'a> {
       record: None,
       last_flood_depth_cm: 0,
       submerged_days: 0,
+      reserved: 0,
     }
   }
 }
@@ -31869,6 +31881,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FieldBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u16>(Field::VT_SUBMERGED_DAYS, submerged_days, 0);
   }
   #[inline]
+  pub fn add_reserved(&mut self, reserved: u64) {
+    self.fbb_.push_slot::<u64>(Field::VT_RESERVED, reserved, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FieldBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FieldBuilder {
@@ -31918,6 +31934,7 @@ impl ::core::fmt::Debug for Field<'_> {
       ds.field("record", &self.record());
       ds.field("last_flood_depth_cm", &self.last_flood_depth_cm());
       ds.field("submerged_days", &self.submerged_days());
+      ds.field("reserved", &self.reserved());
       ds.finish()
   }
 }
@@ -39217,6 +39234,7 @@ impl<'a> PlanSave<'a> {
   pub const VT_REFUSED_SITES: ::flatbuffers::VOffsetT = 38;
   pub const VT_REFUSED_PARCELS: ::flatbuffers::VOffsetT = 40;
   pub const VT_STAKED_H: ::flatbuffers::VOffsetT = 42;
+  pub const VT_REFUSED_FIELDS: ::flatbuffers::VOffsetT = 44;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -39229,6 +39247,7 @@ impl<'a> PlanSave<'a> {
   ) -> ::flatbuffers::WIPOffset<PlanSave<'bldr>> {
     let mut builder = PlanSaveBuilder::new(_fbb);
     builder.add_law(args.law);
+    if let Some(x) = args.refused_fields { builder.add_refused_fields(x); }
     builder.add_staked_h(args.staked_h);
     builder.add_refused_parcels(args.refused_parcels);
     builder.add_refused_sites(args.refused_sites);
@@ -39392,6 +39411,13 @@ impl<'a> PlanSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(PlanSave::VT_STAKED_H, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn refused_fields(&self) -> Option<::flatbuffers::Vector<'a, u64>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u64>>>(PlanSave::VT_REFUSED_FIELDS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PlanSave<'_> {
@@ -39420,6 +39446,7 @@ impl ::flatbuffers::Verifiable for PlanSave<'_> {
      .visit_field::<u32>("refused_sites", Self::VT_REFUSED_SITES, false)?
      .visit_field::<u32>("refused_parcels", Self::VT_REFUSED_PARCELS, false)?
      .visit_field::<f32>("staked_h", Self::VT_STAKED_H, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u64>>>("refused_fields", Self::VT_REFUSED_FIELDS, false)?
      .finish();
     Ok(())
   }
@@ -39445,6 +39472,7 @@ pub struct PlanSaveArgs<'a> {
     pub refused_sites: u32,
     pub refused_parcels: u32,
     pub staked_h: f32,
+    pub refused_fields: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u64>>>,
 }
 impl<'a> Default for PlanSaveArgs<'a> {
   #[inline]
@@ -39470,6 +39498,7 @@ impl<'a> Default for PlanSaveArgs<'a> {
       refused_sites: 0,
       refused_parcels: 0,
       staked_h: 0.0,
+      refused_fields: None,
     }
   }
 }
@@ -39560,6 +39589,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlanSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(PlanSave::VT_STAKED_H, staked_h, 0.0);
   }
   #[inline]
+  pub fn add_refused_fields(&mut self, refused_fields: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlanSave::VT_REFUSED_FIELDS, refused_fields);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlanSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PlanSaveBuilder {
@@ -39597,6 +39630,7 @@ impl ::core::fmt::Debug for PlanSave<'_> {
       ds.field("refused_sites", &self.refused_sites());
       ds.field("refused_parcels", &self.refused_parcels());
       ds.field("staked_h", &self.staked_h());
+      ds.field("refused_fields", &self.refused_fields());
       ds.finish()
   }
 }

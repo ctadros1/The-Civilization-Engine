@@ -3834,6 +3834,7 @@ impl Population {
                         grid: p.grid,
                         layout: p.layout,
                         staked_h: 0.0,
+                        refused_fields: Vec::new(),
                     },
                 ));
             }

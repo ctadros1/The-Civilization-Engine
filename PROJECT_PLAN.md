@@ -4727,6 +4727,39 @@ and M6a gives rivers a daily flow.
         and once every parcel of that half is given, one of the farther; its words say so; saved
         and loaded alike. **Boundary:** content API 144 (`plan.phases`, `plan.open_at`); no saves
         or wire change.
+      - *Fifth part, as built (2026-10-19): what a plan does with the fields under it* (ADR-0030
+        §4: a clause per kind of claim; never a standing home). A template names it (`fields`):
+        `around`, as before, the layout bending round every field; `taken`, the layout laid over
+        fields as over clear ground, and each field its streets, square or parcels cover then
+        reserved without consent once the plan is in force, its holder and the household working
+        it each holding it against the gathering by a year of its crop in days of their food;
+        `paid`, the store offering its holder the template's goods a hectare (`[plan.pay]`),
+        which it takes if its own hours would make them no faster than breaking and clearing
+        like ground elsewhere, paid on the ledger's `Compensation` channel, and refuses
+        otherwise, the field then left out of the plan and not asked again; a store short of the
+        pay offers nothing that day. A field its settlement holds is reserved at once, the polity
+        holding it. A reserved field begins no crop again, a crop standing on it comes in, and
+        once nothing is sown on it it keeps no ground from being built on; the household that
+        worked it breaks new ground as its farming asks. Nothing is removed: the field stays a
+        record, as loans pledged on it and the year's count of fields need. The plan's words say
+        which ("taking the fields under it"), its line on the map how many it has reserved and
+        how many holders refused. **Not as the ADR:** *land for land* waits, since no vacant
+        ground is held to offer; *at the review* is what befalls a settlement's own fields, at
+        once rather than at its yearly review; a holder answers by hours alone, its regard for
+        the gathering not weighed; a household working a field it leases loses its use under
+        `paid` without being paid. **What it comes to:** the core's plan goes round fields, so
+        the bench's village keeps every count and day digest of the fourth part in both modes
+        (the content and meta digests aside; a plan with no refused fields saves as before). A
+        day as the container now runs: 4.46 s (deterministic), 3.28 s (Max). **Tests:** content takes `around`, `taken`, and `paid` with a pay, and refuses
+        an unknown clause, `paid` with no pay, a pay for another clause and a pay of nothing; in
+        the village, a plan in force that takes the fields under it reserves an idle field, a
+        sown one and the settlement's own the next day, the holder aggrieved; the idle one keeps
+        no ground then and the sown one does; paying too little, a field is refused, left out
+        and not asked again; paying enough, it is reserved and the store pays its holder; the
+        plan's words say so; saved and loaded alike; a schema-158 save loads with nothing
+        reserved. **Boundary:** saves schema 159 (`Field.reserved`, `PlanSave.refused_fields`);
+        content API 145 (`plan.fields`, `[plan.pay]`); the grievance `GroundTaken` (code 13); no
+        wire change.
     - **CV, compliance and cases:** expected sanction, sightings, cases under a plan, forums,
       remedies (fine, removal, regularisation), the backlog.
     - **CW, use and nuisance rules:** district uses and two rule templates (worked fires from

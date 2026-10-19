@@ -169,6 +169,23 @@ pub struct PlanFile {
     /// above 0 and at most 1 (content API 144): three quarters when unnamed.
     #[serde(default)]
     pub open_at: Option<f64>,
+    /// What it does with the fields under the ground it reserves (content API 145): `around`
+    /// (the default), `taken` or `paid`.
+    #[serde(default)]
+    pub fields: Option<String>,
+    /// For `fields = "paid"`: the good and amount a hectare the store offers a field's holder.
+    #[serde(default)]
+    pub pay: Option<PlanPayFile>,
+}
+
+/// What a plan's store offers a hectare for a field under its ground (content API 145).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct PlanPayFile {
+    /// The good, by content id.
+    pub good: String,
+    /// Units of it a hectare.
+    pub per_ha: f64,
 }
 
 /// What a parcel given for a fee costs, in a plan's `[plan.fee]` table (content API 142).
@@ -442,6 +459,13 @@ impl PolicyFile {
         Some((good_index(&f.good)?, f.amount as f32))
     }
 
+    /// What a plan's store offers a hectare for a field under its ground, its good found by
+    /// `good_index` (M8c slice CU, fifth part).
+    pub fn plan_pay(&self, good_index: &dyn Fn(&str) -> Option<usize>) -> Option<(usize, f32)> {
+        let f = self.plan.as_ref()?.pay.as_ref()?;
+        Some((good_index(&f.good)?, f.per_ha as f32))
+    }
+
     /// The money a common store's levy may be paid in, its good found by `good_index` (M7d slice
     /// CE3b).
     pub fn medium_def(
@@ -551,6 +575,13 @@ impl PolicyFile {
                 rent: None,
                 phases: g.phases.unwrap_or(1).max(1),
                 open_at: g.open_at.unwrap_or(0.75) as f32,
+                fields: g
+                    .fields
+                    .as_deref()
+                    .and_then(civ_agents::polity::FieldClause::from_name)
+                    .unwrap_or_default(),
+                // Resolved apart ([`PolicyFile::plan_pay`]).
+                pay: None,
             }),
             lending: self
                 .lending
@@ -870,6 +901,32 @@ impl PolicyFile {
                     p.push(format!(
                         "`plan.open_at` must be above 0 and at most 1 (got {x})"
                     ));
+                }
+                let clause = g
+                    .fields
+                    .as_deref()
+                    .map(civ_agents::polity::FieldClause::from_name);
+                if clause == Some(None) {
+                    p.push(format!(
+                        "`plan.fields` must be one of around, taken or paid (got {:?})",
+                        g.fields.as_deref().unwrap_or_default()
+                    ));
+                }
+                let paid = clause == Some(Some(civ_agents::polity::FieldClause::Paid));
+                match &g.pay {
+                    None if paid => {
+                        p.push("`plan.fields = \"paid\"` needs a `plan.pay` table".to_owned());
+                    }
+                    Some(_) if !paid => {
+                        p.push("`plan.pay` is for `plan.fields = \"paid\"`".to_owned());
+                    }
+                    Some(f) if !(f.per_ha.is_finite() && f.per_ha > 0.0) => {
+                        p.push(format!(
+                            "`plan.pay.per_ha` must be more than 0 (got {})",
+                            f.per_ha
+                        ));
+                    }
+                    _ => {}
                 }
                 for (name, paid) in [("fee", &g.fee), ("rent", &g.rent)] {
                     match paid {
@@ -1409,6 +1466,8 @@ mod tests {
             rent: None,
             phases: None,
             open_at: None,
+            fields: None,
+            pay: None,
         };
         let plan_with = |g: PlanFile| PolicyFile {
             does: "plan".to_owned(),
@@ -1497,6 +1556,43 @@ mod tests {
                 .iter()
                 .any(|e| e.contains("`plan.rent.amount`"))
         );
+        // The fields under it: around, taken, or paid with a pay a hectare (content API 145).
+        let claiming = |fields: Option<&str>, pay: Option<f64>| {
+            let mut g = grid(None, None);
+            g.fields = fields.map(str::to_owned);
+            g.pay = pay.map(|per_ha| PlanPayFile {
+                good: "core:good/grain".to_owned(),
+                per_ha,
+            });
+            plan_with(g)
+        };
+        let around = claiming(None, None).def(&no_values, &no_values).plan;
+        assert_eq!(
+            around.map(|g| g.fields),
+            Some(civ_agents::polity::FieldClause::Around)
+        );
+        for (fields, pay) in [(Some("taken"), None), (Some("paid"), Some(40.0))] {
+            let p = claiming(fields, pay);
+            assert!(p.problems().is_empty(), "{:?}", p.problems());
+        }
+        assert_eq!(
+            claiming(Some("paid"), Some(40.0)).plan_pay(&grains),
+            Some((7, 40.0))
+        );
+        for (fields, pay, problem) in [
+            (Some("bought"), None, "`plan.fields`"),
+            (Some("paid"), None, "needs a `plan.pay`"),
+            (Some("taken"), Some(40.0), "`plan.pay` is for"),
+            (Some("paid"), Some(0.0), "`plan.pay.per_ha`"),
+        ] {
+            assert!(
+                claiming(fields, pay)
+                    .problems()
+                    .iter()
+                    .any(|e| e.contains(problem)),
+                "{fields:?} {pay:?}"
+            );
+        }
         // Phases, 1 to 8, opening at a share above 0 and at most 1 (content API 144).
         let phased = |phases: Option<u8>, open_at: Option<f64>| {
             let mut g = grid(None, None);

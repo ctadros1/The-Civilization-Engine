@@ -2208,6 +2208,45 @@ pub struct PlanDef {
     /// those open given before the next opens (M8c slice CU, fourth part).
     pub phases: u8,
     pub open_at: f32,
+    /// What it does with the fields under the ground it reserves (M8c slice CU, fifth part), and
+    /// for [`FieldClause::Paid`] the good, by index in the catalog's goods, and the amount the
+    /// store offers a field's holder a hectare.
+    pub fields: FieldClause,
+    pub pay: Option<(usize, f32)>,
+}
+
+/// What a plan does with a field under the ground it reserves (ADR-0030 §4: a clause per kind of
+/// claim a layout touches). Never a standing home, under any.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FieldClause {
+    /// The layout bends round fields: none is touched.
+    #[default]
+    Around,
+    /// Reserved without consent, its standing crop left to come in; its holder and those who
+    /// work it hold it against the gathering.
+    Taken,
+    /// The store offers its holder the template's goods a hectare, which it takes or refuses by
+    /// what breaking like ground elsewhere would cost it; refused, it stays out of the plan.
+    Paid,
+}
+
+impl FieldClause {
+    /// Every clause.
+    pub const ALL: [FieldClause; 3] = [FieldClause::Around, FieldClause::Taken, FieldClause::Paid];
+
+    /// Its name in content: "around", "taken", "paid".
+    pub fn name(self) -> &'static str {
+        match self {
+            FieldClause::Around => "around",
+            FieldClause::Taken => "taken",
+            FieldClause::Paid => "paid",
+        }
+    }
+
+    /// The clause named `name` in content.
+    pub fn from_name(name: &str) -> Option<FieldClause> {
+        FieldClause::ALL.into_iter().find(|c| c.name() == name)
+    }
 }
 
 /// The plan a law lays (M8c slice CT, second part; ADR-0030 §2): its version (1 for its polity's
@@ -2220,6 +2259,9 @@ pub struct PlanLaid {
     pub layout: civ_land::plans::Layout,
     /// The hours its keeper has spent staking the parcels given (M8c slice CU, first part).
     pub staked_h: f32,
+    /// Fields under its ground whose holders refused what the store offered (fifth part): left
+    /// out of it, and not asked again.
+    pub refused_fields: Vec<PermanentId>,
 }
 
 /// What a polity saw of its settlements' ground (M8c slice CT, second part): the day, the
@@ -2760,14 +2802,19 @@ impl Polity {
                 }
                 _ => String::new(),
             };
-            // A plan opening in phases says how many (fourth part).
-            let given = match policies
+            // A plan opening in phases says how many (fourth part), and one that takes or pays
+            // for the fields under it, which (fifth part).
+            let def = policies
                 .get(usize::from(law.policy))
-                .and_then(|d| d.plan.as_ref())
-                .filter(|d| d.phases > 1)
-            {
+                .and_then(|d| d.plan.as_ref());
+            let given = match def.filter(|d| d.phases > 1) {
                 Some(d) => format!("{given}, opening in {} phases", d.phases),
                 None => given,
+            };
+            let given = match def.map(|d| d.fields) {
+                Some(FieldClause::Taken) => format!("{given}, taking the fields under it"),
+                Some(FieldClause::Paid) => format!("{given}, paying for the fields under it"),
+                _ => given,
             };
             return format!(
                 "a plan (version {}) of {} by {} blocks of {:.0} by {:.0} m with {:.0} m streets \

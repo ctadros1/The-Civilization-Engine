@@ -124,8 +124,8 @@ use super::{
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
-    SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, finish, section, section_root,
-    single_chunk, unreadable,
+    SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, finish, section,
+    section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -664,6 +664,7 @@ enum Schema {
     V156,
     V157,
     V158,
+    V159,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -836,7 +837,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V155 => Schema::V155,
         SCHEMA_V156 => Schema::V156,
         SCHEMA_V157 => Schema::V157,
-        SAVE_SCHEMA_VERSION => Schema::V158,
+        SCHEMA_V158 => Schema::V158,
+        SAVE_SCHEMA_VERSION => Schema::V159,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1757,6 +1759,8 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                         })
                         .collect();
                     let parcels = fbb.create_vector(&parcels);
+                    let refused: Vec<u64> = plan.refused_fields.iter().map(|f| f.get()).collect();
+                    let refused = (!refused.is_empty()).then(|| fbb.create_vector(&refused));
                     let g = &plan.grid;
                     save::PlanSave::create(
                         &mut fbb,
@@ -1781,6 +1785,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             refused_sites: l.refused.sites,
                             refused_parcels: l.refused.parcels,
                             staked_h: plan.staked_h,
+                            refused_fields: refused,
                         },
                     )
                 })
@@ -2795,6 +2800,11 @@ fn decode_polities(
                         },
                     },
                     staked_h: s.staked_h(),
+                    // Schema 159 (M8c slice CU, fifth part); none before.
+                    refused_fields: s
+                        .refused_fields()
+                        .map(|v| v.iter().filter_map(id_of).collect())
+                        .unwrap_or_default(),
                 },
             ));
         }
@@ -4900,7 +4910,8 @@ fn carried(
         | Schema::V155
         | Schema::V156
         | Schema::V157
-        | Schema::V158 => {
+        | Schema::V158
+        | Schema::V159 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5231,7 +5242,8 @@ fn decode_households(
             | Schema::V155
             | Schema::V156
             | Schema::V157
-            | Schema::V158 => {
+            | Schema::V158
+            | Schema::V159 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -7017,6 +7029,7 @@ fn encode_fields(fields: &[Field], rules: &Rules) -> Vec<u8> {
                     record: Some(record),
                     last_flood_depth_cm: f.last_flood_depth_cm,
                     submerged_days: f.submerged_days,
+                    reserved: f.reserved.map_or(0, |l| l.get()),
                 },
             )
         })
@@ -7160,6 +7173,8 @@ fn decode_fields(bytes: &[u8], rules: &Rules, schema: Schema) -> Result<Vec<Fiel
             } else {
                 0
             },
+            // Schema 159 (M8c slice CU, fifth part); none before.
+            reserved: id_of(f.reserved()),
         });
     }
     Ok(out)

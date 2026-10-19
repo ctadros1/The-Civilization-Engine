@@ -3104,3 +3104,12 @@ the next slice.
 from where it starts instead of scattering over the whole grid. The next phase opens once most of
 the parcels already open are given. A "build by" deadline was set aside for now: a household is
 only given a parcel as it starts building there, so no parcel ever sits given and empty.
+
+## 2026-10-19 — CU, fifth part: fields under a plan
+
+**Built:** a plan can now say what happens to fields lying where its streets and parcels go. It
+can still go around them, or take them, in which case the families who farmed them hold it
+against the gathering, or offer to buy them from the common store. A family accepts if the
+payment is worth more of its own work than breaking new ground elsewhere would cost; if it
+refuses, its field stays out of the plan. A field the plan has taken is not sown again, and once
+its last crop is in, homes can be built there. The settlement's own fields go to the plan at once.

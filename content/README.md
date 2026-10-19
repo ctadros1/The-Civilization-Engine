@@ -1516,3 +1516,9 @@ rent or both.
 Content API 144 (M8c slice CU, fourth part) brings a plan's `phases` (1 to 8, 1 when unnamed) and
 `open_at` (above 0 and at most 1, 0.75 when unnamed): its parcels open in phases outward from where
 it is laid, each once that share of the parcels of those before it is given.
+
+Content API 145 (M8c slice CU, fifth part) brings a plan's `fields`: `around` (the default: its
+layout bends round fields), `taken` (laid over them, each field under its ground reserved without
+consent once it is in force) or `paid` (laid over them, the store offering each field's holder the
+`[plan.pay]`'s `per_ha` of its `good` a hectare, which the holder takes or refuses). A pay is for
+`paid` only, and `paid` needs one.

@@ -713,6 +713,8 @@ table Field {
   // Schema 93 (M6b slice BF, ADR-0022 §13): flood depth (cm) and days standing under water.
   last_flood_depth_cm: ushort (id: 30);
   submerged_days: ushort (id: 31);
+  // Schema 159 (M8c slice CU, fifth part): the plan law that reserved its ground (0 = none).
+  reserved: ulong (id: 32);
 }
 
 table Fields {
@@ -1508,6 +1510,8 @@ table PlanSave {
   refused_parcels: uint (id: 18);
   // Schema 158 (M8c slice CU, first part): the hours its keeper has spent staking parcels.
   staked_h: float (id: 19);
+  // Schema 159 (M8c slice CU, fifth part): fields under its ground whose holders refused its pay.
+  refused_fields: [ulong] (id: 20);
 }
 
 struct PlanRectSave {

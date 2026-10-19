@@ -288,6 +288,7 @@ mod tests {
             soil: civ_land::FieldSoil::default(),
             last_flood_depth_cm: 0,
             submerged_days: 0,
+            reserved: None,
         }
     }
 

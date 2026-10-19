@@ -282,12 +282,17 @@ impl Population {
             })
             .fold(0.0f32, f32::max);
         // The ground it may lay on: clear of water, claims, works and wells, and not too steep to
-        // level by hand.
+        // level by hand; a template that takes or pays for the fields under it lays over them
+        // (fifth part).
         let lev = &ctx.params.build.levelling;
         let bed = |x: f64, y: f64| civ_land::earth::bed_height(ctx.map, (x, y));
+        let over_fields = def.fields != crate::polity::FieldClause::Around;
         let ground = |r: &civ_land::RectCm| {
-            crate::build::plot_clear(ctx.land, ctx.map, ctx.nav, r)
-                && civ_land::earth::drop_across(r, &bed) <= lev.most_m
+            (if over_fields {
+                crate::build::clear_but_fields(ctx.land, ctx.map, ctx.nav, r)
+            } else {
+                crate::build::plot_clear(ctx.land, ctx.map, ctx.nav, r)
+            }) && civ_land::earth::drop_across(r, &bed) <= lev.most_m
         };
         let mut origins: Vec<((f32, f32), Axis)> = Axis::ALL.iter().map(|&a| (hearth, a)).collect();
         let (_, across) = extent_m(&grid);
@@ -571,6 +576,146 @@ impl Population {
             .into_iter()
             .map(|p| (p.layout, p.gains))
             .collect()
+    }
+
+    /// The fields under the ground plans in force reserve, by their clauses (M8c slice CU, fifth
+    /// part; ADR-0030 §4). Each field a plan's streets, square or parcels cover and nothing has
+    /// reserved yet: under a settlement's holding, reserved at once (the polity holds it);
+    /// taken, reserved and its holder (and the household working it) aggrieved by a year of its
+    /// crop; paid, offered the template's goods a hectare from the store, which its holder takes
+    /// if they would make in its own hours what breaking and clearing like ground would take, and
+    /// refuses otherwise (left out of the plan, not asked again). A store short of the pay offers
+    /// nothing today. A reserved field begins no crop again; once idle it keeps no ground.
+    pub(super) fn claim_plan_fields(&mut self, ctx: &mut Ctx) {
+        use crate::polity::FieldClause;
+        enum Act {
+            Reserve,
+            Take(Vec<(PermanentId, f64)>),
+            Pay(PermanentId, usize, f64),
+            Refuse,
+        }
+        let mut acts: Vec<(usize, PermanentId, usize, Act)> = Vec::new();
+        for (pi, polity) in self.polities.iter().enumerate() {
+            for (law, laid) in polity.plans_in_force() {
+                let Some(def) = polity
+                    .laws
+                    .iter()
+                    .find(|l| l.id == law)
+                    .and_then(|l| ctx.catalog.policies.get(usize::from(l.policy)))
+                    .and_then(|d| d.plan.as_ref())
+                    .filter(|d| d.fields != FieldClause::Around)
+                else {
+                    continue;
+                };
+                let layout = &laid.layout;
+                for (fi, f) in ctx.land.fields.iter().enumerate() {
+                    if f.reserved.is_some() || laid.refused_fields.contains(&f.id) {
+                        continue;
+                    }
+                    let under = layout.reserves(&f.rect, 0)
+                        || layout.parcels.iter().any(|q| q.rect.near(&f.rect, 0));
+                    if !under {
+                        continue;
+                    }
+                    let holder = match f.holder {
+                        civ_land::Party::Settlement(_) => {
+                            acts.push((pi, law, fi, Act::Reserve));
+                            continue;
+                        }
+                        civ_land::Party::Household(h) => h,
+                    };
+                    let Some(crop) = ctx.catalog.crops.get(usize::from(f.crop)) else {
+                        continue;
+                    };
+                    let act = match def.fields {
+                        FieldClause::Around => continue,
+                        FieldClause::Taken => {
+                            // A year of its crop, in days of each household's food.
+                            let kcal = crop.yield_kg_per_ha
+                                * f64::from(f.ground)
+                                * f.area_ha()
+                                * ctx
+                                    .catalog
+                                    .goods
+                                    .get(crop.good)
+                                    .map_or(0.0, |g| g.kcal_per_kg);
+                            let mut hurt = vec![holder];
+                            if f.household != holder {
+                                hurt.push(f.household);
+                            }
+                            Act::Take(
+                                hurt.into_iter()
+                                    .map(|h| (h, kcal / self.day_need(h, ctx.params)))
+                                    .collect(),
+                            )
+                        }
+                        FieldClause::Paid => {
+                            let Some((good, per_ha)) = def.pay else {
+                                continue;
+                            };
+                            let amount = f64::from(per_ha) * f.area_ha();
+                            let Some(hh) = self.household(holder) else {
+                                continue;
+                            };
+                            let worth = self
+                                .own_costs_of(ctx, hh)
+                                .get(good)
+                                .copied()
+                                .flatten()
+                                .map(|h| amount * h);
+                            let breaking =
+                                f.area_ha() * (crop.break_h_per_ha + f64::from(f.clear_h_per_ha));
+                            if worth.is_none_or(|w| w < breaking) {
+                                Act::Refuse
+                            } else if polity.stores.get(good).copied().unwrap_or(0.0) < amount {
+                                continue;
+                            } else {
+                                Act::Pay(holder, good, amount)
+                            }
+                        }
+                    };
+                    acts.push((pi, law, fi, act));
+                }
+            }
+        }
+        let (now, params) = (ctx.now, ctx.params);
+        for (pi, law, fi, act) in acts {
+            let field = ctx.land.fields[fi].id;
+            match act {
+                Act::Reserve => ctx.land.fields[fi].reserved = Some(law),
+                Act::Take(hurt) => {
+                    ctx.land.fields[fi].reserved = Some(law);
+                    for (h, harm) in hurt {
+                        self.grieve_ground_taken(ctx, pi, law, h, harm);
+                    }
+                }
+                Act::Pay(holder, good, amount) => {
+                    let store = self.polities[pi].id;
+                    let legs = [Leg {
+                        from: store,
+                        to: holder,
+                        good,
+                        amount,
+                    }];
+                    if self.transfer(
+                        now,
+                        params,
+                        &ctx.catalog.goods,
+                        &legs,
+                        Channel::Compensation,
+                    ) {
+                        ctx.land.fields[fi].reserved = Some(law);
+                    }
+                }
+                Act::Refuse => {
+                    if let Some((_, laid)) =
+                        self.polities[pi].plans.iter_mut().find(|(l, _)| *l == law)
+                    {
+                        laid.refused_fields.push(field);
+                    }
+                }
+            }
+        }
     }
 
     /// Ground rent falls due (M8c slice CU, third part; ADR-0030 §4): each year to the day after

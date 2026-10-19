@@ -160,6 +160,18 @@ pub fn plot_rect(spec: &BuildingSpec, def: &BuildingDef) -> RectCm {
 /// Whether ground can be claimed as a plot: inside the map, every cell under it dry walkable
 /// land, and clear of every field, plot, pit, spoil heap and well.
 pub fn plot_clear(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm) -> bool {
+    ground_clear(land, map, nav, rect, true)
+}
+
+/// Whether `rect` is clear as [`plot_clear`] asks, fields aside: the ground a plan that takes or
+/// pays for the fields under it may lay over (M8c slice CU, fifth part).
+pub fn clear_but_fields(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm) -> bool {
+    ground_clear(land, map, nav, rect, false)
+}
+
+/// Whether `rect` is clear of water, works, wells, plots and (with `fields`) fields; a field a
+/// plan reserved that lies idle keeps no ground (M8c slice CU, fifth part).
+fn ground_clear(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm, fields: bool) -> bool {
     let cell_cm = cm(f64::from(map.cell_size_m)).max(1);
     let (map_w, map_h) = (map.width as i32 * cell_cm, map.height as i32 * cell_cm);
     if rect.w <= 0
@@ -171,7 +183,12 @@ pub fn plot_clear(land: &Land, map: &WorldMap, nav: &NavGrid, rect: &RectCm) -> 
     {
         return false;
     }
-    if land.fields.iter().any(|f| f.rect.near(rect, PLOT_GAP_CM))
+    let keeps = |f: &civ_land::Field| !(f.reserved.is_some() && f.lies_idle());
+    if (fields
+        && land
+            .fields
+            .iter()
+            .any(|f| keeps(f) && f.rect.near(rect, PLOT_GAP_CM)))
         || land.plots.iter().any(|p| p.rect.near(rect, PLOT_GAP_CM))
         || civ_land::earth::dug_near(&land.earthworks, rect, PLOT_GAP_CM)
         || land.wells.near(rect, PLOT_GAP_CM)

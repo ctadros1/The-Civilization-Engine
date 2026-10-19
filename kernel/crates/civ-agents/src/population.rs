@@ -3404,7 +3404,17 @@ impl Population {
         let farm_view = crop.map(|c| FarmView {
             crop: c,
             kcal_per_kg: grain_kcal,
-            fields: self.fields_of(ctx.land, hh_id).collect(),
+            // A field a plan reserved begins no crop again; one standing comes in (M8c slice CU).
+            fields: self
+                .fields_of(ctx.land, hh_id)
+                .filter(|f| {
+                    f.reserved.is_none()
+                        || matches!(
+                            f.stage,
+                            civ_land::FieldStage::Sown | civ_land::FieldStage::Reaped
+                        )
+                })
+                .collect(),
             day: today,
             labour_per_day,
             seed_kg,
@@ -4498,6 +4508,7 @@ impl Population {
                         got_mm: 0.0,
                         last_flood_depth_cm: 0,
                         submerged_days: 0,
+                        reserved: None,
                         // Native ground's soil (ADR-0012 §3), of the ground the field keeps.
                         soil: FieldSoil::native(
                             &ctx.land_params.soil,
@@ -6725,6 +6736,8 @@ impl Population {
         // Each settlement's polity: founded under the custom, its gathering decided, word of its
         // laws gone round, its review held (ADR-0013).
         self.polity_day(ctx);
+        // The fields under plans in force that take or pay for them (M8c slice CU, fifth part).
+        self.claim_plan_fields(ctx);
         // Takings found, word of them gone round, and what households taken from choose and are
         // owed (ADR-0015).
         self.crime_day(ctx);

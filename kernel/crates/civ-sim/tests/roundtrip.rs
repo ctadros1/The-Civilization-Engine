@@ -2386,6 +2386,29 @@ fn a_schema_68_save_loads_with_no_wade_remembered() {
 }
 
 #[test]
+fn a_schema_158_save_loads_and_goes_on() {
+    // A schema-158 save, from before fields kept the plan that reserved them and plans the
+    // fields whose holders refused their pay (M8c slice CU, fifth part): its fields load with
+    // nothing reserved, and it goes on.
+    let mut sim = load_first();
+    for f in &mut sim.land_mut_for_tests().fields {
+        f.reserved = None;
+    }
+    for p in &mut sim.people_mut_for_tests().polities {
+        for plan in &mut p.plans {
+            plan.1.refused_fields.clear();
+        }
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V158;
+    let path = republish("slice-cu5", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-158 save loads");
+    assert_eq!(loaded.land().fields, sim.land().fields);
+    assert!(loaded.land().fields.iter().all(|f| f.reserved.is_none()));
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_157_save_loads_and_goes_on() {
     // A schema-157 save, from before plots kept the parcels of plans they were given and plans
     // their keepers' staking (M8c slice CU, first part): its plots load with no parcel, and it

@@ -144,6 +144,20 @@ fn words(sim: &Sim, p: &Polity, law: PermanentId, built: usize, occupied: usize)
             .filter_map(|q| q.allotted.filter(|a| a.law == law).map(|a| a.parcel))
             .collect();
         out.push_str(&format!("; {} of {parcels} parcels given", given.len()));
+        // The fields under it it has reserved, and those whose holders refused (fifth part).
+        let reserved = sim
+            .land
+            .fields
+            .iter()
+            .filter(|f| f.reserved == Some(law))
+            .count();
+        let refused = p.plan_of(law).map_or(0, |x| x.refused_fields.len());
+        if reserved > 0 {
+            out.push_str(&format!("; {reserved} fields under it reserved"));
+        }
+        if refused > 0 {
+            out.push_str(&format!("; {refused} fields' holders refused its pay"));
+        }
         // Which of its phases are open (fourth part), when it opens in more than one.
         if let (Some(def), Some(laid)) = (
             sim.rules

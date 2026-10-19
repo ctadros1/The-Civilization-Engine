@@ -2349,6 +2349,20 @@ impl Population {
         } else {
             Vec::new()
         };
+        // Other households' homes, which a home where fire is worked keeps its distance from
+        // (M8c slice CW).
+        let others_homes: Vec<civ_land::RectCm> = if kept_rules.fire_from.is_some() {
+            ctx.land
+                .buildings
+                .iter()
+                .filter(|b| b.household != hh.id && b.standing())
+                .filter(|b| catalog.is_dwelling(&b.spec.program))
+                .filter_map(|b| ctx.land.plots.iter().find(|p| p.id == b.plot))
+                .map(|p| p.rect)
+                .collect()
+        } else {
+            Vec::new()
+        };
         // The plans in force its builders keep (M8c slice CT, third part), whose streets and
         // public sites a new building keeps clear of.
         let kept_plans = self.plans_kept(ctx, hh);
@@ -2451,6 +2465,20 @@ impl Population {
                         }) && rules.walls.is_none_or(|kinds| {
                             kinds & (1 << crate::rules::wall_kind(spec, &program.rules)) != 0
                         }) && rules.gap.is_none_or(|gap| nearest() >= gap)
+                    })
+                    // A home keeps its midden from open wells, and one where fire is worked keeps
+                    // from others' homes (M8c slice CW).
+                    .filter(|spec| {
+                        program.use_ != civ_land::PlotUse::Dwelling || {
+                            let rect = build::plot_rect(spec, program);
+                            rules.midden_from.is_none_or(|m| {
+                                !crate::rules::near_open_well(&rect, m, &ctx.land.wells)
+                            }) && rules.fire_from.is_none_or(|m| {
+                                others_homes
+                                    .iter()
+                                    .all(|r| crate::rules::gap_m(&rect, r) >= m)
+                            })
+                        }
                     })
                     // Nor on ground a plan its builders keep reserves.
                     .filter(|spec| {

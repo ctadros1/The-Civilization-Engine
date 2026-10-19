@@ -4828,6 +4828,28 @@ and M6a gives rivers a daily flow.
         No saves, content or wire change.
     - **CW, use and nuisance rules:** district uses and two rule templates (worked fires from
       homes, middens from wells).
+      - *First part, as built (2026-10-19): two nuisance rules.* Two rule templates are appended,
+        each over a harm the kernel models and each answering what people saw, as M6b's rules do.
+        `fire_from_homes`: a new home whose household works fire (holds a fixed tool, an oven or
+        a kiln, that a recipe burning fuel needs; `fire.rs`'s worked fires burn where those who
+        work them are, at home) stands `from_m` from every other household's home; it answers
+        `burned`, weighed by the burnt it remembers if it works fire and its home stands within
+        that reach of another's. `midden_from_wells`: a midden lies at its household's home, so a
+        new home stands `from_m` from every open well; it answers `sickness`, the first policy to,
+        weighed by the cases of sickness at home its members have heard of a year, at the mean
+        days a waterborne disease keeps the ill from work, if its home (or the next it builds)
+        stands within reach of an open well. The core authors them at 10 m (`fire.reach_m`) and
+        30 m (`contamination.link_radius_m`): "Worked fires kept apart" and "Middens kept from
+        the wells". Builders keeping them site a new home accordingly; a home begun under them is
+        counted kept or broken; the building inspector says which it keeps. **Test:** with the
+        wells rule in force, every household's next home lies 30 m from the open well, and the
+        homes standing within it are counted as breaking it and the rest as keeping it; with the
+        worked-fires rule, a household holding a kiln is bound and lays its next home 10 m from
+        others', its hut 6 m from a neighbour's breaks it, and a household with no kiln is not
+        bound. **Bench:** the 1,000-people, 30-day run moves only its polity, opinion and
+        factions sections (two more templates people hold opinions on and may propose); land,
+        people and buildings are as before. **Boundary:** content API 148 (`rule.from_m`, two
+        templates); no saves or wire change (a law's template comes from its policy).
     - **CX, land value and density:** the derived map (paid, reckoned, nothing recorded), the
       Land row, a bench of the largest settlement M8 lives.
   - **M8d, buildings and earthquakes, and the M8 demo** (designed when reached, from

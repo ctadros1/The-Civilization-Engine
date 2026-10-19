@@ -1,0 +1,27 @@
+# Worked fires kept from others' homes (M8c slice CW; ADR-0030 §6: a nuisance rule over a harm the
+# kernel models, `fire.rs`'s worked fires, which burn where those who work them are, at home). When
+# fire has taken buildings a household knew (the issue `burned`), anyone may propose that a new home
+# whose household works fire, holding an oven or a kiln, must stand a set distance from every other
+# household's home: the reach within which a burning building's heat is weighed (`[fire]`'s
+# `reach_m`, 10 m). It needs no technique: only ground. It binds only homes begun once it is in
+# force. A household weighs it by the fire loss it believes averted, if it works fire and its home
+# stands within that reach of another's. Keeping it is each builder's choice, with no sanction. Its
+# id sorts after every older template's: hearth talk about a question is keyed by a template's
+# place in id order.
+kind = "policy"
+id = "core:policy/works_wrought_worked_fires"
+name = "Worked fires kept apart"
+description = "A new home where fire is worked must stand ten metres from others' homes."
+does = "building_rule"
+answers = ["burned"]
+question = "whether homes where fire is worked must stand apart"
+
+[rule]
+template = "fire_from_homes"
+from_m = 10.0
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: it guards against fire and binds where people build.
+[bears]
+"core:value/security" = 0.5
+"core:value/autonomy" = -0.3

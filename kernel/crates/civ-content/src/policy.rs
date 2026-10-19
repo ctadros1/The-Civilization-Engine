@@ -357,6 +357,11 @@ pub(crate) struct RuleFile {
     /// For `least_gap`: the least gap between a new building's plot and every other's, metres.
     #[serde(default)]
     pub gap_m: f64,
+    /// For `fire_from_homes` and `midden_from_wells` (content API 148): how far a new home
+    /// where fire is worked keeps from others' homes, or a new home and its midden from every
+    /// open well, metres.
+    #[serde(default)]
+    pub from_m: f64,
     /// The technique a sponsor must know to put it forward (research 11-09 §1.4).
     #[serde(default)]
     pub needs: Option<String>,
@@ -379,6 +384,12 @@ impl RuleFile {
             }),
             "least_gap" => Some(RuleTemplate::LeastGap {
                 gap_m: self.gap_m as f32,
+            }),
+            "fire_from_homes" => Some(RuleTemplate::FireFromHomes {
+                from_m: self.from_m as f32,
+            }),
+            "midden_from_wells" => Some(RuleTemplate::MiddenFromWells {
+                from_m: self.from_m as f32,
             }),
             _ => None,
         }
@@ -1416,8 +1427,8 @@ impl PolicyFile {
             }
             (Some(PolicyKind::BuildingRule), Some(r)) => match r.template() {
                 None => p.push(format!(
-                    "`rule.template` is `{}`; templates are `roofs_unburnt`, `walls_of_kinds` \
-                     and `least_gap`",
+                    "`rule.template` is `{}`; templates are `roofs_unburnt`, `walls_of_kinds`, \
+                     `least_gap`, `fire_from_homes` and `midden_from_wells`",
                     r.template
                 )),
                 // Research 12-03 §2.2: radiation from a burning dwelling falls from about 36
@@ -1450,6 +1461,17 @@ impl PolicyFile {
                         p.push(format!(
                             "`rule.gap_m` must be above 0 and at most 50 (got {})",
                             r.gap_m
+                        ));
+                    }
+                }
+                // A home's distance from others' homes or from wells, authored within a reach
+                // the kernel models: a fire's (`fire.reach_m`) or a heap's seepage
+                // (`contamination.link_radius_m`), each within 50 m (content API 148).
+                Some(RuleTemplate::FireFromHomes { .. } | RuleTemplate::MiddenFromWells { .. }) => {
+                    if !(r.from_m.is_finite() && r.from_m > 0.0 && r.from_m <= 50.0) {
+                        p.push(format!(
+                            "`rule.from_m` must be above 0 and at most 50 (got {})",
+                            r.from_m
                         ));
                     }
                 }
@@ -1721,6 +1743,7 @@ mod tests {
             within_m,
             walls: Vec::new(),
             gap_m: 0.0,
+            from_m: 0.0,
             needs: Some("core:technique/firing".to_owned()),
         };
         let roofs_with = |r: Option<RuleFile>| PolicyFile {
@@ -1795,6 +1818,7 @@ mod tests {
                 within_m: 0.0,
                 walls: walls.iter().map(|w| (*w).to_owned()).collect(),
                 gap_m,
+                from_m: gap_m,
                 needs: None,
             }))
         };
@@ -1817,6 +1841,21 @@ mod tests {
             Some(RuleTemplate::LeastGap { gap_m: 3.0 })
         );
         assert!(!other("least_gap", &[], 0.0).problems().is_empty());
+        // Worked fires from others' homes, and middens from wells (content API 148).
+        let fires = other("fire_from_homes", &[], 10.0);
+        assert!(fires.problems().is_empty(), "{:?}", fires.problems());
+        assert_eq!(
+            fires.def(&no_values, &firing).rule.map(|r| r.template),
+            Some(RuleTemplate::FireFromHomes { from_m: 10.0 })
+        );
+        let wells = other("midden_from_wells", &[], 30.0);
+        assert!(wells.problems().is_empty(), "{:?}", wells.problems());
+        assert_eq!(
+            wells.def(&no_values, &firing).rule.map(|r| r.template),
+            Some(RuleTemplate::MiddenFromWells { from_m: 30.0 })
+        );
+        assert!(!other("midden_from_wells", &[], 0.0).problems().is_empty());
+        assert!(!other("fire_from_homes", &[], 60.0).problems().is_empty());
     }
 
     #[test]

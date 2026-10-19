@@ -976,3 +976,97 @@ fn the_water_lens_reads_each_home_s_nearest_water_and_the_days_its_people_drew_w
     assert!(summary[1].starts_with("Did come: in the past 30 days"));
     assert!(coverage::coverage_response(&sim, None, 9).is_none());
 }
+
+#[test]
+fn a_rule_keeps_new_homes_and_their_middens_from_the_wells() {
+    // M8c slice CW (ADR-0030 §6): a rule for building over a heap's seepage to a well. In force,
+    // its builders lay a new home thirty metres from every open well; a home standing within that
+    // reach of one breaks it, and one beyond keeps it. Its words say what it asks.
+    let (mut sim, owner, well) = an_open_well();
+    let k = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.id == "core:policy/works_wrought_wells")
+        .expect("the rule") as u16;
+    assert_eq!(
+        sim.rules().catalog.policies[usize::from(k)].answers,
+        vec![civ_agents::polity::IssueKind::Sickness]
+    );
+    let settlement = sim
+        .people()
+        .household(owner)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let sponsor = household(&sim, owner).1[0];
+    let law = sim.with_ctx_for_tests(|pop, ctx| pop.enact_rule_for_tests(ctx, pi, k, sponsor));
+    let kept = sim.with_ctx_for_tests(|pop, ctx| pop.rules_kept_for_tests(ctx, owner));
+    assert_eq!(kept.midden_from, Some(30.0), "{kept:?}");
+    // A new home is laid where it keeps the rule.
+    let rect = sim.land().wells.get(well).expect("the well").rect;
+    let rules = sim.rules().clone();
+    let catalog = &rules.catalog;
+    for h in households(&sim) {
+        let Some(spec) = sim.with_ctx_for_tests(|pop, ctx| pop.first_home_for_tests(ctx, h)) else {
+            continue;
+        };
+        let def = catalog
+            .building_index(&spec.program)
+            .map(|i| &catalog.buildings[i])
+            .expect("its program");
+        let plot = civ_agents::build::plot_rect(&spec, def);
+        assert!(
+            civ_agents::rules::gap_m(&plot, &rect) >= 30.0,
+            "{h:?} laid its home {} m from the well",
+            civ_agents::rules::gap_m(&plot, &rect)
+        );
+    }
+    // Homes standing now are counted as if begun under it: near the well breaks it, far keeps.
+    let homes: Vec<(PermanentId, PermanentId, f64)> = sim
+        .land()
+        .buildings
+        .iter()
+        .filter(|b| b.standing() && catalog.is_dwelling(&b.spec.program))
+        .filter_map(|b| {
+            let p = sim.land().plots.iter().find(|p| p.id == b.plot)?;
+            Some((b.household, b.id, civ_agents::rules::gap_m(&p.rect, &rect)))
+        })
+        .collect();
+    for &(h, b, _) in &homes {
+        sim.with_ctx_for_tests(|pop, ctx| pop.count_rule_keeping_for_tests(ctx, h, b));
+    }
+    let c = sim.people().polities[pi]
+        .laws
+        .iter()
+        .find(|l| l.id == law)
+        .expect("the law")
+        .compliance;
+    let near = homes.iter().filter(|h| h.2 < 30.0).count() as u32;
+    assert_eq!(c.broken + c.broken_unaware, near, "{c:?} of {homes:?}");
+    assert_eq!(c.complied, homes.len() as u32 - near, "{c:?}");
+    assert!(
+        near > 0,
+        "the well's own household lives near it: {homes:?}"
+    );
+    assert_eq!(
+        civ_sim::frames::word::law_text(
+            &sim,
+            &sim.people().polities[pi],
+            &sim.people().polities[pi]
+                .laws
+                .iter()
+                .find(|l| l.id == law)
+                .cloned()
+                .expect("the law")
+        ),
+        "a rule for building: a new home and its midden must stand 30 m from every open well, of \
+         what is begun from its day"
+    );
+}

@@ -187,6 +187,32 @@ fn rules_kept_by(sim: &Sim, b: &Building, def: &BuildingDef) -> Vec<String> {
                     kinds & (1 << civ_agents::rules::wall_kind(&b.spec, &def.rules)) != 0,
                 ),
                 RuleTemplate::LeastGap { gap_m } => ("it stands apart, keeping", apart(gap_m)),
+                // A home, apart from others' homes or from open wells (M8c slice CW).
+                RuleTemplate::FireFromHomes { from_m } => (
+                    "it stands apart from others' homes, keeping",
+                    def.use_ == civ_land::PlotUse::Dwelling
+                        && rect.is_some_and(|r| {
+                            !civ_agents::rules::near_others_homes(
+                                &r,
+                                f64::from(from_m),
+                                &sim.land.buildings,
+                                b.household,
+                                &plots,
+                                &|o| sim.rules.catalog.is_dwelling(&o.spec.program),
+                            )
+                        }),
+                ),
+                RuleTemplate::MiddenFromWells { from_m } => (
+                    "it and its midden stand apart from the wells, keeping",
+                    def.use_ == civ_land::PlotUse::Dwelling
+                        && rect.is_some_and(|r| {
+                            !civ_agents::rules::near_open_well(
+                                &r,
+                                f64::from(from_m),
+                                &sim.land.wells,
+                            )
+                        }),
+                ),
             };
             kept.then(|| {
                 format!(

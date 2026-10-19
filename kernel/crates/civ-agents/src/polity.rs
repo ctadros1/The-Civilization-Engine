@@ -790,6 +790,13 @@ pub enum RuleTemplate {
     /// A building's plot must keep at least `gap_m` metres from every other's (separation:
     /// 11-09 §5.2).
     LeastGap { gap_m: f32 },
+    /// The home of a household that works fire (holds an oven or a kiln) must stand `from_m`
+    /// metres from every other household's home (M8c slice CW, ADR-0030 §6: `fire.rs`'s hazard;
+    /// a nuisance rule, separation by use).
+    FireFromHomes { from_m: f32 },
+    /// A new home, where its household's midden lies, must stand `from_m` metres from every open
+    /// well (M8c slice CW, ADR-0030 §6: `contagion.rs`'s seepage).
+    MiddenFromWells { from_m: f32 },
 }
 
 /// The names of the wall kinds, by kind code (ADR-0022 §10).
@@ -802,6 +809,8 @@ impl RuleTemplate {
             RuleTemplate::RoofsUnburnt { .. } => "roofs_unburnt",
             RuleTemplate::WallsOfKinds { .. } => "walls_of_kinds",
             RuleTemplate::LeastGap { .. } => "least_gap",
+            RuleTemplate::FireFromHomes { .. } => "fire_from_homes",
+            RuleTemplate::MiddenFromWells { .. } => "midden_from_wells",
         }
     }
 
@@ -827,6 +836,12 @@ impl RuleTemplate {
             }
             RuleTemplate::LeastGap { gap_m } => {
                 format!("a new building must stand {gap_m:.0} m from every other")
+            }
+            RuleTemplate::FireFromHomes { from_m } => format!(
+                "a new home where fire is worked must stand {from_m:.0} m from others' homes"
+            ),
+            RuleTemplate::MiddenFromWells { from_m } => {
+                format!("a new home and its midden must stand {from_m:.0} m from every open well")
             }
         }
     }

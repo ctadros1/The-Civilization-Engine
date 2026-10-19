@@ -28,12 +28,22 @@ pub struct Kept {
     pub walls: Option<u8>,
     /// It keeps this far from every other building, metres.
     pub gap: Option<f64>,
+    /// A home where fire is worked keeps this far from other households' homes, metres (M8c
+    /// slice CW).
+    pub fire_from: Option<f64>,
+    /// A home, and the midden beside it, keeps this far from every open well, metres (M8c slice
+    /// CW).
+    pub midden_from: Option<f64>,
 }
 
 impl Kept {
     /// Whether it keeps any rule.
     pub fn any(&self) -> bool {
-        self.roof_within.is_some() || self.walls.is_some() || self.gap.is_some()
+        self.roof_within.is_some()
+            || self.walls.is_some()
+            || self.gap.is_some()
+            || self.fire_from.is_some()
+            || self.midden_from.is_some()
     }
 }
 
@@ -46,6 +56,27 @@ impl Population {
             .copied()
             .filter(|&h| self.household(h).is_some_and(|x| !x.fire_losses.is_empty()))
             .collect()
+    }
+
+    /// The cases of sickness at household `household`'s home its members have heard of (M8c
+    /// slice CW): claims of kind `Sickness` about it.
+    pub(super) fn sick_cases(&self, household: PermanentId) -> usize {
+        let Some(x) = self.household(household) else {
+            return 0;
+        };
+        let mut claims: Vec<u32> = x
+            .members
+            .iter()
+            .flat_map(|&m| self.word.heard_by(m).iter().map(|h| h.claim))
+            .filter(|&c| {
+                self.word.claim(c).is_some_and(|c| {
+                    c.kind == crate::word::ClaimKind::Sickness && c.subject == Some(household)
+                })
+            })
+            .collect();
+        claims.sort_unstable();
+        claims.dedup();
+        claims.len()
     }
 
     /// The households among `households` that heard a building of their settlement gave way
@@ -78,9 +109,24 @@ impl Population {
         pi: usize,
         households: &[PermanentId],
     ) -> RuleForecasts {
-        if self.burned_homes(households).is_empty() && self.gave_way_homes(households).is_empty() {
+        if self.burned_homes(households).is_empty()
+            && self.gave_way_homes(households).is_empty()
+            && !households.iter().any(|&h| self.sick_cases(h) > 0)
+        {
             return Vec::new();
         }
+        // What a case of a waterborne sickness takes from a household's work, hours: the mean
+        // days the ill are ill, of those with symptoms, at a day's work (M8c slice CW).
+        let case_h = {
+            let water: Vec<_> = ctx
+                .catalog
+                .diseases
+                .iter()
+                .filter(|d| d.routes.contains(&crate::params::DiseaseRoute::Water))
+                .collect();
+            water.iter().map(|d| d.ill.mean).sum::<f64>() / water.len().max(1) as f64
+                * ctx.params.farm.work_hours_per_day
+        };
         let settlement = self.polities[pi].settlement;
         let rp = &ctx.params.rules;
         // The buildings of the settlement that stand: what a household's remembered losses are
@@ -115,6 +161,27 @@ impl Population {
                     let x = self.household(h)?;
                     let kcal = self.hour_kcal(ctx, x);
                     let burnt = x.fire_losses.iter().filter(|l| l.burnable).count() as f64;
+                    let works_fire = self.works_fire_at_home(ctx, x);
+                    // A rule keeping homes and their middens from wells (M8c slice CW) averts
+                    // sickness, not the loss of a building: the cases of sickness at home the
+                    // household has heard of a year, at what a case takes from its work, if its
+                    // home (or the next it builds) stands within reach of an open well.
+                    if let RuleTemplate::MiddenFromWells { from_m } = rule.template {
+                        let near_well = ctx
+                            .land
+                            .buildings
+                            .iter()
+                            .filter(|b| b.household == h && b.standing())
+                            .filter(|b| ctx.catalog.is_dwelling(&b.spec.program))
+                            .filter_map(&plots)
+                            .any(|r| {
+                                crate::rules::near_open_well(&r, f64::from(from_m), &ctx.land.wells)
+                            });
+                        let homes = f64::from(u8::from(near_well))
+                            + f64::from(u8::from(self.builds_soon(ctx, x)));
+                        let cases = self.sick_cases(h) as f64 / rp.memory_years.max(1e-9);
+                        return Some((h, cases * case_h * homes * rp.avoided_share * kcal, 0.0));
+                    }
                     // What the rule forbids, of a building of its own standing now; the losses
                     // it remembers of that kind; and what its next building would cost more.
                     let (forbidden, seen, extra): (&Forbids, f64, f64) = match rule.template {
@@ -151,6 +218,27 @@ impl Population {
                             burnt,
                             0.0,
                         ),
+                        // A home where fire is worked near others' homes, if this household
+                        // works fire: what burnt it remembers (M8c slice CW).
+                        RuleTemplate::FireFromHomes { from_m } => (
+                            &move |b: &civ_land::Building| {
+                                works_fire
+                                    && ctx.catalog.is_dwelling(&b.spec.program)
+                                    && plots(b).is_some_and(|r| {
+                                        crate::rules::near_others_homes(
+                                            &r,
+                                            f64::from(from_m),
+                                            &ctx.land.buildings,
+                                            b.household,
+                                            &plots,
+                                            &|o| ctx.catalog.is_dwelling(&o.spec.program),
+                                        )
+                                    })
+                            },
+                            burnt,
+                            0.0,
+                        ),
+                        RuleTemplate::MiddenFromWells { .. } => unreachable!("weighed above"),
                     };
                     let rate = seen / (standing * rp.memory_years.max(1e-9));
                     let at_risk: f64 = ctx
@@ -400,9 +488,46 @@ impl Population {
                     let m = f64::from(gap_m);
                     kept.gap = Some(kept.gap.map_or(m, |k| k.max(m)));
                 }
+                // Only a household that works fire is bound to keep its home apart.
+                RuleTemplate::FireFromHomes { from_m } => {
+                    if self.works_fire_at_home(ctx, hh) {
+                        let m = f64::from(from_m);
+                        kept.fire_from = Some(kept.fire_from.map_or(m, |k| k.max(m)));
+                    }
+                }
+                RuleTemplate::MiddenFromWells { from_m } => {
+                    let m = f64::from(from_m);
+                    kept.midden_from = Some(kept.midden_from.map_or(m, |k| k.max(m)));
+                }
             }
         }
         kept
+    }
+
+    /// Whether household `hh` works fire at home (M8c slice CW): it holds a fixed tool, an oven
+    /// or a kiln, that a recipe burning fuel needs (`fire.rs`'s worked fires burn where those who
+    /// work them are, at home).
+    pub(crate) fn works_fire_at_home(&self, ctx: &Ctx, hh: &Household) -> bool {
+        let goods = &ctx.catalog.goods;
+        let fuelled = |r: &&crate::params::RecipeDef| {
+            r.inputs.iter().chain(&r.session_inputs).any(|&(g, _)| {
+                goods
+                    .get(g)
+                    .is_some_and(|d| d.purpose == crate::params::GoodUse::Fuel)
+            })
+        };
+        ctx.catalog
+            .recipes
+            .iter()
+            .filter(fuelled)
+            .flat_map(|r| r.tools.iter())
+            .any(|&t| {
+                goods
+                    .get(t)
+                    .and_then(|d| d.tool.as_ref())
+                    .is_some_and(|d| d.fixed)
+                    && hh.stores.get(t).is_some_and(|&kg| kg > 0.0)
+            })
     }
 
     /// The plans in force where household `hh` lives whose laws its eldest knows and chooses to
@@ -667,6 +792,11 @@ impl Population {
                 &plots,
             )
         };
+        let home_of = |o: &civ_land::Building| ctx.catalog.is_dwelling(&o.spec.program);
+        let is_home = home_of(b);
+        let works_fire = self
+            .household(household)
+            .is_some_and(|x| self.works_fire_at_home(ctx, x));
         for (law, t) in rules {
             let (bound, kept) = match t {
                 RuleTemplate::RoofsUnburnt { within_m } => {
@@ -674,6 +804,23 @@ impl Population {
                 }
                 RuleTemplate::WallsOfKinds { kinds } => (true, kinds & (1 << wall) != 0),
                 RuleTemplate::LeastGap { gap_m } => (true, !near(gap_m)),
+                // A home where fire is worked, apart from others' homes (M8c slice CW).
+                RuleTemplate::FireFromHomes { from_m } => (
+                    is_home && works_fire,
+                    !crate::rules::near_others_homes(
+                        &rect,
+                        f64::from(from_m),
+                        &ctx.land.buildings,
+                        household,
+                        &plots,
+                        &home_of,
+                    ),
+                ),
+                // A home, and its midden, apart from every open well.
+                RuleTemplate::MiddenFromWells { from_m } => (
+                    is_home,
+                    !crate::rules::near_open_well(&rect, f64::from(from_m), &ctx.land.wells),
+                ),
             };
             if !bound {
                 continue;
@@ -776,6 +923,58 @@ impl Population {
         building: PermanentId,
     ) {
         self.count_rule_keeping(ctx, household, building);
+    }
+
+    /// Rule for building `policy`, sponsored by `sponsor`, put in force at polity `pi` today and
+    /// known to everyone of it: for tests. Its id.
+    #[doc(hidden)]
+    pub fn enact_rule_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        pi: usize,
+        policy: u16,
+        sponsor: PermanentId,
+    ) -> PermanentId {
+        let now = ctx.now;
+        let def = &ctx.catalog.policies[usize::from(policy)];
+        let id = ctx.ids.allocate();
+        let mut known: Vec<(PermanentId, i64)> = self
+            .people
+            .iter()
+            .map(|(_, p)| (p.id, now.day_index()))
+            .collect();
+        known.sort_unstable_by_key(|k| k.0);
+        self.polities[pi].laws.push(Law {
+            id,
+            policy,
+            kind: def.kind,
+            levy_share: 0.0,
+            holder: None,
+            relief_days: 0.0,
+            sanction: Default::default(),
+            hours: (0, 0),
+            status: crate::polity::LawStatus::InForce,
+            sponsor,
+            proposed: now,
+            issue: def
+                .answers
+                .first()
+                .copied()
+                .unwrap_or(crate::polity::IssueKind::Burned),
+            meets_day: now.day_index(),
+            decided: Some(now),
+            outcome: Some(crate::polity::Outcome::Passed),
+            eligible: 0,
+            stances: Vec::new(),
+            known,
+            compliance: Default::default(),
+            watch: Default::default(),
+            body: None,
+            ends: None,
+            agreement: None,
+            target: None,
+        });
+        id
     }
 
     /// What `person` expects building against plan `law` to cost, in points: for tests.

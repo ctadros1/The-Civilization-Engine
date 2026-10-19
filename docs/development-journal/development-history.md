@@ -3145,3 +3145,12 @@ others who did not. If they have heard that the gathering found against someone 
 plan's ground, they count the fine, the yearly payment or the loss of the house, and how likely
 that seemed to them, against the trouble of building elsewhere. Families who have heard nothing
 of it, or have forgotten, are not deterred. This closes the work on cases under town plans.
+
+## 2026-10-19 — CW, first part: rules about where homes go
+
+**Built:** a gathering can now make two new rules about building. One says a family that fires
+pots or bakes in its own kiln or oven must build its next home well away from its neighbours,
+because those fires can catch. The other says a new home, and the dung heap beside it, must stand
+well away from the wells, because filth seeps through the ground into the water. People propose
+the first after a fire and the second after sickness at home, and each family decides whether to
+follow them when it builds.

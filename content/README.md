@@ -1530,3 +1530,10 @@ law's sanction, and a forum's `hears` may name `plan` to hear cases of building 
 Content API 147 (M8c slice CV, second part) lets a plan's bundle take down what is found standing
 on its reserved ground (`remove = true`) or let it stand for `yearly_days` (0 to 365) of the
 household's food a year to the common store, not both. Only a plan's bundle has either.
+
+Content API 148 (M8c slice CW, first part) appends two `building_rule` templates, each with
+`from_m` (above 0 and at most 50): `fire_from_homes`, a new home whose household works fire (holds
+a fixed tool a fuelled recipe needs) stands `from_m` from other households' homes; and
+`midden_from_wells`, a new home, where its midden lies, stands `from_m` from every open well. The
+core authors them as `works_wrought_worked_fires` (10 m, answering `burned`) and
+`works_wrought_wells` (30 m, answering `sickness`).

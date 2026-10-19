@@ -69,6 +69,37 @@ pub fn near_another(
         .any(|r| gap_m(rect, &r) < within_m)
 }
 
+/// Whether a plot `rect` lies within `within_m` of an open well among `wells` (M8c slice CW): a
+/// household's midden lies at its home.
+pub fn near_open_well(
+    rect: &civ_land::RectCm,
+    within_m: f64,
+    wells: &civ_land::wells::Wells,
+) -> bool {
+    wells
+        .list
+        .iter()
+        .filter(|w| w.is_open())
+        .any(|w| gap_m(rect, &w.rect) < within_m)
+}
+
+/// Whether a plot `rect` lies within `within_m` of the plot of a standing home (`is_home`) of a
+/// household other than `household` among `buildings`, plots found by `plot_of` (M8c slice CW).
+pub fn near_others_homes(
+    rect: &civ_land::RectCm,
+    within_m: f64,
+    buildings: &[Building],
+    household: civ_core::PermanentId,
+    plot_of: &dyn Fn(&Building) -> Option<civ_land::RectCm>,
+    is_home: &dyn Fn(&Building) -> bool,
+) -> bool {
+    buildings
+        .iter()
+        .filter(|b| b.household != household && b.standing() && is_home(b))
+        .filter_map(plot_of)
+        .any(|r| gap_m(rect, &r) < within_m)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1375,6 +1375,10 @@ table LawSave {
   // What each household owed the sponsor for gifts before a gathering added to each stance,
   // points, in `stances` order (schema 131, M7c slice BY); absent when none did, and before.
   stance_owed: [float] (id: 58);
+  // A plan's bundle (schema 161): the building found is taken down, or may stand for a yearly
+  // payment.
+  remove: bool (id: 59);
+  yearly_days: float (id: 60);
 }
 
 // `law` 0: called on cases only (M4b slice AB).
@@ -1483,6 +1487,8 @@ table PolitySave {
   // Schema 160 (M8c slice CV, first part): who saw each encroachment begun, by its index in
   // `encroachments`, in order; absent before.
   encroachment_seen: [EncroachmentSeenSave] (id: 40);
+  // What a finding ordered for each encroachment (schema 161).
+  encroachment_orders: [EncroachmentOrderSave] (id: 41);
 }
 
 // A plan a law lays (schema 156, M8c slice CT, second part; ADR-0030 §2): its version, its
@@ -1556,6 +1562,16 @@ struct EncroachmentSave {
   law: ulong;
   household: ulong;
   building: ulong;
+}
+
+// What a finding under a plan ordered for an encroachment (schema 161): its index in the
+// polity's encroachments; 1 to be taken down on `day`, 2 taken down on `day`, 3 may stand, owing
+// `kcal` a year from `day`.
+struct EncroachmentOrderSave {
+  encroachment: uint;
+  kind: ubyte;
+  day: long;
+  kcal: float;
 }
 
 // One who saw an encroachment begun (schema 160): its index in the polity's encroachments.

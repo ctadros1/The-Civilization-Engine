@@ -125,7 +125,7 @@ use super::{
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
-    finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V160, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -666,6 +666,7 @@ enum Schema {
     V158,
     V159,
     V160,
+    V161,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -840,7 +841,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V157 => Schema::V157,
         SCHEMA_V158 => Schema::V158,
         SCHEMA_V159 => Schema::V159,
-        SAVE_SCHEMA_VERSION => Schema::V160,
+        SCHEMA_V160 => Schema::V160,
+        SAVE_SCHEMA_VERSION => Schema::V161,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1490,6 +1492,8 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             compensation_days: l.sanction.compensation_days,
                             fine_days: l.sanction.fine_days,
                             exile: l.sanction.exile,
+                            remove: l.sanction.remove,
+                            yearly_days: l.sanction.yearly_days,
                             watch_rounds: l.watch.rounds,
                             watch_minutes: l.watch.minutes,
                             watch_cases: l.watch.cases,
@@ -1834,6 +1838,24 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 .collect();
             let encroachment_seen =
                 (!encroachment_seen.is_empty()).then(|| fbb.create_vector(&encroachment_seen));
+            // What a finding ordered for each (schema 161).
+            let encroachment_orders: Vec<_> = p
+                .encroachments
+                .iter()
+                .enumerate()
+                .filter_map(|(i, e)| {
+                    let o = e.order?;
+                    let (day, kcal) = o.day_kcal();
+                    Some(save::EncroachmentOrderSave::new(
+                        i as u32,
+                        o.code(),
+                        day,
+                        kcal,
+                    ))
+                })
+                .collect();
+            let encroachment_orders =
+                (!encroachment_orders.is_empty()).then(|| fbb.create_vector(&encroachment_orders));
             // The settlements it holds besides its seat, and its end (schema 118).
             let held: Vec<_> = p
                 .held
@@ -2074,6 +2096,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     ground_seen,
                     encroachments,
                     encroachment_seen,
+                    encroachment_orders,
                 },
             )
         })
@@ -2376,6 +2399,8 @@ fn decode_polities(
                     compensation_days: l.compensation_days(),
                     fine_days: l.fine_days(),
                     exile: l.exile(),
+                    remove: l.remove(),
+                    yearly_days: l.yearly_days(),
                 },
                 hours: (l.from_hour(), l.to_hour()),
                 status,
@@ -2857,6 +2882,7 @@ fn decode_polities(
                 household,
                 building,
                 seen_by: Vec::new(),
+                order: None,
             });
         }
         // Who saw each begun (schema 160); none before.
@@ -2868,6 +2894,16 @@ fn decode_polities(
                 return Err(bad(format!("polity {id} kept a witness malformed")));
             };
             e.seen_by.push(person);
+        }
+        // What a finding ordered for each (schema 161); nothing before.
+        for o in p.encroachment_orders().iter().flatten() {
+            let (Some(e), Some(order)) = (
+                encroachments.get_mut(o.encroachment() as usize),
+                civ_agents::polity::PlanOrder::from_code(o.kind(), o.day(), o.kcal()),
+            ) else {
+                return Err(bad(format!("polity {id} kept an order malformed")));
+            };
+            e.order = Some(order);
         }
         // The settlements it holds besides its seat, and its end (schema 118); before, its seat
         // alone, still deciding.
@@ -4939,7 +4975,8 @@ fn carried(
         | Schema::V157
         | Schema::V158
         | Schema::V159
-        | Schema::V160 => {
+        | Schema::V160
+        | Schema::V161 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5272,7 +5309,8 @@ fn decode_households(
             | Schema::V157
             | Schema::V158
             | Schema::V159
-            | Schema::V160 => {
+            | Schema::V160
+            | Schema::V161 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -6488,6 +6526,7 @@ fn chronicle_code(kind: ChronicleKind) -> u16 {
         ChronicleKind::CoinStruck => 61,
         ChronicleKind::BoatMade => 62,
         ChronicleKind::CartMade => 63,
+        ChronicleKind::TakenDown => 64,
     }
 }
 
@@ -6556,6 +6595,7 @@ fn chronicle_kind(code: u16) -> Option<ChronicleKind> {
         61 => Some(ChronicleKind::CoinStruck),
         62 => Some(ChronicleKind::BoatMade),
         63 => Some(ChronicleKind::CartMade),
+        64 => Some(ChronicleKind::TakenDown),
         _ => None,
     }
 }

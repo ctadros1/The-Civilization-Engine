@@ -394,6 +394,13 @@ pub(crate) struct BundleFile {
     /// The one found to have taken is sent from the valley.
     #[serde(default)]
     pub exile: bool,
+    /// For a plan (content API 147): the building found on its reserved ground is taken down.
+    #[serde(default)]
+    pub remove: bool,
+    /// For a plan (content API 147): the building found may stand for this many days' food a
+    /// year to the common store.
+    #[serde(default)]
+    pub yearly_days: f64,
 }
 
 /// An office's tenure in a policy file (content API 105).
@@ -513,6 +520,8 @@ impl PolicyFile {
                     compensation_days: b.compensation_days as f32,
                     fine_days: b.fine_days as f32,
                     exile: b.exile,
+                    remove: b.remove,
+                    yearly_days: b.yearly_days as f32,
                 })
                 .collect(),
             hours: self.hours.iter().map(|h| (h[0], h[1])).collect(),
@@ -1375,9 +1384,17 @@ impl PolicyFile {
                 if b.exile {
                     p.push("a `plan` policy's bundle exiles nobody".to_owned());
                 }
+                if b.remove && b.yearly_days > 0.0 {
+                    p.push(
+                        "a `plan` policy's bundle takes a building down or lets it stand for a \
+                         yearly payment, not both"
+                            .to_owned(),
+                    );
+                }
                 for (what, d) in [
                     ("compensation_days", b.compensation_days),
                     ("fine_days", b.fine_days),
+                    ("yearly_days", b.yearly_days),
                 ] {
                     if !(d.is_finite() && (0.0..=365.0).contains(&d)) {
                         p.push(format!(
@@ -1386,6 +1403,12 @@ impl PolicyFile {
                     }
                 }
             }
+        } else if self
+            .bundles
+            .iter()
+            .any(|b| b.remove || b.yearly_days != 0.0)
+        {
+            p.push("only a `plan` policy's bundle has `remove` or `yearly_days`".to_owned());
         }
         match (PolicyKind::from_name(&self.does), &self.rule) {
             (Some(PolicyKind::BuildingRule), None) => {
@@ -1631,6 +1654,8 @@ mod tests {
             compensation_days: 2.0,
             fine_days: 1.0,
             exile,
+            remove: false,
+            yearly_days: 0.0,
         };
         let mut p = plan_with(grid(None, None));
         p.bundles = vec![bundle(false)];
@@ -1644,6 +1669,22 @@ mod tests {
         );
         p.bundles = vec![bundle(true)];
         assert!(p.problems().iter().any(|e| e.contains("exiles nobody")));
+        // Removal or a yearly payment, not both (content API 147).
+        let mut b = bundle(false);
+        b.remove = true;
+        p.bundles = vec![b.clone()];
+        assert!(p.problems().is_empty(), "{:?}", p.problems());
+        assert!(p.def(&no_values, &no_values).bundles[0].remove);
+        b.yearly_days = 2.0;
+        p.bundles = vec![b.clone()];
+        assert!(p.problems().iter().any(|e| e.contains("not both")));
+        b.remove = false;
+        p.bundles = vec![b.clone()];
+        assert!(p.problems().is_empty(), "{:?}", p.problems());
+        assert_eq!(p.def(&no_values, &no_values).bundles[0].yearly_days, 2.0);
+        b.yearly_days = 400.0;
+        p.bundles = vec![b];
+        assert!(p.problems().iter().any(|e| e.contains("`yearly_days`")));
         // Phases, 1 to 8, opening at a share above 0 and at most 1 (content API 144).
         let phased = |phases: Option<u8>, open_at: Option<f64>| {
             let mut g = grid(None, None);
@@ -1841,11 +1882,15 @@ mod tests {
                 compensation_days: 0.0,
                 fine_days: 0.0,
                 exile: false,
+                remove: false,
+                yearly_days: 0.0,
             },
             BundleFile {
                 compensation_days: 3.0,
                 fine_days: 1.5,
                 exile: true,
+                remove: false,
+                yearly_days: 0.0,
             },
         ];
         assert!(f.problems().is_empty(), "{:?}", f.problems());
@@ -1858,6 +1903,16 @@ mod tests {
         f.bundles[0].fine_days = -1.0;
         f.bundles[1].compensation_days = 400.0;
         assert_eq!(f.problems().len(), 2, "{:?}", f.problems());
+        // Only a plan's bundle takes a building down or asks a yearly payment (content API 147).
+        f.bundles[0].fine_days = 0.0;
+        f.bundles[1].compensation_days = 3.0;
+        f.bundles[0].remove = true;
+        assert!(
+            f.problems()
+                .iter()
+                .any(|m| m.contains("only a `plan` policy's bundle"))
+        );
+        f.bundles[0].remove = false;
         // A common store has no bundles.
         let mut g = file();
         g.bundles = f.bundles.clone();

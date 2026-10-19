@@ -594,11 +594,14 @@ pub enum Wrong {
     /// A plan of their polity took a field of their household without consent (M8c slice CU,
     /// ADR-0030 §4).
     GroundTaken = 13,
+    /// A finding under a plan of their polity had a building of their household taken down (M8c
+    /// slice CV, ADR-0030 §5).
+    TakenDown = 14,
 }
 
 impl Wrong {
     /// Every event, in code order.
-    pub const ALL: [Wrong; 14] = [
+    pub const ALL: [Wrong; 15] = [
         Wrong::StoreEmpty,
         Wrong::FoundAgainst,
         Wrong::NotFound,
@@ -613,6 +616,7 @@ impl Wrong {
         Wrong::PassedOver,
         Wrong::Extorted,
         Wrong::GroundTaken,
+        Wrong::TakenDown,
     ];
 
     /// Its number in saves.
@@ -657,6 +661,7 @@ impl Wrong {
             }
             Wrong::Extorted => "a duty's collector asked their household a payment to assess less",
             Wrong::GroundTaken => "a plan of the gathering took a field of their household",
+            Wrong::TakenDown => "the gathering had a building of their household taken down",
         }
     }
 }

@@ -2483,6 +2483,7 @@ mod tests {
                 household,
                 building: building.0,
                 seen_by: Vec::new(),
+                order: None,
             });
         }
         let rev = frames::plans::plans_rev(sim);

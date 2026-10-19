@@ -244,6 +244,8 @@ const FINE: Sanction = Sanction {
     compensation_days: 3.0,
     fine_days: 2.0,
     exile: false,
+    remove: false,
+    yearly_days: 0.0,
 };
 
 #[test]

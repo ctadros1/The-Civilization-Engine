@@ -519,6 +519,7 @@ impl Population {
                 household,
                 building,
                 seen_by,
+                order: None,
             });
         }
     }

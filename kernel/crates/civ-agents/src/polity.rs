@@ -461,6 +461,12 @@ pub struct Sanction {
     /// The one found to have taken is sent from the valley (ADR-0015 §5: exile, recorded as a
     /// migration; 09-07 §6.2).
     pub exile: bool,
+    /// For a plan (M8c slice CV, ADR-0030 §5): the building found standing on its reserved
+    /// ground is taken down.
+    pub remove: bool,
+    /// For a plan: the building found may stand for this many days of its household's food a
+    /// year to the polity's store (regularisation), 0 for none.
+    pub yearly_days: f32,
 }
 
 impl Sanction {
@@ -2277,7 +2283,7 @@ pub struct GroundSeen {
 
 /// A building begun on ground a plan in force reserves (M8c slice CT, third part): the day, the
 /// plan's law, the household that began it, and the building.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Encroachment {
     pub day: i64,
     pub law: PermanentId,
@@ -2287,6 +2293,50 @@ pub struct Encroachment {
     /// the plan's keeper living there, and the grown of the households whose homes lie within
     /// sight of it, never its own.
     pub seen_by: Vec<PermanentId>,
+    /// What a finding under the plan ordered for it, if any (M8c slice CV, second part).
+    pub order: Option<PlanOrder>,
+}
+
+/// What a finding under a plan ordered for a building on its reserved ground (M8c slice CV,
+/// second part; ADR-0030 §5: removal, or regularisation for a yearly payment).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PlanOrder {
+    /// To be taken down on day `due`.
+    Remove { due: i64 },
+    /// Taken down on `day`.
+    Removed { day: i64 },
+    /// It may stand, its household owing the store `kcal` each year from day `since`.
+    Regularised { since: i64, kcal: f32 },
+}
+
+impl PlanOrder {
+    /// Its code in saves.
+    pub fn code(self) -> u8 {
+        match self {
+            PlanOrder::Remove { .. } => 1,
+            PlanOrder::Removed { .. } => 2,
+            PlanOrder::Regularised { .. } => 3,
+        }
+    }
+
+    /// From its code, day and amount in saves.
+    pub fn from_code(code: u8, day: i64, kcal: f32) -> Option<PlanOrder> {
+        match code {
+            1 => Some(PlanOrder::Remove { due: day }),
+            2 => Some(PlanOrder::Removed { day }),
+            3 => Some(PlanOrder::Regularised { since: day, kcal }),
+            _ => None,
+        }
+    }
+
+    /// Its day and amount in saves.
+    pub fn day_kcal(self) -> (i64, f32) {
+        match self {
+            PlanOrder::Remove { due } => (due, 0.0),
+            PlanOrder::Removed { day } => (day, 0.0),
+            PlanOrder::Regularised { since, kcal } => (since, kcal),
+        }
+    }
 }
 
 /// Where a law would build a flood bank (M6b slice BG; ADR-0022 §11): the reach whose water it
@@ -3392,7 +3442,7 @@ pub(crate) mod tests {
         law.sanction = Sanction {
             compensation_days: 3.0,
             fine_days: 1.0,
-            exile: false,
+            ..Default::default()
         };
         assert_eq!(
             law_words(&law, &policies, &name_of),
@@ -3507,7 +3557,7 @@ pub(crate) mod tests {
         let bundle = Sanction {
             compensation_days: 3.0,
             fine_days: 3.0,
-            exile: false,
+            ..Default::default()
         };
         let robbed = crate::crime::TakingsKnown {
             lost_kcal: 10.0 * need_day,

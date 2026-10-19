@@ -696,6 +696,35 @@ impl Population {
         }
     }
 
+    /// A finding under plan `law` of polity `pi` had a building of household `household` taken
+    /// down, `harm` days of its work lost (M8c slice CV, second part): its grown members hold it
+    /// against the gathering.
+    pub(super) fn grieve_taken_down(
+        &mut self,
+        ctx: &Ctx,
+        pi: usize,
+        law: PermanentId,
+        household: PermanentId,
+        harm: f64,
+    ) {
+        if harm <= 0.0 {
+            return;
+        }
+        let (now, params) = (ctx.now, ctx.params);
+        let body = Blamed::Body(self.polities[pi].id);
+        for m in self.grown_of(household, now, params) {
+            self.grieve(
+                ctx,
+                m,
+                Grieved::Extraction,
+                body,
+                law,
+                harm,
+                Wrong::TakenDown,
+            );
+        }
+    }
+
     /// Household `debtor` refused what a finding under law `law` imposed for household
     /// `beneficiary`, `left_kcal` of it unpaid (ADR-0016 §2): the beneficiary's grown members who
     /// know the law hold it against the debtor's household. One that could not pay is not blamed.

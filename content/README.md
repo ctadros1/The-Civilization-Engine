@@ -1526,3 +1526,7 @@ consent once it is in force) or `paid` (laid over them, the store offering each 
 Content API 146 (M8c slice CV, first part) lets a plan template name a sanction bundle in
 `bundles`: at most one, without exile, its days within 0 to 365. A plan in force carries it as its
 law's sanction, and a forum's `hears` may name `plan` to hear cases of building on reserved ground.
+
+Content API 147 (M8c slice CV, second part) lets a plan's bundle take down what is found standing
+on its reserved ground (`remove = true`) or let it stand for `yearly_days` (0 to 365) of the
+household's food a year to the common store, not both. Only a plan's bundle has either.

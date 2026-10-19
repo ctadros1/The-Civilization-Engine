@@ -449,6 +449,9 @@ pub const SCHEMA_V158: u32 = 158;
 /// Fields' reservations, before encroachments kept who saw them and cases the buildings plans
 /// are brought for.
 pub const SCHEMA_V159: u32 = 159;
+/// Encroachments' witnesses and cases' buildings, before plans' bundles took buildings down or let
+/// them stand for a yearly payment.
+pub const SCHEMA_V160: u32 = 160;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

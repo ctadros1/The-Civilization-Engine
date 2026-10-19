@@ -1340,9 +1340,18 @@ impl Population {
                 } else {
                     format!(" {accused_name}'s household owes {}.", owed.join(" and "))
                 };
+                // A plan's remedy for the building (M8c slice CV, second part).
+                let remedy = match c.building {
+                    Some(_) if sanction.remove => " Its building is to be taken down.".to_owned(),
+                    Some(_) if sanction.yearly_days > 0.0 => format!(
+                        " Its building may stand for {:.0} days' food a year to the common store.",
+                        f64::from(sanction.yearly_days)
+                    ),
+                    _ => String::new(),
+                };
                 format!(
                     "{who} found that {accused_name}'s household broke {breach_words}: \
-                     {tally}.{owes}"
+                     {tally}.{owes}{remedy}"
                 )
             }
             Decided::Failed if breach => format!(
@@ -1466,6 +1475,32 @@ impl Population {
                 standing: Standing::Open,
                 answer: None,
             });
+        }
+        // A plan's remedy for the building (M8c slice CV, second part; ADR-0030 §5): taken down
+        // once what is owed falls due, or let stand for a yearly payment to the store.
+        if let Some(b) = c.building {
+            use crate::polity::PlanOrder;
+            let order = if sanction.remove {
+                Some(PlanOrder::Remove {
+                    due: day + i64::from(cp.due_days),
+                })
+            } else if sanction.yearly_days > 0.0 {
+                Some(PlanOrder::Regularised {
+                    since: day,
+                    kcal: (f64::from(sanction.yearly_days) * debtor_need) as f32,
+                })
+            } else {
+                None
+            };
+            if let (Some(order), Some(e)) = (
+                order,
+                self.polities[pi]
+                    .encroachments
+                    .iter_mut()
+                    .find(|e| e.building == b && e.order.is_none()),
+            ) {
+                e.order = Some(order);
+            }
         }
         let origin = c.leads.first().copied().unwrap_or(c.by);
         // Exile: those who found against them see them go (09-07 §1.1: enforcement needs an

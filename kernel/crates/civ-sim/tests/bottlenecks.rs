@@ -1515,14 +1515,20 @@ fn a_plan_takes_the_fields_under_it_or_pays_their_holders_who_may_refuse() {
     saves_and_goes_on_alike(&mut sim, DAY);
 }
 
-#[test]
-fn one_who_saw_a_building_begun_on_a_plan_s_ground_brings_a_case_and_it_is_heard() {
-    // M8c slice CV, first part (ADR-0030 §5): an encroachment is recorded with who saw it begun
-    // (here the plan's keeper); one who saw it and knows the plan brings a case at a review,
-    // against the household that built, before the gathering, which hears it as it hears a
-    // breach; found, what the plan's bundle imposes is owed, and answered.
-    use civ_agents::crime::CaseStage;
-    use civ_agents::polity::{IssueKind, LawStatus, Outcome, PolicyKind, Sanction};
+/// A village with a plan in force whose bundle is `bundle`, and another household's home moved
+/// onto one of its streets and counted against it (M8c slice CV): the world, the polity's index,
+/// the plan's law, the household that built, the building and the plan's keeper.
+fn a_plan_built_over(
+    bundle: civ_agents::polity::Sanction,
+) -> (
+    Sim,
+    usize,
+    civ_core::PermanentId,
+    civ_core::PermanentId,
+    civ_core::PermanentId,
+    civ_core::PermanentId,
+) {
+    use civ_agents::polity::{IssueKind, LawStatus, Outcome, PolicyKind};
     use civ_core::PermanentId;
     let mut sim = village(3);
     sim.advance_minutes(2 * DAY).expect("lives");
@@ -1544,11 +1550,7 @@ fn one_who_saw_a_building_begun_on_a_plan_s_ground_brings_a_case_and_it_is_heard
         .expect("rules of its own")
         .catalog
         .policies[plan_policy]
-        .bundles = vec![Sanction {
-        compensation_days: 4.0,
-        fine_days: 2.0,
-        exile: false,
-    }];
+        .bundles = vec![bundle];
     let homes: Vec<PermanentId> = sim
         .people()
         .households
@@ -1573,7 +1575,7 @@ fn one_who_saw_a_building_begun_on_a_plan_s_ground_brings_a_case_and_it_is_heard
         l.status = LawStatus::InForce;
         l.outcome = Some(Outcome::Passed);
         l.decided = Some(now);
-        assert_eq!(l.sanction.fine_days, 2.0, "the bundle the template names");
+        assert_eq!(l.sanction, bundle, "the bundle the template names");
         pop.polities[pi].gathering = None;
     }
     // Another household's home moved onto one of its streets, and counted.
@@ -1620,15 +1622,57 @@ fn one_who_saw_a_building_begun_on_a_plan_s_ground_brings_a_case_and_it_is_heard
         "the keeper saw it: {:?}",
         e.seen_by
     );
+    (sim, pi, law, owner, building, keeper)
+}
+
+/// The case brought for `building`, if any.
+fn plan_case(sim: &Sim, building: civ_core::PermanentId) -> Option<civ_agents::crime::Case> {
+    sim.people()
+        .order
+        .cases
+        .iter()
+        .find(|c| c.building == Some(building))
+        .cloned()
+}
+
+/// Lives on until the case for `building` is brought and heard, at most 120 days; its stage.
+fn heard(sim: &mut Sim, building: civ_core::PermanentId) -> civ_agents::crime::CaseStage {
+    use civ_agents::crime::CaseStage;
+    for _ in 0..120 {
+        if plan_case(sim, building).is_some_and(|c| c.stage != CaseStage::Open) {
+            break;
+        }
+        sim.advance_minutes(DAY).expect("lives");
+    }
+    plan_case(sim, building).expect("a case brought").stage
+}
+
+#[test]
+fn one_who_saw_a_building_begun_on_a_plan_s_ground_brings_a_case_and_it_is_heard() {
+    // M8c slice CV, first part (ADR-0030 §5): an encroachment is recorded with who saw it begun
+    // (here the plan's keeper); one who saw it and knows the plan brings a case at a review,
+    // against the household that built, before the gathering, which hears it as it hears a
+    // breach; found, what the plan's bundle imposes is owed, and answered.
+    use civ_agents::crime::CaseStage;
+    use civ_agents::polity::Sanction;
+    let (mut sim, pi, law, owner, building, keeper) = a_plan_built_over(Sanction {
+        compensation_days: 4.0,
+        fine_days: 2.0,
+        ..Sanction::default()
+    });
+    let e = sim.people().polities[pi]
+        .encroachments
+        .last()
+        .cloned()
+        .expect("recorded");
+    assert_eq!((e.law, e.household, e.building), (law, owner, building));
+    assert!(
+        e.seen_by.contains(&keeper),
+        "the keeper saw it: {:?}",
+        e.seen_by
+    );
     // At a review, one who saw it brings a case against the household that built.
-    let case = |sim: &Sim| {
-        sim.people()
-            .order
-            .cases
-            .iter()
-            .find(|c| c.building == Some(building))
-            .cloned()
-    };
+    let case = |sim: &Sim| plan_case(sim, building);
     for _ in 0..60 {
         if case(&sim).is_some() {
             break;
@@ -1674,5 +1718,118 @@ fn one_who_saw_a_building_begun_on_a_plan_s_ground_brings_a_case_and_it_is_heard
         assert!(!owed.is_empty(), "the bundle is owed");
         assert!(owed.iter().all(|o| o.debtor == owner && o.answer.is_some()));
     }
+    saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+#[test]
+fn a_building_found_on_a_plan_s_ground_is_taken_down_on_its_day() {
+    // M8c slice CV, second part (ADR-0030 §5): a plan whose bundle takes down what is found
+    // standing on its reserved ground; found, the building is to be taken down once what is
+    // owed falls due, and on that day it is, its plot given up; its household holds it against
+    // the gathering and the chronicle says so; saved and loaded alike.
+    use civ_agents::crime::CaseStage;
+    use civ_agents::polity::{PlanOrder, Sanction};
+    use civ_agents::word::Wrong;
+    let (mut sim, pi, _law, owner, building, _) = a_plan_built_over(Sanction {
+        fine_days: 1.0,
+        remove: true,
+        ..Sanction::default()
+    });
+    assert_eq!(heard(&mut sim, building), CaseStage::Found);
+    let order = |sim: &Sim| {
+        sim.people().polities[pi]
+            .encroachments
+            .iter()
+            .find(|e| e.building == building)
+            .and_then(|e| e.order)
+    };
+    let Some(PlanOrder::Remove { due }) = order(&sim) else {
+        panic!("ordered taken down: {:?}", order(&sim));
+    };
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|x| x.name.contains("Its building is to be taken down")),
+        "the finding says so"
+    );
+    let plot = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.id == building)
+        .map(|b| b.plot)
+        .expect("still standing until its day");
+    while sim.now().day_index() <= due {
+        sim.advance_minutes(DAY).expect("lives");
+    }
+    assert!(
+        matches!(order(&sim), Some(PlanOrder::Removed { .. })),
+        "{:?}",
+        order(&sim)
+    );
+    assert!(!sim.land().buildings.iter().any(|b| b.id == building));
+    assert!(!sim.land().plots.iter().any(|p| p.id == plot));
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|x| x.kind == civ_agents::ChronicleKind::TakenDown),
+        "the chronicle says it was taken down"
+    );
+    let members = sim
+        .people()
+        .household(owner)
+        .map(|x| x.members.clone())
+        .unwrap_or_default();
+    assert!(
+        sim.people()
+            .word
+            .grievances
+            .iter()
+            .any(|g| g.wrong == Wrong::TakenDown && members.contains(&g.holder)),
+        "its household holds it against the gathering"
+    );
+    saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+#[test]
+fn a_building_found_on_a_plan_s_ground_may_stand_for_a_yearly_payment() {
+    // M8c slice CV, second part (ADR-0030 §5): regularisation; found, the building stands, and
+    // a year from the finding its household owes the store its yearly payment, as ground rent;
+    // saved and loaded alike.
+    use civ_agents::crime::{CaseStage, Owed};
+    use civ_agents::polity::{PlanOrder, Sanction};
+    let (mut sim, pi, _law, owner, building, _) = a_plan_built_over(Sanction {
+        yearly_days: 3.0,
+        ..Sanction::default()
+    });
+    assert_eq!(heard(&mut sim, building), CaseStage::Found);
+    let Some(PlanOrder::Regularised { since, kcal }) = sim.people().polities[pi]
+        .encroachments
+        .iter()
+        .find(|e| e.building == building)
+        .and_then(|e| e.order)
+    else {
+        panic!("let stand");
+    };
+    assert!(kcal > 0.0);
+    let rent = |sim: &Sim| {
+        sim.people()
+            .order
+            .obligations
+            .iter()
+            .filter(|o| o.kind == Owed::GroundRent && o.debtor == owner && o.kcal == kcal)
+            .count()
+    };
+    assert_eq!(rent(&sim), 0, "nothing owed before a year is out");
+    let year = civ_core::time::DAYS_PER_YEAR;
+    sim.advance_minutes((since + year - sim.now().day_index()) * DAY + DAY)
+        .expect("lives");
+    assert!(
+        sim.land().buildings.iter().any(|b| b.id == building),
+        "it stands"
+    );
+    assert_eq!(rent(&sim), 1, "a year's payment owed");
     saves_and_goes_on_alike(&mut sim, DAY);
 }

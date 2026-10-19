@@ -2386,6 +2386,34 @@ fn a_schema_68_save_loads_with_no_wade_remembered() {
 }
 
 #[test]
+fn a_schema_160_save_loads_and_goes_on() {
+    // A schema-160 save, from before plans' bundles took buildings down or let them stand for a
+    // yearly payment (M8c slice CV, second part): its laws load with neither and its
+    // encroachments with no order, and it goes on.
+    let mut sim = load_first();
+    for p in &mut sim.people_mut_for_tests().polities {
+        for e in &mut p.encroachments {
+            e.order = None;
+        }
+        for l in &mut p.laws {
+            l.sanction.remove = false;
+            l.sanction.yearly_days = 0.0;
+        }
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V160;
+    let path = republish("slice-cv2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-160 save loads");
+    assert!(loaded.people().polities.iter().all(|p| {
+        p.encroachments.iter().all(|e| e.order.is_none())
+            && p.laws
+                .iter()
+                .all(|l| !l.sanction.remove && l.sanction.yearly_days == 0.0)
+    }));
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_159_save_loads_and_goes_on() {
     // A schema-159 save, from before encroachments kept who saw them and cases the buildings
     // plans are brought for (M8c slice CV, first part): it loads with neither, and goes on.

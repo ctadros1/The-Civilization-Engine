@@ -883,6 +883,10 @@ pub enum ChronicleKind {
     /// A household finished making a cart (M8b slice CP, third part): `people` is who finished
     /// it, `settlement` the household's, `place` its door, and `name` the sentence.
     CartMade,
+    /// A building found standing on a plan's reserved ground was taken down (M8c slice CV,
+    /// second part): `people` is its household's elder, `settlement` its, `place` where it
+    /// stood, and `name` the sentence.
+    TakenDown,
 }
 
 /// What happened in a flood, in a [`ChronicleKind::Flood`] entry. Numeric in saves: append only.
@@ -1543,7 +1547,8 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
         | ChronicleKind::AllianceMade
         | ChronicleKind::CoinStruck
         | ChronicleKind::BoatMade
-        | ChronicleKind::CartMade => {
+        | ChronicleKind::CartMade
+        | ChronicleKind::TakenDown => {
             vec![Span::Text(event.name.clone())]
         }
         ChronicleKind::CaseBrought | ChronicleKind::RevoltCalled | ChronicleKind::CoupCalled => {

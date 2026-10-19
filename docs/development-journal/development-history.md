@@ -3129,3 +3129,11 @@ gathering if they care enough about the plan and do not like the builder too muc
 The gathering hears it like any broken rule and, if it agrees, can order a fine and amends, as
 the plan sets out. The town's plan in the core content sets none yet, so such a case is heard
 but asks nothing. Pulling the building down or letting it stay for a yearly payment comes next.
+
+## 2026-10-19 — CV, second part: taken down, or allowed to stay for a payment
+
+**Built:** a town plan can now say what happens to a building found on its ground. Either it is
+pulled down once the time to pay the fine has passed, or the family may keep it by paying the
+common store something every year. A family whose building is pulled down holds it against the
+gathering. For now the building comes down all at once on its day; nobody is yet seen doing the
+work, because the crews that pull buildings down in the game only work against a fire.

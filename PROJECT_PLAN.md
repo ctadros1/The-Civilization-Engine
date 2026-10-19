@@ -4791,6 +4791,26 @@ and M6a gives rivers a daily flow.
         (`PolitySave.encroachment_seen`, `CaseSave.building`); content API 146 (a plan's
         `bundles`, a forum hearing `plan`); no wire change. Removal and regularisation, the
         expected sanction in keeping and the backlog follow.
+      - *Second part, as built (2026-10-19): removal and regularisation.* A plan's bundle may
+        also take down what is found standing on its reserved ground (`remove`) or let it stand
+        for a yearly payment (`yearly_days` of the household's food), not both. A finding records
+        the order on the encroachment and says it ("Its building is to be taken down", or "may
+        stand for N days' food a year to the common store"). A building to be taken down is taken
+        down when what was imposed falls due, unless burning, as a household's old home is when it
+        moves: its plot given up, its stores settled and kept under what roofs are left; its
+        household's grown hold it against the gathering by the days of work it took (the
+        grievance `TakenDown`, code 14), and the chronicle says so (`TakenDown`, code 64). A
+        building let stand owes the store its payment on the finding's day each year, as ground
+        rent, while the plan is in force and the building stands. **Deviation:** ADR-0030 §5
+        names the crews that pull buildings down (M6b slice BD); those work only against a fire,
+        so a removal is done at once on its day and its hours are not counted; and the hearing
+        does not yet weigh the building among what the accused stands to lose. **Test:** with
+        removal, found, ordered, taken down on its day with its plot, the household aggrieved, the
+        chronicle saying so; with a yearly payment, found, standing, and a year on owing its
+        payment; each saved and loaded alike; a schema-160 save loads with no orders.
+        **Boundary:** saves schema 161 (`LawSave.remove`, `yearly_days`,
+        `PolitySave.encroachment_orders`); content API 147 (a plan bundle's `remove` and
+        `yearly_days`); no wire change. The expected sanction in keeping and the backlog follow.
     - **CW, use and nuisance rules:** district uses and two rule templates (worked fires from
       homes, middens from wells).
     - **CX, land value and density:** the derived map (paid, reckoned, nothing recorded), the

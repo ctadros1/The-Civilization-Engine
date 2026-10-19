@@ -790,6 +790,8 @@ impl Population {
         // Ground rent falls due whether or not anything was ever taken (M8c slice CU), and what is
         // owed is answered.
         self.levy_ground_rent(ctx);
+        // What findings under plans ordered is carried out on its day (M8c slice CV).
+        self.carry_out_removals(ctx);
         if self.order.incidents.is_empty() {
             if self
                 .order

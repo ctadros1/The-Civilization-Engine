@@ -778,6 +778,123 @@ impl Population {
                 answer: None,
             });
         }
+        // A building a finding let stand owes its yearly payment on the finding's day each year,
+        // while the plan is in force and the building stands (M8c slice CV, second part).
+        let mut owed = Vec::new();
+        for p in &self.polities {
+            for e in &p.encroachments {
+                let Some(crate::polity::PlanOrder::Regularised { since, kcal }) = e.order else {
+                    continue;
+                };
+                if day <= since
+                    || (day - since) % year != 0
+                    || kcal <= 0.0
+                    || !p.plans_in_force().any(|(law, _)| law == e.law)
+                    || !ctx.land.buildings.iter().any(|b| b.id == e.building)
+                    || self.household(e.household).is_none()
+                {
+                    continue;
+                }
+                owed.push((e.household, p.id, kcal));
+            }
+        }
+        for (debtor, polity, kcal) in owed {
+            let id = self.order.obligations.last().map_or(1, |o| o.id + 1);
+            self.order.obligations.push(crate::crime::Obligation {
+                id,
+                incident: 0,
+                kind: crate::crime::Owed::GroundRent,
+                case: None,
+                debtor,
+                beneficiary: polity,
+                kcal,
+                paid_kcal: 0.0,
+                made: day,
+                due: day + due_days,
+                standing: crate::crime::Standing::Open,
+                answer: None,
+            });
+        }
+    }
+
+    /// What findings under plans ordered (M8c slice CV, second part; ADR-0030 §5): a building
+    /// to be taken down whose day has come is taken down, as a household's old home is when it
+    /// moves, its plot given up, unless it is burning; its household's grown hold it against the
+    /// gathering by the days of work it took. One gone already, burnt or left, is let be.
+    pub(super) fn carry_out_removals(&mut self, ctx: &mut Ctx) {
+        use crate::polity::PlanOrder;
+        let (now, params, catalog) = (ctx.now, ctx.params, ctx.catalog);
+        let day = now.day_index();
+        for pi in 0..self.polities.len() {
+            for ei in 0..self.polities[pi].encroachments.len() {
+                let e = &self.polities[pi].encroachments[ei];
+                let Some(PlanOrder::Remove { due }) = e.order else {
+                    continue;
+                };
+                if due > day {
+                    continue;
+                }
+                let (law, household, building) = (e.law, e.household, e.building);
+                let Some(bi) = ctx.land.buildings.iter().position(|b| b.id == building) else {
+                    self.polities[pi].encroachments[ei].order = Some(PlanOrder::Removed { day });
+                    continue;
+                };
+                if self.fires.burning_in(building).is_some() {
+                    continue;
+                }
+                let b = &ctx.land.buildings[bi];
+                let (place, plot) = (build::centre_m(&b.spec), b.plot);
+                let work_days = catalog
+                    .building_index(&b.spec.program)
+                    .and_then(|d| catalog.buildings.get(d))
+                    .and_then(|d| build::building_hours(&b.spec, d, params.household.carry_kg))
+                    .unwrap_or(0.0)
+                    / params.farm.work_hours_per_day.max(1.0);
+                // Its stores are settled to now, then keep under what roofs are left.
+                if let Some(x) = self
+                    .hh_index
+                    .get(&household)
+                    .and_then(|&hd| self.households.get_mut(hd))
+                {
+                    let members = x.members.len().max(1);
+                    x.settle_stores(now, &catalog.goods, &|d| fuel_per_day(params, members, d));
+                }
+                ctx.land.buildings.remove(bi);
+                ctx.land.plots.retain(|p| p.id != plot);
+                self.stage_needs.remove(&building);
+                self.expansions.remove(&building);
+                if let Some(x) = self
+                    .hh_index
+                    .get(&household)
+                    .and_then(|&hd| self.households.get_mut(hd))
+                {
+                    (x.sheltered, x.keeping) = shelter_of(ctx.land, catalog, params, household);
+                }
+                self.polities[pi].encroachments[ei].order = Some(PlanOrder::Removed { day });
+                self.grieve_taken_down(ctx, pi, law, household, work_days);
+                let settlement = self.household(household).and_then(|x| x.settlement);
+                let elder = self.elder_of(household, now, params);
+                let words = match elder {
+                    Some(p) => format!(
+                        "{}'s household's building on ground the plan reserves was taken down, \
+                         as the finding ordered.",
+                        self.name_of(p)
+                    ),
+                    None => "A building on ground the plan reserves was taken down, as the \
+                             finding ordered."
+                        .to_owned(),
+                };
+                self.chronicle_push(
+                    now,
+                    crate::history::ChronicleKind::TakenDown,
+                    elder.into_iter().collect(),
+                    settlement,
+                    Some(place),
+                    0.0,
+                    words,
+                );
+            }
+        }
     }
 
     /// Cases under the plans in force at polity `pi` (M8c slice CV, first part; ADR-0030 §5: "a

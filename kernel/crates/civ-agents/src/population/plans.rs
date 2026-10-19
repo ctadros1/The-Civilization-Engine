@@ -379,6 +379,93 @@ impl Population {
         out
     }
 
+    /// The parcel a plan in force where household `hh` lives would give it now, to build its home
+    /// on (M8c slice CU, first part; ADR-0030 §4, by need: households short of a home, the free
+    /// parcel nearest the hearth first): the plan's law, the parcel's index in its layout and its
+    /// ground. None while no plan in force there has a keeper living there, or every parcel is
+    /// given or no longer clear.
+    pub(super) fn parcel_offer(
+        &self,
+        ctx: &Ctx,
+        hh: &Household,
+    ) -> Option<(PermanentId, u16, civ_land::RectCm)> {
+        let settlement = hh.settlement?;
+        let pi = self.polity_of(settlement)?;
+        let polity = &self.polities[pi];
+        if polity.plans.is_empty() {
+            return None;
+        }
+        let hearth = ctx
+            .land
+            .settlements
+            .iter()
+            .find(|s| s.id == settlement)?
+            .hearth_m;
+        for (law, laid) in polity.plans_in_force() {
+            let kept = polity
+                .laws
+                .iter()
+                .find(|l| l.id == law)
+                .and_then(|l| l.holder)
+                .and_then(|k| self.person(k))
+                .and_then(|p| self.household(p.household))
+                .is_some_and(|x| x.settlement == Some(settlement));
+            if !kept {
+                continue;
+            }
+            let given: Vec<u16> = ctx
+                .land
+                .plots
+                .iter()
+                .filter_map(|p| p.allotted.filter(|a| a.law == law).map(|a| a.parcel))
+                .collect();
+            let far = |r: &civ_land::RectCm| {
+                let (x, y) = r.centre_m();
+                (x - hearth.0).hypot(y - hearth.1)
+            };
+            let best = laid
+                .layout
+                .parcels
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| !given.contains(&(*i as u16)))
+                .filter(|(_, q)| build::plot_clear(ctx.land, ctx.map, ctx.nav, &q.rect))
+                .min_by(|a, b| {
+                    far(&a.1.rect)
+                        .total_cmp(&far(&b.1.rect))
+                        .then(a.0.cmp(&b.0))
+                });
+            if let Some((i, q)) = best {
+                return Some((law, i as u16, q.rect));
+            }
+        }
+        None
+    }
+
+    /// Plan law `law`'s keeper has staked a parcel it gave (M8c slice CU, first part): its hours,
+    /// by the template's staking, are added to the plan's.
+    pub(super) fn stake_parcel(
+        &mut self,
+        ctx: &Ctx,
+        settlement: Option<PermanentId>,
+        law: PermanentId,
+    ) {
+        let Some(pi) = settlement.and_then(|s| self.polity_of(s)) else {
+            return;
+        };
+        let polity = &mut self.polities[pi];
+        let hours = polity
+            .laws
+            .iter()
+            .find(|l| l.id == law)
+            .and_then(|l| ctx.catalog.policies.get(usize::from(l.policy)))
+            .and_then(|d| d.plan.as_ref())
+            .map_or(0.0, |p| p.stake_h);
+        if let Some(p) = polity.plans.iter_mut().find(|p| p.0 == law) {
+            p.1.staked_h += hours;
+        }
+    }
+
     /// Whether polity `pi` has a plan before its gathering, or put one forward within
     /// [`PLAN_EVERY_DAYS`] of day `day`.
     pub(super) fn plan_lately(&self, pi: usize, day: i64) -> bool {
@@ -451,7 +538,7 @@ impl Population {
             policy,
             levy_share: 0.0,
             issue,
-            nominee: None,
+            nominee: Some(sponsor),
             sanction: Default::default(),
             hours: (0, 0),
             body: None,

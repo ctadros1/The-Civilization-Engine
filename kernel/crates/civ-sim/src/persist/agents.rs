@@ -124,7 +124,7 @@ use super::{
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
-    SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, finish, section, section_root,
+    SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, finish, section, section_root,
     single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
@@ -663,6 +663,7 @@ enum Schema {
     V155,
     V156,
     V157,
+    V158,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -834,7 +835,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V154 => Schema::V154,
         SCHEMA_V155 => Schema::V155,
         SCHEMA_V156 => Schema::V156,
-        SAVE_SCHEMA_VERSION => Schema::V157,
+        SCHEMA_V157 => Schema::V157,
+        SAVE_SCHEMA_VERSION => Schema::V158,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1778,6 +1780,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             refused_streets: l.refused.streets,
                             refused_sites: l.refused.sites,
                             refused_parcels: l.refused.parcels,
+                            staked_h: plan.staked_h,
                         },
                     )
                 })
@@ -2791,6 +2794,7 @@ fn decode_polities(
                             parcels: s.refused_parcels(),
                         },
                     },
+                    staked_h: s.staked_h(),
                 },
             ));
         }
@@ -4895,7 +4899,8 @@ fn carried(
         | Schema::V154
         | Schema::V155
         | Schema::V156
-        | Schema::V157 => {
+        | Schema::V157
+        | Schema::V158 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5225,7 +5230,8 @@ fn decode_households(
             | Schema::V154
             | Schema::V155
             | Schema::V156
-            | Schema::V157 => {
+            | Schema::V157
+            | Schema::V158 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -7185,6 +7191,9 @@ fn encode_plots(plots: &[Plot]) -> Vec<u8> {
                     receipt_weighed: p.receipt.map_or(0, |r| r.weighed),
                     receipt_hours: p.receipt.map_or(0.0, |r| r.hours),
                     receipt_next: p.receipt.map_or(0.0, |r| r.next_hours),
+                    allot_law: p.allotted.map_or(0, |a| a.law.get()),
+                    allot_parcel: p.allotted.map_or(0, |a| a.parcel),
+                    allot_rule: p.allotted.map_or(0, |a| a.rule.code()),
                 },
             )
         })
@@ -7226,6 +7235,21 @@ fn decode_plots(bytes: &[u8]) -> Result<Vec<Plot>, LoadError> {
                 hours: p.receipt_hours(),
                 next_hours: p.receipt_next(),
             }),
+            allotted: match PermanentId::from_raw(p.allot_law()) {
+                None => None,
+                Some(law) => Some(civ_land::Allotment {
+                    law,
+                    parcel: p.allot_parcel(),
+                    rule: *civ_land::AllotRule::ALL
+                        .get(usize::from(p.allot_rule()))
+                        .ok_or_else(|| {
+                            LoadError::Malformed(format!(
+                                "plot {id} was given by rule {}",
+                                p.allot_rule()
+                            ))
+                        })?,
+                }),
+            },
         });
     }
     Ok(out)

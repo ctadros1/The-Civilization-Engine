@@ -441,6 +441,8 @@ pub const SCHEMA_V154: u32 = 154;
 pub const SCHEMA_V155: u32 = 155;
 /// Polities' plans, before they kept the buildings begun on ground a plan reserves.
 pub const SCHEMA_V156: u32 = 156;
+/// Polities' encroachments, before plots kept the parcels of plans they were given.
+pub const SCHEMA_V157: u32 = 157;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

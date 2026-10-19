@@ -2501,6 +2501,9 @@ mod tests {
                 && words.ends_with("; 1 building stands on its reserved ground"),
             "{words}"
         );
+        // Its sponsor keeps it, and none of its parcels is given yet (M8c slice CU).
+        assert!(words.contains(", in force; kept by "), "{words}");
+        assert!(words.contains("; 0 of "), "{words}");
     }
 
     #[test]

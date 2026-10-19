@@ -4616,6 +4616,39 @@ and M6a gives rivers a daily flow.
     - **CU, land assembly and allotment:** clauses and answers for every touched claim, the
       channels `GroundFee`, `GroundRent` and `Compensation`, the keeper's office, phases, the four
       allocation rules, ground rent as an obligation, build by.
+      - *First part, as built (2026-10-19): the keeper gives parcels by need* (ADR-0030 §4). The
+        one who puts a plan forward is named its keeper, the law's holder as a storekeeper is;
+        a plan whose keeper dies or leaves stays in force with the office vacant and gives
+        nothing until a later version names another (unlike an office law, which lapses). While
+        its keeper lives there, a household about to build a home is offered the free parcel
+        nearest the hearth (one no plot has been given and still clear as a plot must be), and
+        weighs it with the plots it finds, in hours: its home laid out at the parcel's middle or
+        a few metres along it, wholly within it, and any plot it found whose middle lies on the
+        parcel taking it too. The plot it builds on keeps the plan's law, the parcel and the
+        rule it was given by (by need), the keeper's staking is counted on the plan in the
+        template's hours, and the next household is offered the next parcel. The building's line
+        says "on parcel 6 of the plan, given by need"; the plan's words name its keeper ("kept by
+        Ada", or "nobody keeps it") and how many of its parcels are given. **Not as the ADR:** the
+        keeper stakes as a tally of hours, not as work done in their day; no phases yet (every
+        parcel is open at once); households short of a home are those about to build one, served
+        as they come rather than in a queue. **What it comes to:** a parcel of the core plan,
+        laid over ground clear but not level, loses to level ground near the household's walks
+        in the bench's village; it is taken where no level ground is near (the test), which is
+        where a plan is laid for want of ground. **Naming the keeper changes the
+        proposal:** a gathering's memory of a proposal it decided compares whom it names, as for
+        any office, so a layout turned down under one sponsor is another proposal under another;
+        with the keeper named (and nothing else of this part), the bench's village in
+        deterministic mode departs from CT's from its first plan's gathering, keeping every count
+        (508, 552 and 606 fields, 583, 613 and 625 buildings, the same people at days 10, 20 and
+        30), and at Max keeps every section's digest but the polity's; without the keeper named it
+        keeps every digest but the polity's in both. A day as the container now runs: 4.16 s
+        (deterministic), 3.18 s (Max). **Tests:** a plan put forward names
+        its sponsor keeper and gives nothing; in force, the parcel nearest the hearth is offered,
+        those given go to no one else, a household with no other clear ground near builds on the
+        offered parcel, which its plot keeps with the rule, the staking counted and the line
+        saying so; the next is offered another; saved and loaded alike; its keeper gone, the plan
+        stands with the office vacant and gives nothing; a schema-157 save loads. **Boundary:**
+        saves schema 158 (`Plot.allot_*`, `PlanSave.staked_h`); no content or wire change.
     - **CV, compliance and cases:** expected sanction, sightings, cases under a plan, forums,
       remedies (fine, removal, regularisation), the backlog.
     - **CW, use and nuisance rules:** district uses and two rule templates (worked fires from

@@ -2206,6 +2206,8 @@ pub struct PlanLaid {
     pub version: u16,
     pub grid: civ_land::plans::Grid,
     pub layout: civ_land::plans::Layout,
+    /// The hours its keeper has spent staking the parcels given (M8c slice CU, first part).
+    pub staked_h: f32,
 }
 
 /// What a polity saw of its settlements' ground (M8c slice CT, second part): the day, the

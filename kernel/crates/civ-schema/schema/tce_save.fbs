@@ -741,6 +741,11 @@ table Plot {
   receipt_weighed: ushort (id: 8);
   receipt_hours: float (id: 9);
   receipt_next: float (id: 10);
+  // Schema 158 (M8c slice CU, first part): the parcel of a plan it was given, if it was: the
+  // plan's law (0: none), the parcel's index in its layout, and the rule's code (0 by need).
+  allot_law: ulong (id: 11);
+  allot_parcel: ushort (id: 12);
+  allot_rule: ubyte (id: 13);
 }
 
 table Plots {
@@ -1501,6 +1506,8 @@ table PlanSave {
   refused_streets: uint (id: 16);
   refused_sites: uint (id: 17);
   refused_parcels: uint (id: 18);
+  // Schema 158 (M8c slice CU, first part): the hours its keeper has spent staking parcels.
+  staked_h: float (id: 19);
 }
 
 struct PlanRectSave {

@@ -55,6 +55,43 @@ pub struct Plot {
     pub since: SimTime,
     /// Why its household chose it, where it weighed others (M8c slice CS, ADR-0030 §1).
     pub receipt: Option<SiteReceipt>,
+    /// The parcel of a plan it was given, if it was (M8c slice CU; ADR-0030 §4).
+    pub allotted: Option<Allotment>,
+}
+
+/// A parcel of a plan given to a household (M8c slice CU; ADR-0030 §4): the plan's law, the
+/// parcel's index in its layout, and the rule it was given under.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Allotment {
+    pub law: PermanentId,
+    pub parcel: u16,
+    pub rule: AllotRule,
+}
+
+/// How a plan's keeper gives a parcel (ADR-0030 §4): codes are saved, append only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AllotRule {
+    /// To a household short of a home, the free parcel nearest the hearth first.
+    Need,
+}
+
+impl AllotRule {
+    /// Every rule, by code.
+    pub const ALL: [AllotRule; 1] = [AllotRule::Need];
+
+    /// Its code in saves.
+    pub fn code(self) -> u8 {
+        match self {
+            AllotRule::Need => 0,
+        }
+    }
+
+    /// Its name in words: "by need".
+    pub fn words(self) -> &'static str {
+        match self {
+            AllotRule::Need => "by need",
+        }
+    }
 }
 
 /// What a household reckoned when it chose a plot for a home among others (ADR-0030 §1): how many

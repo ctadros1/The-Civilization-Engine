@@ -668,6 +668,8 @@ struct NewHome {
     firm: Option<PermanentId>,
     /// Why a home's plot was chosen among others (M8c slice CS).
     receipt: Option<civ_land::SiteReceipt>,
+    /// The parcel of a plan it is to stand on, if a keeper gives one (M8c slice CU).
+    parcel: Option<civ_land::Allotment>,
 }
 
 /// Why a household begins no building (M8c slice CT): nothing it would build, or a home it would
@@ -2485,6 +2487,7 @@ impl Population {
                     stages,
                     firm,
                     receipt: None,
+                    parcel: None,
                 },
                 level_h,
             ))
@@ -2513,6 +2516,7 @@ impl Population {
         let places = self.goings_of(ctx, hh);
         let speed = ctx.nav.params().top_speed_ms().max(0.1);
         let years = ctx.params.build.site_years;
+        let offer = self.parcel_offer(ctx, hh);
         let choose_home = |choice: (usize, build::Shape), first: bool| {
             let anchors = siting::site_anchors(hh.home, &places);
             let mut found: Vec<(f64, NewHome)> = Vec::new();
@@ -2541,6 +2545,49 @@ impl Population {
                 }
                 let hours = years * siting::walk_hours_year(at, &places, speed) + level_h;
                 found.push((hours, home));
+            }
+            // The parcel a plan's keeper would give it, weighed as any plot is (M8c slice CU):
+            // a plot found whose middle lies on it takes it, and its home is also laid out at the
+            // parcel's middle or a few metres along it, wholly within it.
+            if let Some((law, parcel, ground)) = offer {
+                let program = &catalog.buildings[choice.0];
+                let within = |spec: &BuildingSpec| {
+                    let rect = build::plot_rect(spec, program);
+                    rect.x >= ground.x
+                        && rect.y >= ground.y
+                        && rect.x + rect.w <= ground.x + ground.w
+                        && rect.y + rect.h <= ground.y + ground.h
+                };
+                let given = civ_land::Allotment {
+                    law,
+                    parcel,
+                    rule: civ_land::AllotRule::Need,
+                };
+                let on = |spec: &BuildingSpec| {
+                    let (x, y) = build::centre_m(spec);
+                    let (x, y) = ((f64::from(x) * 100.0) as i32, (f64::from(y) * 100.0) as i32);
+                    x >= ground.x
+                        && y >= ground.y
+                        && x < ground.x + ground.w
+                        && y < ground.y + ground.h
+                };
+                for (_, f) in found.iter_mut().filter(|(_, f)| on(&f.spec)) {
+                    f.parcel = Some(given);
+                }
+                let (cx, cy) = ground.centre_m();
+                let along_x = ground.w >= ground.h;
+                let laid = [0.0f32, 2.0, -2.0, 4.0, -4.0].into_iter().find_map(|d| {
+                    let from = if along_x { (cx + d, cy) } else { (cx, cy + d) };
+                    site_levelled(choice, hearth, None, from, 0.0).filter(|(h, _)| within(&h.spec))
+                });
+                if let Some((mut home, level_h)) = laid {
+                    let at = build::centre_m(&home.spec);
+                    if !found.iter().any(|(_, f)| build::centre_m(&f.spec) == at) {
+                        let hours = years * siting::walk_hours_year(at, &places, speed) + level_h;
+                        home.parcel = Some(given);
+                        found.push((hours, home));
+                    }
+                }
             }
             // The cheapest, the first found among equals.
             let best = found
@@ -2818,6 +2865,31 @@ impl Population {
     /// plot is marked out, the building is begun, and the household's home moves to it (a
     /// household that has a home moves when the new one's roof is on). `None` if the ground is no
     /// longer clear.
+    /// Household `household` begins the first home it would lay out now beside its settlement's
+    /// hearth, as if it had none: for tests.
+    #[doc(hidden)]
+    pub fn begin_home_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        household: PermanentId,
+    ) -> Option<PermanentId> {
+        let hh = self.household(household)?.clone();
+        let hearth = hh.settlement.and_then(|s| {
+            ctx.land
+                .settlements
+                .iter()
+                .find(|x| x.id == s)
+                .map(|x| x.hearth_m)
+        });
+        let labour = self.labour_per_day(&hh.members, ctx.now, ctx.params);
+        let site = self
+            .new_building(ctx, &hh, hearth, hh.id, labour, None)
+            .ok()?;
+        self.home_sites
+            .insert(household, (ctx.now.day_index(), Some(site)));
+        self.begin_home(ctx, household)
+    }
+
     fn begin_home(&mut self, ctx: &mut Ctx, household: PermanentId) -> Option<PermanentId> {
         let (_, site) = self.home_sites.remove(&household)?;
         let site = site?;
@@ -2867,7 +2939,13 @@ impl Population {
             use_: def.use_,
             since: ctx.now,
             receipt: site.receipt,
+            allotted: site.parcel,
         });
+        // A parcel given is staked by the plan's keeper (M8c slice CU).
+        if let Some(a) = site.parcel {
+            let settlement = self.household(household).and_then(|x| x.settlement);
+            self.stake_parcel(ctx, settlement, a.law);
+        }
         // Its builders' taste followed the building that moved it most (M3b slice R).
         let style_from = self.household(household).and_then(|h| h.admired);
         ctx.land.buildings.push(Building {

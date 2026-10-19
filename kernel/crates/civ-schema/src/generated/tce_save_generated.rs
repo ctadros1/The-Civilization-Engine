@@ -32061,6 +32061,9 @@ impl<'a> Plot<'a> {
   pub const VT_RECEIPT_WEIGHED: ::flatbuffers::VOffsetT = 20;
   pub const VT_RECEIPT_HOURS: ::flatbuffers::VOffsetT = 22;
   pub const VT_RECEIPT_NEXT: ::flatbuffers::VOffsetT = 24;
+  pub const VT_ALLOT_LAW: ::flatbuffers::VOffsetT = 26;
+  pub const VT_ALLOT_PARCEL: ::flatbuffers::VOffsetT = 28;
+  pub const VT_ALLOT_RULE: ::flatbuffers::VOffsetT = 30;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -32072,6 +32075,7 @@ impl<'a> Plot<'a> {
     args: &'args PlotArgs
   ) -> ::flatbuffers::WIPOffset<Plot<'bldr>> {
     let mut builder = PlotBuilder::new(_fbb);
+    builder.add_allot_law(args.allot_law);
     builder.add_since(args.since);
     builder.add_household(args.household);
     builder.add_id(args.id);
@@ -32081,7 +32085,9 @@ impl<'a> Plot<'a> {
     builder.add_w_cm(args.w_cm);
     builder.add_y_cm(args.y_cm);
     builder.add_x_cm(args.x_cm);
+    builder.add_allot_parcel(args.allot_parcel);
     builder.add_receipt_weighed(args.receipt_weighed);
+    builder.add_allot_rule(args.allot_rule);
     builder.add_purpose(args.purpose);
     builder.finish()
   }
@@ -32164,6 +32170,27 @@ impl<'a> Plot<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(Plot::VT_RECEIPT_NEXT, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn allot_law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Plot::VT_ALLOT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn allot_parcel(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(Plot::VT_ALLOT_PARCEL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn allot_rule(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(Plot::VT_ALLOT_RULE, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Plot<'_> {
@@ -32183,6 +32210,9 @@ impl ::flatbuffers::Verifiable for Plot<'_> {
      .visit_field::<u16>("receipt_weighed", Self::VT_RECEIPT_WEIGHED, false)?
      .visit_field::<f32>("receipt_hours", Self::VT_RECEIPT_HOURS, false)?
      .visit_field::<f32>("receipt_next", Self::VT_RECEIPT_NEXT, false)?
+     .visit_field::<u64>("allot_law", Self::VT_ALLOT_LAW, false)?
+     .visit_field::<u16>("allot_parcel", Self::VT_ALLOT_PARCEL, false)?
+     .visit_field::<u8>("allot_rule", Self::VT_ALLOT_RULE, false)?
      .finish();
     Ok(())
   }
@@ -32199,6 +32229,9 @@ pub struct PlotArgs {
     pub receipt_weighed: u16,
     pub receipt_hours: f32,
     pub receipt_next: f32,
+    pub allot_law: u64,
+    pub allot_parcel: u16,
+    pub allot_rule: u8,
 }
 impl<'a> Default for PlotArgs {
   #[inline]
@@ -32215,6 +32248,9 @@ impl<'a> Default for PlotArgs {
       receipt_weighed: 0,
       receipt_hours: 0.0,
       receipt_next: 0.0,
+      allot_law: 0,
+      allot_parcel: 0,
+      allot_rule: 0,
     }
   }
 }
@@ -32269,6 +32305,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlotBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(Plot::VT_RECEIPT_NEXT, receipt_next, 0.0);
   }
   #[inline]
+  pub fn add_allot_law(&mut self, allot_law: u64) {
+    self.fbb_.push_slot::<u64>(Plot::VT_ALLOT_LAW, allot_law, 0);
+  }
+  #[inline]
+  pub fn add_allot_parcel(&mut self, allot_parcel: u16) {
+    self.fbb_.push_slot::<u16>(Plot::VT_ALLOT_PARCEL, allot_parcel, 0);
+  }
+  #[inline]
+  pub fn add_allot_rule(&mut self, allot_rule: u8) {
+    self.fbb_.push_slot::<u8>(Plot::VT_ALLOT_RULE, allot_rule, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlotBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PlotBuilder {
@@ -32297,6 +32345,9 @@ impl ::core::fmt::Debug for Plot<'_> {
       ds.field("receipt_weighed", &self.receipt_weighed());
       ds.field("receipt_hours", &self.receipt_hours());
       ds.field("receipt_next", &self.receipt_next());
+      ds.field("allot_law", &self.allot_law());
+      ds.field("allot_parcel", &self.allot_parcel());
+      ds.field("allot_rule", &self.allot_rule());
       ds.finish()
   }
 }
@@ -39165,6 +39216,7 @@ impl<'a> PlanSave<'a> {
   pub const VT_REFUSED_STREETS: ::flatbuffers::VOffsetT = 36;
   pub const VT_REFUSED_SITES: ::flatbuffers::VOffsetT = 38;
   pub const VT_REFUSED_PARCELS: ::flatbuffers::VOffsetT = 40;
+  pub const VT_STAKED_H: ::flatbuffers::VOffsetT = 42;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -39177,6 +39229,7 @@ impl<'a> PlanSave<'a> {
   ) -> ::flatbuffers::WIPOffset<PlanSave<'bldr>> {
     let mut builder = PlanSaveBuilder::new(_fbb);
     builder.add_law(args.law);
+    builder.add_staked_h(args.staked_h);
     builder.add_refused_parcels(args.refused_parcels);
     builder.add_refused_sites(args.refused_sites);
     builder.add_refused_streets(args.refused_streets);
@@ -39332,6 +39385,13 @@ impl<'a> PlanSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(PlanSave::VT_REFUSED_PARCELS, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn staked_h(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(PlanSave::VT_STAKED_H, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PlanSave<'_> {
@@ -39359,6 +39419,7 @@ impl ::flatbuffers::Verifiable for PlanSave<'_> {
      .visit_field::<u32>("refused_streets", Self::VT_REFUSED_STREETS, false)?
      .visit_field::<u32>("refused_sites", Self::VT_REFUSED_SITES, false)?
      .visit_field::<u32>("refused_parcels", Self::VT_REFUSED_PARCELS, false)?
+     .visit_field::<f32>("staked_h", Self::VT_STAKED_H, false)?
      .finish();
     Ok(())
   }
@@ -39383,6 +39444,7 @@ pub struct PlanSaveArgs<'a> {
     pub refused_streets: u32,
     pub refused_sites: u32,
     pub refused_parcels: u32,
+    pub staked_h: f32,
 }
 impl<'a> Default for PlanSaveArgs<'a> {
   #[inline]
@@ -39407,6 +39469,7 @@ impl<'a> Default for PlanSaveArgs<'a> {
       refused_streets: 0,
       refused_sites: 0,
       refused_parcels: 0,
+      staked_h: 0.0,
     }
   }
 }
@@ -39493,6 +39556,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlanSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u32>(PlanSave::VT_REFUSED_PARCELS, refused_parcels, 0);
   }
   #[inline]
+  pub fn add_staked_h(&mut self, staked_h: f32) {
+    self.fbb_.push_slot::<f32>(PlanSave::VT_STAKED_H, staked_h, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlanSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PlanSaveBuilder {
@@ -39529,6 +39596,7 @@ impl ::core::fmt::Debug for PlanSave<'_> {
       ds.field("refused_streets", &self.refused_streets());
       ds.field("refused_sites", &self.refused_sites());
       ds.field("refused_parcels", &self.refused_parcels());
+      ds.field("staked_h", &self.staked_h());
       ds.finish()
   }
 }

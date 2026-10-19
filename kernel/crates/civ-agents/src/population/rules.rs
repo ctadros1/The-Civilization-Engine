@@ -619,6 +619,40 @@ impl Population {
             .map(|n| n.spec)
     }
 
+    /// The home household `household` would lay out today, beside its settlement's hearth, as if
+    /// it had none, and the parcel of a plan it would stand on, if a keeper gives it one: for
+    /// tests.
+    #[doc(hidden)]
+    pub fn first_home_parcel_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+    ) -> Option<(civ_grammar::BuildingSpec, Option<civ_land::Allotment>)> {
+        let hh = self.household(household)?.clone();
+        let hearth = hh.settlement.and_then(|s| {
+            ctx.land
+                .settlements
+                .iter()
+                .find(|x| x.id == s)
+                .map(|x| x.hearth_m)
+        });
+        let labour = self.labour_per_day(&hh.members, ctx.now, ctx.params);
+        self.new_building(ctx, &hh, hearth, hh.id, labour, None)
+            .ok()
+            .map(|n| (n.spec, n.parcel))
+    }
+
+    /// The parcel a plan in force would give household `household` now: for tests.
+    #[doc(hidden)]
+    pub fn parcel_offer_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+    ) -> Option<(PermanentId, u16, civ_land::RectCm)> {
+        self.household(household)
+            .and_then(|x| self.parcel_offer(ctx, x))
+    }
+
     /// Counts whether building `building` household `household` began keeps the rules in force
     /// that bind it: for tests.
     #[doc(hidden)]

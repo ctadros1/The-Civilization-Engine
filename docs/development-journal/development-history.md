@@ -3068,3 +3068,14 @@ ground it is outlined in grey, and a building standing on reserved ground is rin
 plan only put forward is drawn fainter than one in force. Pointing at any of it says which layer
 it is and the plan in the kernel's words. Slice CT is closed.
 
+## 2026-10-19 — CU, first part: a plan's keeper gives parcels
+
+**Built:** whoever puts a plan forward now keeps it. While they live there, a household about to
+build a home is offered the free parcel nearest the hearth and weighs it like any other plot, by
+the hours of walking and levelling it would cost. If it builds there, the plot remembers the
+parcel and that it was given by need, the keeper's staking is counted, and the next household is
+offered the next parcel. If the keeper dies or leaves, the plan stays but gives nothing until a
+new version names someone. In the test village the plan's parcels, laid over sloping ground,
+usually lose to level ground closer to where people walk; they are taken where nothing better
+is near.
+

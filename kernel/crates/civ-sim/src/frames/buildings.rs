@@ -486,8 +486,25 @@ pub fn buildings_response(sim: &Sim) -> Vec<u8> {
                 .plots
                 .iter()
                 .find(|p| p.id == b.plot)
-                .and_then(|p| p.receipt)
-                .map(|r| site_words(&r, sim.rules.people.build.site_years))
+                .map(|p| {
+                    let why = p
+                        .receipt
+                        .map(|r| site_words(&r, sim.rules.people.build.site_years));
+                    // On a plan's parcel (M8c slice CU): which, and how it was given.
+                    let given = p.allotted.map(|a| {
+                        format!(
+                            "on parcel {} of the plan, given {}",
+                            a.parcel + 1,
+                            a.rule.words()
+                        )
+                    });
+                    match (why, given) {
+                        (Some(w), Some(g)) => format!("{w}; {g}"),
+                        (Some(w), None) => w,
+                        (None, Some(g)) => g,
+                        (None, None) => String::new(),
+                    }
+                })
                 .unwrap_or_default();
             let site = fbb.create_string(&site);
             wire::BuildingInfo::create(

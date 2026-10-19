@@ -681,3 +681,221 @@ fn a_plan_in_force_keeps_its_keepers_off_its_streets_and_records_what_is_built_o
     );
     saves_and_goes_on_alike(&mut sim, DAY);
 }
+
+#[test]
+fn a_plan_s_keeper_gives_a_household_short_of_a_home_the_parcel_nearest_the_hearth() {
+    // M8c slice CU, first part (ADR-0030 §4): the one who puts a plan forward keeps it; while
+    // they live there, a household about to build a home is offered the free parcel nearest the
+    // hearth and weighs it as any plot, in hours; one that builds there holds the parcel by need,
+    // the keeper's staking is counted, and the next household is offered the next parcel. With
+    // its keeper gone the plan stays in force and gives nothing.
+    use civ_agents::polity::{IssueKind, LawStatus, Outcome};
+    use civ_core::PermanentId;
+    let mut sim = village(3);
+    sim.advance_minutes(2 * DAY).expect("lives");
+    let settlement = sim.land().settlements[0].id;
+    let hearth = sim.land().settlements[0].hearth_m;
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let homes: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+        .map(|(_, x)| x.id)
+        .collect();
+    let sponsor = sim
+        .people()
+        .household(homes[0])
+        .map(|x| x.members[0])
+        .expect("a sponsor");
+    let law = sim
+        .with_ctx_for_tests(|pop, ctx| {
+            pop.propose_plan_for_tests(ctx, settlement, sponsor, 0, IssueKind::NoGround)
+        })
+        .expect("a plan put forward");
+    // Put forward, it gives nothing; its sponsor would keep it.
+    assert_eq!(
+        sim.people().polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == law)
+            .and_then(|l| l.holder),
+        Some(sponsor)
+    );
+    let household = homes[1];
+    assert!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.parcel_offer_for_tests(ctx, household))
+            .is_none()
+    );
+    let now = sim.now();
+    {
+        let pop = sim.people_mut_for_tests();
+        let l = pop.polities[pi].law_mut(law).expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Outcome::Passed);
+        l.decided = Some(now);
+        pop.polities[pi].gathering = None;
+    }
+    // In force, the free parcel nearest the hearth is offered.
+    let (offered_law, parcel, ground) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.parcel_offer_for_tests(ctx, household))
+        .expect("a parcel offered");
+    assert_eq!(offered_law, law);
+    let layout = sim.people().polities[pi]
+        .plan_of(law)
+        .expect("its plan")
+        .layout
+        .clone();
+    let far = |r: &civ_land::RectCm| {
+        let (x, y) = r.centre_m();
+        (x - hearth.0).hypot(y - hearth.1)
+    };
+    assert_eq!(layout.parcels[usize::from(parcel)].rect, ground);
+    assert!(
+        layout
+            .parcels
+            .iter()
+            .all(|q| far(&q.rect) >= far(&ground) - 1e-3)
+    );
+    // A household whose old point is on the parcel, whose people have gone nowhere yet and
+    // which finds no other clear ground near (claims all round the parcel, as a crowded village
+    // would have), builds its home on it.
+    let (reach, gap) = (300_000, 300);
+    let (x0, y0) = (ground.x - gap, ground.y - gap);
+    let (w0, h0) = (ground.w + 2 * gap, ground.h + 2 * gap);
+    let round = [
+        (x0 - reach, y0 - reach, reach, h0 + 2 * reach),
+        (x0 + w0, y0 - reach, reach, h0 + 2 * reach),
+        (x0, y0 - reach, w0, reach),
+        (x0, y0 + h0, w0, reach),
+    ];
+    let mut claims = Vec::new();
+    for (x, y, w, h) in round {
+        let id = sim.allocate_id_for_tests();
+        claims.push(id);
+        let since = sim.now();
+        sim.land_mut_for_tests().plots.push(civ_land::Plot {
+            id,
+            household: homes[0],
+            rect: civ_land::RectCm { x, y, w, h },
+            use_: civ_land::PlotUse::Store,
+            since,
+            receipt: None,
+            allotted: None,
+        });
+    }
+    if let Some((_, x)) = sim
+        .people_mut_for_tests()
+        .households
+        .iter_mut()
+        .find(|(_, x)| x.id == household)
+    {
+        x.home = ground.centre_m();
+    }
+    let today = sim.now().day_index();
+    let members = sim
+        .people()
+        .household(household)
+        .expect("it")
+        .members
+        .clone();
+    for m in members {
+        sim.people_mut_for_tests().travel.goings.insert(
+            m,
+            civ_agents::travel::Goings {
+                day: today,
+                to: Vec::new(),
+            },
+        );
+    }
+    let (spec, given) = sim
+        .with_ctx_for_tests(|pop, ctx| pop.first_home_parcel_for_tests(ctx, household))
+        .expect("a home laid out");
+    assert_eq!(
+        given,
+        Some(civ_land::Allotment {
+            law,
+            parcel,
+            rule: civ_land::AllotRule::Need,
+        })
+    );
+    let catalog = &sim.rules().catalog;
+    let def = catalog
+        .building_index(&spec.program)
+        .map(|i| &catalog.buildings[i])
+        .expect("its program");
+    let rect = civ_agents::build::plot_rect(&spec, def);
+    let (cx, cy) = (rect.x + rect.w / 2, rect.y + rect.h / 2);
+    assert!(
+        cx >= ground.x && cy >= ground.y && cx < ground.x + ground.w && cy < ground.y + ground.h,
+        "{rect:?} on {ground:?}"
+    );
+    // Begun there, the plot holds the parcel and the keeper's staking is counted; the next
+    // household is offered another.
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_home_for_tests(ctx, household))
+        .expect("begun");
+    let plot = sim
+        .land()
+        .plots
+        .iter()
+        .find(|p| p.household == household && p.allotted.is_some())
+        .expect("its plot");
+    assert_eq!(plot.allotted.map(|a| a.parcel), Some(parcel));
+    // The building's line says where it stands, and how it was given.
+    let begun = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.plot == plot.id)
+        .map(|b| b.id)
+        .expect("its building");
+    let bytes = civ_sim::frames::buildings::buildings_response(&sim);
+    let response = flatbuffers::root::<wire::Response>(&bytes).expect("decodes");
+    let site = response
+        .body_as_buildings()
+        .and_then(|b| b.buildings())
+        .and_then(|l| l.iter().find(|b| b.id() == begun.get()))
+        .and_then(|b| b.site())
+        .unwrap_or_default()
+        .to_owned();
+    assert!(
+        site.ends_with(&format!(
+            "on parcel {} of the plan, given by need",
+            parcel + 1
+        )),
+        "{site}"
+    );
+    let staked = sim.people().polities[pi].plan_of(law).expect("it").staked_h;
+    assert!(staked > 0.0);
+    sim.land_mut_for_tests()
+        .plots
+        .retain(|p| !claims.contains(&p.id));
+    let next = sim
+        .with_ctx_for_tests(|pop, ctx| pop.parcel_offer_for_tests(ctx, homes[2]))
+        .expect("another parcel");
+    assert_ne!(next.1, parcel);
+    // Saved and loaded alike, the parcel given and the staking with it.
+    saves_and_goes_on_alike(&mut sim, DAY);
+    // Its keeper gone, the plan stands, its office vacant, and gives nothing.
+    let gone = sim.allocate_id_for_tests();
+    sim.people_mut_for_tests().polities[pi]
+        .law_mut(law)
+        .expect("the law")
+        .holder = Some(gone);
+    sim.advance_minutes(DAY).expect("lives");
+    let l = sim.people().polities[pi]
+        .laws
+        .iter()
+        .find(|l| l.id == law)
+        .expect("the law");
+    assert_eq!((l.status, l.holder), (LawStatus::InForce, None));
+    assert!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.parcel_offer_for_tests(ctx, homes[2]))
+            .is_none()
+    );
+}

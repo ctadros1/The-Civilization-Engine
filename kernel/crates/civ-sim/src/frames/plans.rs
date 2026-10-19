@@ -66,7 +66,7 @@ fn way_over(sim: &Sim, rect: &RectCm) -> bool {
 
 /// The plans' revision: 0 while no polity has laid a plan; else it changes whenever a plan is
 /// put forward, passed or ended, a building is begun on its reserved ground or one there falls,
-/// and with the ways.
+/// a parcel is given or its keeper changes, and with the ways.
 pub fn plans_rev(sim: &Sim) -> u64 {
     if sim.people.polities.iter().all(|p| p.plans.is_empty()) {
         return 0;
@@ -85,6 +85,18 @@ pub fn plans_rev(sim: &Sim) -> u64 {
             mix(law.get());
             mix(u64::from(status == LawStatus::InForce));
             mix(occupied(sim, p, law).len() as u64);
+            mix(sim
+                .land
+                .plots
+                .iter()
+                .filter(|q| q.allotted.is_some_and(|a| a.law == law))
+                .count() as u64);
+            mix(p
+                .laws
+                .iter()
+                .find(|l| l.id == law)
+                .and_then(|l| l.holder)
+                .map_or(0, PermanentId::get));
         }
     }
     h.max(1)
@@ -118,6 +130,21 @@ fn words(sim: &Sim, p: &Polity, law: PermanentId, built: usize, occupied: usize)
         "put forward"
     };
     let mut out = format!("{place}: {}, {status}", super::word::law_text(sim, p, l));
+    // Who keeps it and how many of its parcels are given (M8c slice CU).
+    if l.status == LawStatus::InForce {
+        match l.holder.and_then(|h| sim.people.person(h)) {
+            Some(k) => out.push_str(&format!("; kept by {}", k.given)),
+            None => out.push_str("; nobody keeps it"),
+        }
+        let parcels = p.plan_of(law).map_or(0, |x| x.layout.parcels.len());
+        let given = sim
+            .land
+            .plots
+            .iter()
+            .filter(|q| q.allotted.is_some_and(|a| a.law == law))
+            .count();
+        out.push_str(&format!("; {given} of {parcels} parcels given"));
+    }
     if built > 0 {
         out.push_str(&format!(
             "; a way already runs over {built} of the stretches it reserves"

@@ -1242,6 +1242,7 @@ impl Sim {
             use_,
             since: now,
             receipt: None,
+            allotted: None,
         });
         // Its plot is levelled as one begun would be; past its first stage, it is done.
         let levelling = civ_agents::build::level_plot(

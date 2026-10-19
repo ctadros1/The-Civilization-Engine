@@ -2386,6 +2386,29 @@ fn a_schema_68_save_loads_with_no_wade_remembered() {
 }
 
 #[test]
+fn a_schema_157_save_loads_and_goes_on() {
+    // A schema-157 save, from before plots kept the parcels of plans they were given and plans
+    // their keepers' staking (M8c slice CU, first part): its plots load with no parcel, and it
+    // goes on.
+    let mut sim = load_first();
+    for p in &mut sim.land_mut_for_tests().plots {
+        p.allotted = None;
+    }
+    for p in &mut sim.people_mut_for_tests().polities {
+        for plan in &mut p.plans {
+            plan.1.staked_h = 0.0;
+        }
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V157;
+    let path = republish("slice-ct3", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-157 save loads");
+    assert_eq!(loaded.land().plots, sim.land().plots);
+    assert!(loaded.land().plots.iter().all(|p| p.allotted.is_none()));
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_156_save_loads_and_goes_on() {
     // A schema-156 save, from before polities kept the buildings begun on ground a plan
     // reserves (M8c slice CT, third part): it loads with none, and goes on.

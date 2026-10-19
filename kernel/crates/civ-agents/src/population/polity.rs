@@ -1028,6 +1028,14 @@ impl Population {
             if here && !term_ended {
                 return;
             }
+            // A plan whose keeper is gone stays in force with nobody to give its parcels (M8c
+            // slice CU): the office lies vacant until a later version names another.
+            if kind == PolicyKind::Plan {
+                if let Some(l) = self.polities[pi].law_mut(law) {
+                    l.holder = None;
+                }
+                return;
+            }
             if kind == PolicyKind::KeepStore {
                 let sheltered = self.polity_sheltered(pi);
                 self.polities[pi].settle_stores(ctx.now, &ctx.catalog.goods, sheltered);
@@ -3279,10 +3287,12 @@ impl Population {
                             g.needs
                                 .is_none_or(|t| self.person(d).is_some_and(|p| p.knows(t)))
                         });
+                        // Its sponsor would keep it: stake its parcels and give them (M8c slice CU).
                         for p in fc.plans.iter().filter(|p| p.policy == k && knows) {
                             moves.push(MoveOption {
                                 site: Some(p.code),
                                 target: None,
+                                nominee: Some(d),
                                 ..blank
                             });
                         }
@@ -3823,6 +3833,7 @@ impl Population {
                         version: passed as u16 + 1,
                         grid: p.grid,
                         layout: p.layout,
+                        staked_h: 0.0,
                     },
                 ));
             }

@@ -895,8 +895,8 @@ fn buildings_check_their_numbers_and_materials() {
     for (from, to, needle) in [
         ("use = \"dwelling\"", "use = \"palace\"", "unknown use"),
         ("ground = \"living\"", "ground = \"barn\"", "`frame.ground`"),
-        ("bays = [1, 8]", "bays = [1, 12]", "`frame.bays`"),
-        ("storeys = [1, 2]", "storeys = [1, 3]", "`frame.storeys`"),
+        ("bays = [1, 8]", "bays = [1, 13]", "`frame.bays`"),
+        ("storeys = [1, 2]", "storeys = [1, 5]", "`frame.storeys`"),
         (
             "covering = \"core:good/thatch\"",
             "thatch = \"core:good/thatch\"",

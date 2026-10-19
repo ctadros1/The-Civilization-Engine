@@ -590,6 +590,12 @@ pub fn design_cautious(
             }
             params[fp::WALL_KIND] = wall_kind;
             params[fp::FOOTING] = footing;
+            // From frame version 3 a mass wall keeps to the program's own range, at its least,
+            // thickened by caution as it bears more by its square root (ADR-0031 §2: crushing
+            // grows with the thickness and so does the height it stands; a design prior).
+            if wall_kind > 0 && civ_grammar::FRAME_DESIGN_VERSION >= 3 {
+                params[fp::WALL_CM] = stronger(rules.mass_wall_cm.0, 2.0, rules.mass_wall_cm.1);
+            }
             // The door's wall faces `toward`: it faces a quarter turn on from the length.
             let facing = toward.map_or(0, |t| direction(at, t));
             let angle = (facing - TURN as i32 / 4).rem_euclid(TURN as i32) as u16;
@@ -1751,6 +1757,23 @@ pub(crate) mod tests {
         .expect("rubble design");
         assert_eq!(rubble.params[frame_params::WALL_KIND], 1);
         assert_eq!(rubble.params[frame_params::FOOTING], 1);
+        // Under frame version 3 a mass wall takes the program's own least thickness (30 cm), and
+        // caution thickens it by its square root, within the program's range.
+        assert_eq!(rubble.version, civ_grammar::FRAME_DESIGN_VERSION);
+        assert_eq!(rubble.params[frame_params::WALL_CM], 30);
+        let wary = design_cautious(
+            &def,
+            &goods,
+            shape,
+            (0.0, 0.0),
+            None,
+            4.0,
+            None,
+            Some(fire_rubble),
+        )
+        .expect("a wary rubble design");
+        assert_eq!(wary.params[frame_params::WALL_CM], 60, "30 cm × √4");
+        assert!(civ_grammar::expand(&wary, &def.rules).is_ok());
 
         // Fire caution for wattle with mud brick known -> mud brick mass wall (kind 2, footing 1)!
         let fire_mud = FireDesign {

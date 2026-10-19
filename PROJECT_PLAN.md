@@ -5084,6 +5084,16 @@ and M6a gives rivers a daily flow.
         part). **Test:** the core's frame programs carry the three system techniques, and
         framing and each system technique can be found by building huts. **Boundary:** content
         API 151.
+      - *Third part, as built (2026-10-19): builders design under version 3* (ADR-0031 §2).
+        `FRAME_DESIGN_VERSION` is 3, so every frame now designed is a version 3 spec (saving its
+        32 parameters); with nothing of version 3's own it expands as version 2 did. A mass
+        wall, chosen for fire caution where masonry is known, now takes the program's own least
+        mass thickness (30 cm in the core, where it took the daub's 15) and caution thickens it
+        by its square root within the program's range (a design prior), as caution deepens
+        timber sections. Content may now give a frame program up to 12 bays and four storeys;
+        the core's keep theirs. **Test:** a fire-cautious rubble frame is a version 3 spec with
+        30 cm walls, 60 cm at four times the caution, and expands; content refusing 13 bays and
+        five storeys.
     - **DA, lateral margins and the shaking tool:** lateral modes, `Request::Shake`,
       `InfluenceKind::Earthquake`, one keyed evaluation, cracks as loss, deaths by who was
       inside, incidents and an episode with origin, the dashboard's shaking row. *Tests:* the

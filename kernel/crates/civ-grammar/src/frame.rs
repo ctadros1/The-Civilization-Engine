@@ -50,10 +50,10 @@ pub const MAX_BAYS: i32 = 12;
 /// research 11-05 §2.2, one to three in timber).
 pub const MAX_STOREYS: u8 = 4;
 
-/// The frame version builders design under: version 2 until they weigh what version 3 adds,
-/// storeys above two, ties, trusses and walls by storey (M8d slice CZ, ADR-0031 §2). Content's
-/// programs are held to what it allows.
-pub const FRAME_DESIGN_VERSION: u16 = 2;
+/// The frame version builders design under: version 3 since M8d slice CZ (ADR-0031 §2), whose
+/// specs with nothing of their own build what version 2 builds. Content's programs are held to
+/// what it allows.
+pub const FRAME_DESIGN_VERSION: u16 = 3;
 
 /// The most bays and storeys a frame of `version` may have.
 pub fn frame_limits(version: u16) -> (i32, u8) {

@@ -665,13 +665,13 @@ mod tests {
         let (mut b, _) = hut();
         let u = upkeep();
         let worn = |group: u32, from: &GroupCondition| {
-            let mut c = from.clone();
+            let mut c = *from;
             c.group = group;
             c.loss = 0.5;
             c.state = GroupState::Symptom;
             c
         };
-        let first = b.condition[0].clone();
+        let first = b.condition[0];
         let wall = |level: Level| civ_grammar::group_id(level, None, GroupKind::MassWall, 0);
         let ties = civ_grammar::group_id(Level::Upper, None, GroupKind::Ties, 0);
         // Two storeys: the words of version 2, whatever storey.

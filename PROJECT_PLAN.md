@@ -5054,6 +5054,23 @@ and M6a gives rivers a daily flow.
       used; height weighed in hours against ground and walks. *Tests:* 11-05 §4's span facts; a
       four-storey untied rubble design refused by its margins and the tied one standing; the
       ten-year smoke's failure band unchanged.
+      - *First part, as built (2026-10-19): gravity for version 3* (ADR-0031 §2). A version 3
+        mass wall of one storey carries its share of what bears on the first storey's walls, by
+        the area it carries (the roof's slope, the lofts and half of every floor above its
+        storey, which the grammar now gives each storey's group), with its own weight and the
+        walls above it on its line at the program's density. Tied at each floor, it is
+        restrained over its storey; untied, nothing holds it between the ground and the roof, so
+        it stands its line's whole height; past a height over thickness of 27 it cannot stand
+        (EN 1996-1-1 §5.5.4, a design prior logged in §9). Posts share what the first storey's
+        posts carry, so storeyed posts above carry less and buckle over their storey. A truss's
+        principal rafters bend under half their truss's plan, its heel joint holds 20 kN against
+        the roof's thrust (a design prior, logged), and purlins bend under their share of the
+        slope. Versions 1 and 2 are checked as before. `Timber` gains a density, which only
+        masonry reads. **Test:** a four-storey rubble wall 30 cm thick untied cannot stand at
+        any storey and tied stands, the first storey's carrying the walls above; storeyed posts
+        a storey up at half the load have twice the margin; a truss under thatch stands and
+        under heavier covering its margin falls and is held to its joint's; every civ-agents
+        unit test unchanged.
     - **DA, lateral margins and the shaking tool:** lateral modes, `Request::Shake`,
       `InfluenceKind::Earthquake`, one keyed evaluation, cracks as loss, deaths by who was
       inside, incidents and an episode with origin, the dashboard's shaking row. *Tests:* the
@@ -6349,6 +6366,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
   wide, the lateral mode and the tool, what follows a shaking, public buildings, style over seven
   traits, and the M8 demo with the gate. **Scale:** the demo's two settlements are founded at the
   largest size that lives within the time box; plan §7's 30,000 is recorded as reached or not.
+- **Design priors for gravity in version 3 (2026-10-19, M8d slice CZ, ADR-0031 §2):** NUDGE:
+  a mass wall's restrained height over its thickness past 27 cannot stand
+  (`MOST_SLENDERNESS`, EN 1996-1-1 §5.5.4's limit; research 11-05 gives height over thickness
+  only as a vulnerability scale, stable below about 4-6 and much poorer above 9-12), and a
+  truss's heel joint holds 20 kN against the roof's thrust (`TRUSS_JOINT_N`, a pegged and
+  notched joint; no report gives a figure). Both are design priors, to be revisited if the
+  checks they set decide what is built.
 - **Why no frame is built, probed (2026-10-19, M8d slice CY's first step, ADR-0031 §6):** read
   from the code, so it holds for every world. **Nobody can come to know framing:** founders bring
   the roundhouse, wood shaping, rubble walling and mud brick, but not `jointed_frame`, and its

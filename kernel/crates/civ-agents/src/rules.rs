@@ -46,15 +46,16 @@ pub fn wall_kind(spec: &civ_grammar::BuildingSpec, rules: &civ_grammar::ProgramR
     }
 }
 
-/// The strength in compression of a mass wall of kind `kind` (1 rubble, 2 mud brick, 3 fired
-/// brick) in a program with rules `rules`, pascals: the program's own figure (ADR-0031 §1), or
-/// rubble's for a kind it does not name.
-pub fn masonry_strength_pa(rules: &civ_grammar::ProgramRules, kind: i32) -> f64 {
+/// The strength in compression and weight of a mass wall of kind `kind` (1 rubble, 2 mud brick, 3
+/// fired brick) in a program with rules `rules`, pascals and kilograms a cubic metre: the
+/// program's own figures (ADR-0031 §1), or rubble's for a kind it does not name.
+pub fn masonry(rules: &civ_grammar::ProgramRules, kind: i32) -> (f64, f64) {
     match rules {
         civ_grammar::ProgramRules::Frame(r) => {
-            r.masonry[(kind.clamp(1, 3) - 1) as usize].strength_pa
+            let m = r.masonry[(kind.clamp(1, 3) - 1) as usize];
+            (m.strength_pa, m.kg_per_m3)
         }
-        _ => 1.5e6,
+        _ => (1.5e6, 1900.0),
     }
 }
 

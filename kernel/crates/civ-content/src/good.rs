@@ -132,6 +132,8 @@ impl GoodFile {
                 stiffness_pa: t.stiffness_gpa * 1e9,
                 creep: t.creep,
                 sustained: t.sustained,
+                // Timber's weight is the frame's (research 11-08 §2.1); only masonry reads it.
+                density_kg_m3: 760.0,
             }),
             store: self.store.as_ref().map(|t| StoreDef {
                 keeps_kg: t.keeps_kg,

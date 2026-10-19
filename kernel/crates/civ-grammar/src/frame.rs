@@ -1913,8 +1913,9 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
         }
     } else if l.version >= 3 {
         // Version 3: one group per long wall per storey, each at its own thickness and height,
-        // each carrying what bears on it from above (ADR-0031 §1; its own weight and the walls
-        // above it are slice CZ's).
+        // each carrying the roof's slope, the lofts and half of every floor above its storey
+        // (ADR-0031 §2; its own weight and the walls above it the structure check adds).
+        let lofts_m2 = l.lofts.len() as f64 * bay_m2;
         for t in 0..l.storeys {
             for (side, _) in l.long_walls() {
                 out.push(GroupOf {
@@ -1929,7 +1930,9 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
                     section: [l.l - l.windows_along(t, side, l.b), l.storey_wt[t as usize]],
                     length: l.h,
                     spacing: l.wall_kind as f64,
-                    area_m2: roof_plan_side_m2 + (suspended_m2 - raised_m2) / 2.0 + raised_m2 / 4.0,
+                    area_m2: roof_plan_side_m2
+                        + (lofts_m2 + f64::from(l.storeys - 1 - t) * storey_m2) / 2.0
+                        + if t == 0 { raised_m2 / 4.0 } else { 0.0 },
                 });
             }
         }

@@ -4953,6 +4953,25 @@ and M6a gives rivers a daily flow.
         storey's height, weighs as version 2's when it is one thickness and less when it thins;
         thicker above, a third storey's wall on two, and storeys' thicknesses for wattle are
         refused. Versions 1 and 2 are unchanged.
+      - *Fourth part, as built (2026-10-19): three and four storeys by a stair* (ADR-0031 §1).
+        Version 3 lays out a third and fourth storey (`Level::Third` and `Level::Fourth`,
+        appended), each floored on joists like the second, with walls, rails and cross beams of
+        its own. A stair (`STAIR` 1; `PartKind::Stair` appended) is a flight from each storey to
+        the next at 38° and 80 cm wide in place of the ladder, along the left long wall, each
+        flight beside the well of the one below, so each storey gives up the floor of the flight
+        rising from it and of the well it is reached through; three storeys or more need one, a
+        stair on one storey and a stair of any other kind are refused by name, and so is a flight
+        longer than the building. A flight costs a ladder's hours and boards by its boards' area
+        against a ladder's of the same rise (no new content figure). A version 3 expansion may
+        have 96 groups (`max_groups`): a hall of twelve bays and four storeys keeps a joist group
+        a bay a floor; versions 1 and 2 keep 32. The structure and condition code counts every
+        storey above the first where it counted the second, which for every building now
+        standing is the same. **Test:** three and four storeys have a space a storey less the
+        stair's floor, a flight a storey but the top and no ladder, a joist group a bay a floor,
+        posts through every storey and walls on the top one; a third storey costs more in every
+        stage but the roof's; a stair on two storeys costs more than the ladder; twelve bays of
+        four lofted storeys stay within 96 groups; the refusals; every part within the plot; a
+        golden for version 3. Versions 1 and 2 are unchanged.
     - **CZ, tall and wide under gravity:** walls' own weight, restraint by ties, purlins,
       storeyed posts and joints, live load by use; `trussed_roof`, `storeyed_frame` and
       `tied_masonry` as content; caution thickening mass walls; trust kept by every technique

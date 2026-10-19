@@ -161,13 +161,7 @@ fn own_weight(g: &Group) -> f64 {
 
 /// The level a group's id names.
 fn level_of(g: &Group) -> Option<Level> {
-    match (g.id >> 24) & 0xff {
-        0 => Some(Level::Ground),
-        1 => Some(Level::Upper),
-        2 => Some(Level::Loft),
-        3 => Some(Level::Roof),
-        _ => None,
-    }
+    Level::from_code(((g.id >> 24) & 0xff) as u8)
 }
 
 /// What one member of bending group `g` of building `e` carries, newtons spread along it, as
@@ -213,7 +207,13 @@ fn weight_on_posts(e: &Expansion, loads: &Loads) -> (f64, f64) {
     } else {
         0.0
     };
-    let upper = area(Level::Upper);
+    // Every storey above the first.
+    let upper: f64 = e
+        .spaces
+        .iter()
+        .filter(|s| s.level.above_ground())
+        .map(|s| s.area_m2)
+        .sum();
     let own: f64 = e
         .groups
         .iter()

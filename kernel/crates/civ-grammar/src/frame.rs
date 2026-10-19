@@ -22,8 +22,11 @@
 //! Version 3 (ADR-0031 §1) has room for twelve bays and four storeys and names its own
 //! parameters (roof and post systems, wall ties, each storey's wall thickness and openings, a
 //! stair). Its mass walls are laid storey by storey, each storey's at its own thickness, thinning
-//! upward and grouped by storey; with its own parameters all 0, a frame of wattle walls builds what
-//! version 2 builds.
+//! upward and grouped by storey. It may rise three or four storeys, each above the first floored
+//! on joists like the second; three or more need a stair, a flight from each storey to the next
+//! in place of the ladder, beside the well of the flight below, and each storey gives up the
+//! flights' floor. With its own parameters all 0, a frame of wattle walls builds what version 2
+//! builds.
 
 use std::f64::consts::TAU;
 
@@ -57,6 +60,18 @@ pub fn frame_limits(version: u16) -> (i32, u8) {
 
 /// Most component groups an expansion may have (research 11-06 §5.1: 8 to 32).
 pub const MAX_GROUPS: usize = 32;
+/// Most component groups a version 3 expansion may have: a hall of twelve bays and four storeys
+/// keeps a group for each floor's joists in each bay.
+pub const MAX_GROUPS_V3: usize = 96;
+
+/// The most component groups an expansion of frame `version` may have.
+pub fn max_groups(version: u16) -> usize {
+    if version >= 3 {
+        MAX_GROUPS_V3
+    } else {
+        MAX_GROUPS
+    }
+}
 /// Most rafters a slope has in a bay, or joists a floor has in a bay: indexes fit a byte.
 const MAX_MEMBERS_PER_BAY: usize = 64;
 /// Rise of a ladder from the horizontal, hundredths of a degree.
@@ -65,6 +80,12 @@ pub const LADDER_TILT_CENTIDEG: i32 = 7000;
 pub const LADDER_WIDTH_CM: i32 = 50;
 /// Thickness of a ladder, centimetres.
 const LADDER_DEPTH_CM: f64 = 8.0;
+/// Rise of a stair from the horizontal, hundredths of a degree.
+pub const STAIR_TILT_CENTIDEG: i32 = 3800;
+/// Width of a stair, centimetres.
+pub const STAIR_WIDTH_CM: i32 = 80;
+/// Depth of a stair's strings and treads, centimetres.
+const STAIR_DEPTH_CM: f64 = 20.0;
 /// Height of a hearth's clay, centimetres.
 const HEARTH_HEIGHT_CM: f64 = 10.0;
 /// How much wider than its post a posthole is dug, centimetres (as the hut's).
@@ -327,9 +348,11 @@ struct Layout<'r> {
     raised: bool,
     door_side: i32,
     door_bay: i32,
-    /// Floors on joists: a raised floor (with its middle rail) and an upper storey's, with the
+    /// Floors on joists: a raised floor (with its middle rail) and each upper storey's, with the
     /// height of their surface.
     floors: Vec<(Level, f64, bool)>,
+    /// Whether a stair rises from each storey to the next (version 3) in place of a ladder.
+    stair: bool,
     wall_kind: i32,
     footing: i32,
     tile: bool,
@@ -458,7 +481,8 @@ impl<'r> Layout<'r> {
         }
         // Version 3's parameters: none before it, and in it only those laid out so far.
         let laid_out = |i: usize| {
-            spec.version >= 3 && (fp::STOREY_WALL_CM..fp::STOREY_WALL_CM + 4).contains(&i)
+            spec.version >= 3
+                && ((fp::STOREY_WALL_CM..fp::STOREY_WALL_CM + 4).contains(&i) || i == fp::STAIR)
         };
         if let Some(i) = (fp::ROOF_SYSTEM..crate::PARAMS).find(|&i| p[i] != 0 && !laid_out(i)) {
             return refuse(if spec.version < 3 {
@@ -491,9 +515,23 @@ impl<'r> Layout<'r> {
         if storey_wt.windows(2).any(|w| w[1] > w[0]) {
             return refuse("a mass wall may thin upward, not thicken");
         }
-        if storeys > 2 && p[fp::STAIR] == 0 {
+        let stair = p[fp::STAIR];
+        if !(0..=1).contains(&stair) {
+            return refuse(format!(
+                "stair {stair} (parameter {}) is unknown to frame version {}",
+                fp::STAIR,
+                spec.version
+            ));
+        }
+        if storeys > 2 && stair == 0 {
             return refuse(format!(
                 "{storeys} storeys need a stair (parameter {})",
+                fp::STAIR
+            ));
+        }
+        if storeys == 1 && stair != 0 {
+            return refuse(format!(
+                "a stair (parameter {}) needs a storey above the first",
                 fp::STAIR
             ));
         }
@@ -604,13 +642,12 @@ impl<'r> Layout<'r> {
             raised,
             door_side,
             door_bay,
-            floors: [
-                raised.then_some((Level::Ground, r, true)),
-                (storeys > 1).then_some((Level::Upper, r + h, false)),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
+            floors: raised
+                .then_some((Level::Ground, r, true))
+                .into_iter()
+                .chain((1..storeys).map(|t| (storey_level(t), r + h * f64::from(t), false)))
+                .collect(),
+            stair: stair != 0,
             wall_kind,
             footing,
             tile,
@@ -621,6 +658,19 @@ impl<'r> Layout<'r> {
             return refuse(format!(
                 "the ladder up to a floor raised {raise} cm would stand beyond the roof's edge"
             ));
+        }
+        if layout.stair {
+            let run = layout.stair_run();
+            if run > l - layout.pd {
+                return refuse(format!(
+                    "a stair rising {eave} cm runs {run:.0} cm, more than the building's length"
+                ));
+            }
+            if f64::from(2 * STAIR_WIDTH_CM) > w - layout.pd {
+                return refuse(format!(
+                    "two flights of stairs {STAIR_WIDTH_CM} cm wide do not fit a width of {width} cm"
+                ));
+            }
         }
         Ok(layout)
     }
@@ -671,6 +721,34 @@ impl<'r> Layout<'r> {
         rise / ladder_tilt().sin()
     }
 
+    /// How far a flight of stairs reaches along the length to rise a storey, and its length.
+    fn stair_run(&self) -> f64 {
+        self.h / stair_tilt().tan()
+    }
+
+    fn stair_len(&self) -> f64 {
+        self.h / stair_tilt().sin()
+    }
+
+    /// Floor a storey gives up to the stair, square metres: the flight rising from it and the
+    /// well it is reached through, each a flight's plan.
+    fn stair_m2(&self, t: i32) -> f64 {
+        if !self.stair {
+            return 0.0;
+        }
+        let flights = usize::from(t > 0) + usize::from(t + 1 < self.storeys);
+        flights as f64 * self.stair_run() * f64::from(STAIR_WIDTH_CM) * M2
+    }
+
+    /// What storey `t` is for.
+    fn use_of(&self, t: i32) -> SpaceUse {
+        if t == 0 {
+            self.rules.ground_use
+        } else {
+            self.rules.upper_use
+        }
+    }
+
     /// Every floor on joists by bay: (level, bay, floor surface height); raised and upper floors
     /// cover every bay, lofts their own.
     fn decks(&self) -> Vec<(Level, usize, f64)> {
@@ -700,12 +778,17 @@ fn ladder_tilt() -> f64 {
     f64::from(LADDER_TILT_CENTIDEG) / 100.0 * TAU / 360.0
 }
 
+/// A stair's rise from the horizontal, radians.
+fn stair_tilt() -> f64 {
+    f64::from(STAIR_TILT_CENTIDEG) / 100.0 * TAU / 360.0
+}
+
 /// The slopes: index and which side of the ridge (`+v`, `-v`).
 const SLOPES: [(usize, f64); 2] = [(0, 1.0), (1, -1.0)];
 
-/// The level of storey `t` (0 the first).
+/// The level of storey `t` (0 the first; a layout has at most [`MAX_STOREYS`]).
 fn storey_level(t: i32) -> Level {
-    if t == 0 { Level::Ground } else { Level::Upper }
+    Level::storey(t as usize).unwrap_or(Level::Fourth)
 }
 
 /// The parts of a building as they are laid out, with their semantic ids.
@@ -1119,9 +1202,10 @@ fn roof(p: &mut Parts) {
 }
 
 /// Finish: a floor beaten on the ground, or boards on the joists of every floor; the hearth on
-/// the lowest living storey; ladders up to a raised floor, an upper storey and a loft. How many
-/// ladders.
-fn finish(p: &mut Parts) -> usize {
+/// the lowest living storey; ladders up to a raised floor, an upper storey and a loft, or a stair
+/// from each storey to the next. What the ladders and flights take, in ladders: a flight takes a
+/// ladder's labour and boards by its boards' area against a ladder's of the same rise.
+fn finish(p: &mut Parts) -> f64 {
     let l = p.layout;
     if !l.raised {
         p.push(
@@ -1143,8 +1227,7 @@ fn finish(p: &mut Parts) -> usize {
             Some(BOARDS),
         );
     }
-    let uses = [l.rules.ground_use, l.rules.upper_use];
-    if let Some(t) = (0..l.storeys).find(|&t| uses[t as usize] == SpaceUse::Living) {
+    if let Some(t) = (0..l.storeys).find(|&t| l.use_of(t) == SpaceUse::Living) {
         let hearth = f64::from(l.rules.hearth_cm);
         p.push(
             (storey_level(t), None, PartKind::Hearth, 0),
@@ -1166,7 +1249,7 @@ fn finish(p: &mut Parts) -> usize {
             LADDER_DEPTH_CM,
         ]
     };
-    let mut ladders = 0;
+    let mut ladders = 0.0;
     if l.raised {
         // Outside the door, its top at the doorway, its foot under the eaves.
         let out = l.wt / 2.0 + l.ladder_run(l.r) / 2.0;
@@ -1177,7 +1260,7 @@ fn finish(p: &mut Parts) -> usize {
             SIDE_BACK => (-l.l / 2.0 - out, 0.0, l.along()),
             _ => (l.l / 2.0 + out, 0.0, l.back()),
         };
-        ladders += 1;
+        ladders += 1.0;
         p.push(
             (Level::Ground, None, PartKind::Ladder, 0),
             Stage::Finish,
@@ -1187,8 +1270,29 @@ fn finish(p: &mut Parts) -> usize {
             Some(BOARDS),
         );
     }
-    if l.storeys > 1 {
-        ladders += 1;
+    if l.stair {
+        // Along the left long wall from the back, each flight beside the well of the one below.
+        let run = l.stair_run();
+        let width = f64::from(STAIR_WIDTH_CM);
+        let flight = l.stair_len() * width / (l.ladder_len(l.h) * f64::from(LADDER_WIDTH_CM));
+        for t in 0..l.storeys - 1 {
+            let v = -l.w / 2.0 + l.pd / 2.0 + width * (f64::from(t % 2) + 0.5);
+            ladders += flight;
+            p.push(
+                (storey_level(t), None, PartKind::Stair, 0),
+                Stage::Finish,
+                (
+                    l.u_line(0) + l.pd / 2.0 + run / 2.0,
+                    v,
+                    l.z_g + l.h * f64::from(t) + l.h / 2.0,
+                ),
+                [l.stair_len(), width, STAIR_DEPTH_CM],
+                (l.along(), STAIR_TILT_CENTIDEG),
+                Some(BOARDS),
+            );
+        }
+    } else if l.storeys > 1 {
+        ladders += 1.0;
         p.push(
             (Level::Upper, None, PartKind::Ladder, 0),
             Stage::Finish,
@@ -1201,7 +1305,7 @@ fn finish(p: &mut Parts) -> usize {
     if let Some(&j) = l.lofts.first() {
         let from = l.z_g + l.h * f64::from(l.storeys - 1);
         let rise = l.z_p + l.jst + l.dk - from;
-        ladders += 1;
+        ladders += 1.0;
         p.push(
             (Level::Loft, None, PartKind::Ladder, 0),
             Stage::Finish,
@@ -1229,20 +1333,14 @@ fn facts(l: &Layout) -> Facts {
     let rules = l.rules;
     let storey_m2 = l.l * l.w * M2;
     let bay_m2 = l.b * l.w * M2;
-    let mut spaces = vec![Space {
-        level: Level::Ground,
-        bays: l.all_bays as u16,
-        area_m2: storey_m2,
-        use_: rules.ground_use,
-    }];
-    if l.storeys > 1 {
-        spaces.push(Space {
-            level: Level::Upper,
+    let mut spaces: Vec<Space> = (0..l.storeys)
+        .map(|t| Space {
+            level: storey_level(t),
             bays: l.all_bays as u16,
-            area_m2: storey_m2,
-            use_: rules.upper_use,
-        });
-    }
+            area_m2: storey_m2 - l.stair_m2(t),
+            use_: l.use_of(t),
+        })
+        .collect();
     if !l.lofts.is_empty() {
         spaces.push(Space {
             level: Level::Loft,
@@ -1286,8 +1384,8 @@ fn facts(l: &Layout) -> Facts {
 }
 
 /// The labour and materials of each stage, from the members' counts and sizes, the walls'
-/// area (square centimetres) and the ladders.
-fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: usize) -> Vec<StageNeeds> {
+/// area (square centimetres) and the ladders (a flight of stairs in ladders).
+fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> Vec<StageNeeds> {
     let rules = l.rules;
     let n = l.n;
     let storey_m2 = l.l * l.w * M2;
@@ -1318,8 +1416,7 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: usize) -
         + timber(l.beam, 1, beams_m * 100.0 + ridge_m * 100.0)
         + timber(l.raf, rafters, l.slope)
         + timber(l.jst, joists, l.w);
-    let boards_kg =
-        deck_m2 * l.dk * 0.01 * rules.timber_kg_per_m3 + rules.ladder_kg * ladders as f64;
+    let boards_kg = deck_m2 * l.dk * 0.01 * rules.timber_kg_per_m3 + rules.ladder_kg * ladders;
     let slots = |timber: f64, wattle: f64, covering: f64, boards: f64| {
         let mut kg = vec![0.0; frame_materials::COUNT];
         kg[usize::from(TIMBER)] = timber;
@@ -1403,7 +1500,7 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: usize) -
             stage: Stage::Finish,
             labour_h: rules.finish_h_per_m2 * beaten_m2
                 + rules.decking_h_per_m2 * deck_m2
-                + rules.ladder_h * ladders as f64,
+                + rules.ladder_h * ladders,
             materials_kg: slots(0.0, 0.0, 0.0, boards_kg),
         },
     ]
@@ -1559,7 +1656,7 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
     for &(level, j, _) in &decks {
         let (kind, span) = match level {
             Level::Loft => (GroupKind::LoftJoists, l.w),
-            Level::Upper => (GroupKind::FloorJoists, l.w),
+            Level::Upper | Level::Third | Level::Fourth => (GroupKind::FloorJoists, l.w),
             // A raised floor, with its middle rail.
             Level::Ground | Level::Roof => (GroupKind::RaisedFloor, l.w / 2.0),
         };
@@ -1664,9 +1761,10 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
             area_m2: storey_m2,
         });
     }
-    if out.len() > MAX_GROUPS {
+    let most = max_groups(l.version);
+    if out.len() > most {
         return refuse(format!(
-            "{} component groups are more than {MAX_GROUPS}",
+            "{} component groups are more than {most}",
             out.len()
         ));
     }
@@ -2105,7 +2203,8 @@ mod tests {
     #[test]
     fn every_part_stands_within_the_plot() {
         // The plot is the box round the roof (crate civ-agents); every part's plan lies under it.
-        for (s, r, _) in goldens() {
+        let tall = [(tall(3), tall_house()), (tall(4), tall_house())];
+        for (s, r) in goldens().map(|(s, r, _)| (s, r)).into_iter().chain(tall) {
             let e = expand_frame(&s, &r).expect("expands");
             let (mut x0, mut x1, mut y0, mut y1) = (i32::MAX, i32::MIN, i32::MAX, i32::MIN);
             for &(x, y) in &e.roof_outline {
@@ -2137,7 +2236,8 @@ mod tests {
 
     #[test]
     fn areas_by_use_sum_to_the_floor() {
-        for (s, r, _) in goldens() {
+        let tall = [(tall(3), tall_house()), (tall(4), tall_house())];
+        for (s, r) in goldens().map(|(s, r, _)| (s, r)).into_iter().chain(tall) {
             let e = expand_frame(&s, &r).expect("expands");
             let by_use: f64 = e.floor_by_use.iter().sum();
             let spaces: f64 = e.spaces.iter().map(|s| s.area_m2).sum();
@@ -2338,6 +2438,191 @@ mod tests {
         );
     }
 
+    /// Rules that allow a hall of up to twelve bays and four storeys.
+    fn tall_house() -> FrameRules {
+        FrameRules {
+            bays: (1, 12),
+            storeys: (1, 4),
+            ..house()
+        }
+    }
+
+    /// Four bays of 2.5 m by 5 m, `storeys` high, with a stair (version 3).
+    fn tall(storeys: u8) -> BuildingSpec {
+        let mut s = two_storeys();
+        s.version = 3;
+        s.storeys = storeys;
+        s.params[fp::STAIR] = 1;
+        s
+    }
+
+    #[test]
+    fn version_three_rises_three_and_four_storeys_by_a_stair() {
+        let r = tall_house();
+        // A flight rises 2 m at 38°, so it runs 2 m / tan 38° along the length, 80 cm wide.
+        let flight_m2 = 200.0 / (38.0_f64).to_radians().tan() * 80.0 * 1.0e-4;
+        for storeys in [3_u8, 4] {
+            let e = expand_frame(&tall(storeys), &r).expect("a tall building expands");
+            let n = usize::from(storeys);
+            let levels: Vec<Level> = e.spaces.iter().map(|s| s.level).collect();
+            assert_eq!(
+                levels,
+                (0..n).filter_map(Level::storey).collect::<Vec<_>>(),
+                "a space a storey"
+            );
+            // Each storey gives up the flight rising from it and the well it is reached through.
+            for (t, s) in e.spaces.iter().enumerate() {
+                let flights = usize::from(t > 0) + usize::from(t + 1 < n);
+                assert!(
+                    (s.area_m2 - (50.0 - flights as f64 * flight_m2)).abs() < 1e-9,
+                    "storey {t}: {}",
+                    s.area_m2
+                );
+            }
+            let stairs: Vec<&Part> = e
+                .parts
+                .iter()
+                .filter(|p| p.kind == PartKind::Stair)
+                .collect();
+            assert_eq!(stairs.len(), n - 1, "a flight from each storey to the next");
+            assert!(stairs.iter().all(|p| p.tilt == STAIR_TILT_CENTIDEG));
+            assert!(
+                !e.parts.iter().any(|p| p.kind == PartKind::Ladder),
+                "the stair takes the ladder's place"
+            );
+            let ids: HashSet<u32> = e.parts.iter().map(|p| p.id).collect();
+            assert_eq!(ids.len(), e.parts.len(), "part ids are unique");
+            let gids: HashSet<u32> = e.groups.iter().map(|g| g.id).collect();
+            assert_eq!(gids.len(), e.groups.len(), "group ids are unique");
+            // Every storey above the first floored on joists, a group a bay.
+            let floors = e
+                .groups
+                .iter()
+                .filter(|g| g.kind == GroupKind::FloorJoists)
+                .count();
+            assert_eq!(floors, 4 * (n - 1));
+            let top = Level::storey(n - 1).expect("a storey");
+            assert!(
+                e.groups
+                    .iter()
+                    .any(|g| g.kind == GroupKind::TieBeams && g.id >> 24 == u32::from(top.code()))
+            );
+            // Posts run through every storey to the plates.
+            let posts = e
+                .groups
+                .iter()
+                .find(|g| g.kind == GroupKind::Posts)
+                .expect("posts");
+            assert_eq!(posts.length_cm, 200 * i32::from(storeys));
+            // Walls on every storey; living floor from every storey.
+            assert!(
+                e.parts
+                    .iter()
+                    .any(|p| p.kind == PartKind::Daub && p.id >> 24 == u32::from(top.code()))
+            );
+            assert!((e.floor_area_m2 - e.floor_by_use[SpaceUse::Living.index()]).abs() < 1e-9);
+        }
+        // A third storey takes more of every stage but the roof's than two.
+        let two = expand_frame(
+            &BuildingSpec {
+                storeys: 2,
+                ..tall(3)
+            },
+            &r,
+        )
+        .expect("two storeys by a stair");
+        let three = expand_frame(&tall(3), &r).expect("three storeys");
+        for stage in [Stage::Frame, Stage::Walls, Stage::Finish] {
+            assert!(three.stages[stage.index()].labour_h > two.stages[stage.index()].labour_h);
+        }
+        assert_eq!(
+            three.stages[Stage::Roof.index()],
+            two.stages[Stage::Roof.index()]
+        );
+        // Two storeys by a stair: one flight and no ladder; costlier than the ladder it replaces.
+        assert_eq!(
+            two.parts
+                .iter()
+                .filter(|p| p.kind == PartKind::Stair)
+                .count(),
+            1
+        );
+        let mut laddered = tall(3);
+        laddered.storeys = 2;
+        laddered.params[fp::STAIR] = 0;
+        let laddered = expand_frame(&laddered, &r).expect("two storeys by a ladder");
+        assert!(
+            two.stages[Stage::Finish.index()].labour_h
+                > laddered.stages[Stage::Finish.index()].labour_h
+        );
+        // Twelve bays of four storeys, lofted throughout, stay within version 3's groups.
+        let mut hall = tall(4);
+        hall.params[fp::BAYS] = 12;
+        hall.params[fp::LOFT_BAYS] = (1 << 12) - 1;
+        if let Footprint::Rect { length, .. } = &mut hall.footprint {
+            *length = 12 * 250;
+        }
+        let e = expand_frame(&hall, &r).expect("a hall of twelve bays and four storeys");
+        assert!(e.groups.len() > MAX_GROUPS && e.groups.len() <= MAX_GROUPS_V3);
+        assert_eq!(max_groups(2), MAX_GROUPS);
+    }
+
+    #[test]
+    fn a_stair_is_refused_by_name_where_it_has_no_place() {
+        let r = tall_house();
+        let mut odd = tall(3);
+        odd.params[fp::STAIR] = 2;
+        assert_eq!(
+            expand_frame(&odd, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "stair 2 (parameter {}) is unknown to frame version 3",
+                fp::STAIR
+            )))
+        );
+        let mut low = tall(3);
+        low.storeys = 1;
+        low.params[fp::JOIST_CM] = 0;
+        assert_eq!(
+            expand_frame(&low, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "a stair (parameter {}) needs a storey above the first",
+                fp::STAIR
+            )))
+        );
+        let mut v2 = tall(2);
+        v2.version = 2;
+        assert_eq!(
+            expand_frame(&v2, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "parameter {} is unknown to frame version 2",
+                fp::STAIR
+            )))
+        );
+        // A stair runs further than one bay of 2.5 m is long.
+        let mut short = tall(3);
+        short.params[fp::BAYS] = 1;
+        short.params[fp::DOOR] = fp::door(fp::SIDE_RIGHT, 0);
+        if let Footprint::Rect { length, .. } = &mut short.footprint {
+            *length = 250;
+        }
+        assert!(matches!(
+            expand_frame(&short, &r),
+            Err(GrammarError::OutOfRange(m)) if m.contains("more than the building's length")
+        ));
+    }
+
+    #[test]
+    fn version_three_golden_is_pinned() {
+        // Three storeys by a stair: a change here is a change to what version 3 builds.
+        let e = expand_frame(&tall(3), &tall_house()).expect("expands");
+        assert_eq!(
+            expansion_hash(&e),
+            GOLDEN_V3_THREE_STOREYS,
+            "{:#x}",
+            expansion_hash(&e)
+        );
+    }
+
     #[test]
     fn a_spec_keeps_the_parameters_its_version_has() {
         let mut s = three_bays_one_loft();
@@ -2487,4 +2772,5 @@ mod tests {
     const GOLDEN_TWO_STOREYS: u64 = 0x7375_f0e6_7a98_0a0f;
     const GOLDEN_RAISED_STORE: u64 = 0xebfd_8b32_1aba_8021;
     const GOLDEN_WORKSHOP: u64 = 0xeadd_ad42_080a_e6ba;
+    const GOLDEN_V3_THREE_STOREYS: u64 = 0xc325_5d0f_4a84_a224;
 }

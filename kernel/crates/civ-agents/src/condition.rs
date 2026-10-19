@@ -486,18 +486,13 @@ pub fn room_left(b: &Building, upkeep: &Upkeep, e: &Expansion, room: [f64; 3]) -
     let upper: f64 = e
         .spaces
         .iter()
-        .filter(|s| s.level == civ_grammar::Level::Upper)
+        .filter(|s| s.level.above_ground())
         .map(|s| s.area_m2)
         .sum();
     let floors: f64 = e
         .spaces
         .iter()
-        .filter(|s| {
-            matches!(
-                s.level,
-                civ_grammar::Level::Ground | civ_grammar::Level::Upper
-            )
-        })
+        .filter(|s| s.level == civ_grammar::Level::Ground || s.level.above_ground())
         .map(|s| s.area_m2)
         .sum();
     if upper > 0.0 && floors > 0.0 {

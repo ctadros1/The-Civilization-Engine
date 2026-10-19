@@ -24,8 +24,9 @@ use std::f64::consts::TAU;
 pub mod frame;
 
 pub use frame::{
-    FRAME_DESIGN_VERSION, FRAME_VERSION, FrameRules, MAX_BAYS, MAX_GROUPS, MAX_STOREYS,
-    expand_frame, frame_limits, frame_materials, frame_params,
+    FRAME_DESIGN_VERSION, FRAME_VERSION, FrameRules, MAX_BAYS, MAX_GROUPS, MAX_GROUPS_V3,
+    MAX_STOREYS, STAIR_TILT_CENTIDEG, STAIR_WIDTH_CM, expand_frame, frame_limits, frame_materials,
+    frame_params, max_groups,
 };
 
 /// Version of the hut grammar.
@@ -303,6 +304,8 @@ pub enum PartKind {
     MassWall,
     /// A fired clay roof tile (frame version 2).
     Tile,
+    /// A flight of stairs from one storey to the next (frame version 3).
+    Stair,
 }
 
 impl PartKind {
@@ -328,6 +331,7 @@ impl PartKind {
             PartKind::StoneFooting => 16,
             PartKind::MassWall => 17,
             PartKind::Tile => 18,
+            PartKind::Stair => 19,
         }
     }
 }
@@ -378,6 +382,10 @@ pub enum Level {
     Loft,
     /// The roof itself.
     Roof,
+    /// A third storey (frame version 3).
+    Third,
+    /// A fourth storey (frame version 3).
+    Fourth,
 }
 
 impl Level {
@@ -388,7 +396,35 @@ impl Level {
             Level::Upper => 1,
             Level::Loft => 2,
             Level::Roof => 3,
+            Level::Third => 4,
+            Level::Fourth => 5,
         }
+    }
+
+    /// The level with stable code `code`.
+    pub fn from_code(code: u8) -> Option<Level> {
+        [
+            Level::Ground,
+            Level::Upper,
+            Level::Loft,
+            Level::Roof,
+            Level::Third,
+            Level::Fourth,
+        ]
+        .into_iter()
+        .find(|l| l.code() == code)
+    }
+
+    /// The level of storey `t`, 0 the first, up to the fourth.
+    pub fn storey(t: usize) -> Option<Level> {
+        [Level::Ground, Level::Upper, Level::Third, Level::Fourth]
+            .get(t)
+            .copied()
+    }
+
+    /// Whether it is a storey above the first: the second, third or fourth.
+    pub fn above_ground(self) -> bool {
+        matches!(self, Level::Upper | Level::Third | Level::Fourth)
     }
 }
 

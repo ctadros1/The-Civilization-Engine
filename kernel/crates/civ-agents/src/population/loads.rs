@@ -514,7 +514,7 @@ impl Population {
                     .map(|s| s.area_m2)
                     .sum()
             };
-            let (ground, upper) = (area(Level::Ground), area(Level::Upper));
+            let (ground, upper) = (area(Level::Ground), upper_storeys_m2(&e));
             if ground + upper > 0.0 {
                 upper / (ground + upper)
             } else {
@@ -668,6 +668,15 @@ impl Population {
 }
 
 /// How grave it is that a group of kind `kind` gave way, the gravest first.
+/// Floor of every storey above the first, square metres.
+fn upper_storeys_m2(e: &Expansion) -> f64 {
+    e.spaces
+        .iter()
+        .filter(|s| s.level.above_ground())
+        .map(|s| s.area_m2)
+        .sum()
+}
+
 fn gravity(kind: GroupKind) -> u8 {
     match kind {
         GroupKind::Posts | GroupKind::MassWall => 0,
@@ -718,7 +727,7 @@ fn loads_on(b: &Building, e: &Expansion, kept: &[Vec<f64>; 3]) -> Loads {
     let kg = |kind: usize| -> f64 { kept[kind].iter().map(|v| v.max(0.0)).sum() };
     let per = |kg: f64, m2: f64| if m2 > 0.0 { kg * G / m2 } else { 0.0 };
     let raised = e.groups.iter().any(|g| g.kind == GroupKind::RaisedFloor);
-    let (ground, upper) = (area(Level::Ground), area(Level::Upper));
+    let (ground, upper) = (area(Level::Ground), upper_storeys_m2(e));
     let upper_kg = if ground + upper > 0.0 {
         kg(storage::FLOOR) * upper / (ground + upper)
     } else {

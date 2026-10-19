@@ -4906,11 +4906,52 @@ and M6a gives rivers a daily flow.
         small town" band of 50–200) and 8.93 ha of home plots (1,122 a hectare of home plot);
         a village of 200 by the same bench stood at 157 a hectare on 1.3 ha. Slice CX is closed,
         and with it M8c.
-  - **M8d, buildings and earthquakes, and the M8 demo** (designed when reached, from
-    `docs/briefs/m8-building.md`): frame grammar v3 (up to 4 storeys, style traits live);
-    techniques that open structural systems rather than caps; a lateral margin; the earthquake
-    as the observer's tool acting through margins; buildings a polity raises; the M8 demo, time-
-    boxed, nudges logged; the gate measured with M8b–M8d in.
+  - **M8d, buildings and earthquakes, and the M8 demo**
+    ([ADR-0031](decisions/0031-tall-public-buildings-and-shaking.md), from
+    `docs/briefs/m8-building.md`): frame grammar version 3 (up to four storeys, walls by
+    storey, openings, a stair, style traits live) beside frozen versions 1 and 2; techniques
+    that open structural systems rather than raise caps; a lateral margin used only when the
+    observer shakes the land, one evaluation per building per event; what a failure teaches and
+    the rules that may follow; height as a household's choice in hours against M8c's land costs;
+    buildings a polity raises and owns; style over seven traits; the M8 demo, time-boxed, nudges
+    logged; the gate measured with M8b–M8d in. Slices:
+    - **CY, grammar v3 vocabulary, no change in behaviour:** first a time-boxed probe of why no
+      frame is built now that land costs (who knows framing, the designs weighed, the hours of
+      floor by storeys); then frame version 3, `PARAMS` 32 by version, per-storey mass walls,
+      openings, the stair, truss and storeyed-post expansions, strengths and unit weights in
+      content, goldens for version 3 with versions 1 and 2 unchanged, saves and wire. *Tests:*
+      goldens, refusals naming their parameter, an old save loading exactly. *Observer:* the
+      inspector's words per storey.
+    - **CZ, tall and wide under gravity:** walls' own weight, restraint by ties, purlins,
+      storeyed posts and joints, live load by use; `trussed_roof`, `storeyed_frame` and
+      `tied_masonry` as content; caution thickening mass walls; trust kept by every technique
+      used; height weighed in hours against ground and walks. *Tests:* 11-05 §4's span facts; a
+      four-storey untied rubble design refused by its margins and the tied one standing; the
+      ten-year smoke's failure band unchanged.
+    - **DA, lateral margins and the shaking tool:** lateral modes, `Request::Shake`,
+      `InfluenceKind::Earthquake`, one keyed evaluation, cracks as loss, deaths by who was
+      inside, incidents and an episode with origin, the dashboard's shaking row. *Tests:* the
+      four-way sweep (wattle frame, rubble, mud brick, fired brick in lime, tied and untied)
+      ordering by construction, counterfactual villages, cracked against mended, save and load
+      mid-aftermath, origin kept out of the failures row. *Observer:* the earthquake panel and
+      a damage layer.
+    - **DB, after the shaking:** `MostStoreys` and `TiedWalls`, forecasts of floor lost and of
+      losses avoided, lessons from what was seen to fall. *Tests:* a shaken village proposes a
+      rule only where someone knows the remedy; a household planning height opposes it.
+    - **DC, public buildings:** polity owners, `RaiseBuilding`, storehouse, hall and tower
+      programs each answering a measured loss, equal shares, pay for work, patrons' shares,
+      ties evidence, four dates and stalls. *Tests:* no proposal without a measured loss; a
+      stalled hall costs its sponsor `Counsel` evidence; the ledger conserved over a project.
+      *Observer:* the project panel.
+    - **DD, style over seven traits:** opening share, ornament, finish and symmetry; taste over
+      seven traits; sighting scaled by height; copying only what one could build; the clocks
+      over all seven. *Tests:* a one-settlement world drifts as before in the three old traits;
+      a tower is seen from farther; the neighbours row stays green or amber.
+    - **DE, the M8 demo and the gate:** two settlements founded large, an organic port and an
+      inland settlement that may pass a plan, at the largest size that lives within the time
+      box; who builds tall, what public buildings rise or stall, what falls when both are shaken
+      alike and which rules follow; nudges logged; the scale gate measured and amended to the
+      figure reached (ADR-0028 §1).
 
 **Post-v1 (ordered, not sized):**
 - **M9, Aggregate LOD & scale:** cohort model, 10–30 settlements, 100k+
@@ -6167,3 +6208,18 @@ One line each. Don't re-litigate without a reason written next to the entry.
   heard from being proposed, since its gathering now passed one, and a case's time to pay
   reopened the loan, before the pledged field lay between crops (the courts have their own
   tests).
+- **M8d design (2026-10-19, plan §7):** from the building brief (`docs/briefs/m8-building.md`),
+  one ADR, [ADR-0031](decisions/0031-tall-public-buildings-and-shaking.md). **The brief's open
+  questions, answered:** (1) `trussed_roof`, `storeyed_frame` and `tied_masonry`, none known to
+  founders, each requiring `jointed_frame`; (2) the tool takes a lateral share of weight, and the
+  observer's panel speaks in intensity words behaviour never reads; (3) one strength over the map
+  in v0, no epicentre; (4) no natural earthquakes until worldgen has a tectonic source; (5) no
+  ground amplification; (6) the existing collapse shares serve shaking, with whoever is inside at
+  that minute; (7) no storey let to another household in M8; (8) no value bears on ornament;
+  (9) a hall is proposed only for a loss measured first; (10) polities own buildings, not
+  organizations; (11) no fire after shaking yet; (12) shaking has a dashboard row of its own,
+  kept out of the structural failures row by origin. **Order:** a time-boxed probe of why no frame
+  is built now that land costs, then grammar v3 with no behaviour change, gravity for tall and
+  wide, the lateral mode and the tool, what follows a shaking, public buildings, style over seven
+  traits, and the M8 demo with the gate. **Scale:** the demo's two settlements are founded at the
+  largest size that lives within the time box; plan §7's 30,000 is recorded as reached or not.

@@ -3193,3 +3193,13 @@ nightfall, came home in the dark, and could not go for water, so by midnight it 
 only fetch water while there is light, and the rule that sends someone in the last of the light
 never got a chance because everyone was still out working. Now, when a family's water would not
 last until morning, its people stop working early enough to make the trip and eat before dark.
+
+## 2026-10-19 — Planning the last part of the growing city: tall buildings and earthquakes
+
+**Decided:** the next stretch of work lets people build houses up to four storeys, with the
+building methods that make that possible (roof trusses, frames built storey on storey, stone walls
+tied in at each floor) spreading only as people learn them. The observer gets an earthquake tool:
+each building is checked once against the shaking, some crack and some fall, and the village can
+then argue about rules on height or tied walls. Villages can also raise public buildings, such as
+a common storehouse, a hall or a watchtower, but only when they have a real problem that building
+would solve. The milestone ends with a demonstration run of a port town and an inland town.

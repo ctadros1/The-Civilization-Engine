@@ -663,6 +663,12 @@ pub struct Obligation {
 }
 
 impl Obligation {
+    /// Whether it answers a taking: not a debt (which names a loan), ground rent, or what a
+    /// finding with no taking behind it imposed (a breach of a privilege), which name none.
+    pub fn of_incident(&self) -> bool {
+        !matches!(self.kind, Owed::Debt | Owed::GroundRent) && self.incident != 0
+    }
+
     /// Food energy still owed, kcal.
     pub fn left_kcal(&self) -> f64 {
         (f64::from(self.kcal) - f64::from(self.paid_kcal)).max(0.0)

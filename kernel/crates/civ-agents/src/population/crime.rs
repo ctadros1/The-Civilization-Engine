@@ -1186,12 +1186,12 @@ impl Population {
                 continue;
             }
             // A debt imposed by a finding (M7d slice CB) names a loan, not an incident, and ground
-            // rent (M8c slice CU) none: the one who answers for it is the debtor household's
-            // elder.
-            let taker = if matches!(ob.kind, Owed::Debt | Owed::GroundRent) {
-                self.elder_of(ob.debtor, ctx.now, ctx.params)
-            } else {
+            // rent (M8c slice CU) or a breach's finding (M7c slice BX) none: the one who answers
+            // for it is the debtor household's elder.
+            let taker = if ob.of_incident() {
                 self.order.incident(ob.incident).map(|i| i.actor)
+            } else {
+                self.elder_of(ob.debtor, ctx.now, ctx.params)
             };
             let Some(taker) = taker else {
                 continue;
@@ -1247,8 +1247,8 @@ impl Population {
                             })
                             .count();
                         // A debt was found before everyone, and its loan witnessed; ground rent is
-                        // a plan's, known to all.
-                        let known = if matches!(ob.kind, Owed::Debt | Owed::GroundRent) {
+                        // a plan's, and a breach was found before everyone: known to all.
+                        let known = if !ob.of_incident() {
                             1.0
                         } else {
                             knowing as f64 / households.len().max(1) as f64
@@ -1375,11 +1375,12 @@ impl Population {
     /// The chronicle's note of how obligation `k` ended.
     fn restitution_note(&mut self, ctx: &Ctx, k: usize, place: (f32, f32)) {
         let ob = self.order.obligations[k];
-        // A debt names a loan, not an incident (M7d slice CB); ground rent names none.
-        let taker = if matches!(ob.kind, Owed::Debt | Owed::GroundRent) {
-            self.elder_of(ob.debtor, ctx.now, ctx.params)
-        } else {
+        // A debt names a loan, not an incident (M7d slice CB); ground rent and a breach's finding
+        // name none.
+        let taker = if ob.of_incident() {
             self.order.incident(ob.incident).map(|i| i.actor)
+        } else {
+            self.elder_of(ob.debtor, ctx.now, ctx.params)
         };
         let Some(taker) = taker else {
             return;
@@ -1427,6 +1428,9 @@ impl Population {
                         "what the finding imposed of a loan from {}",
                         of(ob.beneficiary)
                     ),
+                    _ if !ob.of_incident() => {
+                        format!("what the finding imposed for {}", of(ob.beneficiary))
+                    }
                     _ => format!("what it owed {} for {who}'s taking", of(ob.beneficiary)),
                 };
                 match ob.standing {

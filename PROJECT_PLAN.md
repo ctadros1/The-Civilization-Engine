@@ -4762,6 +4762,16 @@ and M6a gives rivers a daily flow.
         wire change.
     - **CV, compliance and cases:** expected sanction, sightings, cases under a plan, forums,
       remedies (fine, removal, regularisation), the backlog.
+      - *Before it, a fix (2026-10-19): what a finding with no taking behind it imposed was never
+        answered.* A breach of a privilege found (M7c slice BX) imposed its compensation and fine
+        as obligations naming no incident (0), and the day's answering looked for the taker
+        through the incident, found none, and passed them over: they stood open and unanswered
+        for ever, and a save holding one would not load ("obligation names missing incident 0").
+        Such an obligation is now answered by the debtor household's elder, as a debt is, known
+        to all since it was found before everyone, and its chronicle line says "what the finding
+        imposed for" the one owed; a save may hold one that names its case. **Test:** the breach
+        heard in the privilege village, found, has its compensation and fine answered within
+        days, and the world saves and loads. No saves, content or wire change.
     - **CW, use and nuisance rules:** district uses and two rule templates (worked fires from
       homes, middens from wells).
     - **CX, land value and density:** the derived map (paid, reckoned, nothing recorded), the

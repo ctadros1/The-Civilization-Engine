@@ -3113,3 +3113,10 @@ against the gathering, or offer to buy them from the common store. A family acce
 payment is worth more of its own work than breaking new ground elsewhere would cost; if it
 refuses, its field stays out of the plan. A field the plan has taken is not sown again, and once
 its last crop is in, homes can be built there. The settlement's own fields go to the plan at once.
+
+## 2026-10-19 — Fix: fines for breaking a privilege were never asked for
+
+**Fixed:** when the gathering found that someone had broken an organization's privilege, the
+fine and compensation it imposed were recorded but nobody was ever asked to pay them, and a save
+holding one could not be loaded. They are now answered like any other finding. Found while
+preparing cases under town plans, which would have hit the same problem.

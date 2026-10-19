@@ -6334,6 +6334,8 @@ fn order_problems(order: &civ_agents::crime::Order) -> Vec<String> {
     if let Some(o) = order.obligations.iter().find(|o| match o.kind {
         civ_agents::crime::Owed::Debt => order.credit.claim(o.incident).is_none(),
         civ_agents::crime::Owed::GroundRent => o.incident != 0,
+        // A breach's finding (M7c slice BX) names no incident, but its case.
+        _ if o.incident == 0 => o.case.is_none(),
         _ => !known(o.incident),
     }) {
         out.push(format!(

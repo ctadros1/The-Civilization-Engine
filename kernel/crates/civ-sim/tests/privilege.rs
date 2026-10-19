@@ -340,6 +340,31 @@ fn a_member_brings_a_breach_seen_at_a_door_and_it_is_heard() {
                 .iter()
                 .any(|o| o.case == Some(c.id) && o.debtor == sc.seller)
         );
+        // What a breach's finding imposed names no incident: it is answered all the same, and
+        // a world holding it saves and loads.
+        sc.sim.advance_minutes(3 * DAY).expect("advances");
+        assert!(
+            sc.sim
+                .people()
+                .order
+                .obligations
+                .iter()
+                .filter(|o| o.case == Some(c.id))
+                .all(|o| o.answer.is_some()),
+            "answered: {:?}",
+            sc.sim.people().order.obligations
+        );
+        let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).expect("temp dir");
+        let saves =
+            commons_persist::SaveDir::create(dir.path(), civ_schema::SAVE_EXTENSION).expect("dir");
+        let saved = persist::save(
+            &mut sc.sim,
+            &saves,
+            commons_persist::SaveKind::Manual,
+            "breach",
+        )
+        .expect("saves");
+        persist::load(&saved.path, content()).expect("loads");
     }
 }
 

@@ -4939,6 +4939,20 @@ and M6a gives rivers a daily flow.
         3 building saved and loaded exactly. **Exact:** the bench's village of three
         settlements, 30 days in both modes, kept every section's digest but the save header's.
         **Boundary:** saves unchanged (a version 3 design saves 32); no content or wire change.
+      - *Third part, as built (2026-10-19): mass walls by storey* (ADR-0031 §1). In version 3 each
+        storey's mass wall takes its own thickness (`STOREY_WALL_CM`, 0 for the spec's wall
+        thickness), never thicker than the storey below, only for mass walls and only for storeys
+        the building has; its parts are laid at that thickness, the gables at the top storey's,
+        its volume (and so its stone and hours) is summed storey by storey, and its groups are
+        one per long wall per storey, each a storey high. The wall kind stays in the group's
+        spacing, not moved to a material slot as ADR-0031 §1 has it: that needs a fifth material
+        slot and changes nothing yet (recorded, decided with slice CZ's checks). What bears on
+        each storey's wall is still what bears on the whole wall in version 2; its own weight and
+        the walls above it are slice CZ's. **Test:** a two-storey rubble frame of 50 cm below and
+        40 cm above lays each storey's wall parts at its thickness, has four wall groups of a
+        storey's height, weighs as version 2's when it is one thickness and less when it thins;
+        thicker above, a third storey's wall on two, and storeys' thicknesses for wattle are
+        refused. Versions 1 and 2 are unchanged.
     - **CZ, tall and wide under gravity:** walls' own weight, restraint by ties, purlins,
       storeyed posts and joints, live load by use; `trussed_roof`, `storeyed_frame` and
       `tied_masonry` as content; caution thickening mass walls; trust kept by every technique

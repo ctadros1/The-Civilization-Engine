@@ -1249,6 +1249,7 @@ pub(crate) mod tests {
             shapes: Vec::new(),
             skill: None,
             upkeep: crate::params::Upkeep::default(),
+            systems: [None; 3],
         }
     }
 
@@ -1669,6 +1670,7 @@ pub(crate) mod tests {
             shapes: Vec::new(),
             skill: None,
             upkeep: crate::params::Upkeep::default(),
+            systems: [None; 3],
         };
         let good = |id: &str| GoodDef {
             money: None,

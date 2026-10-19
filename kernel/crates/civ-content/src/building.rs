@@ -56,6 +56,32 @@ pub(crate) struct BuildingFile {
     pub frame: Option<Frame>,
     /// The sizes people build a frame program to.
     pub design: Option<Design>,
+    /// The techniques that open frame version 3's systems (ADR-0031 §2).
+    #[serde(default)]
+    pub systems: Option<SystemsFile>,
+}
+
+/// The technique that opens each of frame version 3's systems: a technique id, or "" for none
+/// (ADR-0031 §2).
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct SystemsFile {
+    /// A roof of trusses carrying purlins.
+    #[serde(default)]
+    pub trussed_roof: String,
+    /// Each storey's posts standing on the frame below.
+    #[serde(default)]
+    pub storeyed_posts: String,
+    /// Mass walls tied at each storey.
+    #[serde(default)]
+    pub wall_ties: String,
+}
+
+impl SystemsFile {
+    /// The technique ids, in the order of [`civ_agents::params::BuildingDef::systems`].
+    pub fn ids(&self) -> [&str; 3] {
+        [&self.trussed_roof, &self.storeyed_posts, &self.wall_ties]
+    }
 }
 
 /// How a program's parts wear and decay (`civ_agents::params::Upkeep`), as authored: for each
@@ -370,6 +396,7 @@ impl BuildingFile {
             shapes: Vec::new(),
             skill,
             upkeep: self.upkeep.upkeep(),
+            systems: [None; 3],
         };
         def.shapes = civ_agents::build::shapes(&def, goods);
         Some(def)

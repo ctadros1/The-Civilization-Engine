@@ -1548,3 +1548,9 @@ Content API 150 (M8d slice CY, ninth part) moves mass walls' figures from code i
 program (ADR-0031 §1): `frame.mass_wall_cm`, a mass wall's own thickness range from frame version
 3, and `[frame.masonry]`, for rubble, mud brick and fired brick the hours to lay a cubic metre,
 its weight and its strength in compression, which the structure check reads.
+
+Content API 151 (M8d slice CZ, second part) brings a building program's `[systems]`: for each of
+frame version 3's systems, the technique that opens it, `trussed_roof`, `storeyed_posts` and
+`wall_ties` (each a technique id, or omitted for none). A technique a program names there gates
+work (E3005). The core adds `trussed_roof`, `storeyed_frame` and `tied_masonry`, none known to
+founders, each tried toward in building huts; `jointed_frame` is now tried toward there too.

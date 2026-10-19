@@ -76,7 +76,7 @@ id = "core"
 name = "Core"
 version = "0.1.0"
 content_schema = 1
-kernel_content_api = 150
+kernel_content_api = 151
 "#;
 
 /// Writes a pack named `core` containing exactly the given files and loads it.
@@ -824,6 +824,21 @@ fn buildings_check_their_numbers_and_materials() {
             b.technique.map(|t| c.techniques[t].id.as_str()),
             Some("core:technique/jointed_frame")
         );
+        // Frame version 3's systems, each opened by a technique of its own (ADR-0031 §2).
+        let systems: Vec<Option<&str>> = b
+            .systems
+            .iter()
+            .map(|t| t.map(|t| c.techniques[t].id.as_str()))
+            .collect();
+        assert_eq!(
+            systems,
+            [
+                Some("core:technique/trussed_roof"),
+                Some("core:technique/storeyed_frame"),
+                Some("core:technique/tied_masonry"),
+            ],
+            "{id}"
+        );
         let civ_grammar::ProgramRules::Frame(r) = &b.rules else {
             panic!("{id} has frame rules")
         };
@@ -857,6 +872,23 @@ fn buildings_check_their_numbers_and_materials() {
         };
         let e = civ_grammar::expand(&spec, &b.rules).unwrap_or_else(|e| panic!("{id}: {e}"));
         assert!(e.total_labour_h() > 0.0, "{id}");
+    }
+    // Framing and the systems it opens are found by building huts (M8d slice CZ); none is known
+    // to founders.
+    let building_huts = c
+        .activities
+        .iter()
+        .position(|a| a.id == "core:activity/build_hut")
+        .expect("building huts");
+    for id in [
+        "core:technique/jointed_frame",
+        "core:technique/trussed_roof",
+        "core:technique/storeyed_frame",
+        "core:technique/tied_masonry",
+    ] {
+        let t = c.techniques.iter().position(|t| t.id == id).expect(id);
+        assert!(c.techniques[t].tried_in.contains(&building_huts), "{id}");
+        assert!(c.techniques[t].e50_h < 100_000.0, "{id} can be found");
     }
     assert_eq!(hut.use_, civ_land::PlotUse::Dwelling);
     let real_longhouse = real("building/longhouse.toml");

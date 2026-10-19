@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 150;
+pub const KERNEL_CONTENT_API: u32 = 151;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -787,9 +787,20 @@ fn resolve(
             found
         };
         let technique = gate(c, parsed, &technique_index, &d.rel, &d.file.technique);
+        // The techniques that open its version 3 systems (ADR-0031 §2).
+        let mut systems = [None; 3];
+        if let Some(named) = &d.file.systems {
+            for (slot, id) in named.ids().into_iter().enumerate() {
+                match gate(c, parsed, &technique_index, &d.rel, id) {
+                    Ok(t) => systems[slot] = t,
+                    Err(()) => ok = false,
+                }
+            }
+        }
         if let (true, Ok(technique)) = (ok, technique)
-            && let Some(def) = d.file.def(&good_index, &goods, technique, skill)
+            && let Some(mut def) = d.file.def(&good_index, &goods, technique, skill)
         {
+            def.systems = systems;
             if let Some(why) = civ_agents::build::unbuildable(&def, &goods) {
                 c.push(
                     "E3001",
@@ -1434,7 +1445,10 @@ fn knowledge_problems(
     for (t, def) in catalog.techniques.iter().enumerate() {
         let gated = catalog.activities.iter().any(|a| a.technique == Some(t))
             || catalog.recipes.iter().any(|r| r.technique == Some(t))
-            || catalog.buildings.iter().any(|b| b.technique == Some(t))
+            || catalog
+                .buildings
+                .iter()
+                .any(|b| b.technique == Some(t) || b.systems.contains(&Some(t)))
             || catalog.bridges.iter().any(|b| b.technique == Some(t))
             || catalog.vehicles.iter().any(|v| v.technique == Some(t))
             || catalog.wells.iter().any(|w| w.technique == Some(t))

@@ -5071,6 +5071,19 @@ and M6a gives rivers a daily flow.
         a storey up at half the load have twice the margin; a truss under thatch stands and
         under heavier covering its margin falls and is held to its joint's; every civ-agents
         unit test unchanged.
+      - *Second part, as built (2026-10-19): framing found by building; the three systems as
+        techniques* (ADR-0031 §2; the probe in §9). `jointed_frame` is now tried toward in
+        building huts, half of those trying finding it in 300 qualified hours (with 1 % of the
+        hours counting, about once a generation in a village that builds: a design prior,
+        logged), so a world can come to frames without the observer's tool. `trussed_roof`,
+        `storeyed_frame` and `tied_masonry` are content techniques, none known to founders, each
+        requiring framing (tied masonry also a masonry technique), tried toward in building huts
+        at 3,000 hours (far techniques, tuning). A building program's `[systems]` names the
+        technique that opens each of version 3's systems; the core's three frame programs name
+        these three, which so gate work. Builders do not yet design under version 3 (the next
+        part). **Test:** the core's frame programs carry the three system techniques, and
+        framing and each system technique can be found by building huts. **Boundary:** content
+        API 151.
     - **DA, lateral margins and the shaking tool:** lateral modes, `Request::Shake`,
       `InfluenceKind::Earthquake`, one keyed evaluation, cracks as loss, deaths by who was
       inside, incidents and an episode with origin, the dashboard's shaking row. *Tests:* the
@@ -6366,6 +6379,11 @@ One line each. Don't re-litigate without a reason written next to the entry.
   wide, the lateral mode and the tool, what follows a shaking, public buildings, style over seven
   traits, and the M8 demo with the gate. **Scale:** the demo's two settlements are founded at the
   largest size that lives within the time box; plan §7's 30,000 is recorded as reached or not.
+- **Framing found by building (2026-10-19, M8d slice CZ, ADR-0031 §2):** NUDGE: half of those
+  raising huts would find `jointed_frame` in 300 qualified hours (1 % of their building hours
+  counting), about once a generation in a village that builds; research 07-07 WO02 places fitted
+  joinery with wood shaping and layout but gives no rate. A design prior, to be measured against
+  the ten-year smoke and the demo.
 - **Design priors for gravity in version 3 (2026-10-19, M8d slice CZ, ADR-0031 §2):** NUDGE:
   a mass wall's restrained height over its thickness past 27 cannot stand
   (`MOST_SLENDERNESS`, EN 1996-1-1 §5.5.4's limit; research 11-05 gives height over thickness

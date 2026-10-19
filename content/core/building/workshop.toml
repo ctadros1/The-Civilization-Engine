@@ -22,6 +22,11 @@ wall_cm = 15
 overhang_cm = 50
 joist_cm = 15
 
+[systems]                        # what opens frame version 3's systems (ADR-0031 §2)
+trussed_roof = "core:technique/trussed_roof"
+storeyed_posts = "core:technique/storeyed_frame"
+wall_ties = "core:technique/tied_masonry"
+
 [upkeep]
 # How its parts wear and decay (ADR-0009 §4): for each kind, the share of its section or covering
 # lost a year and the share at which it shows. Thatch wants significant mending every 2-3 years

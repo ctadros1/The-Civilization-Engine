@@ -5011,6 +5011,17 @@ and M6a gives rivers a daily flow.
         storey's 70 cm in the ground, a posts group a wall a storey, the first carrying what the
         through posts do and the top 50 m² less, the same timber and postholes and twenty
         posts' more hours; the refusals; every part within the plot. Every golden is unchanged.
+      - *Eighth part, as built (2026-10-19): wall ties* (ADR-0031 §2's `tied_masonry`). `TIES`
+        1 lays a timber bond along every mass wall at the head of each storey
+        (`PartKind::WallTie`), a bay at a time on the long walls and whole across the ends, into
+        which that storey's floor or the roof is framed; it is costed as beams in the walls'
+        stage. Each storey's ties are a group (`GroupKind::Ties`) that carries nothing by
+        gravity: its restraint is what slices CZ and DA count. Lying in the wall, ties rot as
+        posts do, by the wall's wetness, and fall with the walls. Refused for a timber frame,
+        whose joints tie it. **Test:** a tied two-storey rubble frame has ten ties at each
+        storey's head, half a beam under it, a group a storey carrying nothing, and exactly 60 m
+        of beam's hours and timber more in its walls' stage; ties on wattle, an unknown value
+        and ties before version 3 are refused. Every golden is unchanged.
     - **CZ, tall and wide under gravity:** walls' own weight, restraint by ties, purlins,
       storeyed posts and joints, live load by use; `trussed_roof`, `storeyed_frame` and
       `tied_masonry` as content; caution thickening mass walls; trust kept by every technique

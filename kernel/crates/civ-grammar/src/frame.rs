@@ -30,8 +30,9 @@
 //! length a mass wall bears on. Its roof may be trussed: two principal rafters and a king post on
 //! the tie beam at each frame line, carrying a purlin along each slope halfway up on which the
 //! rafters rest, so each spans half its slope. Its posts may be storeyed, each storey's standing
-//! on the frame below rather than running through every storey. With its own parameters all 0, a
-//! frame of wattle walls builds what version 2 builds.
+//! on the frame below rather than running through every storey; its mass walls may be tied, a
+//! timber bond along every wall at each storey's head. With its own parameters all 0, a frame of
+//! wattle walls builds what version 2 builds.
 
 use std::f64::consts::TAU;
 
@@ -368,6 +369,8 @@ struct Layout<'r> {
     /// Whether each storey's posts stand on the frame below, not through every storey
     /// (version 3).
     storeyed: bool,
+    /// Whether a timber tie binds the mass walls at each storey's head (version 3).
+    ties: bool,
     wall_kind: i32,
     footing: i32,
     tile: bool,
@@ -500,7 +503,8 @@ impl<'r> Layout<'r> {
                 && ((fp::STOREY_WALL_CM..fp::OPENINGS + 4).contains(&i)
                     || i == fp::STAIR
                     || i == fp::ROOF_SYSTEM
-                    || i == fp::POST_SYSTEM)
+                    || i == fp::POST_SYSTEM
+                    || i == fp::TIES)
         };
         if let Some(i) = (fp::ROOF_SYSTEM..crate::PARAMS).find(|&i| p[i] != 0 && !laid_out(i)) {
             return refuse(if spec.version < 3 {
@@ -576,6 +580,20 @@ impl<'r> Layout<'r> {
             return refuse(format!(
                 "storeyed posts (parameter {}) need a storey above the first",
                 fp::POST_SYSTEM
+            ));
+        }
+        let ties = p[fp::TIES];
+        if !(0..=1).contains(&ties) {
+            return refuse(format!(
+                "wall ties {ties} (parameter {}) are unknown to frame version {}",
+                fp::TIES,
+                spec.version
+            ));
+        }
+        if ties == 1 && wall_kind == 0 {
+            return refuse(format!(
+                "wall ties (parameter {}) bind mass walls; a timber frame is tied by its joints",
+                fp::TIES
             ));
         }
         let stair = p[fp::STAIR];
@@ -714,6 +732,7 @@ impl<'r> Layout<'r> {
             openings,
             truss: roof_system == 1,
             storeyed: post_system == 1,
+            ties: ties == 1,
             wall_kind,
             footing,
             tile,
@@ -1393,6 +1412,40 @@ fn walls(p: &mut Parts) -> (f64, f64) {
     (area, volume)
 }
 
+/// Wall ties: a timber bond along each mass wall at the head of every storey, a bay at a time
+/// on the long walls and whole across the ends, into which that storey's floor or the roof is
+/// framed.
+fn ties(p: &mut Parts) {
+    let l = p.layout;
+    if !l.ties {
+        return;
+    }
+    for t in 0..l.storeys {
+        let level = storey_level(t);
+        let z = l.z_g + l.h * f64::from(t + 1) - l.beam / 2.0;
+        for j in 0..l.n {
+            for (side, v) in l.long_walls() {
+                p.member(
+                    (level, Some(j), PartKind::WallTie, side as usize),
+                    Stage::Walls,
+                    (l.u_line(j) + l.b / 2.0, v, z),
+                    [l.b, l.beam, l.beam],
+                    l.along(),
+                );
+            }
+        }
+        for (side, u) in l.end_walls() {
+            p.member(
+                (level, None, PartKind::WallTie, side as usize),
+                Stage::Walls,
+                (u, 0.0, z),
+                [l.w, l.beam, l.beam],
+                l.across(),
+            );
+        }
+    }
+}
+
 /// Roof: the covering, a slope at a time.
 fn roof(p: &mut Parts) {
     let l = p.layout;
@@ -1630,6 +1683,12 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
     let beams_m = (2 * n + rails) as f64 * l.b * 0.01 + cross_beams as f64 * l.w * 0.01;
     let ridge_m = (l.l + 2.0 * l.o) * 0.01;
     // A truss's principals and king post at each frame line, and two purlins a bay.
+    // Wall ties round every storey's head.
+    let ties_m = if l.ties {
+        f64::from(l.storeys) * 2.0 * (l.l + l.w) * 0.01
+    } else {
+        0.0
+    };
     let truss_m = if l.truss {
         ((n + 1) as f64 * (2.0 * l.principal_len() + l.king_post_h()) + 2.0 * n as f64 * l.b) * 0.01
     } else {
@@ -1725,8 +1784,8 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
         },
         StageNeeds {
             stage: Stage::Walls,
-            labour_h: walls_labour,
-            materials_kg: slots(0.0, walls_kg, 0.0, 0.0),
+            labour_h: walls_labour + rules.beam_h_per_m * ties_m,
+            materials_kg: slots(timber(l.beam, 1, ties_m * 100.0), walls_kg, 0.0, 0.0),
         },
         StageNeeds {
             stage: Stage::Roof,
@@ -1867,6 +1926,24 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
                 length: storeys_h,
                 spacing: l.wall_kind as f64,
                 area_m2: roof_plan_side_m2 + (suspended_m2 - raised_m2) / 2.0 + raised_m2 / 4.0,
+            });
+        }
+    }
+    if l.ties {
+        // Each storey's ties restrain its walls; by gravity they carry nothing.
+        for t in 0..l.storeys {
+            out.push(GroupOf {
+                level: storey_level(t),
+                bay: None,
+                kind: GroupKind::Ties,
+                index: 0,
+                stage: Stage::Walls,
+                material: timber,
+                count: 2 * n + 2,
+                section: [l.beam, l.beam],
+                length: l.b,
+                spacing: 0.0,
+                area_m2: 0.0,
             });
         }
     }
@@ -2097,6 +2174,7 @@ pub fn expand_frame(spec: &BuildingSpec, rules: &FrameRules) -> Result<Expansion
     foundation(&mut p);
     frame(&mut p);
     let (wall_area_cm2, wall_volume_cm3) = walls(&mut p);
+    ties(&mut p);
     roof(&mut p);
     let ladders = finish(&mut p);
     let mut parts = p.parts;
@@ -3171,6 +3249,71 @@ mod tests {
         old.version = 2;
         old.params[fp::POST_SYSTEM] = 1;
         assert!(expand_frame(&old, &house()).is_err());
+    }
+
+    #[test]
+    fn wall_ties_bind_each_storeys_mass_walls_at_its_head() {
+        let mut r = house();
+        r.wall_cm = (10, 60);
+        let rubble = |ties: i32| {
+            let mut s = two_storeys();
+            s.version = 3;
+            s.params[fp::WALL_KIND] = 1;
+            s.params[fp::FOOTING] = 1;
+            s.params[fp::WALL_CM] = 50;
+            s.params[fp::TIES] = ties;
+            s
+        };
+        let tied = expand_frame(&rubble(1), &r).expect("tied rubble");
+        let loose = expand_frame(&rubble(0), &r).expect("untied rubble");
+        // Four bays a long wall and the two ends, at the head of each of two storeys.
+        let ties: Vec<&Part> = tied
+            .parts
+            .iter()
+            .filter(|p| p.kind == PartKind::WallTie)
+            .collect();
+        assert_eq!(ties.len(), 2 * (2 * 4 + 2));
+        assert!(!loose.parts.iter().any(|p| p.kind == PartKind::WallTie));
+        let heads: HashSet<i32> = ties.iter().map(|p| p.at[2]).collect();
+        assert_eq!(
+            heads,
+            HashSet::from([193, 393]),
+            "half a beam under each storey's head"
+        );
+        let ids: HashSet<u32> = tied.parts.iter().map(|p| p.id).collect();
+        assert_eq!(ids.len(), tied.parts.len(), "part ids are unique");
+        // A group a storey, carrying nothing by gravity.
+        let groups: Vec<&Group> = tied
+            .groups
+            .iter()
+            .filter(|g| g.kind == GroupKind::Ties)
+            .collect();
+        assert_eq!(groups.len(), 2);
+        assert!(groups.iter().all(|g| g.area_m2 == 0.0 && g.count == 10));
+        // Round both storeys' heads: 2 × (10 + 5) m a storey, costed as beams in the walls' stage.
+        let ties_m = 2.0 * 2.0 * (10.0 + 5.0);
+        let walls = |e: &Expansion| e.stages[Stage::Walls.index()].clone();
+        assert!(
+            (walls(&tied).labour_h - walls(&loose).labour_h - r.beam_h_per_m * ties_m).abs() < 1e-9
+        );
+        let beam = f64::from(r.beam_cm) / 100.0;
+        let kg = std::f64::consts::PI / 4.0 * beam * beam * ties_m * r.timber_kg_per_m3;
+        assert!((walls(&tied).materials_kg[usize::from(TIMBER)] - kg).abs() < 1e-6);
+        assert_eq!(walls(&loose).materials_kg[usize::from(TIMBER)], 0.0);
+        // Refused: a timber frame, an unknown value, and before version 3.
+        let mut wattle = tall(2);
+        wattle.params[fp::TIES] = 1;
+        assert_eq!(
+            expand_frame(&wattle, &tall_house()),
+            Err(GrammarError::OutOfRange(format!(
+                "wall ties (parameter {}) bind mass walls; a timber frame is tied by its joints",
+                fp::TIES
+            )))
+        );
+        assert!(expand_frame(&rubble(2), &r).is_err());
+        let mut old = rubble(1);
+        old.version = 2;
+        assert!(expand_frame(&old, &r).is_err());
     }
 
     #[test]

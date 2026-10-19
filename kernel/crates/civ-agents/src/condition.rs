@@ -184,7 +184,8 @@ pub fn reconcile_all(
 /// ground).
 pub fn wear_of(kind: GroupKind, upkeep: &Upkeep) -> Option<Wear> {
     match kind {
-        GroupKind::Posts => Some(upkeep.posts),
+        // Ties lie in their wall and rot as posts do in the ground, by the wall's wetness.
+        GroupKind::Posts | GroupKind::Ties => Some(upkeep.posts),
         GroupKind::Covering => Some(upkeep.covering),
         GroupKind::Infill | GroupKind::MassWall => Some(upkeep.infill),
         GroupKind::TieBeams
@@ -283,7 +284,7 @@ pub fn wear_month(b: &mut Building, upkeep: &Upkeep, wetness: f64, rain: f64) ->
             continue;
         }
         let factor = match kind {
-            GroupKind::Posts | GroupKind::MassWall => wetness.max(0.0) * rain,
+            GroupKind::Posts | GroupKind::MassWall | GroupKind::Ties => wetness.max(0.0) * rain,
             GroupKind::Covering | GroupKind::Infill => rain,
             _ => leaking,
         };

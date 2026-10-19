@@ -312,6 +312,9 @@ pub enum PartKind {
     Truss,
     /// A beam along a roof slope from truss to truss, carrying the rafters (frame version 3).
     Purlin,
+    /// A timber bond laid along a mass wall at a storey's head, into which floors and roof are
+    /// framed (frame version 3).
+    WallTie,
 }
 
 impl PartKind {
@@ -341,6 +344,7 @@ impl PartKind {
             PartKind::Window => 20,
             PartKind::Truss => 21,
             PartKind::Purlin => 22,
+            PartKind::WallTie => 23,
         }
     }
 }
@@ -477,6 +481,8 @@ pub enum GroupKind {
     Trusses,
     /// The purlins of one roof slope (frame version 3).
     Purlins,
+    /// The ties binding one storey's mass walls at its head (frame version 3).
+    Ties,
 }
 
 impl GroupKind {
@@ -495,6 +501,7 @@ impl GroupKind {
             GroupKind::MassWall => 10,
             GroupKind::Trusses => 11,
             GroupKind::Purlins => 12,
+            GroupKind::Ties => 13,
         }
     }
 
@@ -513,11 +520,12 @@ impl GroupKind {
             GroupKind::MassWall => "mass wall",
             GroupKind::Trusses => "trusses",
             GroupKind::Purlins => "purlins",
+            GroupKind::Ties => "wall ties",
         }
     }
 
     /// Every kind, in code order.
-    pub const ALL: [GroupKind; 12] = [
+    pub const ALL: [GroupKind; 13] = [
         GroupKind::Posts,
         GroupKind::TieBeams,
         GroupKind::LoftJoists,
@@ -530,6 +538,7 @@ impl GroupKind {
         GroupKind::MassWall,
         GroupKind::Trusses,
         GroupKind::Purlins,
+        GroupKind::Ties,
     ];
 
     /// The kind with stable code `code`.

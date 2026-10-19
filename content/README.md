@@ -1512,3 +1512,7 @@ Content API 143 (M8c slice CU, third part) brings a plan's `[plan.rent]`, for `a
 the food (a good with `kcal_per_kg`) and `amount` a household owes the store each year it holds a
 parcel given by offer, on the day it was given, answered as a fine is. An offer names a fee, a
 rent or both.
+
+Content API 144 (M8c slice CU, fourth part) brings a plan's `phases` (1 to 8, 1 when unnamed) and
+`open_at` (above 0 and at most 1, 0.75 when unnamed): its parcels open in phases outward from where
+it is laid, each once that share of the parcels of those before it is given.

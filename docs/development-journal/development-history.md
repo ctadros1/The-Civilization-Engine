@@ -3097,3 +3097,10 @@ nothing put by. Each year on the day its plot was given, the household owes the 
 year's rent; it decides whether to pay much as it would a fine, pays from food it can spare, and
 the chronicle says whether it paid. Nothing yet follows a refusal: bringing cases under a plan is
 the next slice.
+
+## 2026-10-19 — CU, fourth part: phases
+
+**Built:** a plan can now open its parcels a phase at a time, nearest first, so a town fills in
+from where it starts instead of scattering over the whole grid. The next phase opens once most of
+the parcels already open are given. A "build by" deadline was set aside for now: a household is
+only given a parcel as it starts building there, so no parcel ever sits given and empty.

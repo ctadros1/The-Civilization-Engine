@@ -467,12 +467,21 @@ impl Population {
                 let (x, y) = r.centre_m();
                 (x - hearth.0).hypot(y - hearth.1)
             };
+            // Only the phases open (fourth part): the first, and each after once most of those
+            // before it are given.
+            let phase = laid.layout.phases(def.phases);
+            let taken: Vec<bool> = (0..phase.len())
+                .map(|i| given.contains(&(i as u16)))
+                .collect();
+            let open =
+                civ_land::plans::Layout::phases_open(&phase, &taken, def.phases, def.open_at);
             let mut free: Vec<(usize, &civ_land::plans::Parcel)> = laid
                 .layout
                 .parcels
                 .iter()
                 .enumerate()
                 .filter(|(i, _)| !given.contains(&(*i as u16)))
+                .filter(|(i, _)| phase[*i] < open)
                 .filter(|(_, q)| build::plot_clear(ctx.land, ctx.map, ctx.nav, &q.rect))
                 .collect();
             if free.is_empty() {

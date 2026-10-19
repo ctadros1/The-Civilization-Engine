@@ -4704,6 +4704,29 @@ and M6a gives rivers a daily flow.
         **Boundary:** content API 143 (`[plan.rent]`); the obligation kind `GroundRent` (code 5)
         and the ledger channel `GroundRent` (26), both appended to saved codes, so no saves
         schema change; a save's ground rent names incident 0; no wire change.
+      - *Fourth part, as built (2026-10-19): phases* (ADR-0030 §4: the keeper "opens phases when
+        the last is mostly taken"). A plan template may open its parcels in phases (`phases`, 1 to
+        8) at a share (`open_at`, three quarters when unnamed): its parcels ranked by distance from
+        where the plan is laid and cut into runs as near equal as may be, the nearest the first
+        phase. Only parcels of an open phase are offered, the first always, each after once that
+        share of the parcels of those before it is given. Which phases are open is read from the
+        parcels given, so nothing is saved for it. The plan's words say it opens in phases, and
+        its line on the map how many are open ("; 1 of its 2 phases open"). **Not as the ADR:**
+        the keeper does not decide to open a phase; it opens by the share alone. **Build by is
+        deferred:** a parcel is given only as its household begins its home there, and plots are
+        never let go, so no parcel stands given and unbuilt for a build-by clause to return; it
+        waits until parcels can be given ahead of building. **What it comes to:** the core's plan
+        opens in one phase, so the bench's village keeps every count and day digest of the third
+        part in both modes (the
+        content and meta digests aside). A day as the container now runs: 4.99 s
+        (deterministic, its slowest of these parts on the same work, the container's drift), 3.27 s
+        (Max). **Tests:** the layout cuts four parcels in a row into two
+        phases outward from its origin, the second opening at three quarters of the first (or at
+        half at a half); content takes 1 to 8 phases and a share above 0 and at most 1, and
+        refuses others; in the village, a plan in two phases offers a parcel of its nearer half,
+        and once every parcel of that half is given, one of the farther; its words say so; saved
+        and loaded alike. **Boundary:** content API 144 (`plan.phases`, `plan.open_at`); no saves
+        or wire change.
     - **CV, compliance and cases:** expected sanction, sightings, cases under a plan, forums,
       remedies (fine, removal, regularisation), the backlog.
     - **CW, use and nuisance rules:** district uses and two rule templates (worked fires from

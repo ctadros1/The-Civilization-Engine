@@ -161,6 +161,14 @@ pub struct PlanFile {
     /// a parcel, as ground rent (content API 143).
     #[serde(default)]
     pub rent: Option<PlanFeeFile>,
+    /// How many phases its parcels open in, outward from where it is laid (content API 144):
+    /// 1 to 8, 1 when unnamed.
+    #[serde(default)]
+    pub phases: Option<u8>,
+    /// The share of the parcels of the phases open that must be given before the next opens,
+    /// above 0 and at most 1 (content API 144): three quarters when unnamed.
+    #[serde(default)]
+    pub open_at: Option<f64>,
 }
 
 /// What a parcel given for a fee costs, in a plan's `[plan.fee]` table (content API 142).
@@ -541,6 +549,8 @@ impl PolicyFile {
                 // The fee's and rent's goods are resolved apart ([`PolicyFile::plan_fee`]).
                 fee: None,
                 rent: None,
+                phases: g.phases.unwrap_or(1).max(1),
+                open_at: g.open_at.unwrap_or(0.75) as f32,
             }),
             lending: self
                 .lending
@@ -848,6 +858,18 @@ impl PolicyFile {
                         "`plan.allot = \"offer\"` needs a `plan.fee` or `plan.rent` table"
                             .to_owned(),
                     );
+                }
+                if let Some(n) = g.phases
+                    && !(1..=8).contains(&n)
+                {
+                    p.push(format!("`plan.phases` must be 1 to 8 (got {n})"));
+                }
+                if let Some(x) = g.open_at
+                    && !(x > 0.0 && x <= 1.0)
+                {
+                    p.push(format!(
+                        "`plan.open_at` must be above 0 and at most 1 (got {x})"
+                    ));
                 }
                 for (name, paid) in [("fee", &g.fee), ("rent", &g.rent)] {
                     match paid {
@@ -1385,6 +1407,8 @@ mod tests {
             allot: allot.map(str::to_owned),
             fee,
             rent: None,
+            phases: None,
+            open_at: None,
         };
         let plan_with = |g: PlanFile| PolicyFile {
             does: "plan".to_owned(),
@@ -1473,6 +1497,33 @@ mod tests {
                 .iter()
                 .any(|e| e.contains("`plan.rent.amount`"))
         );
+        // Phases, 1 to 8, opening at a share above 0 and at most 1 (content API 144).
+        let phased = |phases: Option<u8>, open_at: Option<f64>| {
+            let mut g = grid(None, None);
+            g.phases = phases;
+            g.open_at = open_at;
+            plan_with(g)
+        };
+        let unnamed = phased(None, None).def(&no_values, &no_values).plan;
+        assert_eq!(unnamed.map(|g| (g.phases, g.open_at)), Some((1, 0.75)));
+        let p = phased(Some(3), Some(0.5));
+        assert!(p.problems().is_empty(), "{:?}", p.problems());
+        let named = p.def(&no_values, &no_values).plan;
+        assert_eq!(named.map(|g| (g.phases, g.open_at)), Some((3, 0.5)));
+        for (phases, open_at, problem) in [
+            (Some(0), None, "`plan.phases`"),
+            (Some(9), None, "`plan.phases`"),
+            (None, Some(0.0), "`plan.open_at`"),
+            (None, Some(1.5), "`plan.open_at`"),
+        ] {
+            assert!(
+                phased(phases, open_at)
+                    .problems()
+                    .iter()
+                    .any(|e| e.contains(problem)),
+                "{phases:?} {open_at:?}"
+            );
+        }
     }
 
     #[test]

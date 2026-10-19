@@ -126,6 +126,50 @@ pub struct Refused {
 }
 
 impl Layout {
+    /// Each parcel's phase (M8c slice CU, fourth part; ADR-0030 §4): the parcels ranked by their
+    /// distance from the origin (the earlier laid first among equals) and cut into `phases`
+    /// runs as near equal as may be, the nearest run phase 0.
+    pub fn phases(&self, phases: u8) -> Vec<u8> {
+        let n = self.parcels.len();
+        let phases = usize::from(phases.max(1));
+        let far = |r: &RectCm| {
+            let (x, y) = r.centre_m();
+            (x - self.origin.0).hypot(y - self.origin.1)
+        };
+        let mut order: Vec<usize> = (0..n).collect();
+        order.sort_by(|&a, &b| {
+            far(&self.parcels[a].rect)
+                .total_cmp(&far(&self.parcels[b].rect))
+                .then(a.cmp(&b))
+        });
+        let mut phase = vec![0u8; n];
+        for (rank, &i) in order.iter().enumerate() {
+            phase[i] = (rank * phases / n.max(1)) as u8;
+        }
+        phase
+    }
+
+    /// How many of its phases are open, given which parcels are given: the first always, and each
+    /// after once `open_at` (a share) of the parcels of those before it are given.
+    pub fn phases_open(phase: &[u8], given: &[bool], phases: u8, open_at: f32) -> u8 {
+        let phases = phases.max(1);
+        let mut open = 1u8;
+        while open < phases {
+            let (mut all, mut taken) = (0usize, 0usize);
+            for (i, &p) in phase.iter().enumerate() {
+                if p < open {
+                    all += 1;
+                    taken += usize::from(given.get(i).copied().unwrap_or(false));
+                }
+            }
+            if all == 0 || (taken as f32) < open_at * all as f32 {
+                break;
+            }
+            open += 1;
+        }
+        open
+    }
+
     /// The ground it reserves (streets and sites), square metres.
     pub fn reserved_m2(&self) -> f64 {
         self.streets
@@ -340,6 +384,38 @@ mod tests {
             lay_grid(&none, (0.0, 0.0), Axis::EastWest, &|_| true)
                 .parcels
                 .is_empty()
+        );
+    }
+
+    #[test]
+    fn parcels_open_in_phases_outward_from_the_origin() {
+        // M8c slice CU, fourth part: four parcels in a row east of the origin, in two phases.
+        let at = |x: i32| Parcel {
+            rect: RectCm {
+                x,
+                y: 0,
+                w: 1000,
+                h: 1000,
+            },
+            block: 0,
+        };
+        let layout = Layout {
+            origin: (0.0, 5.0),
+            parcels: vec![at(3000), at(0), at(2000), at(1000)],
+            ..Layout::default()
+        };
+        let phase = layout.phases(2);
+        assert_eq!(phase, vec![1, 0, 1, 0]);
+        assert_eq!(layout.phases(1), vec![0; 4]);
+        // The second opens once three quarters of the first are given: both of its two.
+        let open = |given: [bool; 4]| Layout::phases_open(&phase, &given, 2, 0.75);
+        assert_eq!(open([false; 4]), 1);
+        assert_eq!(open([false, true, false, false]), 1);
+        assert_eq!(open([false, true, false, true]), 2);
+        // Half suffices at a half.
+        assert_eq!(
+            Layout::phases_open(&phase, &[false, true, false, false], 2, 0.5),
+            2
         );
     }
 }

@@ -2204,6 +2204,10 @@ pub struct PlanDef {
     /// For a parcel given for a ground rent (M8c slice CU, third part): the food, by index in the
     /// catalog's goods, and the amount owed the store each year the parcel is held.
     pub rent: Option<(usize, f32)>,
+    /// How many phases its parcels open in, outward from where it is laid, and the share of
+    /// those open given before the next opens (M8c slice CU, fourth part).
+    pub phases: u8,
+    pub open_at: f32,
 }
 
 /// The plan a law lays (M8c slice CT, second part; ADR-0030 §2): its version (1 for its polity's
@@ -2755,6 +2759,15 @@ impl Polity {
                     format!(" given {}", d.allot.words())
                 }
                 _ => String::new(),
+            };
+            // A plan opening in phases says how many (fourth part).
+            let given = match policies
+                .get(usize::from(law.policy))
+                .and_then(|d| d.plan.as_ref())
+                .filter(|d| d.phases > 1)
+            {
+                Some(d) => format!("{given}, opening in {} phases", d.phases),
+                None => given,
             };
             return format!(
                 "a plan (version {}) of {} by {} blocks of {:.0} by {:.0} m with {:.0} m streets \

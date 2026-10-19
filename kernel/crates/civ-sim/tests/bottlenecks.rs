@@ -1192,5 +1192,78 @@ fn a_plan_s_parcels_go_by_lot_for_a_fee_or_by_its_keeper_s_regard() {
     assert!(in_store(&sim) > before, "{} {before}", in_store(&sim));
     // Only once a year.
     assert_eq!(rents(&sim).len(), 1);
+    // In two phases (fourth part): only a parcel of the nearer half is offered until three
+    // quarters of that half are given, then one of the farther.
+    {
+        let rules = sim.rules_mut_for_tests().expect("rules of its own");
+        let plan = rules.catalog.policies[plan_policy]
+            .plan
+            .as_mut()
+            .expect("a plan");
+        plan.allot = AllotRule::Need;
+        plan.rent = None;
+        plan.phases = 2;
+        plan.open_at = 0.75;
+    }
+    let layout = sim.people().polities[pi]
+        .plan_of(law)
+        .expect("its plan")
+        .layout
+        .clone();
+    let phase = layout.phases(2);
+    let words_now = |sim: &Sim| {
+        let polity = &sim.people().polities[pi];
+        polity.words_of(
+            polity.laws.iter().find(|l| l.id == law).expect("the law"),
+            &sim.rules().catalog.policies,
+            &|_| String::new(),
+        )
+    };
+    assert!(
+        words_now(&sim).contains(", opening in 2 phases"),
+        "{}",
+        words_now(&sim)
+    );
+    let first = offer(&mut sim, homes[2]).expect("a parcel of the first phase");
+    assert_eq!(phase[usize::from(first.parcel)], 0);
+    // Every parcel of the first phase given, on plots far off.
+    let given_now: Vec<u16> = sim
+        .land()
+        .plots
+        .iter()
+        .filter_map(|p| p.allotted.filter(|a| a.law == law).map(|a| a.parcel))
+        .collect();
+    let mut fake = Vec::new();
+    for (i, _) in phase.iter().enumerate().filter(|(_, f)| **f == 0) {
+        if given_now.contains(&(i as u16)) {
+            continue;
+        }
+        let id = sim.allocate_id_for_tests();
+        fake.push(id);
+        let since = sim.now();
+        sim.land_mut_for_tests().plots.push(civ_land::Plot {
+            id,
+            household: homes[0],
+            rect: civ_land::RectCm {
+                x: 100 + 10 * fake.len() as i32,
+                y: 100,
+                w: 5,
+                h: 5,
+            },
+            use_: civ_land::PlotUse::Store,
+            since,
+            receipt: None,
+            allotted: Some(civ_land::Allotment {
+                law,
+                parcel: i as u16,
+                rule: AllotRule::Need,
+            }),
+        });
+    }
+    let later = offer(&mut sim, homes[2]).expect("a parcel of the second phase");
+    assert_eq!(phase[usize::from(later.parcel)], 1);
+    sim.land_mut_for_tests()
+        .plots
+        .retain(|p| !fake.contains(&p.id));
     saves_and_goes_on_alike(&mut sim, DAY);
 }

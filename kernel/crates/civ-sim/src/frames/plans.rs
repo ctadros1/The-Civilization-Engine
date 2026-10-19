@@ -137,13 +137,31 @@ fn words(sim: &Sim, p: &Polity, law: PermanentId, built: usize, occupied: usize)
             None => out.push_str("; nobody keeps it"),
         }
         let parcels = p.plan_of(law).map_or(0, |x| x.layout.parcels.len());
-        let given = sim
+        let given: Vec<u16> = sim
             .land
             .plots
             .iter()
-            .filter(|q| q.allotted.is_some_and(|a| a.law == law))
-            .count();
-        out.push_str(&format!("; {given} of {parcels} parcels given"));
+            .filter_map(|q| q.allotted.filter(|a| a.law == law).map(|a| a.parcel))
+            .collect();
+        out.push_str(&format!("; {} of {parcels} parcels given", given.len()));
+        // Which of its phases are open (fourth part), when it opens in more than one.
+        if let (Some(def), Some(laid)) = (
+            sim.rules
+                .catalog
+                .policies
+                .get(usize::from(l.policy))
+                .and_then(|d| d.plan.as_ref())
+                .filter(|d| d.phases > 1),
+            p.plan_of(law),
+        ) {
+            let phase = laid.layout.phases(def.phases);
+            let taken: Vec<bool> = (0..phase.len())
+                .map(|i| given.contains(&(i as u16)))
+                .collect();
+            let open =
+                civ_land::plans::Layout::phases_open(&phase, &taken, def.phases, def.open_at);
+            out.push_str(&format!("; {open} of its {} phases open", def.phases));
+        }
     }
     if built > 0 {
         out.push_str(&format!(

@@ -861,6 +861,7 @@ impl Population {
                 // Whether a member of an organization brings a breach of its privilege (M7c
                 // slice BX).
                 self.weigh_breaches(ctx, pi);
+                self.weigh_plan_cases(ctx, pi);
                 // Whether a creditor brings a loan refused or left unpaid (M7d slice CB).
                 self.weigh_debts(ctx, pi);
                 // Whether the store's keeper draws from it for their own household (M7c slice
@@ -3287,12 +3288,16 @@ impl Population {
                             g.needs
                                 .is_none_or(|t| self.person(d).is_some_and(|p| p.knows(t)))
                         });
-                        // Its sponsor would keep it: stake its parcels and give them (M8c slice CU).
+                        // Its sponsor would keep it: stake its parcels and give them (M8c slice CU);
+                        // a finding of building on its reserved ground imposes the template's
+                        // bundle, if it names one (M8c slice CV).
+                        let sanction = def.bundles.first().copied().unwrap_or_default();
                         for p in fc.plans.iter().filter(|p| p.policy == k && knows) {
                             moves.push(MoveOption {
                                 site: Some(p.code),
                                 target: None,
                                 nominee: Some(d),
+                                sanction,
                                 ..blank
                             });
                         }

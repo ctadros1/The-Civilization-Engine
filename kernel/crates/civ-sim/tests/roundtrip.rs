@@ -2386,6 +2386,34 @@ fn a_schema_68_save_loads_with_no_wade_remembered() {
 }
 
 #[test]
+fn a_schema_159_save_loads_and_goes_on() {
+    // A schema-159 save, from before encroachments kept who saw them and cases the buildings
+    // plans are brought for (M8c slice CV, first part): it loads with neither, and goes on.
+    let mut sim = load_first();
+    for p in &mut sim.people_mut_for_tests().polities {
+        for e in &mut p.encroachments {
+            e.seen_by.clear();
+        }
+    }
+    for c in &mut sim.people_mut_for_tests().order.cases {
+        c.building = None;
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V159;
+    let path = republish("slice-cv1", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-159 save loads");
+    assert!(
+        loaded
+            .people()
+            .order
+            .cases
+            .iter()
+            .all(|c| c.building.is_none())
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_158_save_loads_and_goes_on() {
     // A schema-158 save, from before fields kept the plan that reserved them and plans the
     // fields whose holders refused their pay (M8c slice CU, fifth part): its fields load with

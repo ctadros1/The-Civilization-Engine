@@ -1480,6 +1480,9 @@ table PolitySave {
   // Schema 157 (M8c slice CT, third part): the buildings begun on ground a plan in force
   // reserves, in the order begun; absent before.
   encroachments: [EncroachmentSave] (id: 39);
+  // Schema 160 (M8c slice CV, first part): who saw each encroachment begun, by its index in
+  // `encroachments`, in order; absent before.
+  encroachment_seen: [EncroachmentSeenSave] (id: 40);
 }
 
 // A plan a law lays (schema 156, M8c slice CT, second part; ADR-0030 §2): its version, its
@@ -1553,6 +1556,12 @@ struct EncroachmentSave {
   law: ulong;
   household: ulong;
   building: ulong;
+}
+
+// One who saw an encroachment begun (schema 160): its index in the polity's encroachments.
+struct EncroachmentSeenSave {
+  encroachment: uint;
+  person: ulong;
 }
 
 // A gift a sponsor's household gave another's before the gathering on the sponsor's law (schema
@@ -1974,6 +1983,9 @@ table CaseSave {
   // For a debt brought under a law of debts heard (schema 135, M7d slice CB): the loan it is of;
   // 0 for none. A debt names no incident (`incident` 0).
   loan: uint (id: 22);
+  // For a case under a plan (schema 160, M8c slice CV): the building begun on ground the plan
+  // reserves; 0 for none. It names no incident (`incident` 0).
+  building: ulong (id: 23);
 }
 
 // How someone met one of the watch come to take what a finding owed: 0 yielded, 1 stood in the

@@ -192,6 +192,7 @@ fn case_by(sim: &mut Sim, accuser: &Household, accused: &Household, actor: Perma
         tags: 0,
         departed: None,
         loan: None,
+        building: None,
     });
     id
 }

@@ -462,6 +462,37 @@ impl Population {
         }
         let elder = self.elder_of(household, ctx.now, ctx.params);
         let day = ctx.now.day_index();
+        // Who sees it begun (M8c slice CV): the grown of the households whose homes lie within
+        // sight of it, never its own; each plan's keeper living there is added below.
+        let at = rect.centre_m();
+        let sight = ctx.params.crime.sight_m as f32;
+        let settlement = self.household(household).and_then(|x| x.settlement);
+        let mut near: Vec<PermanentId> = Vec::new();
+        for (_, x) in self.households.iter() {
+            if x.id == household
+                || x.settlement != settlement
+                || (x.home.0 - at.0).hypot(x.home.1 - at.1) > sight
+            {
+                continue;
+            }
+            near.extend(self.grown_of(x.id, ctx.now, ctx.params));
+        }
+        let keepers: Vec<(PermanentId, Option<PermanentId>)> = found
+            .iter()
+            .map(|&(law, _)| {
+                let keeper = self.polities[pi]
+                    .laws
+                    .iter()
+                    .find(|l| l.id == law)
+                    .and_then(|l| l.holder)
+                    .filter(|&k| {
+                        self.person(k)
+                            .and_then(|p| self.household(p.household))
+                            .is_some_and(|x| x.settlement == settlement && x.id != household)
+                    });
+                (law, keeper)
+            })
+            .collect();
         let polity = &mut self.polities[pi];
         for (law, kept) in found {
             let Some(l) = polity.law_mut(law) else {
@@ -476,11 +507,18 @@ impl Population {
             } else {
                 l.compliance.broken_unaware += 1;
             }
+            let mut seen_by = near.clone();
+            if let Some(k) = keepers.iter().find(|k| k.0 == law).and_then(|k| k.1) {
+                seen_by.push(k);
+            }
+            seen_by.sort_unstable();
+            seen_by.dedup();
             polity.encroachments.push(crate::polity::Encroachment {
                 day,
                 law,
                 household,
                 building,
+                seen_by,
             });
         }
     }

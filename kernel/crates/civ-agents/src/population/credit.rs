@@ -752,6 +752,7 @@ impl Population {
                     tags: 0,
                     departed: None,
                     loan: Some(id),
+                    building: None,
                 });
                 let (place, name) = ctx
                     .land

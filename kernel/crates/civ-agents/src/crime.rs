@@ -964,6 +964,9 @@ pub struct Case {
     /// For a debt brought under a law of debts heard (M7d slice CB, ADR-0027 §3): the loan it is
     /// of. A debt names no incident (`incident` 0).
     pub loan: Option<u32>,
+    /// For a case under a plan (M8c slice CV, ADR-0030 §5): the building begun on ground the
+    /// plan reserves. It names no incident (`incident` 0).
+    pub building: Option<PermanentId>,
 }
 
 /// A case's fact tags (M7b slice BS, ADR-0025 §2): derived from what the case holds, never from

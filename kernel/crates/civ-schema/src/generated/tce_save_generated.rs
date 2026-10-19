@@ -8961,6 +8961,133 @@ impl<'a> EncroachmentSave {
 
 }
 
+// struct EncroachmentSeenSave, aligned to 8
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct EncroachmentSeenSave(pub [u8; 16]);
+impl Default for EncroachmentSeenSave { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for EncroachmentSeenSave {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("EncroachmentSeenSave")
+      .field("encroachment", &self.encroachment())
+      .field("person", &self.person())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for EncroachmentSeenSave {}
+impl<'a> ::flatbuffers::Follow<'a> for EncroachmentSeenSave {
+  type Inner = &'a EncroachmentSeenSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a EncroachmentSeenSave>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a EncroachmentSeenSave {
+  type Inner = &'a EncroachmentSeenSave;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<EncroachmentSeenSave>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for EncroachmentSeenSave {
+    type Output = EncroachmentSeenSave;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const EncroachmentSeenSave as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(8)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for EncroachmentSeenSave {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> EncroachmentSeenSave {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    encroachment: u32,
+    person: u64,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_encroachment(encroachment);
+    s.set_person(person);
+    s
+  }
+
+  pub fn encroachment(&self) -> u32 {
+    let mut mem = ::core::mem::MaybeUninit::<<u32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_encroachment(&mut self, x: u32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn person(&self) -> u64 {
+    let mut mem = ::core::mem::MaybeUninit::<<u64 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_person(&mut self, x: u64) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<u64 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 // struct PatronGiftSave, aligned to 8
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq)]
@@ -38495,6 +38622,7 @@ impl<'a> PolitySave<'a> {
   pub const VT_PLANS: ::flatbuffers::VOffsetT = 78;
   pub const VT_GROUND_SEEN: ::flatbuffers::VOffsetT = 80;
   pub const VT_ENCROACHMENTS: ::flatbuffers::VOffsetT = 82;
+  pub const VT_ENCROACHMENT_SEEN: ::flatbuffers::VOffsetT = 84;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -38514,6 +38642,7 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.encroachment_seen { builder.add_encroachment_seen(x); }
     if let Some(x) = args.encroachments { builder.add_encroachments(x); }
     if let Some(x) = args.ground_seen { builder.add_ground_seen(x); }
     if let Some(x) = args.plans { builder.add_plans(x); }
@@ -38830,6 +38959,13 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, EncroachmentSave>>>(PolitySave::VT_ENCROACHMENTS, None)}
   }
+  #[inline]
+  pub fn encroachment_seen(&self) -> Option<::flatbuffers::Vector<'a, EncroachmentSeenSave>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, EncroachmentSeenSave>>>(PolitySave::VT_ENCROACHMENT_SEEN, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -38878,6 +39014,7 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PlanSave>>>>("plans", Self::VT_PLANS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, GroundSeenSave>>>("ground_seen", Self::VT_GROUND_SEEN, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, EncroachmentSave>>>("encroachments", Self::VT_ENCROACHMENTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, EncroachmentSeenSave>>>("encroachment_seen", Self::VT_ENCROACHMENT_SEEN, false)?
      .finish();
     Ok(())
   }
@@ -38923,6 +39060,7 @@ pub struct PolitySaveArgs<'a> {
     pub plans: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PlanSave<'a>>>>>,
     pub ground_seen: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, GroundSeenSave>>>,
     pub encroachments: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, EncroachmentSave>>>,
+    pub encroachment_seen: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, EncroachmentSeenSave>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -38968,6 +39106,7 @@ impl<'a> Default for PolitySaveArgs<'a> {
       plans: None,
       ground_seen: None,
       encroachments: None,
+      encroachment_seen: None,
     }
   }
 }
@@ -39138,6 +39277,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_ENCROACHMENTS, encroachments);
   }
   #[inline]
+  pub fn add_encroachment_seen(&mut self, encroachment_seen: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , EncroachmentSeenSave>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_ENCROACHMENT_SEEN, encroachment_seen);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -39195,6 +39338,7 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("plans", &self.plans());
       ds.field("ground_seen", &self.ground_seen());
       ds.field("encroachments", &self.encroachments());
+      ds.field("encroachment_seen", &self.encroachment_seen());
       ds.finish()
   }
 }
@@ -42253,6 +42397,7 @@ impl<'a> CaseSave<'a> {
   pub const VT_STANCE_PRECEDENT: ::flatbuffers::VOffsetT = 44;
   pub const VT_CHALLENGE: ::flatbuffers::VOffsetT = 46;
   pub const VT_LOAN: ::flatbuffers::VOffsetT = 48;
+  pub const VT_BUILDING: ::flatbuffers::VOffsetT = 50;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -42264,6 +42409,7 @@ impl<'a> CaseSave<'a> {
     args: &'args CaseSaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<CaseSave<'bldr>> {
     let mut builder = CaseSaveBuilder::new(_fbb);
+    builder.add_building(args.building);
     builder.add_challenge(args.challenge);
     builder.add_forum(args.forum);
     builder.add_heard_at(args.heard_at);
@@ -42452,6 +42598,13 @@ impl<'a> CaseSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(CaseSave::VT_LOAN, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn building(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CaseSave::VT_BUILDING, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for CaseSave<'_> {
@@ -42483,6 +42636,7 @@ impl ::flatbuffers::Verifiable for CaseSave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, f32>>>("stance_precedent", Self::VT_STANCE_PRECEDENT, false)?
      .visit_field::<u64>("challenge", Self::VT_CHALLENGE, false)?
      .visit_field::<u32>("loan", Self::VT_LOAN, false)?
+     .visit_field::<u64>("building", Self::VT_BUILDING, false)?
      .finish();
     Ok(())
   }
@@ -42511,6 +42665,7 @@ pub struct CaseSaveArgs<'a> {
     pub stance_precedent: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, f32>>>,
     pub challenge: u64,
     pub loan: u32,
+    pub building: u64,
 }
 impl<'a> Default for CaseSaveArgs<'a> {
   #[inline]
@@ -42539,6 +42694,7 @@ impl<'a> Default for CaseSaveArgs<'a> {
       stance_precedent: None,
       challenge: 0,
       loan: 0,
+      building: 0,
     }
   }
 }
@@ -42641,6 +42797,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CaseSaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u32>(CaseSave::VT_LOAN, loan, 0);
   }
   #[inline]
+  pub fn add_building(&mut self, building: u64) {
+    self.fbb_.push_slot::<u64>(CaseSave::VT_BUILDING, building, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CaseSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     CaseSaveBuilder {
@@ -42681,6 +42841,7 @@ impl ::core::fmt::Debug for CaseSave<'_> {
       ds.field("stance_precedent", &self.stance_precedent());
       ds.field("challenge", &self.challenge());
       ds.field("loan", &self.loan());
+      ds.field("building", &self.building());
       ds.finish()
   }
 }

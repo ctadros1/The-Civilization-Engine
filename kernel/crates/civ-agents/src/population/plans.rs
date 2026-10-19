@@ -779,6 +779,140 @@ impl Population {
             });
         }
     }
+
+    /// Cases under the plans in force at polity `pi` (M8c slice CV, first part; ADR-0030 §5: "a
+    /// case is brought by someone who saw it"), weighed at each review. For each encroachment
+    /// whose building still stands and has no case yet, each who saw it begun, grown, still of
+    /// the polity and knowing the plan, weighs bringing one: their stance on the plan, the norms
+    /// they hold and what its bundle would give their household, less the cost of reporting and
+    /// their regard for the one who stands for the household that built. The keenest, if keen at
+    /// all, brings it against that household's elder, before the gathering or a forum.
+    pub(super) fn weigh_plan_cases(&mut self, ctx: &mut Ctx, pi: usize) {
+        use crate::crime::{Case, CaseStage};
+        let (now, params) = (ctx.now, ctx.params);
+        let (pp, cp, day) = (&params.polity, &params.crime, now.day_index());
+        let in_force: Vec<PermanentId> = self.polities[pi]
+            .plans_in_force()
+            .map(|(law, _)| law)
+            .collect();
+        if in_force.is_empty() {
+            return;
+        }
+        let pending: Vec<crate::polity::Encroachment> = self.polities[pi]
+            .encroachments
+            .iter()
+            .filter(|e| in_force.contains(&e.law) && !e.seen_by.is_empty())
+            .filter(|e| {
+                !self
+                    .order
+                    .cases
+                    .iter()
+                    .any(|c| c.building == Some(e.building))
+            })
+            .filter(|e| {
+                ctx.land
+                    .buildings
+                    .iter()
+                    .any(|b| b.id == e.building && b.standing())
+            })
+            .cloned()
+            .collect();
+        for e in pending {
+            let Some(law) = self.polities[pi]
+                .laws
+                .iter()
+                .find(|l| l.id == e.law)
+                .cloned()
+            else {
+                continue;
+            };
+            let Some(accused) = self.elder_of(e.household, now, params) else {
+                continue;
+            };
+            let mut best: Option<(f64, PermanentId, PermanentId)> = None;
+            for &w in &e.seen_by {
+                let Some(person) = self.person(w) else {
+                    continue;
+                };
+                let household = person.household;
+                if household == e.household
+                    || person.age_years(now) < params.family.independent_age
+                    || !self
+                        .household(household)
+                        .is_some_and(|x| self.polities[pi].holds(x.settlement))
+                    || !law.knows(w)
+                {
+                    continue;
+                }
+                let stance = law
+                    .stances
+                    .iter()
+                    .find(|r| r.person == w)
+                    .map_or(0.0, |r| r.stance.sign());
+                let norm = self.norm_points(ctx, w);
+                let gain = cp.w_demand_loss * f64::from(law.sanction.compensation_days);
+                let regard = self
+                    .ties
+                    .regard(w, accused, day, &params.ties)
+                    .clamp(0.0, 1.0);
+                let u = pp.w_stance * stance + norm + gain - cp.report_cost - pp.w_regard * regard;
+                if u > 0.0 && best.is_none_or(|b| u > b.0) {
+                    best = Some((u, w, household));
+                }
+            }
+            let Some((_, by, household)) = best else {
+                continue;
+            };
+            let settlement = self.polities[pi].settlement;
+            let id = self.order.cases.last().map_or(1, |c| c.id + 1);
+            self.order.cases.push(Case {
+                id,
+                incident: 0,
+                settlement,
+                law: e.law,
+                accuser: household,
+                by,
+                accused,
+                accused_household: e.household,
+                kcal: 0.0,
+                leads: vec![by],
+                opened: day,
+                stage: CaseStage::Open,
+                heard: None,
+                eligible: 0,
+                stances: Vec::new(),
+                exiled: false,
+                forum: None,
+                challenge: None,
+                tags: 0,
+                departed: None,
+                loan: None,
+                building: Some(e.building),
+            });
+            let (place, name) = ctx
+                .land
+                .settlements
+                .iter()
+                .find(|s| s.id == settlement)
+                .map_or((None, String::new()), |s| {
+                    (Some(s.hearth_m), s.name.clone())
+                });
+            let words = format!(
+                "brought a case at {name} against {}'s household for building on ground the \
+                 plan reserves.",
+                self.name_of(accused)
+            );
+            self.chronicle_push(
+                now,
+                crate::history::ChronicleKind::CaseBrought,
+                vec![by, accused],
+                Some(settlement),
+                place,
+                0.0,
+                words,
+            );
+        }
+    }
 }
 
 impl Population {
@@ -815,7 +949,12 @@ impl Population {
             levy_share: 0.0,
             issue,
             nominee: Some(sponsor),
-            sanction: Default::default(),
+            // What a finding of building on its reserved ground imposes (M8c slice CV).
+            sanction: ctx.catalog.policies[usize::from(policy)]
+                .bundles
+                .first()
+                .copied()
+                .unwrap_or_default(),
             hours: (0, 0),
             body: None,
             ends: None,

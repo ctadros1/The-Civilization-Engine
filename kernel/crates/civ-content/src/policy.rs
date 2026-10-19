@@ -738,10 +738,11 @@ impl PolicyFile {
                             PolicyKind::AgainstTaking
                                 | PolicyKind::AgainstRaiding
                                 | PolicyKind::Privilege
+                                | PolicyKind::Plan
                         )
                     ) {
                         p.push(format!(
-                            "`forum.hears` names `{h}`; cases are brought under `against_taking`, `against_raiding` and `privilege`"
+                            "`forum.hears` names `{h}`; cases are brought under `against_taking`, `against_raiding`, `privilege` and `plan`"
                         ));
                     }
                 }
@@ -1347,13 +1348,44 @@ impl PolicyFile {
         }
         if !matches!(
             PolicyKind::from_name(&self.does),
-            Some(PolicyKind::AgainstTaking | PolicyKind::AgainstRaiding | PolicyKind::Privilege)
+            Some(
+                PolicyKind::AgainstTaking
+                    | PolicyKind::AgainstRaiding
+                    | PolicyKind::Privilege
+                    | PolicyKind::Plan
+            )
         ) && !self.bundles.is_empty()
         {
             p.push(
-                "only an `against_taking`, `against_raiding` or `privilege` policy has `bundles`"
+                "only an `against_taking`, `against_raiding`, `privilege` or `plan` policy has \
+                 `bundles`"
                     .to_owned(),
             );
+        }
+        // A plan names at most one bundle, what a finding of building on its reserved ground
+        // imposes, and sends nobody away (content API 146, M8c slice CV).
+        if PolicyKind::from_name(&self.does) == Some(PolicyKind::Plan) {
+            if self.bundles.len() > 1 {
+                p.push(format!(
+                    "a `plan` policy names at most one bundle (got {})",
+                    self.bundles.len()
+                ));
+            }
+            for b in &self.bundles {
+                if b.exile {
+                    p.push("a `plan` policy's bundle exiles nobody".to_owned());
+                }
+                for (what, d) in [
+                    ("compensation_days", b.compensation_days),
+                    ("fine_days", b.fine_days),
+                ] {
+                    if !(d.is_finite() && (0.0..=365.0).contains(&d)) {
+                        p.push(format!(
+                            "a bundle's `{what}` must be between 0 and 365 (got {d})"
+                        ));
+                    }
+                }
+            }
         }
         match (PolicyKind::from_name(&self.does), &self.rule) {
             (Some(PolicyKind::BuildingRule), None) => {
@@ -1593,6 +1625,25 @@ mod tests {
                 "{fields:?} {pay:?}"
             );
         }
+        // At most one bundle, what a finding of building on its ground imposes, and no exile
+        // (content API 146).
+        let bundle = |exile: bool| BundleFile {
+            compensation_days: 2.0,
+            fine_days: 1.0,
+            exile,
+        };
+        let mut p = plan_with(grid(None, None));
+        p.bundles = vec![bundle(false)];
+        assert!(p.problems().is_empty(), "{:?}", p.problems());
+        assert_eq!(p.def(&no_values, &no_values).bundles[0].fine_days, 1.0);
+        p.bundles = vec![bundle(false), bundle(false)];
+        assert!(
+            p.problems()
+                .iter()
+                .any(|e| e.contains("at most one bundle"))
+        );
+        p.bundles = vec![bundle(true)];
+        assert!(p.problems().iter().any(|e| e.contains("exiles nobody")));
         // Phases, 1 to 8, opening at a share above 0 and at most 1 (content API 144).
         let phased = |phases: Option<u8>, open_at: Option<f64>| {
             let mut g = grid(None, None);

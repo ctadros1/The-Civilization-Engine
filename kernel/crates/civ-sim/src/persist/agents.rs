@@ -124,8 +124,8 @@ use super::{
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
-    SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, finish, section,
-    section_root, single_chunk, unreadable,
+    SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
+    finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -665,6 +665,7 @@ enum Schema {
     V157,
     V158,
     V159,
+    V160,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -838,7 +839,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V156 => Schema::V156,
         SCHEMA_V157 => Schema::V157,
         SCHEMA_V158 => Schema::V158,
-        SAVE_SCHEMA_VERSION => Schema::V159,
+        SCHEMA_V159 => Schema::V159,
+        SAVE_SCHEMA_VERSION => Schema::V160,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1819,6 +1821,19 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 .collect();
             let encroachments =
                 (!encroachments.is_empty()).then(|| fbb.create_vector(&encroachments));
+            // Who saw each begun (schema 160).
+            let encroachment_seen: Vec<_> = p
+                .encroachments
+                .iter()
+                .enumerate()
+                .flat_map(|(i, e)| {
+                    e.seen_by
+                        .iter()
+                        .map(move |s| save::EncroachmentSeenSave::new(i as u32, s.get()))
+                })
+                .collect();
+            let encroachment_seen =
+                (!encroachment_seen.is_empty()).then(|| fbb.create_vector(&encroachment_seen));
             // The settlements it holds besides its seat, and its end (schema 118).
             let held: Vec<_> = p
                 .held
@@ -2058,6 +2073,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     plans,
                     ground_seen,
                     encroachments,
+                    encroachment_seen,
                 },
             )
         })
@@ -2840,7 +2856,18 @@ fn decode_polities(
                 law,
                 household,
                 building,
+                seen_by: Vec::new(),
             });
+        }
+        // Who saw each begun (schema 160); none before.
+        for s in p.encroachment_seen().iter().flatten() {
+            let (Some(e), Some(person)) = (
+                encroachments.get_mut(s.encroachment() as usize),
+                PermanentId::from_raw(s.person()),
+            ) else {
+                return Err(bad(format!("polity {id} kept a witness malformed")));
+            };
+            e.seen_by.push(person);
         }
         // The settlements it holds besides its seat, and its end (schema 118); before, its seat
         // alone, still deciding.
@@ -4911,7 +4938,8 @@ fn carried(
         | Schema::V156
         | Schema::V157
         | Schema::V158
-        | Schema::V159 => {
+        | Schema::V159
+        | Schema::V160 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5243,7 +5271,8 @@ fn decode_households(
             | Schema::V156
             | Schema::V157
             | Schema::V158
-            | Schema::V159 => {
+            | Schema::V159
+            | Schema::V160 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5630,6 +5659,7 @@ fn encode_order(order: &civ_agents::crime::Order, goods: &[&str]) -> Vec<u8> {
                     departed: c.departed.unwrap_or(0),
                     stance_precedent: Some(precedent),
                     loan: c.loan.unwrap_or(0),
+                    building: c.building.map_or(0, |b| b.get()),
                 },
             )
         })
@@ -6070,6 +6100,8 @@ fn decode_order(bytes: &[u8], rules: &Rules) -> Result<civ_agents::crime::Order,
             forum: id_of(c.forum()),
             challenge: id_of(c.challenge()),
             loan: (c.loan() != 0).then_some(c.loan()),
+            // Schema 160 (M8c slice CV); none before.
+            building: PermanentId::from_raw(c.building()),
             tags: c.tags(),
             departed: (c.departed() != 0).then_some(c.departed()),
         });

@@ -1522,3 +1522,7 @@ layout bends round fields), `taken` (laid over them, each field under its ground
 consent once it is in force) or `paid` (laid over them, the store offering each field's holder the
 `[plan.pay]`'s `per_ha` of its `good` a hectare, which the holder takes or refuses). A pay is for
 `paid` only, and `paid` needs one.
+
+Content API 146 (M8c slice CV, first part) lets a plan template name a sanction bundle in
+`bundles`: at most one, without exile, its days within 0 to 365. A plan in force carries it as its
+law's sanction, and a forum's `hears` may name `plan` to hear cases of building on reserved ground.

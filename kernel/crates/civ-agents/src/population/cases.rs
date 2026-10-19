@@ -169,6 +169,7 @@ impl Population {
             tags: 0,
             departed: None,
             loan: None,
+            building: None,
         });
         self.put_cases(&ctx.catalog.policies, pi, day, params.polity.notice_days);
         // Before a forum, if one hears it (M7b slice BR), else before the gathering.
@@ -659,6 +660,7 @@ impl Population {
                 tags: 0,
                 departed: None,
                 loan: None,
+                building: None,
             });
             let (place, name) = ctx
                 .land
@@ -1102,13 +1104,17 @@ impl Population {
             .find(|l| l.id == c.law)
             .map(|l| l.sanction)
             .unwrap_or_default();
-        // A breach of a privilege (M7c slice BX): an offer at a door, which everyone saw.
-        let breach = self.polities[pi]
-            .laws
-            .iter()
-            .find(|l| l.id == c.law)
-            .is_some_and(|l| l.kind == PolicyKind::Privilege);
-        let breach_words = if breach {
+        // A breach of a privilege (M7c slice BX): an offer at a door, which everyone saw; or a
+        // building on ground a plan reserves (M8c slice CV), which stands there to be seen.
+        let breach = c.building.is_some()
+            || self.polities[pi]
+                .laws
+                .iter()
+                .find(|l| l.id == c.law)
+                .is_some_and(|l| l.kind == PolicyKind::Privilege);
+        let breach_words = if c.building.is_some() {
+            "the plan by building on ground it reserves".to_owned()
+        } else if breach {
             self.law_words_of(ctx, pi, c.law)
         } else {
             String::new()

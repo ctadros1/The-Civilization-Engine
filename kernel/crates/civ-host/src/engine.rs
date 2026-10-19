@@ -2482,6 +2482,7 @@ mod tests {
                 law,
                 household,
                 building: building.0,
+                seen_by: Vec::new(),
             });
         }
         let rev = frames::plans::plans_rev(sim);

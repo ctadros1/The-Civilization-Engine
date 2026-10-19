@@ -3120,3 +3120,12 @@ its last crop is in, homes can be built there. The settlement's own fields go to
 fine and compensation it imposed were recorded but nobody was ever asked to pay them, and a save
 holding one could not be loaded. They are now answered like any other finding. Found while
 preparing cases under town plans, which would have hit the same problem.
+
+## 2026-10-19 — CV, first part: cases for building on a plan's ground
+
+**Built:** when a family starts building on ground a town plan keeps for streets or parcels, the
+neighbours who can see it and the plan's keeper now notice. One of them may take it to the
+gathering if they care enough about the plan and do not like the builder too much to accuse them.
+The gathering hears it like any broken rule and, if it agrees, can order a fine and amends, as
+the plan sets out. The town's plan in the core content sets none yet, so such a case is heard
+but asks nothing. Pulling the building down or letting it stay for a yearly payment comes next.

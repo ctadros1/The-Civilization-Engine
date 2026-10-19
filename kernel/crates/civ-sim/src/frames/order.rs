@@ -277,14 +277,20 @@ pub(crate) fn case_text(sim: &Sim, c: &civ_agents::crime::Case) -> String {
         ),
     };
     let accused = pop.name_of(c.accused);
+    // What it says they did: took, or built on ground a plan reserves (M8c slice CV).
+    let did = if c.building.is_some() {
+        format!("{accused}'s household built on ground the plan reserves")
+    } else {
+        format!("{accused} took")
+    };
     let decided = match c.stage {
         CaseStage::Open => "it waits to be heard".to_owned(),
         CaseStage::Found if c.exiled => {
-            format!("{hearers} found that {accused} took: {tally}; they were sent from the valley")
+            format!("{hearers} found that {did}: {tally}; they were sent from the valley")
         }
-        CaseStage::Found => format!("{hearers} found that {accused} took: {tally}"),
+        CaseStage::Found => format!("{hearers} found that {did}: {tally}"),
         CaseStage::NotFound => {
-            format!("{hearers} did not find that {accused} took: {tally}")
+            format!("{hearers} did not find that {did}: {tally}")
         }
         CaseStage::Unheard if forum.is_some() => "nobody sat to hear it".to_owned(),
         CaseStage::Unheard => format!("too few came to hear it: {present} of {}", c.eligible),

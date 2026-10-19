@@ -446,6 +446,9 @@ pub const SCHEMA_V157: u32 = 157;
 /// Plots' parcels, before fields kept the plan that reserved them and plans the fields whose
 /// holders refused their pay.
 pub const SCHEMA_V158: u32 = 158;
+/// Fields' reservations, before encroachments kept who saw them and cases the buildings plans
+/// are brought for.
+pub const SCHEMA_V159: u32 = 159;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

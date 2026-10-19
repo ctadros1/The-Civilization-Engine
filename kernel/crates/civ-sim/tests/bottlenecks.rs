@@ -674,7 +674,7 @@ fn a_plan_in_force_keeps_its_keepers_off_its_streets_and_records_what_is_built_o
         .expect("the law")
         .compliance;
     assert_eq!((c.broken, c.broken_unaware, c.complied), (1, 0, 0), "{c:?}");
-    let e = polity.encroachments.last().copied().expect("recorded");
+    let e = polity.encroachments.last().cloned().expect("recorded");
     assert_eq!(
         (e.law, e.household, e.building, e.day),
         (law, owner, building, now.day_index())
@@ -1512,5 +1512,167 @@ fn a_plan_takes_the_fields_under_it_or_pays_their_holders_who_may_refuse() {
         &|_| String::new(),
     );
     assert!(words.contains("paying for the fields under it"), "{words}");
+    saves_and_goes_on_alike(&mut sim, DAY);
+}
+
+#[test]
+fn one_who_saw_a_building_begun_on_a_plan_s_ground_brings_a_case_and_it_is_heard() {
+    // M8c slice CV, first part (ADR-0030 §5): an encroachment is recorded with who saw it begun
+    // (here the plan's keeper); one who saw it and knows the plan brings a case at a review,
+    // against the household that built, before the gathering, which hears it as it hears a
+    // breach; found, what the plan's bundle imposes is owed, and answered.
+    use civ_agents::crime::CaseStage;
+    use civ_agents::polity::{IssueKind, LawStatus, Outcome, PolicyKind, Sanction};
+    use civ_core::PermanentId;
+    let mut sim = village(3);
+    sim.advance_minutes(2 * DAY).expect("lives");
+    let settlement = sim.land().settlements[0].id;
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let plan_policy = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.kind == PolicyKind::Plan)
+        .expect("the plan template");
+    sim.rules_mut_for_tests()
+        .expect("rules of its own")
+        .catalog
+        .policies[plan_policy]
+        .bundles = vec![Sanction {
+        compensation_days: 4.0,
+        fine_days: 2.0,
+        exile: false,
+    }];
+    let homes: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+        .map(|(_, x)| x.id)
+        .collect();
+    let keeper = sim
+        .people()
+        .household(homes[0])
+        .map(|x| x.members[0])
+        .expect("a sponsor");
+    let law = sim
+        .with_ctx_for_tests(|pop, ctx| {
+            pop.propose_plan_for_tests(ctx, settlement, keeper, 0, IssueKind::NoGround)
+        })
+        .expect("a plan put forward");
+    let now = sim.now();
+    {
+        let pop = sim.people_mut_for_tests();
+        let l = pop.polities[pi].law_mut(law).expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Outcome::Passed);
+        l.decided = Some(now);
+        assert_eq!(l.sanction.fine_days, 2.0, "the bundle the template names");
+        pop.polities[pi].gathering = None;
+    }
+    // Another household's home moved onto one of its streets, and counted.
+    let owner = homes[1];
+    let building = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.household == owner && b.standing())
+        .map(|b| b.id)
+        .expect("a home");
+    let street = *sim.people().polities[pi]
+        .plan_of(law)
+        .expect("its plan")
+        .layout
+        .streets
+        .first()
+        .expect("a street");
+    {
+        let land = sim.land_mut_for_tests();
+        let plot = land
+            .buildings
+            .iter()
+            .find(|b| b.id == building)
+            .map(|b| b.plot)
+            .expect("its plot");
+        let p = land
+            .plots
+            .iter_mut()
+            .find(|p| p.id == plot)
+            .expect("the plot");
+        p.rect.x = street.x;
+        p.rect.y = street.y;
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.count_rule_keeping_for_tests(ctx, owner, building));
+    let e = sim.people().polities[pi]
+        .encroachments
+        .last()
+        .cloned()
+        .expect("recorded");
+    assert_eq!((e.law, e.household, e.building), (law, owner, building));
+    assert!(
+        e.seen_by.contains(&keeper),
+        "the keeper saw it: {:?}",
+        e.seen_by
+    );
+    // At a review, one who saw it brings a case against the household that built.
+    let case = |sim: &Sim| {
+        sim.people()
+            .order
+            .cases
+            .iter()
+            .find(|c| c.building == Some(building))
+            .cloned()
+    };
+    for _ in 0..60 {
+        if case(&sim).is_some() {
+            break;
+        }
+        sim.advance_minutes(DAY).expect("lives");
+    }
+    let c = case(&sim).expect("a case brought");
+    assert_eq!((c.law, c.incident, c.accused_household), (law, 0, owner));
+    assert!(e.seen_by.contains(&c.by), "brought by one who saw it");
+    assert!(
+        sim.people()
+            .chronicle
+            .iter()
+            .any(|x| x.name.contains("for building on ground the plan reserves")),
+        "the chronicle says it was brought"
+    );
+    // Heard, as a breach is.
+    for _ in 0..60 {
+        if case(&sim).is_some_and(|c| c.stage != CaseStage::Open) {
+            break;
+        }
+        sim.advance_minutes(DAY).expect("lives");
+    }
+    let c = case(&sim).expect("kept");
+    assert!(
+        matches!(
+            c.stage,
+            CaseStage::Found | CaseStage::NotFound | CaseStage::Unheard
+        ),
+        "{:?}",
+        c.stage
+    );
+    if c.stage == CaseStage::Found {
+        sim.advance_minutes(3 * DAY).expect("lives");
+        let owed: Vec<_> = sim
+            .people()
+            .order
+            .obligations
+            .iter()
+            .filter(|o| o.case == Some(c.id))
+            .copied()
+            .collect();
+        assert!(!owed.is_empty(), "the bundle is owed");
+        assert!(owed.iter().all(|o| o.debtor == owner && o.answer.is_some()));
+    }
     saves_and_goes_on_alike(&mut sim, DAY);
 }

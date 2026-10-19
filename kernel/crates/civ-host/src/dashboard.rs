@@ -2796,6 +2796,7 @@ mod tests {
             tags: 0,
             departed,
             loan: None,
+            building: None,
         };
         let order = Order {
             cases: vec![

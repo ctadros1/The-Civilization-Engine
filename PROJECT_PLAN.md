@@ -4772,6 +4772,25 @@ and M6a gives rivers a daily flow.
         imposed for" the one owed; a save may hold one that names its case. **Test:** the breach
         heard in the privilege village, found, has its compensation and fine answered within
         days, and the world saves and loads. No saves, content or wire change.
+      - *First part, as built (2026-10-19): encroachments seen, cases brought and heard.* An
+        encroachment now records who saw it begun: the grown of households whose home lies within
+        sight (the crime sight radius) of the building, not of the building household, and the
+        plan's keeper living there. A plan template may name one sanction bundle (no exile, days
+        within a year), which the plan law carries as other laws do; the core's plan names none,
+        so a case can be found and nothing imposed. At each review of its polity, for each
+        encroachment under a plan in force whose building still stands and which no case names
+        yet, each witness who is grown, of the polity and knows the law weighs bringing a case as
+        a breach is weighed (stance, the norm, the compensation it would bring, the cost of
+        reporting, less regard for the accused); the best positive brings it before a forum that
+        hears `plan`. The case names the building; its hearing believes it as a breach is
+        believed, and a finding imposes the bundle as obligations answered by the household's
+        elder. Its words: "built on ground the plan reserves". **Test:** a plan in force with a
+        fine and compensation, a house begun on its reserved ground seen by its keeper, who brings
+        a case that is heard and found, its obligations answered; saved and loaded alike; a
+        schema-159 save loads with nothing seen. **Boundary:** saves schema 160
+        (`PolitySave.encroachment_seen`, `CaseSave.building`); content API 146 (a plan's
+        `bundles`, a forum hearing `plan`); no wire change. Removal and regularisation, the
+        expected sanction in keeping and the backlog follow.
     - **CW, use and nuisance rules:** district uses and two rule templates (worked fires from
       homes, middens from wells).
     - **CX, land value and density:** the derived map (paid, reckoned, nothing recorded), the

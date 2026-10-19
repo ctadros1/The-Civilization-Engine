@@ -2277,12 +2277,16 @@ pub struct GroundSeen {
 
 /// A building begun on ground a plan in force reserves (M8c slice CT, third part): the day, the
 /// plan's law, the household that began it, and the building.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Encroachment {
     pub day: i64,
     pub law: PermanentId,
     pub household: PermanentId,
     pub building: PermanentId,
+    /// Who saw it begun, in id order (M8c slice CV, ADR-0030 §5: "recorded with who saw it"):
+    /// the plan's keeper living there, and the grown of the households whose homes lie within
+    /// sight of it, never its own.
+    pub seen_by: Vec<PermanentId>,
 }
 
 /// Where a law would build a flood bank (M6b slice BG; ADR-0022 §11): the reach whose water it

@@ -25,8 +25,10 @@
 //! upward and grouped by storey. It may rise three or four storeys, each above the first floored
 //! on joists like the second; three or more need a stair, a flight from each storey to the next
 //! in place of the ladder, beside the well of the flight below, and each storey gives up the
-//! flights' floor. With its own parameters all 0, a frame of wattle walls builds what version 2
-//! builds.
+//! flights' floor. Each storey may leave a share of its wall open, a window half the storey high
+//! in every piece of wall the door does not split; an opening costs no wall and shortens the
+//! length a mass wall bears on. With its own parameters all 0, a frame of wattle walls builds what
+//! version 2 builds.
 
 use std::f64::consts::TAU;
 
@@ -80,6 +82,9 @@ pub const LADDER_TILT_CENTIDEG: i32 = 7000;
 pub const LADDER_WIDTH_CM: i32 = 50;
 /// Thickness of a ladder, centimetres.
 const LADDER_DEPTH_CM: f64 = 8.0;
+/// Most of a storey's wall an opening may leave open, thousandths: a window half the storey high
+/// and at most nine tenths of its panel wide.
+pub const MAX_OPENING_PERMILLE: i32 = 450;
 /// Rise of a stair from the horizontal, hundredths of a degree.
 pub const STAIR_TILT_CENTIDEG: i32 = 3800;
 /// Width of a stair, centimetres.
@@ -353,6 +358,8 @@ struct Layout<'r> {
     floors: Vec<(Level, f64, bool)>,
     /// Whether a stair rises from each storey to the next (version 3) in place of a ladder.
     stair: bool,
+    /// The share of each storey's wall left open (version 3), a fraction.
+    openings: Vec<f64>,
     wall_kind: i32,
     footing: i32,
     tile: bool,
@@ -482,7 +489,7 @@ impl<'r> Layout<'r> {
         // Version 3's parameters: none before it, and in it only those laid out so far.
         let laid_out = |i: usize| {
             spec.version >= 3
-                && ((fp::STOREY_WALL_CM..fp::STOREY_WALL_CM + 4).contains(&i) || i == fp::STAIR)
+                && ((fp::STOREY_WALL_CM..fp::OPENINGS + 4).contains(&i) || i == fp::STAIR)
         };
         if let Some(i) = (fp::ROOF_SYSTEM..crate::PARAMS).find(|&i| p[i] != 0 && !laid_out(i)) {
             return refuse(if spec.version < 3 {
@@ -514,6 +521,23 @@ impl<'r> Layout<'r> {
         }
         if storey_wt.windows(2).any(|w| w[1] > w[0]) {
             return refuse("a mass wall may thin upward, not thicken");
+        }
+        // Each storey's openings (version 3): a share of its wall, on the bay rhythm.
+        let mut openings = vec![0.0; storeys as usize];
+        for t in 0..4 {
+            let v = p[fp::OPENINGS + t];
+            if v == 0 {
+                continue;
+            }
+            if t >= openings.len() {
+                return refuse(format!(
+                    "storey {} has openings (parameter {}) and no storey",
+                    t + 1,
+                    fp::OPENINGS + t
+                ));
+            }
+            within("openings", v, (0, MAX_OPENING_PERMILLE))?;
+            openings[t] = f64::from(v) / 1000.0;
         }
         let stair = p[fp::STAIR];
         if !(0..=1).contains(&stair) {
@@ -648,6 +672,7 @@ impl<'r> Layout<'r> {
                 .chain((1..storeys).map(|t| (storey_level(t), r + h * f64::from(t), false)))
                 .collect(),
             stair: stair != 0,
+            openings,
             wall_kind,
             footing,
             tile,
@@ -740,6 +765,31 @@ impl<'r> Layout<'r> {
         flights as f64 * self.stair_run() * f64::from(STAIR_WIDTH_CM) * M2
     }
 
+    /// The width of the window in a wall piece `piece` wide on storey `t`, centimetres: none in
+    /// a piece the door splits. A window is half the storey high, so it leaves its storey's share
+    /// of the piece open.
+    fn window(&self, t: i32, piece: f64, door_here: bool) -> f64 {
+        if door_here {
+            0.0
+        } else {
+            2.0 * self.openings[t as usize] * piece
+        }
+    }
+
+    /// Whether the door splits the piece of wall `side` in bay `j` (0 on an end wall) on storey
+    /// `t`.
+    fn door_here(&self, t: i32, side: i32, j: usize) -> bool {
+        t == 0 && side == self.door_side && (side >= SIDE_BACK || j as i32 == self.door_bay)
+    }
+
+    /// The windows' width along long wall `side` on storey `t`, centimetres, for panels
+    /// `panel` wide.
+    fn windows_along(&self, t: i32, side: i32, panel: f64) -> f64 {
+        (0..self.n)
+            .map(|j| self.window(t, panel, self.door_here(t, side, j)))
+            .sum()
+    }
+
     /// What storey `t` is for.
     fn use_of(&self, t: i32) -> SpaceUse {
         if t == 0 {
@@ -823,6 +873,29 @@ impl Parts<'_, '_> {
             tilt,
             material,
         });
+    }
+
+    /// A window `width` wide in the wall piece at `slot` (level, bay, index), half its storey high
+    /// and centred in it, through a wall `thickness` thick facing `angle`; none when `width` is 0.
+    fn window(
+        &mut self,
+        (level, bay, index): (Level, Option<usize>, usize),
+        width: f64,
+        at: (f64, f64, f64),
+        thickness: f64,
+        angle: u16,
+    ) {
+        if width > 0.0 {
+            let h = self.layout.h;
+            self.push(
+                (level, bay, PartKind::Window, index),
+                Stage::Walls,
+                at,
+                [width, thickness, h / 2.0],
+                (angle, 0),
+                None,
+            );
+        }
     }
 
     /// A timber member lying flat.
@@ -1072,10 +1145,18 @@ fn walls(p: &mut Parts) -> (f64, f64) {
                 };
                 for j in 0..l.n {
                     for (side, v) in l.long_walls() {
-                        let door_here = t == 0 && side == l.door_side && j as i32 == l.door_bay;
+                        let door_here = l.door_here(t, side, j);
                         for (half, du, pw) in pieces(l.b - l.pd, l.door_w, door_here) {
+                            let open = l.window(t, pw, door_here);
                             if kind == PartKind::Wattle {
-                                area += pw * l.h;
+                                area += pw * l.h - open * l.h / 2.0;
+                                p.window(
+                                    (level, Some(j), side as usize * 2 + half),
+                                    open,
+                                    (l.u_line(j) + l.b / 2.0 + du, v, zc),
+                                    l.wt,
+                                    l.along(),
+                                );
                             }
                             p.push(
                                 (level, Some(j), kind, side as usize * 2 + half),
@@ -1089,10 +1170,18 @@ fn walls(p: &mut Parts) -> (f64, f64) {
                     }
                 }
                 for (side, u) in l.end_walls() {
-                    let door_here = t == 0 && side == l.door_side;
+                    let door_here = l.door_here(t, side, 0);
                     for (half, dv, pw) in pieces(l.w - l.pd, l.door_w, door_here) {
+                        let open = l.window(t, pw, door_here);
                         if kind == PartKind::Wattle {
-                            area += pw * l.h;
+                            area += pw * l.h - open * l.h / 2.0;
+                            p.window(
+                                (level, None, side as usize * 2 + half),
+                                open,
+                                (u, dv, zc),
+                                l.wt,
+                                l.across(),
+                            );
                         }
                         p.push(
                             (level, None, kind, side as usize * 2 + half),
@@ -1125,10 +1214,19 @@ fn walls(p: &mut Parts) -> (f64, f64) {
             let wt = l.storey_wt[t as usize];
             for j in 0..l.n {
                 for (side, v) in l.long_walls() {
-                    let door_here = t == 0 && side == l.door_side && j as i32 == l.door_bay;
+                    let door_here = l.door_here(t, side, j);
                     for (half, du, pw) in pieces(l.b, l.door_w, door_here) {
-                        area += pw * l.h;
-                        volume += pw * l.h * wt;
+                        let open = l.window(t, pw, door_here);
+                        let at = (l.u_line(j) + l.b / 2.0 + du, v, zc);
+                        area += pw * l.h - open * l.h / 2.0;
+                        volume += (pw * l.h - open * l.h / 2.0) * wt;
+                        p.window(
+                            (level, Some(j), side as usize * 2 + half),
+                            open,
+                            at,
+                            wt,
+                            l.along(),
+                        );
                         p.push(
                             (level, Some(j), PartKind::MassWall, side as usize * 2 + half),
                             Stage::Walls,
@@ -1141,10 +1239,18 @@ fn walls(p: &mut Parts) -> (f64, f64) {
                 }
             }
             for (side, u) in l.end_walls() {
-                let door_here = t == 0 && side == l.door_side;
+                let door_here = l.door_here(t, side, 0);
                 for (half, dv, pw) in pieces(l.w, l.door_w, door_here) {
-                    area += pw * l.h;
-                    volume += pw * l.h * wt;
+                    let open = l.window(t, pw, door_here);
+                    area += pw * l.h - open * l.h / 2.0;
+                    volume += (pw * l.h - open * l.h / 2.0) * wt;
+                    p.window(
+                        (level, None, side as usize * 2 + half),
+                        open,
+                        (u, dv, zc),
+                        wt,
+                        l.across(),
+                    );
                     p.push(
                         (level, None, PartKind::MassWall, side as usize * 2 + half),
                         Stage::Walls,
@@ -1584,7 +1690,8 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
                     stage: Stage::Walls,
                     material: Some(WATTLE),
                     count: 1,
-                    section: [l.l, l.storey_wt[t as usize]],
+                    // Its windows shorten the length it bears on.
+                    section: [l.l - l.windows_along(t, side, l.b), l.storey_wt[t as usize]],
                     length: l.h,
                     spacing: l.wall_kind as f64,
                     area_m2: roof_plan_side_m2 + (suspended_m2 - raised_m2) / 2.0 + raised_m2 / 4.0,
@@ -1713,6 +1820,21 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
     let gable_h = l.z_a - l.z_p;
     let door_m2 = l.door_w * l.h * M2;
     if l.wall_kind == 0 {
+        // What the windows leave open of a wall, square metres, over every storey.
+        let open_m2 = |side: i32, panel: f64| -> f64 {
+            (0..l.storeys)
+                .map(|t| {
+                    if side >= SIDE_BACK {
+                        l.window(t, panel, l.door_here(t, side, 0))
+                    } else {
+                        l.windows_along(t, side, panel)
+                    }
+                })
+                .sum::<f64>()
+                * l.h
+                / 2.0
+                * M2
+        };
         for (side, _) in l.long_walls() {
             let door = if side == l.door_side { door_m2 } else { 0.0 };
             out.push(GroupOf {
@@ -1726,7 +1848,9 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
                 section: [l.wt, l.wt],
                 length: storeys_h,
                 spacing: l.b,
-                area_m2: (l.b - l.pd) * storeys_h * M2 * n as f64 - door,
+                area_m2: (l.b - l.pd) * storeys_h * M2 * n as f64
+                    - door
+                    - open_m2(side, l.b - l.pd),
             });
         }
         for (side, _) in l.end_walls() {
@@ -1742,7 +1866,9 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
                 section: [l.wt, l.wt],
                 length: storeys_h + gable_h,
                 spacing: 0.0,
-                area_m2: (l.w - l.pd) * (storeys_h + gable_h / 2.0) * M2 - door,
+                area_m2: (l.w - l.pd) * (storeys_h + gable_h / 2.0) * M2
+                    - door
+                    - open_m2(side, l.w - l.pd),
             });
         }
     }
@@ -2203,7 +2329,11 @@ mod tests {
     #[test]
     fn every_part_stands_within_the_plot() {
         // The plot is the box round the roof (crate civ-agents); every part's plan lies under it.
-        let tall = [(tall(3), tall_house()), (tall(4), tall_house())];
+        let tall = [
+            (tall(3), tall_house()),
+            (tall(4), tall_house()),
+            (windowed(), tall_house()),
+        ];
         for (s, r) in goldens().map(|(s, r, _)| (s, r)).into_iter().chain(tall) {
             let e = expand_frame(&s, &r).expect("expands");
             let (mut x0, mut x1, mut y0, mut y1) = (i32::MAX, i32::MIN, i32::MAX, i32::MIN);
@@ -2565,6 +2695,121 @@ mod tests {
         let e = expand_frame(&hall, &r).expect("a hall of twelve bays and four storeys");
         assert!(e.groups.len() > MAX_GROUPS && e.groups.len() <= MAX_GROUPS_V3);
         assert_eq!(max_groups(2), MAX_GROUPS);
+    }
+
+    /// Two storeys by a stair with a fifth of the first storey's wall open and a tenth of the
+    /// second's.
+    fn windowed() -> BuildingSpec {
+        let mut s = tall(2);
+        s.params[fp::OPENINGS] = 200;
+        s.params[fp::OPENINGS + 1] = 100;
+        s
+    }
+
+    #[test]
+    fn version_three_openings_leave_each_storeys_share_of_wall_open() {
+        let r = tall_house();
+        let e = expand_frame(&windowed(), &r).expect("a building with windows");
+        let shut = expand_frame(
+            &BuildingSpec {
+                params: {
+                    let mut p = windowed().params;
+                    p[fp::OPENINGS] = 0;
+                    p[fp::OPENINGS + 1] = 0;
+                    p
+                },
+                ..windowed()
+            },
+            &r,
+        )
+        .expect("the same without windows");
+        let windows: Vec<&Part> = e
+            .parts
+            .iter()
+            .filter(|p| p.kind == PartKind::Window)
+            .collect();
+        // A window in every piece of wall but the door's: seven long pieces and two ends below,
+        // eight and two above.
+        let on = |level: Level| {
+            windows
+                .iter()
+                .filter(|p| p.id >> 24 == u32::from(level.code()))
+                .count()
+        };
+        assert_eq!((on(Level::Ground), on(Level::Upper)), (9, 10));
+        assert!(
+            windows.iter().all(|p| p.size[2] == 100),
+            "half a storey high"
+        );
+        assert!(!shut.parts.iter().any(|p| p.kind == PartKind::Window));
+        // What they leave open: 2 × share × piece wide, half a storey high.
+        let open_cm2 = 7.0 * (0.4 * 235.0) * 100.0
+            + 2.0 * (0.4 * 485.0) * 100.0
+            + 8.0 * (0.2 * 235.0) * 100.0
+            + 2.0 * (0.2 * 485.0) * 100.0;
+        let open_m2 = open_cm2 * 1.0e-4;
+        let wattle =
+            |e: &Expansion| e.stages[Stage::Walls.index()].materials_kg[usize::from(WATTLE)];
+        assert!(
+            (wattle(&shut) - wattle(&e) - open_m2 * r.wattle_kg_per_m2).abs() < 1e-6,
+            "an opening costs no wall"
+        );
+        let infill = |e: &Expansion| -> f64 {
+            e.groups
+                .iter()
+                .filter(|g| g.kind == GroupKind::Infill)
+                .map(|g| g.area_m2)
+                .sum()
+        };
+        assert!((infill(&shut) - infill(&e) - open_m2).abs() < 1e-9);
+        // A mass wall's windows shorten the length it bears on, storey by storey.
+        let mut rubble = windowed();
+        rubble.params[fp::WALL_KIND] = 1;
+        rubble.params[fp::FOOTING] = 1;
+        rubble.params[fp::WALL_CM] = 50;
+        let mut rr = r.clone();
+        rr.wall_cm = (10, 60);
+        let m = expand_frame(&rubble, &rr).expect("rubble with windows");
+        let bearing = |level: Level, side: i32| {
+            m.groups
+                .iter()
+                .find(|g| g.id == group_id(level, None, GroupKind::MassWall, side as u8))
+                .map(|g| g.section_cm[0])
+                .expect("the wall's group")
+        };
+        // The door is in bay 2 of the right wall: three windows of a metre below, four on the left.
+        assert_eq!(bearing(Level::Ground, fp::SIDE_RIGHT), 1000 - 300);
+        assert_eq!(bearing(Level::Ground, fp::SIDE_LEFT), 1000 - 400);
+        assert_eq!(bearing(Level::Upper, fp::SIDE_RIGHT), 1000 - 200);
+        rubble.params[fp::OPENINGS] = 0;
+        rubble.params[fp::OPENINGS + 1] = 0;
+        let solid = expand_frame(&rubble, &rr).expect("rubble without windows");
+        assert!(
+            m.stages[Stage::Walls.index()].labour_h < solid.stages[Stage::Walls.index()].labour_h
+        );
+        // Refused: more than the most, a storey it has not, and before version 3.
+        let mut wide = windowed();
+        wide.params[fp::OPENINGS] = MAX_OPENING_PERMILLE + 1;
+        assert!(expand_frame(&wide, &r).is_err());
+        let mut third = windowed();
+        third.params[fp::OPENINGS + 2] = 100;
+        assert_eq!(
+            expand_frame(&third, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "storey 3 has openings (parameter {}) and no storey",
+                fp::OPENINGS + 2
+            )))
+        );
+        let mut old = spec(3, 250, 500);
+        old.version = 2;
+        old.params[fp::OPENINGS] = 100;
+        assert_eq!(
+            expand_frame(&old, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "parameter {} is unknown to frame version 2",
+                fp::OPENINGS
+            )))
+        );
     }
 
     #[test]

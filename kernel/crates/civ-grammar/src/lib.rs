@@ -25,8 +25,8 @@ pub mod frame;
 
 pub use frame::{
     FRAME_DESIGN_VERSION, FRAME_VERSION, FrameRules, MAX_BAYS, MAX_GROUPS, MAX_GROUPS_V3,
-    MAX_STOREYS, STAIR_TILT_CENTIDEG, STAIR_WIDTH_CM, expand_frame, frame_limits, frame_materials,
-    frame_params, max_groups,
+    MAX_OPENING_PERMILLE, MAX_STOREYS, STAIR_TILT_CENTIDEG, STAIR_WIDTH_CM, expand_frame,
+    frame_limits, frame_materials, frame_params, max_groups,
 };
 
 /// Version of the hut grammar.
@@ -306,6 +306,8 @@ pub enum PartKind {
     Tile,
     /// A flight of stairs from one storey to the next (frame version 3).
     Stair,
+    /// A window left open in a wall (frame version 3).
+    Window,
 }
 
 impl PartKind {
@@ -332,6 +334,7 @@ impl PartKind {
             PartKind::MassWall => 17,
             PartKind::Tile => 18,
             PartKind::Stair => 19,
+            PartKind::Window => 20,
         }
     }
 }

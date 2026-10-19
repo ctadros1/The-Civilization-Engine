@@ -4972,6 +4972,19 @@ and M6a gives rivers a daily flow.
         stage but the roof's; a stair on two storeys costs more than the ladder; twelve bays of
         four lofted storeys stay within 96 groups; the refusals; every part within the plot; a
         golden for version 3. Versions 1 and 2 are unchanged.
+      - *Fifth part, as built (2026-10-19): openings* (ADR-0031 §1). Each storey's `OPENINGS`
+        (thousandths, at most 450) leaves that share of its wall open on the bay rhythm: a window
+        (`PartKind::Window`, appended) half the storey high, centred in every piece of wall the
+        door does not split, as wide as twice the share of the piece. An opening costs no wall:
+        its area comes off the wattle, daub or masonry and their hours, and off the infill
+        groups' area; a version 3 mass wall's group bears on its length less its windows', so
+        slice CZ's and DA's checks see a pierced wall as shorter. The lateral length is DA's.
+        **Test:** a two-storey frame with a fifth of the first storey's wall open and a tenth of
+        the second's has a window in every piece but the door's, half a storey high, and takes
+        exactly the wattle the windows leave open less; its rubble twin bears on a metre less a
+        window and takes fewer hours; openings above 450, on a storey the building lacks, or
+        before version 3 are refused by name; every window within the plot. Every golden is
+        unchanged.
     - **CZ, tall and wide under gravity:** walls' own weight, restraint by ties, purlins,
       storeyed posts and joints, live load by use; `trussed_roof`, `storeyed_frame` and
       `tied_masonry` as content; caution thickening mass walls; trust kept by every technique

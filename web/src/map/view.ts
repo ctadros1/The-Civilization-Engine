@@ -28,6 +28,15 @@ import { homeAt, lensMarks, placeAt, type LensLayer } from "../coverage.js";
 import { crossingAt, crossingEnds, crossingLook } from "../crossings.js";
 import { wayAt, wayLook } from "../ways.js";
 import { vehicleAt, vehicleLook, vehiclePosition } from "../vehicles.js";
+import {
+  BUILT_COLOUR,
+  OCCUPIED_COLOUR,
+  PARCEL_COLOUR,
+  RESERVED_COLOUR,
+  planAt,
+  planLook,
+  type PlanLayer,
+} from "../plans.js";
 import { depositAt, depositLook } from "../deposits.js";
 import { DITCH_COLOUR, PALISADE_COLOUR, changedTiles, detailTilesOver, earthworkAt, earthworkLook, sectorLook } from "../earthworks.js";
 import { fieldAt, fieldLook } from "../fields.js";
@@ -50,6 +59,8 @@ import {
   type WaysInfo,
   type VehicleInfo,
   type VehiclesInfo,
+  type PlanInfo,
+  type PlansInfo,
   type DepositInfo,
   type EarthworkInfo,
   type EarthworksInfo,
@@ -117,6 +128,8 @@ export interface PointerInfo {
   way: { way: WayInfo; segment: WaySegmentInfo } | null;
   /** The boat or cart under the pointer, if any (M8b slice CP). */
   vehicle: VehicleInfo | null;
+  /** The plan under the pointer and which of its layers, if any (M8c slice CT). */
+  plan: { plan: PlanInfo; layer: PlanLayer } | null;
   /** The well, spring or place at the water's edge drawn at today under the pointer, if any, and
    * the rivers' flow today against their mean (null before the water is read; M6a slice AY). */
   well: WellInfo | null;
@@ -261,6 +274,9 @@ export class MapView {
   private ways: WayInfo[] = [];
   private vehicles: VehicleInfo[] = [];
   private wayScale = 0;
+  private readonly plansLayer = new Graphics();
+  private plans: PlanInfo[] = [];
+  private planScale = 0;
   private readonly crossingsLayer = new Graphics();
   private crossings: CrossingInfo[] = [];
   private crossingScale = 0;
@@ -318,6 +334,7 @@ export class MapView {
       this.wornLayer,
       this.trailsLayer,
       this.waysLayer,
+      this.plansLayer,
       this.rivers,
       this.fieldsLayer,
       this.depositsLayer,
@@ -379,6 +396,8 @@ export class MapView {
     this.crossingsLayer.clear();
     this.ways = [];
     this.waysLayer.clear();
+    this.plans = [];
+    this.plansLayer.clear();
     this.vehicles = [];
     this.water = null;
     this.waterLayer.clear();
@@ -551,6 +570,44 @@ export class MapView {
         if (rest.length === 0) g.lineTo(first[0] + 0.01, first[1]);
         for (const [x, y] of rest) g.lineTo(x, y);
         g.stroke({ width: Math.max(look.widthM, 2 * pxM), color: look.colour, alpha: look.alpha, cap: "round", join: "round" });
+      }
+    }
+  }
+
+  /** The plans put forward or in force, as the host last listed them (null for none). */
+  setPlans(info: PlansInfo | null): void {
+    this.plans = info?.plans ?? [];
+    this.drawPlans();
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** Each plan in its three layers (research 10-04 §6.1): its parcels outlined and its streets and
+   * square tinted; the reserved ground a way already runs over outlined in grey; and the plot of
+   * each building on reserved ground ringed in red. One put forward is drawn fainter than one in
+   * force; lines are never thinner than about a pixel. */
+  private drawPlans(): void {
+    const g = this.plansLayer;
+    g.clear();
+    this.planScale = this.scale;
+    const pxM = 1 / Math.max(this.scale, 1e-6);
+    for (const p of this.plans) {
+      const look = planLook(p);
+      for (const r of p.parcels) {
+        g.rect(r.x, r.y, r.w, r.h).stroke({ width: Math.max(0.3, pxM), color: PARCEL_COLOUR, alpha: look.parcelAlpha });
+      }
+      for (const r of [...p.streets, ...p.sites]) {
+        g.rect(r.x, r.y, r.w, r.h).fill({ color: RESERVED_COLOUR, alpha: look.reservedAlpha });
+      }
+      for (const r of p.built) {
+        g.rect(r.x, r.y, r.w, r.h).stroke({ width: Math.max(0.6, 1.5 * pxM), color: BUILT_COLOUR, alpha: look.lineAlpha });
+      }
+      for (const r of p.occupied) {
+        const pad = 2 * pxM;
+        g.rect(r.x - pad, r.y - pad, r.w + 2 * pad, r.h + 2 * pad).stroke({
+          width: Math.max(0.8, 2 * pxM),
+          color: OCCUPIED_COLOUR,
+          alpha: look.lineAlpha,
+        });
       }
     }
   }
@@ -1124,6 +1181,7 @@ export class MapView {
       way: wayAt(this.ways, xM, yM, 3 / this.scale),
       vehicle:
         this.vehicles.length > 0 ? vehicleAt(this.vehicles, this.positionsById(), xM, yM, 6 / this.scale) : null,
+      plan: planAt(this.plans, xM, yM),
       well: wellAt(this.water?.wells ?? [], xM, yM, 3 / this.scale),
       spring: springAt(this.water?.springs ?? [], xM, yM, 4 / this.scale),
       bank: bankAt(this.water?.banks ?? [], xM, yM, 4 / this.scale),
@@ -1147,6 +1205,9 @@ export class MapView {
       }
       if (this.ways.length > 0 && Math.abs(Math.log(scale / this.wayScale)) > 0.15) {
         this.drawWays();
+      }
+      if (this.plans.length > 0 && Math.abs(Math.log(scale / this.planScale)) > 0.15) {
+        this.drawPlans();
       }
       if (this.crossings.length > 0 && Math.abs(Math.log(scale / this.crossingScale)) > 0.15) {
         this.drawCrossings();
@@ -1352,6 +1413,18 @@ export class MapView {
           return { id: v.id, mode: v.mode, x, y, made: v.made, outWith: v.outWith, loadKg: v.loadKg, words: v.words };
         });
       })(),
+      // M8c slice CT: plans, each by its law and version, its layers' counts and its words.
+      plans: this.plans.map((p) => ({
+        law: p.law,
+        version: p.version,
+        inForce: p.inForce,
+        streets: p.streets.length,
+        sites: p.sites.length,
+        parcels: p.parcels.length,
+        built: p.built.length,
+        occupied: p.occupied.length,
+        words: p.words,
+      })),
       // M8b slice CM: ways, where each runs, its rank and its stretches' condition.
       ways: this.ways.map((w) => ({
         id: w.id,

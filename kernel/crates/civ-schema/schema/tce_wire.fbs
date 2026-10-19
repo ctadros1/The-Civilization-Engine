@@ -418,6 +418,10 @@ table Snapshot {
   // or gone, taken out or brought in, or the goods aboard one change (0 = no boat or cart yet).
   // Fetch them with GetVehicles when it differs.
   vehicles_rev: ulong (id: 24);
+  // Wire 1.88 (M8c slice CT, fourth part): changes whenever a plan is put forward, passed or
+  // ended, a building is begun on ground one reserves or one there falls, and with the ways while
+  // any polity has laid a plan (0 = no plan yet). Fetch them with GetPlans when it differs.
+  plans_rev: ulong (id: 25);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -744,10 +748,12 @@ table GetStorm {
 
 // Wire 1.84 (M8b slice CM; ADR-0029 §9): every way people have worked on.
 table GetWays {}
+// Wire 1.88: every plan put forward or in force.
+table GetPlans {}
 // Wire 1.86: every boat and cart.
 table GetVehicles {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak, GetCoverage, GetConflagration, GetFlood, GetStorm, GetWays, GetVehicles }
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak, GetCoverage, GetConflagration, GetFlood, GetStorm, GetWays, GetVehicles, GetPlans }
 
 table Query {
   body: QueryBody (id: 1);
@@ -2766,7 +2772,38 @@ table Vehicles {
   vehicles: [VehicleInfo] (id: 1);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo, Coverage, ConflagrationInfo, FloodInfo, StormInfo, Ways, Vehicles }
+// Wire 1.88 (M8c slice CT, fourth part; ADR-0030 §3, §8): a rectangle of a plan's ground,
+// metres from the map's north-west corner: its north-west corner and its size.
+struct PlanRect {
+  x: float;
+  y: float;
+  w: float;
+  h: float;
+}
+
+// Wire 1.88: a plan put forward or in force, in three layers kept apart (research 10-04 §6.1):
+// the streets and square it reserves and the parcels it lays out; the reserved ground a way
+// already runs over; and the plots of the buildings standing on reserved ground. Its law, its
+// version, whether it is in force (else put forward), and the plan in words.
+table PlanInfo {
+  law: ulong (id: 0);
+  version: ushort (id: 1);
+  in_force: bool (id: 2);
+  streets: [PlanRect] (id: 3);
+  sites: [PlanRect] (id: 4);
+  parcels: [PlanRect] (id: 5);
+  built: [PlanRect] (id: 6);
+  occupied: [PlanRect] (id: 7);
+  words: string (id: 8);
+}
+
+// Wire 1.88: every plan put forward or in force, by polity, each in the order laid.
+table Plans {
+  rev: ulong (id: 0);
+  plans: [PlanInfo] (id: 1);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo, Coverage, ConflagrationInfo, FloodInfo, StormInfo, Ways, Vehicles, Plans }
 
 table Response {
   body: ResponseBody (id: 1);

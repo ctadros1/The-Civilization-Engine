@@ -4590,6 +4590,29 @@ and M6a gives rivers a daily flow.
         encroachment, and the record is saved and gone on alike; a schema-156 save loads with
         none. **Boundary:** saves schema 157 (the polity's encroachments); no content or wire
         change.
+      - *Fourth part, as built (2026-10-19): the reservation layers* (ADR-0030 §3, §8; research
+        10-04 §6.1: "legally reserved, only partly constructed and partly occupied without
+        permission at the same time"). `GetPlans` lists each plan put forward or in force with its
+        law, version and whether it is in force, in three layers kept apart: the streets and square
+        it reserves and the parcels it lays out; the reserved ground a way already runs over (a
+        stretch or the square holding the centre of a cell of a way); and the plots of the buildings
+        standing on reserved ground, from the polity's encroachments; and the plan in words
+        ("Ashford: a plan (version 1) of …, in force; a way already runs over 2 of the stretches it
+        reserves; 1 building stands on its reserved ground"). The snapshot's `plans_rev` changes
+        when a plan is put forward, passed or ended, a building is begun on reserved ground or one
+        there falls, and with the ways. The map draws each plan beneath fields and buildings: its
+        parcels outlined, its streets and square tinted, ground a way runs over outlined grey and a
+        building on reserved ground ringed red, one put forward at half strength; the readout names
+        the layer under the pointer with the plan's words. **Not as the ADR:** "built" is ground a
+        way already runs over, since no work on a plan's ground is done yet (staking and clearing
+        are public works to come); plans superseded, rejected or lapsed are not drawn (their words
+        stay in the law history). **Tests:** the host lists no plan before one is laid, then a plan
+        put forward with its layers as laid and its words, a way over reserved ground counted as
+        built, and in force with a building on a street as occupied, the revision changing each
+        time; the web decodes the plans, finds the topmost layer under the pointer (plans in force
+        first) and words it; the paths e2e checks the map draws plans exactly when the revision
+        says there are some. **Boundary:** wire 1.88 (`GetPlans`, `Plans`, `PlanInfo`, `PlanRect`,
+        `Snapshot.plans_rev`); no saves or content change. Slice CT is closed.
     - **CU, land assembly and allotment:** clauses and answers for every touched claim, the
       channels `GroundFee`, `GroundRent` and `Compensation`, the keeper's office, phases, the four
       allocation rules, ground rent as an obligation, build by.

@@ -564,6 +564,10 @@ impl Engine {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::vehicles::vehicles_response(&w.sim)),
             },
+            Request::GetPlans => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::plans::plans_response(&w.sim)),
+            },
             Request::GetWays => match &self.world {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::ways::ways_response(&w.sim)),
@@ -2301,6 +2305,201 @@ mod tests {
             words(c).ends_with("handcart, being made: 12 of 40 hours' work done"),
             "{}",
             words(c)
+        );
+    }
+
+    #[test]
+    fn the_plans_are_read_in_their_layers_with_what_stands_on_them() {
+        use civ_agents::polity::{Encroachment, IssueKind, LawStatus};
+        use civ_land::ways::{Keeper, Rank, Segment, Surface, WALK, Way};
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetPlans)),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Plans");
+        let read = |h: &mut Harness| {
+            let Reply::Response(payload) = h.ask(Request::GetPlans) else {
+                panic!("the plans are read");
+            };
+            payload
+        };
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let list = response.body_as_plans().expect("plans");
+        assert_eq!(list.rev(), 0);
+        assert_eq!(list.plans().map_or(0, |l| l.len()), 0);
+        // Two days on, someone of the first household puts the first layout forward.
+        let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+        sim.advance_minutes(2 * 24 * 60).expect("lives");
+        let settlement = sim.land().settlements[0].id;
+        let (household, sponsor) = sim
+            .people()
+            .households
+            .iter()
+            .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+            .map(|(_, x)| (x.id, x.members[0]))
+            .min()
+            .expect("a household");
+        let law = sim
+            .with_ctx_for_tests(|pop, ctx| {
+                pop.propose_plan_for_tests(ctx, settlement, sponsor, 0, IssueKind::NoGround)
+            })
+            .expect("a plan put forward");
+        let proposed = frames::plans::plans_rev(sim);
+        assert_ne!(proposed, 0);
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let list = response.body_as_plans().expect("plans");
+        assert_eq!(list.rev(), proposed);
+        let all = list.plans().expect("a list");
+        assert_eq!(all.len(), 1);
+        let p = all.get(0);
+        assert_eq!((p.law(), p.version(), p.in_force()), (law.get(), 1, false));
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        let pi = sim
+            .people()
+            .polities
+            .iter()
+            .position(|x| x.holds(Some(settlement)))
+            .expect("its polity");
+        let laid = sim.people().polities[pi]
+            .plan_of(law)
+            .expect("its plan")
+            .layout
+            .clone();
+        let n = |v: Option<flatbuffers::Vector<'_, wire::PlanRect>>| v.map_or(0, |v| v.len());
+        assert_eq!(n(p.streets()), laid.streets.len());
+        assert_eq!(n(p.sites()), laid.sites.len());
+        assert_eq!(n(p.parcels()), laid.parcels.len());
+        assert!(n(p.parcels()) > 0);
+        assert_eq!(n(p.occupied()), 0);
+        let first = laid.parcels[0].rect;
+        let r = p.parcels().expect("parcels").get(0);
+        assert_eq!(
+            (r.x(), r.y(), r.w(), r.h()),
+            (
+                first.x as f32 / 100.0,
+                first.y as f32 / 100.0,
+                first.w as f32 / 100.0,
+                first.h as f32 / 100.0
+            )
+        );
+        let words = p.words().unwrap_or_default().to_owned();
+        assert!(
+            words.contains("version 1") && words.ends_with("put forward"),
+            "{words}"
+        );
+        // A way laid over reserved ground: one cell whose centre lies on a street or the square.
+        let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+        let map = sim.map();
+        let on = |r: &civ_land::RectCm, c: u32| {
+            let (x, y) = civ_agents::population::cell_centre(map, c as usize);
+            let (x, y) = (f64::from(x) * 100.0, f64::from(y) * 100.0);
+            x >= f64::from(r.x)
+                && x < f64::from(r.x + r.w)
+                && y >= f64::from(r.y)
+                && y < f64::from(r.y + r.h)
+        };
+        let cell = laid
+            .streets
+            .iter()
+            .chain(laid.sites.iter().map(|s| &s.rect))
+            .find_map(|r| {
+                let (x0, y0) = (r.x as f32 / 100.0, r.y as f32 / 100.0);
+                let (x1, y1) = (x0 + r.w as f32 / 100.0, y0 + r.h as f32 / 100.0);
+                let step = map.cell_size_m / 2.0;
+                let mut y = y0;
+                while y < y1 {
+                    let mut x = x0;
+                    while x < x1 {
+                        let c = civ_agents::population::cell_of(map, (x, y)) as u32;
+                        if on(r, c) {
+                            return Some(c);
+                        }
+                        x += step;
+                    }
+                    y += step;
+                }
+                None
+            })
+            .expect("a cell on reserved ground");
+        let (id, today) = (sim.allocate_id_for_tests(), sim.now().day_index());
+        sim.land_mut_for_tests().ways.add(Way {
+            id,
+            begun: today,
+            segments: vec![Segment {
+                cells: vec![cell],
+                corridor_m: 4.0,
+                built_m: 1.5,
+                usable_m: 1.5,
+                surface: Surface::Cleared,
+                keeper: Keeper::Household(household),
+                kept: today,
+            }],
+            modes: WALK,
+            trips: 0.0,
+            trips_day: today,
+            rank: Rank::Lane,
+        });
+        assert_ne!(frames::plans::plans_rev(sim), proposed);
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let p = response
+            .body_as_plans()
+            .and_then(|l| l.plans())
+            .expect("a list")
+            .get(0);
+        assert!(n(p.built()) >= 1);
+        let words = p.words().unwrap_or_default().to_owned();
+        assert!(words.contains("; a way already runs over "), "{words}");
+        // In force, with a building of the household's standing on one of its streets.
+        let street = *laid.streets.first().expect("a street");
+        let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+        let building = sim
+            .land()
+            .buildings
+            .iter()
+            .find(|b| b.standing())
+            .map(|b| (b.id, b.plot))
+            .expect("a building");
+        {
+            let land = sim.land_mut_for_tests();
+            let q = land
+                .plots
+                .iter_mut()
+                .find(|q| q.id == building.1)
+                .expect("its plot");
+            q.rect.x = street.x;
+            q.rect.y = street.y;
+        }
+        let day = sim.now().day_index();
+        {
+            let polity = &mut sim.people_mut_for_tests().polities[pi];
+            polity.law_mut(law).expect("the law").status = LawStatus::InForce;
+            polity.encroachments.push(Encroachment {
+                day,
+                law,
+                household,
+                building: building.0,
+            });
+        }
+        let rev = frames::plans::plans_rev(sim);
+        assert!(rev != 0 && rev != proposed);
+        let payload = read(&mut h);
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let p = response
+            .body_as_plans()
+            .and_then(|l| l.plans())
+            .expect("a list")
+            .get(0);
+        assert!(p.in_force());
+        assert_eq!(n(p.occupied()), 1);
+        let words = p.words().unwrap_or_default().to_owned();
+        assert!(
+            words.contains(", in force")
+                && words.ends_with("; 1 building stands on its reserved ground"),
+            "{words}"
         );
     }
 

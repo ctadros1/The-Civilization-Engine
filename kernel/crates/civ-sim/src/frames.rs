@@ -40,6 +40,7 @@ pub mod markets;
 pub mod order;
 pub mod paths;
 pub mod people;
+pub mod plans;
 pub mod sickness;
 pub mod standing;
 pub mod traffic;

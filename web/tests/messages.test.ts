@@ -320,6 +320,7 @@ describe("decoders", () => {
       crossingsRev: 0,
       waysRev: 0,
       vehiclesRev: 0,
+      plansRev: 0,
       waterRev: 0,
       incidentsRev: 0,
       bands: [],

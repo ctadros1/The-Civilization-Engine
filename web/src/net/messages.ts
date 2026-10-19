@@ -393,6 +393,10 @@ export interface Snapshot {
   /** Wire 1.86: changes whenever a boat or a cart is begun, worked on, made, moved or gone, taken
    * out or brought in, or the goods aboard one change (0 = none yet). Fetch them with GetVehicles. */
   vehiclesRev: number;
+  /** Wire 1.88: changes whenever a plan is put forward, passed or ended, a building is begun on
+   * ground one reserves or one there falls, and with the ways while any plan was laid (0 = none
+   * yet). Fetch them with GetPlans. */
+  plansRev: number;
   /** Wire 1.61: changes whenever a well is begun, dug deeper, opens, rots, is relined, given up or
    * falls in, and with each day lived while the world has wells or springs (0 = neither). Fetch
    * them with GetWater. */
@@ -1819,6 +1823,36 @@ export interface VehiclesInfo {
   vehicles: VehicleInfo[];
 }
 
+/** A rectangle of a plan's ground, metres from the map's north-west corner (wire 1.88). */
+export interface PlanRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** A plan put forward or in force (wire 1.88, M8c slice CT; ADR-0030 §3), in three layers kept
+ * apart: the streets and square it reserves and the parcels it lays out; the reserved ground a way
+ * already runs over; and the plots of the buildings standing on reserved ground. */
+export interface PlanInfo {
+  law: number;
+  version: number;
+  inForce: boolean;
+  streets: PlanRect[];
+  sites: PlanRect[];
+  parcels: PlanRect[];
+  built: PlanRect[];
+  occupied: PlanRect[];
+  /** In the kernel's words: "Ashford: a plan (version 1) of …, in force; 1 building stands on its
+   * reserved ground". */
+  words: string;
+}
+
+export interface PlansInfo {
+  rev: number;
+  plans: PlanInfo[];
+}
+
 /** A well (wire 1.61, M6a slice AY; ADR-0021 §3). */
 export interface WellInfo {
   id: number;
@@ -1994,6 +2028,7 @@ export type ResponseBody =
   | { kind: "crossings"; crossings: CrossingsInfo }
   | { kind: "ways"; ways: WaysInfo }
   | { kind: "vehicles"; vehicles: VehiclesInfo }
+  | { kind: "plans"; plans: PlansInfo }
   | { kind: "water"; water: WaterInfo }
   | { kind: "weather"; weather: WeatherReport }
   | { kind: "standing"; standing: StandingInfo }
@@ -2492,6 +2527,12 @@ export function getVehicles(): Uint8Array {
   return query(b, W.QueryBody.GetVehicles, W.GetVehicles.endGetVehicles(b));
 }
 
+export function getPlans(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetPlans.startGetPlans(b);
+  return query(b, W.QueryBody.GetPlans, W.GetPlans.endGetPlans(b));
+}
+
 /** A page of incidents (wire 1.64): `settlement` 0 for every one, `kind` 0 for every kind. */
 export function getIncidents(settlement: number, kind: number, before: IncidentKey | null, limit: number): Uint8Array {
   const b = new flatbuffers.Builder(64);
@@ -2798,6 +2839,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     crossingsRev: Number(s.crossingsRev()),
     waysRev: Number(s.waysRev()),
     vehiclesRev: Number(s.vehiclesRev()),
+    plansRev: Number(s.plansRev()),
     waterRev: Number(s.waterRev()),
     incidentsRev: Number(s.incidentsRev()),
     bands: bandBriefs(s),
@@ -2935,6 +2977,35 @@ function vehicles(w: W.Vehicles): VehiclesInfo {
     });
   }
   return { rev: Number(w.rev()), vehicles: list };
+}
+
+function planRects(n: number, at: (i: number) => W.PlanRect | null): PlanRect[] {
+  const out: PlanRect[] = [];
+  for (let i = 0; i < n; i++) {
+    const r = at(i);
+    if (r) out.push({ x: r.x(), y: r.y(), w: r.w(), h: r.h() });
+  }
+  return out;
+}
+
+function plans(w: W.Plans): PlansInfo {
+  const list: PlanInfo[] = [];
+  for (let i = 0; i < w.plansLength(); i++) {
+    const p = w.plans(i);
+    if (!p) continue;
+    list.push({
+      law: Number(p.law()),
+      version: p.version(),
+      inForce: p.inForce(),
+      streets: planRects(p.streetsLength(), (k) => p.streets(k)),
+      sites: planRects(p.sitesLength(), (k) => p.sites(k)),
+      parcels: planRects(p.parcelsLength(), (k) => p.parcels(k)),
+      built: planRects(p.builtLength(), (k) => p.built(k)),
+      occupied: planRects(p.occupiedLength(), (k) => p.occupied(k)),
+      words: p.words() ?? "",
+    });
+  }
+  return { rev: Number(w.rev()), plans: list };
 }
 
 function coverageSource(v: W.CoverageSource): CoverageSource {
@@ -4761,6 +4832,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Vehicles()) as W.Vehicles | null;
       if (!f) break;
       return { kind: "vehicles", vehicles: vehicles(f) };
+    }
+    case W.ResponseBody.Plans: {
+      const f = r.body(new W.Plans()) as W.Plans | null;
+      if (!f) break;
+      return { kind: "plans", plans: plans(f) };
     }
     case W.ResponseBody.Incidents: {
       const f = r.body(new W.Incidents()) as W.Incidents | null;

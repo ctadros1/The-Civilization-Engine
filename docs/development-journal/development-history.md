@@ -3060,3 +3060,11 @@ ground. Every building begun where the plan lays out ground is counted on the la
 or not, and one begun on a street or the square is recorded as an encroachment. Nothing yet
 follows from that record; cases come with slice CV.
 
+## 2026-10-19 — CT, fourth part: a plan on the map
+
+**Built:** the map now shows every plan put forward or in force. Its parcels are outlined and
+the streets and square it keeps open are tinted; where a way people already use runs over that
+ground it is outlined in grey, and a building standing on reserved ground is ringed in red. A
+plan only put forward is drawn fainter than one in force. Pointing at any of it says which layer
+it is and the plan in the kernel's words. Slice CT is closed.
+

@@ -173,8 +173,13 @@ vehiclesRev():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+plansRev():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 54);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startSnapshot(builder:flatbuffers.Builder) {
-  builder.startObject(25);
+  builder.startObject(26);
 }
 
 static addWorld(builder:flatbuffers.Builder, worldOffset:flatbuffers.Offset) {
@@ -311,6 +316,10 @@ static addWaysRev(builder:flatbuffers.Builder, waysRev:bigint) {
 
 static addVehiclesRev(builder:flatbuffers.Builder, vehiclesRev:bigint) {
   builder.addFieldInt64(24, vehiclesRev, BigInt('0'));
+}
+
+static addPlansRev(builder:flatbuffers.Builder, plansRev:bigint) {
+  builder.addFieldInt64(25, plansRev, BigInt('0'));
 }
 
 static endSnapshot(builder:flatbuffers.Builder):flatbuffers.Offset {

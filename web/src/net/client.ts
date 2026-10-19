@@ -317,6 +317,13 @@ export class HostClient {
     return body.vehicles;
   }
 
+  /** Every plan put forward or in force (wire 1.88). */
+  async plans(): Promise<M.PlansInfo> {
+    const body = await this.query(M.getPlans());
+    if (body.kind !== "plans") throw new HostError("internal", "expected plans");
+    return body.plans;
+  }
+
   /** Every way people have worked on (wire 1.84). */
   async ways(): Promise<M.WaysInfo> {
     const body = await this.query(M.getWays());

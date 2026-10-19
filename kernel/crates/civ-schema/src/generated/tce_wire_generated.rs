@@ -831,10 +831,10 @@ pub struct CommandBodyUnionTableOffset {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_QUERY_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_QUERY_BODY: u8 = 31;
+pub const ENUM_MAX_QUERY_BODY: u8 = 32;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 32] = [
+pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 33] = [
   QueryBody::NONE,
   QueryBody::GetRaster,
   QueryBody::GetHydrography,
@@ -867,6 +867,7 @@ pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 32] = [
   QueryBody::GetStorm,
   QueryBody::GetWays,
   QueryBody::GetVehicles,
+  QueryBody::GetPlans,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -906,9 +907,10 @@ impl QueryBody {
   pub const GetStorm: Self = Self(29);
   pub const GetWays: Self = Self(30);
   pub const GetVehicles: Self = Self(31);
+  pub const GetPlans: Self = Self(32);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 31;
+  pub const ENUM_MAX: u8 = 32;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::GetRaster,
@@ -942,6 +944,7 @@ impl QueryBody {
     Self::GetStorm,
     Self::GetWays,
     Self::GetVehicles,
+    Self::GetPlans,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -978,6 +981,7 @@ impl QueryBody {
       Self::GetStorm => Some("GetStorm"),
       Self::GetWays => Some("GetWays"),
       Self::GetVehicles => Some("GetVehicles"),
+      Self::GetPlans => Some("GetPlans"),
       _ => None,
     }
   }
@@ -1417,10 +1421,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for BookKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RESPONSE_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RESPONSE_BODY: u8 = 32;
+pub const ENUM_MAX_RESPONSE_BODY: u8 = 33;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 33] = [
+pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 34] = [
   ResponseBody::NONE,
   ResponseBody::Ack,
   ResponseBody::RasterTile,
@@ -1454,6 +1458,7 @@ pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 33] = [
   ResponseBody::StormInfo,
   ResponseBody::Ways,
   ResponseBody::Vehicles,
+  ResponseBody::Plans,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1494,9 +1499,10 @@ impl ResponseBody {
   pub const StormInfo: Self = Self(30);
   pub const Ways: Self = Self(31);
   pub const Vehicles: Self = Self(32);
+  pub const Plans: Self = Self(33);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 32;
+  pub const ENUM_MAX: u8 = 33;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::Ack,
@@ -1531,6 +1537,7 @@ impl ResponseBody {
     Self::StormInfo,
     Self::Ways,
     Self::Vehicles,
+    Self::Plans,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1568,6 +1575,7 @@ impl ResponseBody {
       Self::StormInfo => Some("StormInfo"),
       Self::Ways => Some("Ways"),
       Self::Vehicles => Some("Vehicles"),
+      Self::Plans => Some("Plans"),
       _ => None,
     }
   }
@@ -3398,6 +3406,197 @@ impl<'a> GroundTileRev {
         &x_le as *const _ as *const u8,
         self.0[4..].as_mut_ptr(),
         ::core::mem::size_of::<<u32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct PlanRect, aligned to 4
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct PlanRect(pub [u8; 16]);
+impl Default for PlanRect { 
+  fn default() -> Self { 
+    Self([0; 16])
+  }
+}
+impl ::core::fmt::Debug for PlanRect {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("PlanRect")
+      .field("x", &self.x())
+      .field("y", &self.y())
+      .field("w", &self.w())
+      .field("h", &self.h())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for PlanRect {}
+impl<'a> ::flatbuffers::Follow<'a> for PlanRect {
+  type Inner = &'a PlanRect;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a PlanRect>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a PlanRect {
+  type Inner = &'a PlanRect;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<PlanRect>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for PlanRect {
+    type Output = PlanRect;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const PlanRect as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(4)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for PlanRect {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> PlanRect {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+  ) -> Self {
+    let mut s = Self([0; 16]);
+    s.set_x(x);
+    s.set_y(y);
+    s.set_w(w);
+    s.set_h(h);
+    s
+  }
+
+  pub fn x(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_x(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn y(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_y(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn w(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_w(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn h(&self) -> f32 {
+    let mut mem = ::core::mem::MaybeUninit::<<f32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[12..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_h(&mut self, x: f32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[12..].as_mut_ptr(),
+        ::core::mem::size_of::<<f32 as ::flatbuffers::EndianScalar>::Scalar>(),
       );
     }
   }
@@ -7541,6 +7740,7 @@ impl<'a> Snapshot<'a> {
   pub const VT_BANDS: ::flatbuffers::VOffsetT = 48;
   pub const VT_WAYS_REV: ::flatbuffers::VOffsetT = 50;
   pub const VT_VEHICLES_REV: ::flatbuffers::VOffsetT = 52;
+  pub const VT_PLANS_REV: ::flatbuffers::VOffsetT = 54;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7552,6 +7752,7 @@ impl<'a> Snapshot<'a> {
     args: &'args SnapshotArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Snapshot<'bldr>> {
     let mut builder = SnapshotBuilder::new(_fbb);
+    builder.add_plans_rev(args.plans_rev);
     builder.add_vehicles_rev(args.vehicles_rev);
     builder.add_ways_rev(args.ways_rev);
     builder.add_incidents_rev(args.incidents_rev);
@@ -7756,6 +7957,13 @@ impl<'a> Snapshot<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(Snapshot::VT_VEHICLES_REV, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn plans_rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Snapshot::VT_PLANS_REV, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Snapshot<'_> {
@@ -7789,6 +7997,7 @@ impl ::flatbuffers::Verifiable for Snapshot<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BandBrief>>>>("bands", Self::VT_BANDS, false)?
      .visit_field::<u64>("ways_rev", Self::VT_WAYS_REV, false)?
      .visit_field::<u64>("vehicles_rev", Self::VT_VEHICLES_REV, false)?
+     .visit_field::<u64>("plans_rev", Self::VT_PLANS_REV, false)?
      .finish();
     Ok(())
   }
@@ -7819,6 +8028,7 @@ pub struct SnapshotArgs<'a> {
     pub bands: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BandBrief<'a>>>>>,
     pub ways_rev: u64,
     pub vehicles_rev: u64,
+    pub plans_rev: u64,
 }
 impl<'a> Default for SnapshotArgs<'a> {
   #[inline]
@@ -7849,6 +8059,7 @@ impl<'a> Default for SnapshotArgs<'a> {
       bands: None,
       ways_rev: 0,
       vehicles_rev: 0,
+      plans_rev: 0,
     }
   }
 }
@@ -7959,6 +8170,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> SnapshotBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<u64>(Snapshot::VT_VEHICLES_REV, vehicles_rev, 0);
   }
   #[inline]
+  pub fn add_plans_rev(&mut self, plans_rev: u64) {
+    self.fbb_.push_slot::<u64>(Snapshot::VT_PLANS_REV, plans_rev, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> SnapshotBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SnapshotBuilder {
@@ -8001,6 +8216,7 @@ impl ::core::fmt::Debug for Snapshot<'_> {
       ds.field("bands", &self.bands());
       ds.field("ways_rev", &self.ways_rev());
       ds.field("vehicles_rev", &self.vehicles_rev());
+      ds.field("plans_rev", &self.plans_rev());
       ds.finish()
   }
 }
@@ -14018,6 +14234,84 @@ impl ::core::fmt::Debug for GetWays<'_> {
       ds.finish()
   }
 }
+pub enum GetPlansOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetPlans<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetPlans<'a> {
+  type Inner = GetPlans<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetPlans<'a> {
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetPlans { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    _args: &'args GetPlansArgs
+  ) -> ::flatbuffers::WIPOffset<GetPlans<'bldr>> {
+    let mut builder = GetPlansBuilder::new(_fbb);
+    builder.finish()
+  }
+
+}
+
+impl ::flatbuffers::Verifiable for GetPlans<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetPlansArgs {
+}
+impl<'a> Default for GetPlansArgs {
+  #[inline]
+  fn default() -> Self {
+    GetPlansArgs {
+    }
+  }
+}
+
+pub struct GetPlansBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetPlansBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetPlansBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetPlansBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetPlans<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetPlans<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetPlans");
+      ds.finish()
+  }
+}
 pub enum GetVehiclesOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -14610,6 +14904,21 @@ impl<'a> Query<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_plans(&self) -> Option<GetPlans<'a>> {
+    if self.body_type() == QueryBody::GetPlans {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetPlans::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Query<'_> {
@@ -14651,6 +14960,7 @@ impl ::flatbuffers::Verifiable for Query<'_> {
           QueryBody::GetStorm => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetStorm>>("QueryBody::GetStorm", pos),
           QueryBody::GetWays => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetWays>>("QueryBody::GetWays", pos),
           QueryBody::GetVehicles => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetVehicles>>("QueryBody::GetVehicles", pos),
+          QueryBody::GetPlans => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetPlans>>("QueryBody::GetPlans", pos),
           _ => Ok(()),
         }
      })?
@@ -14917,6 +15227,13 @@ impl ::core::fmt::Debug for Query<'_> {
         },
         QueryBody::GetVehicles => {
           if let Some(x) = self.body_as_get_vehicles() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetPlans => {
+          if let Some(x) = self.body_as_get_plans() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -38531,6 +38848,351 @@ impl ::core::fmt::Debug for Vehicles<'_> {
       ds.finish()
   }
 }
+pub enum PlanInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct PlanInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for PlanInfo<'a> {
+  type Inner = PlanInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> PlanInfo<'a> {
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 4;
+  pub const VT_VERSION: ::flatbuffers::VOffsetT = 6;
+  pub const VT_IN_FORCE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_STREETS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SITES: ::flatbuffers::VOffsetT = 12;
+  pub const VT_PARCELS: ::flatbuffers::VOffsetT = 14;
+  pub const VT_BUILT: ::flatbuffers::VOffsetT = 16;
+  pub const VT_OCCUPIED: ::flatbuffers::VOffsetT = 18;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 20;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    PlanInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args PlanInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<PlanInfo<'bldr>> {
+    let mut builder = PlanInfoBuilder::new(_fbb);
+    builder.add_law(args.law);
+    if let Some(x) = args.words { builder.add_words(x); }
+    if let Some(x) = args.occupied { builder.add_occupied(x); }
+    if let Some(x) = args.built { builder.add_built(x); }
+    if let Some(x) = args.parcels { builder.add_parcels(x); }
+    if let Some(x) = args.sites { builder.add_sites(x); }
+    if let Some(x) = args.streets { builder.add_streets(x); }
+    builder.add_version(args.version);
+    builder.add_in_force(args.in_force);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PlanInfo::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn version(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(PlanInfo::VT_VERSION, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn in_force(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(PlanInfo::VT_IN_FORCE, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn streets(&self) -> Option<::flatbuffers::Vector<'a, PlanRect>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, PlanRect>>>(PlanInfo::VT_STREETS, None)}
+  }
+  #[inline]
+  pub fn sites(&self) -> Option<::flatbuffers::Vector<'a, PlanRect>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, PlanRect>>>(PlanInfo::VT_SITES, None)}
+  }
+  #[inline]
+  pub fn parcels(&self) -> Option<::flatbuffers::Vector<'a, PlanRect>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, PlanRect>>>(PlanInfo::VT_PARCELS, None)}
+  }
+  #[inline]
+  pub fn built(&self) -> Option<::flatbuffers::Vector<'a, PlanRect>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, PlanRect>>>(PlanInfo::VT_BUILT, None)}
+  }
+  #[inline]
+  pub fn occupied(&self) -> Option<::flatbuffers::Vector<'a, PlanRect>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, PlanRect>>>(PlanInfo::VT_OCCUPIED, None)}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(PlanInfo::VT_WORDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for PlanInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<u16>("version", Self::VT_VERSION, false)?
+     .visit_field::<bool>("in_force", Self::VT_IN_FORCE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PlanRect>>>("streets", Self::VT_STREETS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PlanRect>>>("sites", Self::VT_SITES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PlanRect>>>("parcels", Self::VT_PARCELS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PlanRect>>>("built", Self::VT_BUILT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PlanRect>>>("occupied", Self::VT_OCCUPIED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct PlanInfoArgs<'a> {
+    pub law: u64,
+    pub version: u16,
+    pub in_force: bool,
+    pub streets: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PlanRect>>>,
+    pub sites: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PlanRect>>>,
+    pub parcels: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PlanRect>>>,
+    pub built: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PlanRect>>>,
+    pub occupied: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PlanRect>>>,
+    pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for PlanInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    PlanInfoArgs {
+      law: 0,
+      version: 0,
+      in_force: false,
+      streets: None,
+      sites: None,
+      parcels: None,
+      built: None,
+      occupied: None,
+      words: None,
+    }
+  }
+}
+
+pub struct PlanInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlanInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(PlanInfo::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_version(&mut self, version: u16) {
+    self.fbb_.push_slot::<u16>(PlanInfo::VT_VERSION, version, 0);
+  }
+  #[inline]
+  pub fn add_in_force(&mut self, in_force: bool) {
+    self.fbb_.push_slot::<bool>(PlanInfo::VT_IN_FORCE, in_force, false);
+  }
+  #[inline]
+  pub fn add_streets(&mut self, streets: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , PlanRect>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlanInfo::VT_STREETS, streets);
+  }
+  #[inline]
+  pub fn add_sites(&mut self, sites: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , PlanRect>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlanInfo::VT_SITES, sites);
+  }
+  #[inline]
+  pub fn add_parcels(&mut self, parcels: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , PlanRect>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlanInfo::VT_PARCELS, parcels);
+  }
+  #[inline]
+  pub fn add_built(&mut self, built: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , PlanRect>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlanInfo::VT_BUILT, built);
+  }
+  #[inline]
+  pub fn add_occupied(&mut self, occupied: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , PlanRect>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlanInfo::VT_OCCUPIED, occupied);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PlanInfo::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlanInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    PlanInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<PlanInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for PlanInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("PlanInfo");
+      ds.field("law", &self.law());
+      ds.field("version", &self.version());
+      ds.field("in_force", &self.in_force());
+      ds.field("streets", &self.streets());
+      ds.field("sites", &self.sites());
+      ds.field("parcels", &self.parcels());
+      ds.field("built", &self.built());
+      ds.field("occupied", &self.occupied());
+      ds.field("words", &self.words());
+      ds.finish()
+  }
+}
+pub enum PlansOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Plans<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Plans<'a> {
+  type Inner = Plans<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Plans<'a> {
+  pub const VT_REV: ::flatbuffers::VOffsetT = 4;
+  pub const VT_PLANS: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Plans { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args PlansArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Plans<'bldr>> {
+    let mut builder = PlansBuilder::new(_fbb);
+    builder.add_rev(args.rev);
+    if let Some(x) = args.plans { builder.add_plans(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn rev(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Plans::VT_REV, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn plans(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PlanInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PlanInfo>>>>(Plans::VT_PLANS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Plans<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("rev", Self::VT_REV, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<PlanInfo>>>>("plans", Self::VT_PLANS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct PlansArgs<'a> {
+    pub rev: u64,
+    pub plans: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<PlanInfo<'a>>>>>,
+}
+impl<'a> Default for PlansArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    PlansArgs {
+      rev: 0,
+      plans: None,
+    }
+  }
+}
+
+pub struct PlansBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PlansBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_rev(&mut self, rev: u64) {
+    self.fbb_.push_slot::<u64>(Plans::VT_REV, rev, 0);
+  }
+  #[inline]
+  pub fn add_plans(&mut self, plans: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<PlanInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Plans::VT_PLANS, plans);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PlansBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    PlansBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Plans<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Plans<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Plans");
+      ds.field("rev", &self.rev());
+      ds.field("plans", &self.plans());
+      ds.finish()
+  }
+}
 pub enum ResponseOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -39060,6 +39722,21 @@ impl<'a> Response<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_plans(&self) -> Option<Plans<'a>> {
+    if self.body_type() == ResponseBody::Plans {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Plans::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Response<'_> {
@@ -39102,6 +39779,7 @@ impl ::flatbuffers::Verifiable for Response<'_> {
           ResponseBody::StormInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<StormInfo>>("ResponseBody::StormInfo", pos),
           ResponseBody::Ways => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Ways>>("ResponseBody::Ways", pos),
           ResponseBody::Vehicles => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Vehicles>>("ResponseBody::Vehicles", pos),
+          ResponseBody::Plans => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Plans>>("ResponseBody::Plans", pos),
           _ => Ok(()),
         }
      })?
@@ -39375,6 +40053,13 @@ impl ::core::fmt::Debug for Response<'_> {
         },
         ResponseBody::Vehicles => {
           if let Some(x) = self.body_as_vehicles() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::Plans => {
+          if let Some(x) = self.body_as_plans() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

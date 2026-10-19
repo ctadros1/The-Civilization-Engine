@@ -215,6 +215,8 @@ pub enum Request {
     GetWays,
     /// Every boat and cart (wire 1.86, ADR-0029 §9).
     GetVehicles,
+    /// Every plan put forward or in force (wire 1.88).
+    GetPlans,
     /// The wells, springs and water drawn today (wire 1.61).
     GetWater,
     /// A page of incidents of every kind, newest first (wire 1.64, ADR-0015 §8).
@@ -682,6 +684,7 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                 wire::QueryBody::GetCrossings => Ok(Request::GetCrossings),
                 wire::QueryBody::GetWays => Ok(Request::GetWays),
                 wire::QueryBody::GetVehicles => Ok(Request::GetVehicles),
+                wire::QueryBody::GetPlans => Ok(Request::GetPlans),
                 wire::QueryBody::GetWater => Ok(Request::GetWater),
                 wire::QueryBody::GetIncidents => {
                     let b = query
@@ -981,6 +984,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
     let water_rev = parts.sim.map_or(0, civ_sim::frames::water::water_rev);
     let ways_rev = parts.sim.map_or(0, civ_sim::frames::ways::ways_rev);
     let vehicles_rev = parts.sim.map_or(0, civ_sim::frames::vehicles::vehicles_rev);
+    let plans_rev = parts.sim.map_or(0, civ_sim::frames::plans::plans_rev);
     let incidents_rev = parts
         .sim
         .map_or(0, civ_sim::frames::incidents::incidents_rev);
@@ -1042,6 +1046,7 @@ pub fn snapshot_payload(parts: &SnapshotParts<'_>) -> Vec<u8> {
             bands,
             ways_rev,
             vehicles_rev,
+            plans_rev,
         },
     );
     finish(fbb, root)

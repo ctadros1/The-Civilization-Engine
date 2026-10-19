@@ -15,6 +15,7 @@ import * as M from "./net/messages.js";
 import { Store, initialState, mergeEvents } from "./state.js";
 import { bindUi } from "./ui.js";
 import { bankWords, flowWords, springWords } from "./water.js";
+import { planWords } from "./plans.js";
 import { wayWords } from "./ways.js";
 import { legend, lensId, type LensLayer } from "./coverage.js";
 import { seasonOf } from "./weather.js";
@@ -86,6 +87,7 @@ const client = new HostClient(socketUrl(), {
     void syncCrossings();
     void syncWays();
     void syncVehicles();
+    void syncPlans();
     void syncWater();
     void syncLens();
     void refreshPerson(false);
@@ -360,6 +362,37 @@ async function syncVehicles(): Promise<void> {
     vehiclesBusy = false;
   }
   if (ok) void syncVehicles();
+}
+
+/** `world:revision` of the plans on the map. */
+let plansKey = "";
+let plansBusy = false;
+
+/** Fetches the plans when one was put forward, passed or ended, a building was begun on ground
+ * one reserves or one there fell, or the ways changed. */
+async function syncPlans(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const key = world && s.plansRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.plansRev}` : "";
+  if (key === plansKey || plansBusy) return;
+  if (!key) {
+    plansKey = "";
+    map.setPlans(null);
+    return;
+  }
+  plansBusy = true;
+  let ok = false;
+  try {
+    const info = await client.plans();
+    plansKey = key;
+    map.setPlans(info);
+    ok = true;
+  } catch (e) {
+    console.warn(`tce: the plans could not be read: ${String(e)}`);
+  } finally {
+    plansBusy = false;
+  }
+  if (ok) void syncPlans();
 }
 
 /** `world:revision` of the water on the map. */
@@ -1235,6 +1268,7 @@ map.onPointer = (info: PointerInfo | null) => {
   const crossing = info.crossing ? ` · ${info.crossing.words}` : "";
   const way = info.way && !info.crossing ? ` · ${wayWords(info.way.way, info.way.segment)}` : "";
   const vehicle = info.vehicle ? ` · ${info.vehicle.words}` : "";
+  const plan = info.plan ? ` · ${planWords(info.plan)}` : "";
   const flowing =
     (info.water === "river" || info.water === "lake") && info.flow !== null ? `, ${flowWords(info.flow)}` : "";
   const home = info.home ? ` · ${info.home.name}: ${info.home.words.join("; ")}` : "";
@@ -1248,7 +1282,7 @@ map.onPointer = (info: PointerInfo | null) => {
         : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${flowing}${home}${place}${vehicle}${crossing}${way}${source}${path}${field}${building}${earthwork}${deposit}`;
+    `${height} · ${info.water ?? ""}${flowing}${home}${place}${vehicle}${crossing}${way}${plan}${source}${path}${field}${building}${earthwork}${deposit}`;
 };
 
 const scaleBar = byId("scalebar-bar");
@@ -1523,6 +1557,7 @@ const hooks = {
       crossingsRev: s.snapshot?.crossingsRev ?? 0,
       waysRev: s.snapshot?.waysRev ?? 0,
       vehiclesRev: s.snapshot?.vehiclesRev ?? 0,
+      plansRev: s.snapshot?.plansRev ?? 0,
       waterRev: s.snapshot?.waterRev ?? 0,
       weatherRev: s.snapshot?.weatherRev ?? 0,
       weather: s.weather

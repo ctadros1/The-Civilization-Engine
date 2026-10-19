@@ -3161,3 +3161,11 @@ follow them when it builds.
 homes only. The plan's keeper offers families looking for a place to live only plots where homes
 are allowed, and people who respect the plan don't put a building where its kind isn't allowed.
 Buildings already standing are left as they are. This finishes the rules about where things go.
+
+## 2026-10-19 — CX, first part: the land report
+
+**Built:** the long-run report now has a line about land. For each village it says how many
+people live per hectare, both across the whole settled area and on the house plots alone; how much
+was paid for plots; how much of each town plan has been handed out or built over, and how many
+cases are still waiting; and how much families thought their plots were worth, measured in the
+walking time each saved them, by how far from the village hearth the plots lie.

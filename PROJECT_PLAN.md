@@ -4867,6 +4867,19 @@ and M6a gives rivers a daily flow.
         content API 149 (`[[plan.districts]]`); no saves or wire change.
     - **CX, land value and density:** the derived map (paid, reckoned, nothing recorded), the
       Land row, a bench of the largest settlement M8 lives.
+      - *First part, as built (2026-10-19): the Land row.* The dashboard gains a Land row,
+        reported and never graded (no tolerance until a run is seen, ADR-0030 §7), every world at
+        its end: each settlement's residents against its footprint (the least rectangle about
+        every plot of its households, streets and open ground within) and against its home plots,
+        by research 10-08 §1.1's quantities with their denominators; ground fees and ground rents
+        paid over the run (pay for a field under a plan goes by compensation, with the courts',
+        and is not told apart); each plan in force, its ground reserved, its parcels and those
+        given, the buildings begun on its ground, those no case names and the cases waiting to be
+        heard (CV's backlog); and what households reckoned their plots worth, the hours a year the
+        chosen saved over the next best, by walk to the hearth (under 100 m, 100 to 300, beyond).
+        **Test:** grey with nothing to say; the words of a world given each; a world lived 20
+        days has its settlement's residents, footprint, home plots and reckoned plots. No saves,
+        content or wire change.
   - **M8d, buildings and earthquakes, and the M8 demo** (designed when reached, from
     `docs/briefs/m8-building.md`): frame grammar v3 (up to 4 storeys, style traits live);
     techniques that open structural systems rather than caps; a lateral margin; the earthquake

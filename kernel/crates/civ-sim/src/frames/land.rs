@@ -3,7 +3,8 @@
 //! household reckoned it worth (its receipt: the hours a year it saved over the next best), or
 //! nothing recorded. The kernel keeps no land value; this reads the world and changes nothing.
 
-use civ_land::{AllotRule, Plot};
+use civ_core::PermanentId;
+use civ_land::{AllotRule, Plot, PlotUse};
 use civ_schema::flatbuffers::FlatBufferBuilder;
 use civ_schema::wire;
 
@@ -35,6 +36,34 @@ pub fn paid_kcal(sim: &Sim, p: &Plot) -> f64 {
 pub fn reckoned(p: &Plot) -> Option<(f64, u16)> {
     p.receipt
         .map(|r| (f64::from((r.next_hours - r.hours).max(0.0)), r.weighed))
+}
+
+/// Settlement `settlement`'s ground (research 10-08 §1.1's denominators), hectares: its footprint,
+/// the least rectangle about every plot of its households (streets and open ground within), and
+/// the sum of its home plots; both 0 while none is laid.
+pub fn ground_ha(sim: &Sim, settlement: PermanentId) -> (f64, f64) {
+    let people = &sim.people;
+    let plots = sim.land.plots.iter().filter(|p| {
+        people
+            .household(p.household)
+            .and_then(|h| h.settlement)
+            .is_some_and(|s| s == settlement)
+    });
+    let mut bounds: Option<(i32, i32, i32, i32)> = None;
+    let mut homes = 0.0;
+    for p in plots {
+        let r = (p.rect.x, p.rect.y, p.rect.x + p.rect.w, p.rect.y + p.rect.h);
+        bounds = Some(bounds.map_or(r, |b| {
+            (b.0.min(r.0), b.1.min(r.1), b.2.max(r.2), b.3.max(r.3))
+        }));
+        if p.use_ == PlotUse::Dwelling {
+            homes += f64::from(p.rect.w) * f64::from(p.rect.h) / 1e8;
+        }
+    }
+    let footprint = bounds.map_or(0.0, |(x0, y0, x1, y1)| {
+        f64::from(x1 - x0) * f64::from(y1 - y0) / 1e8
+    });
+    (footprint, homes)
 }
 
 /// The land map's revision: 0 while no plot is laid; else it changes whenever a plot is laid or

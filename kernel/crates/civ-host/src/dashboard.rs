@@ -910,18 +910,7 @@ impl LandSeen {
                 .iter()
                 .filter(|p| settlement_of(p) == Some(s.id))
                 .collect();
-            let footprint = plots
-                .iter()
-                .map(|p| (p.rect.x, p.rect.y, p.rect.x + p.rect.w, p.rect.y + p.rect.h))
-                .reduce(|a, b| (a.0.min(b.0), a.1.min(b.1), a.2.max(b.2), a.3.max(b.3)))
-                .map_or(0.0, |(x0, y0, x1, y1)| {
-                    f64::from(x1 - x0) * f64::from(y1 - y0) / 1e8
-                });
-            let homes: f64 = plots
-                .iter()
-                .filter(|p| p.use_ == civ_land::PlotUse::Dwelling)
-                .map(|p| f64::from(p.rect.w) * f64::from(p.rect.h) / 1e8)
-                .sum();
+            let (footprint, homes) = civ_sim::frames::land::ground_ha(sim, s.id);
             seen.settlements
                 .push((s.name.clone(), people.residents(s.id), footprint, homes));
             for p in &plots {

@@ -21,7 +21,8 @@
 //! `--groups N` founds N groups of `--people` each, their sites chosen together (ADR-0018 §6);
 //! `--known` has them know where each other camped. `--stop-trade` stops purchases between
 //! settlements (the twin harness, ADR-0019 §8), and `--no-sights` has nobody note the buildings
-//! they see in other settlements (M5b slice AR).
+//! they see in other settlements (M5b slice AR). Each settlement's residents, plots, footprint and
+//! home plots are printed at the end (M8c slice CX).
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -607,6 +608,35 @@ fn main() {
         (civ_world::nav::cells_searched() - cells_before) as f64 / 1e6 / f64::from(a.days.max(1)),
         peak_memory()
     );
+    // How densely each settlement lives (M8c slice CX): residents a hectare of its footprint and
+    // of its home plots, the dashboard's Land row's denominators.
+    for st in &sim.land().settlements {
+        let residents = sim.people().residents(st.id);
+        let (footprint, homes) = civ_sim::frames::land::ground_ha(&sim, st.id);
+        let per = |ha: f64| {
+            if ha > 0.0 {
+                f64::from(residents) / ha
+            } else {
+                0.0
+            }
+        };
+        println!(
+            "land: {} {residents} residents, {} plots; footprint {footprint:.1} ha ({:.0} a \
+             hectare), home plots {homes:.2} ha ({:.0} a hectare)",
+            st.name,
+            sim.land()
+                .plots
+                .iter()
+                .filter(|p| sim
+                    .people()
+                    .household(p.household)
+                    .and_then(|h| h.settlement)
+                    == Some(st.id))
+                .count(),
+            per(footprint),
+            per(homes),
+        );
+    }
     let counts = sim.people().route_counts;
     let days = f64::from(a.days.max(1));
     println!(

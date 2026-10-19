@@ -4891,6 +4891,21 @@ and M6a gives rivers a daily flow.
         as it was, and a world lived 20 days has plots, some reckoned; the web decodes, labels and
         finds plots, and the e2e shows the map drawn only while asked for. **Boundary:** wire
         1.89; no saves or content change.
+      - *Third part, as built (2026-10-19): the largest settlement M8 lives, measured.* The
+        Land row's footprint and home plots move to `civ_sim::frames::land::ground_ha`, and
+        `bench_village` prints them for each settlement at its end. One settlement of 10,000
+        (`--people 10000 --groups 1 --size 2048 --seed 2 --days 30 --max`, 2,025 households made
+        in 25.8 s) lived its first 30 days at a median of 40.3 s a day (p95 66.0 s, worst 146.9 s
+        on day 26; 34.0 s a day over days 1–10, 46.5 over 11–20, 62.9 over 21–30, as buildings
+        rose from 1,630 to 1,740), 17,439 s a year at that mean, with 1.64 GB at its peak and
+        2,464 route searches a day. M8a's three settlements of 3,334 lived a day in about 21 s,
+        so one settlement of the same people costs about twice as much: what each decision
+        weighs grows with the settlement it is made in. Measured, not targeted; the gate is
+        measured at M8's end (ADR-0028 §1). Its land after 30 days: 10,024 residents on 1,740
+        plots, a footprint of 132.0 ha (76 a hectare, inside research 10-08's "compact village or
+        small town" band of 50–200) and 8.93 ha of home plots (1,122 a hectare of home plot);
+        a village of 200 by the same bench stood at 157 a hectare on 1.3 ha. Slice CX is closed,
+        and with it M8c.
   - **M8d, buildings and earthquakes, and the M8 demo** (designed when reached, from
     `docs/briefs/m8-building.md`): frame grammar v3 (up to 4 storeys, style traits live);
     techniques that open structural systems rather than caps; a lateral margin; the earthquake

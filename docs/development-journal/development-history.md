@@ -3177,3 +3177,11 @@ known about it: brown where a family paid the plan's fee for it, green where the
 out how much walking it saved them (darker the more it saved), and just an outline where nothing
 was recorded. Pointing at a plot says which, in those words. The engine still keeps no "price" of
 land of its own; the map only shows what was paid and what families reckoned.
+
+## 2026-10-19 — CX, third part: the biggest town, measured
+
+**Built:** the speed test now also reports how densely each settlement lives. One town of 10,000
+people ran its first month at about 40 seconds of computer time per day, roughly twice what the
+same number of people cost when split into three villages, and used about 1.6 GB of memory. It
+covered 132 hectares, about 76 people a hectare, which is what compact villages and small towns
+of the past reached. This finishes the planning and land part of the growing-city milestone.

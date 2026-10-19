@@ -531,3 +531,153 @@ fn a_plan_is_laid_three_to_eight_ways_over_clear_ground_kept_as_laid_and_version
     assert!(!polity.ground_seen.is_empty());
     saves_and_goes_on_alike(&mut sim, DAY);
 }
+
+#[test]
+fn a_plan_in_force_keeps_its_keepers_off_its_streets_and_records_what_is_built_on_them() {
+    // M8c slice CT, third part (ADR-0030 §2): once a plan is in force and known, a household
+    // whose eldest keeps it lays out its next home clear of the plan's streets and square; a
+    // building begun on that ground is an encroachment, counted against the law and recorded,
+    // and the record survives a save.
+    use civ_agents::polity::{IssueKind, LawStatus, Outcome};
+    use civ_core::PermanentId;
+    let mut sim = village(3);
+    sim.advance_minutes(2 * DAY).expect("lives");
+    let settlement = sim.land().settlements[0].id;
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let homes: Vec<(PermanentId, PermanentId)> = sim
+        .land()
+        .buildings
+        .iter()
+        .filter(|b| b.standing())
+        .filter(|b| {
+            sim.people()
+                .household(b.household)
+                .is_some_and(|x| x.settlement == Some(settlement) && !x.members.is_empty())
+        })
+        .map(|b| (b.id, b.household))
+        .collect();
+    let (_, household) = *homes.first().expect("a building");
+    let sponsor = sim
+        .people()
+        .household(household)
+        .and_then(|x| x.members.first().copied())
+        .expect("a sponsor");
+    let law = sim
+        .with_ctx_for_tests(|pop, ctx| {
+            pop.propose_plan_for_tests(ctx, settlement, sponsor, 0, IssueKind::NoGround)
+        })
+        .expect("a plan proposed");
+    // Where each would lay out its next home without it.
+    let plot_of = |sim: &mut Sim, h: PermanentId| {
+        let spec = sim
+            .with_ctx_for_tests(|pop, ctx| pop.first_home_for_tests(ctx, h))
+            .expect("a home laid out");
+        let catalog = &sim.rules().catalog;
+        let def = catalog
+            .building_index(&spec.program)
+            .map(|i| &catalog.buildings[i])
+            .expect("its program");
+        civ_agents::build::plot_rect(&spec, def)
+    };
+    let unplanned: Vec<_> = homes
+        .iter()
+        .map(|h| (h.1, plot_of(&mut sim, h.1)))
+        .collect();
+    // Before it is in force nobody keeps it.
+    assert!(homes.iter().all(|h| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.plans_kept_for_tests(ctx, h.1))
+            .is_empty()
+    }));
+    let now = sim.now();
+    {
+        let pop = sim.people_mut_for_tests();
+        let l = pop.polities[pi].law_mut(law).expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Outcome::Passed);
+        l.decided = Some(now);
+        pop.polities[pi].gathering = None;
+    }
+    let everyone: Vec<PermanentId> = sim.people().people.iter().map(|(_, p)| p.id).collect();
+    for p in everyone {
+        sim.people_mut_for_tests().polities[pi]
+            .law_mut(law)
+            .expect("the law")
+            .learn(p, 0);
+    }
+    // A keeper's next home stands clear of what the plan reserves: here a street laid where it
+    // would have built without it.
+    let keeper = homes
+        .iter()
+        .map(|h| h.1)
+        .find(|&h| {
+            !sim.with_ctx_for_tests(|pop, ctx| pop.plans_kept_for_tests(ctx, h))
+                .is_empty()
+        })
+        .expect("someone keeps it");
+    let before = unplanned
+        .iter()
+        .find(|u| u.0 == keeper)
+        .map(|u| u.1)
+        .expect("where it would build");
+    {
+        let polity = &mut sim.people_mut_for_tests().polities[pi];
+        let laid = polity
+            .plans
+            .iter_mut()
+            .find(|p| p.0 == law)
+            .expect("its plan");
+        laid.1.layout.streets.push(before);
+    }
+    let layout = sim.people().polities[pi]
+        .plan_of(law)
+        .expect("its plan")
+        .layout
+        .clone();
+    assert_eq!(
+        sim.with_ctx_for_tests(|pop, ctx| pop.plans_kept_for_tests(ctx, keeper)),
+        vec![layout.clone()]
+    );
+    let rect = plot_of(&mut sim, keeper);
+    assert_ne!(rect, before);
+    assert!(!layout.reserves(&rect, 0), "{rect:?} on reserved ground");
+    // A building begun where the plan lays a street is an encroachment: counted against the
+    // law, by one who knew of it, and recorded.
+    let street = *layout.streets.first().expect("a street");
+    let (building, owner) = homes[0];
+    {
+        let land = sim.land_mut_for_tests();
+        let plot = land
+            .buildings
+            .iter()
+            .find(|b| b.id == building)
+            .map(|b| b.plot)
+            .expect("its plot");
+        let p = land
+            .plots
+            .iter_mut()
+            .find(|p| p.id == plot)
+            .expect("the plot");
+        p.rect.x = street.x;
+        p.rect.y = street.y;
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.count_rule_keeping_for_tests(ctx, owner, building));
+    let polity = &sim.people().polities[pi];
+    let c = polity
+        .laws
+        .iter()
+        .find(|l| l.id == law)
+        .expect("the law")
+        .compliance;
+    assert_eq!((c.broken, c.broken_unaware, c.complied), (1, 0, 0), "{c:?}");
+    let e = polity.encroachments.last().copied().expect("recorded");
+    assert_eq!(
+        (e.law, e.household, e.building, e.day),
+        (law, owner, building, now.day_index())
+    );
+    saves_and_goes_on_alike(&mut sim, DAY);
+}

@@ -2386,6 +2386,28 @@ fn a_schema_68_save_loads_with_no_wade_remembered() {
 }
 
 #[test]
+fn a_schema_156_save_loads_and_goes_on() {
+    // A schema-156 save, from before polities kept the buildings begun on ground a plan
+    // reserves (M8c slice CT, third part): it loads with none, and goes on.
+    let mut sim = load_first();
+    for p in &mut sim.people_mut_for_tests().polities {
+        p.encroachments.clear();
+    }
+    let mut info = fixture().first_info.clone();
+    info.schema_version = persist::SCHEMA_V156;
+    let path = republish("slice-ct2", &info, &persist::encode_sections(&sim));
+    let mut loaded = persist::load(&path, content()).expect("a schema-156 save loads");
+    assert!(
+        loaded
+            .people()
+            .polities
+            .iter()
+            .all(|p| p.encroachments.is_empty())
+    );
+    loaded.advance_minutes(24 * 60).expect("goes on");
+}
+
+#[test]
 fn a_schema_155_save_loads_and_goes_on() {
     // A schema-155 save, from before polities kept their plans and what they saw of their ground
     // (M8c slice CT, second part): it loads with none, and goes on.

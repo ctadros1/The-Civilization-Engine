@@ -4566,6 +4566,30 @@ and M6a gives rivers a daily flow.
         plans and what it saw of its ground), content API 141 (`plan`, the three issues,
         `core:technique/laying_out`, `core:policy/yours_to_plan_the_ground`; a technique a law's
         sponsor must know counts as gating work); no wire change.
+      - *Third part, as built (2026-10-19): keepers keep a plan's ground open* (ADR-0030 §2:
+        "keeping a plan is each builder's choice"). A household's builders keep a plan in force
+        as they keep a rule for building: its eldest knows of the law and chooses to keep it by
+        the norms they hold that the gathering binds, where they stood on it and their regard for
+        its sponsor. A household that keeps one looks for its next building's plot off the plan's
+        streets and square, as it looks for one that keeps the rules; finding none, it builds as
+        it would without them. A building begun where a plan in force lays out ground is counted
+        on the plan's law: kept if clear of its streets and square, broken (by one who knew of it
+        or not) if on them, and a building on them is an encroachment, recorded on the polity
+        with its day, law, household and building; buildings begun beyond the plan's ground are
+        not counted. Nothing yet follows from an encroachment (cases are slice CV's), and parcels
+        are neither sought nor allotted (slice CU's). **Not as the ADR:** keeping is weighed as a
+        rule's is, without the sanction a builder expects (no cases yet). **What it comes to:**
+        the bench's village of three settlements, 30 days, keeps every count and every
+        section's digest the second part had but the polity's (whose plan law now counts the
+        buildings begun on its ground) and the save header's, in both modes: no home in its first
+        month met a kept plan's street. A day is as long as the container now runs (3.96 s against
+        3.92; at Max 3.35 and 3.41 against 3.11, but 3.49 with keeping switched off, so the gap is
+        the machine's, not the keeping's). **Tests:** a plan put forward is kept by nobody until in force and known; then
+        a keeper's next home, laid where a street of the plan now runs, moves off it; a building
+        begun on a street is counted broken by one who knew of it and recorded as an
+        encroachment, and the record is saved and gone on alike; a schema-156 save loads with
+        none. **Boundary:** saves schema 157 (the polity's encroachments); no content or wire
+        change.
     - **CU, land assembly and allotment:** clauses and answers for every touched claim, the
       channels `GroundFee`, `GroundRent` and `Compensation`, the keeper's office, phases, the four
       allocation rules, ground rent as an obligation, build by.

@@ -2083,6 +2083,9 @@ pub struct Polity {
     /// What it saw of its settlements' ground within memory (M8c slice CT, second part), oldest
     /// first: what raises a plan's issues.
     pub ground_seen: Vec<GroundSeen>,
+    /// The buildings begun on ground a plan in force reserves (M8c slice CT, third part), in the
+    /// order begun.
+    pub encroachments: Vec<Encroachment>,
     /// The settlements it holds besides its seat (`settlement`), in the order taken (M6c slice
     /// BM, ADR-0023 §9): their residents are its members too.
     pub held: Vec<HeldSettlement>,
@@ -2214,6 +2217,16 @@ pub struct GroundSeen {
     pub settlement: PermanentId,
     pub household: PermanentId,
     pub issue: IssueKind,
+}
+
+/// A building begun on ground a plan in force reserves (M8c slice CT, third part): the day, the
+/// plan's law, the household that began it, and the building.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Encroachment {
+    pub day: i64,
+    pub law: PermanentId,
+    pub household: PermanentId,
+    pub building: PermanentId,
 }
 
 /// Where a law would build a flood bank (M6b slice BG; ADR-0022 §11): the reach whose water it
@@ -2351,6 +2364,7 @@ impl Polity {
             way_given: Vec::new(),
             plans: Vec::new(),
             ground_seen: Vec::new(),
+            encroachments: Vec::new(),
             held: Vec::new(),
             ended: None,
             terms: Vec::new(),

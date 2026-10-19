@@ -405,6 +405,86 @@ impl Population {
         kept
     }
 
+    /// The plans in force where household `hh` lives whose laws its eldest knows and chooses to
+    /// keep (M8c slice CT, third part; ADR-0030 §2), weighed as a rule for building is: its
+    /// builders keep its streets and public sites clear.
+    pub(crate) fn plans_kept(&self, ctx: &Ctx, hh: &Household) -> Vec<&civ_land::plans::Layout> {
+        let Some(pi) = hh.settlement.and_then(|s| self.polity_of(s)) else {
+            return Vec::new();
+        };
+        let polity = &self.polities[pi];
+        if polity.plans.is_empty() {
+            return Vec::new();
+        }
+        let Some(person) = self.elder_of(hh.id, ctx.now, ctx.params) else {
+            return Vec::new();
+        };
+        polity
+            .plans_in_force()
+            .filter(|(law, _)| {
+                polity
+                    .laws
+                    .iter()
+                    .find(|l| l.id == *law)
+                    .is_some_and(|l| self.keeps(ctx, person, l))
+            })
+            .map(|(_, p)| &p.layout)
+            .collect()
+    }
+
+    /// Household `household` has begun building `building` on plot `rect` (M8c slice CT, third
+    /// part): each plan in force where it lives over whose ground it stands counts whether it
+    /// was kept, and a building on ground the plan reserves is an encroachment, recorded.
+    fn count_plan_keeping(
+        &mut self,
+        ctx: &Ctx,
+        household: PermanentId,
+        building: PermanentId,
+        rect: &civ_land::RectCm,
+    ) {
+        let Some(pi) = self
+            .household(household)
+            .and_then(|x| x.settlement)
+            .and_then(|s| self.polity_of(s))
+        else {
+            return;
+        };
+        if self.polities[pi].plans.is_empty() {
+            return;
+        }
+        let found: Vec<(PermanentId, bool)> = self.polities[pi]
+            .plans_in_force()
+            .filter(|(_, p)| plan_bounds(&p.layout).is_some_and(|b| b.near(rect, 0)))
+            .map(|(law, p)| (law, !p.layout.reserves(rect, 0)))
+            .collect();
+        if found.is_empty() {
+            return;
+        }
+        let elder = self.elder_of(household, ctx.now, ctx.params);
+        let day = ctx.now.day_index();
+        let polity = &mut self.polities[pi];
+        for (law, kept) in found {
+            let Some(l) = polity.law_mut(law) else {
+                continue;
+            };
+            if kept {
+                l.compliance.complied += 1;
+                continue;
+            }
+            if elder.is_some_and(|e| l.knows(e)) {
+                l.compliance.broken += 1;
+            } else {
+                l.compliance.broken_unaware += 1;
+            }
+            polity.encroachments.push(crate::polity::Encroachment {
+                day,
+                law,
+                household,
+                building,
+            });
+        }
+    }
+
     /// Whether `person`, knowing law `l`, chooses to keep it (M6b slice BH).
     fn keeps(&self, ctx: &Ctx, person: PermanentId, l: &Law) -> bool {
         if !l.knows(person) {
@@ -435,13 +515,6 @@ impl Population {
         let Some(x) = self.household(household) else {
             return;
         };
-        let rules = self.rules_in_force(ctx, x.settlement);
-        if rules.is_empty() {
-            return;
-        }
-        let Some(pi) = x.settlement.and_then(|s| self.polity_of(s)) else {
-            return;
-        };
         let Some(b) = ctx.land.buildings.iter().find(|b| b.id == building) else {
             return;
         };
@@ -452,6 +525,15 @@ impl Population {
             .find(|p| p.id == b.plot)
             .map(|p| p.rect)
         else {
+            return;
+        };
+        let settlement = x.settlement;
+        self.count_plan_keeping(ctx, household, building, &rect);
+        let rules = self.rules_in_force(ctx, settlement);
+        if rules.is_empty() {
+            return;
+        }
+        let Some(pi) = settlement.and_then(|s| self.polity_of(s)) else {
             return;
         };
         let elder = self.elder_of(household, ctx.now, ctx.params);
@@ -496,6 +578,18 @@ impl Population {
         }
     }
 
+    /// The plans household `household`'s builders keep, as laid: for tests.
+    #[doc(hidden)]
+    pub fn plans_kept_for_tests(
+        &self,
+        ctx: &Ctx,
+        household: PermanentId,
+    ) -> Vec<civ_land::plans::Layout> {
+        self.household(household).map_or_else(Vec::new, |x| {
+            self.plans_kept(ctx, x).into_iter().cloned().collect()
+        })
+    }
+
     /// What the rules household `household`'s builders keep ask of its next building: for tests.
     #[doc(hidden)]
     pub fn rules_kept_for_tests(&self, ctx: &Ctx, household: PermanentId) -> Kept {
@@ -536,4 +630,25 @@ impl Population {
     ) {
         self.count_rule_keeping(ctx, household, building);
     }
+}
+
+/// The ground a plan's layout covers: the least rectangle about its streets, sites and parcels.
+fn plan_bounds(layout: &civ_land::plans::Layout) -> Option<civ_land::RectCm> {
+    let rects = layout
+        .streets
+        .iter()
+        .chain(layout.sites.iter().map(|s| &s.rect))
+        .chain(layout.parcels.iter().map(|p| &p.rect));
+    rects.fold(None, |acc: Option<civ_land::RectCm>, r| {
+        Some(acc.map_or(*r, |a| {
+            let (x0, y0) = (a.x.min(r.x), a.y.min(r.y));
+            let (x1, y1) = ((a.x + a.w).max(r.x + r.w), (a.y + a.h).max(r.y + r.h));
+            civ_land::RectCm {
+                x: x0,
+                y: y0,
+                w: x1 - x0,
+                h: y1 - y0,
+            }
+        }))
+    })
 }

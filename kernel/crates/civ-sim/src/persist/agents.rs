@@ -124,7 +124,8 @@ use super::{
     SCHEMA_V132, SCHEMA_V133, SCHEMA_V134, SCHEMA_V135, SCHEMA_V136, SCHEMA_V137, SCHEMA_V138,
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
-    SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, finish, section, section_root,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -661,6 +662,7 @@ enum Schema {
     V154,
     V155,
     V156,
+    V157,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -831,7 +833,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V153 => Schema::V153,
         SCHEMA_V154 => Schema::V154,
         SCHEMA_V155 => Schema::V155,
-        SAVE_SCHEMA_VERSION => Schema::V156,
+        SCHEMA_V156 => Schema::V156,
+        SAVE_SCHEMA_VERSION => Schema::V157,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1793,6 +1796,21 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let ground_seen = (!ground_seen.is_empty()).then(|| fbb.create_vector(&ground_seen));
+            // The buildings begun on ground a plan reserves (schema 157).
+            let encroachments: Vec<_> = p
+                .encroachments
+                .iter()
+                .map(|e| {
+                    save::EncroachmentSave::new(
+                        e.day,
+                        e.law.get(),
+                        e.household.get(),
+                        e.building.get(),
+                    )
+                })
+                .collect();
+            let encroachments =
+                (!encroachments.is_empty()).then(|| fbb.create_vector(&encroachments));
             // The settlements it holds besides its seat, and its end (schema 118).
             let held: Vec<_> = p
                 .held
@@ -2031,6 +2049,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     way_given,
                     plans,
                     ground_seen,
+                    encroachments,
                 },
             )
         })
@@ -2793,6 +2812,22 @@ fn decode_polities(
                 issue,
             });
         }
+        let mut encroachments = Vec::new();
+        for e in p.encroachments().iter().flatten() {
+            let (Some(law), Some(household), Some(building)) = (
+                PermanentId::from_raw(e.law()),
+                PermanentId::from_raw(e.household()),
+                PermanentId::from_raw(e.building()),
+            ) else {
+                return Err(bad(format!("polity {id} kept an encroachment malformed")));
+            };
+            encroachments.push(civ_agents::polity::Encroachment {
+                day: e.day(),
+                law,
+                household,
+                building,
+            });
+        }
         // The settlements it holds besides its seat, and its end (schema 118); before, its seat
         // alone, still deciding.
         let mut held = Vec::new();
@@ -3010,6 +3045,7 @@ fn decode_polities(
             way_given,
             plans,
             ground_seen,
+            encroachments,
         });
     }
     Ok(out)
@@ -4858,7 +4894,8 @@ fn carried(
         | Schema::V153
         | Schema::V154
         | Schema::V155
-        | Schema::V156 => {
+        | Schema::V156
+        | Schema::V157 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5187,7 +5224,8 @@ fn decode_households(
             | Schema::V153
             | Schema::V154
             | Schema::V155
-            | Schema::V156 => {
+            | Schema::V156
+            | Schema::V157 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

@@ -3049,3 +3049,14 @@ does not yet keep anyone off its streets.
 **What it comes to:** in a village two days old, five of the six layouts fit; the square at the
 hearth never does, because the first homes stand round it. Nobody gains yet, since everyone
 already has a home to live in.
+
+## 2026-10-19 — CT, third part: a plan's ground kept open, or built on
+
+**Built:** a plan in force now matters to those who build. A household whose eldest knows of
+the plan and chooses to keep it (as a rule for building is kept: by what they hold of the
+gathering's say, how they stood on the law and how they regard whoever put it forward) looks for
+its next plot off the plan's streets and square, and builds elsewhere only if it finds no such
+ground. Every building begun where the plan lays out ground is counted on the law as keeping it
+or not, and one begun on a street or the square is recorded as an encroachment. Nothing yet
+follows from that record; cases come with slice CV.
+

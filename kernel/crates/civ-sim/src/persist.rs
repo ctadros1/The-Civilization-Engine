@@ -439,6 +439,8 @@ pub const SCHEMA_V153: u32 = 153;
 pub const SCHEMA_V154: u32 = 154;
 /// Plots' receipts, before polities kept their plans and what they saw of their ground.
 pub const SCHEMA_V155: u32 = 155;
+/// Polities' plans, before they kept the buildings begun on ground a plan reserves.
+pub const SCHEMA_V156: u32 = 156;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

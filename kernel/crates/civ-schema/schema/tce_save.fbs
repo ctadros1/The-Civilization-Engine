@@ -1470,6 +1470,9 @@ table PolitySave {
   // and what it saw of its settlements' ground within memory, oldest first; absent before.
   plans: [PlanSave] (id: 37);
   ground_seen: [GroundSeenSave] (id: 38);
+  // Schema 157 (M8c slice CT, third part): the buildings begun on ground a plan in force
+  // reserves, in the order begun; absent before.
+  encroachments: [EncroachmentSave] (id: 39);
 }
 
 // A plan a law lays (schema 156, M8c slice CT, second part; ADR-0030 §2): its version, its
@@ -1530,6 +1533,15 @@ struct GroundSeenSave {
   settlement: ulong;
   household: ulong;
   issue: ubyte;
+}
+
+// A building begun on ground a plan in force reserves (schema 157): the day, the plan's law, the
+// household that began it, and the building.
+struct EncroachmentSave {
+  day: long;
+  law: ulong;
+  household: ulong;
+  building: ulong;
 }
 
 // A gift a sponsor's household gave another's before the gathering on the sponsor's law (schema

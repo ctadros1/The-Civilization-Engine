@@ -2344,9 +2344,12 @@ impl Population {
         } else {
             Vec::new()
         };
+        // The plans in force its builders keep (M8c slice CT, third part), whose streets and
+        // public sites a new building keeps clear of.
+        let kept_plans = self.plans_kept(ctx, hh);
         // Where `choice` would stand, its door toward `toward`, if there is clear ground for it
-        // within `max_m` of `from`: keeping the rule its builders keep, if there is ground for
-        // that, else as they would without it.
+        // within `max_m` of `from`: keeping the rules and plans its builders keep, if there is
+        // ground for that, else as they would without them.
         let site_kept = |(p, shape): (usize, build::Shape),
                          toward: Option<(f32, f32)>,
                          firm: Option<PermanentId>,
@@ -2391,6 +2394,7 @@ impl Population {
             } else {
                 Default::default()
             };
+            let plans: &[&civ_land::plans::Layout] = if obey_rules { &kept_plans } else { &[] };
             let caution_thatch =
                 self.fire_caution_thatch(hh.settlement, ctx.now, &ctx.params.build.caution);
             let caution_wattle =
@@ -2443,6 +2447,13 @@ impl Population {
                             kinds & (1 << crate::rules::wall_kind(spec, &program.rules)) != 0
                         }) && rules.gap.is_none_or(|gap| nearest() >= gap)
                     })
+                    // Nor on ground a plan its builders keep reserves.
+                    .filter(|spec| {
+                        plans.is_empty() || {
+                            let rect = build::plot_rect(spec, program);
+                            plans.iter().all(|l| !l.reserves(&rect, 0))
+                        }
+                    })
             };
             // Ground that drops too far across a plot is levelled, and ground too steep to level
             // by hand, or that would be levelled beside water, is not built on; level ground is
@@ -2484,8 +2495,7 @@ impl Population {
                              from: (f32, f32),
                              max_m: f64| {
             site_kept(choice, toward, firm, from, max_m, true).or_else(|| {
-                kept_rules
-                    .any()
+                (kept_rules.any() || !kept_plans.is_empty())
                     .then(|| site_kept(choice, toward, firm, from, max_m, false))
                     .flatten()
             })

@@ -107,6 +107,8 @@ pub fn style_words(sim: &Sim, b: &Building, def: Option<&BuildingDef>) -> String
     words.push(format!("{walls} {:.1} m to the eaves", t.eave_cm / 100.0));
     if matches!(def.rules, ProgramRules::Frame(_)) {
         words.push(format!("eaves {:.1} m out", t.overhang_cm / 100.0));
+        // What version 3 lets it be built with (M8d slice CY).
+        words.extend(civ_agents::style::system_words(&b.spec));
     }
     if let Some(from) = b.style_from {
         // Where the building followed stands, if not where this one does (M5b slice AR).

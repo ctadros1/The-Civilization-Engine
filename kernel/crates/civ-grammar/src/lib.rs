@@ -435,6 +435,17 @@ impl Level {
             .copied()
     }
 
+    /// Which storey it is, in words: "first" to "fourth"; `None` for a loft or the roof.
+    pub fn ordinal(self) -> Option<&'static str> {
+        match self {
+            Level::Ground => Some("first"),
+            Level::Upper => Some("second"),
+            Level::Third => Some("third"),
+            Level::Fourth => Some("fourth"),
+            Level::Loft | Level::Roof => None,
+        }
+    }
+
     /// Whether it is a storey above the first: the second, third or fourth.
     pub fn above_ground(self) -> bool {
         matches!(self, Level::Upper | Level::Third | Level::Fourth)

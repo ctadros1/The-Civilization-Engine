@@ -5035,6 +5035,19 @@ and M6a gives rivers a daily flow.
         and halves its stone; a version 3 mass wall of 20 cm is refused and one of 70 cm
         allowed, the reverse before version 3; the structure check's rubble wall reads its
         strength from what it is given. **Boundary:** content API 150.
+      - *Tenth part, as built (2026-10-19): the inspector's words per storey; slice CY
+        closed.* A version 3 building's "built" words add what it was built with beyond version
+        2's: a trussed roof, posts a storey high, walls tied at each storey, walls thinning
+        storey by storey ("walls 50, 40, 30 cm thick storey by storey"), each storey's windows
+        and a stair. A building of three storeys or more says which storey shows wear, leans or
+        gave way ("wear at the wall's foot on the third storey"); one of two keeps version 2's
+        words exactly. Ties, trusses and purlins have words of their own. No wire change: the
+        words ride the inspector's strings. **Test:** the words for a three-storey trussed,
+        tied, thinning, windowed frame with a stair, none before version 3 or with nothing of
+        its own; a two-storey building's symptoms unchanged and a three-storey one's by storey.
+        Slice CY is closed: version 3 expresses up to four storeys, walls by storey, openings, a
+        stair, trusses, storeyed posts and ties, costed by content's figures, beside versions 1
+        and 2 unchanged; builders still design under version 2 until slice CZ.
     - **CZ, tall and wide under gravity:** walls' own weight, restraint by ties, purlins,
       storeyed posts and joints, live load by use; `trussed_roof`, `storeyed_frame` and
       `tied_masonry` as content; caution thickening mass walls; trust kept by every technique

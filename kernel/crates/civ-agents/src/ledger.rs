@@ -66,11 +66,14 @@ pub enum Channel {
     Mint = 23,
     /// A load in transit unloaded into its owner's store (M8b slice CO, ADR-0029 §3).
     Carried = 24,
+    /// What a household paid a polity's store for a plan's parcel, once (M8c slice CU, ADR-0030
+    /// §4).
+    GroundFee = 25,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 24] = [
+    pub const ALL: [Channel; 25] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -95,6 +98,7 @@ impl Channel {
         Channel::Repaid,
         Channel::Mint,
         Channel::Carried,
+        Channel::GroundFee,
     ];
 
     /// The channel with this code.
@@ -129,6 +133,7 @@ impl Channel {
             Channel::Repaid => "repaid",
             Channel::Mint => "brought to the mint",
             Channel::Carried => "carried home",
+            Channel::GroundFee => "ground fee",
         }
     }
 }

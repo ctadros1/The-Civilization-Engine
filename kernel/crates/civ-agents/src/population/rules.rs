@@ -648,7 +648,7 @@ impl Population {
         &self,
         ctx: &Ctx,
         household: PermanentId,
-    ) -> Option<(PermanentId, u16, civ_land::RectCm)> {
+    ) -> Option<super::ParcelOffer> {
         self.household(household)
             .and_then(|x| self.parcel_offer(ctx, x))
     }

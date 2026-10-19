@@ -1500,3 +1500,10 @@ staking out a parcel takes (`stake_hours`), and the technique a sponsor must kno
 brings the issues `no_ground`, `way_built_over` and `new_ground`, the core's
 `core:technique/laying_out` (laying out by cord and stake, which one founder in ten brings) and
 its template `core:policy/yours_to_plan_the_ground`. A technique a law's sponsor must know counts as gating work (E3005).
+
+Content API 142 (M8c slice CU, second part) brings a plan's `allot`, how its keeper gives its
+parcels: `need` (the default: a household about to build a home, the free parcel nearest the
+hearth), `lot` (a free parcel drawn by lot), `offer` (the parcel nearest the hearth to a household
+that pays the store the `[plan.fee]`'s `amount` of its `good`, once) or `standing` (the parcel
+nearest the hearth to a household whose eldest the keeper regards). A fee is for `offer` only, and
+`offer` needs one. The core's plan gives by need.

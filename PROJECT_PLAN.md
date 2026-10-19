@@ -4649,6 +4649,31 @@ and M6a gives rivers a daily flow.
         saying so; the next is offered another; saved and loaded alike; its keeper gone, the plan
         stands with the office vacant and gives nothing; a schema-157 save loads. **Boundary:**
         saves schema 158 (`Plot.allot_*`, `PlanSave.staked_h`); no content or wire change.
+      - *Second part, as built (2026-10-19): by lot, for a fee, by the keeper's choice*
+        (ADR-0030 §4). A plan template names how its keeper gives parcels (`allot`): by need, as
+        the first part built; by lot, a free parcel drawn by a draw keyed on the world, the law,
+        the household and the day (so the same household is offered the same parcel all day);
+        for a fee (`offer`), the parcel nearest the hearth to a household holding the template's
+        fee, which it weighs in hours as its own cost of the good and pays the polity's store
+        once, on the new channel `GroundFee`, as it begins its home there (if it can no longer
+        pay, it does not begin); and by the keeper's choice (`standing`), the parcel nearest the
+        hearth to a household whose eldest the keeper regards. The plot keeps the rule it was
+        given by, the building's line says it ("given for a fee"), and the plan's words say it
+        when not by need ("laying out 24 parcels given by lot"). **Not as the ADR:** the fee is
+        a fixed amount of one good named by the template, not a price the keeper or the gathering
+        sets; a fee in a good the household cannot reckon an own cost for is not offered; ground
+        rent, a yearly obligation, waits for the next part. **What it comes to:** the core's plan
+        gives by need, so nothing a world does changes: the bench's village keeps every count and
+        digest of the first part in both modes (the content and meta digests
+        aside, which name the content API). A day as the container now runs: 4.25 s
+        (deterministic), 3.35 s (Max). **Tests:** content refuses an
+        unknown rule, an offer with no fee and a fee for any other rule; a drawn parcel is the
+        same for the same household on the same day; by the keeper's choice, exactly the
+        households whose eldest the keeper regards are offered one; for a fee, a household short
+        of it is offered none, one holding it is, and building there it pays the store, its plot
+        keeping the rule, and the plan's words naming it; saved and loaded alike. **Boundary:**
+        content API 142 (`plan.allot`, `[plan.fee]`); the ledger channel `GroundFee`; no saves
+        change (the rule's saved code already holds all four) and no wire change.
     - **CV, compliance and cases:** expected sanction, sightings, cases under a plan, forums,
       remedies (fine, removal, regularisation), the backlog.
     - **CW, use and nuisance rules:** district uses and two rule templates (worked fires from

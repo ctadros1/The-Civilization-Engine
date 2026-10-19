@@ -3079,3 +3079,12 @@ new version names someone. In the test village the plan's parcels, laid over slo
 usually lose to level ground closer to where people walk; they are taken where nothing better
 is near.
 
+## 2026-10-19 — CU, second part: parcels by lot, for a fee, or by the keeper's choice
+
+**Built:** a plan can now say how its keeper hands out parcels. Besides "by need" (the nearest
+free parcel), a plan can give them by lot, sell them for a fixed fee paid once into the common
+store, or give them only to households whose eldest the keeper thinks well of. A household
+weighs a parcel's fee as the hours it would take to make that much of the good, and pays as it
+starts building. The plot remembers which rule it was given by, and the plan's description says
+so. The core plan still gives by need, so worlds run exactly as before.
+

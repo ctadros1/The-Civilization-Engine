@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 141;
+pub const KERNEL_CONTENT_API: u32 = 142;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1075,6 +1075,12 @@ fn resolve(
                 Some(_) => {}
             }
         }
+        // A plan's fee names a good (M8c slice CU).
+        if let Some(f) = d.file.plan.as_ref().and_then(|g| g.fee.as_ref())
+            && good_index(&f.good).is_none()
+        {
+            missing(c, parsed, &d.rel, "plan.fee.good", &f.good);
+        }
         // Pay for common work names a money (M7d slice CE3a).
         if let Some(pay) = &d.file.pay {
             match good_index(&pay.good) {
@@ -1137,6 +1143,9 @@ fn resolve(
                 .mint_def(&|id| recipes.iter().position(|r| r.id == id));
             def.pay = d.file.pay_def(&good_index);
             def.medium = d.file.medium_def(&good_index);
+            if let Some(plan) = def.plan.as_mut() {
+                plan.fee = d.file.plan_fee(&good_index);
+            }
             def
         })
         .collect();

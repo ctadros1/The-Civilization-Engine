@@ -150,6 +150,23 @@ pub struct PlanFile {
     /// The technique a sponsor must know to put it forward.
     #[serde(default)]
     pub needs: Option<String>,
+    /// How its keeper gives its parcels (content API 142, M8c slice CU): `need` (the default),
+    /// `lot`, `offer` or `standing`.
+    #[serde(default)]
+    pub allot: Option<String>,
+    /// For `allot = "offer"`: the good and amount a household pays the store for a parcel, once.
+    #[serde(default)]
+    pub fee: Option<PlanFeeFile>,
+}
+
+/// What a parcel given for a fee costs, in a plan's `[plan.fee]` table (content API 142).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct PlanFeeFile {
+    /// The good, by content id.
+    pub good: String,
+    /// Units of it, paid once.
+    pub amount: f64,
 }
 
 /// A money a common store's levy may be paid in, in a policy file (content API 129, M7d slice
@@ -400,6 +417,12 @@ impl PolicyFile {
         })
     }
 
+    /// The fee a plan's parcel is given for, its good found by `good_index` (M8c slice CU).
+    pub fn plan_fee(&self, good_index: &dyn Fn(&str) -> Option<usize>) -> Option<(usize, f32)> {
+        let f = self.plan.as_ref()?.fee.as_ref()?;
+        Some((good_index(&f.good)?, f.amount as f32))
+    }
+
     /// The money a common store's levy may be paid in, its good found by `good_index` (M7d slice
     /// CE3b).
     pub fn medium_def(
@@ -499,6 +522,13 @@ impl PolicyFile {
                 extents: g.extents.iter().map(|e| (e[0], e[1])).collect(),
                 stake_h: g.stake_hours as f32,
                 needs: g.needs.as_deref().and_then(technique_index),
+                allot: g
+                    .allot
+                    .as_deref()
+                    .and_then(civ_land::AllotRule::from_name)
+                    .unwrap_or(civ_land::AllotRule::Need),
+                // The fee's good is resolved apart ([`PolicyFile::plan_fee`]).
+                fee: None,
             }),
             lending: self
                 .lending
@@ -792,6 +822,29 @@ impl PolicyFile {
                         "`plan.stake_hours` must be 0 to 100 (got {})",
                         g.stake_hours
                     ));
+                }
+                let allot = g.allot.as_deref().map(civ_land::AllotRule::from_name);
+                if allot == Some(None) {
+                    p.push(format!(
+                        "`plan.allot` must be one of need, lot, offer or standing (got {:?})",
+                        g.allot.as_deref().unwrap_or_default()
+                    ));
+                }
+                let offer = allot == Some(Some(civ_land::AllotRule::Offer));
+                match &g.fee {
+                    None if offer => {
+                        p.push("`plan.allot = \"offer\"` needs a `plan.fee` table".to_owned());
+                    }
+                    Some(_) if !offer => {
+                        p.push("`plan.fee` is for `plan.allot = \"offer\"`".to_owned());
+                    }
+                    Some(f) if !(f.amount.is_finite() && f.amount > 0.0) => {
+                        p.push(format!(
+                            "`plan.fee.amount` must be more than 0 (got {})",
+                            f.amount
+                        ));
+                    }
+                    _ => {}
                 }
             }
             (None, Some(PolicyKind::Plan)) => {
@@ -1299,6 +1352,87 @@ mod tests {
 
     fn no_values(_: &str) -> Option<usize> {
         None
+    }
+
+    #[test]
+    fn a_plan_names_how_its_parcels_are_given_and_a_fee_only_for_an_offer() {
+        // M8c slice CU, second part (content API 142).
+        let grid = |allot: Option<&str>, fee: Option<PlanFeeFile>| PlanFile {
+            block_m: [80.0, 40.0],
+            parcel_m: [10.0, 20.0],
+            street_m: 6.0,
+            extents: vec![[1, 1]],
+            square: true,
+            stake_hours: 2.0,
+            needs: None,
+            allot: allot.map(str::to_owned),
+            fee,
+        };
+        let plan_with = |g: PlanFile| PolicyFile {
+            does: "plan".to_owned(),
+            answers: vec!["no_ground".to_owned()],
+            levy_shares: Vec::new(),
+            relief_days: 0.0,
+            plan: Some(g),
+            ..file()
+        };
+        let grain = || PlanFeeFile {
+            good: "core:good/grain".to_owned(),
+            amount: 2.0,
+        };
+        // By need, unnamed or named.
+        for allot in [None, Some("need")] {
+            let p = plan_with(grid(allot, None));
+            assert!(p.problems().is_empty(), "{:?}", p.problems());
+            let d = p.def(&no_values, &no_values);
+            assert_eq!(
+                d.plan.map(|g| (g.allot, g.fee)),
+                Some((civ_land::AllotRule::Need, None))
+            );
+        }
+        // For a fee, its good resolved apart.
+        let p = plan_with(grid(Some("offer"), Some(grain())));
+        assert!(p.problems().is_empty(), "{:?}", p.problems());
+        assert_eq!(
+            p.def(&no_values, &no_values).plan.map(|g| g.allot),
+            Some(civ_land::AllotRule::Offer)
+        );
+        let grains = |id: &str| (id == "core:good/grain").then_some(7);
+        assert_eq!(p.plan_fee(&grains), Some((7, 2.0)));
+        // An unknown rule, an offer without a fee, a fee without an offer, a fee of nothing.
+        let unknown = plan_with(grid(Some("auction"), None));
+        assert!(
+            unknown
+                .problems()
+                .iter()
+                .any(|e| e.contains("`plan.allot`"))
+        );
+        let unpriced = plan_with(grid(Some("offer"), None));
+        assert!(
+            unpriced
+                .problems()
+                .iter()
+                .any(|e| e.contains("needs a `plan.fee`"))
+        );
+        let priced = plan_with(grid(Some("lot"), Some(grain())));
+        assert!(
+            priced
+                .problems()
+                .iter()
+                .any(|e| e.contains("`plan.fee` is for"))
+        );
+        let free = plan_with(grid(
+            Some("offer"),
+            Some(PlanFeeFile {
+                amount: 0.0,
+                ..grain()
+            }),
+        ));
+        assert!(
+            free.problems()
+                .iter()
+                .any(|e| e.contains("`plan.fee.amount`"))
+        );
     }
 
     #[test]

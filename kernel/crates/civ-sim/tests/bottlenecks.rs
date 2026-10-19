@@ -742,10 +742,14 @@ fn a_plan_s_keeper_gives_a_household_short_of_a_home_the_parcel_nearest_the_hear
         pop.polities[pi].gathering = None;
     }
     // In force, the free parcel nearest the hearth is offered.
-    let (offered_law, parcel, ground) = sim
+    let offered = sim
         .with_ctx_for_tests(|pop, ctx| pop.parcel_offer_for_tests(ctx, household))
         .expect("a parcel offered");
-    assert_eq!(offered_law, law);
+    assert_eq!(
+        (offered.law, offered.rule, offered.fee),
+        (law, civ_land::AllotRule::Need, None)
+    );
+    let (parcel, ground) = (offered.parcel, offered.ground);
     let layout = sim.people().polities[pi]
         .plan_of(law)
         .expect("its plan")
@@ -878,7 +882,7 @@ fn a_plan_s_keeper_gives_a_household_short_of_a_home_the_parcel_nearest_the_hear
     let next = sim
         .with_ctx_for_tests(|pop, ctx| pop.parcel_offer_for_tests(ctx, homes[2]))
         .expect("another parcel");
-    assert_ne!(next.1, parcel);
+    assert_ne!(next.parcel, parcel);
     // Saved and loaded alike, the parcel given and the staking with it.
     saves_and_goes_on_alike(&mut sim, DAY);
     // Its keeper gone, the plan stands, its office vacant, and gives nothing.
@@ -898,4 +902,232 @@ fn a_plan_s_keeper_gives_a_household_short_of_a_home_the_parcel_nearest_the_hear
         sim.with_ctx_for_tests(|pop, ctx| pop.parcel_offer_for_tests(ctx, homes[2]))
             .is_none()
     );
+}
+
+/// Claims all round `ground`, a gap of `gap_cm` from it, of household `owner`: a crowded
+/// village's, leaving the ground the only clear ground near; their ids.
+fn claims_round(
+    sim: &mut Sim,
+    ground: civ_land::RectCm,
+    owner: civ_core::PermanentId,
+) -> Vec<civ_core::PermanentId> {
+    let (reach, gap) = (300_000, 300);
+    let (x0, y0) = (ground.x - gap, ground.y - gap);
+    let (w0, h0) = (ground.w + 2 * gap, ground.h + 2 * gap);
+    let round = [
+        (x0 - reach, y0 - reach, reach, h0 + 2 * reach),
+        (x0 + w0, y0 - reach, reach, h0 + 2 * reach),
+        (x0, y0 - reach, w0, reach),
+        (x0, y0 + h0, w0, reach),
+    ];
+    let mut ids = Vec::new();
+    for (x, y, w, h) in round {
+        let id = sim.allocate_id_for_tests();
+        ids.push(id);
+        let since = sim.now();
+        sim.land_mut_for_tests().plots.push(civ_land::Plot {
+            id,
+            household: owner,
+            rect: civ_land::RectCm { x, y, w, h },
+            use_: civ_land::PlotUse::Store,
+            since,
+            receipt: None,
+            allotted: None,
+        });
+    }
+    ids
+}
+
+#[test]
+fn a_plan_s_parcels_go_by_lot_for_a_fee_or_by_its_keeper_s_regard() {
+    // M8c slice CU, second part (ADR-0030 §4): a template names how its keeper gives parcels.
+    // By lot, the parcel offered is drawn, the same draw today for the same household; for a
+    // fee, only to a household holding it, which pays the store as it begins its home there;
+    // by the keeper's choice, only to a household whose eldest the keeper regards.
+    use civ_agents::polity::{IssueKind, LawStatus, Outcome, PolicyKind};
+    use civ_core::PermanentId;
+    use civ_land::AllotRule;
+    let mut sim = village(3);
+    sim.advance_minutes(2 * DAY).expect("lives");
+    let settlement = sim.land().settlements[0].id;
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.holds(Some(settlement)))
+        .expect("its polity");
+    let plan_policy = sim
+        .rules()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.kind == PolicyKind::Plan)
+        .expect("the plan template");
+    let grain = sim
+        .rules()
+        .catalog
+        .good_index("core:good/grain")
+        .expect("grain");
+    let set_rule = |sim: &mut Sim, allot: AllotRule, fee: Option<(usize, f32)>| {
+        let rules = sim.rules_mut_for_tests().expect("rules of its own");
+        let plan = rules.catalog.policies[plan_policy]
+            .plan
+            .as_mut()
+            .expect("a plan");
+        plan.allot = allot;
+        plan.fee = fee;
+    };
+    let homes: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+        .map(|(_, x)| x.id)
+        .collect();
+    let keeper = sim
+        .people()
+        .household(homes[0])
+        .map(|x| x.members[0])
+        .expect("a sponsor");
+    let law = sim
+        .with_ctx_for_tests(|pop, ctx| {
+            pop.propose_plan_for_tests(ctx, settlement, keeper, 0, IssueKind::NoGround)
+        })
+        .expect("a plan put forward");
+    let now = sim.now();
+    {
+        let pop = sim.people_mut_for_tests();
+        let l = pop.polities[pi].law_mut(law).expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Outcome::Passed);
+        l.decided = Some(now);
+        pop.polities[pi].gathering = None;
+    }
+    let offer = |sim: &mut Sim, h: PermanentId| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.parcel_offer_for_tests(ctx, h))
+    };
+    // By lot: a draw, the same today for the same household.
+    set_rule(&mut sim, AllotRule::Lot, None);
+    let drawn = offer(&mut sim, homes[1]).expect("a parcel drawn");
+    assert_eq!(drawn.rule, AllotRule::Lot);
+    assert_eq!(offer(&mut sim, homes[1]), Some(drawn));
+    // By the keeper's choice: only to a household whose eldest the keeper regards.
+    set_rule(&mut sim, AllotRule::Standing, None);
+    let (now, grown) = (sim.now(), sim.rules().people.family.independent_age);
+    let mut regarded = 0;
+    for &h in &homes[1..] {
+        let members = sim.people().household(h).expect("it").members.clone();
+        let eldest = members
+            .iter()
+            .copied()
+            .find(|&m| {
+                sim.people()
+                    .person(m)
+                    .is_some_and(|p| p.age_years(now) >= grown)
+            })
+            .or_else(|| members.first().copied())
+            .expect("someone");
+        let regard =
+            sim.people()
+                .ties
+                .regard(keeper, eldest, now.day_index(), &sim.rules().people.ties);
+        let given = offer(&mut sim, h);
+        assert_eq!(given.is_some(), regard > 0.0, "{h:?} regarded {regard}");
+        regarded += usize::from(regard > 0.0);
+        if let Some(o) = given {
+            assert_eq!(o.rule, AllotRule::Standing);
+        }
+    }
+    assert!(
+        regarded < homes.len() - 1,
+        "someone the keeper does not regard"
+    );
+    // For a fee: only to a household holding it.
+    set_rule(&mut sim, AllotRule::Offer, Some((grain, 2.0)));
+    let household = homes[1];
+    let held = |sim: &Sim, h: PermanentId| sim.people().household(h).expect("it").stores[grain];
+    let set_held = |sim: &mut Sim, h: PermanentId, kg: f64| {
+        if let Some((_, x)) = sim
+            .people_mut_for_tests()
+            .households
+            .iter_mut()
+            .find(|(_, x)| x.id == h)
+        {
+            x.stores[grain] = kg;
+        }
+    };
+    set_held(&mut sim, household, 1.0);
+    assert!(offer(&mut sim, household).is_none(), "short of the fee");
+    set_held(&mut sim, household, 30.0);
+    let o = offer(&mut sim, household).expect("a parcel for a fee");
+    assert_eq!((o.rule, o.fee), (AllotRule::Offer, Some((grain, 2.0))));
+    let polity = &sim.people().polities[pi];
+    let words = polity.words_of(
+        polity.laws.iter().find(|l| l.id == law).expect("the law"),
+        &sim.rules().catalog.policies,
+        &|_| String::new(),
+    );
+    assert!(words.contains("parcels given for a fee"), "{words}");
+    // It builds there, paying the store as it begins.
+    let store = sim.people().polities[pi].id;
+    let in_store = |sim: &Sim| {
+        sim.people().polities[pi]
+            .stores
+            .get(grain)
+            .copied()
+            .unwrap_or(0.0)
+    };
+    let before = in_store(&sim);
+    if let Some((_, x)) = sim
+        .people_mut_for_tests()
+        .households
+        .iter_mut()
+        .find(|(_, x)| x.id == household)
+    {
+        x.home = o.ground.centre_m();
+    }
+    let members = sim
+        .people()
+        .household(household)
+        .expect("it")
+        .members
+        .clone();
+    let today = sim.now().day_index();
+    for m in members {
+        sim.people_mut_for_tests().travel.goings.insert(
+            m,
+            civ_agents::travel::Goings {
+                day: today,
+                to: Vec::new(),
+            },
+        );
+    }
+    let claims = claims_round(&mut sim, o.ground, homes[0]);
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_home_for_tests(ctx, household))
+        .expect("begun");
+    let plot = sim
+        .land()
+        .plots
+        .iter()
+        .find(|p| p.household == household && p.allotted.is_some())
+        .expect("its plot");
+    assert_eq!(
+        plot.allotted.map(|a| (a.parcel, a.rule)),
+        Some((o.parcel, AllotRule::Offer))
+    );
+    assert!(
+        (held(&sim, household) - 28.0).abs() < 0.05,
+        "{}",
+        held(&sim, household)
+    );
+    assert!(
+        (in_store(&sim) - before - 2.0).abs() < 1e-6,
+        "{}",
+        in_store(&sim)
+    );
+    assert!(store.get() > 0);
+    sim.land_mut_for_tests()
+        .plots
+        .retain(|p| !claims.contains(&p.id));
+    saves_and_goes_on_alike(&mut sim, DAY);
 }

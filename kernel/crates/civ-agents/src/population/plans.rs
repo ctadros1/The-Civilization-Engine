@@ -77,6 +77,18 @@ type Weighing = (
     Option<Option<(f64, civ_land::RectCm)>>,
 );
 
+/// A parcel a plan's keeper would give a household (M8c slice CU): the plan's law, the parcel's
+/// index in its layout and its ground, the rule it is given by, and the fee the household pays
+/// the store for it (the good, by index in the catalog's goods, and the amount), if one.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ParcelOffer {
+    pub law: PermanentId,
+    pub parcel: u16,
+    pub ground: civ_land::RectCm,
+    pub rule: civ_land::AllotRule,
+    pub fee: Option<(usize, f64)>,
+}
+
 impl Population {
     /// The polity holding settlement `settlement` saw `issue` of household `household`'s building
     /// (M8c slice CT, second part): kept within memory.
@@ -380,15 +392,12 @@ impl Population {
     }
 
     /// The parcel a plan in force where household `hh` lives would give it now, to build its home
-    /// on (M8c slice CU, first part; ADR-0030 §4, by need: households short of a home, the free
-    /// parcel nearest the hearth first): the plan's law, the parcel's index in its layout and its
-    /// ground. None while no plan in force there has a keeper living there, or every parcel is
+    /// on (M8c slice CU; ADR-0030 §4), by the plan's rule: by need, the free parcel nearest the
+    /// hearth; by lot, a free parcel drawn by a keyed lot; for a fee, the nearest, to a household
+    /// holding the fee; by the keeper's choice, the nearest, to a household whose eldest the keeper
+    /// regards. None while no plan in force there has a keeper living there, or every parcel is
     /// given or no longer clear.
-    pub(super) fn parcel_offer(
-        &self,
-        ctx: &Ctx,
-        hh: &Household,
-    ) -> Option<(PermanentId, u16, civ_land::RectCm)> {
+    pub(super) fn parcel_offer(&self, ctx: &Ctx, hh: &Household) -> Option<ParcelOffer> {
         let settlement = hh.settlement?;
         let pi = self.polity_of(settlement)?;
         let polity = &self.polities[pi];
@@ -401,17 +410,46 @@ impl Population {
             .iter()
             .find(|s| s.id == settlement)?
             .hearth_m;
+        let day = ctx.now.day_index();
         for (law, laid) in polity.plans_in_force() {
-            let kept = polity
-                .laws
-                .iter()
-                .find(|l| l.id == law)
-                .and_then(|l| l.holder)
-                .and_then(|k| self.person(k))
-                .and_then(|p| self.household(p.household))
-                .is_some_and(|x| x.settlement == Some(settlement));
-            if !kept {
+            let Some(l) = polity.laws.iter().find(|l| l.id == law) else {
                 continue;
+            };
+            let Some(keeper) = l.holder.filter(|&k| {
+                self.person(k)
+                    .and_then(|p| self.household(p.household))
+                    .is_some_and(|x| x.settlement == Some(settlement))
+            }) else {
+                continue;
+            };
+            let Some(def) = ctx
+                .catalog
+                .policies
+                .get(usize::from(l.policy))
+                .and_then(|d| d.plan.as_ref())
+            else {
+                continue;
+            };
+            let rule = def.allot;
+            let fee = def.fee.map(|(g, a)| (g, f64::from(a)));
+            match rule {
+                civ_land::AllotRule::Offer => {
+                    let Some((good, amount)) = fee else {
+                        continue;
+                    };
+                    if hh.stores.get(good).copied().unwrap_or(0.0) < amount {
+                        continue;
+                    }
+                }
+                civ_land::AllotRule::Standing => {
+                    let regarded = self
+                        .elder_of(hh.id, ctx.now, ctx.params)
+                        .is_some_and(|e| self.ties.regard(keeper, e, day, &ctx.params.ties) > 0.0);
+                    if !regarded {
+                        continue;
+                    }
+                }
+                civ_land::AllotRule::Need | civ_land::AllotRule::Lot => {}
             }
             let given: Vec<u16> = ctx
                 .land
@@ -423,21 +461,40 @@ impl Population {
                 let (x, y) = r.centre_m();
                 (x - hearth.0).hypot(y - hearth.1)
             };
-            let best = laid
+            let mut free: Vec<(usize, &civ_land::plans::Parcel)> = laid
                 .layout
                 .parcels
                 .iter()
                 .enumerate()
                 .filter(|(i, _)| !given.contains(&(*i as u16)))
                 .filter(|(_, q)| build::plot_clear(ctx.land, ctx.map, ctx.nav, &q.rect))
-                .min_by(|a, b| {
+                .collect();
+            if free.is_empty() {
+                continue;
+            }
+            let chosen = if rule == civ_land::AllotRule::Lot {
+                let key =
+                    Rng64::from_key(&[ctx.seed, law.get(), hh.id.get(), day as u64]).next_u64();
+                free[(key % free.len() as u64) as usize]
+            } else {
+                free.sort_by(|a, b| {
                     far(&a.1.rect)
                         .total_cmp(&far(&b.1.rect))
                         .then(a.0.cmp(&b.0))
                 });
-            if let Some((i, q)) = best {
-                return Some((law, i as u16, q.rect));
-            }
+                free[0]
+            };
+            return Some(ParcelOffer {
+                law,
+                parcel: chosen.0 as u16,
+                ground: chosen.1.rect,
+                rule,
+                fee: if rule == civ_land::AllotRule::Offer {
+                    fee
+                } else {
+                    None
+                },
+            });
         }
         None
     }

@@ -100,6 +100,7 @@ pub use loads::{
     snow_on_roof_pa, storm_pa,
 };
 mod plans;
+pub use plans::ParcelOffer;
 mod siting;
 mod taste;
 mod ties;
@@ -668,8 +669,10 @@ struct NewHome {
     firm: Option<PermanentId>,
     /// Why a home's plot was chosen among others (M8c slice CS).
     receipt: Option<civ_land::SiteReceipt>,
-    /// The parcel of a plan it is to stand on, if a keeper gives one (M8c slice CU).
+    /// The parcel of a plan it is to stand on, if a keeper gives one (M8c slice CU), and the fee
+    /// paid the store for it (the good, by index, and the amount), if one.
     parcel: Option<civ_land::Allotment>,
+    fee: Option<(usize, f64)>,
 }
 
 /// Why a household begins no building (M8c slice CT): nothing it would build, or a home it would
@@ -2488,6 +2491,7 @@ impl Population {
                     firm,
                     receipt: None,
                     parcel: None,
+                    fee: None,
                 },
                 level_h,
             ))
@@ -2549,7 +2553,14 @@ impl Population {
             // The parcel a plan's keeper would give it, weighed as any plot is (M8c slice CU):
             // a plot found whose middle lies on it takes it, and its home is also laid out at the
             // parcel's middle or a few metres along it, wholly within it.
-            if let Some((law, parcel, ground)) = offer {
+            // A fee counts at what the household's own hours would make of its good; one it
+            // cannot reckon is not paid.
+            let costs = self.own_costs_of(ctx, hh);
+            let cost_of = |g: usize| costs.get(g).copied().flatten();
+            let offer = offer.filter(|o| o.fee.is_none_or(|(g, _)| cost_of(g).is_some()));
+            if let Some(o) = offer {
+                let (law, parcel, ground) = (o.law, o.parcel, o.ground);
+                let fee_h = o.fee.map_or(0.0, |(g, a)| a * cost_of(g).unwrap_or(0.0));
                 let program = &catalog.buildings[choice.0];
                 let within = |spec: &BuildingSpec| {
                     let rect = build::plot_rect(spec, program);
@@ -2561,7 +2572,7 @@ impl Population {
                 let given = civ_land::Allotment {
                     law,
                     parcel,
-                    rule: civ_land::AllotRule::Need,
+                    rule: o.rule,
                 };
                 let on = |spec: &BuildingSpec| {
                     let (x, y) = build::centre_m(spec);
@@ -2571,8 +2582,10 @@ impl Population {
                         && x < ground.x + ground.w
                         && y < ground.y + ground.h
                 };
-                for (_, f) in found.iter_mut().filter(|(_, f)| on(&f.spec)) {
+                for (h, f) in found.iter_mut().filter(|(_, f)| on(&f.spec)) {
                     f.parcel = Some(given);
+                    f.fee = o.fee;
+                    *h += fee_h;
                 }
                 let (cx, cy) = ground.centre_m();
                 let along_x = ground.w >= ground.h;
@@ -2583,8 +2596,10 @@ impl Population {
                 if let Some((mut home, level_h)) = laid {
                     let at = build::centre_m(&home.spec);
                     if !found.iter().any(|(_, f)| build::centre_m(&f.spec) == at) {
-                        let hours = years * siting::walk_hours_year(at, &places, speed) + level_h;
+                        let hours =
+                            years * siting::walk_hours_year(at, &places, speed) + level_h + fee_h;
                         home.parcel = Some(given);
+                        home.fee = o.fee;
                         found.push((hours, home));
                     }
                 }
@@ -2924,6 +2939,30 @@ impl Population {
                     && b.standing()
                     && ctx.catalog.is_dwelling(&b.spec.program)
             });
+        // A parcel given for a fee is paid for first, to the store (M8c slice CU): unpaid, nothing
+        // is begun.
+        if let (Some(_), Some((good, amount))) = (site.parcel, site.fee) {
+            let store = self
+                .household(household)
+                .and_then(|x| x.settlement)
+                .and_then(|s| self.polity_of(s))
+                .map(|pi| self.polities[pi].id)?;
+            let legs = [crate::ledger::Leg {
+                from: household,
+                to: store,
+                good,
+                amount,
+            }];
+            if !self.transfer(
+                ctx.now,
+                ctx.params,
+                &ctx.catalog.goods,
+                &legs,
+                crate::ledger::Channel::GroundFee,
+            ) {
+                return None;
+            }
+        }
         // What its polity sees of the ground it takes (M8c slice CT).
         self.ground_taken(
             ctx,

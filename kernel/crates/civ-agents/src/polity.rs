@@ -2196,6 +2196,11 @@ pub struct PlanDef {
     pub extents: Vec<(u8, u8)>,
     pub stake_h: f32,
     pub needs: Option<usize>,
+    /// How its keeper gives its parcels (M8c slice CU).
+    pub allot: civ_land::AllotRule,
+    /// For a parcel given for a fee: the good, by index in the catalog's goods, and the amount
+    /// paid the store once.
+    pub fee: Option<(usize, f32)>,
 }
 
 /// The plan a law lays (M8c slice CT, second part; ADR-0030 §2): its version (1 for its polity's
@@ -2729,9 +2734,20 @@ impl Polity {
             && let Some(plan) = self.plan_of(law.id)
         {
             let l = &plan.layout;
+            // How its parcels are given, said only when not by need (M8c slice CU, second part).
+            let given = match policies
+                .get(usize::from(law.policy))
+                .and_then(|d| d.plan.as_ref())
+                .map(|d| d.allot)
+            {
+                Some(rule) if rule != civ_land::AllotRule::Need => {
+                    format!(" given {}", rule.words())
+                }
+                _ => String::new(),
+            };
             return format!(
                 "a plan (version {}) of {} by {} blocks of {:.0} by {:.0} m with {:.0} m streets \
-                 running {}, laying out {} parcels{}, its streets{} kept open",
+                 running {}, laying out {} parcels{}{}, its streets{} kept open",
                 plan.version,
                 plan.grid.blocks.0,
                 plan.grid.blocks.1,
@@ -2745,6 +2761,7 @@ impl Polity {
                 } else {
                     " round a square"
                 },
+                given,
                 if l.sites.is_empty() {
                     ""
                 } else {

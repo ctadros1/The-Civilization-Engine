@@ -73,23 +73,55 @@ pub struct Allotment {
 pub enum AllotRule {
     /// To a household short of a home, the free parcel nearest the hearth first.
     Need,
+    /// To a household that asks, a free parcel drawn by lot.
+    Lot,
+    /// To a household that pays the plan's fee to the store, the free parcel nearest the hearth.
+    Offer,
+    /// To a household whose eldest the keeper regards, the free parcel nearest the hearth.
+    Standing,
 }
 
 impl AllotRule {
     /// Every rule, by code.
-    pub const ALL: [AllotRule; 1] = [AllotRule::Need];
+    pub const ALL: [AllotRule; 4] = [
+        AllotRule::Need,
+        AllotRule::Lot,
+        AllotRule::Offer,
+        AllotRule::Standing,
+    ];
 
     /// Its code in saves.
     pub fn code(self) -> u8 {
         match self {
             AllotRule::Need => 0,
+            AllotRule::Lot => 1,
+            AllotRule::Offer => 2,
+            AllotRule::Standing => 3,
         }
+    }
+
+    /// Its name in content.
+    pub fn name(self) -> &'static str {
+        match self {
+            AllotRule::Need => "need",
+            AllotRule::Lot => "lot",
+            AllotRule::Offer => "offer",
+            AllotRule::Standing => "standing",
+        }
+    }
+
+    /// The rule named `name` in content.
+    pub fn from_name(name: &str) -> Option<AllotRule> {
+        AllotRule::ALL.into_iter().find(|r| r.name() == name)
     }
 
     /// Its name in words: "by need".
     pub fn words(self) -> &'static str {
         match self {
             AllotRule::Need => "by need",
+            AllotRule::Lot => "by lot",
+            AllotRule::Offer => "for a fee",
+            AllotRule::Standing => "by the keeper's choice",
         }
     }
 }

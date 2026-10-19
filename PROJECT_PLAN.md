@@ -4811,6 +4811,21 @@ and M6a gives rivers a daily flow.
         **Boundary:** saves schema 161 (`LawSave.remove`, `yearly_days`,
         `PolitySave.encroachment_orders`); content API 147 (a plan bundle's `remove` and
         `yearly_days`); no wire change. The expected sanction in keeping and the backlog follow.
+      - *Third part, as built (2026-10-19): the expected sanction in keeping; slice CV closed.*
+        Whether a builder's eldest keeps a plan now weighs, beside the norm, their stance and
+        their regard for its sponsor, what they expect building against it to cost: the chance
+        they believe that someone sees, that a hearing finds and that the remedy follows, as the
+        findings under the plan they have heard of against the buildings begun on its ground
+        (at most one), times the remedy's cost in days of their household's food, its
+        compensation and fine, a yearly payment over the years a household reckons a plot by
+        (`site_years`), and for removal the days of work their own home took; at the points a day
+        of food is worth in a dispute (`w_demand_loss`). Nothing is expected before a finding, or
+        by one who has not heard of it, and findings fade as word does. **Test:** before the
+        finding nothing is expected; after it, one who heard expects more than the fine alone,
+        and one who did not expects nothing. **Deferred:** the backlog (encroachments no case
+        names, cases waiting to be heard) goes to slice CX's Land row, where the observer first
+        has a place for it; the hours of a crew taking a building down, with M8d's buildings.
+        No saves, content or wire change.
     - **CW, use and nuisance rules:** district uses and two rule templates (worked fires from
       homes, middens from wells).
     - **CX, land value and density:** the derived map (paid, reckoned, nothing recorded), the

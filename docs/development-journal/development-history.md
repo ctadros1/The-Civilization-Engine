@@ -3137,3 +3137,11 @@ pulled down once the time to pay the fine has passed, or the family may keep it 
 common store something every year. A family whose building is pulled down holds it against the
 gathering. For now the building comes down all at once on its day; nobody is yet seen doing the
 work, because the crews that pull buildings down in the game only work against a fire.
+
+## 2026-10-19 — CV, third part: people weigh what breaking a plan would cost
+
+**Built:** a family deciding whether to respect a town plan now thinks about what happened to
+others who did not. If they have heard that the gathering found against someone who built on the
+plan's ground, they count the fine, the yearly payment or the loss of the house, and how likely
+that seemed to them, against the trouble of building elsewhere. Families who have heard nothing
+of it, or have forgotten, are not deterred. This closes the work on cases under town plans.

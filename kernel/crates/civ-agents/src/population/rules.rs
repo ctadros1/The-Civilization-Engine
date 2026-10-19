@@ -538,7 +538,81 @@ impl Population {
             .ties
             .regard(person, l.sponsor, ctx.now.day_index(), &ctx.params.ties);
         let norm = self.norm_points(ctx, person);
-        crate::polity::comply_points(norm, stance, regard, 0.0, &ctx.params.polity) > 0.0
+        let deterred = if l.kind == PolicyKind::Plan {
+            self.plan_sanction_points(ctx, person, l)
+        } else {
+            0.0
+        };
+        crate::polity::comply_points(norm, stance, regard, -deterred, &ctx.params.polity) > 0.0
+    }
+
+    /// What `person` expects building against plan `l` to cost their household, in the points a
+    /// day of its food is worth in a dispute (M8c slice CV, third part; ADR-0030 §5): the chance
+    /// they believe that someone sees, a hearing finds and the remedy follows, from the findings
+    /// under the plan they have heard of against the buildings it has had begun on its ground,
+    /// times the remedy's cost in days: its compensation and fine, a yearly payment over the
+    /// years a household reckons a plot by, and for removal the days of work their own home took.
+    fn plan_sanction_points(&self, ctx: &Ctx, person: PermanentId, l: &Law) -> f64 {
+        use crate::crime::CaseStage;
+        let (params, catalog) = (ctx.params, ctx.catalog);
+        let s = l.sanction;
+        let Some(polity) = self
+            .polities
+            .iter()
+            .find(|p| p.laws.iter().any(|x| x.id == l.id))
+        else {
+            return 0.0;
+        };
+        let begun = polity
+            .encroachments
+            .iter()
+            .filter(|e| e.law == l.id)
+            .count();
+        if begun == 0 {
+            return 0.0;
+        }
+        let found = self
+            .order
+            .cases
+            .iter()
+            .filter(|c| c.law == l.id && c.building.is_some() && c.stage == CaseStage::Found)
+            .filter(|c| {
+                self.word.claims.iter().any(|k| {
+                    k.kind == crate::word::ClaimKind::Finding
+                        && k.event == Some(c.id)
+                        && self.word.has_heard(person, k.id)
+                })
+            })
+            .count();
+        if found == 0 {
+            return 0.0;
+        }
+        let chance = (found as f64 / begun as f64).min(1.0);
+        let removal = if s.remove {
+            let household = self.person(person).map(|p| p.household);
+            ctx.land
+                .buildings
+                .iter()
+                .filter(|b| Some(b.household) == household && b.standing())
+                .filter(|b| catalog.is_dwelling(&b.spec.program))
+                .filter_map(|b| {
+                    let d = catalog.building_index(&b.spec.program)?;
+                    build::building_hours(
+                        &b.spec,
+                        catalog.buildings.get(d)?,
+                        params.household.carry_kg,
+                    )
+                })
+                .fold(0.0, f64::max)
+                / params.farm.work_hours_per_day.max(1.0)
+        } else {
+            0.0
+        };
+        let days = f64::from(s.compensation_days)
+            + f64::from(s.fine_days)
+            + f64::from(s.yearly_days) * params.build.site_years
+            + removal;
+        params.crime.w_demand_loss * chance * days
     }
 
     /// Household `household` has begun building `building` (M6b slice BH): for each rule for
@@ -702,6 +776,20 @@ impl Population {
         building: PermanentId,
     ) {
         self.count_rule_keeping(ctx, household, building);
+    }
+
+    /// What `person` expects building against plan `law` to cost, in points: for tests.
+    #[doc(hidden)]
+    pub fn plan_sanction_points_for_tests(
+        &self,
+        ctx: &Ctx,
+        person: PermanentId,
+        law: PermanentId,
+    ) -> f64 {
+        self.polities
+            .iter()
+            .find_map(|p| p.laws.iter().find(|l| l.id == law))
+            .map_or(0.0, |l| self.plan_sanction_points(ctx, person, l))
     }
 }
 

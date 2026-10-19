@@ -1794,6 +1794,53 @@ fn a_building_found_on_a_plan_s_ground_is_taken_down_on_its_day() {
 }
 
 #[test]
+fn a_finding_heard_of_weighs_on_building_against_the_plan() {
+    // M8c slice CV, third part (ADR-0030 §5): keeping a plan weighs an expected sanction, the
+    // chance one believes that someone sees, a hearing finds and the remedy follows, from the
+    // findings under it one has heard of against the buildings begun on its ground, times the
+    // remedy's cost. Before any finding, or for one who has not heard of it, it weighs nothing;
+    // for one who heard the finding, it weighs the bundle and the work of their own home.
+    use civ_agents::crime::CaseStage;
+    use civ_agents::polity::Sanction;
+    let (mut sim, _pi, law, owner, building, keeper) = a_plan_built_over(Sanction {
+        fine_days: 2.0,
+        remove: true,
+        ..Sanction::default()
+    });
+    let expects = |sim: &mut Sim, person| {
+        sim.with_ctx_for_tests(|pop, ctx| pop.plan_sanction_points_for_tests(ctx, person, law))
+    };
+    assert_eq!(expects(&mut sim, keeper), 0.0, "nothing found yet");
+    assert_eq!(heard(&mut sim, building), CaseStage::Found);
+    let c = plan_case(&sim, building).expect("the case");
+    let claim = sim
+        .people()
+        .word
+        .claims
+        .iter()
+        .find(|k| k.kind == civ_agents::word::ClaimKind::Finding && k.event == Some(c.id))
+        .map(|k| k.id)
+        .expect("word of the finding");
+    let people: Vec<_> = sim.people().people.iter().map(|(_, p)| p.id).collect();
+    let (heard_it, not): (Vec<_>, Vec<_>) = people
+        .into_iter()
+        .partition(|&p| sim.people().word.has_heard(p, claim));
+    let one = *heard_it
+        .iter()
+        .find(|&&p| sim.people().person(p).is_some_and(|x| x.household != owner))
+        .expect("one who heard it");
+    let fine_only = 2.0 * sim.rules().people.crime.w_demand_loss;
+    assert!(
+        expects(&mut sim, one) > fine_only,
+        "the fine and the work of a home: {} against {fine_only}",
+        expects(&mut sim, one)
+    );
+    if let Some(&other) = not.first() {
+        assert_eq!(expects(&mut sim, other), 0.0, "one who has not heard of it");
+    }
+}
+
+#[test]
 fn a_building_found_on_a_plan_s_ground_may_stand_for_a_yearly_payment() {
     // M8c slice CV, second part (ADR-0030 §5): regularisation; found, the building stands, and
     // a year from the finding its household owes the store its yearly payment, as ground rent;

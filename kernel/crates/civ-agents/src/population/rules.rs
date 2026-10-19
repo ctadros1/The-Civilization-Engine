@@ -557,6 +557,47 @@ impl Population {
             .collect()
     }
 
+    /// The parcels of the plans household `hh`'s builders keep whose district allows only some
+    /// uses (M8c slice CW, ADR-0030 §6), and the uses it allows, a bit for each: a building of
+    /// another use is not put on them.
+    pub(crate) fn zoned_kept(&self, ctx: &Ctx, hh: &Household) -> Vec<(civ_land::RectCm, u8)> {
+        let Some(pi) = hh.settlement.and_then(|s| self.polity_of(s)) else {
+            return Vec::new();
+        };
+        let polity = &self.polities[pi];
+        if polity.plans.is_empty() {
+            return Vec::new();
+        }
+        let Some(person) = self.elder_of(hh.id, ctx.now, ctx.params) else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        for (law, laid) in polity.plans_in_force() {
+            let Some(l) = polity.laws.iter().find(|l| l.id == law) else {
+                continue;
+            };
+            let Some(def) = ctx
+                .catalog
+                .policies
+                .get(usize::from(l.policy))
+                .and_then(|d| d.plan.as_ref())
+                .filter(|d| !d.districts.is_empty())
+            else {
+                continue;
+            };
+            if !self.keeps(ctx, person, l) {
+                continue;
+            }
+            let phase = laid.layout.phases(def.phases);
+            for (i, q) in laid.layout.parcels.iter().enumerate() {
+                if let Some(d) = def.districts.iter().find(|d| d.0 == phase[i]) {
+                    out.push((q.rect, d.1));
+                }
+            }
+        }
+        out
+    }
+
     /// Household `household` has begun building `building` on plot `rect` (M8c slice CT, third
     /// part): each plan in force where it lives over whose ground it stands counts whether it
     /// was kept, and a building on ground the plan reserves is an encroachment, recorded.
@@ -577,9 +618,54 @@ impl Population {
         if self.polities[pi].plans.is_empty() {
             return;
         }
+        // A building of a use its district does not allow on a plan's parcel breaks the plan too
+        // (M8c slice CW), though it is no encroachment: it stands on no reserved ground.
+        let use_ = ctx
+            .land
+            .buildings
+            .iter()
+            .find(|b| b.id == building)
+            .and_then(|b| ctx.catalog.use_of(&b.spec.program));
+        let zoned_out = |law: PermanentId, p: &crate::polity::PlanLaid| {
+            let Some(def) = self.polities[pi]
+                .laws
+                .iter()
+                .find(|l| l.id == law)
+                .and_then(|l| ctx.catalog.policies.get(usize::from(l.policy)))
+                .and_then(|d| d.plan.as_ref())
+                .filter(|d| !d.districts.is_empty())
+            else {
+                return false;
+            };
+            let Some(use_) = use_ else {
+                return false;
+            };
+            let phase = p.layout.phases(def.phases);
+            p.layout
+                .parcels
+                .iter()
+                .enumerate()
+                .any(|(i, q)| q.rect.near(rect, 0) && !def.allows(phase[i], use_))
+        };
+        let zoned: Vec<PermanentId> = self.polities[pi]
+            .plans_in_force()
+            .filter(|&(law, p)| zoned_out(law, p))
+            .map(|(law, _)| law)
+            .collect();
+        for &law in &zoned {
+            let elder = self.elder_of(household, ctx.now, ctx.params);
+            if let Some(l) = self.polities[pi].law_mut(law) {
+                if elder.is_some_and(|e| l.knows(e)) {
+                    l.compliance.broken += 1;
+                } else {
+                    l.compliance.broken_unaware += 1;
+                }
+            }
+        }
         let found: Vec<(PermanentId, bool)> = self.polities[pi]
             .plans_in_force()
             .filter(|(_, p)| plan_bounds(&p.layout).is_some_and(|b| b.near(rect, 0)))
+            .filter(|(law, _)| !zoned.contains(law))
             .map(|(law, p)| (law, !p.layout.reserves(rect, 0)))
             .collect();
         if found.is_empty() {

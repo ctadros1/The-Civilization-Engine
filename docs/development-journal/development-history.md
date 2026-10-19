@@ -3154,3 +3154,10 @@ because those fires can catch. The other says a new home, and the dung heap besi
 well away from the wells, because filth seeps through the ground into the water. People propose
 the first after a fire and the second after sickness at home, and each family decides whether to
 follow them when it builds.
+
+## 2026-10-19 — CW, second part: districts in a town plan
+
+**Built:** a town plan can now set aside a ring of its plots for stores and workshops only, or for
+homes only. The plan's keeper offers families looking for a place to live only plots where homes
+are allowed, and people who respect the plan don't put a building where its kind isn't allowed.
+Buildings already standing are left as they are. This finishes the rules about where things go.

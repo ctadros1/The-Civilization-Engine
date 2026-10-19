@@ -2366,6 +2366,8 @@ impl Population {
         // The plans in force its builders keep (M8c slice CT, third part), whose streets and
         // public sites a new building keeps clear of.
         let kept_plans = self.plans_kept(ctx, hh);
+        // And the parcels whose district allows only some uses (M8c slice CW).
+        let zoned = self.zoned_kept(ctx, hh);
         // Where `choice` would stand, its door toward `toward`, if there is clear ground for it
         // within `max_m` of `from`: keeping the rules and plans its builders keep, if there is
         // ground for that, else as they would without them.
@@ -2485,6 +2487,16 @@ impl Population {
                         plans.is_empty() || {
                             let rect = build::plot_rect(spec, program);
                             plans.iter().all(|l| !l.reserves(&rect, 0))
+                        }
+                    })
+                    // Nor on a parcel whose district allows another use (M8c slice CW).
+                    .filter(|spec| {
+                        !obey_rules || zoned.is_empty() || {
+                            let rect = build::plot_rect(spec, program);
+                            let bit = crate::polity::use_bit(program.use_);
+                            zoned
+                                .iter()
+                                .all(|(r, uses)| uses & bit != 0 || !r.near(&rect, 0))
                         }
                     })
             };

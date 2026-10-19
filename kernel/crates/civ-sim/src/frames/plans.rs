@@ -158,6 +158,31 @@ fn words(sim: &Sim, p: &Polity, law: PermanentId, built: usize, occupied: usize)
         if refused > 0 {
             out.push_str(&format!("; {refused} fields' holders refused its pay"));
         }
+        // Its districts (M8c slice CW): what each phase named allows.
+        if let Some(def) = sim
+            .rules
+            .catalog
+            .policies
+            .get(usize::from(l.policy))
+            .and_then(|d| d.plan.as_ref())
+        {
+            for &(phase, uses) in &def.districts {
+                let names: Vec<&str> = civ_land::PlotUse::ALL
+                    .into_iter()
+                    .filter(|&u| uses & civ_agents::polity::use_bit(u) != 0)
+                    .map(|u| match u {
+                        civ_land::PlotUse::Dwelling => "homes",
+                        civ_land::PlotUse::Store => "stores",
+                        civ_land::PlotUse::Work => "workshops",
+                    })
+                    .collect();
+                out.push_str(&format!(
+                    "; its phase {} for {} alone",
+                    u16::from(phase) + 1,
+                    names.join(" and ")
+                ));
+            }
+        }
         // Which of its phases are open (fourth part), when it opens in more than one.
         if let (Some(def), Some(laid)) = (
             sim.rules

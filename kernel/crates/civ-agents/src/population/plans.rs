@@ -475,8 +475,13 @@ impl Population {
             // Only the phases open (fourth part): the first, and each after once most of those
             // before it are given.
             let phase = laid.layout.phases(def.phases);
+            // A parcel its district keeps from homes counts as taken, so it holds no phase back
+            // (M8c slice CW): homes are all a keeper gives parcels for.
             let taken: Vec<bool> = (0..phase.len())
-                .map(|i| given.contains(&(i as u16)))
+                .map(|i| {
+                    given.contains(&(i as u16))
+                        || !def.allows(phase[i], civ_land::PlotUse::Dwelling)
+                })
                 .collect();
             let open =
                 civ_land::plans::Layout::phases_open(&phase, &taken, def.phases, def.open_at);
@@ -487,6 +492,8 @@ impl Population {
                 .enumerate()
                 .filter(|(i, _)| !given.contains(&(*i as u16)))
                 .filter(|(i, _)| phase[*i] < open)
+                // Only where its district allows a home (M8c slice CW).
+                .filter(|(i, _)| def.allows(phase[*i], civ_land::PlotUse::Dwelling))
                 .filter(|(_, q)| build::plot_clear(ctx.land, ctx.map, ctx.nav, &q.rect))
                 .collect();
             if free.is_empty() {

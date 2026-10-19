@@ -2234,6 +2234,28 @@ pub struct PlanDef {
     /// store offers a field's holder a hectare.
     pub fields: FieldClause,
     pub pay: Option<(usize, f32)>,
+    /// Its districts (M8c slice CW, ADR-0030 §6: zoning as a clause of a plan): each phase's
+    /// parcels, by phase from 0, and the uses allowed there, a bit for each by its place in
+    /// [`civ_land::PlotUse::ALL`]. A phase named in none allows every use.
+    pub districts: Vec<(u8, u8)>,
+}
+
+impl PlanDef {
+    /// Whether a parcel of phase `phase` (from 0) allows a building of use `use_`.
+    pub fn allows(&self, phase: u8, use_: civ_land::PlotUse) -> bool {
+        self.districts
+            .iter()
+            .find(|d| d.0 == phase)
+            .is_none_or(|d| d.1 & use_bit(use_) != 0)
+    }
+}
+
+/// The bit for use `use_` in a district's uses: its place in [`civ_land::PlotUse::ALL`].
+pub fn use_bit(use_: civ_land::PlotUse) -> u8 {
+    civ_land::PlotUse::ALL
+        .iter()
+        .position(|&u| u == use_)
+        .map_or(0, |i| 1 << i)
 }
 
 /// What a plan does with a field under the ground it reserves (ADR-0030 §4: a clause per kind of

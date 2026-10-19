@@ -1537,3 +1537,7 @@ a fixed tool a fuelled recipe needs) stands `from_m` from other households' home
 `midden_from_wells`, a new home, where its midden lies, stands `from_m` from every open well. The
 core authors them as `works_wrought_worked_fires` (10 m, answering `burned`) and
 `works_wrought_wells` (30 m, answering `sickness`).
+
+Content API 149 (M8c slice CW, second part) brings a plan's `[[plan.districts]]`: each names a
+`phase` of the plan's (1 to its `phases`, once) and the `uses` allowed on that phase's parcels, of
+`dwelling`, `store` and `work`. A phase named in none allows every use.

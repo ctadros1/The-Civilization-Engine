@@ -176,6 +176,19 @@ pub struct PlanFile {
     /// For `fields = "paid"`: the good and amount a hectare the store offers a field's holder.
     #[serde(default)]
     pub pay: Option<PlanPayFile>,
+    /// Its districts (content API 149, M8c slice CW): the uses each phase's parcels allow; a
+    /// phase named in none allows every use.
+    #[serde(default)]
+    pub districts: Vec<PlanDistrictFile>,
+}
+
+/// A plan's district (content API 149): the parcels of one phase, from 1, and the uses allowed
+/// there, of `dwelling`, `store` and `work`.
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct PlanDistrictFile {
+    pub phase: u8,
+    pub uses: Vec<String>,
 }
 
 /// What a plan's store offers a hectare for a field under its ground (content API 145).
@@ -602,6 +615,18 @@ impl PolicyFile {
                     .unwrap_or_default(),
                 // Resolved apart ([`PolicyFile::plan_pay`]).
                 pay: None,
+                districts: g
+                    .districts
+                    .iter()
+                    .map(|d| {
+                        let uses = d
+                            .uses
+                            .iter()
+                            .filter_map(|u| civ_land::PlotUse::from_name(u))
+                            .fold(0u8, |m, u| m | civ_agents::polity::use_bit(u));
+                        (d.phase.saturating_sub(1), uses)
+                    })
+                    .collect(),
             }),
             lending: self
                 .lending
@@ -915,6 +940,31 @@ impl PolicyFile {
                     && !(1..=8).contains(&n)
                 {
                     p.push(format!("`plan.phases` must be 1 to 8 (got {n})"));
+                }
+                // Districts (content API 149): each a phase of the plan's, named once, allowing
+                // at least one use, each a use the kernel knows.
+                let phases = g.phases.unwrap_or(1).max(1);
+                for (i, d) in g.districts.iter().enumerate() {
+                    if !(1..=phases).contains(&d.phase) {
+                        p.push(format!(
+                            "a `plan.districts` phase must be 1 to the plan's phases, {phases} (got \
+                             {})",
+                            d.phase
+                        ));
+                    }
+                    if g.districts[..i].iter().any(|e| e.phase == d.phase) {
+                        p.push(format!("`plan.districts` names phase {} twice", d.phase));
+                    }
+                    if d.uses.is_empty() {
+                        p.push("a `plan.districts` entry must allow at least one use".to_owned());
+                    }
+                    for u in &d.uses {
+                        if civ_land::PlotUse::from_name(u).is_none() {
+                            p.push(format!(
+                                "a `plan.districts` use must be dwelling, store or work (got {u:?})"
+                            ));
+                        }
+                    }
                 }
                 if let Some(x) = g.open_at
                     && !(x > 0.0 && x <= 1.0)
@@ -1545,6 +1595,7 @@ mod tests {
             open_at: None,
             fields: None,
             pay: None,
+            districts: Vec::new(),
         };
         let plan_with = |g: PlanFile| PolicyFile {
             does: "plan".to_owned(),
@@ -1714,6 +1765,35 @@ mod tests {
             g.open_at = open_at;
             plan_with(g)
         };
+        // Districts by phase, each allowing the uses it names (content API 149).
+        let district = |phase: u8, uses: &[&str]| PlanDistrictFile {
+            phase,
+            uses: uses.iter().map(|u| (*u).to_owned()).collect(),
+        };
+        let mut zoned = phased(Some(2), None);
+        zoned.plan.as_mut().expect("a plan").districts = vec![district(2, &["work", "store"])];
+        assert!(zoned.problems().is_empty(), "{:?}", zoned.problems());
+        let def = zoned.def(&no_values, &no_values).plan.expect("a plan");
+        assert_eq!(def.districts, vec![(1, 0b110)]);
+        assert!(def.allows(0, civ_land::PlotUse::Dwelling));
+        assert!(!def.allows(1, civ_land::PlotUse::Dwelling));
+        assert!(def.allows(1, civ_land::PlotUse::Work));
+        for (bad, problem) in [
+            (vec![district(3, &["work"])], "1 to the plan's phases"),
+            (vec![district(1, &[])], "at least one use"),
+            (vec![district(1, &["mill"])], "dwelling, store or work"),
+            (
+                vec![district(1, &["work"]), district(1, &["store"])],
+                "names phase 1 twice",
+            ),
+        ] {
+            zoned.plan.as_mut().expect("a plan").districts = bad;
+            assert!(
+                zoned.problems().iter().any(|e| e.contains(problem)),
+                "{problem}: {:?}",
+                zoned.problems()
+            );
+        }
         let unnamed = phased(None, None).def(&no_values, &no_values).plan;
         assert_eq!(unnamed.map(|g| (g.phases, g.open_at)), Some((1, 0.75)));
         let p = phased(Some(3), Some(0.5));

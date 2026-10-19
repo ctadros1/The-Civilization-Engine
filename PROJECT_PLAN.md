@@ -4850,6 +4850,21 @@ and M6a gives rivers a daily flow.
         factions sections (two more templates people hold opinions on and may propose); land,
         people and buildings are as before. **Boundary:** content API 148 (`rule.from_m`, two
         templates); no saves or wire change (a law's template comes from its policy).
+      - *Second part, as built (2026-10-19): district uses; slice CW closed.* A plan's template
+        may name districts: the parcels of one of its phases, the rings it opens in outward, and
+        the uses (`dwelling`, `store`, `work`) allowed there; a phase named in none allows every
+        use. Its keeper offers a household about to build a home only a parcel whose district
+        allows homes, and a parcel its district keeps from homes counts as taken when the phases
+        open, so it holds none back. Builders keeping the plan put no building on a parcel whose
+        district allows another use; one begun there breaks the plan (counted, though it is no
+        encroachment, standing on no reserved ground); an older use stays. The plan's words name
+        each district ("its phase 1 for stores and workshops alone"). **Test:** with the first
+        of two phases kept for stores and workshops, a home is offered a parcel of the second,
+        and a home moved onto a first-phase parcel and counted breaks the plan and records no
+        encroachment; content checks name the phase, the uses and repeats. **Deferred:** stores
+        and workshops are still given no parcels (a keeper gives parcels for homes alone); a
+        district's uses bind where they build only through what its builders keep. **Boundary:**
+        content API 149 (`[[plan.districts]]`); no saves or wire change.
     - **CX, land value and density:** the derived map (paid, reckoned, nothing recorded), the
       Land row, a bench of the largest settlement M8 lives.
   - **M8d, buildings and earthquakes, and the M8 demo** (designed when reached, from

@@ -1265,6 +1265,59 @@ fn a_plan_s_parcels_go_by_lot_for_a_fee_or_by_its_keeper_s_regard() {
     sim.land_mut_for_tests()
         .plots
         .retain(|p| !fake.contains(&p.id));
+    // Districts (M8c slice CW, ADR-0030 §6): the first phase for stores and workshops alone. Its
+    // parcels are offered to no home, and hold the second phase back no longer.
+    {
+        use civ_agents::polity::use_bit;
+        let rules = sim.rules_mut_for_tests().expect("rules of its own");
+        let plan = rules.catalog.policies[plan_policy]
+            .plan
+            .as_mut()
+            .expect("a plan");
+        plan.districts = vec![(
+            0,
+            use_bit(civ_land::PlotUse::Store) | use_bit(civ_land::PlotUse::Work),
+        )];
+    }
+    let zoned = offer(&mut sim, homes[2]).expect("a parcel of the second phase");
+    assert_eq!(phase[usize::from(zoned.parcel)], 1);
+    // A home begun on a first-phase parcel breaks the plan, though it is no encroachment.
+    let home = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.household == homes[1] && b.standing())
+        .map(|b| (b.id, b.plot))
+        .expect("a home");
+    let inner = layout
+        .parcels
+        .iter()
+        .enumerate()
+        .find(|(i, _)| phase[*i] == 0)
+        .map(|(_, q)| q.rect)
+        .expect("a first-phase parcel");
+    for p in sim.land_mut_for_tests().plots.iter_mut() {
+        if p.id == home.1 {
+            p.rect.x = inner.x;
+            p.rect.y = inner.y;
+        }
+    }
+    let compliance = |sim: &Sim| {
+        let c = sim.people().polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == law)
+            .expect("the law")
+            .compliance;
+        (c.complied, c.broken + c.broken_unaware)
+    };
+    let (before, encroached) = (
+        compliance(&sim),
+        sim.people().polities[pi].encroachments.len(),
+    );
+    sim.with_ctx_for_tests(|pop, ctx| pop.count_rule_keeping_for_tests(ctx, homes[1], home.0));
+    assert_eq!(compliance(&sim), (before.0, before.1 + 1));
+    assert_eq!(sim.people().polities[pi].encroachments.len(), encroached);
     saves_and_goes_on_alike(&mut sim, DAY);
 }
 

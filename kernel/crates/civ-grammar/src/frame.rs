@@ -29,8 +29,9 @@
 //! in every piece of wall the door does not split; an opening costs no wall and shortens the
 //! length a mass wall bears on. Its roof may be trussed: two principal rafters and a king post on
 //! the tie beam at each frame line, carrying a purlin along each slope halfway up on which the
-//! rafters rest, so each spans half its slope. With its own parameters all 0, a frame of wattle
-//! walls builds what version 2 builds.
+//! rafters rest, so each spans half its slope. Its posts may be storeyed, each storey's standing
+//! on the frame below rather than running through every storey. With its own parameters all 0, a
+//! frame of wattle walls builds what version 2 builds.
 
 use std::f64::consts::TAU;
 
@@ -364,6 +365,9 @@ struct Layout<'r> {
     openings: Vec<f64>,
     /// Whether a truss stands at each frame line carrying purlins (version 3).
     truss: bool,
+    /// Whether each storey's posts stand on the frame below, not through every storey
+    /// (version 3).
+    storeyed: bool,
     wall_kind: i32,
     footing: i32,
     tile: bool,
@@ -495,7 +499,8 @@ impl<'r> Layout<'r> {
             spec.version >= 3
                 && ((fp::STOREY_WALL_CM..fp::OPENINGS + 4).contains(&i)
                     || i == fp::STAIR
-                    || i == fp::ROOF_SYSTEM)
+                    || i == fp::ROOF_SYSTEM
+                    || i == fp::POST_SYSTEM)
         };
         if let Some(i) = (fp::ROOF_SYSTEM..crate::PARAMS).find(|&i| p[i] != 0 && !laid_out(i)) {
             return refuse(if spec.version < 3 {
@@ -551,6 +556,26 @@ impl<'r> Layout<'r> {
                 "roof system {roof_system} (parameter {}) is unknown to frame version {}",
                 fp::ROOF_SYSTEM,
                 spec.version
+            ));
+        }
+        let post_system = p[fp::POST_SYSTEM];
+        if !(0..=1).contains(&post_system) {
+            return refuse(format!(
+                "post system {post_system} (parameter {}) is unknown to frame version {}",
+                fp::POST_SYSTEM,
+                spec.version
+            ));
+        }
+        if post_system == 1 && wall_kind != 0 {
+            return refuse(format!(
+                "storeyed posts (parameter {}) stand in a timber frame; mass walls have none",
+                fp::POST_SYSTEM
+            ));
+        }
+        if post_system == 1 && storeys == 1 {
+            return refuse(format!(
+                "storeyed posts (parameter {}) need a storey above the first",
+                fp::POST_SYSTEM
             ));
         }
         let stair = p[fp::STAIR];
@@ -688,6 +713,7 @@ impl<'r> Layout<'r> {
             stair: stair != 0,
             openings,
             truss: roof_system == 1,
+            storeyed: post_system == 1,
             wall_kind,
             footing,
             tile,
@@ -1011,7 +1037,27 @@ fn foundation(p: &mut Parts) {
 fn frame(p: &mut Parts) {
     let l = p.layout;
     for k in 0..=l.n {
-        if l.wall_kind == 0 {
+        if l.wall_kind == 0 && l.storeyed {
+            // Each storey's posts stand on the frame below: the first's in the ground to the head
+            // of the first storey, each above it a storey high.
+            for t in 0..l.storeys {
+                let bottom = if t == 0 {
+                    -l.depth
+                } else {
+                    l.z_g + l.h * f64::from(t)
+                };
+                let top = l.z_g + l.h * f64::from(t + 1);
+                for (side, v) in l.long_walls() {
+                    p.member(
+                        (storey_level(t), Some(k), PartKind::Post, side as usize),
+                        Stage::Frame,
+                        (l.u_line(k), v, (bottom + top) / 2.0),
+                        [l.pd, l.pd, top - bottom],
+                        l.along(),
+                    );
+                }
+            }
+        } else if l.wall_kind == 0 {
             for (side, v) in l.long_walls() {
                 p.member(
                     (Level::Ground, Some(k), PartKind::Post, side as usize),
@@ -1564,6 +1610,12 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
     let storey_m2 = l.l * l.w * M2;
     let bay_m2 = l.b * l.w * M2;
     let wall_posts = if l.wall_kind == 0 { 2 * (n + 1) } else { 0 };
+    // Storeyed posts: the first storey's set in the ground, and a post a storey above it.
+    let posts_above = if l.storeyed {
+        wall_posts * (l.storeys as usize - 1)
+    } else {
+        0
+    };
     let floor_posts = if l.raised { n + 1 } else { 0 };
     let rafters = 2 * (n * l.rafters_per_bay + 1);
     let floored_bays = l.decks().len();
@@ -1591,13 +1643,15 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
         round_section_m2(d) * count as f64 * len_cm * 0.01 * rules.timber_kg_per_m3
     };
     let floor_posts_kg = timber(l.pd, floor_posts, l.floor_post_h + l.depth);
-    let frame_kg = timber(l.pd, wall_posts, l.z_p + l.depth)
-        + timber(
-            l.beam,
-            1,
-            beams_m * 100.0 + ridge_m * 100.0 + truss_m * 100.0,
-        )
-        + timber(l.raf, rafters, l.slope)
+    let frame_kg = if l.storeyed {
+        timber(l.pd, wall_posts, l.z_g + l.h + l.depth) + timber(l.pd, posts_above, l.h)
+    } else {
+        timber(l.pd, wall_posts, l.z_p + l.depth)
+    } + timber(
+        l.beam,
+        1,
+        beams_m * 100.0 + ridge_m * 100.0 + truss_m * 100.0,
+    ) + timber(l.raf, rafters, l.slope)
         + timber(l.jst, joists, l.w);
     let boards_kg = deck_m2 * l.dk * 0.01 * rules.timber_kg_per_m3 + rules.ladder_kg * ladders;
     let slots = |timber: f64, wattle: f64, covering: f64, boards: f64| {
@@ -1663,7 +1717,7 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
         },
         StageNeeds {
             stage: Stage::Frame,
-            labour_h: rules.post_h * wall_posts as f64
+            labour_h: rules.post_h * (wall_posts + posts_above) as f64
                 + rules.beam_h_per_m * (beams_m + ridge_m + truss_m)
                 + rules.rafter_h * rafters as f64
                 + rules.joist_h_per_m * joists as f64 * l.w * 0.01,
@@ -1735,7 +1789,31 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
     let timber = Some(TIMBER);
     let storeys_h = l.h * f64::from(l.storeys);
     let mut out = Vec::new();
-    if l.wall_kind == 0 {
+    if l.wall_kind == 0 && l.storeyed {
+        // Each storey's posts carry the roof's slope, half of every floor above their storey and
+        // the lofts, and the first storey's a raised floor's share too.
+        let lofts_m2 = l.lofts.len() as f64 * bay_m2;
+        for t in 0..l.storeys {
+            let floors_above = f64::from(l.storeys - 1 - t) * storey_m2;
+            for (side, _) in l.long_walls() {
+                out.push(GroupOf {
+                    level: storey_level(t),
+                    bay: None,
+                    kind: GroupKind::Posts,
+                    index: side as u8,
+                    stage: Stage::Frame,
+                    material: timber,
+                    count: n + 1,
+                    section: [l.pd, l.pd],
+                    length: if t == 0 { l.z_g + l.h } else { l.h },
+                    spacing: l.b,
+                    area_m2: roof_plan_side_m2
+                        + (lofts_m2 + floors_above) / 2.0
+                        + if t == 0 { raised_m2 / 4.0 } else { 0.0 },
+                });
+            }
+        }
+    } else if l.wall_kind == 0 {
         for (side, _) in l.long_walls() {
             // Each long wall carries its slope of the roof and half of every floor across the width
             // (a raised floor's middle line takes half of that one).
@@ -2443,6 +2521,17 @@ mod tests {
             (tall(4), tall_house()),
             (windowed(), tall_house()),
             (trussed(), house()),
+            (
+                BuildingSpec {
+                    params: {
+                        let mut p = tall(3).params;
+                        p[fp::POST_SYSTEM] = 1;
+                        p
+                    },
+                    ..tall(3)
+                },
+                tall_house(),
+            ),
         ];
         for (s, r) in goldens().map(|(s, r, _)| (s, r)).into_iter().chain(tall) {
             let e = expand_frame(&s, &r).expect("expands");
@@ -2983,6 +3072,105 @@ mod tests {
         let mut old = trussed();
         old.version = 2;
         assert!(expand_frame(&old, &r).is_err());
+    }
+
+    #[test]
+    fn storeyed_posts_stand_a_storey_high_on_the_frame_below() {
+        let r = tall_house();
+        let through = expand_frame(&tall(3), &r).expect("posts through three storeys");
+        let mut s = tall(3);
+        s.params[fp::POST_SYSTEM] = 1;
+        let e = expand_frame(&s, &r).expect("storeyed posts");
+        fn posts(e: &Expansion) -> Vec<&Part> {
+            e.parts
+                .iter()
+                .filter(|p| p.kind == PartKind::Post)
+                .collect()
+        }
+        // Five frame lines of two posts, through three storeys or one a storey.
+        assert_eq!(posts(&through).len(), 10);
+        assert_eq!(posts(&e).len(), 30);
+        let ids: HashSet<u32> = e.parts.iter().map(|p| p.id).collect();
+        assert_eq!(ids.len(), e.parts.len(), "part ids are unique");
+        // The first storey's in the ground (70 cm) to its head; each above a storey high.
+        for p in posts(&e) {
+            let level = Level::from_code((p.id >> 24) as u8).expect("a level");
+            let expect = if level == Level::Ground {
+                200 + 70
+            } else {
+                200
+            };
+            assert_eq!(p.size[2], expect, "{level:?}");
+        }
+        // A posts group a wall a storey, each carrying the roof's slope and half the floors above
+        // it: the first storey's what the through posts carry, the top storey's the roof alone.
+        let group = |e: &Expansion, level: Level| {
+            e.groups
+                .iter()
+                .find(|g| g.id == group_id(level, None, GroupKind::Posts, fp::SIDE_RIGHT as u8))
+                .copied()
+                .expect("a posts group")
+        };
+        let (g0, g2) = (group(&e, Level::Ground), group(&e, Level::Third));
+        let whole = group(&through, Level::Ground);
+        assert_eq!(
+            e.groups
+                .iter()
+                .filter(|g| g.kind == GroupKind::Posts)
+                .count(),
+            6
+        );
+        assert_eq!(
+            (g0.length_cm, g2.length_cm, whole.length_cm),
+            (200, 200, 600)
+        );
+        assert!((g0.area_m2 - whole.area_m2).abs() < 1e-9);
+        assert!(
+            (whole.area_m2 - g2.area_m2 - 50.0).abs() < 1e-9,
+            "two floors of 50 m², halved"
+        );
+        // As much post timber in all; more posts to joint and raise.
+        let frame = |e: &Expansion| e.stages[Stage::Frame.index()].clone();
+        assert!(
+            (frame(&e).materials_kg[usize::from(TIMBER)]
+                - frame(&through).materials_kg[usize::from(TIMBER)])
+            .abs()
+                < 1e-6
+        );
+        assert!((frame(&e).labour_h - frame(&through).labour_h - r.post_h * 20.0).abs() < 1e-9);
+        // The same postholes.
+        assert_eq!(
+            e.stages[Stage::Foundation.index()],
+            through.stages[Stage::Foundation.index()]
+        );
+        // Refused: an unknown system, mass walls, one storey, and before version 3.
+        let mut odd = s.clone();
+        odd.params[fp::POST_SYSTEM] = 2;
+        assert!(expand_frame(&odd, &r).is_err());
+        let mut rubble = s.clone();
+        rubble.params[fp::WALL_KIND] = 1;
+        rubble.params[fp::FOOTING] = 1;
+        assert_eq!(
+            expand_frame(&rubble, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "storeyed posts (parameter {}) stand in a timber frame; mass walls have none",
+                fp::POST_SYSTEM
+            )))
+        );
+        let mut low = s.clone();
+        low.storeys = 1;
+        low.params[fp::STAIR] = 0;
+        assert_eq!(
+            expand_frame(&low, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "storeyed posts (parameter {}) need a storey above the first",
+                fp::POST_SYSTEM
+            )))
+        );
+        let mut old = two_storeys();
+        old.version = 2;
+        old.params[fp::POST_SYSTEM] = 1;
+        assert!(expand_frame(&old, &house()).is_err());
     }
 
     #[test]

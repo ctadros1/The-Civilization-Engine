@@ -4998,6 +4998,19 @@ and M6a gives rivers a daily flow.
         what they span on poles, and exactly the beams' extra hours and timber; roof system 2
         and a truss before version 3 are refused; every part within the plot. Every golden is
         unchanged.
+      - *Seventh part, as built (2026-10-19): storeyed posts* (ADR-0031 §2's `storeyed_frame`).
+        `POST_SYSTEM` 1 stands each storey's posts on the frame below: the first storey's are
+        set in the ground to its head, each storey above has its own posts a storey high, on the
+        floor rails. Each storey's posts are a group of their own a wall, a storey high,
+        carrying the roof's slope, the lofts and half of every floor above them (the first's,
+        also a raised floor's share), so the first storey's carry what through posts carry and
+        the top storey's the roof alone. As much post timber, the same postholes, and the hours
+        of jointing and raising every post. Storeyed posts are refused with mass walls (no
+        frame) and on one storey. How a storeyed post buckles over one storey and what its
+        joints hold are slice CZ's. **Test:** three storeys have thirty posts, the first
+        storey's 70 cm in the ground, a posts group a wall a storey, the first carrying what the
+        through posts do and the top 50 m² less, the same timber and postholes and twenty
+        posts' more hours; the refusals; every part within the plot. Every golden is unchanged.
     - **CZ, tall and wide under gravity:** walls' own weight, restraint by ties, purlins,
       storeyed posts and joints, live load by use; `trussed_roof`, `storeyed_frame` and
       `tied_masonry` as content; caution thickening mass walls; trust kept by every technique

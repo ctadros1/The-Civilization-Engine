@@ -279,12 +279,8 @@ pub fn margin(g: &Group, c: &GroupCondition, e: &Expansion, loads: &Loads, t: &T
         } else {
             (1.0 - (slenderness - 6.0) / 12.0).clamp(0.2, 1.0)
         };
-        let fm_pa = match g.spacing_cm {
-            1 => 1.5e6,
-            2 => 1.0e6,
-            3 => 3.0e6,
-            _ => 1.5e6,
-        };
+        // The wall's strength in compression comes with `t` (its program's masonry figure).
+        let fm_pa = t.compression_pa;
         let bearing_area = l_len * t_thick * left;
         let capacity = q * fm_pa * slenderness_factor * bearing_area;
         return Margin {
@@ -577,6 +573,17 @@ mod tests {
         );
     }
 
+    /// A rubble wall's strength in compression, as the core's programs give it.
+    fn rubble() -> Timber {
+        Timber {
+            bending_pa: 0.0,
+            compression_pa: 1.5e6,
+            stiffness_pa: 0.0,
+            creep: 0.0,
+            sustained: 1.0,
+        }
+    }
+
     #[test]
     fn mass_walls_fail_by_slenderness_or_loss() {
         let wall = Group {
@@ -607,7 +614,7 @@ mod tests {
             peak_pa: 1000.0,
             ..Loads::default()
         };
-        let m = margin(&e.groups[0], &sound(1.0), &e, &loads, &oak());
+        let m = margin(&e.groups[0], &sound(1.0), &e, &loads, &rubble());
         assert!(
             m.strength > 10.0,
             "sound rubble wall carries roof: {}",
@@ -617,7 +624,7 @@ mod tests {
 
         let mut worn = sound(1.0);
         worn.loss = 0.999;
-        let m_worn = margin(&e.groups[0], &worn, &e, &loads, &oak());
+        let m_worn = margin(&e.groups[0], &worn, &e, &loads, &rubble());
         assert!(
             m_worn.strength < 1.0,
             "heavily eroded wall fails: {}",

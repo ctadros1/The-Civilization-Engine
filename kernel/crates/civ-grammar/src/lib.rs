@@ -25,7 +25,7 @@ pub mod frame;
 
 pub use frame::{
     FRAME_DESIGN_VERSION, FRAME_VERSION, FrameRules, MAX_BAYS, MAX_GROUPS, MAX_GROUPS_V3,
-    MAX_OPENING_PERMILLE, MAX_STOREYS, STAIR_TILT_CENTIDEG, STAIR_WIDTH_CM, expand_frame,
+    MAX_OPENING_PERMILLE, MAX_STOREYS, Masonry, STAIR_TILT_CENTIDEG, STAIR_WIDTH_CM, expand_frame,
     frame_limits, frame_materials, frame_params, max_groups,
 };
 
@@ -71,8 +71,8 @@ impl Grammar {
 pub enum ProgramRules {
     /// A hut's.
     Hut(HutRules),
-    /// A frame building's.
-    Frame(FrameRules),
+    /// A frame building's (boxed: it is many times a hut's).
+    Frame(Box<FrameRules>),
 }
 
 impl ProgramRules {

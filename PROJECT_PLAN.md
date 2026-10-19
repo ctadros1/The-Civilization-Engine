@@ -5022,6 +5022,19 @@ and M6a gives rivers a daily flow.
         storey's head, half a beam under it, a group a storey carrying nothing, and exactly 60 m
         of beam's hours and timber more in its walls' stage; ties on wattle, an unknown value
         and ties before version 3 are refused. Every golden is unchanged.
+      - *Ninth part, as built (2026-10-19): masonry in content* (ADR-0031 §1). Each frame
+        program now names, for rubble, mud brick and fired brick, the hours to lay a cubic
+        metre, its weight and its strength in compression (`[frame.masonry]`), and a mass
+        wall's own thickness range (`mass_wall_cm`); the grammar costs mass walls by them and the
+        structure check reads the wall's strength from them, where both had code constants. The
+        core's programs carry the old figures (slice BF's, tuning), so nothing changes. A mass
+        wall keeps to `mass_wall_cm` (30-90 cm in the core) from version 3 only; before it, to
+        `wall_cm`, so every building already saved stands as it was. `ProgramRules::Frame` is
+        boxed (the frame's rules are many times a hut's). **Test:** a program whose rubble takes
+        twice the hours and half the weight a cubic metre doubles a rubble frame's walling hours
+        and halves its stone; a version 3 mass wall of 20 cm is refused and one of 70 cm
+        allowed, the reverse before version 3; the structure check's rubble wall reads its
+        strength from what it is given. **Boundary:** content API 150.
     - **CZ, tall and wide under gravity:** walls' own weight, restraint by ties, purlins,
       storeyed posts and joints, live load by use; `trussed_roof`, `storeyed_frame` and
       `tied_masonry` as content; caution thickening mass walls; trust kept by every technique

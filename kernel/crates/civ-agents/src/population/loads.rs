@@ -336,14 +336,15 @@ impl Population {
             };
             let wear = condition::wear_state(c, &def.upkeep);
             let load = if g.kind == GroupKind::MassWall {
-                let dummy = structure::Timber {
+                // A mass wall's kind rides in its group's spacing; its strength is its program's.
+                let masonry = structure::Timber {
                     bending_pa: 0.0,
-                    compression_pa: 0.0,
+                    compression_pa: crate::rules::masonry_strength_pa(&def.rules, g.spacing_cm),
                     stiffness_pa: 0.0,
                     creep: 0.0,
                     sustained: 1.0,
                 };
-                structure::margin(g, c, &e, &loads, &dummy).state()
+                structure::margin(g, c, &e, &loads, &masonry).state()
             } else if g.kind == GroupKind::Covering {
                 let day = ctx.now.day_index();
                 let checked = ctx.land.storm_checks.iter().any(|s| {

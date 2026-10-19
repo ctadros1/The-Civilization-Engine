@@ -1640,12 +1640,18 @@ pub(crate) mod tests {
             wattle_kg_per_m2: 15.0,
             thatch_kg_per_m2: 20.0,
             ladder_kg: 25.0,
+            mass_wall_cm: (30, 90),
+            masonry: [civ_grammar::Masonry {
+                h_per_m3: 20.0,
+                kg_per_m3: 1800.0,
+                strength_pa: 1.5e6,
+            }; 3],
         };
         let def = BuildingDef {
             id: "core:building/longhouse".into(),
             name: "Longhouse".into(),
             use_: PlotUse::Dwelling,
-            rules: ProgramRules::Frame(frame_rules),
+            rules: ProgramRules::Frame(Box::new(frame_rules)),
             materials: vec![0, 0, 1, 0],
             eave_cm: 200,
             pitch_centideg: 4500,

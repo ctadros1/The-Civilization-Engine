@@ -87,3 +87,11 @@ ladder_h = 4.0
 wattle_kg_per_m2 = 6.0
 thatch_kg_per_m2 = 30.0
 ladder_kg = 15.0
+mass_wall_cm = [30, 90]          # ADR-0031 §1: a mass wall's own range, from frame version 3 (tuning)
+
+[frame.masonry]
+# Each kind of mass wall: [hours to lay a cubic metre, kilograms a cubic metre, strength in
+# compression in pascals] (ADR-0031 §1; slice BF's figures, which no report gives: tuning).
+rubble = [32.0, 1900.0, 1.5e6]
+mud_brick = [16.0, 1600.0, 1.0e6]
+fired_brick = [20.0, 1800.0, 3.0e6]

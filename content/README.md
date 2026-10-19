@@ -319,6 +319,8 @@ A frame program's rules are a `[frame]` table instead:
 | `timber_kg_per_m3` | The timber's density: posts, beams, rafters, joists and boards are costed from their sizes. |
 | `groundwork_h_per_m2`, `posthole_h`, `post_h`, `beam_h_per_m`, `rafter_h`, `joist_h_per_m`, `wattle_h_per_m2`, `daub_h_per_m3`, `thatch_h_per_m2`, `finish_h_per_m2`, `decking_h_per_m2`, `ladder_h` | Person-hours of a capable adult for each part. All positive. |
 | `wattle_kg_per_m2`, `thatch_kg_per_m2`, `ladder_kg` | Material in each part besides the timber its sizes give. |
+| `mass_wall_cm` | A mass wall's allowed thickness from frame version 3, `[least, most]` (before it, mass walls are held to `wall_cm`). |
+| `[frame.masonry]` `rubble`, `mud_brick`, `fired_brick` | Each kind of mass wall: `[hours to lay a cubic metre, kilograms a cubic metre, strength in compression in pascals]`, all positive. |
 
 A bay and the width between the long walls must each be longer than the thickest post allows
 (`bay_cm`'s and `width_cm`'s least above `post_cm`'s most). The grammar refuses some buildings
@@ -1541,3 +1543,8 @@ core authors them as `works_wrought_worked_fires` (10 m, answering `burned`) and
 Content API 149 (M8c slice CW, second part) brings a plan's `[[plan.districts]]`: each names a
 `phase` of the plan's (1 to its `phases`, once) and the `uses` allowed on that phase's parcels, of
 `dwelling`, `store` and `work`. A phase named in none allows every use.
+
+Content API 150 (M8d slice CY, ninth part) moves mass walls' figures from code into each frame
+program (ADR-0031 §1): `frame.mass_wall_cm`, a mass wall's own thickness range from frame version
+3, and `[frame.masonry]`, for rubble, mud brick and fired brick the hours to lay a cubic metre,
+its weight and its strength in compression, which the structure check reads.

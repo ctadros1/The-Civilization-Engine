@@ -7,7 +7,8 @@ use std::collections::BTreeMap;
 
 use civ_agents::params::{BuildingDef, FrameDesign};
 use civ_grammar::{
-    FRAME_DESIGN_VERSION, FrameRules, Grammar, HutRules, ProgramRules, SpaceUse, frame_limits,
+    FRAME_DESIGN_VERSION, FrameRules, Grammar, HutRules, Masonry, ProgramRules, SpaceUse,
+    frame_limits,
 };
 use civ_land::PlotUse;
 use serde::Deserialize;
@@ -185,6 +186,31 @@ pub(crate) struct Frame {
     pub wattle_kg_per_m2: f64,
     pub thatch_kg_per_m2: f64,
     pub ladder_kg: f64,
+    /// A mass wall's thickness from frame version 3 (ADR-0031 §1).
+    pub mass_wall_cm: [i32; 2],
+    /// Each kind of mass wall's figures.
+    pub masonry: MasonryFile,
+}
+
+/// What each kind of mass wall takes and gives, as authored: hours to lay a cubic metre, a cubic
+/// metre's weight in kilograms, and strength in compression in pascals (ADR-0031 §1).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct MasonryFile {
+    pub rubble: [f64; 3],
+    pub mud_brick: [f64; 3],
+    pub fired_brick: [f64; 3],
+}
+
+impl MasonryFile {
+    /// The kinds in wall-kind order (1 to 3), with their names.
+    fn kinds(&self) -> [(&'static str, [f64; 3]); 3] {
+        [
+            ("rubble", self.rubble),
+            ("mud_brick", self.mud_brick),
+            ("fired_brick", self.fired_brick),
+        ]
+    }
 }
 
 /// Degrees to hundredths of a degree.
@@ -249,7 +275,7 @@ impl BuildingFile {
             }
             Grammar::Frame => {
                 let f = self.frame.as_ref()?;
-                Some(ProgramRules::Frame(FrameRules {
+                Some(ProgramRules::Frame(Box::new(FrameRules {
                     bays: pair(f.bays),
                     bay_cm: pair(f.bay_cm),
                     width_cm: pair(f.width_cm),
@@ -295,7 +321,13 @@ impl BuildingFile {
                     wattle_kg_per_m2: f.wattle_kg_per_m2,
                     thatch_kg_per_m2: f.thatch_kg_per_m2,
                     ladder_kg: f.ladder_kg,
-                }))
+                    mass_wall_cm: pair(f.mass_wall_cm),
+                    masonry: f.masonry.kinds().map(|(_, [h, kg, pa])| Masonry {
+                        h_per_m3: h,
+                        kg_per_m3: kg,
+                        strength_pa: pa,
+                    }),
+                })))
             }
         }
     }
@@ -512,8 +544,18 @@ impl BuildingFile {
             ("joist_cm", f.joist_cm),
             ("post_cm", f.post_cm),
             ("wall_cm", f.wall_cm),
+            ("mass_wall_cm", f.mass_wall_cm),
         ] {
             ranged(p, t, name, lo, hi, 1);
+        }
+        for (kind, figures) in f.masonry.kinds() {
+            for (what, v) in ["hours", "weight", "strength"].into_iter().zip(figures) {
+                if !(v.is_finite() && v > 0.0) {
+                    p.push(format!(
+                        "`frame.masonry.{kind}`'s {what} must be positive (got {v})"
+                    ));
+                }
+            }
         }
         for (name, [lo, hi]) in [
             ("overhang_cm", f.overhang_cm),

@@ -208,8 +208,13 @@ pub struct FrameRules {
     pub overhang_cm: (i32, i32),
     /// Allowed height of a raised floor, centimetres; `(0, 0)` when the program has none.
     pub floor_raise_cm: (i32, i32),
-    /// Allowed thickness of a daubed wall, centimetres.
+    /// Allowed thickness of a daubed wall, centimetres (and, before version 3, of a mass wall).
     pub wall_cm: (i32, i32),
+    /// Allowed thickness of a mass wall from version 3, centimetres (ADR-0031 §1).
+    pub mass_wall_cm: (i32, i32),
+    /// What laying each kind of mass wall takes and what it gives: rubble, mud brick and fired
+    /// brick, wall kinds 1 to 3 (ADR-0031 §1).
+    pub masonry: [Masonry; 3],
     /// Whether bays may be floored as lofts.
     pub lofts: bool,
     /// What the first storey is for.
@@ -278,6 +283,17 @@ pub struct FrameRules {
     pub thatch_kg_per_m2: f64,
     /// Boards in a ladder, kilograms.
     pub ladder_kg: f64,
+}
+
+/// A kind of mass wall's figures, from content (ADR-0031 §1).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Masonry {
+    /// Person-hours to lay a cubic metre of wall.
+    pub h_per_m3: f64,
+    /// A cubic metre's weight, kilograms.
+    pub kg_per_m3: f64,
+    /// The wall's strength in compression, pascals.
+    pub strength_pa: f64,
 }
 
 fn refuse<T>(what: impl Into<String>) -> Result<T, GrammarError> {
@@ -460,8 +476,16 @@ impl<'r> Layout<'r> {
         let overhang = p[fp::OVERHANG_CM];
         within("overhang", overhang, rules.overhang_cm)?;
         let wall = p[fp::WALL_CM];
-        within("wall thickness", wall, rules.wall_cm)?;
         let wall_kind = p[fp::WALL_KIND];
+        // From version 3 a mass wall has its program's own range (ADR-0031 §1); before it, the
+        // daub's, so that every building already saved stands as it was.
+        let mass_range = spec.version >= 3 && wall_kind > 0;
+        let wall_range = if mass_range {
+            rules.mass_wall_cm
+        } else {
+            rules.wall_cm
+        };
+        within("wall thickness", wall, wall_range)?;
         let footing = p[fp::FOOTING];
         let tile = spec.materials[usize::from(COVERING)].contains("tile");
         if spec.version == 1 {
@@ -531,7 +555,7 @@ impl<'r> Layout<'r> {
                     "wattle walls have one thickness; storeys' thicknesses are for mass walls",
                 );
             }
-            within("storey wall thickness", v, rules.wall_cm)?;
+            within("storey wall thickness", v, wall_range)?;
             storey_wt[t] = f64::from(v);
         }
         if storey_wt.windows(2).any(|w| w[1] > w[0]) {
@@ -1747,12 +1771,9 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
         } else {
             wall_m2 * (l.wt * 0.01)
         };
-        let (masonry_h_per_m3, masonry_density) = match l.wall_kind {
-            1 => (32.0, 1900.0),
-            2 => (16.0, 1600.0),
-            3 => (20.0, 1800.0),
-            _ => (20.0, 1800.0),
-        };
+        // Rubble, mud brick or fired brick, by the program's figures.
+        let m = rules.masonry[(l.wall_kind.clamp(1, 3) - 1) as usize];
+        let (masonry_h_per_m3, masonry_density) = (m.h_per_m3, m.kg_per_m3);
         (
             wall_vol_m3 * masonry_h_per_m3,
             wall_vol_m3 * masonry_density,
@@ -2275,6 +2296,24 @@ mod tests {
             wattle_kg_per_m2: 6.0,
             thatch_kg_per_m2: 30.0,
             ladder_kg: 15.0,
+            mass_wall_cm: (30, 90),
+            masonry: [
+                Masonry {
+                    h_per_m3: 32.0,
+                    kg_per_m3: 1900.0,
+                    strength_pa: 1.5e6,
+                },
+                Masonry {
+                    h_per_m3: 16.0,
+                    kg_per_m3: 1600.0,
+                    strength_pa: 1.0e6,
+                },
+                Masonry {
+                    h_per_m3: 20.0,
+                    kg_per_m3: 1800.0,
+                    strength_pa: 3.0e6,
+                },
+            ],
         }
     }
 
@@ -3228,6 +3267,7 @@ mod tests {
         let mut rubble = s.clone();
         rubble.params[fp::WALL_KIND] = 1;
         rubble.params[fp::FOOTING] = 1;
+        rubble.params[fp::WALL_CM] = 50;
         assert_eq!(
             expand_frame(&rubble, &r),
             Err(GrammarError::OutOfRange(format!(
@@ -3314,6 +3354,45 @@ mod tests {
         let mut old = rubble(1);
         old.version = 2;
         assert!(expand_frame(&old, &r).is_err());
+    }
+
+    #[test]
+    fn a_programs_masonry_figures_cost_its_mass_walls_and_version_three_holds_their_own_range() {
+        let rubble = |version: u16, wall: i32| {
+            let mut s = two_storeys();
+            s.version = version;
+            s.params[fp::WALL_KIND] = 1;
+            s.params[fp::FOOTING] = 1;
+            s.params[fp::WALL_CM] = wall;
+            s
+        };
+        let mut r = house();
+        r.wall_cm = (10, 60);
+        let walls = |e: &Expansion| e.stages[Stage::Walls.index()].clone();
+        let base = expand_frame(&rubble(3, 50), &r).expect("rubble");
+        // Twice the hours and half the weight a cubic metre: twice the hours, half the stone.
+        let mut slow = r.clone();
+        slow.masonry[0].h_per_m3 *= 2.0;
+        slow.masonry[0].kg_per_m3 /= 2.0;
+        let e = expand_frame(&rubble(3, 50), &slow).expect("rubble");
+        assert!((walls(&e).labour_h - 2.0 * walls(&base).labour_h).abs() < 1e-9);
+        assert!(
+            (walls(&e).materials_kg[usize::from(WATTLE)]
+                - walls(&base).materials_kg[usize::from(WATTLE)] / 2.0)
+                .abs()
+                < 1e-9
+        );
+        // From version 3 a mass wall keeps to `mass_wall_cm`, before it to `wall_cm`.
+        assert!(expand_frame(&rubble(3, 20), &r).is_err(), "below 30 cm");
+        assert!(
+            expand_frame(&rubble(2, 20), &r).is_ok(),
+            "within the daub's range"
+        );
+        assert!(
+            expand_frame(&rubble(2, 70), &r).is_err(),
+            "beyond the daub's range"
+        );
+        assert!(expand_frame(&rubble(3, 70), &r).is_ok());
     }
 
     #[test]

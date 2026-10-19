@@ -6223,3 +6223,21 @@ One line each. Don't re-litigate without a reason written next to the entry.
   wide, the lateral mode and the tool, what follows a shaking, public buildings, style over seven
   traits, and the M8 demo with the gate. **Scale:** the demo's two settlements are founded at the
   largest size that lives within the time box; plan §7's 30,000 is recorded as reached or not.
+- **Why no frame is built, probed (2026-10-19, M8d slice CY's first step, ADR-0031 §6):** read
+  from the code, so it holds for every world. **Nobody can come to know framing:** founders bring
+  the roundhouse, wood shaping, rubble walling and mud brick, but not `jointed_frame`, and its
+  content tries toward it in no work (`tried_in = []`), so a world has it only by the observer's
+  knowledge tool; without it no longhouse, granary or workshop, and so no second storey, is ever
+  open to a household (`programs_for`). **Land does not reach the choice of what to build:** a
+  household picks its program and shape first (`build::first_home`, `new_home`: coverage of
+  members and goods, then the most floor its means and time buy, in labour and hauling hours),
+  and only then weighs where (ADR-0030 §1); plot fees, ground rent and walks never make a
+  smaller footprint or a taller shape the better buy, and a home that finds no ground is left
+  unbuilt rather than tried smaller. **Width is fixed** (the longhouse's design 5 m, bays of
+  2.5 m), so a frame grows only by bays and lofts. **What follows for M8d:** slice CZ gives
+  framing a way to be found where it grows from (trying it in building homes, its rate a design
+  prior logged as such, research 07-07 WO02) rather than founders who know it; weighs each home
+  shape with the hours of the ground its footprint takes, so land enters the choice and a smaller
+  footprint can win; and lets width vary within a program's range. The demo may still introduce
+  framing by the observer's tool, recorded as an intervention. Grammar version 3 (CY) changes no
+  behaviour, so it can come first.

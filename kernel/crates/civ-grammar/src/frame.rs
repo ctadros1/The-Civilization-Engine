@@ -27,8 +27,10 @@
 //! in place of the ladder, beside the well of the flight below, and each storey gives up the
 //! flights' floor. Each storey may leave a share of its wall open, a window half the storey high
 //! in every piece of wall the door does not split; an opening costs no wall and shortens the
-//! length a mass wall bears on. With its own parameters all 0, a frame of wattle walls builds what
-//! version 2 builds.
+//! length a mass wall bears on. Its roof may be trussed: two principal rafters and a king post on
+//! the tie beam at each frame line, carrying a purlin along each slope halfway up on which the
+//! rafters rest, so each spans half its slope. With its own parameters all 0, a frame of wattle
+//! walls builds what version 2 builds.
 
 use std::f64::consts::TAU;
 
@@ -360,6 +362,8 @@ struct Layout<'r> {
     stair: bool,
     /// The share of each storey's wall left open (version 3), a fraction.
     openings: Vec<f64>,
+    /// Whether a truss stands at each frame line carrying purlins (version 3).
+    truss: bool,
     wall_kind: i32,
     footing: i32,
     tile: bool,
@@ -489,7 +493,9 @@ impl<'r> Layout<'r> {
         // Version 3's parameters: none before it, and in it only those laid out so far.
         let laid_out = |i: usize| {
             spec.version >= 3
-                && ((fp::STOREY_WALL_CM..fp::OPENINGS + 4).contains(&i) || i == fp::STAIR)
+                && ((fp::STOREY_WALL_CM..fp::OPENINGS + 4).contains(&i)
+                    || i == fp::STAIR
+                    || i == fp::ROOF_SYSTEM)
         };
         if let Some(i) = (fp::ROOF_SYSTEM..crate::PARAMS).find(|&i| p[i] != 0 && !laid_out(i)) {
             return refuse(if spec.version < 3 {
@@ -538,6 +544,14 @@ impl<'r> Layout<'r> {
             }
             within("openings", v, (0, MAX_OPENING_PERMILLE))?;
             openings[t] = f64::from(v) / 1000.0;
+        }
+        let roof_system = p[fp::ROOF_SYSTEM];
+        if !(0..=1).contains(&roof_system) {
+            return refuse(format!(
+                "roof system {roof_system} (parameter {}) is unknown to frame version {}",
+                fp::ROOF_SYSTEM,
+                spec.version
+            ));
         }
         let stair = p[fp::STAIR];
         if !(0..=1).contains(&stair) {
@@ -673,6 +687,7 @@ impl<'r> Layout<'r> {
                 .collect(),
             stair: stair != 0,
             openings,
+            truss: roof_system == 1,
             wall_kind,
             footing,
             tile,
@@ -788,6 +803,15 @@ impl<'r> Layout<'r> {
         (0..self.n)
             .map(|j| self.window(t, panel, self.door_here(t, side, j)))
             .sum()
+    }
+
+    /// A truss's principal rafter, from a plate to the apex, and its king post, centimetres.
+    fn principal_len(&self) -> f64 {
+        self.w / 2.0 / self.pitch.cos()
+    }
+
+    fn king_post_h(&self) -> f64 {
+        self.z_a - self.z_p
     }
 
     /// What storey `t` is for.
@@ -1108,6 +1132,49 @@ fn frame(p: &mut Parts) {
             [u1 - u0, l.beam, l.beam],
             l.along(),
         );
+    }
+    if l.truss {
+        // A truss at each frame line: two principal rafters on the tie beam meeting a king post
+        // at the apex; and a purlin along each slope halfway up, a bay at a time, on which the
+        // rafters rest.
+        let z_mid = (l.z_p + l.z_a) / 2.0;
+        for k in 0..=l.n {
+            for (sl, sign) in SLOPES {
+                p.push(
+                    (Level::Roof, Some(k), PartKind::Truss, sl),
+                    Stage::Frame,
+                    (l.u_line(k), sign * l.w / 4.0, z_mid),
+                    [l.principal_len(), l.beam, l.beam],
+                    (
+                        if sign > 0.0 {
+                            l.back_across()
+                        } else {
+                            l.across()
+                        },
+                        l.pitch_cd,
+                    ),
+                    Some(TIMBER),
+                );
+            }
+            p.member(
+                (Level::Roof, Some(k), PartKind::Truss, 2),
+                Stage::Frame,
+                (l.u_line(k), 0.0, z_mid),
+                [l.beam, l.beam, l.king_post_h()],
+                l.along(),
+            );
+        }
+        for j in 0..l.n {
+            for (sl, sign) in SLOPES {
+                p.member(
+                    (Level::Roof, Some(j), PartKind::Purlin, sl),
+                    Stage::Frame,
+                    (l.u_line(j) + l.b / 2.0, sign * l.w / 4.0, z_mid + l.beam),
+                    [l.b, l.beam, l.beam],
+                    l.along(),
+                );
+            }
+        }
     }
 }
 
@@ -1510,6 +1577,12 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
     let cross_beams = (1 + l.floors.len()) * (n + 1);
     let beams_m = (2 * n + rails) as f64 * l.b * 0.01 + cross_beams as f64 * l.w * 0.01;
     let ridge_m = (l.l + 2.0 * l.o) * 0.01;
+    // A truss's principals and king post at each frame line, and two purlins a bay.
+    let truss_m = if l.truss {
+        ((n + 1) as f64 * (2.0 * l.principal_len() + l.king_post_h()) + 2.0 * n as f64 * l.b) * 0.01
+    } else {
+        0.0
+    };
     let roof_m2 = (l.l + 2.0 * l.o) * (l.w + 2.0 * l.o) * M2 / l.pitch.cos();
     let wall_m2 = wall_area_cm2 * M2;
     let deck_m2 = floored_bays as f64 * bay_m2;
@@ -1519,7 +1592,11 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
     };
     let floor_posts_kg = timber(l.pd, floor_posts, l.floor_post_h + l.depth);
     let frame_kg = timber(l.pd, wall_posts, l.z_p + l.depth)
-        + timber(l.beam, 1, beams_m * 100.0 + ridge_m * 100.0)
+        + timber(
+            l.beam,
+            1,
+            beams_m * 100.0 + ridge_m * 100.0 + truss_m * 100.0,
+        )
         + timber(l.raf, rafters, l.slope)
         + timber(l.jst, joists, l.w);
     let boards_kg = deck_m2 * l.dk * 0.01 * rules.timber_kg_per_m3 + rules.ladder_kg * ladders;
@@ -1587,7 +1664,7 @@ fn needs(l: &Layout, wall_area_cm2: f64, wall_volume_cm3: f64, ladders: f64) -> 
         StageNeeds {
             stage: Stage::Frame,
             labour_h: rules.post_h * wall_posts as f64
-                + rules.beam_h_per_m * (beams_m + ridge_m)
+                + rules.beam_h_per_m * (beams_m + ridge_m + truss_m)
                 + rules.rafter_h * rafters as f64
                 + rules.joist_h_per_m * joists as f64 * l.w * 0.01,
             materials_kg: slots(frame_kg, 0.0, 0.0, 0.0),
@@ -1793,10 +1870,42 @@ fn groups(l: &Layout) -> Result<Vec<Group>, GrammarError> {
             material: timber,
             count: 2 * l.rafters_per_bay + last,
             section: [l.raf, l.raf],
-            length: l.slope,
+            // On a truss's purlin a rafter spans half its slope.
+            length: if l.truss { l.slope / 2.0 } else { l.slope },
             spacing: l.b / l.rafters_per_bay as f64,
             area_m2: (l.b + ends) * (l.w + 2.0 * l.o) * M2 / l.pitch.cos(),
         });
+    }
+    if l.truss {
+        // The trusses carry the whole roof, the purlins of each slope half of it.
+        out.push(GroupOf {
+            level: Level::Roof,
+            bay: None,
+            kind: GroupKind::Trusses,
+            index: 0,
+            stage: Stage::Frame,
+            material: timber,
+            count: n + 1,
+            section: [l.beam, l.beam],
+            length: l.principal_len(),
+            spacing: l.b,
+            area_m2: 2.0 * roof_plan_side_m2,
+        });
+        for (sl, _) in SLOPES {
+            out.push(GroupOf {
+                level: Level::Roof,
+                bay: None,
+                kind: GroupKind::Purlins,
+                index: sl as u8,
+                stage: Stage::Frame,
+                material: timber,
+                count: n,
+                section: [l.beam, l.beam],
+                length: l.b,
+                spacing: 0.0,
+                area_m2: roof_m2 / 4.0,
+            });
+        }
     }
     for (sl, _) in SLOPES {
         out.push(GroupOf {
@@ -2333,6 +2442,7 @@ mod tests {
             (tall(3), tall_house()),
             (tall(4), tall_house()),
             (windowed(), tall_house()),
+            (trussed(), house()),
         ];
         for (s, r) in goldens().map(|(s, r, _)| (s, r)).into_iter().chain(tall) {
             let e = expand_frame(&s, &r).expect("expands");
@@ -2810,6 +2920,69 @@ mod tests {
                 fp::OPENINGS
             )))
         );
+    }
+
+    /// Three bays with a loft (version 3) under a trussed roof.
+    fn trussed() -> BuildingSpec {
+        let mut s = three_bays_one_loft();
+        s.version = 3;
+        s.params[fp::ROOF_SYSTEM] = 1;
+        s
+    }
+
+    #[test]
+    fn a_trussed_roof_has_a_truss_at_each_frame_line_and_purlins_halving_the_rafters_span() {
+        let r = house();
+        let e = expand_frame(&trussed(), &r).expect("a trussed roof");
+        let poles = expand_frame(
+            &BuildingSpec {
+                version: 3,
+                ..three_bays_one_loft()
+            },
+            &r,
+        )
+        .expect("pole rafters");
+        let count = |k: PartKind| e.parts.iter().filter(|p| p.kind == k).count();
+        // Four frame lines of two principals and a king post; two purlins a bay.
+        assert_eq!(count(PartKind::Truss), 4 * 3);
+        assert_eq!(count(PartKind::Purlin), 3 * 2);
+        assert!(!poles.parts.iter().any(|p| p.kind == PartKind::Truss));
+        let group = |e: &Expansion, k: GroupKind| e.groups.iter().filter(|g| g.kind == k).count();
+        assert_eq!(group(&e, GroupKind::Trusses), 1);
+        assert_eq!(group(&e, GroupKind::Purlins), 2);
+        // A rafter on a purlin spans half its slope.
+        let span = |e: &Expansion| {
+            e.groups
+                .iter()
+                .find(|g| g.kind == GroupKind::RoofFrame)
+                .map(|g| g.length_cm)
+                .expect("a roof frame")
+        };
+        assert!((span(&e) * 2 - span(&poles)).abs() <= 1);
+        // The trusses' and purlins' timber is costed as beams: 2.5 m / cos 45° principals and a
+        // 2.5 m king post at four lines, and six purlins of 2.5 m.
+        let principal = 250.0 / (45.0_f64).to_radians().cos();
+        let truss_m = (4.0 * (2.0 * principal + 250.0) + 6.0 * 250.0) * 0.01;
+        let frame_h = |e: &Expansion| e.stages[Stage::Frame.index()].labour_h;
+        assert!((frame_h(&e) - frame_h(&poles) - r.beam_h_per_m * truss_m).abs() < 1e-6);
+        let beam = f64::from(r.beam_cm) / 100.0;
+        let kg = std::f64::consts::PI / 4.0 * beam * beam * truss_m * r.timber_kg_per_m3;
+        let frame_kg =
+            |e: &Expansion| e.stages[Stage::Frame.index()].materials_kg[usize::from(TIMBER)];
+        assert!((frame_kg(&e) - frame_kg(&poles) - kg).abs() < 1e-6);
+        // Refused: an unknown system, and a truss before version 3.
+        let mut odd = trussed();
+        odd.params[fp::ROOF_SYSTEM] = 2;
+        assert_eq!(
+            expand_frame(&odd, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "roof system 2 (parameter {}) is unknown to frame version 3",
+                fp::ROOF_SYSTEM
+            )))
+        );
+        let mut old = trussed();
+        old.version = 2;
+        assert!(expand_frame(&old, &r).is_err());
     }
 
     #[test]

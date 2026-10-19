@@ -191,7 +191,9 @@ pub fn wear_of(kind: GroupKind, upkeep: &Upkeep) -> Option<Wear> {
         | GroupKind::LoftJoists
         | GroupKind::FloorJoists
         | GroupKind::RaisedFloor
-        | GroupKind::RoofFrame => Some(upkeep.under_leak),
+        | GroupKind::RoofFrame
+        | GroupKind::Trusses
+        | GroupKind::Purlins => Some(upkeep.under_leak),
         GroupKind::Floor => None,
     }
 }

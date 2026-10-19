@@ -680,7 +680,7 @@ fn upper_storeys_m2(e: &Expansion) -> f64 {
 fn gravity(kind: GroupKind) -> u8 {
     match kind {
         GroupKind::Posts | GroupKind::MassWall => 0,
-        GroupKind::RoofFrame => 1,
+        GroupKind::RoofFrame | GroupKind::Trusses | GroupKind::Purlins => 1,
         GroupKind::TieBeams => 2,
         GroupKind::FloorJoists => 3,
         GroupKind::LoftJoists => 4,

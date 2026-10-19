@@ -4985,6 +4985,19 @@ and M6a gives rivers a daily flow.
         window and takes fewer hours; openings above 450, on a storey the building lacks, or
         before version 3 are refused by name; every window within the plot. Every golden is
         unchanged.
+      - *Sixth part, as built (2026-10-19): the trussed roof* (ADR-0031 §2's `trussed_roof`).
+        `ROOF_SYSTEM` 1 stands a truss at each frame line, two principal rafters and a king post
+        on the tie beam (`PartKind::Truss`), and a purlin along each slope halfway up, a bay at a
+        time (`PartKind::Purlin`), on which the rafters rest: the roof frame groups' span is
+        half the slope. The trusses (`GroupKind::Trusses`, carrying the whole roof) and each
+        slope's purlins (`GroupKind::Purlins`, half its slope's) are new groups, costed as beams
+        by length; they wear as the roof frame does under a leak and fall in its order. Their
+        own checks are slice CZ's (the structure code leaves a kind it does not know unchecked).
+        **Test:** three bays under a trussed roof have three truss members at each of four lines
+        and two purlins a bay, one trusses group and two purlin groups, rafters spanning half
+        what they span on poles, and exactly the beams' extra hours and timber; roof system 2
+        and a truss before version 3 are refused; every part within the plot. Every golden is
+        unchanged.
     - **CZ, tall and wide under gravity:** walls' own weight, restraint by ties, purlins,
       storeyed posts and joints, live load by use; `trussed_roof`, `storeyed_frame` and
       `tied_masonry` as content; caution thickening mass walls; trust kept by every technique

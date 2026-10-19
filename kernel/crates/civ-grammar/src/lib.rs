@@ -308,6 +308,10 @@ pub enum PartKind {
     Stair,
     /// A window left open in a wall (frame version 3).
     Window,
+    /// A truss's member at a frame line: a principal rafter or the king post (frame version 3).
+    Truss,
+    /// A beam along a roof slope from truss to truss, carrying the rafters (frame version 3).
+    Purlin,
 }
 
 impl PartKind {
@@ -335,6 +339,8 @@ impl PartKind {
             PartKind::Tile => 18,
             PartKind::Stair => 19,
             PartKind::Window => 20,
+            PartKind::Truss => 21,
+            PartKind::Purlin => 22,
         }
     }
 }
@@ -467,6 +473,10 @@ pub enum GroupKind {
     Floor,
     /// A mass wall of rubble, mud brick or fired brick (frame version 2).
     MassWall,
+    /// The trusses at the frame lines: principal rafters and king posts (frame version 3).
+    Trusses,
+    /// The purlins of one roof slope (frame version 3).
+    Purlins,
 }
 
 impl GroupKind {
@@ -483,6 +493,8 @@ impl GroupKind {
             GroupKind::Infill => 8,
             GroupKind::Floor => 9,
             GroupKind::MassWall => 10,
+            GroupKind::Trusses => 11,
+            GroupKind::Purlins => 12,
         }
     }
 
@@ -499,11 +511,13 @@ impl GroupKind {
             GroupKind::Infill => "infill",
             GroupKind::Floor => "floor",
             GroupKind::MassWall => "mass wall",
+            GroupKind::Trusses => "trusses",
+            GroupKind::Purlins => "purlins",
         }
     }
 
     /// Every kind, in code order.
-    pub const ALL: [GroupKind; 10] = [
+    pub const ALL: [GroupKind; 12] = [
         GroupKind::Posts,
         GroupKind::TieBeams,
         GroupKind::LoftJoists,
@@ -514,6 +528,8 @@ impl GroupKind {
         GroupKind::Infill,
         GroupKind::Floor,
         GroupKind::MassWall,
+        GroupKind::Trusses,
+        GroupKind::Purlins,
     ];
 
     /// The kind with stable code `code`.

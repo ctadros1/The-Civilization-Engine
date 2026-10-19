@@ -662,6 +662,44 @@ pub struct Limits {
 /// fetches water before anything else of ordinary weight (a tuning value).
 pub(crate) const LAST_WATER_BEFORE_DARK_MIN: f64 = 180.0;
 
+/// A trip to `water` by activity `def`: the minutes drawing, the minutes there, drawing and back,
+/// and whether what is at home lasts until morning, through the night, the first meal and that trip
+/// at first light.
+fn night_water(
+    def: &ActivityDef,
+    f: &Facts,
+    limits: &Limits,
+    water: &WaterOption,
+) -> (u32, f64, bool) {
+    let draw = def.min_minutes.max(1) + water.lift_min.round().max(0.0) as u32;
+    let trip = 2.0 * water.walk_min + f64::from(draw);
+    let morning = f.until_sunrise_min + f64::from(limits.meal_min) + trip;
+    (draw, trip, f.water_days * 1440.0 >= morning)
+}
+
+/// The daylight work may use: all that is left, but while what is at home would not last until
+/// morning, less the trip to water and a meal, so whoever works by daylight is home while the trip
+/// can still be made, and the last of the light decides it, not the dusk.
+fn work_light(
+    defs: &[ActivityDef],
+    f: &Facts,
+    limits: &Limits,
+    water: Option<&WaterOption>,
+) -> f64 {
+    let fetch = defs.iter().find(|d| d.behavior == Behavior::FetchWater);
+    match (fetch, water) {
+        (Some(def), Some(water)) if !f.dark => {
+            let (_, trip, lasts_night) = night_water(def, f, limits, water);
+            if lasts_night {
+                f.daylight_left_min
+            } else {
+                f.daylight_left_min - trip - f64::from(limits.meal_min)
+            }
+        }
+        _ => f.daylight_left_min,
+    }
+}
+
 /// Work at a site the household is making something at, a crossing or a well, as weighed.
 struct Site {
     at: (f32, f32),
@@ -680,6 +718,7 @@ fn session_at_site(
     def: &ActivityDef,
     w: &DecisionParams,
     f: &Facts,
+    light: f64,
     site: &Site,
     reason: Reason,
     terms: &mut Vec<Term>,
@@ -691,7 +730,7 @@ fn session_at_site(
         return Err(Reason::Crowded);
     }
     let room = if def.daylight_only {
-        f.daylight_left_min - 2.0 * site.walk_min - 20.0
+        light - 2.0 * site.walk_min - 20.0
     } else {
         f64::from(def.max_minutes)
     };
@@ -875,6 +914,7 @@ pub fn candidates(
     take: &dyn Fn() -> Result<TakeOption, Reason>,
     visits: &dyn Fn() -> Vec<VisitOption>,
 ) -> (Vec<Candidate>, Vec<(u16, Reason)>) {
+    let light = work_light(defs, f, limits, water.as_ref());
     let mut out: Vec<Candidate> = Vec::new();
     let mut excluded = Vec::new();
     let mut blocked: Vec<usize> = Vec::new();
@@ -1061,10 +1101,7 @@ pub fn candidates(
                 // In the last of the light it counts as a full shortage; once the light left would
                 // not see a meal and then the trip, the trip comes before anything that can wait
                 // until dark, the strongest hunger included.
-                let draw = def.min_minutes.max(1) + water.lift_min.round().max(0.0) as u32;
-                let trip = 2.0 * water.walk_min + f64::from(draw);
-                let morning = f.until_sunrise_min + f64::from(limits.meal_min) + trip;
-                let lasts_night = f.water_days * 1440.0 >= morning;
+                let (draw, trip, lasts_night) = night_water(def, f, limits, &water);
                 if !f.dark && !lasts_night {
                     if f.daylight_left_min < trip + f64::from(limits.meal_min) {
                         short = (w.w_hunger * w.max_hunger_drive + w.w_water) / w.w_water.max(1e-6);
@@ -1096,7 +1133,7 @@ pub fn candidates(
                 let walk = patch.walk_min;
                 // How long daylight allows, after the walk there and back.
                 let room = if def.daylight_only {
-                    f.daylight_left_min - 2.0 * walk - 20.0
+                    light - 2.0 * walk - 20.0
                 } else {
                     f64::from(def.max_minutes)
                 };
@@ -1217,7 +1254,7 @@ pub fn candidates(
                 };
                 let walk = field.walk_min;
                 let room = if def.daylight_only {
-                    f.daylight_left_min - 2.0 * walk - 20.0
+                    light - 2.0 * walk - 20.0
                 } else {
                     f64::from(def.max_minutes)
                 };
@@ -1288,7 +1325,7 @@ pub fn candidates(
                         continue;
                     }
                 };
-                let room = f.daylight_left_min - 2.0 * option.walk_min - 20.0;
+                let room = light - 2.0 * option.walk_min - 20.0;
                 let room = if def.daylight_only {
                     room
                 } else {
@@ -1807,7 +1844,7 @@ pub fn candidates(
                     duty: c.duty,
                     full: c.full,
                 };
-                match session_at_site(def, w, f, &site, Reason::Crossing, &mut terms) {
+                match session_at_site(def, w, f, light, &site, Reason::Crossing, &mut terms) {
                     Ok(steps) => out.push(finish(id, Target::Crossing(c.crossing), terms, steps)),
                     Err(why) => excluded.push((id, why)),
                 }
@@ -1826,7 +1863,7 @@ pub fn candidates(
                     duty: 0.0,
                     full: c.full,
                 };
-                match session_at_site(def, w, f, &site, Reason::Boat, &mut terms) {
+                match session_at_site(def, w, f, light, &site, Reason::Boat, &mut terms) {
                     Ok(steps) => out.push(finish(id, Target::Boat(c.boat), terms, steps)),
                     Err(why) => excluded.push((id, why)),
                 }
@@ -1845,7 +1882,7 @@ pub fn candidates(
                     duty: 0.0,
                     full: c.full,
                 };
-                match session_at_site(def, w, f, &site, Reason::Cart, &mut terms) {
+                match session_at_site(def, w, f, light, &site, Reason::Cart, &mut terms) {
                     Ok(steps) => out.push(finish(id, Target::Boat(c.boat), terms, steps)),
                     Err(why) => excluded.push((id, why)),
                 }
@@ -1866,7 +1903,7 @@ pub fn candidates(
                     duty: c.duty,
                     full: c.full,
                 };
-                match session_at_site(def, w, f, &site, Reason::Way, &mut terms) {
+                match session_at_site(def, w, f, light, &site, Reason::Way, &mut terms) {
                     Ok(steps) => out.push(finish(id, Target::Way(c.way), terms, steps)),
                     Err(why) => excluded.push((id, why)),
                 }
@@ -1884,7 +1921,7 @@ pub fn candidates(
                     duty: c.duty,
                     full: c.full,
                 };
-                match session_at_site(def, w, f, &site, Reason::Well, &mut terms) {
+                match session_at_site(def, w, f, light, &site, Reason::Well, &mut terms) {
                     Ok(steps) => out.push(finish(id, Target::Well(c.well), terms, steps)),
                     Err(why) => excluded.push((id, why)),
                 }
@@ -1903,7 +1940,7 @@ pub fn candidates(
                     duty: c.duty,
                     full: c.full,
                 };
-                match session_at_site(def, w, f, &site, Reason::Levee, &mut terms) {
+                match session_at_site(def, w, f, light, &site, Reason::Levee, &mut terms) {
                     Ok(steps) => out.push(finish(id, Target::Bank(c.bank), terms, steps)),
                     Err(why) => excluded.push((id, why)),
                 }
@@ -1922,7 +1959,7 @@ pub fn candidates(
                     duty: c.duty,
                     full: c.full,
                 };
-                match session_at_site(def, w, f, &site, Reason::Palisade, &mut terms) {
+                match session_at_site(def, w, f, light, &site, Reason::Palisade, &mut terms) {
                     Ok(steps) => out.push(finish(id, Target::Enclosure(c.enclosure), terms, steps)),
                     Err(why) => excluded.push((id, why)),
                 }
@@ -1941,7 +1978,7 @@ pub fn candidates(
                     duty: 0.0,
                     full: false,
                 };
-                match session_at_site(def, w, f, &site, Reason::Ditch, &mut terms) {
+                match session_at_site(def, w, f, light, &site, Reason::Ditch, &mut terms) {
                     Ok(steps) => out.push(finish(id, Target::Ditch(c.ditch), terms, steps)),
                     Err(why) => excluded.push((id, why)),
                 }
@@ -2908,6 +2945,39 @@ mod tests {
         // Water that runs out at first light, before the morning's meal and trip: as short.
         let (eat, water) = totals(30.0, 800.0 / 1440.0);
         assert!(water > eat, "water {water} vs eat {eat}");
+    }
+
+    #[test]
+    fn daylight_work_leaves_the_water_trip_and_a_meal_when_water_would_not_last_the_night() {
+        let mut fetch = activity("fetch_water", Behavior::FetchWater, Vec::new(), 1.0);
+        fetch.min_minutes = 5;
+        let defs = vec![fetch];
+        let water = WaterOption {
+            cell: 1,
+            walk_min: 20.0,
+            at: (5.0, 0.0),
+            well: None,
+            lift_min: 3.0,
+        };
+        let light = |water_days: f64, dark: bool, water: Option<&WaterOption>| {
+            let f = Facts {
+                dark,
+                daylight_left_min: 300.0,
+                until_sunrise_min: 800.0,
+                water_days,
+                ..facts()
+            };
+            work_light(&defs, &f, &limits(), water)
+        };
+        // Water for five hours of a night of thirteen: work ends with the trip (20 there, 8
+        // drawing, 20 back) and a meal still to be had by daylight.
+        let meal = f64::from(limits().meal_min);
+        assert_eq!(light(5.0 / 24.0, false, Some(&water)), 300.0 - 48.0 - meal);
+        // Water enough for the night and the morning's trip: all the light is work's.
+        assert_eq!(light(1.0, false, Some(&water)), 300.0);
+        // In the dark, or with no water known, nothing changes.
+        assert_eq!(light(5.0 / 24.0, true, Some(&water)), 300.0);
+        assert_eq!(light(5.0 / 24.0, false, None), 300.0);
     }
 
     #[test]

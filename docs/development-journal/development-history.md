@@ -3185,3 +3185,11 @@ people ran its first month at about 40 seconds of computer time per day, roughly
 same number of people cost when split into three villages, and used about 1.6 GB of memory. It
 covered 132 hectares, about 76 people a hectare, which is what compact villages and small towns
 of the past reached. This finishes the planning and land part of the growing-city milestone.
+
+## 2026-10-19 — Fix: families no longer run out of water overnight after a long day in the fields
+
+**Fixed:** now and then a family that was already low on water worked its field right up to
+nightfall, came home in the dark, and could not go for water, so by midnight it had none. People
+only fetch water while there is light, and the rule that sends someone in the last of the light
+never got a chance because everyone was still out working. Now, when a family's water would not
+last until morning, its people stop working early enough to make the trip and eat before dark.

@@ -372,6 +372,19 @@ fn a_lender_that_would_refuse_lends_with_a_guarantor_who_pays_when_the_debtor_do
 #[test]
 fn a_field_pledged_on_a_failed_loan_is_worked_by_the_creditor_until_the_debt_is_paid() {
     let mut sc = village();
+    // The pledge is the matter, not the courts: no law of debts heard is ever proposed here, so a
+    // case's time to pay does not reopen the loan before its field lies between crops (cases are
+    // tested below, `under_debts_heard_*`).
+    for d in &mut sc
+        .sim
+        .rules_mut_for_tests()
+        .expect("rules of its own")
+        .catalog
+        .policies
+    {
+        d.answers
+            .retain(|&i| i != civ_agents::polity::IssueKind::DebtsUnpaid);
+    }
     let cp = credit(&mut sc.sim);
     cp.p_max = 0.05;
     cp.field_recovery = 0.99;

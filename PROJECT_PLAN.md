@@ -6140,4 +6140,30 @@ One line each. Don't re-litigate without a reason written next to the entry.
     does the capture example; a world's own identity still orders its own life, and the
     observer's new worlds keep a fresh one. The other demo examples keep `Sim::create`, so their
     recorded runs are each one draw among many.
-
+- **Fix: a household short of water worked until dusk and ran dry overnight (2026-10-19, found
+  by slice CX part 3's chain):** the smoke failed once, "1 households have no water" in
+  `ria_coast` seed 5, and passed on two reruns. **Found:** the smoke's worlds draw a fresh identity
+  each run (above, slice CE5), so a probe lived that seed under 40 fixed identities: 2 ended their
+  30 days with one household dry, the same three-person household both times. Traced through its
+  last day, it held 30 L at dawn against 60 L a day, fetched one load at 13:20, and its people
+  prepared a field until the light left, ate and went to the hearth; nobody fetched in the dark, so
+  its water ran out before midnight. The rule that sends someone for water "in the last of the
+  light" when what is at home would not last the night only acts when someone decides then, and
+  work by daylight was sized to end 20 minutes before dark wherever it was, so a long session
+  carried everyone past that light. **Fixed:** while what is at home would not last until
+  morning, work by daylight (fields, gathering, digging, building and every site's work) is sized
+  to the light less the trip to water and a meal, so whoever works is home while the trip can
+  still be made; the trip's sum is the one the fetch already weighed (`decide::night_water`).
+  **Tested:** the bound alone (short, enough, dark, no water known); the 40 identities, none dry.
+  **What it changed** (behaviour, not saves): the bench's village of three settlements, 30 days in
+  both modes, ends with the same 3,022 people and 625 buildings and 609 fields against 606; a
+  person-day's farming 2.467 hours against 2.483 and building 0.960 against 0.988, fetching water
+  unchanged at 0.109; every section that people's days write changes digest, and days are as long
+  within the runs' spread (4,462 ms against 4,505 at the median, by the minute; 3,723 against
+  3,449 at Max). **Tests changed** (their scenes, not what they check): the two errand scenes in
+  `tests/fetch.rs` now give the buyer hoes for every hand, since its people, living another
+  morning, reached the seller's door needing a hoe and bought one, and one trip makes one deal,
+  its own need first; and the field pledge scene in `tests/credit.rs` keeps every law of debts
+  heard from being proposed, since its gathering now passed one, and a case's time to pay
+  reopened the loan, before the pledged field lay between crops (the courts have their own
+  tests).

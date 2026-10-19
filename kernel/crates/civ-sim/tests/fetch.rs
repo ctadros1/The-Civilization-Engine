@@ -1095,6 +1095,9 @@ fn reseller(sc: &mut Scene, wanted: f64, worth_h: f64) -> f32 {
     let spare = offered(sim, buyer, sickle);
     assert!(spare > 1.0, "it offers what it holds beyond its keep");
     let keep = plenty as f32 - spare;
+    // Hoes enough for every hand: a trip to the seller's door is for the errand, not for a tool of
+    // its own (one trip, one deal, its own need first).
+    set(sim, buyer, &[("core:good/hoe", 10.0)]);
     let day = sim.now().day_index();
     let pop = sim.people_mut_for_tests();
     if let Some(h) = pop

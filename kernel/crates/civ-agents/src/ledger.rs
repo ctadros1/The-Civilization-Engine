@@ -69,11 +69,13 @@ pub enum Channel {
     /// What a household paid a polity's store for a plan's parcel, once (M8c slice CU, ADR-0030
     /// §4).
     GroundFee = 25,
+    /// A year's ground rent paid a polity's store for a plan's parcel (M8c slice CU, ADR-0030 §4).
+    GroundRent = 26,
 }
 
 impl Channel {
     /// Every channel, in code order.
-    pub const ALL: [Channel; 25] = [
+    pub const ALL: [Channel; 26] = [
         Channel::Gift,
         Channel::Share,
         Channel::Allocation,
@@ -99,6 +101,7 @@ impl Channel {
         Channel::Mint,
         Channel::Carried,
         Channel::GroundFee,
+        Channel::GroundRent,
     ];
 
     /// The channel with this code.
@@ -134,6 +137,7 @@ impl Channel {
             Channel::Mint => "brought to the mint",
             Channel::Carried => "carried home",
             Channel::GroundFee => "ground fee",
+            Channel::GroundRent => "ground rent",
         }
     }
 }

@@ -111,7 +111,8 @@ pub(crate) fn owed_words(sim: &Sim, incident: u32) -> String {
         .order
         .obligations
         .iter()
-        .filter(|o| o.incident == incident)
+        // Ground rent answers no incident (M8c slice CU).
+        .filter(|o| o.incident == incident && o.kind != Owed::GroundRent)
         .collect();
     match owed.as_slice() {
         [] => String::new(),

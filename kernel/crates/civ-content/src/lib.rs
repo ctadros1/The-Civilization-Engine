@@ -52,7 +52,7 @@ mod worldgen;
 /// Version of the authoring format this build understands.
 pub const CONTENT_SCHEMA: u32 = 1;
 /// Version of the kernel's content API (which kinds and meanings exist).
-pub const KERNEL_CONTENT_API: u32 = 142;
+pub const KERNEL_CONTENT_API: u32 = 143;
 
 /// How serious a diagnostic is. Errors prevent the registry from being built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -1081,6 +1081,23 @@ fn resolve(
         {
             missing(c, parsed, &d.rel, "plan.fee.good", &f.good);
         }
+        // A plan's ground rent names a food, owed as food is (M8c slice CU, third part).
+        if let Some(f) = d.file.plan.as_ref().and_then(|g| g.rent.as_ref()) {
+            match good_index(&f.good) {
+                None => missing(c, parsed, &d.rel, "plan.rent.good", &f.good),
+                Some(g) if goods[g].kcal_per_kg.is_nan() || goods[g].kcal_per_kg <= 0.0 => c.push(
+                    "E3001",
+                    &d.rel,
+                    None,
+                    format!(
+                        "`plan.rent.good` must name a food (a good with `kcal_per_kg`); `{}` is \
+                         not",
+                        f.good
+                    ),
+                ),
+                Some(_) => {}
+            }
+        }
         // Pay for common work names a money (M7d slice CE3a).
         if let Some(pay) = &d.file.pay {
             match good_index(&pay.good) {
@@ -1145,6 +1162,7 @@ fn resolve(
             def.medium = d.file.medium_def(&good_index);
             if let Some(plan) = def.plan.as_mut() {
                 plan.fee = d.file.plan_fee(&good_index);
+                plan.rent = d.file.plan_rent(&good_index);
             }
             def
         })

@@ -80,7 +80,7 @@ impl Population {
             .map(|&k| {
                 let ob = &self.order.obligations[k];
                 let owed = match ob.kind {
-                    Owed::Fine => 0.0,
+                    Owed::Fine | Owed::GroundRent => 0.0,
                     _ => regard_of(ob.beneficiary),
                 };
                 (duty + owed - regard_of(ob.debtor), k)
@@ -177,6 +177,7 @@ impl Population {
                 Owed::Compensation => Channel::Compensation,
                 Owed::Fine => Channel::Fine,
                 Owed::Debt => Channel::Repaid,
+                Owed::GroundRent => Channel::GroundRent,
             };
             if !legs.is_empty() && self.transfer(now, params, goods, &legs, channel) {
                 taken = kcal;
@@ -214,7 +215,8 @@ impl Population {
             taken_kcal: taken as f32,
             harms: harms.clone(),
         };
-        let owed = (ob.kind != Owed::Fine).then_some(ob.beneficiary);
+        let owed = !matches!(ob.kind, Owed::Fine | Owed::GroundRent);
+        let owed = owed.then_some(ob.beneficiary);
         let name = self.encounter_words(&record, owed, ctx);
         self.order.encounters.push(record);
         // What it leaves (04-10 §1.7): the household holds what was taken by force, and a blow

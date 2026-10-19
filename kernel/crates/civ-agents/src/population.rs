@@ -2553,14 +2553,19 @@ impl Population {
             // The parcel a plan's keeper would give it, weighed as any plot is (M8c slice CU):
             // a plot found whose middle lies on it takes it, and its home is also laid out at the
             // parcel's middle or a few metres along it, wholly within it.
-            // A fee counts at what the household's own hours would make of its good; one it
-            // cannot reckon is not paid.
+            // A fee counts at what the household's own hours would make of its good, and a
+            // ground rent the same each year over the years a site is weighed; one it cannot
+            // reckon is not paid.
             let costs = self.own_costs_of(ctx, hh);
             let cost_of = |g: usize| costs.get(g).copied().flatten();
-            let offer = offer.filter(|o| o.fee.is_none_or(|(g, _)| cost_of(g).is_some()));
+            let offer = offer.filter(|o| {
+                o.fee.is_none_or(|(g, _)| cost_of(g).is_some())
+                    && o.rent.is_none_or(|(g, _)| cost_of(g).is_some())
+            });
             if let Some(o) = offer {
                 let (law, parcel, ground) = (o.law, o.parcel, o.ground);
-                let fee_h = o.fee.map_or(0.0, |(g, a)| a * cost_of(g).unwrap_or(0.0));
+                let fee_h = o.fee.map_or(0.0, |(g, a)| a * cost_of(g).unwrap_or(0.0))
+                    + years * o.rent.map_or(0.0, |(g, a)| a * cost_of(g).unwrap_or(0.0));
                 let program = &catalog.buildings[choice.0];
                 let within = |spec: &BuildingSpec| {
                     let rect = build::plot_rect(spec, program);

@@ -1507,3 +1507,8 @@ hearth), `lot` (a free parcel drawn by lot), `offer` (the parcel nearest the hea
 that pays the store the `[plan.fee]`'s `amount` of its `good`, once) or `standing` (the parcel
 nearest the hearth to a household whose eldest the keeper regards). A fee is for `offer` only, and
 `offer` needs one. The core's plan gives by need.
+
+Content API 143 (M8c slice CU, third part) brings a plan's `[plan.rent]`, for `allot = "offer"`:
+the food (a good with `kcal_per_kg`) and `amount` a household owes the store each year it holds a
+parcel given by offer, on the day it was given, answered as a fine is. An offer names a fee, a
+rent or both.

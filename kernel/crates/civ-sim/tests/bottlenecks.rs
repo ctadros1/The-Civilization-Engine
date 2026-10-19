@@ -968,14 +968,19 @@ fn a_plan_s_parcels_go_by_lot_for_a_fee_or_by_its_keeper_s_regard() {
         .catalog
         .good_index("core:good/grain")
         .expect("grain");
+    let set_terms =
+        |sim: &mut Sim, allot: AllotRule, fee: Option<(usize, f32)>, rent: Option<(usize, f32)>| {
+            let rules = sim.rules_mut_for_tests().expect("rules of its own");
+            let plan = rules.catalog.policies[plan_policy]
+                .plan
+                .as_mut()
+                .expect("a plan");
+            plan.allot = allot;
+            plan.fee = fee;
+            plan.rent = rent;
+        };
     let set_rule = |sim: &mut Sim, allot: AllotRule, fee: Option<(usize, f32)>| {
-        let rules = sim.rules_mut_for_tests().expect("rules of its own");
-        let plan = rules.catalog.policies[plan_policy]
-            .plan
-            .as_mut()
-            .expect("a plan");
-        plan.allot = allot;
-        plan.fee = fee;
+        set_terms(sim, allot, fee, None);
     };
     let homes: Vec<PermanentId> = sim
         .people()
@@ -1129,5 +1134,63 @@ fn a_plan_s_parcels_go_by_lot_for_a_fee_or_by_its_keeper_s_regard() {
     sim.land_mut_for_tests()
         .plots
         .retain(|p| !claims.contains(&p.id));
+    // For a ground rent alone, a household holding nothing of it is offered a parcel too
+    // (M8c slice CU, third part).
+    set_terms(&mut sim, AllotRule::Offer, None, Some((grain, 3.0)));
+    set_held(&mut sim, homes[2], 0.0);
+    let o = offer(&mut sim, homes[2]).expect("a parcel for a rent");
+    assert_eq!((o.fee, o.rent), (None, Some((grain, 3.0))));
+    let polity = &sim.people().polities[pi];
+    let words = polity.words_of(
+        polity.laws.iter().find(|l| l.id == law).expect("the law"),
+        &sim.rules().catalog.policies,
+        &|_| String::new(),
+    );
+    assert!(
+        words.contains("parcels given for a yearly ground rent"),
+        "{words}"
+    );
+    // A year after its plot was given, the household holding it owes the store a year's rent,
+    // answered as a fine is.
+    let kcal_per_kg = sim.rules().catalog.goods[grain].kcal_per_kg;
+    let tomorrow = sim.now().day_index() + 1;
+    if let Some(p) = sim
+        .land_mut_for_tests()
+        .plots
+        .iter_mut()
+        .find(|p| p.household == household && p.allotted.is_some())
+    {
+        p.since = civ_core::SimTime::from_minutes((tomorrow - 365) * 24 * 60);
+    }
+    set_held(&mut sim, household, 300.0);
+    let rents = |sim: &Sim| -> Vec<civ_agents::crime::Obligation> {
+        sim.people()
+            .order
+            .obligations
+            .iter()
+            .filter(|o| o.kind == civ_agents::crime::Owed::GroundRent)
+            .copied()
+            .collect()
+    };
+    assert!(rents(&sim).is_empty());
+    let before = in_store(&sim);
+    sim.advance_minutes(DAY).expect("lives");
+    let owed = rents(&sim);
+    assert_eq!(owed.len(), 1, "{owed:?}");
+    let rent = owed[0];
+    assert_eq!(
+        (rent.debtor, rent.beneficiary, rent.case),
+        (household, store, None)
+    );
+    assert!(
+        (f64::from(rent.kcal) - 3.0 * kcal_per_kg).abs() < 1.0,
+        "{rent:?}"
+    );
+    sim.advance_minutes(3 * DAY).expect("lives");
+    let rent = rents(&sim)[0];
+    assert_eq!(rent.standing, civ_agents::crime::Standing::Met, "{rent:?}");
+    assert!(in_store(&sim) > before, "{} {before}", in_store(&sim));
+    // Only once a year.
+    assert_eq!(rents(&sim).len(), 1);
     saves_and_goes_on_alike(&mut sim, DAY);
 }

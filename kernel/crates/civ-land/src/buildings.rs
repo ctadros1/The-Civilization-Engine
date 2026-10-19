@@ -120,7 +120,7 @@ impl AllotRule {
         match self {
             AllotRule::Need => "by need",
             AllotRule::Lot => "by lot",
-            AllotRule::Offer => "for a fee",
+            AllotRule::Offer => "by offer",
             AllotRule::Standing => "by the keeper's choice",
         }
     }

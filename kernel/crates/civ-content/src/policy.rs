@@ -157,6 +157,10 @@ pub struct PlanFile {
     /// For `allot = "offer"`: the good and amount a household pays the store for a parcel, once.
     #[serde(default)]
     pub fee: Option<PlanFeeFile>,
+    /// For `allot = "offer"`: the food and amount a household owes the store each year it holds
+    /// a parcel, as ground rent (content API 143).
+    #[serde(default)]
+    pub rent: Option<PlanFeeFile>,
 }
 
 /// What a parcel given for a fee costs, in a plan's `[plan.fee]` table (content API 142).
@@ -423,6 +427,13 @@ impl PolicyFile {
         Some((good_index(&f.good)?, f.amount as f32))
     }
 
+    /// The yearly ground rent a plan's parcel is given for, its good found by `good_index` (M8c
+    /// slice CU, third part).
+    pub fn plan_rent(&self, good_index: &dyn Fn(&str) -> Option<usize>) -> Option<(usize, f32)> {
+        let f = self.plan.as_ref()?.rent.as_ref()?;
+        Some((good_index(&f.good)?, f.amount as f32))
+    }
+
     /// The money a common store's levy may be paid in, its good found by `good_index` (M7d slice
     /// CE3b).
     pub fn medium_def(
@@ -527,8 +538,9 @@ impl PolicyFile {
                     .as_deref()
                     .and_then(civ_land::AllotRule::from_name)
                     .unwrap_or(civ_land::AllotRule::Need),
-                // The fee's good is resolved apart ([`PolicyFile::plan_fee`]).
+                // The fee's and rent's goods are resolved apart ([`PolicyFile::plan_fee`]).
                 fee: None,
+                rent: None,
             }),
             lending: self
                 .lending
@@ -831,20 +843,25 @@ impl PolicyFile {
                     ));
                 }
                 let offer = allot == Some(Some(civ_land::AllotRule::Offer));
-                match &g.fee {
-                    None if offer => {
-                        p.push("`plan.allot = \"offer\"` needs a `plan.fee` table".to_owned());
+                if offer && g.fee.is_none() && g.rent.is_none() {
+                    p.push(
+                        "`plan.allot = \"offer\"` needs a `plan.fee` or `plan.rent` table"
+                            .to_owned(),
+                    );
+                }
+                for (name, paid) in [("fee", &g.fee), ("rent", &g.rent)] {
+                    match paid {
+                        Some(_) if !offer => {
+                            p.push(format!("`plan.{name}` is for `plan.allot = \"offer\"`"));
+                        }
+                        Some(f) if !(f.amount.is_finite() && f.amount > 0.0) => {
+                            p.push(format!(
+                                "`plan.{name}.amount` must be more than 0 (got {})",
+                                f.amount
+                            ));
+                        }
+                        _ => {}
                     }
-                    Some(_) if !offer => {
-                        p.push("`plan.fee` is for `plan.allot = \"offer\"`".to_owned());
-                    }
-                    Some(f) if !(f.amount.is_finite() && f.amount > 0.0) => {
-                        p.push(format!(
-                            "`plan.fee.amount` must be more than 0 (got {})",
-                            f.amount
-                        ));
-                    }
-                    _ => {}
                 }
             }
             (None, Some(PolicyKind::Plan)) => {
@@ -1367,6 +1384,7 @@ mod tests {
             needs: None,
             allot: allot.map(str::to_owned),
             fee,
+            rent: None,
         };
         let plan_with = |g: PlanFile| PolicyFile {
             does: "plan".to_owned(),
@@ -1432,6 +1450,28 @@ mod tests {
             free.problems()
                 .iter()
                 .any(|e| e.contains("`plan.fee.amount`"))
+        );
+        // A yearly ground rent, alone or with a fee, for an offer only (content API 143).
+        let rented = |allot: &str, amount: f64| {
+            let mut g = grid(Some(allot), None);
+            g.rent = Some(PlanFeeFile { amount, ..grain() });
+            plan_with(g)
+        };
+        let p = rented("offer", 3.0);
+        assert!(p.problems().is_empty(), "{:?}", p.problems());
+        assert_eq!(p.plan_rent(&grains), Some((7, 3.0)));
+        assert_eq!(p.plan_fee(&grains), None);
+        assert!(
+            rented("need", 3.0)
+                .problems()
+                .iter()
+                .any(|e| e.contains("`plan.rent` is for"))
+        );
+        assert!(
+            rented("offer", -1.0)
+                .problems()
+                .iter()
+                .any(|e| e.contains("`plan.rent.amount`"))
         );
     }
 

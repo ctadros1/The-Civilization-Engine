@@ -87,6 +87,9 @@ pub struct ParcelOffer {
     pub ground: civ_land::RectCm,
     pub rule: civ_land::AllotRule,
     pub fee: Option<(usize, f64)>,
+    /// For a parcel given for a ground rent (M8c slice CU, third part): the food and amount owed
+    /// the store each year.
+    pub rent: Option<(usize, f64)>,
 }
 
 impl Population {
@@ -394,7 +397,7 @@ impl Population {
     /// The parcel a plan in force where household `hh` lives would give it now, to build its home
     /// on (M8c slice CU; ADR-0030 §4), by the plan's rule: by need, the free parcel nearest the
     /// hearth; by lot, a free parcel drawn by a keyed lot; for a fee, the nearest, to a household
-    /// holding the fee; by the keeper's choice, the nearest, to a household whose eldest the keeper
+    /// holding the fee (one for a ground rent alone asks nothing held); by the keeper's choice, the nearest, to a household whose eldest the keeper
     /// regards. None while no plan in force there has a keeper living there, or every parcel is
     /// given or no longer clear.
     pub(super) fn parcel_offer(&self, ctx: &Ctx, hh: &Household) -> Option<ParcelOffer> {
@@ -432,12 +435,15 @@ impl Population {
             };
             let rule = def.allot;
             let fee = def.fee.map(|(g, a)| (g, f64::from(a)));
+            let rent = def.rent.map(|(g, a)| (g, f64::from(a)));
             match rule {
                 civ_land::AllotRule::Offer => {
-                    let Some((good, amount)) = fee else {
+                    if fee.is_none() && rent.is_none() {
                         continue;
-                    };
-                    if hh.stores.get(good).copied().unwrap_or(0.0) < amount {
+                    }
+                    if let Some((good, amount)) = fee
+                        && hh.stores.get(good).copied().unwrap_or(0.0) < amount
+                    {
                         continue;
                     }
                 }
@@ -489,11 +495,8 @@ impl Population {
                 parcel: chosen.0 as u16,
                 ground: chosen.1.rect,
                 rule,
-                fee: if rule == civ_land::AllotRule::Offer {
-                    fee
-                } else {
-                    None
-                },
+                fee: fee.filter(|_| rule == civ_land::AllotRule::Offer),
+                rent: rent.filter(|_| rule == civ_land::AllotRule::Offer),
             });
         }
         None
@@ -559,6 +562,68 @@ impl Population {
             .into_iter()
             .map(|p| (p.layout, p.gains))
             .collect()
+    }
+
+    /// Ground rent falls due (M8c slice CU, third part; ADR-0030 §4): each year to the day after
+    /// a household was given a parcel for an offer under a plan whose template asks a ground rent, it owes
+    /// the polity's store a year's rent, answered as a fine is. Owed while the household holds
+    /// the plot and the polity whose law gave it stands.
+    pub(super) fn levy_ground_rent(&mut self, ctx: &Ctx) {
+        let day = ctx.now.day_index();
+        let year = civ_core::time::DAYS_PER_YEAR;
+        let due_days = i64::from(ctx.params.crime.due_days);
+        for plot in &ctx.land.plots {
+            let Some(given) = plot
+                .allotted
+                .filter(|a| a.rule == civ_land::AllotRule::Offer)
+            else {
+                continue;
+            };
+            let since = plot.since.day_index();
+            if day <= since || (day - since) % year != 0 {
+                continue;
+            }
+            let Some((polity, law)) = self.polities.iter().find_map(|p| {
+                p.laws
+                    .iter()
+                    .find(|l| l.id == given.law)
+                    .map(|l| (p.id, l.policy))
+            }) else {
+                continue;
+            };
+            let Some((good, amount)) = ctx
+                .catalog
+                .policies
+                .get(usize::from(law))
+                .and_then(|d| d.plan.as_ref())
+                .and_then(|d| d.rent)
+            else {
+                continue;
+            };
+            if self.household(plot.household).is_none() {
+                continue;
+            }
+            let kcal =
+                f64::from(amount) * ctx.catalog.goods.get(good).map_or(0.0, |g| g.kcal_per_kg);
+            if kcal <= 0.0 {
+                continue;
+            }
+            let id = self.order.obligations.last().map_or(1, |o| o.id + 1);
+            self.order.obligations.push(crate::crime::Obligation {
+                id,
+                incident: 0,
+                kind: crate::crime::Owed::GroundRent,
+                case: None,
+                debtor: plot.household,
+                beneficiary: polity,
+                kcal: kcal as f32,
+                paid_kcal: 0.0,
+                made: day,
+                due: day + due_days,
+                standing: crate::crime::Standing::Open,
+                answer: None,
+            });
+        }
     }
 }
 

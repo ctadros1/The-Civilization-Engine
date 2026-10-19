@@ -592,16 +592,20 @@ pub enum Owed {
     /// What is still owed on a loan, imposed by a finding under a law of debts heard (M7d slice
     /// CB, ADR-0027 §3): `incident` names the loan, and what is paid is paid on it.
     Debt = 4,
+    /// A year's ground rent for a parcel given under a plan, to the polity's common store (M8c
+    /// slice CU, ADR-0030 §4): `incident` is 0, as it answers no incident.
+    GroundRent = 5,
 }
 
 impl Owed {
     /// Every kind, in code order.
-    pub const ALL: [Owed; 5] = [
+    pub const ALL: [Owed; 6] = [
         Owed::Demanded,
         Owed::Restitution,
         Owed::Compensation,
         Owed::Fine,
         Owed::Debt,
+        Owed::GroundRent,
     ];
 
     /// Its number in saves.
@@ -622,6 +626,7 @@ impl Owed {
             Owed::Compensation => "compensation",
             Owed::Fine => "a fine",
             Owed::Debt => "a debt",
+            Owed::GroundRent => "ground rent",
         }
     }
 }
@@ -640,7 +645,7 @@ pub struct Obligation {
     pub case: Option<u32>,
     /// The household that owes.
     pub debtor: PermanentId,
-    /// The household owed, or for a fine the polity.
+    /// The household owed, or for a fine or ground rent the polity.
     pub beneficiary: PermanentId,
     /// Food energy owed, kcal.
     pub kcal: f32,

@@ -3088,3 +3088,12 @@ weighs a parcel's fee as the hours it would take to make that much of the good, 
 starts building. The plot remembers which rule it was given by, and the plan's description says
 so. The core plan still gives by need, so worlds run exactly as before.
 
+## 2026-10-19 — CU, third part: ground rent
+
+**Built:** a plan that hands out parcels by offer can now ask a yearly ground rent in food instead
+of, or as well as, a one-off fee. Households weigh the rent as the hours of work it would cost
+them over the years they weigh a site, so a parcel for rent alone is open to a household with
+nothing put by. Each year on the day its plot was given, the household owes the common store a
+year's rent; it decides whether to pay much as it would a fine, pays from food it can spare, and
+the chronicle says whether it paid. Nothing yet follows a refusal: bringing cases under a plan is
+the next slice.

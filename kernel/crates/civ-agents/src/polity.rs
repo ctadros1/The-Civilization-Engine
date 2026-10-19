@@ -2201,6 +2201,9 @@ pub struct PlanDef {
     /// For a parcel given for a fee: the good, by index in the catalog's goods, and the amount
     /// paid the store once.
     pub fee: Option<(usize, f32)>,
+    /// For a parcel given for a ground rent (M8c slice CU, third part): the food, by index in the
+    /// catalog's goods, and the amount owed the store each year the parcel is held.
+    pub rent: Option<(usize, f32)>,
 }
 
 /// The plan a law lays (M8c slice CT, second part; ADR-0030 §2): its version (1 for its polity's
@@ -2735,13 +2738,21 @@ impl Polity {
         {
             let l = &plan.layout;
             // How its parcels are given, said only when not by need (M8c slice CU, second part).
+            // An offer says what it asks: a fee, a yearly ground rent, or both (third part).
             let given = match policies
                 .get(usize::from(law.policy))
                 .and_then(|d| d.plan.as_ref())
-                .map(|d| d.allot)
             {
-                Some(rule) if rule != civ_land::AllotRule::Need => {
-                    format!(" given {}", rule.words())
+                Some(d) if d.allot == civ_land::AllotRule::Offer => {
+                    let asks = match (d.fee.is_some(), d.rent.is_some()) {
+                        (true, true) => " for a fee and a yearly ground rent",
+                        (false, true) => " for a yearly ground rent",
+                        _ => " for a fee",
+                    };
+                    format!(" given{asks}")
+                }
+                Some(d) if d.allot != civ_land::AllotRule::Need => {
+                    format!(" given {}", d.allot.words())
                 }
                 _ => String::new(),
             };

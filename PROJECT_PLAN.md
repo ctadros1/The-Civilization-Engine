@@ -4674,6 +4674,36 @@ and M6a gives rivers a daily flow.
         keeping the rule, and the plan's words naming it; saved and loaded alike. **Boundary:**
         content API 142 (`plan.allot`, `[plan.fee]`); the ledger channel `GroundFee`; no saves
         change (the rule's saved code already holds all four) and no wire change.
+      - *Third part, as built (2026-10-19): a yearly ground rent* (ADR-0030 §4: "paid once or
+        as a yearly ground rent"; `GroundRent` "yearly, as an ADR-0015 obligation to the store").
+        A plan given by offer may ask a ground rent (`[plan.rent]`, a food and an amount) beside
+        or instead of its fee. A household weighs it as the hours its own work would take to
+        make that food, each year over the years a site is weighed, and is offered a parcel for
+        a rent alone without holding anything. Each year to the day after its plot was given,
+        a household holding a parcel given by offer under such a plan owes the polity's store a
+        year's rent: an obligation of a new kind, `GroundRent`, which names no incident and no
+        case, answered as a fine is (known to all, with the weight a finding of its gathering
+        carries), paid from food it can spare on the new channel `GroundRent`, and recorded paid,
+        refused or unpaid when due in the chronicle. What is owed is now answered even in a
+        world where nothing was ever taken (it was skipped before, which only debts imposed
+        without a taking could have met). An offer's words name what it asks ("given for a
+        yearly ground rent", "for a fee and a yearly ground rent"), and a plot given by offer
+        says "given by offer" rather than "for a fee". **Not as the ADR:** "whoever offers most"
+        waits: an offer is a fixed fee or rent the template names, taken by the first household
+        that comes; rent is owed whether or not the plan has been superseded, while the polity
+        whose law gave it stands; a refused or unpaid rent is recorded but nothing follows yet
+        (cases and remedies under a plan are slice CV's). **What it comes to:** the core's plan
+        gives by need, so the bench's village keeps every count and day digest of the second part
+        in both modes (the
+        content and meta digests aside). A day as the container now runs: 4.38 s
+        (deterministic), 3.22 s (Max). **Tests:** content takes a rent alone or with a fee for an offer
+        and refuses one for any other rule or of nothing; a household holding none of the food is
+        offered a parcel for a rent; the plan's words name the rent; a year to the day after its
+        plot was given, the household owes the store a year's rent in food energy, and pays it
+        within days, the store the richer; only once that year; saved and loaded alike.
+        **Boundary:** content API 143 (`[plan.rent]`); the obligation kind `GroundRent` (code 5)
+        and the ledger channel `GroundRent` (26), both appended to saved codes, so no saves
+        schema change; a save's ground rent names incident 0; no wire change.
     - **CV, compliance and cases:** expected sanction, sightings, cases under a plan, forums,
       remedies (fine, removal, regularisation), the backlog.
     - **CW, use and nuisance rules:** district uses and two rule templates (worked fires from

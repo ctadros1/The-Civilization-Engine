@@ -6317,13 +6317,12 @@ fn order_problems(order: &civ_agents::crime::Order) -> Vec<String> {
     if let Some(r) = order.responses.iter().find(|r| !known(r.incident)) {
         out.push(format!("a response names missing incident {}", r.incident));
     }
-    // A debt imposed by a finding names its loan, not an incident (M7d slice CB).
-    if let Some(o) = order.obligations.iter().find(|o| {
-        if o.kind == civ_agents::crime::Owed::Debt {
-            order.credit.claim(o.incident).is_none()
-        } else {
-            !known(o.incident)
-        }
+    // A debt imposed by a finding names its loan, not an incident (M7d slice CB); ground rent
+    // names none (M8c slice CU).
+    if let Some(o) = order.obligations.iter().find(|o| match o.kind {
+        civ_agents::crime::Owed::Debt => order.credit.claim(o.incident).is_none(),
+        civ_agents::crime::Owed::GroundRent => o.incident != 0,
+        _ => !known(o.incident),
     }) {
         out.push(format!(
             "obligation {} names missing incident {}",

@@ -16,6 +16,7 @@ import { Store, initialState, mergeEvents } from "./state.js";
 import { bindUi } from "./ui.js";
 import { bankWords, flowWords, springWords } from "./water.js";
 import { planWords } from "./plans.js";
+import { landWords } from "./land.js";
 import { wayWords } from "./ways.js";
 import { legend, lensId, type LensLayer } from "./coverage.js";
 import { seasonOf } from "./weather.js";
@@ -88,6 +89,7 @@ const client = new HostClient(socketUrl(), {
     void syncWays();
     void syncVehicles();
     void syncPlans();
+    void syncLand();
     void syncWater();
     void syncLens();
     void refreshPerson(false);
@@ -393,6 +395,38 @@ async function syncPlans(): Promise<void> {
     plansBusy = false;
   }
   if (ok) void syncPlans();
+}
+
+/** `world:revision` of the land map, while it is shown. */
+let landKey = "";
+let landBusy = false;
+
+/** Fetches the land map while the Land toggle is on, again when a plot was laid, paid for or
+ * reckoned (M8c slice CX). */
+async function syncLand(): Promise<void> {
+  const s = store.state.snapshot;
+  const world = s?.world;
+  const shown = (byId("show-land") as HTMLInputElement).checked;
+  const key = shown && world && s.landRev !== 0 ? `${store.state.epoch}:${world.worldId}:${s.landRev}` : "";
+  if (key === landKey || landBusy) return;
+  if (!key) {
+    landKey = "";
+    map.setLand(null);
+    return;
+  }
+  landBusy = true;
+  let ok = false;
+  try {
+    const info = await client.land();
+    landKey = key;
+    map.setLand(info);
+    ok = true;
+  } catch (e) {
+    console.warn(`tce: the land map could not be read: ${String(e)}`);
+  } finally {
+    landBusy = false;
+  }
+  if (ok) void syncLand();
 }
 
 /** `world:revision` of the water on the map. */
@@ -1269,6 +1303,7 @@ map.onPointer = (info: PointerInfo | null) => {
   const way = info.way && !info.crossing ? ` · ${wayWords(info.way.way, info.way.segment)}` : "";
   const vehicle = info.vehicle ? ` · ${info.vehicle.words}` : "";
   const plan = info.plan ? ` · ${planWords(info.plan)}` : "";
+  const land = info.land ? ` · ${landWords(info.land)}` : "";
   const flowing =
     (info.water === "river" || info.water === "lake") && info.flow !== null ? `, ${flowWords(info.flow)}` : "";
   const home = info.home ? ` · ${info.home.name}: ${info.home.words.join("; ")}` : "";
@@ -1282,7 +1317,7 @@ map.onPointer = (info: PointerInfo | null) => {
         : "";
   readout.textContent =
     `${formatDistance(info.xM)} E, ${formatDistance(info.yM)} S · cell ${info.cellX}, ${info.cellY}` +
-    `${height} · ${info.water ?? ""}${flowing}${home}${place}${vehicle}${crossing}${way}${plan}${source}${path}${field}${building}${earthwork}${deposit}`;
+    `${height} · ${info.water ?? ""}${flowing}${home}${place}${vehicle}${crossing}${way}${plan}${land}${source}${path}${field}${building}${earthwork}${deposit}`;
 };
 
 const scaleBar = byId("scalebar-bar");
@@ -1305,6 +1340,7 @@ byId("zoom-fit").addEventListener("click", () => map.fit());
 byId("show-rivers").addEventListener("change", (event) => {
   map.setRiversVisible((event.target as HTMLInputElement).checked);
 });
+byId("show-land").addEventListener("change", () => void syncLand());
 byId("lens").addEventListener("change", (event) => {
   const previousLens = lensLayer ? lensId(lensLayer) : 0;
   lensLayer = (event.target as HTMLSelectElement).value as LensLayer;
@@ -1558,6 +1594,7 @@ const hooks = {
       waysRev: s.snapshot?.waysRev ?? 0,
       vehiclesRev: s.snapshot?.vehiclesRev ?? 0,
       plansRev: s.snapshot?.plansRev ?? 0,
+      landRev: s.snapshot?.landRev ?? 0,
       waterRev: s.snapshot?.waterRev ?? 0,
       weatherRev: s.snapshot?.weatherRev ?? 0,
       weather: s.weather

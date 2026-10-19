@@ -4880,6 +4880,17 @@ and M6a gives rivers a daily flow.
         **Test:** grey with nothing to say; the words of a world given each; a world lived 20
         days has its settlement's residents, footprint, home plots and reckoned plots. No saves,
         content or wire change.
+      - *Second part, as built (2026-10-19): the land map.* The observer's Land toggle draws
+        every plot by what is recorded of it, and labelled so: paid for (a parcel given by offer,
+        its plan's fee at its good's food energy), reckoned worth (its receipt, the hours a year
+        it saved over the next best, shaded by the most any plot shown saved), or nothing
+        recorded, only outlined; the readout says which in those words. The kernel keeps no land
+        value (ADR-0030 §1): `GetLand` reads the plots and changes nothing, and the snapshot's
+        `land_rev` (0 while no plot is laid) tells the observer when to read again, which it does
+        only while the toggle is on. **Test:** reading the map leaves the world's encoded state
+        as it was, and a world lived 20 days has plots, some reckoned; the web decodes, labels and
+        finds plots, and the e2e shows the map drawn only while asked for. **Boundary:** wire
+        1.89; no saves or content change.
   - **M8d, buildings and earthquakes, and the M8 demo** (designed when reached, from
     `docs/briefs/m8-building.md`): frame grammar v3 (up to 4 storeys, style traits live);
     techniques that open structural systems rather than caps; a lateral margin; the earthquake

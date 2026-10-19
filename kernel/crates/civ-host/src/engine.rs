@@ -568,6 +568,11 @@ impl Engine {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::plans::plans_response(&w.sim)),
             },
+
+            Request::GetLand => match &self.world {
+                None => no_world(),
+                Some(w) => Reply::Response(frames::land::land_response(&w.sim)),
+            },
             Request::GetWays => match &self.world {
                 None => no_world(),
                 Some(w) => Reply::Response(frames::ways::ways_response(&w.sim)),
@@ -2306,6 +2311,53 @@ mod tests {
             "{}",
             words(c)
         );
+    }
+
+    #[test]
+    fn the_land_map_is_read_from_what_was_recorded_and_changes_nothing() {
+        // M8c slice CX (ADR-0030 §1): every plot, labelled paid, reckoned or nothing recorded,
+        // drawn from what was recorded; reading it changes no digest.
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetLand)),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Land");
+        h.engine
+            .world
+            .as_mut()
+            .expect("a world")
+            .sim
+            .advance_minutes(20 * 1440)
+            .expect("lives");
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        let before: Vec<_> = civ_sim::persist::encode_sections(sim)
+            .into_iter()
+            .map(|s| s.bytes)
+            .collect();
+        let Reply::Response(payload) = h.ask(Request::GetLand) else {
+            panic!("the land map is read");
+        };
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        let after: Vec<_> = civ_sim::persist::encode_sections(sim)
+            .into_iter()
+            .map(|s| s.bytes)
+            .collect();
+        assert_eq!(before, after, "reading the land map changes nothing");
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let land = response.body_as_land().expect("land");
+        assert_eq!(land.rev(), frames::land::land_rev(sim));
+        let plots = land.plots().expect("plots");
+        assert_eq!(plots.len(), sim.land().plots.len());
+        assert!(!plots.is_empty(), "homes were laid");
+        assert!(
+            plots.iter().any(|p| p.weighed() > 0),
+            "a plot chosen by its receipt"
+        );
+        for (p, q) in plots.iter().zip(&sim.land().plots) {
+            assert_eq!(p.weighed(), q.receipt.map_or(0, |r| r.weighed));
+            assert_eq!(p.paid_kcal(), frames::land::paid_kcal(sim, q) as f32);
+        }
     }
 
     #[test]

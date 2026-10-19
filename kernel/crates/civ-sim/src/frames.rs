@@ -36,6 +36,7 @@ pub mod firms;
 pub mod government;
 pub mod incidents;
 pub mod knowledge;
+pub mod land;
 pub mod markets;
 pub mod order;
 pub mod paths;

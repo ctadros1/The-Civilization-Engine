@@ -324,6 +324,14 @@ export class HostClient {
     return body.plans;
   }
 
+  /** The land map: every plot with what was paid for it and what its household reckoned it
+   * worth (M8c slice CX). */
+  async land(): Promise<M.LandInfo> {
+    const body = await this.query(M.getLand());
+    if (body.kind !== "land") throw new HostError("internal", "expected land");
+    return body.land;
+  }
+
   /** Every way people have worked on (wire 1.84). */
   async ways(): Promise<M.WaysInfo> {
     const body = await this.query(M.getWays());

@@ -3169,3 +3169,11 @@ people live per hectare, both across the whole settled area and on the house plo
 was paid for plots; how much of each town plan has been handed out or built over, and how many
 cases are still waiting; and how much families thought their plots were worth, measured in the
 walking time each saved them, by how far from the village hearth the plots lie.
+
+## 2026-10-19 — CX, second part: the land map
+
+**Built:** the map has a new Land switch. Turned on, it colours every plot by what is actually
+known about it: brown where a family paid the plan's fee for it, green where the family worked
+out how much walking it saved them (darker the more it saved), and just an outline where nothing
+was recorded. Pointing at a plot says which, in those words. The engine still keeps no "price" of
+land of its own; the map only shows what was paid and what families reckoned.

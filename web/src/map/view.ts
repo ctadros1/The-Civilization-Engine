@@ -38,6 +38,7 @@ import {
   type PlanLayer,
 } from "../plans.js";
 import { depositAt, depositLook } from "../deposits.js";
+import { landAt, landKind, landLook } from "../land.js";
 import { DITCH_COLOUR, PALISADE_COLOUR, changedTiles, detailTilesOver, earthworkAt, earthworkLook, sectorLook } from "../earthworks.js";
 import { fieldAt, fieldLook } from "../fields.js";
 import type { HostClient } from "../net/client.js";
@@ -61,6 +62,8 @@ import {
   type VehiclesInfo,
   type PlanInfo,
   type PlansInfo,
+  type LandInfo,
+  type LandPlot,
   type DepositInfo,
   type EarthworkInfo,
   type EarthworksInfo,
@@ -130,6 +133,8 @@ export interface PointerInfo {
   vehicle: VehicleInfo | null;
   /** The plan under the pointer and which of its layers, if any (M8c slice CT). */
   plan: { plan: PlanInfo; layer: PlanLayer } | null;
+  /** The plot under the pointer on the land map, while it is shown (M8c slice CX). */
+  land: LandPlot | null;
   /** The well, spring or place at the water's edge drawn at today under the pointer, if any, and
    * the rivers' flow today against their mean (null before the water is read; M6a slice AY). */
   well: WellInfo | null;
@@ -277,6 +282,9 @@ export class MapView {
   private readonly plansLayer = new Graphics();
   private plans: PlanInfo[] = [];
   private planScale = 0;
+  private readonly landLayer = new Graphics();
+  private land: LandPlot[] = [];
+  private landScale = 0;
   private readonly crossingsLayer = new Graphics();
   private crossings: CrossingInfo[] = [];
   private crossingScale = 0;
@@ -334,6 +342,7 @@ export class MapView {
       this.wornLayer,
       this.trailsLayer,
       this.waysLayer,
+      this.landLayer,
       this.plansLayer,
       this.rivers,
       this.fieldsLayer,
@@ -398,6 +407,8 @@ export class MapView {
     this.waysLayer.clear();
     this.plans = [];
     this.plansLayer.clear();
+    this.land = [];
+    this.landLayer.clear();
     this.vehicles = [];
     this.water = null;
     this.waterLayer.clear();
@@ -609,6 +620,30 @@ export class MapView {
           alpha: look.lineAlpha,
         });
       }
+    }
+  }
+
+  /** The land map, as the host last listed it (null to hide it: M8c slice CX). */
+  setLand(info: LandInfo | null): void {
+    this.land = info?.plots ?? [];
+    this.drawLand();
+    if (this.lastPointer) this.onPointer(this.pointerInfo(this.lastPointer.x, this.lastPointer.y));
+  }
+
+  /** Each plot labelled by what is recorded of it (ADR-0030 §1): paid for in brown, reckoned in
+   * green deeper as it saved more, nothing recorded only outlined; lines never thinner than about
+   * a pixel. */
+  private drawLand(): void {
+    const g = this.landLayer;
+    g.clear();
+    this.landScale = this.scale;
+    const pxM = 1 / Math.max(this.scale, 1e-6);
+    const most = this.land.reduce((m, p) => Math.max(m, p.reckonedH), 0);
+    for (const p of this.land) {
+      const look = landLook(p, most);
+      const r = p.rect;
+      if (look.fill > 0) g.rect(r.x, r.y, r.w, r.h).fill({ color: look.colour, alpha: look.fill });
+      g.rect(r.x, r.y, r.w, r.h).stroke({ width: Math.max(0.3, pxM), color: look.colour, alpha: 0.8 });
     }
   }
 
@@ -1182,6 +1217,7 @@ export class MapView {
       vehicle:
         this.vehicles.length > 0 ? vehicleAt(this.vehicles, this.positionsById(), xM, yM, 6 / this.scale) : null,
       plan: planAt(this.plans, xM, yM),
+      land: landAt(this.land, xM, yM),
       well: wellAt(this.water?.wells ?? [], xM, yM, 3 / this.scale),
       spring: springAt(this.water?.springs ?? [], xM, yM, 4 / this.scale),
       bank: bankAt(this.water?.banks ?? [], xM, yM, 4 / this.scale),
@@ -1208,6 +1244,9 @@ export class MapView {
       }
       if (this.plans.length > 0 && Math.abs(Math.log(scale / this.planScale)) > 0.15) {
         this.drawPlans();
+      }
+      if (this.land.length > 0 && Math.abs(Math.log(scale / this.landScale)) > 0.15) {
+        this.drawLand();
       }
       if (this.crossings.length > 0 && Math.abs(Math.log(scale / this.crossingScale)) > 0.15) {
         this.drawCrossings();
@@ -1413,6 +1452,13 @@ export class MapView {
           return { id: v.id, mode: v.mode, x, y, made: v.made, outWith: v.outWith, loadKg: v.loadKg, words: v.words };
         });
       })(),
+      // M8c slice CX: the land map's plots, by what is recorded of each.
+      land: {
+        plots: this.land.length,
+        paid: this.land.filter((p) => landKind(p) === "paid").length,
+        reckoned: this.land.filter((p) => landKind(p) === "reckoned").length,
+        nothing: this.land.filter((p) => landKind(p) === "nothing").length,
+      },
       // M8c slice CT: plans, each by its law and version, its layers' counts and its words.
       plans: this.plans.map((p) => ({
         law: p.law,

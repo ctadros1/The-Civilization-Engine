@@ -321,6 +321,7 @@ describe("decoders", () => {
       waysRev: 0,
       vehiclesRev: 0,
       plansRev: 0,
+      landRev: 0,
       waterRev: 0,
       incidentsRev: 0,
       bands: [],

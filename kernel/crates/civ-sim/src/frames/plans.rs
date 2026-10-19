@@ -103,7 +103,7 @@ pub fn plans_rev(sim: &Sim) -> u64 {
 }
 
 /// A rectangle in metres.
-fn rect_m(r: &RectCm) -> wire::PlanRect {
+pub(super) fn rect_m(r: &RectCm) -> wire::PlanRect {
     wire::PlanRect::new(
         r.x as f32 / 100.0,
         r.y as f32 / 100.0,

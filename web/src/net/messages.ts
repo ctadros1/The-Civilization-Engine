@@ -397,6 +397,9 @@ export interface Snapshot {
    * ground one reserves or one there falls, and with the ways while any plan was laid (0 = none
    * yet). Fetch them with GetPlans. */
   plansRev: number;
+  /** Wire 1.89: changes whenever a plot is laid or given up, or its receipt or the parcel it was
+   * given changes (0 = no plot yet). Fetch the land map with GetLand. */
+  landRev: number;
   /** Wire 1.61: changes whenever a well is begun, dug deeper, opens, rots, is relined, given up or
    * falls in, and with each day lived while the world has wells or springs (0 = neither). Fetch
    * them with GetWater. */
@@ -1853,6 +1856,22 @@ export interface PlansInfo {
   plans: PlanInfo[];
 }
 
+/** A plot on the land map (wire 1.89, M8c slice CX; ADR-0030 §1): drawn from what is recorded of
+ * it, never from a land value the kernel keeps: what was paid for it, kcal (0 for none), and what
+ * its household reckoned it worth, the hours a year it saved over the next best of `weighed`
+ * plots (0 weighed for none). Neither is "nothing recorded". */
+export interface LandPlot {
+  rect: PlanRect;
+  paidKcal: number;
+  reckonedH: number;
+  weighed: number;
+}
+
+export interface LandInfo {
+  rev: number;
+  plots: LandPlot[];
+}
+
 /** A well (wire 1.61, M6a slice AY; ADR-0021 §3). */
 export interface WellInfo {
   id: number;
@@ -2029,6 +2048,7 @@ export type ResponseBody =
   | { kind: "ways"; ways: WaysInfo }
   | { kind: "vehicles"; vehicles: VehiclesInfo }
   | { kind: "plans"; plans: PlansInfo }
+  | { kind: "land"; land: LandInfo }
   | { kind: "water"; water: WaterInfo }
   | { kind: "weather"; weather: WeatherReport }
   | { kind: "standing"; standing: StandingInfo }
@@ -2533,6 +2553,12 @@ export function getPlans(): Uint8Array {
   return query(b, W.QueryBody.GetPlans, W.GetPlans.endGetPlans(b));
 }
 
+export function getLand(): Uint8Array {
+  const b = new flatbuffers.Builder(16);
+  W.GetLand.startGetLand(b);
+  return query(b, W.QueryBody.GetLand, W.GetLand.endGetLand(b));
+}
+
 /** A page of incidents (wire 1.64): `settlement` 0 for every one, `kind` 0 for every kind. */
 export function getIncidents(settlement: number, kind: number, before: IncidentKey | null, limit: number): Uint8Array {
   const b = new flatbuffers.Builder(64);
@@ -2840,6 +2866,7 @@ export function decodeSnapshot(payload: Uint8Array): Snapshot {
     waysRev: Number(s.waysRev()),
     vehiclesRev: Number(s.vehiclesRev()),
     plansRev: Number(s.plansRev()),
+    landRev: Number(s.landRev()),
     waterRev: Number(s.waterRev()),
     incidentsRev: Number(s.incidentsRev()),
     bands: bandBriefs(s),
@@ -2986,6 +3013,22 @@ function planRects(n: number, at: (i: number) => W.PlanRect | null): PlanRect[] 
     if (r) out.push({ x: r.x(), y: r.y(), w: r.w(), h: r.h() });
   }
   return out;
+}
+
+function land(w: W.Land): LandInfo {
+  const plots: LandPlot[] = [];
+  for (let i = 0; i < w.plotsLength(); i++) {
+    const p = w.plots(i);
+    const r = p?.rect();
+    if (!p || !r) continue;
+    plots.push({
+      rect: { x: r.x(), y: r.y(), w: r.w(), h: r.h() },
+      paidKcal: p.paidKcal(),
+      reckonedH: p.reckonedH(),
+      weighed: p.weighed(),
+    });
+  }
+  return { rev: Number(w.rev()), plots };
 }
 
 function plans(w: W.Plans): PlansInfo {
@@ -4837,6 +4880,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.Plans()) as W.Plans | null;
       if (!f) break;
       return { kind: "plans", plans: plans(f) };
+    }
+    case W.ResponseBody.Land: {
+      const f = r.body(new W.Land()) as W.Land | null;
+      if (!f) break;
+      return { kind: "land", land: land(f) };
     }
     case W.ResponseBody.Incidents: {
       const f = r.body(new W.Incidents()) as W.Incidents | null;

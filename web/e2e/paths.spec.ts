@@ -64,6 +64,18 @@ test("a village shows the trails its people wore", async ({ page }) => {
         return rev === 0 ? drawn === 0 : drawn > 0;
       })
       .toBe(true);
+    // The land map (M8c slice CX) is drawn only while asked for, and then shows every plot laid.
+    expect((await page.evaluate(() => window.__TCE__.map())).land.plots).toBe(0);
+    await page.locator("#show-land").check();
+    await expect
+      .poll(async () => {
+        const rev = await page.evaluate(() => window.__TCE__.state().landRev);
+        const shown = (await page.evaluate(() => window.__TCE__.map())).land.plots;
+        return rev === 0 ? shown === 0 : shown > 0;
+      })
+      .toBe(true);
+    await page.locator("#show-land").uncheck();
+    await expect.poll(async () => (await page.evaluate(() => window.__TCE__.map())).land.plots).toBe(0);
     if (shots) await page.screenshot({ path: `${shots}/trails.png` });
   } finally {
     await host.stop();

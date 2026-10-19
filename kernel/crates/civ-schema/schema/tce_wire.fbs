@@ -422,6 +422,10 @@ table Snapshot {
   // ended, a building is begun on ground one reserves or one there falls, and with the ways while
   // any polity has laid a plan (0 = no plan yet). Fetch them with GetPlans when it differs.
   plans_rev: ulong (id: 25);
+  // Wire 1.89 (M8c slice CX): changes whenever a plot is laid or given up, or its receipt or the
+  // parcel it was given changes (0 = no plot yet). Fetch the land map with GetLand when it
+  // differs.
+  land_rev: ulong (id: 26);
 }
 
 // ---- Events: ordered log -------------------------------------------------------------------
@@ -752,8 +756,10 @@ table GetWays {}
 table GetPlans {}
 // Wire 1.86: every boat and cart.
 table GetVehicles {}
+// Wire 1.89: the land map, every plot.
+table GetLand {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak, GetCoverage, GetConflagration, GetFlood, GetStorm, GetWays, GetVehicles, GetPlans }
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak, GetCoverage, GetConflagration, GetFlood, GetStorm, GetWays, GetVehicles, GetPlans, GetLand }
 
 table Query {
   body: QueryBody (id: 1);
@@ -2803,7 +2809,25 @@ table Plans {
   plans: [PlanInfo] (id: 1);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo, Coverage, ConflagrationInfo, FloodInfo, StormInfo, Ways, Vehicles, Plans }
+// Wire 1.89 (M8c slice CX; ADR-0030 §1, §8): a plot on the land map, drawn from what is
+// recorded of it and labelled so, never from a land value the kernel keeps (it keeps none): what
+// was paid for it, kcal (a parcel given for a fee, 0 for none), and what its household reckoned
+// it worth, the hours a year it saved over the next best of `weighed` plots (0 weighed for none).
+// A plot with neither is "nothing recorded".
+table LandPlot {
+  rect: PlanRect (id: 0);
+  paid_kcal: float (id: 1);
+  reckoned_h: float (id: 2);
+  weighed: ushort (id: 3);
+}
+
+// Wire 1.89: every plot standing, in the order laid.
+table Land {
+  rev: ulong (id: 0);
+  plots: [LandPlot] (id: 1);
+}
+
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo, Coverage, ConflagrationInfo, FloodInfo, StormInfo, Ways, Vehicles, Plans, Land }
 
 table Response {
   body: ResponseBody (id: 1);

@@ -2715,7 +2715,7 @@ impl Polity {
             let l = &plan.layout;
             return format!(
                 "a plan (version {}) of {} by {} blocks of {:.0} by {:.0} m with {:.0} m streets \
-                 running {}, laying out {} parcels{}, its streets and square kept open",
+                 running {}, laying out {} parcels{}, its streets{} kept open",
                 plan.version,
                 plan.grid.blocks.0,
                 plan.grid.blocks.1,
@@ -2728,6 +2728,11 @@ impl Polity {
                     ""
                 } else {
                     " round a square"
+                },
+                if l.sites.is_empty() {
+                    ""
+                } else {
+                    " and square"
                 },
             );
         }

@@ -162,15 +162,23 @@ impl Population {
         }
     }
 
-    /// What polity `pi` saw of settlement `settlement`'s ground within memory: the plan's issues
-    /// it raises, in code order, and the households it was of, in id order.
+    /// What polity `pi` saw of settlement `settlement`'s ground within memory, and since the
+    /// plan in force was decided if one is (a new version answers what that plan did not): the
+    /// plan's issues it raises, in code order, and the households it was of, in id order.
     pub(super) fn ground_issues(
         &self,
         ctx: &Ctx,
         pi: usize,
         settlement: PermanentId,
     ) -> (Vec<IssueKind>, Vec<PermanentId>) {
-        let remember = ctx.now.day_index() - i64::from(ctx.params.crime.remember_days);
+        let decided = self.polities[pi]
+            .laws
+            .iter()
+            .filter(|l| l.kind == PolicyKind::Plan && l.status == LawStatus::InForce)
+            .filter_map(|l| l.decided.map(|t| t.day_index() + 1))
+            .max();
+        let remember = (ctx.now.day_index() - i64::from(ctx.params.crime.remember_days))
+            .max(decided.unwrap_or(i64::MIN));
         let seen = self.polities[pi]
             .ground_seen
             .iter()

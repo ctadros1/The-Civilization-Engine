@@ -4553,10 +4553,12 @@ and M6a gives rivers a daily flow.
         from there. **Plans are put forward by those they would serve,** as amendments and limits
         are: under the deliberator's draw alone, plans came before villages a month old with every
         household's stake against them. **New baselines:** 606 fields and 625 buildings against
-        609 and 625 (deterministic mode; 605 and 625 against 604 and 625 at Max), the same people.
-        The container was replaced during the slice and is faster: the same first ten days took
-        2.55 s a day against 3.25, and the 30 days 3.11 s against 3.95 (2.42 at Max against
-        2.97), so a day's cost is compared within a machine from here. **Tests:** the plan's six origins over a village of the second day (five laid, the
+        609 and 625 (deterministic mode; 605 and 625 against 604 and 625 at Max), the same people,
+        and a day as long (3.92 s against 3.95; 3.11 at Max against 2.97). **A new version answers what the
+        plan in force did not:** while one is in force, only what the polity saw of its ground
+        after it was decided raises a plan's issues (a first build passed four versions in a
+        village's first year, each over fewer parcels as the same old troubles were weighed
+        again). **Tests:** the plan's six origins over a village of the second day (five laid, the
         square refused at a hearth its homes stand round, none on a plot or a field, every
         household owing the same share and none yet gaining, all being housed), a proposal kept as
         laid, a second as its next version replacing the first, both and what the polity saw saved

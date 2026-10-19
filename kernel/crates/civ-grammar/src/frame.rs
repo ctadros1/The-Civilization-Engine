@@ -18,6 +18,10 @@
 //! the roof's area is its projection over the cosine of its pitch (11-04 §2.3). Part and group ids
 //! are semantic (research 11-03 §4.8): level, bay or frame line, kind and index, a byte each, so a
 //! building with one more bay keeps every id it had.
+//!
+//! Version 3 (ADR-0031 §1) has room for twelve bays and four storeys and names its own
+//! parameters (roof and post systems, wall ties, each storey's wall thickness and openings, a
+//! stair); with them all 0 it builds what version 2 builds.
 
 use std::f64::consts::TAU;
 
@@ -26,12 +30,29 @@ use crate::{
     PartKind, RECT_QUANTUM_CM, Space, SpaceUse, Stage, StageNeeds, TURN, cm, group_id, within,
 };
 
-/// Version of the frame grammar.
-pub const FRAME_VERSION: u16 = 2;
-/// Most bays a frame may have.
-pub const MAX_BAYS: i32 = 8;
-/// Most storeys a frame may have (research 11-05 §2.2: one to three in timber; two here).
-pub const MAX_STOREYS: u8 = 2;
+/// The newest version of the frame grammar (ADR-0031 §1). Versions 1 and 2 are frozen: what they
+/// expand to is pinned by their goldens.
+pub const FRAME_VERSION: u16 = 3;
+/// Most bays a frame may have (version 3; versions 1 and 2 have at most eight).
+pub const MAX_BAYS: i32 = 12;
+/// Most storeys a frame may have (version 3, ADR-0031 §1; versions 1 and 2 have at most two:
+/// research 11-05 §2.2, one to three in timber).
+pub const MAX_STOREYS: u8 = 4;
+
+/// The frame version builders design under: version 2 until they weigh what version 3 adds,
+/// storeys above two, ties, trusses and walls by storey (M8d slice CZ, ADR-0031 §2). Content's
+/// programs are held to what it allows.
+pub const FRAME_DESIGN_VERSION: u16 = 2;
+
+/// The most bays and storeys a frame of `version` may have.
+pub fn frame_limits(version: u16) -> (i32, u8) {
+    if version >= 3 {
+        (MAX_BAYS, MAX_STOREYS)
+    } else {
+        (8, 2)
+    }
+}
+
 /// Most component groups an expansion may have (research 11-06 §5.1: 8 to 32).
 pub const MAX_GROUPS: usize = 32;
 /// Most rafters a slope has in a bay, or joists a floor has in a bay: indexes fit a byte.
@@ -78,6 +99,26 @@ pub mod frame_params {
     pub const STYLE: usize = 12;
     /// Number of style traits.
     pub const STYLE_TRAITS: usize = 4;
+
+    // Version 3 (ADR-0031 §1). In versions 1 and 2 every one of these is 0.
+
+    /// The roof system: 0, rafters from the eaves to the ridge; 1, a truss at each frame line
+    /// carrying purlins.
+    pub const ROOF_SYSTEM: usize = 16;
+    /// The post system: 0, posts through every storey to the plates; 1, each storey's posts
+    /// standing on the frame below.
+    pub const POST_SYSTEM: usize = 17;
+    /// Wall ties: 0, none; 1, floors and roof framed into the walls at each storey.
+    pub const TIES: usize = 18;
+    /// The first of four: each storey's mass-wall thickness, centimetres, the ground storey's
+    /// first; 0 takes [`WALL_CM`].
+    pub const STOREY_WALL_CM: usize = 19;
+    /// The first of four: the share of each storey's wall left open, thousandths.
+    pub const OPENINGS: usize = 23;
+    /// A stair: 0, none; 1, a stair from each storey to the next.
+    pub const STAIR: usize = 27;
+    /// The first parameter no version has yet; it and those after it are 0.
+    pub const SPARE: usize = 28;
 
     /// The long wall to the right of the length's direction (`+v`).
     pub const SIDE_RIGHT: i32 = 0;
@@ -296,9 +337,10 @@ impl<'r> Layout<'r> {
     /// Checks `spec` against `rules` (ADR-0009 §2) and lays it out.
     fn new(spec: &BuildingSpec, rules: &'r FrameRules) -> Result<Layout<'r>, GrammarError> {
         use frame_params as fp;
-        if spec.version != 1 && spec.version != FRAME_VERSION {
+        if !(1..=FRAME_VERSION).contains(&spec.version) {
             return Err(GrammarError::UnknownVersion(spec.version));
         }
+        let (most_bays, most_storeys) = frame_limits(spec.version);
         let Footprint::Rect {
             x: cx,
             y: cy,
@@ -336,7 +378,7 @@ impl<'r> Layout<'r> {
         // What the spec chose, against what the program allows.
         let bays = p[fp::BAYS];
         within("bays", bays, rules.bays)?;
-        within("bays", bays, (1, MAX_BAYS))?;
+        within("bays", bays, (1, most_bays))?;
         for (name, v) in [("length", length), ("width", width)] {
             if v <= 0 || v % RECT_QUANTUM_CM != 0 {
                 return refuse(format!(
@@ -356,7 +398,7 @@ impl<'r> Layout<'r> {
             storeys,
             (i32::from(rules.storeys.0), i32::from(rules.storeys.1)),
         )?;
-        within("storeys", storeys, (1, i32::from(MAX_STOREYS)))?;
+        within("storeys", storeys, (1, i32::from(most_storeys)))?;
         let eave = p[fp::EAVE_CM];
         within("storey height", eave, rules.eave_cm)?;
         let pitch_cd = p[fp::PITCH_CENTIDEG];
@@ -405,7 +447,21 @@ impl<'r> Layout<'r> {
             .iter()
             .any(|&t| t != 0)
         {
-            return refuse("frame version 1 and 2 have no style traits");
+            return refuse("no frame version lays out style traits yet");
+        }
+        // Version 3's parameters: none before it, and in it only those laid out so far.
+        if let Some(i) = (fp::ROOF_SYSTEM..crate::PARAMS).find(|&i| p[i] != 0) {
+            return refuse(if spec.version < 3 {
+                format!("parameter {i} is unknown to frame version {}", spec.version)
+            } else {
+                format!("parameter {i} is not laid out by frame version 3 yet")
+            });
+        }
+        if storeys > 2 && p[fp::STAIR] == 0 {
+            return refuse(format!(
+                "{storeys} storeys need a stair (parameter {})",
+                fp::STAIR
+            ));
         }
         // A program with no raised floor allows only 0; one whose floor may stand on the ground
         // or be raised allows 0 among the rest.
@@ -2080,6 +2136,80 @@ mod tests {
         // A jointed frame takes 0.5 to 2 pd8 a square metre of footprint (11-04 §2.2).
         let frame_pd8_m2 = e.stages[Stage::Frame.index()].labour_h / 8.0 / 37.5;
         assert!((0.5..=2.0).contains(&frame_pd8_m2), "{frame_pd8_m2}");
+    }
+
+    #[test]
+    fn version_three_with_nothing_of_its_own_expands_as_version_two() {
+        // ADR-0031 §1: what version 3 adds is chosen by its own parameters; with them all 0 it
+        // builds what version 2 builds, and only the version it records differs.
+        for (spec, rules, _) in goldens() {
+            let v2 = expand_frame(
+                &BuildingSpec {
+                    version: 2,
+                    ..spec.clone()
+                },
+                &rules,
+            )
+            .expect("version 2 expands");
+            let mut v3 = expand_frame(&BuildingSpec { version: 3, ..spec }, &rules)
+                .expect("version 3 expands");
+            assert_eq!(v3.version, 3);
+            v3.version = v2.version;
+            assert_eq!(v3, v2);
+        }
+    }
+
+    #[test]
+    fn version_three_has_room_for_more_bays_and_its_parameters_are_its_own() {
+        let mut r = house();
+        r.bays = (1, 12);
+        let at = |version: u16, bays: i32| {
+            let mut s = spec(bays, 250, 500);
+            s.version = version;
+            s
+        };
+        assert!(
+            expand_frame(&at(2, 9), &r).is_err(),
+            "version 2 has at most eight bays"
+        );
+        assert!(expand_frame(&at(3, 12), &r).is_ok());
+        assert!(expand_frame(&at(3, 13), &r).is_err());
+        // A version 3 parameter is unknown before it, and refused by name.
+        let mut old = at(2, 3);
+        old.params[fp::TIES] = 1;
+        assert_eq!(
+            expand_frame(&old, &r),
+            Err(GrammarError::OutOfRange(format!(
+                "parameter {} is unknown to frame version 2",
+                fp::TIES
+            )))
+        );
+        let mut spare = at(3, 3);
+        spare.params[fp::SPARE] = 1;
+        assert!(expand_frame(&spare, &r).is_err());
+        // Three storeys need a stair.
+        let mut r3 = r.clone();
+        r3.storeys = (1, 4);
+        let mut tall = at(3, 3);
+        tall.storeys = 3;
+        tall.params[fp::JOIST_CM] = 18;
+        assert_eq!(
+            expand_frame(&tall, &r3),
+            Err(GrammarError::OutOfRange(format!(
+                "3 storeys need a stair (parameter {})",
+                fp::STAIR
+            )))
+        );
+    }
+
+    #[test]
+    fn a_spec_keeps_the_parameters_its_version_has() {
+        let mut s = three_bays_one_loft();
+        assert_eq!(s.params_in_use().len(), crate::PARAMS_BEFORE_V3);
+        s.version = 2;
+        assert_eq!(s.params_in_use().len(), crate::PARAMS_BEFORE_V3);
+        s.version = 3;
+        assert_eq!(s.params_in_use().len(), PARAMS);
     }
 
     #[test]

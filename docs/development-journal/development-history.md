@@ -3203,3 +3203,15 @@ each building is checked once against the shaking, some crack and some fall, and
 then argue about rules on height or tied walls. Villages can also raise public buildings, such as
 a common storehouse, a hall or a watchtower, but only when they have a real problem that building
 would solve. The milestone ends with a demonstration run of a port town and an inland town.
+
+## 2026-10-19 — CY, first two parts: why nobody builds a framed house, and room in the plans
+
+**Found:** nobody in any world can ever build a framed house on their own. The people who found a
+village don't know how, and nothing they do leads them to work it out; only the observer can teach
+it. And when a family decides what to build, the price of land never comes into it, only where to
+put it. Both are now on the list for the next step.
+
+**Built:** the building plans now have room for taller and longer buildings, up to four storeys
+and twelve bays, and for the new parts that come next (roof trusses, posts stacked storey on
+storey, walls tied in at each floor, windows and stairs). Nothing uses that room yet, so every
+village builds exactly what it did before.

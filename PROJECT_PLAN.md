@@ -4922,6 +4922,23 @@ and M6a gives rivers a daily flow.
       content, goldens for version 3 with versions 1 and 2 unchanged, saves and wire. *Tests:*
       goldens, refusals naming their parameter, an old save loading exactly. *Observer:* the
       inspector's words per storey.
+      - *First part, as built (2026-10-19): why no frame is built*, probed and recorded in §9.
+      - *Second part, as built (2026-10-19): version 3's spec.* A spec carries 32 parameters
+        (`PARAMS`), of which a design before frame version 3 has and saves only the first 16
+        (`BuildingSpec::params_in_use`), so every saved building keeps its bytes. The frame
+        grammar knows versions 1 to 3 (`FRAME_VERSION`): version 3 may have 12 bays and four
+        storeys (`frame_limits`), and names its own parameters, the roof and post systems, wall
+        ties, each storey's mass-wall thickness and openings, and a stair, which the versions
+        before it refuse by number. None is laid out yet, so version 3 refuses any of them that
+        is not 0, and three storeys or more without a stair; with all of them 0 it expands as
+        version 2 does. Builders design under `FRAME_DESIGN_VERSION` (2), and content's programs
+        are held to its limits, until slice CZ. **Test:** the goldens of versions 1 and 2 are
+        unchanged; each golden's spec as version 3 expands as version 2; 12 bays in version 3,
+        not 9 in version 2; a version 3 parameter refused by name in version 2; three storeys
+        without a stair refused; 16 parameters kept before version 3 and 32 from it; a version
+        3 building saved and loaded exactly. **Exact:** the bench's village of three
+        settlements, 30 days in both modes, kept every section's digest but the save header's.
+        **Boundary:** saves unchanged (a version 3 design saves 32); no content or wire change.
     - **CZ, tall and wide under gravity:** walls' own weight, restraint by ties, purlins,
       storeyed posts and joints, live load by use; `trussed_roof`, `storeyed_frame` and
       `tied_masonry` as content; caution thickening mass walls; trust kept by every technique

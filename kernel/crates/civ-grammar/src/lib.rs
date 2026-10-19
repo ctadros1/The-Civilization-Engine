@@ -24,15 +24,20 @@ use std::f64::consts::TAU;
 pub mod frame;
 
 pub use frame::{
-    FRAME_VERSION, FrameRules, MAX_BAYS, MAX_GROUPS, MAX_STOREYS, expand_frame, frame_materials,
-    frame_params,
+    FRAME_DESIGN_VERSION, FRAME_VERSION, FrameRules, MAX_BAYS, MAX_GROUPS, MAX_STOREYS,
+    expand_frame, frame_limits, frame_materials, frame_params,
 };
 
 /// Version of the hut grammar.
 pub const HUT_VERSION: u16 = 1;
 
-/// Integer parameters a spec carries (ADR-0009 §2: eight in M1, sixteen since grammar v2).
-pub const PARAMS: usize = 16;
+/// Integer parameters a spec carries (ADR-0009 §2: eight in M1, sixteen since grammar v2;
+/// ADR-0031 §1: thirty-two for frame version 3).
+pub const PARAMS: usize = 32;
+
+/// Parameters a spec of a version before frame version 3 carries: the hut and frame versions 1
+/// and 2 use only the first sixteen, and are saved with sixteen (ADR-0031 §1).
+pub const PARAMS_BEFORE_V3: usize = 16;
 
 /// The grammar a program's buildings are expanded by.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -195,6 +200,19 @@ pub struct BuildingSpec {
     pub materials: Vec<String>,
     /// Keys any variation the grammar draws (the hut draws none).
     pub style_seed: u64,
+}
+
+impl BuildingSpec {
+    /// The parameters its grammar version has: the first sixteen before frame version 3, all
+    /// thirty-two since (ADR-0031 §1). Only these are saved, so a design of an earlier version is
+    /// saved as it always was.
+    pub fn params_in_use(&self) -> &[i32] {
+        if self.version >= 3 {
+            &self.params
+        } else {
+            &self.params[..PARAMS_BEFORE_V3]
+        }
+    }
 }
 
 /// A construction stage (ADR-0004 §2), in the order the work goes.

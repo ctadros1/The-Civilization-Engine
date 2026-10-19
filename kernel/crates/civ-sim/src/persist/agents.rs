@@ -7350,7 +7350,8 @@ fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
         .map(|b| {
             let s = &b.spec;
             let program = fbb.create_string(&s.program);
-            let params = fbb.create_vector(&s.params);
+            // Only what its version has: a design before frame version 3 is saved as ever.
+            let params = fbb.create_vector(s.params_in_use());
             let materials: Vec<&str> = s.materials.iter().map(String::as_str).collect();
             let materials = strings(&mut fbb, &materials);
             let (x_cm, y_cm) = s.footprint.centre();

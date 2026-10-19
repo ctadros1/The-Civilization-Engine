@@ -7,8 +7,8 @@ use std::f64::consts::TAU;
 
 use civ_core::time::DAYS_PER_YEAR;
 use civ_grammar::{
-    BuildingSpec, FRAME_VERSION, Footprint, HUT_VERSION, PARAMS, ProgramRules, Stage, StageNeeds,
-    TURN, expand, frame_materials, frame_params, hut_params,
+    BuildingSpec, Footprint, HUT_VERSION, PARAMS, ProgramRules, Stage, StageNeeds, TURN, expand,
+    frame_materials, frame_params, hut_params,
 };
 use civ_land::{Building, Land, RectCm};
 use civ_world::nav::NavGrid;
@@ -595,7 +595,7 @@ pub fn design_cautious(
             let angle = (facing - TURN as i32 / 4).rem_euclid(TURN as i32) as u16;
             Some(BuildingSpec {
                 program: def.id.clone(),
-                version: FRAME_VERSION,
+                version: civ_grammar::FRAME_DESIGN_VERSION,
                 footprint: Footprint::Rect {
                     x: cm(f64::from(at.0)),
                     y: cm(f64::from(at.1)),

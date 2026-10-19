@@ -6,7 +6,9 @@
 use std::collections::BTreeMap;
 
 use civ_agents::params::{BuildingDef, FrameDesign};
-use civ_grammar::{FrameRules, Grammar, HutRules, MAX_BAYS, MAX_STOREYS, ProgramRules, SpaceUse};
+use civ_grammar::{
+    FRAME_DESIGN_VERSION, FrameRules, Grammar, HutRules, ProgramRules, SpaceUse, frame_limits,
+};
 use civ_land::PlotUse;
 use serde::Deserialize;
 
@@ -489,16 +491,18 @@ impl BuildingFile {
     fn frame_problems(&self, f: &Frame, p: &mut Vec<String>) {
         let t = "frame";
         ranged(p, t, "bays", f.bays[0], f.bays[1], 1);
-        if f.bays[1] > MAX_BAYS {
+        // Held to the version builders design under (ADR-0031 §1).
+        let (most_bays, most_storeys) = frame_limits(FRAME_DESIGN_VERSION);
+        if f.bays[1] > most_bays {
             p.push(format!(
-                "`frame.bays` may reach at most {MAX_BAYS} (got {})",
+                "`frame.bays` may reach at most {most_bays} (got {})",
                 f.bays[1]
             ));
         }
         let [s0, s1] = f.storeys;
-        if !(s0 >= 1 && s0 <= s1 && s1 <= MAX_STOREYS) {
+        if !(s0 >= 1 && s0 <= s1 && s1 <= most_storeys) {
             p.push(format!(
-                "`frame.storeys` must be [least, most] within 1..={MAX_STOREYS} (got [{s0}, {s1}])"
+                "`frame.storeys` must be [least, most] within 1..={most_storeys} (got [{s0}, {s1}])"
             ));
         }
         for (name, [lo, hi]) in [

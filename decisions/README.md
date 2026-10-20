@@ -38,6 +38,7 @@ the milestone is too big and gets split.
 | [0029](0029-ways-modes-and-traffic.md) | Ways, modes and traffic | Accepted | M8b |
 | [0030](0030-planning-and-land.md) | Planning and land | Accepted | M8c |
 | [0031](0031-tall-public-buildings-and-shaking.md) | Tall buildings, public buildings and shaking | Accepted | M8d |
+| [0032](0032-resolution-per-settlement.md) | Resolution per settlement, the household day and time skips | Accepted | M9 |
 
 ## Template
 

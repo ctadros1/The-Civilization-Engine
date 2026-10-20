@@ -435,12 +435,17 @@ research result.
 ### 4.5 LOD strategy
 
 - **Simulation:** everyone is simulated in full through v1.
-- **Aggregate model (M9):** a settlement can run as cohorts (age × sex ×
-  occupation × wealth × ideology bins) with rates calibrated from the agent
-  simulation. When focused, individuals are synthesized from the cohort
-  distributions. Notables persist as named individuals in both modes.
-- **Time skips:** the same aggregate machinery would serve a "skip 100 years"
-  feature. That feature is a **deferred decision** (§8).
+- **Aggregate model (M9, amended 2026-10-20 by ADR-0032):** every person,
+  household, tie, debt, office and asset stays one record at every resolution;
+  only how a settlement's day is computed changes. A settlement is Detailed (as
+  through v1) or household-resolved: each household's day scored once at
+  midnight by the live decision rules, its members' hours shared among what they
+  would choose, each block applied through the behaviour's own effect. Cohorts
+  with people synthesised on focus are not built: they would delete history no
+  synthesis recovers (research 01-04 §1.1).
+- **Time skips (decided in M9, ADR-0032 §7):** kept, as fast runs of the same
+  machinery with every settlement household-resolved; nothing is generated after
+  the fact.
 - **Rendering:** full crowd near the camera; instanced vertex-animated
   characters at mid distance; density or impostors far away. Only the followed
   agent gets a full skeletal rig.
@@ -5456,9 +5461,43 @@ and M6a gives rivers a daily flow.
         to the figure reached; the target PC is not yet measured. Slice DE is closed, and with it
         **M8d** and **M8**.
 
+**M9: Aggregate LOD & scale.**
+- *Contents:* a resolution per settlement that keeps every person (ADR-0032), 10–30
+  settlements, 100k+ people, time skips decided, a climate change god tool.
+- *Demo:* a world of at least ten settlements and 100,000 people, one followed in full detail and
+  the rest household-resolved, skipped ahead decades with the climate forced, every person still
+  one record the observer can open.
+- *Proves:* the engine scales by resolving routine days coarsely without losing who anyone is.
+- *Split (2026-10-20, §9 "M9 design"):* three parts, one ADR,
+  [ADR-0032](decisions/0032-resolution-per-settlement.md), from the brief
+  `docs/briefs/m9-lod.md` (research 01-04, 01-03, 03-03).
+  - **M9a, the household day** (ADR-0032 §1–§5).
+    - **DF**: the switch that changes nothing: a resolution per settlement as a run setting held
+      to midnight, demotion and promotion, the invariants function, Gate A's switch tests, a
+      household-resolved settlement living only its needs (sleep, meals, water) in tests, and the
+      bench founding many settlements with some household-resolved.
+    - **DG**: the household day for the core behaviours: pure planning by `decide::candidates`,
+      hours shared by the softmax's probabilities, blocks applied through each behaviour's own
+      effect function in household id order (gather, farm, build, make, dig, leisure, ask, trade
+      within the settlement), company from the hearth pool, path wear along cached routes.
+    - **DH**: every other behaviour resolved as a block or listed as not taken (ADR-0032 §2),
+      incidents at a block's end, a settlement held Detailed while a fire, band, siege or called
+      gathering holds.
+    - **DI**: Gate C (`consistency --resolution household`), planning in parallel and exact at
+      1–8 workers, measured.
+  - **M9b, many settlements** (ADR-0032 §6, §8).
+    - **DJ**: worlds founded with up to 30 groups; memory a person measured and cut where it can
+      be exactly; 100k founded, lived and saved on the bench.
+    - **DK**: the host chooses resolutions by the observer's focus with hysteresis and pins; the
+      wire carries each settlement's resolution and a household-resolved person's block; the web
+      shows both.
+  - **M9c, skips, climate and the demo** (ADR-0032 §7, §9).
+    - **DL**: "skip to" as a host command and in the web.
+    - **DM**: the climate forcing tool: kernel, saves, chronicle, wire and web.
+    - **DN**: the M9 demo and the gate (100k, ten or more settlements, ≥ 0.1 years a minute).
+
 **Post-v1 (ordered, not sized):**
-- **M9, Aggregate LOD & scale:** cohort model, 10–30 settlements, 100k+
-  agents; **decide time skips**; climate change god tool.
+- **M9, Aggregate LOD & scale:** planned above (ADR-0032).
 - **M10, Industrial content:** steam, factories, rail, gas light; capability
   rungs for industrial services; healthcare and education as full services;
   fiat money.
@@ -5533,7 +5572,7 @@ and M6a gives rivers a daily flow.
 
 ### Open questions
 
-1. **Time skips:** keep or drop? Decide in M9, once the aggregate model exists.
+1. **Time skips:** kept, as fast runs of the household day (decided in M9, ADR-0032 §7).
 2. **LLM backend:** local vs API, which model, and cost limits. Deferred to M12.
 3. **"Art style" beyond architecture:** flags, emblems, clothing, painted and
    sculpted art objects. These are probably generated from the culture palette
@@ -5587,11 +5626,11 @@ One line each. Don't re-litigate without a reason written next to the entry.
 - **Technology:** full progression from an authored technology graph with no era gates; discovery and diffusion driven by each society's institutions.
 - **Default start:** early agrarian; start point configurable as a known-technology set.
 - **Time:** endless simulation, detailed over decades, with speed controls.
-- **Time skips:** undecided; deferred to M9.
+- **Time skips:** kept, as fast runs of the same machinery (M9, ADR-0032 §7).
 - **Scale:** largest city 10–50k at first, growing with optimization. Settlements: start with 2–3 and grow later.
 - **Cognition:** two tiers, every citizen on utility AI plus about 1% (≤ 500) notables with a deliberation layer.
 - **LLMs:** a pluggable `Deliberator`, off by default.
-- **Spatial LOD:** full simulation everywhere now; aggregate cohort model later (M9), shared with time skips.
+- **Spatial LOD:** full simulation everywhere through v1; from M9 a resolution per settlement that keeps every person (ADR-0032), shared with time skips.
 - **1x speed:** daily life visible (1 in-game day per about 15 min); Accelerated mode resolves days statistically.
 - **Buildings:** all procedural (a Rust grammar plus a Nanite kit assembled at runtime), including monuments; no hand-authored landmarks.
 - **Interiors:** fake (interior mapping plus occupancy lights); building data in the UI; no enterable interiors.
@@ -6798,6 +6837,33 @@ One line each. Don't re-litigate without a reason written next to the entry.
   centre; a watch round begins there. These are kernel constants (`LATE_NOTICE_MIN`,
   `TOWER_SIGHT_M`, `AT_TOWER_M`), revisited if the demo (DE) shows no tower ever proposed where
   fires burn unseen, or one that never helps.
+- **M9 design (2026-10-20, plan §7):** from the brief (`docs/briefs/m9-lod.md`), which reads
+  01-04, 01-03 and 03-03, one ADR, [ADR-0032](decisions/0032-resolution-per-settlement.md).
+  **Plan §4.5 amended:** the aggregate model keeps every person, household, tie, debt, office and
+  asset as one record at every resolution and changes only how a settlement's day is computed;
+  cohorts with people synthesised on focus would delete what no lifting recovers (01-04 §1.1),
+  and are a later lever, built only if the household day misses M9's figure. **Why a household
+  day:** M8 ended at about 5 ms a person-day against 1.6 µs for a year a minute at 100k; half a
+  day is deciding (14.5 decisions a person-day), so a lighter person who still decides each
+  activity saves 1.3–1.5× at most. A household-resolved settlement scores each household once at
+  midnight with the live `decide::candidates`, shares its members' waking hours by the softmax's
+  probabilities, and applies each block through the behaviour's own effect function in household
+  id order, planning in parallel. **The brief's open questions, answered:** (1) blocks that leave
+  home lay wear along cached routes; (2) `Visit`, `Fetch` beyond the settlement, `Carry`, `Band`
+  and the fire behaviours are not taken while household-resolved, and a settlement holds Detailed
+  while a fire burns, a band is out, a siege line stands or a gathering is called; (3) focus
+  decides, with 30 days' hysteresis, and the observer may pin; worlds of three settlements or
+  fewer stay wholly Detailed; (4) Gate C compares a year on Gate B's fixtures, with a ten-year
+  horizon on the smoke seeds reported ungraded until its tolerances are set; (5) "skip to" is a
+  host command over the same machinery (plan §8's first question: kept); (6) the climate forcing
+  acts on the whole map, which has one weather series; (7) cohorts only if the gate misses;
+  (8) M9's gate is 100,000 people in ten or more settlements, all but one household-resolved, at
+  ≥ 0.1 simulated years a real minute on the container (1.64 s a day), memory recorded against
+  plan §4.6, amended to the figure reached if it misses (ADR-0028 §1's rule). **Settlements side
+  by side** (ADR-0028 §3's deferral) are not built: parallel planning of household days uses the
+  cores without splitting every table by settlement. **Order:** the switch that changes nothing
+  first (01-04 §4.10), then the core behaviours, the rest, Gate C, many settlements, the observer,
+  skips, climate and the demo.
 - **The M8 demo and the gate (2026-10-20, M8d slice DE, ADR-0031 §8, ADR-0028 §1):** two
   groups of 500 lived three years (`demos/m8/m8-demo.txt`). No household built a frame though 24
   knew framing: a first home is the cheapest covering shape (a hut), and a new home is begun only

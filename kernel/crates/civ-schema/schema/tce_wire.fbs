@@ -594,7 +594,14 @@ table SendStorm {
   direction_deg: float (id: 1);
 }
 
-union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave, Plague, Drought, SetFire, RaiseRiver, SendStorm }
+// Wire 1.90 (M8d slice DA; ADR-0031 §4): the observer shakes the ground under a settlement, or the
+// whole map when `settlement` is 0, with a lateral share of every building's weight, 0.02 to 0.6.
+table Shake {
+  strength: float (id: 0);
+  settlement: ulong (id: 1);
+}
+
+union CommandBody { NewWorld, SaveWorld, LoadWorld, SetClock, CancelTask, RecoverWorld, SpawnFamily, RunUntil, IntroduceTechnique, PlaceDeposit, Whisper, TellOfIdeology, SendAgitator, Bless, SendWave, Plague, Drought, SetFire, RaiseRiver, SendStorm, Shake }
 
 table Command {
   body: CommandBody (id: 1);

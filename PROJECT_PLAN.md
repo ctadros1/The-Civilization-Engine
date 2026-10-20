@@ -5153,6 +5153,19 @@ and M6a gives rivers a daily flow.
         the strongest shaking, each building that fell has a failed group and one entry told
         "when the ground shook", their dead summed alike. **Boundary:** saves 162 (section
         `quakes`).
+      - *Third part, as built (2026-10-20): the observer's shaking, and its own row* (ADR-0031
+        §4). `Request::Shake { strength, settlement }` (wire 1.90, `Shake`, settlement 0 for the
+        whole map) reaches `Sim::shake`, and the host answers with what fell and cracked. The
+        observer's tool bar has "Shake the ground" with a strength in intensity words (felt by
+        all 0.05, strong 0.1, very strong 0.2, severe 0.35, violent 0.6), the observer's words
+        only. The dashboard's Shaking row reports the shakings, buildings reached, fell, cracked
+        and the dead, and the structural failures row leaves out what fell at the minute an
+        observer's shaking struck (ADR-0022 §14's rule by origin). The earthquake panel, the
+        damage layer and incidents per settlement are the next part. **Test:** the request
+        round-trips the wire; the host refuses it without a world, out of range or for no such
+        settlement, and answers what fell; the Shaking row sums its worlds; the web builds the
+        command, and end to end the button shakes a sixty-day village and the chronicle records
+        it as the observer's. **Boundary:** wire 1.90.
     - **DB, after the shaking:** `MostStoreys` and `TiedWalls`, forecasts of floor lost and of
       losses avoided, lessons from what was seen to fall. *Tests:* a shaken village proposes a
       rule only where someone knows the remedy; a household planning height opposes it.

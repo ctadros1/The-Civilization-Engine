@@ -2369,6 +2369,14 @@ export function tellOfIdeology(person: number, ideology: number): Uint8Array {
  * index into Welcome.diseases. They have it as if they took it elsewhere; whether it goes further
  * is the disease's and people's. Refused for someone who already has it.
  */
+/** Shakes the ground under settlement `settlement`, or the whole map when it is 0, with a sideways
+ * share `strength` of every building's weight (god tool, wire 1.90). */
+export function shake(strength: number, settlement: bigint): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  const body = W.Shake.createShake(b, strength, settlement);
+  return command(b, W.CommandBody.Shake, body);
+}
+
 /** Holds back the rain for `months` months, `depth` standard deviations dry (god tool, wire 1.63). */
 export function drought(months: number, depth: number): Uint8Array {
   const b = new flatbuffers.Builder(32);

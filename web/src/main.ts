@@ -1046,6 +1046,9 @@ const tellOfIdeology = (person: number, ideology: number): Promise<void> =>
 const plague = (person: number, disease: number): Promise<void> =>
   influence(M.plague(person, disease), "Brought");
 
+/** Shakes the ground over the whole map; what fell shows in the snapshot that follows. */
+const shake = (strength: number): Promise<void> => influence(M.shake(strength, 0n), "The ground shook");
+
 /** Holds back the rain, then asks for the weather again at once: the hold shows before the next
  * day is lived. */
 async function drought(months: number, depth: number): Promise<void> {
@@ -1400,6 +1403,7 @@ bindUi(store, {
   setPlacingWave,
   setPlacingFire,
   drought,
+  shake,
 });
 
 /**

@@ -669,10 +669,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FieldStage {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_COMMAND_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_COMMAND_BODY: u8 = 20;
+pub const ENUM_MAX_COMMAND_BODY: u8 = 21;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 21] = [
+pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 22] = [
   CommandBody::NONE,
   CommandBody::NewWorld,
   CommandBody::SaveWorld,
@@ -694,6 +694,7 @@ pub const ENUM_VALUES_COMMAND_BODY: [CommandBody; 21] = [
   CommandBody::SetFire,
   CommandBody::RaiseRiver,
   CommandBody::SendStorm,
+  CommandBody::Shake,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -722,9 +723,10 @@ impl CommandBody {
   pub const SetFire: Self = Self(18);
   pub const RaiseRiver: Self = Self(19);
   pub const SendStorm: Self = Self(20);
+  pub const Shake: Self = Self(21);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 20;
+  pub const ENUM_MAX: u8 = 21;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::NewWorld,
@@ -747,6 +749,7 @@ impl CommandBody {
     Self::SetFire,
     Self::RaiseRiver,
     Self::SendStorm,
+    Self::Shake,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -772,6 +775,7 @@ impl CommandBody {
       Self::SetFire => Some("SetFire"),
       Self::RaiseRiver => Some("RaiseRiver"),
       Self::SendStorm => Some("SendStorm"),
+      Self::Shake => Some("Shake"),
       _ => None,
     }
   }
@@ -10883,6 +10887,119 @@ impl ::core::fmt::Debug for SendStorm<'_> {
       ds.finish()
   }
 }
+pub enum ShakeOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Shake<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Shake<'a> {
+  type Inner = Shake<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Shake<'a> {
+  pub const VT_STRENGTH: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Shake { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ShakeArgs
+  ) -> ::flatbuffers::WIPOffset<Shake<'bldr>> {
+    let mut builder = ShakeBuilder::new(_fbb);
+    builder.add_settlement(args.settlement);
+    builder.add_strength(args.strength);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn strength(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Shake::VT_STRENGTH, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Shake::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Shake<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<f32>("strength", Self::VT_STRENGTH, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ShakeArgs {
+    pub strength: f32,
+    pub settlement: u64,
+}
+impl<'a> Default for ShakeArgs {
+  #[inline]
+  fn default() -> Self {
+    ShakeArgs {
+      strength: 0.0,
+      settlement: 0,
+    }
+  }
+}
+
+pub struct ShakeBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ShakeBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_strength(&mut self, strength: f32) {
+    self.fbb_.push_slot::<f32>(Shake::VT_STRENGTH, strength, 0.0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(Shake::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ShakeBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ShakeBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Shake<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Shake<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Shake");
+      ds.field("strength", &self.strength());
+      ds.field("settlement", &self.settlement());
+      ds.finish()
+  }
+}
 pub enum CommandOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -11232,6 +11349,21 @@ impl<'a> Command<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_shake(&self) -> Option<Shake<'a>> {
+    if self.body_type() == CommandBody::Shake {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { Shake::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Command<'_> {
@@ -11262,6 +11394,7 @@ impl ::flatbuffers::Verifiable for Command<'_> {
           CommandBody::SetFire => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SetFire>>("CommandBody::SetFire", pos),
           CommandBody::RaiseRiver => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<RaiseRiver>>("CommandBody::RaiseRiver", pos),
           CommandBody::SendStorm => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<SendStorm>>("CommandBody::SendStorm", pos),
+          CommandBody::Shake => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Shake>>("CommandBody::Shake", pos),
           _ => Ok(()),
         }
      })?
@@ -11451,6 +11584,13 @@ impl ::core::fmt::Debug for Command<'_> {
         },
         CommandBody::SendStorm => {
           if let Some(x) = self.body_as_send_storm() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        CommandBody::Shake => {
+          if let Some(x) = self.body_as_shake() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

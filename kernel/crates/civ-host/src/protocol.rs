@@ -132,6 +132,14 @@ pub enum Request {
         wind_speed_ms: f32,
         direction_deg: f32,
     },
+    /// Shake the ground under a settlement, or the whole map (god tool, M8d slice DA; ADR-0031
+    /// §4).
+    Shake {
+        /// The lateral share of every building's weight, 0.02 to 0.6.
+        strength: f32,
+        /// The settlement's id, or 0 for the whole map.
+        settlement: u64,
+    },
     /// Hold back the rain over the settlement for a while (god tool, M6a slice BA, ADR-0021 §8).
     Drought {
         /// How many months it holds, 3 to 24.
@@ -623,6 +631,13 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                     Ok(Request::SendStorm {
                         wind_speed_ms: b.wind_speed_ms(),
                         direction_deg: b.direction_deg(),
+                    })
+                }
+                wire::CommandBody::Shake => {
+                    let b = command.body_as_shake().ok_or_else(|| missing("command"))?;
+                    Ok(Request::Shake {
+                        strength: b.strength(),
+                        settlement: b.settlement(),
                     })
                 }
                 other => Err(format!("unknown command {}", other.0)),
@@ -1385,6 +1400,28 @@ mod tests {
             Ok(Request::Drought {
                 months: 9,
                 depth: 1.5
+            })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::Shake::create(
+            &mut fbb,
+            &wire::ShakeArgs {
+                strength: 0.25,
+                settlement: 7,
+            },
+        );
+        let root = wire::Command::create(
+            &mut fbb,
+            &wire::CommandArgs {
+                body_type: wire::CommandBody::Shake,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Command, &finish(fbb, root)),
+            Ok(Request::Shake {
+                strength: 0.25,
+                settlement: 7
             })
         );
         let mut fbb = FlatBufferBuilder::new();

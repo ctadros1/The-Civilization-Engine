@@ -149,6 +149,9 @@ struct RaiseRiverBuilder;
 struct SendStorm;
 struct SendStormBuilder;
 
+struct Shake;
+struct ShakeBuilder;
+
 struct Command;
 struct CommandBuilder;
 
@@ -889,11 +892,12 @@ enum class CommandBody : uint8_t {
   SetFire = 18,
   RaiseRiver = 19,
   SendStorm = 20,
+  Shake = 21,
   MIN = NONE,
-  MAX = SendStorm
+  MAX = Shake
 };
 
-inline const CommandBody (&EnumValuesCommandBody())[21] {
+inline const CommandBody (&EnumValuesCommandBody())[22] {
   static const CommandBody values[] = {
     CommandBody::NONE,
     CommandBody::NewWorld,
@@ -915,13 +919,14 @@ inline const CommandBody (&EnumValuesCommandBody())[21] {
     CommandBody::Drought,
     CommandBody::SetFire,
     CommandBody::RaiseRiver,
-    CommandBody::SendStorm
+    CommandBody::SendStorm,
+    CommandBody::Shake
   };
   return values;
 }
 
 inline const char * const *EnumNamesCommandBody() {
-  static const char * const names[22] = {
+  static const char * const names[23] = {
     "NONE",
     "NewWorld",
     "SaveWorld",
@@ -943,13 +948,14 @@ inline const char * const *EnumNamesCommandBody() {
     "SetFire",
     "RaiseRiver",
     "SendStorm",
+    "Shake",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameCommandBody(CommandBody e) {
-  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::SendStorm)) return "";
+  if (::flatbuffers::IsOutRange(e, CommandBody::NONE, CommandBody::Shake)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesCommandBody()[index];
 }
@@ -1036,6 +1042,10 @@ template<> struct CommandBodyTraits<tce::wire::RaiseRiver> {
 
 template<> struct CommandBodyTraits<tce::wire::SendStorm> {
   static const CommandBody enum_value = CommandBody::SendStorm;
+};
+
+template<> struct CommandBodyTraits<tce::wire::Shake> {
+  static const CommandBody enum_value = CommandBody::Shake;
 };
 
 template <bool B = false>
@@ -6818,6 +6828,64 @@ struct SendStorm::Traits {
   static auto constexpr Create = CreateSendStorm;
 };
 
+struct Shake FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef ShakeBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_STRENGTH = 4,
+    VT_SETTLEMENT = 6
+  };
+  float strength() const {
+    return GetField<float>(VT_STRENGTH, 0.0f);
+  }
+  uint64_t settlement() const {
+    return GetField<uint64_t>(VT_SETTLEMENT, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<float>(verifier, VT_STRENGTH, 4) &&
+           VerifyField<uint64_t>(verifier, VT_SETTLEMENT, 8) &&
+           verifier.EndTable();
+  }
+};
+
+struct ShakeBuilder {
+  typedef Shake Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_strength(float strength) {
+    fbb_.AddElement<float>(Shake::VT_STRENGTH, strength, 0.0f);
+  }
+  void add_settlement(uint64_t settlement) {
+    fbb_.AddElement<uint64_t>(Shake::VT_SETTLEMENT, settlement, 0);
+  }
+  explicit ShakeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Shake> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Shake>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Shake> CreateShake(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    float strength = 0.0f,
+    uint64_t settlement = 0) {
+  ShakeBuilder builder_(_fbb);
+  builder_.add_settlement(settlement);
+  builder_.add_strength(strength);
+  return builder_.Finish();
+}
+
+struct Shake::Traits {
+  using type = Shake;
+  static auto constexpr Create = CreateShake;
+};
+
 struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef CommandBuilder Builder;
   struct Traits;
@@ -6891,6 +6959,9 @@ struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   const tce::wire::SendStorm *body_as_SendStorm() const {
     return body_type() == tce::wire::CommandBody::SendStorm ? static_cast<const tce::wire::SendStorm *>(body()) : nullptr;
+  }
+  const tce::wire::Shake *body_as_Shake() const {
+    return body_type() == tce::wire::CommandBody::Shake ? static_cast<const tce::wire::Shake *>(body()) : nullptr;
   }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
@@ -6980,6 +7051,10 @@ template<> inline const tce::wire::RaiseRiver *Command::body_as<tce::wire::Raise
 
 template<> inline const tce::wire::SendStorm *Command::body_as<tce::wire::SendStorm>() const {
   return body_as_SendStorm();
+}
+
+template<> inline const tce::wire::Shake *Command::body_as<tce::wire::Shake>() const {
+  return body_as_Shake();
 }
 
 struct CommandBuilder {
@@ -25682,6 +25757,10 @@ inline bool VerifyCommandBody(::flatbuffers::VerifierTemplate<B> &verifier, cons
     }
     case CommandBody::SendStorm: {
       auto ptr = reinterpret_cast<const tce::wire::SendStorm *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case CommandBody::Shake: {
+      auto ptr = reinterpret_cast<const tce::wire::Shake *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

@@ -128,6 +128,13 @@ describe("builders", () => {
     expect([body.months(), body.depth()]).toEqual([9, 1.5]);
   });
 
+  it("builds the observer's shaking", () => {
+    const command = W.Command.getRootAsCommand(bb(M.shake(0.35, 7n)));
+    expect(command.bodyType()).toBe(W.CommandBody.Shake);
+    const body = command.body(new W.Shake()) as W.Shake;
+    expect([body.strength(), body.settlement()]).toEqual([0.3499999940395355, 7n]);
+  });
+
   it("builds the observer's agitator and a blessing or curse", () => {
     const sent = W.Command.getRootAsCommand(bb(M.sendAgitator(120, 340, 1)));
     expect(sent.bodyType()).toBe(W.CommandBody.SendAgitator);

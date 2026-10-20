@@ -464,6 +464,10 @@ impl Engine {
                 wind_speed_ms,
                 direction_deg,
             } => self.send_storm(wind_speed_ms, direction_deg),
+            Request::Shake {
+                strength,
+                settlement,
+            } => self.shake(strength, settlement),
             Request::GetRaster(query) => match &self.world {
                 None => no_world(),
                 Some(w) => match frames::raster_response(
@@ -1492,6 +1496,36 @@ impl Engine {
             Ok(_) => {
                 let text = format!(
                     "The observer sent a gale of {wind_speed_ms:.1} m/s from {direction_deg:.0}°"
+                );
+                self.changed = true;
+                self.urgent = true;
+                self.event(wire::EventKind::Info, text.clone());
+                ack(&text)
+            }
+            Err(e) => Reply::Error(wire::ErrorCode::BadRequest, e),
+        }
+    }
+
+    /// The observer shakes the ground under settlement `settlement`, or the whole map when it is
+    /// 0, with a lateral share `strength` of every building's weight (M8d slice DA, ADR-0031 §4).
+    fn shake(&mut self, strength: f32, settlement: u64) -> Reply {
+        if let Some(busy) = self.busy() {
+            return busy;
+        }
+        let Some(world) = self.world.as_mut() else {
+            return no_world();
+        };
+        let at = civ_core::PermanentId::from_raw(settlement);
+        match world.sim.shake(f64::from(strength), at) {
+            Ok(_) => {
+                let q = world.sim.people().quakes.list.last();
+                let count = |o: civ_agents::quake::Outcome| {
+                    q.map_or(0, |q| q.shaken.iter().filter(|s| s.outcome == o).count())
+                };
+                let text = format!(
+                    "The observer shook the ground with {strength:.2} of a building's weight: {} fell, {} cracked",
+                    count(civ_agents::quake::Outcome::Fell),
+                    count(civ_agents::quake::Outcome::Cracked),
                 );
                 self.changed = true;
                 self.urgent = true;
@@ -3069,6 +3103,55 @@ mod tests {
                 && lines[0].contains("; brought by the observer, as if they took it elsewhere"),
             "{lines:?}"
         );
+    }
+
+    #[test]
+    fn the_observer_shakes_the_ground_and_is_told_what_fell() {
+        let mut h = Harness::new(None, None);
+        let shake = |strength: f32, settlement: u64| Request::Shake {
+            strength,
+            settlement,
+        };
+        assert_eq!(
+            error_code(&h.ask(shake(0.2, 0))),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Shaking");
+        assert_eq!(
+            error_code(&h.ask(shake(0.9, 0))),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        assert_eq!(
+            error_code(&h.ask(shake(0.2, 999_999))),
+            Some(wire::ErrorCode::BadRequest)
+        );
+        let settlement = h
+            .engine
+            .world
+            .as_ref()
+            .expect("a world")
+            .sim
+            .land()
+            .settlements[0]
+            .id
+            .get();
+        let reply = h.ask(shake(0.3, settlement));
+        let Reply::Response(ack) = reply else {
+            panic!("shaken: {reply:?}");
+        };
+        let message = flatbuffers::root::<wire::Response>(&ack)
+            .expect("decodes")
+            .body_as_ack()
+            .and_then(|a| a.message())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(
+            message.starts_with("The observer shook the ground with 0.30 of a building's weight: "),
+            "{message}"
+        );
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        let q = sim.people().quakes.list.last().expect("a record");
+        assert_eq!(q.settlement.map(|s| s.get()), Some(settlement));
     }
 
     #[test]

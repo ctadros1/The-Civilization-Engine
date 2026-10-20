@@ -178,6 +178,9 @@ export interface Actions {
   /** Hold back the rain for `months` months, `depth` standard deviations dry (god tool, M6a
    * slice BA). */
   drought(months: number, depth: number): Promise<void>;
+  /** Shake the ground over the whole map with a sideways share `strength` of every building's
+   * weight (god tool, M8d slice DA). */
+  shake(strength: number): Promise<void>;
 }
 
 const MAX_SEED = (1n << 64n) - 1n;
@@ -597,6 +600,10 @@ export function bindUi(store: Store, actions: Actions): void {
     const months = Number($<HTMLSelectElement>("drought-months").value) || 12;
     const depth = Number($<HTMLSelectElement>("drought-depth").value) || 1.5;
     void actions.drought(months, depth);
+  });
+  $<HTMLButtonElement>("shake-ground").addEventListener("click", () => {
+    const strength = Number($<HTMLSelectElement>("shake-strength").value) || 0.2;
+    void actions.shake(strength);
   });
   document.addEventListener("keydown", (event) => {
     if (event.key !== " " || isTyping(event.target)) return;
@@ -3250,6 +3257,10 @@ export function bindUi(store: Store, actions: Actions): void {
     const rain = $<HTMLButtonElement>("hold-rain");
     rain.disabled = !open || !world;
     for (const id of ["drought-months", "drought-depth"]) $<HTMLSelectElement>(id).disabled = rain.disabled;
+    // The shaking (M8d slice DA): the whole map, once.
+    const shake = $<HTMLButtonElement>("shake-ground");
+    shake.disabled = !open || !world;
+    $<HTMLSelectElement>("shake-strength").disabled = shake.disabled;
     // The fire (M6b slice BC): the building clicked is set alight.
     const fire = $<HTMLButtonElement>("set-fire");
     fire.disabled = !open || !world;

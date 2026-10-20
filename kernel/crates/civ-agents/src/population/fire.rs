@@ -1359,6 +1359,13 @@ impl Population {
     fn kindle(&mut self, ctx: &mut Ctx, b: &Building, kindled: Kindled) -> u32 {
         let id = self.fires.list.len() as u32 + 1;
         let settlement = self.household(b.household).and_then(|x| x.settlement);
+        // A fire not put out before it reached a roof: measured against what a watch tower would
+        // answer (M8d slice DC).
+        if let Some(pi) = settlement.and_then(|s| self.polity_of(s)) {
+            self.polities[pi]
+                .measured_mut(ctx.now.date().year)
+                .roof_fires += 1;
+        }
         self.fires.list.push(Fire {
             id,
             building: b.id,

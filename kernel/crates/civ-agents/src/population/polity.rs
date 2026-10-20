@@ -1915,6 +1915,12 @@ impl Population {
         }
     }
 
+    /// Polity `pi`'s gathering, if one is called, sits now and decides: for tests.
+    #[doc(hidden)]
+    pub fn decide_gathering_for_tests(&mut self, ctx: &mut Ctx, pi: usize) {
+        self.decide_gathering(ctx, pi);
+    }
+
     /// What a law closing the source at `cell` would bring each household of settlement
     /// `settlement`, points, as its members would weigh it at the gathering: for tests.
     #[doc(hidden)]
@@ -4053,6 +4059,12 @@ impl Population {
         let Some(g) = self.polities[pi].gathering.take() else {
             return;
         };
+        // Held at the hearth, in the open: measured against what a hall would answer (M8d slice
+        // DC).
+        let wet = ctx.land.weather.today.wet;
+        let m = self.polities[pi].measured_mut(ctx.now.date().year);
+        m.gatherings += 1;
+        m.wet_gatherings += u32::from(wet);
         if let Some(law) = g.law {
             self.decide_law(ctx, pi, &g, law);
         }

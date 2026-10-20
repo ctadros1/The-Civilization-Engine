@@ -2143,6 +2143,30 @@ pub struct Polity {
     /// Gifts its sponsors gave before its gatherings, oldest first, within
     /// [`PolityParams::owed_memory_days`] (M7c slice BY).
     pub patron_gifts: Vec<PatronGift>,
+    /// What its settlements measured of the losses a public building would answer, a year each,
+    /// the latest [`MEASURED_YEARS`] (M8d slice DC, ADR-0031 §6).
+    pub measured: Vec<Measured>,
+}
+
+/// Years of [`Measured`] a polity keeps.
+pub const MEASURED_YEARS: usize = 3;
+
+/// What a polity's settlements measured in a year of the losses a public building would answer
+/// (M8d slice DC, ADR-0031 §6: public programs answer measured losses only): its common store's
+/// spoilage, the gatherings it held in the open and how many of them on a wet day, and the fires
+/// that reached a roof, noticed only once the covering had caught.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Measured {
+    /// The year.
+    pub year: i64,
+    /// Food its common store lost to spoiling, kcal.
+    pub spoiled_kcal: f64,
+    /// Gatherings it held, all in the open.
+    pub gatherings: u32,
+    /// Of them, those held on a wet day.
+    pub wet_gatherings: u32,
+    /// Buildings whose covering caught: fires not noticed before they reached a roof.
+    pub roof_fires: u32,
 }
 
 /// How a polity came to hold a settlement besides its seat (M6c slice BM, ADR-0023 §9). Codes are
@@ -2539,7 +2563,27 @@ impl Polity {
             seated: Vec::new(),
             elections: Vec::new(),
             patron_gifts: Vec::new(),
+            measured: Vec::new(),
         }
+    }
+
+    /// Year `year`'s measured losses, begun if new; the oldest beyond [`MEASURED_YEARS`] are
+    /// let go (M8d slice DC).
+    pub fn measured_mut(&mut self, year: i64) -> &mut Measured {
+        if self.measured.last().is_none_or(|m| m.year < year) {
+            self.measured.push(Measured {
+                year,
+                ..Measured::default()
+            });
+            let drop = self.measured.len().saturating_sub(MEASURED_YEARS);
+            self.measured.drain(..drop);
+        }
+        let i = self
+            .measured
+            .iter()
+            .rposition(|m| m.year <= year)
+            .unwrap_or(0);
+        &mut self.measured[i]
     }
 
     /// The term of office law `law`, if it is held for one (M7a slice BN).
@@ -3011,6 +3055,7 @@ impl Polity {
         }
         self.stores.resize(goods.len(), 0.0);
         let days = (t.minutes() - self.stores_at.minutes()) as f64 / 1440.0;
+        let mut spoiled_kcal = 0.0;
         for (g, (kg, d)) in self.stores.iter_mut().zip(goods).enumerate() {
             let half_life = if sheltered && d.sheltered_half_life_days > 0.0 {
                 d.sheltered_half_life_days
@@ -3020,10 +3065,15 @@ impl Polity {
             if half_life > 0.0 && *kg > 0.0 {
                 let after = *kg * 0.5f64.powf(days / half_life);
                 self.flows.add(crate::person::Flow::Spoiled, g, *kg - after);
+                spoiled_kcal += (*kg - after) * d.kcal_per_kg;
                 *kg = after;
             }
         }
         self.stores_at = t;
+        // Measured against what a storehouse would answer (M8d slice DC).
+        if spoiled_kcal > 0.0 {
+            self.measured_mut(t.date().year).spoiled_kcal += spoiled_kcal;
+        }
     }
 }
 

@@ -125,7 +125,8 @@ use super::{
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
-    SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, finish, section, section_root,
+    single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -672,6 +673,7 @@ enum Schema {
     V161,
     V162,
     V163,
+    V164,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -849,7 +851,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V160 => Schema::V160,
         SCHEMA_V161 => Schema::V161,
         SCHEMA_V162 => Schema::V162,
-        SAVE_SCHEMA_VERSION => Schema::V163,
+        SCHEMA_V163 => Schema::V163,
+        SAVE_SCHEMA_VERSION => Schema::V164,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2043,6 +2046,21 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let patron_gifts = (!gifts.is_empty()).then(|| fbb.create_vector(&gifts));
+            // Measured losses (schema 164, M8d slice DC).
+            let measured: Vec<save::MeasuredSave> = p
+                .measured
+                .iter()
+                .map(|m| {
+                    save::MeasuredSave::new(
+                        m.year,
+                        m.spoiled_kcal,
+                        m.gatherings,
+                        m.wet_gatherings,
+                        m.roof_fires,
+                    )
+                })
+                .collect();
+            let measured = (!measured.is_empty()).then(|| fbb.create_vector(&measured));
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -2109,6 +2127,7 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     encroachments,
                     encroachment_seen,
                     encroachment_orders,
+                    measured,
                 },
             )
         })
@@ -2966,6 +2985,31 @@ fn decode_polities(
                 election: x.election(),
             });
         }
+        // Measured losses (schema 164, M8d slice DC); before, nothing measured.
+        let mut measured: Vec<civ_agents::polity::Measured> = Vec::new();
+        for m in p.measured().iter().flatten() {
+            let ok = m.spoiled_kcal().is_finite()
+                && m.spoiled_kcal() >= 0.0
+                && m.wet_gatherings() <= m.gatherings()
+                && measured.last().is_none_or(|l| l.year < m.year());
+            if !ok {
+                return Err(bad(format!(
+                    "polity {id} measures a year out of order, or losses out of range"
+                )));
+            }
+            measured.push(civ_agents::polity::Measured {
+                year: m.year(),
+                spoiled_kcal: m.spoiled_kcal(),
+                gatherings: m.gatherings(),
+                wet_gatherings: m.wet_gatherings(),
+                roof_fires: m.roof_fires(),
+            });
+        }
+        if measured.len() > civ_agents::polity::MEASURED_YEARS {
+            return Err(bad(format!(
+                "polity {id} measures more years than it keeps"
+            )));
+        }
         // Patron gifts (schema 131, M7c slice BY).
         let mut patron_gifts = Vec::new();
         for g in p.patron_gifts().iter().flatten() {
@@ -3135,6 +3179,7 @@ fn decode_polities(
             plans,
             ground_seen,
             encroachments,
+            measured,
         });
     }
     Ok(out)
@@ -4990,7 +5035,8 @@ fn carried(
         | Schema::V160
         | Schema::V161
         | Schema::V162
-        | Schema::V163 => {
+        | Schema::V163
+        | Schema::V164 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5328,7 +5374,8 @@ fn decode_households(
             | Schema::V160
             | Schema::V161
             | Schema::V162
-            | Schema::V163 => {
+            | Schema::V163
+            | Schema::V164 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

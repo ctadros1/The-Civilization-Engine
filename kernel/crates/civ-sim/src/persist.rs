@@ -457,6 +457,8 @@ pub const SCHEMA_V161: u32 = 161;
 /// The ground shaken, before households remembered the storeys and ties of a building that gave
 /// way.
 pub const SCHEMA_V162: u32 = 162;
+/// Households' storeys and ties of what gave way, before polities measured their losses.
+pub const SCHEMA_V163: u32 = 163;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

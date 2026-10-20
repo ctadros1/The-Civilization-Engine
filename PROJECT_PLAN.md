@@ -5250,6 +5250,26 @@ and M6a gives rivers a daily flow.
       ties evidence, four dates and stalls. *Tests:* no proposal without a measured loss; a
       stalled hall costs its sponsor `Counsel` evidence; the ledger conserved over a project.
       *Observer:* the project panel.
+      - *Parts, planned (2026-10-20):* no generic public work exists (crossings, wells, banks,
+        palisades and passing places are each their own path), so DC builds one on the passing
+        place's shape: (1) losses measured; (2) a storehouse raised by law: `Building.polity`,
+        `PolicyKind::RaiseBuilding` with a program and the measured loss it answers, an issue
+        per loss, each household's forecast its share of the loss averted against its equal
+        share of the work, a site near the hearth or on a plan's square (not counted an
+        encroachment), work given by choice like a passing place's (the hours include making and
+        carrying its materials), and a finished storehouse sheltering the common store; (3) a
+        hall and a watch tower as content programs answering wet gatherings and fires that
+        reach a roof; (4) four dates and a stall, evidence for payers, sponsor and builders, pay
+        and patrons; (5) the observer's project panel.
+      - *First part, as built (2026-10-20): the losses each public program answers, measured*
+        (ADR-0031 §6: public programs answer measured losses only). Each polity keeps a record a
+        year, the latest three (saves 164): the food its common store lost to spoiling, at the
+        hearth or under its keeper's roof (a storehouse's loss); the gatherings it held, all in
+        the open at the hearth, and how many of them on a wet day (a hall's); and the buildings
+        whose covering caught, fires nobody put out before they reached a roof (a watch tower's).
+        Nothing proposes on them yet. **Test:** grain left a month in the common store spoils and
+        is measured; a gathering is counted, and counted wet on a wet day; a hut set alight is
+        counted; the record round-trips a save. **Boundary:** saves 164.
     - **DD, style over seven traits:** opening share, ornament, finish and symmetry; taste over
       seven traits; sighting scaled by height; copying only what one could build; the clocks
       over all seven. *Tests:* a one-settlement world drifts as before in the three old traits;

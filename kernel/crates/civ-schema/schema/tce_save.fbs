@@ -1493,6 +1493,20 @@ table PolitySave {
   encroachment_seen: [EncroachmentSeenSave] (id: 40);
   // What a finding ordered for each encroachment (schema 161).
   encroachment_orders: [EncroachmentOrderSave] (id: 41);
+  // Schema 164 (M8d slice DC): what its settlements measured of the losses a public building
+  // would answer, a year each, oldest first; absent before.
+  measured: [MeasuredSave] (id: 42);
+}
+
+// A year's measured losses (schema 164, M8d slice DC): the year, the food its common store lost
+// to spoiling (kcal), the gatherings it held and how many on a wet day, and the fires that reached
+// a roof.
+struct MeasuredSave {
+  year: long;
+  spoiled_kcal: double;
+  gatherings: uint;
+  wet_gatherings: uint;
+  roof_fires: uint;
 }
 
 // A plan a law lays (schema 156, M8c slice CT, second part; ADR-0030 §2): its version, its

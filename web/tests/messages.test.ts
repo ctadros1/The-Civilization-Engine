@@ -1343,6 +1343,7 @@ describe("decoders", () => {
       outbreak: 1,
       open: true,
       conflagration: 0,
+      quake: 0,
     };
     // The list, with where the next page goes on from.
     let b = new flatbuffers.Builder(512);
@@ -1400,6 +1401,7 @@ describe("decoders", () => {
           words: "A fire at Hazelford since 02:14 on 3 May of year 2: 4 buildings caught so far; it burns",
         },
       ],
+      quakes: [],
     });
     // An incident's page: its steps and links, and its layers kept apart.
     b = new flatbuffers.Builder(512);
@@ -1532,6 +1534,111 @@ describe("decoders", () => {
     const fire = W.Command.getRootAsCommand(new flatbuffers.ByteBuffer(M.setFire(61)));
     expect(fire.bodyType()).toBe(W.CommandBody.SetFire);
     expect((fire.body(new W.SetFire()) as W.SetFire).building()).toBe(61n);
+  });
+
+  it("decodes a shaking in the incidents and its page, and builds its query (wire 1.91)", () => {
+    const shakenRow = (b: flatbuffers.Builder, id: number): flatbuffers.Offset => {
+      const who = b.createString("The hut of Ada's household");
+      const happened = b.createString("fell when the ground shook (it met 0.31 of its weight sideways)");
+      const known = b.createString("No sightings recorded");
+      const polity = b.createString("No gathering was told of it");
+      W.IncidentRow.startIncidentRow(b);
+      W.IncidentRow.addKind(b, 11);
+      W.IncidentRow.addId(b, id);
+      W.IncidentRow.addMinute(b, 1440n * 400n + 60n);
+      W.IncidentRow.addAt(b, W.Vec2.createVec2(b, 120, 340));
+      W.IncidentRow.addWho(b, 77n);
+      W.IncidentRow.addWhoName(b, who);
+      W.IncidentRow.addHappened(b, happened);
+      W.IncidentRow.addKnown(b, known);
+      W.IncidentRow.addPolity(b, polity);
+      W.IncidentRow.addObserver(b, 4);
+      W.IncidentRow.addQuake(b, 2);
+      return W.IncidentRow.endIncidentRow(b);
+    };
+    const quakeWords =
+      "The ground shook at Hazelford on 3 May of year 2 with 0.30 of a building's weight: 12 buildings reached; 2 fell, 3 cracked; 1 died inside";
+    const quake = {
+      id: 2,
+      settlement: 5,
+      at: 1440 * 400 + 60,
+      strength: 0.30000001192092896,
+      reached: 12,
+      fell: 2,
+      cracked: 3,
+      deaths: 1,
+      observer: 4,
+      words: quakeWords,
+    };
+    // The list carries the shaking beside its buildings' rows.
+    let b = new flatbuffers.Builder(512);
+    const rows = W.Incidents.createRowsVector(b, [shakenRow(b, 5)]);
+    const totals = W.Incidents.createTotalsVector(b, [W.IncidentTotal.createIncidentTotal(b, 11, 5, 0, 0, 5)]);
+    let words = b.createString(quakeWords);
+    const quakes = W.Incidents.createQuakesVector(b, [
+      W.QuakeRow.createQuakeRow(b, 2, 5n, BigInt(1440 * 400 + 60), 0.3, 12, 2, 3, 1, 4, words),
+    ]);
+    W.Incidents.startIncidents(b);
+    W.Incidents.addMinute(b, 1440n * 401n);
+    W.Incidents.addRows(b, rows);
+    W.Incidents.addTotals(b, totals);
+    W.Incidents.addQuakes(b, quakes);
+    const list = W.Incidents.endIncidents(b);
+    let body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.Incidents, list)));
+    expect(body.kind).toBe("incidents");
+    if (body.kind !== "incidents") return;
+    expect(body.incidents.quakes).toEqual([quake]);
+    expect(body.incidents.conflagrations).toEqual([]);
+    expect(body.incidents.rows.map((r) => [r.kind, r.id, r.who, r.quake, r.whoName])).toEqual([
+      [11, 5, 77, 2, "The hut of Ada's household"],
+    ]);
+    // Its page: who sent it, what it did, and the buildings that fell or cracked.
+    b = new flatbuffers.Builder(512);
+    words = b.createString(quakeWords);
+    const qrow = W.QuakeRow.createQuakeRow(b, 2, 5n, BigInt(1440 * 400 + 60), 0.3, 12, 2, 3, 1, 4, words);
+    const cause = b.createString("Sent by the observer (one recorded influence)");
+    const linkWords = b.createString("sent by the observer");
+    const link = W.IncidentLink.createIncidentLink(b, 0, 0, 4n, linkWords);
+    const incidents = W.QuakeInfo.createIncidentsVector(b, [shakenRow(b, 4), shakenRow(b, 5)]);
+    const summary = W.QuakeInfo.createSummaryVector(b, [
+      b.createString("Buildings reached: 12; 2 fell, 3 cracked, 7 stood"),
+    ]);
+    W.QuakeInfo.startQuakeInfo(b);
+    W.QuakeInfo.addRow(b, qrow);
+    W.QuakeInfo.addCause(b, cause);
+    W.QuakeInfo.addCauseLink(b, link);
+    W.QuakeInfo.addIncidents(b, incidents);
+    W.QuakeInfo.addSummary(b, summary);
+    const info = W.QuakeInfo.endQuakeInfo(b);
+    body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.QuakeInfo, info)));
+    expect(body.kind).toBe("quake");
+    if (body.kind !== "quake") return;
+    expect(body.quake.row).toEqual(quake);
+    expect(body.quake.cause).toBe("Sent by the observer (one recorded influence)");
+    expect(body.quake.causeLink).toEqual({ relation: "caused_by", target: "influence", id: 4, words: "sent by the observer" });
+    expect(body.quake.incidents.map((r) => [r.kind, r.id, r.quake])).toEqual([
+      [11, 4, 2],
+      [11, 5, 2],
+    ]);
+    expect(body.quake.summary).toEqual(["Buildings reached: 12; 2 fell, 3 cracked, 7 stood"]);
+    // A building's page links to its shaking by the target the kernel names 12.
+    b = new flatbuffers.Builder(256);
+    const r = shakenRow(b, 5);
+    const partWords = b.createString("part of the shaking of 3 May of year 2");
+    const links = W.IncidentInfo.createLinksVector(b, [W.IncidentLink.createIncidentLink(b, 1, 12, 2n, partWords)]);
+    W.IncidentInfo.startIncidentInfo(b);
+    W.IncidentInfo.addRow(b, r);
+    W.IncidentInfo.addLinks(b, links);
+    const page = W.IncidentInfo.endIncidentInfo(b);
+    body = M.decodeResponse(finish(b, W.Response.createResponse(b, W.ResponseBody.IncidentInfo, page)));
+    expect(body.kind).toBe("incident");
+    if (body.kind !== "incident") return;
+    expect(body.incident.links).toEqual([
+      { relation: "part_of", target: "quake", id: 2, words: "part of the shaking of 3 May of year 2" },
+    ]);
+    const q = W.Query.getRootAsQuery(new flatbuffers.ByteBuffer(M.getQuake(2)));
+    expect(q.bodyType()).toBe(W.QueryBody.GetQuake);
+    expect((q.body(new W.GetQuake()) as W.GetQuake).id()).toBe(2);
   });
 
   it("decodes a raster tile response", () => {

@@ -5177,6 +5177,23 @@ and M6a gives rivers a daily flow.
         every wall's share of its weight it meets sideways before giving way, fired brick holds
         more than rubble and rubble more than mud brick, and the light frame more than any of
         them; a cracked wall only rocks (`t/h` exactly).
+      - *Fifth part, as built (2026-10-20): the shaking's incidents, its page and links*
+        (ADR-0031 §4), as storms have theirs (slice BF). Each building that fell or cracked is an
+        incident of kind 11 in the one shape, its words "fell when the ground shook (it met 0.31
+        of its weight sideways)" or "cracked …", with its own page; its number is a running count
+        from 1 over every shaking's buildings that fell or cracked, in the order the shakings
+        came and, within one, the order its buildings were checked, which a shaking's record
+        keeps whole, so a number names the same building after a save and a load. Each shaking
+        is listed beside the incidents with its strength, the buildings it reached, those that
+        fell and cracked and the dead (`QuakeRow`), and has a page (`GetQuake`, `QuakeInfo`):
+        sent by the observer, linked to the influence, what it did, and its buildings that fell
+        or cracked. The chronicle's entry for a shaking, and for each building that gave way in
+        one, opens the shaking's page (kind 12). The observer's Incidents panel lists the
+        shakings, opens a shaking's page and has a "Shaken buildings" kind. **Test:** the host
+        shakes a world with a finished hut and lists the shaking with the counts the kernel
+        recorded, its page with the same, and one kind 11 row for each building that fell or
+        cracked, linked to it; the chronicle's entries link to it; the web decodes the list, the
+        page and the link, and builds the query. **Boundary:** wire 1.91.
     - **DB, after the shaking:** `MostStoreys` and `TiedWalls`, forecasts of floor lost and of
       losses avoided, lessons from what was seen to fall. *Tests:* a shaken village proposes a
       rule only where someone knows the remedy; a household planning height opposes it.
@@ -6497,6 +6514,9 @@ One line each. Don't re-litigate without a reason written next to the entry.
   §3 names and research 11-05 says fail first, are not yet checked. Recorded, not tuned: the
   joints wait for the storeyed frame's check, and the demo should not read frames' survival as a
   finding.
+- **A test helper leaves state a load derives otherwise (2026-10-20, M8d slice DA):**
+  `Sim::place_building_for_tests` leaves state a load derives otherwise: a save taken right after
+  it does not resume exactly (the shaking test reloads once after placing). To be fixed.
 - **Why no frame is built, probed (2026-10-19, M8d slice CY's first step, ADR-0031 §6):** read
   from the code, so it holds for every world. **Nobody can come to know framing:** founders bring
   the roundhouse, wood shaping, rubble walling and mud brick, but not `jointed_frame`, and its

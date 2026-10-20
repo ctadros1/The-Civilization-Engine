@@ -1655,7 +1655,8 @@ button.link:hover {
 }
 .incidents-panel .incident-totals,
 .incidents-panel .outbreaks,
-.incidents-panel .conflagrations {
+.incidents-panel .conflagrations,
+.incidents-panel .quakes {
   margin: 0.4rem 0;
   padding-left: 1.2rem;
 }
@@ -1668,7 +1669,8 @@ button.link:hover {
 }
 .incidents-panel .incident-open,
 .incidents-panel .outbreak-open,
-.incidents-panel .conflagration-open {
+.incidents-panel .conflagration-open,
+.incidents-panel .quake-open {
   font-size: 0.85em;
 }
 .incidents-panel .incident-steps {

@@ -271,6 +271,8 @@ pub enum Request {
     GetFlood { id: u32 },
     /// A storm episode's page (wire 1.69).
     GetStorm { id: u32 },
+    /// A shaking's page (wire 1.91).
+    GetQuake { id: u32 },
 }
 
 /// A long-running operation, as the snapshot shows it.
@@ -756,6 +758,10 @@ pub fn decode_request(kind: FrameKind, payload: &[u8]) -> Result<Request, String
                 wire::QueryBody::GetStorm => {
                     let b = query.body_as_get_storm().ok_or_else(|| missing("query"))?;
                     Ok(Request::GetStorm { id: b.id() })
+                }
+                wire::QueryBody::GetQuake => {
+                    let b = query.body_as_get_quake().ok_or_else(|| missing("query"))?;
+                    Ok(Request::GetQuake { id: b.id() })
                 }
                 other => Err(format!("unknown query {}", other.0)),
             }
@@ -1573,6 +1579,32 @@ mod tests {
         assert_eq!(
             decode_request(FrameKind::Query, &finish(fbb, root)),
             Ok(Request::GetConflagration { id: 4 })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::GetStorm::create(&mut fbb, &wire::GetStormArgs { id: 5 });
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetStorm,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetStorm { id: 5 })
+        );
+        let mut fbb = FlatBufferBuilder::new();
+        let body = wire::GetQuake::create(&mut fbb, &wire::GetQuakeArgs { id: 3 });
+        let root = wire::Query::create(
+            &mut fbb,
+            &wire::QueryArgs {
+                body_type: wire::QueryBody::GetQuake,
+                body: Some(body.as_union_value()),
+            },
+        );
+        assert_eq!(
+            decode_request(FrameKind::Query, &finish(fbb, root)),
+            Ok(Request::GetQuake { id: 3 })
         );
         let mut fbb = FlatBufferBuilder::new();
         let body = wire::GetCoverage::create(

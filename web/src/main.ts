@@ -1080,6 +1080,7 @@ async function syncIncidents(): Promise<void> {
       incidentPage: null,
       outbreakPage: null,
       conflagrationPage: null,
+      quakePage: null,
     });
   }
   const rev = s.snapshot?.incidentsRev ?? 0;
@@ -1109,6 +1110,8 @@ async function syncIncidents(): Promise<void> {
     if (outbreak) void loadOutbreak(outbreak.id);
     const conflagration = store.state.conflagrationPage;
     if (conflagration) void loadConflagration(conflagration.id);
+    const quake = store.state.quakePage;
+    if (quake) void loadQuake(quake.id);
     void syncIncidents();
   }
 }
@@ -1177,31 +1180,65 @@ async function loadConflagration(id: number): Promise<void> {
   }
 }
 
+async function loadQuake(id: number): Promise<void> {
+  try {
+    const info = await client.quake(id);
+    if (store.state.quakePage?.id === id) {
+      store.update({ quakePage: { id, info, error: null } });
+    }
+  } catch (e) {
+    const page = store.state.quakePage;
+    if (page?.id === id) store.update({ quakePage: { ...page, error: errorText(e) } });
+  }
+}
+
 /** Opens an incident's page in the Incidents panel. */
 function openIncident(kind: number, id: number): void {
   store.update({
     incidentPage: { kind, id, info: null, error: null },
     outbreakPage: null,
     conflagrationPage: null,
+    quakePage: null,
   });
   void loadIncident(kind, id);
 }
 
 /** Opens an outbreak's page in the Incidents panel. */
 function openOutbreak(id: number): void {
-  store.update({ outbreakPage: { id, info: null, error: null }, incidentPage: null, conflagrationPage: null });
+  store.update({
+    outbreakPage: { id, info: null, error: null },
+    incidentPage: null,
+    conflagrationPage: null,
+    quakePage: null,
+  });
   void loadOutbreak(id);
 }
 
 /** Opens a conflagration's page in the Incidents panel (wire 1.68). */
 function openConflagration(id: number): void {
-  store.update({ conflagrationPage: { id, info: null, error: null }, incidentPage: null, outbreakPage: null });
+  store.update({
+    conflagrationPage: { id, info: null, error: null },
+    incidentPage: null,
+    outbreakPage: null,
+    quakePage: null,
+  });
   void loadConflagration(id);
+}
+
+/** Opens a shaking's page in the Incidents panel (wire 1.91). */
+function openQuake(id: number): void {
+  store.update({
+    quakePage: { id, info: null, error: null },
+    incidentPage: null,
+    outbreakPage: null,
+    conflagrationPage: null,
+  });
+  void loadQuake(id);
 }
 
 /** Back to the list of incidents. */
 function closeIncidentPage(): void {
-  store.update({ incidentPage: null, outbreakPage: null, conflagrationPage: null });
+  store.update({ incidentPage: null, outbreakPage: null, conflagrationPage: null, quakePage: null });
 }
 
 /** Opens workshop `id`'s page in the workshops panel, or goes back to the list. */
@@ -1387,6 +1424,7 @@ bindUi(store, {
   openIncident,
   openOutbreak,
   openConflagration,
+  openQuake,
   closeIncidentPage,
   runAhead: async (minutes) => {
     const clock = store.state.snapshot?.clock;
@@ -1648,6 +1686,7 @@ const hooks = {
             next: s.incidents.next,
             totals: s.incidents.totals,
             outbreaks: s.incidents.outbreaks,
+            quakes: s.incidents.quakes,
             rows: s.incidents.rows.map((r) => ({
               kind: r.kind,
               id: r.id,
@@ -1657,6 +1696,7 @@ const hooks = {
               polity: r.polity,
               observer: r.observer,
               outbreak: r.outbreak,
+              quake: r.quake,
             })),
           }
         : null,
@@ -1688,6 +1728,14 @@ const hooks = {
             weather: s.conflagrationPage.info.weather,
             fires: s.conflagrationPage.info.fires.length,
             held: s.conflagrationPage.info.held,
+          }
+        : null,
+      quakePage: s.quakePage?.info
+        ? {
+            row: s.quakePage.info.row,
+            cause: s.quakePage.info.cause,
+            summary: s.quakePage.info.summary,
+            incidents: s.quakePage.info.incidents.length,
           }
         : null,
       order: s.order

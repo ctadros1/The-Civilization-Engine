@@ -140,6 +140,8 @@ export interface Actions {
   openIncident(kind: number, id: number): void;
   openOutbreak(id: number): void;
   openConflagration(id: number): void;
+  /** Opens a shaking's page in the Incidents panel (wire 1.91). */
+  openQuake(id: number): void;
   closeIncidentPage(): void;
   /** Centres the map on a point, metres (the camera moves only when asked). */
   locate(xM: number, yM: number): void;
@@ -1658,6 +1660,7 @@ export function bindUi(store: Store, actions: Actions): void {
             const open = link("Open", () => {
               if (kind === 3) actions.openOutbreak(id);
               else if (kind === 5) actions.openConflagration(id);
+              else if (kind === 12) actions.openQuake(id);
               else actions.openIncident(kind, id);
               $("incidents-panel").scrollIntoView({ block: "nearest" });
             });
@@ -2700,10 +2703,10 @@ export function bindUi(store: Store, actions: Actions): void {
   const SVG_NS = "http://www.w3.org/2000/svg";
   const capitalise = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
   /** One incident as a list item: its three layers, each labelled, and a way to its page. */
-  /** Whom an incident's words begin with, as a link: a person to focus, or a fire's building to
-   * find on the map. */
+  /** Whom an incident's words begin with, as a link: a person to focus, or a building that burned
+   * or was shaken, to find on the map. */
   const whoLink = (r: IncidentRow): HTMLElement =>
-    r.kind === 4
+    r.kind === 4 || r.kind === 11
       ? link(r.whoName, () => actions.locate(r.at[0], r.at[1]))
       : link(r.whoName, () => actions.focusPerson(r.who));
   const incidentItem = (r: IncidentRow): HTMLElement => {
@@ -2815,7 +2818,9 @@ export function bindUi(store: Store, actions: Actions): void {
                   ? link(capitalise(l.words), () => actions.openIncident(4, l.id))
                   : l.target === "conflagration"
                     ? link(capitalise(l.words), () => actions.openConflagration(l.id))
-                    : capitalise(l.words),
+                    : l.target === "quake"
+                      ? link(capitalise(l.words), () => actions.openQuake(l.id))
+                      : capitalise(l.words),
             ),
           ),
         ),
@@ -2910,6 +2915,31 @@ export function bindUi(store: Store, actions: Actions): void {
     if (page.error) nodes.push(el("p", { className: "note", text: `Not up to date: ${page.error}` }));
     return nodes;
   };
+  const quakePageNodes = (page: NonNullable<AppState["quakePage"]>): Node[] => {
+    const back = link("Back to the incidents", () => actions.closeIncidentPage());
+    back.classList.add("incident-back");
+    if (!page.info) {
+      return [
+        back,
+        page.error
+          ? el("p", { className: "form-error", text: `The shaking could not be read: ${page.error}` })
+          : el("p", { className: "empty", text: "Asking the host…" }),
+      ];
+    }
+    const q = page.info;
+    const nodes: Node[] = [
+      back,
+      el("h3", { className: "quake-title", text: `${q.row.words}.` }),
+      el("p", { className: "quake-cause", text: `${q.cause}.` }),
+      layerBlock("layer-truth", "What it did (the kernel's truth)", q.summary),
+      el("h4", { text: `Buildings that fell or cracked (${q.incidents.length})` }),
+      q.incidents.length === 0
+        ? el("p", { className: "empty", text: "Every building it reached stood." })
+        : el("ol", { className: "incidents quake-buildings" }, ...q.incidents.map(incidentItem)),
+    ];
+    if (page.error) nodes.push(el("p", { className: "note", text: `Not up to date: ${page.error}` }));
+    return nodes;
+  };
   const renderIncidents = (state: AppState) => {
     const world = state.snapshot?.world ?? null;
     const key = [
@@ -2921,6 +2951,7 @@ export function bindUi(store: Store, actions: Actions): void {
       state.incidentPage,
       state.outbreakPage,
       state.conflagrationPage,
+      state.quakePage,
     ];
     if (key.length === incidentsRenderKey.length && key.every((k, i) => k === incidentsRenderKey[i])) return;
     incidentsRenderKey = key;
@@ -2934,6 +2965,10 @@ export function bindUi(store: Store, actions: Actions): void {
     }
     if (state.conflagrationPage) {
       incidentsBody.replaceChildren(...conflagrationPageNodes(state.conflagrationPage));
+      return;
+    }
+    if (state.quakePage) {
+      incidentsBody.replaceChildren(...quakePageNodes(state.quakePage));
       return;
     }
     if (state.incidentPage) {
@@ -3001,6 +3036,25 @@ export function bindUi(store: Store, actions: Actions): void {
               "li",
               { className: "conflagration" },
               `${c.words}${c.observer > 0 ? " (the observer's)" : ""}. `,
+              open,
+            );
+          }),
+        ),
+      );
+    }
+    if ((state.incidentKind === 0 || state.incidentKind === 11) && inc.quakes.length > 0) {
+      nodes.push(
+        el("h4", { text: "Shakings" }),
+        el(
+          "ul",
+          { className: "quakes" },
+          ...inc.quakes.map((q) => {
+            const open = link("Open", () => actions.openQuake(q.id));
+            open.classList.add("quake-open");
+            return el(
+              "li",
+              { className: "quake" },
+              `${q.words}${q.observer > 0 ? " (the observer's)" : ""}. `,
               open,
             );
           }),

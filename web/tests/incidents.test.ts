@@ -25,6 +25,14 @@ describe("the Incidents panel's words", () => {
       "Fires: 7 buildings burned; 7 the observer's",
     );
     expect(kindClass(4)).toBe("fire");
+    // Wire 1.91: buildings that fell or cracked when the ground shook, counted by the truth alone.
+    expect(totalsLine({ kind: 11, all: 0, known: 0, polity: 0, observer: 0 })).toBe(
+      "Shaken buildings: none fell or cracked",
+    );
+    expect(totalsLine({ kind: 11, all: 3, known: 0, polity: 0, observer: 3 })).toBe(
+      "Shaken buildings: 3 fell or cracked; 3 the observer's",
+    );
+    expect(kindClass(11)).toBe("shaken");
   });
 
   it("tells a step as precisely as it is known, and never invents an hour", () => {

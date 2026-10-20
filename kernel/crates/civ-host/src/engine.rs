@@ -650,6 +650,16 @@ impl Engine {
                     ),
                 },
             },
+            Request::GetQuake { id } => match &self.world {
+                None => no_world(),
+                Some(w) => match frames::incidents::quake_response(&w.sim, id) {
+                    Some(payload) => Reply::Response(payload),
+                    None => Reply::Error(
+                        wire::ErrorCode::NotFound,
+                        format!("no shaking numbered {id}"),
+                    ),
+                },
+            },
             Request::GetCoverage { settlement, lens } => match &self.world {
                 None => no_world(),
                 Some(w) => match frames::coverage::coverage_response(
@@ -3153,6 +3163,187 @@ mod tests {
         let sim = &h.engine.world.as_ref().expect("a world").sim;
         let q = sim.people().quakes.list.last().expect("a record");
         assert_eq!(q.settlement.map(|s| s.get()), Some(settlement));
+    }
+
+    #[test]
+    fn the_shaking_is_listed_with_its_page_and_what_fell_or_cracked() {
+        let mut h = Harness::new(None, None);
+        assert_eq!(
+            error_code(&h.ask(Request::GetQuake { id: 1 })),
+            Some(wire::ErrorCode::NoWorld)
+        );
+        h.create("Shaken incidents");
+        // A finished hut beside the first household's home, so the shaking reaches something.
+        {
+            let sim = &mut h.engine.world.as_mut().expect("a world").sim;
+            let (household, home) = sim
+                .people()
+                .households
+                .iter()
+                .map(|(_, x)| (x.id, x.home))
+                .min_by_key(|x| x.0)
+                .expect("a household");
+            let catalog = &sim.rules().catalog;
+            let def = &catalog.buildings[catalog.building_index("core:building/hut").expect("hut")];
+            let spec = civ_agents::build::design_shape(
+                def,
+                &catalog.goods,
+                civ_agents::build::Shape::Round { radius: 310 },
+                (home.0 + 40.0, home.1),
+                None,
+            )
+            .expect("a hut");
+            sim.place_building_for_tests(household, spec, 5)
+                .expect("placed");
+        }
+        assert_eq!(
+            error_code(&h.ask(Request::GetQuake { id: 1 })),
+            Some(wire::ErrorCode::NotFound)
+        );
+        let reply = h.ask(Request::Shake {
+            strength: 0.6,
+            settlement: 0,
+        });
+        assert!(matches!(reply, Reply::Response(_)), "{reply:?}");
+        let q = {
+            let sim = &h.engine.world.as_ref().expect("a world").sim;
+            sim.people().quakes.list.last().expect("a record").clone()
+        };
+        assert!(!q.shaken.is_empty(), "the hut is reached");
+        let count = |o: civ_agents::quake::Outcome| {
+            q.shaken.iter().filter(|s| s.outcome == o).count() as u32
+        };
+        let fell = count(civ_agents::quake::Outcome::Fell);
+        let cracked = count(civ_agents::quake::Outcome::Cracked);
+        let deaths: u32 = q.shaken.iter().map(|s| u32::from(s.deaths)).sum();
+        // The shaking is listed with the counts the kernel recorded.
+        let Reply::Response(payload) = h.ask(Request::GetIncidents {
+            settlement: 0,
+            kind: 12,
+            before: None,
+            limit: 0,
+        }) else {
+            panic!("the incidents are read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let incidents = response.body_as_incidents().expect("incidents");
+        assert_eq!(
+            incidents.rows().map_or(0, |r| r.len()),
+            0,
+            "a shaking has no rows"
+        );
+        let listed: Vec<_> = incidents.quakes().expect("quakes").iter().collect();
+        assert_eq!(listed.len(), 1);
+        let row = listed[0];
+        assert_eq!(
+            (row.id(), row.at(), row.settlement(), row.observer()),
+            (q.id, q.at.minutes(), 0, q.influence)
+        );
+        assert_eq!(
+            (row.reached(), row.fell(), row.cracked(), row.deaths()),
+            (q.shaken.len() as u32, fell, cracked, deaths)
+        );
+        assert!(
+            row.words()
+                .unwrap_or_default()
+                .starts_with("The ground shook over the whole map on "),
+            "{:?}",
+            row.words()
+        );
+        // Its page: the same row, sent by the observer, and every building that fell or cracked.
+        let Reply::Response(payload) = h.ask(Request::GetQuake { id: q.id }) else {
+            panic!("its page is read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let info = response.body_as_quake_info().expect("a shaking's page");
+        let page_row = info.row().expect("its row");
+        assert_eq!(
+            (
+                page_row.reached(),
+                page_row.fell(),
+                page_row.cracked(),
+                page_row.deaths()
+            ),
+            (q.shaken.len() as u32, fell, cracked, deaths)
+        );
+        let cause = info.cause_link().expect("its cause");
+        assert_eq!(
+            (cause.relation(), cause.target(), cause.id()),
+            (0, 0, u64::from(q.influence))
+        );
+        let members: Vec<(u8, u32, u64, u32)> = info
+            .incidents()
+            .expect("its buildings")
+            .iter()
+            .map(|r| (r.kind(), r.id(), r.who(), r.quake()))
+            .collect();
+        let want: Vec<(u8, u32, u64, u32)> = q
+            .shaken
+            .iter()
+            .filter(|s| s.outcome != civ_agents::quake::Outcome::Stood)
+            .zip(1u32..)
+            .map(|(s, id)| (11, id, s.building.get(), q.id))
+            .collect();
+        assert_eq!(members, want);
+        // Buildings that fell or cracked are incidents of their own, each linked to the shaking.
+        let Reply::Response(payload) = h.ask(Request::GetIncidents {
+            settlement: 0,
+            kind: 11,
+            before: None,
+            limit: 0,
+        }) else {
+            panic!("the incidents are read");
+        };
+        let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+        let incidents = response.body_as_incidents().expect("incidents");
+        let mut rows: Vec<(u8, u32, u64, u32)> = incidents
+            .rows()
+            .expect("rows")
+            .iter()
+            .map(|r| (r.kind(), r.id(), r.who(), r.quake()))
+            .collect();
+        rows.sort_unstable();
+        assert_eq!(rows, want);
+        let total = incidents
+            .totals()
+            .expect("totals")
+            .iter()
+            .find(|t| t.kind() == 11)
+            .expect("a total for buildings shaken");
+        assert_eq!(total.all(), fell + cracked);
+        if let Some(&(_, id, _, _)) = want.first() {
+            let Reply::Response(payload) = h.ask(Request::GetIncident { kind: 11, id }) else {
+                panic!("its page is read");
+            };
+            let response = flatbuffers::root::<wire::Response>(&payload).expect("decodes");
+            let info = response.body_as_incident_info().expect("a page");
+            assert!(
+                info.links()
+                    .expect("links")
+                    .iter()
+                    .any(|l| l.relation() == 1 && l.target() == 12 && l.id() == u64::from(q.id))
+            );
+        }
+        // The chronicle's entry for the shaking, and for each building that fell, link to it.
+        let sim = &h.engine.world.as_ref().expect("a world").sim;
+        let linked: Vec<_> = sim
+            .people()
+            .chronicle
+            .iter()
+            .filter(|e| e.at == q.at)
+            .filter_map(|e| frames::incidents::chronicle_link(sim, e).map(|l| (e.kind, l)))
+            .collect();
+        assert!(
+            linked.contains(&(civ_agents::history::ChronicleKind::Influence, (12, q.id))),
+            "{linked:?}"
+        );
+        let failed = linked
+            .iter()
+            .filter(|(k, l)| {
+                *k == civ_agents::history::ChronicleKind::BuildingFailed && *l == (12, q.id)
+            })
+            .count();
+        assert_eq!(failed as u32, fell);
     }
 
     #[test]

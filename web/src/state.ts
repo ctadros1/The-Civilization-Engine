@@ -14,6 +14,7 @@ import type {
   IncidentsInfo,
   IncidentInfo,
   OutbreakInfo,
+  QuakeInfo,
   KnowledgeInfo,
   MarketInfo,
   PersonInfo,
@@ -130,6 +131,8 @@ export interface AppState {
   outbreakPage: { id: number; info: OutbreakInfo | null; error: string | null } | null;
   /** A conflagration's page, when one is open in the panel (wire 1.68). */
   conflagrationPage: { id: number; info: ConflagrationInfo | null; error: string | null } | null;
+  /** A shaking's page, when one is open in the panel (wire 1.91). */
+  quakePage: { id: number; info: QuakeInfo | null; error: string | null } | null;
   /** The map tool that sets alight the building clicked is armed (M6b slice BC). */
   placingFire: boolean;
 }
@@ -183,6 +186,7 @@ export function initialState(): AppState {
     incidentPage: null,
     outbreakPage: null,
     conflagrationPage: null,
+    quakePage: null,
     placingFire: false,
   };
 }

@@ -5,15 +5,18 @@
 //! and typed links, and a page for each outbreak with its sources, the truth beside what people
 //! hold and what their polity did. Each kind keeps its own store; this only reads them, and no
 //! choice reads what it builds. Wire 1.68 adds a building's fire, and a page for each
-//! conflagration (M6b slice BC, step three; `fire`).
+//! conflagration (M6b slice BC, step three; `fire`). Wire 1.91 adds each building that fell or
+//! cracked when the ground shook, and a page for each shaking (M8d slice DA; `quake`).
 
 mod fire;
 mod flood;
+mod quake;
 mod storm;
 mod waits;
 
 pub use fire::{building_fire, building_words, conflagration_response};
 pub use flood::flood_response;
+pub use quake::quake_response;
 pub use storm::storm_response;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -58,6 +61,11 @@ pub const STORM_DAMAGE: u8 = 8;
 pub const STORM: u8 = 9;
 /// A wait worth telling at a crossing or a gate (wire 1.85, ADR-0029 §9).
 pub const WAIT: u8 = 10;
+/// A building that fell or cracked when the ground shook (wire 1.91, ADR-0031 §4). Its number is
+/// a running count from 1 over every shaking's buildings that fell or cracked (`quake::shaken`).
+pub const SHAKEN: u8 = 11;
+/// A shaking, as a chronicle entry's link names it (wire 1.91, ADR-0031 §4).
+pub const QUAKE: u8 = 12;
 
 /// Rows a page carries when none is asked, and at most.
 const DEFAULT_ROWS: usize = 50;
@@ -93,6 +101,8 @@ struct Row {
     conflagration: u32,
     flood: u32,
     storm: u32,
+    /// The shaking a building that fell or cracked is part of (wire 1.91).
+    quake: u32,
     open: bool,
 }
 
@@ -498,6 +508,7 @@ fn illness_row(f: &Facts, e: &Episode) -> (Row, bool, bool) {
             conflagration: 0,
             flood: 0,
             storm: 0,
+            quake: 0,
             open: e.ended.is_none(),
         },
         knows,
@@ -632,6 +643,7 @@ fn taking_row(sim: &Sim, i: &Incident) -> Row {
         conflagration: 0,
         flood: 0,
         storm: 0,
+        quake: 0,
         open: false,
     }
 }
@@ -667,6 +679,7 @@ fn put_row<'a>(
             conflagration: r.conflagration,
             flood: r.flood,
             storm: r.storm,
+            quake: r.quake,
         },
     )
 }
@@ -693,6 +706,7 @@ pub fn incidents_rev(sim: &Sim) -> u64 {
         && floods.high_waters.is_empty()
         && floods.storm_damages.is_empty()
         && pop.traffic.long_waits.is_empty()
+        && pop.quakes.list.is_empty()
     {
         return 0;
     }
@@ -761,6 +775,8 @@ pub fn incidents_rev(sim: &Sim) -> u64 {
     )
         .hash(&mut h);
     pop.traffic.long_waits.last().map(|w| w.id).hash(&mut h);
+    // A shaking never changes once recorded.
+    pop.quakes.list.len().hash(&mut h);
     h.finish().max(1)
 }
 
@@ -791,6 +807,7 @@ pub fn incidents_response(
     totals.insert(HIGH_WATER, [0; 4]);
     totals.insert(STORM_DAMAGE, [0; 4]);
     totals.insert(WAIT, [0; 4]);
+    totals.insert(SHAKEN, [0; 4]);
     for (at, i) in pop.order.incidents.iter().enumerate() {
         if !in_scope(taking_settlement(sim, i)) {
             continue;
@@ -872,6 +889,20 @@ pub fn incidents_response(
             keys.push(((w.time.minutes(), WAIT, w.id), at));
         }
     }
+    // Buildings shaken: nobody in the world tells of them as such yet, so only the truth and
+    // the observer's share are counted.
+    let shakens: Vec<_> = quake::shaken(sim).collect();
+    for (at, &(id, q, x)) in shakens.iter().enumerate() {
+        if !in_scope(x.settlement) {
+            continue;
+        }
+        let t = totals.entry(SHAKEN).or_default();
+        t[0] += 1;
+        t[3] += u32::from(q.influence > 0);
+        if kind == 0 || kind == SHAKEN {
+            keys.push(((q.at.minutes(), SHAKEN, id), at));
+        }
+    }
     keys.sort_unstable_by_key(|k| std::cmp::Reverse(k.0));
     let start = before.map_or(0, |k| keys.partition_point(|&(key, _)| key >= k));
     let end = (start + limit).min(keys.len());
@@ -891,6 +922,10 @@ pub fn incidents_response(
                 HIGH_WATER => flood::high_water_row(sim, &pop.floods.high_waters[at]),
                 STORM_DAMAGE => storm::storm_damage_row(sim, &pop.floods.storm_damages[at]),
                 WAIT => waits::wait_row(sim, &pop.traffic.long_waits[at]),
+                SHAKEN => {
+                    let (id, q, x) = shakens[at];
+                    quake::shaken_row(sim, id, q, x)
+                }
                 _ => illness_row(&f, &pop.sickness.episodes()[at]).0,
             };
             put_row(&mut fbb, sim, &row)
@@ -949,6 +984,15 @@ pub fn incidents_response(
         .map(|e| storm::storm_row(&mut fbb, sim, e))
         .collect();
     let storms = fbb.create_vector(&storms);
+    let quakes: Vec<_> = pop
+        .quakes
+        .list
+        .iter()
+        .rev()
+        .filter(|q| in_scope(q.settlement) || q.shaken.iter().any(|x| in_scope(x.settlement)))
+        .map(|q| quake::quake_row(&mut fbb, sim, q))
+        .collect();
+    let quakes = fbb.create_vector(&quakes);
     let next = next.map(|(minute, kind, id)| wire::IncidentKey::new(minute, kind, id));
     let body = wire::Incidents::create(
         &mut fbb,
@@ -961,6 +1005,7 @@ pub fn incidents_response(
             conflagrations: Some(conflagrations),
             floods: Some(floods),
             storms: Some(storms),
+            quakes: Some(quakes),
         },
     );
     response(fbb, wire::ResponseBody::Incidents, body)
@@ -1086,6 +1131,7 @@ pub(crate) const TO_FIRE: u8 = 7;
 pub(crate) const TO_CONFLAGRATION: u8 = 8;
 pub(crate) const TO_FLOOD: u8 = 10;
 pub(crate) const TO_STORM: u8 = 11;
+pub(crate) const TO_QUAKE: u8 = 12;
 
 /// How a case was caught, as a link to what it was caught from.
 fn caught_link(sim: &Sim, e: &Episode) -> Link {
@@ -1342,6 +1388,10 @@ pub fn incident_response(sim: &Sim, kind: u8, id: u32) -> Option<Vec<u8>> {
             storm::storm_damage_page(sim, pop.floods.storm_damages.iter().find(|sd| sd.id == id)?)
         }
         WAIT => waits::wait_page(sim, pop.traffic.long_waits.iter().find(|w| w.id == id)?),
+        SHAKEN => {
+            let (id, q, x) = quake::shaken(sim).find(|&(n, _, _)| n == id)?;
+            quake::shaken_page(sim, id, q, x)
+        }
         _ => return None,
     };
     let mut fbb = FlatBufferBuilder::new();
@@ -1813,6 +1863,7 @@ pub fn outbreak_response(sim: &Sim, id: u32, limit: usize) -> Option<Vec<u8>> {
 /// taking by its taker and minute; an outbreak's beginning by its first case, its end by its
 /// settlement and day; a death of a disease, and the observer's bringing one, by the case; a
 /// fire, a conflagration, a death by fire and the observer's setting one (wire 1.68) as `fire`
+/// finds them; a shaking, and a building that fell when the ground shook (wire 1.91), as `quake`
 /// finds them.
 pub fn chronicle_link(sim: &Sim, e: &ChronicleEvent) -> Option<(u8, u32)> {
     let pop = &sim.people;
@@ -1876,6 +1927,15 @@ pub fn chronicle_link(sim: &Sim, e: &ChronicleEvent) -> Option<(u8, u32)> {
             if e.number.round() as u8 == civ_agents::influence::InfluenceKind::Storm.code() =>
         {
             storm::chronicle_link(sim, e)
+        }
+        ChronicleKind::Influence
+            if e.number.round() as u8
+                == civ_agents::influence::InfluenceKind::Earthquake.code() =>
+        {
+            quake::chronicle_link(sim, e)
+        }
+        ChronicleKind::BuildingFailed if e.name.contains(quake::SHOOK) => {
+            quake::chronicle_link(sim, e)
         }
         ChronicleKind::Fire | ChronicleKind::Died | ChronicleKind::Influence => {
             fire::chronicle_link(sim, e)

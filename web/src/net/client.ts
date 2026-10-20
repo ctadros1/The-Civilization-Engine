@@ -403,6 +403,13 @@ export class HostClient {
     return body.conflagration;
   }
 
+  /** One shaking's page: who sent it, what it reached, and what fell or cracked (wire 1.91). */
+  async quake(id: number): Promise<M.QuakeInfo> {
+    const body = await this.query(M.getQuake(id));
+    if (body.kind !== "quake") throw new HostError("internal", "expected a shaking");
+    return body.quake;
+  }
+
   async order(): Promise<M.OrderInfo> {
     const body = await this.query(M.getOrder());
     if (body.kind !== "order") throw new HostError("internal", "expected order");

@@ -2058,12 +2058,14 @@ export type ResponseBody =
   | { kind: "incident"; incident: IncidentInfo }
   | { kind: "outbreak"; outbreak: OutbreakInfo }
   | { kind: "conflagration"; conflagration: ConflagrationInfo }
+  | { kind: "quake"; quake: QuakeInfo }
   | { kind: "coverage"; coverage: CoverageInfo };
 
 // ---- Incidents (wire 1.64, M6a slice BB, ADR-0015 §8) --------------------------------------
 
-/** 1 a taking, 2 a case of illness, 4 a building's fire (wire 1.68). */
-export type IncidentKind = 1 | 2 | 4;
+/** 1 a taking, 2 a case of illness, 4 a building's fire (wire 1.68), 10 a wait (wire 1.85), 11 a
+ * building that fell or cracked when the ground shook (wire 1.91). */
+export type IncidentKind = 1 | 2 | 4 | 10 | 11;
 
 /** Where a list of incidents goes on from. */
 export interface IncidentKey {
@@ -2097,6 +2099,8 @@ export interface IncidentRow {
   open: boolean;
   /** Wire 1.68: the conflagration a fire is part of (0: none). */
   conflagration: number;
+  /** Wire 1.91: the shaking a building that fell or cracked (kind 11) is part of (0: none). */
+  quake: number;
 }
 
 /** How many incidents of a kind there are, in the scope asked. */
@@ -2137,6 +2141,24 @@ export interface ConflagrationRow {
   words: string;
 }
 
+/** A shaking (wire 1.91): the ground shaken by the observer, and what the buildings it reached
+ * did. */
+export interface QuakeRow {
+  id: number;
+  /** The settlement it was sent to (0: the whole map). */
+  settlement: number;
+  /** When it shook, as a minute. */
+  at: number;
+  /** The share of a building's weight it put on each sideways. */
+  strength: number;
+  reached: number;
+  fell: number;
+  cracked: number;
+  deaths: number;
+  observer: number;
+  words: string;
+}
+
 export interface IncidentsInfo {
   minute: number;
   rows: IncidentRow[];
@@ -2145,6 +2167,8 @@ export interface IncidentsInfo {
   outbreaks: OutbreakRow[];
   /** Wire 1.68: every conflagration in scope, newest first. */
   conflagrations: ConflagrationRow[];
+  /** Wire 1.91: every shaking in scope, newest first. */
+  quakes: QuakeRow[];
 }
 
 /** A step in an incident's chain. */
@@ -2168,7 +2192,10 @@ export type LinkTarget =
   | "illness"
   | "fire"
   | "conflagration"
-  | "building";
+  | "building"
+  | "flood"
+  | "storm"
+  | "quake";
 
 /** A typed link, recorded when it happened. */
 export interface IncidentLink {
@@ -2220,6 +2247,17 @@ export interface ConflagrationInfo {
   weather: string;
   fires: IncidentRow[];
   held: string[];
+}
+
+/** A shaking's page (wire 1.91): who sent it, what it reached, and each building that fell or
+ * cracked. */
+export interface QuakeInfo {
+  row: QuakeRow;
+  cause: string;
+  causeLink: IncidentLink | null;
+  /** Its buildings that fell or cracked, as incidents of kind 11. */
+  incidents: IncidentRow[];
+  summary: string[];
 }
 
 export type ErrorCode =
@@ -2596,6 +2634,12 @@ export function getOutbreak(id: number, limit: number): Uint8Array {
 export function getConflagration(id: number): Uint8Array {
   const b = new flatbuffers.Builder(32);
   return query(b, W.QueryBody.GetConflagration, W.GetConflagration.createGetConflagration(b, id));
+}
+
+/** One shaking's page (wire 1.91). */
+export function getQuake(id: number): Uint8Array {
+  const b = new flatbuffers.Builder(32);
+  return query(b, W.QueryBody.GetQuake, W.GetQuake.createGetQuake(b, id));
 }
 
 /** A lens over the homes of `settlement` (0: every settlement); lens 1 is water (wire 1.66). */
@@ -3557,6 +3601,22 @@ function incidentRow(r: W.IncidentRow): IncidentRow {
     outbreak: r.outbreak(),
     open: r.open(),
     conflagration: r.conflagration(),
+    quake: r.quake(),
+  };
+}
+
+function quakeRow(q: W.QuakeRow): QuakeRow {
+  return {
+    id: q.id(),
+    settlement: Number(q.settlement()),
+    at: Number(q.at()),
+    strength: q.strength(),
+    reached: q.reached(),
+    fell: q.fell(),
+    cracked: q.cracked(),
+    deaths: q.deaths(),
+    observer: q.observer(),
+    words: q.words() ?? "",
   };
 }
 
@@ -3601,6 +3661,9 @@ const LINK_TARGETS: LinkTarget[] = [
   "fire",
   "conflagration",
   "building",
+  "flood",
+  "storm",
+  "quake",
 ];
 
 function incidentLink(l: W.IncidentLink): IncidentLink {
@@ -3635,6 +3698,11 @@ function incidentsInfo(f: W.Incidents): IncidentsInfo {
     const c = f.conflagrations(i);
     if (c) conflagrations.push(conflagrationRow(c));
   }
+  const quakes: QuakeRow[] = [];
+  for (let i = 0; i < f.quakesLength(); i++) {
+    const q = f.quakes(i);
+    if (q) quakes.push(quakeRow(q));
+  }
   const n = f.next();
   return {
     minute: Number(f.minute()),
@@ -3643,6 +3711,7 @@ function incidentsInfo(f: W.Incidents): IncidentsInfo {
     totals,
     outbreaks,
     conflagrations,
+    quakes,
   };
 }
 
@@ -3728,6 +3797,25 @@ function conflagrationInfo(f: W.ConflagrationInfo): ConflagrationInfo {
     weather: f.weather() ?? "",
     fires,
     held: strings(f.heldLength(), (i) => f.held(i)),
+  };
+}
+
+function quakeInfo(f: W.QuakeInfo): QuakeInfo {
+  const row = f.row();
+  const incidents: IncidentRow[] = [];
+  for (let i = 0; i < f.incidentsLength(); i++) {
+    const x = f.incidents(i);
+    if (x) incidents.push(incidentRow(x));
+  }
+  const link = f.causeLink();
+  return {
+    row: row
+      ? quakeRow(row)
+      : { id: 0, settlement: 0, at: 0, strength: 0, reached: 0, fell: 0, cracked: 0, deaths: 0, observer: 0, words: "" },
+    cause: f.cause() ?? "",
+    causeLink: link ? incidentLink(link) : null,
+    incidents,
+    summary: strings(f.summaryLength(), (i) => f.summary(i)),
   };
 }
 
@@ -4913,6 +5001,11 @@ export function decodeResponse(payload: Uint8Array): ResponseBody {
       const f = r.body(new W.ConflagrationInfo()) as W.ConflagrationInfo | null;
       if (!f) break;
       return { kind: "conflagration", conflagration: conflagrationInfo(f) };
+    }
+    case W.ResponseBody.QuakeInfo: {
+      const f = r.body(new W.QuakeInfo()) as W.QuakeInfo | null;
+      if (!f) break;
+      return { kind: "quake", quake: quakeInfo(f) };
     }
     case W.ResponseBody.Coverage: {
       const f = r.body(new W.Coverage()) as W.Coverage | null;

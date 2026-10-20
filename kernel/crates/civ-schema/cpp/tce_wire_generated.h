@@ -244,6 +244,9 @@ struct GetFloodBuilder;
 struct GetStorm;
 struct GetStormBuilder;
 
+struct GetQuake;
+struct GetQuakeBuilder;
+
 struct GetWays;
 struct GetWaysBuilder;
 
@@ -532,6 +535,9 @@ struct FloodRowBuilder;
 struct StormRow;
 struct StormRowBuilder;
 
+struct QuakeRow;
+struct QuakeRowBuilder;
+
 struct Incidents;
 struct IncidentsBuilder;
 
@@ -558,6 +564,9 @@ struct FloodInfoBuilder;
 
 struct StormInfo;
 struct StormInfoBuilder;
+
+struct QuakeInfo;
+struct QuakeInfoBuilder;
 
 struct CoverageSource;
 struct CoverageSourceBuilder;
@@ -1088,11 +1097,12 @@ enum class QueryBody : uint8_t {
   GetVehicles = 31,
   GetPlans = 32,
   GetLand = 33,
+  GetQuake = 34,
   MIN = NONE,
-  MAX = GetLand
+  MAX = GetQuake
 };
 
-inline const QueryBody (&EnumValuesQueryBody())[34] {
+inline const QueryBody (&EnumValuesQueryBody())[35] {
   static const QueryBody values[] = {
     QueryBody::NONE,
     QueryBody::GetRaster,
@@ -1127,13 +1137,14 @@ inline const QueryBody (&EnumValuesQueryBody())[34] {
     QueryBody::GetWays,
     QueryBody::GetVehicles,
     QueryBody::GetPlans,
-    QueryBody::GetLand
+    QueryBody::GetLand,
+    QueryBody::GetQuake
   };
   return values;
 }
 
 inline const char * const *EnumNamesQueryBody() {
-  static const char * const names[35] = {
+  static const char * const names[36] = {
     "NONE",
     "GetRaster",
     "GetHydrography",
@@ -1168,13 +1179,14 @@ inline const char * const *EnumNamesQueryBody() {
     "GetVehicles",
     "GetPlans",
     "GetLand",
+    "GetQuake",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameQueryBody(QueryBody e) {
-  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetLand)) return "";
+  if (::flatbuffers::IsOutRange(e, QueryBody::NONE, QueryBody::GetQuake)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesQueryBody()[index];
 }
@@ -1313,6 +1325,10 @@ template<> struct QueryBodyTraits<tce::wire::GetPlans> {
 
 template<> struct QueryBodyTraits<tce::wire::GetLand> {
   static const QueryBody enum_value = QueryBody::GetLand;
+};
+
+template<> struct QueryBodyTraits<tce::wire::GetQuake> {
+  static const QueryBody enum_value = QueryBody::GetQuake;
 };
 
 template <bool B = false>
@@ -1509,11 +1525,12 @@ enum class ResponseBody : uint8_t {
   Vehicles = 32,
   Plans = 33,
   Land = 34,
+  QuakeInfo = 35,
   MIN = NONE,
-  MAX = Land
+  MAX = QuakeInfo
 };
 
-inline const ResponseBody (&EnumValuesResponseBody())[35] {
+inline const ResponseBody (&EnumValuesResponseBody())[36] {
   static const ResponseBody values[] = {
     ResponseBody::NONE,
     ResponseBody::Ack,
@@ -1549,13 +1566,14 @@ inline const ResponseBody (&EnumValuesResponseBody())[35] {
     ResponseBody::Ways,
     ResponseBody::Vehicles,
     ResponseBody::Plans,
-    ResponseBody::Land
+    ResponseBody::Land,
+    ResponseBody::QuakeInfo
   };
   return values;
 }
 
 inline const char * const *EnumNamesResponseBody() {
-  static const char * const names[36] = {
+  static const char * const names[37] = {
     "NONE",
     "Ack",
     "RasterTile",
@@ -1591,13 +1609,14 @@ inline const char * const *EnumNamesResponseBody() {
     "Vehicles",
     "Plans",
     "Land",
+    "QuakeInfo",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameResponseBody(ResponseBody e) {
-  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::Land)) return "";
+  if (::flatbuffers::IsOutRange(e, ResponseBody::NONE, ResponseBody::QuakeInfo)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesResponseBody()[index];
 }
@@ -1740,6 +1759,10 @@ template<> struct ResponseBodyTraits<tce::wire::Plans> {
 
 template<> struct ResponseBodyTraits<tce::wire::Land> {
   static const ResponseBody enum_value = ResponseBody::Land;
+};
+
+template<> struct ResponseBodyTraits<tce::wire::QuakeInfo> {
+  static const ResponseBody enum_value = ResponseBody::QuakeInfo;
 };
 
 template <bool B = false>
@@ -8433,6 +8456,54 @@ struct GetStorm::Traits {
   static auto constexpr Create = CreateGetStorm;
 };
 
+struct GetQuake FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef GetQuakeBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4
+  };
+  uint32_t id() const {
+    return GetField<uint32_t>(VT_ID, 0);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct GetQuakeBuilder {
+  typedef GetQuake Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint32_t id) {
+    fbb_.AddElement<uint32_t>(GetQuake::VT_ID, id, 0);
+  }
+  explicit GetQuakeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<GetQuake> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<GetQuake>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<GetQuake> CreateGetQuake(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0) {
+  GetQuakeBuilder builder_(_fbb);
+  builder_.add_id(id);
+  return builder_.Finish();
+}
+
+struct GetQuake::Traits {
+  using type = GetQuake;
+  static auto constexpr Create = CreateGetQuake;
+};
+
 struct GetWays FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef GetWaysBuilder Builder;
   struct Traits;
@@ -8690,6 +8761,9 @@ struct Query FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const tce::wire::GetLand *body_as_GetLand() const {
     return body_type() == tce::wire::QueryBody::GetLand ? static_cast<const tce::wire::GetLand *>(body()) : nullptr;
   }
+  const tce::wire::GetQuake *body_as_GetQuake() const {
+    return body_type() == tce::wire::QueryBody::GetQuake ? static_cast<const tce::wire::GetQuake *>(body()) : nullptr;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -8830,6 +8904,10 @@ template<> inline const tce::wire::GetPlans *Query::body_as<tce::wire::GetPlans>
 
 template<> inline const tce::wire::GetLand *Query::body_as<tce::wire::GetLand>() const {
   return body_as_GetLand();
+}
+
+template<> inline const tce::wire::GetQuake *Query::body_as<tce::wire::GetQuake>() const {
+  return body_as_GetQuake();
 }
 
 struct QueryBuilder {
@@ -21403,7 +21481,8 @@ struct IncidentRow FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_OPEN = 28,
     VT_CONFLAGRATION = 30,
     VT_FLOOD = 32,
-    VT_STORM = 34
+    VT_STORM = 34,
+    VT_QUAKE = 36
   };
   uint8_t kind() const {
     return GetField<uint8_t>(VT_KIND, 0);
@@ -21453,6 +21532,9 @@ struct IncidentRow FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint32_t storm() const {
     return GetField<uint32_t>(VT_STORM, 0);
   }
+  uint32_t quake() const {
+    return GetField<uint32_t>(VT_QUAKE, 0);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -21476,6 +21558,7 @@ struct IncidentRow FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<uint32_t>(verifier, VT_CONFLAGRATION, 4) &&
            VerifyField<uint32_t>(verifier, VT_FLOOD, 4) &&
            VerifyField<uint32_t>(verifier, VT_STORM, 4) &&
+           VerifyField<uint32_t>(verifier, VT_QUAKE, 4) &&
            verifier.EndTable();
   }
 };
@@ -21532,6 +21615,9 @@ struct IncidentRowBuilder {
   void add_storm(uint32_t storm) {
     fbb_.AddElement<uint32_t>(IncidentRow::VT_STORM, storm, 0);
   }
+  void add_quake(uint32_t quake) {
+    fbb_.AddElement<uint32_t>(IncidentRow::VT_QUAKE, quake, 0);
+  }
   explicit IncidentRowBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -21560,11 +21646,13 @@ inline ::flatbuffers::Offset<IncidentRow> CreateIncidentRow(
     bool open = false,
     uint32_t conflagration = 0,
     uint32_t flood = 0,
-    uint32_t storm = 0) {
+    uint32_t storm = 0,
+    uint32_t quake = 0) {
   IncidentRowBuilder builder_(_fbb);
   builder_.add_who(who);
   builder_.add_settlement(settlement);
   builder_.add_minute(minute);
+  builder_.add_quake(quake);
   builder_.add_storm(storm);
   builder_.add_flood(flood);
   builder_.add_conflagration(conflagration);
@@ -21603,7 +21691,8 @@ inline ::flatbuffers::Offset<IncidentRow> CreateIncidentRowDirect(
     bool open = false,
     uint32_t conflagration = 0,
     uint32_t flood = 0,
-    uint32_t storm = 0) {
+    uint32_t storm = 0,
+    uint32_t quake = 0) {
   auto who_name__ = who_name ? _fbb.CreateString(who_name) : 0;
   auto happened__ = happened ? _fbb.CreateString(happened) : 0;
   auto known__ = known ? _fbb.CreateString(known) : 0;
@@ -21625,7 +21714,8 @@ inline ::flatbuffers::Offset<IncidentRow> CreateIncidentRowDirect(
       open,
       conflagration,
       flood,
-      storm);
+      storm,
+      quake);
 }
 
 struct IncidentTotal FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -22370,6 +22460,172 @@ inline ::flatbuffers::Offset<StormRow> CreateStormRowDirect(
       words__);
 }
 
+struct QuakeRow FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef QuakeRowBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ID = 4,
+    VT_SETTLEMENT = 6,
+    VT_AT = 8,
+    VT_STRENGTH = 10,
+    VT_REACHED = 12,
+    VT_FELL = 14,
+    VT_CRACKED = 16,
+    VT_DEATHS = 18,
+    VT_OBSERVER = 20,
+    VT_WORDS = 22
+  };
+  uint32_t id() const {
+    return GetField<uint32_t>(VT_ID, 0);
+  }
+  uint64_t settlement() const {
+    return GetField<uint64_t>(VT_SETTLEMENT, 0);
+  }
+  int64_t at() const {
+    return GetField<int64_t>(VT_AT, 0);
+  }
+  float strength() const {
+    return GetField<float>(VT_STRENGTH, 0.0f);
+  }
+  uint32_t reached() const {
+    return GetField<uint32_t>(VT_REACHED, 0);
+  }
+  uint32_t fell() const {
+    return GetField<uint32_t>(VT_FELL, 0);
+  }
+  uint32_t cracked() const {
+    return GetField<uint32_t>(VT_CRACKED, 0);
+  }
+  uint32_t deaths() const {
+    return GetField<uint32_t>(VT_DEATHS, 0);
+  }
+  uint32_t observer() const {
+    return GetField<uint32_t>(VT_OBSERVER, 0);
+  }
+  const ::flatbuffers::String *words() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_WORDS);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint32_t>(verifier, VT_ID, 4) &&
+           VerifyField<uint64_t>(verifier, VT_SETTLEMENT, 8) &&
+           VerifyField<int64_t>(verifier, VT_AT, 8) &&
+           VerifyField<float>(verifier, VT_STRENGTH, 4) &&
+           VerifyField<uint32_t>(verifier, VT_REACHED, 4) &&
+           VerifyField<uint32_t>(verifier, VT_FELL, 4) &&
+           VerifyField<uint32_t>(verifier, VT_CRACKED, 4) &&
+           VerifyField<uint32_t>(verifier, VT_DEATHS, 4) &&
+           VerifyField<uint32_t>(verifier, VT_OBSERVER, 4) &&
+           VerifyOffset(verifier, VT_WORDS) &&
+           verifier.VerifyString(words()) &&
+           verifier.EndTable();
+  }
+};
+
+struct QuakeRowBuilder {
+  typedef QuakeRow Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_id(uint32_t id) {
+    fbb_.AddElement<uint32_t>(QuakeRow::VT_ID, id, 0);
+  }
+  void add_settlement(uint64_t settlement) {
+    fbb_.AddElement<uint64_t>(QuakeRow::VT_SETTLEMENT, settlement, 0);
+  }
+  void add_at(int64_t at) {
+    fbb_.AddElement<int64_t>(QuakeRow::VT_AT, at, 0);
+  }
+  void add_strength(float strength) {
+    fbb_.AddElement<float>(QuakeRow::VT_STRENGTH, strength, 0.0f);
+  }
+  void add_reached(uint32_t reached) {
+    fbb_.AddElement<uint32_t>(QuakeRow::VT_REACHED, reached, 0);
+  }
+  void add_fell(uint32_t fell) {
+    fbb_.AddElement<uint32_t>(QuakeRow::VT_FELL, fell, 0);
+  }
+  void add_cracked(uint32_t cracked) {
+    fbb_.AddElement<uint32_t>(QuakeRow::VT_CRACKED, cracked, 0);
+  }
+  void add_deaths(uint32_t deaths) {
+    fbb_.AddElement<uint32_t>(QuakeRow::VT_DEATHS, deaths, 0);
+  }
+  void add_observer(uint32_t observer) {
+    fbb_.AddElement<uint32_t>(QuakeRow::VT_OBSERVER, observer, 0);
+  }
+  void add_words(::flatbuffers::Offset<::flatbuffers::String> words) {
+    fbb_.AddOffset(QuakeRow::VT_WORDS, words);
+  }
+  explicit QuakeRowBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<QuakeRow> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<QuakeRow>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<QuakeRow> CreateQuakeRow(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    uint64_t settlement = 0,
+    int64_t at = 0,
+    float strength = 0.0f,
+    uint32_t reached = 0,
+    uint32_t fell = 0,
+    uint32_t cracked = 0,
+    uint32_t deaths = 0,
+    uint32_t observer = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> words = 0) {
+  QuakeRowBuilder builder_(_fbb);
+  builder_.add_at(at);
+  builder_.add_settlement(settlement);
+  builder_.add_words(words);
+  builder_.add_observer(observer);
+  builder_.add_deaths(deaths);
+  builder_.add_cracked(cracked);
+  builder_.add_fell(fell);
+  builder_.add_reached(reached);
+  builder_.add_strength(strength);
+  builder_.add_id(id);
+  return builder_.Finish();
+}
+
+struct QuakeRow::Traits {
+  using type = QuakeRow;
+  static auto constexpr Create = CreateQuakeRow;
+};
+
+inline ::flatbuffers::Offset<QuakeRow> CreateQuakeRowDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    uint32_t id = 0,
+    uint64_t settlement = 0,
+    int64_t at = 0,
+    float strength = 0.0f,
+    uint32_t reached = 0,
+    uint32_t fell = 0,
+    uint32_t cracked = 0,
+    uint32_t deaths = 0,
+    uint32_t observer = 0,
+    const char *words = nullptr) {
+  auto words__ = words ? _fbb.CreateString(words) : 0;
+  return tce::wire::CreateQuakeRow(
+      _fbb,
+      id,
+      settlement,
+      at,
+      strength,
+      reached,
+      fell,
+      cracked,
+      deaths,
+      observer,
+      words__);
+}
+
 struct Incidents FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef IncidentsBuilder Builder;
   struct Traits;
@@ -22381,7 +22637,8 @@ struct Incidents FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_OUTBREAKS = 12,
     VT_CONFLAGRATIONS = 14,
     VT_FLOODS = 16,
-    VT_STORMS = 18
+    VT_STORMS = 18,
+    VT_QUAKES = 20
   };
   int64_t minute() const {
     return GetField<int64_t>(VT_MINUTE, 0);
@@ -22407,6 +22664,9 @@ struct Incidents FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StormRow>> *storms() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StormRow>> *>(VT_STORMS);
   }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::QuakeRow>> *quakes() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::QuakeRow>> *>(VT_QUAKES);
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -22430,6 +22690,9 @@ struct Incidents FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_STORMS) &&
            verifier.VerifyVector(storms()) &&
            verifier.VerifyVectorOfTables(storms()) &&
+           VerifyOffset(verifier, VT_QUAKES) &&
+           verifier.VerifyVector(quakes()) &&
+           verifier.VerifyVectorOfTables(quakes()) &&
            verifier.EndTable();
   }
 };
@@ -22462,6 +22725,9 @@ struct IncidentsBuilder {
   void add_storms(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StormRow>>> storms) {
     fbb_.AddOffset(Incidents::VT_STORMS, storms);
   }
+  void add_quakes(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::QuakeRow>>> quakes) {
+    fbb_.AddOffset(Incidents::VT_QUAKES, quakes);
+  }
   explicit IncidentsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -22482,9 +22748,11 @@ inline ::flatbuffers::Offset<Incidents> CreateIncidents(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::OutbreakRow>>> outbreaks = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::ConflagrationRow>>> conflagrations = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::FloodRow>>> floods = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StormRow>>> storms = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::StormRow>>> storms = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::QuakeRow>>> quakes = 0) {
   IncidentsBuilder builder_(_fbb);
   builder_.add_minute(minute);
+  builder_.add_quakes(quakes);
   builder_.add_storms(storms);
   builder_.add_floods(floods);
   builder_.add_conflagrations(conflagrations);
@@ -22509,13 +22777,15 @@ inline ::flatbuffers::Offset<Incidents> CreateIncidentsDirect(
     const std::vector<::flatbuffers::Offset<tce::wire::OutbreakRow>> *outbreaks = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::ConflagrationRow>> *conflagrations = nullptr,
     const std::vector<::flatbuffers::Offset<tce::wire::FloodRow>> *floods = nullptr,
-    const std::vector<::flatbuffers::Offset<tce::wire::StormRow>> *storms = nullptr) {
+    const std::vector<::flatbuffers::Offset<tce::wire::StormRow>> *storms = nullptr,
+    const std::vector<::flatbuffers::Offset<tce::wire::QuakeRow>> *quakes = nullptr) {
   auto rows__ = rows ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::IncidentRow>>(*rows) : 0;
   auto totals__ = totals ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::IncidentTotal>>(*totals) : 0;
   auto outbreaks__ = outbreaks ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::OutbreakRow>>(*outbreaks) : 0;
   auto conflagrations__ = conflagrations ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::ConflagrationRow>>(*conflagrations) : 0;
   auto floods__ = floods ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::FloodRow>>(*floods) : 0;
   auto storms__ = storms ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::StormRow>>(*storms) : 0;
+  auto quakes__ = quakes ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::QuakeRow>>(*quakes) : 0;
   return tce::wire::CreateIncidents(
       _fbb,
       minute,
@@ -22525,7 +22795,8 @@ inline ::flatbuffers::Offset<Incidents> CreateIncidentsDirect(
       outbreaks__,
       conflagrations__,
       floods__,
-      storms__);
+      storms__,
+      quakes__);
 }
 
 struct IncidentStep FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -23538,6 +23809,120 @@ inline ::flatbuffers::Offset<StormInfo> CreateStormInfoDirect(
       cause__,
       cause_link,
       weather__,
+      incidents__,
+      summary__);
+}
+
+struct QuakeInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef QuakeInfoBuilder Builder;
+  struct Traits;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ROW = 4,
+    VT_CAUSE = 6,
+    VT_CAUSE_LINK = 8,
+    VT_INCIDENTS = 10,
+    VT_SUMMARY = 12
+  };
+  const tce::wire::QuakeRow *row() const {
+    return GetPointer<const tce::wire::QuakeRow *>(VT_ROW);
+  }
+  const ::flatbuffers::String *cause() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_CAUSE);
+  }
+  const tce::wire::IncidentLink *cause_link() const {
+    return GetPointer<const tce::wire::IncidentLink *>(VT_CAUSE_LINK);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>> *incidents() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>> *>(VT_INCIDENTS);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *summary() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_SUMMARY);
+  }
+  template <bool B = false>
+  bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ROW) &&
+           verifier.VerifyTable(row()) &&
+           VerifyOffset(verifier, VT_CAUSE) &&
+           verifier.VerifyString(cause()) &&
+           VerifyOffset(verifier, VT_CAUSE_LINK) &&
+           verifier.VerifyTable(cause_link()) &&
+           VerifyOffset(verifier, VT_INCIDENTS) &&
+           verifier.VerifyVector(incidents()) &&
+           verifier.VerifyVectorOfTables(incidents()) &&
+           VerifyOffset(verifier, VT_SUMMARY) &&
+           verifier.VerifyVector(summary()) &&
+           verifier.VerifyVectorOfStrings(summary()) &&
+           verifier.EndTable();
+  }
+};
+
+struct QuakeInfoBuilder {
+  typedef QuakeInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_row(::flatbuffers::Offset<tce::wire::QuakeRow> row) {
+    fbb_.AddOffset(QuakeInfo::VT_ROW, row);
+  }
+  void add_cause(::flatbuffers::Offset<::flatbuffers::String> cause) {
+    fbb_.AddOffset(QuakeInfo::VT_CAUSE, cause);
+  }
+  void add_cause_link(::flatbuffers::Offset<tce::wire::IncidentLink> cause_link) {
+    fbb_.AddOffset(QuakeInfo::VT_CAUSE_LINK, cause_link);
+  }
+  void add_incidents(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>>> incidents) {
+    fbb_.AddOffset(QuakeInfo::VT_INCIDENTS, incidents);
+  }
+  void add_summary(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> summary) {
+    fbb_.AddOffset(QuakeInfo::VT_SUMMARY, summary);
+  }
+  explicit QuakeInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<QuakeInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<QuakeInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<QuakeInfo> CreateQuakeInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<tce::wire::QuakeRow> row = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> cause = 0,
+    ::flatbuffers::Offset<tce::wire::IncidentLink> cause_link = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<tce::wire::IncidentRow>>> incidents = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> summary = 0) {
+  QuakeInfoBuilder builder_(_fbb);
+  builder_.add_summary(summary);
+  builder_.add_incidents(incidents);
+  builder_.add_cause_link(cause_link);
+  builder_.add_cause(cause);
+  builder_.add_row(row);
+  return builder_.Finish();
+}
+
+struct QuakeInfo::Traits {
+  using type = QuakeInfo;
+  static auto constexpr Create = CreateQuakeInfo;
+};
+
+inline ::flatbuffers::Offset<QuakeInfo> CreateQuakeInfoDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<tce::wire::QuakeRow> row = 0,
+    const char *cause = nullptr,
+    ::flatbuffers::Offset<tce::wire::IncidentLink> cause_link = 0,
+    const std::vector<::flatbuffers::Offset<tce::wire::IncidentRow>> *incidents = nullptr,
+    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *summary = nullptr) {
+  auto cause__ = cause ? _fbb.CreateString(cause) : 0;
+  auto incidents__ = incidents ? _fbb.CreateVector<::flatbuffers::Offset<tce::wire::IncidentRow>>(*incidents) : 0;
+  auto summary__ = summary ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*summary) : 0;
+  return tce::wire::CreateQuakeInfo(
+      _fbb,
+      row,
+      cause__,
+      cause_link,
       incidents__,
       summary__);
 }
@@ -25421,6 +25806,9 @@ struct Response FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const tce::wire::Land *body_as_Land() const {
     return body_type() == tce::wire::ResponseBody::Land ? static_cast<const tce::wire::Land *>(body()) : nullptr;
   }
+  const tce::wire::QuakeInfo *body_as_QuakeInfo() const {
+    return body_type() == tce::wire::ResponseBody::QuakeInfo ? static_cast<const tce::wire::QuakeInfo *>(body()) : nullptr;
+  }
   template <bool B = false>
   bool Verify(::flatbuffers::VerifierTemplate<B> &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -25565,6 +25953,10 @@ template<> inline const tce::wire::Plans *Response::body_as<tce::wire::Plans>() 
 
 template<> inline const tce::wire::Land *Response::body_as<tce::wire::Land>() const {
   return body_as_Land();
+}
+
+template<> inline const tce::wire::QuakeInfo *Response::body_as<tce::wire::QuakeInfo>() const {
+  return body_as_QuakeInfo();
 }
 
 struct ResponseBuilder {
@@ -25918,6 +26310,10 @@ inline bool VerifyQueryBody(::flatbuffers::VerifierTemplate<B> &verifier, const 
       auto ptr = reinterpret_cast<const tce::wire::GetLand *>(obj);
       return verifier.VerifyTable(ptr);
     }
+    case QueryBody::GetQuake: {
+      auto ptr = reinterpret_cast<const tce::wire::GetQuake *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
     default: return true;
   }
 }
@@ -26075,6 +26471,10 @@ inline bool VerifyResponseBody(::flatbuffers::VerifierTemplate<B> &verifier, con
     }
     case ResponseBody::Land: {
       auto ptr = reinterpret_cast<const tce::wire::Land *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ResponseBody::QuakeInfo: {
+      auto ptr = reinterpret_cast<const tce::wire::QuakeInfo *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;

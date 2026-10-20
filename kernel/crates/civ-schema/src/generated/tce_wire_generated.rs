@@ -835,10 +835,10 @@ pub struct CommandBodyUnionTableOffset {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_QUERY_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_QUERY_BODY: u8 = 33;
+pub const ENUM_MAX_QUERY_BODY: u8 = 34;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 34] = [
+pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 35] = [
   QueryBody::NONE,
   QueryBody::GetRaster,
   QueryBody::GetHydrography,
@@ -873,6 +873,7 @@ pub const ENUM_VALUES_QUERY_BODY: [QueryBody; 34] = [
   QueryBody::GetVehicles,
   QueryBody::GetPlans,
   QueryBody::GetLand,
+  QueryBody::GetQuake,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -914,9 +915,10 @@ impl QueryBody {
   pub const GetVehicles: Self = Self(31);
   pub const GetPlans: Self = Self(32);
   pub const GetLand: Self = Self(33);
+  pub const GetQuake: Self = Self(34);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 33;
+  pub const ENUM_MAX: u8 = 34;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::GetRaster,
@@ -952,6 +954,7 @@ impl QueryBody {
     Self::GetVehicles,
     Self::GetPlans,
     Self::GetLand,
+    Self::GetQuake,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -990,6 +993,7 @@ impl QueryBody {
       Self::GetVehicles => Some("GetVehicles"),
       Self::GetPlans => Some("GetPlans"),
       Self::GetLand => Some("GetLand"),
+      Self::GetQuake => Some("GetQuake"),
       _ => None,
     }
   }
@@ -1429,10 +1433,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for BookKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_RESPONSE_BODY: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_RESPONSE_BODY: u8 = 34;
+pub const ENUM_MAX_RESPONSE_BODY: u8 = 35;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 35] = [
+pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 36] = [
   ResponseBody::NONE,
   ResponseBody::Ack,
   ResponseBody::RasterTile,
@@ -1468,6 +1472,7 @@ pub const ENUM_VALUES_RESPONSE_BODY: [ResponseBody; 35] = [
   ResponseBody::Vehicles,
   ResponseBody::Plans,
   ResponseBody::Land,
+  ResponseBody::QuakeInfo,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1510,9 +1515,10 @@ impl ResponseBody {
   pub const Vehicles: Self = Self(32);
   pub const Plans: Self = Self(33);
   pub const Land: Self = Self(34);
+  pub const QuakeInfo: Self = Self(35);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 34;
+  pub const ENUM_MAX: u8 = 35;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::Ack,
@@ -1549,6 +1555,7 @@ impl ResponseBody {
     Self::Vehicles,
     Self::Plans,
     Self::Land,
+    Self::QuakeInfo,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1588,6 +1595,7 @@ impl ResponseBody {
       Self::Vehicles => Some("Vehicles"),
       Self::Plans => Some("Plans"),
       Self::Land => Some("Land"),
+      Self::QuakeInfo => Some("QuakeInfo"),
       _ => None,
     }
   }
@@ -14321,6 +14329,102 @@ impl ::core::fmt::Debug for GetStorm<'_> {
       ds.finish()
   }
 }
+pub enum GetQuakeOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetQuake<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for GetQuake<'a> {
+  type Inner = GetQuake<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> GetQuake<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    GetQuake { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GetQuakeArgs
+  ) -> ::flatbuffers::WIPOffset<GetQuake<'bldr>> {
+    let mut builder = GetQuakeBuilder::new(_fbb);
+    builder.add_id(args.id);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GetQuake::VT_ID, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for GetQuake<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetQuakeArgs {
+    pub id: u32,
+}
+impl<'a> Default for GetQuakeArgs {
+  #[inline]
+  fn default() -> Self {
+    GetQuakeArgs {
+      id: 0,
+    }
+  }
+}
+
+pub struct GetQuakeBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GetQuakeBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(GetQuake::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GetQuakeBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetQuakeBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<GetQuake<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for GetQuake<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("GetQuake");
+      ds.field("id", &self.id());
+      ds.finish()
+  }
+}
 pub enum GetWaysOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -15177,6 +15281,21 @@ impl<'a> Query<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_get_quake(&self) -> Option<GetQuake<'a>> {
+    if self.body_type() == QueryBody::GetQuake {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { GetQuake::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Query<'_> {
@@ -15220,6 +15339,7 @@ impl ::flatbuffers::Verifiable for Query<'_> {
           QueryBody::GetVehicles => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetVehicles>>("QueryBody::GetVehicles", pos),
           QueryBody::GetPlans => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetPlans>>("QueryBody::GetPlans", pos),
           QueryBody::GetLand => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetLand>>("QueryBody::GetLand", pos),
+          QueryBody::GetQuake => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GetQuake>>("QueryBody::GetQuake", pos),
           _ => Ok(()),
         }
      })?
@@ -15500,6 +15620,13 @@ impl ::core::fmt::Debug for Query<'_> {
         },
         QueryBody::GetLand => {
           if let Some(x) = self.body_as_get_land() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        QueryBody::GetQuake => {
+          if let Some(x) = self.body_as_get_quake() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
@@ -33924,6 +34051,7 @@ impl<'a> IncidentRow<'a> {
   pub const VT_CONFLAGRATION: ::flatbuffers::VOffsetT = 30;
   pub const VT_FLOOD: ::flatbuffers::VOffsetT = 32;
   pub const VT_STORM: ::flatbuffers::VOffsetT = 34;
+  pub const VT_QUAKE: ::flatbuffers::VOffsetT = 36;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -33938,6 +34066,7 @@ impl<'a> IncidentRow<'a> {
     builder.add_who(args.who);
     builder.add_settlement(args.settlement);
     builder.add_minute(args.minute);
+    builder.add_quake(args.quake);
     builder.add_storm(args.storm);
     builder.add_flood(args.flood);
     builder.add_conflagration(args.conflagration);
@@ -34067,6 +34196,13 @@ impl<'a> IncidentRow<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(IncidentRow::VT_STORM, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn quake(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(IncidentRow::VT_QUAKE, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for IncidentRow<'_> {
@@ -34091,6 +34227,7 @@ impl ::flatbuffers::Verifiable for IncidentRow<'_> {
      .visit_field::<u32>("conflagration", Self::VT_CONFLAGRATION, false)?
      .visit_field::<u32>("flood", Self::VT_FLOOD, false)?
      .visit_field::<u32>("storm", Self::VT_STORM, false)?
+     .visit_field::<u32>("quake", Self::VT_QUAKE, false)?
      .finish();
     Ok(())
   }
@@ -34112,6 +34249,7 @@ pub struct IncidentRowArgs<'a> {
     pub conflagration: u32,
     pub flood: u32,
     pub storm: u32,
+    pub quake: u32,
 }
 impl<'a> Default for IncidentRowArgs<'a> {
   #[inline]
@@ -34133,6 +34271,7 @@ impl<'a> Default for IncidentRowArgs<'a> {
       conflagration: 0,
       flood: 0,
       storm: 0,
+      quake: 0,
     }
   }
 }
@@ -34207,6 +34346,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> IncidentRowBuilder<'a, 'b, A>
     self.fbb_.push_slot::<u32>(IncidentRow::VT_STORM, storm, 0);
   }
   #[inline]
+  pub fn add_quake(&mut self, quake: u32) {
+    self.fbb_.push_slot::<u32>(IncidentRow::VT_QUAKE, quake, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> IncidentRowBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     IncidentRowBuilder {
@@ -34240,6 +34383,7 @@ impl ::core::fmt::Debug for IncidentRow<'_> {
       ds.field("conflagration", &self.conflagration());
       ds.field("flood", &self.flood());
       ds.field("storm", &self.storm());
+      ds.field("quake", &self.quake());
       ds.finish()
   }
 }
@@ -35386,6 +35530,255 @@ impl ::core::fmt::Debug for StormRow<'_> {
       ds.finish()
   }
 }
+pub enum QuakeRowOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct QuakeRow<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for QuakeRow<'a> {
+  type Inner = QuakeRow<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> QuakeRow<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 6;
+  pub const VT_AT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_STRENGTH: ::flatbuffers::VOffsetT = 10;
+  pub const VT_REACHED: ::flatbuffers::VOffsetT = 12;
+  pub const VT_FELL: ::flatbuffers::VOffsetT = 14;
+  pub const VT_CRACKED: ::flatbuffers::VOffsetT = 16;
+  pub const VT_DEATHS: ::flatbuffers::VOffsetT = 18;
+  pub const VT_OBSERVER: ::flatbuffers::VOffsetT = 20;
+  pub const VT_WORDS: ::flatbuffers::VOffsetT = 22;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    QuakeRow { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args QuakeRowArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<QuakeRow<'bldr>> {
+    let mut builder = QuakeRowBuilder::new(_fbb);
+    builder.add_at(args.at);
+    builder.add_settlement(args.settlement);
+    if let Some(x) = args.words { builder.add_words(x); }
+    builder.add_observer(args.observer);
+    builder.add_deaths(args.deaths);
+    builder.add_cracked(args.cracked);
+    builder.add_fell(args.fell);
+    builder.add_reached(args.reached);
+    builder.add_strength(args.strength);
+    builder.add_id(args.id);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(QuakeRow::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(QuakeRow::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(QuakeRow::VT_AT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn strength(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(QuakeRow::VT_STRENGTH, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn reached(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(QuakeRow::VT_REACHED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn fell(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(QuakeRow::VT_FELL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn cracked(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(QuakeRow::VT_CRACKED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn deaths(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(QuakeRow::VT_DEATHS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn observer(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(QuakeRow::VT_OBSERVER, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn words(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(QuakeRow::VT_WORDS, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for QuakeRow<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<i64>("at", Self::VT_AT, false)?
+     .visit_field::<f32>("strength", Self::VT_STRENGTH, false)?
+     .visit_field::<u32>("reached", Self::VT_REACHED, false)?
+     .visit_field::<u32>("fell", Self::VT_FELL, false)?
+     .visit_field::<u32>("cracked", Self::VT_CRACKED, false)?
+     .visit_field::<u32>("deaths", Self::VT_DEATHS, false)?
+     .visit_field::<u32>("observer", Self::VT_OBSERVER, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("words", Self::VT_WORDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct QuakeRowArgs<'a> {
+    pub id: u32,
+    pub settlement: u64,
+    pub at: i64,
+    pub strength: f32,
+    pub reached: u32,
+    pub fell: u32,
+    pub cracked: u32,
+    pub deaths: u32,
+    pub observer: u32,
+    pub words: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for QuakeRowArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    QuakeRowArgs {
+      id: 0,
+      settlement: 0,
+      at: 0,
+      strength: 0.0,
+      reached: 0,
+      fell: 0,
+      cracked: 0,
+      deaths: 0,
+      observer: 0,
+      words: None,
+    }
+  }
+}
+
+pub struct QuakeRowBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> QuakeRowBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(QuakeRow::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(QuakeRow::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_at(&mut self, at: i64) {
+    self.fbb_.push_slot::<i64>(QuakeRow::VT_AT, at, 0);
+  }
+  #[inline]
+  pub fn add_strength(&mut self, strength: f32) {
+    self.fbb_.push_slot::<f32>(QuakeRow::VT_STRENGTH, strength, 0.0);
+  }
+  #[inline]
+  pub fn add_reached(&mut self, reached: u32) {
+    self.fbb_.push_slot::<u32>(QuakeRow::VT_REACHED, reached, 0);
+  }
+  #[inline]
+  pub fn add_fell(&mut self, fell: u32) {
+    self.fbb_.push_slot::<u32>(QuakeRow::VT_FELL, fell, 0);
+  }
+  #[inline]
+  pub fn add_cracked(&mut self, cracked: u32) {
+    self.fbb_.push_slot::<u32>(QuakeRow::VT_CRACKED, cracked, 0);
+  }
+  #[inline]
+  pub fn add_deaths(&mut self, deaths: u32) {
+    self.fbb_.push_slot::<u32>(QuakeRow::VT_DEATHS, deaths, 0);
+  }
+  #[inline]
+  pub fn add_observer(&mut self, observer: u32) {
+    self.fbb_.push_slot::<u32>(QuakeRow::VT_OBSERVER, observer, 0);
+  }
+  #[inline]
+  pub fn add_words(&mut self, words: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(QuakeRow::VT_WORDS, words);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> QuakeRowBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    QuakeRowBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<QuakeRow<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for QuakeRow<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("QuakeRow");
+      ds.field("id", &self.id());
+      ds.field("settlement", &self.settlement());
+      ds.field("at", &self.at());
+      ds.field("strength", &self.strength());
+      ds.field("reached", &self.reached());
+      ds.field("fell", &self.fell());
+      ds.field("cracked", &self.cracked());
+      ds.field("deaths", &self.deaths());
+      ds.field("observer", &self.observer());
+      ds.field("words", &self.words());
+      ds.finish()
+  }
+}
 pub enum IncidentsOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -35410,6 +35803,7 @@ impl<'a> Incidents<'a> {
   pub const VT_CONFLAGRATIONS: ::flatbuffers::VOffsetT = 14;
   pub const VT_FLOODS: ::flatbuffers::VOffsetT = 16;
   pub const VT_STORMS: ::flatbuffers::VOffsetT = 18;
+  pub const VT_QUAKES: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -35422,6 +35816,7 @@ impl<'a> Incidents<'a> {
   ) -> ::flatbuffers::WIPOffset<Incidents<'bldr>> {
     let mut builder = IncidentsBuilder::new(_fbb);
     builder.add_minute(args.minute);
+    if let Some(x) = args.quakes { builder.add_quakes(x); }
     if let Some(x) = args.storms { builder.add_storms(x); }
     if let Some(x) = args.floods { builder.add_floods(x); }
     if let Some(x) = args.conflagrations { builder.add_conflagrations(x); }
@@ -35489,6 +35884,13 @@ impl<'a> Incidents<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StormRow>>>>(Incidents::VT_STORMS, None)}
   }
+  #[inline]
+  pub fn quakes(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<QuakeRow<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<QuakeRow>>>>(Incidents::VT_QUAKES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Incidents<'_> {
@@ -35505,6 +35907,7 @@ impl ::flatbuffers::Verifiable for Incidents<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ConflagrationRow>>>>("conflagrations", Self::VT_CONFLAGRATIONS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FloodRow>>>>("floods", Self::VT_FLOODS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<StormRow>>>>("storms", Self::VT_STORMS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<QuakeRow>>>>("quakes", Self::VT_QUAKES, false)?
      .finish();
     Ok(())
   }
@@ -35518,6 +35921,7 @@ pub struct IncidentsArgs<'a> {
     pub conflagrations: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ConflagrationRow<'a>>>>>,
     pub floods: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FloodRow<'a>>>>>,
     pub storms: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<StormRow<'a>>>>>,
+    pub quakes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<QuakeRow<'a>>>>>,
 }
 impl<'a> Default for IncidentsArgs<'a> {
   #[inline]
@@ -35531,6 +35935,7 @@ impl<'a> Default for IncidentsArgs<'a> {
       conflagrations: None,
       floods: None,
       storms: None,
+      quakes: None,
     }
   }
 }
@@ -35573,6 +35978,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> IncidentsBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Incidents::VT_STORMS, storms);
   }
   #[inline]
+  pub fn add_quakes(&mut self, quakes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<QuakeRow<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Incidents::VT_QUAKES, quakes);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> IncidentsBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     IncidentsBuilder {
@@ -35598,6 +36007,7 @@ impl ::core::fmt::Debug for Incidents<'_> {
       ds.field("conflagrations", &self.conflagrations());
       ds.field("floods", &self.floods());
       ds.field("storms", &self.storms());
+      ds.field("quakes", &self.quakes());
       ds.finish()
   }
 }
@@ -37044,6 +37454,170 @@ impl ::core::fmt::Debug for StormInfo<'_> {
       ds.field("cause", &self.cause());
       ds.field("cause_link", &self.cause_link());
       ds.field("weather", &self.weather());
+      ds.field("incidents", &self.incidents());
+      ds.field("summary", &self.summary());
+      ds.finish()
+  }
+}
+pub enum QuakeInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct QuakeInfo<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for QuakeInfo<'a> {
+  type Inner = QuakeInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> QuakeInfo<'a> {
+  pub const VT_ROW: ::flatbuffers::VOffsetT = 4;
+  pub const VT_CAUSE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CAUSE_LINK: ::flatbuffers::VOffsetT = 8;
+  pub const VT_INCIDENTS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SUMMARY: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    QuakeInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args QuakeInfoArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<QuakeInfo<'bldr>> {
+    let mut builder = QuakeInfoBuilder::new(_fbb);
+    if let Some(x) = args.summary { builder.add_summary(x); }
+    if let Some(x) = args.incidents { builder.add_incidents(x); }
+    if let Some(x) = args.cause_link { builder.add_cause_link(x); }
+    if let Some(x) = args.cause { builder.add_cause(x); }
+    if let Some(x) = args.row { builder.add_row(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn row(&self) -> Option<QuakeRow<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<QuakeRow>>(QuakeInfo::VT_ROW, None)}
+  }
+  #[inline]
+  pub fn cause(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(QuakeInfo::VT_CAUSE, None)}
+  }
+  #[inline]
+  pub fn cause_link(&self) -> Option<IncidentLink<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<IncidentLink>>(QuakeInfo::VT_CAUSE_LINK, None)}
+  }
+  #[inline]
+  pub fn incidents(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IncidentRow<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IncidentRow>>>>(QuakeInfo::VT_INCIDENTS, None)}
+  }
+  #[inline]
+  pub fn summary(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(QuakeInfo::VT_SUMMARY, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for QuakeInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<QuakeRow>>("row", Self::VT_ROW, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("cause", Self::VT_CAUSE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<IncidentLink>>("cause_link", Self::VT_CAUSE_LINK, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<IncidentRow>>>>("incidents", Self::VT_INCIDENTS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("summary", Self::VT_SUMMARY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct QuakeInfoArgs<'a> {
+    pub row: Option<::flatbuffers::WIPOffset<QuakeRow<'a>>>,
+    pub cause: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub cause_link: Option<::flatbuffers::WIPOffset<IncidentLink<'a>>>,
+    pub incidents: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<IncidentRow<'a>>>>>,
+    pub summary: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+}
+impl<'a> Default for QuakeInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    QuakeInfoArgs {
+      row: None,
+      cause: None,
+      cause_link: None,
+      incidents: None,
+      summary: None,
+    }
+  }
+}
+
+pub struct QuakeInfoBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> QuakeInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_row(&mut self, row: ::flatbuffers::WIPOffset<QuakeRow<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<QuakeRow>>(QuakeInfo::VT_ROW, row);
+  }
+  #[inline]
+  pub fn add_cause(&mut self, cause: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(QuakeInfo::VT_CAUSE, cause);
+  }
+  #[inline]
+  pub fn add_cause_link(&mut self, cause_link: ::flatbuffers::WIPOffset<IncidentLink<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<IncidentLink>>(QuakeInfo::VT_CAUSE_LINK, cause_link);
+  }
+  #[inline]
+  pub fn add_incidents(&mut self, incidents: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<IncidentRow<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(QuakeInfo::VT_INCIDENTS, incidents);
+  }
+  #[inline]
+  pub fn add_summary(&mut self, summary: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(QuakeInfo::VT_SUMMARY, summary);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> QuakeInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    QuakeInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<QuakeInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for QuakeInfo<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("QuakeInfo");
+      ds.field("row", &self.row());
+      ds.field("cause", &self.cause());
+      ds.field("cause_link", &self.cause_link());
       ds.field("incidents", &self.incidents());
       ds.field("summary", &self.summary());
       ds.finish()
@@ -40278,6 +40852,21 @@ impl<'a> Response<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn body_as_quake_info(&self) -> Option<QuakeInfo<'a>> {
+    if self.body_type() == ResponseBody::QuakeInfo {
+      self.body().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { QuakeInfo::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for Response<'_> {
@@ -40322,6 +40911,7 @@ impl ::flatbuffers::Verifiable for Response<'_> {
           ResponseBody::Vehicles => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Vehicles>>("ResponseBody::Vehicles", pos),
           ResponseBody::Plans => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Plans>>("ResponseBody::Plans", pos),
           ResponseBody::Land => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<Land>>("ResponseBody::Land", pos),
+          ResponseBody::QuakeInfo => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<QuakeInfo>>("ResponseBody::QuakeInfo", pos),
           _ => Ok(()),
         }
      })?
@@ -40609,6 +41199,13 @@ impl ::core::fmt::Debug for Response<'_> {
         },
         ResponseBody::Land => {
           if let Some(x) = self.body_as_land() {
+            ds.field("body", &x)
+          } else {
+            ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        ResponseBody::QuakeInfo => {
+          if let Some(x) = self.body_as_quake_info() {
             ds.field("body", &x)
           } else {
             ds.field("body", &"InvalidFlatbuffer: Union discriminant does not match value.")

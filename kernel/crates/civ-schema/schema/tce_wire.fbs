@@ -708,7 +708,8 @@ struct IncidentKey {
 
 // Wire 1.64: incidents of every kind in one shape, newest first, a page at a time. Kinds: 1 a
 // taking (ADR-0015 §1), 2 a case of illness (an infection, ADR-0021 §5), 4 a building's fire
-// (wire 1.68, ADR-0022 §13).
+// (wire 1.68, ADR-0022 §13); wire 1.91: 11 a building that fell or cracked when the ground shook
+// (12, a shaking, has no rows of its own: shakings come in `quakes`).
 table GetIncidents {
   // A settlement's permanent id; 0 for every settlement.
   settlement: ulong (id: 0);
@@ -757,6 +758,11 @@ table GetStorm {
   id: uint (id: 0);
 }
 
+// Wire 1.91 (M8d slice DA; ADR-0031 §4): one shaking's page.
+table GetQuake {
+  id: uint (id: 0);
+}
+
 // Wire 1.84 (M8b slice CM; ADR-0029 §9): every way people have worked on.
 table GetWays {}
 // Wire 1.88: every plan put forward or in force.
@@ -766,7 +772,7 @@ table GetVehicles {}
 // Wire 1.89: the land map, every plot.
 table GetLand {}
 
-union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak, GetCoverage, GetConflagration, GetFlood, GetStorm, GetWays, GetVehicles, GetPlans, GetLand }
+union QueryBody { GetRaster, GetHydrography, ListSaves, GetTrips, GetPerson, GetChronicle, GetFields, GetBuildings, GetPaths, GetMarkets, GetFirms, GetFirm, GetWealth, GetKnowledge, GetDeposits, GetEarthworks, GetWeather, GetStanding, GetGovernment, GetOrder, GetCrossings, GetWater, GetIncidents, GetIncident, GetOutbreak, GetCoverage, GetConflagration, GetFlood, GetStorm, GetWays, GetVehicles, GetPlans, GetLand, GetQuake }
 
 table Query {
   body: QueryBody (id: 1);
@@ -2433,6 +2439,9 @@ table IncidentRow {
   flood: uint (id: 14);
   // Wire 1.69: the storm episode damage is part of, by number (0: none).
   storm: uint (id: 15);
+  // Wire 1.91: the shaking a building that fell or cracked (kind 11) is part of, by number (0:
+  // none).
+  quake: uint (id: 16);
 }
 
 // How many incidents of a kind there are, in the scope asked: all of them (the kernel's truth),
@@ -2512,6 +2521,28 @@ table StormRow {
   words: string (id: 7);
 }
 
+// A shaking (wire 1.91, M8d slice DA; ADR-0031 §4): the ground shaken by the observer, and what
+// the buildings it reached did.
+table QuakeRow {
+  id: uint (id: 0);
+  // The settlement it was sent to (0: the whole map).
+  settlement: ulong (id: 1);
+  // When it shook, as a minute.
+  at: long (id: 2);
+  // The share of a building's weight it put on each sideways.
+  strength: float (id: 3);
+  // The buildings it reached, those that fell, those that cracked, and those inside who died.
+  reached: uint (id: 4);
+  fell: uint (id: 5);
+  cracked: uint (id: 6);
+  deaths: uint (id: 7);
+  // The observer's influence that sent it, by number (0: none).
+  observer: uint (id: 8);
+  // In words: "The ground shook at Hazelford on 3 May of year 2 with 0.30 of a building's
+  // weight: 12 buildings reached; 2 fell, 3 cracked; 1 died".
+  words: string (id: 9);
+}
+
 table Incidents {
   minute: long (id: 0);
   // Newest first.
@@ -2528,6 +2559,8 @@ table Incidents {
   floods: [FloodRow] (id: 6);
   // Wire 1.69: every storm in the scope asked, newest first.
   storms: [StormRow] (id: 7);
+  // Wire 1.91: every shaking in the scope asked, newest first.
+  quakes: [QuakeRow] (id: 8);
 }
 
 // A step in an incident's chain (12-07 §1.1): it began, was seen, was told, was answered, ended.
@@ -2550,7 +2583,7 @@ table IncidentLink {
   relation: ubyte (id: 0);
   // What it points at: 0 an influence of the observer, 1 a person, 2 a household, 3 a source of
   // water, 4 an outbreak, 5 a taking, 6 a case of illness; wire 1.68: 7 a building's fire, 8 a
-  // conflagration, 9 a building.
+  // conflagration, 9 a building; wire 1.69: 10 a flood, 11 a storm; wire 1.91: 12 a shaking.
   target: ubyte (id: 1);
   id: ulong (id: 2);
   // In words: "brought by the observer (one recorded influence)", "part of the outbreak of
@@ -2638,6 +2671,16 @@ table StormInfo {
   weather: string (id: 3);
   incidents: [IncidentRow] (id: 4);
   summary: [string] (id: 5);
+}
+
+// A shaking's page (wire 1.91, M8d slice DA; ADR-0031 §4): who sent it, what it reached, and
+// each building that fell or cracked (kind 11 rows).
+table QuakeInfo {
+  row: QuakeRow (id: 0);
+  cause: string (id: 1);
+  cause_link: IncidentLink (id: 2);
+  incidents: [IncidentRow] (id: 3);
+  summary: [string] (id: 4);
 }
 
 // A source of water as one home stands to it (wire 1.66).
@@ -2834,7 +2877,7 @@ table Land {
   plots: [LandPlot] (id: 1);
 }
 
-union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo, Coverage, ConflagrationInfo, FloodInfo, StormInfo, Ways, Vehicles, Plans, Land }
+union ResponseBody { Ack, RasterTile, Hydrography, SaveList, Trips, PersonInfo, Chronicle, Fields, Buildings, Paths, Markets, Firms, FirmInfo, Wealth, Knowledge, Deposits, Earthworks, WeatherReport, Standing, Government, Order, Crossings, Water, Incidents, IncidentInfo, OutbreakInfo, Coverage, ConflagrationInfo, FloodInfo, StormInfo, Ways, Vehicles, Plans, Land, QuakeInfo }
 
 table Response {
   body: ResponseBody (id: 1);

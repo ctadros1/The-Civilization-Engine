@@ -960,6 +960,20 @@ impl Sim {
         self.influence(|people, ctx| people.send_storm(ctx, wind_speed_ms, direction_deg))
     }
 
+    /// The observer shakes the ground under `settlement`, or the whole map, with a lateral share
+    /// `strength` of every building's weight (god tool, M8d slice DA; ADR-0031 §4). Every standing
+    /// building is checked once in its lateral modes.
+    pub fn shake(
+        &mut self,
+        strength: f64,
+        settlement: Option<civ_core::PermanentId>,
+    ) -> Result<civ_agents::population::Reached, String> {
+        if !strength.is_finite() {
+            return Err("a shaking's strength must be finite".to_owned());
+        }
+        self.influence(|people, ctx| people.shake(ctx, strength, settlement))
+    }
+
     /// Runs god tool `tool` on the people with a context for now, then schedules what it planned.
     fn influence<T>(
         &mut self,

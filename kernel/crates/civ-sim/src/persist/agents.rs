@@ -125,7 +125,7 @@ use super::{
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
-    SCHEMA_V160, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V160, SCHEMA_V161, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -213,6 +213,8 @@ pub const SECTION_CONTAGION: SectionTag = SectionTag::new("pathogen");
 pub const SECTION_FIRES: SectionTag = SectionTag::new("fires");
 /// Section: high waters, flood episodes, storm damages, and storm episodes (schema 93; M6b slice BF).
 pub const SECTION_FLOODS: SectionTag = SectionTag::new("floods");
+/// Section: each time the ground was shaken and what each building did (schema 162; M8d slice DA).
+pub const SECTION_QUAKES: SectionTag = SectionTag::new("quakes");
 
 /// Activity index meaning "an activity the loaded content no longer has" (receipts only).
 pub const UNKNOWN_ACTIVITY: u16 = u16::MAX;
@@ -315,6 +317,7 @@ pub(super) fn encode(sim: &Sim) -> Vec<SectionData> {
         section(SECTION_CONTAGION, 0, encode_contagion(&sim.people, rules)),
         section(SECTION_FIRES, 0, encode_fires(&sim.people)),
         section(SECTION_FLOODS, 0, encode_floods(&sim.land, &sim.people)),
+        section(SECTION_QUAKES, 0, encode_quakes(&sim.people)),
         section(SECTION_WAYS, 0, encode_ways(&sim.land)),
         section(SECTION_BOATS, 0, encode_boats(&sim.land.boats, &sim.rules)),
         section(SECTION_CARTS, 0, encode_boats(&sim.land.carts, &sim.rules)),
@@ -667,6 +670,7 @@ enum Schema {
     V159,
     V160,
     V161,
+    V162,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -842,7 +846,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V158 => Schema::V158,
         SCHEMA_V159 => Schema::V159,
         SCHEMA_V160 => Schema::V160,
-        SAVE_SCHEMA_VERSION => Schema::V161,
+        SCHEMA_V161 => Schema::V161,
+        SAVE_SCHEMA_VERSION => Schema::V162,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -1235,6 +1240,11 @@ pub(super) fn decode<R: Read + Seek>(
             &barriers,
             &changes,
         );
+    }
+    // Shaking (schema 162); before, the ground never shook.
+    if schema >= Schema::V162 {
+        let bytes = single_chunk(reader, SECTION_QUAKES)?;
+        people.quakes = decode_quakes(&bytes, &people.influences, now)?;
     }
     for c in &people.word.claims {
         if c.kind == civ_agents::word::ClaimKind::Fire {
@@ -4976,7 +4986,8 @@ fn carried(
         | Schema::V158
         | Schema::V159
         | Schema::V160
-        | Schema::V161 => {
+        | Schema::V161
+        | Schema::V162 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5310,7 +5321,8 @@ fn decode_households(
             | Schema::V158
             | Schema::V159
             | Schema::V160
-            | Schema::V161 => {
+            | Schema::V161
+            | Schema::V162 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -12317,6 +12329,128 @@ fn decode_fires(bytes: &[u8], schema: Schema) -> Result<civ_agents::fire::Fires,
     Ok(out)
 }
 
+fn encode_quakes(pop: &Population) -> Vec<u8> {
+    let mut fbb = FlatBufferBuilder::new();
+    let quakes: Vec<_> = pop
+        .quakes
+        .list
+        .iter()
+        .map(|q| {
+            let shaken: Vec<_> = q
+                .shaken
+                .iter()
+                .map(|s| {
+                    let cracked = fbb.create_vector(&s.cracked);
+                    save::ShakenSave::create(
+                        &mut fbb,
+                        &save::ShakenSaveArgs {
+                            building: s.building.get(),
+                            household: s.household.get(),
+                            settlement: raw(s.settlement),
+                            z: s.z,
+                            cs: s.cs,
+                            outcome: s.outcome.code(),
+                            cracked: Some(cracked),
+                            deaths: s.deaths,
+                        },
+                    )
+                })
+                .collect();
+            let shaken = fbb.create_vector(&shaken);
+            let observers = fbb.create_vector(&q.origin.observers);
+            save::QuakeSave::create(
+                &mut fbb,
+                &save::QuakeSaveArgs {
+                    id: q.id,
+                    influence: q.influence,
+                    at: q.at.minutes(),
+                    strength: q.strength,
+                    settlement: raw(q.settlement),
+                    origin_known: q.origin.known,
+                    observers: Some(observers),
+                    shaken: Some(shaken),
+                },
+            )
+        })
+        .collect();
+    let quakes = fbb.create_vector(&quakes);
+    let root = save::QuakesSave::create(
+        &mut fbb,
+        &save::QuakesSaveArgs {
+            quakes: Some(quakes),
+        },
+    );
+    finish(fbb, root)
+}
+
+/// Refuses an event that names no shaking the observer sent, a time to come, a strength outside
+/// the tool's range or a building's outcome it does not know.
+fn decode_quakes(
+    bytes: &[u8],
+    inputs: &civ_agents::influence::Influences,
+    now: SimTime,
+) -> Result<civ_agents::quake::Quakes, LoadError> {
+    use civ_agents::influence::InfluenceKind;
+    use civ_agents::quake::{Outcome, Quake, Quakes, STRENGTH_RANGE, Shaken};
+    let root =
+        section_root::<save::QuakesSave>(bytes).map_err(|e| unreadable(SECTION_QUAKES, &e))?;
+    let bad = |what: &str| LoadError::Malformed(format!("invalid shaking: {what}"));
+    let mut out = Quakes::default();
+    for (index, q) in root.quakes().iter().flatten().enumerate() {
+        let at = SimTime::from_minutes(q.at());
+        let sent = |id: u32| {
+            inputs
+                .list
+                .iter()
+                .any(|i| i.id == id && i.kind == InfluenceKind::Earthquake)
+        };
+        let strength = f64::from(q.strength());
+        if q.id() as usize != index + 1
+            || q.at() < 0
+            || at > now
+            || out.list.last().is_some_and(|p| p.at > at)
+            || !(STRENGTH_RANGE.0..=STRENGTH_RANGE.1).contains(&strength)
+            || !sent(q.influence())
+        {
+            return Err(bad("its event"));
+        }
+        let observers: Vec<u32> = q.observers().iter().flatten().collect();
+        if !observers.windows(2).all(|w| w[0] < w[1]) || !observers.iter().all(|&id| sent(id)) {
+            return Err(bad("its origin"));
+        }
+        let mut shaken = Vec::new();
+        for s in q.shaken().iter().flatten() {
+            let outcome = Outcome::from_code(s.outcome()).ok_or_else(|| bad("an outcome"))?;
+            if !s.z().is_finite() || !s.cs().is_finite() || s.cs() < 0.0 {
+                return Err(bad("a response"));
+            }
+            shaken.push(Shaken {
+                building: required(s.building(), "a shaken building")?,
+                household: required(s.household(), "a shaken building's household")?,
+                settlement: id(s.settlement()),
+                z: s.z(),
+                cs: s.cs(),
+                outcome,
+                cracked: s.cracked().iter().flatten().collect(),
+                deaths: s.deaths(),
+            });
+        }
+        out.list.push(Quake {
+            id: q.id(),
+            influence: q.influence(),
+            at,
+            strength: q.strength(),
+            settlement: id(q.settlement()),
+            origin: civ_agents::floods::Origin {
+                known: q.origin_known(),
+                observers,
+            },
+            shaken,
+        });
+    }
+    Ok(out)
+}
+
 fn encode_floods(land: &Land, pop: &Population) -> Vec<u8> {
     let floods = &pop.floods;
     let mut fbb = FlatBufferBuilder::new();
@@ -13007,7 +13141,8 @@ fn decode_influences(
             | InfluenceKind::Drought
             | InfluenceKind::Fire
             | InfluenceKind::Flood
-            | InfluenceKind::Storm => i.subject(),
+            | InfluenceKind::Storm
+            | InfluenceKind::Earthquake => i.subject(),
             InfluenceKind::Ideology | InfluenceKind::Agitator => {
                 match map.get(i.subject() as usize) {
                     Some(Some(k)) => *k,

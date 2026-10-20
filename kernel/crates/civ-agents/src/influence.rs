@@ -42,11 +42,14 @@ pub enum InfluenceKind {
     Flood = 9,
     /// A storm sent across the world (M6b slice BF).
     Storm = 10,
+    /// The ground shaken (M8d slice DA, ADR-0031 §4): the target is the settlement it was sent
+    /// to (the world's first for the whole map), the subject its event's number.
+    Earthquake = 11,
 }
 
 impl InfluenceKind {
     /// Every kind, in code order.
-    pub const ALL: [InfluenceKind; 11] = [
+    pub const ALL: [InfluenceKind; 12] = [
         InfluenceKind::Whisper,
         InfluenceKind::Ideology,
         InfluenceKind::Agitator,
@@ -58,6 +61,7 @@ impl InfluenceKind {
         InfluenceKind::Fire,
         InfluenceKind::Flood,
         InfluenceKind::Storm,
+        InfluenceKind::Earthquake,
     ];
 
     /// Its number in saves.

@@ -452,6 +452,8 @@ pub const SCHEMA_V159: u32 = 159;
 /// Encroachments' witnesses and cases' buildings, before plans' bundles took buildings down or let
 /// them stand for a yearly payment.
 pub const SCHEMA_V160: u32 = 160;
+/// Plans' bundles that took buildings down or let them stand, before the ground was shaken.
+pub const SCHEMA_V161: u32 = 161;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

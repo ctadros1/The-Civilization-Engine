@@ -5133,6 +5133,26 @@ and M6a gives rivers a daily flow.
         storey high has a margin of exactly 2 at `C_s` 0.06 and fails at 0.2; untied, the same
         wall fails at 0.06; two metres thick, it slides first, cracked at exactly `μ/C_s` and sound
         later; no shaking, no demand; a covering carries none.
+      - *Second part, as built (2026-10-20): the ground shaken, in the kernel* (ADR-0031 §4).
+        `Population::shake` (and `Sim::shake`) takes a strength of 0.02-0.6 and a settlement or
+        the whole map, records an `InfluenceKind::Earthquake` (code 11), and checks every
+        standing building it reaches once, at that minute: its response is the strength times
+        `exp(0.30·z)`, `z` a standard normal keyed by world, event and building and never drawn
+        again; its mass walls and posts meet `lateral_margin` with the goods it holds. A group
+        below a margin of 1 gives way as under load (`give_way`, now told "when the ground
+        shook", returning its dead), so those inside die by the same shares and the settlement
+        remembers it against the technique. A mass wall below `STRAIN_SHOWS` cracks: it takes a
+        loss of 0.2 (at least what shows, a tuning value), which its upkeep sees and mends, and
+        keeps no cohesion until it is mended, which the event's record answers
+        (`Quakes::cracked`: cracked by an event since it was last repaired), so a second shake
+        meets the cracked stock without a new field on the building. Each event keeps its time,
+        strength, settlement and origin and, per building, the draw, the response, stood,
+        cracked or fell, the groups cracked and the dead (`civ_agents::quake`). **Test:** strengths
+        out of range and an unknown settlement change nothing; one record per standing building,
+        each response as drawn; the record round-trips a save and both runs go on alike; under
+        the strongest shaking, each building that fell has a failed group and one entry told
+        "when the ground shook", their dead summed alike. **Boundary:** saves 162 (section
+        `quakes`).
     - **DB, after the shaking:** `MostStoreys` and `TiedWalls`, forecasts of floor lost and of
       losses avoided, lessons from what was seen to fall. *Tests:* a shaken village proposes a
       rule only where someone knows the remedy; a household planning height opposes it.

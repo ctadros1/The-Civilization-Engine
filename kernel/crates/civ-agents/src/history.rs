@@ -1500,6 +1500,13 @@ pub fn render(event: &ChronicleEvent, name_of: &dyn Fn(PermanentId) -> String) -
                         event.name
                     ))];
                 }
+                // The ground shaken (M8d slice DA): its words are the entry's.
+                Some(crate::influence::InfluenceKind::Earthquake) => {
+                    return vec![Span::Text(format!(
+                        "One recorded influence: the observer shook the ground{}",
+                        event.name
+                    ))];
+                }
                 None => "reached ",
             };
             let lead = format!("One recorded influence: the observer {verb}");

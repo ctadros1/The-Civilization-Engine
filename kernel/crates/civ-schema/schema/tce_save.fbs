@@ -3611,3 +3611,33 @@ table TrafficSave {
   // Schema 155 (M8c slice CS, second part); absent before (a save's trips of its day go uncounted).
   travel_going_today: [TravelGoingTodaySave] (id: 9);
 }
+
+// Shaking (schema 162, M8d slice DA; ADR-0031 §4): each time the observer shook the ground and
+// what every building it reached did. `settlement` 0 for the whole map; `outcome` 0 stood, 1
+// cracked, 2 fell; `cracked` the groups that cracked; `z` the building's response draw and `cs`
+// the share of its weight it met sideways.
+table ShakenSave {
+  building: ulong (id: 0);
+  household: ulong (id: 1);
+  settlement: ulong (id: 2);
+  z: float (id: 3);
+  cs: float (id: 4);
+  outcome: ubyte (id: 5);
+  cracked: [uint] (id: 6);
+  deaths: ushort (id: 7);
+}
+
+table QuakeSave {
+  id: uint (id: 0);
+  influence: uint (id: 1);
+  at: long (id: 2);
+  strength: float (id: 3);
+  settlement: ulong (id: 4);
+  origin_known: bool (id: 5);
+  observers: [uint] (id: 6);
+  shaken: [ShakenSave] (id: 7);
+}
+
+table QuakesSave {
+  quakes: [QuakeSave] (id: 0);
+}

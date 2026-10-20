@@ -636,3 +636,111 @@ fn water_carried_back_is_delivered_at_the_households_flood_refuge() {
         0.0
     );
 }
+#[test]
+fn shaking_checks_each_standing_building_once_and_its_record_resumes_exactly() {
+    use civ_agents::influence::InfluenceKind;
+    use civ_agents::quake::{Outcome, RESPONSE_SPREAD};
+    let mut sim = world();
+    let (_, hut) = weak_covering(&mut sim);
+    // Out of the tool's range, or a settlement that is not, nothing changes.
+    let before = paired(&mut sim);
+    for strength in [0.01, 0.7, f64::NAN] {
+        assert!(sim.shake(strength, None).is_err(), "{strength}");
+    }
+    let nowhere = civ_core::PermanentId::from_raw(999_999).expect("id");
+    assert!(sim.shake(0.2, Some(nowhere)).is_err());
+    same(&sim, &before);
+    let standing: Vec<_> = sim
+        .land()
+        .buildings
+        .iter()
+        .filter(|b| !b.condition.is_empty() && b.standing())
+        .map(|b| b.id)
+        .collect();
+    assert!(standing.contains(&hut));
+    let reached = sim.shake(0.05, None).expect("shake");
+    let q = sim.people().quakes.list.last().expect("a record").clone();
+    assert_eq!((q.id, q.influence), (1, reached.id));
+    assert!(
+        sim.people()
+            .influences
+            .list
+            .iter()
+            .any(|i| i.id == q.influence && i.kind == InfluenceKind::Earthquake)
+    );
+    // Each standing building once, its response the event's strength by its own draw.
+    let mut seen: Vec<_> = q.shaken.iter().map(|s| s.building).collect();
+    seen.sort_unstable();
+    let mut want = standing.clone();
+    want.sort_unstable();
+    assert_eq!(seen, want);
+    for s in &q.shaken {
+        let cs = 0.05 * (RESPONSE_SPREAD * f64::from(s.z)).exp();
+        assert!((f64::from(s.cs) - cs).abs() < 1e-6, "{} {cs}", s.cs);
+        assert_eq!(s.outcome == Outcome::Cracked, !s.cracked.is_empty());
+    }
+    // The record and what it did survive a save, and the two go on alike.
+    let mut loaded = paired(&mut sim);
+    same(&sim, &loaded);
+    assert_eq!(loaded.people().quakes, sim.people().quakes);
+    sim.advance_minutes(DAY).expect("day");
+    loaded.advance_minutes(DAY).expect("day");
+    same(&sim, &loaded);
+    // The strongest shaking: what fell is failed and told as shaken down, and the dead counted.
+    let deaths_before = sim
+        .people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == civ_agents::history::ChronicleKind::BuildingFailed)
+        .count();
+    sim.shake(0.6, None).expect("shake");
+    let q = sim.people().quakes.list.last().expect("a record").clone();
+    assert_eq!(q.id, 2);
+    let fell: Vec<_> = q
+        .shaken
+        .iter()
+        .filter(|s| s.outcome == Outcome::Fell)
+        .collect();
+    let told: Vec<_> = sim
+        .people()
+        .chronicle
+        .iter()
+        .filter(|e| e.kind == civ_agents::history::ChronicleKind::BuildingFailed)
+        .skip(deaths_before)
+        .collect();
+    assert_eq!(told.len(), fell.len());
+    assert!(
+        told.iter()
+            .all(|e| e.name.contains("when the ground shook"))
+    );
+    let dead: u32 = fell.iter().map(|s| u32::from(s.deaths)).sum();
+    assert_eq!(dead, told.iter().map(|e| e.number as u32).sum::<u32>());
+    for s in &fell {
+        let b = sim
+            .land()
+            .buildings
+            .iter()
+            .find(|b| b.id == s.building)
+            .expect("building");
+        assert!(
+            b.condition
+                .iter()
+                .any(|c| c.state == civ_land::GroupState::Failed)
+        );
+    }
+    eprintln!(
+        "strongest: {} fell, {} cracked, {} stood of {}",
+        fell.len(),
+        q.shaken
+            .iter()
+            .filter(|s| s.outcome == Outcome::Cracked)
+            .count(),
+        q.shaken
+            .iter()
+            .filter(|s| s.outcome == Outcome::Stood)
+            .count(),
+        q.shaken.len()
+    );
+    let loaded = paired(&mut sim);
+    same(&sim, &loaded);
+}

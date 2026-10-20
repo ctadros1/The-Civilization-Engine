@@ -65,6 +65,7 @@ pub mod person;
 pub mod places;
 pub mod polity;
 pub mod population;
+pub mod quake;
 pub mod reports;
 pub mod rules;
 pub mod seats;

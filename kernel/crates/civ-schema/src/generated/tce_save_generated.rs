@@ -61104,6 +61104,532 @@ impl ::core::fmt::Debug for TrafficSave<'_> {
       ds.finish()
   }
 }
+pub enum ShakenSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ShakenSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for ShakenSave<'a> {
+  type Inner = ShakenSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> ShakenSave<'a> {
+  pub const VT_BUILDING: ::flatbuffers::VOffsetT = 4;
+  pub const VT_HOUSEHOLD: ::flatbuffers::VOffsetT = 6;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_Z: ::flatbuffers::VOffsetT = 10;
+  pub const VT_CS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_OUTCOME: ::flatbuffers::VOffsetT = 14;
+  pub const VT_CRACKED: ::flatbuffers::VOffsetT = 16;
+  pub const VT_DEATHS: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    ShakenSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ShakenSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<ShakenSave<'bldr>> {
+    let mut builder = ShakenSaveBuilder::new(_fbb);
+    builder.add_settlement(args.settlement);
+    builder.add_household(args.household);
+    builder.add_building(args.building);
+    if let Some(x) = args.cracked { builder.add_cracked(x); }
+    builder.add_cs(args.cs);
+    builder.add_z(args.z);
+    builder.add_deaths(args.deaths);
+    builder.add_outcome(args.outcome);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn building(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ShakenSave::VT_BUILDING, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn household(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ShakenSave::VT_HOUSEHOLD, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ShakenSave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn z(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(ShakenSave::VT_Z, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn cs(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(ShakenSave::VT_CS, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn outcome(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(ShakenSave::VT_OUTCOME, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn cracked(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(ShakenSave::VT_CRACKED, None)}
+  }
+  #[inline]
+  pub fn deaths(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(ShakenSave::VT_DEATHS, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for ShakenSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("building", Self::VT_BUILDING, false)?
+     .visit_field::<u64>("household", Self::VT_HOUSEHOLD, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<f32>("z", Self::VT_Z, false)?
+     .visit_field::<f32>("cs", Self::VT_CS, false)?
+     .visit_field::<u8>("outcome", Self::VT_OUTCOME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("cracked", Self::VT_CRACKED, false)?
+     .visit_field::<u16>("deaths", Self::VT_DEATHS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ShakenSaveArgs<'a> {
+    pub building: u64,
+    pub household: u64,
+    pub settlement: u64,
+    pub z: f32,
+    pub cs: f32,
+    pub outcome: u8,
+    pub cracked: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub deaths: u16,
+}
+impl<'a> Default for ShakenSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ShakenSaveArgs {
+      building: 0,
+      household: 0,
+      settlement: 0,
+      z: 0.0,
+      cs: 0.0,
+      outcome: 0,
+      cracked: None,
+      deaths: 0,
+    }
+  }
+}
+
+pub struct ShakenSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ShakenSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_building(&mut self, building: u64) {
+    self.fbb_.push_slot::<u64>(ShakenSave::VT_BUILDING, building, 0);
+  }
+  #[inline]
+  pub fn add_household(&mut self, household: u64) {
+    self.fbb_.push_slot::<u64>(ShakenSave::VT_HOUSEHOLD, household, 0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(ShakenSave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_z(&mut self, z: f32) {
+    self.fbb_.push_slot::<f32>(ShakenSave::VT_Z, z, 0.0);
+  }
+  #[inline]
+  pub fn add_cs(&mut self, cs: f32) {
+    self.fbb_.push_slot::<f32>(ShakenSave::VT_CS, cs, 0.0);
+  }
+  #[inline]
+  pub fn add_outcome(&mut self, outcome: u8) {
+    self.fbb_.push_slot::<u8>(ShakenSave::VT_OUTCOME, outcome, 0);
+  }
+  #[inline]
+  pub fn add_cracked(&mut self, cracked: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ShakenSave::VT_CRACKED, cracked);
+  }
+  #[inline]
+  pub fn add_deaths(&mut self, deaths: u16) {
+    self.fbb_.push_slot::<u16>(ShakenSave::VT_DEATHS, deaths, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ShakenSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ShakenSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<ShakenSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for ShakenSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("ShakenSave");
+      ds.field("building", &self.building());
+      ds.field("household", &self.household());
+      ds.field("settlement", &self.settlement());
+      ds.field("z", &self.z());
+      ds.field("cs", &self.cs());
+      ds.field("outcome", &self.outcome());
+      ds.field("cracked", &self.cracked());
+      ds.field("deaths", &self.deaths());
+      ds.finish()
+  }
+}
+pub enum QuakeSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct QuakeSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for QuakeSave<'a> {
+  type Inner = QuakeSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> QuakeSave<'a> {
+  pub const VT_ID: ::flatbuffers::VOffsetT = 4;
+  pub const VT_INFLUENCE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_AT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_STRENGTH: ::flatbuffers::VOffsetT = 10;
+  pub const VT_SETTLEMENT: ::flatbuffers::VOffsetT = 12;
+  pub const VT_ORIGIN_KNOWN: ::flatbuffers::VOffsetT = 14;
+  pub const VT_OBSERVERS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_SHAKEN: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    QuakeSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args QuakeSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<QuakeSave<'bldr>> {
+    let mut builder = QuakeSaveBuilder::new(_fbb);
+    builder.add_settlement(args.settlement);
+    builder.add_at(args.at);
+    if let Some(x) = args.shaken { builder.add_shaken(x); }
+    if let Some(x) = args.observers { builder.add_observers(x); }
+    builder.add_strength(args.strength);
+    builder.add_influence(args.influence);
+    builder.add_id(args.id);
+    builder.add_origin_known(args.origin_known);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(QuakeSave::VT_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn influence(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(QuakeSave::VT_INFLUENCE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn at(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(QuakeSave::VT_AT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn strength(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(QuakeSave::VT_STRENGTH, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn settlement(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(QuakeSave::VT_SETTLEMENT, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn origin_known(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(QuakeSave::VT_ORIGIN_KNOWN, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn observers(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(QuakeSave::VT_OBSERVERS, None)}
+  }
+  #[inline]
+  pub fn shaken(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ShakenSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ShakenSave>>>>(QuakeSave::VT_SHAKEN, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for QuakeSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("id", Self::VT_ID, false)?
+     .visit_field::<u32>("influence", Self::VT_INFLUENCE, false)?
+     .visit_field::<i64>("at", Self::VT_AT, false)?
+     .visit_field::<f32>("strength", Self::VT_STRENGTH, false)?
+     .visit_field::<u64>("settlement", Self::VT_SETTLEMENT, false)?
+     .visit_field::<bool>("origin_known", Self::VT_ORIGIN_KNOWN, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("observers", Self::VT_OBSERVERS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<ShakenSave>>>>("shaken", Self::VT_SHAKEN, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct QuakeSaveArgs<'a> {
+    pub id: u32,
+    pub influence: u32,
+    pub at: i64,
+    pub strength: f32,
+    pub settlement: u64,
+    pub origin_known: bool,
+    pub observers: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
+    pub shaken: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<ShakenSave<'a>>>>>,
+}
+impl<'a> Default for QuakeSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    QuakeSaveArgs {
+      id: 0,
+      influence: 0,
+      at: 0,
+      strength: 0.0,
+      settlement: 0,
+      origin_known: false,
+      observers: None,
+      shaken: None,
+    }
+  }
+}
+
+pub struct QuakeSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> QuakeSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: u32) {
+    self.fbb_.push_slot::<u32>(QuakeSave::VT_ID, id, 0);
+  }
+  #[inline]
+  pub fn add_influence(&mut self, influence: u32) {
+    self.fbb_.push_slot::<u32>(QuakeSave::VT_INFLUENCE, influence, 0);
+  }
+  #[inline]
+  pub fn add_at(&mut self, at: i64) {
+    self.fbb_.push_slot::<i64>(QuakeSave::VT_AT, at, 0);
+  }
+  #[inline]
+  pub fn add_strength(&mut self, strength: f32) {
+    self.fbb_.push_slot::<f32>(QuakeSave::VT_STRENGTH, strength, 0.0);
+  }
+  #[inline]
+  pub fn add_settlement(&mut self, settlement: u64) {
+    self.fbb_.push_slot::<u64>(QuakeSave::VT_SETTLEMENT, settlement, 0);
+  }
+  #[inline]
+  pub fn add_origin_known(&mut self, origin_known: bool) {
+    self.fbb_.push_slot::<bool>(QuakeSave::VT_ORIGIN_KNOWN, origin_known, false);
+  }
+  #[inline]
+  pub fn add_observers(&mut self, observers: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(QuakeSave::VT_OBSERVERS, observers);
+  }
+  #[inline]
+  pub fn add_shaken(&mut self, shaken: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<ShakenSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(QuakeSave::VT_SHAKEN, shaken);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> QuakeSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    QuakeSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<QuakeSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for QuakeSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("QuakeSave");
+      ds.field("id", &self.id());
+      ds.field("influence", &self.influence());
+      ds.field("at", &self.at());
+      ds.field("strength", &self.strength());
+      ds.field("settlement", &self.settlement());
+      ds.field("origin_known", &self.origin_known());
+      ds.field("observers", &self.observers());
+      ds.field("shaken", &self.shaken());
+      ds.finish()
+  }
+}
+pub enum QuakesSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct QuakesSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for QuakesSave<'a> {
+  type Inner = QuakesSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> QuakesSave<'a> {
+  pub const VT_QUAKES: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    QuakesSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args QuakesSaveArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<QuakesSave<'bldr>> {
+    let mut builder = QuakesSaveBuilder::new(_fbb);
+    if let Some(x) = args.quakes { builder.add_quakes(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn quakes(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<QuakeSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<QuakeSave>>>>(QuakesSave::VT_QUAKES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for QuakesSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<QuakeSave>>>>("quakes", Self::VT_QUAKES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct QuakesSaveArgs<'a> {
+    pub quakes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<QuakeSave<'a>>>>>,
+}
+impl<'a> Default for QuakesSaveArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    QuakesSaveArgs {
+      quakes: None,
+    }
+  }
+}
+
+pub struct QuakesSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> QuakesSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_quakes(&mut self, quakes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<QuakeSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(QuakesSave::VT_QUAKES, quakes);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> QuakesSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    QuakesSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<QuakesSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for QuakesSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("QuakesSave");
+      ds.field("quakes", &self.quakes());
+      ds.finish()
+  }
+}
 }  // pub mod save
 }  // pub mod tce
 

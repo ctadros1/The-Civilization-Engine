@@ -100,6 +100,7 @@ pub use loads::{
     snow_on_roof_pa, storm_pa,
 };
 mod plans;
+mod quakes;
 pub use plans::ParcelOffer;
 mod siting;
 mod taste;
@@ -543,6 +544,8 @@ pub struct Population {
     pub fires: crate::fire::Fires,
     /// Every high-water, flood and storm incident and episode (M6b slice BF). Saved.
     pub floods: crate::floods::Floods,
+    /// Every time the ground shook and what each building did (M8d slice DA). Saved.
+    pub quakes: crate::quake::Quakes,
     /// River cells by the reach they belong to, for loads washed or drawn there. Derived from the
     /// map when first needed; not saved.
     reach_cells: Option<BTreeMap<u32, u32>>,

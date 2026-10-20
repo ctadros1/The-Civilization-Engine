@@ -5291,6 +5291,23 @@ and M6a gives rivers a daily flow.
         weighed, the hours given survive a save partway, and finished it shelters the store, which
         survives a save. **Boundary:** saves 165, content API 153. Siting on a plan's square, pay
         and patrons wait for the fourth part.
+      - *Third part, first half, as built (2026-10-20): a hall against the rain.* No loss of a
+        gathering in the open existed to answer, so one is made first: on a wet day a gathering
+        held in the open is worth `polity.wet_attend` points less to come to (content API 154),
+        so only those with something at stake come, and one so thinned may fail for want of a
+        quorum; the hours those who came gave such a gathering are measured a year (saves 166).
+        While any are, the issue `rained_off` opens, and the core's `yourselves_roof_a_hall`
+        raises a `hall` (a new building use: a frame of four 3 m bays, 6 m wide, one open floor)
+        as the storehouse is raised, each household weighing its share of those hours a year,
+        each worth what an hour of its own work brings. Finished, the polity's gatherings meet
+        under its roof: rain takes nothing, and they are no longer counted as held in the open.
+        Loading takes a raised building's program from its law's template, so content that adds
+        a building program cannot shift it. **Test:** rain takes `wet_attend` from coming; a wet
+        gathering with one come has no quorum and its hour is measured; one such hour does not
+        repay a hall and a year of them does; once framing is known a hall is put forward for
+        the rain, laid out, raised, and then rain takes nothing and its gatherings are not
+        counted open; the hall and the measures survive a save. **Boundary:** saves 166, content
+        API 154. The watch tower is the third part's second half.
     - **DD, style over seven traits:** opening share, ornament, finish and symmetry; taste over
       seven traits; sighting scaled by height; copying only what one could build; the clocks
       over all seven. *Tests:* a one-settlement world drifts as before in the three old traits;
@@ -6625,6 +6642,15 @@ One line each. Don't re-litigate without a reason written next to the entry.
   what ADR-0031 §6 asks ("its upkeep falls to nobody unless a law asks it"); taste and the "seen
   elsewhere" review pass it by too until style reaches it (DD). Each revisited if the demo (DE)
   shows no storehouse proposed where stores spoil.
+- **Design priors for a hall against the rain (2026-10-20, M8d slice DC's third part, ADR-0031
+  §6):** NUDGE: rain takes `wet_attend` = 1 point from coming to a gathering in the open, the
+  custom's whole own pull (`attend_base` = 1), so on a wet day only those with something at stake
+  come; nothing measures how much rain thins an outdoor assembly, so it is a prior to revisit if
+  the demo (DE) shows no gathering ever rained off, or every wet one. The loss a hall answers is
+  only the hours given to a gathering that failed for want of a quorum, valued at the polity's
+  mean hour; delay to what it would have decided is not weighed. The hall's size (four 3 m bays,
+  6 m wide) is a design prior. Its gathering still meets at the hearth, the hall standing within
+  80 m of it: the walk there is not changed.
 - **A test helper leaves state a load derives otherwise (2026-10-20, M8d slice DA):**
   `Sim::place_building_for_tests` leaves state a load derives otherwise: a save taken right after
   it does not resume exactly (the shaking test reloads once after placing). To be fixed.

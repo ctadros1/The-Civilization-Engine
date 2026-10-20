@@ -342,3 +342,204 @@ fn a_common_store_that_spoils_is_answered_by_a_storehouse_raised_together_that_t
         .expect("the building");
     assert_eq!(b.polity, Some(polity));
 }
+
+#[test]
+fn rain_keeps_people_from_a_gathering_in_the_open_until_a_hall_raised_together_shelters_it() {
+    use civ_agents::polity::{IssueKind, LawStatus, Outcome, PolicyKind};
+    use civ_core::PermanentId;
+    let mut sim = village(5);
+    sim.advance_minutes(DAY).expect("advances");
+    let settlement = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| !x.members.is_empty())
+        .find_map(|(_, x)| x.settlement)
+        .expect("a settlement");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.settlement == settlement)
+        .expect("a polity");
+    let people: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement))
+        .flat_map(|(_, x)| x.members.clone())
+        .collect();
+    let hall_template = content()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.id == "core:policy/yourselves_roof_a_hall")
+        .expect("a template to raise a hall") as u16;
+    // Turns down whatever is before the gathering and reviews, up to 30 days, until someone puts
+    // forward a template `want` accepts.
+    let propose = |sim: &mut Sim, want: &dyn Fn(u16) -> bool| {
+        sim.people_mut_for_tests().every_adult_deliberates = true;
+        let mut found = None;
+        for _ in 0..30 {
+            {
+                let pop = sim.people_mut_for_tests();
+                pop.polities[pi].gathering = None;
+                for l in &mut pop.polities[pi].laws {
+                    if l.status == LawStatus::Proposed {
+                        l.status = LawStatus::Rejected;
+                    }
+                }
+            }
+            sim.with_ctx_for_tests(|pop, ctx| pop.review_for_tests(ctx, settlement));
+            if let Some(l) = sim.people().polities[pi].agenda().cloned()
+                && want(l.policy)
+            {
+                found = Some(l);
+                break;
+            }
+            sim.advance_minutes(DAY).expect("advances");
+        }
+        sim.people_mut_for_tests().every_adult_deliberates = false;
+        found
+    };
+    // A storehouse is put before a gathering.
+    let store_template = content()
+        .catalog
+        .policies
+        .iter()
+        .position(|d| d.id == "core:policy/yourselves_raise_a_storehouse")
+        .expect("a template to raise a storehouse") as u16;
+    let put_forward = |sim: &mut Sim| {
+        sim.with_ctx_for_tests(|pop, ctx| {
+            pop.propose_for_tests(
+                ctx,
+                settlement,
+                people[0],
+                store_template,
+                IssueKind::StoreSpoils,
+            )
+        })
+        .expect("put forward")
+    };
+    let law = put_forward(&mut sim);
+    // Rain takes the custom's own pull from a gathering held in the open.
+    let someone = people[0];
+    let points = |sim: &mut Sim, wet: bool| {
+        sim.land_mut_for_tests().weather.today.wet = wet;
+        sim.with_ctx_for_tests(|pop, ctx| pop.gathering_points_for_tests(ctx, someone))
+            .expect("a gathering called")
+    };
+    let wet_attend = sim.with_ctx_for_tests(|_, ctx| ctx.params.polity.wet_attend);
+    assert!(wet_attend > 0.0);
+    let (dry, wet) = (points(&mut sim, false), points(&mut sim, true));
+    assert!((dry - wet - wet_attend).abs() < 1e-9, "{dry} {wet}");
+    // It sits on a wet day with only one come: no quorum, and the hour they gave is lost.
+    let year = sim.now().date().year;
+    let measured = |sim: &Sim| {
+        sim.people().polities[pi]
+            .measured
+            .iter()
+            .find(|m| m.year == year)
+            .copied()
+            .unwrap_or_default()
+    };
+    let before = measured(&sim);
+    {
+        let today = sim.now().day_index();
+        let g = sim.people_mut_for_tests().polities[pi]
+            .gathering
+            .as_mut()
+            .expect("called");
+        g.day = today;
+        g.present = vec![someone];
+    }
+    sim.land_mut_for_tests().weather.today.wet = true;
+    sim.with_ctx_for_tests(|pop, ctx| pop.decide_gathering_for_tests(ctx, pi));
+    let outcome = sim.people().polities[pi]
+        .laws
+        .iter()
+        .find(|l| l.id == law)
+        .and_then(|l| l.outcome);
+    assert_eq!(outcome, Some(Outcome::NoQuorum));
+    let minutes = sim.with_ctx_for_tests(|_, ctx| ctx.params.polity.gathering_minutes);
+    let after = measured(&sim);
+    assert_eq!(after.wet_gatherings, before.wet_gatherings + 1);
+    assert!((after.wet_lost_h - before.wet_lost_h - f64::from(minutes) / 60.0).abs() < 1e-9);
+    // One such gathering does not repay a hall: its work outweighs an hour lost.
+    let gains =
+        sim.with_ctx_for_tests(|pop, ctx| pop.rule_gains_for_tests(ctx, settlement, hall_template));
+    assert!(gains.iter().all(|g| g.1 < 0.0), "{gains:?}");
+    // A year of them, some 600 hours given for nothing, does.
+    sim.people_mut_for_tests().polities[pi]
+        .measured_mut(year)
+        .wet_lost_h = 600.0;
+    let gains =
+        sim.with_ctx_for_tests(|pop, ctx| pop.rule_gains_for_tests(ctx, settlement, hall_template));
+    assert!(gains.iter().any(|g| g.1 > 0.0), "{gains:?}");
+    for &m in &people {
+        sim.introduce_technique(m, "core:technique/jointed_frame", false)
+            .expect("taught");
+    }
+    let hall_law = propose(&mut sim, &|p| p == hall_template).expect("a hall proposed");
+    assert_eq!(hall_law.issue, IssueKind::RainedOff);
+    assert_eq!(hall_law.kind, PolicyKind::RaiseBuilding);
+    {
+        let today = sim.now().day_index();
+        let p = &mut sim.people_mut_for_tests().polities[pi];
+        p.gathering = None;
+        let l = p
+            .laws
+            .iter_mut()
+            .find(|l| l.id == hall_law.id)
+            .expect("the law");
+        l.status = LawStatus::InForce;
+        l.outcome = Some(Outcome::Passed);
+        l.known = people.iter().map(|&a| (a, today)).collect();
+    }
+    sim.with_ctx_for_tests(|pop, ctx| pop.begin_public_raise_for_tests(ctx, pi, hall_law.id));
+    let building = sim.people().polities[pi]
+        .raise_site_of(hall_law.id)
+        .and_then(|s| s.building)
+        .expect("laid out");
+    let worker = sim
+        .people()
+        .person(someone)
+        .map(|p| p.household)
+        .expect("a household");
+    for _ in 0..4000 {
+        if sim.people().polities[pi].hall.is_some() {
+            break;
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.raise_work_for_tests(ctx, worker, building, 4.0));
+    }
+    assert_eq!(sim.people().polities[pi].hall, Some(building));
+    // Under its roof the rain takes nothing, and its gatherings are no longer held in the open.
+    let law = put_forward(&mut sim);
+    let (dry, wet) = (points(&mut sim, false), points(&mut sim, true));
+    assert!((dry - wet).abs() < 1e-9, "{dry} {wet}");
+    let before = measured(&sim);
+    {
+        let today = sim.now().day_index();
+        let g = sim.people_mut_for_tests().polities[pi]
+            .gathering
+            .as_mut()
+            .expect("called");
+        g.day = today;
+        g.present = vec![someone];
+    }
+    sim.land_mut_for_tests().weather.today.wet = true;
+    sim.with_ctx_for_tests(|pop, ctx| pop.decide_gathering_for_tests(ctx, pi));
+    assert!(sim.people().polities[pi].laws.iter().any(|l| l.id == law));
+    let after = measured(&sim);
+    assert_eq!(
+        (after.gatherings, after.wet_lost_h),
+        (before.gatherings, before.wet_lost_h)
+    );
+    // The hall and what was measured survive a save.
+    let loaded = reloaded(&mut sim);
+    assert_eq!(loaded.people().polities[pi].hall, Some(building));
+    assert_eq!(
+        loaded.people().polities[pi].measured,
+        sim.people().polities[pi].measured
+    );
+}

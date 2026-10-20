@@ -339,11 +339,15 @@ pub enum IssueKind {
     /// The common store spoiled within the years its polity measures, and no storehouse of the
     /// polity's stands or is being raised (M8d slice DC, ADR-0031 §6): what raising one answers.
     StoreSpoils,
+    /// A gathering held in the open came to nothing for want of a quorum on a wet day, within the
+    /// years its polity measures, and no hall of the polity's stands or is being raised (M8d
+    /// slice DC): what raising one answers.
+    RainedOff,
 }
 
 impl IssueKind {
     /// Every kind, in code order.
-    pub const ALL: [IssueKind; 29] = [
+    pub const ALL: [IssueKind; 30] = [
         IssueKind::FoodShort,
         IssueKind::StoreUnkept,
         IssueKind::Takings,
@@ -373,6 +377,7 @@ impl IssueKind {
         IssueKind::WayBuiltOver,
         IssueKind::NewGround,
         IssueKind::StoreSpoils,
+        IssueKind::RainedOff,
     ];
 
     /// The authored name.
@@ -407,6 +412,7 @@ impl IssueKind {
             IssueKind::WayBuiltOver => "way_built_over",
             IssueKind::NewGround => "new_ground",
             IssueKind::StoreSpoils => "store_spoils",
+            IssueKind::RainedOff => "rained_off",
         }
     }
 
@@ -458,6 +464,9 @@ impl IssueKind {
             IssueKind::WayBuiltOver => "a building went up on a trail they walked",
             IssueKind::NewGround => "their households built beyond the edge of the settlement",
             IssueKind::StoreSpoils => "the common store spoiled with no storehouse to keep it",
+            IssueKind::RainedOff => {
+                "a gathering in the open came to nothing in the rain, with no hall to meet in"
+            }
         }
     }
 }
@@ -939,6 +948,9 @@ pub struct PolityParams {
     pub attend_base: f64,
     /// Points per point at stake in what a gathering decides.
     pub w_attend: f64,
+    /// Points a gathering held in the open is worth the less on a wet day (M8d slice DC): rain
+    /// keeps people from a gathering a hall would shelter.
+    pub wet_attend: f64,
     /// Weight of those who regard a sponsor in what the sponsor forecasts, against their own
     /// household's 1.
     pub w_followers: f64,
@@ -998,6 +1010,7 @@ impl PolityParams {
             stance_margin: 0.25,
             attend_base: 1.0,
             w_attend: 0.5,
+            wet_attend: 1.0,
             w_followers: 0.5,
             propose_cost: 0.5,
             temperature: 0.5,
@@ -2157,6 +2170,9 @@ pub struct Polity {
     /// The storehouse it raised that stands finished, if any (M8d slice DC): the common store
     /// is kept under its roof. Looked over monthly.
     pub storehouse: Option<PermanentId>,
+    /// The hall it raised that stands finished, if any (M8d slice DC): its gatherings meet under
+    /// its roof, whatever the weather. Looked over monthly.
+    pub hall: Option<PermanentId>,
     /// The plan each law of a plan lays, by law (M8c slice CT, second part): in force, it
     /// reserves.
     pub plans: Vec<(PermanentId, PlanLaid)>,
@@ -2199,12 +2215,15 @@ pub struct Measured {
     pub year: i64,
     /// Food its common store lost to spoiling, kcal.
     pub spoiled_kcal: f64,
-    /// Gatherings it held, all in the open.
+    /// Gatherings it held in the open, with no hall of its standing.
     pub gatherings: u32,
     /// Of them, those held on a wet day.
     pub wet_gatherings: u32,
     /// Buildings whose covering caught: fires not noticed before they reached a roof.
     pub roof_fires: u32,
+    /// Hours those who came gave to gatherings in the open that a wet day left without a quorum
+    /// (schema 166): what a hall would have spared them.
+    pub wet_lost_h: f64,
 }
 
 /// How a polity came to hold a settlement besides its seat (M6c slice BM, ADR-0023 §9). Codes are
@@ -2605,6 +2624,7 @@ impl Polity {
             raises: Vec::new(),
             raise_given: Vec::new(),
             storehouse: None,
+            hall: None,
             plans: Vec::new(),
             ground_seen: Vec::new(),
             encroachments: Vec::new(),

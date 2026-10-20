@@ -730,7 +730,7 @@ table Fields {
 // Section "plots" (schema 5): ground households have claimed (ADR-0004 §3). A plot outlives
 // its building.
 // Schema 15 (M3b slice O, ADR-0009 §7): stores and workshops beside dwellings.
-enum PlotUse : ubyte { Dwelling = 0, Store = 1, Work = 2 }
+enum PlotUse : ubyte { Dwelling = 0, Store = 1, Work = 2, Hall = 3 }
 
 table Plot {
   id: ulong (id: 0);
@@ -1504,6 +1504,17 @@ table PolitySave {
   raises: [RaiseSiteSave] (id: 43);
   raise_given: [BankShareSave] (id: 44);
   storehouse: ulong (id: 45);
+  // Schema 166 (M8d slice DC): the hall its gatherings meet in (0 when none), and the losses
+  // measured beside `measured`, a year each, in its order; absent before.
+  hall: ulong (id: 46);
+  measured_losses: [MeasuredLossSave] (id: 47);
+}
+
+// A year's measured losses beside `MeasuredSave` (schema 166, M8d slice DC): the year, and the
+// hours those who came gave to gatherings in the open that a wet day left without a quorum.
+table MeasuredLossSave {
+  year: long (id: 0);
+  wet_lost_h: double (id: 1);
 }
 
 // A building a law would raise in common (schema 165, M8d slice DC): the law, the program by

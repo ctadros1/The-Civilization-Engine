@@ -576,6 +576,10 @@ w_regard = 1.0                   # points for full regard for a law's sponsor
 stance_margin = 0.25             # points either way within which a member abstains
 attend_base = 1.0                # the custom's own pull to the gathering, points
 w_attend = 0.5                   # points per point at stake in what it decides
+# Content API 154 (M8d slice DC): points a gathering held in the open is worth the less on a wet
+# day, a hall's roof sparing them. A design prior, unestimated: rain takes the custom's own pull,
+# so on a wet day only those with something at stake come.
+wet_attend = 1.0
 w_followers = 0.5                # a sponsor weighs those who regard them at half their household
 propose_cost = 0.5               # points a proposal costs its sponsor
 temperature = 0.5                # of the choice among moves, points

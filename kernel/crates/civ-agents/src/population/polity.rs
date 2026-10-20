@@ -1963,6 +1963,47 @@ impl Population {
         self.decide_gathering(ctx, pi);
     }
 
+    /// `sponsor` puts forward template `policy` before the gathering of settlement `settlement`,
+    /// answering `issue`, with no levy, sanction or hours: the law's id; for tests.
+    #[doc(hidden)]
+    pub fn propose_for_tests(
+        &mut self,
+        ctx: &mut Ctx,
+        settlement: PermanentId,
+        sponsor: PermanentId,
+        policy: u16,
+        issue: IssueKind,
+    ) -> Option<PermanentId> {
+        let pi = self.polity_of(settlement)?;
+        let m = MoveOption {
+            policy,
+            levy_share: 0.0,
+            issue,
+            nominee: Some(sponsor),
+            sanction: Default::default(),
+            hours: (0, 0),
+            body: None,
+            ends: None,
+            site: None,
+            target: None,
+            own_gain: 0.0,
+            followers_gain: 0.0,
+            support: 0.5,
+        };
+        self.propose(ctx, pi, sponsor, m, Vec::new(), None);
+        self.polities[pi].laws.last().map(|l| l.id)
+    }
+
+    /// The points coming to the gathering its polity has called is worth to `person`, whether or
+    /// not they heard of it: for tests.
+    #[doc(hidden)]
+    pub fn gathering_points_for_tests(&self, ctx: &Ctx, person: PermanentId) -> Option<f64> {
+        let hh = self.household(self.person(person)?.household)?;
+        let pi = self.polity_of(hh.settlement?)?;
+        self.polities[pi].gathering.as_ref()?;
+        Some(self.attend_points(ctx, pi, person, hh))
+    }
+
     /// What a law closing the source at `cell` would bring each household of settlement
     /// `settlement`, points, as its members would weigh it at the gathering: for tests.
     #[doc(hidden)]
@@ -2619,6 +2660,11 @@ impl Population {
         // raised (M8d slice DC).
         if self.store_spoils(ctx, pi) {
             issues.push(IssueKind::StoreSpoils);
+        }
+        // A gathering in the open rained off, measured, and no hall of its stands or is being
+        // raised (M8d slice DC).
+        if self.rained_off(ctx, pi) {
+            issues.push(IssueKind::RainedOff);
         }
         // A household of it paid or was paid in weighed metal lately (M7d slice CE2b).
         if self.weighed_lately(ctx, &households) {
@@ -4151,14 +4197,32 @@ impl Population {
         let Some(g) = self.polities[pi].gathering.take() else {
             return;
         };
-        // Held at the hearth, in the open: measured against what a hall would answer (M8d slice
-        // DC).
+        // Held at the hearth in the open, unless a hall of the polity's stands: measured against
+        // what a hall would answer (M8d slice DC).
         let wet = ctx.land.weather.today.wet;
-        let m = self.polities[pi].measured_mut(ctx.now.date().year);
-        m.gatherings += 1;
-        m.wet_gatherings += u32::from(wet);
+        let open = self.polities[pi].hall.is_none();
+        let year = ctx.now.date().year;
+        if open {
+            let m = self.polities[pi].measured_mut(year);
+            m.gatherings += 1;
+            m.wet_gatherings += u32::from(wet);
+        }
         if let Some(law) = g.law {
             self.decide_law(ctx, pi, &g, law);
+            // Those who came on a wet day to a gathering in the open gave their hours for nothing
+            // where it lacked a quorum: what a hall would have spared them.
+            let rained_off = open
+                && wet
+                && self.polities[pi]
+                    .laws
+                    .iter()
+                    .find(|l| l.id == law)
+                    .is_some_and(|l| l.outcome == Some(Outcome::NoQuorum));
+            if rained_off {
+                let hours =
+                    g.present.len() as f64 * f64::from(ctx.params.polity.gathering_minutes) / 60.0;
+                self.polities[pi].measured_mut(year).wet_lost_h += hours;
+            }
         }
         for &case in &g.cases {
             self.hear_case(ctx, pi, &g.present, None, case);
@@ -4559,6 +4623,23 @@ impl Population {
         {
             return None;
         }
+        Some(GatheringFacts {
+            points: self.attend_points(ctx, pi, person, hh),
+            minutes: (end - minute) as f64,
+        })
+    }
+
+    /// The points attending polity `pi`'s gathering is worth to `person` of household `hh`: what
+    /// their household made of the law and their regard for its sponsor, over the custom's own
+    /// pull, less what rain takes from a gathering in the open (M8d slice DC). 0 when none is
+    /// called.
+    fn attend_points(&self, ctx: &Ctx, pi: usize, person: PermanentId, hh: &Household) -> f64 {
+        let params = ctx.params;
+        let pp = &params.polity;
+        let polity = &self.polities[pi];
+        let Some(g) = polity.gathering.as_ref() else {
+            return 0.0;
+        };
         let day = ctx.now.day_index();
         let regard_for = |q: PermanentId| {
             if q == person {
@@ -4593,10 +4674,14 @@ impl Population {
             })
             .fold(0.0, f64::max);
         let stake = law_stake.max(case_stake);
-        Some(GatheringFacts {
-            points: pp.attend_base + pp.w_attend * stake,
-            minutes: (end - minute) as f64,
-        })
+        // Rain keeps people from a gathering held in the open, no hall of the polity's standing
+        // (M8d slice DC).
+        let rained = if ctx.land.weather.today.wet && polity.hall.is_none() {
+            pp.wet_attend
+        } else {
+            0.0
+        };
+        pp.attend_base + pp.w_attend * stake - rained
     }
 
     /// A curfew in force where household `hh` lives and running at minute `minute` of the day

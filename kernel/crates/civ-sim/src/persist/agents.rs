@@ -125,8 +125,8 @@ use super::{
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
-    SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, finish, section, section_root,
-    single_chunk, unreadable,
+    SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, finish, section,
+    section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -675,6 +675,7 @@ enum Schema {
     V163,
     V164,
     V165,
+    V166,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -854,7 +855,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V162 => Schema::V162,
         SCHEMA_V163 => Schema::V163,
         SCHEMA_V164 => Schema::V164,
-        SAVE_SCHEMA_VERSION => Schema::V165,
+        SCHEMA_V165 => Schema::V165,
+        SAVE_SCHEMA_VERSION => Schema::V166,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2063,6 +2065,21 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let measured = (!measured.is_empty()).then(|| fbb.create_vector(&measured));
+            // Losses measured beside them (schema 166, M8d slice DC).
+            let losses: Vec<_> = p
+                .measured
+                .iter()
+                .map(|m| {
+                    save::MeasuredLossSave::create(
+                        &mut fbb,
+                        &save::MeasuredLossSaveArgs {
+                            year: m.year,
+                            wet_lost_h: m.wet_lost_h,
+                        },
+                    )
+                })
+                .collect();
+            let measured_losses = (!losses.is_empty()).then(|| fbb.create_vector(&losses));
             // Buildings raised in common (schema 165, M8d slice DC).
             let raises: Vec<_> = p
                 .raises
@@ -2151,6 +2168,8 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     raises,
                     raise_given,
                     storehouse: p.storehouse.map_or(0, PermanentId::get),
+                    hall: p.hall.map_or(0, PermanentId::get),
+                    measured_losses,
                 },
             )
         })
@@ -2257,6 +2276,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::WayBuiltOver => 26,
         IssueKind::NewGround => 27,
         IssueKind::StoreSpoils => 28,
+        IssueKind::RainedOff => 29,
     }
 }
 
@@ -2392,6 +2412,7 @@ fn decode_polities(
                 26 => IssueKind::WayBuiltOver,
                 27 => IssueKind::NewGround,
                 28 => IssueKind::StoreSpoils,
+                29 => IssueKind::RainedOff,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -3028,7 +3049,27 @@ fn decode_polities(
                 gatherings: m.gatherings(),
                 wet_gatherings: m.wet_gatherings(),
                 roof_fires: m.roof_fires(),
+                wet_lost_h: 0.0,
             });
+        }
+        // The losses measured beside them (schema 166); before, none.
+        if let Some(losses) = p.measured_losses() {
+            if losses.len() != measured.len() {
+                return Err(bad(format!(
+                    "polity {id} measures its losses for {} years of {}",
+                    losses.len(),
+                    measured.len()
+                )));
+            }
+            for (m, l) in measured.iter_mut().zip(losses.iter()) {
+                let ok = l.year() == m.year && l.wet_lost_h().is_finite() && l.wet_lost_h() >= 0.0;
+                if !ok {
+                    return Err(bad(format!(
+                        "polity {id} measures its losses out of order, or out of range"
+                    )));
+                }
+                m.wet_lost_h = l.wet_lost_h();
+            }
         }
         if measured.len() > civ_agents::polity::MEASURED_YEARS {
             return Err(bad(format!(
@@ -3039,18 +3080,29 @@ fn decode_polities(
         let mut raises = Vec::new();
         for r in p.raises().iter().flatten() {
             let law = law_of(r.law(), "a building raised in common")?;
-            let ok = r.labour_h().is_finite()
-                && r.labour_h() > 0.0
-                && usize::from(r.program()) < rules.catalog.buildings.len();
-            if !ok || raises.iter().any(|x: &(PermanentId, _)| x.0 == law) {
+            // The program is the law's template's, as the loaded content numbers its buildings:
+            // the index saved is that of the content it was saved with.
+            let program = laws
+                .iter()
+                .find(|l| l.id == law)
+                .and_then(|l| rules.catalog.policies.get(usize::from(l.policy)))
+                .and_then(|d| d.raise)
+                .and_then(|r| u16::try_from(r.program).ok());
+            let ok = r.labour_h().is_finite() && r.labour_h() > 0.0;
+            let (true, Some(program)) = (ok, program) else {
                 return Err(bad(format!(
                     "polity {id} has a building raised in common malformed"
+                )));
+            };
+            if raises.iter().any(|x: &(PermanentId, _)| x.0 == law) {
+                return Err(bad(format!(
+                    "polity {id} has a building raised in common twice"
                 )));
             }
             raises.push((
                 law,
                 civ_agents::polity::RaiseSite {
-                    program: r.program(),
+                    program,
                     labour_h: r.labour_h(),
                     building: PermanentId::from_raw(r.building()),
                 },
@@ -3058,6 +3110,7 @@ fn decode_polities(
         }
         let raise_given = bank_shares(p.raise_given(), "hours given to a building raised")?;
         let storehouse = PermanentId::from_raw(p.storehouse());
+        let hall = PermanentId::from_raw(p.hall());
         // Patron gifts (schema 131, M7c slice BY).
         let mut patron_gifts = Vec::new();
         for g in p.patron_gifts().iter().flatten() {
@@ -3231,6 +3284,7 @@ fn decode_polities(
             raises,
             raise_given,
             storehouse,
+            hall,
         });
     }
     Ok(out)
@@ -5088,7 +5142,8 @@ fn carried(
         | Schema::V162
         | Schema::V163
         | Schema::V164
-        | Schema::V165 => {
+        | Schema::V165
+        | Schema::V166 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5428,7 +5483,8 @@ fn decode_households(
             | Schema::V162
             | Schema::V163
             | Schema::V164
-            | Schema::V165 => {
+            | Schema::V165
+            | Schema::V166 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -7396,6 +7452,7 @@ fn encode_plots(plots: &[Plot]) -> Vec<u8> {
                         PlotUse::Dwelling => save::PlotUse::Dwelling,
                         PlotUse::Store => save::PlotUse::Store,
                         PlotUse::Work => save::PlotUse::Work,
+                        PlotUse::Hall => save::PlotUse::Hall,
                     },
                     since: p.since.minutes(),
                     receipt_weighed: p.receipt.map_or(0, |r| r.weighed),
@@ -7422,6 +7479,7 @@ fn decode_plots(bytes: &[u8]) -> Result<Vec<Plot>, LoadError> {
             save::PlotUse::Dwelling => PlotUse::Dwelling,
             save::PlotUse::Store => PlotUse::Store,
             save::PlotUse::Work => PlotUse::Work,
+            save::PlotUse::Hall => PlotUse::Hall,
             other => {
                 return Err(LoadError::Malformed(format!(
                     "plot {id} has use {}",

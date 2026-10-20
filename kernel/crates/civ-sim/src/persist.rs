@@ -461,6 +461,9 @@ pub const SCHEMA_V162: u32 = 162;
 pub const SCHEMA_V163: u32 = 163;
 /// Polities' measured losses, before buildings kept the polity that raised them.
 pub const SCHEMA_V164: u32 = 164;
+/// Buildings a polity raised and its storehouse, before rain kept people from gatherings in the
+/// open and halls were raised.
+pub const SCHEMA_V165: u32 = 165;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

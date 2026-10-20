@@ -167,6 +167,7 @@ How a world's people live. Exactly one profile. `names` is the id of a name list
 | `polity` | `review_days`, `notice_days`, `gathering_minutes`, `quorum_share` | The polity and its founding custom (M4a slice Z, ADR-0013; content API 31): days between a polity's routine reviews, when its notables, the elders of households whose food will not last, and whoever came to a gathering or learnt a law since the last review weigh proposing (1 to 365); days from a proposal to the gathering that decides it (1 to 30); minutes a gathering sits from the start of the evening (15 to 600); and the share of the settlement's adults who must come for it to decide (0 to 1). Every world starts from this one custom: the adults at the hearth decide by acclamation, more for than against, a tie failing. |
 | | `w_gain`, `w_regard`, `stance_margin` | Stances (0 to 100 each): points per unit of what a law is forecast to bring a member's household (the change in the expected log of its year's food above subsistence, over an ordinary and a lean year), points for full regard for the law's sponsor, and the points either way within which a member abstains. |
 | | `attend_base`, `w_attend` | Attending: the points the custom itself is worth (−100 to 100), and points per point a member's household and regard for the sponsor have at stake (0 to 100). |
+| | `wet_attend` | Points a gathering held in the open is worth the less on a wet day, no hall of the polity's standing (0 to 100; content API 154, M8d slice DC). |
 | | `w_followers`, `propose_cost`, `temperature` | Proposing (ADR-0013 §5): the weight of those who regard a sponsor against the sponsor's own household (0 to 10), the points a proposal costs (0 to 100), and the temperature of the choice among moves and none (0.01 to 100). A move is worth its forecast by the share of those the sponsor knows who would back it. |
 | | `vote_memory_days` | Days a member remembers how a gathering they came to stood on a proposal (0 to 3650): while they do, they expect no more support for the same proposal, at the same level or naming the same holder, than it got there (content API 34; research 09-05 §1.2: a sponsor weighs expected success). |
 | | `prior_lean`, `prior_years`, `lean_harvest`, `subsistence_share` | Forecasts: the lean years believed in before any are seen, out of `prior_years` (lean years seen are those the settlement's food ran short in); a lean year's harvest as a share of an ordinary one (0 to 1); and the share of a year's food below which a household cannot live (0 to 1): food there is worth the most, and a household that would fall below it by paying a levy cannot pay. |
@@ -292,7 +293,7 @@ building skill and `[upkeep]`.
 | Table | Fields | Meaning |
 |---|---|---|
 | (top) | `grammar` | The grammar that expands it: `hut` or `frame`. |
-| | `use` | What its buildings are for: `dwelling`, `store` or `work` (the use of the plot it stands on). |
+| | `use` | What its buildings are for: `dwelling`, `store`, `work` or, from content API 154, `hall` (a polity's gatherings meet in it; only a polity raises one) (the use of the plot it stands on). |
 | | `eave_cm`, `pitch_deg` | The wall height (a frame's: each storey's) and roof pitch people build to, within the rules' ranges. |
 | | `roof_by_day` | The day of the year (from 0) a household wants to be under its roof by; the pressure to build grows as it nears. |
 | | `technique` | The technique building it needs (ADR-0008). |
@@ -1567,3 +1568,9 @@ Content API 153 (M8d slice DC, second part) brings the policy kind `raise_buildi
 raised so shelters the common store once it stands. Work on it is the behaviour `raise`. The core
 authors `yourselves_raise_a_storehouse` (a granary) and the activity
 `work_with_wooden_tools_on_raising`.
+
+Content API 154 (M8d slice DC, third part) brings the building use `hall` and the people
+profile's `polity.wet_attend`, the points a gathering held in the open is worth the less on a wet
+day. A gathering rained off for want of a quorum is measured, and the issue `rained_off` opens
+while it is; a hall raised under `raise_building` answers it, and the polity's gatherings then
+meet under its roof. The core authors the program `hall` and the template `yourselves_roof_a_hall`.

@@ -1,12 +1,13 @@
 //! Buildings a polity raises together (M8d slice DC; ADR-0031 §6), on the shape of a passing
 //! place cleared together (M8b slice CQ, third part). A program answers a loss the polity
-//! measured (a storehouse its common store's spoiling): where one is measured and no building of
+//! measured (a storehouse its common store's spoiling, a hall its gatherings in the open rained
+//! off): where one is measured and no building of
 //! the program is raised or being raised, each household weighs its share of the loss averted
 //! against its equal share of the work over the years it weighs, and someone who knows the
 //! program's technique may propose it. Passed, it is laid out near the hearth, held in the
 //! polity's name rather than a household's; its work is each household's to give by choice, as for a
 //! passing place, the hours including making and carrying its materials. A storehouse finished
-//! keeps the common store under its roof.
+//! keeps the common store under its roof; a hall finished keeps the rain off its gatherings.
 
 use super::*;
 use crate::decide::RaiseFacts;
@@ -44,11 +45,43 @@ impl Population {
         m.iter().map(|y| y.spoiled_kcal).sum::<f64>() / m.len() as f64
     }
 
+    /// The hours a year those who came gave to polity `pi`'s gatherings in the open that a wet
+    /// day left without a quorum, over the years it measured (M8d slice DC).
+    fn rained_off_a_year(&self, pi: usize) -> f64 {
+        let m = &self.polities[pi].measured;
+        if m.is_empty() {
+            return 0.0;
+        }
+        m.iter().map(|y| y.wet_lost_h).sum::<f64>() / m.len() as f64
+    }
+
+    /// What an hour of work brings the households of polity `pi`'s settlements, kcal, on the
+    /// mean: the worth of an hour given for nothing.
+    fn polity_hour_kcal(&self, ctx: &Ctx, pi: usize) -> f64 {
+        let (mut sum, mut n) = (0.0, 0usize);
+        for (_, x) in self.households.iter() {
+            if self.polities[pi].holds(x.settlement) && !x.members.is_empty() {
+                sum += self.hour_kcal(ctx, x);
+                n += 1;
+            }
+        }
+        if n == 0 { 0.0 } else { sum / n as f64 }
+    }
+
     /// The loss a year a building of program `program` would answer for polity `pi`, kcal: a
-    /// storehouse its common store's spoiling; nothing measured for any other yet.
+    /// storehouse its common store's spoiling, a hall the hours its gatherings in the open were
+    /// rained off; nothing measured for any other yet.
     fn loss_answered(&self, ctx: &Ctx, pi: usize, program: usize) -> f64 {
         match ctx.catalog.buildings.get(program).map(|d| d.use_) {
             Some(civ_land::PlotUse::Store) => self.spoiled_a_year(pi),
+            Some(civ_land::PlotUse::Hall) => {
+                let hours = self.rained_off_a_year(pi);
+                if hours > 0.0 {
+                    hours * self.polity_hour_kcal(ctx, pi)
+                } else {
+                    0.0
+                }
+            }
             _ => 0.0,
         }
     }
@@ -69,17 +102,27 @@ impl Population {
         })
     }
 
+    /// Whether a building of use `use_` that a template would raise is raised or being raised
+    /// for polity `pi`.
+    fn raised_for(&self, ctx: &Ctx, pi: usize, use_: civ_land::PlotUse) -> bool {
+        ctx.catalog.policies.iter().any(|d| {
+            d.raise.is_some_and(|r| {
+                ctx.catalog.buildings.get(r.program).map(|b| b.use_) == Some(use_)
+                    && self.raised(ctx, pi, r.program)
+            })
+        })
+    }
+
     /// Whether the common store's spoiling is an issue for polity `pi` (M8d slice DC): measured,
     /// and no storehouse of its raised or being raised.
     pub(super) fn store_spoils(&self, ctx: &Ctx, pi: usize) -> bool {
-        self.spoiled_a_year(pi) > 0.0
-            && !ctx.catalog.policies.iter().any(|d| {
-                d.raise.is_some_and(|r| {
-                    ctx.catalog.buildings.get(r.program).map(|b| b.use_)
-                        == Some(civ_land::PlotUse::Store)
-                        && self.raised(ctx, pi, r.program)
-                })
-            })
+        self.spoiled_a_year(pi) > 0.0 && !self.raised_for(ctx, pi, civ_land::PlotUse::Store)
+    }
+
+    /// Whether its gatherings rained off are an issue for polity `pi` (M8d slice DC): measured,
+    /// and no hall of its raised or being raised.
+    pub(super) fn rained_off(&self, ctx: &Ctx, pi: usize) -> bool {
+        self.rained_off_a_year(pi) > 0.0 && !self.raised_for(ctx, pi, civ_land::PlotUse::Hall)
     }
 
     /// What raising each building its templates name would bring polity `pi`'s households
@@ -353,8 +396,12 @@ impl Population {
             self.polities[pi].give_to_raise(law, household, done.hours as f32);
             self.work_given.push((polity, household, done.hours));
         }
-        if finished && def.use_ == civ_land::PlotUse::Store {
-            self.polities[pi].storehouse = Some(building);
+        if finished {
+            match def.use_ {
+                civ_land::PlotUse::Store => self.polities[pi].storehouse = Some(building),
+                civ_land::PlotUse::Hall => self.polities[pi].hall = Some(building),
+                _ => {}
+            }
         }
     }
 
@@ -371,18 +418,21 @@ impl Population {
         self.raise_work(ctx, household, building, hours);
     }
 
-    /// Each polity's storehouse is looked over (monthly): one no longer standing finished keeps
-    /// the store no more (M8d slice DC).
+    /// Each polity's storehouse and hall are looked over (monthly): one no longer standing
+    /// finished keeps the store, or shelters a gathering, no more (M8d slice DC).
     pub(super) fn look_over_storehouses(&mut self, ctx: &Ctx) {
+        let stands = |id: PermanentId| {
+            ctx.land
+                .buildings
+                .iter()
+                .any(|b| b.id == id && b.finished() && b.standing())
+        };
         for p in &mut self.polities {
-            if let Some(id) = p.storehouse
-                && !ctx
-                    .land
-                    .buildings
-                    .iter()
-                    .any(|b| b.id == id && b.finished() && b.standing())
-            {
+            if p.storehouse.is_some_and(|id| !stands(id)) {
                 p.storehouse = None;
+            }
+            if p.hall.is_some_and(|id| !stands(id)) {
+                p.hall = None;
             }
         }
     }

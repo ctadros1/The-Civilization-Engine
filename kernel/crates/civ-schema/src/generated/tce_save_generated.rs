@@ -1009,13 +1009,14 @@ impl ::flatbuffers::SimpleToVerifyInSlice for HarvestLimit {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_PLOT_USE: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_PLOT_USE: u8 = 2;
+pub const ENUM_MAX_PLOT_USE: u8 = 3;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_PLOT_USE: [PlotUse; 3] = [
+pub const ENUM_VALUES_PLOT_USE: [PlotUse; 4] = [
   PlotUse::Dwelling,
   PlotUse::Store,
   PlotUse::Work,
+  PlotUse::Hall,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1026,13 +1027,15 @@ impl PlotUse {
   pub const Dwelling: Self = Self(0);
   pub const Store: Self = Self(1);
   pub const Work: Self = Self(2);
+  pub const Hall: Self = Self(3);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 2;
+  pub const ENUM_MAX: u8 = 3;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Dwelling,
     Self::Store,
     Self::Work,
+    Self::Hall,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1040,6 +1043,7 @@ impl PlotUse {
       Self::Dwelling => Some("Dwelling"),
       Self::Store => Some("Store"),
       Self::Work => Some("Work"),
+      Self::Hall => Some("Hall"),
       _ => None,
     }
   }
@@ -39127,6 +39131,8 @@ impl<'a> PolitySave<'a> {
   pub const VT_RAISES: ::flatbuffers::VOffsetT = 90;
   pub const VT_RAISE_GIVEN: ::flatbuffers::VOffsetT = 92;
   pub const VT_STOREHOUSE: ::flatbuffers::VOffsetT = 94;
+  pub const VT_HALL: ::flatbuffers::VOffsetT = 96;
+  pub const VT_MEASURED_LOSSES: ::flatbuffers::VOffsetT = 98;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -39138,6 +39144,7 @@ impl<'a> PolitySave<'a> {
     args: &'args PolitySaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<PolitySave<'bldr>> {
     let mut builder = PolitySaveBuilder::new(_fbb);
+    builder.add_hall(args.hall);
     builder.add_storehouse(args.storehouse);
     builder.add_seats(args.seats);
     builder.add_ended_by(args.ended_by);
@@ -39147,6 +39154,7 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.measured_losses { builder.add_measured_losses(x); }
     if let Some(x) = args.raise_given { builder.add_raise_given(x); }
     if let Some(x) = args.raises { builder.add_raises(x); }
     if let Some(x) = args.measured { builder.add_measured(x); }
@@ -39510,6 +39518,20 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(PolitySave::VT_STOREHOUSE, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn hall(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PolitySave::VT_HALL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn measured_losses(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MeasuredLossSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MeasuredLossSave>>>>(PolitySave::VT_MEASURED_LOSSES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -39564,6 +39586,8 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RaiseSiteSave>>>>("raises", Self::VT_RAISES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>("raise_given", Self::VT_RAISE_GIVEN, false)?
      .visit_field::<u64>("storehouse", Self::VT_STOREHOUSE, false)?
+     .visit_field::<u64>("hall", Self::VT_HALL, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<MeasuredLossSave>>>>("measured_losses", Self::VT_MEASURED_LOSSES, false)?
      .finish();
     Ok(())
   }
@@ -39615,6 +39639,8 @@ pub struct PolitySaveArgs<'a> {
     pub raises: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RaiseSiteSave<'a>>>>>,
     pub raise_given: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>>>,
     pub storehouse: u64,
+    pub hall: u64,
+    pub measured_losses: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<MeasuredLossSave<'a>>>>>,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -39666,6 +39692,8 @@ impl<'a> Default for PolitySaveArgs<'a> {
       raises: None,
       raise_given: None,
       storehouse: 0,
+      hall: 0,
+      measured_losses: None,
     }
   }
 }
@@ -39860,6 +39888,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot::<u64>(PolitySave::VT_STOREHOUSE, storehouse, 0);
   }
   #[inline]
+  pub fn add_hall(&mut self, hall: u64) {
+    self.fbb_.push_slot::<u64>(PolitySave::VT_HALL, hall, 0);
+  }
+  #[inline]
+  pub fn add_measured_losses(&mut self, measured_losses: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<MeasuredLossSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_MEASURED_LOSSES, measured_losses);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -39923,6 +39959,121 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("raises", &self.raises());
       ds.field("raise_given", &self.raise_given());
       ds.field("storehouse", &self.storehouse());
+      ds.field("hall", &self.hall());
+      ds.field("measured_losses", &self.measured_losses());
+      ds.finish()
+  }
+}
+pub enum MeasuredLossSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct MeasuredLossSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for MeasuredLossSave<'a> {
+  type Inner = MeasuredLossSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> MeasuredLossSave<'a> {
+  pub const VT_YEAR: ::flatbuffers::VOffsetT = 4;
+  pub const VT_WET_LOST_H: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    MeasuredLossSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args MeasuredLossSaveArgs
+  ) -> ::flatbuffers::WIPOffset<MeasuredLossSave<'bldr>> {
+    let mut builder = MeasuredLossSaveBuilder::new(_fbb);
+    builder.add_wet_lost_h(args.wet_lost_h);
+    builder.add_year(args.year);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn year(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(MeasuredLossSave::VT_YEAR, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn wet_lost_h(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(MeasuredLossSave::VT_WET_LOST_H, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for MeasuredLossSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<i64>("year", Self::VT_YEAR, false)?
+     .visit_field::<f64>("wet_lost_h", Self::VT_WET_LOST_H, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct MeasuredLossSaveArgs {
+    pub year: i64,
+    pub wet_lost_h: f64,
+}
+impl<'a> Default for MeasuredLossSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    MeasuredLossSaveArgs {
+      year: 0,
+      wet_lost_h: 0.0,
+    }
+  }
+}
+
+pub struct MeasuredLossSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> MeasuredLossSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_year(&mut self, year: i64) {
+    self.fbb_.push_slot::<i64>(MeasuredLossSave::VT_YEAR, year, 0);
+  }
+  #[inline]
+  pub fn add_wet_lost_h(&mut self, wet_lost_h: f64) {
+    self.fbb_.push_slot::<f64>(MeasuredLossSave::VT_WET_LOST_H, wet_lost_h, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> MeasuredLossSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    MeasuredLossSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<MeasuredLossSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for MeasuredLossSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("MeasuredLossSave");
+      ds.field("year", &self.year());
+      ds.field("wet_lost_h", &self.wet_lost_h());
       ds.finish()
   }
 }

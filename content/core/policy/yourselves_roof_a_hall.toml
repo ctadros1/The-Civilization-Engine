@@ -1,0 +1,26 @@
+# A hall raised together for the gathering (M8d slice DC, third part; ADR-0031 §6, shaped as the
+# storehouse raised together). A gathering at the hearth meets in the open, and a wet day keeps
+# from it those with little at stake (the people profile's `polity.wet_attend`); when one so thinned
+# fails for want of a quorum, the hours those who came gave it are lost, as its settlements measure
+# a year (the issue `rained_off`). Anyone who knows how to frame a building may then propose that
+# the polity raise a hall by the hearth. A household weighs it by its share of those hours a year,
+# each worth the food an hour of its own work brings, less its equal share of the work spread over
+# the years it weighs. Once passed, the polity lays it out near the hearth, and each household is
+# asked an equal share of the work: its people give it as they choose. Finished, the gathering
+# meets under its roof, whatever the weather. Whether anyone proposes one, whether it passes, and
+# whether it is finished, is people's choice. Its id sorts after every older template's: hearth
+# talk about a question is keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/yourselves_roof_a_hall"
+name = "Hall raised together"
+description = "The polity raises a hall by the hearth for its gatherings to meet in out of the rain, and each household is asked an equal share of the work."
+does = "raise_building"
+answers = ["rained_off"]
+
+[raise]
+program = "core:building/hall"
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement, as for a storehouse raised together.
+[bears]
+"core:value/autonomy" = -0.5

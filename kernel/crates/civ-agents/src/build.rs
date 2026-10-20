@@ -493,6 +493,9 @@ pub struct FireDesign {
     pub knows_firing: bool,
     /// Whether someone in the household knows lime burning.
     pub knows_lime: bool,
+    /// Whether someone in the household knows the technique that opens each of the program's
+    /// version 3 systems: a trussed roof, storeyed posts and wall ties (ADR-0031 §2).
+    pub knows_systems: [bool; 3],
 }
 
 /// [`design_shape`], by builders who make the members that carry a frame building's load
@@ -597,6 +600,15 @@ pub fn design_cautious(
             }
             params[fp::WALL_KIND] = wall_kind;
             params[fp::FOOTING] = footing;
+            // Mass walls of more than a storey are tied at each floor where the builders know
+            // how: untied, a wall stands its whole height (ADR-0031 §2).
+            if wall_kind > 0
+                && storeys > 1
+                && civ_grammar::FRAME_DESIGN_VERSION >= 3
+                && fire.is_some_and(|f| f.knows_systems[2])
+            {
+                params[fp::TIES] = 1;
+            }
             // From frame version 3 a mass wall keeps to the program's own range, at its least,
             // thickened by caution as it bears more by its square root (ADR-0031 §2: crushing
             // grows with the thickness and so does the height it stands; a design prior).
@@ -1853,6 +1865,42 @@ pub(crate) mod tests {
         .expect("a wary rubble design");
         assert_eq!(wary.params[frame_params::WALL_CM], 60, "30 cm × √4");
         assert!(civ_grammar::expand(&wary, &def.rules).is_ok());
+        // Two storeys of rubble are tied at each floor only where tied masonry is known.
+        let tall = Shape::Bays {
+            bays: 3,
+            storeys: 2,
+            lofts: 0,
+        };
+        let design = |knows_ties: bool| {
+            design_cautious(
+                &def,
+                &goods,
+                tall,
+                (0.0, 0.0),
+                None,
+                1.0,
+                None,
+                Some(FireDesign {
+                    knows_systems: [false, false, knows_ties],
+                    ..fire_rubble
+                }),
+            )
+            .expect("two storeys of rubble")
+        };
+        assert_eq!(design(false).params[frame_params::TIES], 0);
+        let tied = design(true);
+        assert_eq!(tied.params[frame_params::TIES], 1);
+        assert_eq!(
+            rubble.params[frame_params::TIES],
+            0,
+            "one storey is not tied"
+        );
+        let e = civ_grammar::expand(&tied, &def.rules).expect("tied rubble expands");
+        assert!(
+            e.groups
+                .iter()
+                .any(|g| g.kind == civ_grammar::GroupKind::Ties)
+        );
 
         // Fire caution for wattle with mud brick known -> mud brick mass wall (kind 2, footing 1)!
         let fire_mud = FireDesign {

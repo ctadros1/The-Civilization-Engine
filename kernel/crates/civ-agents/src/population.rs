@@ -2453,6 +2453,15 @@ impl Population {
                 knows_mud_brick: knows_technique("core:technique/mud_brick"),
                 knows_firing: knows_technique("core:technique/firing"),
                 knows_lime: knows_technique("core:technique/lime_burning"),
+                // The version 3 systems its program opens to a technique someone of it knows.
+                knows_systems: program.systems.map(|t| {
+                    t.is_some_and(|t| {
+                        hh.members
+                            .iter()
+                            .filter_map(|&m| self.person(m))
+                            .any(|p| p.knows(t))
+                    })
+                }),
             };
             let design_at = |at: (f32, f32)| {
                 let reachable = reach.is_none_or(|r| r.seconds_to(cell_of(ctx.map, at)).is_some());

@@ -5105,6 +5105,15 @@ and M6a gives rivers a daily flow.
         storeys or more takes a stair. Width stays the program's design (deferred: it would
         multiply the shapes weighed). **Test:** shapes on less ground give no less floor on
         fewer bays, the least ground first, at most two, none when none is affordable.
+      - *Fifth part, as built (2026-10-20): builders tie what they know how to tie* (ADR-0031
+        §2). The builder knows which of its program's version 3 systems someone of its household
+        can make (`knows_systems`, by the program's `[systems]`); mass walls of more than a storey
+        are tied at each floor where tied masonry is known, which the gravity checks credit by
+        holding each storey's wall over its storey alone. Trusses and storeyed posts wait for
+        width and height that need them (the core's programs keep their width and two storeys).
+        Trust kept by every technique used is deferred with them. **Test:** two storeys of rubble
+        are tied only where tied masonry is known, one storey never, and the tied design expands
+        with its ties.
     - **DA, lateral margins and the shaking tool:** lateral modes, `Request::Shake`,
       `InfluenceKind::Earthquake`, one keyed evaluation, cracks as loss, deaths by who was
       inside, incidents and an episode with origin, the dashboard's shaking row. *Tests:* the

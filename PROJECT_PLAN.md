@@ -5397,6 +5397,26 @@ and M6a gives rivers a daily flow.
         it is built, a household that could build it moves toward all seven traits and one that
         could not toward all but ornament and finish; tastes survive a save; the existing style
         and diffusion tests pass with huts moving the roof alone.
+      - *Third part, as built (2026-10-20): seen from farther the higher it stands.* Someone at
+        another settlement's hearth or a seller's door sees a new building there within the
+        content's `sight_m` times its eaves' height over the highest eaves of the standing
+        buildings within 30 m of it (never under 2 m), from one to four times (design priors), so
+        a hall or a tower over huts is an exemplar from farther away. **Test:** a watch tower of
+        two storeys among huts is seen from at least twice the usual sight and a hut from barely
+        more than it; someone of another settlement standing half as far again as the usual
+        sight from the tower notes the tower and not the hut; a visitor's sightings each lie
+        within their building's reach.
+      - *Fourth part, as built (2026-10-20): the clocks over seven traits, and the slice closed.*
+        The three clocks (founding way, households' taste, the year's new and the standing
+        buildings) take their mean and spread over all seven traits, and their words say a
+        front where there is one ("…, 12 % of the walls open, 0.5 h of ornament a square metre,
+        daubed, 50 % set out about the middle"); the smoke's style line counts the frames with a
+        front. The neighbours row counts what crossed by chains of followed buildings and
+        admiration, whatever the trait, so it covers all seven unchanged; no wire change was
+        needed, the observer's style words being the kernel's. **Test:** a front is said in
+        words and a hut's way says none; the neighbours and clocks tests pass. **Slice DD is
+        closed.** The twin's roof-style measure stays the pitch (the M5b demo's question).
+        Deferred: lime and clay drawn from stores for a finish.
     - **DE, the M8 demo and the gate:** two settlements founded large, an organic port and an
       inland settlement that may pass a plan, at the largest size that lives within the time
       box; who builds tall, what public buildings rise or stall, what falls when both are shaken
@@ -6750,8 +6770,9 @@ One line each. Don't re-litigate without a reason written next to the entry.
   a square metre of wall, setting a front out about its middle two hours a bay; the front's
   tradition is a tenth of the walls open, 0.1 h of ornament, about half daubed and few
   symmetrical, with spreads of 5 %, 0.2 h, 0.5 and 0.4 between bands. "Could build" is knowing the
-  program's technique, and lime burning for a lime wash. Each revisited if the demo (DE) shows
-  fronts converging or drifting nowhere.
+  program's technique, and lime burning for a lime wash. A building is seen `sight_m` times its
+  eaves over the highest within 30 m (never under 2 m), one to four times. Each revisited if the
+  demo (DE) shows fronts converging or drifting nowhere, or towers moving no taste.
 - **Design priors for what a building raised together shows (2026-10-20, M8d slice DC's fourth
   part, ADR-0031 §6):** NUDGE: a raising stalls after 120 days with no work (a season's work
   missed); its users are every adult of its polity; each sees at most the eight households that

@@ -150,7 +150,8 @@ impl Population {
 
     /// `me` stands at `at` in `settlement`, not their own, on a visit or a trip to buy (M5b slice
     /// AR; research 11-02 §1.1: exposure through travel and observed buildings): they see its
-    /// buildings finished in the year past that stand whole within the content's `sight_m`, and
+    /// buildings finished in the year past that stand whole within the content's `sight_m`, or
+    /// farther for one that rises over its neighbours ([`style::seen_from_m`], M8d slice DD), and
     /// keep up to `seen_most` of them in mind, newest first, a building seen again only once.
     pub(crate) fn note_sights(
         &mut self,
@@ -171,7 +172,8 @@ impl Population {
             return;
         }
         let since = ctx.now.minutes() - DAYS_PER_YEAR * MINUTES_PER_DAY;
-        let reach = rules.sight_m.max(0.0) as f32;
+        let sight = rules.sight_m.max(0.0);
+        let farthest = (sight * style::MOST_SIGHT_SCALE) as f32;
         let mut seen: Vec<(i64, PermanentId)> = ctx
             .land
             .buildings
@@ -184,7 +186,8 @@ impl Population {
             })
             .filter(|b| {
                 let c = crate::build::centre_m(&b.spec);
-                (c.0 - at.0).hypot(c.1 - at.1) <= reach
+                let d = (c.0 - at.0).hypot(c.1 - at.1);
+                d <= farthest && f64::from(d) <= style::seen_from_m(ctx.land, b, sight)
             })
             .map(|b| (b.stage_since.minutes(), b.id))
             .collect();
@@ -199,6 +202,18 @@ impl Population {
             list.insert(0, id);
         }
         list.truncate(rules.seen_most);
+    }
+
+    /// [`Population::note_sights`]: for tests.
+    #[doc(hidden)]
+    pub fn note_sights_for_tests(
+        &mut self,
+        ctx: &Ctx,
+        me: PermanentId,
+        settlement: PermanentId,
+        at: (f32, f32),
+    ) {
+        self.note_sights(ctx, me, settlement, at);
     }
 
     /// Once a year, as wealth is recorded: each household's taste moves toward each building of

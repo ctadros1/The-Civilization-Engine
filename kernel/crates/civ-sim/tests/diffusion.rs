@@ -387,8 +387,10 @@ fn a_visitor_sees_the_new_buildings_about_the_hearth_and_saves_keep_them() {
                 .find(|s| s.id == there)
                 .expect("it")
                 .hearth_m;
+            // As far as it rises over its neighbours lets it be seen (M8d slice DD).
             let c = civ_agents::build::centre_m(&x.spec);
-            let near_hearth = (c.0 - hearth.0).hypot(c.1 - hearth.1) <= sight_m;
+            let reach = style::seen_from_m(sim.land(), x, f64::from(sight_m));
+            let near_hearth = f64::from((c.0 - hearth.0).hypot(c.1 - hearth.1)) <= reach;
             assert!(
                 near_hearth
                     || pop
@@ -790,4 +792,92 @@ fn each_settlement_s_way_of_building_is_shown_on_three_clocks_and_chains_name_wh
     let saved = persist::save(&mut sim, &saves, SaveKind::Manual, "ways").expect("saves");
     let loaded = persist::load(&saved.path, content()).expect("loads");
     assert_eq!(loaded.people().founding_ways, sim.people().founding_ways);
+}
+
+#[test]
+fn a_tower_over_the_roofs_about_it_is_seen_from_farther_than_a_hut() {
+    use civ_agents::build::{Shape, design_shape};
+    let mut sim = world(3, 30, &[30]);
+    until_housed(&mut sim);
+    let (a, b) = (sim.land().settlements[0].id, sim.land().settlements[1].id);
+    let hearth = sim
+        .land()
+        .settlements
+        .iter()
+        .find(|s| s.id == b)
+        .expect("it")
+        .hearth_m;
+    let owner = households_of(&sim, b)[0];
+    let catalog = sim.rules().catalog.clone();
+    let tower = &catalog.buildings[catalog
+        .building_index("core:building/watch_tower")
+        .expect("the tower")];
+    let spec = design_shape(
+        tower,
+        &catalog.goods,
+        Shape::Bays {
+            bays: 1,
+            storeys: 2,
+            lofts: 0,
+        },
+        (hearth.0 + 40.0, hearth.1),
+        Some(hearth),
+    )
+    .expect("designed");
+    let long_ago = SimTime::from_minutes(sim.now().minutes() - 400 * DAY);
+    for x in sim.land_mut_for_tests().buildings.iter_mut() {
+        x.stage_since = long_ago;
+    }
+    let id = sim
+        .place_building_for_tests(owner, spec, civ_grammar::Stage::ALL.len() as u8)
+        .expect("placed");
+    // The settlement's year: the tower and one hut, as if finished a month ago.
+    let month_ago = SimTime::from_minutes(sim.now().minutes() - 30 * DAY);
+    let mut hut = None;
+    for x in sim.land_mut_for_tests().buildings.iter_mut() {
+        if x.id == id || (hut.is_none() && x.household == owner && x.finished()) {
+            x.stage_since = month_ago;
+            if x.id != id {
+                hut = Some(x.id);
+            }
+        }
+    }
+    let hut = hut.expect("the owner's home");
+    let sight = sim.rules().people.style.sight_m;
+    let find = |sim: &Sim, id| {
+        sim.land()
+            .buildings
+            .iter()
+            .find(|x| x.id == id)
+            .expect("it")
+            .clone()
+    };
+    let (t, h) = (find(&sim, id), find(&sim, hut));
+    // Two storeys of 2.5 m over huts' eaves of about 2 m: seen some 2.5 times as far.
+    let (reach_t, reach_h) = (
+        style::seen_from_m(sim.land(), &t, sight),
+        style::seen_from_m(sim.land(), &h, sight),
+    );
+    assert!(reach_t >= 2.0 * sight, "{reach_t}");
+    assert!(reach_h <= 1.2 * sight, "{reach_h}");
+    // Someone of the first settlement standing 1.5 times the usual sight off the tower, beyond
+    // the hut's reach, sees the tower and not the hut.
+    let c = civ_agents::build::centre_m(&t.spec);
+    let away = (c.0 - hearth.0, c.1 - hearth.1);
+    let n = away.0.hypot(away.1).max(1.0);
+    let d = (1.5 * sight) as f32;
+    let at = (c.0 + away.0 / n * d, c.1 + away.1 / n * d);
+    let hc = civ_agents::build::centre_m(&h.spec);
+    assert!(f64::from((hc.0 - at.0).hypot(hc.1 - at.1)) > reach_h);
+    let visitor = members(&sim, households_of(&sim, a)[0])[0];
+    sim.people_mut_for_tests().seen_away.clear();
+    sim.with_ctx_for_tests(|pop, ctx| pop.note_sights_for_tests(ctx, visitor, b, at));
+    let seen = sim
+        .people()
+        .seen_away
+        .get(&visitor)
+        .cloned()
+        .unwrap_or_default();
+    assert!(seen.contains(&id), "{seen:?}");
+    assert!(!seen.contains(&hut), "{seen:?}");
 }

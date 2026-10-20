@@ -473,3 +473,21 @@ fn a_front_is_built_to_taste_and_moves_taste_only_as_far_as_its_viewers_could_bu
         assert_eq!(taste(&loaded, h), taste(&sim, h));
     }
 }
+
+#[test]
+fn a_front_is_said_in_words_and_a_hut_s_way_says_none() {
+    use civ_sim::frames::people::front_words;
+    let hut = [4_800.0, 190.0, 50.0, 0.0, 0.0, 0.0, 0.0];
+    assert_eq!(front_words(&hut), "");
+    let frame = [4_800.0, 190.0, 50.0, 120.0, 5.0, 1.0, 0.5];
+    assert_eq!(
+        front_words(&frame),
+        ", 12 % of the walls open, 0.5 h of ornament a square metre, daubed, 50 % set out about \
+         the middle"
+    );
+    let limed = [4_800.0, 190.0, 50.0, 0.0, 0.0, 2.0, 1.0];
+    assert_eq!(
+        front_words(&limed),
+        ", lime-washed, set out about the middle"
+    );
+}

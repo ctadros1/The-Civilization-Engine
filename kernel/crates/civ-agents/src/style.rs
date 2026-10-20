@@ -273,6 +273,49 @@ pub fn commission(
     traits
 }
 
+/// How far about a building its neighbours stand whose eaves it must rise over to be seen
+/// farther (M8d slice DD; ADR-0031 §7; a design prior), metres.
+pub const NEIGHBOURS_M: f64 = 30.0;
+/// The least height of the eaves a building is seen over, metres: a person's line of sight
+/// across open ground (a design prior).
+pub const LEAST_EAVES_M: f64 = 2.0;
+/// The most a building's height multiplies how far it is seen (a design prior).
+pub const MOST_SIGHT_SCALE: f64 = 4.0;
+
+/// The height of building `spec`'s eaves above the ground, metres: a hut's walls; a frame's
+/// raised floor and every storey.
+pub fn eaves_m(spec: &BuildingSpec) -> f64 {
+    match spec.footprint {
+        civ_grammar::Footprint::Round { .. } => f64::from(spec.params[hut_params::EAVE_CM]) / 100.0,
+        civ_grammar::Footprint::Rect { .. } => {
+            let p = &spec.params;
+            f64::from(
+                p[frame_params::FLOOR_RAISE_CM]
+                    + p[frame_params::EAVE_CM] * i32::from(spec.storeys.max(1)),
+            ) / 100.0
+        }
+    }
+}
+
+/// How far building `b` is seen, metres, by someone who sees an ordinary building `sight_m` off
+/// (M8d slice DD; ADR-0031 §7): `sight_m` times its eaves' height over the highest eaves of the
+/// standing buildings within [`NEIGHBOURS_M`] of it (never under [`LEAST_EAVES_M`]), from one
+/// to [`MOST_SIGHT_SCALE`] times. A hall or a tower among huts is seen from farther away.
+pub fn seen_from_m(land: &civ_land::Land, b: &civ_land::Building, sight_m: f64) -> f64 {
+    let c = crate::build::centre_m(&b.spec);
+    let around = land
+        .buildings
+        .iter()
+        .filter(|o| o.id != b.id && o.finished() && o.state == civ_land::BuildingState::Standing)
+        .filter(|o| {
+            let d = crate::build::centre_m(&o.spec);
+            f64::from((d.0 - c.0).hypot(d.1 - c.1)) <= NEIGHBOURS_M
+        })
+        .map(|o| eaves_m(&o.spec))
+        .fold(LEAST_EAVES_M, f64::max);
+    sight_m * (eaves_m(&b.spec) / around).clamp(1.0, MOST_SIGHT_SCALE)
+}
+
 /// What frame building `spec` was built with beyond what version 2 builds, in words (ADR-0031
 /// §1): a trussed roof, posts a storey high, walls tied at each storey, walls thinning storey by
 /// storey, each storey's windows and a stair. Empty before version 3.

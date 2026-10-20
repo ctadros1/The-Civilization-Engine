@@ -1560,3 +1560,10 @@ a dimension rule that a new building whose walls are of one of `walls` rise at m
 3); and `tied_walls`, a technique rule that new mass walls above a storey be tied at each floor,
 which a policy gates by `needs`. The core authors them as `yours_to_stay_low` (rubble and mud brick
 a storey high) and `yours_to_tie_the_walls` (needing `tied_masonry`), each answering `gave_way`.
+
+Content API 153 (M8d slice DC, second part) brings the policy kind `raise_building`, whose
+`[raise]` table names the building `program` a polity raises in common; it answers the issue
+`store_spoils` (the common store spoiling unsheltered, as measured a year), and a store program
+raised so shelters the common store once it stands. Work on it is the behaviour `raise`. The core
+authors `yourselves_raise_a_storehouse` (a granary) and the activity
+`work_with_wooden_tools_on_raising`.

@@ -459,6 +459,8 @@ pub const SCHEMA_V161: u32 = 161;
 pub const SCHEMA_V162: u32 = 162;
 /// Households' storeys and ties of what gave way, before polities measured their losses.
 pub const SCHEMA_V163: u32 = 163;
+/// Polities' measured losses, before buildings kept the polity that raised them.
+pub const SCHEMA_V164: u32 = 164;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

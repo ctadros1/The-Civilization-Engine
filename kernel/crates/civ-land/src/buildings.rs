@@ -222,6 +222,9 @@ pub struct Building {
     pub days_wet: u16,
     /// Work on emergency demolition; its last minute guards concurrent crew completions.
     pub demolition: Option<Demolition>,
+    /// The polity that raised and owns it, if any (M8d slice DC, ADR-0031 §6): its work is the
+    /// polity's households', given by choice, and `household` is only the one that keeps it.
+    pub polity: Option<PermanentId>,
 }
 
 /// Physical work on a threatened building, separate from its eventual historical record.
@@ -272,6 +275,7 @@ impl Building {
             last_flood_depth_cm: 0,
             days_wet: 0,
             demolition: None,
+            polity: None,
         }
     }
 

@@ -102,6 +102,7 @@ pub use loads::{
 mod plans;
 mod quakes;
 pub use plans::ParcelOffer;
+mod raising;
 mod siting;
 mod taste;
 mod ties;
@@ -3469,6 +3470,7 @@ impl Population {
             boat: self.boat_facts(ctx, &hh, field_key, dark),
             cart: self.cart_facts(ctx, &hh, dark),
             way: self.way_facts(ctx, &hh, p.id, dark),
+            raise: self.raise_facts(ctx, &hh, p.id, dark),
             enclosure: self.enclosure_facts(ctx, &hh, p.id, field_key, dark),
             ditch: self.ditch_facts(ctx, &hh, field_key, dark),
             band: band_facts,
@@ -5156,6 +5158,7 @@ impl Population {
                 | Behavior::Boat
                 | Behavior::Cart
                 | Behavior::Way
+                | Behavior::Raise
                 | Behavior::Well
                 | Behavior::Levee
                 | Behavior::Palisade
@@ -5411,6 +5414,15 @@ impl Population {
                         let hours = f64::from(minutes) / 60.0 * eff;
                         let (who, household) = (p.id, p.household);
                         self.crossing_work(ctx, (h, who), household, crossing, hours);
+                    }
+                }
+                Some(Behavior::Raise) => {
+                    if let Target::Building(building) = p.act.target {
+                        let rate = def.as_ref().map_or(1.0, |d| d.rate);
+                        let eff = interpolate(&params.capacity_by_age, p.age_years(now)) * rate;
+                        let hours = f64::from(minutes) / 60.0 * eff;
+                        let household = p.household;
+                        self.raise_work(ctx, household, building, hours);
                     }
                 }
                 Some(Behavior::Way) => {
@@ -6745,6 +6757,7 @@ impl Population {
             self.buildings_changed(ctx.now, ctx.land, catalog, ctx.params, household);
         }
         self.remember_standing(ctx);
+        self.look_over_storehouses(ctx);
     }
 
     pub fn on_day(&mut self, ctx: &mut Ctx) {

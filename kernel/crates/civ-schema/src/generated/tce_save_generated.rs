@@ -33683,6 +33683,7 @@ impl<'a> Building<'a> {
   pub const VT_LAST_FLOOD_DEPTH_CM: ::flatbuffers::VOffsetT = 32;
   pub const VT_DAYS_WET: ::flatbuffers::VOffsetT = 34;
   pub const VT_DEMOLITION: ::flatbuffers::VOffsetT = 36;
+  pub const VT_POLITY: ::flatbuffers::VOffsetT = 38;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -33694,6 +33695,7 @@ impl<'a> Building<'a> {
     args: &'args BuildingArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Building<'bldr>> {
     let mut builder = BuildingBuilder::new(_fbb);
+    builder.add_polity(args.polity);
     builder.add_style_from(args.style_from);
     builder.add_firm(args.firm);
     builder.add_stage_since(args.stage_since);
@@ -33834,6 +33836,13 @@ impl<'a> Building<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<DemolitionSave>>(Building::VT_DEMOLITION, None)}
   }
+  #[inline]
+  pub fn polity(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(Building::VT_POLITY, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Building<'_> {
@@ -33859,6 +33868,7 @@ impl ::flatbuffers::Verifiable for Building<'_> {
      .visit_field::<u16>("last_flood_depth_cm", Self::VT_LAST_FLOOD_DEPTH_CM, false)?
      .visit_field::<u16>("days_wet", Self::VT_DAYS_WET, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<DemolitionSave>>("demolition", Self::VT_DEMOLITION, false)?
+     .visit_field::<u64>("polity", Self::VT_POLITY, false)?
      .finish();
     Ok(())
   }
@@ -33881,6 +33891,7 @@ pub struct BuildingArgs<'a> {
     pub last_flood_depth_cm: u16,
     pub days_wet: u16,
     pub demolition: Option<::flatbuffers::WIPOffset<DemolitionSave<'a>>>,
+    pub polity: u64,
 }
 impl<'a> Default for BuildingArgs<'a> {
   #[inline]
@@ -33903,6 +33914,7 @@ impl<'a> Default for BuildingArgs<'a> {
       last_flood_depth_cm: 0,
       days_wet: 0,
       demolition: None,
+      polity: 0,
     }
   }
 }
@@ -33981,6 +33993,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<DemolitionSave>>(Building::VT_DEMOLITION, demolition);
   }
   #[inline]
+  pub fn add_polity(&mut self, polity: u64) {
+    self.fbb_.push_slot::<u64>(Building::VT_POLITY, polity, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BuildingBuilder {
@@ -34015,6 +34031,7 @@ impl ::core::fmt::Debug for Building<'_> {
       ds.field("last_flood_depth_cm", &self.last_flood_depth_cm());
       ds.field("days_wet", &self.days_wet());
       ds.field("demolition", &self.demolition());
+      ds.field("polity", &self.polity());
       ds.finish()
   }
 }
@@ -39107,6 +39124,9 @@ impl<'a> PolitySave<'a> {
   pub const VT_ENCROACHMENT_SEEN: ::flatbuffers::VOffsetT = 84;
   pub const VT_ENCROACHMENT_ORDERS: ::flatbuffers::VOffsetT = 86;
   pub const VT_MEASURED: ::flatbuffers::VOffsetT = 88;
+  pub const VT_RAISES: ::flatbuffers::VOffsetT = 90;
+  pub const VT_RAISE_GIVEN: ::flatbuffers::VOffsetT = 92;
+  pub const VT_STOREHOUSE: ::flatbuffers::VOffsetT = 94;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -39118,6 +39138,7 @@ impl<'a> PolitySave<'a> {
     args: &'args PolitySaveArgs<'args>
   ) -> ::flatbuffers::WIPOffset<PolitySave<'bldr>> {
     let mut builder = PolitySaveBuilder::new(_fbb);
+    builder.add_storehouse(args.storehouse);
     builder.add_seats(args.seats);
     builder.add_ended_by(args.ended_by);
     builder.add_ended_day(args.ended_day);
@@ -39126,6 +39147,8 @@ impl<'a> PolitySave<'a> {
     builder.add_founded(args.founded);
     builder.add_settlement(args.settlement);
     builder.add_id(args.id);
+    if let Some(x) = args.raise_given { builder.add_raise_given(x); }
+    if let Some(x) = args.raises { builder.add_raises(x); }
     if let Some(x) = args.measured { builder.add_measured(x); }
     if let Some(x) = args.encroachment_orders { builder.add_encroachment_orders(x); }
     if let Some(x) = args.encroachment_seen { builder.add_encroachment_seen(x); }
@@ -39466,6 +39489,27 @@ impl<'a> PolitySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, MeasuredSave>>>(PolitySave::VT_MEASURED, None)}
   }
+  #[inline]
+  pub fn raises(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RaiseSiteSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RaiseSiteSave>>>>(PolitySave::VT_RAISES, None)}
+  }
+  #[inline]
+  pub fn raise_given(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>(PolitySave::VT_RAISE_GIVEN, None)}
+  }
+  #[inline]
+  pub fn storehouse(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(PolitySave::VT_STOREHOUSE, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for PolitySave<'_> {
@@ -39517,6 +39561,9 @@ impl ::flatbuffers::Verifiable for PolitySave<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, EncroachmentSeenSave>>>("encroachment_seen", Self::VT_ENCROACHMENT_SEEN, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, EncroachmentOrderSave>>>("encroachment_orders", Self::VT_ENCROACHMENT_ORDERS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, MeasuredSave>>>("measured", Self::VT_MEASURED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RaiseSiteSave>>>>("raises", Self::VT_RAISES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BankShareSave>>>>("raise_given", Self::VT_RAISE_GIVEN, false)?
+     .visit_field::<u64>("storehouse", Self::VT_STOREHOUSE, false)?
      .finish();
     Ok(())
   }
@@ -39565,6 +39612,9 @@ pub struct PolitySaveArgs<'a> {
     pub encroachment_seen: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, EncroachmentSeenSave>>>,
     pub encroachment_orders: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, EncroachmentOrderSave>>>,
     pub measured: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, MeasuredSave>>>,
+    pub raises: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RaiseSiteSave<'a>>>>>,
+    pub raise_given: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BankShareSave<'a>>>>>,
+    pub storehouse: u64,
 }
 impl<'a> Default for PolitySaveArgs<'a> {
   #[inline]
@@ -39613,6 +39663,9 @@ impl<'a> Default for PolitySaveArgs<'a> {
       encroachment_seen: None,
       encroachment_orders: None,
       measured: None,
+      raises: None,
+      raise_given: None,
+      storehouse: 0,
     }
   }
 }
@@ -39795,6 +39848,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> PolitySaveBuilder<'a, 'b, A> 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_MEASURED, measured);
   }
   #[inline]
+  pub fn add_raises(&mut self, raises: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<RaiseSiteSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_RAISES, raises);
+  }
+  #[inline]
+  pub fn add_raise_given(&mut self, raise_given: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<BankShareSave<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(PolitySave::VT_RAISE_GIVEN, raise_given);
+  }
+  #[inline]
+  pub fn add_storehouse(&mut self, storehouse: u64) {
+    self.fbb_.push_slot::<u64>(PolitySave::VT_STOREHOUSE, storehouse, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> PolitySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PolitySaveBuilder {
@@ -39855,6 +39920,156 @@ impl ::core::fmt::Debug for PolitySave<'_> {
       ds.field("encroachment_seen", &self.encroachment_seen());
       ds.field("encroachment_orders", &self.encroachment_orders());
       ds.field("measured", &self.measured());
+      ds.field("raises", &self.raises());
+      ds.field("raise_given", &self.raise_given());
+      ds.field("storehouse", &self.storehouse());
+      ds.finish()
+  }
+}
+pub enum RaiseSiteSaveOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RaiseSiteSave<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RaiseSiteSave<'a> {
+  type Inner = RaiseSiteSave<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RaiseSiteSave<'a> {
+  pub const VT_LAW: ::flatbuffers::VOffsetT = 4;
+  pub const VT_PROGRAM: ::flatbuffers::VOffsetT = 6;
+  pub const VT_LABOUR_H: ::flatbuffers::VOffsetT = 8;
+  pub const VT_BUILDING: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RaiseSiteSave { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RaiseSiteSaveArgs
+  ) -> ::flatbuffers::WIPOffset<RaiseSiteSave<'bldr>> {
+    let mut builder = RaiseSiteSaveBuilder::new(_fbb);
+    builder.add_building(args.building);
+    builder.add_labour_h(args.labour_h);
+    builder.add_law(args.law);
+    builder.add_program(args.program);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn law(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RaiseSiteSave::VT_LAW, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn program(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(RaiseSiteSave::VT_PROGRAM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn labour_h(&self) -> f64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f64>(RaiseSiteSave::VT_LABOUR_H, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn building(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RaiseSiteSave::VT_BUILDING, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RaiseSiteSave<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u64>("law", Self::VT_LAW, false)?
+     .visit_field::<u16>("program", Self::VT_PROGRAM, false)?
+     .visit_field::<f64>("labour_h", Self::VT_LABOUR_H, false)?
+     .visit_field::<u64>("building", Self::VT_BUILDING, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RaiseSiteSaveArgs {
+    pub law: u64,
+    pub program: u16,
+    pub labour_h: f64,
+    pub building: u64,
+}
+impl<'a> Default for RaiseSiteSaveArgs {
+  #[inline]
+  fn default() -> Self {
+    RaiseSiteSaveArgs {
+      law: 0,
+      program: 0,
+      labour_h: 0.0,
+      building: 0,
+    }
+  }
+}
+
+pub struct RaiseSiteSaveBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RaiseSiteSaveBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_law(&mut self, law: u64) {
+    self.fbb_.push_slot::<u64>(RaiseSiteSave::VT_LAW, law, 0);
+  }
+  #[inline]
+  pub fn add_program(&mut self, program: u16) {
+    self.fbb_.push_slot::<u16>(RaiseSiteSave::VT_PROGRAM, program, 0);
+  }
+  #[inline]
+  pub fn add_labour_h(&mut self, labour_h: f64) {
+    self.fbb_.push_slot::<f64>(RaiseSiteSave::VT_LABOUR_H, labour_h, 0.0);
+  }
+  #[inline]
+  pub fn add_building(&mut self, building: u64) {
+    self.fbb_.push_slot::<u64>(RaiseSiteSave::VT_BUILDING, building, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RaiseSiteSaveBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RaiseSiteSaveBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RaiseSiteSave<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RaiseSiteSave<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RaiseSiteSave");
+      ds.field("law", &self.law());
+      ds.field("program", &self.program());
+      ds.field("labour_h", &self.labour_h());
+      ds.field("building", &self.building());
       ds.finish()
   }
 }

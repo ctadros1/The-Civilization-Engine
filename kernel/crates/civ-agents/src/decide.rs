@@ -97,6 +97,8 @@ pub struct Facts {
     /// The passing place their household is making on its carts' way, if any (M8b slice CQ,
     /// second part): as a boat's, its place the stretch it widens.
     pub way: Option<WayFacts>,
+    /// The building their polity raises, if they may help (M8d slice DC).
+    pub raise: Option<RaiseFacts>,
     /// The irrigation ditch their household is digging to its field, if any (M6b slice BG).
     pub ditch: Option<DitchFacts>,
     /// The palisade their polity is raising, if they may work on it (M6c slice BK).
@@ -223,6 +225,18 @@ pub struct WayFacts {
     pub saves_per_hour: f64,
     pub duty: f64,
     pub full: bool,
+}
+
+/// A building someone's polity raises under a law they know of (M8d slice DC): where its work
+/// is done, the walk there from home, the hours of work it still takes, and, while the household
+/// has not given the share asked of it, what keeping to the gathering's word is worth.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RaiseFacts {
+    pub building: PermanentId,
+    pub at: (f32, f32),
+    pub walk_min: f64,
+    pub left_h: f64,
+    pub duty: f64,
 }
 
 /// A well someone's household is digging or relining beside its home (M6a slice AY, step three;
@@ -955,6 +969,10 @@ pub fn candidates(
         // And work on a passing place to all but those whose household is making one (M8b slice
         // CQ).
         if def.behavior == Behavior::Way && f.way.is_none() {
+            continue;
+        }
+        // And helping raise a building to all but those whose polity raises one (M8d slice DC).
+        if def.behavior == Behavior::Raise && f.raise.is_none() {
             continue;
         }
         // And work on a well to all but those whose household is digging or relining one (M6a
@@ -1908,6 +1926,26 @@ pub fn candidates(
                     Err(why) => excluded.push((id, why)),
                 }
             }
+            Behavior::Raise => {
+                // Help raise the building the polity raises (M8d slice DC), as a passing place
+                // cleared together: out of keeping to the gathering's word while the household's
+                // share is not given.
+                let Some(c) = f.raise else {
+                    continue;
+                };
+                let site = Site {
+                    at: c.at,
+                    walk_min: c.walk_min,
+                    left_h: c.left_h,
+                    saves_per_hour: 0.0,
+                    duty: c.duty,
+                    full: false,
+                };
+                match session_at_site(def, w, f, light, &site, Reason::Raise, &mut terms) {
+                    Ok(steps) => out.push(finish(id, Target::Building(c.building), terms, steps)),
+                    Err(why) => excluded.push((id, why)),
+                }
+            }
             Behavior::Well => {
                 // Work on the household's well (M6a slice AY, step three), as on its crossing.
                 let Some(c) = f.well else {
@@ -2451,6 +2489,7 @@ mod tests {
             boat: None,
             cart: None,
             way: None,
+            raise: None,
             enclosure: None,
             ditch: None,
             band: None,

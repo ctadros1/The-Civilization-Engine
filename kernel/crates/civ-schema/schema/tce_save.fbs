@@ -842,6 +842,8 @@ table Building {
   last_flood_depth_cm: ushort (id: 14);
   days_wet: ushort (id: 15);
   demolition: DemolitionSave (id: 16);
+  // Schema 165 (M8d slice DC): the polity that raised and owns it, 0 for none.
+  polity: ulong (id: 17);
 }
 
 // Schema 98: physical demolition work, not inferred from historical interventions.
@@ -1496,6 +1498,22 @@ table PolitySave {
   // Schema 164 (M8d slice DC): what its settlements measured of the losses a public building
   // would answer, a year each, oldest first; absent before.
   measured: [MeasuredSave] (id: 42);
+  // Schema 165 (M8d slice DC): where its laws would raise a building in common, the hours each
+  // household has given to one, and the storehouse that shelters its common store; absent
+  // before.
+  raises: [RaiseSiteSave] (id: 43);
+  raise_given: [BankShareSave] (id: 44);
+  storehouse: ulong (id: 45);
+}
+
+// A building a law would raise in common (schema 165, M8d slice DC): the law, the program by
+// content index, the hours of a capable adult's work it takes, and the building once laid out
+// (0 before).
+table RaiseSiteSave {
+  law: ulong (id: 0);
+  program: ushort (id: 1);
+  labour_h: double (id: 2);
+  building: ulong (id: 3);
 }
 
 // A year's measured losses (schema 164, M8d slice DC): the year, the food its common store lost

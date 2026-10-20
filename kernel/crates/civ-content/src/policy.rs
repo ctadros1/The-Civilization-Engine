@@ -124,6 +124,19 @@ pub(crate) struct PolicyFile {
     /// For a plan (`plan`, content API 141, M8c slice CT): its grid.
     #[serde(default)]
     pub plan: Option<PlanFile>,
+    /// For a building raised in common (`raise_building`, content API 153, M8d slice DC): what
+    /// is raised.
+    #[serde(default)]
+    pub raise: Option<RaiseFile>,
+}
+
+/// A building raised in common in a policy file (content API 153, M8d slice DC).
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct RaiseFile {
+    /// The building program raised, by content id: a store raised by law shelters the common
+    /// store once it stands.
+    pub program: String,
 }
 
 /// A plan's grid in a policy file (content API 141, M8c slice CT; ADR-0030 §2): an orthogonal
@@ -568,6 +581,8 @@ impl PolicyFile {
             bodies: self.bodies(),
             question: self.question.clone(),
             bears,
+            // The program is found by content id where the policies are compiled.
+            raise: None,
             rule: self.rule.as_ref().and_then(|r| {
                 Some(RuleDef {
                     template: r.template()?,
@@ -1049,6 +1064,15 @@ impl PolicyFile {
             (Some(_), _) => p.push("`medium` is for `does = \"common_store\"`".to_owned()),
             (None, _) => {}
         }
+        // A building raised in common (M8d slice DC): only for `raise_building`, which must
+        // name one.
+        match (&self.raise, PolicyKind::from_name(&self.does)) {
+            (None, Some(PolicyKind::RaiseBuilding)) => {
+                p.push("a `raise_building` template needs a `raise` table".to_owned());
+            }
+            (Some(_), Some(PolicyKind::RaiseBuilding)) | (None, _) => {}
+            (Some(_), _) => p.push("`raise` is for `does = \"raise_building\"`".to_owned()),
+        }
         // Pay for common work (M7d slice CE3a): only for `pay_work`, which must have it.
         match (&self.pay, PolicyKind::from_name(&self.does)) {
             (Some(pay), Some(PolicyKind::PayWork)) => {
@@ -1242,7 +1266,8 @@ impl PolicyFile {
                 | PolicyKind::Mint
                 | PolicyKind::PayWork
                 | PolicyKind::BuildWay
-                | PolicyKind::Plan),
+                | PolicyKind::Plan
+                | PolicyKind::RaiseBuilding),
             ) if !self.levy_shares.is_empty() || self.relief_days != 0.0 => {
                 p.push(format!(
                     "a `{}` policy levies nothing: leave out `levy_shares` and `relief_days`",
@@ -1306,7 +1331,8 @@ impl PolicyFile {
                 | PolicyKind::Mint
                 | PolicyKind::PayWork
                 | PolicyKind::BuildWay
-                | PolicyKind::Plan,
+                | PolicyKind::Plan
+                | PolicyKind::RaiseBuilding,
             )
             | None => {}
         }
@@ -1602,6 +1628,7 @@ mod tests {
             pay: None,
             medium: None,
             plan: None,
+            raise: None,
         }
     }
 

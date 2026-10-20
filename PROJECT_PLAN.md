@@ -5270,6 +5270,27 @@ and M6a gives rivers a daily flow.
         Nothing proposes on them yet. **Test:** grain left a month in the common store spoils and
         is measured; a gathering is counted, and counted wet on a wet day; a hut set alight is
         counted; the record round-trips a save. **Boundary:** saves 164.
+      - *Second part, as built (2026-10-20): a storehouse raised together by law.* A template
+        of the new kind `raise_building` names the program it raises (content API 153: `[raise]
+        program`); the core's `yourselves_raise_a_storehouse` raises a granary and answers the new
+        issue `store_spoils`, open while the common store's spoiling is measured and no storehouse
+        of the polity's stands or is being raised. Each household weighs its share of the loss
+        averted a year against its equal share of the work over the years it weighs, each hour
+        worth the food an hour of its own work brings; only someone who knows the program's
+        technique may put it forward. Passed, the polity lays it out on clear, level ground within
+        80 m of the hearth, plot and building held in the polity's own name (`Building.polity`),
+        so that no household keeps, stores in, inherits or keeps it up. Its people give the work by
+        choice as for a passing place (the behaviour `raise`, the activity
+        `work_with_wooden_tools_on_raising`), the hours counting the making and carrying of its
+        materials; once it stands finished the common store is kept under its roof, and looked
+        over monthly, a storehouse no longer standing keeps it no more. The observer calls it "the
+        granary raised together" and asks no materials of a household for it. **Test:** nothing
+        measured brings nobody a gain; grain left a month spoils and is measured, and then
+        households gain by a storehouse; once its people know framing, one puts it forward for the
+        store spoils; passed, it is laid out near the hearth in the polity's name, no second is
+        weighed, the hours given survive a save partway, and finished it shelters the store, which
+        survives a save. **Boundary:** saves 165, content API 153. Siting on a plan's square, pay
+        and patrons wait for the fourth part.
     - **DD, style over seven traits:** opening share, ornament, finish and symmetry; taste over
       seven traits; sighting scaled by height; copying only what one could build; the clocks
       over all seven. *Tests:* a one-settlement world drifts as before in the three old traits;
@@ -6593,6 +6614,17 @@ One line each. Don't re-litigate without a reason written next to the entry.
   any wall or system technique its people know calls for, not only the one the design ends up
   using (the wall kind is chosen inside the design), so a rubble failure also stiffens a wattle
   frame's posts a little; accepted while one caution scalar sizes every member.
+- **Design priors for a storehouse raised together (2026-10-20, M8d slice DC's second part,
+  ADR-0031 §6):** NUDGE: a household believes a storehouse would avert the rules' avoided share
+  of the common store's measured spoiling a year (the mean of the years kept), split equally among
+  the households, as for a rule's avoided losses; and it weighs the work over the rules' horizon
+  of years, not the granary's own life. The work is the program's first shape's hours with its
+  materials carried, at a middling skill when done. A building a polity raises is held in the
+  polity's own id, owner of its plot and building, rather than a keeper household's: every
+  household lookup then passes it by (upkeep, storage, inheritance, wealth, home work), which is
+  what ADR-0031 §6 asks ("its upkeep falls to nobody unless a law asks it"); taste and the "seen
+  elsewhere" review pass it by too until style reaches it (DD). Each revisited if the demo (DE)
+  shows no storehouse proposed where stores spoil.
 - **A test helper leaves state a load derives otherwise (2026-10-20, M8d slice DA):**
   `Sim::place_building_for_tests` leaves state a load derives otherwise: a save taken right after
   it does not resume exactly (the shaking test reloads once after placing). To be fixed.

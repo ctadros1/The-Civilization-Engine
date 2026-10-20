@@ -125,7 +125,7 @@ use super::{
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
-    SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, finish, section, section_root,
+    SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, finish, section, section_root,
     single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
@@ -674,6 +674,7 @@ enum Schema {
     V162,
     V163,
     V164,
+    V165,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -852,7 +853,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V161 => Schema::V161,
         SCHEMA_V162 => Schema::V162,
         SCHEMA_V163 => Schema::V163,
-        SAVE_SCHEMA_VERSION => Schema::V164,
+        SCHEMA_V164 => Schema::V164,
+        SAVE_SCHEMA_VERSION => Schema::V165,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2061,6 +2063,24 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                 })
                 .collect();
             let measured = (!measured.is_empty()).then(|| fbb.create_vector(&measured));
+            // Buildings raised in common (schema 165, M8d slice DC).
+            let raises: Vec<_> = p
+                .raises
+                .iter()
+                .map(|&(law, s)| {
+                    save::RaiseSiteSave::create(
+                        &mut fbb,
+                        &save::RaiseSiteSaveArgs {
+                            law: law.get(),
+                            program: s.program,
+                            labour_h: s.labour_h,
+                            building: s.building.map_or(0, PermanentId::get),
+                        },
+                    )
+                })
+                .collect();
+            let raises = (!raises.is_empty()).then(|| fbb.create_vector(&raises));
+            let raise_given = bank_share_rows(&mut fbb, &p.raise_given);
             let gathering = p.gathering.as_ref().map(|g| {
                 let stakes: Vec<save::StakeSave> = g
                     .stakes
@@ -2128,6 +2148,9 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                     encroachment_seen,
                     encroachment_orders,
                     measured,
+                    raises,
+                    raise_given,
+                    storehouse: p.storehouse.map_or(0, PermanentId::get),
                 },
             )
         })
@@ -2233,6 +2256,7 @@ fn issue_code(i: civ_agents::polity::IssueKind) -> u8 {
         IssueKind::NoGround => 25,
         IssueKind::WayBuiltOver => 26,
         IssueKind::NewGround => 27,
+        IssueKind::StoreSpoils => 28,
     }
 }
 
@@ -2367,6 +2391,7 @@ fn decode_polities(
                 25 => IssueKind::NoGround,
                 26 => IssueKind::WayBuiltOver,
                 27 => IssueKind::NewGround,
+                28 => IssueKind::StoreSpoils,
                 c => return Err(bad(format!("law {law} has issue code {c}"))),
             };
             let outcome = match l.outcome() {
@@ -3010,6 +3035,29 @@ fn decode_polities(
                 "polity {id} measures more years than it keeps"
             )));
         }
+        // Buildings raised in common (schema 165, M8d slice DC); before, none.
+        let mut raises = Vec::new();
+        for r in p.raises().iter().flatten() {
+            let law = law_of(r.law(), "a building raised in common")?;
+            let ok = r.labour_h().is_finite()
+                && r.labour_h() > 0.0
+                && usize::from(r.program()) < rules.catalog.buildings.len();
+            if !ok || raises.iter().any(|x: &(PermanentId, _)| x.0 == law) {
+                return Err(bad(format!(
+                    "polity {id} has a building raised in common malformed"
+                )));
+            }
+            raises.push((
+                law,
+                civ_agents::polity::RaiseSite {
+                    program: r.program(),
+                    labour_h: r.labour_h(),
+                    building: PermanentId::from_raw(r.building()),
+                },
+            ));
+        }
+        let raise_given = bank_shares(p.raise_given(), "hours given to a building raised")?;
+        let storehouse = PermanentId::from_raw(p.storehouse());
         // Patron gifts (schema 131, M7c slice BY).
         let mut patron_gifts = Vec::new();
         for g in p.patron_gifts().iter().flatten() {
@@ -3180,6 +3228,9 @@ fn decode_polities(
             ground_seen,
             encroachments,
             measured,
+            raises,
+            raise_given,
+            storehouse,
         });
     }
     Ok(out)
@@ -5036,7 +5087,8 @@ fn carried(
         | Schema::V161
         | Schema::V162
         | Schema::V163
-        | Schema::V164 => {
+        | Schema::V164
+        | Schema::V165 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5375,7 +5427,8 @@ fn decode_households(
             | Schema::V161
             | Schema::V162
             | Schema::V163
-            | Schema::V164 => {
+            | Schema::V164
+            | Schema::V165 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -7515,6 +7568,7 @@ fn encode_buildings(buildings: &[Building]) -> Vec<u8> {
                     last_flood_depth_cm: b.last_flood_depth_cm,
                     days_wet: b.days_wet,
                     demolition,
+                    polity: b.polity.map_or(0, |p| p.get()),
                 },
             )
         })
@@ -7688,6 +7742,8 @@ fn decode_buildings(bytes: &[u8], schema: Schema) -> Result<Vec<Building>, LoadE
             } else {
                 None
             },
+            // Before schema 165 no polity owned a building.
+            polity: PermanentId::from_raw(b.polity()),
         });
     }
     Ok(out)

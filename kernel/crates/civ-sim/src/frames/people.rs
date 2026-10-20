@@ -1011,9 +1011,13 @@ pub(crate) fn program_name(sim: &Sim, program: &str) -> String {
     )
 }
 
-/// Building `b` as its owners call it: "Ada's hut", "a hut".
+/// Building `b` as its owners call it: "Ada's hut", "a hut", "the granary raised together".
 pub(crate) fn whose_building(sim: &Sim, b: &Building) -> String {
     let program = program_name(sim, &b.spec.program);
+    // A building a polity raised is held in its name (M8d slice DC).
+    if b.polity.is_some() {
+        return format!("the {program} raised together");
+    }
     match eldest_name(sim, b.household) {
         Some(name) => format!("{name}'s {program}"),
         None => format!("a {program}"),

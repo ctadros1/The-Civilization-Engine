@@ -210,6 +210,8 @@ pub enum Reason {
     Cart = 156,
     /// The waiting a passing place would spare their household (M8b slice CQ, second part).
     Way = 157,
+    /// Keeping to the gathering's word on a building their polity raises (M8d slice DC).
+    Raise = 158,
     /// The walking a crossing the household is building would save its people over the
     /// crossing's life, for the work this session puts into it (M5c slice AW, step two).
     Crossing = 32,
@@ -221,7 +223,7 @@ pub enum Reason {
 
 impl Reason {
     /// Every reason, for the observer's label table.
-    pub const ALL: [Reason; 91] = [
+    pub const ALL: [Reason; 92] = [
         Reason::Hunger,
         Reason::Sleep,
         Reason::Loneliness,
@@ -313,6 +315,7 @@ impl Reason {
         Reason::Boat,
         Reason::Cart,
         Reason::Way,
+        Reason::Raise,
     ];
 
     /// The reason with this code.
@@ -416,6 +419,7 @@ impl Reason {
             Reason::Boat => "the carrying a boat would save",
             Reason::Cart => "the carrying a cart would save",
             Reason::Way => "the waiting a passing place would spare",
+            Reason::Raise => "their share of raising a building together",
         }
     }
 }

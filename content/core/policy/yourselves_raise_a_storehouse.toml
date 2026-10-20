@@ -1,0 +1,29 @@
+# A storehouse raised together for the common store (M8d slice DC, second part; ADR-0031 §6,
+# shaped as `build_way`; research 08-02 §7.1: maintained dry stores lose 2-8 % of grain in 6-12
+# months, poor ones 10-20 %; 08-11 §2.1: raised, aired granaries at Dhra'). When the polity's
+# common store, kept unsheltered, spoils, as its settlements measure a year (the issue
+# `store_spoils`), anyone who knows how to frame a granary may propose that the polity raise one
+# by the hearth. A household weighs it by its share of the food the storehouse would spare the
+# store a year, less its equal share of the work spread over the building's life, each hour worth
+# the food an hour of its own work brings; the hours include making and carrying its materials.
+# Once passed, the polity lays it out near the hearth, and each household is asked an equal share
+# of the work: its people give it as they choose, and nothing follows a share not given. Finished,
+# it shelters the common store. Whether anyone proposes one, whether it passes, and whether it is
+# finished, is people's choice. Its id sorts after every older template's: hearth talk about a
+# question is keyed by a template's place in id order ("yourselves": raised by the households
+# themselves).
+kind = "policy"
+id = "core:policy/yourselves_raise_a_storehouse"
+name = "Storehouse raised together"
+description = "The polity raises a storehouse by the hearth for its common store, and each household is asked an equal share of the work."
+does = "raise_building"
+answers = ["store_spoils"]
+
+[raise]
+program = "core:building/granary"
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement, as for a passing place cleared together: a share of
+# every household's hours is asked.
+[bears]
+"core:value/autonomy" = -0.5

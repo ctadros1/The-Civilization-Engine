@@ -109,11 +109,14 @@ pub enum Behavior {
     /// ground there, and walk home (M8b slice CQ, second part): the activity's numbers, the
     /// work's own labour.
     Way,
+    /// Walk to the building the household's polity raises, help raise it, and walk home (M8d
+    /// slice DC): the activity's numbers, the work's own labour.
+    Raise,
 }
 
 impl Behavior {
     /// Every behavior, in a fixed order (part of the boundary: never reorder).
-    pub const ALL: [Behavior; 37] = [
+    pub const ALL: [Behavior; 38] = [
         Behavior::Sleep,
         Behavior::Eat,
         Behavior::FetchWater,
@@ -151,6 +154,7 @@ impl Behavior {
         Behavior::Boat,
         Behavior::Cart,
         Behavior::Way,
+        Behavior::Raise,
     ];
 
     /// The authored name of a behavior.
@@ -193,6 +197,7 @@ impl Behavior {
             Behavior::Boat => "boat",
             Behavior::Cart => "cart",
             Behavior::Way => "way",
+            Behavior::Raise => "raise",
         }
     }
 

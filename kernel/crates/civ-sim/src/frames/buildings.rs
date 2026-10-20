@@ -277,6 +277,11 @@ pub fn status(sim: &Sim, b: &Building) -> String {
         Stage::Roof => format!("being thatched, {} done", percent(done)),
         Stage::Finish => format!("roofed; floor being laid, {} done", percent(done)),
     };
+    // A building raised together has its materials made and carried among its hours (M8d slice
+    // DC): it waits on nothing but hands.
+    if b.polity.is_some() {
+        return text;
+    }
     // What the work is waiting for, if the household has none of a material it needs now.
     let stores = sim
         .people

@@ -5121,6 +5121,18 @@ and M6a gives rivers a daily flow.
       ordering by construction, counterfactual villages, cracked against mended, save and load
       mid-aftermath, origin kept out of the failures row. *Observer:* the earthquake panel and
       a damage layer.
+      - *First part, as built (2026-10-20): lateral margins* (ADR-0031 §3; research 11-05 §2.5,
+        §5.3-5.4). `structure::lateral_margin` says how near a group is to giving way when the
+        ground shakes it with a share `C_s` of its weight (`V = C_s·W`), to be read only during
+        an event, never daily. A mass wall overturns out of its plane once `C_s` passes its
+        thickness over the height it stands unrestrained (its storey where tied, its line's
+        whole height untied), and slides in its plane once its shear passes `μN + cA`, with
+        `μ` 0.55 and `c` 0.08 MPa from one air-lime rubble calibration (design priors, logged),
+        no cohesion once cracked; posts bend as cantilevers against their share of the shear;
+        nothing else carries shaking. Nothing calls it yet. **Test:** a tied 30 cm rubble wall a
+        storey high has a margin of exactly 2 at `C_s` 0.06 and fails at 0.2; untied, the same
+        wall fails at 0.06; two metres thick, it slides first, cracked at exactly `μ/C_s` and sound
+        later; no shaking, no demand; a covering carries none.
     - **DB, after the shaking:** `MostStoreys` and `TiedWalls`, forecasts of floor lost and of
       losses avoided, lessons from what was seen to fall. *Tests:* a shaken village proposes a
       rule only where someone knows the remedy; a household planning height opposes it.
@@ -6421,6 +6433,12 @@ One line each. Don't re-litigate without a reason written next to the entry.
   truss's heel joint holds 20 kN against the roof's thrust (`TRUSS_JOINT_N`, a pegged and
   notched joint; no report gives a figure). Both are design priors, to be revisited if the
   checks they set decide what is built.
+- **Design priors for masonry under shaking (2026-10-20, M8d slice DA, ADR-0031 §3):** NUDGE:
+  a mass wall's bed joints resist sliding with friction 0.55 and cohesion 0.08 MPa
+  (`MASONRY_FRICTION`, `MASONRY_COHESION_PA`; research 11-05 §2.5 reports one air-lime rubble
+  calibration of μ = 0.558 and c = 0.0815 MPa), the same for rubble, mud brick and fired brick,
+  and a cracked wall keeps its friction but loses its cohesion. Design priors, to be revisited
+  if the four-way sweep orders construction against what the reports say.
 - **Why no frame is built, probed (2026-10-19, M8d slice CY's first step, ADR-0031 §6):** read
   from the code, so it holds for every world. **Nobody can come to know framing:** founders bring
   the roundhouse, wood shaping, rubble walling and mud brick, but not `jointed_frame`, and its

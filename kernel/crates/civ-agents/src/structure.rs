@@ -467,6 +467,132 @@ fn mass_wall_by_storey(
     }
 }
 
+/// A mass wall's friction across its bed joints (ADR-0031 §3; research 11-05 §2.5: one air-lime
+/// rubble calibration fitted μ = 0.558; a design prior).
+pub const MASONRY_FRICTION: f64 = 0.55;
+
+/// A sound mass wall's cohesion across its bed joints, pascals (research 11-05 §2.5: the same
+/// calibration fitted c = 0.0815 MPa; a design prior). A cracked wall has none.
+pub const MASONRY_COHESION_PA: f64 = 0.08e6;
+
+/// How near group `g` of building `e`, in condition `c`, is to giving way when the ground shakes
+/// it sideways with a share `cs` of its weight (ADR-0031 §3; research 11-05 §5.4: `V = C_s·W`),
+/// used only during an event, never daily. A mass wall overturns out of its plane once `cs`
+/// passes its thickness over the height it stands unrestrained (11-05 §5.3), and slides in its
+/// plane once its shear passes `μN + cA` (11-05 §2.5; no cohesion once `cracked`); a post bends
+/// as a cantilever against its share of the shear. Other groups carry nothing this way.
+pub fn lateral_margin(
+    g: &Group,
+    c: &GroupCondition,
+    e: &Expansion,
+    loads: &Loads,
+    t: &Timber,
+    cs: f64,
+    cracked: bool,
+) -> Margin {
+    if cs <= 0.0 || g.material.is_none() {
+        return Margin::NONE;
+    }
+    let q = f64::from(c.quality).max(0.0);
+    let left = (1.0 - f64::from(c.loss)).clamp(0.0, 1.0);
+    let (held, passing) = weight_on_posts(e, loads);
+    let weight = held + passing;
+    match g.kind {
+        GroupKind::MassWall => {
+            let walls: Vec<&Group> = e
+                .groups
+                .iter()
+                .filter(|p| p.kind == GroupKind::MassWall)
+                .collect();
+            let line = g.id & 0xff;
+            let thick = f64::from(g.section_cm[1].max(0)) / 100.0 * left;
+            let long = f64::from(g.section_cm[0].max(0)) / 100.0;
+            let here = storey(level_of(g)).unwrap_or(0);
+            let on_line = |p: &&&Group| p.id & 0xff == line;
+            let wall_n = |p: &Group| {
+                f64::from(p.section_cm[0].max(0))
+                    * f64::from(p.section_cm[1].max(0))
+                    * f64::from(p.length_cm.max(0))
+                    * 1e-6
+                    * t.density_kg_m3
+                    * G
+            };
+            // Unrestrained: its storey where its walls are tied, else its line's whole height.
+            let tied = e.groups.iter().any(|p| p.kind == GroupKind::Ties);
+            let h = if tied || e.version < 3 {
+                f64::from(g.length_cm.max(0)) / 100.0
+            } else {
+                walls
+                    .iter()
+                    .filter(on_line)
+                    .map(|p| f64::from(p.length_cm.max(0)) / 100.0)
+                    .sum()
+            };
+            if thick <= 0.0 || long <= 0.0 || h <= 0.0 {
+                return Margin {
+                    strength: 0.0,
+                    sag: 0.0,
+                };
+            }
+            let out_of_plane = (thick / h) / cs;
+            // What bears on it: its share of the building's weight by the area it carries, and
+            // the walls above it on its line and itself.
+            let first: f64 = walls
+                .iter()
+                .filter(|p| storey(level_of(p)) == Some(0))
+                .map(|p| p.area_m2.max(0.0))
+                .sum();
+            let share = if first > 0.0 {
+                g.area_m2.max(0.0) / first
+            } else {
+                0.0
+            };
+            let above: f64 = walls
+                .iter()
+                .filter(on_line)
+                .filter(|p| storey(level_of(p)).is_some_and(|s| s > here))
+                .map(|p| wall_n(p))
+                .sum();
+            let n = weight * share + above + wall_n(g);
+            let cohesion = if cracked { 0.0 } else { MASONRY_COHESION_PA };
+            let resist = MASONRY_FRICTION * n + cohesion * long * thick * q;
+            let in_plane = if n > 0.0 {
+                resist / (cs * n)
+            } else {
+                f64::INFINITY
+            };
+            Margin {
+                strength: out_of_plane.min(in_plane),
+                sag: 0.0,
+            }
+        }
+        GroupKind::Posts => {
+            // A cantilever from its foot against its share of the shear, as it shares the weight.
+            let total: f64 = e
+                .groups
+                .iter()
+                .filter(|p| p.kind == GroupKind::Posts && storey(level_of(p)) == Some(0))
+                .map(|p| p.area_m2.max(0.0))
+                .sum();
+            if total <= 0.0 {
+                return Margin::NONE;
+            }
+            let share = g.area_m2.max(0.0) / total / f64::from(g.count.max(1));
+            let shear = cs * weight * share;
+            let h = f64::from(g.length_cm.max(0)) / 100.0;
+            let (_, z, _) = section(g);
+            if shear <= 0.0 || h <= 0.0 {
+                return Margin::NONE;
+            }
+            Margin {
+                strength: t.bending_pa * z * q * left.powi(3) / (shear * h),
+                sag: 0.0,
+            }
+        }
+        _ => Margin::NONE,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -928,5 +1054,59 @@ mod tests {
         assert!(m(30.0) > 1.0);
         assert!(m(130.0) < m(30.0));
         assert!(m(130.0) <= TRUSS_JOINT_N / thrust(130.0) + 1e-9);
+    }
+
+    #[test]
+    fn shaking_overturns_a_slender_wall_and_slides_a_cracked_one_before_a_sound_one() {
+        let loads = Loads {
+            covering_pa: 30.0 * G,
+            ..Loads::default()
+        };
+        let wall = |e: &Expansion, level: Level| {
+            *e.groups
+                .iter()
+                .find(|g| g.id == group_id(level, None, GroupKind::MassWall, 0))
+                .expect("a wall")
+        };
+        // Tied, each storey's wall stands 2.5 m over 30 cm: it overturns past C_s = 0.12.
+        let tied = four_storeys_of_rubble(true);
+        let g = wall(&tied, Level::Ground);
+        let m = |cs: f64, cracked: bool| {
+            lateral_margin(&g, &sound(1.0), &tied, &loads, &rubble(), cs, cracked).strength
+        };
+        // Out of plane governs: sliding needs at least μ / C_s, nine times over.
+        assert!((m(0.06, false) - 2.0).abs() < 1e-9, "{}", m(0.06, false));
+        assert!(m(0.2, false) < 1.0, "{}", m(0.2, false));
+        // Untied, it stands 10 m: it overturns at a quarter of that.
+        let loose = four_storeys_of_rubble(false);
+        let lg = wall(&loose, Level::Ground);
+        let lm = lateral_margin(&lg, &sound(1.0), &loose, &loads, &rubble(), 0.06, false).strength;
+        assert!(lm < m(0.06, false) && lm < 1.0, "{lm}");
+        // A cracked wall slides sooner than a sound one, and nothing shakes it at C_s 0.
+        // Two metres thick it no longer overturns first (t/h 0.8 > μ): cracked it slides at
+        // μ / C_s, and sound its cohesion holds it longer.
+        let squat = Group {
+            section_cm: [g.section_cm[0], 200],
+            ..g
+        };
+        let slide = |cracked: bool| {
+            lateral_margin(&squat, &sound(1.0), &tied, &loads, &rubble(), 0.1, cracked).strength
+        };
+        assert!(
+            (slide(true) - MASONRY_FRICTION / 0.1).abs() < 1e-9,
+            "{}",
+            slide(true)
+        );
+        assert!(slide(false) > slide(true), "{}", slide(false));
+        assert_eq!(m(0.0, false), f64::INFINITY);
+        // A covering carries nothing this way.
+        let cover = Group {
+            kind: GroupKind::Covering,
+            ..g
+        };
+        assert_eq!(
+            lateral_margin(&cover, &sound(1.0), &tied, &loads, &rubble(), 0.3, false),
+            Margin::NONE
+        );
     }
 }

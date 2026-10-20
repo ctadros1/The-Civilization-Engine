@@ -5422,6 +5422,39 @@ and M6a gives rivers a daily flow.
       box; who builds tall, what public buildings rise or stall, what falls when both are shaken
       alike and which rules follow; nudges logged; the scale gate measured and amended to the
       figure reached (ADR-0028 §1).
+      - *As built (2026-10-20): the M8 demo, and the gate measured.* `civ-sim --example m8_city`
+        founds two groups on the river valley, the one whose hearth lies nearer the river the
+        port, lives them at Max with a fixed identity, and reports each settlement's residents,
+        buildings by program and storeys, who knows framing and who holds a frame, its style
+        clocks, the buildings raised together and the laws on building, raising, plans, ways and
+        the watch at each settlement (those after the shaking marked), and what the shaking did;
+        it prints each line as it comes, and reads a save it left again (`m8_city <save>`). The
+        observer acts as ADR-0031 §8 asks: framing introduced on the first day to the grown
+        members of each settlement's four largest households, laying out to the inland one's
+        largest, and the whole map shaken once at 0.4 of each building's weight half a year
+        before the end. The recorded run (`demos/m8/m8-demo.txt`) is two groups of 500 for three
+        years; two of 750 took more than two hours and were stopped, so 1,000 is the size reached
+        within the time box. **What it showed:** 1,084 people at the end, 545 at the port
+        (Rushmere) and 539 inland (Reedholt). Of 24 households that knew framing, none built a
+        frame: every home stayed a one-storey hut, because a first home is the cheapest shape that
+        houses its household (a hut) and a larger one is built only when the household's spare
+        goods pay for the whole of it, which none reached in three years. The only frames were
+        the polity's: each settlement raised a granary together for its spoiling store (533
+        hours each, given by 93 and 88 households), the inland settlement raised a hall to 1,885
+        of 2,038 hours, the port's first hall law lapsed and a second was in force but not yet
+        laid out.
+        Both gatherings rejected a plan of streets in their first weeks (20 for and 28 against;
+        19 and 25), and the port passed one after the shaking, though laying out was taught
+        inland. Five watches were set. The shaking cracked nothing and felled nothing (256
+        buildings stood), so no rule followed it. Nothing was nudged: the step that did not come
+        (a household frame) is held back by the kernel's share of spare goods put into a home,
+        a constant rather than a content prior, which is recorded as a finding for M9 (§9).
+        **The gate (ADR-0028 §1, amended):** one settlement of 10,000 with M8b–M8d in lived ten
+        days at a mean of 53.5 s a day (p50 56.2 s, p95 65.4 s), 0.0031 simulated years a real
+        minute, peaking at 0.92 GB, on the container; the demo's 1,000–1,084 lived at 3.42 s a day
+        (0.049 years a minute). The gate of a year a minute at 10,000 is not met and is amended
+        to the figure reached; the target PC is not yet measured. Slice DE is closed, and with it
+        **M8d** and **M8**.
 
 **Post-v1 (ordered, not sized):**
 - **M9, Aggregate LOD & scale:** cohort model, 10–30 settlements, 100k+
@@ -6765,6 +6798,23 @@ One line each. Don't re-litigate without a reason written next to the entry.
   centre; a watch round begins there. These are kernel constants (`LATE_NOTICE_MIN`,
   `TOWER_SIGHT_M`, `AT_TOWER_M`), revisited if the demo (DE) shows no tower ever proposed where
   fires burn unseen, or one that never helps.
+- **The M8 demo and the gate (2026-10-20, M8d slice DE, ADR-0031 §8, ADR-0028 §1):** two
+  groups of 500 lived three years (`demos/m8/m8-demo.txt`). No household built a frame though 24
+  knew framing: a first home is the cheapest covering shape (a hut), and a new home is begun only
+  when spare goods times the kernel's `HOUSE_INVESTMENT_SHARE` pay for all of it, which no
+  household reached in three years; the polities raised the only frames (two granaries, a hall
+  and part of another). Not nudged: the share is a kernel constant, not a content prior, so moving
+  it would be a model change made for a demo. Open for M9: whether a household should build in
+  steps (a frame begun and finished as means allow, as homes were in M1), or weigh a frame's
+  room against a hut's per hour of upkeep, so wealth reaches building over a lifetime rather than
+  in one purchase. A shaking at 0.4 of each building's weight felled no hut or one-storey frame,
+  so rules after a shaking were not exercised by the demo (slice DB's tests exercise them). The
+  plan of streets was rejected at both settlements' first gatherings and passed at the port
+  after three years. The gate: 10,000 at 0.0031 simulated years a real minute on the container
+  (53.5 s a day; M8c measured 40 s a day over the same span's first 30 days with fewer
+  buildings), the demo's 1,000 at 0.049; the gate is amended to these figures (ADR-0028 §1) and
+  the target PC remains unmeasured. M8 is closed with v1's milestones; M9 (aggregate LOD) is the
+  scale answer.
 - **Design priors for a front (2026-10-20, M8d slice DD, ADR-0031 §7):** NUDGE: ornament runs
   to two hours of craft a square metre of front, a coat of daub takes 0.25 h and lime wash 0.15 h
   a square metre of wall, setting a front out about its middle two hours a bay; the front's

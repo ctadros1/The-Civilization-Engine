@@ -1,0 +1,122 @@
+# The M8 demo (civ-sim --example m8_city <saves> 1 500 1080, 2026-10-20; ADR-0031 §8): two groups
+# of 500 founded on the river valley, the one nearer the river the port, live three years at Max,
+# of a fixed identity. The observer introduced framing on the first day to the grown members of
+# each settlement's four largest households, and laying out by cord and stake to the inland
+# settlement's largest (INTRODUCED lines, 37 in all, shortened here); and shook the whole map once,
+# on day 960, at 0.4 of each building's weight (SHAKEN). Nothing was nudged. The first part is the
+# run as it printed; the second the same save read again (`m8_city <save>`), which names the
+# settlement of each building raised together and each law. <saves> stands for the run's scratch
+# folder. The 2x750 run first tried took more than two hours and was stopped; 2x500 is the size
+# reached within the time box.
+
+world (seed 1): two groups of 500 founded in 8.5 s
+Rushmere: the port (29 m from the river)
+Reedholt: the inland settlement (147 m from the river)
+day 61: Cael of household 248 already knows framing
+day 90: 1002 people, 213 buildings, 0 frames, the tallest of 1 storeys; 1.15 s a day lately
+day 120: 1006 people, 213 buildings, 0 frames, the tallest of 1 storeys; 1.97 s a day lately
+day 150: 1015 people, 218 buildings, 0 frames, the tallest of 1 storeys; 1.74 s a day lately
+day 180: 1017 people, 222 buildings, 0 frames, the tallest of 1 storeys; 1.56 s a day lately
+day 210: 1024 people, 224 buildings, 0 frames, the tallest of 1 storeys; 1.74 s a day lately
+day 240: 1027 people, 226 buildings, 0 frames, the tallest of 1 storeys; 1.96 s a day lately
+day 270: 1038 people, 228 buildings, 0 frames, the tallest of 1 storeys; 2.08 s a day lately
+day 300: 1044 people, 228 buildings, 0 frames, the tallest of 1 storeys; 2.39 s a day lately
+day 330: 1046 people, 230 buildings, 0 frames, the tallest of 1 storeys; 2.80 s a day lately
+day 360: 1048 people, 234 buildings, 0 frames, the tallest of 1 storeys; 3.08 s a day lately
+day 390: 1054 people, 235 buildings, 0 frames, the tallest of 1 storeys; 2.31 s a day lately
+day 420: 1048 people, 235 buildings, 0 frames, the tallest of 1 storeys; 2.39 s a day lately
+day 450: 1055 people, 238 buildings, 0 frames, the tallest of 1 storeys; 2.44 s a day lately
+day 480: 1058 people, 240 buildings, 0 frames, the tallest of 1 storeys; 2.43 s a day lately
+day 510: 1060 people, 242 buildings, 0 frames, the tallest of 1 storeys; 2.91 s a day lately
+day 540: 1057 people, 242 buildings, 0 frames, the tallest of 1 storeys; 3.56 s a day lately
+day 570: 1056 people, 246 buildings, 1 frames, the tallest of 1 storeys; 7.82 s a day lately
+day 600: 1061 people, 246 buildings, 1 frames, the tallest of 1 storeys; 3.16 s a day lately
+day 630: 1060 people, 246 buildings, 1 frames, the tallest of 1 storeys; 3.14 s a day lately
+day 660: 1060 people, 246 buildings, 1 frames, the tallest of 1 storeys; 3.51 s a day lately
+day 690: 1060 people, 247 buildings, 1 frames, the tallest of 1 storeys; 3.87 s a day lately
+day 720: 1064 people, 247 buildings, 1 frames, the tallest of 1 storeys; 4.13 s a day lately
+day 750: 1066 people, 247 buildings, 1 frames, the tallest of 1 storeys; 3.68 s a day lately
+day 780: 1073 people, 250 buildings, 2 frames, the tallest of 1 storeys; 4.01 s a day lately
+day 810: 1075 people, 252 buildings, 3 frames, the tallest of 1 storeys; 3.05 s a day lately
+day 840: 1080 people, 254 buildings, 3 frames, the tallest of 1 storeys; 3.12 s a day lately
+day 870: 1081 people, 254 buildings, 3 frames, the tallest of 1 storeys; 3.65 s a day lately
+day 900: 1082 people, 255 buildings, 3 frames, the tallest of 1 storeys; 4.21 s a day lately
+day 930: 1080 people, 257 buildings, 3 frames, the tallest of 1 storeys; 9.37 s a day lately
+day 960: 1066 people, 258 buildings, 3 frames, the tallest of 1 storeys; 4.64 s a day lately
+day 960: SHAKEN (observer): the whole map at 0.4 of each building's weight
+day 990: 1066 people, 259 buildings, 3 frames, the tallest of 1 storeys; 4.27 s a day lately
+day 1020: 1071 people, 260 buildings, 3 frames, the tallest of 1 storeys; 4.14 s a day lately
+day 1050: 1073 people, 262 buildings, 3 frames, the tallest of 1 storeys; 4.12 s a day lately
+day 1080: 1076 people, 264 buildings, 3 frames, the tallest of 1 storeys; 4.00 s a day lately
+day 1110: 1079 people, 264 buildings, 3 frames, the tallest of 1 storeys; 3.87 s a day lately
+day 1140: 1084 people, 264 buildings, 3 frames, the tallest of 1 storeys; 4.71 s a day lately
+lived 1080 days, to day 1140; 1084 people
+Rushmere: 545 residents
+  standing: 1 Granary, 131 Hut (5 not finished, 1 raised by the polity)
+  frames: 1 (1 of 1 storey); 1 designed under version 3, 0 with a front
+  framing: 13 households know it, 0 hold a frame, 13 know it and hold none
+  style: founded to build 48° roofs, 1.9 m to the eaves, 0.5 m out, 6 % of the walls open, finished 0.8 of the way from bare to lime-washed; its 131 households would build 47.6° (±0.0°) roofs, 1.9 m to the eaves, 0.5 m out, 6 % of the walls open, finished 0.8 of the way from bare to lime-washed; the year's 15 new buildings: 47.4° (±0.8°) roofs, 1.9 m to the eaves, 0.5 m out; its 127 standing buildings: 47.6° (±1.0°) roofs, 1.9 m to the eaves, 0.5 m out
+Reedholt: 539 residents
+  standing: 1 Granary, 1 Hall, 130 Hut (2 not finished, 2 raised by the polity)
+  frames: 2 (2 of 1 storey); 2 designed under version 3, 0 with a front
+  framing: 11 households know it, 0 hold a frame, 11 know it and hold none
+  style: founded to build 47° roofs, 1.9 m to the eaves, 0.4 m out, 15 % of the walls open, 0.2 h of ornament a square metre, finished 0.6 of the way from bare to lime-washed, 59 % set out about the middle; its 128 households would build 46.9° (±0.0°) roofs, 1.9 m to the eaves, 0.5 m out, 14 % of the walls open, 0.2 h of ornament a square metre, finished 0.6 of the way from bare to lime-washed, 59 % set out about the middle; the year's 6 new buildings: 46.9° (±0.0°) roofs, 1.9 m to the eaves, 0.5 m out; its 130 standing buildings: 47.0° (±0.9°) roofs, 1.9 m to the eaves, 0.5 m out
+public buildings:
+  A hall raised together because a gathering in the open came to nothing in the rain, with no hall to meet in: proposed by Ash on 22 May of year 3.
+  A granary raised together because the common store spoiled with no storehouse to keep it: proposed by Ash on 30 January of year 3; laid out on 1 February of year 3; 533 of 533 hours given by 93 households; first used on 21 February of year 3; finished on 21 February of year 3.
+  A hall raised together because a gathering in the open came to nothing in the rain, with no hall to meet in: proposed by Fiora on 19 September of year 2; its law is no longer in force.
+  A hall raised together because a gathering in the open came to nothing in the rain, with no hall to meet in: proposed by Tova on 13 March of year 3; laid out on 15 March of year 3; 1885 of 2038 hours given by 114 households.
+  A granary raised together because the common store spoiled with no storehouse to keep it: proposed by Tova on 27 June of year 2; laid out on 29 June of year 2; 533 of 533 hours given by 88 households; first used on 5 October of year 2; finished on 5 October of year 2.
+laws on building, raising, plans, ways and the watch:
+  Plan of streets and parcels proposed on day 66 by Gala: Rejected (20 for, 28 against, 289 came)
+  Plan of streets and parcels proposed on day 465 by Gwen: Superseded (4 for, 0 against, 4 came)
+  Plan of streets and parcels proposed on day 535 by Runa: Superseded (4 for, 2 against, 6 came)
+  Hall raised together proposed on day 626 by Fiora: Rejected (2 for, 0 against, 3 came)
+  Watch proposed on day 633 by Evrik: InForce (5 for, 1 against, 8 came)
+  Storehouse raised together proposed on day 759 by Ash: InForce (2 for, 0 against, 9 came)
+  Hall raised together proposed on day 871 by Ash: InForce (4 for, 1 against, 9 came)
+  [after the shaking] Plan of streets and parcels proposed on day 1088 by Ash: InForce (3 for, 0 against, 5 came)
+  Plan of streets and parcels proposed on day 66 by Hild: Rejected (19 for, 25 against, 266 came)
+  Storehouse raised together proposed on day 542 by Tova: InForce (1 for, 0 against, 4 came)
+  Watch proposed on day 563 by Rhea: InForce (3 for, 0 against, 5 came)
+  Watch proposed on day 710 by Wendel: InForce (2 for, 0 against, 4 came)
+  Hall raised together proposed on day 801 by Tova: InForce (3 for, 1 against, 8 came)
+  Watch proposed on day 927 by Nevin: InForce (4 for, 1 against, 8 came)
+  Watch proposed on day 948 by Nevin: InForce (5 for, 0 against, 7 came)
+the shaking:
+  shaking 1 on day 960 at 0.40 of each building's weight:
+    outside any settlement: 3 stood, 0 cracked, 0 fell, 0 died
+    Rushmere: 128 stood, 0 cracked, 0 fell, 0 died
+    Reedholt: 125 stood, 0 cracked, 0 fell, 0 died
+speed: 3.42 s a day on average (p50 3.21 s, p95 6.29 s), 0.049 simulated years a real minute
+saved: <saves>/two-rivers-07070707/g0000000001-manual.tcesave
+  (37 INTRODUCED lines: framing to the grown members of four households at each settlement,
+   laying out to the inland settlement's largest household)
+
+# Read again from its save, with each polity's settlement:
+public buildings:
+  at Rushmere:
+    A hall raised together because a gathering in the open came to nothing in the rain, with no hall to meet in: proposed by Ash on 22 May of year 3.
+    A granary raised together because the common store spoiled with no storehouse to keep it: proposed by Ash on 30 January of year 3; laid out on 1 February of year 3; 533 of 533 hours given by 93 households; first used on 21 February of year 3; finished on 21 February of year 3.
+    A hall raised together because a gathering in the open came to nothing in the rain, with no hall to meet in: proposed by Fiora on 19 September of year 2; its law is no longer in force.
+  at Reedholt:
+    A hall raised together because a gathering in the open came to nothing in the rain, with no hall to meet in: proposed by Tova on 13 March of year 3; laid out on 15 March of year 3; 1885 of 2038 hours given by 114 households.
+    A granary raised together because the common store spoiled with no storehouse to keep it: proposed by Tova on 27 June of year 2; laid out on 29 June of year 2; 533 of 533 hours given by 88 households; first used on 5 October of year 2; finished on 5 October of year 2.
+laws on building, raising, plans, ways and the watch:
+  at Rushmere:
+    Plan of streets and parcels proposed on day 66 by Gala: Rejected (20 for, 28 against, 289 came)
+    Plan of streets and parcels proposed on day 465 by Gwen: Superseded (4 for, 0 against, 4 came)
+    Plan of streets and parcels proposed on day 535 by Runa: Superseded (4 for, 2 against, 6 came)
+    Hall raised together proposed on day 626 by Fiora: Rejected (2 for, 0 against, 3 came)
+    Watch proposed on day 633 by Evrik: InForce (5 for, 1 against, 8 came)
+    Storehouse raised together proposed on day 759 by Ash: InForce (2 for, 0 against, 9 came)
+    Hall raised together proposed on day 871 by Ash: InForce (4 for, 1 against, 9 came)
+    [after the shaking] Plan of streets and parcels proposed on day 1088 by Ash: InForce (3 for, 0 against, 5 came)
+  at Reedholt:
+    Plan of streets and parcels proposed on day 66 by Hild: Rejected (19 for, 25 against, 266 came)
+    Storehouse raised together proposed on day 542 by Tova: InForce (1 for, 0 against, 4 came)
+    Watch proposed on day 563 by Rhea: InForce (3 for, 0 against, 5 came)
+    Watch proposed on day 710 by Wendel: InForce (2 for, 0 against, 4 came)
+    Hall raised together proposed on day 801 by Tova: InForce (3 for, 1 against, 8 came)
+    Watch proposed on day 927 by Nevin: InForce (4 for, 1 against, 8 came)
+    Watch proposed on day 948 by Nevin: InForce (5 for, 0 against, 7 came)

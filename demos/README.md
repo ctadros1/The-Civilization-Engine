@@ -89,3 +89,12 @@ nor a lived M6b outcome.
 
 The bank panel now reports soil washed into sediment stock when a saved bank has overtopped.
 The ordinary fixture remains a construction example, without a lived flood or public work.
+
+## M8 (2026-10-20)
+
+The M8 demo is `civ-sim --example m8_city <saves> 1 500 1080`, recorded in `demos/m8/m8-demo.txt`:
+two settlements of 500 on the river valley, the port and an inland one, live three years with
+framing introduced by the observer on the first day and the ground shaken once. No household built
+a frame; the polities raised two granaries and a hall; a plan of streets was rejected at first and
+passed later at the port; the shaking felled nothing. `m8_city <save>` reads the run's save again.
+The scale gate's figure (ADR-0028, amendment) is measured with `bench_village`.

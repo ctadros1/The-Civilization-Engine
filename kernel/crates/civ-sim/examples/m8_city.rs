@@ -1,7 +1,7 @@
 //! The M8 demo (plan §7, M8d slice DE; ADR-0031 §8): two settlements founded large on a river
 //! valley, the one whose hearth lies nearer the river its port and the other inland, live as the
-//! content has them. The observer acts only as ADR-0031 §8 asks, each act logged: on day
-//! `TEACH_DAY` it introduces framing to the grown members of each settlement's largest households
+//! content has them. The observer acts only as ADR-0031 §8 asks, each act logged: on the first
+//! day (`TEACH_DAY`) it introduces framing to the grown members of each settlement's largest households
 //! (nobody comes to know framing unaided, the probe of slice CY found), and laying out by cord and
 //! stake to the inland settlement's largest (`INTRODUCED`); on day `days - SHAKE_BEFORE_END` it
 //! shakes the whole map once at `STRENGTH`, both settlements alike. Nothing else is set: who
@@ -29,17 +29,19 @@ use civ_sim::{NewWorld, SPEED_MAX, Sim, persist};
 use commons_persist::{SaveDir, SaveKind};
 
 /// People in each founding group, unless given.
-const PEOPLE: u32 = 500;
+const PEOPLE: u32 = 750;
 /// Days lived, unless given: three years.
 const DAYS: i64 = 3 * 360;
-/// The day the observer introduces framing and laying out.
-const TEACH_DAY: i64 = 30;
+/// The day the observer introduces framing and laying out: the first, before anyone has begun a
+/// home, as a people who brought framing with them would build.
+const TEACH_DAY: i64 = 1;
 /// How many of each settlement's largest households are taught framing.
 const TAUGHT: usize = 4;
 /// How long before the end the ground is shaken: half a year, for the gatherings to answer it.
 const SHAKE_BEFORE_END: i64 = 180;
-/// The shaking's lateral share of every building's weight (ADR-0031 §4: within 0.02 to 0.6).
-const STRENGTH: f64 = 0.25;
+/// The shaking's lateral share of every building's weight (ADR-0031 §4: within 0.02 to 0.6): a
+/// strong one, for a trial at 0.25 left every hut standing.
+const STRENGTH: f64 = 0.4;
 const DAY: i64 = 24 * 60;
 const NAME: &str = "Two Rivers";
 /// The priors this run nudged, in words; none unless a time box ran out.

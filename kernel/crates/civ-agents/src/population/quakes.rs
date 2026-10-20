@@ -32,7 +32,8 @@ impl Population {
         settlement: Option<PermanentId>,
     ) -> Result<super::influence::Reached, String> {
         let (lo, hi) = STRENGTH_RANGE;
-        if !(lo..=hi).contains(&strength) {
+        // The observer's strength comes in single precision: 0.6 arrives a hair above 0.6.
+        if !(lo as f32..=hi as f32).contains(&(strength as f32)) {
             return Err(format!("a shaking's strength is between {lo} and {hi}"));
         }
         if let Some(s) = settlement

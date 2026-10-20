@@ -5156,9 +5156,10 @@ and M6a gives rivers a daily flow.
       - *Third part, as built (2026-10-20): the observer's shaking, and its own row* (ADR-0031
         §4). `Request::Shake { strength, settlement }` (wire 1.90, `Shake`, settlement 0 for the
         whole map) reaches `Sim::shake`, and the host answers with what fell and cracked. The
-        observer's tool bar has "Shake the ground" with a strength in intensity words (felt by
-        all 0.05, strong 0.1, very strong 0.2, severe 0.35, violent 0.6), the observer's words
-        only. The dashboard's Shaking row reports the shakings, buildings reached, fell, cracked
+        observer's tool bar has one "Shake…" choice, a strength in intensity words (felt by all
+        0.05, strong 0.1, very strong 0.2, severe 0.35, violent 0.6), the observer's words only;
+        one choice so the crowded bar does not wrap over the map. A strength arrives in single
+        precision, so 0.6 is taken as the tool's 0.6. The dashboard's Shaking row reports the shakings, buildings reached, fell, cracked
         and the dead, and the structural failures row leaves out what fell at the minute an
         observer's shaking struck (ADR-0022 §14's rule by origin). The earthquake panel, the
         damage layer and incidents per settlement are the next part. **Test:** the request

@@ -3135,7 +3135,8 @@ mod tests {
             .settlements[0]
             .id
             .get();
-        let reply = h.ask(shake(0.3, settlement));
+        // The strongest the tool sends, which reaches the host in single precision.
+        let reply = h.ask(shake(0.6, settlement));
         let Reply::Response(ack) = reply else {
             panic!("shaken: {reply:?}");
         };
@@ -3146,7 +3147,7 @@ mod tests {
             .unwrap_or_default()
             .to_owned();
         assert!(
-            message.starts_with("The observer shook the ground with 0.30 of a building's weight: "),
+            message.starts_with("The observer shook the ground with 0.60 of a building's weight: "),
             "{message}"
         );
         let sim = &h.engine.world.as_ref().expect("a world").sim;

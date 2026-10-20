@@ -601,9 +601,11 @@ export function bindUi(store: Store, actions: Actions): void {
     const depth = Number($<HTMLSelectElement>("drought-depth").value) || 1.5;
     void actions.drought(months, depth);
   });
-  $<HTMLButtonElement>("shake-ground").addEventListener("click", () => {
-    const strength = Number($<HTMLSelectElement>("shake-strength").value) || 0.2;
-    void actions.shake(strength);
+  const shakeGround = $<HTMLSelectElement>("shake-ground");
+  shakeGround.addEventListener("change", () => {
+    const strength = Number(shakeGround.value);
+    shakeGround.value = "";
+    if (strength > 0) void actions.shake(strength);
   });
   document.addEventListener("keydown", (event) => {
     if (event.key !== " " || isTyping(event.target)) return;
@@ -3258,9 +3260,7 @@ export function bindUi(store: Store, actions: Actions): void {
     rain.disabled = !open || !world;
     for (const id of ["drought-months", "drought-depth"]) $<HTMLSelectElement>(id).disabled = rain.disabled;
     // The shaking (M8d slice DA): the whole map, once.
-    const shake = $<HTMLButtonElement>("shake-ground");
-    shake.disabled = !open || !world;
-    $<HTMLSelectElement>("shake-strength").disabled = shake.disabled;
+    $<HTMLSelectElement>("shake-ground").disabled = !open || !world;
     // The fire (M6b slice BC): the building clicked is set alight.
     const fire = $<HTMLButtonElement>("set-fire");
     fire.disabled = !open || !world;

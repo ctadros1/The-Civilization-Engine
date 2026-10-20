@@ -24,10 +24,9 @@ test("the observer shakes the ground, and is told what fell", async ({ page }) =
     if (!(await page.evaluate(() => window.__TCE__.state().clock?.paused))) {
       await page.getByRole("button", { name: "Pause" }).click();
     }
-    const shake = page.getByRole("button", { name: "Shake the ground" });
-    await page.getByLabel("How hard the ground shakes").selectOption("0.6");
+    const shake = page.getByLabel("Shake the ground");
     await expect(shake).toBeEnabled();
-    await shake.click();
+    await shake.selectOption("0.6");
     await expect(page.locator("#banner-text")).toContainText(
       "The observer shook the ground with 0.60 of a building's weight:",
     );

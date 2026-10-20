@@ -5094,6 +5094,17 @@ and M6a gives rivers a daily flow.
         the core's keep theirs. **Test:** a fire-cautious rubble frame is a version 3 spec with
         30 cm walls, 60 cm at four times the caution, and expands; content refusing 13 bays and
         five storeys.
+      - *Fourth part, as built (2026-10-19): a home's shape weighed with its ground* (ADR-0031
+        §2; the probe in §9: land never reached what a household builds). Having chosen a shape
+        as before, a household also weighs up to two of the program's shapes on less ground
+        (`compact_alternatives`: fewer bays, more storeys or lofts, no less floor, covering its
+        need no worse, within what its means pay for), each sited as any home is, and takes the
+        one whose building hours and ground's hours together (walks over the reckoning's years,
+        levelling and fees) are least, the first chosen among equals. A shape that finds no
+        ground no longer leaves the home unbuilt when a smaller one finds some. A design of three
+        storeys or more takes a stair. Width stays the program's design (deferred: it would
+        multiply the shapes weighed). **Test:** shapes on less ground give no less floor on
+        fewer bays, the least ground first, at most two, none when none is affordable.
     - **DA, lateral margins and the shaking tool:** lateral modes, `Request::Shake`,
       `InfluenceKind::Earthquake`, one keyed evaluation, cracks as loss, deaths by who was
       inside, incidents and an episode with origin, the dashboard's shaking row. *Tests:* the

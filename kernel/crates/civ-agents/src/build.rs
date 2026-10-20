@@ -45,6 +45,9 @@ pub const HOUSE_TIME_SHARE: f64 = 0.5;
 pub const REBUILD_GAIN: f64 = 0.25;
 /// Step between the rings of points tried when a home's own ground is not clear, metres.
 const SEARCH_STEP_M: f64 = 2.0;
+/// Most shapes on less ground a household weighs beside the one it would build, each with the
+/// ground it would take (M8d slice CZ; a bound on the search, not a behaviour).
+pub const COMPACT_SHAPES: usize = 2;
 /// Points tried on each ring.
 const SEARCH_DIRECTIONS: usize = 16;
 
@@ -536,6 +539,10 @@ pub fn design_cautious(
             params[fp::BAYS] = bays;
             params[fp::DOOR] = fp::door(fp::SIDE_RIGHT, bays / 2);
             params[fp::LOFT_BAYS] = (1 << lofts.clamp(0, bays)) - 1;
+            // Three storeys or more are reached by a stair (frame version 3).
+            if storeys > 2 {
+                params[fp::STAIR] = 1;
+            }
             let caution = if caution.is_finite() {
                 caution.max(1.0)
             } else {
@@ -827,6 +834,43 @@ pub fn new_home(
         }
     }
     best.map(|(p, c, _)| (p, c.shape))
+}
+
+/// The shapes of program `def` on less ground than `chosen` that a household might build instead
+/// (M8d slice CZ, ADR-0031 §2: height weighed against ground): no less floor, covering `need` no
+/// worse, on fewer bays (the same width, more storeys or lofts), and `affordable` in their hours
+/// (`carry_kg` a load). The least ground first, then the fewest hours; at most
+/// [`COMPACT_SHAPES`].
+pub fn compact_alternatives(
+    def: &BuildingDef,
+    chosen: Shape,
+    need: &HomeNeed,
+    carry_kg: f64,
+    affordable: &dyn Fn(f64) -> bool,
+) -> Vec<Shape> {
+    let Shape::Bays { bays, .. } = chosen else {
+        return Vec::new();
+    };
+    let Some(base) = def.shapes.iter().find(|c| c.shape == chosen) else {
+        return Vec::new();
+    };
+    let cov = coverage(def, base, need);
+    let mut out: Vec<(&ShapeCost, i32, f64)> = def
+        .shapes
+        .iter()
+        .filter_map(|c| match c.shape {
+            Shape::Bays { bays: b, .. } if b < bays => Some((c, b, c.hours(carry_kg))),
+            _ => None,
+        })
+        .filter(|(c, _, h)| {
+            c.floor_m2 + 1e-9 >= base.floor_m2 && coverage(def, c, need) >= cov && affordable(*h)
+        })
+        .collect();
+    out.sort_by(|a, b| a.1.cmp(&b.1).then(a.2.total_cmp(&b.2)));
+    out.into_iter()
+        .take(COMPACT_SHAPES)
+        .map(|(c, _, _)| c.shape)
+        .collect()
 }
 
 /// What goods kept in a store instead of in the open would save over `horizon_days`, in hours of
@@ -1704,6 +1748,41 @@ pub(crate) mod tests {
             storeys: 1,
             lofts: 0,
         };
+
+        // Shapes on less ground that give no less floor (M8d slice CZ): fewer bays, more storeys.
+        let mut def = def;
+        def.shapes = shapes(&def, &goods);
+        let wide = Shape::Bays {
+            bays: 4,
+            storeys: 1,
+            lofts: 0,
+        };
+        let need = HomeNeed {
+            residents: 4,
+            storage_kg: 0.0,
+        };
+        let floor = |s: Shape| {
+            def.shapes
+                .iter()
+                .find(|c| c.shape == s)
+                .map(|c| c.floor_m2)
+                .expect("a shape")
+        };
+        let compact = compact_alternatives(&def, wide, &need, 25.0, &|_| true);
+        assert!(!compact.is_empty() && compact.len() <= COMPACT_SHAPES);
+        let bays = |s: Shape| match s {
+            Shape::Bays { bays, .. } => bays,
+            Shape::Round { .. } => 0,
+        };
+        for s in &compact {
+            assert!(bays(*s) < 4, "{s:?}");
+            assert!(floor(*s) + 1e-9 >= floor(wide), "{s:?}");
+        }
+        assert!(
+            compact.windows(2).all(|w| bays(w[0]) <= bays(w[1])),
+            "least ground first"
+        );
+        assert!(compact_alternatives(&def, wide, &need, 25.0, &|_| false).is_empty());
 
         // Without fire caution: thatch covering and wattle walls (wall_kind = 0, footing = 0).
         let normal = design_cautious(&def, &goods, shape, (0.0, 0.0), None, 1.0, None, None)

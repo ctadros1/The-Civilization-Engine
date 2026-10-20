@@ -2318,7 +2318,7 @@ impl Population {
                 residents: hh.members.len().max(1),
                 storage_kg: self.storage_need(ctx, hh),
             };
-            match current {
+            let chosen = match current {
                 None => {
                     build::first_home(&catalog.buildings, &programs, need, carry, budget_h, time_h)
                 }
@@ -2331,7 +2331,25 @@ impl Population {
                     budget_h,
                     time_h,
                 ),
-            }
+            }?;
+            // And the shapes on less ground its means would also pay for, to be weighed with the
+            // ground each takes (M8d slice CZ): a first home's extra over the one chosen within
+            // what it would put into a home, a new home's whole within its means.
+            let program = &catalog.buildings[chosen.0];
+            let chosen_h = program
+                .shapes
+                .iter()
+                .find(|c| c.shape == chosen.1)
+                .map_or(0.0, |c| c.hours(carry));
+            let affordable = |h: f64| {
+                h <= time_h
+                    && match current {
+                        None => h <= chosen_h + budget_h,
+                        Some(_) => h <= budget_h,
+                    }
+            };
+            let compact = build::compact_alternatives(program, chosen.1, &need, carry, &affordable);
+            Some((chosen, compact))
         };
         let goods = &catalog.goods;
         let reach = self.homes.get(&field_key).map(|f| &f.reach);
@@ -2677,9 +2695,32 @@ impl Population {
         // at work than its home has room for, before more floor. A home's door faces the hearth;
         // a store's or a workshop's, its household's home.
         // A home it means to build and finds no ground for is told apart (M8c slice CT).
-        let home_on_ground = |c: Option<(usize, build::Shape)>, first: bool| {
-            let c = c.ok_or(Unbuilt::Nothing)?;
-            choose_home(c, first).ok_or(Unbuilt::NoGround)
+        // The shape it would build and those on less ground are each weighed with the plot it
+        // would take, in hours: building it and its ground's walks, levelling and fees, the least
+        // in all taken, the one first chosen among equals (M8d slice CZ, ADR-0031 §2).
+        let home_on_ground = |c: Option<((usize, build::Shape), Vec<build::Shape>)>,
+                              first: bool| {
+            let ((p, chosen), compact) = c.ok_or(Unbuilt::Nothing)?;
+            let program = &catalog.buildings[p];
+            let shape_h = |shape: build::Shape| {
+                program
+                    .shapes
+                    .iter()
+                    .find(|c| c.shape == shape)
+                    .map_or(0.0, |c| c.hours(carry))
+            };
+            let mut best: Option<(f64, NewHome)> = None;
+            for shape in std::iter::once(chosen).chain(compact) {
+                let Some(home) = choose_home((p, shape), first) else {
+                    continue;
+                };
+                let ground_h = home.receipt.map_or(0.0, |r| f64::from(r.hours));
+                let total = shape_h(shape) + ground_h;
+                if best.as_ref().is_none_or(|(b, _)| total < *b) {
+                    best = Some((total, home));
+                }
+            }
+            best.map(|(_, home)| home).ok_or(Unbuilt::NoGround)
         };
         match home {
             None => home_on_ground(home_choice(None), true),

@@ -4,6 +4,7 @@
 //! Every piece of text here is rendered by the kernel: what someone is doing, where a target is,
 //! the chronicle. Observers show it; they never compose explanations of their own.
 
+use civ_agents::params::Taste;
 use std::collections::HashSet;
 
 use civ_agents::history::{self, Span};
@@ -361,25 +362,59 @@ pub fn year_words(sim: &Sim, s: PermanentId) -> String {
     parts.join(", ")
 }
 
-/// A taste's three traits in words: "48° roofs, 1.9 m to the eaves, 0.5 m out".
-fn traits_words(mean: [f64; 3]) -> String {
+/// A taste's traits in words: "48° roofs, 1.9 m to the eaves, 0.5 m out", and its front where it
+/// has one ([`front_words`]).
+fn traits_words(mean: [f64; Taste::TRAITS]) -> String {
     format!(
-        "{:.0}° roofs, {:.1} m to the eaves, {:.1} m out",
+        "{:.0}° roofs, {:.1} m to the eaves, {:.1} m out{}",
         mean[0] / 100.0,
         mean[1] / 100.0,
-        mean[2] / 100.0
+        mean[2] / 100.0,
+        front_words(&mean)
     )
 }
 
+/// A front's four traits (M8d slice DD), as a mean over a taste or buildings, in words after the
+/// roof's: ", a tenth of the walls open, 0.5 h of ornament a square metre, daubed, half set out
+/// about the middle"; each left out where it is nothing.
+pub fn front_words(mean: &[f64; Taste::TRAITS]) -> String {
+    let mut parts = Vec::new();
+    if mean[3] >= 1.0 {
+        parts.push(format!("{:.0} % of the walls open", mean[3] / 10.0));
+    }
+    if mean[4] >= 0.5 {
+        parts.push(format!(
+            "{:.1} h of ornament a square metre",
+            mean[4] / 10.0
+        ));
+    }
+    if mean[5] >= 0.05 {
+        parts.push(match mean[5] {
+            f if f >= 1.95 => "lime-washed".to_owned(),
+            f if (0.95..=1.05).contains(&f) => "daubed".to_owned(),
+            f => format!("finished {f:.1} of the way from bare to lime-washed"),
+        });
+    }
+    if mean[6] >= 0.05 {
+        parts.push(if mean[6] >= 0.95 {
+            "set out about the middle".to_owned()
+        } else {
+            format!("{:.0} % set out about the middle", mean[6] * 100.0)
+        });
+    }
+    parts.iter().map(|p| format!(", {p}")).collect()
+}
+
 /// A spread's mean in words, with how far the pitch spreads: "47.6° (±1.1°) roofs, 1.9 m to the
-/// eaves, 0.5 m out".
+/// eaves, 0.5 m out", and its front where it has one.
 fn spread_words(s: &civ_agents::style::Spread) -> String {
     format!(
-        "{:.1}° (±{:.1}°) roofs, {:.1} m to the eaves, {:.1} m out",
+        "{:.1}° (±{:.1}°) roofs, {:.1} m to the eaves, {:.1} m out{}",
         s.mean[0] / 100.0,
         s.sd[0] / 100.0,
         s.mean[1] / 100.0,
-        s.mean[2] / 100.0
+        s.mean[2] / 100.0,
+        front_words(&s.mean)
     )
 }
 

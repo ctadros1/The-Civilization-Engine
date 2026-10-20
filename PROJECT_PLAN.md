@@ -5360,6 +5360,43 @@ and M6a gives rivers a daily flow.
       seven traits; sighting scaled by height; copying only what one could build; the clocks
       over all seven. *Tests:* a one-settlement world drifts as before in the three old traits;
       a tower is seen from farther; the neighbours row stays green or amber.
+      - *Parts, planned (2026-10-20):* (1) frame version 3 lays out its front: ornament, finish
+        and symmetry in three of its four style slots, each costing hours, its openings being the
+        fourth trait; (2) taste over seven traits: founding draws, commissions, designs, the
+        review moving a front only toward a building that has one, and ornament and finish only
+        toward one the household could build (saves 169, content API 157); (3) a building seen
+        from farther the higher it stands over its neighbours' eaves; (4) the three clocks, the
+        neighbours row and the observer over all seven, then the slice closed.
+      - *First part, as built (2026-10-20): a front in the grammar* (ADR-0031 §7). Frame version
+        3 lays out three of its four style slots: ornament, tenths of an hour of craft a square
+        metre of the door's wall up to two hours; finish, bare, daubed or lime-washed (0.25 h and
+        0.15 h a square metre of wall); and symmetry, a front set out about its middle (two hours
+        a bay), which needs its door on an end wall or in the middle bay of an odd number. Each
+        costs hours in finishing and nothing else; its openings (version 3's per-storey share,
+        which already weaken the walls) are the fourth trait. Versions 1 and 2 still refuse any
+        style trait. **Test:** ornament costs an hour a square metre of the door's wall less its
+        openings, the finishes their hours over every wall, symmetry two hours a bay with the
+        door central and is refused off it; out of range, a spare slot or version 2 is refused.
+      - *Second part, as built (2026-10-20): taste over seven traits.* A taste, and the traits a
+        building is built to, gain a front: openings, ornament, finish and symmetry. Founding
+        bands draw them after the roof's three, so the roof's draws are as before; a commission
+        draws its front's new trait on a stream of its own, so a hut is commissioned exactly as
+        before and has no front. Only a frame designed under version 3 allows a front, and a
+        store no openings; designs give every storey the taste's openings, symmetry only to an
+        odd number of bays, and a lime wash only where someone knows lime burning, else daub.
+        The yearly review moves a front only toward a building that has one, and ornament and
+        finish only toward one whose techniques (its program's, and lime burning for a lime
+        wash) someone of the household knows. Content authors the front's tradition and spreads
+        (content API 157); tastes save their seven traits and founding ways their front (saves
+        169; a taste of three from an older save loads with a bare front). The inspector says a
+        frame's front in words. Lime itself is not yet drawn from stores for a wash, nor clay for
+        daub, as daubed walls' clay never was. **Test:** a hut is commissioned exactly as M3b
+        commissioned it over 400 keys, many of them innovating; a taste moves only in the traits
+        named; a lime-washed, ornamented, symmetrical three-bay frame is built to its front and
+        read back, a two-bay one daubed without symmetry by builders who cannot burn lime; after
+        it is built, a household that could build it moves toward all seven traits and one that
+        could not toward all but ornament and finish; tastes survive a save; the existing style
+        and diffusion tests pass with huts moving the roof alone.
     - **DE, the M8 demo and the gate:** two settlements founded large, an organic port and an
       inland settlement that may pass a plan, at the largest size that lives within the time
       box; who builds tall, what public buildings rise or stall, what falls when both are shaken
@@ -6708,6 +6745,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
   centre; a watch round begins there. These are kernel constants (`LATE_NOTICE_MIN`,
   `TOWER_SIGHT_M`, `AT_TOWER_M`), revisited if the demo (DE) shows no tower ever proposed where
   fires burn unseen, or one that never helps.
+- **Design priors for a front (2026-10-20, M8d slice DD, ADR-0031 §7):** NUDGE: ornament runs
+  to two hours of craft a square metre of front, a coat of daub takes 0.25 h and lime wash 0.15 h
+  a square metre of wall, setting a front out about its middle two hours a bay; the front's
+  tradition is a tenth of the walls open, 0.1 h of ornament, about half daubed and few
+  symmetrical, with spreads of 5 %, 0.2 h, 0.5 and 0.4 between bands. "Could build" is knowing the
+  program's technique, and lime burning for a lime wash. Each revisited if the demo (DE) shows
+  fronts converging or drifting nowhere.
 - **Design priors for what a building raised together shows (2026-10-20, M8d slice DC's fourth
   part, ADR-0031 §6):** NUDGE: a raising stalls after 120 days with no work (a season's work
   missed); its users are every adult of its polity; each sees at most the eight households that

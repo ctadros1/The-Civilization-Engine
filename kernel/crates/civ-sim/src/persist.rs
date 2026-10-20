@@ -468,6 +468,8 @@ pub const SCHEMA_V165: u32 = 165;
 pub const SCHEMA_V166: u32 = 166;
 /// Watch towers and fires seen late, before a building raised together kept its dates.
 pub const SCHEMA_V167: u32 = 167;
+/// A building raised together kept its dates, before taste and founding ways had a front.
+pub const SCHEMA_V168: u32 = 168;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

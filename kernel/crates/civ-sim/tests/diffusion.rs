@@ -29,6 +29,9 @@ use commons_persist::{SaveDir, SaveKind};
 const DAY: i64 = 24 * 60;
 
 /// The core content, but nothing new by chance: a building is built to its builders' taste.
+/// The traits a hut shows: the roof's three; a hut has no front to move a taste (M8d slice DD).
+const ROOF: [bool; Taste::TRAITS] = [true, true, true, false, false, false, false];
+
 fn content() -> &'static ContentRegistry {
     static CONTENT: OnceLock<ContentRegistry> = OnceLock::new();
     CONTENT.get_or_init(|| {
@@ -213,10 +216,11 @@ fn a_building_seen_in_another_settlement_moves_taste_as_a_stranger_s_or_a_friend
     sim.people_mut_for_tests().seen_away.insert(one, vec![seen]);
     review(&mut sim);
     let stranger = taste(&sim, x);
-    let expected = style::moved(
+    let expected = style::moved_where(
         &was,
         &model,
         rules.style.alpha * style::prestige(&rules.style, 0.5) / most,
+        ROOF,
     );
     assert!(
         close(&stranger, &expected),
@@ -289,10 +293,11 @@ fn a_building_seen_in_another_settlement_moves_taste_as_a_stranger_s_or_a_friend
     review(&mut sim);
     let befriended = taste(&sim, x);
     let rank = (r / (r + 1.0) + 1.0) / 2.0;
-    let expected = style::moved(
+    let expected = style::moved_where(
         &was,
         &model,
         rules.style.alpha * style::prestige(&rules.style, rank) / most,
+        ROOF,
     );
     assert!(
         close(&befriended, &expected),

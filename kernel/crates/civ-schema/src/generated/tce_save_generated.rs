@@ -56959,6 +56959,10 @@ impl<'a> WaySave<'a> {
   pub const VT_PITCH_CENTIDEG: ::flatbuffers::VOffsetT = 6;
   pub const VT_EAVE_CM: ::flatbuffers::VOffsetT = 8;
   pub const VT_OVERHANG_CM: ::flatbuffers::VOffsetT = 10;
+  pub const VT_OPENINGS_PERMILLE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_ORNAMENT_DH: ::flatbuffers::VOffsetT = 14;
+  pub const VT_FINISH: ::flatbuffers::VOffsetT = 16;
+  pub const VT_SYMMETRY: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -56971,6 +56975,10 @@ impl<'a> WaySave<'a> {
   ) -> ::flatbuffers::WIPOffset<WaySave<'bldr>> {
     let mut builder = WaySaveBuilder::new(_fbb);
     builder.add_settlement(args.settlement);
+    builder.add_symmetry(args.symmetry);
+    builder.add_finish(args.finish);
+    builder.add_ornament_dh(args.ornament_dh);
+    builder.add_openings_permille(args.openings_permille);
     builder.add_overhang_cm(args.overhang_cm);
     builder.add_eave_cm(args.eave_cm);
     builder.add_pitch_centideg(args.pitch_centideg);
@@ -57006,6 +57014,34 @@ impl<'a> WaySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(WaySave::VT_OVERHANG_CM, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn openings_permille(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WaySave::VT_OPENINGS_PERMILLE, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn ornament_dh(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WaySave::VT_ORNAMENT_DH, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn finish(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WaySave::VT_FINISH, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn symmetry(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(WaySave::VT_SYMMETRY, Some(0.0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WaySave<'_> {
@@ -57018,6 +57054,10 @@ impl ::flatbuffers::Verifiable for WaySave<'_> {
      .visit_field::<f32>("pitch_centideg", Self::VT_PITCH_CENTIDEG, false)?
      .visit_field::<f32>("eave_cm", Self::VT_EAVE_CM, false)?
      .visit_field::<f32>("overhang_cm", Self::VT_OVERHANG_CM, false)?
+     .visit_field::<f32>("openings_permille", Self::VT_OPENINGS_PERMILLE, false)?
+     .visit_field::<f32>("ornament_dh", Self::VT_ORNAMENT_DH, false)?
+     .visit_field::<f32>("finish", Self::VT_FINISH, false)?
+     .visit_field::<f32>("symmetry", Self::VT_SYMMETRY, false)?
      .finish();
     Ok(())
   }
@@ -57027,6 +57067,10 @@ pub struct WaySaveArgs {
     pub pitch_centideg: f32,
     pub eave_cm: f32,
     pub overhang_cm: f32,
+    pub openings_permille: f32,
+    pub ornament_dh: f32,
+    pub finish: f32,
+    pub symmetry: f32,
 }
 impl<'a> Default for WaySaveArgs {
   #[inline]
@@ -57036,6 +57080,10 @@ impl<'a> Default for WaySaveArgs {
       pitch_centideg: 0.0,
       eave_cm: 0.0,
       overhang_cm: 0.0,
+      openings_permille: 0.0,
+      ornament_dh: 0.0,
+      finish: 0.0,
+      symmetry: 0.0,
     }
   }
 }
@@ -57062,6 +57110,22 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WaySaveBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(WaySave::VT_OVERHANG_CM, overhang_cm, 0.0);
   }
   #[inline]
+  pub fn add_openings_permille(&mut self, openings_permille: f32) {
+    self.fbb_.push_slot::<f32>(WaySave::VT_OPENINGS_PERMILLE, openings_permille, 0.0);
+  }
+  #[inline]
+  pub fn add_ornament_dh(&mut self, ornament_dh: f32) {
+    self.fbb_.push_slot::<f32>(WaySave::VT_ORNAMENT_DH, ornament_dh, 0.0);
+  }
+  #[inline]
+  pub fn add_finish(&mut self, finish: f32) {
+    self.fbb_.push_slot::<f32>(WaySave::VT_FINISH, finish, 0.0);
+  }
+  #[inline]
+  pub fn add_symmetry(&mut self, symmetry: f32) {
+    self.fbb_.push_slot::<f32>(WaySave::VT_SYMMETRY, symmetry, 0.0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WaySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WaySaveBuilder {
@@ -57083,6 +57147,10 @@ impl ::core::fmt::Debug for WaySave<'_> {
       ds.field("pitch_centideg", &self.pitch_centideg());
       ds.field("eave_cm", &self.eave_cm());
       ds.field("overhang_cm", &self.overhang_cm());
+      ds.field("openings_permille", &self.openings_permille());
+      ds.field("ornament_dh", &self.ornament_dh());
+      ds.field("finish", &self.finish());
+      ds.field("symmetry", &self.symmetry());
       ds.finish()
   }
 }

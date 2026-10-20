@@ -1370,7 +1370,7 @@ fn kept_and_fixed(sim: &Sim) -> Option<String> {
 fn style(sim: &Sim) -> Option<String> {
     let catalog = &sim.rules().catalog;
     let buildings = &sim.land().buildings;
-    let traits: Vec<[f32; 3]> = buildings
+    let traits: Vec<[f32; civ_agents::params::Taste::TRAITS]> = buildings
         .iter()
         .filter_map(|b| {
             let def = catalog

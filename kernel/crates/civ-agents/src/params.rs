@@ -1836,8 +1836,10 @@ pub struct Digging {
 }
 
 /// A taste in building, or the traits of a building (M3b slice R): the roof pitch, the height to
-/// the eaves and the roof's overhang beyond the walls a household would build to, each held to
-/// what a program allows when it builds.
+/// the eaves and the roof's overhang beyond the walls a household would build to, and from frame
+/// version 3 its front's four (M8d slice DD; ADR-0031 §7): the share of its walls left open, its
+/// ornament, its walls' finish and its symmetry. Each is held to what a program allows when it
+/// builds.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Taste {
     /// Roof pitch, hundredths of a degree.
@@ -1846,20 +1848,46 @@ pub struct Taste {
     pub eave_cm: f32,
     /// How far the roof reaches beyond the walls, centimetres.
     pub overhang_cm: f32,
+    /// The share of each storey's walls left open, thousandths.
+    pub openings_permille: f32,
+    /// Ornament, tenths of an hour of craft a square metre of front.
+    pub ornament_dh: f32,
+    /// The walls' finish: 0 bare, 1 daubed, 2 lime-washed.
+    pub finish: f32,
+    /// Symmetry: 0 none, 1 a front set out about its middle.
+    pub symmetry: f32,
 }
 
 impl Taste {
-    /// Its traits in order: pitch, eaves, overhang.
-    pub fn traits(&self) -> [f32; 3] {
-        [self.pitch_centideg, self.eave_cm, self.overhang_cm]
+    /// How many traits it has.
+    pub const TRAITS: usize = 7;
+    /// How many of them are the roof's and walls' height, which every program has (the rest are
+    /// version 3's front).
+    pub const ROOF_TRAITS: usize = 3;
+
+    /// Its traits in order: pitch, eaves, overhang, openings, ornament, finish, symmetry.
+    pub fn traits(&self) -> [f32; Taste::TRAITS] {
+        [
+            self.pitch_centideg,
+            self.eave_cm,
+            self.overhang_cm,
+            self.openings_permille,
+            self.ornament_dh,
+            self.finish,
+            self.symmetry,
+        ]
     }
 
     /// The taste with traits `t` in that order.
-    pub fn from_traits(t: [f32; 3]) -> Taste {
+    pub fn from_traits(t: [f32; Taste::TRAITS]) -> Taste {
         Taste {
             pitch_centideg: t[0],
             eave_cm: t[1],
             overhang_cm: t[2],
+            openings_permille: t[3],
+            ornament_dh: t[4],
+            finish: t[5],
+            symmetry: t[6],
         }
     }
 }

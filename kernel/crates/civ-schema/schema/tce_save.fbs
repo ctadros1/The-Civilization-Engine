@@ -3270,12 +3270,18 @@ struct WorkedSave {
 }
 
 // A settlement's way of building when it was founded (schema 61): roof pitch in hundredths of a
-// degree, height to the eaves and the roof's overhang in centimetres.
+// degree, height to the eaves and the roof's overhang in centimetres; and its front (schema 169,
+// M8d slice DD; 0 before it): openings in thousandths, ornament in tenths of an hour a square
+// metre, finish (0 bare, 1 daubed, 2 lime-washed) and symmetry.
 table WaySave {
   settlement: ulong (id: 0);
   pitch_centideg: float (id: 1);
   eave_cm: float (id: 2);
   overhang_cm: float (id: 3);
+  openings_permille: float (id: 4);
+  ornament_dh: float (id: 5);
+  finish: float (id: 6);
+  symmetry: float (id: 7);
 }
 
 // The buildings of other settlements `person` has seen, newest first (schema 59).

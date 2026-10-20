@@ -1588,3 +1588,9 @@ Content API 156 (M8d slice DC, fourth part) brings four ties acts (`ties.acts` m
 `raised_as_proposed` (one the other proposed was finished as proposed) and `proposal_stalled` (one
 the other proposed stalled). Those who use a building raised together, every adult of its polity,
 see them when it is finished or stalls.
+
+Content API 157 (M8d slice DD) gives a taste a front: `style.tradition`, `tradition_spread` and
+`personal_spread` may name `openings` (the share of a frame's walls left open), `ornament_h_per_m2`
+(hours of craft a square metre of its front), `finish` (0 bare, 1 daubed, 2 lime-washed) and
+`symmetry` (0 none to 1 a front set out about its middle), each 0 where not named. Only a frame
+of version 3 has a front, a store no openings; a lime wash takes someone who knows lime burning.

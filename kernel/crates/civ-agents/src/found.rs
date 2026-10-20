@@ -1752,16 +1752,19 @@ pub(crate) mod tests {
                     pitch_centideg: 4_500.0,
                     eave_cm: 180.0,
                     overhang_cm: 50.0,
+                    ..Default::default()
                 },
                 tradition_spread: crate::params::Taste {
                     pitch_centideg: 300.0,
                     eave_cm: 10.0,
                     overhang_cm: 8.0,
+                    ..Default::default()
                 },
                 personal_spread: crate::params::Taste {
                     pitch_centideg: 100.0,
                     eave_cm: 3.0,
                     overhang_cm: 3.0,
+                    ..Default::default()
                 },
                 seen_most: 8,
                 sight_m: 200.0,

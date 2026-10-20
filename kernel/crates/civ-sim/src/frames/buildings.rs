@@ -91,7 +91,7 @@ fn upkeep(b: &Building, e: Option<&Expansion>) -> String {
 /// How building `b` of program `def` was built, in words, and the building its household's taste
 /// followed (M3b slice R): "roof pitched 49°, walls 1.9 m to the eaves, after Bo's hut"; for a
 /// frame building its storeys and how far its eaves reach: "roof pitched 50°, storeys 2.1 m to
-/// the eaves, eaves 0.6 m out"; and where the building followed stands if in another settlement
+/// the eaves, eaves 0.6 m out", and from version 3 its front; and where the building followed stands if in another settlement
 /// (M5b slice AR): "after Bo's hut at Westford". Empty when the content lacks its program.
 pub fn style_words(sim: &Sim, b: &Building, def: Option<&BuildingDef>) -> String {
     let Some(def) = def else {
@@ -107,6 +107,15 @@ pub fn style_words(sim: &Sim, b: &Building, def: Option<&BuildingDef>) -> String
     words.push(format!("{walls} {:.1} m to the eaves", t.eave_cm / 100.0));
     if matches!(def.rules, ProgramRules::Frame(_)) {
         words.push(format!("eaves {:.1} m out", t.overhang_cm / 100.0));
+        // Its front (M8d slice DD): ", 30 % of the walls open, 1.5 h of ornament a square
+        // metre, lime-washed, set out about the middle".
+        let front = super::people::front_words(&t.traits().map(f64::from));
+        words.extend(
+            front
+                .split(", ")
+                .filter(|w| !w.is_empty())
+                .map(str::to_owned),
+        );
         // What version 3 lets it be built with (M8d slice CY).
         words.extend(civ_agents::style::system_words(&b.spec));
     }

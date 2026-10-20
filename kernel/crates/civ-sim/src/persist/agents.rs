@@ -126,7 +126,7 @@ use super::{
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
-    SCHEMA_V167, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V167, SCHEMA_V168, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -678,6 +678,7 @@ enum Schema {
     V166,
     V167,
     V168,
+    V169,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -860,7 +861,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V165 => Schema::V165,
         SCHEMA_V166 => Schema::V166,
         SCHEMA_V167 => Schema::V167,
-        SAVE_SCHEMA_VERSION => Schema::V168,
+        SCHEMA_V168 => Schema::V168,
+        SAVE_SCHEMA_VERSION => Schema::V169,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -5173,7 +5175,8 @@ fn carried(
         | Schema::V165
         | Schema::V166
         | Schema::V167
-        | Schema::V168 => {
+        | Schema::V168
+        | Schema::V169 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5516,7 +5519,8 @@ fn decode_households(
             | Schema::V165
             | Schema::V166
             | Schema::V167
-            | Schema::V168 => {
+            | Schema::V168
+            | Schema::V169 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5581,20 +5585,27 @@ fn decode_households(
             flows: Default::default(),
             offers,
             // Before schema 22 nobody had a taste: it is drawn on loading, as a band's would be.
+            // Before schema 169 a taste had the roof's three traits and no front: one of three
+            // traits loads with its front bare, unornamented, without openings or symmetry.
             taste: match h.taste() {
-                Some(t) if schema >= Schema::V22 && t.len() == 3 => {
+                Some(t) if schema >= Schema::V22 => {
                     let t: Vec<f32> = t.iter().collect();
+                    if t.len() != civ_agents::params::Taste::TRAITS
+                        && t.len() != civ_agents::params::Taste::ROOF_TRAITS
+                    {
+                        return Err(LoadError::Malformed(format!(
+                            "household {hh_id} has a taste of {} traits",
+                            t.len()
+                        )));
+                    }
                     if t.iter().any(|v| !v.is_finite()) {
                         return Err(LoadError::Malformed(format!(
                             "household {hh_id} has a taste that is not a number"
                         )));
                     }
-                    civ_agents::params::Taste::from_traits([t[0], t[1], t[2]])
-                }
-                Some(_) if schema >= Schema::V22 => {
-                    return Err(LoadError::Malformed(format!(
-                        "household {hh_id} has a taste of other than three traits"
-                    )));
+                    civ_agents::params::Taste::from_traits(std::array::from_fn(|k| {
+                        t.get(k).copied().unwrap_or(0.0)
+                    }))
                 }
                 _ => civ_agents::params::Taste::default(),
             },
@@ -10117,6 +10128,10 @@ fn encode_places(people: &Population, goods: &[&str]) -> Vec<u8> {
                     pitch_centideg: t.pitch_centideg,
                     eave_cm: t.eave_cm,
                     overhang_cm: t.overhang_cm,
+                    openings_permille: t.openings_permille,
+                    ornament_dh: t.ornament_dh,
+                    finish: t.finish,
+                    symmetry: t.symmetry,
                 },
             )
         })
@@ -10513,6 +10528,10 @@ fn decode_places(bytes: &[u8], rules: &Rules) -> Result<PlacesDecoded, LoadError
                 pitch_centideg: w.pitch_centideg(),
                 eave_cm: w.eave_cm(),
                 overhang_cm: w.overhang_cm(),
+                openings_permille: w.openings_permille(),
+                ornament_dh: w.ornament_dh(),
+                finish: w.finish(),
+                symmetry: w.symmetry(),
             },
         );
     }

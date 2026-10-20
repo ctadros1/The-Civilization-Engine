@@ -504,7 +504,9 @@ pub struct FireDesign {
 /// (buckling goes as d⁴), each to the nearest centimetre and no more than the program allows.
 /// A hut is built as usual: its rules leave nothing to size. `style`, when given, is the roof
 /// pitch, eaves and overhang it is built to ([`crate::style::commission`], within what the program
-/// allows; a hut's overhang is its rules'), else the program's usual ones. When `fire` caution
+/// allows; a hut's overhang is its rules'), else the program's usual ones; and from frame version
+/// 3 its front: every storey's openings, its ornament, its finish, and symmetry where its bays are
+/// odd, so its door is central (M8d slice DD). When `fire` caution
 /// is elevated, mass walls and tile roofs are chosen where known techniques permit (ADR-0022 §7, §10).
 #[allow(clippy::too_many_arguments)]
 pub fn design_cautious(
@@ -514,13 +516,13 @@ pub fn design_cautious(
     at: (f32, f32),
     toward: Option<(f32, f32)>,
     caution: f64,
-    style: Option<[i32; 3]>,
+    style: Option<[i32; crate::params::Taste::TRAITS]>,
     fire: Option<FireDesign>,
 ) -> Option<BuildingSpec> {
     match (shape, &def.rules) {
         (Shape::Round { radius }, ProgramRules::Hut(_)) => {
             let mut spec = design(def, goods, radius, at, toward);
-            if let Some([pitch, eave, _]) = style {
+            if let Some([pitch, eave, ..]) = style {
                 spec.params[hut_params::PITCH_CENTIDEG] = pitch;
                 spec.params[hut_params::EAVE_CM] = eave;
             }
@@ -560,10 +562,23 @@ pub fn design_cautious(
             }
             params[fp::FLOOR_RAISE_CM] = d.floor_raise_cm;
             params[fp::OVERHANG_CM] = d.overhang_cm;
-            if let Some([pitch, eave, overhang]) = style {
+            if let Some([pitch, eave, overhang, openings, ornament, finish, symmetry]) = style {
                 params[fp::PITCH_CENTIDEG] = pitch;
                 params[fp::EAVE_CM] = eave;
                 params[fp::OVERHANG_CM] = overhang;
+                if civ_grammar::FRAME_DESIGN_VERSION >= 3 {
+                    for t in 0..usize::from(storeys.clamp(0, 4)) {
+                        params[fp::OPENINGS + t] = openings;
+                    }
+                    params[fp::ORNAMENT] = ornament;
+                    // Lime wash takes someone who knows how to burn lime; daub anyone.
+                    params[fp::FINISH] = if finish >= 2 && !fire.is_some_and(|f| f.knows_lime) {
+                        1
+                    } else {
+                        finish
+                    };
+                    params[fp::SYMMETRY] = if bays % 2 == 1 { symmetry } else { 0 };
+                }
             }
             params[fp::POST_CM] = stronger(d.post_cm, 4.0, rules.post_cm.1);
             params[fp::WALL_CM] = d.wall_cm;
@@ -1295,7 +1310,7 @@ pub(crate) mod tests {
     }
 
     /// The core hut program.
-    fn def() -> BuildingDef {
+    pub(crate) fn def() -> BuildingDef {
         BuildingDef {
             id: "core:building/hut".into(),
             name: "Hut".into(),

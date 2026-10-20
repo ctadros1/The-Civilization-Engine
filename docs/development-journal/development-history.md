@@ -3249,3 +3249,12 @@ a save until the wall is mended; and that the observer's collapses stay out of t
 
 **Deferred:** a map layer for the damage (the Incidents panel already lists and links it), and
 a check of the frame's joints, so a timber frame now looks stronger than it would be.
+
+**Built:** what a village does after a shaking. Two new rules can be proposed once buildings have
+come down: one keeps houses of rubble or mud brick to a single storey, and anyone may put it
+forward; the other requires stone or brick walls above a storey to be tied into the floors, and
+only someone who knows how to tie them can propose it. A family whose two-storey house fell
+reckons what the height rule would take from it in lost floor and opposes it, while its neighbours
+do not. Builders who keep a rule build a storey lower where it asks. And a fall is now remembered
+against every craft the building used, so a fallen rubble wall makes the next rubble walls
+thicker, not only the timbers.

@@ -2399,13 +2399,10 @@ impl Population {
                          max_m: f64,
                          obey_rules: bool| {
             let program = &catalog.buildings[p];
-            // Members as strong as what the settlement has seen of the technique calls for.
-            let caution = self.caution(
-                hh.settlement,
-                program.technique,
-                ctx.now,
-                &ctx.params.build.caution,
-            );
+            // Members as strong as what the settlement has seen of the techniques it would build
+            // with calls for: its program's, and the walls and systems its people know (ADR-0031
+            // §5: a fallen rubble wall thickens the next rubble walls).
+            let caution = self.building_caution(ctx, hh, program);
             // Built to the household's taste, held to what the program allows, and now and then
             // with something new to it (M3b slice R).
             let style = crate::style::commission(

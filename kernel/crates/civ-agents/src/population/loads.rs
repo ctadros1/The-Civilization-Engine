@@ -502,7 +502,9 @@ impl Population {
         let Some(e) = self.expansion_of(b, def) else {
             return 0;
         };
-        let (at, technique) = (build::centre_m(&b.spec), def.technique);
+        let at = build::centre_m(&b.spec);
+        // Every technique it used (ADR-0031 §5): its program's, its walls' and its systems'.
+        let techniques = crate::rules::techniques_used(catalog, &b.spec, def);
         let reach_m = match b.spec.footprint {
             civ_grammar::Footprint::Round { radius, .. } => f64::from(radius) / 100.0,
             civ_grammar::Footprint::Rect { length, width, .. } => {
@@ -643,9 +645,11 @@ impl Population {
             dead.len() as f64,
             words,
         );
-        // The settlement remembers it against the technique (ADR-0009 §6).
+        // The settlement remembers it against each technique it used (ADR-0009 §6, ADR-0031 §5).
         let caution = &ctx.params.build.caution;
-        self.remember_failure(settlement, technique, dead.len(), now, caution);
+        for t in techniques {
+            self.remember_failure(settlement, Some(t), dead.len(), now, caution);
+        }
         // And each household of it hears it told and remembers it (M6b slice BH).
         if let Some(b) = ctx.land.buildings.get(i) {
             let seen = crate::person::GaveWay {

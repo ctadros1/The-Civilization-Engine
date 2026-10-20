@@ -5231,6 +5231,20 @@ and M6a gives rivers a daily flow.
         nobody proposes the ties rule until people know tied masonry, then one of them does; under
         both, the longhouse breaks each and a hut is bound by neither; the memory round-trips a
         save. **Boundary:** saves 163, content API 152.
+      - *Second part, as built (2026-10-20): trust kept by every technique a building used*
+        (ADR-0031 §5). A building that gives way is remembered against each technique it used, its
+        program's, its walls' (rubble walling, mud brick, or firing and lime burning for fired
+        brick) and each version 3 system it was built with, and each month a building stands counts
+        for each of them too. A household's builders size a building's members by the most any
+        technique they would build it with calls for: its program's, and for a frame the walls and
+        systems its people know. So a fallen rubble wall thickens the next rubble walls, and quiet
+        years let the caution fall again as before. **Test:** a rubble longhouse the strongest
+        shaking brings down raises its settlement's caution for rubble walling and for framing,
+        none for mud brick, which it did not use; at that caution a rubble wall is designed thicker.
+        **Slice DB is closed.** One part of the ADR is left: a household that lost kin forecasts
+        the losses a rule avoids in buildings alone, not in lives, since what it heard gave way
+        keeps no dead; weighing the dead waits for the demo (DE) to show whether buildings alone
+        move a gathering.
     - **DC, public buildings:** polity owners, `RaiseBuilding`, storehouse, hall and tower
       programs each answering a measured loss, equal shares, pay for work, patrons' shares,
       ties evidence, four dates and stalls. *Tests:* no proposal without a measured loss; a
@@ -6555,7 +6569,10 @@ One line each. Don't re-litigate without a reason written next to the entry.
   limit: the work of making that floor again elsewhere, ignoring the ground it would take (ADR-0030
   §1's plot costs are not reckoned here). A builder keeping it builds the same bays a storey lower
   rather than wider, so a kept rule costs floor, not ground. Each revisited if the demo (DE) shows
-  no household weighing height at all.
+  no household weighing height at all. And a household sizes a frame's members by the most caution
+  any wall or system technique its people know calls for, not only the one the design ends up
+  using (the wall kind is chosen inside the design), so a rubble failure also stiffens a wattle
+  frame's posts a little; accepted while one caution scalar sizes every member.
 - **A test helper leaves state a load derives otherwise (2026-10-20, M8d slice DA):**
   `Sim::place_building_for_tests` leaves state a load derives otherwise: a save taken right after
   it does not resume exactly (the shaking test reloads once after placing). To be fixed.

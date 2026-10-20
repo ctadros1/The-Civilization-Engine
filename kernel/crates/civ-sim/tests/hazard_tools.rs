@@ -942,3 +942,82 @@ fn twin_villages_shaken_alike_lose_more_where_the_walls_are_untied() {
         "some shaking the tied walls bear brings the untied down or cracks them"
     );
 }
+
+#[test]
+fn a_rubble_wall_shaken_down_makes_its_settlement_build_rubble_walls_thicker() {
+    // M8d slice DB (ADR-0031 §5): trust is kept by every technique a building used, so a fallen
+    // rubble longhouse is remembered against rubble walling as well as its program's framing.
+    use civ_grammar::frame::frame_params as fp;
+    let mut sim = world();
+    let (owner, _) = weak_covering(&mut sim);
+    let rubble = rubble_longhouse(&mut sim, owner, false);
+    let settlement = sim
+        .people()
+        .household(owner)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    let catalog = &content().catalog;
+    let technique = |id: &str| catalog.technique_index(id).expect(id);
+    let (walling, mud) = (
+        technique("core:technique/rubble_walling"),
+        technique("core:technique/mud_brick"),
+    );
+    let p = sim.rules().people.build.caution;
+    let caution = |sim: &Sim, t: usize| {
+        sim.people()
+            .caution(Some(settlement), Some(t), sim.now(), &p)
+    };
+    assert_eq!(caution(&sim, walling), 1.0);
+    sim.advance_minutes(DAY).expect("day");
+    sim.shake(0.6, None).expect("shaken");
+    let q = sim.people().quakes.list.last().expect("a record");
+    assert!(
+        q.shaken
+            .iter()
+            .any(|s| s.building == rubble && s.outcome == civ_agents::quake::Outcome::Fell),
+        "{q:?}"
+    );
+    let after = caution(&sim, walling);
+    assert!(after > 1.0, "{after}");
+    let def = &catalog.buildings[catalog
+        .building_index("core:building/longhouse")
+        .expect("longhouse")];
+    let program = caution(&sim, def.technique.expect("framing"));
+    assert!(program > 1.0, "{program}");
+    // Mud brick it did not use: nothing seen against it.
+    assert_eq!(caution(&sim, mud), 1.0);
+    // At that caution the next rubble walls are thicker.
+    let wall_cm = |c: f64| {
+        let spec = civ_agents::build::design_cautious(
+            def,
+            &catalog.goods,
+            civ_agents::build::Shape::Bays {
+                bays: 2,
+                storeys: 2,
+                lofts: 0,
+            },
+            (0.0, 0.0),
+            None,
+            c,
+            None,
+            Some(civ_agents::build::FireDesign {
+                caution_thatch: 1.0,
+                caution_wattle: 2.0,
+                knows_rubble: true,
+                knows_mud_brick: false,
+                knows_firing: false,
+                knows_lime: false,
+                knows_systems: [false; 3],
+            }),
+        )
+        .expect("design");
+        assert_eq!(spec.params[fp::WALL_KIND], 1, "rubble");
+        spec.params[fp::WALL_CM].max(spec.params[fp::STOREY_WALL_CM])
+    };
+    assert!(
+        wall_cm(after) > wall_cm(1.0),
+        "{} {}",
+        wall_cm(after),
+        wall_cm(1.0)
+    );
+}

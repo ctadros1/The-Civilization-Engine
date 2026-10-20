@@ -46,6 +46,45 @@ pub fn wall_kind(spec: &civ_grammar::BuildingSpec, rules: &civ_grammar::ProgramR
     }
 }
 
+/// The techniques building walls of kind `kind` takes, by index in the catalog's techniques:
+/// rubble walling, mud brick, or firing and lime burning for fired brick in lime (ADR-0022 §10);
+/// none for wattle and daub.
+pub fn wall_techniques(catalog: &crate::params::Catalog, kind: u8) -> Vec<usize> {
+    let ids: &[&str] = match kind {
+        1 => &["core:technique/rubble_walling"],
+        2 => &["core:technique/mud_brick"],
+        3 => &["core:technique/firing", "core:technique/lime_burning"],
+        _ => &[],
+    };
+    ids.iter()
+        .filter_map(|id| catalog.technique_index(id))
+        .collect()
+}
+
+/// Every technique building `spec` of program `def` used, by index in the catalog's techniques
+/// (ADR-0031 §5: trust is kept by every technique a building used): its program's, its walls'
+/// and each version 3 system's it was built with, each once.
+pub fn techniques_used(
+    catalog: &crate::params::Catalog,
+    spec: &civ_grammar::BuildingSpec,
+    def: &crate::params::BuildingDef,
+) -> Vec<usize> {
+    use civ_grammar::frame::frame_params as fp;
+    let mut out: Vec<usize> = def.technique.into_iter().collect();
+    out.extend(wall_techniques(catalog, wall_kind(spec, &def.rules)));
+    for (i, param) in [fp::ROOF_SYSTEM, fp::POST_SYSTEM, fp::TIES]
+        .into_iter()
+        .enumerate()
+    {
+        if spec.params.get(param).is_some_and(|&v| v != 0) {
+            out.extend(def.systems[i]);
+        }
+    }
+    out.sort_unstable();
+    out.dedup();
+    out
+}
+
 /// Whether a building's mass walls are tied at each floor (ADR-0031 §1: version 3's wall ties).
 pub fn tied(spec: &civ_grammar::BuildingSpec) -> bool {
     spec.params

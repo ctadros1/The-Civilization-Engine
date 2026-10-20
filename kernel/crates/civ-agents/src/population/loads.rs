@@ -654,6 +654,8 @@ impl Population {
                 own: false,
                 wall_kind: crate::rules::wall_kind(&b.spec, &def.rules),
                 hours: Self::fire_cost_h(ctx, b) as f32,
+                storeys: b.spec.storeys.max(1),
+                tied: crate::rules::tied(&b.spec),
             };
             for (_, x) in self.households.iter_mut() {
                 if settlement.is_some() && x.settlement == settlement {

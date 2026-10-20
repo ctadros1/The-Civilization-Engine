@@ -794,6 +794,10 @@ pub struct GaveWay {
     pub wall_kind: u8,
     /// The work putting it right would take, hours.
     pub hours: f32,
+    /// Its storeys (M8d slice DB).
+    pub storeys: u8,
+    /// Whether its mass walls were tied at each floor (M8d slice DB).
+    pub tied: bool,
 }
 
 /// A building a household lost to fire, or that its people saw burn (M6b slice BH; ADR-0022

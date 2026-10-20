@@ -1,0 +1,29 @@
+# Mass walls kept low (M8d slice DB; ADR-0031 §5: a dimension rule). When buildings a household knew
+# have given way, the ground shaking them or their own weight (the issue `gave_way`), anyone may
+# propose that a new building whose walls are of rubble or mud brick rise no more than a storey:
+# the weaker masonry, whose walls a shaking overturns or slides first (research 11-05 §2.5); fired
+# brick in lime is left out, an authoring judgement. It needs no technique. A household weighs it
+# by the loss it believes averted, from the buildings it heard gave way that the rule would have
+# kept low, against the floor it would take from the next home it builds, if that home would rise
+# higher on such walls. It binds only buildings begun once it is in force, and keeping it is each
+# builder's choice, with no sanction. Its id sorts after every older template's: hearth talk about a
+# question is keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/yours_to_stay_low"
+name = "Stone and mud kept low"
+description = "A new building with walls of rubble or mud brick must rise no more than a storey."
+does = "building_rule"
+answers = ["gave_way"]
+question = "whether new buildings of rubble or mud brick must stay a storey high"
+
+[rule]
+template = "most_storeys"
+storeys = 1
+walls = ["rubble", "mud_brick"]
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: it guards against collapse, and binds how high people
+# build.
+[bears]
+"core:value/security" = 0.5
+"core:value/autonomy" = -0.5

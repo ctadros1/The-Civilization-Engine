@@ -1980,6 +1980,55 @@ impl Population {
             .collect()
     }
 
+    /// What the rule for building of catalog index `policy` would bring each household of
+    /// settlement `settlement`, points, as its members would weigh it at the gathering (M8d slice
+    /// DB): for tests.
+    #[doc(hidden)]
+    pub fn rule_gains_for_tests(
+        &self,
+        ctx: &Ctx,
+        settlement: PermanentId,
+        policy: u16,
+    ) -> Vec<(PermanentId, f64)> {
+        let Some(pi) = self.polity_of(settlement) else {
+            return Vec::new();
+        };
+        let mut households: Vec<PermanentId> = self
+            .households
+            .iter()
+            .filter(|(_, x)| self.polities[pi].holds(x.settlement) && !x.members.is_empty())
+            .map(|(_, x)| x.id)
+            .collect();
+        households.sort_unstable();
+        let adults = self.members_of(settlement, ctx.now, ctx.params);
+        let fc = self.forecasts(ctx, pi, &households, &adults);
+        let m = MoveOption {
+            policy,
+            levy_share: 0.0,
+            issue: IssueKind::GaveWay,
+            nominee: None,
+            sanction: Default::default(),
+            hours: (0, 0),
+            body: None,
+            ends: None,
+            site: None,
+            target: None,
+            own_gain: 0.0,
+            followers_gain: 0.0,
+            support: 0.5,
+        };
+        let pp = &ctx.params.polity;
+        households
+            .iter()
+            .map(|&h| {
+                (
+                    h,
+                    pp.w_gain * fc.gain(&m, h, &ctx.catalog.policies, ctx.params),
+                )
+            })
+            .collect()
+    }
+
     /// `person` of household `household` drew water at `cell` (see [`Population::drew_at`]): for
     /// tests.
     #[doc(hidden)]

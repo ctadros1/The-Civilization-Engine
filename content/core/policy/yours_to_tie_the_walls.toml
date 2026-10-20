@@ -1,0 +1,26 @@
+# Walls tied at each floor (M8d slice DB; ADR-0031 §5: a technique rule). When buildings a household
+# knew have given way (the issue `gave_way`), someone who knows tied masonry may propose that new
+# walls of stone or brick above a storey be tied at each floor, the floors and roof framed into them
+# so that each storey's wall stands its own height (research 11-05 §2.5). A household weighs it by
+# the loss it believes averted, from the buildings it heard gave way with untied walls above a
+# storey, against what tying its next home's walls would cost more; one that cannot tie them keeps
+# it only by building a storey high, or breaks it. It binds only buildings begun once it is in
+# force, and keeping it is each builder's choice, with no sanction. Its id sorts after every older
+# template's: hearth talk about a question is keyed by a template's place in id order.
+kind = "policy"
+id = "core:policy/yours_to_tie_the_walls"
+name = "Walls tied at each floor"
+description = "New walls of stone or brick above a storey must be tied at each floor."
+does = "building_rule"
+answers = ["gave_way"]
+question = "whether new walls of stone or brick above a storey must be tied at each floor"
+
+[rule]
+template = "tied_walls"
+needs = "core:technique/tied_masonry"
+
+# How a law of this kind bears on what people hold dear: -1 against a value to 1 for it. An
+# authoring judgement, not a measurement: it guards against collapse, and asks a craft of builders.
+[bears]
+"core:value/security" = 0.5
+"core:value/autonomy" = -0.25

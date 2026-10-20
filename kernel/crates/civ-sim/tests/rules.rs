@@ -533,3 +533,166 @@ fn a_rule_keeps_a_home_where_fire_is_worked_from_others_homes() {
         .compliance;
     assert_eq!((c.complied, c.broken + c.broken_unaware), (0, 1), "{c:?}");
 }
+
+#[test]
+fn a_shaken_village_proposes_tied_walls_only_where_someone_ties_them_and_its_tall_builder_opposes_a_height_rule()
+ {
+    // M8d slice DB (ADR-0031 §5): a two-storey longhouse of untied rubble beside the first
+    // household's home, huts beside four others, and the strongest shaking.
+    let mut sim = village(5);
+    sim.advance_minutes(DAY).expect("advances");
+    let mut owners: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, h)| !h.members.is_empty())
+        .map(|(_, h)| h.id)
+        .collect();
+    owners.sort_unstable();
+    let owner = owners[0];
+    let catalog = &content().catalog;
+    let home = sim.people().household(owner).expect("a household").home;
+    let longhouse = {
+        use civ_agents::build::{self, FireDesign, Shape};
+        let def = &catalog.buildings[catalog
+            .building_index("core:building/longhouse")
+            .expect("longhouse")];
+        let spec = build::design_cautious(
+            def,
+            &catalog.goods,
+            Shape::Bays {
+                bays: 2,
+                storeys: 2,
+                lofts: 0,
+            },
+            (home.0 + 25.0, home.1),
+            None,
+            1.0,
+            None,
+            Some(FireDesign {
+                caution_thatch: 1.0,
+                caution_wattle: 2.0,
+                knows_rubble: true,
+                knows_mud_brick: false,
+                knows_firing: false,
+                knows_lime: false,
+                knows_systems: [false; 3],
+            }),
+        )
+        .expect("design");
+        sim.place_building_for_tests(owner, spec, civ_grammar::Stage::ALL.len() as u8)
+            .expect("placed")
+    };
+    let hut_def = &catalog.buildings[catalog.building_index("core:building/hut").expect("hut")];
+    for (k, &h) in owners.iter().skip(1).take(4).enumerate() {
+        let spec = civ_agents::build::design_shape(
+            hut_def,
+            &catalog.goods,
+            civ_agents::build::Shape::Round { radius: 310 },
+            (home.0 - 20.0 - k as f32 * 12.0, home.1 + 15.0),
+            None,
+        )
+        .expect("a hut");
+        sim.place_building_for_tests(h, spec, civ_grammar::Stage::ALL.len() as u8)
+            .expect("placed");
+    }
+    let settlement = sim
+        .people()
+        .household(owner)
+        .and_then(|x| x.settlement)
+        .expect("settled");
+    sim.advance_minutes(DAY).expect("advances");
+    sim.shake(0.6, None).expect("shaken");
+    // Everyone of the settlement heard it fell, two storeys high on untied rubble.
+    let heard: Vec<civ_agents::person::GaveWay> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement))
+        .flat_map(|(_, x)| x.gave_way.iter().copied())
+        .filter(|g| g.building == longhouse)
+        .collect();
+    assert!(!heard.is_empty(), "the longhouse fell and was heard of");
+    for g in &heard {
+        assert_eq!((g.wall_kind, g.storeys, g.tied), (1, 2, false), "{g:?}");
+    }
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.settlement == settlement)
+        .expect("a polity");
+    sim.people_mut_for_tests().every_adult_deliberates = true;
+    // The height rule needs no technique; the household whose tall home fell forecasts the floor
+    // it would take, which outweighs what it believes averted, and opposes it.
+    let low = policy("core:policy/yours_to_stay_low");
+    let gains = sim.with_ctx_for_tests(|pop, ctx| pop.rule_gains_for_tests(ctx, settlement, low));
+    let own = gains.iter().find(|g| g.0 == owner).expect("its gain").1;
+    assert!(own < 0.0, "{gains:?}");
+    assert!(
+        gains.iter().filter(|g| g.0 != owner).all(|g| g.1 >= 0.0),
+        "nobody else loses floor: {gains:?}"
+    );
+    let stay_low = proposed(&mut sim, pi, settlement, low).expect("a height rule proposed");
+    assert_eq!(stay_low.issue, IssueKind::GaveWay);
+    assert_eq!(
+        civ_sim::frames::word::law_text(&sim, &sim.people().polities[pi], &stay_low),
+        "a rule for building: a new building with walls of rubble or mud brick must rise no more \
+         than 1 storey, of what is begun from its day"
+    );
+    // Nobody knows how to tie walls: nobody proposes it. Once they do, one of them does.
+    let tied = sim
+        .rules()
+        .catalog
+        .technique_index("core:technique/tied_masonry")
+        .expect("tied masonry");
+    let ties = policy("core:policy/yours_to_tie_the_walls");
+    assert!(!sim.people().people.iter().any(|(_, p)| p.knows(tied)));
+    assert!(proposed(&mut sim, pi, settlement, ties).is_none());
+    let people: Vec<PermanentId> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement))
+        .flat_map(|(_, x)| x.members.clone())
+        .collect();
+    for m in people {
+        sim.introduce_technique(m, "core:technique/tied_masonry", false)
+            .expect("taught");
+    }
+    let tie = proposed(&mut sim, pi, settlement, ties).expect("a ties rule proposed");
+    assert_eq!(tie.issue, IssueKind::GaveWay);
+    assert!(
+        sim.people()
+            .person(tie.sponsor)
+            .is_some_and(|p| p.knows(tied))
+    );
+    // Both in force: the longhouse, had it been begun under them, breaks both; a hut is bound by
+    // neither.
+    in_force(&mut sim, pi, stay_low.id);
+    in_force(&mut sim, pi, tie.id);
+    sim.with_ctx_for_tests(|pop, ctx| pop.count_rule_keeping_for_tests(ctx, owner, longhouse));
+    let hut = sim
+        .land()
+        .buildings
+        .iter()
+        .find(|b| b.household == owners[1])
+        .expect("a hut")
+        .id;
+    sim.with_ctx_for_tests(|pop, ctx| pop.count_rule_keeping_for_tests(ctx, owners[1], hut));
+    for id in [stay_low.id, tie.id] {
+        let c = sim.people().polities[pi]
+            .laws
+            .iter()
+            .find(|l| l.id == id)
+            .expect("the law")
+            .compliance;
+        assert_eq!((c.complied, c.broken + c.broken_unaware), (0, 1), "{c:?}");
+    }
+    // The memory of it survives a save.
+    let loaded = reloaded(&mut sim);
+    assert_eq!(
+        loaded.people().household(owner).expect("it").gave_way,
+        sim.people().household(owner).expect("it").gave_way
+    );
+}

@@ -1554,3 +1554,9 @@ frame version 3's systems, the technique that opens it, `trussed_roof`, `storeye
 `wall_ties` (each a technique id, or omitted for none). A technique a program names there gates
 work (E3005). The core adds `trussed_roof`, `storeyed_frame` and `tied_masonry`, none known to
 founders, each tried toward in building huts; `jointed_frame` is now tried toward there too.
+
+Content API 152 (M8d slice DB) brings two building-rule templates (ADR-0031 §5): `most_storeys`,
+a dimension rule that a new building whose walls are of one of `walls` rise at most `storeys` (1 to
+3); and `tied_walls`, a technique rule that new mass walls above a storey be tied at each floor,
+which a policy gates by `needs`. The core authors them as `yours_to_stay_low` (rubble and mud brick
+a storey high) and `yours_to_tie_the_walls` (needing `tied_masonry`), each answering `gave_way`.

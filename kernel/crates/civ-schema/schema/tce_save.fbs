@@ -494,6 +494,10 @@ table GaveWaySave {
   own: bool (id: 2);
   wall_kind: ubyte (id: 3);
   hours: float (id: 4);
+  // Its storeys and whether its mass walls were tied at each floor (schema 163, M8d slice DB);
+  // before, a storey untied.
+  storeys: ubyte = 1 (id: 5);
+  tied: bool (id: 6);
 }
 
 // A building a household lost to fire or saw burn (schema 107, M6b slice BH): the day the fire

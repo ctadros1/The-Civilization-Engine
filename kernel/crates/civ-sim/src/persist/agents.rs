@@ -125,7 +125,7 @@ use super::{
     SCHEMA_V139, SCHEMA_V140, SCHEMA_V141, SCHEMA_V142, SCHEMA_V143, SCHEMA_V144, SCHEMA_V145,
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
-    SCHEMA_V160, SCHEMA_V161, finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -671,6 +671,7 @@ enum Schema {
     V160,
     V161,
     V162,
+    V163,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -847,7 +848,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V159 => Schema::V159,
         SCHEMA_V160 => Schema::V160,
         SCHEMA_V161 => Schema::V161,
-        SAVE_SCHEMA_VERSION => Schema::V162,
+        SCHEMA_V162 => Schema::V162,
+        SAVE_SCHEMA_VERSION => Schema::V163,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -4987,7 +4989,8 @@ fn carried(
         | Schema::V159
         | Schema::V160
         | Schema::V161
-        | Schema::V162 => {
+        | Schema::V162
+        | Schema::V163 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5085,6 +5088,8 @@ fn encode_households(pop: &Population, goods: &[&str], resources: &[&str]) -> Ve
                             own: l.own,
                             wall_kind: l.wall_kind,
                             hours: l.hours,
+                            storeys: l.storeys,
+                            tied: l.tied,
                         },
                     )
                 })
@@ -5322,7 +5327,8 @@ fn decode_households(
             | Schema::V159
             | Schema::V160
             | Schema::V161
-            | Schema::V162 => {
+            | Schema::V162
+            | Schema::V163 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(
@@ -5538,12 +5544,13 @@ fn decode_households(
                     let ok = l.hours().is_finite()
                         && l.hours() >= 0.0
                         && l.wall_kind() <= 3
+                        && (1..=civ_grammar::frame::MAX_STOREYS).contains(&l.storeys())
                         && building.is_some()
                         && out.last().is_none_or(|p| p.day <= l.day());
                     let (Some(building), true) = (building, ok) else {
                         return Err(LoadError::Malformed(format!(
                             "household {hh_id} remembers a building that gave way out of order, \
-                             of no building, wall kind or amount"
+                             of no building, wall kind, storeys or amount"
                         )));
                     };
                     out.push(civ_agents::person::GaveWay {
@@ -5552,6 +5559,9 @@ fn decode_households(
                         own: l.own(),
                         wall_kind: l.wall_kind(),
                         hours: l.hours(),
+                        // Its storeys and ties (schema 163); before, a storey untied.
+                        storeys: l.storeys(),
+                        tied: l.tied(),
                     });
                 }
                 out

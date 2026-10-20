@@ -46,6 +46,21 @@ pub fn wall_kind(spec: &civ_grammar::BuildingSpec, rules: &civ_grammar::ProgramR
     }
 }
 
+/// Whether a building's mass walls are tied at each floor (ADR-0031 §1: version 3's wall ties).
+pub fn tied(spec: &civ_grammar::BuildingSpec) -> bool {
+    spec.params
+        .get(civ_grammar::frame::frame_params::TIES)
+        .is_some_and(|&t| t != 0)
+}
+
+/// Whether a building of `storeys` storeys with walls of kind `wall_kind`, tied at each floor or
+/// not, breaks a rule that a building with walls of `kinds` rise at most `most` storeys, or one
+/// that mass walls above a storey be tied (M8d slice DB, ADR-0031 §5).
+pub fn too_tall(storeys: u8, wall_kind: u8, tied: bool, most: Option<[u8; 4]>, ties: bool) -> bool {
+    let over = most.is_some_and(|m| storeys > m[usize::from(wall_kind.min(3))]);
+    over || (ties && wall_kind > 0 && storeys > 1 && !tied)
+}
+
 /// The strength in compression and weight of a mass wall of kind `kind` (1 rubble, 2 mud brick, 3
 /// fired brick) in a program with rules `rules`, pascals and kilograms a cubic metre: the
 /// program's own figures (ADR-0031 §1), or rubble's for a kind it does not name.
@@ -116,6 +131,23 @@ pub fn near_others_homes(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_height_rule_binds_its_wall_kinds_and_a_ties_rule_untied_mass_walls_above_a_storey() {
+        // Rubble and mud brick at most a storey; wattle and fired brick as high as they will.
+        let most = Some([u8::MAX, 1, 1, u8::MAX]);
+        assert!(too_tall(2, 1, false, most, false));
+        assert!(too_tall(2, 1, true, most, false), "tied or not, too tall");
+        assert!(!too_tall(1, 1, false, most, false));
+        assert!(!too_tall(3, 3, false, most, false));
+        assert!(!too_tall(2, 0, false, most, false));
+        // Tied: mass walls above a storey only if tied; a wattle frame or a storey never bound.
+        assert!(too_tall(2, 3, false, None, true));
+        assert!(!too_tall(2, 3, true, None, true));
+        assert!(!too_tall(1, 2, false, None, true));
+        assert!(!too_tall(2, 0, false, None, true));
+        assert!(!too_tall(4, 3, false, None, false), "no rule, no bound");
+    }
 
     #[test]
     fn plots_apart_by_their_nearest_edges() {

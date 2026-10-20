@@ -29256,6 +29256,8 @@ impl<'a> GaveWaySave<'a> {
   pub const VT_OWN: ::flatbuffers::VOffsetT = 8;
   pub const VT_WALL_KIND: ::flatbuffers::VOffsetT = 10;
   pub const VT_HOURS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_STOREYS: ::flatbuffers::VOffsetT = 14;
+  pub const VT_TIED: ::flatbuffers::VOffsetT = 16;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -29270,6 +29272,8 @@ impl<'a> GaveWaySave<'a> {
     builder.add_building(args.building);
     builder.add_day(args.day);
     builder.add_hours(args.hours);
+    builder.add_tied(args.tied);
+    builder.add_storeys(args.storeys);
     builder.add_wall_kind(args.wall_kind);
     builder.add_own(args.own);
     builder.finish()
@@ -29311,6 +29315,20 @@ impl<'a> GaveWaySave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(GaveWaySave::VT_HOURS, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn storeys(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(GaveWaySave::VT_STOREYS, Some(1)).unwrap()}
+  }
+  #[inline]
+  pub fn tied(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(GaveWaySave::VT_TIED, Some(false)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for GaveWaySave<'_> {
@@ -29324,6 +29342,8 @@ impl ::flatbuffers::Verifiable for GaveWaySave<'_> {
      .visit_field::<bool>("own", Self::VT_OWN, false)?
      .visit_field::<u8>("wall_kind", Self::VT_WALL_KIND, false)?
      .visit_field::<f32>("hours", Self::VT_HOURS, false)?
+     .visit_field::<u8>("storeys", Self::VT_STOREYS, false)?
+     .visit_field::<bool>("tied", Self::VT_TIED, false)?
      .finish();
     Ok(())
   }
@@ -29334,6 +29354,8 @@ pub struct GaveWaySaveArgs {
     pub own: bool,
     pub wall_kind: u8,
     pub hours: f32,
+    pub storeys: u8,
+    pub tied: bool,
 }
 impl<'a> Default for GaveWaySaveArgs {
   #[inline]
@@ -29344,6 +29366,8 @@ impl<'a> Default for GaveWaySaveArgs {
       own: false,
       wall_kind: 0,
       hours: 0.0,
+      storeys: 1,
+      tied: false,
     }
   }
 }
@@ -29374,6 +29398,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GaveWaySaveBuilder<'a, 'b, A>
     self.fbb_.push_slot::<f32>(GaveWaySave::VT_HOURS, hours, 0.0);
   }
   #[inline]
+  pub fn add_storeys(&mut self, storeys: u8) {
+    self.fbb_.push_slot::<u8>(GaveWaySave::VT_STOREYS, storeys, 1);
+  }
+  #[inline]
+  pub fn add_tied(&mut self, tied: bool) {
+    self.fbb_.push_slot::<bool>(GaveWaySave::VT_TIED, tied, false);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GaveWaySaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     GaveWaySaveBuilder {
@@ -29396,6 +29428,8 @@ impl ::core::fmt::Debug for GaveWaySave<'_> {
       ds.field("own", &self.own());
       ds.field("wall_kind", &self.wall_kind());
       ds.field("hours", &self.hours());
+      ds.field("storeys", &self.storeys());
+      ds.field("tied", &self.tied());
       ds.finish()
   }
 }

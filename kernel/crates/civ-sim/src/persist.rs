@@ -454,6 +454,9 @@ pub const SCHEMA_V159: u32 = 159;
 pub const SCHEMA_V160: u32 = 160;
 /// Plans' bundles that took buildings down or let them stand, before the ground was shaken.
 pub const SCHEMA_V161: u32 = 161;
+/// The ground shaken, before households remembered the storeys and ties of a building that gave
+/// way.
+pub const SCHEMA_V162: u32 = 162;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

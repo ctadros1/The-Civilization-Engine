@@ -2468,20 +2468,44 @@ impl Population {
             };
             let design_at = |at: (f32, f32)| {
                 let reachable = reach.is_none_or(|r| r.seconds_to(cell_of(ctx.map, at)).is_some());
+                let design = |shape: build::Shape| {
+                    build::design_cautious(
+                        program,
+                        goods,
+                        shape,
+                        at,
+                        toward,
+                        caution,
+                        Some(style),
+                        Some(fire_design),
+                    )
+                };
                 reachable
                     .then(|| {
-                        build::design_cautious(
-                            program,
-                            goods,
-                            shape,
-                            at,
-                            toward,
-                            caution,
-                            Some(style),
-                            Some(fire_design),
-                        )
+                        let spec = design(shape)?;
+                        // Built lower where a height or ties rule its builders keep allows no
+                        // more storeys on its walls (M8d slice DB).
+                        let most = rules.most_storeys(
+                            crate::rules::wall_kind(&spec, &program.rules),
+                            crate::rules::tied(&spec),
+                        );
+                        match shape {
+                            build::Shape::Bays {
+                                bays,
+                                storeys,
+                                lofts,
+                            } if storeys > most && most >= 1 => design(build::Shape::Bays {
+                                bays,
+                                storeys: most,
+                                lofts,
+                            }),
+                            _ => Some(spec),
+                        }
                     })
                     .flatten()
+                    .filter(|spec| {
+                        !rules.too_tall(spec, crate::rules::wall_kind(spec, &program.rules))
+                    })
                     // A roof that burns is not put within a roof rule's reach of another building,
                     // walls are of a kind the rules allow, and a plot keeps the least gap.
                     .filter(|spec| {

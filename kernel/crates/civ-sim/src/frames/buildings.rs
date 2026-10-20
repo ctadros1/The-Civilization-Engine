@@ -215,6 +215,19 @@ fn rules_kept_by(sim: &Sim, b: &Building, def: &BuildingDef) -> Vec<String> {
                             )
                         }),
                 ),
+                // Walls of a kind a height rule names, no higher than it allows; mass walls
+                // above a storey, tied (M8d slice DB).
+                RuleTemplate::MostStoreys { storeys, kinds } => (
+                    "it rises low, keeping",
+                    kinds & (1 << civ_agents::rules::wall_kind(&b.spec, &def.rules)) != 0
+                        && b.spec.storeys <= storeys,
+                ),
+                RuleTemplate::TiedWalls => (
+                    "its walls are tied, keeping",
+                    civ_agents::rules::wall_kind(&b.spec, &def.rules) > 0
+                        && b.spec.storeys > 1
+                        && civ_agents::rules::tied(&b.spec),
+                ),
             };
             kept.then(|| {
                 format!(

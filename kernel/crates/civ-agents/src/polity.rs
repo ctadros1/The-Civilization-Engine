@@ -797,6 +797,13 @@ pub enum RuleTemplate {
     /// A new home, where its household's midden lies, must stand `from_m` metres from every open
     /// well (M8c slice CW, ADR-0030 §6: `contagion.rs`'s seepage).
     MiddenFromWells { from_m: f32 },
+    /// A building whose walls are of one of the kinds named (a bit for each, as
+    /// [`RuleTemplate::WallsOfKinds`]) may rise at most `storeys` storeys (M8d slice DB, ADR-0031
+    /// §5: a dimension rule).
+    MostStoreys { storeys: u8, kinds: u8 },
+    /// Mass walls of more than a storey must be tied at each floor (M8d slice DB, ADR-0031 §5: a
+    /// technique rule).
+    TiedWalls,
 }
 
 /// The names of the wall kinds, by kind code (ADR-0022 §10).
@@ -811,6 +818,8 @@ impl RuleTemplate {
             RuleTemplate::LeastGap { .. } => "least_gap",
             RuleTemplate::FireFromHomes { .. } => "fire_from_homes",
             RuleTemplate::MiddenFromWells { .. } => "midden_from_wells",
+            RuleTemplate::MostStoreys { .. } => "most_storeys",
+            RuleTemplate::TiedWalls => "tied_walls",
         }
     }
 
@@ -821,18 +830,7 @@ impl RuleTemplate {
                 format!("a new roof within {within_m:.0} m of another building must not burn")
             }
             RuleTemplate::WallsOfKinds { kinds } => {
-                let names: Vec<&str> = ["wattle and daub", "rubble", "mud brick", "fired brick"]
-                    .into_iter()
-                    .enumerate()
-                    .filter(|(k, _)| kinds & (1 << k) != 0)
-                    .map(|(_, n)| n)
-                    .collect();
-                let list = match names.as_slice() {
-                    [] => "nothing".to_owned(),
-                    [one] => (*one).to_owned(),
-                    [rest @ .., last] => format!("{} or {last}", rest.join(", ")),
-                };
-                format!("new walls must be of {list}")
+                format!("new walls must be of {}", wall_kinds_words(kinds))
             }
             RuleTemplate::LeastGap { gap_m } => {
                 format!("a new building must stand {gap_m:.0} m from every other")
@@ -843,7 +841,30 @@ impl RuleTemplate {
             RuleTemplate::MiddenFromWells { from_m } => {
                 format!("a new home and its midden must stand {from_m:.0} m from every open well")
             }
+            RuleTemplate::MostStoreys { storeys, kinds } => format!(
+                "a new building with walls of {} must rise no more than {storeys} {}",
+                wall_kinds_words(kinds),
+                if storeys == 1 { "storey" } else { "storeys" }
+            ),
+            RuleTemplate::TiedWalls => {
+                "new walls of stone or brick above a storey must be tied at each floor".to_owned()
+            }
         }
+    }
+}
+
+/// The wall kinds of `kinds`, a bit for each, in words: "rubble, mud brick or fired brick".
+fn wall_kinds_words(kinds: u8) -> String {
+    let names: Vec<&str> = ["wattle and daub", "rubble", "mud brick", "fired brick"]
+        .into_iter()
+        .enumerate()
+        .filter(|(k, _)| kinds & (1 << k) != 0)
+        .map(|(_, n)| n)
+        .collect();
+    match names.as_slice() {
+        [] => "nothing".to_owned(),
+        [one] => (*one).to_owned(),
+        [rest @ .., last] => format!("{} or {last}", rest.join(", ")),
     }
 }
 

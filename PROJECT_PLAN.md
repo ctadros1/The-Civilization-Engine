@@ -5212,6 +5212,25 @@ and M6a gives rivers a daily flow.
     - **DB, after the shaking:** `MostStoreys` and `TiedWalls`, forecasts of floor lost and of
       losses avoided, lessons from what was seen to fall. *Tests:* a shaken village proposes a
       rule only where someone knows the remedy; a household planning height opposes it.
+      - *First part, as built (2026-10-20): the two rules* (ADR-0031 §5). Two building-rule
+        templates are appended (content API 152): `MostStoreys { storeys, kinds }`, a dimension
+        rule that a new building whose walls are of a kind named rise at most so many storeys, and
+        `TiedWalls`, a technique rule that new mass walls above a storey be tied at each floor. The
+        core authors them as `yours_to_stay_low` (rubble and mud brick, a storey) and
+        `yours_to_tie_the_walls` (needing `tied_masonry`), each answering `gave_way`. What a
+        household heard gave way now keeps its storeys and whether its walls were tied (saves 163),
+        so a household counts the falls each rule would have prevented. One whose newest home rises
+        above a height rule's limit forecasts the floor the rule takes from it, the share of the
+        home's storeys above the limit of the work it took, spread over the years it weighs; one
+        that cannot tie its walls forecasts a ties rule the same way at a storey, and one that can,
+        the work of tying them. Builders who keep either design a storey lower where the walls
+        would rise above what it allows (the same bays, so less floor), and a building begun under
+        it is counted kept or broken. **Test:** a village whose untied rubble longhouse a shaking
+        brings down remembers it two storeys high, untied; the household whose longhouse it was
+        forecasts a loss under the height rule while nobody else does, and someone proposes it;
+        nobody proposes the ties rule until people know tied masonry, then one of them does; under
+        both, the longhouse breaks each and a hut is bound by neither; the memory round-trips a
+        save. **Boundary:** saves 163, content API 152.
     - **DC, public buildings:** polity owners, `RaiseBuilding`, storehouse, hall and tower
       programs each answering a measured loss, equal shares, pay for work, patrons' shares,
       ties evidence, four dates and stalls. *Tests:* no proposal without a measured loss; a
@@ -6529,6 +6548,14 @@ One line each. Don't re-litigate without a reason written next to the entry.
   §3 names and research 11-05 says fail first, are not yet checked. Recorded, not tuned: the
   joints wait for the storeyed frame's check, and the demo should not read frames' survival as a
   finding.
+- **Design priors for the rules after a shaking (2026-10-20, M8d slice DB, ADR-0031 §5):**
+  NUDGE: the core's height rule names rubble and mud brick, a storey, and leaves fired brick in lime
+  out, an authoring judgement from the sweep's order (fired brick holds most). The floor a height
+  rule takes is valued at the work its newest home took times the share of its storeys above the
+  limit: the work of making that floor again elsewhere, ignoring the ground it would take (ADR-0030
+  §1's plot costs are not reckoned here). A builder keeping it builds the same bays a storey lower
+  rather than wider, so a kept rule costs floor, not ground. Each revisited if the demo (DE) shows
+  no household weighing height at all.
 - **A test helper leaves state a load derives otherwise (2026-10-20, M8d slice DA):**
   `Sim::place_building_for_tests` leaves state a load derives otherwise: a save taken right after
   it does not resume exactly (the shaking test reloads once after placing). To be fixed.

@@ -5323,6 +5323,26 @@ and M6a gives rivers a daily flow.
         roof catch some 300 m off; the tower and the measures survive a save. **Boundary:** saves
         167, content API 155. Slice DC's third part is done; four dates, evidence, pay and
         patrons are the fourth.
+      - *Fourth part, as built (2026-10-20): dates, a stall, and what users see.* Each building
+        raised together keeps, beside its law's day of proposal, when it was laid out, last worked
+        on, first used (a storehouse the day it is finished, a hall at its first gathering, a
+        tower at its first round) and finished (saves 168). One laid out and unfinished that no
+        one has worked on for 120 days stands stalled, looked over monthly, and its law's words
+        say so ("; stalled", or "; finished"). When it is finished, every adult of the polity
+        sees, of the eight households that gave most to it, each one that gave its full share
+        (`share_raised`, provision) and each that built it (`raised_well`, craft), and, if it
+        never stalled, its sponsor's counsel borne out (`raised_as_proposed`); when it stalls,
+        they see that counsel come to nothing (`proposal_stalled`) (content API 156). Nothing
+        gives a completion bonus. Pay for common work already paid the hours given to a raising
+        as to any common work. **Test:** a storehouse begun, given its shares by two households,
+        and finished keeps its dates, its store moving in the day it is finished; a user's ties
+        gain counsel of its sponsor, provision of a household that gave its share and craft of
+        it; a hall begun and left stands stalled once a season has passed, found by the monthly
+        look over, and a user's ties lose counsel of its sponsor; the dates survive a save.
+        **Boundary:** saves 168, content API 156. Patrons' shares are deferred: a raising takes
+        no goods (its materials are made among its hours), so a patron's share would be hired
+        hands, and hiring for common work waits for the demo (DE) to show a raising short of
+        hands; the observer's project panel is the fifth part.
     - **DD, style over seven traits:** opening share, ornament, finish and symmetry; taste over
       seven traits; sighting scaled by height; copying only what one could build; the clocks
       over all seven. *Tests:* a one-settlement world drifts as before in the three old traits;
@@ -6675,6 +6695,13 @@ One line each. Don't re-litigate without a reason written next to the entry.
   centre; a watch round begins there. These are kernel constants (`LATE_NOTICE_MIN`,
   `TOWER_SIGHT_M`, `AT_TOWER_M`), revisited if the demo (DE) shows no tower ever proposed where
   fires burn unseen, or one that never helps.
+- **Design priors for what a building raised together shows (2026-10-20, M8d slice DC's fourth
+  part, ADR-0031 §6):** NUDGE: a raising stalls after 120 days with no work (a season's work
+  missed); its users are every adult of its polity; each sees at most the eight households that
+  gave most (a bound on the evidence written, not a model of attention), a full share being the
+  work over its households' number; the four acts weigh half a gift (provision), as work seen
+  (craft) and one unit of counsel either way. Each revisited if the demo (DE) shows no sponsor's
+  standing moving by the buildings they put forward.
 - **A test helper leaves state a load derives otherwise (2026-10-20, M8d slice DA):**
   `Sim::place_building_for_tests` leaves state a load derives otherwise: a save taken right after
   it does not resume exactly (the shaking test reloads once after placing). To be fixed.

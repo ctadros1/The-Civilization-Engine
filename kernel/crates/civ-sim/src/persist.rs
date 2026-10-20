@@ -466,6 +466,8 @@ pub const SCHEMA_V164: u32 = 164;
 pub const SCHEMA_V165: u32 = 165;
 /// Halls and rain's toll on gatherings in the open, before watch towers and fires seen late.
 pub const SCHEMA_V166: u32 = 166;
+/// Watch towers and fires seen late, before a building raised together kept its dates.
+pub const SCHEMA_V167: u32 = 167;
 
 /// Section: identity and provenance.
 pub const SECTION_META: SectionTag = SectionTag::new("meta");

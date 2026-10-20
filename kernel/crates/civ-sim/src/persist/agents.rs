@@ -126,7 +126,7 @@ use super::{
     SCHEMA_V146, SCHEMA_V147, SCHEMA_V148, SCHEMA_V149, SCHEMA_V150, SCHEMA_V151, SCHEMA_V152,
     SCHEMA_V153, SCHEMA_V154, SCHEMA_V155, SCHEMA_V156, SCHEMA_V157, SCHEMA_V158, SCHEMA_V159,
     SCHEMA_V160, SCHEMA_V161, SCHEMA_V162, SCHEMA_V163, SCHEMA_V164, SCHEMA_V165, SCHEMA_V166,
-    finish, section, section_root, single_chunk, unreadable,
+    SCHEMA_V167, finish, section, section_root, single_chunk, unreadable,
 };
 use crate::{Rules, Sim, SimEvent};
 
@@ -677,6 +677,7 @@ enum Schema {
     V165,
     V166,
     V167,
+    V168,
 }
 
 /// Decodes and checks the people-and-land sections of a save of schema version `version` (2 or
@@ -858,7 +859,8 @@ pub(super) fn decode<R: Read + Seek>(
         SCHEMA_V164 => Schema::V164,
         SCHEMA_V165 => Schema::V165,
         SCHEMA_V166 => Schema::V166,
-        SAVE_SCHEMA_VERSION => Schema::V167,
+        SCHEMA_V167 => Schema::V167,
+        SAVE_SCHEMA_VERSION => Schema::V168,
         other => {
             return Err(LoadError::Incompatible(format!(
                 "world schema version {other} has no people-and-land decoder"
@@ -2095,6 +2097,11 @@ fn encode_polities(pop: &Population, rules: &Rules, goods: &[&str]) -> Vec<u8> {
                             program: s.program,
                             labour_h: s.labour_h,
                             building: s.building.map_or(0, PermanentId::get),
+                            begun: s.begun.map_or(-1, SimTime::minutes),
+                            last_work: s.last_work.map_or(-1, SimTime::minutes),
+                            first_use: s.first_use.map_or(-1, SimTime::minutes),
+                            finished: s.finished.map_or(-1, SimTime::minutes),
+                            stalled: s.stalled.map_or(-1, SimTime::minutes),
                         },
                     )
                 })
@@ -3088,7 +3095,9 @@ fn decode_polities(
                 "polity {id} measures more years than it keeps"
             )));
         }
-        // Buildings raised in common (schema 165, M8d slice DC); before, none.
+        // Buildings raised in common (schema 165, M8d slice DC); before, none. Their dates from
+        // schema 168, -1 for none.
+        let when = |m: i64| (m >= 0).then(|| SimTime::from_minutes(m));
         let mut raises = Vec::new();
         for r in p.raises().iter().flatten() {
             let law = law_of(r.law(), "a building raised in common")?;
@@ -3117,6 +3126,11 @@ fn decode_polities(
                     program,
                     labour_h: r.labour_h(),
                     building: PermanentId::from_raw(r.building()),
+                    begun: when(r.begun()),
+                    last_work: when(r.last_work()),
+                    first_use: when(r.first_use()),
+                    finished: when(r.finished()),
+                    stalled: when(r.stalled()),
                 },
             ));
         }
@@ -5158,7 +5172,8 @@ fn carried(
         | Schema::V164
         | Schema::V165
         | Schema::V166
-        | Schema::V167 => {
+        | Schema::V167
+        | Schema::V168 => {
             match p.carry_good() {
                 -1 => (None, 0.0),
                 i => match usize::try_from(i).ok().and_then(|i| goods.get(i)) {
@@ -5500,7 +5515,8 @@ fn decode_households(
             | Schema::V164
             | Schema::V165
             | Schema::V166
-            | Schema::V167 => {
+            | Schema::V167
+            | Schema::V168 => {
                 let saved: Vec<f64> = h.stores().map(|v| v.iter().collect()).unwrap_or_default();
                 if saved.len() != goods.len() {
                     return Err(LoadError::Malformed(format!(

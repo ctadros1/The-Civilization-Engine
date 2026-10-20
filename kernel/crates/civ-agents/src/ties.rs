@@ -97,6 +97,17 @@ pub enum Act {
     Repaid,
     /// The other's household did not repay the holder's what it lent by its day (M7d slice CA).
     Defaulted,
+    /// The other's household gave its share of the work on a building raised together that the
+    /// holder's polity finished (M8d slice DC).
+    ShareRaised,
+    /// Someone of the other's household worked on a building raised together that stands
+    /// finished (M8d slice DC).
+    RaisedWell,
+    /// A building raised together that the other proposed was finished as proposed (M8d slice
+    /// DC).
+    RaisedAsProposed,
+    /// A building raised together that the other proposed stalled (M8d slice DC).
+    ProposalStalled,
 }
 
 impl Act {
@@ -120,6 +131,10 @@ impl Act {
         Act::Lent,
         Act::Repaid,
         Act::Defaulted,
+        Act::ShareRaised,
+        Act::RaisedWell,
+        Act::RaisedAsProposed,
+        Act::ProposalStalled,
     ];
 
     /// Its number in saves.
@@ -153,6 +168,10 @@ impl Act {
             Act::Lent => "lent",
             Act::Repaid => "repaid",
             Act::Defaulted => "defaulted",
+            Act::ShareRaised => "share_raised",
+            Act::RaisedWell => "raised_well",
+            Act::RaisedAsProposed => "raised_as_proposed",
+            Act::ProposalStalled => "proposal_stalled",
         }
     }
 
@@ -163,7 +182,7 @@ impl Act {
 }
 
 /// Number of acts.
-pub const ACTS: usize = 18;
+pub const ACTS: usize = 22;
 
 /// What one act writes into its holder's tie, for each unit of it (an act, or an hour for
 /// [`Act::LearnedFrom`] and [`Act::Hearth`]). Authored in content as tuning values.
@@ -272,6 +291,10 @@ impl TieParams {
             w(0.1, 0.02, Some(Domain::Provision), 0.5),
             w(0.0, 0.0, Some(Domain::Word), 1.0),
             bad(Domain::Word, 2.0),
+            w(0.02, 0.0, Some(Domain::Provision), 0.5),
+            w(0.02, 0.0, Some(Domain::Craft), 0.5),
+            w(0.0, 0.0, Some(Domain::Counsel), 1.0),
+            bad(Domain::Counsel, 1.0),
         ];
         p
     }
@@ -311,6 +334,10 @@ impl Reason {
             Act::Lent => "lent their household food at need",
             Act::Repaid => "repaid what their household lent",
             Act::Defaulted => "did not repay what their household lent",
+            Act::ShareRaised => "gave their share of raising a building together",
+            Act::RaisedWell => "helped raise a building that stands finished",
+            Act::RaisedAsProposed => "proposed a building that was raised as proposed",
+            Act::ProposalStalled => "proposed a building that stalled",
         };
         let date = civ_core::time::SimTime::from_minutes(self.day * 1440).date();
         let month = civ_land::weather::MONTH_NAMES[usize::from(date.month.clamp(1, 12)) - 1];

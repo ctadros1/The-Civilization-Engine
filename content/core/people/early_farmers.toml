@@ -546,6 +546,14 @@ acts = [
   { act = "lent", familiarity = 0.1, warmth = 0.02, domain = "provision", good = 0.5, bad = 0.0 },
   { act = "repaid", familiarity = 0.0, warmth = 0.0, domain = "word", good = 1.0, bad = 0.0 },
   { act = "defaulted", familiarity = 0.0, warmth = 0.0, domain = "word", good = 0.0, bad = 2.0 },
+  # M8d slice DC (content API 156, ADR-0031 §6): those who use a building raised together see who
+  # gave their share of its work (provision, half a gift's weight) and who built it (craft, as work
+  # seen), and see its sponsor's counsel borne out when it is finished as proposed, or not when it
+  # stalls. Design priors, unestimated.
+  { act = "share_raised", familiarity = 0.02, warmth = 0.0, domain = "provision", good = 0.5, bad = 0.0 },
+  { act = "raised_well", familiarity = 0.02, warmth = 0.0, domain = "craft", good = 0.5, bad = 0.0 },
+  { act = "raised_as_proposed", familiarity = 0.0, warmth = 0.0, domain = "counsel", good = 1.0, bad = 0.0 },
+  { act = "proposal_stalled", familiarity = 0.0, warmth = 0.0, domain = "counsel", good = 0.0, bad = 1.0 },
 ]
 
 [standing]                       # standing and notables (ADR-0014 §3-4); tuning values

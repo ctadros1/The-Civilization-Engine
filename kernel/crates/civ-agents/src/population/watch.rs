@@ -115,6 +115,12 @@ impl Population {
         let Some(pi) = self.polity_of(settlement) else {
             return;
         };
+        // A tower a round begins at is in use (M8d slice DC).
+        if let Some(tower) = self.polities[pi].tower
+            && self.tower_at(ctx, pi).is_some()
+        {
+            self.first_use_of(pi, tower, ctx.now);
+        }
         let night = night_of(ctx.now);
         let stops = ctx.params.crime.round_stops.max(1);
         let Some(law) = self.polities[pi].laws.iter_mut().find(|l| {

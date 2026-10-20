@@ -1529,6 +1529,13 @@ table RaiseSiteSave {
   program: ushort (id: 1);
   labour_h: double (id: 2);
   building: ulong (id: 3);
+  // Schema 168: when it was laid out, last worked on, first used and finished, and when it
+  // stalled, minutes (-1 for not yet, and before).
+  begun: long = -1 (id: 4);
+  last_work: long = -1 (id: 5);
+  first_use: long = -1 (id: 6);
+  finished: long = -1 (id: 7);
+  stalled: long = -1 (id: 8);
 }
 
 // A year's measured losses (schema 164, M8d slice DC): the year, the food its common store lost

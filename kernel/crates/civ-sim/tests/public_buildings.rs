@@ -797,3 +797,165 @@ fn a_fire_nobody_sees_in_time_is_answered_by_a_watch_tower_whose_watch_sees_furt
         sim.people().polities[pi].measured
     );
 }
+
+#[test]
+fn a_building_raised_together_keeps_its_dates_and_its_users_see_who_raised_it_or_let_it_stall() {
+    use civ_agents::polity::{IssueKind, LawStatus, Outcome};
+    use civ_agents::ties::Domain;
+    use civ_core::{PermanentId, SimTime};
+    let mut sim = village(5);
+    sim.advance_minutes(DAY).expect("advances");
+    let settlement = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| !x.members.is_empty())
+        .find_map(|(_, x)| x.settlement)
+        .expect("a settlement");
+    let pi = sim
+        .people()
+        .polities
+        .iter()
+        .position(|p| p.settlement == settlement)
+        .expect("a polity");
+    let mut households: Vec<(PermanentId, Vec<PermanentId>)> = sim
+        .people()
+        .households
+        .iter()
+        .filter(|(_, x)| x.settlement == Some(settlement) && !x.members.is_empty())
+        .map(|(_, x)| (x.id, x.members.clone()))
+        .collect();
+    households.sort_unstable();
+    assert!(households.len() >= 3);
+    let template = |id: &str| {
+        content()
+            .catalog
+            .policies
+            .iter()
+            .position(|d| d.id == id)
+            .expect("the template") as u16
+    };
+    let sponsor = households[0].1[0];
+    // Passes a raising of template `t` sponsored by `sponsor` and lays it out.
+    let raise = |sim: &mut Sim, t: u16| {
+        let law = sim
+            .with_ctx_for_tests(|pop, ctx| {
+                pop.propose_for_tests(ctx, settlement, sponsor, t, IssueKind::StoreSpoils)
+            })
+            .expect("put forward");
+        {
+            let p = &mut sim.people_mut_for_tests().polities[pi];
+            p.gathering = None;
+            let l = p.laws.iter_mut().find(|l| l.id == law).expect("the law");
+            l.status = LawStatus::InForce;
+            l.outcome = Some(Outcome::Passed);
+        }
+        sim.with_ctx_for_tests(|pop, ctx| pop.begin_public_raise_for_tests(ctx, pi, law));
+        law
+    };
+    let site = |sim: &Sim, law: PermanentId| {
+        sim.people().polities[pi]
+            .raise_site_of(law)
+            .expect("its site")
+    };
+    // What `holder` makes of `to` in `domain`: good and bad evidence.
+    let seen = |sim: &Sim, holder: PermanentId, to: PermanentId, domain: Domain| {
+        sim.people()
+            .ties
+            .of(holder)
+            .iter()
+            .find(|t| t.to == to)
+            .map_or((0.0, 0.0), |t| {
+                (t.good[domain.index()], t.bad[domain.index()])
+            })
+    };
+    let user = households[2].1[0];
+    // A storehouse is proposed, laid out and begun: its dates are kept.
+    let store = raise(
+        &mut sim,
+        template("core:policy/yourselves_raise_a_storehouse"),
+    );
+    let s = site(&sim, store);
+    assert_eq!(s.begun, Some(sim.now()));
+    assert_eq!(
+        (s.last_work, s.first_use, s.finished, s.stalled),
+        (None, None, None, None)
+    );
+    let building = s.building.expect("laid out");
+    // Two households give their shares; the store moves in the day it is finished.
+    let (a, b) = (households[0].0, households[1].0);
+    let before = (
+        seen(&sim, user, sponsor, Domain::Counsel),
+        seen(&sim, user, households[1].1[0], Domain::Provision),
+        seen(&sim, user, households[1].1[0], Domain::Craft),
+    );
+    for turn in 0..4000 {
+        if site(&sim, store).finished.is_some() {
+            break;
+        }
+        let who = if turn % 2 == 0 { a } else { b };
+        sim.with_ctx_for_tests(|pop, ctx| pop.raise_work_for_tests(ctx, who, building, 4.0));
+    }
+    let s = site(&sim, store);
+    assert_eq!(s.finished, Some(sim.now()));
+    assert_eq!(s.first_use, s.finished);
+    assert_eq!(s.last_work, Some(sim.now()));
+    // Its users see its sponsor's counsel borne out, and who gave their share and built it.
+    let elder_b = sim
+        .people()
+        .household(b)
+        .and_then(|x| x.members.first().copied())
+        .expect("b's elder");
+    let after = (
+        seen(&sim, user, sponsor, Domain::Counsel),
+        seen(&sim, user, elder_b, Domain::Provision),
+        seen(&sim, user, elder_b, Domain::Craft),
+    );
+    assert!(after.0.0 > before.0.0, "{before:?} {after:?}");
+    assert!(after.1.0 > before.1.0, "{before:?} {after:?}");
+    assert!(after.2.0 > before.2.0, "{before:?} {after:?}");
+    let words = {
+        let p = &sim.people().polities[pi];
+        let law = p
+            .laws
+            .iter()
+            .find(|l| l.id == store)
+            .expect("the law")
+            .clone();
+        p.words_of(&law, &sim.rules().catalog.policies, &|_| String::new())
+    };
+    assert!(words.ends_with("; finished"), "{words}");
+    // A hall is begun, worked on once, then left: after a season it stands stalled, and its users
+    // see its sponsor's counsel come to nothing.
+    let hall = raise(&mut sim, template("core:policy/yourselves_roof_a_hall"));
+    let hall_building = site(&sim, hall).building.expect("laid out");
+    sim.with_ctx_for_tests(|pop, ctx| pop.raise_work_for_tests(ctx, a, hall_building, 4.0));
+    let counsel = seen(&sim, user, sponsor, Domain::Counsel);
+    sim.with_ctx_for_tests(|pop, ctx| pop.look_over_raisings_for_tests(ctx, pi));
+    assert_eq!(site(&sim, hall).stalled, None, "worked on today");
+    // Its last work set back to the world's first day, and nobody knowing of the law to work on
+    // it, the monthly look over finds it stalled once a season has passed.
+    {
+        let p = &mut sim.people_mut_for_tests().polities[pi];
+        let s = p.raises.iter_mut().find(|s| s.0 == hall).expect("its site");
+        s.1.last_work = Some(SimTime::from_minutes(0));
+        let l = p.laws.iter_mut().find(|l| l.id == hall).expect("the law");
+        l.known.clear();
+    }
+    let days = 121 - sim.now().day_index();
+    sim.advance_minutes((days + 31) * DAY).expect("advances");
+    let s = site(&sim, hall);
+    assert!(
+        s.stalled
+            .is_some_and(|t| t.day_index() >= civ_agents::population::STALL_DAYS),
+        "{s:?}"
+    );
+    let stalled = seen(&sim, user, sponsor, Domain::Counsel);
+    assert!(stalled.1 > counsel.1, "{counsel:?} {stalled:?}");
+    // The dates survive a save.
+    let loaded = reloaded(&mut sim);
+    assert_eq!(
+        loaded.people().polities[pi].raises,
+        sim.people().polities[pi].raises
+    );
+}

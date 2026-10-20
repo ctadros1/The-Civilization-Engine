@@ -103,7 +103,9 @@ mod plans;
 mod quakes;
 pub use plans::ParcelOffer;
 mod raising;
-pub use raising::{AT_TOWER_M, LATE_NOTICE_MIN, RAISE_WITHIN_M, TOWER_SIGHT_M};
+pub use raising::{
+    AT_TOWER_M, LATE_NOTICE_MIN, RAISE_WITHIN_M, SEEN_GIVERS, STALL_DAYS, TOWER_SIGHT_M,
+};
 mod siting;
 mod taste;
 mod ties;

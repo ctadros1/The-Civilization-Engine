@@ -2326,12 +2326,20 @@ pub struct WaySite {
 
 /// The building a law raises (M8d slice DC, ADR-0031 §6): its program, by index in the catalog's
 /// buildings; the hours of a capable adult's work raising it takes, its materials made and
-/// carried among them, as reckoned when it was proposed; and the building once laid out.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// carried among them, as reckoned when it was proposed; and the building once laid out. With
+/// the law's own day of proposal, its dates (ADR-0031 §6: proposal, start, first use and
+/// completion are kept, and a stall stays visible): when it was laid out, last worked on, first
+/// used and finished, and when it stalled, if it did.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct RaiseSite {
     pub program: u16,
     pub labour_h: f64,
     pub building: Option<PermanentId>,
+    pub begun: Option<SimTime>,
+    pub last_work: Option<SimTime>,
+    pub first_use: Option<SimTime>,
+    pub finished: Option<SimTime>,
+    pub stalled: Option<SimTime>,
 }
 
 /// A plan's template (M8c slice CT, second part; ADR-0030 §2): the grid it lays, the extents in
@@ -3121,9 +3129,15 @@ impl Polity {
             && let Some(site) = self.raise_site_of(law.id)
             && let Some(d) = policies.get(usize::from(law.policy))
         {
+            // Where it stands: finished, or stalled, kept visible (ADR-0031 §6).
+            let state = match (site.finished, site.stalled) {
+                (Some(_), _) => "; finished",
+                (None, Some(_)) => "; stalled",
+                (None, None) => "",
+            };
             return format!(
                 "{} raised together near the hearth, each household doing its share of {:.0} \
-                 hours of work",
+                 hours of work{state}",
                 d.name.to_lowercase(),
                 site.labour_h
             );

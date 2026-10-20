@@ -4038,7 +4038,7 @@ impl Population {
                 crate::polity::RaiseSite {
                     program: r.program as u16,
                     labour_h,
-                    building: None,
+                    ..Default::default()
                 },
             ));
         }
@@ -4207,6 +4207,10 @@ impl Population {
         let wet = ctx.land.weather.today.wet;
         let open = self.polities[pi].hall.is_none();
         let year = ctx.now.date().year;
+        // A hall's first gathering is its first use (M8d slice DC).
+        if let Some(hall) = self.polities[pi].hall {
+            self.first_use_of(pi, hall, ctx.now);
+        }
         if open {
             let m = self.polities[pi].measured_mut(year);
             m.gatherings += 1;

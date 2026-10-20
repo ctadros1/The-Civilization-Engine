@@ -1581,3 +1581,10 @@ the work its building takes to put right, and the issue `fires_unseen` opens whi
 watch keeps watch; a tower raised under `raise_building` answers it. A watch round then begins at
 the tower, and whoever stands at it sees a burning roof 500 m off. The core authors the program
 `watch_tower` and the template `yourselves_watch_from_a_tower`.
+
+Content API 156 (M8d slice DC, fourth part) brings four ties acts (`ties.acts` must list them):
+`share_raised` (the other's household gave its share of the work on a building raised together),
+`raised_well` (someone of the other's household worked on one that stands finished),
+`raised_as_proposed` (one the other proposed was finished as proposed) and `proposal_stalled` (one
+the other proposed stalled). Those who use a building raised together, every adult of its polity,
+see them when it is finished or stalls.

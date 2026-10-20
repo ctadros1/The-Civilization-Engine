@@ -40135,6 +40135,11 @@ impl<'a> RaiseSiteSave<'a> {
   pub const VT_PROGRAM: ::flatbuffers::VOffsetT = 6;
   pub const VT_LABOUR_H: ::flatbuffers::VOffsetT = 8;
   pub const VT_BUILDING: ::flatbuffers::VOffsetT = 10;
+  pub const VT_BEGUN: ::flatbuffers::VOffsetT = 12;
+  pub const VT_LAST_WORK: ::flatbuffers::VOffsetT = 14;
+  pub const VT_FIRST_USE: ::flatbuffers::VOffsetT = 16;
+  pub const VT_FINISHED: ::flatbuffers::VOffsetT = 18;
+  pub const VT_STALLED: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -40146,6 +40151,11 @@ impl<'a> RaiseSiteSave<'a> {
     args: &'args RaiseSiteSaveArgs
   ) -> ::flatbuffers::WIPOffset<RaiseSiteSave<'bldr>> {
     let mut builder = RaiseSiteSaveBuilder::new(_fbb);
+    builder.add_stalled(args.stalled);
+    builder.add_finished(args.finished);
+    builder.add_first_use(args.first_use);
+    builder.add_last_work(args.last_work);
+    builder.add_begun(args.begun);
     builder.add_building(args.building);
     builder.add_labour_h(args.labour_h);
     builder.add_law(args.law);
@@ -40182,6 +40192,41 @@ impl<'a> RaiseSiteSave<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(RaiseSiteSave::VT_BUILDING, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn begun(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RaiseSiteSave::VT_BEGUN, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn last_work(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RaiseSiteSave::VT_LAST_WORK, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn first_use(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RaiseSiteSave::VT_FIRST_USE, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn finished(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RaiseSiteSave::VT_FINISHED, Some(-1)).unwrap()}
+  }
+  #[inline]
+  pub fn stalled(&self) -> i64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RaiseSiteSave::VT_STALLED, Some(-1)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for RaiseSiteSave<'_> {
@@ -40194,6 +40239,11 @@ impl ::flatbuffers::Verifiable for RaiseSiteSave<'_> {
      .visit_field::<u16>("program", Self::VT_PROGRAM, false)?
      .visit_field::<f64>("labour_h", Self::VT_LABOUR_H, false)?
      .visit_field::<u64>("building", Self::VT_BUILDING, false)?
+     .visit_field::<i64>("begun", Self::VT_BEGUN, false)?
+     .visit_field::<i64>("last_work", Self::VT_LAST_WORK, false)?
+     .visit_field::<i64>("first_use", Self::VT_FIRST_USE, false)?
+     .visit_field::<i64>("finished", Self::VT_FINISHED, false)?
+     .visit_field::<i64>("stalled", Self::VT_STALLED, false)?
      .finish();
     Ok(())
   }
@@ -40203,6 +40253,11 @@ pub struct RaiseSiteSaveArgs {
     pub program: u16,
     pub labour_h: f64,
     pub building: u64,
+    pub begun: i64,
+    pub last_work: i64,
+    pub first_use: i64,
+    pub finished: i64,
+    pub stalled: i64,
 }
 impl<'a> Default for RaiseSiteSaveArgs {
   #[inline]
@@ -40212,6 +40267,11 @@ impl<'a> Default for RaiseSiteSaveArgs {
       program: 0,
       labour_h: 0.0,
       building: 0,
+      begun: -1,
+      last_work: -1,
+      first_use: -1,
+      finished: -1,
+      stalled: -1,
     }
   }
 }
@@ -40238,6 +40298,26 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RaiseSiteSaveBuilder<'a, 'b, 
     self.fbb_.push_slot::<u64>(RaiseSiteSave::VT_BUILDING, building, 0);
   }
   #[inline]
+  pub fn add_begun(&mut self, begun: i64) {
+    self.fbb_.push_slot::<i64>(RaiseSiteSave::VT_BEGUN, begun, -1);
+  }
+  #[inline]
+  pub fn add_last_work(&mut self, last_work: i64) {
+    self.fbb_.push_slot::<i64>(RaiseSiteSave::VT_LAST_WORK, last_work, -1);
+  }
+  #[inline]
+  pub fn add_first_use(&mut self, first_use: i64) {
+    self.fbb_.push_slot::<i64>(RaiseSiteSave::VT_FIRST_USE, first_use, -1);
+  }
+  #[inline]
+  pub fn add_finished(&mut self, finished: i64) {
+    self.fbb_.push_slot::<i64>(RaiseSiteSave::VT_FINISHED, finished, -1);
+  }
+  #[inline]
+  pub fn add_stalled(&mut self, stalled: i64) {
+    self.fbb_.push_slot::<i64>(RaiseSiteSave::VT_STALLED, stalled, -1);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RaiseSiteSaveBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RaiseSiteSaveBuilder {
@@ -40259,6 +40339,11 @@ impl ::core::fmt::Debug for RaiseSiteSave<'_> {
       ds.field("program", &self.program());
       ds.field("labour_h", &self.labour_h());
       ds.field("building", &self.building());
+      ds.field("begun", &self.begun());
+      ds.field("last_work", &self.last_work());
+      ds.field("first_use", &self.first_use());
+      ds.field("finished", &self.finished());
+      ds.field("stalled", &self.stalled());
       ds.finish()
   }
 }
